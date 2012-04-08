@@ -1,5 +1,5 @@
 package main
-// http://tools.ietf.org/html/rfc1459
+// http://tools.ietf.org/html/rfc2812
 
 import (
 	"irc"
@@ -7,5 +7,5 @@ import (
 
 func main() {
 	server := irc.NewServer()
-	server.Listen(":6697")
+	server.Listen(":6667")
 }

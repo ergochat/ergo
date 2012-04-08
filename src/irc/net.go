@@ -3,43 +3,42 @@ package irc
 import (
 	"bufio"
 	"log"
+	"strings"
 	"net"
 )
 
 // Adapt `net.Conn` to a `chan string`.
-func NewStringChan(conn net.Conn) chan string {
+func StringReadChan(conn net.Conn) chan string {
 	ch := make(chan string)
-	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-	done := make(chan bool)
-	go func() {
-		<- done
-		close(ch)
-	}()
-
-	// conn -> ch
+	reader := bufio.NewReader(conn)
 	go func() {
 		for {
-			line, err := rw.ReadString('\n')
+			line, err := reader.ReadString('\n')
+			if (line != "") {
+				ch <- strings.TrimSpace(line)
+			}
 			if err != nil {
-				log.Print("StringChan[read]: %v", err)
+				log.Print("StringReadChan[read]: ", err)
 				break
 			}
-			ch <- line
 		}
-		done <- true
+		close(ch)
 	}()
+	return ch
+}
 
-	// ch -> conn
+func StringWriteChan(conn net.Conn) chan string {
+	ch := make(chan string)
+	writer := bufio.NewWriter(conn)
 	go func() {
 		for str := range ch {
-			if _, err := rw.WriteString(str + "\r\n"); err != nil {
-				log.Print("StringChan[write]: %v", err)
+			if _, err := writer.WriteString(str + "\r\n"); err != nil {
+				log.Print("StringWriteChan[write]: ", err)
 				break
 			}
-			rw.Flush()
+			writer.Flush()
 		}
-		done <- true
+		close(ch)
 	}()
 
 	return ch
