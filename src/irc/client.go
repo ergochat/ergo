@@ -19,6 +19,7 @@ type Client struct {
 	username   string
 	realname   string
 	nick       string
+	registered bool
 }
 
 func NewClient(conn net.Conn) *Client {
@@ -44,4 +45,11 @@ func (c *Client) Send(lines ...string) {
 		log.Printf("C <- S: %s", line)
 		c.send <- line
 	}
+}
+
+func (c *Client) Nick() string {
+	if c.nick != "" {
+		return c.nick
+	}
+	return "<guest>"
 }

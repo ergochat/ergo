@@ -63,7 +63,7 @@ const (
 	RE_OPER     = "(?P<name>\\S+) (?P<password>\\S+)"
 	RE_MODE     = "(?P<nickname>\\S+)(?: (?P<mode>[-+][iwroOs]+))*"
 	RE_SERVICE  = "(?P<nickname>\\S+) (?P<reserved1>\\S+) (?P<distribution>\\S+) (?P<type>\\S+) (?P<reserved2>\\S+) :(?P<info>.+)"
-	RE_QUIT     = "(?P<message>.*)"
+	RE_QUIT     = ":(?P<message>.*)"
 	RE_SQUIT    = "(?P<server>\\S+) :(?P<comment>.+)"
 	RE_JOIN     = "0|(?:(?P<channels>\\S+(?:,\\S+)*)(?: (?P<keys>\\S+(?:,\\S+)*))?)"
 	RE_PART     = "(?P<channels>\\S+(?:,\\S+)*)(?: :(?P<message>.+))?"
@@ -105,3 +105,10 @@ const (
 	RE_ISON     = "(?P<nicknames>\\S+(?: \\S+)*)"
 )
 
+func MessagePong() string {
+	return "PONG"
+}
+
+func MessageError() string {
+	return "ERROR :Bye"
+}
