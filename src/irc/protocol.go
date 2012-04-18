@@ -1,3 +1,4 @@
+// http://tools.ietf.org/html/rfc2812
 package irc
 
 import (

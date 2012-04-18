@@ -1,5 +1,4 @@
 package main
-// http://tools.ietf.org/html/rfc2812
 
 import (
 	"irc"
