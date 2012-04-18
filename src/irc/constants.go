@@ -2,7 +2,7 @@
 package irc
 
 const (
-	VERSION = "goircd-1"
+	VERSION = "ergonomadic-1"
 )
 
 const (
