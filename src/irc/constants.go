@@ -11,7 +11,8 @@ const (
 	RPL_CREATED  = "003"
 	RPL_MYINFO   = "004"
 	RPL_UMODEIS  = "221"
-	RPL_NONE     = "300"
+	RPL_INFO     = "371"
+	RPL_NICK     = "NICK"
 )
 
 const (

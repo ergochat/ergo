@@ -4,8 +4,12 @@ import (
 	"fmt"
 )
 
-func ReplyWelcome(nick string, user string, host string) string {
-	return fmt.Sprintf("%s %s Welcome to the Internet Relay Network %s!%s@%s", RPL_WELCOME, nick, nick, user, host)
+func ReplyNick(oldNick string, c *Client) string {
+	return fmt.Sprintf(":%s!%s@%s %s :%s", oldNick, c.username, c.Hostname(), RPL_NICK, c.Nick())
+}
+
+func ReplyWelcome(c *Client) string {
+	return fmt.Sprintf("%s %s Welcome to the Internet Relay Network %s!%s@%s", RPL_WELCOME, c.Nick(), c.Nick(), c.username, c.Hostname())
 }
 
 func ReplyYourHost(nick string, server string) string {

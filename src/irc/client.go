@@ -2,6 +2,7 @@ package irc
 
 import (
 	"net"
+	"strings"
 )
 
 type Client struct {
@@ -45,4 +46,21 @@ func (c *Client) UModeString() string {
 		return "+i"
 	}
 	return ""
+}
+
+func (c *Client) HasNick() bool {
+	return c.nick != ""
+}
+
+func (c *Client) HasUser() bool {
+	return c.username != ""
+}
+
+func (c *Client) Hostname() string {
+	addr := c.conn.RemoteAddr().String()
+	index := strings.LastIndex(addr, ":")
+	if index != -1 {
+		return addr[0:index]
+	}
+	return addr
 }

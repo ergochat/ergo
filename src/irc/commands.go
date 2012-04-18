@@ -9,12 +9,17 @@ func (m *NickMessage) Handle(s *Server, c *Client) {
 		c.send <- ErrNickNameInUse(m.nickname)
 		return
 	}
+	oldNick := c.nick
 	if c.nick != "" {
 		delete(s.nicks, c.nick)
 	}
 	c.nick = m.nickname
 	s.nicks[c.nick] = c
-	tryRegister(s, c)
+	if c.registered {
+		c.send <- ReplyNick(oldNick, c)
+	} else {
+		tryRegister(s, c)
+	}
 }
 
 func (m *UserMessage) Handle(s *Server, c *Client) {
@@ -56,9 +61,9 @@ func (m *ModeMessage) Handle(s *Server, c *Client) {
 }
 
 func tryRegister(s *Server, c *Client) {
-	if (!c.registered && c.nick != "" && c.username != "") {
+	if (!c.registered && c.HasNick() && c.HasUser()) {
 		c.registered = true
-		c.send <- ReplyWelcome(c.Nick(), c.username, "localhost")
+		c.send <- ReplyWelcome(c)
 		c.send <- ReplyYourHost(c.Nick(), "irc.jlatt.com")
 		c.send <- ReplyCreated(c.Nick(), "2012/04/07")
 		c.send <- ReplyMyInfo(c.Nick(), "irc.jlatt.com")
