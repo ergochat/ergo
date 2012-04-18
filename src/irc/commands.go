@@ -1,13 +1,5 @@
 package irc
 
-type Message interface {
-	Handle(s *Server, c *Client)
-}
-
-type NickMessage struct {
-	nickname string
-}
-
 func (m *NickMessage) Handle(s *Server, c *Client) {
 	if s.nicks[m.nickname] != nil {
 		c.send <- ErrNickNameInUse(m.nickname)
@@ -21,13 +13,6 @@ func (m *NickMessage) Handle(s *Server, c *Client) {
 	tryRegister(s, c)
 }
 
-type UserMessage struct {
-	user string
-	mode uint8
-	unused string
-	realname string
-}
-
 func (m *UserMessage) Handle(s *Server, c *Client) {
 	if c.username != "" {
 		c.send <- ErrAlreadyRegistered(c.Nick())
@@ -37,24 +22,14 @@ func (m *UserMessage) Handle(s *Server, c *Client) {
 	tryRegister(s, c)
 }
 
-type QuitMessage struct {
-	message string
-}
-
 func (m *QuitMessage) Handle(s *Server, c *Client) {
 	c.send <- MessageError()
 	delete(s.nicks, c.nick)
 }
 
-type UnknownMessage struct {
-	command string
-}
-
 func (m *UnknownMessage) Handle(s *Server, c *Client) {
 	c.send <- ErrUnknownCommand(c.Nick(), m.command)
 }
-
-type PingMessage struct {}
 
 func (m *PingMessage) Handle(s *Server, c *Client) {
 	c.send <- MessagePong()
