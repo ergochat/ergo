@@ -3,9 +3,11 @@ package irc
 import (
 	"log"
 	"net"
+	"time"
 )
 
 type Server struct {
+	ctime time.Time
 	name string
 	ch chan *ClientMessage
 	nicks map[string]*Client
@@ -18,6 +20,7 @@ type ClientMessage struct {
 
 func NewServer(name string) *Server {
 	server := new(Server)
+	server.ctime = time.Now()
 	server.name = name
 	server.ch = make(chan *ClientMessage)
 	server.nicks = make(map[string]*Client)

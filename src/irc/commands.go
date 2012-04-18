@@ -65,7 +65,7 @@ func tryRegister(s *Server, c *Client) {
 		c.registered = true
 		c.send <- ReplyWelcome(c)
 		c.send <- ReplyYourHost(c.Nick(), s.name)
-		c.send <- ReplyCreated(c.Nick(), "2012/04/07")
+		c.send <- ReplyCreated(c.Nick(), s.ctime)
 		c.send <- ReplyMyInfo(c.Nick(), s.name)
 	}
 }

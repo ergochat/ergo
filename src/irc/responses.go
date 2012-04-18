@@ -2,6 +2,7 @@ package irc
 
 import (
 	"fmt"
+	"time"
 )
 
 func ReplyNick(oldNick string, c *Client) string {
@@ -16,8 +17,8 @@ func ReplyYourHost(nick string, server string) string {
 	return fmt.Sprintf("%s %s Your host is %s, running version %s", RPL_YOURHOST, nick, server, VERSION)
 }
 
-func ReplyCreated(nick string, created string) string {
-	return fmt.Sprintf("%s %s This server was created %s", RPL_CREATED, nick, created)
+func ReplyCreated(nick string, ctime time.Time) string {
+	return fmt.Sprintf("%s %s This server was created %s", RPL_CREATED, nick, ctime.Format(time.RFC1123))
 }
 
 func ReplyMyInfo(nick string, servername string) string {
