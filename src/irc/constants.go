@@ -10,6 +10,7 @@ const (
 	RPL_YOURHOST = "002"
 	RPL_CREATED  = "003"
 	RPL_MYINFO   = "004"
+	RPL_UMODEIS  = "221"
 	RPL_NONE     = "300"
 )
 

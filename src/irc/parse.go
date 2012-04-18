@@ -1,9 +1,32 @@
 package irc
 
 import (
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var commands = map[string]func([]string) Message {
+	"MODE": NewModeMessage,
+	"NICK": NewNickMessage,
+	"PING": NewPingMessage,
+	"QUIT": NewQuitMessage,
+	"USER": NewUserMessage,
+}
+
+func ParseMessage(line string) Message {
+	command, args := parseLine(line)
+	constructor, ok := commands[command]
+	var msg Message
+	if ok {
+		msg = constructor(args)
+	}
+	if msg == nil {
+		msg = &UnknownMessage{command}
+	}
+	return msg
+}
 
 func parseArg(line string) (string, string) {
 	if line == "" {
@@ -31,25 +54,6 @@ func parseLine(line string) (string, []string) {
 	return args[0], args[1:]
 }
 
-var commands = map[string]func([]string) Message {
-	"NICK": NewNickMessage,
-	"PING": NewPingMessage,
-	"QUIT": NewQuitMessage,
-	"USER": NewUserMessage,
-}
-
-func ParseMessage(line string) Message {
-	command, args := parseLine(line)
-	constructor, ok := commands[command]
-	var msg Message
-	if ok {
-		msg = constructor(args)
-	}
-	if msg == nil {
-		msg = &UnknownMessage{command}
-	}
-	return msg
-}
 
 // []string => Message constructors
 
@@ -84,5 +88,27 @@ func NewUserMessage(args []string) Message {
 	}
 	msg.unused = args[2]
 	msg.realname = args[3]
+	return msg
+}
+
+var MODE_RE = regexp.MustCompile("^[-+][a-zA-Z]+$")
+
+func NewModeMessage(args []string) Message {
+	if len(args) < 1 {
+		return nil
+	}
+	msg := new(ModeMessage)
+	msg.nickname = args[0]
+	for _, arg := range args[1:] {
+		if !MODE_RE.MatchString(arg) {
+			// TODO invalid args
+			return nil
+		}
+		prefix := arg[0]
+		for _, c := range arg[1:] {
+			mode := fmt.Sprintf("%c%c", prefix, c)
+			msg.modes = append(msg.modes, mode)
+		}
+	}
 	return msg
 }

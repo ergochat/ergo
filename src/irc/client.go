@@ -5,18 +5,19 @@ import (
 )
 
 type Client struct {
-	addr       net.Addr
+	conn       net.Conn
 	send       chan<- string
 	recv       <-chan string
 	username   string
 	realname   string
 	nick       string
 	registered bool
+	invisible  bool
 }
 
 func NewClient(conn net.Conn) *Client {
 	client := new(Client)
-	client.addr = conn.RemoteAddr()
+	client.conn = conn
 	client.send = StringWriteChan(conn)
 	client.recv = StringReadChan(conn)
 	return client
@@ -37,4 +38,11 @@ func (c *Client) Nick() string {
 		return c.nick
 	}
 	return "<guest>"
+}
+
+func (c *Client) UModeString() string {
+	if c.invisible {
+		return "+i"
+	}
+	return ""
 }

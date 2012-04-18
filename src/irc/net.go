@@ -16,12 +16,13 @@ func readTrimmedLine(reader *bufio.Reader) (string, error) {
 func StringReadChan(conn net.Conn) <-chan string {
 	ch := make(chan string)
 	reader := bufio.NewReader(conn)
+	addr := conn.RemoteAddr()
 	go func() {
 		for {
 			line, err := readTrimmedLine(reader)
 			if (line != "") {
 				ch <- line
-				log.Printf("%s -> %s", conn.RemoteAddr(), line)
+				log.Printf("%s -> %s", addr, line)
 			}
 			if err != nil {
 				break
@@ -35,13 +36,14 @@ func StringReadChan(conn net.Conn) <-chan string {
 func StringWriteChan(conn net.Conn) chan<- string {
 	ch := make(chan string)
 	writer := bufio.NewWriter(conn)
+	addr := conn.RemoteAddr()
 	go func() {
 		for str := range ch {
 			if _, err := writer.WriteString(str + "\r\n"); err != nil {
 				break
 			}
 			writer.Flush()
-			log.Printf("%s <- %s", conn.RemoteAddr(), str)
+			log.Printf("%s <- %s", addr, str)
 		}
 		close(ch)
 	}()

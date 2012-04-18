@@ -17,7 +17,11 @@ func ReplyCreated(nick string, created string) string {
 }
 
 func ReplyMyInfo(nick string, servername string) string {
-	return fmt.Sprintf("%s %s %s %s <user modes> <channel modes>", RPL_MYINFO, nick, servername, VERSION)
+	return fmt.Sprintf("%s %s %s %s i <channel modes>", RPL_MYINFO, nick, servername, VERSION)
+}
+
+func ReplyUModeIs(c *Client) string {
+	return fmt.Sprintf("%s %s %s", RPL_UMODEIS, c.Nick(), c.UModeString())
 }
 
 func ErrAlreadyRegistered(nick string) string {
@@ -30,6 +34,10 @@ func ErrNickNameInUse(nick string) string {
 
 func ErrUnknownCommand(nick string, command string) string {
 	return fmt.Sprintf("%s %s %s :Unknown command", ERR_UNKNOWNCOMMAND, nick, command)
+}
+
+func ErrUsersDontMatch(nick string) string {
+	return fmt.Sprintf("%s %s :Cannot change mode for other users", ERR_USERSDONTMATCH, nick)
 }
 
 func MessagePong() string {

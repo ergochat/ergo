@@ -1,5 +1,9 @@
 package irc
 
+type Message interface {
+	Handle(s *Server, c *Client)
+}
+
 func (m *NickMessage) Handle(s *Server, c *Client) {
 	if s.nicks[m.nickname] != nil {
 		c.send <- ErrNickNameInUse(m.nickname)
@@ -24,6 +28,7 @@ func (m *UserMessage) Handle(s *Server, c *Client) {
 
 func (m *QuitMessage) Handle(s *Server, c *Client) {
 	c.send <- MessageError()
+	c.conn.Close()
 	delete(s.nicks, c.nick)
 }
 
@@ -33,6 +38,21 @@ func (m *UnknownMessage) Handle(s *Server, c *Client) {
 
 func (m *PingMessage) Handle(s *Server, c *Client) {
 	c.send <- MessagePong()
+}
+
+func (m *ModeMessage) Handle(s *Server, c *Client) {
+	if m.nickname != c.nick {
+		c.send <- ErrUsersDontMatch(c.Nick())
+		return
+	}
+	for _, mode := range m.modes {
+		if mode == "+i" {
+			c.invisible = true
+		} else if mode == "-i" {
+			c.invisible = false
+		}
+	}
+	c.send <- ReplyUModeIs(c)
 }
 
 func tryRegister(s *Server, c *Client) {
