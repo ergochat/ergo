@@ -6,6 +6,7 @@ import (
 )
 
 type Server struct {
+	name string
 	ch chan *ClientMessage
 	nicks map[string]*Client
 }
@@ -15,8 +16,9 @@ type ClientMessage struct {
 	message Message
 }
 
-func NewServer() *Server {
+func NewServer(name string) *Server {
 	server := new(Server)
+	server.name = name
 	server.ch = make(chan *ClientMessage)
 	server.nicks = make(map[string]*Client)
 	go server.Receive()

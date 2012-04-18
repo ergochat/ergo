@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -63,4 +64,8 @@ func (c *Client) Hostname() string {
 		return addr[0:index]
 	}
 	return addr
+}
+
+func (c *Client) UserHost() string {
+	return fmt.Sprintf("%s!%s@%s", c.nick, c.username, c.Hostname())
 }

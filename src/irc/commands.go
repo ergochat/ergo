@@ -64,8 +64,8 @@ func tryRegister(s *Server, c *Client) {
 	if (!c.registered && c.HasNick() && c.HasUser()) {
 		c.registered = true
 		c.send <- ReplyWelcome(c)
-		c.send <- ReplyYourHost(c.Nick(), "irc.jlatt.com")
+		c.send <- ReplyYourHost(c.Nick(), s.name)
 		c.send <- ReplyCreated(c.Nick(), "2012/04/07")
-		c.send <- ReplyMyInfo(c.Nick(), "irc.jlatt.com")
+		c.send <- ReplyMyInfo(c.Nick(), s.name)
 	}
 }
