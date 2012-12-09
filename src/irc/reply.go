@@ -58,18 +58,6 @@ func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
 		fmt.Sprintf("%s %s", channel.name, invitee.Nick()))
 }
 
-func RplPrivMsgChannel(channel *Channel, source *Client, message string) Reply {
-	return &ChannelReply{NewReply(source, RPL_PRIVMSG, ":"+message), channel}
-}
-
-func RplJoin(channel *Channel, client *Client) Reply {
-	return &ChannelReply{NewReply(client, RPL_JOIN, channel.name), channel}
-}
-
-func RplPart(channel *Channel, client *Client, message string) Reply {
-	return &ChannelReply{NewReply(client, RPL_PART, ":"+message), channel}
-}
-
 // Server Info
 
 func RplWelcome(source Identifier, client *Client) Reply {
@@ -98,15 +86,27 @@ func RplUModeIs(server *Server, client *Client) Reply {
 
 // channel operations
 
+func RplPrivMsgChannel(channel *Channel, source *Client, message string) Reply {
+	return &ChannelReply{NewReply(source, RPL_PRIVMSG, ":"+message), channel}
+}
+
+func RplJoin(channel *Channel, client *Client) Reply {
+	return &ChannelReply{NewReply(client, RPL_JOIN, ""), channel}
+}
+
+func RplPart(channel *Channel, client *Client, message string) Reply {
+	return &ChannelReply{NewReply(client, RPL_PART, ":"+message), channel}
+}
+
 func RplNoTopic(channel *Channel) Reply {
-	return &ChannelReply{NewReply(channel.server, RPL_NOTOPIC,
-		channel.name+" :No topic is set"), channel}
+	return &ChannelReply{NewReply(channel.server, RPL_NOTOPIC, ":No topic is set"), channel}
 }
 
 func RplTopic(channel *Channel) Reply {
-	return &ChannelReply{NewReply(channel.server, RPL_TOPIC,
-		fmt.Sprintf("%s :%s", channel.name, channel.topic)), channel}
+	return &ChannelReply{NewReply(channel.server, RPL_TOPIC, ":"+channel.topic), channel}
 }
+
+// server info
 
 func RplNamReply(channel *Channel) Reply {
 	// TODO multiple names and splitting based on message size
@@ -115,8 +115,7 @@ func RplNamReply(channel *Channel) Reply {
 }
 
 func RplEndOfNames(source Identifier) Reply {
-	return NewReply(source, RPL_ENDOFNAMES,
-		":End of NAMES list")
+	return NewReply(source, RPL_ENDOFNAMES, ":End of NAMES list")
 }
 
 func RplPong(server *Server) Reply {
@@ -126,8 +125,7 @@ func RplPong(server *Server) Reply {
 // errors
 
 func ErrAlreadyRegistered(source Identifier) Reply {
-	return NewReply(source, ERR_ALREADYREGISTRED,
-		":You may not reregister")
+	return NewReply(source, ERR_ALREADYREGISTRED, ":You may not reregister")
 }
 
 func ErrNickNameInUse(source Identifier, nick string) Reply {

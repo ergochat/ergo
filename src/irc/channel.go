@@ -1,9 +1,5 @@
 package irc
 
-import (
-	"sort"
-)
-
 type Channel struct {
 	name       string
 	key        string
@@ -44,7 +40,6 @@ func (ch *Channel) Nicks() []string {
 		nicks[i] = member.Nick()
 		i++
 	}
-	sort.Strings(nicks)
 	return nicks
 }
 
