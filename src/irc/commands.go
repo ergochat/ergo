@@ -1,14 +1,29 @@
 package irc
 
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
 type Message interface {
 	Handle(s *Server, c *Client)
 }
+
+var (
+	ErrNotEnoughArgs    = errors.New("not enough arguments")
+	ErrUModeUnknownFlag = errors.New("unknown umode flag")
+)
 
 // unknown
 
 type UnknownMessage struct {
 	command string
 }
+
+// NB: no constructor, created on demand in parser for invalid messages.
 
 func (m *UnknownMessage) Handle(s *Server, c *Client) {
 	c.send <- ErrUnknownCommand(s, m.command)
@@ -19,6 +34,17 @@ func (m *UnknownMessage) Handle(s *Server, c *Client) {
 type PingMessage struct {
 	server  string
 	server2 string
+}
+
+func NewPingMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	msg := &PingMessage{server: args[0]}
+	if len(args) > 1 {
+		msg.server2 = args[1]
+	}
+	return msg, nil
 }
 
 func (m *PingMessage) Handle(s *Server, c *Client) {
@@ -32,14 +58,32 @@ type PongMessage struct {
 	server2 string
 }
 
+func NewPongMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	message := &PongMessage{server1: args[0]}
+	if len(args) > 1 {
+		message.server2 = args[1]
+	}
+	return message, nil
+}
+
 func (m *PongMessage) Handle(s *Server, c *Client) {
-	// TODO update client atime
+	// no-op
 }
 
 // NICK
 
 type NickMessage struct {
 	nickname string
+}
+
+func NewNickMessage(args []string) (Message, error) {
+	if len(args) != 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	return &NickMessage{args[0]}, nil
 }
 
 func (m *NickMessage) Handle(s *Server, c *Client) {
@@ -55,14 +99,38 @@ type UserMessage struct {
 	realname string
 }
 
+func NewUserMessage(args []string) (Message, error) {
+	if len(args) != 4 {
+		return nil, ErrNotEnoughArgs
+	}
+	msg := &UserMessage{
+		user:     args[0],
+		unused:   args[2],
+		realname: args[3],
+	}
+	mode, err := strconv.ParseUint(args[1], 10, 8)
+	if err == nil {
+		msg.mode = uint8(mode)
+	}
+	return msg, nil
+}
+
 func (m *UserMessage) Handle(s *Server, c *Client) {
-	s.Register(c, m.user, m.realname)
+	s.UserLogin(c, m.user, m.realname)
 }
 
 // QUIT
 
 type QuitMessage struct {
 	message string
+}
+
+func NewQuitMessage(args []string) (Message, error) {
+	msg := &QuitMessage{}
+	if len(args) > 0 {
+		msg.message = args[0]
+	}
+	return msg, nil
 }
 
 func (m *QuitMessage) Handle(s *Server, c *Client) {
@@ -74,6 +142,28 @@ func (m *QuitMessage) Handle(s *Server, c *Client) {
 type ModeMessage struct {
 	nickname string
 	modes    []string
+}
+
+var MODE_RE = regexp.MustCompile("^[-+][a-zA-Z]+$")
+
+func NewModeMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	msg := &ModeMessage{
+		nickname: args[0],
+	}
+	for _, arg := range args[1:] {
+		if !MODE_RE.MatchString(arg) {
+			return nil, ErrUModeUnknownFlag
+		}
+		prefix := arg[0]
+		for _, c := range arg[1:] {
+			mode := fmt.Sprintf("%c%c", prefix, c)
+			msg.modes = append(msg.modes, mode)
+		}
+	}
+	return msg, nil
 }
 
 func (m *ModeMessage) Handle(s *Server, c *Client) {
@@ -90,6 +180,22 @@ type JoinMessage struct {
 	channels []string
 	keys     []string
 	zero     bool
+}
+
+func NewJoinMessage(args []string) (Message, error) {
+	msg := &JoinMessage{}
+	if len(args) > 0 {
+		if args[0] == "0" {
+			msg.zero = true
+		} else {
+			msg.channels = strings.Split(args[0], ",")
+		}
+
+		if len(args) > 1 {
+			msg.keys = strings.Split(args[1], ",")
+		}
+	}
+	return msg, nil
 }
 
 func (m *JoinMessage) Handle(s *Server, c *Client) {
@@ -116,6 +222,17 @@ type PartMessage struct {
 	message  string
 }
 
+func NewPartMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	msg := &PartMessage{channels: strings.Split(args[0], ",")}
+	if len(args) > 1 {
+		msg.message = args[1]
+	}
+	return msg, nil
+}
+
 func (m *PartMessage) Handle(s *Server, c *Client) {
 	for _, chname := range m.channels {
 		channel := s.channels[chname]
@@ -134,6 +251,16 @@ func (m *PartMessage) Handle(s *Server, c *Client) {
 type PrivMsgMessage struct {
 	target  string
 	message string
+}
+
+func NewPrivMsgMessage(args []string) (Message, error) {
+	if len(args) < 2 {
+		return nil, ErrNotEnoughArgs
+	}
+	return &PrivMsgMessage{
+		target:  args[0],
+		message: args[1],
+	}, nil
 }
 
 func (m *PrivMsgMessage) TargetIsChannel() bool {
@@ -167,6 +294,17 @@ func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
 type TopicMessage struct {
 	channel string
 	topic   string
+}
+
+func NewTopicMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, ErrNotEnoughArgs
+	}
+	msg := &TopicMessage{channel: args[0]}
+	if len(args) > 1 {
+		msg.topic = args[1]
+	}
+	return msg, nil
 }
 
 func (m *TopicMessage) Handle(s *Server, c *Client) {

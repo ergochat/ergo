@@ -1,5 +1,9 @@
 package irc
 
+import (
+	"sort"
+)
+
 type Channel struct {
 	name       string
 	key        string
@@ -12,10 +16,19 @@ type Channel struct {
 
 type ChannelSet map[*Channel]bool
 
+// NewChannel creates a new channel from a `Server` and a `name` string, which
+// must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
-	return &Channel{name: name, members: make(ClientSet), invites: make(map[string]bool), server: s}
+	return &Channel{
+		name:    name,
+		members: make(ClientSet),
+		invites: make(map[string]bool),
+		server:  s,
+	}
 }
 
+// Send a `Reply` to all `Client`s of the `Channel`. Skip `fromClient`, if it is
+// provided.
 func (ch *Channel) Send(reply Reply, fromClient *Client) {
 	for client := range ch.members {
 		if client != fromClient {
@@ -24,7 +37,20 @@ func (ch *Channel) Send(reply Reply, fromClient *Client) {
 	}
 }
 
+func (ch *Channel) Nicks() []string {
+	nicks := make([]string, len(ch.members))
+	i := 0
+	for member := range ch.members {
+		nicks[i] = member.Nick()
+		i++
+	}
+	sort.Strings(nicks)
+	return nicks
+}
+
+//
 // channel functionality
+//
 
 func (ch *Channel) Join(cl *Client, key string) {
 	if ch.key != key {
@@ -42,10 +68,7 @@ func (ch *Channel) Join(cl *Client, key string) {
 
 	ch.Send(RplJoin(ch, cl), nil)
 	ch.GetTopic(cl)
-
-	for member := range ch.members {
-		cl.send <- RplNamReply(ch, member)
-	}
+	cl.send <- RplNamReply(ch)
 	cl.send <- RplEndOfNames(ch.server)
 }
 

@@ -22,7 +22,13 @@ type ClientMessage struct {
 
 func NewServer(name string) *Server {
 	recv := make(chan *ClientMessage)
-	server := &Server{ctime: time.Now(), name: name, recv: recv, nicks: make(map[string]*Client), channels: make(map[string]*Channel)}
+	server := &Server{
+		ctime:    time.Now(),
+		name:     name,
+		recv:     recv,
+		nicks:    make(map[string]*Client),
+		channels: make(map[string]*Channel),
+	}
 	go func() {
 		for m := range recv {
 			m.message.Handle(server, m.client)
@@ -47,7 +53,7 @@ func (s *Server) Listen(addr string) {
 			continue
 		}
 		log.Print("Server.Listen: accepted ", conn.RemoteAddr())
-		go NewClient(conn).Communicate(s)
+		go NewClient(s, conn).Communicate()
 	}
 }
 
@@ -65,6 +71,7 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 // Send a message to clients of channels fromClient is a member.
 func (s *Server) SendToInterestedClients(fromClient *Client, reply Reply) {
 	clients := make(map[*Client]bool)
+	clients[fromClient] = true
 	for channel := range fromClient.channels {
 		for client := range channel.members {
 			clients[client] = true
@@ -84,28 +91,29 @@ func (s *Server) ChangeNick(c *Client, newNick string) {
 		return
 	}
 
-	s.SendToInterestedClients(c, RplNick(c, newNick))
-
 	if c.nick != "" {
 		delete(s.nicks, c.nick)
 	}
-	c.nick = newNick
 	s.nicks[c.nick] = c
 
-	s.TryRegister(c)
+	s.SendToInterestedClients(c, RplNick(c, newNick))
+
+	c.nick = newNick
+
+	s.tryRegister(c)
 }
 
-func (s *Server) Register(c *Client, user string, realName string) {
+func (s *Server) UserLogin(c *Client, user string, realName string) {
 	if c.username != "" {
 		c.send <- ErrAlreadyRegistered(s)
 		return
 	}
 
 	c.username, c.realname = user, realName
-	s.TryRegister(c)
+	s.tryRegister(c)
 }
 
-func (s *Server) TryRegister(c *Client) {
+func (s *Server) tryRegister(c *Client) {
 	if !c.registered && c.HasNick() && c.HasUser() {
 		c.registered = true
 		c.send <- RplWelcome(s, c)

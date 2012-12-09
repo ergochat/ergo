@@ -2,6 +2,7 @@ package irc
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -75,7 +76,7 @@ func RplCreated(server *Server) Reply {
 }
 
 func RplMyInfo(server *Server) Reply {
-	return NewReply(server, RPL_MYINFO, server.name+" i ik")
+	return NewReply(server, RPL_MYINFO, fmt.Sprintf("%s %s i ik", server.name, VERSION))
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
@@ -92,9 +93,9 @@ func RplTopic(channel *Channel) Reply {
 	return &ChannelReply{NewReply(channel.server, RPL_TOPIC, fmt.Sprintf("%s :%s", channel.name, channel.topic)), channel}
 }
 
-func RplNamReply(channel *Channel, client *Client) Reply {
+func RplNamReply(channel *Channel) Reply {
 	// TODO multiple names and splitting based on message size
-	return NewReply(channel.server, RPL_NAMREPLY, fmt.Sprintf("=%s :+%s", channel.name, client.Nick()))
+	return NewReply(channel.server, RPL_NAMREPLY, fmt.Sprintf("= %s :%s", channel.name, strings.Join(channel.Nicks(), " ")))
 }
 
 func RplEndOfNames(source Identifier) Reply {

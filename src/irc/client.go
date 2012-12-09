@@ -16,12 +16,19 @@ type Client struct {
 	registered bool
 	invisible  bool
 	channels   ChannelSet
+	server     *Server
 }
 
 type ClientSet map[*Client]bool
 
-func NewClient(conn net.Conn) *Client {
-	client := &Client{conn: conn, recv: StringReadChan(conn), channels: make(ChannelSet), hostname: LookupHostname(conn.RemoteAddr())}
+func NewClient(server *Server, conn net.Conn) *Client {
+	client := &Client{
+		channels: make(ChannelSet),
+		conn:     conn,
+		hostname: LookupHostname(conn.RemoteAddr()),
+		recv:     StringReadChan(conn),
+		server:   server,
+	}
 	client.SetReplyToStringChan()
 	return client
 }
@@ -38,12 +45,14 @@ func (c *Client) SetReplyToStringChan() {
 }
 
 // Adapt `chan string` to a `chan Message`.
-func (c *Client) Communicate(server *Server) {
+func (c *Client) Communicate() {
 	for str := range c.recv {
-		m := ParseMessage(str)
-		if m != nil {
-			server.recv <- &ClientMessage{c, m}
+		m, err := ParseMessage(str)
+		if err != nil {
+			// TODO handle error
+			return
 		}
+		c.server.recv <- &ClientMessage{c, m}
 	}
 }
 
