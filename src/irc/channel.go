@@ -55,10 +55,14 @@ func (ch *Channel) Part(cl *Client, message string) {
 		return
 	}
 
-	delete(ch.members, cl)
-	delete(cl.channels, ch)
+	if message == "" {
+		message = cl.Nick()
+	}
 
 	ch.Send(RplPart(ch, cl, message), nil)
+
+	delete(ch.members, cl)
+	delete(cl.channels, ch)
 }
 
 func (ch *Channel) PrivMsg(cl *Client, message string) {
