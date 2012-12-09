@@ -3,8 +3,8 @@ package irc
 import (
 	"bufio"
 	"log"
-	"strings"
 	"net"
+	"strings"
 )
 
 func readTrimmedLine(reader *bufio.Reader) (string, error) {
@@ -20,7 +20,7 @@ func StringReadChan(conn net.Conn) <-chan string {
 	go func() {
 		for {
 			line, err := readTrimmedLine(reader)
-			if (line != "") {
+			if line != "" {
 				ch <- line
 				log.Printf("%s -> %s", addr, line)
 			}
@@ -49,4 +49,17 @@ func StringWriteChan(conn net.Conn) chan<- string {
 	}()
 
 	return ch
+}
+
+func LookupHostname(addr net.Addr) string {
+	addrStr := addr.String()
+	ipaddr, _, err := net.SplitHostPort(addrStr)
+	if err != nil {
+		return addrStr
+	}
+	names, err := net.LookupAddr(ipaddr)
+	if err != nil {
+		return ipaddr
+	}
+	return names[0]
 }

@@ -7,12 +7,17 @@ import (
 	"strings"
 )
 
-var commands = map[string]func([]string) Message {
-	"MODE": NewModeMessage,
-	"NICK": NewNickMessage,
-	"PING": NewPingMessage,
-	"QUIT": NewQuitMessage,
-	"USER": NewUserMessage,
+var commands = map[string]func([]string) Message{
+	"JOIN":    NewJoinMessage,
+	"MODE":    NewModeMessage,
+	"NICK":    NewNickMessage,
+	"PART":    NewPartMessage,
+	"PING":    NewPingMessage,
+	"PONG":    NewPongMessage,
+	"PRIVMSG": NewPrivMsgMessage,
+	"QUIT":    NewQuitMessage,
+	"TOPIC":   NewTopicMessage,
+	"USER":    NewUserMessage,
 }
 
 func ParseMessage(line string) Message {
@@ -54,7 +59,6 @@ func parseLine(line string) (string, []string) {
 	return args[0], args[1:]
 }
 
-
 // []string => Message constructors
 
 func NewNickMessage(args []string) Message {
@@ -65,7 +69,25 @@ func NewNickMessage(args []string) Message {
 }
 
 func NewPingMessage(args []string) Message {
-	return &PingMessage{}
+	if len(args) < 1 {
+		return nil
+	}
+	message := &PingMessage{server: args[0]}
+	if len(args) > 1 {
+		message.server2 = args[1]
+	}
+	return message
+}
+
+func NewPongMessage(args []string) Message {
+	if len(args) < 1 {
+		return nil
+	}
+	message := &PongMessage{server1: args[0]}
+	if len(args) > 1 {
+		message.server2 = args[1]
+	}
+	return message
 }
 
 func NewQuitMessage(args []string) Message {
@@ -111,4 +133,56 @@ func NewModeMessage(args []string) Message {
 		}
 	}
 	return msg
+}
+
+func NewJoinMessage(args []string) Message {
+	msg := new(JoinMessage)
+
+	if len(args) > 0 {
+		if args[0] == "0" {
+			msg.zero = true
+		} else {
+			msg.channels = strings.Split(args[0], ",")
+		}
+
+		if len(args) > 1 {
+			msg.keys = strings.Split(args[1], ",")
+		}
+	}
+
+	return msg
+}
+
+func NewPartMessage(args []string) Message {
+	if len(args) < 1 {
+		return nil
+	}
+	msg := new(PartMessage)
+	msg.channels = strings.Split(args[0], ",")
+
+	if len(args) > 1 {
+		msg.message = args[1]
+	}
+
+	return msg
+}
+
+func NewPrivMsgMessage(args []string) Message {
+	if len(args) < 2 {
+		return nil
+	}
+
+	return &PrivMsgMessage{target: args[0], message: args[1]}
+}
+
+func NewTopicMessage(args []string) Message {
+	if len(args) < 1 {
+		return nil
+	}
+
+	message := &TopicMessage{channel: args[0]}
+	if len(args) > 1 {
+		message.topic = args[1]
+	}
+	return message
 }
