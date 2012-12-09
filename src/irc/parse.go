@@ -8,7 +8,20 @@ import (
 type ParseFunc func([]string) (Message, error)
 
 var (
-	ErrParseMessage = errors.New("failed to parse message")
+	ErrParseMessage   = errors.New("failed to parse message")
+	parseCommandFuncs = map[string]ParseFunc{
+		"INVITE":  NewInviteMessage,
+		"JOIN":    NewJoinMessage,
+		"MODE":    NewModeMessage,
+		"NICK":    NewNickMessage,
+		"PART":    NewPartMessage,
+		"PING":    NewPingMessage,
+		"PONG":    NewPongMessage,
+		"PRIVMSG": NewPrivMsgMessage,
+		"QUIT":    NewQuitMessage,
+		"TOPIC":   NewTopicMessage,
+		"USER":    NewUserMessage,
+	}
 )
 
 func ParseMessage(line string) (msg Message, err error) {

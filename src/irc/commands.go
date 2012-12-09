@@ -15,19 +15,6 @@ type Message interface {
 var (
 	ErrNotEnoughArgs    = errors.New("not enough arguments")
 	ErrUModeUnknownFlag = errors.New("unknown umode flag")
-	parseCommandFuncs   = map[string]ParseFunc{
-		"INVITE":  NewInviteMessage,
-		"JOIN":    NewJoinMessage,
-		"MODE":    NewModeMessage,
-		"NICK":    NewNickMessage,
-		"PART":    NewPartMessage,
-		"PING":    NewPingMessage,
-		"PONG":    NewPongMessage,
-		"PRIVMSG": NewPrivMsgMessage,
-		"QUIT":    NewQuitMessage,
-		"TOPIC":   NewTopicMessage,
-		"USER":    NewUserMessage,
-	}
 )
 
 // unknown
@@ -302,7 +289,7 @@ func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
 	}
 }
 
-// TOPIC
+// TOPIC [newtopic]
 
 type TopicMessage struct {
 	channel string
