@@ -5,18 +5,7 @@ import (
 	"strings"
 )
 
-var commands = map[string]func([]string) (Message, error){
-	"JOIN":    NewJoinMessage,
-	"MODE":    NewModeMessage,
-	"NICK":    NewNickMessage,
-	"PART":    NewPartMessage,
-	"PING":    NewPingMessage,
-	"PONG":    NewPongMessage,
-	"PRIVMSG": NewPrivMsgMessage,
-	"QUIT":    NewQuitMessage,
-	"TOPIC":   NewTopicMessage,
-	"USER":    NewUserMessage,
-}
+type ParseFunc func([]string) (Message, error)
 
 var (
 	ErrParseMessage = errors.New("failed to parse message")
@@ -24,7 +13,7 @@ var (
 
 func ParseMessage(line string) (msg Message, err error) {
 	command, args := parseLine(line)
-	constructor, ok := commands[command]
+	constructor, ok := parseCommandFuncs[command]
 	if !ok {
 		msg = &UnknownMessage{command}
 		return

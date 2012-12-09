@@ -15,6 +15,19 @@ type Message interface {
 var (
 	ErrNotEnoughArgs    = errors.New("not enough arguments")
 	ErrUModeUnknownFlag = errors.New("unknown umode flag")
+	parseCommandFuncs   = map[string]ParseFunc{
+		"INVITE":  NewInviteMessage,
+		"JOIN":    NewJoinMessage,
+		"MODE":    NewModeMessage,
+		"NICK":    NewNickMessage,
+		"PART":    NewPartMessage,
+		"PING":    NewPingMessage,
+		"PONG":    NewPongMessage,
+		"PRIVMSG": NewPrivMsgMessage,
+		"QUIT":    NewQuitMessage,
+		"TOPIC":   NewTopicMessage,
+		"USER":    NewUserMessage,
+	}
 )
 
 // unknown
@@ -318,4 +331,37 @@ func (m *TopicMessage) Handle(s *Server, c *Client) {
 	} else {
 		channel.ChangeTopic(c, m.topic)
 	}
+}
+
+// INVITE <nickname> <channel>
+
+type InviteMessage struct {
+	nickname string
+	channel  string
+}
+
+func NewInviteMessage(args []string) (Message, error) {
+	if len(args) < 2 {
+		return nil, ErrNotEnoughArgs
+	}
+	return &InviteMessage{
+		nickname: args[0],
+		channel:  args[1],
+	}, nil
+}
+
+func (m *InviteMessage) Handle(s *Server, c *Client) {
+	channel := s.channels[m.channel]
+	if channel == nil {
+		c.send <- ErrNoSuchNick(s, m.channel)
+		return
+	}
+
+	invitee := s.nicks[m.nickname]
+	if invitee == nil {
+		c.send <- ErrNoSuchNick(s, m.nickname)
+		return
+	}
+
+	channel.Invite(c, invitee)
 }

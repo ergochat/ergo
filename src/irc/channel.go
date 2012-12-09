@@ -119,3 +119,20 @@ func (ch *Channel) ChangeTopic(cl *Client, newTopic string) {
 		ch.Send(RplNoTopic(ch), nil)
 	}
 }
+
+func (ch *Channel) Invite(inviter *Client, invitee *Client) {
+	if !ch.members[inviter] {
+		inviter.send <- ErrNotOnChannel(ch)
+		return
+	}
+
+	if ch.members[invitee] {
+		inviter.send <- ErrUserOnChannel(ch, invitee)
+		return
+	}
+
+	ch.invites[invitee.nick] = true
+
+	invitee.send <- RplInviteMsg(ch, inviter)
+	inviter.send <- RplInvitingMsg(ch, invitee)
+}
