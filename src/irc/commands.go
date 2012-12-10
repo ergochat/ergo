@@ -165,15 +165,40 @@ type ModeMessage struct {
 	modes    []string
 }
 
+type ChannelModeMessage struct {
+	*ModeMessage
+	channel    string
+	modeParams []string
+}
+
 // mode s is accepted but ignored, like some other modes
 var MODE_RE = regexp.MustCompile("^[-+][iwroOs]+$")
+var CHANNEL_RE = regexp.MustCompile("^[+\\&\\!#][:alnum:]+$")
+var EXTRACT_MODE_RE = regexp.MustCompile("^([-+])?([aimnqpsrtklbeI]+)$")
 
 func NewModeMessage(args []string) (Message, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
+
 	msg := &ModeMessage{
 		nickname: args[0],
+	}
+	if (len(args) > 1) && CHANNEL_RE.MatchString(args[1]) {
+		cmsg := &ChannelModeMessage{msg}
+		if len(args) > 2 {
+			groups := EXTRACT_MODE_RE.FindStringSubmatch(args[2])
+			cmsg.modes = make([]string, len(groups[2]))
+			i := 0
+			for _, char := range groups[2] {
+				cmsg.modes[i] = fmt.Sprintf("%s%c", groups[1], char)
+				i++
+			}
+		}
+		if len(args > 3) {
+			cmsg.modeParams = strings.Split(args[3], ",")
+		}
+		return cmsg
 	}
 	for _, arg := range args[1:] {
 		if !MODE_RE.MatchString(arg) {

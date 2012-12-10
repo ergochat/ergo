@@ -1,13 +1,31 @@
 package irc
 
 type Channel struct {
-	name       string
-	key        string
-	topic      string
-	members    ClientSet
+	server    *Server
+	name      string
+	key       string
+	topic     string
+	members   ClientSet
+	operators ClientSet
+	creators  ClientSet
+	voiced    ClientSet
+	invites   map[string]bool
+	// modes
+	anonymous  bool
 	inviteOnly bool
-	invites    map[string]bool
-	server     *Server
+	moderated  bool
+	noOutside  bool
+	quiet      bool
+	private    bool
+	secret     bool
+	serverReop bool
+	operTopic  bool
+	// modes with args
+	password      string
+	userLimit     int
+	banMask       string
+	banExceptMask string
+	inviteMask    string
 }
 
 type ChannelSet map[*Channel]bool
@@ -41,6 +59,10 @@ func (ch *Channel) Nicks() []string {
 		i++
 	}
 	return nicks
+}
+
+func (ch *Channel) IsEmpty() bool {
+	return len(ch.members) == 0
 }
 
 //
