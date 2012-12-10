@@ -7,12 +7,14 @@ import (
 )
 
 type Server struct {
-	hostname string
-	ctime    time.Time
-	name     string
-	recv     chan<- *ClientMessage
-	nicks    map[string]*Client
-	channels map[string]*Channel
+	hostname  string
+	ctime     time.Time
+	name      string
+	recv      chan<- *ClientMessage
+	nicks     map[string]*Client
+	channels  map[string]*Channel
+	password  string
+	operators map[string]string
 }
 
 type ClientMessage struct {
@@ -68,6 +70,10 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 	return channel
 }
 
+func (s *Server) AddOperator(name string, password string) {
+	s.operators[name] = password
+}
+
 // Send a message to clients of channels fromClient is a member.
 func (s *Server) SendToInterestedClients(fromClient *Client, reply Reply) {
 	clients := make(map[*Client]bool)
@@ -114,7 +120,7 @@ func (s *Server) UserLogin(c *Client, user string, realName string) {
 }
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUser() {
+	if !c.registered && c.HasNick() && c.HasUser() && (s.password == "" || c.serverAuth) {
 		c.registered = true
 		c.send <- RplWelcome(s, c)
 		c.send <- RplYourHost(s, c)
@@ -134,10 +140,21 @@ func (s *Server) Quit(c *Client, message string) {
 
 func (s *Server) ChangeUserMode(c *Client, modes []string) {
 	for _, mode := range modes {
-		if mode == "+i" {
+		switch mode {
+		case "+i":
 			c.invisible = true
-		} else if mode == "-i" {
+		case "-i":
 			c.invisible = false
+		case "-o":
+			c.operator = false
+		case "-O":
+			c.localOperator = false
+		case "+r":
+			c.restricted = true
+		case "+w":
+			c.wallOps = true
+		case "-w":
+			c.wallOps = false
 		}
 	}
 	c.send <- RplUModeIs(s, c)

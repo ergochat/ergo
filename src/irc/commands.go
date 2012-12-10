@@ -13,8 +13,8 @@ type Message interface {
 }
 
 var (
-	ErrNotEnoughArgs    = errors.New("not enough arguments")
-	ErrUModeUnknownFlag = errors.New("unknown umode flag")
+	NotEnoughArgsError    = errors.New("not enough arguments")
+	UModeUnknownFlagError = errors.New("unknown umode flag")
 )
 
 // unknown
@@ -38,7 +38,7 @@ type PingMessage struct {
 
 func NewPingMessage(args []string) (Message, error) {
 	if len(args) < 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	msg := &PingMessage{server: args[0]}
 	if len(args) > 1 {
@@ -60,7 +60,7 @@ type PongMessage struct {
 
 func NewPongMessage(args []string) (Message, error) {
 	if len(args) < 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	message := &PongMessage{server1: args[0]}
 	if len(args) > 1 {
@@ -73,6 +73,27 @@ func (m *PongMessage) Handle(s *Server, c *Client) {
 	// no-op
 }
 
+// PASS <password>
+
+type PassMessage struct {
+	password string
+}
+
+func NewPassMessage(args []string) (Message, error) {
+	if len(args) < 1 {
+		return nil, NotEnoughArgsError
+	}
+	return &PassMessage{password: args[0]}
+}
+
+func (m *PassMessage) Handle(s *Server, c *Client) {
+	if m.password == server.password {
+		c.serverPass = true
+	} else {
+		c.send <- ErrPass
+	}
+}
+
 // NICK
 
 type NickMessage struct {
@@ -81,7 +102,7 @@ type NickMessage struct {
 
 func NewNickMessage(args []string) (Message, error) {
 	if len(args) != 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	return &NickMessage{args[0]}, nil
 }
@@ -101,7 +122,7 @@ type UserMessage struct {
 
 func NewUserMessage(args []string) (Message, error) {
 	if len(args) != 4 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	msg := &UserMessage{
 		user:     args[0],
@@ -119,7 +140,7 @@ func (m *UserMessage) Handle(s *Server, c *Client) {
 	s.UserLogin(c, m.user, m.realname)
 }
 
-// QUIT
+// QUIT [ <Quit Message> ]
 
 type QuitMessage struct {
 	message string
@@ -137,18 +158,19 @@ func (m *QuitMessage) Handle(s *Server, c *Client) {
 	s.Quit(c, m.message)
 }
 
-// MODE
+// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
 
 type ModeMessage struct {
 	nickname string
 	modes    []string
 }
 
-var MODE_RE = regexp.MustCompile("^[-+][a-zA-Z]+$")
+// mode s is accepted but ignored, like some other modes
+var MODE_RE = regexp.MustCompile("^[-+][iwroOs]+$")
 
 func NewModeMessage(args []string) (Message, error) {
 	if len(args) < 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	msg := &ModeMessage{
 		nickname: args[0],
@@ -174,7 +196,7 @@ func (m *ModeMessage) Handle(s *Server, c *Client) {
 	s.ChangeUserMode(c, m.modes)
 }
 
-// JOIN
+// JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
 
 type JoinMessage struct {
 	channels []string
@@ -224,7 +246,7 @@ type PartMessage struct {
 
 func NewPartMessage(args []string) (Message, error) {
 	if len(args) < 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	msg := &PartMessage{channels: strings.Split(args[0], ",")}
 	if len(args) > 1 {
@@ -255,7 +277,7 @@ type PrivMsgMessage struct {
 
 func NewPrivMsgMessage(args []string) (Message, error) {
 	if len(args) < 2 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	return &PrivMsgMessage{
 		target:  args[0],
@@ -298,7 +320,7 @@ type TopicMessage struct {
 
 func NewTopicMessage(args []string) (Message, error) {
 	if len(args) < 1 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	msg := &TopicMessage{channel: args[0]}
 	if len(args) > 1 {
@@ -329,7 +351,7 @@ type InviteMessage struct {
 
 func NewInviteMessage(args []string) (Message, error) {
 	if len(args) < 2 {
-		return nil, ErrNotEnoughArgs
+		return nil, NotEnoughArgsError
 	}
 	return &InviteMessage{
 		nickname: args[0],
@@ -351,4 +373,29 @@ func (m *InviteMessage) Handle(s *Server, c *Client) {
 	}
 
 	channel.Invite(c, invitee)
+}
+
+// OPER <name> <password>
+
+type OperMessage struct {
+	name     string
+	password string
+}
+
+func NewOperMessage(args []string) Message {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+	return &OperMessage{
+		name:     args[0],
+		password: args[1],
+	}
+}
+
+func (m *OperMessage) Handle(s *Server, c *Client) {
+	if s.operators[m.name] == m.password {
+		c.send <- RplYoureOper(s)
+	} else {
+		c.send <- ErrPasswdMismatch(s)
+	}
 }

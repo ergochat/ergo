@@ -15,12 +15,14 @@ var (
 		"MODE":    NewModeMessage,
 		"NICK":    NewNickMessage,
 		"PART":    NewPartMessage,
+		"PASS":    NewPassMessage,
 		"PING":    NewPingMessage,
 		"PONG":    NewPongMessage,
 		"PRIVMSG": NewPrivMsgMessage,
 		"QUIT":    NewQuitMessage,
 		"TOPIC":   NewTopicMessage,
 		"USER":    NewUserMessage,
+		"OPER":    NewOperMessage,
 	}
 )
 

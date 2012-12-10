@@ -77,7 +77,7 @@ func RplCreated(server *Server) Reply {
 
 func RplMyInfo(server *Server) Reply {
 	return NewReply(server, RPL_MYINFO,
-		fmt.Sprintf("%s %s i ik", server.name, VERSION))
+		fmt.Sprintf("%s %s iwroO ik", server.name, VERSION))
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
@@ -120,6 +120,12 @@ func RplEndOfNames(source Identifier) Reply {
 
 func RplPong(server *Server) Reply {
 	return NewReply(server, RPL_PONG, "")
+}
+
+// server functions
+
+func RplYoureOper(server *Server) Reply {
+	return NewReply(server, RPL_YOUREOPER, ":You are now an IRC operator")
 }
 
 // errors
@@ -176,4 +182,8 @@ func ErrBadChannelKey(channel *Channel) Reply {
 func ErrNoSuchNick(source Identifier, nick string) Reply {
 	return NewReply(source, ERR_NOSUCHNICK,
 		nick+" :No such nick/channel")
+}
+
+func ErrPasswdMismatch(server *Server) Reply {
+	return NewReply(server, ERR_PASSWDMISMATCH, ":Password incorrect")
 }

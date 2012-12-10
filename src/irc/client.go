@@ -6,17 +6,27 @@ import (
 )
 
 type Client struct {
-	conn       net.Conn
-	hostname   string
-	send       chan<- Reply
-	recv       <-chan string
+	// communication
+	conn net.Conn
+	send chan<- Reply
+	recv <-chan string
+	// basic info
 	username   string
 	realname   string
+	hostname   string
 	nick       string
-	registered bool
-	invisible  bool
-	channels   ChannelSet
-	server     *Server
+	serverPass bool
+	// modes
+	away          bool
+	registered    bool
+	invisible     bool
+	wallOps       bool
+	restricted    bool
+	operator      bool
+	localOperator bool
+	// relations
+	server   *Server
+	channels ChannelSet
 }
 
 type ClientSet map[*Client]bool
