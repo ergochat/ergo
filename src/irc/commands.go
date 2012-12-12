@@ -226,6 +226,15 @@ func (m *ModeMessage) Handle(s *Server, c *Client) {
 	s.ChangeUserMode(c, m.modes)
 }
 
+func (m *ChannelModeMessage) Handle(s *Server, c *Client) {
+	channel := s.channels[m.channel]
+	if channel != nil {
+		c.send <- ErrNoChanModes(channel)
+	} else {
+		c.send <- ErrNoSuchChannel(s, m.channel)
+	}
+}
+
 // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
 
 type JoinMessage struct {
@@ -370,39 +379,6 @@ func (m *TopicMessage) Handle(s *Server, c *Client) {
 	} else {
 		channel.ChangeTopic(c, m.topic)
 	}
-}
-
-// INVITE <nickname> <channel>
-
-type InviteMessage struct {
-	nickname string
-	channel  string
-}
-
-func NewInviteMessage(args []string) (Message, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
-	return &InviteMessage{
-		nickname: args[0],
-		channel:  args[1],
-	}, nil
-}
-
-func (m *InviteMessage) Handle(s *Server, c *Client) {
-	channel := s.channels[m.channel]
-	if channel == nil {
-		c.send <- ErrNoSuchNick(s, m.channel)
-		return
-	}
-
-	invitee := s.nicks[m.nickname]
-	if invitee == nil {
-		c.send <- ErrNoSuchNick(s, m.nickname)
-		return
-	}
-
-	channel.Invite(c, invitee)
 }
 
 // OPER <name> <password>

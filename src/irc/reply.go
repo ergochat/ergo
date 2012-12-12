@@ -77,7 +77,7 @@ func RplCreated(server *Server) Reply {
 
 func RplMyInfo(server *Server) Reply {
 	return NewReply(server, RPL_MYINFO,
-		fmt.Sprintf("%s %s w ikn", server.name, VERSION))
+		fmt.Sprintf("%s %s w kn", server.name, VERSION))
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
@@ -186,4 +186,9 @@ func ErrNoSuchNick(source Identifier, nick string) Reply {
 
 func ErrPasswdMismatch(server *Server) Reply {
 	return NewReply(server, ERR_PASSWDMISMATCH, ":Password incorrect")
+}
+
+func ErrNoChanModes(channel *Channel) Reply {
+	return NewReply(channel.server, ERR_NOCHANMODES,
+		channel.name+" :Channel doesn't support modes")
 }

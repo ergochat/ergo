@@ -7,27 +7,19 @@ import (
 )
 
 type Client struct {
-	// communication
-	conn net.Conn
-	send chan<- Reply
-	recv <-chan string
-	// basic info
+	conn       net.Conn
+	send       chan<- Reply
+	recv       <-chan string
 	username   string
 	realname   string
 	hostname   string
 	nick       string
 	serverPass bool
 	registered bool
-	// modes
-	away          bool
-	invisible     bool
-	wallOps       bool
-	restricted    bool
-	operator      bool
-	localOperator bool
-	// relations
-	server   *Server
-	channels ChannelSet
+	away       bool
+	wallOps    bool
+	server     *Server
+	channels   ChannelSet
 }
 
 type ClientSet map[*Client]bool
@@ -77,14 +69,10 @@ func (c *Client) Nick() string {
 }
 
 func (c *Client) UModeString() string {
-	mode := "+"
-	if c.invisible {
-		mode += "i"
-	}
 	if c.wallOps {
-		mode += "w"
+		return "+w"
 	}
-	return mode
+	return ""
 }
 
 func (c *Client) HasNick() bool {

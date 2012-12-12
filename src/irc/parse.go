@@ -10,7 +10,6 @@ type ParseFunc func([]string) (Message, error)
 var (
 	ErrParseMessage   = errors.New("failed to parse message")
 	parseCommandFuncs = map[string]ParseFunc{
-		"INVITE":  NewInviteMessage,
 		"JOIN":    NewJoinMessage,
 		"MODE":    NewModeMessage,
 		"NICK":    NewNickMessage,

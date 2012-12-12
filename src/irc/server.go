@@ -142,16 +142,6 @@ func (s *Server) Quit(c *Client, message string) {
 func (s *Server) ChangeUserMode(c *Client, modes []string) {
 	for _, mode := range modes {
 		switch mode {
-		case "+i":
-			c.invisible = true
-		case "-i":
-			c.invisible = false
-		case "-o":
-			c.operator = false
-		case "-O":
-			c.localOperator = false
-		case "+r":
-			c.restricted = true
 		case "+w":
 			c.wallOps = true
 		case "-w":

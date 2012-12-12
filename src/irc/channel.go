@@ -1,17 +1,13 @@
 package irc
 
 type Channel struct {
-	server  *Server
-	name    string
-	key     string
-	topic   string
-	members ClientSet
-	invites map[string]bool
-	// modes
-	inviteOnly bool
-	noOutside  bool
-	// modes with args
-	password string
+	server    *Server
+	name      string
+	key       string
+	topic     string
+	members   ClientSet
+	noOutside bool
+	password  string
 }
 
 type ChannelSet map[*Channel]bool
@@ -22,7 +18,6 @@ func NewChannel(s *Server, name string) *Channel {
 	return &Channel{
 		name:    name,
 		members: make(ClientSet),
-		invites: make(map[string]bool),
 		server:  s,
 	}
 }
@@ -57,11 +52,6 @@ func (ch *Channel) IsEmpty() bool {
 
 func (ch *Channel) Join(cl *Client, key string) {
 	if ch.key != key {
-		cl.send <- ErrInviteOnlyChannel(ch)
-		return
-	}
-
-	if ch.inviteOnly && !ch.invites[cl.nick] {
 		cl.send <- ErrBadChannelKey(ch)
 		return
 	}
@@ -121,21 +111,4 @@ func (ch *Channel) ChangeTopic(cl *Client, newTopic string) {
 	} else {
 		ch.Send(RplNoTopic(ch), nil)
 	}
-}
-
-func (ch *Channel) Invite(inviter *Client, invitee *Client) {
-	if !ch.members[inviter] {
-		inviter.send <- ErrNotOnChannel(ch)
-		return
-	}
-
-	if ch.members[invitee] {
-		inviter.send <- ErrUserOnChannel(ch, invitee)
-		return
-	}
-
-	ch.invites[invitee.nick] = true
-
-	invitee.send <- RplInviteMsg(ch, inviter)
-	inviter.send <- RplInvitingMsg(ch, invitee)
 }
