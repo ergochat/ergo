@@ -334,20 +334,17 @@ func (m *PrivMsgMessage) TargetIsChannel() bool {
 
 func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
 	if m.TargetIsChannel() {
-		channel := s.channels[m.target]
-		if channel != nil {
+		if channel := s.channels[m.target]; channel != nil {
 			channel.PrivMsg(c, m.message)
-		} else {
-			c.send <- ErrNoSuchNick(s, m.target)
+			return
 		}
 	} else {
-		client := s.nicks[m.target]
-		if client != nil {
-			client.send <- RplPrivMsg(client, m.message)
-		} else {
-			c.send <- ErrNoSuchNick(s, m.target)
+		if client := s.nicks[m.target]; client != nil {
+			client.send <- RplPrivMsg(c, m.message)
+			return
 		}
 	}
+	c.send <- ErrNoSuchNick(s, m.target)
 }
 
 // TOPIC [newtopic]

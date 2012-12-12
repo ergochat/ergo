@@ -102,7 +102,7 @@ func (s *Server) ChangeNick(c *Client, newNick string) {
 	if c.nick != "" {
 		delete(s.nicks, c.nick)
 	}
-	s.nicks[c.nick] = c
+	s.nicks[newNick] = c
 
 	s.SendToInterestedClients(c, RplNick(c, newNick))
 
