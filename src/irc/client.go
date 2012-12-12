@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 )
 
 type Client struct {
@@ -20,6 +21,7 @@ type Client struct {
 	wallOps    bool
 	server     *Server
 	channels   ChannelSet
+	atime      time.Time
 }
 
 type ClientSet map[*Client]bool

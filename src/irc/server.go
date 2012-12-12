@@ -34,6 +34,7 @@ func NewServer(name string) *Server {
 	go func() {
 		for m := range recv {
 			log.Printf("%s -> %T%+v", m.client.Id(), m.message, m.message)
+			m.client.atime = time.Now()
 			m.message.Handle(server, m.client)
 		}
 	}()
