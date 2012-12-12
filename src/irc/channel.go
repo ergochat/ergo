@@ -1,31 +1,17 @@
 package irc
 
 type Channel struct {
-	server    *Server
-	name      string
-	key       string
-	topic     string
-	members   ClientSet
-	operators ClientSet
-	creators  ClientSet
-	voiced    ClientSet
-	invites   map[string]bool
+	server  *Server
+	name    string
+	key     string
+	topic   string
+	members ClientSet
+	invites map[string]bool
 	// modes
-	anonymous  bool
 	inviteOnly bool
-	moderated  bool
 	noOutside  bool
-	quiet      bool
-	private    bool
-	secret     bool
-	serverReop bool
-	operTopic  bool
 	// modes with args
-	password      string
-	userLimit     int
-	banMask       string
-	banExceptMask string
-	inviteMask    string
+	password string
 }
 
 type ChannelSet map[*Channel]bool

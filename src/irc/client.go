@@ -77,10 +77,14 @@ func (c *Client) Nick() string {
 }
 
 func (c *Client) UModeString() string {
+	mode := "+"
 	if c.invisible {
-		return "+i"
+		mode += "i"
 	}
-	return ""
+	if c.wallOps {
+		mode += "w"
+	}
+	return mode
 }
 
 func (c *Client) HasNick() bool {

@@ -77,7 +77,7 @@ func RplCreated(server *Server) Reply {
 
 func RplMyInfo(server *Server) Reply {
 	return NewReply(server, RPL_MYINFO,
-		fmt.Sprintf("%s %s iwroO ik", server.name, VERSION))
+		fmt.Sprintf("%s %s w ikn", server.name, VERSION))
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
