@@ -33,6 +33,7 @@ func NewServer(name string) *Server {
 	}
 	go func() {
 		for m := range recv {
+			log.Printf("%s -> %T%+v", m.client.Id(), m.message, m.message)
 			m.message.Handle(server, m.client)
 		}
 	}()
@@ -120,7 +121,7 @@ func (s *Server) UserLogin(c *Client, user string, realName string) {
 }
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUser() && (s.password == "" || c.serverAuth) {
+	if !c.registered && c.HasNick() && c.HasUser() && (s.password == "" || c.serverPass) {
 		c.registered = true
 		c.send <- RplWelcome(s, c)
 		c.send <- RplYourHost(s, c)

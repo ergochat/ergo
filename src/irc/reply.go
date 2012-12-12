@@ -21,8 +21,8 @@ type BasicReply struct {
 }
 
 func (reply *BasicReply) String(client *Client) string {
-	prefix := fmt.Sprintf(":%s %s %s ", reply.source.Id(), reply.code, client.Nick())
-	return prefix + reply.message
+	return fmt.Sprintf(":%s %s %s %s\r\n", reply.source.Id(), reply.code, client.Nick(),
+		reply.message)
 }
 
 type ChannelReply struct {
@@ -31,8 +31,8 @@ type ChannelReply struct {
 }
 
 func (reply *ChannelReply) String(client *Client) string {
-	prefix := fmt.Sprintf(":%s %s %s ", reply.source.Id(), reply.code, reply.channel.name)
-	return prefix + reply.message
+	return fmt.Sprintf(":%s %s %s %s\r\n", reply.source.Id(), reply.code, reply.channel.name,
+		reply.message)
 }
 
 func NewReply(source Identifier, code string, message string) *BasicReply {
@@ -99,11 +99,11 @@ func RplPart(channel *Channel, client *Client, message string) Reply {
 }
 
 func RplNoTopic(channel *Channel) Reply {
-	return &ChannelReply{NewReply(channel.server, RPL_NOTOPIC, ":No topic is set"), channel}
+	return NewReply(channel.server, RPL_NOTOPIC, channel.name+" :No topic is set")
 }
 
 func RplTopic(channel *Channel) Reply {
-	return &ChannelReply{NewReply(channel.server, RPL_TOPIC, ":"+channel.topic), channel}
+	return NewReply(channel.server, RPL_TOPIC, fmt.Sprintf("%s :%s", channel.name, channel.topic))
 }
 
 // server info
@@ -119,7 +119,7 @@ func RplEndOfNames(source Identifier) Reply {
 }
 
 func RplPong(server *Server) Reply {
-	return NewReply(server, RPL_PONG, "")
+	return NewReply(server, RPL_PONG, server.Id())
 }
 
 // server functions

@@ -21,6 +21,7 @@ var (
 
 type UnknownMessage struct {
 	command string
+	args    []string
 }
 
 // NB: no constructor, created on demand in parser for invalid messages.
@@ -83,14 +84,16 @@ func NewPassMessage(args []string) (Message, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	return &PassMessage{password: args[0]}
+	return &PassMessage{
+		password: args[0],
+	}, nil
 }
 
 func (m *PassMessage) Handle(s *Server, c *Client) {
-	if m.password == server.password {
+	if m.password == s.password {
 		c.serverPass = true
 	} else {
-		c.send <- ErrPass
+		c.send <- ErrPasswdMismatch(s)
 	}
 }
 
@@ -181,11 +184,9 @@ func NewModeMessage(args []string) (Message, error) {
 		return nil, NotEnoughArgsError
 	}
 
-	msg := &ModeMessage{
-		nickname: args[0],
-	}
 	if (len(args) > 1) && CHANNEL_RE.MatchString(args[1]) {
-		cmsg := &ChannelModeMessage{msg}
+		cmsg := new(ChannelModeMessage)
+		cmsg.nickname = args[0]
 		if len(args) > 2 {
 			groups := EXTRACT_MODE_RE.FindStringSubmatch(args[2])
 			cmsg.modes = make([]string, len(groups[2]))
@@ -195,14 +196,18 @@ func NewModeMessage(args []string) (Message, error) {
 				i++
 			}
 		}
-		if len(args > 3) {
+		if len(args) > 3 {
 			cmsg.modeParams = strings.Split(args[3], ",")
 		}
-		return cmsg
+		return cmsg, nil
+	}
+
+	msg := &ModeMessage{
+		nickname: args[0],
 	}
 	for _, arg := range args[1:] {
 		if !MODE_RE.MatchString(arg) {
-			return nil, ErrUModeUnknownFlag
+			return nil, UModeUnknownFlagError
 		}
 		prefix := arg[0]
 		for _, c := range arg[1:] {
@@ -407,14 +412,14 @@ type OperMessage struct {
 	password string
 }
 
-func NewOperMessage(args []string) Message {
+func NewOperMessage(args []string) (Message, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
 	return &OperMessage{
 		name:     args[0],
 		password: args[1],
-	}
+	}, nil
 }
 
 func (m *OperMessage) Handle(s *Server, c *Client) {

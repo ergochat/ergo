@@ -2,6 +2,7 @@ package irc
 
 import (
 	"fmt"
+	"log"
 	"net"
 )
 
@@ -16,9 +17,9 @@ type Client struct {
 	hostname   string
 	nick       string
 	serverPass bool
+	registered bool
 	// modes
 	away          bool
-	registered    bool
 	invisible     bool
 	wallOps       bool
 	restricted    bool
@@ -48,7 +49,9 @@ func (c *Client) SetReplyToStringChan() {
 	write := StringWriteChan(c.conn)
 	go func() {
 		for reply := range send {
-			write <- reply.String(c)
+			replyStr := reply.String(c)
+			log.Printf("%s <- %s", c.Id(), replyStr)
+			write <- replyStr
 		}
 	}()
 	c.send = send
@@ -88,8 +91,15 @@ func (c *Client) HasUser() bool {
 	return c.username != ""
 }
 
+func (c *Client) Username() string {
+	if c.HasUser() {
+		return c.username
+	}
+	return "*"
+}
+
 func (c *Client) UserHost() string {
-	return fmt.Sprintf("%s!%s@%s", c.nick, c.username, c.hostname)
+	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Username(), c.hostname)
 }
 
 func (c *Client) Id() string {

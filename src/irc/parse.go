@@ -26,15 +26,13 @@ var (
 	}
 )
 
-func ParseMessage(line string) (msg Message, err error) {
+func ParseMessage(line string) (Message, error) {
 	command, args := parseLine(line)
 	constructor, ok := parseCommandFuncs[command]
 	if !ok {
-		msg = &UnknownMessage{command}
-		return
+		return &UnknownMessage{command, args}, nil
 	}
-	msg, err = constructor(args)
-	return
+	return constructor(args)
 }
 
 func parseArg(line string) (arg string, rest string) {
