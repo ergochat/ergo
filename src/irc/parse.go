@@ -12,6 +12,7 @@ var (
 	parseCommandFuncs = map[string]ParseFunc{
 		"JOIN":    NewJoinMessage,
 		"MODE":    NewModeMessage,
+		"LOGIN":   NewLoginMessage,
 		"NICK":    NewNickMessage,
 		"PART":    NewPartMessage,
 		"PASS":    NewPassMessage,
@@ -21,7 +22,6 @@ var (
 		"QUIT":    NewQuitMessage,
 		"TOPIC":   NewTopicMessage,
 		"USER":    NewUserMessage,
-		"OPER":    NewOperMessage,
 	}
 )
 
@@ -29,7 +29,11 @@ func ParseMessage(line string) (Message, error) {
 	command, args := parseLine(line)
 	constructor, ok := parseCommandFuncs[command]
 	if !ok {
-		return &UnknownMessage{command, args}, nil
+		return &UnknownMessage{
+			BaseMessage: &BaseMessage{},
+			command:     command,
+			args:        args,
+		}, nil
 	}
 	return constructor(args)
 }

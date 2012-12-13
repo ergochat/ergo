@@ -10,6 +10,8 @@ import (
 
 type Message interface {
 	Handle(s *Server, c *Client)
+	Client() *Client
+	SetClient(c *Client)
 }
 
 var (
@@ -17,9 +19,22 @@ var (
 	UModeUnknownFlagError = errors.New("unknown umode flag")
 )
 
-// unknown
+type BaseMessage struct {
+	client *Client
+}
+
+func (m *BaseMessage) Client() *Client {
+	return m.client
+}
+
+func (m *BaseMessage) SetClient(c *Client) {
+	m.client = c
+}
+
+// unknown <command> [args...]
 
 type UnknownMessage struct {
+	*BaseMessage
 	command string
 	args    []string
 }
@@ -30,9 +45,10 @@ func (m *UnknownMessage) Handle(s *Server, c *Client) {
 	c.send <- ErrUnknownCommand(s, m.command)
 }
 
-// PING
+// PING <server1> [ <server2> ]
 
 type PingMessage struct {
+	*BaseMessage
 	server  string
 	server2 string
 }
@@ -41,7 +57,10 @@ func NewPingMessage(args []string) (Message, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &PingMessage{server: args[0]}
+	msg := &PingMessage{
+		BaseMessage: &BaseMessage{},
+		server:      args[0],
+	}
 	if len(args) > 1 {
 		msg.server2 = args[1]
 	}
@@ -52,9 +71,10 @@ func (m *PingMessage) Handle(s *Server, c *Client) {
 	c.send <- RplPong(s)
 }
 
-// PONG
+// PONG <server> [ <server2> ]
 
 type PongMessage struct {
+	*BaseMessage
 	server1 string
 	server2 string
 }
@@ -77,6 +97,7 @@ func (m *PongMessage) Handle(s *Server, c *Client) {
 // PASS <password>
 
 type PassMessage struct {
+	*BaseMessage
 	password string
 }
 
@@ -85,7 +106,8 @@ func NewPassMessage(args []string) (Message, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PassMessage{
-		password: args[0],
+		BaseMessage: &BaseMessage{},
+		password:    args[0],
 	}, nil
 }
 
@@ -97,9 +119,10 @@ func (m *PassMessage) Handle(s *Server, c *Client) {
 	}
 }
 
-// NICK
+// NICK <nickname>
 
 type NickMessage struct {
+	*BaseMessage
 	nickname string
 }
 
@@ -107,16 +130,20 @@ func NewNickMessage(args []string) (Message, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
 	}
-	return &NickMessage{args[0]}, nil
+	return &NickMessage{
+		BaseMessage: &BaseMessage{},
+		nickname:    args[0],
+	}, nil
 }
 
 func (m *NickMessage) Handle(s *Server, c *Client) {
 	s.ChangeNick(c, m.nickname)
 }
 
-// USER
+// USER <user> <mode> <unused> <realname>
 
 type UserMessage struct {
+	*BaseMessage
 	user     string
 	mode     uint8
 	unused   string
@@ -128,9 +155,10 @@ func NewUserMessage(args []string) (Message, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &UserMessage{
-		user:     args[0],
-		unused:   args[2],
-		realname: args[3],
+		BaseMessage: &BaseMessage{},
+		user:        args[0],
+		unused:      args[2],
+		realname:    args[3],
 	}
 	mode, err := strconv.ParseUint(args[1], 10, 8)
 	if err == nil {
@@ -146,11 +174,14 @@ func (m *UserMessage) Handle(s *Server, c *Client) {
 // QUIT [ <Quit Message> ]
 
 type QuitMessage struct {
+	*BaseMessage
 	message string
 }
 
 func NewQuitMessage(args []string) (Message, error) {
-	msg := &QuitMessage{}
+	msg := &QuitMessage{
+		BaseMessage: &BaseMessage{},
+	}
 	if len(args) > 0 {
 		msg.message = args[0]
 	}
@@ -164,6 +195,7 @@ func (m *QuitMessage) Handle(s *Server, c *Client) {
 // MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
 
 type ModeMessage struct {
+	*BaseMessage
 	nickname string
 	modes    []string
 }
@@ -203,7 +235,8 @@ func NewModeMessage(args []string) (Message, error) {
 	}
 
 	msg := &ModeMessage{
-		nickname: args[0],
+		BaseMessage: &BaseMessage{},
+		nickname:    args[0],
 	}
 	for _, arg := range args[1:] {
 		if !MODE_RE.MatchString(arg) {
@@ -238,13 +271,16 @@ func (m *ChannelModeMessage) Handle(s *Server, c *Client) {
 // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
 
 type JoinMessage struct {
+	*BaseMessage
 	channels []string
 	keys     []string
 	zero     bool
 }
 
 func NewJoinMessage(args []string) (Message, error) {
-	msg := &JoinMessage{}
+	msg := &JoinMessage{
+		BaseMessage: &BaseMessage{},
+	}
 	if len(args) > 0 {
 		if args[0] == "0" {
 			msg.zero = true
@@ -276,9 +312,10 @@ func (m *JoinMessage) Handle(s *Server, c *Client) {
 	}
 }
 
-// PART
+// PART <channel> *( "," <channel> ) [ <Part Message> ]
 
 type PartMessage struct {
+	*BaseMessage
 	channels []string
 	message  string
 }
@@ -287,7 +324,11 @@ func NewPartMessage(args []string) (Message, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &PartMessage{channels: strings.Split(args[0], ",")}
+	msg := &PartMessage{
+
+		BaseMessage: &BaseMessage{},
+		channels:    strings.Split(args[0], ","),
+	}
 	if len(args) > 1 {
 		msg.message = args[1]
 	}
@@ -307,9 +348,10 @@ func (m *PartMessage) Handle(s *Server, c *Client) {
 	}
 }
 
-// PRIVMSG
+// PRIVMSG <target> <message>
 
 type PrivMsgMessage struct {
+	*BaseMessage
 	target  string
 	message string
 }
@@ -319,8 +361,9 @@ func NewPrivMsgMessage(args []string) (Message, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PrivMsgMessage{
-		target:  args[0],
-		message: args[1],
+		BaseMessage: &BaseMessage{},
+		target:      args[0],
+		message:     args[1],
 	}, nil
 }
 
@@ -350,6 +393,7 @@ func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
 // TOPIC [newtopic]
 
 type TopicMessage struct {
+	*BaseMessage
 	channel string
 	topic   string
 }
@@ -358,7 +402,10 @@ func NewTopicMessage(args []string) (Message, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &TopicMessage{channel: args[0]}
+	msg := &TopicMessage{
+		BaseMessage: &BaseMessage{},
+		channel:     args[0],
+	}
 	if len(args) > 1 {
 		msg.topic = args[1]
 	}
@@ -378,27 +425,25 @@ func (m *TopicMessage) Handle(s *Server, c *Client) {
 	}
 }
 
-// OPER <name> <password>
+// LOGIN <nick> <password>
 
-type OperMessage struct {
-	name     string
+type LoginMessage struct {
+	*BaseMessage
+	nick     string
 	password string
 }
 
-func NewOperMessage(args []string) (Message, error) {
+func NewLoginMessage(args []string) (Message, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
-	return &OperMessage{
-		name:     args[0],
-		password: args[1],
+	return &LoginMessage{
+		BaseMessage: &BaseMessage{},
+		nick:        args[0],
+		password:    args[1],
 	}, nil
 }
 
-func (m *OperMessage) Handle(s *Server, c *Client) {
-	if s.operators[m.name] == m.password {
-		c.send <- RplYoureOper(s)
-	} else {
-		c.send <- ErrPasswdMismatch(s)
-	}
+func (m *LoginMessage) Handle(s *Server, c *Client) {
+	// TODO
 }

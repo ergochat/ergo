@@ -10,7 +10,6 @@ import (
 type Client struct {
 	conn       net.Conn
 	send       chan<- Reply
-	recv       <-chan string
 	username   string
 	realname   string
 	hostname   string
@@ -27,39 +26,47 @@ type Client struct {
 type ClientSet map[*Client]bool
 
 func NewClient(server *Server, conn net.Conn) *Client {
+	read := StringReadChan(conn)
+	write := StringWriteChan(conn)
+	send := make(chan Reply)
+
 	client := &Client{
 		channels: make(ChannelSet),
 		conn:     conn,
 		hostname: LookupHostname(conn.RemoteAddr()),
-		recv:     StringReadChan(conn),
 		server:   server,
+		send:     send,
 	}
-	client.SetReplyToStringChan()
+
+	// Connect the conn to the server.
+	go client.readConn(read)
+
+	// Connect the reply channel to the conn.
+	go client.writeConn(write, send)
+
 	return client
 }
 
-func (c *Client) SetReplyToStringChan() {
-	send := make(chan Reply)
-	write := StringWriteChan(c.conn)
-	go func() {
-		for reply := range send {
-			replyStr := reply.String(c)
-			log.Printf("%s <- %s", c.Id(), replyStr)
-			write <- replyStr
-		}
-	}()
-	c.send = send
-}
+func (c *Client) readConn(recv <-chan string) {
+	for str := range recv {
+		log.Printf("%s > %s", c.Id(), str)
 
-// Adapt `chan string` to a `chan Message`.
-func (c *Client) Communicate() {
-	for str := range c.recv {
 		m, err := ParseMessage(str)
 		if err != nil {
 			// TODO handle error
-			return
+			continue
 		}
-		c.server.recv <- &ClientMessage{c, m}
+
+		m.SetClient(c)
+		c.server.recv <- m
+	}
+}
+
+func (c *Client) writeConn(write chan<- string, send <-chan Reply) {
+	for reply := range send {
+		replyStr := reply.String(c)
+		log.Printf("%s < %s", c.Id(), replyStr)
+		write <- replyStr
 	}
 }
 

@@ -79,6 +79,10 @@ func (ch *Channel) Part(cl *Client, message string) {
 
 	delete(ch.members, cl)
 	delete(cl.channels, ch)
+
+	if len(ch.members) == 0 {
+		ch.server.DeleteChannel(ch)
+	}
 }
 
 func (ch *Channel) PrivMsg(cl *Client, message string) {

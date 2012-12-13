@@ -149,4 +149,5 @@ const (
 	RPL_PART    = "PART"
 	RPL_PONG    = "PONG"
 	RPL_PRIVMSG = "PRIVMSG"
+	RPL_QUIT    = "QUIT"
 )

@@ -7,23 +7,17 @@ import (
 )
 
 type Server struct {
-	hostname  string
-	ctime     time.Time
-	name      string
-	recv      chan<- *ClientMessage
-	nicks     map[string]*Client
-	channels  map[string]*Channel
-	password  string
-	operators map[string]string
-}
-
-type ClientMessage struct {
-	client  *Client
-	message Message
+	hostname string
+	ctime    time.Time
+	name     string
+	recv     chan<- Message
+	password string
+	nicks    map[string]*Client
+	channels map[string]*Channel
 }
 
 func NewServer(name string) *Server {
-	recv := make(chan *ClientMessage)
+	recv := make(chan Message)
 	server := &Server{
 		ctime:    time.Now(),
 		name:     name,
@@ -33,9 +27,8 @@ func NewServer(name string) *Server {
 	}
 	go func() {
 		for m := range recv {
-			log.Printf("%s -> %T%+v", m.client.Id(), m.message, m.message)
-			m.client.atime = time.Now()
-			m.message.Handle(server, m.client)
+			m.Client().atime = time.Now()
+			m.Handle(server, m.Client())
 		}
 	}()
 	return server
@@ -57,7 +50,7 @@ func (s *Server) Listen(addr string) {
 			continue
 		}
 		log.Print("Server.Listen: accepted ", conn.RemoteAddr())
-		go NewClient(s, conn).Communicate()
+		go NewClient(s, conn)
 	}
 }
 
@@ -72,13 +65,10 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 	return channel
 }
 
-func (s *Server) AddOperator(name string, password string) {
-	s.operators[name] = password
-}
-
 // Send a message to clients of channels fromClient is a member.
 func (s *Server) SendToInterestedClients(fromClient *Client, reply Reply) {
-	clients := make(map[*Client]bool)
+
+	clients := make(ClientSet)
 	clients[fromClient] = true
 	for channel := range fromClient.channels {
 		for client := range channel.members {
@@ -98,14 +88,12 @@ func (s *Server) ChangeNick(c *Client, newNick string) {
 		c.send <- ErrNickNameInUse(s, newNick)
 		return
 	}
+	s.SendToInterestedClients(c, RplNick(c, newNick))
 
 	if c.nick != "" {
 		delete(s.nicks, c.nick)
 	}
 	s.nicks[newNick] = c
-
-	s.SendToInterestedClients(c, RplNick(c, newNick))
-
 	c.nick = newNick
 
 	s.tryRegister(c)
@@ -136,7 +124,7 @@ func (s *Server) Quit(c *Client, message string) {
 		channel.Part(c, message)
 	}
 	delete(s.nicks, c.nick)
-
+	s.SendToInterestedClients(c, RplQuit(c, message))
 	c.conn.Close()
 }
 
@@ -154,4 +142,8 @@ func (s *Server) ChangeUserMode(c *Client, modes []string) {
 
 func (s *Server) Id() string {
 	return s.hostname
+}
+
+func (s *Server) DeleteChannel(channel *Channel) {
+	delete(s.channels, channel.name)
 }

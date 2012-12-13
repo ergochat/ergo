@@ -1,2 +1,2 @@
 #!/bin/bash
-env GOPATH="$PWD" go install ergonomadic
+env GOPATH="$PWD" go install -v ergonomadic
