@@ -107,7 +107,8 @@ func RplNoTopic(channel *Channel) Reply {
 }
 
 func RplTopic(channel *Channel) Reply {
-	return NewNumericReply(channel.server, RPL_TOPIC, fmt.Sprintf("%s :%s", channel.name, channel.topic))
+	return NewNumericReply(channel.server, RPL_TOPIC,
+		fmt.Sprintf("%s :%s", channel.name, channel.topic))
 }
 
 func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
