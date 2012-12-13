@@ -42,10 +42,10 @@ func (reply *NumericReply) String(client *Client) string {
 		reply.message)
 }
 
-// messaging
+// messaging replies
 
-func RplPrivMsg(source *Client, message string) Reply {
-	return NewNumericReply(source, RPL_PRIVMSG, ":"+message)
+func RplPrivMsg(source *Client, target *Client, message string) Reply {
+	return NewBasicReply(source, RPL_PRIVMSG, fmt.Sprintf("%s :%s", target, message))
 }
 
 func RplNick(client *Client, newNick string) Reply {
@@ -72,7 +72,11 @@ func RplQuit(client *Client, message string) Reply {
 	return NewBasicReply(client, RPL_QUIT, ":"+message)
 }
 
-// Server Info
+func RplInviteMsg(channel *Channel, inviter *Client) Reply {
+	return NewBasicReply(inviter, RPL_INVITE, channel.name)
+}
+
+// numeric replies
 
 func RplWelcome(source Identifier, client *Client) Reply {
 	return NewNumericReply(source, RPL_WELCOME,
@@ -98,18 +102,12 @@ func RplUModeIs(server *Server, client *Client) Reply {
 	return NewNumericReply(server, RPL_UMODEIS, client.UModeString())
 }
 
-// numeric replies
-
 func RplNoTopic(channel *Channel) Reply {
 	return NewNumericReply(channel.server, RPL_NOTOPIC, channel.name+" :No topic is set")
 }
 
 func RplTopic(channel *Channel) Reply {
 	return NewNumericReply(channel.server, RPL_TOPIC, fmt.Sprintf("%s :%s", channel.name, channel.topic))
-}
-
-func RplInviteMsg(channel *Channel, inviter *Client) Reply {
-	return NewNumericReply(inviter, RPL_INVITE, channel.name)
 }
 
 func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
@@ -131,7 +129,7 @@ func RplYoureOper(server *Server) Reply {
 	return NewNumericReply(server, RPL_YOUREOPER, ":You are now an IRC operator")
 }
 
-// errors
+// errors (also numeric)
 
 func ErrAlreadyRegistered(source Identifier) Reply {
 	return NewNumericReply(source, ERR_ALREADYREGISTRED, ":You may not reregister")

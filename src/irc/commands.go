@@ -383,7 +383,7 @@ func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
 		}
 	} else {
 		if client := s.nicks[m.target]; client != nil {
-			client.send <- RplPrivMsg(c, m.message)
+			client.send <- RplPrivMsg(c, client, m.message)
 			return
 		}
 	}
