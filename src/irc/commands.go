@@ -2,63 +2,66 @@ package irc
 
 import (
 	"errors"
-	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-type Message interface {
-	Handle(s *Server, c *Client)
+type Command interface {
 	Client() *Client
-	SetClient(c *Client)
+	SetClient(*Client)
+	Handle(*Server)
 }
 
 var (
-	NotEnoughArgsError    = errors.New("not enough arguments")
-	UModeUnknownFlagError = errors.New("unknown umode flag")
+	NotEnoughArgsError = errors.New("not enough arguments")
 )
 
-type BaseMessage struct {
+type BaseCommand struct {
 	client *Client
 }
 
-func (m *BaseMessage) Client() *Client {
-	return m.client
+func (base *BaseCommand) Client() *Client {
+	return base.client
 }
 
-func (m *BaseMessage) SetClient(c *Client) {
-	m.client = c
+func (base *BaseCommand) SetClient(c *Client) {
+	base.client = c
 }
 
 // unknown <command> [args...]
 
-type UnknownMessage struct {
-	*BaseMessage
+type UnknownCommand struct {
+	*BaseCommand
 	command string
 	args    []string
 }
 
-// NB: no constructor, created on demand in parser for invalid messages.
+func NewUnknownCommand(command string, args []string) Command {
+	return &UnknownCommand{
+		BaseCommand: &BaseCommand{},
+		command:     command,
+		args:        args,
+	}
+}
 
-func (m *UnknownMessage) Handle(s *Server, c *Client) {
-	c.send <- ErrUnknownCommand(s, m.command)
+func (m *UnknownCommand) Handle(s *Server) {
+	m.Client().replies <- ErrUnknownCommand(s, m.command)
 }
 
 // PING <server1> [ <server2> ]
 
-type PingMessage struct {
-	*BaseMessage
+type PingCommand struct {
+	*BaseCommand
 	server  string
 	server2 string
 }
 
-func NewPingMessage(args []string) (Message, error) {
+func NewPingCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &PingMessage{
-		BaseMessage: &BaseMessage{},
+	msg := &PingCommand{
+		BaseCommand: &BaseCommand{},
 		server:      args[0],
 	}
 	if len(args) > 1 {
@@ -67,95 +70,78 @@ func NewPingMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *PingMessage) Handle(s *Server, c *Client) {
-	c.send <- RplPong(s)
-}
-
 // PONG <server> [ <server2> ]
 
-type PongMessage struct {
-	*BaseMessage
+type PongCommand struct {
+	*BaseCommand
 	server1 string
 	server2 string
 }
 
-func NewPongMessage(args []string) (Message, error) {
+func NewPongCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	message := &PongMessage{server1: args[0]}
+	message := &PongCommand{
+		BaseCommand: &BaseCommand{},
+		server1:     args[0],
+	}
 	if len(args) > 1 {
 		message.server2 = args[1]
 	}
 	return message, nil
 }
 
-func (m *PongMessage) Handle(s *Server, c *Client) {
-	// no-op
-}
-
 // PASS <password>
 
-type PassMessage struct {
-	*BaseMessage
+type PassCommand struct {
+	*BaseCommand
 	password string
 }
 
-func NewPassMessage(args []string) (Message, error) {
+func NewPassCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	return &PassMessage{
-		BaseMessage: &BaseMessage{},
+	return &PassCommand{
+		BaseCommand: &BaseCommand{},
 		password:    args[0],
 	}, nil
 }
 
-func (m *PassMessage) Handle(s *Server, c *Client) {
-	if m.password == s.password {
-		c.serverPass = true
-	} else {
-		c.send <- ErrPasswdMismatch(s)
-	}
-}
-
 // NICK <nickname>
 
-type NickMessage struct {
-	*BaseMessage
+type NickCommand struct {
+	*BaseCommand
 	nickname string
 }
 
-func NewNickMessage(args []string) (Message, error) {
+func NewNickCommand(args []string) (Command, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
 	}
-	return &NickMessage{
-		BaseMessage: &BaseMessage{},
+	return &NickCommand{
+		BaseCommand: &BaseCommand{},
 		nickname:    args[0],
 	}, nil
 }
 
-func (m *NickMessage) Handle(s *Server, c *Client) {
-	s.ChangeNick(c, m.nickname)
-}
-
 // USER <user> <mode> <unused> <realname>
 
-type UserMessage struct {
-	*BaseMessage
+type UserCommand struct {
+	*BaseCommand
 	user     string
 	mode     uint8
 	unused   string
 	realname string
 }
 
-func NewUserMessage(args []string) (Message, error) {
+func NewUserCommand(args []string) (Command, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &UserMessage{
-		BaseMessage: &BaseMessage{},
+	msg := &UserCommand{
+		BaseCommand: &BaseCommand{},
 		user:        args[0],
 		unused:      args[2],
 		realname:    args[3],
@@ -167,20 +153,16 @@ func NewUserMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *UserMessage) Handle(s *Server, c *Client) {
-	s.UserLogin(c, m.user, m.realname)
-}
+// QUIT [ <Quit Command> ]
 
-// QUIT [ <Quit Message> ]
-
-type QuitMessage struct {
-	*BaseMessage
+type QuitCommand struct {
+	*BaseCommand
 	message string
 }
 
-func NewQuitMessage(args []string) (Message, error) {
-	msg := &QuitMessage{
-		BaseMessage: &BaseMessage{},
+func NewQuitCommand(args []string) (Command, error) {
+	msg := &QuitCommand{
+		BaseCommand: &BaseCommand{},
 	}
 	if len(args) > 0 {
 		msg.message = args[0]
@@ -188,98 +170,18 @@ func NewQuitMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *QuitMessage) Handle(s *Server, c *Client) {
-	s.Quit(c, m.message)
-}
-
-// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
-
-type ModeMessage struct {
-	*BaseMessage
-	nickname string
-	modes    []string
-}
-
-type ChannelModeMessage struct {
-	*ModeMessage
-	channel    string
-	modeParams []string
-}
-
-// mode s is accepted but ignored, like some other modes
-var MODE_RE = regexp.MustCompile("^[-+][iwroOs]+$")
-var CHANNEL_RE = regexp.MustCompile("^[+\\&\\!#][:alnum:]+$")
-var EXTRACT_MODE_RE = regexp.MustCompile("^([-+])?([aimnqpsrtklbeI]+)$")
-
-func NewModeMessage(args []string) (Message, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
-
-	if (len(args) > 1) && CHANNEL_RE.MatchString(args[1]) {
-		cmsg := new(ChannelModeMessage)
-		cmsg.nickname = args[0]
-		if len(args) > 2 {
-			groups := EXTRACT_MODE_RE.FindStringSubmatch(args[2])
-			cmsg.modes = make([]string, len(groups[2]))
-			i := 0
-			for _, char := range groups[2] {
-				cmsg.modes[i] = fmt.Sprintf("%s%c", groups[1], char)
-				i++
-			}
-		}
-		if len(args) > 3 {
-			cmsg.modeParams = strings.Split(args[3], ",")
-		}
-		return cmsg, nil
-	}
-
-	msg := &ModeMessage{
-		BaseMessage: &BaseMessage{},
-		nickname:    args[0],
-	}
-	for _, arg := range args[1:] {
-		if !MODE_RE.MatchString(arg) {
-			return nil, UModeUnknownFlagError
-		}
-		prefix := arg[0]
-		for _, c := range arg[1:] {
-			mode := fmt.Sprintf("%c%c", prefix, c)
-			msg.modes = append(msg.modes, mode)
-		}
-	}
-	return msg, nil
-}
-
-func (m *ModeMessage) Handle(s *Server, c *Client) {
-	if m.nickname != c.nick {
-		c.send <- ErrUsersDontMatch(s)
-		return
-	}
-	s.ChangeUserMode(c, m.modes)
-}
-
-func (m *ChannelModeMessage) Handle(s *Server, c *Client) {
-	channel := s.channels[m.channel]
-	if channel != nil {
-		c.send <- ErrNoChanModes(channel)
-	} else {
-		c.send <- ErrNoSuchChannel(s, m.channel)
-	}
-}
-
 // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
 
-type JoinMessage struct {
-	*BaseMessage
+type JoinCommand struct {
+	*BaseCommand
 	channels []string
 	keys     []string
 	zero     bool
 }
 
-func NewJoinMessage(args []string) (Message, error) {
-	msg := &JoinMessage{
-		BaseMessage: &BaseMessage{},
+func NewJoinCommand(args []string) (Command, error) {
+	msg := &JoinCommand{
+		BaseCommand: &BaseCommand{},
 	}
 	if len(args) > 0 {
 		if args[0] == "0" {
@@ -295,38 +197,20 @@ func NewJoinMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *JoinMessage) Handle(s *Server, c *Client) {
-	if m.zero {
-		for channel := range c.channels {
-			channel.Part(c, "")
-		}
-	} else {
-		for i, name := range m.channels {
-			key := ""
-			if len(m.keys) > i {
-				key = m.keys[i]
-			}
+// PART <channel> *( "," <channel> ) [ <Part Command> ]
 
-			s.GetOrMakeChannel(name).Join(c, key)
-		}
-	}
-}
-
-// PART <channel> *( "," <channel> ) [ <Part Message> ]
-
-type PartMessage struct {
-	*BaseMessage
+type PartCommand struct {
+	*BaseCommand
 	channels []string
 	message  string
 }
 
-func NewPartMessage(args []string) (Message, error) {
+func NewPartCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &PartMessage{
-
-		BaseMessage: &BaseMessage{},
+	msg := &PartCommand{
+		BaseCommand: &BaseCommand{},
 		channels:    strings.Split(args[0], ","),
 	}
 	if len(args) > 1 {
@@ -335,39 +219,26 @@ func NewPartMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *PartMessage) Handle(s *Server, c *Client) {
-	for _, chname := range m.channels {
-		channel := s.channels[chname]
-
-		if channel == nil {
-			c.send <- ErrNoSuchChannel(s, chname)
-			continue
-		}
-
-		channel.Part(c, m.message)
-	}
-}
-
 // PRIVMSG <target> <message>
 
-type PrivMsgMessage struct {
-	*BaseMessage
+type PrivMsgCommand struct {
+	*BaseCommand
 	target  string
 	message string
 }
 
-func NewPrivMsgMessage(args []string) (Message, error) {
+func NewPrivMsgCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
-	return &PrivMsgMessage{
-		BaseMessage: &BaseMessage{},
+	return &PrivMsgCommand{
+		BaseCommand: &BaseCommand{},
 		target:      args[0],
 		message:     args[1],
 	}, nil
 }
 
-func (m *PrivMsgMessage) TargetIsChannel() bool {
+func (m *PrivMsgCommand) TargetIsChannel() bool {
 	switch m.target[0] {
 	case '&', '#', '+', '!':
 		return true
@@ -375,35 +246,20 @@ func (m *PrivMsgMessage) TargetIsChannel() bool {
 	return false
 }
 
-func (m *PrivMsgMessage) Handle(s *Server, c *Client) {
-	if m.TargetIsChannel() {
-		if channel := s.channels[m.target]; channel != nil {
-			channel.PrivMsg(c, m.message)
-			return
-		}
-	} else {
-		if client := s.nicks[m.target]; client != nil {
-			client.send <- RplPrivMsg(c, client, m.message)
-			return
-		}
-	}
-	c.send <- ErrNoSuchNick(s, m.target)
-}
-
 // TOPIC [newtopic]
 
-type TopicMessage struct {
-	*BaseMessage
+type TopicCommand struct {
+	*BaseCommand
 	channel string
 	topic   string
 }
 
-func NewTopicMessage(args []string) (Message, error) {
+func NewTopicCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &TopicMessage{
-		BaseMessage: &BaseMessage{},
+	msg := &TopicCommand{
+		BaseCommand: &BaseCommand{},
 		channel:     args[0],
 	}
 	if len(args) > 1 {
@@ -412,38 +268,40 @@ func NewTopicMessage(args []string) (Message, error) {
 	return msg, nil
 }
 
-func (m *TopicMessage) Handle(s *Server, c *Client) {
-	channel := s.channels[m.channel]
-	if channel == nil {
-		c.send <- ErrNoSuchChannel(s, m.channel)
-		return
-	}
-	if m.topic == "" {
-		channel.GetTopic(c)
-	} else {
-		channel.ChangeTopic(c, m.topic)
-	}
-}
-
 // LOGIN <nick> <password>
 
-type LoginMessage struct {
-	*BaseMessage
+type LoginCommand struct {
+	*BaseCommand
 	nick     string
 	password string
 }
 
-func NewLoginMessage(args []string) (Message, error) {
+func NewLoginCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
-	return &LoginMessage{
-		BaseMessage: &BaseMessage{},
+	return &LoginCommand{
+		BaseCommand: &BaseCommand{},
 		nick:        args[0],
 		password:    args[1],
 	}, nil
 }
 
-func (m *LoginMessage) Handle(s *Server, c *Client) {
-	// TODO
+// RESERVE <nick> <password>
+
+type ReserveCommand struct {
+	*BaseCommand
+	nick     string
+	password string
+}
+
+func NewReserveCommand(args []string) (Command, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+	return &ReserveCommand{
+		BaseCommand: &BaseCommand{},
+		nick:        args[0],
+		password:    args[1],
+	}, nil
 }

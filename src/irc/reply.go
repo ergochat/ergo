@@ -8,6 +8,7 @@ import (
 
 type Identifier interface {
 	Id() string
+	PublicId() string
 }
 
 type Reply interface {
@@ -20,7 +21,8 @@ type BasicReply struct {
 	message string
 }
 
-func NewBasicReply(source Identifier, code string, message string) *BasicReply {
+func NewBasicReply(source Identifier, code string, format string, args ...interface{}) *BasicReply {
+	message := fmt.Sprintf(format, args...)
 	fullMessage := fmt.Sprintf(":%s %s %s\r\n", source.Id(), code, message)
 	return &BasicReply{source, code, fullMessage}
 }
@@ -33,8 +35,8 @@ type NumericReply struct {
 	*BasicReply
 }
 
-func NewNumericReply(source Identifier, code string, message string) *NumericReply {
-	return &NumericReply{&BasicReply{source, code, message}}
+func NewNumericReply(source Identifier, code string, format string, args ...interface{}) *NumericReply {
+	return &NumericReply{&BasicReply{source, code, fmt.Sprintf(format, args...)}}
 }
 
 func (reply *NumericReply) String(client *Client) string {
@@ -44,24 +46,24 @@ func (reply *NumericReply) String(client *Client) string {
 
 // messaging replies
 
-func RplPrivMsg(source *Client, target *Client, message string) Reply {
-	return NewBasicReply(source, RPL_PRIVMSG, fmt.Sprintf("%s :%s", target, message))
+func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
+	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", target, message)
 }
 
 func RplNick(client *Client, newNick string) Reply {
 	return NewBasicReply(client, RPL_NICK, newNick)
 }
 
-func RplPrivMsgChannel(channel *Channel, source *Client, message string) Reply {
-	return NewBasicReply(source, RPL_PRIVMSG, fmt.Sprintf("%s :%s", channel.name, message))
+func RplPrivMsgChannel(channel *Channel, source Identifier, message string) Reply {
+	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", channel.name, message)
 }
 
-func RplJoin(channel *Channel, client *Client) Reply {
-	return NewBasicReply(client, RPL_JOIN, channel.name)
+func RplJoin(channel *Channel, user *User) Reply {
+	return NewBasicReply(user, RPL_JOIN, channel.name)
 }
 
-func RplPart(channel *Channel, client *Client, message string) Reply {
-	return NewBasicReply(client, RPL_PART, fmt.Sprintf("%s :%s", channel.name, message))
+func RplPart(channel *Channel, user *User, message string) Reply {
+	return NewBasicReply(user, RPL_PART, "%s :%s", channel.name, message)
 }
 
 func RplPong(server *Server) Reply {
@@ -69,7 +71,7 @@ func RplPong(server *Server) Reply {
 }
 
 func RplQuit(client *Client, message string) Reply {
-	return NewBasicReply(client, RPL_QUIT, ":"+message)
+	return NewBasicReply(client, RPL_QUIT, ":%", message)
 }
 
 func RplInviteMsg(channel *Channel, inviter *Client) Reply {
@@ -80,70 +82,75 @@ func RplInviteMsg(channel *Channel, inviter *Client) Reply {
 
 func RplWelcome(source Identifier, client *Client) Reply {
 	return NewNumericReply(source, RPL_WELCOME,
-		"Welcome to the Internet Relay Network "+client.Id())
+		"Welcome to the Internet Relay Network %s", client.Id())
 }
 
 func RplYourHost(server *Server, target *Client) Reply {
 	return NewNumericReply(server, RPL_YOURHOST,
-		fmt.Sprintf("Your host is %s, running version %s", server.hostname, VERSION))
+		"Your host is %s, running version %s", server.hostname, VERSION)
 }
 
 func RplCreated(server *Server) Reply {
 	return NewNumericReply(server, RPL_CREATED,
-		"This server was created "+server.ctime.Format(time.RFC1123))
+		"This server was created %s", server.ctime.Format(time.RFC1123))
 }
 
 func RplMyInfo(server *Server) Reply {
 	return NewNumericReply(server, RPL_MYINFO,
-		fmt.Sprintf("%s %s w kn", server.name, VERSION))
+		"%s %s a kn", server.name, VERSION)
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
-	return NewNumericReply(server, RPL_UMODEIS, client.UModeString())
+	return NewNumericReply(server, RPL_UMODEIS,
+		client.UModeString())
 }
 
 func RplNoTopic(channel *Channel) Reply {
-	return NewNumericReply(channel.server, RPL_NOTOPIC, channel.name+" :No topic is set")
+	return NewNumericReply(channel.server, RPL_NOTOPIC,
+		"%s :No topic is set", channel.name)
 }
 
 func RplTopic(channel *Channel) Reply {
 	return NewNumericReply(channel.server, RPL_TOPIC,
-		fmt.Sprintf("%s :%s", channel.name, channel.topic))
+		"%s :%s", channel.name, channel.topic)
 }
 
 func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
 	return NewNumericReply(channel.server, RPL_INVITING,
-		fmt.Sprintf("%s %s", channel.name, invitee.Nick()))
+		"%s %s", channel.name, invitee.Nick())
 }
 
 func RplNamReply(channel *Channel) Reply {
 	// TODO multiple names and splitting based on message size
 	return NewNumericReply(channel.server, RPL_NAMREPLY,
-		fmt.Sprintf("= %s :%s", channel.name, strings.Join(channel.Nicks(), " ")))
+		"= %s :%s", channel.name, strings.Join(channel.Nicks(), " "))
 }
 
 func RplEndOfNames(source Identifier) Reply {
-	return NewNumericReply(source, RPL_ENDOFNAMES, ":End of NAMES list")
+	return NewNumericReply(source, RPL_ENDOFNAMES,
+		":End of NAMES list")
 }
 
 func RplYoureOper(server *Server) Reply {
-	return NewNumericReply(server, RPL_YOUREOPER, ":You are now an IRC operator")
+	return NewNumericReply(server, RPL_YOUREOPER,
+		":You are now an IRC operator")
 }
 
 // errors (also numeric)
 
 func ErrAlreadyRegistered(source Identifier) Reply {
-	return NewNumericReply(source, ERR_ALREADYREGISTRED, ":You may not reregister")
+	return NewNumericReply(source, ERR_ALREADYREGISTRED,
+		":You may not reregister")
 }
 
 func ErrNickNameInUse(source Identifier, nick string) Reply {
 	return NewNumericReply(source, ERR_NICKNAMEINUSE,
-		nick+" :Nickname is already in use")
+		"%s :Nickname is already in use", nick)
 }
 
 func ErrUnknownCommand(source Identifier, command string) Reply {
 	return NewNumericReply(source, ERR_UNKNOWNCOMMAND,
-		command+" :Unknown command")
+		"%s :Unknown command", command)
 }
 
 func ErrUsersDontMatch(source Identifier) Reply {
@@ -153,37 +160,37 @@ func ErrUsersDontMatch(source Identifier) Reply {
 
 func ErrNeedMoreParams(source Identifier, command string) Reply {
 	return NewNumericReply(source, ERR_NEEDMOREPARAMS,
-		command+"%s :Not enough parameters")
+		"%s :Not enough parameters", command)
 }
 
 func ErrNoSuchChannel(source Identifier, channel string) Reply {
 	return NewNumericReply(source, ERR_NOSUCHCHANNEL,
-		channel+" :No such channel")
+		"%s :No such channel", channel)
 }
 
 func ErrUserOnChannel(channel *Channel, member *Client) Reply {
 	return NewNumericReply(channel.server, ERR_USERONCHANNEL,
-		fmt.Sprintf("%s %s :is already on channel", member.nick, channel.name))
+		"%s %s :is already on channel", member.nick, channel.name)
 }
 
 func ErrNotOnChannel(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_NOTONCHANNEL,
-		channel.name+" :You're not on that channel")
+		"%s :You're not on that channel", channel.name)
 }
 
 func ErrInviteOnlyChannel(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_INVITEONLYCHAN,
-		channel.name+" :Cannot join channel (+i)")
+		"%s :Cannot join channel (+i)", channel.name)
 }
 
 func ErrBadChannelKey(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_BADCHANNELKEY,
-		channel.name+" :Cannot join channel (+k)")
+		"%s :Cannot join channel (+k)", channel.name)
 }
 
 func ErrNoSuchNick(source Identifier, nick string) Reply {
 	return NewNumericReply(source, ERR_NOSUCHNICK,
-		nick+" :No such nick/channel")
+		"%s :No such nick/channel", nick)
 }
 
 func ErrPasswdMismatch(server *Server) Reply {
@@ -192,5 +199,13 @@ func ErrPasswdMismatch(server *Server) Reply {
 
 func ErrNoChanModes(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_NOCHANMODES,
-		channel.name+" :Channel doesn't support modes")
+		"%s :Channel doesn't support modes", channel.name)
+}
+
+func ErrNoPrivileges(server *Server) Reply {
+	return NewNumericReply(server, ERR_NOPRIVILEGES, ":Permission Denied")
+}
+
+func ErrRestricted(server *Server) Reply {
+	return NewNumericReply(server, ERR_RESTRICTED, ":Your connection is restricted!")
 }

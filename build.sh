@@ -1,2 +1,4 @@
 #!/bin/bash
-env GOPATH="$PWD" go install -v ergonomadic
+export GOPATH="$PWD"
+go get "code.google.com/p/go.crypto/bcrypt"
+go install -v ergonomadic genpasswd

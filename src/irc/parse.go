@@ -5,35 +5,30 @@ import (
 	"strings"
 )
 
-type ParseFunc func([]string) (Message, error)
+type ParseFunc func([]string) (Command, error)
 
 var (
-	ErrParseMessage   = errors.New("failed to parse message")
+	ErrParseCommand   = errors.New("failed to parse message")
 	parseCommandFuncs = map[string]ParseFunc{
-		"JOIN":    NewJoinMessage,
-		"MODE":    NewModeMessage,
-		"LOGIN":   NewLoginMessage,
-		"NICK":    NewNickMessage,
-		"PART":    NewPartMessage,
-		"PASS":    NewPassMessage,
-		"PING":    NewPingMessage,
-		"PONG":    NewPongMessage,
-		"PRIVMSG": NewPrivMsgMessage,
-		"QUIT":    NewQuitMessage,
-		"TOPIC":   NewTopicMessage,
-		"USER":    NewUserMessage,
+		"JOIN":    NewJoinCommand,
+		"LOGIN":   NewLoginCommand,
+		"NICK":    NewNickCommand,
+		"PART":    NewPartCommand,
+		"PASS":    NewPassCommand,
+		"PING":    NewPingCommand,
+		"PONG":    NewPongCommand,
+		"PRIVMSG": NewPrivMsgCommand,
+		"QUIT":    NewQuitCommand,
+		"TOPIC":   NewTopicCommand,
+		"USER":    NewUserCommand,
 	}
 )
 
-func ParseMessage(line string) (Message, error) {
+func ParseCommand(line string) (Command, error) {
 	command, args := parseLine(line)
-	constructor, ok := parseCommandFuncs[command]
-	if !ok {
-		return &UnknownMessage{
-			BaseMessage: &BaseMessage{},
-			command:     command,
-			args:        args,
-		}, nil
+	constructor := parseCommandFuncs[command]
+	if constructor == nil {
+		return NewUnknownCommand(command, args), nil
 	}
 	return constructor(args)
 }
