@@ -7,9 +7,13 @@ import (
 	"time"
 )
 
+type Replier interface {
+	Identifier
+	Replies() chan<- Reply
+}
+
 type Client struct {
 	conn       net.Conn
-	replies    chan<- Reply
 	username   string
 	realname   string
 	hostname   string
@@ -20,6 +24,12 @@ type Client struct {
 	server     *Server
 	atime      time.Time
 	user       *User
+	replies    chan<- Reply
+}
+
+type ClientMessage interface {
+	Client() *Client
+	SetClient(*Client)
 }
 
 type ClientSet map[*Client]bool
@@ -36,10 +46,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		replies:  replies,
 	}
 
-	// Connect the conn to the server.
 	go client.readConn(read)
-
-	// Connect the reply channel to the conn.
 	go client.writeConn(write, replies)
 
 	return client
@@ -51,7 +58,7 @@ func (c *Client) readConn(recv <-chan string) {
 
 		m, err := ParseCommand(str)
 		if err != nil {
-			// TODO handle error
+			c.replies <- ErrNeedMoreParams(c.server, str)
 			continue
 		}
 
@@ -66,6 +73,14 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 		log.Printf("%s < %s", c.Id(), replyStr)
 		write <- replyStr
 	}
+}
+
+func (c *Client) Replies() chan<- Reply {
+	return c.replies
+}
+
+func (c *Client) Server() *Server {
+	return c.server
 }
 
 func (c *Client) Nick() string {

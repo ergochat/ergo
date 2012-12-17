@@ -3,16 +3,22 @@ package irc
 import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"fmt"
+	"log"
 )
+
+type UserCommand interface {
+	Command
+	HandleUser(*User)
+}
 
 type User struct {
 	nick     string
 	hash     []byte
 	server   *Server
-	replies  chan<- Reply
-	commands <-chan Command
 	clients  ClientSet
 	channels ChannelSet
+	commands chan<- UserCommand
+	replies  chan<- Reply
 }
 
 type UserSet map[*User]bool
@@ -30,21 +36,32 @@ func NewUser(nick string, password string, server *Server) *User {
 	if err != nil {
 		panic("bcrypt failed; cannot generate password hash")
 	}
+	commands := make(chan UserCommand)
 	replies := make(chan Reply)
 	user := &User{
-		nick:    nick,
-		hash:    hash,
-		server:  server,
-		clients: make(ClientSet),
-		replies: replies,
+		nick:     nick,
+		hash:     hash,
+		server:   server,
+		clients:  make(ClientSet),
+		channels: make(ChannelSet),
+		replies:  replies,
 	}
+	go user.receiveCommands(commands)
 	go user.receiveReplies(replies)
 	return user
+}
+
+func (user *User) receiveCommands(commands <-chan UserCommand) {
+	for command := range commands {
+		log.Printf("%s %T %+v", user.Id(), command, command)
+		command.HandleUser(user)
+	}
 }
 
 // Distribute replies to clients.
 func (user *User) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
+		log.Printf("%s %T %+v", user.Id(), reply, reply)
 		for client := range user.clients {
 			client.replies <- reply
 		}
@@ -82,8 +99,11 @@ func (user *User) Login(c *Client, nick string, password string) bool {
 
 	user.clients[c] = true
 	c.user = user
-	c.replies <- RplNick(c, user.nick)
-	// TODO join channels
+	for channel := range user.channels {
+		channel.GetTopic(c)
+		c.replies <- RplNamReply(channel)
+		c.replies <- RplEndOfNames(channel.server)
+	}
 	return true
 }
 
@@ -97,4 +117,16 @@ func (user *User) LogoutClient(c *Client) bool {
 
 func (user *User) HasClients() bool {
 	return len(user.clients) > 0
+}
+
+func (user *User) Replies() chan<- Reply {
+	return user.replies
+}
+
+//
+// commands
+//
+
+func (m *PrivMsgCommand) HandleUser(user *User) {
+	user.replies <- RplPrivMsg(m.Client(), user, m.message)
 }

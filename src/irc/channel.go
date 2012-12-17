@@ -1,9 +1,13 @@
 package irc
 
+import (
+	"log"
+)
+
 type Channel struct {
 	server    *Server
-	replies   chan<- Reply
 	commands  chan<- ChannelCommand
+	replies   chan<- Reply
 	name      string
 	key       string
 	topic     string
@@ -27,28 +31,6 @@ type ChannelCommand interface {
 	HandleChannel(channel *Channel)
 }
 
-type JoinChannelCommand struct {
-	*JoinCommand
-	key string
-}
-
-type PartChannelCommand struct {
-	Command
-	message string
-}
-
-type GetTopicChannelCommand struct {
-	*TopicCommand
-}
-
-type SetTopicChannelCommand struct {
-	*TopicCommand
-}
-
-type PrivMsgChannelCommand struct {
-	*PrivMsgCommand
-}
-
 // NewChannel creates a new channel from a `Server` and a `name` string, which
 // must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
@@ -69,14 +51,17 @@ func NewChannel(s *Server, name string) *Channel {
 // Forward `Reply`s to all `User`s of the `Channel`.
 func (ch *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
-		for client := range ch.members {
-			client.replies <- reply
+		for user := range ch.members {
+			if user != reply.Source() {
+				user.replies <- reply
+			}
 		}
 	}
 }
 
 func (ch *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
+		log.Printf("%s %T %+v", ch.Id(), command, command)
 		command.HandleChannel(ch)
 	}
 }
@@ -95,29 +80,46 @@ func (ch *Channel) IsEmpty() bool {
 	return len(ch.members) == 0
 }
 
+func (channel *Channel) GetTopic(replier Replier) {
+	if channel.topic == "" {
+		replier.Replies() <- RplNoTopic(channel)
+		return
+	}
+
+	replier.Replies() <- RplTopic(channel)
+}
+
+func (channel *Channel) Id() string {
+	return channel.name
+}
+
+func (channel *Channel) PublicId() string {
+	return channel.name
+}
+
 //
 // commands
 //
 
-func (m *JoinChannelCommand) HandleChannel(channel *Channel) {
+func (m *JoinCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 	user := client.user
 
-	if channel.key != m.key {
+	if channel.key != m.channels[channel.name] {
 		client.user.replies <- ErrBadChannelKey(channel)
 		return
 	}
 
-	channel.members.Add(client.user)
-	client.user.channels.Add(channel)
+	channel.members.Add(user)
+	user.channels.Add(channel)
 
 	channel.replies <- RplJoin(channel, user)
 	channel.GetTopic(user)
-	client.user.replies <- RplNamReply(channel)
-	client.user.replies <- RplEndOfNames(channel.server)
+	user.replies <- RplNamReply(channel)
+	user.replies <- RplEndOfNames(channel.server)
 }
 
-func (m *PartChannelCommand) HandleChannel(channel *Channel) {
+func (m *PartCommand) HandleChannel(channel *Channel) {
 	user := m.Client().user
 
 	if !channel.members[user] {
@@ -140,29 +142,16 @@ func (m *PartChannelCommand) HandleChannel(channel *Channel) {
 	}
 }
 
-func (channel *Channel) GetTopic(user *User) {
-	if !channel.members[user] {
-		user.replies <- ErrNotOnChannel(channel)
-		return
-	}
-
-	if channel.topic == "" {
-		user.replies <- RplNoTopic(channel)
-		return
-	}
-
-	user.replies <- RplTopic(channel)
-}
-
-func (m *GetTopicChannelCommand) HandleChannel(channel *Channel) {
-	channel.GetTopic(m.Client().user)
-}
-
-func (m *SetTopicChannelCommand) HandleChannel(channel *Channel) {
+func (m *TopicCommand) HandleChannel(channel *Channel) {
 	user := m.Client().user
 
 	if !channel.members[user] {
 		user.replies <- ErrNotOnChannel(channel)
+		return
+	}
+
+	if m.topic == "" {
+		channel.GetTopic(user)
 		return
 	}
 
@@ -176,6 +165,6 @@ func (m *SetTopicChannelCommand) HandleChannel(channel *Channel) {
 	channel.replies <- RplTopic(channel)
 }
 
-func (m *PrivMsgChannelCommand) HandleChannel(channel *Channel) {
+func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
 	channel.replies <- RplPrivMsgChannel(channel, m.Client().user, m.message)
 }

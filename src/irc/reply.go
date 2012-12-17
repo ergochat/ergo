@@ -9,10 +9,12 @@ import (
 type Identifier interface {
 	Id() string
 	PublicId() string
+	Nick() string
 }
 
 type Reply interface {
 	String(client *Client) string
+	Source() Identifier
 }
 
 type BasicReply struct {
@@ -21,7 +23,8 @@ type BasicReply struct {
 	message string
 }
 
-func NewBasicReply(source Identifier, code string, format string, args ...interface{}) *BasicReply {
+func NewBasicReply(source Identifier, code string,
+	format string, args ...interface{}) *BasicReply {
 	message := fmt.Sprintf(format, args...)
 	fullMessage := fmt.Sprintf(":%s %s %s\r\n", source.Id(), code, message)
 	return &BasicReply{source, code, fullMessage}
@@ -31,11 +34,16 @@ func (reply *BasicReply) String(client *Client) string {
 	return reply.message
 }
 
+func (reply *BasicReply) Source() Identifier {
+	return reply.source
+}
+
 type NumericReply struct {
 	*BasicReply
 }
 
-func NewNumericReply(source Identifier, code string, format string, args ...interface{}) *NumericReply {
+func NewNumericReply(source Identifier, code string,
+	format string, args ...interface{}) *NumericReply {
 	return &NumericReply{&BasicReply{source, code, fmt.Sprintf(format, args...)}}
 }
 
@@ -47,7 +55,7 @@ func (reply *NumericReply) String(client *Client) string {
 // messaging replies
 
 func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
-	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", target, message)
+	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
 func RplNick(client *Client, newNick string) Reply {

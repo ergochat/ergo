@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-type Command interface {
-	Client() *Client
-	SetClient(*Client)
-	Handle(*Server)
-}
-
 var (
 	NotEnoughArgsError = errors.New("not enough arguments")
 )
@@ -28,7 +22,59 @@ func (base *BaseCommand) SetClient(c *Client) {
 	base.client = c
 }
 
-// unknown <command> [args...]
+var (
+	ErrParseCommand   = errors.New("failed to parse message")
+	parseCommandFuncs = map[string]func([]string) (Command, error){
+		"JOIN":    NewJoinCommand,
+		"MODE":    NewModeCommand,
+		"NICK":    NewNickCommand,
+		"PART":    NewPartCommand,
+		"PASS":    NewPassCommand,
+		"PING":    NewPingCommand,
+		"PONG":    NewPongCommand,
+		"PRIVMSG": NewPrivMsgCommand,
+		"QUIT":    NewQuitCommand,
+		"TOPIC":   NewTopicCommand,
+		"USER":    NewUserMsgCommand,
+	}
+)
+
+func ParseCommand(line string) (Command, error) {
+	command, args := parseLine(line)
+	constructor := parseCommandFuncs[command]
+	if constructor == nil {
+		return NewUnknownCommand(command, args), nil
+	}
+	return constructor(args)
+}
+
+func parseArg(line string) (arg string, rest string) {
+	if line == "" {
+		return
+	}
+
+	if strings.HasPrefix(line, ":") {
+		arg = line[1:]
+	} else {
+		parts := strings.SplitN(line, " ", 2)
+		arg = parts[0]
+		if len(parts) > 1 {
+			rest = parts[1]
+		}
+	}
+	return
+}
+
+func parseLine(line string) (command string, args []string) {
+	args = make([]string, 0)
+	for arg, rest := parseArg(line); arg != ""; arg, rest = parseArg(rest) {
+		args = append(args, arg)
+	}
+	command, args = strings.ToUpper(args[0]), args[1:]
+	return
+}
+
+// <command> [args...]
 
 type UnknownCommand struct {
 	*BaseCommand
@@ -36,16 +82,12 @@ type UnknownCommand struct {
 	args    []string
 }
 
-func NewUnknownCommand(command string, args []string) Command {
+func NewUnknownCommand(command string, args []string) *UnknownCommand {
 	return &UnknownCommand{
 		BaseCommand: &BaseCommand{},
 		command:     command,
 		args:        args,
 	}
-}
-
-func (m *UnknownCommand) Handle(s *Server) {
-	m.Client().replies <- ErrUnknownCommand(s, m.command)
 }
 
 // PING <server1> [ <server2> ]
@@ -128,7 +170,7 @@ func NewNickCommand(args []string) (Command, error) {
 
 // USER <user> <mode> <unused> <realname>
 
-type UserCommand struct {
+type UserMsgCommand struct {
 	*BaseCommand
 	user     string
 	mode     uint8
@@ -136,11 +178,11 @@ type UserCommand struct {
 	realname string
 }
 
-func NewUserCommand(args []string) (Command, error) {
+func NewUserMsgCommand(args []string) (Command, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &UserCommand{
+	msg := &UserMsgCommand{
 		BaseCommand: &BaseCommand{},
 		user:        args[0],
 		unused:      args[2],
@@ -174,26 +216,36 @@ func NewQuitCommand(args []string) (Command, error) {
 
 type JoinCommand struct {
 	*BaseCommand
-	channels []string
-	keys     []string
+	channels map[string]string
 	zero     bool
 }
 
 func NewJoinCommand(args []string) (Command, error) {
 	msg := &JoinCommand{
 		BaseCommand: &BaseCommand{},
+		channels:    make(map[string]string),
 	}
-	if len(args) > 0 {
-		if args[0] == "0" {
-			msg.zero = true
-		} else {
-			msg.channels = strings.Split(args[0], ",")
-		}
 
-		if len(args) > 1 {
-			msg.keys = strings.Split(args[1], ",")
+	if len(args) == 0 {
+		return nil, NotEnoughArgsError
+	}
+
+	if args[0] == "0" {
+		msg.zero = true
+		return msg, nil
+	}
+
+	channels := strings.Split(args[0], ",")
+	keys := make([]string, len(channels))
+	if len(args) > 1 {
+		for i, key := range strings.Split(args[1], ",") {
+			keys[i] = key
 		}
 	}
+	for i, channel := range channels {
+		msg.channels[channel] = keys[i]
+	}
+
 	return msg, nil
 }
 
@@ -268,40 +320,25 @@ func NewTopicCommand(args []string) (Command, error) {
 	return msg, nil
 }
 
-// LOGIN <nick> <password>
-
-type LoginCommand struct {
+type ModeCommand struct {
 	*BaseCommand
-	nick     string
-	password string
+	nickname string
+	modes    string
 }
 
-func NewLoginCommand(args []string) (Command, error) {
-	if len(args) < 2 {
+func NewModeCommand(args []string) (Command, error) {
+	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
-	return &LoginCommand{
+
+	cmd := &ModeCommand{
 		BaseCommand: &BaseCommand{},
-		nick:        args[0],
-		password:    args[1],
-	}, nil
-}
-
-// RESERVE <nick> <password>
-
-type ReserveCommand struct {
-	*BaseCommand
-	nick     string
-	password string
-}
-
-func NewReserveCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
+		nickname:    args[0],
 	}
-	return &ReserveCommand{
-		BaseCommand: &BaseCommand{},
-		nick:        args[0],
-		password:    args[1],
-	}, nil
+
+	if len(args) > 1 {
+		cmd.modes = args[1]
+	}
+
+	return cmd, nil
 }

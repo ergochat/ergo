@@ -10,15 +10,22 @@ import (
 type ClientNameMap map[string]*Client
 type ChannelNameMap map[string]*Channel
 type UserNameMap map[string]*User
+type ServiceNameMap map[string]*Service
+
+type Command interface {
+	ClientMessage
+	Handle(*Server)
+}
 
 type Server struct {
 	hostname string
 	ctime    time.Time
 	name     string
-	commands chan<- Command
 	password []byte
 	users    UserNameMap
 	channels ChannelNameMap
+	services ServiceNameMap
+	commands chan<- Command
 }
 
 func NewServer(name string) *Server {
@@ -29,13 +36,16 @@ func NewServer(name string) *Server {
 		commands: commands,
 		users:    make(UserNameMap),
 		channels: make(ChannelNameMap),
+		services: make(ServiceNameMap),
 	}
 	go server.receiveCommands(commands)
+	NewNickServ(server)
 	return server
 }
 
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
+		log.Printf("%s %T %+v", server.Id(), command, command)
 		command.Client().atime = time.Now()
 		command.Handle(server)
 	}
@@ -75,10 +85,10 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 // Send a message to clients of channels fromClient is a member.
 func (s *Server) InterestedUsers(fromUser *User) UserSet {
 	users := make(UserSet)
-	users[fromUser] = true
+	users.Add(fromUser)
 	for channel := range fromUser.channels {
 		for user := range channel.members {
-			users[user] = true
+			users.Add(user)
 		}
 	}
 
@@ -97,17 +107,16 @@ func (s *Server) tryRegister(c *Client) {
 	}
 }
 
-func (s *Server) ChangeUserMode(c *Client, modes []string) {
-	// Don't allow any mode changes.
-	c.replies <- RplUModeIs(s, c)
-}
-
 func (s *Server) Id() string {
 	return s.hostname
 }
 
 func (s *Server) PublicId() string {
 	return s.Id()
+}
+
+func (s *Server) Nick() string {
+	return s.name
 }
 
 func (s *Server) DeleteChannel(channel *Channel) {
@@ -117,6 +126,10 @@ func (s *Server) DeleteChannel(channel *Channel) {
 //
 // commands
 //
+
+func (m *UnknownCommand) Handle(s *Server) {
+	m.Client().replies <- ErrUnknownCommand(s, m.command)
+}
 
 func (m *PingCommand) Handle(s *Server) {
 	m.Client().replies <- RplPong(s)
@@ -149,7 +162,7 @@ func (m *NickCommand) Handle(s *Server) {
 	c.user.replies <- ErrNoPrivileges(s)
 }
 
-func (m *UserCommand) Handle(s *Server) {
+func (m *UserMsgCommand) Handle(s *Server) {
 	c := m.Client()
 	if c.username != "" {
 		c.replies <- ErrAlreadyRegistered(s)
@@ -162,19 +175,25 @@ func (m *UserCommand) Handle(s *Server) {
 
 func (m *QuitCommand) Handle(s *Server) {
 	c := m.Client()
-	reply := RplQuit(c, m.message)
-	for user := range s.InterestedUsers(c.user) {
-		user.replies <- reply
+
+	user := c.user
+	if user != nil {
+		reply := RplQuit(c, m.message)
+		for user := range s.InterestedUsers(c.user) {
+			user.replies <- reply
+		}
 	}
 	c.conn.Close()
-	user := c.user
-	user.LogoutClient(c)
+	if user == nil {
+		return
+	}
 
+	user.LogoutClient(c)
 	if !user.HasClients() {
-		cmd := &PartChannelCommand{
-			Command: m,
+		cmd := &PartCommand{
+			BaseCommand: &BaseCommand{c},
 		}
-		for channel := range c.user.channels {
+		for channel := range user.channels {
 			channel.commands <- cmd
 		}
 	}
@@ -182,27 +201,39 @@ func (m *QuitCommand) Handle(s *Server) {
 
 func (m *JoinCommand) Handle(s *Server) {
 	c := m.Client()
+
+	if c.user == nil {
+		for name := range m.channels {
+			c.replies <- ErrNoSuchChannel(s, name)
+		}
+		return
+	}
+
 	if m.zero {
-		cmd := &PartChannelCommand{
-			Command: m,
+		cmd := &PartCommand{
+			BaseCommand: &BaseCommand{c},
 		}
 		for channel := range c.user.channels {
 			channel.commands <- cmd
 		}
-	} else {
-		for i, name := range m.channels {
-			key := ""
-			if len(m.keys) > i {
-				key = m.keys[i]
-			}
+		return
+	}
 
-			s.GetOrMakeChannel(name).commands <- &JoinChannelCommand{m, key}
-		}
+	for name := range m.channels {
+		s.GetOrMakeChannel(name).commands <- m
 	}
 }
 
 func (m *PartCommand) Handle(s *Server) {
 	user := m.Client().user
+
+	if user == nil {
+		for _, chname := range m.channels {
+			m.Client().replies <- ErrNoSuchChannel(s, chname)
+		}
+		return
+	}
+
 	for _, chname := range m.channels {
 		channel := s.channels[chname]
 
@@ -211,82 +242,60 @@ func (m *PartCommand) Handle(s *Server) {
 			continue
 		}
 
-		channel.commands <- &PartChannelCommand{m, m.message}
+		channel.commands <- m
 	}
 }
 
 func (m *TopicCommand) Handle(s *Server) {
 	user := m.Client().user
+
+	if user == nil {
+		m.Client().replies <- ErrNoSuchChannel(s, m.channel)
+		return
+	}
+
 	channel := s.channels[m.channel]
 	if channel == nil {
 		user.replies <- ErrNoSuchChannel(s, m.channel)
 		return
 	}
 
-	if m.topic == "" {
-		channel.commands <- &GetTopicChannelCommand{m}
-		return
-	}
-
-	channel.commands <- &SetTopicChannelCommand{m}
+	channel.commands <- m
 }
 
 func (m *PrivMsgCommand) Handle(s *Server) {
+	service := s.services[m.target]
+	if service != nil {
+		service.commands <- m
+		return
+	}
+
 	user := m.Client().user
+	if user == nil {
+		m.Client().replies <- ErrNoSuchNick(s, m.target)
+		return
+	}
 
 	if m.TargetIsChannel() {
 		channel := s.channels[m.target]
 		if channel == nil {
-			user.replies <- ErrNoSuchNick(s, m.target)
+			user.replies <- ErrNoSuchChannel(s, m.target)
 			return
 		}
 
-		channel.commands <- &PrivMsgChannelCommand{m}
+		channel.commands <- m
 		return
 	}
 
 	target := s.users[m.target]
-	if target != nil {
-		target.replies <- ErrNoSuchNick(s, m.target)
+	if target == nil {
+		user.replies <- ErrNoSuchNick(s, m.target)
 		return
 	}
 
-	target.replies <- RplPrivMsg(user, target, m.message)
+	target.commands <- m
 }
 
-func (m *LoginCommand) Handle(s *Server) {
-	client := m.Client()
-	if client.user != nil {
-		client.replies <- ErrAlreadyRegistered(s)
-		return
-	}
-
-	user := s.users[m.nick]
-	if user == nil {
-		client.replies <- ErrNoSuchNick(s, m.nick)
-		return
-	}
-
-	if !user.Login(client, m.nick, m.password) {
-		client.replies <- ErrRestricted(s)
-		return
-	}
-
-	client.replies <- RplNick(client, m.nick)
-	// TODO join channels
-}
-
-func (m *ReserveCommand) Handle(s *Server) {
-	client := m.Client()
-	if client.user != nil {
-		client.replies <- ErrAlreadyRegistered(s)
-		return
-	}
-
-	if s.users[m.nick] != nil {
-		client.replies <- ErrNickNameInUse(s, m.nick)
-		return
-	}
-
-	s.users[m.nick] = NewUser(m.nick, m.password, s)
+func (m *ModeCommand) Handle(s *Server) {
+	m.Client().replies <- RplUModeIs(s, m.Client())
 }
