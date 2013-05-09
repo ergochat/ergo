@@ -27,11 +27,6 @@ type Client struct {
 	replies    chan<- Reply
 }
 
-type ClientMessage interface {
-	Client() *Client
-	SetClient(*Client)
-}
-
 type ClientSet map[*Client]bool
 
 func NewClient(server *Server, conn net.Conn) *Client {

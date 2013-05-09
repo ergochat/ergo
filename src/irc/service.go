@@ -10,26 +10,25 @@ type ServiceCommand interface {
 	HandleService(*Service)
 }
 
-type PrivMsgCommandFunc func(*PrivMsgCommand)
-
 type Service struct {
 	server   *Server
 	name     string
 	commands chan<- ServiceCommand
-	Handle   PrivMsgCommandFunc
 }
 
-func NewService(s *Server, name string, Handle PrivMsgCommandFunc) *Service {
+func NewService(s *Server, name string) *Service {
 	commands := make(chan ServiceCommand)
 	service := &Service{
 		server:   s,
 		name:     name,
 		commands: commands,
-		Handle:   Handle,
 	}
 	go service.receiveCommands(commands)
 	s.services[name] = service
 	return service
+}
+
+func (service *Service) HandleMsg(m *PrivMsgCommand) {
 }
 
 func (service *Service) receiveCommands(commands <-chan ServiceCommand) {
@@ -60,5 +59,5 @@ func (service *Service) Reply(client *Client, message string) {
 //
 
 func (m *PrivMsgCommand) HandleService(s *Service) {
-	s.Handle(m)
+	s.HandleMsg(m)
 }

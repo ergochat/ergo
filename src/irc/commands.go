@@ -14,17 +14,25 @@ type BaseCommand struct {
 	client *Client
 }
 
-func (base *BaseCommand) Client() *Client {
+func (base BaseCommand) Client() *Client {
 	return base.client
 }
 
 func (base *BaseCommand) SetClient(c *Client) {
+	if base.client != nil {
+		panic("SetClient called twice!")
+	}
 	base.client = c
+}
+
+type EditableCommand interface {
+	Command
+	SetClient(*Client)
 }
 
 var (
 	ErrParseCommand   = errors.New("failed to parse message")
-	parseCommandFuncs = map[string]func([]string) (Command, error){
+	parseCommandFuncs = map[string]func([]string) (EditableCommand, error){
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
 		"NICK":    NewNickCommand,
@@ -39,7 +47,7 @@ var (
 	}
 )
 
-func ParseCommand(line string) (Command, error) {
+func ParseCommand(line string) (EditableCommand, error) {
 	command, args := parseLine(line)
 	constructor := parseCommandFuncs[command]
 	if constructor == nil {
@@ -77,14 +85,14 @@ func parseLine(line string) (command string, args []string) {
 // <command> [args...]
 
 type UnknownCommand struct {
-	*BaseCommand
+	BaseCommand
 	command string
 	args    []string
 }
 
 func NewUnknownCommand(command string, args []string) *UnknownCommand {
 	return &UnknownCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		command:     command,
 		args:        args,
 	}
@@ -93,17 +101,17 @@ func NewUnknownCommand(command string, args []string) *UnknownCommand {
 // PING <server1> [ <server2> ]
 
 type PingCommand struct {
-	*BaseCommand
+	BaseCommand
 	server  string
 	server2 string
 }
 
-func NewPingCommand(args []string) (Command, error) {
+func NewPingCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PingCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		server:      args[0],
 	}
 	if len(args) > 1 {
@@ -115,17 +123,17 @@ func NewPingCommand(args []string) (Command, error) {
 // PONG <server> [ <server2> ]
 
 type PongCommand struct {
-	*BaseCommand
+	BaseCommand
 	server1 string
 	server2 string
 }
 
-func NewPongCommand(args []string) (Command, error) {
+func NewPongCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
 	message := &PongCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		server1:     args[0],
 	}
 	if len(args) > 1 {
@@ -137,16 +145,16 @@ func NewPongCommand(args []string) (Command, error) {
 // PASS <password>
 
 type PassCommand struct {
-	*BaseCommand
+	BaseCommand
 	password string
 }
 
-func NewPassCommand(args []string) (Command, error) {
+func NewPassCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
 	return &PassCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		password:    args[0],
 	}, nil
 }
@@ -154,16 +162,16 @@ func NewPassCommand(args []string) (Command, error) {
 // NICK <nickname>
 
 type NickCommand struct {
-	*BaseCommand
+	BaseCommand
 	nickname string
 }
 
-func NewNickCommand(args []string) (Command, error) {
+func NewNickCommand(args []string) (EditableCommand, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
 	}
 	return &NickCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		nickname:    args[0],
 	}, nil
 }
@@ -171,19 +179,19 @@ func NewNickCommand(args []string) (Command, error) {
 // USER <user> <mode> <unused> <realname>
 
 type UserMsgCommand struct {
-	*BaseCommand
+	BaseCommand
 	user     string
 	mode     uint8
 	unused   string
 	realname string
 }
 
-func NewUserMsgCommand(args []string) (Command, error) {
+func NewUserMsgCommand(args []string) (EditableCommand, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
 	msg := &UserMsgCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		user:        args[0],
 		unused:      args[2],
 		realname:    args[3],
@@ -198,13 +206,13 @@ func NewUserMsgCommand(args []string) (Command, error) {
 // QUIT [ <Quit Command> ]
 
 type QuitCommand struct {
-	*BaseCommand
+	BaseCommand
 	message string
 }
 
-func NewQuitCommand(args []string) (Command, error) {
+func NewQuitCommand(args []string) (EditableCommand, error) {
 	msg := &QuitCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 	}
 	if len(args) > 0 {
 		msg.message = args[0]
@@ -215,14 +223,14 @@ func NewQuitCommand(args []string) (Command, error) {
 // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
 
 type JoinCommand struct {
-	*BaseCommand
+	BaseCommand
 	channels map[string]string
 	zero     bool
 }
 
-func NewJoinCommand(args []string) (Command, error) {
+func NewJoinCommand(args []string) (EditableCommand, error) {
 	msg := &JoinCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		channels:    make(map[string]string),
 	}
 
@@ -252,17 +260,17 @@ func NewJoinCommand(args []string) (Command, error) {
 // PART <channel> *( "," <channel> ) [ <Part Command> ]
 
 type PartCommand struct {
-	*BaseCommand
+	BaseCommand
 	channels []string
 	message  string
 }
 
-func NewPartCommand(args []string) (Command, error) {
+func NewPartCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PartCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		channels:    strings.Split(args[0], ","),
 	}
 	if len(args) > 1 {
@@ -274,17 +282,17 @@ func NewPartCommand(args []string) (Command, error) {
 // PRIVMSG <target> <message>
 
 type PrivMsgCommand struct {
-	*BaseCommand
+	BaseCommand
 	target  string
 	message string
 }
 
-func NewPrivMsgCommand(args []string) (Command, error) {
+func NewPrivMsgCommand(args []string) (EditableCommand, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
 	return &PrivMsgCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		target:      args[0],
 		message:     args[1],
 	}, nil
@@ -301,17 +309,17 @@ func (m *PrivMsgCommand) TargetIsChannel() bool {
 // TOPIC [newtopic]
 
 type TopicCommand struct {
-	*BaseCommand
+	BaseCommand
 	channel string
 	topic   string
 }
 
-func NewTopicCommand(args []string) (Command, error) {
+func NewTopicCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
 	msg := &TopicCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		channel:     args[0],
 	}
 	if len(args) > 1 {
@@ -321,18 +329,18 @@ func NewTopicCommand(args []string) (Command, error) {
 }
 
 type ModeCommand struct {
-	*BaseCommand
+	BaseCommand
 	nickname string
 	modes    string
 }
 
-func NewModeCommand(args []string) (Command, error) {
+func NewModeCommand(args []string) (EditableCommand, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
 
 	cmd := &ModeCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		nickname:    args[0],
 	}
 

@@ -5,8 +5,9 @@ import (
 )
 
 type NickServCommand interface {
-	ClientMessage
 	HandleNickServ(*NickServ)
+	Client() *Client
+	SetClient(*Client)
 }
 
 type NickServ struct {
@@ -14,11 +15,9 @@ type NickServ struct {
 }
 
 func NewNickServ(s *Server) *NickServ {
-	ns := &NickServ{}
-	ns.Service = NewService(s, "NickServ", func(m *PrivMsgCommand) {
-		m.HandleNickServ(ns)
-	})
-	return ns
+	return &NickServ{
+		Service: NewService(s, "NickServ"),
+	}
 }
 
 var (
@@ -32,7 +31,7 @@ var (
 // commands
 //
 
-func (m *PrivMsgCommand) HandleNickServ(ns *NickServ) {
+func (ns *NickServ) HandleMsg(m *PrivMsgCommand) {
 	command, args := parseLine(m.message)
 	constructor := parseNickServCommandFuncs[command]
 	if constructor == nil {
@@ -48,6 +47,7 @@ func (m *PrivMsgCommand) HandleNickServ(ns *NickServ) {
 
 	cmd.SetClient(m.Client())
 	log.Printf("%s %T %+v", ns.Id(), cmd, cmd)
+
 	cmd.HandleNickServ(ns)
 }
 
@@ -56,7 +56,7 @@ func (m *PrivMsgCommand) HandleNickServ(ns *NickServ) {
 //
 
 type RegisterCommand struct {
-	*BaseCommand
+	BaseCommand
 	password string
 	email    string
 }
@@ -67,7 +67,7 @@ func NewRegisterCommand(args []string) (NickServCommand, error) {
 	}
 
 	cmd := &RegisterCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		password:    args[0],
 	}
 	if len(args) > 1 {
@@ -100,7 +100,7 @@ func (m *RegisterCommand) HandleNickServ(ns *NickServ) {
 }
 
 type IdentifyCommand struct {
-	*BaseCommand
+	BaseCommand
 	password string
 }
 
@@ -110,7 +110,7 @@ func NewIdentifyCommand(args []string) (NickServCommand, error) {
 	}
 
 	return &IdentifyCommand{
-		BaseCommand: &BaseCommand{},
+		BaseCommand: BaseCommand{},
 		password:    args[0],
 	}, nil
 }

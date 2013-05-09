@@ -13,8 +13,8 @@ type UserNameMap map[string]*User
 type ServiceNameMap map[string]*Service
 
 type Command interface {
-	ClientMessage
-	Handle(*Server)
+	Client() *Client
+	HandleServer(*Server)
 }
 
 type Server struct {
@@ -47,7 +47,7 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
 		log.Printf("%s %T %+v", server.Id(), command, command)
 		command.Client().atime = time.Now()
-		command.Handle(server)
+		command.HandleServer(server)
 	}
 }
 
@@ -127,19 +127,19 @@ func (s *Server) DeleteChannel(channel *Channel) {
 // commands
 //
 
-func (m *UnknownCommand) Handle(s *Server) {
+func (m *UnknownCommand) HandleServer(s *Server) {
 	m.Client().replies <- ErrUnknownCommand(s, m.command)
 }
 
-func (m *PingCommand) Handle(s *Server) {
+func (m *PingCommand) HandleServer(s *Server) {
 	m.Client().replies <- RplPong(s)
 }
 
-func (m *PongCommand) Handle(s *Server) {
+func (m *PongCommand) HandleServer(s *Server) {
 	// no-op
 }
 
-func (m *PassCommand) Handle(s *Server) {
+func (m *PassCommand) HandleServer(s *Server) {
 	err := bcrypt.CompareHashAndPassword(s.password, []byte(m.password))
 	if err != nil {
 		m.Client().replies <- ErrPasswdMismatch(s)
@@ -150,7 +150,7 @@ func (m *PassCommand) Handle(s *Server) {
 	// no reply?
 }
 
-func (m *NickCommand) Handle(s *Server) {
+func (m *NickCommand) HandleServer(s *Server) {
 	c := m.Client()
 	if c.user == nil {
 		c.replies <- RplNick(c, m.nickname)
@@ -162,7 +162,7 @@ func (m *NickCommand) Handle(s *Server) {
 	c.user.replies <- ErrNoPrivileges(s)
 }
 
-func (m *UserMsgCommand) Handle(s *Server) {
+func (m *UserMsgCommand) HandleServer(s *Server) {
 	c := m.Client()
 	if c.username != "" {
 		c.replies <- ErrAlreadyRegistered(s)
@@ -173,7 +173,7 @@ func (m *UserMsgCommand) Handle(s *Server) {
 	s.tryRegister(c)
 }
 
-func (m *QuitCommand) Handle(s *Server) {
+func (m *QuitCommand) HandleServer(s *Server) {
 	c := m.Client()
 
 	user := c.user
@@ -191,7 +191,7 @@ func (m *QuitCommand) Handle(s *Server) {
 	user.LogoutClient(c)
 	if !user.HasClients() {
 		cmd := &PartCommand{
-			BaseCommand: &BaseCommand{c},
+			BaseCommand: BaseCommand{c},
 		}
 		for channel := range user.channels {
 			channel.commands <- cmd
@@ -199,7 +199,7 @@ func (m *QuitCommand) Handle(s *Server) {
 	}
 }
 
-func (m *JoinCommand) Handle(s *Server) {
+func (m *JoinCommand) HandleServer(s *Server) {
 	c := m.Client()
 
 	if c.user == nil {
@@ -211,7 +211,7 @@ func (m *JoinCommand) Handle(s *Server) {
 
 	if m.zero {
 		cmd := &PartCommand{
-			BaseCommand: &BaseCommand{c},
+			BaseCommand: BaseCommand{c},
 		}
 		for channel := range c.user.channels {
 			channel.commands <- cmd
@@ -224,7 +224,7 @@ func (m *JoinCommand) Handle(s *Server) {
 	}
 }
 
-func (m *PartCommand) Handle(s *Server) {
+func (m *PartCommand) HandleServer(s *Server) {
 	user := m.Client().user
 
 	if user == nil {
@@ -246,7 +246,7 @@ func (m *PartCommand) Handle(s *Server) {
 	}
 }
 
-func (m *TopicCommand) Handle(s *Server) {
+func (m *TopicCommand) HandleServer(s *Server) {
 	user := m.Client().user
 
 	if user == nil {
@@ -263,7 +263,7 @@ func (m *TopicCommand) Handle(s *Server) {
 	channel.commands <- m
 }
 
-func (m *PrivMsgCommand) Handle(s *Server) {
+func (m *PrivMsgCommand) HandleServer(s *Server) {
 	service := s.services[m.target]
 	if service != nil {
 		service.commands <- m
@@ -296,6 +296,6 @@ func (m *PrivMsgCommand) Handle(s *Server) {
 	target.commands <- m
 }
 
-func (m *ModeCommand) Handle(s *Server) {
+func (m *ModeCommand) HandleServer(s *Server) {
 	m.Client().replies <- RplUModeIs(s, m.Client())
 }
