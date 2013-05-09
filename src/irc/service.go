@@ -28,8 +28,7 @@ func NewService(s *Server, name string) *Service {
 	return service
 }
 
-func (service *Service) HandleMsg(m *PrivMsgCommand) {
-}
+func (service *Service) HandleMsg(m *PrivMsgCommand) {}
 
 func (service *Service) receiveCommands(commands <-chan ServiceCommand) {
 	for command := range commands {
@@ -38,20 +37,24 @@ func (service *Service) receiveCommands(commands <-chan ServiceCommand) {
 	}
 }
 
-func (service *Service) Id() string {
+func (service Service) Id() string {
 	return fmt.Sprintf("%s!%s@%s", service.name, service.name, service.server.name)
 }
 
-func (service *Service) PublicId() string {
+func (service Service) PublicId() string {
 	return service.Id()
 }
 
-func (service *Service) Nick() string {
+func (service Service) Nick() string {
 	return service.name
 }
 
 func (service *Service) Reply(client *Client, message string) {
-	client.replies <- RplPrivMsg(service, client, message)
+	client.Replies() <- RplPrivMsg(service, client, message)
+}
+
+func (service Service) Commands() chan<- ServiceCommand {
+	return service.commands
 }
 
 //

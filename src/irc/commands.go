@@ -6,8 +6,32 @@ import (
 	"strings"
 )
 
+type Command interface {
+	Client() *Client
+	HandleServer(*Server)
+}
+
+type EditableCommand interface {
+	Command
+	SetClient(*Client)
+}
+
 var (
 	NotEnoughArgsError = errors.New("not enough arguments")
+	ErrParseCommand    = errors.New("failed to parse message")
+	parseCommandFuncs  = map[string]func([]string) (EditableCommand, error){
+		"JOIN":    NewJoinCommand,
+		"MODE":    NewModeCommand,
+		"NICK":    NewNickCommand,
+		"PART":    NewPartCommand,
+		"PASS":    NewPassCommand,
+		"PING":    NewPingCommand,
+		"PONG":    NewPongCommand,
+		"PRIVMSG": NewPrivMsgCommand,
+		"QUIT":    NewQuitCommand,
+		"TOPIC":   NewTopicCommand,
+		"USER":    NewUserMsgCommand,
+	}
 )
 
 type BaseCommand struct {
@@ -24,28 +48,6 @@ func (base *BaseCommand) SetClient(c *Client) {
 	}
 	base.client = c
 }
-
-type EditableCommand interface {
-	Command
-	SetClient(*Client)
-}
-
-var (
-	ErrParseCommand   = errors.New("failed to parse message")
-	parseCommandFuncs = map[string]func([]string) (EditableCommand, error){
-		"JOIN":    NewJoinCommand,
-		"MODE":    NewModeCommand,
-		"NICK":    NewNickCommand,
-		"PART":    NewPartCommand,
-		"PASS":    NewPassCommand,
-		"PING":    NewPingCommand,
-		"PONG":    NewPongCommand,
-		"PRIVMSG": NewPrivMsgCommand,
-		"QUIT":    NewQuitCommand,
-		"TOPIC":   NewTopicCommand,
-		"USER":    NewUserMsgCommand,
-	}
-)
 
 func ParseCommand(line string) (EditableCommand, error) {
 	command, args := parseLine(line)

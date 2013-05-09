@@ -32,23 +32,27 @@ func (set UserSet) Remove(user *User) {
 }
 
 func NewUser(nick string, password string, server *Server) *User {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		panic("bcrypt failed; cannot generate password hash")
-	}
 	commands := make(chan UserCommand)
 	replies := make(chan Reply)
 	user := &User{
 		nick:     nick,
-		hash:     hash,
 		server:   server,
 		clients:  make(ClientSet),
 		channels: make(ChannelSet),
 		replies:  replies,
 	}
+	user.SetPassword(password)
 	go user.receiveCommands(commands)
 	go user.receiveReplies(replies)
 	return user
+}
+
+func (user *User) SetPassword(password string) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		panic("bcrypt failed; cannot generate password hash")
+	}
+	user.hash = hash
 }
 
 func (user *User) receiveCommands(commands <-chan UserCommand) {
@@ -63,23 +67,27 @@ func (user *User) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
 		log.Printf("%s %T %+v", user.Id(), reply, reply)
 		for client := range user.clients {
-			client.replies <- reply
+			client.Replies() <- reply
 		}
 	}
 }
 
 // Identifier
 
-func (user *User) Id() string {
+func (user User) Id() string {
 	return fmt.Sprintf("%s!%s@%s", user.nick, user.nick, user.server.Id())
 }
 
-func (user *User) PublicId() string {
+func (user User) PublicId() string {
 	return user.Id()
 }
 
-func (user *User) Nick() string {
+func (user User) Nick() string {
 	return user.nick
+}
+
+func (user User) Commands() chan<- UserCommand {
+	return user.commands
 }
 
 func (user *User) Login(c *Client, nick string, password string) bool {
@@ -93,7 +101,7 @@ func (user *User) Login(c *Client, nick string, password string) bool {
 
 	err := bcrypt.CompareHashAndPassword(user.hash, []byte(password))
 	if err != nil {
-		c.replies <- ErrNoPrivileges(user.server)
+		c.Replies() <- ErrNoPrivileges(user.server)
 		return false
 	}
 
@@ -101,8 +109,8 @@ func (user *User) Login(c *Client, nick string, password string) bool {
 	c.user = user
 	for channel := range user.channels {
 		channel.GetTopic(c)
-		c.replies <- RplNamReply(channel)
-		c.replies <- RplEndOfNames(channel.server)
+		c.Replies() <- RplNamReply(channel)
+		c.Replies() <- RplEndOfNames(channel.server)
 	}
 	return true
 }
@@ -115,11 +123,11 @@ func (user *User) LogoutClient(c *Client) bool {
 	return false
 }
 
-func (user *User) HasClients() bool {
+func (user User) HasClients() bool {
 	return len(user.clients) > 0
 }
 
-func (user *User) Replies() chan<- Reply {
+func (user User) Replies() chan<- Reply {
 	return user.replies
 }
 
@@ -128,5 +136,5 @@ func (user *User) Replies() chan<- Reply {
 //
 
 func (m *PrivMsgCommand) HandleUser(user *User) {
-	user.replies <- RplPrivMsg(m.Client(), user, m.message)
+	user.Replies() <- RplPrivMsg(m.Client(), user, m.message)
 }

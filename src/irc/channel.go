@@ -89,12 +89,16 @@ func (channel *Channel) GetTopic(replier Replier) {
 	replier.Replies() <- RplTopic(channel)
 }
 
-func (channel *Channel) Id() string {
+func (channel Channel) Id() string {
 	return channel.name
 }
 
-func (channel *Channel) PublicId() string {
+func (channel Channel) PublicId() string {
 	return channel.name
+}
+
+func (channel Channel) Commands() chan<- ChannelCommand {
+	return channel.commands
 }
 
 //

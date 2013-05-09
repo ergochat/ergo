@@ -12,6 +12,11 @@ type Identifier interface {
 	Nick() string
 }
 
+type Replier interface {
+	Identifier
+	Replies() chan<- Reply
+}
+
 type Reply interface {
 	String(client *Client) string
 	Source() Identifier
@@ -30,24 +35,24 @@ func NewBasicReply(source Identifier, code string,
 	return &BasicReply{source, code, fullMessage}
 }
 
-func (reply *BasicReply) String(client *Client) string {
+func (reply BasicReply) String(client *Client) string {
 	return reply.message
 }
 
-func (reply *BasicReply) Source() Identifier {
+func (reply BasicReply) Source() Identifier {
 	return reply.source
 }
 
 type NumericReply struct {
-	*BasicReply
+	BasicReply
 }
 
 func NewNumericReply(source Identifier, code string,
 	format string, args ...interface{}) *NumericReply {
-	return &NumericReply{&BasicReply{source, code, fmt.Sprintf(format, args...)}}
+	return &NumericReply{BasicReply{source, code, fmt.Sprintf(format, args...)}}
 }
 
-func (reply *NumericReply) String(client *Client) string {
+func (reply NumericReply) String(client *Client) string {
 	return fmt.Sprintf(":%s %s %s %s\r\n", reply.source.Id(), reply.code, client.Nick(),
 		reply.message)
 }

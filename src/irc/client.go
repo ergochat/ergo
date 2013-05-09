@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-type Replier interface {
-	Identifier
-	Replies() chan<- Reply
-}
-
 type Client struct {
 	conn       net.Conn
 	username   string
@@ -53,7 +48,7 @@ func (c *Client) readConn(recv <-chan string) {
 
 		m, err := ParseCommand(str)
 		if err != nil {
-			c.replies <- ErrNeedMoreParams(c.server, str)
+			c.Replies() <- ErrNeedMoreParams(c.server, str)
 			continue
 		}
 
@@ -70,15 +65,15 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	}
 }
 
-func (c *Client) Replies() chan<- Reply {
+func (c Client) Replies() chan<- Reply {
 	return c.replies
 }
 
-func (c *Client) Server() *Server {
+func (c Client) Server() *Server {
 	return c.server
 }
 
-func (c *Client) Nick() string {
+func (c Client) Nick() string {
 	if c.user != nil {
 		return c.user.nick
 	}
@@ -90,33 +85,33 @@ func (c *Client) Nick() string {
 	return "*"
 }
 
-func (c *Client) UModeString() string {
+func (c Client) UModeString() string {
 	return ""
 }
 
-func (c *Client) HasNick() bool {
+func (c Client) HasNick() bool {
 	return c.nick != ""
 }
 
-func (c *Client) HasUser() bool {
+func (c Client) HasUser() bool {
 	return c.username != ""
 }
 
-func (c *Client) Username() string {
+func (c Client) Username() string {
 	if c.HasUser() {
 		return c.username
 	}
 	return "*"
 }
 
-func (c *Client) UserHost() string {
+func (c Client) UserHost() string {
 	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Username(), c.hostname)
 }
 
-func (c *Client) Id() string {
+func (c Client) Id() string {
 	return c.UserHost()
 }
 
-func (c *Client) PublicId() string {
+func (c Client) PublicId() string {
 	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Nick(), c.server.Id())
 }
