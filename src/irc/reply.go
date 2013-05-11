@@ -18,7 +18,7 @@ type Replier interface {
 }
 
 type Reply interface {
-	String(client *Client) string
+	Format(client *Client) string
 	Source() Identifier
 }
 
@@ -31,11 +31,16 @@ type BasicReply struct {
 func NewBasicReply(source Identifier, code string,
 	format string, args ...interface{}) *BasicReply {
 	message := fmt.Sprintf(format, args...)
-	fullMessage := fmt.Sprintf(":%s %s %s\r\n", source.Id(), code, message)
+	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
 	return &BasicReply{source, code, fullMessage}
 }
 
-func (reply BasicReply) String(client *Client) string {
+func (reply BasicReply) String() string {
+	return fmt.Sprintf("Reply(source=%s, code=%s, message=%s)",
+		reply.source, reply.code, reply.message)
+}
+
+func (reply BasicReply) Format(client *Client) string {
 	return reply.message
 }
 
@@ -52,7 +57,7 @@ func NewNumericReply(source Identifier, code string,
 	return &NumericReply{BasicReply{source, code, fmt.Sprintf(format, args...)}}
 }
 
-func (reply NumericReply) String(client *Client) string {
+func (reply NumericReply) Format(client *Client) string {
 	return fmt.Sprintf(":%s %s %s %s\r\n", reply.source.Id(), reply.code, client.Nick(),
 		reply.message)
 }

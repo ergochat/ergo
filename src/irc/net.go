@@ -2,8 +2,13 @@ package irc
 
 import (
 	"bufio"
+	"log"
 	"net"
 	"strings"
+)
+
+const (
+	DEBUG_NET = false
 )
 
 func readTrimmedLine(reader *bufio.Reader) (string, error) {
@@ -24,6 +29,9 @@ func StringReadChan(conn net.Conn) <-chan string {
 			if err != nil {
 				break
 			}
+			if DEBUG_NET {
+				log.Printf("%s → %s", conn.RemoteAddr(), line)
+			}
 			ch <- line
 		}
 		close(ch)
@@ -36,7 +44,10 @@ func StringWriteChan(conn net.Conn) chan<- string {
 	writer := bufio.NewWriter(conn)
 	go func() {
 		for str := range ch {
-			if _, err := writer.WriteString(str); err != nil {
+			if DEBUG_NET {
+				log.Printf("%s ← %s", conn.RemoteAddr(), str)
+			}
+			if _, err := writer.WriteString(str + "\r\n"); err != nil {
 				break
 			}
 			writer.Flush()

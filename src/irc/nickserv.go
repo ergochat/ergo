@@ -5,6 +5,10 @@ import (
 	"log"
 )
 
+const (
+	DEBUG_NICKSERV = true
+)
+
 type NickServCommand interface {
 	HandleNickServ(*NickServ)
 	Client() *Client
@@ -21,6 +25,10 @@ func NewNickServ(s *Server) Service {
 
 func (ns *NickServ) SetBase(base *BaseService) {
 	ns.BaseService = *base
+}
+
+func (ns NickServ) Debug() bool {
+	return DEBUG_NICKSERV
 }
 
 var (
@@ -49,7 +57,9 @@ func (ns *NickServ) HandlePrivMsg(m *PrivMsgCommand) {
 	}
 
 	cmd.SetClient(m.Client())
-	log.Printf("%s ← %s", ns, cmd)
+	if ns.Debug() {
+		log.Printf("%s ← %s %s", ns, cmd.Client(), cmd)
+	}
 
 	cmd.HandleNickServ(ns)
 }

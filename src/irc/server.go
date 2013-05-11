@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	DEBUG_SERVER = true
+)
+
 type ClientNameMap map[string]*Client
 type ChannelNameMap map[string]*Channel
 type UserNameMap map[string]*User
@@ -40,7 +44,9 @@ func NewServer(name string) *Server {
 
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
-		log.Printf("%s ← %s %s", server, command.Client(), command)
+		if DEBUG_SERVER {
+			log.Printf("%s ← %s %s", server, command.Client(), command)
+		}
 		command.Client().atime = time.Now()
 		command.HandleServer(server)
 	}

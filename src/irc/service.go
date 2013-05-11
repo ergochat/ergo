@@ -14,6 +14,7 @@ type Service interface {
 	Identifier
 	Commands() chan<- ServiceCommand
 	HandlePrivMsg(*PrivMsgCommand)
+	Debug() bool
 }
 
 type EditableService interface {
@@ -36,13 +37,15 @@ func NewService(service EditableService, s *Server, name string) Service {
 	}
 	go receiveCommands(service, commands)
 	service.SetBase(base)
-	s.services[name] = service
+	s.services[service.Nick()] = service
 	return service
 }
 
 func receiveCommands(service Service, commands <-chan ServiceCommand) {
 	for command := range commands {
-		log.Printf("%s ← %s %s", service.Id(), command.Client(), command)
+		if service.Debug() {
+			log.Printf("%s ← %s %s", service.Id(), command.Client(), command)
+		}
 		command.HandleService(service)
 	}
 }

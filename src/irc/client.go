@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	DEBUG_CLIENT = true
+)
+
 type Client struct {
 	conn       net.Conn
 	username   string
@@ -44,7 +48,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 
 func (c *Client) readConn(recv <-chan string) {
 	for str := range recv {
-		log.Printf("%s → %s", c.conn.RemoteAddr(), str)
 
 		m, err := ParseCommand(str)
 		if err != nil {
@@ -63,9 +66,10 @@ func (c *Client) readConn(recv <-chan string) {
 
 func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	for reply := range replies {
-		replyStr := reply.String(c)
-		log.Printf("%s ← %s", c.conn.RemoteAddr(), replyStr)
-		write <- replyStr
+		if DEBUG_CLIENT {
+			log.Printf("%s ← %s", c, reply)
+		}
+		write <- reply.Format(c)
 	}
 }
 
