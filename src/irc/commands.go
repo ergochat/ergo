@@ -2,6 +2,7 @@ package irc
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -38,15 +39,15 @@ type BaseCommand struct {
 	client *Client
 }
 
-func (base BaseCommand) Client() *Client {
-	return base.client
+func (command BaseCommand) Client() *Client {
+	return command.client
 }
 
-func (base *BaseCommand) SetClient(c *Client) {
-	if base.client != nil {
+func (command *BaseCommand) SetClient(c *Client) {
+	if command.client != nil {
 		panic("SetClient called twice!")
 	}
-	base.client = c
+	command.client = c
 }
 
 func ParseCommand(line string) (EditableCommand, error) {
@@ -108,6 +109,10 @@ type PingCommand struct {
 	server2 string
 }
 
+func (cmd PingCommand) String() string {
+	return fmt.Sprintf("PING(server=%s, server2=%s)", cmd.server, cmd.server2)
+}
+
 func NewPingCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
@@ -128,6 +133,10 @@ type PongCommand struct {
 	BaseCommand
 	server1 string
 	server2 string
+}
+
+func (cmd PongCommand) String() string {
+	return fmt.Sprintf("PONG(server1=%s, server2=%s)", cmd.server1, cmd.server2)
 }
 
 func NewPongCommand(args []string) (EditableCommand, error) {
@@ -168,6 +177,10 @@ type NickCommand struct {
 	nickname string
 }
 
+func (m NickCommand) String() string {
+	return fmt.Sprintf("NICK(nickname=%s)", m.nickname)
+}
+
 func NewNickCommand(args []string) (EditableCommand, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
@@ -186,6 +199,11 @@ type UserMsgCommand struct {
 	mode     uint8
 	unused   string
 	realname string
+}
+
+func (cmd UserMsgCommand) String() string {
+	return fmt.Sprintf("USER(user=%s, mode=%o, unused=%s, realname=%s)",
+		cmd.user, cmd.mode, cmd.unused, cmd.realname)
 }
 
 func NewUserMsgCommand(args []string) (EditableCommand, error) {
@@ -210,6 +228,10 @@ func NewUserMsgCommand(args []string) (EditableCommand, error) {
 type QuitCommand struct {
 	BaseCommand
 	message string
+}
+
+func (cmd QuitCommand) String() string {
+	return fmt.Sprintf("QUIT(message=%s)", cmd.message)
 }
 
 func NewQuitCommand(args []string) (EditableCommand, error) {
@@ -289,6 +311,10 @@ type PrivMsgCommand struct {
 	message string
 }
 
+func (cmd PrivMsgCommand) String() string {
+	return fmt.Sprintf("PRIVMSG(target=%s, message=%s)", cmd.target, cmd.message)
+}
+
 func NewPrivMsgCommand(args []string) (EditableCommand, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
@@ -334,6 +360,10 @@ type ModeCommand struct {
 	BaseCommand
 	nickname string
 	modes    string
+}
+
+func (cmd ModeCommand) String() string {
+	return fmt.Sprintf("MODE(nickname=%s, modes=%s)", cmd.nickname, cmd.modes)
 }
 
 func NewModeCommand(args []string) (EditableCommand, error) {

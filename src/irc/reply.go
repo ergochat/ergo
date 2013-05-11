@@ -100,7 +100,7 @@ func RplWelcome(source Identifier, client *Client) Reply {
 
 func RplYourHost(server *Server, target *Client) Reply {
 	return NewNumericReply(server, RPL_YOURHOST,
-		"Your host is %s, running version %s", server.hostname, VERSION)
+		"Your host is %s, running version %s", server.name, VERSION)
 }
 
 func RplCreated(server *Server) Reply {

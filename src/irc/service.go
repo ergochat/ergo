@@ -7,60 +7,70 @@ import (
 
 type ServiceCommand interface {
 	Command
-	HandleService(*Service)
+	HandleService(Service)
 }
 
-type Service struct {
+type Service interface {
+	Identifier
+	Commands() chan<- ServiceCommand
+	HandlePrivMsg(*PrivMsgCommand)
+}
+
+type EditableService interface {
+	Service
+	SetBase(*BaseService)
+}
+
+type BaseService struct {
 	server   *Server
 	name     string
 	commands chan<- ServiceCommand
 }
 
-func NewService(s *Server, name string) *Service {
+func NewService(service EditableService, s *Server, name string) Service {
 	commands := make(chan ServiceCommand)
-	service := &Service{
+	base := &BaseService{
 		server:   s,
 		name:     name,
 		commands: commands,
 	}
-	go service.receiveCommands(commands)
+	go receiveCommands(service, commands)
+	service.SetBase(base)
 	s.services[name] = service
 	return service
 }
 
-func (service *Service) HandleMsg(m *PrivMsgCommand) {}
-
-func (service *Service) receiveCommands(commands <-chan ServiceCommand) {
+func receiveCommands(service Service, commands <-chan ServiceCommand) {
 	for command := range commands {
-		log.Printf("%s %T %+V", service.Id(), command, command)
+		log.Printf("%s ← %s %s", service.Id(), command.Client(), command)
 		command.HandleService(service)
 	}
 }
 
-func (service Service) Id() string {
+func (service BaseService) Id() string {
 	return fmt.Sprintf("%s!%s@%s", service.name, service.name, service.server.name)
 }
 
-func (service Service) PublicId() string {
+func (service BaseService) String() string {
 	return service.Id()
 }
 
-func (service Service) Nick() string {
+func (service BaseService) PublicId() string {
+	return service.Id()
+}
+
+func (service BaseService) Nick() string {
 	return service.name
 }
 
-func (service *Service) Reply(client *Client, message string) {
+func (service *BaseService) Reply(client *Client, message string) {
 	client.Replies() <- RplPrivMsg(service, client, message)
 }
 
-func (service Service) Commands() chan<- ServiceCommand {
+func (service BaseService) Commands() chan<- ServiceCommand {
 	return service.commands
 }
 
-//
-// commands
-//
-
-func (m *PrivMsgCommand) HandleService(s *Service) {
-	s.HandleMsg(m)
+func (m *PrivMsgCommand) HandleService(service Service) {
+	service.HandlePrivMsg(m)
 }

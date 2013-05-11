@@ -44,11 +44,15 @@ func NewClient(server *Server, conn net.Conn) *Client {
 
 func (c *Client) readConn(recv <-chan string) {
 	for str := range recv {
-		log.Printf("%s > %s", c.Id(), str)
+		log.Printf("%s → %s", c.conn.RemoteAddr(), str)
 
 		m, err := ParseCommand(str)
 		if err != nil {
-			c.Replies() <- ErrNeedMoreParams(c.server, str)
+			if err == NotEnoughArgsError {
+				c.Replies() <- ErrNeedMoreParams(c.server, str)
+			} else {
+				c.Replies() <- ErrUnknownCommand(c.server, str)
+			}
 			continue
 		}
 
@@ -60,7 +64,7 @@ func (c *Client) readConn(recv <-chan string) {
 func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	for reply := range replies {
 		replyStr := reply.String(c)
-		log.Printf("%s < %s", c.Id(), replyStr)
+		log.Printf("%s ← %s", c.conn.RemoteAddr(), replyStr)
 		write <- replyStr
 	}
 }
@@ -110,6 +114,10 @@ func (c Client) UserHost() string {
 
 func (c Client) Id() string {
 	return c.UserHost()
+}
+
+func (c Client) String() string {
+	return c.Id()
 }
 
 func (c Client) PublicId() string {

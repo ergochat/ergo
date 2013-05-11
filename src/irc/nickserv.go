@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -11,13 +12,15 @@ type NickServCommand interface {
 }
 
 type NickServ struct {
-	*Service
+	BaseService
 }
 
-func NewNickServ(s *Server) *NickServ {
-	return &NickServ{
-		Service: NewService(s, "NickServ"),
-	}
+func NewNickServ(s *Server) Service {
+	return NewService(new(NickServ), s, "NickServ")
+}
+
+func (ns *NickServ) SetBase(base *BaseService) {
+	ns.BaseService = *base
 }
 
 var (
@@ -31,7 +34,7 @@ var (
 // commands
 //
 
-func (ns *NickServ) HandleMsg(m *PrivMsgCommand) {
+func (ns *NickServ) HandlePrivMsg(m *PrivMsgCommand) {
 	command, args := parseLine(m.message)
 	constructor := parseNickServCommandFuncs[command]
 	if constructor == nil {
@@ -46,7 +49,7 @@ func (ns *NickServ) HandleMsg(m *PrivMsgCommand) {
 	}
 
 	cmd.SetClient(m.Client())
-	log.Printf("%s %T %+v", ns.Id(), cmd, cmd)
+	log.Printf("%s ← %s", ns, cmd)
 
 	cmd.HandleNickServ(ns)
 }
@@ -59,6 +62,10 @@ type RegisterCommand struct {
 	BaseCommand
 	password string
 	email    string
+}
+
+func (m RegisterCommand) String() string {
+	return fmt.Sprintf("REGISTER(email=%s, password=%s)", m.email, m.password)
 }
 
 func NewRegisterCommand(args []string) (NickServCommand, error) {
@@ -102,6 +109,10 @@ func (m *RegisterCommand) HandleNickServ(ns *NickServ) {
 type IdentifyCommand struct {
 	BaseCommand
 	password string
+}
+
+func (m IdentifyCommand) String() string {
+	return fmt.Sprintf("IDENTIFY(password=%s)", m.password)
 }
 
 func NewIdentifyCommand(args []string) (NickServCommand, error) {

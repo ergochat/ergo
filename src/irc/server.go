@@ -10,7 +10,7 @@ import (
 type ClientNameMap map[string]*Client
 type ChannelNameMap map[string]*Channel
 type UserNameMap map[string]*User
-type ServiceNameMap map[string]*Service
+type ServiceNameMap map[string]Service
 
 type Server struct {
 	hostname string
@@ -40,7 +40,7 @@ func NewServer(name string) *Server {
 
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
-		log.Printf("%s %T %+v", server.Id(), command, command)
+		log.Printf("%s ← %s %s", server, command.Client(), command)
 		command.Client().atime = time.Now()
 		command.HandleServer(server)
 	}
@@ -103,7 +103,11 @@ func (s *Server) tryRegister(c *Client) {
 }
 
 func (s Server) Id() string {
-	return s.hostname
+	return s.name
+}
+
+func (s Server) String() string {
+	return s.Id()
 }
 
 func (s Server) PublicId() string {
@@ -122,7 +126,7 @@ func (s *Server) DeleteChannel(channel *Channel) {
 // commands
 //
 
-func (m *UnknownCommand) HandleServer(s *Server) {
+func (m UnknownCommand) HandleServer(s *Server) {
 	m.Client().Replies() <- ErrUnknownCommand(s, m.command)
 }
 
