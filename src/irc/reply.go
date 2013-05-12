@@ -13,7 +13,6 @@ type Identifier interface {
 }
 
 type Replier interface {
-	Identifier
 	Replies() chan<- Reply
 }
 
@@ -40,7 +39,10 @@ func NewStringReply(source Identifier, code string,
 	format string, args ...interface{}) *StringReply {
 	message := fmt.Sprintf(format, args...)
 	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
-	return &StringReply{BaseReply{source, fullMessage}, code}
+	return &StringReply{
+		BaseReply: BaseReply{source, fullMessage},
+		code:      code,
+	}
 }
 
 func (reply *StringReply) Format(client *Client) string {
@@ -57,9 +59,12 @@ type NumericReply struct {
 	code int
 }
 
-func NewNumericReply(source Identifier, code int,
-	format string, args ...interface{}) *NumericReply {
-	return &NumericReply{BaseReply{source, fmt.Sprintf(format, args...)}, code}
+func NewNumericReply(source Identifier, code int, format string,
+	args ...interface{}) *NumericReply {
+	return &NumericReply{
+		BaseReply: BaseReply{source, fmt.Sprintf(format, args...)},
+		code:      code,
+	}
 }
 
 func (reply *NumericReply) Format(client *Client) string {
@@ -78,8 +83,8 @@ func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
 	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
-func RplNick(client *Client, newNick string) Reply {
-	return NewStringReply(client, RPL_NICK, newNick)
+func RplNick(source Identifier, newNick string) Reply {
+	return NewStringReply(source, RPL_NICK, newNick)
 }
 
 func RplPrivMsgChannel(channel *Channel, source Identifier, message string) Reply {
@@ -129,8 +134,7 @@ func RplMyInfo(server *Server) Reply {
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
-	return NewNumericReply(server, RPL_UMODEIS,
-		client.UModeString())
+	return NewNumericReply(server, RPL_UMODEIS, client.UModeString())
 }
 
 func RplNoTopic(channel *Channel) Reply {

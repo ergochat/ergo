@@ -53,12 +53,12 @@ func NewChannel(s *Server, name string) *Channel {
 }
 
 // Forward `Reply`s to all `User`s of the `Channel`.
-func (ch *Channel) receiveReplies(replies <-chan Reply) {
+func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
 		if DEBUG_CHANNEL {
-			log.Printf("%s → %s", ch, reply)
+			log.Printf("%s → %s", channel, reply)
 		}
-		for user := range ch.members {
+		for user := range channel.members {
 			if user != reply.Source() {
 				user.replies <- reply
 			}
@@ -66,27 +66,21 @@ func (ch *Channel) receiveReplies(replies <-chan Reply) {
 	}
 }
 
-func (ch *Channel) receiveCommands(commands <-chan ChannelCommand) {
+func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
 		if DEBUG_CHANNEL {
-			log.Printf("%s ← %s %s", ch, command.Source(), command)
+			log.Printf("%s ← %s %s", channel, command.Source(), command)
 		}
-		command.HandleChannel(ch)
+		command.HandleChannel(channel)
 	}
 }
 
-func (ch *Channel) Nicks() []string {
-	nicks := make([]string, len(ch.members))
-	i := 0
-	for member := range ch.members {
-		nicks[i] = member.Nick()
-		i++
-	}
-	return nicks
+func (channel *Channel) Nicks() []string {
+	return channel.members.Nicks()
 }
 
-func (ch *Channel) IsEmpty() bool {
-	return len(ch.members) == 0
+func (channel *Channel) IsEmpty() bool {
+	return len(channel.members) == 0
 }
 
 func (channel *Channel) GetTopic(replier Replier) {
@@ -158,7 +152,7 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 	channel.members.Remove(user)
 	user.channels.Remove(channel)
 
-	if len(channel.members) == 0 {
+	if channel.IsEmpty() {
 		channel.server.DeleteChannel(channel)
 	}
 }

@@ -35,6 +35,16 @@ func (set UserSet) Remove(user *User) {
 	delete(set, user)
 }
 
+func (set UserSet) Nicks() []string {
+	nicks := make([]string, len(set))
+	i := 0
+	for member := range set {
+		nicks[i] = member.Nick()
+		i++
+	}
+	return nicks
+}
+
 func NewUser(nick string, password string, server *Server) *User {
 	commands := make(chan UserCommand)
 	replies := make(chan Reply)

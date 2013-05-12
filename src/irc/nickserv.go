@@ -27,7 +27,7 @@ func (ns *NickServ) SetBase(base *BaseService) {
 	ns.BaseService = *base
 }
 
-func (ns NickServ) Debug() bool {
+func (ns *NickServ) Debug() bool {
 	return DEBUG_NICKSERV
 }
 

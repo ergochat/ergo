@@ -45,9 +45,6 @@ func (command *BaseCommand) Client() *Client {
 }
 
 func (command *BaseCommand) SetClient(c *Client) {
-	if command.client != nil {
-		panic("SetClient called twice!")
-	}
 	command.client = c
 }
 

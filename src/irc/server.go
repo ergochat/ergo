@@ -11,7 +11,6 @@ const (
 	DEBUG_SERVER = true
 )
 
-type ClientNameMap map[string]*Client
 type ChannelNameMap map[string]*Channel
 type UserNameMap map[string]*User
 type ServiceNameMap map[string]Service
@@ -84,7 +83,7 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 }
 
 // Send a message to clients of channels fromClient is a member.
-func (s Server) InterestedUsers(fromUser *User) UserSet {
+func (s *Server) InterestedUsers(fromUser *User) UserSet {
 	users := make(UserSet)
 	users.Add(fromUser)
 	for channel := range fromUser.channels {
@@ -99,16 +98,25 @@ func (s Server) InterestedUsers(fromUser *User) UserSet {
 // server functionality
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUsername() && (s.password == nil || c.serverPass) {
+	if !c.registered && c.HasNick() && c.HasUsername() && s.CheckPassword(c) {
 		c.registered = true
-		replies := []Reply{RplWelcome(s, c), RplYourHost(s, c), RplCreated(s), RplMyInfo(s)}
+		replies := []Reply{
+			RplWelcome(s, c),
+			RplYourHost(s, c),
+			RplCreated(s),
+			RplMyInfo(s),
+		}
 		for _, reply := range replies {
 			c.Replies() <- reply
 		}
 	}
 }
 
-func (s Server) Id() string {
+func (s *Server) CheckPassword(c *Client) bool {
+	return (s.password == nil) || c.serverPass
+}
+
+func (s *Server) Id() string {
 	return s.name
 }
 
@@ -164,7 +172,19 @@ func (m *NickCommand) HandleServer(s *Server) {
 		return
 	}
 
-	c.user.Replies() <- ErrNoPrivileges(s)
+	user := c.user
+	if s.users[m.nickname] != nil {
+		user.Replies() <- ErrNickNameInUse(s, m.nickname)
+		return
+	}
+
+	delete(s.users, user.nick)
+	s.users[m.nickname] = user
+	reply := RplNick(user, m.nickname)
+	for iuser := range s.InterestedUsers(user) {
+		iuser.Replies() <- reply
+	}
+	user.nick = m.nickname
 }
 
 func (m *UserMsgCommand) HandleServer(s *Server) {
