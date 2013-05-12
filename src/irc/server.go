@@ -228,9 +228,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 	c := m.Client()
 
 	if c.user == nil {
-		for name := range m.channels {
-			c.Replies() <- ErrNoSuchChannel(s, name)
-		}
+		c.Replies() <- ErrNoPrivileges(s)
 		return
 	}
 
@@ -250,12 +248,10 @@ func (m *JoinCommand) HandleServer(s *Server) {
 }
 
 func (m *PartCommand) HandleServer(s *Server) {
-	user := m.Client().user
+	user := m.User()
 
 	if user == nil {
-		for _, chname := range m.channels {
-			m.Client().Replies() <- ErrNoSuchChannel(s, chname)
-		}
+		m.Client().Replies() <- ErrNoPrivileges(s)
 		return
 	}
 
@@ -272,10 +268,11 @@ func (m *PartCommand) HandleServer(s *Server) {
 }
 
 func (m *TopicCommand) HandleServer(s *Server) {
-	user := m.Client().user
+	user := m.User()
 
+	// Hide all channels from logged-out clients.
 	if user == nil {
-		m.Client().Replies() <- ErrNoSuchChannel(s, m.channel)
+		m.Client().Replies() <- ErrNoPrivileges(s)
 		return
 	}
 
@@ -295,9 +292,10 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 
-	user := m.Client().user
+	user := m.User()
+	// Hide all users from logged-out clients.
 	if user == nil {
-		m.Client().Replies() <- ErrNoSuchNick(s, m.target)
+		m.Client().Replies() <- ErrNoPrivileges(s)
 		return
 	}
 

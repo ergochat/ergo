@@ -158,7 +158,7 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *TopicCommand) HandleChannel(channel *Channel) {
-	user := m.Client().user
+	user := m.User()
 
 	if !channel.members[user] {
 		user.replies <- ErrNotOnChannel(channel)
@@ -181,5 +181,5 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
-	channel.Replies() <- RplPrivMsgChannel(channel, m.Client().user, m.message)
+	channel.Replies() <- RplPrivMsgChannel(channel, m.User(), m.message)
 }
