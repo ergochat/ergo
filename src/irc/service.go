@@ -50,19 +50,19 @@ func receiveCommands(service Service, commands <-chan ServiceCommand) {
 	}
 }
 
-func (service BaseService) Id() string {
+func (service *BaseService) Id() string {
 	return fmt.Sprintf("%s!%s@%s", service.name, service.name, service.server.name)
 }
 
-func (service BaseService) String() string {
+func (service *BaseService) String() string {
 	return service.Id()
 }
 
-func (service BaseService) PublicId() string {
+func (service *BaseService) PublicId() string {
 	return service.Id()
 }
 
-func (service BaseService) Nick() string {
+func (service *BaseService) Nick() string {
 	return service.name
 }
 
@@ -70,9 +70,13 @@ func (service *BaseService) Reply(client *Client, message string) {
 	client.Replies() <- RplPrivMsg(service, client, message)
 }
 
-func (service BaseService) Commands() chan<- ServiceCommand {
+func (service *BaseService) Commands() chan<- ServiceCommand {
 	return service.commands
 }
+
+//
+// commands
+//
 
 func (m *PrivMsgCommand) HandleService(service Service) {
 	service.HandlePrivMsg(m)

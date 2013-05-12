@@ -99,7 +99,7 @@ func (s Server) InterestedUsers(fromUser *User) UserSet {
 // server functionality
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUser() && (s.password == nil || c.serverPass) {
+	if !c.registered && c.HasNick() && c.HasUsername() && (s.password == nil || c.serverPass) {
 		c.registered = true
 		replies := []Reply{RplWelcome(s, c), RplYourHost(s, c), RplCreated(s), RplMyInfo(s)}
 		for _, reply := range replies {
@@ -112,15 +112,15 @@ func (s Server) Id() string {
 	return s.name
 }
 
-func (s Server) String() string {
+func (s *Server) String() string {
 	return s.Id()
 }
 
-func (s Server) PublicId() string {
+func (s *Server) PublicId() string {
 	return s.Id()
 }
 
-func (s Server) Nick() string {
+func (s *Server) Nick() string {
 	return s.name
 }
 
@@ -132,7 +132,7 @@ func (s *Server) DeleteChannel(channel *Channel) {
 // commands
 //
 
-func (m UnknownCommand) HandleServer(s *Server) {
+func (m *UnknownCommand) HandleServer(s *Server) {
 	m.Client().Replies() <- ErrUnknownCommand(s, m.command)
 }
 

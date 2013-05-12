@@ -4,6 +4,10 @@ import (
 	"log"
 )
 
+const (
+	DEBUG_CHANNEL = true
+)
+
 type Channel struct {
 	server    *Server
 	commands  chan<- ChannelCommand
@@ -51,6 +55,9 @@ func NewChannel(s *Server, name string) *Channel {
 // Forward `Reply`s to all `User`s of the `Channel`.
 func (ch *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
+		if DEBUG_CHANNEL {
+			log.Printf("%s → %s", ch, reply)
+		}
 		for user := range ch.members {
 			if user != reply.Source() {
 				user.replies <- reply
@@ -61,7 +68,9 @@ func (ch *Channel) receiveReplies(replies <-chan Reply) {
 
 func (ch *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
-		log.Printf("%s %T %+v", ch.Id(), command, command)
+		if DEBUG_CHANNEL {
+			log.Printf("%s ← %s %s", ch, command.Source(), command)
+		}
 		command.HandleChannel(ch)
 	}
 }
@@ -89,16 +98,24 @@ func (channel *Channel) GetTopic(replier Replier) {
 	replier.Replies() <- RplTopic(channel)
 }
 
-func (channel Channel) Id() string {
+func (channel *Channel) Id() string {
 	return channel.name
 }
 
-func (channel Channel) PublicId() string {
+func (channel *Channel) PublicId() string {
 	return channel.name
 }
 
-func (channel Channel) Commands() chan<- ChannelCommand {
+func (channel *Channel) Commands() chan<- ChannelCommand {
 	return channel.commands
+}
+
+func (channel *Channel) Replies() chan<- Reply {
+	return channel.replies
+}
+
+func (channel *Channel) String() string {
+	return channel.Id()
 }
 
 //
@@ -170,5 +187,5 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
-	channel.replies <- RplPrivMsgChannel(channel, m.Client().user, m.message)
+	channel.Replies() <- RplPrivMsgChannel(channel, m.Client().user, m.message)
 }

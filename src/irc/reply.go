@@ -22,78 +22,88 @@ type Reply interface {
 	Source() Identifier
 }
 
-type BasicReply struct {
+type BaseReply struct {
 	source  Identifier
-	code    string
 	message string
 }
 
-func NewBasicReply(source Identifier, code string,
-	format string, args ...interface{}) *BasicReply {
-	message := fmt.Sprintf(format, args...)
-	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
-	return &BasicReply{source, code, fullMessage}
+func (reply *BaseReply) Source() Identifier {
+	return reply.source
 }
 
-func (reply BasicReply) String() string {
+type StringReply struct {
+	BaseReply
+	code string
+}
+
+func NewStringReply(source Identifier, code string,
+	format string, args ...interface{}) *StringReply {
+	message := fmt.Sprintf(format, args...)
+	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
+	return &StringReply{BaseReply{source, fullMessage}, code}
+}
+
+func (reply *StringReply) Format(client *Client) string {
+	return reply.message
+}
+
+func (reply *StringReply) String() string {
 	return fmt.Sprintf("Reply(source=%s, code=%s, message=%s)",
 		reply.source, reply.code, reply.message)
 }
 
-func (reply BasicReply) Format(client *Client) string {
-	return reply.message
-}
-
-func (reply BasicReply) Source() Identifier {
-	return reply.source
-}
-
 type NumericReply struct {
-	BasicReply
+	BaseReply
+	code int
 }
 
-func NewNumericReply(source Identifier, code string,
+func NewNumericReply(source Identifier, code int,
 	format string, args ...interface{}) *NumericReply {
-	return &NumericReply{BasicReply{source, code, fmt.Sprintf(format, args...)}}
+	return &NumericReply{BaseReply{source, fmt.Sprintf(format, args...)}, code}
 }
 
-func (reply NumericReply) Format(client *Client) string {
-	return fmt.Sprintf(":%s %s %s %s\r\n", reply.source.Id(), reply.code, client.Nick(),
-		reply.message)
+func (reply *NumericReply) Format(client *Client) string {
+	return fmt.Sprintf(":%s %03d %s %s", reply.Source().Id(), reply.code,
+		client.Nick(), reply.message)
+}
+
+func (reply *NumericReply) String() string {
+	return fmt.Sprintf("Reply(source=%s, code=%d, message=%s)",
+		reply.source, reply.code, reply.message)
 }
 
 // messaging replies
 
 func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
-	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", target.Nick(), message)
+	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
 func RplNick(client *Client, newNick string) Reply {
-	return NewBasicReply(client, RPL_NICK, newNick)
+	return NewStringReply(client, RPL_NICK, newNick)
 }
 
 func RplPrivMsgChannel(channel *Channel, source Identifier, message string) Reply {
-	return NewBasicReply(source, RPL_PRIVMSG, "%s :%s", channel.name, message)
+	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", channel.name, message)
 }
 
 func RplJoin(channel *Channel, user *User) Reply {
-	return NewBasicReply(user, RPL_JOIN, channel.name)
+	return NewStringReply(user, RPL_JOIN, channel.name)
 }
 
 func RplPart(channel *Channel, user *User, message string) Reply {
-	return NewBasicReply(user, RPL_PART, "%s :%s", channel.name, message)
+	return NewStringReply(user, RPL_PART, "%s :%s", channel.name, message)
 }
 
 func RplPong(server *Server) Reply {
-	return NewBasicReply(server, RPL_PONG, server.Id())
+	return NewStringReply(server, RPL_PONG, server.Id())
 }
 
 func RplQuit(client *Client, message string) Reply {
-	return NewBasicReply(client, RPL_QUIT, ":%", message)
+	return NewStringReply(client, RPL_QUIT, ":%s", message)
 }
 
 func RplInviteMsg(channel *Channel, inviter *Client) Reply {
-	return NewBasicReply(inviter, RPL_INVITE, channel.name)
+	return NewStringReply(inviter, RPL_INVITE, channel.name)
 }
 
 // numeric replies

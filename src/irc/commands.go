@@ -9,6 +9,7 @@ import (
 
 type Command interface {
 	Client() *Client
+	Source() Identifier
 	HandleServer(*Server)
 }
 
@@ -39,7 +40,7 @@ type BaseCommand struct {
 	client *Client
 }
 
-func (command BaseCommand) Client() *Client {
+func (command *BaseCommand) Client() *Client {
 	return command.client
 }
 
@@ -48,6 +49,17 @@ func (command *BaseCommand) SetClient(c *Client) {
 		panic("SetClient called twice!")
 	}
 	command.client = c
+}
+
+func (command *BaseCommand) Source() Identifier {
+	client := command.Client()
+	if client == nil {
+		return nil
+	}
+	if client.user != nil {
+		return client.user
+	}
+	return client
 }
 
 func ParseCommand(line string) (EditableCommand, error) {
@@ -93,6 +105,10 @@ type UnknownCommand struct {
 	args    []string
 }
 
+func (cmd *UnknownCommand) String() string {
+	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.command, cmd.args)
+}
+
 func NewUnknownCommand(command string, args []string) *UnknownCommand {
 	return &UnknownCommand{
 		BaseCommand: BaseCommand{},
@@ -109,7 +125,7 @@ type PingCommand struct {
 	server2 string
 }
 
-func (cmd PingCommand) String() string {
+func (cmd *PingCommand) String() string {
 	return fmt.Sprintf("PING(server=%s, server2=%s)", cmd.server, cmd.server2)
 }
 
@@ -135,7 +151,7 @@ type PongCommand struct {
 	server2 string
 }
 
-func (cmd PongCommand) String() string {
+func (cmd *PongCommand) String() string {
 	return fmt.Sprintf("PONG(server1=%s, server2=%s)", cmd.server1, cmd.server2)
 }
 
@@ -160,6 +176,10 @@ type PassCommand struct {
 	password string
 }
 
+func (cmd *PassCommand) String() string {
+	return fmt.Sprintf("PASS(password=%s)", cmd.password)
+}
+
 func NewPassCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
@@ -177,7 +197,7 @@ type NickCommand struct {
 	nickname string
 }
 
-func (m NickCommand) String() string {
+func (m *NickCommand) String() string {
 	return fmt.Sprintf("NICK(nickname=%s)", m.nickname)
 }
 
@@ -201,7 +221,7 @@ type UserMsgCommand struct {
 	realname string
 }
 
-func (cmd UserMsgCommand) String() string {
+func (cmd *UserMsgCommand) String() string {
 	return fmt.Sprintf("USER(user=%s, mode=%o, unused=%s, realname=%s)",
 		cmd.user, cmd.mode, cmd.unused, cmd.realname)
 }
@@ -230,7 +250,7 @@ type QuitCommand struct {
 	message string
 }
 
-func (cmd QuitCommand) String() string {
+func (cmd *QuitCommand) String() string {
 	return fmt.Sprintf("QUIT(message=%s)", cmd.message)
 }
 
@@ -250,6 +270,10 @@ type JoinCommand struct {
 	BaseCommand
 	channels map[string]string
 	zero     bool
+}
+
+func (cmd *JoinCommand) String() string {
+	return fmt.Sprintf("JOIN(channels=%s, zero=%t)", cmd.channels, cmd.zero)
 }
 
 func NewJoinCommand(args []string) (EditableCommand, error) {
@@ -289,6 +313,10 @@ type PartCommand struct {
 	message  string
 }
 
+func (cmd *PartCommand) String() string {
+	return fmt.Sprintf("PART(channels=%s, message=%s)", cmd.channels, cmd.message)
+}
+
 func NewPartCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
@@ -311,7 +339,7 @@ type PrivMsgCommand struct {
 	message string
 }
 
-func (cmd PrivMsgCommand) String() string {
+func (cmd *PrivMsgCommand) String() string {
 	return fmt.Sprintf("PRIVMSG(target=%s, message=%s)", cmd.target, cmd.message)
 }
 
@@ -342,6 +370,10 @@ type TopicCommand struct {
 	topic   string
 }
 
+func (cmd *TopicCommand) String() string {
+	return fmt.Sprintf("TOPIC(channel=%s, topic=%s)", cmd.channel, cmd.topic)
+}
+
 func NewTopicCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
@@ -362,7 +394,7 @@ type ModeCommand struct {
 	modes    string
 }
 
-func (cmd ModeCommand) String() string {
+func (cmd *ModeCommand) String() string {
 	return fmt.Sprintf("MODE(nickname=%s, modes=%s)", cmd.nickname, cmd.modes)
 }
 

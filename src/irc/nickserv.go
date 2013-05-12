@@ -74,7 +74,7 @@ type RegisterCommand struct {
 	email    string
 }
 
-func (m RegisterCommand) String() string {
+func (m *RegisterCommand) String() string {
 	return fmt.Sprintf("REGISTER(email=%s, password=%s)", m.email, m.password)
 }
 
@@ -107,11 +107,11 @@ func (m *RegisterCommand) HandleNickServ(ns *NickServ) {
 	}
 
 	user := NewUser(client.nick, m.password, ns.server)
-	ns.server.users[client.nick] = user
 	ns.Reply(client, "You have registered.")
 
 	if !user.Login(client, client.nick, m.password) {
 		ns.Reply(client, "Login failed.")
+		return
 	}
 	ns.Reply(client, "Logged in.")
 }
@@ -121,7 +121,7 @@ type IdentifyCommand struct {
 	password string
 }
 
-func (m IdentifyCommand) String() string {
+func (m *IdentifyCommand) String() string {
 	return fmt.Sprintf("IDENTIFY(password=%s)", m.password)
 }
 

@@ -6,6 +6,10 @@ import (
 	"log"
 )
 
+const (
+	DEBUG_USER = true
+)
+
 type UserCommand interface {
 	Command
 	HandleUser(*User)
@@ -44,6 +48,7 @@ func NewUser(nick string, password string, server *Server) *User {
 	user.SetPassword(password)
 	go user.receiveCommands(commands)
 	go user.receiveReplies(replies)
+	server.users[nick] = user
 	return user
 }
 
@@ -57,7 +62,9 @@ func (user *User) SetPassword(password string) {
 
 func (user *User) receiveCommands(commands <-chan UserCommand) {
 	for command := range commands {
-		log.Printf("%s %T %+v", user.Id(), command, command)
+		if DEBUG_USER {
+			log.Printf("%s ← %s %s", user, command.Client(), command)
+		}
 		command.HandleUser(user)
 	}
 }
@@ -65,7 +72,7 @@ func (user *User) receiveCommands(commands <-chan UserCommand) {
 // Distribute replies to clients.
 func (user *User) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
-		log.Printf("%s %T %+v", user.Id(), reply, reply)
+		log.Printf("%s ← %s", user, reply)
 		for client := range user.clients {
 			client.Replies() <- reply
 		}
@@ -74,19 +81,23 @@ func (user *User) receiveReplies(replies <-chan Reply) {
 
 // Identifier
 
-func (user User) Id() string {
+func (user *User) Id() string {
 	return fmt.Sprintf("%s!%s@%s", user.nick, user.nick, user.server.Id())
 }
 
-func (user User) PublicId() string {
+func (user *User) PublicId() string {
 	return user.Id()
 }
 
-func (user User) Nick() string {
+func (user *User) Nick() string {
 	return user.nick
 }
 
-func (user User) Commands() chan<- UserCommand {
+func (user *User) String() string {
+	return user.Id()
+}
+
+func (user *User) Commands() chan<- UserCommand {
 	return user.commands
 }
 
@@ -123,11 +134,11 @@ func (user *User) LogoutClient(c *Client) bool {
 	return false
 }
 
-func (user User) HasClients() bool {
+func (user *User) HasClients() bool {
 	return len(user.clients) > 0
 }
 
-func (user User) Replies() chan<- Reply {
+func (user *User) Replies() chan<- Reply {
 	return user.replies
 }
 
