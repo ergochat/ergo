@@ -9,6 +9,7 @@ const (
 )
 
 type Channel struct {
+	id        *RowId
 	server    *Server
 	commands  chan<- ChannelCommand
 	replies   chan<- Reply
@@ -28,6 +29,16 @@ func (set ChannelSet) Add(channel *Channel) {
 
 func (set ChannelSet) Remove(channel *Channel) {
 	delete(set, channel)
+}
+
+func (set ChannelSet) Ids() (ids []RowId) {
+	ids = []RowId{}
+	for channel := range set {
+		if channel.id != nil {
+			ids = append(ids, *channel.id)
+		}
+	}
+	return ids
 }
 
 type ChannelCommand interface {
@@ -50,6 +61,24 @@ func NewChannel(s *Server, name string) *Channel {
 	go channel.receiveReplies(replies)
 	go channel.receiveCommands(commands)
 	return channel
+}
+
+func (channel *Channel) Save(q Queryable) bool {
+	if channel.id == nil {
+		if err := InsertChannel(q, channel); err != nil {
+			return false
+		}
+		channelId, err := FindChannelIdByName(q, channel.name)
+		if err != nil {
+			return false
+		}
+		channel.id = &channelId
+	} else {
+		if err := UpdateChannel(q, channel); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // Forward `Reply`s to all `User`s of the `Channel`.

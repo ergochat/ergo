@@ -53,7 +53,7 @@ func (command *BaseCommand) User() *User {
 }
 
 func (command *BaseCommand) SetClient(c *Client) {
-	command.client = c
+	*command = BaseCommand{c}
 }
 
 func (command *BaseCommand) Source() Identifier {

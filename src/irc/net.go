@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DEBUG_NET = false
+	DEBUG_NET = true
 )
 
 func readTrimmedLine(reader *bufio.Reader) (string, error) {

@@ -16,6 +16,7 @@ type UserCommand interface {
 }
 
 type User struct {
+	id       *RowId
 	nick     string
 	hash     []byte
 	server   *Server
@@ -56,10 +57,44 @@ func NewUser(nick string, password string, server *Server) *User {
 		replies:  replies,
 	}
 	user.SetPassword(password)
+
 	go user.receiveCommands(commands)
 	go user.receiveReplies(replies)
 	server.users[nick] = user
+
 	return user
+}
+
+func (user *User) Save(q Queryable) bool {
+	if user.id == nil {
+		if err := InsertUser(q, user); err != nil {
+			return false
+		}
+		userId, err := FindUserIdByNick(q, user.nick)
+		if err != nil {
+			return false
+		}
+		user.id = &userId
+	} else {
+		if err := UpdateUser(q, user); err != nil {
+			return false
+		}
+	}
+
+	channelIds := user.channels.Ids()
+	if len(channelIds) == 0 {
+		if err := DeleteAllUserChannels(q, *(user.id)); err != nil {
+			return false
+		}
+	} else {
+		if err := DeleteOtherUserChannels(q, *(user.id), channelIds); err != nil {
+			return false
+		}
+		if err := InsertUserChannels(q, *(user.id), channelIds); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (user *User) SetPassword(password string) {
