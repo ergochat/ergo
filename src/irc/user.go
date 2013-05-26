@@ -46,9 +46,9 @@ func (set UserSet) Nicks() []string {
 	return nicks
 }
 
-func NewUser(nick string, password string, server *Server) *User {
-	commands := make(chan UserCommand)
-	replies := make(chan Reply)
+func NewUser(nick string, server *Server) *User {
+	commands := make(chan UserCommand, 1)
+	replies := make(chan Reply, 1)
 	user := &User{
 		nick:     nick,
 		server:   server,
@@ -56,7 +56,6 @@ func NewUser(nick string, password string, server *Server) *User {
 		channels: make(ChannelSet),
 		replies:  replies,
 	}
-	user.SetPassword(password)
 
 	go user.receiveCommands(commands)
 	go user.receiveReplies(replies)
@@ -81,34 +80,40 @@ func (user *User) Save(q Queryable) bool {
 		}
 	}
 
+	userId := *(user.id)
 	channelIds := user.channels.Ids()
 	if len(channelIds) == 0 {
-		if err := DeleteAllUserChannels(q, *(user.id)); err != nil {
+		if err := DeleteAllUserChannels(q, userId); err != nil {
 			return false
 		}
 	} else {
-		if err := DeleteOtherUserChannels(q, *(user.id), channelIds); err != nil {
+		if err := DeleteOtherUserChannels(q, userId, channelIds); err != nil {
 			return false
 		}
-		if err := InsertUserChannels(q, *(user.id), channelIds); err != nil {
+		if err := InsertUserChannels(q, userId, channelIds); err != nil {
 			return false
 		}
 	}
 	return true
 }
 
-func (user *User) SetPassword(password string) {
+func (user *User) SetPassword(password string) *User {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		panic("bcrypt failed; cannot generate password hash")
 	}
+	return user.SetHash(hash)
+}
+
+func (user *User) SetHash(hash []byte) *User {
 	user.hash = hash
+	return user
 }
 
 func (user *User) receiveCommands(commands <-chan UserCommand) {
 	for command := range commands {
 		if DEBUG_USER {
-			log.Printf("%s ← %s %s", user, command.Client(), command)
+			log.Printf("%s → %s : %s", command.Client(), user, command)
 		}
 		command.HandleUser(user)
 	}
@@ -117,7 +122,9 @@ func (user *User) receiveCommands(commands <-chan UserCommand) {
 // Distribute replies to clients.
 func (user *User) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
-		log.Printf("%s ← %s", user, reply)
+		if DEBUG_USER {
+			log.Printf("%s ← %s : %s", user, reply.Source(), reply)
+		}
 		for client := range user.clients {
 			client.Replies() <- reply
 		}

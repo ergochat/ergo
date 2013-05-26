@@ -31,7 +31,7 @@ type ClientSet map[*Client]bool
 func NewClient(server *Server, conn net.Conn) *Client {
 	read := StringReadChan(conn)
 	write := StringWriteChan(conn)
-	replies := make(chan Reply)
+	replies := make(chan Reply, 1)
 
 	client := &Client{
 		conn:     conn,
@@ -67,7 +67,7 @@ func (c *Client) readConn(recv <-chan string) {
 func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	for reply := range replies {
 		if DEBUG_CLIENT {
-			log.Printf("%s ← %s", c, reply)
+			log.Printf("%s ← %s : %s", c, reply.Source(), reply)
 		}
 		write <- reply.Format(c)
 	}

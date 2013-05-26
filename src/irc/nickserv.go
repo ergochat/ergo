@@ -106,7 +106,8 @@ func (m *RegisterCommand) HandleNickServ(ns *NickServ) {
 		return
 	}
 
-	user := NewUser(client.nick, m.password, ns.server)
+	user := NewUser(client.nick, ns.server).SetPassword(m.password)
+	ns.server.db.Save(user)
 	ns.Reply(client, "You have registered.")
 
 	if !user.Login(client, client.nick, m.password) {

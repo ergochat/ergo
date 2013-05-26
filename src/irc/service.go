@@ -29,7 +29,7 @@ type BaseService struct {
 }
 
 func NewService(service EditableService, s *Server, name string) Service {
-	commands := make(chan ServiceCommand)
+	commands := make(chan ServiceCommand, 1)
 	base := &BaseService{
 		server:   s,
 		name:     name,

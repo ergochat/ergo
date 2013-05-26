@@ -49,8 +49,8 @@ type ChannelCommand interface {
 // NewChannel creates a new channel from a `Server` and a `name` string, which
 // must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
-	replies := make(chan Reply)
-	commands := make(chan ChannelCommand)
+	commands := make(chan ChannelCommand, 1)
+	replies := make(chan Reply, 1)
 	channel := &Channel{
 		name:     name,
 		members:  make(UserSet),
@@ -58,8 +58,8 @@ func NewChannel(s *Server, name string) *Channel {
 		commands: commands,
 		replies:  replies,
 	}
-	go channel.receiveReplies(replies)
 	go channel.receiveCommands(commands)
+	go channel.receiveReplies(replies)
 	return channel
 }
 
@@ -81,29 +81,27 @@ func (channel *Channel) Save(q Queryable) bool {
 	return true
 }
 
-// Forward `Reply`s to all `User`s of the `Channel`.
-func (channel *Channel) receiveReplies(replies <-chan Reply) {
-	for reply := range replies {
-		if DEBUG_CHANNEL {
-			log.Printf("%s → %s", channel, reply)
-		}
-		for user := range channel.members {
-			if user != reply.Source() {
-				user.replies <- reply
-			}
-		}
-	}
-}
-
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
 		if DEBUG_CHANNEL {
-			log.Printf("%s ← %s %s", channel, command.Source(), command)
+			log.Printf("%s → %s : %s", command.Source(), channel, command)
 		}
 		command.HandleChannel(channel)
 	}
 }
 
+func (channel *Channel) receiveReplies(replies <-chan Reply) {
+	for reply := range replies {
+		if DEBUG_CHANNEL {
+			log.Printf("%s ← %s : %s", channel, reply.Source(), reply)
+		}
+		for user := range channel.members {
+			if user != reply.Source() {
+				user.Replies() <- reply
+			}
+		}
+	}
+}
 func (channel *Channel) Nicks() []string {
 	return channel.members.Nicks()
 }
@@ -121,6 +119,10 @@ func (channel *Channel) GetTopic(replier Replier) {
 	replier.Replies() <- RplTopic(channel)
 }
 
+func (channel *Channel) Replies() chan<- Reply {
+	return channel.replies
+}
+
 func (channel *Channel) Id() string {
 	return channel.name
 }
@@ -131,10 +133,6 @@ func (channel *Channel) PublicId() string {
 
 func (channel *Channel) Commands() chan<- ChannelCommand {
 	return channel.commands
-}
-
-func (channel *Channel) Replies() chan<- Reply {
-	return channel.replies
 }
 
 func (channel *Channel) String() string {
@@ -150,17 +148,17 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 	user := client.user
 
 	if channel.key != m.channels[channel.name] {
-		client.user.replies <- ErrBadChannelKey(channel)
+		client.user.Replies() <- ErrBadChannelKey(channel)
 		return
 	}
 
 	channel.members.Add(user)
 	user.channels.Add(channel)
 
-	channel.replies <- RplJoin(channel, user)
+	channel.Replies() <- RplJoin(channel, user)
 	channel.GetTopic(user)
-	user.replies <- RplNamReply(channel)
-	user.replies <- RplEndOfNames(channel.server)
+	user.Replies() <- RplNamReply(channel)
+	user.Replies() <- RplEndOfNames(channel.server)
 }
 
 func (m *PartCommand) HandleChannel(channel *Channel) {
@@ -176,7 +174,7 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 		msg = user.Nick()
 	}
 
-	channel.replies <- RplPart(channel, user, msg)
+	channel.Replies() <- RplPart(channel, user, msg)
 
 	channel.members.Remove(user)
 	user.channels.Remove(channel)
@@ -190,7 +188,7 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 	user := m.User()
 
 	if !channel.members[user] {
-		user.replies <- ErrNotOnChannel(channel)
+		user.Replies() <- ErrNotOnChannel(channel)
 		return
 	}
 
@@ -202,11 +200,10 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 	channel.topic = m.topic
 
 	if channel.topic == "" {
-		channel.replies <- RplNoTopic(channel)
+		channel.Replies() <- RplNoTopic(channel)
 		return
 	}
-
-	channel.replies <- RplTopic(channel)
+	channel.Replies() <- RplTopic(channel)
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {

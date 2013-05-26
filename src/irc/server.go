@@ -24,10 +24,11 @@ type Server struct {
 	channels ChannelNameMap
 	services ServiceNameMap
 	commands chan<- Command
+	db       *Database
 }
 
 func NewServer(name string) *Server {
-	commands := make(chan Command)
+	commands := make(chan Command, 1)
 	server := &Server{
 		ctime:    time.Now(),
 		name:     name,
@@ -35,16 +36,27 @@ func NewServer(name string) *Server {
 		users:    make(UserNameMap),
 		channels: make(ChannelNameMap),
 		services: make(ServiceNameMap),
+		db:       NewDatabase(),
 	}
 	go server.receiveCommands(commands)
 	NewNickServ(server)
+	server.db.Transact(func(q Queryable) bool {
+		urs, err := FindAllUsers(server.db)
+		if err != nil {
+			return false
+		}
+		for _, ur := range urs {
+			NewUser(ur.nick, server).SetHash(ur.hash)
+		}
+		return false
+	})
 	return server
 }
 
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
 		if DEBUG_SERVER {
-			log.Printf("%s ← %s %s", server, command.Client(), command)
+			log.Printf("%s → %s : %s", command.Client(), server, command)
 		}
 		command.Client().atime = time.Now()
 		command.HandleServer(server)
@@ -278,7 +290,7 @@ func (m *TopicCommand) HandleServer(s *Server) {
 
 	channel := s.channels[m.channel]
 	if channel == nil {
-		user.Replies() <- ErrNoSuchChannel(s, m.channel)
+		m.Client().Replies() <- ErrNoSuchChannel(s, m.channel)
 		return
 	}
 

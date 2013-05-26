@@ -30,7 +30,7 @@ func StringReadChan(conn net.Conn) <-chan string {
 				break
 			}
 			if DEBUG_NET {
-				log.Printf("%s → %s", conn.RemoteAddr(), line)
+				log.Printf("%s → %s : %s", conn.RemoteAddr(), conn.LocalAddr(), line)
 			}
 			ch <- line
 		}
@@ -45,7 +45,7 @@ func StringWriteChan(conn net.Conn) chan<- string {
 	go func() {
 		for str := range ch {
 			if DEBUG_NET {
-				log.Printf("%s ← %s", conn.RemoteAddr(), str)
+				log.Printf("%s ← %s : %s", conn.RemoteAddr(), conn.LocalAddr(), str)
 			}
 			if _, err := writer.WriteString(str + "\r\n"); err != nil {
 				break
