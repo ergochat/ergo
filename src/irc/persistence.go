@@ -122,15 +122,15 @@ type ChannelRow struct {
 
 // user
 
-func FindAllUsers(q Queryable) (urs []UserRow, err error) {
+func FindAllUsers(q Queryable) (urs []*UserRow, err error) {
 	var rows *sql.Rows
 	rows, err = q.Query("SELECT id, nick, hash FROM user")
 	if err != nil {
 		return
 	}
-	urs = make([]UserRow, 0)
+	urs = make([]*UserRow, 0)
 	for rows.Next() {
-		ur := UserRow{}
+		ur := &UserRow{}
 		err = rows.Scan(&(ur.id), &(ur.nick), &(ur.hash))
 		if err != nil {
 			return
@@ -196,9 +196,9 @@ func InsertUserChannels(q Queryable, userId RowId, channelIds []RowId) (err erro
 	ins := "INSERT OR IGNORE INTO user_channel (user_id, channel_id) VALUES "
 	vals := strings.Repeat("(?, ?), ", len(channelIds))
 	vals = vals[0 : len(vals)-2]
-	args := make([]interface{}, 2*len(channelIds))
+	args := make([]RowId, 2*len(channelIds))
 	var i = 0
-	for channelId := range channelIds {
+	for _, channelId := range channelIds {
 		args[i] = userId
 		args[i+1] = channelId
 		i += 2
@@ -213,7 +213,7 @@ func FindChannelIdByName(q Queryable, name string) (RowId, error) {
 	return FindId(q, "SELECT id FROM channel WHERE name = ?", name)
 }
 
-func FindChannelsForUser(q Queryable, userId RowId) (crs []ChannelRow, err error) {
+func FindChannelsForUser(q Queryable, userId RowId) (crs []*ChannelRow, err error) {
 	query := ` FROM channel WHERE id IN
 (SELECT channel_id from user_channel WHERE user_id = ?)`
 	count, err := Count(q, "SELECT COUNT(id)"+query, userId)
@@ -224,10 +224,10 @@ func FindChannelsForUser(q Queryable, userId RowId) (crs []ChannelRow, err error
 	if err != nil {
 		return
 	}
-	crs = make([]ChannelRow, count)
+	crs = make([]*ChannelRow, count)
 	var i = 0
 	for rows.Next() {
-		cr := ChannelRow{}
+		cr := &ChannelRow{}
 		err = rows.Scan(&(cr.id), &(cr.name))
 		if err != nil {
 			return
