@@ -7,5 +7,7 @@ import (
 
 func main() {
 	flag.Parse()
-	irc.NewDatabase().ExecSqlFile(flag.Arg(0) + ".sql").Close()
+	db := irc.NewDatabase()
+	defer db.Close()
+	irc.ExecSqlFile(db, flag.Arg(0)+".sql")
 }

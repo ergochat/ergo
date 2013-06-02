@@ -11,14 +11,6 @@ import (
 	"strings"
 )
 
-type Database struct {
-	*sql.DB
-}
-
-type Transaction struct {
-	*sql.Tx
-}
-
 type RowId uint64
 
 type Queryable interface {
@@ -35,16 +27,12 @@ type Savable interface {
 // general
 //
 
-func NewDatabase() *Database {
+func NewDatabase() (db *sql.DB) {
 	db, err := sql.Open("sqlite3", "ergonomadic.db")
 	if err != nil {
 		log.Fatalln("cannot open database")
 	}
-	return &Database{db}
-}
-
-func NewTransaction(tx *sql.Tx) *Transaction {
-	return &Transaction{tx}
+	return
 }
 
 func readLines(filename string) <-chan string {
@@ -72,8 +60,8 @@ func readLines(filename string) <-chan string {
 	return lines
 }
 
-func (db *Database) ExecSqlFile(filename string) *Database {
-	db.Transact(func(q Queryable) bool {
+func ExecSqlFile(db *sql.DB, filename string) {
+	Transact(db, func(q Queryable) bool {
 		for line := range readLines(filepath.Join("sql", filename)) {
 			log.Println(line)
 			_, err := q.Exec(line)
@@ -83,10 +71,9 @@ func (db *Database) ExecSqlFile(filename string) *Database {
 		}
 		return true
 	})
-	return db
 }
 
-func (db *Database) Transact(txf func(Queryable) bool) {
+func Transact(db *sql.DB, txf func(Queryable) bool) {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Panicln(err)
@@ -98,10 +85,8 @@ func (db *Database) Transact(txf func(Queryable) bool) {
 	}
 }
 
-func (db *Database) Save(s Savable) {
-	db.Transact(func(tx Queryable) bool {
-		return s.Save(tx)
-	})
+func Save(db *sql.DB, s Savable) {
+	Transact(db, s.Save)
 }
 
 //
@@ -189,6 +174,11 @@ func UpdateUser(q Queryable, user *User) (err error) {
 	return
 }
 
+func DeleteUser(q Queryable, user *User) (err error) {
+	_, err = q.Exec("DELETE FROM user WHERE id = ?", *(user.id))
+	return
+}
+
 // user-channel
 
 func DeleteAllUserChannels(q Queryable, rowId RowId) (err error) {
@@ -256,5 +246,10 @@ func InsertChannel(q Queryable, channel *Channel) (err error) {
 func UpdateChannel(q Queryable, channel *Channel) (err error) {
 	_, err = q.Exec("UPDATE channel SET name = ? WHERE id = ?",
 		channel.name, *(channel.id))
+	return
+}
+
+func DeleteChannel(q Queryable, channel *Channel) (err error) {
+	_, err = q.Exec("DELETE FROM channel WHERE id = ?", *(channel.id))
 	return
 }

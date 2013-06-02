@@ -60,6 +60,7 @@ func NewChannel(s *Server, name string) *Channel {
 	}
 	go channel.receiveCommands(commands)
 	go channel.receiveReplies(replies)
+	Save(s.db, channel)
 	return channel
 }
 

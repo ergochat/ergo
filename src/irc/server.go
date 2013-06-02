@@ -2,6 +2,7 @@ package irc
 
 import (
 	"code.google.com/p/go.crypto/bcrypt"
+	"database/sql"
 	"log"
 	"net"
 	"time"
@@ -24,7 +25,7 @@ type Server struct {
 	channels ChannelNameMap
 	services ServiceNameMap
 	commands chan<- Command
-	db       *Database
+	db       *sql.DB
 }
 
 func NewServer(name string) *Server {
@@ -40,7 +41,7 @@ func NewServer(name string) *Server {
 	}
 	go server.receiveCommands(commands)
 	NewNickServ(server)
-	server.db.Transact(func(q Queryable) bool {
+	Transact(server.db, func(q Queryable) bool {
 		urs, err := FindAllUsers(server.db)
 		if err != nil {
 			return false
@@ -146,6 +147,9 @@ func (s *Server) Nick() string {
 
 func (s *Server) DeleteChannel(channel *Channel) {
 	delete(s.channels, channel.name)
+	if err := DeleteChannel(s.db, channel); err != nil {
+		log.Println(err)
+	}
 }
 
 //
