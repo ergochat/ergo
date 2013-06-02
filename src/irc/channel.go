@@ -49,8 +49,8 @@ type ChannelCommand interface {
 // NewChannel creates a new channel from a `Server` and a `name` string, which
 // must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
-	commands := make(chan ChannelCommand, 1)
-	replies := make(chan Reply, 1)
+	commands := make(chan ChannelCommand)
+	replies := make(chan Reply)
 	channel := &Channel{
 		name:     name,
 		members:  make(UserSet),

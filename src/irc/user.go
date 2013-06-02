@@ -47,8 +47,8 @@ func (set UserSet) Nicks() []string {
 }
 
 func NewUser(nick string, server *Server) *User {
-	commands := make(chan UserCommand, 1)
-	replies := make(chan Reply, 1)
+	commands := make(chan UserCommand)
+	replies := make(chan Reply)
 	user := &User{
 		nick:     nick,
 		server:   server,

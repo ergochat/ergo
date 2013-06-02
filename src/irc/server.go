@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func NewServer(name string) *Server {
-	commands := make(chan Command, 1)
+	commands := make(chan Command)
 	server := &Server{
 		ctime:    time.Now(),
 		name:     name,

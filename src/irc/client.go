@@ -31,7 +31,7 @@ type ClientSet map[*Client]bool
 func NewClient(server *Server, conn net.Conn) *Client {
 	read := StringReadChan(conn)
 	write := StringWriteChan(conn)
-	replies := make(chan Reply, 1)
+	replies := make(chan Reply)
 
 	client := &Client{
 		conn:     conn,
