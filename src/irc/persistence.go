@@ -93,7 +93,7 @@ func Save(db *sql.DB, s Savable) {
 // general purpose sql
 //
 
-func FindId(q Queryable, sql string, args ...interface{}) (rowId RowId, err error) {
+func findId(q Queryable, sql string, args ...interface{}) (rowId RowId, err error) {
 	row := q.QueryRow(sql, args...)
 	err = row.Scan(&rowId)
 	return
@@ -149,7 +149,7 @@ func FindUserByNick(q Queryable, nick string) (ur *UserRow, err error) {
 }
 
 func FindUserIdByNick(q Queryable, nick string) (RowId, error) {
-	return FindId(q, "SELECT id FROM user WHERE nick = ?", nick)
+	return findId(q, "SELECT id FROM user WHERE nick = ?", nick)
 }
 
 func FindChannelByName(q Queryable, name string) (cr *ChannelRow) {
@@ -197,11 +197,9 @@ func InsertUserChannels(q Queryable, userId RowId, channelIds []RowId) (err erro
 	vals := strings.Repeat("(?, ?), ", len(channelIds))
 	vals = vals[0 : len(vals)-2]
 	args := make([]RowId, 2*len(channelIds))
-	var i = 0
-	for _, channelId := range channelIds {
+	for i, channelId := range channelIds {
 		args[i] = userId
 		args[i+1] = channelId
-		i += 2
 	}
 	_, err = q.Exec(ins+vals, args)
 	return
@@ -210,7 +208,7 @@ func InsertUserChannels(q Queryable, userId RowId, channelIds []RowId) (err erro
 // channel
 
 func FindChannelIdByName(q Queryable, name string) (RowId, error) {
-	return FindId(q, "SELECT id FROM channel WHERE name = ?", name)
+	return findId(q, "SELECT id FROM channel WHERE name = ?", name)
 }
 
 func FindChannelsForUser(q Queryable, userId RowId) (crs []*ChannelRow, err error) {
