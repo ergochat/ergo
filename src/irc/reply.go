@@ -17,7 +17,7 @@ type Replier interface {
 }
 
 type Reply interface {
-	Format(client *Client) string
+	Format(*Client, chan<- string)
 	Source() Identifier
 }
 
@@ -31,7 +31,7 @@ func (reply *BaseReply) Source() Identifier {
 }
 
 type StringReply struct {
-	BaseReply
+	*BaseReply
 	code string
 }
 
@@ -40,13 +40,13 @@ func NewStringReply(source Identifier, code string,
 	message := fmt.Sprintf(format, args...)
 	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
 	return &StringReply{
-		BaseReply: BaseReply{source, fullMessage},
+		BaseReply: &BaseReply{source, fullMessage},
 		code:      code,
 	}
 }
 
-func (reply *StringReply) Format(client *Client) string {
-	return reply.message
+func (reply *StringReply) Format(client *Client, write chan<- string) {
+	write <- reply.message
 }
 
 func (reply *StringReply) String() string {
@@ -55,19 +55,23 @@ func (reply *StringReply) String() string {
 }
 
 type NumericReply struct {
-	BaseReply
+	*BaseReply
 	code int
 }
 
 func NewNumericReply(source Identifier, code int, format string,
 	args ...interface{}) *NumericReply {
 	return &NumericReply{
-		BaseReply: BaseReply{source, fmt.Sprintf(format, args...)},
+		BaseReply: &BaseReply{source, fmt.Sprintf(format, args...)},
 		code:      code,
 	}
 }
 
-func (reply *NumericReply) Format(client *Client) string {
+func (reply *NumericReply) Format(client *Client, write chan<- string) {
+	write <- reply.FormatString(client)
+}
+
+func (reply *NumericReply) FormatString(client *Client) string {
 	return fmt.Sprintf(":%s %03d %s %s", reply.Source().Id(), reply.code,
 		client.Nick(), reply.message)
 }
@@ -75,6 +79,53 @@ func (reply *NumericReply) Format(client *Client) string {
 func (reply *NumericReply) String() string {
 	return fmt.Sprintf("Reply(source=%s, code=%d, message=%s)",
 		reply.source, reply.code, reply.message)
+}
+
+// names reply
+
+type NamesReply struct {
+	*BaseReply
+	channel *Channel
+}
+
+func NewNamesReply(channel *Channel) Reply {
+	return &NamesReply{
+		BaseReply: &BaseReply{
+			source: channel,
+		},
+	}
+}
+
+const (
+	MAX_REPLY_LEN = 510 // 512 - CRLF
+)
+
+func joinedLen(names []string) int {
+	var l = len(names) - 1 // " " between names
+	for _, name := range names {
+		l += len(name)
+	}
+	return l
+}
+
+func (reply *NamesReply) Format(client *Client, write chan<- string) {
+	base := RplNamReply(reply.channel, []string{})
+	baseLen := len(base.FormatString(client))
+	tooLong := func(names []string) bool {
+		return (baseLen + joinedLen(names)) > MAX_REPLY_LEN
+	}
+	var start = 0
+	nicks := reply.channel.Nicks()
+	for i := range nicks {
+		if (i > start) && tooLong(nicks[start:i]) {
+			RplNamReply(reply.channel, nicks[start:i-1]).Format(client, write)
+			start = i - 1
+		}
+	}
+	if start < (len(nicks) - 1) {
+		RplNamReply(reply.channel, nicks[start:]).Format(client, write)
+	}
+	RplEndOfNames(reply.channel).Format(client, write)
 }
 
 // messaging replies
@@ -118,7 +169,7 @@ func RplWelcome(source Identifier, client *Client) Reply {
 		"Welcome to the Internet Relay Network %s", client.Id())
 }
 
-func RplYourHost(server *Server, target *Client) Reply {
+func RplYourHost(server *Server) Reply {
 	return NewNumericReply(server, RPL_YOURHOST,
 		"Your host is %s, running version %s", server.name, VERSION)
 }
@@ -152,10 +203,9 @@ func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
 		"%s %s", channel.name, invitee.Nick())
 }
 
-func RplNamReply(channel *Channel) Reply {
-	// TODO multiple names and splitting based on message size
-	return NewNumericReply(channel.server, RPL_NAMREPLY,
-		"= %s :%s", channel.name, strings.Join(channel.Nicks(), " "))
+func RplNamReply(channel *Channel, names []string) *NumericReply {
+	return NewNumericReply(channel.server, RPL_NAMREPLY, "= %s :%s",
+		channel.name, strings.Join(names, " "))
 }
 
 func RplEndOfNames(source Identifier) Reply {

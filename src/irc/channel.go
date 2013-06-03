@@ -32,11 +32,11 @@ func (set ChannelSet) Remove(channel *Channel) {
 }
 
 func (set ChannelSet) Ids() (ids []RowId) {
-	ids = []RowId{}
+	ids = make([]RowId, len(set))
+	var i = 0
 	for channel := range set {
-		if channel.id != nil {
-			ids = append(ids, *channel.id)
-		}
+		ids[i] = *(channel.id)
+		i++
 	}
 	return ids
 }
@@ -67,15 +67,18 @@ func NewChannel(s *Server, name string) *Channel {
 func (channel *Channel) Save(q Queryable) bool {
 	if channel.id == nil {
 		if err := InsertChannel(q, channel); err != nil {
+			log.Println(err)
 			return false
 		}
 		channelId, err := FindChannelIdByName(q, channel.name)
 		if err != nil {
+			log.Println(err)
 			return false
 		}
 		channel.id = &channelId
 	} else {
 		if err := UpdateChannel(q, channel); err != nil {
+			log.Println(err)
 			return false
 		}
 	}
@@ -120,11 +123,19 @@ func (channel *Channel) GetTopic(replier Replier) {
 	replier.Replies() <- RplTopic(channel)
 }
 
+func (channel *Channel) GetUsers(replier Replier) {
+	replier.Replies() <- NewNamesReply(channel)
+}
+
 func (channel *Channel) Replies() chan<- Reply {
 	return channel.replies
 }
 
 func (channel *Channel) Id() string {
+	return channel.name
+}
+
+func (channel *Channel) Nick() string {
 	return channel.name
 }
 
@@ -140,33 +151,33 @@ func (channel *Channel) String() string {
 	return channel.Id()
 }
 
+func (channel *Channel) Join(user *User) {
+	channel.members.Add(user)
+	user.channels.Add(channel)
+	channel.Replies() <- RplJoin(channel, user)
+	channel.GetTopic(user)
+	channel.GetUsers(user)
+}
+
 //
 // commands
 //
 
 func (m *JoinCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
-	user := client.user
-
 	if channel.key != m.channels[channel.name] {
-		client.user.Replies() <- ErrBadChannelKey(channel)
+		client.Replies() <- ErrBadChannelKey(channel)
 		return
 	}
 
-	channel.members.Add(user)
-	user.channels.Add(channel)
-
-	channel.Replies() <- RplJoin(channel, user)
-	channel.GetTopic(user)
-	user.Replies() <- RplNamReply(channel)
-	user.Replies() <- RplEndOfNames(channel.server)
+	channel.Join(client.user)
 }
 
 func (m *PartCommand) HandleChannel(channel *Channel) {
 	user := m.Client().user
 
 	if !channel.members[user] {
-		user.replies <- ErrNotOnChannel(channel)
+		user.Replies() <- ErrNotOnChannel(channel)
 		return
 	}
 

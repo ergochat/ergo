@@ -12,7 +12,7 @@ const (
 type NickServCommand interface {
 	HandleNickServ(*NickServ)
 	Client() *Client
-	SetClient(*Client)
+	SetBase(*Client)
 }
 
 type NickServ struct {
@@ -56,7 +56,7 @@ func (ns *NickServ) HandlePrivMsg(m *PrivMsgCommand) {
 		return
 	}
 
-	cmd.SetClient(m.Client())
+	cmd.SetBase(m.Client())
 	if ns.Debug() {
 		log.Printf("%s ← %s %s", ns, cmd.Client(), cmd)
 	}
@@ -106,7 +106,8 @@ func (m *RegisterCommand) HandleNickServ(ns *NickServ) {
 		return
 	}
 
-	user := NewUser(client.nick, ns.server).SetPassword(m.password)
+	user := NewUser(client.nick, ns.server)
+	user.SetPassword(m.password)
 	Save(ns.server.db, user)
 	ns.Reply(client, "You have registered.")
 

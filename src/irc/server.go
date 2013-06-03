@@ -41,17 +41,34 @@ func NewServer(name string) *Server {
 	}
 	go server.receiveCommands(commands)
 	NewNickServ(server)
-	Transact(server.db, func(q Queryable) bool {
-		urs, err := FindAllUsers(server.db)
-		if err != nil {
+	Load(server.db, server)
+	return server
+}
+
+func (server *Server) Load(q Queryable) bool {
+	crs, err := FindAllChannels(q)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	for _, cr := range crs {
+		channel := server.GetOrMakeChannel(cr.name)
+		channel.id = &(cr.id)
+	}
+
+	urs, err := FindAllUsers(q)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	for _, ur := range urs {
+		user := NewUser(ur.nick, server)
+		user.SetHash(ur.hash)
+		if !user.Load(q) {
 			return false
 		}
-		for _, ur := range urs {
-			NewUser(ur.nick, server).SetHash(ur.hash)
-		}
-		return false
-	})
-	return server
+	}
+	return true
 }
 
 func (server *Server) receiveCommands(commands <-chan Command) {
@@ -115,7 +132,7 @@ func (s *Server) tryRegister(c *Client) {
 		c.registered = true
 		replies := []Reply{
 			RplWelcome(s, c),
-			RplYourHost(s, c),
+			RplYourHost(s),
 			RplCreated(s),
 			RplMyInfo(s),
 		}
@@ -318,21 +335,21 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 	if m.TargetIsChannel() {
 		channel := s.channels[m.target]
 		if channel == nil {
-			user.Replies() <- ErrNoSuchChannel(s, m.target)
+			m.Client().Replies() <- ErrNoSuchChannel(s, m.target)
 			return
 		}
 
-		channel.Commands() <- m
+		channel.commands <- m
 		return
 	}
 
 	target := s.users[m.target]
 	if target == nil {
-		user.Replies() <- ErrNoSuchNick(s, m.target)
+		m.Client().Replies() <- ErrNoSuchNick(s, m.target)
 		return
 	}
 
-	target.Commands() <- m
+	target.commands <- m
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {

@@ -11,12 +11,13 @@ type Command interface {
 	Client() *Client
 	User() *User
 	Source() Identifier
+	Reply(Reply)
 	HandleServer(*Server)
 }
 
 type EditableCommand interface {
 	Command
-	SetClient(*Client)
+	SetBase(*Client)
 }
 
 var (
@@ -46,25 +47,19 @@ func (command *BaseCommand) Client() *Client {
 }
 
 func (command *BaseCommand) User() *User {
-	if command.Client() == nil {
-		return nil
-	}
-	return command.User()
+	return command.Client().user
 }
 
-func (command *BaseCommand) SetClient(c *Client) {
+func (command *BaseCommand) SetBase(c *Client) {
 	*command = BaseCommand{c}
 }
 
 func (command *BaseCommand) Source() Identifier {
-	client := command.Client()
-	if client == nil {
-		return nil
-	}
-	if client.user != nil {
-		return client.user
-	}
-	return client
+	return command.client
+}
+
+func (command *BaseCommand) Reply(reply Reply) {
+	command.client.Replies() <- reply
 }
 
 func ParseCommand(line string) (EditableCommand, error) {
@@ -116,9 +111,8 @@ func (cmd *UnknownCommand) String() string {
 
 func NewUnknownCommand(command string, args []string) *UnknownCommand {
 	return &UnknownCommand{
-		BaseCommand: BaseCommand{},
-		command:     command,
-		args:        args,
+		command: command,
+		args:    args,
 	}
 }
 
@@ -139,8 +133,7 @@ func NewPingCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PingCommand{
-		BaseCommand: BaseCommand{},
-		server:      args[0],
+		server: args[0],
 	}
 	if len(args) > 1 {
 		msg.server2 = args[1]
@@ -165,8 +158,7 @@ func NewPongCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	message := &PongCommand{
-		BaseCommand: BaseCommand{},
-		server1:     args[0],
+		server1: args[0],
 	}
 	if len(args) > 1 {
 		message.server2 = args[1]
@@ -190,8 +182,7 @@ func NewPassCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PassCommand{
-		BaseCommand: BaseCommand{},
-		password:    args[0],
+		password: args[0],
 	}, nil
 }
 
@@ -211,8 +202,7 @@ func NewNickCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &NickCommand{
-		BaseCommand: BaseCommand{},
-		nickname:    args[0],
+		nickname: args[0],
 	}, nil
 }
 
@@ -236,10 +226,9 @@ func NewUserMsgCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &UserMsgCommand{
-		BaseCommand: BaseCommand{},
-		user:        args[0],
-		unused:      args[2],
-		realname:    args[3],
+		user:     args[0],
+		unused:   args[2],
+		realname: args[3],
 	}
 	mode, err := strconv.ParseUint(args[1], 10, 8)
 	if err == nil {
@@ -260,9 +249,7 @@ func (cmd *QuitCommand) String() string {
 }
 
 func NewQuitCommand(args []string) (EditableCommand, error) {
-	msg := &QuitCommand{
-		BaseCommand: BaseCommand{},
-	}
+	msg := &QuitCommand{}
 	if len(args) > 0 {
 		msg.message = args[0]
 	}
@@ -283,8 +270,7 @@ func (cmd *JoinCommand) String() string {
 
 func NewJoinCommand(args []string) (EditableCommand, error) {
 	msg := &JoinCommand{
-		BaseCommand: BaseCommand{},
-		channels:    make(map[string]string),
+		channels: make(map[string]string),
 	}
 
 	if len(args) == 0 {
@@ -327,8 +313,7 @@ func NewPartCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PartCommand{
-		BaseCommand: BaseCommand{},
-		channels:    strings.Split(args[0], ","),
+		channels: strings.Split(args[0], ","),
 	}
 	if len(args) > 1 {
 		msg.message = args[1]
@@ -353,9 +338,8 @@ func NewPrivMsgCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PrivMsgCommand{
-		BaseCommand: BaseCommand{},
-		target:      args[0],
-		message:     args[1],
+		target:  args[0],
+		message: args[1],
 	}, nil
 }
 
@@ -384,8 +368,7 @@ func NewTopicCommand(args []string) (EditableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &TopicCommand{
-		BaseCommand: BaseCommand{},
-		channel:     args[0],
+		channel: args[0],
 	}
 	if len(args) > 1 {
 		msg.topic = args[1]
@@ -409,8 +392,7 @@ func NewModeCommand(args []string) (EditableCommand, error) {
 	}
 
 	cmd := &ModeCommand{
-		BaseCommand: BaseCommand{},
-		nickname:    args[0],
+		nickname: args[0],
 	}
 
 	if len(args) > 1 {

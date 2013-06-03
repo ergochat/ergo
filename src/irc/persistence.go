@@ -23,6 +23,10 @@ type Savable interface {
 	Save(q Queryable) bool
 }
 
+type Loadable interface {
+	Load(q Queryable) bool
+}
+
 //
 // general
 //
@@ -89,6 +93,10 @@ func Save(db *sql.DB, s Savable) {
 	Transact(db, s.Save)
 }
 
+func Load(db *sql.DB, l Loadable) {
+	Transact(db, l.Load)
+}
+
 //
 // general purpose sql
 //
@@ -99,7 +107,7 @@ func findId(q Queryable, sql string, args ...interface{}) (rowId RowId, err erro
 	return
 }
 
-func Count(q Queryable, sql string, args ...interface{}) (count uint, err error) {
+func countRows(q Queryable, sql string, args ...interface{}) (count uint, err error) {
 	row := q.QueryRow(sql, args...)
 	err = row.Scan(&count)
 	return
@@ -162,20 +170,20 @@ func FindChannelByName(q Queryable, name string) (cr *ChannelRow) {
 	return
 }
 
-func InsertUser(q Queryable, user *User) (err error) {
+func InsertUser(q Queryable, row *UserRow) (err error) {
 	_, err = q.Exec("INSERT INTO user (nick, hash) VALUES (?, ?)",
-		user.nick, user.hash)
+		row.nick, row.hash)
 	return
 }
 
-func UpdateUser(q Queryable, user *User) (err error) {
+func UpdateUser(q Queryable, row *UserRow) (err error) {
 	_, err = q.Exec("UPDATE user SET nick = ?, hash = ? WHERE id = ?",
-		user.nick, user.hash, *(user.id))
+		row.nick, row.hash, row.id)
 	return
 }
 
-func DeleteUser(q Queryable, user *User) (err error) {
-	_, err = q.Exec("DELETE FROM user WHERE id = ?", *(user.id))
+func DeleteUser(q Queryable, id RowId) (err error) {
+	_, err = q.Exec("DELETE FROM user WHERE id = ?", id)
 	return
 }
 
@@ -211,14 +219,12 @@ func FindChannelIdByName(q Queryable, name string) (RowId, error) {
 	return findId(q, "SELECT id FROM channel WHERE name = ?", name)
 }
 
-func FindChannelsForUser(q Queryable, userId RowId) (crs []*ChannelRow, err error) {
-	query := ` FROM channel WHERE id IN
-(SELECT channel_id from user_channel WHERE user_id = ?)`
-	count, err := Count(q, "SELECT COUNT(id)"+query, userId)
+func findChannels(q Queryable, where string, args ...interface{}) (crs []*ChannelRow, err error) {
+	count, err := countRows(q, "SELECT COUNT(id) FROM channel "+where, args...)
 	if err != nil {
 		return
 	}
-	rows, err := q.Query("SELECT id, name"+query, userId)
+	rows, err := q.Query("SELECT id, name FROM channel "+where, args...)
 	if err != nil {
 		return
 	}
@@ -233,6 +239,17 @@ func FindChannelsForUser(q Queryable, userId RowId) (crs []*ChannelRow, err erro
 		crs[i] = cr
 		i++
 	}
+	return
+}
+
+func FindChannelsForUser(q Queryable, userId RowId) (crs []*ChannelRow, err error) {
+	crs, err = findChannels(q,
+		"WHERE id IN (SELECT channel_id from user_channel WHERE user_id = ?)", userId)
+	return
+}
+
+func FindAllChannels(q Queryable) (crs []*ChannelRow, err error) {
+	crs, err = findChannels(q, "")
 	return
 }
 

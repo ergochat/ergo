@@ -16,7 +16,7 @@ type UserCommand interface {
 }
 
 type User struct {
-	id       *RowId
+	id       RowId
 	nick     string
 	hash     []byte
 	server   *Server
@@ -64,50 +64,80 @@ func NewUser(nick string, server *Server) *User {
 	return user
 }
 
+func (user *User) Row() *UserRow {
+	return &UserRow{user.id, user.nick, user.hash}
+}
+
+func (user *User) Create(q Queryable) bool {
+	var err error
+	if err := InsertUser(q, user.Row()); err != nil {
+		log.Println(err)
+		return false
+	}
+	user.id, err = FindUserIdByNick(q, user.nick)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	return true
+}
+
 func (user *User) Save(q Queryable) bool {
-	if user.id == nil {
-		if err := InsertUser(q, user); err != nil {
-			return false
-		}
-		userId, err := FindUserIdByNick(q, user.nick)
-		if err != nil {
-			return false
-		}
-		user.id = &userId
-	} else {
-		if err := UpdateUser(q, user); err != nil {
-			return false
-		}
+	if err := UpdateUser(q, user.Row()); err != nil {
+		log.Println(err)
+		return false
 	}
 
-	userId := *(user.id)
 	channelIds := user.channels.Ids()
 	if len(channelIds) == 0 {
-		if err := DeleteAllUserChannels(q, userId); err != nil {
+		if err := DeleteAllUserChannels(q, user.id); err != nil {
+			log.Println(err)
 			return false
 		}
 	} else {
-		if err := DeleteOtherUserChannels(q, userId, channelIds); err != nil {
+		if err := DeleteOtherUserChannels(q, user.id, channelIds); err != nil {
+			log.Println(err)
 			return false
 		}
-		if err := InsertUserChannels(q, userId, channelIds); err != nil {
+		if err := InsertUserChannels(q, user.id, channelIds); err != nil {
+			log.Println(err)
 			return false
 		}
 	}
 	return true
 }
 
-func (user *User) SetPassword(password string) *User {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+func (user *User) Delete(q Queryable) bool {
+	err := DeleteUser(q, user.id)
 	if err != nil {
-		panic("bcrypt failed; cannot generate password hash")
+		log.Println(err)
+		return false
 	}
-	return user.SetHash(hash)
+	return true
 }
 
-func (user *User) SetHash(hash []byte) *User {
+func (user *User) Load(q Queryable) bool {
+	crs, err := FindChannelsForUser(q, user.id)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	for _, cr := range crs {
+		user.server.GetOrMakeChannel(cr.name).Join(user)
+	}
+	return true
+}
+
+func (user *User) SetPassword(password string) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Panicln(err)
+	}
+	user.SetHash(hash)
+}
+
+func (user *User) SetHash(hash []byte) {
 	user.hash = hash
-	return user
 }
 
 func (user *User) receiveCommands(commands <-chan UserCommand) {
@@ -149,10 +179,6 @@ func (user *User) String() string {
 	return user.Id()
 }
 
-func (user *User) Commands() chan<- UserCommand {
-	return user.commands
-}
-
 func (user *User) Login(c *Client, nick string, password string) bool {
 	if nick != c.nick {
 		return false
@@ -172,8 +198,7 @@ func (user *User) Login(c *Client, nick string, password string) bool {
 	c.user = user
 	for channel := range user.channels {
 		channel.GetTopic(c)
-		c.Replies() <- RplNamReply(channel)
-		c.Replies() <- RplEndOfNames(channel.server)
+		channel.GetUsers(c)
 	}
 	return true
 }

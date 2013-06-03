@@ -48,7 +48,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 
 func (c *Client) readConn(recv <-chan string) {
 	for str := range recv {
-
 		m, err := ParseCommand(str)
 		if err != nil {
 			if err == NotEnoughArgsError {
@@ -59,7 +58,7 @@ func (c *Client) readConn(recv <-chan string) {
 			continue
 		}
 
-		m.SetClient(c)
+		m.SetBase(c)
 		c.server.commands <- m
 	}
 }
@@ -69,7 +68,7 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 		if DEBUG_CLIENT {
 			log.Printf("%s ← %s : %s", c, reply.Source(), reply)
 		}
-		write <- reply.Format(c)
+		reply.Format(c, write)
 	}
 }
 
