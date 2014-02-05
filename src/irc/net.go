@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DEBUG_NET = true
+	DEBUG_NET = false
 )
 
 func readTrimmedLine(reader *bufio.Reader) (string, error) {
@@ -64,7 +64,7 @@ func LookupHostname(addr net.Addr) string {
 	if err != nil {
 		return addrStr
 	}
-	names, err := net.LookupAddr(ipaddr)
+	names, err := net.LookupHost(ipaddr)
 	if err != nil {
 		return ipaddr
 	}

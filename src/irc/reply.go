@@ -93,6 +93,7 @@ func NewNamesReply(channel *Channel) Reply {
 		BaseReply: &BaseReply{
 			source: channel,
 		},
+		channel: channel,
 	}
 }
 
@@ -142,12 +143,12 @@ func RplPrivMsgChannel(channel *Channel, source Identifier, message string) Repl
 	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", channel.name, message)
 }
 
-func RplJoin(channel *Channel, user *User) Reply {
-	return NewStringReply(user, RPL_JOIN, channel.name)
+func RplJoin(channel *Channel, client *Client) Reply {
+	return NewStringReply(client, RPL_JOIN, channel.name)
 }
 
-func RplPart(channel *Channel, user *User, message string) Reply {
-	return NewStringReply(user, RPL_PART, "%s :%s", channel.name, message)
+func RplPart(channel *Channel, client *Client, message string) Reply {
+	return NewStringReply(client, RPL_PART, "%s :%s", channel.name, message)
 }
 
 func RplPong(server *Server) Reply {

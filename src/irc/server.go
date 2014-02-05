@@ -2,7 +2,6 @@ package irc
 
 import (
 	"code.google.com/p/go.crypto/bcrypt"
-	"database/sql"
 	"log"
 	"net"
 	"time"
@@ -13,19 +12,16 @@ const (
 )
 
 type ChannelNameMap map[string]*Channel
-type UserNameMap map[string]*User
-type ServiceNameMap map[string]Service
+type ClientNameMap map[string]*Client
 
 type Server struct {
-	hostname string
+	channels ChannelNameMap
+	commands chan<- Command
 	ctime    time.Time
+	hostname string
 	name     string
 	password []byte
-	users    UserNameMap
-	channels ChannelNameMap
-	services ServiceNameMap
-	commands chan<- Command
-	db       *sql.DB
+	clients  ClientNameMap
 }
 
 func NewServer(name string) *Server {
@@ -34,41 +30,11 @@ func NewServer(name string) *Server {
 		ctime:    time.Now(),
 		name:     name,
 		commands: commands,
-		users:    make(UserNameMap),
+		clients:  make(ClientNameMap),
 		channels: make(ChannelNameMap),
-		services: make(ServiceNameMap),
-		db:       NewDatabase(),
 	}
 	go server.receiveCommands(commands)
-	NewNickServ(server)
-	Load(server.db, server)
 	return server
-}
-
-func (server *Server) Load(q Queryable) bool {
-	crs, err := FindAllChannels(q)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	for _, cr := range crs {
-		channel := server.GetOrMakeChannel(cr.name)
-		channel.id = &(cr.id)
-	}
-
-	urs, err := FindAllUsers(q)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	for _, ur := range urs {
-		user := NewUser(ur.nick, server)
-		user.SetHash(ur.hash)
-		if !user.Load(q) {
-			return false
-		}
-	}
-	return true
 }
 
 func (server *Server) receiveCommands(commands <-chan Command) {
@@ -113,16 +79,16 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 }
 
 // Send a message to clients of channels fromClient is a member.
-func (s *Server) InterestedUsers(fromUser *User) UserSet {
-	users := make(UserSet)
-	users.Add(fromUser)
-	for channel := range fromUser.channels {
-		for user := range channel.members {
-			users.Add(user)
+func (s *Server) interestedClients(fromClient *Client) ClientSet {
+	clients := make(ClientSet)
+	clients[fromClient] = true
+	for channel := range fromClient.channels {
+		for client := range channel.members {
+			clients[client] = true
 		}
 	}
 
-	return users
+	return clients
 }
 
 // server functionality
@@ -164,9 +130,6 @@ func (s *Server) Nick() string {
 
 func (s *Server) DeleteChannel(channel *Channel) {
 	delete(s.channels, channel.name)
-	if err := DeleteChannel(s.db, channel); err != nil {
-		log.Println(err)
-	}
 }
 
 //
@@ -198,32 +161,30 @@ func (m *PassCommand) HandleServer(s *Server) {
 
 func (m *NickCommand) HandleServer(s *Server) {
 	c := m.Client()
-	if c.user == nil {
-		c.Replies() <- RplNick(c, m.nickname)
-		c.nick = m.nickname
-		s.tryRegister(c)
+
+	if s.clients[m.nickname] != nil {
+		c.replies <- ErrNickNameInUse(s, m.nickname)
 		return
 	}
 
-	user := c.user
-	if s.users[m.nickname] != nil {
-		user.Replies() <- ErrNickNameInUse(s, m.nickname)
-		return
+	reply := RplNick(c, m.nickname)
+	for iclient := range s.interestedClients(c) {
+		iclient.replies <- reply
 	}
 
-	delete(s.users, user.nick)
-	s.users[m.nickname] = user
-	reply := RplNick(user, m.nickname)
-	for iuser := range s.InterestedUsers(user) {
-		iuser.Replies() <- reply
+	if c.HasNick() {
+		delete(s.clients, c.nick)
 	}
-	user.nick = m.nickname
+	s.clients[m.nickname] = c
+	c.nick = m.nickname
+
+	s.tryRegister(c)
 }
 
 func (m *UserMsgCommand) HandleServer(s *Server) {
 	c := m.Client()
-	if c.username != "" {
-		c.Replies() <- ErrAlreadyRegistered(s)
+	if c.registered {
+		c.replies <- ErrAlreadyRegistered(s)
 		return
 	}
 
@@ -234,108 +195,65 @@ func (m *UserMsgCommand) HandleServer(s *Server) {
 func (m *QuitCommand) HandleServer(s *Server) {
 	c := m.Client()
 
-	user := c.user
-	if user != nil {
-		reply := RplQuit(c, m.message)
-		for user := range s.InterestedUsers(c.user) {
-			user.Replies() <- reply
-		}
+	reply := RplQuit(c, m.message)
+	for client := range s.interestedClients(c) {
+		client.replies <- reply
 	}
 	c.conn.Close()
-	if user == nil {
-		return
+	cmd := &PartCommand{
+		BaseCommand: BaseCommand{c},
 	}
-
-	user.LogoutClient(c)
-	if !user.HasClients() {
-		cmd := &PartCommand{
-			BaseCommand: BaseCommand{c},
-		}
-		for channel := range user.channels {
-			channel.Commands() <- cmd
-		}
+	for channel := range c.channels {
+		channel.commands <- cmd
 	}
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {
 	c := m.Client()
 
-	if c.user == nil {
-		c.Replies() <- ErrNoPrivileges(s)
-		return
-	}
-
 	if m.zero {
 		cmd := &PartCommand{
 			BaseCommand: BaseCommand{c},
 		}
-		for channel := range c.user.channels {
-			channel.Commands() <- cmd
+		for channel := range c.channels {
+			channel.commands <- cmd
 		}
 		return
 	}
 
 	for name := range m.channels {
-		s.GetOrMakeChannel(name).Commands() <- m
+		s.GetOrMakeChannel(name).commands <- m
 	}
 }
 
 func (m *PartCommand) HandleServer(s *Server) {
-	user := m.User()
-
-	if user == nil {
-		m.Client().Replies() <- ErrNoPrivileges(s)
-		return
-	}
-
 	for _, chname := range m.channels {
 		channel := s.channels[chname]
 
 		if channel == nil {
-			user.Replies() <- ErrNoSuchChannel(s, channel.name)
+			m.Client().replies <- ErrNoSuchChannel(s, channel.name)
 			continue
 		}
 
-		channel.Commands() <- m
+		channel.commands <- m
 	}
 }
 
 func (m *TopicCommand) HandleServer(s *Server) {
-	user := m.User()
-
-	// Hide all channels from logged-out clients.
-	if user == nil {
-		m.Client().Replies() <- ErrNoPrivileges(s)
-		return
-	}
-
 	channel := s.channels[m.channel]
 	if channel == nil {
-		m.Client().Replies() <- ErrNoSuchChannel(s, m.channel)
+		m.Client().replies <- ErrNoSuchChannel(s, m.channel)
 		return
 	}
 
-	channel.Commands() <- m
+	channel.commands <- m
 }
 
 func (m *PrivMsgCommand) HandleServer(s *Server) {
-	service := s.services[m.target]
-	if service != nil {
-		service.Commands() <- m
-		return
-	}
-
-	user := m.User()
-	// Hide all users from logged-out clients.
-	if user == nil {
-		m.Client().Replies() <- ErrNoPrivileges(s)
-		return
-	}
-
 	if m.TargetIsChannel() {
 		channel := s.channels[m.target]
 		if channel == nil {
-			m.Client().Replies() <- ErrNoSuchChannel(s, m.target)
+			m.Client().replies <- ErrNoSuchChannel(s, m.target)
 			return
 		}
 
@@ -343,9 +261,9 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 
-	target := s.users[m.target]
+	target := s.clients[m.target]
 	if target == nil {
-		m.Client().Replies() <- ErrNoSuchNick(s, m.target)
+		m.Client().replies <- ErrNoSuchNick(s, m.target)
 		return
 	}
 
@@ -353,5 +271,5 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {
-	m.Client().Replies() <- RplUModeIs(s, m.Client())
+	m.Client().replies <- RplUModeIs(s, m.Client())
 }

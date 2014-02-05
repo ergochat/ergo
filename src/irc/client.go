@@ -8,22 +8,28 @@ import (
 )
 
 const (
-	DEBUG_CLIENT = true
+	DEBUG_CLIENT = false
 )
 
+type ClientCommand interface {
+	Command
+	HandleClient(*Client)
+}
+
 type Client struct {
+	atime      time.Time
+	away       bool
+	channels   ChannelSet
+	commands   chan<- ClientCommand
 	conn       net.Conn
-	username   string
-	realname   string
 	hostname   string
 	nick       string
-	serverPass bool
+	realname   string
 	registered bool
-	away       bool
-	server     *Server
-	atime      time.Time
-	user       *User
 	replies    chan<- Reply
+	server     *Server
+	serverPass bool
+	username   string
 }
 
 type ClientSet map[*Client]bool
@@ -31,17 +37,21 @@ type ClientSet map[*Client]bool
 func NewClient(server *Server, conn net.Conn) *Client {
 	read := StringReadChan(conn)
 	write := StringWriteChan(conn)
+	commands := make(chan ClientCommand)
 	replies := make(chan Reply)
 
 	client := &Client{
+		channels: make(ChannelSet),
+		commands: commands,
 		conn:     conn,
-		hostname: conn.RemoteAddr().String(),
-		server:   server,
+		hostname: LookupHostname(conn.RemoteAddr()),
 		replies:  replies,
+		server:   server,
 	}
 
 	go client.readConn(read)
 	go client.writeConn(write, replies)
+	go client.receiveCommands(commands)
 
 	return client
 }
@@ -51,9 +61,9 @@ func (c *Client) readConn(recv <-chan string) {
 		m, err := ParseCommand(str)
 		if err != nil {
 			if err == NotEnoughArgsError {
-				c.Replies() <- ErrNeedMoreParams(c.server, str)
+				c.replies <- ErrNeedMoreParams(c.server, str)
 			} else {
-				c.Replies() <- ErrUnknownCommand(c.server, str)
+				c.replies <- ErrUnknownCommand(c.server, str)
 			}
 			continue
 		}
@@ -72,6 +82,15 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	}
 }
 
+func (client *Client) receiveCommands(commands <-chan ClientCommand) {
+	for command := range commands {
+		if DEBUG_CLIENT {
+			log.Printf("%s → %s : %s", command.Client(), client, command)
+		}
+		command.HandleClient(client)
+	}
+}
+
 func (c *Client) Replies() chan<- Reply {
 	return c.replies
 }
@@ -81,11 +100,7 @@ func (c *Client) Server() *Server {
 }
 
 func (c *Client) Nick() string {
-	if c.user != nil {
-		return c.user.Nick()
-	}
-
-	if c.nick != "" {
+	if c.HasNick() {
 		return c.nick
 	}
 
@@ -97,7 +112,7 @@ func (c *Client) UModeString() string {
 }
 
 func (c *Client) HasNick() bool {
-	return c.Nick() != ""
+	return c.nick != ""
 }
 
 func (c *Client) HasUsername() bool {
@@ -125,4 +140,12 @@ func (c *Client) String() string {
 
 func (c *Client) PublicId() string {
 	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Nick(), c.server.Id())
+}
+
+//
+// commands
+//
+
+func (m *PrivMsgCommand) HandleClient(client *Client) {
+	client.replies <- RplPrivMsg(m.Client(), client, m.message)
 }

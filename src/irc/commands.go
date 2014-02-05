@@ -9,7 +9,6 @@ import (
 
 type Command interface {
 	Client() *Client
-	User() *User
 	Source() Identifier
 	Reply(Reply)
 	HandleServer(*Server)
@@ -44,10 +43,6 @@ type BaseCommand struct {
 
 func (command *BaseCommand) Client() *Client {
 	return command.client
-}
-
-func (command *BaseCommand) User() *User {
-	return command.Client().user
 }
 
 func (command *BaseCommand) SetBase(c *Client) {
