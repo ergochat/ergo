@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type Command interface {
@@ -371,14 +372,52 @@ func NewTopicCommand(args []string) (EditableCommand, error) {
 	return msg, nil
 }
 
+type Mode rune
+
+const (
+	Away          Mode = 'a'
+	Invisible     Mode = 'i'
+	WallOps       Mode = 'w'
+	Restricted    Mode = 'r'
+	Operator      Mode = 'o'
+	LocalOperator Mode = 'O'
+	ServerNotice  Mode = 's'
+)
+
+type ModeChange struct {
+	mode Mode
+	add  bool // false => remove
+}
+
+func (change *ModeChange) String() string {
+	sig := "+"
+	if !change.add {
+		sig = "-"
+	}
+	return fmt.Sprintf("%s%s", sig, change.mode)
+}
+
 type ModeCommand struct {
 	BaseCommand
 	nickname string
-	modes    string
+	changes  []ModeChange
 }
 
 func (cmd *ModeCommand) String() string {
-	return fmt.Sprintf("MODE(nickname=%s, modes=%s)", cmd.nickname, cmd.modes)
+	return fmt.Sprintf("MODE(nickname=%s, changes=%s)", cmd.nickname, cmd.changes)
+}
+
+func stringToRunes(str string) <-chan rune {
+	runes := make(chan rune)
+	go func() {
+		for len(str) > 0 {
+			rune, size := utf8.DecodeRuneInString(str)
+			runes <- rune
+			str = str[size:]
+		}
+		close(runes)
+	}()
+	return runes
 }
 
 func NewModeCommand(args []string) (EditableCommand, error) {
@@ -388,10 +427,26 @@ func NewModeCommand(args []string) (EditableCommand, error) {
 
 	cmd := &ModeCommand{
 		nickname: args[0],
+		changes: make([]ModeChange,
+			utf8.RuneCountInString(strings.Join(args[1:], ""))-len(args[1:])),
 	}
 
-	if len(args) > 1 {
-		cmd.modes = args[1]
+	index := 0
+	for _, arg := range args[1:] {
+		modeChange := stringToRunes(arg)
+		sig := <-modeChange
+		if sig != '+' && sig != '-' {
+			return nil, ErrParseCommand
+		}
+
+		add := sig == '+'
+		for mode := range modeChange {
+			cmd.changes[index] = ModeChange{
+				mode: Mode(mode),
+				add:  add,
+			}
+			index += 1
+		}
 	}
 
 	return cmd, nil

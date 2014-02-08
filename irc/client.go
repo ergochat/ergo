@@ -13,6 +13,7 @@ type Client struct {
 	channels   ChannelSet
 	conn       net.Conn
 	hostname   string
+	invisible  bool
 	nick       string
 	realname   string
 	registered bool
@@ -30,11 +31,12 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	replies := make(chan Reply)
 
 	client := &Client{
-		channels: make(ChannelSet),
-		conn:     conn,
-		hostname: LookupHostname(conn.RemoteAddr()),
-		replies:  replies,
-		server:   server,
+		channels:   make(ChannelSet),
+		conn:       conn,
+		hostname:   LookupHostname(conn.RemoteAddr()),
+		replies:    replies,
+		server:     server,
+		serverPass: server.password == "",
 	}
 
 	go client.readConn(read)
@@ -86,6 +88,9 @@ func (c *Client) Nick() string {
 }
 
 func (c *Client) UModeString() string {
+	if c.invisible {
+		return "i"
+	}
 	return ""
 }
 

@@ -266,5 +266,10 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {
+	for _, change := range m.changes {
+		if change.mode == Invisible {
+			m.Client().invisible = change.add
+		}
+	}
 	m.Client().replies <- RplUModeIs(s, m.Client())
 }

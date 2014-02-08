@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	name := flag.String("name", "localhost", "A name for the server")
+	name := flag.String("name", "ergonomadic", "A name for the server")
 	listen := flag.String("listen", ":6667", "interface to listen on")
 	flag.BoolVar(&irc.DEBUG_NET, "dnet", false, "debug net")
 	flag.BoolVar(&irc.DEBUG_CLIENT, "dclient", false, "debug client")
