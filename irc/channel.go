@@ -4,10 +4,6 @@ import (
 	"log"
 )
 
-const (
-	DEBUG_CHANNEL = true
-)
-
 type Channel struct {
 	commands  chan<- ChannelCommand
 	key       string
@@ -59,9 +55,7 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 			log.Printf("%s ← %s : %s", channel, reply.Source(), reply)
 		}
 		for client := range channel.members {
-			if client != reply.Source() {
-				client.replies <- reply
-			}
+			client.replies <- reply
 		}
 	}
 }
@@ -117,7 +111,6 @@ func (channel *Channel) Join(client *Client) {
 	channel.members[client] = true
 	client.channels[channel] = true
 	reply := RplJoin(channel, client)
-	client.replies <- reply
 	channel.replies <- reply
 	channel.GetTopic(client)
 	channel.GetUsers(client)

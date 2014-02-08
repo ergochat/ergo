@@ -115,18 +115,25 @@ func (reply *NamesReply) Format(client *Client, write chan<- string) {
 	tooLong := func(names []string) bool {
 		return (baseLen + joinedLen(names)) > MAX_REPLY_LEN
 	}
-	var start = 0
+	from, to := 0, 1
 	nicks := reply.channel.Nicks()
-	for i := range nicks {
-		if (i > start) && tooLong(nicks[start:i]) {
-			RplNamReply(reply.channel, nicks[start:i-1]).Format(client, write)
-			start = i - 1
+	for to < len(nicks) {
+		if (from < (to - 1)) && tooLong(nicks[from:to]) {
+			RplNamReply(reply.channel, nicks[from:to-1]).Format(client, write)
+			from, to = to-1, to
+		} else {
+			to += 1
 		}
 	}
-	if start < (len(nicks) - 1) {
-		RplNamReply(reply.channel, nicks[start:]).Format(client, write)
+	if from < len(nicks) {
+		RplNamReply(reply.channel, nicks[from:]).Format(client, write)
 	}
 	RplEndOfNames(reply.channel).Format(client, write)
+}
+
+func (reply *NamesReply) String() string {
+	return fmt.Sprintf("NamesReply(channel=%s, names=%s)",
+		reply.channel, reply.channel.Nicks())
 }
 
 // messaging replies
@@ -209,9 +216,9 @@ func RplNamReply(channel *Channel, names []string) *NumericReply {
 		channel.name, strings.Join(names, " "))
 }
 
-func RplEndOfNames(source Identifier) Reply {
-	return NewNumericReply(source, RPL_ENDOFNAMES,
-		":End of NAMES list")
+func RplEndOfNames(channel *Channel) Reply {
+	return NewNumericReply(channel, RPL_ENDOFNAMES,
+		"%s :End of NAMES list", channel.name)
 }
 
 func RplYoureOper(server *Server) Reply {

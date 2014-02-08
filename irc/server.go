@@ -1,14 +1,9 @@
 package irc
 
 import (
-	"code.google.com/p/go.crypto/bcrypt"
 	"log"
 	"net"
 	"time"
-)
-
-const (
-	DEBUG_SERVER = true
 )
 
 type ChannelNameMap map[string]*Channel
@@ -20,7 +15,7 @@ type Server struct {
 	ctime    time.Time
 	hostname string
 	name     string
-	password []byte
+	password string
 	clients  ClientNameMap
 }
 
@@ -54,7 +49,9 @@ func (s *Server) Listen(addr string) {
 	}
 
 	s.hostname = LookupHostname(listener.Addr())
-	log.Print("Server.Listen: listening on ", addr)
+	if DEBUG_SERVER {
+		log.Print("Server.Listen: listening on ", addr)
+	}
 
 	for {
 		conn, err := listener.Accept()
@@ -62,7 +59,9 @@ func (s *Server) Listen(addr string) {
 			log.Print("Server.Listen: ", err)
 			continue
 		}
-		log.Print("Server.Listen: accepted ", conn.RemoteAddr())
+		if DEBUG_SERVER {
+			log.Print("Server.Listen: accepted ", conn.RemoteAddr())
+		}
 		NewClient(s, conn)
 	}
 }
@@ -94,7 +93,7 @@ func (s *Server) interestedClients(fromClient *Client) ClientSet {
 // server functionality
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUsername() && s.CheckPassword(c) {
+	if !c.registered && c.HasNick() && c.HasUsername() && c.serverPass {
 		c.registered = true
 		replies := []Reply{
 			RplWelcome(s, c),
@@ -106,10 +105,6 @@ func (s *Server) tryRegister(c *Client) {
 			c.Replies() <- reply
 		}
 	}
-}
-
-func (s *Server) CheckPassword(c *Client) bool {
-	return (s.password == nil) || c.serverPass
 }
 
 func (s *Server) Id() string {
@@ -149,9 +144,9 @@ func (m *PongCommand) HandleServer(s *Server) {
 }
 
 func (m *PassCommand) HandleServer(s *Server) {
-	err := bcrypt.CompareHashAndPassword(s.password, []byte(m.password))
-	if err != nil {
+	if s.password != m.password {
 		m.Client().Replies() <- ErrPasswdMismatch(s)
+		// TODO disconnect
 		return
 	}
 
@@ -199,13 +194,14 @@ func (m *QuitCommand) HandleServer(s *Server) {
 	for client := range s.interestedClients(c) {
 		client.replies <- reply
 	}
-	c.conn.Close()
 	cmd := &PartCommand{
 		BaseCommand: BaseCommand{c},
 	}
 	for channel := range c.channels {
 		channel.commands <- cmd
 	}
+	c.conn.Close()
+	delete(s.clients, c.nick)
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {
@@ -266,8 +262,7 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 		m.Client().replies <- ErrNoSuchNick(s, m.target)
 		return
 	}
-
-	target.commands <- m
+	target.replies <- RplPrivMsg(m.Client(), target, m.message)
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {

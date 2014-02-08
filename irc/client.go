@@ -7,20 +7,10 @@ import (
 	"time"
 )
 
-const (
-	DEBUG_CLIENT = false
-)
-
-type ClientCommand interface {
-	Command
-	HandleClient(*Client)
-}
-
 type Client struct {
 	atime      time.Time
 	away       bool
 	channels   ChannelSet
-	commands   chan<- ClientCommand
 	conn       net.Conn
 	hostname   string
 	nick       string
@@ -37,12 +27,10 @@ type ClientSet map[*Client]bool
 func NewClient(server *Server, conn net.Conn) *Client {
 	read := StringReadChan(conn)
 	write := StringWriteChan(conn)
-	commands := make(chan ClientCommand)
 	replies := make(chan Reply)
 
 	client := &Client{
 		channels: make(ChannelSet),
-		commands: commands,
 		conn:     conn,
 		hostname: LookupHostname(conn.RemoteAddr()),
 		replies:  replies,
@@ -51,7 +39,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 
 	go client.readConn(read)
 	go client.writeConn(write, replies)
-	go client.receiveCommands(commands)
 
 	return client
 }
@@ -79,15 +66,6 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 			log.Printf("%s ← %s : %s", c, reply.Source(), reply)
 		}
 		reply.Format(c, write)
-	}
-}
-
-func (client *Client) receiveCommands(commands <-chan ClientCommand) {
-	for command := range commands {
-		if DEBUG_CLIENT {
-			log.Printf("%s → %s : %s", command.Client(), client, command)
-		}
-		command.HandleClient(client)
 	}
 }
 
@@ -135,17 +113,9 @@ func (c *Client) Id() string {
 }
 
 func (c *Client) String() string {
-	return c.hostname
+	return c.UserHost()
 }
 
 func (c *Client) PublicId() string {
 	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Nick(), c.server.Id())
-}
-
-//
-// commands
-//
-
-func (m *PrivMsgCommand) HandleClient(client *Client) {
-	client.replies <- RplPrivMsg(m.Client(), client, m.message)
 }

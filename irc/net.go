@@ -7,10 +7,6 @@ import (
 	"strings"
 )
 
-const (
-	DEBUG_NET = false
-)
-
 func readTrimmedLine(reader *bufio.Reader) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {

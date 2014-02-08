@@ -1,7 +1,14 @@
 package irc
 
+var (
+	DEBUG_NET     = false
+	DEBUG_CLIENT  = false
+	DEBUG_CHANNEL = false
+	DEBUG_SERVER  = false
+)
+
 const (
-	VERSION = "ergonomadic-1"
+	VERSION = "irc-1"
 )
 
 const (
