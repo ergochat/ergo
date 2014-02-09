@@ -2,56 +2,68 @@ package irc
 
 import (
 	"bufio"
+	"io"
 	"log"
 	"net"
 	"strings"
 )
-
-func readTrimmedLine(reader *bufio.Reader) (string, error) {
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(line), nil
-}
 
 // Adapt `net.Conn` to a `chan string`.
 func StringReadChan(conn net.Conn) <-chan string {
 	ch := make(chan string)
 	reader := bufio.NewReader(conn)
 	go func() {
-		defer conn.Close()
 		defer close(ch)
 		for {
-			line, err := readTrimmedLine(reader)
+			line, err := reader.ReadString('\n')
 			if err != nil {
-				log.Printf("%s → %s error: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
+				if err != io.EOF {
+					log.Printf("%s → %s error: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
+				}
 				break
 			}
 			if DEBUG_NET {
 				log.Printf("%s → %s %s", conn.RemoteAddr(), conn.LocalAddr(), line)
 			}
-			ch <- line
+
+			ch <- strings.TrimSpace(line)
 		}
 	}()
 	return ch
+}
+
+const (
+	CRLF = "\r\n"
+)
+
+func maybeLogWriteError(conn net.Conn, err error) bool {
+	if err != nil {
+		if err != io.EOF {
+			log.Printf("%s ← %s error: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
+		}
+		return true
+	}
+	return false
 }
 
 func StringWriteChan(conn net.Conn) chan<- string {
 	ch := make(chan string)
 	writer := bufio.NewWriter(conn)
 	go func() {
-		defer conn.Close()
 		defer close(ch)
 		for str := range ch {
 			if DEBUG_NET {
 				log.Printf("%s ← %s %s", conn.RemoteAddr(), conn.LocalAddr(), str)
 			}
-			if _, err := writer.WriteString(str + "\r\n"); err != nil {
-				log.Printf("%s ← %s error: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
+			if _, err := writer.WriteString(str); maybeLogWriteError(conn, err) {
 				break
 			}
-			writer.Flush()
+			if _, err := writer.WriteString(CRLF); maybeLogWriteError(conn, err) {
+				break
+			}
+			if err := writer.Flush(); maybeLogWriteError(conn, err) {
+				break
+			}
 		}
 	}()
 	return ch

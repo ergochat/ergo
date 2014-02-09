@@ -307,8 +307,7 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 		client.replies <- ErrNoSuchChannel(server, msg.channel)
 		return
 	}
-
-	client.replies <- RplChannelModeIs(server, channel)
+	channel.commands <- msg
 }
 
 func whoChannel(client *Client, server *Server, channel *Channel) {

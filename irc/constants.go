@@ -9,9 +9,7 @@ var (
 
 const (
 	VERSION = "ergonomadic-1"
-)
 
-const (
 	// numeric codes
 	RPL_WELCOME           = 1
 	RPL_YOURHOST          = 2
@@ -149,6 +147,7 @@ const (
 	ERR_NOOPERHOST        = 491
 	ERR_UMODEUNKNOWNFLAG  = 501
 	ERR_USERSDONTMATCH    = 502
+
 	// message codes
 	RPL_ERROR   = "ERROR"
 	RPL_INVITE  = "INVITE"
@@ -158,4 +157,35 @@ const (
 	RPL_PONG    = "PONG"
 	RPL_PRIVMSG = "PRIVMSG"
 	RPL_QUIT    = "QUIT"
+
+	List   ModeOp = 'l'
+	Add    ModeOp = 'a'
+	Remove ModeOp = 'r'
+
+	Away          UserMode = 'a'
+	Invisible     UserMode = 'i'
+	WallOps       UserMode = 'w'
+	Restricted    UserMode = 'r'
+	Operator      UserMode = 'o'
+	LocalOperator UserMode = 'O'
+	ServerNotice  UserMode = 's'
+
+	Anonymous     ChannelMode = 'a'
+	InviteOnly    ChannelMode = 'i'
+	Moderated     ChannelMode = 'm'
+	NoOutside     ChannelMode = 'n'
+	Quiet         ChannelMode = 'q'
+	Private       ChannelMode = 'p'
+	Secret        ChannelMode = 's'
+	ReOp          ChannelMode = 'r'
+	OpOnlyTopic   ChannelMode = 't'
+	Key           ChannelMode = 'k'
+	UserLimit     ChannelMode = 'l'
+	BanMask       ChannelMode = 'b'
+	ExceptionMask ChannelMode = 'e'
+	InviteMask    ChannelMode = 'i'
+
+	ChannelCreator  UserChannelMode = 'O'
+	ChannelOperator UserChannelMode = 'o'
+	Voice           UserChannelMode = 'v'
 )

@@ -5,6 +5,7 @@ import (
 )
 
 type Channel struct {
+	banList   []UserMask
 	commands  chan<- ChannelCommand
 	key       string
 	members   ClientSet
@@ -47,11 +48,12 @@ func NewChannel(s *Server, name string) *Channel {
 	commands := make(chan ChannelCommand)
 	replies := make(chan Reply)
 	channel := &Channel{
-		name:     name,
-		members:  make(ClientSet),
-		server:   s,
+		banList:  make([]UserMask, 0),
 		commands: commands,
+		members:  make(ClientSet),
+		name:     name,
 		replies:  replies,
+		server:   s,
 	}
 	go channel.receiveCommands(commands)
 	go channel.receiveReplies(replies)
@@ -198,4 +200,21 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
 	channel.replies <- RplPrivMsg(m.Client(), channel, m.message)
+}
+
+func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
+	client := msg.Client()
+
+	for _, modeOp := range msg.modeOps {
+		switch modeOp.mode {
+		case BanMask:
+			// TODO add/remove
+			for _, banMask := range channel.banList {
+				client.replies <- RplBanList(channel, banMask)
+			}
+			client.replies <- RplEndOfBanList(channel)
+		}
+	}
+
+	client.replies <- RplChannelModeIs(channel)
 }

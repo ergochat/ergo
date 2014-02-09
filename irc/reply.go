@@ -234,8 +234,8 @@ func RplEndOfWhois(server *Server) Reply {
 	return NewNumericReply(server, RPL_ENDOFWHOIS, ":End of WHOIS list")
 }
 
-func RplChannelModeIs(server *Server, channel *Channel) Reply {
-	return NewNumericReply(server, RPL_CHANNELMODEIS, "%s %s",
+func RplChannelModeIs(channel *Channel) Reply {
+	return NewNumericReply(channel.server, RPL_CHANNELMODEIS, "%s %s",
 		channel.name, channel.ModeString())
 }
 
@@ -250,6 +250,15 @@ func RplWhoReply(server *Server, channel *Channel, client *Client) Reply {
 // <name> :End of WHO list
 func RplEndOfWho(server *Server, name string) Reply {
 	return NewNumericReply(server, RPL_ENDOFWHO, "%s :End of WHO list", name)
+}
+
+func RplBanList(channel *Channel, ban UserMask) Reply {
+	return NewNumericReply(channel.server, RPL_BANLIST, "%s %s", channel.name, ban)
+}
+
+func RplEndOfBanList(channel *Channel) Reply {
+	return NewNumericReply(channel.server, RPL_ENDOFBANLIST, "%s :End of channel ban list",
+		channel.name)
 }
 
 // errors (also numeric)
