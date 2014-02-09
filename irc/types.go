@@ -20,6 +20,10 @@ type UserMode rune
 // channel mode flags
 type ChannelMode rune
 
+func (mode ChannelMode) String() string {
+	return fmt.Sprintf("%c", mode)
+}
+
 // user-channel mode flags
 type UserChannelMode rune
 

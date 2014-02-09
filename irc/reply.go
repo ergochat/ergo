@@ -343,3 +343,8 @@ func ErrUserNotInChannel(server *Server, nick string, channel *Channel) Reply {
 	return NewNumericReply(server, ERR_USERNOTINCHANNEL,
 		"%s %s :They aren't on that channel", nick, channel.name)
 }
+
+func ErrCannotSendToChan(channel *Channel) Reply {
+	return NewNumericReply(channel.server, ERR_CANNOTSENDTOCHAN,
+		"%s :Cannot send to channel", channel.name)
+}

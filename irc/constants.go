@@ -171,20 +171,20 @@ const (
 	ServerNotice  UserMode = 's'
 	WallOps       UserMode = 'w'
 
-	Anonymous     ChannelMode = 'a'
+	Anonymous     ChannelMode = 'a' // flag
 	BanMask       ChannelMode = 'b' // arg
 	ExceptionMask ChannelMode = 'e' // arg
 	InviteMask    ChannelMode = 'I' // arg
-	InviteOnly    ChannelMode = 'i'
-	Key           ChannelMode = 'k' // arg
-	Moderated     ChannelMode = 'm'
-	NoOutside     ChannelMode = 'n'
-	OpOnlyTopic   ChannelMode = 't'
-	Private       ChannelMode = 'p'
-	Quiet         ChannelMode = 'q'
-	ReOp          ChannelMode = 'r'
-	Secret        ChannelMode = 's'
-	UserLimit     ChannelMode = 'l' // arg
+	InviteOnly    ChannelMode = 'i' // flag
+	Key           ChannelMode = 'k' // flag arg
+	Moderated     ChannelMode = 'm' // flag
+	NoOutside     ChannelMode = 'n' // flag
+	OpOnlyTopic   ChannelMode = 't' // flag
+	Private       ChannelMode = 'p' // flag
+	Quiet         ChannelMode = 'q' // flag
+	ReOp          ChannelMode = 'r' // flag
+	Secret        ChannelMode = 's' // flag
+	UserLimit     ChannelMode = 'l' // flag arg
 
 	ChannelCreator  UserChannelMode = 'O'
 	ChannelOperator UserChannelMode = 'o'

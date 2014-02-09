@@ -113,8 +113,11 @@ func (channel *Channel) String() string {
 }
 
 // <mode> <mode params>
-func (channel *Channel) ModeString() string {
-	return ""
+func (channel *Channel) ModeString() (str string) {
+	if channel.noOutside {
+		str += NoOutside.String()
+	}
+	return
 }
 
 func (channel *Channel) Join(client *Client) {
@@ -181,7 +184,12 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
-	channel.replies <- RplPrivMsg(m.Client(), channel, m.message)
+	client := m.Client()
+	if channel.noOutside && !channel.members.Has(client) {
+		client.replies <- ErrCannotSendToChan(channel)
+		return
+	}
+	channel.replies <- RplPrivMsg(client, channel, m.message)
 }
 
 func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
@@ -195,6 +203,14 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				client.replies <- RplBanList(channel, banMask)
 			}
 			client.replies <- RplEndOfBanList(channel)
+		case NoOutside:
+			// TODO perms
+			switch modeOp.op {
+			case Add:
+				channel.noOutside = true
+			case Remove:
+				channel.noOutside = false
+			}
 		}
 	}
 
