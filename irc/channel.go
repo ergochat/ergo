@@ -23,6 +23,17 @@ type ChannelCommand interface {
 	HandleChannel(channel *Channel)
 }
 
+func IsChannel(target string) bool {
+	if target == "" {
+		return false
+	}
+	switch target[0] {
+	case '&', '#', '+', '!':
+		return true
+	}
+	return false
+}
+
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
@@ -104,6 +115,11 @@ func (channel *Channel) Nick() string {
 
 func (channel *Channel) String() string {
 	return channel.Id()
+}
+
+// <mode> <mode params>
+func (channel *Channel) ModeString() string {
+	return ""
 }
 
 func (channel *Channel) Join(client *Client) {

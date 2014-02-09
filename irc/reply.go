@@ -234,6 +234,11 @@ func RplEndOfWhois(server *Server) Reply {
 	return NewNumericReply(server, RPL_ENDOFWHOIS, ":End of WHOIS list")
 }
 
+func RplChannelModeIs(server *Server, channel *Channel) Reply {
+	return NewNumericReply(server, RPL_CHANNELMODEIS, "%s %s",
+		channel.name, channel.ModeString())
+}
+
 // errors (also numeric)
 
 func ErrAlreadyRegistered(source Identifier) Reply {
@@ -261,8 +266,8 @@ func ErrNeedMoreParams(source Identifier, command string) Reply {
 		"%s :Not enough parameters", command)
 }
 
-func ErrNoSuchChannel(source Identifier, channel string) Reply {
-	return NewNumericReply(source, ERR_NOSUCHCHANNEL,
+func ErrNoSuchChannel(server *Server, channel string) Reply {
+	return NewNumericReply(server, ERR_NOSUCHCHANNEL,
 		"%s :No such channel", channel)
 }
 
@@ -310,4 +315,9 @@ func ErrRestricted(server *Server) Reply {
 
 func ErrNoSuchServer(server *Server, target string) Reply {
 	return NewNumericReply(server, ERR_NOSUCHSERVER, "%s :No such server", target)
+}
+
+func ErrUserNotInChannel(server *Server, nick string, channel *Channel) Reply {
+	return NewNumericReply(server, ERR_USERNOTINCHANNEL,
+		"%s %s :They aren't on that channel", nick, channel.name)
 }

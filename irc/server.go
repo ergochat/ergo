@@ -299,3 +299,14 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 	}
 	client.replies <- RplEndOfWhois(server)
 }
+
+func (msg *ChannelModeCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	channel := server.channels[msg.channel]
+	if channel == nil {
+		client.replies <- ErrNoSuchChannel(server, msg.channel)
+		return
+	}
+
+	client.replies <- RplChannelModeIs(server, channel)
+}

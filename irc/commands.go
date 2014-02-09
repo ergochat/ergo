@@ -348,11 +348,7 @@ func NewPrivMsgCommand(args []string) (EditableCommand, error) {
 }
 
 func (m *PrivMsgCommand) TargetIsChannel() bool {
-	switch m.target[0] {
-	case '&', '#', '+', '!':
-		return true
-	}
-	return false
+	return IsChannel(m.target)
 }
 
 // TOPIC [newtopic]
@@ -428,11 +424,22 @@ func stringToRunes(str string) <-chan rune {
 	return runes
 }
 
-func NewModeCommand(args []string) (EditableCommand, error) {
-	if len(args) == 0 {
-		return nil, NotEnoughArgsError
-	}
+type ChannelModeCommand struct {
+	BaseCommand
+	channel string
+}
 
+// MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
+func NewChannelModeCommand(args []string) (EditableCommand, error) {
+	cmd := &ChannelModeCommand{
+		channel: args[0],
+	}
+	// TODO implement channel mode changes
+	return cmd, nil
+}
+
+// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
+func NewUserModeCommand(args []string) (EditableCommand, error) {
 	cmd := &ModeCommand{
 		nickname: args[0],
 		changes: make([]ModeChange,
@@ -460,12 +467,25 @@ func NewModeCommand(args []string) (EditableCommand, error) {
 	return cmd, nil
 }
 
+func NewModeCommand(args []string) (EditableCommand, error) {
+	if len(args) == 0 {
+		return nil, NotEnoughArgsError
+	}
+
+	if IsChannel(args[0]) {
+		return NewChannelModeCommand(args)
+	} else {
+		return NewUserModeCommand(args)
+	}
+}
+
 type WhoisCommand struct {
 	BaseCommand
 	target string
 	masks  []string
 }
 
+// [ <target> ] <mask> *( "," <mask> )
 func NewWhoisCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
