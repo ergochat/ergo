@@ -15,6 +15,7 @@ type Client struct {
 	hostname   string
 	invisible  bool
 	nick       string
+	operator   bool
 	realname   string
 	registered bool
 	replies    chan<- Reply
@@ -109,6 +110,10 @@ func (c *Client) ModeString() (str string) {
 	if c.invisible {
 		str += Invisible.String()
 	}
+	if c.operator {
+		str += Operator.String()
+	}
+
 	if len(str) > 0 {
 		str = "+" + str
 	}

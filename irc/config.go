@@ -6,10 +6,16 @@ import (
 )
 
 type Config struct {
+	Name      string
+	Listen    string
+	Password  string
+	Operators []OperatorConfig
+	Debug     map[string]bool
+}
+
+type OperatorConfig struct {
 	Name     string
-	Listen   string
 	Password string
-	Debug    map[string]bool
 }
 
 func LoadConfig() (config *Config, err error) {

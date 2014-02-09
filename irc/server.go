@@ -10,25 +10,32 @@ import (
 )
 
 type Server struct {
-	channels ChannelNameMap
-	commands chan<- Command
-	ctime    time.Time
-	hostname string
-	name     string
-	password string
-	clients  ClientNameMap
+	channels  ChannelNameMap
+	commands  chan<- Command
+	ctime     time.Time
+	hostname  string
+	name      string
+	operators map[string]string
+	password  string
+	clients   ClientNameMap
 }
 
 func NewServer(config *Config) *Server {
 	commands := make(chan Command)
 	server := &Server{
-		channels: make(ChannelNameMap),
-		clients:  make(ClientNameMap),
-		commands: commands,
-		ctime:    time.Now(),
-		name:     config.Name,
-		password: config.Password,
+		channels:  make(ChannelNameMap),
+		clients:   make(ClientNameMap),
+		commands:  commands,
+		ctime:     time.Now(),
+		name:      config.Name,
+		operators: make(map[string]string),
+		password:  config.Password,
 	}
+
+	for _, opConf := range config.Operators {
+		server.operators[opConf.Name] = opConf.Password
+	}
+
 	go server.receiveCommands(commands)
 	go server.listen(config.Listen)
 	return server
@@ -351,4 +358,18 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	}
 
 	client.Reply(RplEndOfWho(server, mask))
+}
+
+func (msg *OperCommand) HandleServer(server *Server) {
+	client := msg.Client()
+
+	if server.operators[msg.name] != msg.password {
+		client.Reply(ErrPasswdMismatch(server))
+		return
+	}
+
+	client.operator = true
+
+	client.Reply(RplYoureOper(server))
+	client.Reply(RplUModeIs(server, client))
 }

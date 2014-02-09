@@ -21,6 +21,7 @@ var (
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
 		"NICK":    NewNickCommand,
+		"OPER":    NewOperCommand,
 		"PART":    NewPartCommand,
 		"PASS":    NewPassCommand,
 		"PING":    NewPingCommand,
@@ -540,4 +541,26 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 
 func (msg *WhoCommand) String() string {
 	return fmt.Sprintf("WHO(mask=%s, operatorOnly=%s)", msg.mask, msg.operatorOnly)
+}
+
+type OperCommand struct {
+	BaseCommand
+	name     string
+	password string
+}
+
+func (msg *OperCommand) String() string {
+	return fmt.Sprintf("OPER(name=%s, password=%s)", msg.name, msg.password)
+}
+
+// OPER <name> <password>
+func NewOperCommand(args []string) (editableCommand, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+
+	return &OperCommand{
+		name:     args[0],
+		password: args[1],
+	}, nil
 }

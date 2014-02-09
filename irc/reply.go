@@ -206,9 +206,9 @@ func RplEndOfNames(channel *Channel) Reply {
 		"%s :End of NAMES list", channel.name)
 }
 
+// :You are now an IRC operator
 func RplYoureOper(server *Server) Reply {
-	return NewNumericReply(server, RPL_YOUREOPER,
-		":You are now an IRC operator")
+	return NewNumericReply(server, RPL_YOUREOPER, ":You are now an IRC operator")
 }
 
 func RplWhoisUser(server *Server, client *Client) Reply {
