@@ -18,20 +18,6 @@ func joinedLen(names []string) int {
 	return l
 }
 
-type Identifier interface {
-	Id() string
-	Nick() string
-}
-
-type Replier interface {
-	Replies() chan<- Reply
-}
-
-type Reply interface {
-	Format(*Client, chan<- string)
-	Source() Identifier
-}
-
 type BaseReply struct {
 	source  Identifier
 	message string

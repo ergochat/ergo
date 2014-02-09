@@ -22,11 +22,12 @@ type Server struct {
 func NewServer(config *Config) *Server {
 	commands := make(chan Command)
 	server := &Server{
+		channels: make(ChannelNameMap),
+		clients:  make(ClientNameMap),
+		commands: commands,
 		ctime:    time.Now(),
 		name:     config.Name,
-		commands: commands,
-		clients:  make(ClientNameMap),
-		channels: make(ChannelNameMap),
+		password: config.Password,
 	}
 	go server.receiveCommands(commands)
 	go server.listen(config.Listen)
@@ -38,7 +39,18 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 		if DEBUG_SERVER {
 			log.Printf("%s → %s : %s", command.Client(), server, command)
 		}
-		command.Client().atime = time.Now()
+		client := command.Client()
+		client.atime = time.Now()
+		if !client.serverPass {
+			if server.password == "" {
+				client.serverPass = true
+
+			} else if _, ok := command.(*PassCommand); !ok {
+				client.Reply(ErrPasswdMismatch(server))
+				client.Destroy()
+				return
+			}
+		}
 		command.HandleServer(server)
 	}
 }
@@ -97,7 +109,7 @@ func (s *Server) GenerateGuestNick() string {
 // server functionality
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUsername() && c.serverPass {
+	if !c.registered && c.HasNick() && c.HasUsername() {
 		c.registered = true
 		replies := []Reply{
 			RplWelcome(s, c),
@@ -106,7 +118,7 @@ func (s *Server) tryRegister(c *Client) {
 			RplMyInfo(s),
 		}
 		for _, reply := range replies {
-			c.Replies() <- reply
+			c.Reply(reply)
 		}
 	}
 }
@@ -128,11 +140,11 @@ func (s *Server) Nick() string {
 //
 
 func (m *UnknownCommand) HandleServer(s *Server) {
-	m.Client().replies <- ErrUnknownCommand(s, m.command)
+	m.Client().Reply(ErrUnknownCommand(s, m.command))
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().replies <- RplPong(s, m.Client())
+	m.Client().Reply(RplPong(s, m.Client()))
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -141,7 +153,7 @@ func (m *PongCommand) HandleServer(s *Server) {
 
 func (m *PassCommand) HandleServer(s *Server) {
 	if s.password != m.password {
-		m.Client().replies <- ErrPasswdMismatch(s)
+		m.Client().Reply(ErrPasswdMismatch(s))
 		m.Client().Destroy()
 		return
 	}
@@ -154,14 +166,17 @@ func (m *NickCommand) HandleServer(s *Server) {
 	c := m.Client()
 
 	if s.clients[m.nickname] != nil {
-		c.replies <- ErrNickNameInUse(s, m.nickname)
+		c.Reply(ErrNickNameInUse(s, m.nickname))
 		return
 	}
 
+	if !c.HasNick() {
+		c.nick = m.nickname
+	}
 	reply := RplNick(c, m.nickname)
-	c.replies <- reply
+	c.Reply(reply)
 	for iclient := range c.InterestedClients() {
-		iclient.replies <- reply
+		iclient.Reply(reply)
 	}
 
 	s.clients.Remove(c)
@@ -174,7 +189,7 @@ func (m *NickCommand) HandleServer(s *Server) {
 func (m *UserMsgCommand) HandleServer(s *Server) {
 	c := m.Client()
 	if c.registered {
-		c.replies <- ErrAlreadyRegistered(s)
+		c.Reply(ErrAlreadyRegistered(s))
 		return
 	}
 
@@ -190,12 +205,12 @@ func (m *QuitCommand) HandleServer(s *Server) {
 		channel.members.Remove(c)
 	}
 
-	c.replies <- RplError(s, c)
+	c.Reply(RplError(s, c))
 	c.Destroy()
 
 	reply := RplQuit(c, m.message)
 	for client := range c.InterestedClients() {
-		client.replies <- reply
+		client.Reply(reply)
 	}
 }
 
@@ -221,7 +236,7 @@ func (m *PartCommand) HandleServer(s *Server) {
 		channel := s.channels[chname]
 
 		if channel == nil {
-			m.Client().replies <- ErrNoSuchChannel(s, channel.name)
+			m.Client().Reply(ErrNoSuchChannel(s, channel.name))
 			continue
 		}
 
@@ -232,7 +247,7 @@ func (m *PartCommand) HandleServer(s *Server) {
 func (m *TopicCommand) HandleServer(s *Server) {
 	channel := s.channels[m.channel]
 	if channel == nil {
-		m.Client().replies <- ErrNoSuchChannel(s, m.channel)
+		m.Client().Reply(ErrNoSuchChannel(s, m.channel))
 		return
 	}
 
@@ -243,7 +258,7 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 	if m.TargetIsChannel() {
 		channel := s.channels[m.target]
 		if channel == nil {
-			m.Client().replies <- ErrNoSuchChannel(s, m.target)
+			m.Client().Reply(ErrNoSuchChannel(s, m.target))
 			return
 		}
 
@@ -253,10 +268,10 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 
 	target := s.clients[m.target]
 	if target == nil {
-		m.Client().replies <- ErrNoSuchNick(s, m.target)
+		m.Client().Reply(ErrNoSuchNick(s, m.target))
 		return
 	}
-	target.replies <- RplPrivMsg(m.Client(), target, m.message)
+	target.Reply(RplPrivMsg(m.Client(), target, m.message))
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {
@@ -272,11 +287,11 @@ func (m *ModeCommand) HandleServer(s *Server) {
 				}
 			}
 		}
-		client.replies <- RplUModeIs(s, client)
+		client.Reply(RplUModeIs(s, client))
 		return
 	}
 
-	client.replies <- ErrUsersDontMatch(client)
+	client.Reply(ErrUsersDontMatch(client))
 }
 
 func (m *WhoisCommand) HandleServer(server *Server) {
@@ -284,7 +299,7 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 
 	// TODO implement target query
 	if m.target != "" {
-		client.replies <- ErrNoSuchServer(server, m.target)
+		client.Reply(ErrNoSuchServer(server, m.target))
 		return
 	}
 
@@ -292,17 +307,17 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 		// TODO implement wildcard matching
 		mclient := server.clients[mask]
 		if mclient != nil {
-			client.replies <- RplWhoisUser(server, mclient)
+			client.Reply(RplWhoisUser(server, mclient))
 		}
 	}
-	client.replies <- RplEndOfWhois(server)
+	client.Reply(RplEndOfWhois(server))
 }
 
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	channel := server.channels[msg.channel]
 	if channel == nil {
-		client.replies <- ErrNoSuchChannel(server, msg.channel)
+		client.Reply(ErrNoSuchChannel(server, msg.channel))
 		return
 	}
 	channel.commands <- msg
@@ -310,7 +325,7 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 
 func whoChannel(client *Client, server *Server, channel *Channel) {
 	for member := range channel.members {
-		client.replies <- RplWhoReply(server, channel, member)
+		client.Reply(RplWhoReply(server, channel, member))
 	}
 }
 
@@ -331,9 +346,9 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	} else {
 		mclient := server.clients[mask]
 		if mclient != nil {
-			client.replies <- RplWhoReply(server, mclient.channels.First(), mclient)
+			client.Reply(RplWhoReply(server, mclient.channels.First(), mclient))
 		}
 	}
 
-	client.replies <- RplEndOfWho(server, mask)
+	client.Reply(RplEndOfWho(server, mask))
 }

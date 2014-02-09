@@ -98,6 +98,20 @@ func (channels ChannelSet) First() *Channel {
 // interfaces
 //
 
+type Identifier interface {
+	Id() string
+	Nick() string
+}
+
+type Replier interface {
+	Reply(Reply) error
+}
+
+type Reply interface {
+	Format(*Client, chan<- string)
+	Source() Identifier
+}
+
 // commands the server understands
 // TODO rename ServerCommand
 type Command interface {

@@ -51,7 +51,7 @@ func (command *BaseCommand) Source() Identifier {
 }
 
 func (command *BaseCommand) Reply(reply Reply) {
-	command.client.Replies() <- reply
+	command.client.Reply(reply)
 }
 
 func ParseCommand(line string) (editableCommand, error) {

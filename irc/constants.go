@@ -1,10 +1,16 @@
 package irc
 
+import (
+	"errors"
+)
+
 var (
 	DEBUG_NET     = false
 	DEBUG_CLIENT  = false
 	DEBUG_CHANNEL = false
 	DEBUG_SERVER  = false
+
+	ErrAlreadyDestroyed = errors.New("already destroyed")
 )
 
 const (

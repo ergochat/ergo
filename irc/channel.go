@@ -46,6 +46,23 @@ func NewChannel(s *Server, name string) *Channel {
 	return channel
 }
 
+func (channel *Channel) Destroy() error {
+	if channel.replies == nil {
+		return ErrAlreadyDestroyed
+	}
+	close(channel.replies)
+	channel.replies = nil
+	return nil
+}
+
+func (channel *Channel) Reply(reply Reply) error {
+	if channel.replies == nil {
+		return ErrAlreadyDestroyed
+	}
+	channel.replies <- reply
+	return nil
+}
+
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
 		if DEBUG_CHANNEL {
@@ -63,7 +80,7 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 		for client := range channel.members {
 			var dest Identifier = client
 			if reply.Source() != dest {
-				client.replies <- reply
+				client.Reply(reply)
 			}
 		}
 	}
@@ -75,15 +92,15 @@ func (channel *Channel) IsEmpty() bool {
 
 func (channel *Channel) GetTopic(replier Replier) {
 	if channel.topic == "" {
-		replier.Replies() <- RplNoTopic(channel)
+		replier.Reply(RplNoTopic(channel))
 		return
 	}
 
-	replier.Replies() <- RplTopic(channel)
+	replier.Reply(RplTopic(channel))
 }
 
 func (channel *Channel) GetUsers(replier Replier) {
-	replier.Replies() <- NewNamesReply(channel)
+	replier.Reply(NewNamesReply(channel))
 }
 
 func (channel *Channel) Nicks() []string {
@@ -94,10 +111,6 @@ func (channel *Channel) Nicks() []string {
 		i += 1
 	}
 	return nicks
-}
-
-func (channel *Channel) Replies() chan<- Reply {
-	return channel.replies
 }
 
 func (channel *Channel) Id() string {
@@ -124,8 +137,8 @@ func (channel *Channel) Join(client *Client) {
 	channel.members.Add(client)
 	client.channels.Add(channel)
 	reply := RplJoin(client, channel)
-	client.replies <- reply
-	channel.replies <- reply
+	client.Reply(reply)
+	channel.Reply(reply)
 	channel.GetTopic(client)
 	channel.GetUsers(client)
 }
@@ -137,7 +150,7 @@ func (channel *Channel) Join(client *Client) {
 func (m *JoinCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 	if channel.key != m.channels[channel.name] {
-		client.replies <- ErrBadChannelKey(channel)
+		client.Reply(ErrBadChannelKey(channel))
 		return
 	}
 
@@ -148,13 +161,13 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 
 	if !channel.members.Has(client) {
-		client.replies <- ErrNotOnChannel(channel)
+		client.Reply(ErrNotOnChannel(channel))
 		return
 	}
 
 	reply := RplPart(client, channel, m.Message())
-	client.replies <- reply
-	channel.replies <- reply
+	client.Reply(reply)
+	channel.Reply(reply)
 
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
@@ -169,7 +182,7 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 
 	if !channel.members.Has(client) {
-		client.replies <- ErrNotOnChannel(channel)
+		client.Reply(ErrNotOnChannel(channel))
 		return
 	}
 
@@ -186,10 +199,10 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 	if channel.noOutside && !channel.members.Has(client) {
-		client.replies <- ErrCannotSendToChan(channel)
+		client.Reply(ErrCannotSendToChan(channel))
 		return
 	}
-	channel.replies <- RplPrivMsg(client, channel, m.message)
+	channel.Reply(RplPrivMsg(client, channel, m.message))
 }
 
 func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
@@ -200,9 +213,9 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 		case BanMask:
 			// TODO add/remove
 			for _, banMask := range channel.banList {
-				client.replies <- RplBanList(channel, banMask)
+				client.Reply(RplBanList(channel, banMask))
 			}
-			client.replies <- RplEndOfBanList(channel)
+			client.Reply(RplEndOfBanList(channel))
 		case NoOutside:
 			// TODO perms
 			switch modeOp.op {
@@ -214,5 +227,5 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 		}
 	}
 
-	client.replies <- RplChannelModeIs(channel)
+	client.Reply(RplChannelModeIs(channel))
 }

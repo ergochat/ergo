@@ -29,12 +29,11 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	replies := make(chan Reply)
 
 	client := &Client{
-		channels:   make(ChannelSet),
-		conn:       conn,
-		hostname:   LookupHostname(conn.RemoteAddr()),
-		replies:    replies,
-		server:     server,
-		serverPass: server.password == "",
+		channels: make(ChannelSet),
+		conn:     conn,
+		hostname: LookupHostname(conn.RemoteAddr()),
+		replies:  replies,
+		server:   server,
 	}
 
 	go client.readConn(read)
@@ -48,9 +47,9 @@ func (c *Client) readConn(recv <-chan string) {
 		m, err := ParseCommand(str)
 		if err != nil {
 			if err == NotEnoughArgsError {
-				c.replies <- ErrNeedMoreParams(c.server, str)
+				c.Reply(ErrNeedMoreParams(c.server, str))
 			} else {
-				c.replies <- ErrUnknownCommand(c.server, str)
+				c.Reply(ErrUnknownCommand(c.server, str))
 			}
 			continue
 		}
@@ -69,14 +68,22 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	}
 }
 
-func (client *Client) Destroy() *Client {
-	client.conn.Close()
+func (client *Client) Destroy() error {
+	if client.replies == nil {
+		return ErrAlreadyDestroyed
+	}
 	close(client.replies)
-	return client
+	client.replies = nil
+	client.conn.Close()
+	return nil
 }
 
-func (c *Client) Replies() chan<- Reply {
-	return c.replies
+func (client *Client) Reply(reply Reply) error {
+	if client.replies == nil {
+		return ErrAlreadyDestroyed
+	}
+	client.replies <- reply
+	return nil
 }
 
 func (client *Client) HasNick() bool {
