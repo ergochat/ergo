@@ -310,3 +310,32 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 
 	client.replies <- RplChannelModeIs(server, channel)
 }
+
+func whoChannel(client *Client, server *Server, channel *Channel) {
+	for member := range channel.members {
+		client.replies <- RplWhoReply(server, channel, member)
+	}
+}
+
+func (msg *WhoCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	// TODO implement wildcard matching
+
+	if msg.mask == "" {
+		for _, channel := range server.channels {
+			whoChannel(client, server, channel)
+		}
+	} else if IsChannel(msg.mask) {
+		channel := server.channels[msg.mask]
+		if channel != nil {
+			whoChannel(client, server, channel)
+		}
+	} else {
+		mclient := server.clients[msg.mask]
+		if mclient != nil {
+			client.replies <- RplWhoReply(server, mclient.channels.First(), mclient)
+		}
+	}
+
+	client.replies <- RplEndOfWho(server, msg.mask)
+}

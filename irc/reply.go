@@ -239,6 +239,19 @@ func RplChannelModeIs(server *Server, channel *Channel) Reply {
 		channel.name, channel.ModeString())
 }
 
+// <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
+// :<hopcount> <real name>
+func RplWhoReply(server *Server, channel *Channel, client *Client) Reply {
+	return NewNumericReply(server, RPL_WHOREPLY, "%s %s %s %s %s H :0 %s",
+		channel.name, client.username, client.hostname, server.name, client.nick,
+		client.realname)
+}
+
+// <name> :End of WHO list
+func RplEndOfWho(server *Server, name string) Reply {
+	return NewNumericReply(server, RPL_ENDOFWHO, "%s :End of WHO list", name)
+}
+
 // errors (also numeric)
 
 func ErrAlreadyRegistered(source Identifier) Reply {

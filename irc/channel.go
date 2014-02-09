@@ -18,6 +18,13 @@ type Channel struct {
 
 type ChannelSet map[*Channel]bool
 
+func (channels ChannelSet) First() *Channel {
+	for channel := range channels {
+		return channel
+	}
+	return nil
+}
+
 type ChannelCommand interface {
 	Command
 	HandleChannel(channel *Channel)

@@ -35,6 +35,7 @@ var (
 		"QUIT":    NewQuitCommand,
 		"TOPIC":   NewTopicCommand,
 		"USER":    NewUserMsgCommand,
+		"WHO":     NewWhoCommand,
 		"WHOIS":   NewWhoisCommand,
 	}
 )
@@ -485,7 +486,7 @@ type WhoisCommand struct {
 	masks  []string
 }
 
-// [ <target> ] <mask> *( "," <mask> )
+// WHOIS [ <target> ] <mask> *( "," <mask> )
 func NewWhoisCommand(args []string) (EditableCommand, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
@@ -505,4 +506,25 @@ func NewWhoisCommand(args []string) (EditableCommand, error) {
 		target: target,
 		masks:  strings.Split(masks, ","),
 	}, nil
+}
+
+type WhoCommand struct {
+	BaseCommand
+	mask         string
+	operatorOnly bool
+}
+
+// WHO [ <mask> [ "o" ] ]
+func NewWhoCommand(args []string) (EditableCommand, error) {
+	cmd := &WhoCommand{}
+
+	if len(args) > 0 {
+		cmd.mask = args[0]
+	}
+
+	if (len(args) > 1) && (args[1] == "o") {
+		cmd.operatorOnly = true
+	}
+
+	return cmd, nil
 }
