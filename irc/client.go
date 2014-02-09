@@ -8,7 +8,6 @@ import (
 )
 
 type Client struct {
-	atime      time.Time
 	away       bool
 	channels   ChannelSet
 	conn       net.Conn
@@ -22,6 +21,8 @@ type Client struct {
 	server     *Server
 	serverPass bool
 	username   string
+	idleTimer  *time.Timer
+	quitTimer  *time.Timer
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -40,7 +41,36 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	go client.readConn(read)
 	go client.writeConn(write, replies)
 
+	client.Touch()
 	return client
+}
+
+func (client *Client) Touch() {
+	if client.quitTimer != nil {
+		client.quitTimer.Stop()
+	}
+	if client.idleTimer == nil {
+		client.idleTimer = time.AfterFunc(IDLE_TIMEOUT, client.Idle)
+	} else {
+		client.idleTimer.Reset(IDLE_TIMEOUT)
+	}
+}
+
+func (client *Client) Idle() {
+	if client.quitTimer == nil {
+		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.Quit)
+	} else {
+		client.quitTimer.Reset(QUIT_TIMEOUT)
+	}
+	client.Reply(RplPing(client.server, client))
+}
+
+func (client *Client) Quit() {
+	msg := &QuitCommand{
+		message: "connection timeout",
+	}
+	msg.SetClient(client)
+	client.server.commands <- msg
 }
 
 func (c *Client) readConn(recv <-chan string) {

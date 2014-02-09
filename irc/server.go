@@ -47,7 +47,8 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 			log.Printf("%s → %s : %s", command.Client(), server, command)
 		}
 		client := command.Client()
-		client.atime = time.Now()
+		client.Touch()
+
 		if !client.serverPass {
 			if server.password == "" {
 				client.serverPass = true

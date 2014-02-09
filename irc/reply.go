@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-const (
-	MAX_REPLY_LEN = 510 // 512 - CRLF
-)
-
 func joinedLen(names []string) int {
 	var l = len(names) - 1 // " " between names
 	for _, name := range names {
@@ -137,6 +133,10 @@ func RplJoin(client *Client, channel *Channel) Reply {
 
 func RplPart(client *Client, channel *Channel, message string) Reply {
 	return NewStringReply(client, RPL_PART, "%s :%s", channel.name, message)
+}
+
+func RplPing(server *Server, target Identifier) Reply {
+	return NewStringReply(server, RPL_PING, target.Nick())
 }
 
 func RplPong(server *Server, client *Client) Reply {

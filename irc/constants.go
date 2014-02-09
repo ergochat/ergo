@@ -2,6 +2,7 @@ package irc
 
 import (
 	"errors"
+	"time"
 )
 
 var (
@@ -14,8 +15,14 @@ var (
 )
 
 const (
-	VERSION = "ergonomadic-1"
-	CRLF    = "\r\n"
+	VERSION       = "ergonomadic-1"
+	CRLF          = "\r\n"
+	MAX_REPLY_LEN = 512 - len(CRLF)
+
+	// how long before a client is considered idle
+	IDLE_TIMEOUT = time.Minute
+	// how long after idle before a client is kicked
+	QUIT_TIMEOUT = time.Minute
 
 	// numeric codes
 	RPL_WELCOME           = 1
@@ -161,6 +168,7 @@ const (
 	RPL_JOIN    = "JOIN"
 	RPL_NICK    = "NICK"
 	RPL_PART    = "PART"
+	RPL_PING    = "PING"
 	RPL_PONG    = "PONG"
 	RPL_PRIVMSG = "PRIVMSG"
 	RPL_QUIT    = "QUIT"
