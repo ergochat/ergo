@@ -35,6 +35,7 @@ var (
 		"QUIT":    NewQuitCommand,
 		"TOPIC":   NewTopicCommand,
 		"USER":    NewUserMsgCommand,
+		"WHOIS":   NewWhoisCommand,
 	}
 )
 
@@ -450,4 +451,31 @@ func NewModeCommand(args []string) (EditableCommand, error) {
 	}
 
 	return cmd, nil
+}
+
+type WhoisCommand struct {
+	BaseCommand
+	target string
+	masks  []string
+}
+
+func NewWhoisCommand(args []string) (EditableCommand, error) {
+	if len(args) < 1 {
+		return nil, NotEnoughArgsError
+	}
+
+	var masks string
+	var target string
+
+	if len(args) > 1 {
+		target = args[0]
+		masks = args[1]
+	} else {
+		masks = args[0]
+	}
+
+	return &WhoisCommand{
+		target: target,
+		masks:  strings.Split(masks, ","),
+	}, nil
 }

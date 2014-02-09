@@ -88,15 +88,13 @@ func (client *Client) HasUsername() bool {
 	return client.username != ""
 }
 
-func (fromClient *Client) InterestedClients() ClientSet {
+func (client *Client) InterestedClients() ClientSet {
 	clients := make(ClientSet)
-	clients[fromClient] = true
-	for channel := range fromClient.channels {
-		for client := range channel.members {
-			clients[client] = true
+	for channel := range client.channels {
+		for member := range channel.members {
+			clients[member] = true
 		}
 	}
-
 	return clients
 }
 

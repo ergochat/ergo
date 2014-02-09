@@ -6,6 +6,18 @@ import (
 	"time"
 )
 
+const (
+	MAX_REPLY_LEN = 510 // 512 - CRLF
+)
+
+func joinedLen(names []string) int {
+	var l = len(names) - 1 // " " between names
+	for _, name := range names {
+		l += len(name)
+	}
+	return l
+}
+
 type Identifier interface {
 	Id() string
 	Nick() string
@@ -94,18 +106,6 @@ func NewNamesReply(channel *Channel) Reply {
 		},
 		channel: channel,
 	}
-}
-
-const (
-	MAX_REPLY_LEN = 510 // 512 - CRLF
-)
-
-func joinedLen(names []string) int {
-	var l = len(names) - 1 // " " between names
-	for _, name := range names {
-		l += len(name)
-	}
-	return l
 }
 
 func (reply *NamesReply) Format(client *Client, write chan<- string) {
@@ -225,6 +225,15 @@ func RplYoureOper(server *Server) Reply {
 		":You are now an IRC operator")
 }
 
+func RplWhoisUser(server *Server, client *Client) Reply {
+	return NewNumericReply(server, RPL_WHOISUSER, "%s %s %s * :%s",
+		client.nick, client.username, client.hostname, client.realname)
+}
+
+func RplEndOfWhois(server *Server) Reply {
+	return NewNumericReply(server, RPL_ENDOFWHOIS, ":End of WHOIS list")
+}
+
 // errors (also numeric)
 
 func ErrAlreadyRegistered(source Identifier) Reply {
@@ -297,4 +306,8 @@ func ErrNoPrivileges(server *Server) Reply {
 
 func ErrRestricted(server *Server) Reply {
 	return NewNumericReply(server, ERR_RESTRICTED, ":Your connection is restricted!")
+}
+
+func ErrNoSuchServer(server *Server, target string) Reply {
+	return NewNumericReply(server, ERR_NOSUCHSERVER, "%s :No such server", target)
 }

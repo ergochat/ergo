@@ -165,6 +165,7 @@ func (m *NickCommand) HandleServer(s *Server) {
 	}
 
 	reply := RplNick(c, m.nickname)
+	c.replies <- reply
 	for iclient := range c.InterestedClients() {
 		iclient.replies <- reply
 	}
@@ -201,7 +202,6 @@ func (m *QuitCommand) HandleServer(s *Server) {
 	reply := RplQuit(c, m.message)
 	for client := range c.InterestedClients() {
 		client.replies <- reply
-
 	}
 }
 
@@ -279,4 +279,23 @@ func (m *ModeCommand) HandleServer(s *Server) {
 	}
 
 	client.replies <- ErrUsersDontMatch(client)
+}
+
+func (m *WhoisCommand) HandleServer(server *Server) {
+	client := m.Client()
+
+	// TODO implement target query
+	if m.target != "" {
+		client.replies <- ErrNoSuchServer(server, m.target)
+		return
+	}
+
+	for _, mask := range m.masks {
+		// TODO implement wildcard matching
+		mclient := server.clients[mask]
+		if mclient != nil {
+			client.replies <- RplWhoisUser(server, mclient)
+		}
+	}
+	client.replies <- RplEndOfWhois(server)
 }
