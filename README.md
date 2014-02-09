@@ -20,8 +20,16 @@ I wanted to learn Go.
 
 ## Running the Server
 
+You must create an `ergonomadic.json` config file in the current directory.
+
+### from your GOPATH
+
 ```sh
-$ ./build.sh
-$ bin/ergonomadicdb init
-$ bin/ergonomadic
+go install
+ergonomadic
+```
+
+### from local
+```sh
+go run ergonomadic.go
 ```
