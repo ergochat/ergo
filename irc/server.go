@@ -202,9 +202,8 @@ func (m *JoinCommand) HandleServer(s *Server) {
 	c := m.Client()
 
 	if m.zero {
-		cmd := &PartCommand{
-			BaseCommand: BaseCommand{c},
-		}
+		cmd := &PartCommand{}
+		cmd.SetClient(c)
 		for channel := range c.channels {
 			channel.commands <- cmd
 		}

@@ -9,7 +9,7 @@ import (
 
 type editableCommand interface {
 	Command
-	SetBase(*Client)
+	SetClient(*Client)
 }
 
 type parseCommandFunc func([]string) (editableCommand, error)
@@ -42,8 +42,8 @@ func (command *BaseCommand) Client() *Client {
 	return command.client
 }
 
-func (command *BaseCommand) SetBase(c *Client) {
-	*command = BaseCommand{c}
+func (command *BaseCommand) SetClient(c *Client) {
+	command.client = c
 }
 
 func (command *BaseCommand) Source() Identifier {

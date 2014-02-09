@@ -55,7 +55,7 @@ func (c *Client) readConn(recv <-chan string) {
 			continue
 		}
 
-		m.SetBase(c)
+		m.SetClient(c)
 		c.server.commands <- m
 	}
 }
