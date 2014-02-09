@@ -71,20 +71,33 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	}
 }
 
+func (client *Client) Destroy() *Client {
+	client.conn.Close()
+	return client
+}
+
 func (c *Client) Replies() chan<- Reply {
 	return c.replies
 }
 
-func (c *Client) Server() *Server {
-	return c.server
+func (client *Client) HasNick() bool {
+	return client.nick != ""
 }
 
-func (c *Client) Nick() string {
-	if c.HasNick() {
-		return c.nick
+func (client *Client) HasUsername() bool {
+	return client.username != ""
+}
+
+func (fromClient *Client) InterestedClients() ClientSet {
+	clients := make(ClientSet)
+	clients[fromClient] = true
+	for channel := range fromClient.channels {
+		for client := range channel.members {
+			clients[client] = true
+		}
 	}
 
-	return "guest"
+	return clients
 }
 
 func (c *Client) UModeString() string {
@@ -94,23 +107,20 @@ func (c *Client) UModeString() string {
 	return ""
 }
 
-func (c *Client) HasNick() bool {
-	return c.nick != ""
-}
-
-func (c *Client) HasUsername() bool {
-	return c.username != ""
-}
-
-func (c *Client) Username() string {
-	if c.HasUsername() {
-		return c.username
-	}
-	return "guest"
-}
-
 func (c *Client) UserHost() string {
-	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Username(), c.hostname)
+	nick := c.nick
+	if nick == "" {
+		nick = "*"
+	}
+	username := c.username
+	if username == "" {
+		username = "*"
+	}
+	return fmt.Sprintf("%s!%s@%s", nick, username, c.hostname)
+}
+
+func (c *Client) Nick() string {
+	return c.nick
 }
 
 func (c *Client) Id() string {
@@ -119,8 +129,4 @@ func (c *Client) Id() string {
 
 func (c *Client) String() string {
 	return c.UserHost()
-}
-
-func (c *Client) PublicId() string {
-	return fmt.Sprintf("%s!%s@%s", c.Nick(), c.Nick(), c.server.Id())
 }

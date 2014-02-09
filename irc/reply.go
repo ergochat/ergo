@@ -8,7 +8,6 @@ import (
 
 type Identifier interface {
 	Id() string
-	PublicId() string
 	Nick() string
 }
 
@@ -146,10 +145,6 @@ func RplNick(source Identifier, newNick string) Reply {
 	return NewStringReply(source, RPL_NICK, newNick)
 }
 
-func RplPrivMsgChannel(channel *Channel, source Identifier, message string) Reply {
-	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", channel.name, message)
-}
-
 func RplJoin(channel *Channel, client *Client) Reply {
 	return NewStringReply(client, RPL_JOIN, channel.name)
 }
@@ -158,12 +153,16 @@ func RplPart(channel *Channel, client *Client, message string) Reply {
 	return NewStringReply(client, RPL_PART, "%s :%s", channel.name, message)
 }
 
-func RplPong(server *Server) Reply {
-	return NewStringReply(server, RPL_PONG, server.Id())
+func RplPong(server *Server, client *Client) Reply {
+	return NewStringReply(server, RPL_PONG, client.Nick())
 }
 
 func RplQuit(client *Client, message string) Reply {
 	return NewStringReply(client, RPL_QUIT, ":%s", message)
+}
+
+func RplError(server *Server, target Identifier) Reply {
+	return NewStringReply(server, RPL_ERROR, target.Nick())
 }
 
 func RplInviteMsg(channel *Channel, inviter *Client) Reply {
@@ -189,7 +188,7 @@ func RplCreated(server *Server) Reply {
 
 func RplMyInfo(server *Server) Reply {
 	return NewNumericReply(server, RPL_MYINFO,
-		"%s %s a kn", server.name, VERSION)
+		"%s %s aiwroOs kn", server.name, VERSION)
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {

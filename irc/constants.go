@@ -8,7 +8,7 @@ var (
 )
 
 const (
-	VERSION = "irc-1"
+	VERSION = "ergonomadic-1"
 )
 
 const (
@@ -150,6 +150,7 @@ const (
 	ERR_UMODEUNKNOWNFLAG  = 501
 	ERR_USERSDONTMATCH    = 502
 	// message codes
+	RPL_ERROR   = "ERROR"
 	RPL_INVITE  = "INVITE"
 	RPL_JOIN    = "JOIN"
 	RPL_NICK    = "NICK"

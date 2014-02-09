@@ -55,7 +55,10 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 			log.Printf("%s ← %s : %s", channel, reply.Source(), reply)
 		}
 		for client := range channel.members {
-			client.replies <- reply
+			var dest Identifier = client
+			if reply.Source() != dest {
+				client.replies <- reply
+			}
 		}
 	}
 }
@@ -96,10 +99,6 @@ func (channel *Channel) Id() string {
 }
 
 func (channel *Channel) Nick() string {
-	return channel.name
-}
-
-func (channel *Channel) PublicId() string {
 	return channel.name
 }
 
@@ -176,5 +175,5 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
-	channel.replies <- RplPrivMsgChannel(channel, m.Client(), m.message)
+	channel.replies <- RplPrivMsg(m.Client(), channel, m.message)
 }

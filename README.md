@@ -13,6 +13,7 @@ I wanted to learn Go.
 
 ## Helpful Documentation
 
+- [RFC 1459: Internet Relay Chat Protocol](http://tools.ietf.org/html/rfc1459)
 - [RFC 2811: IRC Channel Management](http://tools.ietf.org/html/rfc2811)
 - [RFC 2812: IRC Client Protocol](http://tools.ietf.org/html/rfc2812)
 - [RFC 2813: IRC Server Protocol](http://tools.ietf.org/html/rfc2813)

@@ -1,6 +1,9 @@
 package irc
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -49,18 +52,16 @@ func (s *Server) Listen(addr string) {
 	}
 
 	s.hostname = LookupHostname(listener.Addr())
-	if DEBUG_SERVER {
-		log.Print("Server.Listen: listening on ", addr)
-	}
+	log.Print("Server.Listen: listening on ", addr)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Print("Server.Listen: ", err)
+			log.Print("Server.Accept: ", err)
 			continue
 		}
 		if DEBUG_SERVER {
-			log.Print("Server.Listen: accepted ", conn.RemoteAddr())
+			log.Print("Server.Accept: ", conn.RemoteAddr())
 		}
 		NewClient(s, conn)
 	}
@@ -77,17 +78,22 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 	return channel
 }
 
-// Send a message to clients of channels fromClient is a member.
-func (s *Server) interestedClients(fromClient *Client) ClientSet {
-	clients := make(ClientSet)
-	clients[fromClient] = true
-	for channel := range fromClient.channels {
-		for client := range channel.members {
-			clients[client] = true
+func (s *Server) GenerateGuestNick() string {
+	bytes := make([]byte, 8)
+	for {
+		_, err := rand.Read(bytes)
+		if err != nil {
+			panic(err)
+		}
+		randInt, n := binary.Uvarint(bytes)
+		if n <= 0 {
+			continue // TODO handle error
+		}
+		nick := fmt.Sprintf("guest%d", randInt)
+		if s.clients[nick] == nil {
+			return nick
 		}
 	}
-
-	return clients
 }
 
 // server functionality
@@ -112,15 +118,11 @@ func (s *Server) Id() string {
 }
 
 func (s *Server) String() string {
-	return s.Id()
-}
-
-func (s *Server) PublicId() string {
-	return s.Id()
+	return s.name
 }
 
 func (s *Server) Nick() string {
-	return s.name
+	return s.Id()
 }
 
 func (s *Server) DeleteChannel(channel *Channel) {
@@ -136,7 +138,7 @@ func (m *UnknownCommand) HandleServer(s *Server) {
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().Replies() <- RplPong(s)
+	m.Client().Replies() <- RplPong(s, m.Client())
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -163,13 +165,11 @@ func (m *NickCommand) HandleServer(s *Server) {
 	}
 
 	reply := RplNick(c, m.nickname)
-	for iclient := range s.interestedClients(c) {
+	for iclient := range c.InterestedClients() {
 		iclient.replies <- reply
 	}
 
-	if c.HasNick() {
-		delete(s.clients, c.nick)
-	}
+	delete(s.clients, c.nick)
 	s.clients[m.nickname] = c
 	c.nick = m.nickname
 
@@ -190,18 +190,19 @@ func (m *UserMsgCommand) HandleServer(s *Server) {
 func (m *QuitCommand) HandleServer(s *Server) {
 	c := m.Client()
 
-	reply := RplQuit(c, m.message)
-	for client := range s.interestedClients(c) {
-		client.replies <- reply
-	}
-	cmd := &PartCommand{
-		BaseCommand: BaseCommand{c},
-	}
-	for channel := range c.channels {
-		channel.commands <- cmd
-	}
-	c.conn.Close()
 	delete(s.clients, c.nick)
+	for channel := range c.channels {
+		delete(channel.members, c)
+	}
+
+	c.replies <- RplError(s, c)
+	c.Destroy()
+
+	reply := RplQuit(c, m.message)
+	for client := range c.InterestedClients() {
+		client.replies <- reply
+
+	}
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {
@@ -266,10 +267,16 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {
-	for _, change := range m.changes {
-		if change.mode == Invisible {
-			m.Client().invisible = change.add
+	client := m.Client()
+	if client.Nick() == m.nickname {
+		for _, change := range m.changes {
+			if change.mode == Invisible {
+				client.invisible = change.add
+			}
 		}
+		client.replies <- RplUModeIs(s, client)
+		return
 	}
-	m.Client().replies <- RplUModeIs(s, m.Client())
+
+	client.replies <- ErrUsersDontMatch(client)
 }
