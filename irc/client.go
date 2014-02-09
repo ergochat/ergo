@@ -104,11 +104,15 @@ func (client *Client) InterestedClients() ClientSet {
 	return clients
 }
 
-func (c *Client) UModeString() string {
+// <mode>
+func (c *Client) ModeString() (str string) {
 	if c.invisible {
-		return "i"
+		str += Invisible.String()
 	}
-	return ""
+	if len(str) > 0 {
+		str = "+" + str
+	}
+	return
 }
 
 func (c *Client) UserHost() string {

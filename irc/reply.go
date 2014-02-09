@@ -178,7 +178,7 @@ func RplMyInfo(server *Server) Reply {
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {
-	return NewNumericReply(server, RPL_UMODEIS, client.UModeString())
+	return NewNumericReply(server, RPL_UMODEIS, client.ModeString())
 }
 
 func RplNoTopic(channel *Channel) Reply {

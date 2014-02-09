@@ -130,6 +130,9 @@ func (channel *Channel) ModeString() (str string) {
 	if channel.noOutside {
 		str += NoOutside.String()
 	}
+	if len(str) > 0 {
+		str = "+" + str
+	}
 	return
 }
 
