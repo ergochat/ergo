@@ -4,16 +4,31 @@ import (
 	"fmt"
 )
 
+//
 // simple types
+//
 
-type ModeOp rune
-type UserMode rune
-type ChannelMode rune
-type UserChannelMode rune
+// a string with wildcards
 type Mask string
 
-// interfaces
+// add, remove, list modes
+type ModeOp rune
 
+// user mode flags
+type UserMode rune
+
+// channel mode flags
+type ChannelMode rune
+
+// user-channel mode flags
+type UserChannelMode rune
+
+//
+// interfaces
+//
+
+// commands the server understands
+// TODO rename ServerCommand
 type Command interface {
 	Client() *Client
 	Source() Identifier
@@ -21,7 +36,9 @@ type Command interface {
 	HandleServer(*Server)
 }
 
+//
 // structs
+//
 
 type UserMask struct {
 	nickname Mask

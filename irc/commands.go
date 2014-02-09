@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 type editableCommand interface {
@@ -374,15 +373,11 @@ func NewTopicCommand(args []string) (editableCommand, error) {
 
 type ModeChange struct {
 	mode UserMode
-	add  bool // false => remove
+	op   ModeOp
 }
 
 func (change *ModeChange) String() string {
-	sig := "+"
-	if !change.add {
-		sig = "-"
-	}
-	return fmt.Sprintf("%s%s", sig, change.mode)
+	return fmt.Sprintf("%s%s", change.op, change.mode)
 }
 
 type ModeCommand struct {
@@ -391,21 +386,32 @@ type ModeCommand struct {
 	changes  []ModeChange
 }
 
-func (cmd *ModeCommand) String() string {
-	return fmt.Sprintf("MODE(nickname=%s, changes=%s)", cmd.nickname, cmd.changes)
+// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
+func NewUserModeCommand(args []string) (editableCommand, error) {
+	cmd := &ModeCommand{
+		nickname: args[0],
+		changes:  make([]ModeChange, 0),
+	}
+
+	for _, modeChange := range args[1:] {
+		op := ModeOp(modeChange[0])
+		if (op != Add) && (op != Remove) {
+			return nil, ErrParseCommand
+		}
+
+		for _, mode := range modeChange[1:] {
+			cmd.changes = append(cmd.changes, ModeChange{
+				mode: UserMode(mode),
+				op:   op,
+			})
+		}
+	}
+
+	return cmd, nil
 }
 
-func stringToRunes(str string) <-chan rune {
-	runes := make(chan rune)
-	go func() {
-		for len(str) > 0 {
-			rune, size := utf8.DecodeRuneInString(str)
-			runes <- rune
-			str = str[size:]
-		}
-		close(runes)
-	}()
-	return runes
+func (cmd *ModeCommand) String() string {
+	return fmt.Sprintf("MODE(nickname=%s, changes=%s)", cmd.nickname, cmd.changes)
 }
 
 type ChannelModeOp struct {
@@ -434,23 +440,22 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 
 	for len(args) > 0 {
 		modeArg := args[0]
-		op := List
-		switch modeArg[0] {
-		case '+':
-			op = Add
+
+		op := ModeOp(modeArg[0])
+		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
-		case '-':
-			op = Remove
-			modeArg = modeArg[1:]
+		} else {
+			op = List
 		}
+
 		skipArgs := 1
-		for mode := range stringToRunes(modeArg) {
+		for _, mode := range modeArg {
 			modeOp := ChannelModeOp{
 				mode: ChannelMode(mode),
 				op:   op,
 			}
 			switch modeOp.mode {
-			case Key, BanMask, ExceptionMask, InviteMask:
+			case Key, BanMask, ExceptionMask, InviteMask, UserLimit:
 				if len(args) > skipArgs {
 					modeOp.arg = args[skipArgs]
 					skipArgs += 1
@@ -466,35 +471,6 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 
 func (msg *ChannelModeCommand) String() string {
 	return fmt.Sprintf("MODE(channel=%s, modeOps=%s)", msg.channel, msg.modeOps)
-}
-
-// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
-func NewUserModeCommand(args []string) (editableCommand, error) {
-	cmd := &ModeCommand{
-		nickname: args[0],
-		changes: make([]ModeChange,
-			utf8.RuneCountInString(strings.Join(args[1:], ""))-len(args[1:])),
-	}
-
-	index := 0
-	for _, arg := range args[1:] {
-		modeChange := stringToRunes(arg)
-		sig := <-modeChange
-		if sig != '+' && sig != '-' {
-			return nil, ErrParseCommand
-		}
-
-		add := sig == '+'
-		for mode := range modeChange {
-			cmd.changes[index] = ModeChange{
-				mode: UserMode(mode),
-				add:  add,
-			}
-			index += 1
-		}
-	}
-
-	return cmd, nil
 }
 
 func NewModeCommand(args []string) (editableCommand, error) {
@@ -543,7 +519,7 @@ func (msg *WhoisCommand) String() string {
 
 type WhoCommand struct {
 	BaseCommand
-	mask         string
+	mask         Mask
 	operatorOnly bool
 }
 
@@ -552,7 +528,7 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
-		cmd.mask = args[0]
+		cmd.mask = Mask(args[0])
 	}
 
 	if (len(args) > 1) && (args[1] == "o") {

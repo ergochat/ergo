@@ -271,7 +271,12 @@ func (m *ModeCommand) HandleServer(s *Server) {
 	if client.Nick() == m.nickname {
 		for _, change := range m.changes {
 			if change.mode == Invisible {
-				client.invisible = change.add
+				switch change.op {
+				case Add:
+					client.invisible = true
+				case Remove:
+					client.invisible = false
+				}
 			}
 		}
 		client.replies <- RplUModeIs(s, client)
@@ -320,21 +325,22 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	// TODO implement wildcard matching
 
-	if msg.mask == "" {
+	mask := string(msg.mask)
+	if mask == "" {
 		for _, channel := range server.channels {
 			whoChannel(client, server, channel)
 		}
-	} else if IsChannel(msg.mask) {
-		channel := server.channels[msg.mask]
+	} else if IsChannel(mask) {
+		channel := server.channels[mask]
 		if channel != nil {
 			whoChannel(client, server, channel)
 		}
 	} else {
-		mclient := server.clients[msg.mask]
+		mclient := server.clients[mask]
 		if mclient != nil {
 			client.replies <- RplWhoReply(server, mclient.channels.First(), mclient)
 		}
 	}
 
-	client.replies <- RplEndOfWho(server, msg.mask)
+	client.replies <- RplEndOfWho(server, mask)
 }

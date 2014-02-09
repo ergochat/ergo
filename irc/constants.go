@@ -158,32 +158,32 @@ const (
 	RPL_PRIVMSG = "PRIVMSG"
 	RPL_QUIT    = "QUIT"
 
-	List   ModeOp = 'l'
-	Add    ModeOp = 'a'
-	Remove ModeOp = 'r'
+	Add    ModeOp = '+'
+	List   ModeOp = '='
+	Remove ModeOp = '-'
 
 	Away          UserMode = 'a'
 	Invisible     UserMode = 'i'
-	WallOps       UserMode = 'w'
-	Restricted    UserMode = 'r'
-	Operator      UserMode = 'o'
 	LocalOperator UserMode = 'O'
+	Operator      UserMode = 'o'
+	Restricted    UserMode = 'r'
 	ServerNotice  UserMode = 's'
+	WallOps       UserMode = 'w'
 
 	Anonymous     ChannelMode = 'a'
+	BanMask       ChannelMode = 'b' // arg
+	ExceptionMask ChannelMode = 'e' // arg
+	InviteMask    ChannelMode = 'i' // arg
 	InviteOnly    ChannelMode = 'i'
+	Key           ChannelMode = 'k' // arg
 	Moderated     ChannelMode = 'm'
 	NoOutside     ChannelMode = 'n'
-	Quiet         ChannelMode = 'q'
-	Private       ChannelMode = 'p'
-	Secret        ChannelMode = 's'
-	ReOp          ChannelMode = 'r'
 	OpOnlyTopic   ChannelMode = 't'
-	Key           ChannelMode = 'k'
-	UserLimit     ChannelMode = 'l'
-	BanMask       ChannelMode = 'b'
-	ExceptionMask ChannelMode = 'e'
-	InviteMask    ChannelMode = 'i'
+	Private       ChannelMode = 'p'
+	Quiet         ChannelMode = 'q'
+	ReOp          ChannelMode = 'r'
+	Secret        ChannelMode = 's'
+	UserLimit     ChannelMode = 'l' // arg
 
 	ChannelCreator  UserChannelMode = 'O'
 	ChannelOperator UserChannelMode = 'o'
