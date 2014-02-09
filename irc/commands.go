@@ -301,6 +301,13 @@ type PartCommand struct {
 	message  string
 }
 
+func (cmd *PartCommand) Message() string {
+	if cmd.message == "" {
+		return cmd.Source().Nick()
+	}
+	return cmd.message
+}
+
 func (cmd *PartCommand) String() string {
 	return fmt.Sprintf("PART(channels=%s, message=%s)", cmd.channels, cmd.message)
 }

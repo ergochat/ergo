@@ -145,11 +145,11 @@ func RplNick(source Identifier, newNick string) Reply {
 	return NewStringReply(source, RPL_NICK, newNick)
 }
 
-func RplJoin(channel *Channel, client *Client) Reply {
+func RplJoin(client *Client, channel *Channel) Reply {
 	return NewStringReply(client, RPL_JOIN, channel.name)
 }
 
-func RplPart(channel *Channel, client *Client, message string) Reply {
+func RplPart(client *Client, channel *Channel, message string) Reply {
 	return NewStringReply(client, RPL_PART, "%s :%s", channel.name, message)
 }
 

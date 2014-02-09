@@ -109,7 +109,8 @@ func (channel *Channel) String() string {
 func (channel *Channel) Join(client *Client) {
 	channel.members[client] = true
 	client.channels[channel] = true
-	reply := RplJoin(channel, client)
+	reply := RplJoin(client, channel)
+	client.replies <- reply
 	channel.replies <- reply
 	channel.GetTopic(client)
 	channel.GetUsers(client)
@@ -134,24 +135,22 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 }
 
 func (m *PartCommand) HandleChannel(channel *Channel) {
-	c := m.Client()
+	client := m.Client()
 
-	if !channel.HasMember(c) {
-		c.replies <- ErrNotOnChannel(channel)
+	if !channel.HasMember(client) {
+		client.replies <- ErrNotOnChannel(channel)
 		return
 	}
 
-	msg := m.message
-	if msg == "" {
-		msg = c.Nick()
-	}
+	reply := RplPart(client, channel, m.Message())
+	client.replies <- reply
+	channel.replies <- reply
 
-	channel.replies <- RplPart(channel, c, msg)
+	delete(channel.members, client)
+	delete(client.channels, channel)
 
-	delete(channel.members, c)
-	delete(c.channels, channel)
-
-	if channel.IsEmpty() { // TODO persistent channels
+	// TODO persistent channels
+	if channel.IsEmpty() {
 		channel.server.DeleteChannel(channel)
 	}
 }
