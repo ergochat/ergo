@@ -182,7 +182,6 @@ func (m *NickCommand) HandleServer(s *Server) {
 		c.nick = m.nickname
 	}
 	reply := RplNick(c, m.nickname)
-	c.Reply(reply)
 	for iclient := range c.InterestedClients() {
 		iclient.Reply(reply)
 	}
