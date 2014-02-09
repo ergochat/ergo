@@ -188,7 +188,7 @@ func RplCreated(server *Server) Reply {
 
 func RplMyInfo(server *Server) Reply {
 	return NewNumericReply(server, RPL_MYINFO,
-		"%s %s aiwroOs kn", server.name, VERSION)
+		"%s %s aiOorsw abeIikmntpqrsl", server.name, VERSION)
 }
 
 func RplUModeIs(server *Server, client *Client) Reply {

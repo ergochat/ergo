@@ -9,6 +9,7 @@ var (
 
 const (
 	VERSION = "ergonomadic-1"
+	CRLF    = "\r\n"
 
 	// numeric codes
 	RPL_WELCOME           = 1
@@ -173,7 +174,7 @@ const (
 	Anonymous     ChannelMode = 'a'
 	BanMask       ChannelMode = 'b' // arg
 	ExceptionMask ChannelMode = 'e' // arg
-	InviteMask    ChannelMode = 'i' // arg
+	InviteMask    ChannelMode = 'I' // arg
 	InviteOnly    ChannelMode = 'i'
 	Key           ChannelMode = 'k' // arg
 	Moderated     ChannelMode = 'm'

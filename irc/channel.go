@@ -17,20 +17,6 @@ type Channel struct {
 	topic     string
 }
 
-type ChannelSet map[*Channel]bool
-
-func (channels ChannelSet) First() *Channel {
-	for channel := range channels {
-		return channel
-	}
-	return nil
-}
-
-type ChannelCommand interface {
-	Command
-	HandleChannel(channel *Channel)
-}
-
 func IsChannel(target string) bool {
 	if target == "" {
 		return false
@@ -132,17 +118,13 @@ func (channel *Channel) ModeString() string {
 }
 
 func (channel *Channel) Join(client *Client) {
-	channel.members[client] = true
-	client.channels[channel] = true
+	channel.members.Add(client)
+	client.channels.Add(channel)
 	reply := RplJoin(client, channel)
 	client.replies <- reply
 	channel.replies <- reply
 	channel.GetTopic(client)
 	channel.GetUsers(client)
-}
-
-func (channel *Channel) HasMember(client *Client) bool {
-	return channel.members[client]
 }
 
 //
@@ -162,7 +144,7 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 func (m *PartCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 
-	if !channel.HasMember(client) {
+	if !channel.members.Has(client) {
 		client.replies <- ErrNotOnChannel(channel)
 		return
 	}
@@ -171,19 +153,19 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 	client.replies <- reply
 	channel.replies <- reply
 
-	delete(channel.members, client)
-	delete(client.channels, channel)
+	channel.members.Remove(client)
+	client.channels.Remove(channel)
 
 	// TODO persistent channels
 	if channel.IsEmpty() {
-		channel.server.DeleteChannel(channel)
+		channel.server.channels.Remove(channel)
 	}
 }
 
 func (m *TopicCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
 
-	if !channel.HasMember(client) {
+	if !channel.members.Has(client) {
 		client.replies <- ErrNotOnChannel(channel)
 		return
 	}

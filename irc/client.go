@@ -23,8 +23,6 @@ type Client struct {
 	username   string
 }
 
-type ClientSet map[*Client]bool
-
 func NewClient(server *Server, conn net.Conn) *Client {
 	read := StringReadChan(conn)
 	write := StringWriteChan(conn)
@@ -73,6 +71,7 @@ func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 
 func (client *Client) Destroy() *Client {
 	client.conn.Close()
+	close(client.replies)
 	return client
 }
 

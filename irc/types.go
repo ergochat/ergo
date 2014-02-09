@@ -23,6 +23,73 @@ type ChannelMode rune
 // user-channel mode flags
 type UserChannelMode rune
 
+type ChannelNameMap map[string]*Channel
+
+func (channels ChannelNameMap) Add(channel *Channel) error {
+	if channels[channel.name] != nil {
+		return fmt.Errorf("%s: already set", channel.name)
+	}
+	channels[channel.name] = channel
+	return nil
+}
+
+func (channels ChannelNameMap) Remove(channel *Channel) error {
+	if channel != channels[channel.name] {
+		return fmt.Errorf("%s: mismatch", channel.name)
+	}
+	delete(channels, channel.name)
+	return nil
+}
+
+type ClientNameMap map[string]*Client
+
+func (clients ClientNameMap) Add(client *Client) error {
+	if clients[client.nick] != nil {
+		return fmt.Errorf("%s: already set", client.nick)
+	}
+	clients[client.nick] = client
+	return nil
+}
+
+func (clients ClientNameMap) Remove(client *Client) error {
+	if clients[client.nick] != client {
+		return fmt.Errorf("%s: mismatch", client.nick)
+	}
+	delete(clients, client.nick)
+	return nil
+}
+
+type ClientSet map[*Client]bool
+
+func (clients ClientSet) Add(client *Client) {
+	clients[client] = true
+}
+
+func (clients ClientSet) Remove(client *Client) {
+	delete(clients, client)
+}
+
+func (clients ClientSet) Has(client *Client) bool {
+	return clients[client]
+}
+
+type ChannelSet map[*Channel]bool
+
+func (channels ChannelSet) Add(channel *Channel) {
+	channels[channel] = true
+}
+
+func (channels ChannelSet) Remove(channel *Channel) {
+	delete(channels, channel)
+}
+
+func (channels ChannelSet) First() *Channel {
+	for channel := range channels {
+		return channel
+	}
+	return nil
+}
+
 //
 // interfaces
 //
@@ -34,6 +101,11 @@ type Command interface {
 	Source() Identifier
 	Reply(Reply)
 	HandleServer(*Server)
+}
+
+type ChannelCommand interface {
+	Command
+	HandleChannel(channel *Channel)
 }
 
 //

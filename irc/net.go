@@ -32,10 +32,6 @@ func StringReadChan(conn net.Conn) <-chan string {
 	return ch
 }
 
-const (
-	CRLF = "\r\n"
-)
-
 func maybeLogWriteError(conn net.Conn, err error) bool {
 	if err != nil {
 		if err != io.EOF {

@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-type ChannelNameMap map[string]*Channel
-type ClientNameMap map[string]*Client
-
 type Server struct {
 	channels ChannelNameMap
 	commands chan<- Command
@@ -125,20 +122,16 @@ func (s *Server) Nick() string {
 	return s.Id()
 }
 
-func (s *Server) DeleteChannel(channel *Channel) {
-	delete(s.channels, channel.name)
-}
-
 //
 // commands
 //
 
 func (m *UnknownCommand) HandleServer(s *Server) {
-	m.Client().Replies() <- ErrUnknownCommand(s, m.command)
+	m.Client().replies <- ErrUnknownCommand(s, m.command)
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().Replies() <- RplPong(s, m.Client())
+	m.Client().replies <- RplPong(s, m.Client())
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -147,8 +140,8 @@ func (m *PongCommand) HandleServer(s *Server) {
 
 func (m *PassCommand) HandleServer(s *Server) {
 	if s.password != m.password {
-		m.Client().Replies() <- ErrPasswdMismatch(s)
-		// TODO disconnect
+		m.Client().replies <- ErrPasswdMismatch(s)
+		m.Client().Destroy()
 		return
 	}
 
@@ -170,9 +163,9 @@ func (m *NickCommand) HandleServer(s *Server) {
 		iclient.replies <- reply
 	}
 
-	delete(s.clients, c.nick)
-	s.clients[m.nickname] = c
+	s.clients.Remove(c)
 	c.nick = m.nickname
+	s.clients.Add(c)
 
 	s.tryRegister(c)
 }
@@ -191,9 +184,9 @@ func (m *UserMsgCommand) HandleServer(s *Server) {
 func (m *QuitCommand) HandleServer(s *Server) {
 	c := m.Client()
 
-	delete(s.clients, c.nick)
+	s.clients.Remove(c)
 	for channel := range c.channels {
-		delete(channel.members, c)
+		channel.members.Remove(c)
 	}
 
 	c.replies <- RplError(s, c)
