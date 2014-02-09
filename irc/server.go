@@ -19,16 +19,17 @@ type Server struct {
 	clients  ClientNameMap
 }
 
-func NewServer(name string) *Server {
+func NewServer(config *Config) *Server {
 	commands := make(chan Command)
 	server := &Server{
 		ctime:    time.Now(),
-		name:     name,
+		name:     config.Name,
 		commands: commands,
 		clients:  make(ClientNameMap),
 		channels: make(ChannelNameMap),
 	}
 	go server.receiveCommands(commands)
+	go server.listen(config.Listen)
 	return server
 }
 
@@ -42,7 +43,7 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 	}
 }
 
-func (s *Server) Listen(addr string) {
+func (s *Server) listen(addr string) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal("Server.Listen: ", err)
