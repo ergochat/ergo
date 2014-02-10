@@ -73,7 +73,7 @@ func LookupHostname(addr net.Addr) string {
 	case "127.0.0.1", "::1":
 		return "localhost"
 	}
-	names, err := net.LookupHost(ipaddr)
+	names, err := net.LookupAddr(ipaddr)
 	if err != nil {
 		return ipaddr
 	}
