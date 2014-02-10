@@ -77,5 +77,5 @@ func LookupHostname(addr net.Addr) string {
 	if err != nil {
 		return ipaddr
 	}
-	return names[0]
+	return names[0][0 : len(names[0])-1]
 }
