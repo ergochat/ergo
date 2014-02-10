@@ -77,7 +77,6 @@ func newListener(config ListenerConfig) (net.Listener, error) {
 		return tls.Listen("tcp", config.Address, &tls.Config{
 			Certificates:             []tls.Certificate{certificate},
 			PreferServerCipherSuites: true,
-			MinVersion:               tls.VersionTLS12,
 		})
 	}
 
