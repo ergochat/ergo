@@ -18,6 +18,7 @@ var (
 	NotEnoughArgsError = errors.New("not enough arguments")
 	ErrParseCommand    = errors.New("failed to parse message")
 	parseCommandFuncs  = map[string]parseCommandFunc{
+		"CAP":     NewCapCommand,
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
 		"NICK":    NewNickCommand,
@@ -562,5 +563,21 @@ func NewOperCommand(args []string) (editableCommand, error) {
 	return &OperCommand{
 		name:     args[0],
 		password: args[1],
+	}, nil
+}
+
+// TODO
+type CapCommand struct {
+	BaseCommand
+	args []string
+}
+
+func (msg *CapCommand) String() string {
+	return fmt.Sprintf("CAP(args=%s)", msg.args)
+}
+
+func NewCapCommand(args []string) (editableCommand, error) {
+	return &CapCommand{
+		args: args,
 	}, nil
 }

@@ -58,10 +58,14 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 			if server.password == "" {
 				client.serverPass = true
 
-			} else if _, ok := command.(*PassCommand); !ok {
-				client.Reply(ErrPasswdMismatch(server))
-				client.Destroy()
-				return
+			} else {
+				switch command.(type) {
+				case *PassCommand, *CapCommand:
+				default:
+					client.Reply(ErrPasswdMismatch(server))
+					client.Destroy()
+					return
+				}
 			}
 		}
 		command.HandleServer(server)
@@ -392,4 +396,8 @@ func (msg *OperCommand) HandleServer(server *Server) {
 
 	client.Reply(RplYoureOper(server))
 	client.Reply(RplUModeIs(server, client))
+}
+
+func (msg *CapCommand) HandleServer(server *Server) {
+	// TODO
 }
