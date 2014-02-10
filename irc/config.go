@@ -19,6 +19,7 @@ type OperatorConfig struct {
 }
 
 type ListenerConfig struct {
+	Net         string
 	Address     string
 	Key         string
 	Certificate string
@@ -39,5 +40,13 @@ func LoadConfig() (config *Config, err error) {
 
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(config)
+	if err != nil {
+		return
+	}
+	for _, lconf := range config.Listeners {
+		if lconf.Net == "" {
+			lconf.Net = "tcp"
+		}
+	}
 	return
 }
