@@ -78,8 +78,7 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 			log.Printf("%s ← %s : %s", channel, reply.Source(), reply)
 		}
 		for client := range channel.members {
-			var dest Identifier = client
-			if reply.Source() != dest {
+			if reply.Source() != Identifier(client) {
 				client.Reply(reply)
 			}
 		}
