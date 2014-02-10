@@ -13,7 +13,6 @@ func StringReadChan(conn net.Conn) <-chan string {
 	ch := make(chan string)
 	reader := bufio.NewReader(conn)
 	go func() {
-		defer close(ch)
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
@@ -46,7 +45,6 @@ func StringWriteChan(conn net.Conn) chan<- string {
 	ch := make(chan string)
 	writer := bufio.NewWriter(conn)
 	go func() {
-		defer close(ch)
 		for str := range ch {
 			if DEBUG_NET {
 				log.Printf("%s ← %s %s", conn.RemoteAddr(), conn.LocalAddr(), str)
