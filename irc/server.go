@@ -2,6 +2,7 @@ package irc
 
 import (
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -37,7 +38,11 @@ func NewServer(config *Config) *Server {
 	}
 
 	go server.receiveCommands(commands)
-	go server.listen(config.Listen)
+
+	for _, listenerConf := range config.Listeners {
+		go server.listen(listenerConf)
+	}
+
 	return server
 }
 
@@ -63,14 +68,30 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 	}
 }
 
-func (s *Server) listen(addr string) {
-	listener, err := net.Listen("tcp", addr)
+func newListener(config ListenerConfig) (net.Listener, error) {
+	if config.IsTLS() {
+		certificate, err := tls.LoadX509KeyPair(config.Certificate, config.Key)
+		if err != nil {
+			return nil, err
+		}
+		return tls.Listen("tcp", config.Address, &tls.Config{
+			Certificates:             []tls.Certificate{certificate},
+			PreferServerCipherSuites: true,
+			MinVersion:               tls.VersionTLS12,
+		})
+	}
+
+	return net.Listen("tcp", config.Address)
+}
+
+func (s *Server) listen(config ListenerConfig) {
+	listener, err := newListener(config)
 	if err != nil {
 		log.Fatal("Server.Listen: ", err)
 	}
 
 	s.hostname = LookupHostname(listener.Addr())
-	log.Print("Server.Listen: listening on ", addr)
+	log.Print("Server.Listen: listening on ", config.Address)
 
 	for {
 		conn, err := listener.Accept()

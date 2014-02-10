@@ -15,7 +15,7 @@ var (
 )
 
 const (
-	VERSION       = "ergonomadic-1"
+	VERSION       = "1.0.0"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 

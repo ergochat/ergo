@@ -7,7 +7,7 @@ import (
 
 type Config struct {
 	Name      string
-	Listen    string
+	Listeners []ListenerConfig
 	Password  string
 	Operators []OperatorConfig
 	Debug     map[string]bool
@@ -16,6 +16,16 @@ type Config struct {
 type OperatorConfig struct {
 	Name     string
 	Password string
+}
+
+type ListenerConfig struct {
+	Address     string
+	Key         string
+	Certificate string
+}
+
+func (config *ListenerConfig) IsTLS() bool {
+	return (config.Key != "") && (config.Certificate != "")
 }
 
 func LoadConfig() (config *Config, err error) {

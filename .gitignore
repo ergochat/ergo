@@ -1,4 +1,2 @@
-pkg
-bin
-ergonomadic.db
 ergonomadic.json
+*.pem
