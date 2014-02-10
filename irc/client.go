@@ -103,9 +103,16 @@ func (client *Client) Destroy() error {
 	if client.replies == nil {
 		return ErrAlreadyDestroyed
 	}
+
 	close(client.replies)
 	client.replies = nil
 	client.conn.Close()
+	if client.idleTimer != nil {
+		client.idleTimer.Stop()
+	}
+	if client.quitTimer != nil {
+		client.quitTimer.Stop()
+	}
 	return nil
 }
 
