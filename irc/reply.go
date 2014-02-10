@@ -334,3 +334,9 @@ func ErrCannotSendToChan(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_CANNOTSENDTOCHAN,
 		"%s :Cannot send to channel", channel.name)
 }
+
+// <channel> :You're not channel operator
+func ErrChanOPrivIsNeeded(channel *Channel) Reply {
+	return NewNumericReply(channel.server, ERR_CHANOPRIVSNEEDED,
+		"%s :You're not channel operator", channel.name)
+}

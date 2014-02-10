@@ -102,6 +102,11 @@ func (channel *Channel) GetUsers(replier Replier) {
 	replier.Reply(NewNamesReply(channel))
 }
 
+func (channel *Channel) ClientIsOperator(client *Client) bool {
+	// TODO client-channel relations
+	return false
+}
+
 func (channel *Channel) Nicks() []string {
 	nicks := make([]string, len(channel.members))
 	i := 0
@@ -219,12 +224,15 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 			}
 			client.Reply(RplEndOfBanList(channel))
 		case NoOutside:
-			// TODO perms
-			switch modeOp.op {
-			case Add:
-				channel.noOutside = true
-			case Remove:
-				channel.noOutside = false
+			if channel.ClientIsOperator(client) {
+				switch modeOp.op {
+				case Add:
+					channel.noOutside = true
+				case Remove:
+					channel.noOutside = false
+				}
+			} else {
+				client.Reply(ErrChanOPrivIsNeeded(channel))
 			}
 		}
 	}
