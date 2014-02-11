@@ -63,19 +63,19 @@ func StringWriteChan(conn net.Conn) chan<- string {
 	return ch
 }
 
-func LookupHostname(addr net.Addr) string {
+func AddrLookupHostname(addr net.Addr) string {
 	addrStr := addr.String()
 	ipaddr, _, err := net.SplitHostPort(addrStr)
 	if err != nil {
 		return addrStr
 	}
-	switch ipaddr {
-	case "127.0.0.1", "::1":
-		return "localhost"
-	}
-	names, err := net.LookupAddr(ipaddr)
+	return LookupHostname(ipaddr)
+}
+
+func LookupHostname(addr string) string {
+	names, err := net.LookupAddr(addr)
 	if err != nil {
-		return ipaddr
+		return addr
 	}
-	return names[0][0 : len(names[0])-1]
+	return strings.TrimSuffix(names[0], ".")
 }

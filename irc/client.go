@@ -33,7 +33,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	client := &Client{
 		channels: make(ChannelSet),
 		conn:     conn,
-		hostname: LookupHostname(conn.RemoteAddr()),
+		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		replies:  replies,
 		server:   server,
 	}

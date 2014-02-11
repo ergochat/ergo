@@ -14,7 +14,6 @@ type Server struct {
 	channels  ChannelNameMap
 	commands  chan<- Command
 	ctime     time.Time
-	hostname  string
 	name      string
 	operators map[string]string
 	password  string
@@ -94,7 +93,6 @@ func (s *Server) listen(config ListenerConfig) {
 		log.Fatal("Server.Listen: ", err)
 	}
 
-	s.hostname = LookupHostname(listener.Addr())
 	log.Print("Server.Listen: listening on ", config.Address)
 
 	for {
@@ -404,10 +402,5 @@ func (msg *CapCommand) HandleServer(server *Server) {
 }
 
 func (msg *ProxyCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	addr, err := net.ResolveIPAddr("ip", msg.sourceIP)
-	if err != nil {
-		return
-	}
-	client.hostname = LookupHostname(addr)
+	msg.Client().hostname = LookupHostname(msg.sourceIP)
 }
