@@ -1,9 +1,12 @@
 package irc
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -12,34 +15,36 @@ type Client struct {
 	channels   ChannelSet
 	conn       net.Conn
 	hostname   string
+	idleTimer  *time.Timer
 	invisible  bool
 	nick       string
 	operator   bool
+	quitTimer  *time.Timer
 	realname   string
+	recv       *bufio.Reader
 	registered bool
 	replies    chan<- Reply
+	send       *bufio.Writer
 	server     *Server
 	serverPass bool
 	username   string
-	idleTimer  *time.Timer
-	quitTimer  *time.Timer
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
-	read := StringReadChan(conn)
-	write := StringWriteChan(conn)
 	replies := make(chan Reply)
 
 	client := &Client{
 		channels: make(ChannelSet),
 		conn:     conn,
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
+		recv:     bufio.NewReader(conn),
 		replies:  replies,
+		send:     bufio.NewWriter(conn),
 		server:   server,
 	}
 
-	go client.readConn(read)
-	go client.writeConn(write, replies)
+	go client.readConn()
+	go client.writeConn(replies)
 
 	client.Touch()
 	return client
@@ -73,14 +78,26 @@ func (client *Client) Quit() {
 	client.server.commands <- msg
 }
 
-func (c *Client) readConn(recv <-chan string) {
-	for str := range recv {
-		m, err := ParseCommand(str)
+func (c *Client) readConn() {
+	for {
+		line, err := c.recv.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				log.Printf("%s → %s error: %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), err)
+			}
+			break
+		}
+		line = strings.TrimSpace(line)
+		if DEBUG_NET {
+			log.Printf("%s → %s %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), line)
+		}
+
+		m, err := ParseCommand(line)
 		if err != nil {
 			if err == NotEnoughArgsError {
-				c.Reply(ErrNeedMoreParams(c.server, str))
+				c.Reply(ErrNeedMoreParams(c.server, line))
 			} else {
-				c.Reply(ErrUnknownCommand(c.server, str))
+				c.Reply(ErrUnknownCommand(c.server, line))
 			}
 			continue
 		}
@@ -90,12 +107,35 @@ func (c *Client) readConn(recv <-chan string) {
 	}
 }
 
-func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
+func (client *Client) maybeLogWriteError(err error) bool {
+	if err != nil {
+		if err != io.EOF {
+			log.Printf("%s ← %s error: %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), err)
+		}
+		return true
+	}
+	return false
+}
+
+func (client *Client) writeConn(replies <-chan Reply) {
 	for reply := range replies {
 		if DEBUG_CLIENT {
-			log.Printf("%s ← %s %s", c, reply.Source(), reply)
+			log.Printf("%s ← %s %s", client, reply.Source(), reply)
 		}
-		reply.Format(c, write)
+		for _, str := range reply.Format(client) {
+			if DEBUG_NET {
+				log.Printf("%s ← %s %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), str)
+			}
+			if _, err := client.send.WriteString(str); client.maybeLogWriteError(err) {
+				break
+			}
+			if _, err := client.send.WriteString(CRLF); client.maybeLogWriteError(err) {
+				break
+			}
+			if err := client.send.Flush(); client.maybeLogWriteError(err) {
+				break
+			}
+		}
 	}
 }
 

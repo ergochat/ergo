@@ -112,7 +112,7 @@ type Replier interface {
 }
 
 type Reply interface {
-	Format(*Client, chan<- string)
+	Format(*Client) []string
 	Source() Identifier
 }
 

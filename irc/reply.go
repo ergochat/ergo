@@ -41,8 +41,8 @@ func NewStringReply(source Identifier, code string,
 	}
 }
 
-func (reply *StringReply) Format(client *Client, write chan<- string) {
-	write <- reply.message
+func (reply *StringReply) Format(client *Client) []string {
+	return []string{reply.message}
 }
 
 func (reply *StringReply) String() string {
@@ -63,8 +63,8 @@ func NewNumericReply(source Identifier, code int, format string,
 	}
 }
 
-func (reply *NumericReply) Format(client *Client, write chan<- string) {
-	write <- reply.FormatString(client)
+func (reply *NumericReply) Format(client *Client) []string {
+	return []string{reply.FormatString(client)}
 }
 
 func (reply *NumericReply) FormatString(client *Client) string {
@@ -93,7 +93,8 @@ func NewNamesReply(channel *Channel) Reply {
 	}
 }
 
-func (reply *NamesReply) Format(client *Client, write chan<- string) {
+func (reply *NamesReply) Format(client *Client) []string {
+	lines := make([]string, 0)
 	base := RplNamReply(reply.channel, []string{})
 	baseLen := len(base.FormatString(client))
 	tooLong := func(names []string) bool {
@@ -103,16 +104,17 @@ func (reply *NamesReply) Format(client *Client, write chan<- string) {
 	nicks := reply.channel.Nicks()
 	for to < len(nicks) {
 		if (from < (to - 1)) && tooLong(nicks[from:to]) {
-			RplNamReply(reply.channel, nicks[from:to-1]).Format(client, write)
+			lines = append(lines, RplNamReply(reply.channel, nicks[from:to-1]).Format(client)...)
 			from, to = to-1, to
 		} else {
 			to += 1
 		}
 	}
 	if from < len(nicks) {
-		RplNamReply(reply.channel, nicks[from:]).Format(client, write)
+		lines = append(lines, RplNamReply(reply.channel, nicks[from:]).Format(client)...)
 	}
-	RplEndOfNames(reply.channel).Format(client, write)
+	lines = append(lines, RplEndOfNames(reply.channel).Format(client)...)
+	return lines
 }
 
 func (reply *NamesReply) String() string {
