@@ -55,11 +55,13 @@ func (channel *Channel) Destroy() error {
 	return nil
 }
 
-func (channel *Channel) Reply(reply Reply) error {
+func (channel *Channel) Reply(replies ...Reply) error {
 	if channel.replies == nil {
 		return ErrAlreadyDestroyed
 	}
-	channel.replies <- reply
+	for _, reply := range replies {
+		channel.replies <- reply
+	}
 	return nil
 }
 

@@ -147,12 +147,12 @@ func (s *Server) tryRegister(c *Client) {
 			RplYourHost(s),
 			RplCreated(s),
 			RplMyInfo(s))
-		server.MOTD(c)
+		s.MOTD(c)
 	}
 }
 
 func (server *Server) MOTD(client *Client) {
-	c.Reply(ErrNoMOTD(server))
+	client.Reply(ErrNoMOTD(server))
 }
 
 func (s *Server) Id() string {
@@ -305,6 +305,9 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 	target.Reply(RplPrivMsg(m.Client(), target, m.message))
+	if target.away {
+		m.Client().Reply(RplAway(s, target))
+	}
 }
 
 func (m *ModeCommand) HandleServer(s *Server) {
@@ -406,4 +409,16 @@ func (msg *CapCommand) HandleServer(server *Server) {
 
 func (msg *ProxyCommand) HandleServer(server *Server) {
 	msg.Client().hostname = LookupHostname(msg.sourceIP)
+}
+
+func (msg *AwayCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	client.away = msg.away
+	client.awayMessage = msg.text
+
+	if client.away {
+		client.Reply(RplNowAway(server))
+	} else {
+		client.Reply(RplUnAway(server))
+	}
 }

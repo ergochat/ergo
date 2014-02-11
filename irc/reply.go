@@ -252,8 +252,23 @@ func RplBanList(channel *Channel, ban UserMask) Reply {
 }
 
 func RplEndOfBanList(channel *Channel) Reply {
-	return NewNumericReply(channel.server, RPL_ENDOFBANLIST, "%s :End of channel ban list",
-		channel.name)
+	return NewNumericReply(channel.server, RPL_ENDOFBANLIST,
+		"%s :End of channel ban list", channel.name)
+}
+
+func RplNowAway(server *Server) Reply {
+	return NewNumericReply(server, RPL_NOWAWAY,
+		":You have been marked as being away")
+}
+
+func RplUnAway(server *Server) Reply {
+	return NewNumericReply(server, RPL_UNAWAY,
+		":You are no longer marked as being away")
+}
+
+func RplAway(server *Server, client *Client) Reply {
+	return NewNumericReply(server, RPL_AWAY,
+		"%s :%s", client.nick, client.awayMessage)
 }
 
 // errors (also numeric)

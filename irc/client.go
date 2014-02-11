@@ -11,23 +11,24 @@ import (
 )
 
 type Client struct {
-	away       bool
-	channels   ChannelSet
-	conn       net.Conn
-	hostname   string
-	idleTimer  *time.Timer
-	invisible  bool
-	nick       string
-	operator   bool
-	quitTimer  *time.Timer
-	realname   string
-	recv       *bufio.Reader
-	registered bool
-	replies    chan<- Reply
-	send       *bufio.Writer
-	server     *Server
-	serverPass bool
-	username   string
+	away        bool
+	awayMessage string
+	channels    ChannelSet
+	conn        net.Conn
+	hostname    string
+	idleTimer   *time.Timer
+	invisible   bool
+	nick        string
+	operator    bool
+	quitTimer   *time.Timer
+	realname    string
+	recv        *bufio.Reader
+	registered  bool
+	replies     chan<- Reply
+	send        *bufio.Writer
+	server      *Server
+	serverPass  bool
+	username    string
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {

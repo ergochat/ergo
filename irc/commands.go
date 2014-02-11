@@ -18,6 +18,7 @@ var (
 	NotEnoughArgsError = errors.New("not enough arguments")
 	ErrParseCommand    = errors.New("failed to parse message")
 	parseCommandFuncs  = map[string]parseCommandFunc{
+		"AWAY":    NewAwayCommand,
 		"CAP":     NewCapCommand,
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
@@ -608,4 +609,25 @@ func NewProxyCommand(args []string) (editableCommand, error) {
 		sourcePort: args[3],
 		destPort:   args[4],
 	}, nil
+}
+
+type AwayCommand struct {
+	BaseCommand
+	text string
+	away bool
+}
+
+func (msg *AwayCommand) String() string {
+	return fmt.Sprintf("AWAY(%s)", msg.text)
+}
+
+func NewAwayCommand(args []string) (editableCommand, error) {
+	cmd := &AwayCommand{}
+
+	if len(args) > 0 {
+		cmd.text = args[0]
+		cmd.away = true
+	}
+
+	return cmd, nil
 }
