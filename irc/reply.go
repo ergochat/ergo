@@ -349,3 +349,7 @@ func ErrChanOPrivIsNeeded(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_CHANOPRIVSNEEDED,
 		"%s :You're not channel operator", channel.name)
 }
+
+func ErrNoMOTD(server *Server) Reply {
+	return NewNumericReply(server, ERR_NOMOTD, ":MOTD File is missing")
+}

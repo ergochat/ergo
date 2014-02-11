@@ -156,11 +156,13 @@ func (client *Client) Destroy() error {
 	return nil
 }
 
-func (client *Client) Reply(reply Reply) error {
+func (client *Client) Reply(replies ...Reply) error {
 	if client.replies == nil {
 		return ErrAlreadyDestroyed
 	}
-	client.replies <- reply
+	for _, reply := range replies {
+		client.replies <- reply
+	}
 	return nil
 }
 

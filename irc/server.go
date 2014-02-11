@@ -142,16 +142,17 @@ func (s *Server) GenerateGuestNick() string {
 func (s *Server) tryRegister(c *Client) {
 	if !c.registered && c.HasNick() && c.HasUsername() {
 		c.registered = true
-		replies := []Reply{
+		c.Reply(
 			RplWelcome(s, c),
 			RplYourHost(s),
 			RplCreated(s),
-			RplMyInfo(s),
-		}
-		for _, reply := range replies {
-			c.Reply(reply)
-		}
+			RplMyInfo(s))
+		server.MOTD(c)
 	}
+}
+
+func (server *Server) MOTD(client *Client) {
+	c.Reply(ErrNoMOTD(server))
 }
 
 func (s *Server) Id() string {
