@@ -105,7 +105,7 @@ func (s *Server) listen(config ListenerConfig) {
 		if DEBUG_SERVER {
 			log.Print("Server.Accept: ", conn.RemoteAddr())
 		}
-		NewClient(s, conn)
+		go NewClient(s, conn)
 	}
 }
 
