@@ -228,8 +228,12 @@ func RplChannelModeIs(channel *Channel) Reply {
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
 func RplWhoReply(server *Server, channel *Channel, client *Client) Reply {
+	channelName := "*"
+	if channel != nil {
+		channelName = channel.name
+	}
 	return NewNumericReply(server, RPL_WHOREPLY, "%s %s %s %s %s H :0 %s",
-		channel.name, client.username, client.hostname, server.name, client.nick,
+		channelName, client.username, client.hostname, server.name, client.nick,
 		client.realname)
 }
 
