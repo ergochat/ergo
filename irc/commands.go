@@ -28,6 +28,7 @@ var (
 		"PING":    NewPingCommand,
 		"PONG":    NewPongCommand,
 		"PRIVMSG": NewPrivMsgCommand,
+		"PROXY":   NewProxyCommand,
 		"QUIT":    NewQuitCommand,
 		"TOPIC":   NewTopicCommand,
 		"USER":    NewUserMsgCommand,
@@ -579,5 +580,32 @@ func (msg *CapCommand) String() string {
 func NewCapCommand(args []string) (editableCommand, error) {
 	return &CapCommand{
 		args: args,
+	}, nil
+}
+
+// HAPROXY support
+type ProxyCommand struct {
+	BaseCommand
+	net        string
+	sourceIP   string
+	destIP     string
+	sourcePort string
+	destPort   string
+}
+
+func (msg *ProxyCommand) String() string {
+	return fmt.Sprintf("PROXY(sourceIP=%s, sourcePort=%s)", msg.sourceIP, msg.sourcePort)
+}
+
+func NewProxyCommand(args []string) (editableCommand, error) {
+	if len(args) < 5 {
+		return nil, NotEnoughArgsError
+	}
+	return &ProxyCommand{
+		net:        args[0],
+		sourceIP:   args[1],
+		destIP:     args[2],
+		sourcePort: args[3],
+		destPort:   args[4],
 	}, nil
 }

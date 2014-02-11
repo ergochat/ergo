@@ -60,7 +60,8 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 
 			} else {
 				switch command.(type) {
-				case *PassCommand, *CapCommand:
+				case *PassCommand, *CapCommand, *ProxyCommand:
+					// no-op
 				default:
 					client.Reply(ErrPasswdMismatch(server))
 					client.Destroy()
@@ -400,4 +401,13 @@ func (msg *OperCommand) HandleServer(server *Server) {
 
 func (msg *CapCommand) HandleServer(server *Server) {
 	// TODO
+}
+
+func (msg *ProxyCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	addr, err := net.ResolveIPAddr("ip", msg.sourceIP)
+	if err != nil {
+		return
+	}
+	client.hostname = LookupHostname(addr)
 }
