@@ -93,7 +93,7 @@ func (c *Client) readConn(recv <-chan string) {
 func (c *Client) writeConn(write chan<- string, replies <-chan Reply) {
 	for reply := range replies {
 		if DEBUG_CLIENT {
-			log.Printf("%s ← %s : %s", c, reply.Source(), reply)
+			log.Printf("%s ← %s %s", c, reply.Source(), reply)
 		}
 		reply.Format(c, write)
 	}
@@ -136,7 +136,7 @@ func (client *Client) InterestedClients() ClientSet {
 	clients := make(ClientSet)
 	for channel := range client.channels {
 		for member := range channel.members {
-			clients[member] = true
+			clients.Add(member)
 		}
 	}
 	return clients

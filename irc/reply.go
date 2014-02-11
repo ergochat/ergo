@@ -33,8 +33,11 @@ func NewStringReply(source Identifier, code string,
 	message := fmt.Sprintf(format, args...)
 	fullMessage := fmt.Sprintf(":%s %s %s", source.Id(), code, message)
 	return &StringReply{
-		BaseReply: &BaseReply{source, fullMessage},
-		code:      code,
+		BaseReply: &BaseReply{
+			source:  source,
+			message: fullMessage,
+		},
+		code: code,
 	}
 }
 

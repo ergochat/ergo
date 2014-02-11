@@ -66,7 +66,7 @@ func (channel *Channel) Reply(reply Reply) error {
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
 		if DEBUG_CHANNEL {
-			log.Printf("%s → %s : %s", command.Source(), channel, command)
+			log.Printf("%s → %s %s", command.Source(), channel, command)
 		}
 		command.HandleChannel(channel)
 	}
@@ -75,7 +75,7 @@ func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
 		if DEBUG_CHANNEL {
-			log.Printf("%s ← %s : %s", channel, reply.Source(), reply)
+			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 		}
 		for client := range channel.members {
 			if reply.Source() != Identifier(client) {

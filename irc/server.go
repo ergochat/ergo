@@ -48,7 +48,7 @@ func NewServer(config *Config) *Server {
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
 		if DEBUG_SERVER {
-			log.Printf("%s → %s : %s", command.Client(), server, command)
+			log.Printf("%s → %s %s", command.Client(), server, command)
 		}
 		client := command.Client()
 		client.Touch()
@@ -205,7 +205,9 @@ func (m *NickCommand) HandleServer(s *Server) {
 		c.nick = m.nickname
 	}
 	reply := RplNick(c, m.nickname)
-	for iclient := range c.InterestedClients() {
+	iclients := c.InterestedClients()
+	iclients.Add(c)
+	for iclient := range iclients {
 		iclient.Reply(reply)
 	}
 
