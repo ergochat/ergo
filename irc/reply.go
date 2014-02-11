@@ -271,7 +271,14 @@ func RplAway(server *Server, client *Client) Reply {
 		"%s :%s", client.nick, client.awayMessage)
 }
 
+func RplIsOn(server *Server, nicks []string) Reply {
+	return NewNumericReply(server, RPL_ISON,
+		":%s", strings.Join(nicks, " "))
+}
+
+//
 // errors (also numeric)
+//
 
 func ErrAlreadyRegistered(source Identifier) Reply {
 	return NewNumericReply(source, ERR_ALREADYREGISTRED,

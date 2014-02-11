@@ -20,6 +20,7 @@ var (
 	parseCommandFuncs  = map[string]parseCommandFunc{
 		"AWAY":    NewAwayCommand,
 		"CAP":     NewCapCommand,
+		"ISON":    NewIsOnCommand,
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
 		"NICK":    NewNickCommand,
@@ -630,4 +631,23 @@ func NewAwayCommand(args []string) (editableCommand, error) {
 	}
 
 	return cmd, nil
+}
+
+type IsOnCommand struct {
+	BaseCommand
+	nicks []string
+}
+
+func (msg *IsOnCommand) String() string {
+	return fmt.Sprintf("ISON(nicks=%s)", msg.nicks)
+}
+
+func NewIsOnCommand(args []string) (editableCommand, error) {
+	if len(args) == 0 {
+		return nil, NotEnoughArgsError
+	}
+
+	return &IsOnCommand{
+		nicks: args,
+	}, nil
 }

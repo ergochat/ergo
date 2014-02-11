@@ -422,3 +422,16 @@ func (msg *AwayCommand) HandleServer(server *Server) {
 		client.Reply(RplUnAway(server))
 	}
 }
+
+func (msg *IsOnCommand) HandleServer(server *Server) {
+	client := msg.Client()
+
+	ison := make([]string, 0)
+	for _, nick := range msg.nicks {
+		if _, ok := server.clients[nick]; ok {
+			ison = append(ison, nick)
+		}
+	}
+
+	client.Reply(RplIsOn(server, ison))
+}
