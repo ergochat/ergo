@@ -370,10 +370,6 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 	client := m.Client()
 
 	// TODO implement target query
-	if m.target != "" {
-		client.Reply(ErrNoSuchServer(server, m.target))
-		return
-	}
 
 	for _, mask := range m.masks {
 		// TODO implement wildcard matching
