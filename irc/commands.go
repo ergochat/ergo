@@ -25,6 +25,7 @@ var (
 		"MODE":    NewModeCommand,
 		"MOTD":    NewMOTDCommand,
 		"NICK":    NewNickCommand,
+		"NOTICE":  NewNoticeCommand,
 		"OPER":    NewOperCommand,
 		"PART":    NewPartCommand,
 		"PASS":    NewPassCommand,
@@ -664,4 +665,24 @@ func NewMOTDCommand(args []string) (editableCommand, error) {
 		cmd.target = args[0]
 	}
 	return cmd, nil
+}
+
+type NoticeCommand struct {
+	BaseCommand
+	target  string
+	message string
+}
+
+func (cmd *NoticeCommand) String() string {
+	return fmt.Sprintf("NOTICE(target=%s, message=%s)", cmd.target, cmd.message)
+}
+
+func NewNoticeCommand(args []string) (editableCommand, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+	return &NoticeCommand{
+		target:  args[0],
+		message: args[1],
+	}, nil
 }

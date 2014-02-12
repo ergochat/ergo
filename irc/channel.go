@@ -241,3 +241,12 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 
 	client.Reply(RplChannelModeIs(channel))
 }
+
+func (m *NoticeCommand) HandleChannel(channel *Channel) {
+	client := m.Client()
+	if channel.noOutside && !channel.members.Has(client) {
+		client.Reply(ErrCannotSendToChan(channel))
+		return
+	}
+	channel.Reply(RplNotice(client, channel, m.message))
+}

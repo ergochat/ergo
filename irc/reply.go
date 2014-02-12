@@ -128,6 +128,10 @@ func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
 	return NewStringReply(source, RPL_PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
+func RplNotice(source Identifier, target Identifier, message string) Reply {
+	return NewStringReply(source, RPL_NOTICE, "%s :%s", target.Nick(), message)
+}
+
 func RplNick(source Identifier, newNick string) Reply {
 	return NewStringReply(source, RPL_NICK, newNick)
 }

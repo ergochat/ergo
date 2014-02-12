@@ -167,6 +167,7 @@ const (
 	RPL_INVITE  = "INVITE"
 	RPL_JOIN    = "JOIN"
 	RPL_NICK    = "NICK"
+	RPL_NOTICE  = "NOTICE"
 	RPL_PART    = "PART"
 	RPL_PING    = "PING"
 	RPL_PONG    = "PONG"

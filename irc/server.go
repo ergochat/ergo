@@ -475,3 +475,23 @@ func (msg *IsOnCommand) HandleServer(server *Server) {
 func (msg *MOTDCommand) HandleServer(server *Server) {
 	server.MOTD(msg.Client())
 }
+
+func (msg *NoticeCommand) HandleServer(server *Server) {
+	if IsChannel(msg.target) {
+		channel := server.channels[msg.target]
+		if channel == nil {
+			msg.Client().Reply(ErrNoSuchChannel(server, msg.target))
+			return
+		}
+
+		channel.commands <- msg
+		return
+	}
+
+	target := server.clients[msg.target]
+	if target == nil {
+		msg.Client().Reply(ErrNoSuchNick(server, msg.target))
+		return
+	}
+	target.Reply(RplPrivMsg(msg.Client(), target, msg.message))
+}
