@@ -6,11 +6,12 @@ import (
 )
 
 type Config struct {
-	Name      string
-	Listeners []ListenerConfig
-	Password  string
-	Operators []OperatorConfig
 	Debug     map[string]bool
+	Listeners []ListenerConfig
+	MOTD      string
+	Name      string
+	Operators []OperatorConfig
+	Password  string
 }
 
 type OperatorConfig struct {

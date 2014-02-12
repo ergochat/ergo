@@ -1,12 +1,14 @@
 package irc
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 )
 
@@ -14,6 +16,7 @@ type Server struct {
 	channels  ChannelNameMap
 	commands  chan<- Command
 	ctime     time.Time
+	motdFile  string
 	name      string
 	operators map[string]string
 	password  string
@@ -27,6 +30,7 @@ func NewServer(config *Config) *Server {
 		clients:   make(ClientNameMap),
 		commands:  commands,
 		ctime:     time.Now(),
+		motdFile:  config.MOTD,
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
@@ -152,7 +156,39 @@ func (s *Server) tryRegister(c *Client) {
 }
 
 func (server *Server) MOTD(client *Client) {
-	client.Reply(ErrNoMOTD(server))
+	if server.motdFile == "" {
+		client.Reply(ErrNoMOTD(server))
+		return
+	}
+
+	file, err := os.Open(server.motdFile)
+	if err != nil {
+		client.Reply(ErrNoMOTD(server))
+		return
+	}
+	defer file.Close()
+
+	client.Reply(RplMOTDStart(server))
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+
+		if len(line) > 80 {
+			for len(line) > 80 {
+				client.Reply(RplMOTD(server, line[0:80]))
+				line = line[80:]
+			}
+			if len(line) > 0 {
+				client.Reply(RplMOTD(server, line))
+			}
+		} else {
+			client.Reply(RplMOTD(server, line))
+		}
+	}
+	client.Reply(RplMOTDEnd(server))
 }
 
 func (s *Server) Id() string {
@@ -434,4 +470,8 @@ func (msg *IsOnCommand) HandleServer(server *Server) {
 	}
 
 	client.Reply(RplIsOn(server, ison))
+}
+
+func (msg *MOTDCommand) HandleServer(server *Server) {
+	server.MOTD(msg.Client())
 }

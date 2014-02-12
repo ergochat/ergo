@@ -23,6 +23,7 @@ var (
 		"ISON":    NewIsOnCommand,
 		"JOIN":    NewJoinCommand,
 		"MODE":    NewModeCommand,
+		"MOTD":    NewMOTDCommand,
 		"NICK":    NewNickCommand,
 		"OPER":    NewOperCommand,
 		"PART":    NewPartCommand,
@@ -650,4 +651,17 @@ func NewIsOnCommand(args []string) (editableCommand, error) {
 	return &IsOnCommand{
 		nicks: args,
 	}, nil
+}
+
+type MOTDCommand struct {
+	BaseCommand
+	target string
+}
+
+func NewMOTDCommand(args []string) (editableCommand, error) {
+	cmd := &MOTDCommand{}
+	if len(args) > 0 {
+		cmd.target = args[0]
+	}
+	return cmd, nil
 }

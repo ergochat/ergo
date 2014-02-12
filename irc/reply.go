@@ -276,6 +276,21 @@ func RplIsOn(server *Server, nicks []string) Reply {
 		":%s", strings.Join(nicks, " "))
 }
 
+func RplMOTDStart(server *Server) Reply {
+	return NewNumericReply(server, RPL_MOTDSTART,
+		":- %s Message of the day - ", server.name)
+}
+
+func RplMOTD(server *Server, line string) Reply {
+	return NewNumericReply(server, RPL_MOTD,
+		":- %s", line)
+}
+
+func RplMOTDEnd(server *Server) Reply {
+	return NewNumericReply(server, RPL_ENDOFMOTD,
+		":End of MOTD command")
+}
+
 //
 // errors (also numeric)
 //
