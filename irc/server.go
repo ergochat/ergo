@@ -266,20 +266,22 @@ func (m *UserMsgCommand) HandleServer(s *Server) {
 	s.tryRegister(c)
 }
 
-func (m *QuitCommand) HandleServer(s *Server) {
-	c := m.Client()
+func (m *QuitCommand) HandleServer(server *Server) {
+	client := m.Client()
+	iclients := client.InterestedClients()
+	iclients.Remove(client)
 
-	s.clients.Remove(c)
-	for channel := range c.channels {
-		channel.members.Remove(c)
+	server.clients.Remove(client)
+	for channel := range client.channels {
+		channel.members.Remove(client)
 	}
 
-	c.Reply(RplError(s, c))
-	c.Destroy()
+	client.Reply(RplError(server, client))
+	client.Destroy()
 
-	reply := RplQuit(c, m.message)
-	for client := range c.InterestedClients() {
-		client.Reply(reply)
+	reply := RplQuit(client, m.message)
+	for iclient := range iclients {
+		iclient.Reply(reply)
 	}
 }
 
