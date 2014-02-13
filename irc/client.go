@@ -19,36 +19,31 @@ type Client struct {
 	hostname    string
 	idleTimer   *time.Timer
 	invisible   bool
+	loginTimer  *time.Timer
 	nick        string
 	operator    bool
 	quitTimer   *time.Timer
 	realname    string
-	recv        *bufio.Reader
 	registered  bool
-	replies     chan<- Reply
-	send        *bufio.Writer
+	replies     chan Reply
 	server      *Server
 	serverPass  bool
 	username    string
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
-	replies := make(chan Reply)
-
 	client := &Client{
 		channels: make(ChannelSet),
 		conn:     conn,
-		hostname: AddrLookupHostname(conn.RemoteAddr()),
-		recv:     bufio.NewReader(conn),
-		replies:  replies,
-		send:     bufio.NewWriter(conn),
+		hostname: IPString(conn.RemoteAddr()),
+		replies:  make(chan Reply),
 		server:   server,
 	}
+	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.Destroy)
 
 	go client.readConn()
-	go client.writeConn(replies)
+	go client.writeConn()
 
-	client.Touch()
 	return client
 }
 
@@ -89,8 +84,10 @@ func (client *Client) ConnectionClosed() {
 }
 
 func (c *Client) readConn() {
+	recv := bufio.NewReader(c.conn)
+
 	for {
-		line, err := c.recv.ReadString('\n')
+		line, err := recv.ReadString('\n')
 		if err != nil {
 			if DEBUG_NET {
 				if err == io.EOF {
@@ -138,8 +135,10 @@ func (client *Client) maybeLogWriteError(err error) bool {
 	return false
 }
 
-func (client *Client) writeConn(replies <-chan Reply) {
-	for reply := range replies {
+func (client *Client) writeConn() {
+	send := bufio.NewWriter(client.conn)
+
+	for reply := range client.replies {
 		if DEBUG_CLIENT {
 			log.Printf("%s ← %s %s", client, reply.Source(), reply)
 		}
@@ -147,13 +146,13 @@ func (client *Client) writeConn(replies <-chan Reply) {
 			if DEBUG_NET {
 				log.Printf("%s ← %s %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), str)
 			}
-			if _, err := client.send.WriteString(str); client.maybeLogWriteError(err) {
+			if _, err := send.WriteString(str); client.maybeLogWriteError(err) {
 				break
 			}
-			if _, err := client.send.WriteString(CRLF); client.maybeLogWriteError(err) {
+			if _, err := send.WriteString(CRLF); client.maybeLogWriteError(err) {
 				break
 			}
-			if err := client.send.Flush(); client.maybeLogWriteError(err) {
+			if err := send.Flush(); client.maybeLogWriteError(err) {
 				break
 			}
 		}

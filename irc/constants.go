@@ -19,10 +19,9 @@ const (
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 
-	// how long before a client is considered idle
-	IDLE_TIMEOUT = time.Minute
-	// how long after idle before a client is kicked
-	QUIT_TIMEOUT = time.Minute
+	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
+	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
+	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
 
 	// numeric codes
 	RPL_WELCOME           = 1

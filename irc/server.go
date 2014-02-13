@@ -147,6 +147,7 @@ func (s *Server) GenerateGuestNick() string {
 func (s *Server) tryRegister(c *Client) {
 	if !c.registered && c.HasNick() && c.HasUsername() {
 		c.registered = true
+		c.loginTimer.Stop()
 		c.Reply(
 			RplWelcome(s, c),
 			RplYourHost(s),
