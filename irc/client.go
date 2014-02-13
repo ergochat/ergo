@@ -147,13 +147,20 @@ func (client *Client) Destroy() error {
 
 	close(client.replies)
 	client.replies = nil
+
 	client.conn.Close()
+
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
 	}
+
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
 	}
+
+	// clear channel list
+	client.channels = make(ChannelSet)
+
 	return nil
 }
 
