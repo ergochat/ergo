@@ -298,7 +298,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 	}
 
 	for name := range m.channels {
-		s.GetOrMakeChannel(name).commands <- m
+		s.GetOrMakeChannel(name).Command(m)
 	}
 }
 
@@ -311,7 +311,7 @@ func (m *PartCommand) HandleServer(s *Server) {
 			continue
 		}
 
-		channel.commands <- m
+		channel.Command(m)
 	}
 }
 
@@ -322,7 +322,7 @@ func (m *TopicCommand) HandleServer(s *Server) {
 		return
 	}
 
-	channel.commands <- m
+	channel.Command(m)
 }
 
 func (m *PrivMsgCommand) HandleServer(s *Server) {
@@ -333,7 +333,7 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 			return
 		}
 
-		channel.commands <- m
+		channel.Command(m)
 		return
 	}
 
@@ -391,7 +391,7 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 		client.Reply(ErrNoSuchChannel(server, msg.channel))
 		return
 	}
-	channel.commands <- msg
+	channel.Command(msg)
 }
 
 func whoChannel(client *Client, server *Server, channel *Channel) {
@@ -483,7 +483,7 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 			return
 		}
 
-		channel.commands <- msg
+		channel.Command(msg)
 		return
 	}
 

@@ -65,16 +65,24 @@ func (client *Client) Touch() {
 
 func (client *Client) Idle() {
 	if client.quitTimer == nil {
-		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.Quit)
+		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.ConnectionTimeout)
 	} else {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
 	client.Reply(RplPing(client.server, client))
 }
 
-func (client *Client) Quit() {
+func (client *Client) ConnectionTimeout() {
 	msg := &QuitCommand{
 		message: "connection timeout",
+	}
+	msg.SetClient(client)
+	client.server.commands <- msg
+}
+
+func (client *Client) ConnectionClosed() {
+	msg := &QuitCommand{
+		message: "connection closed",
 	}
 	msg.SetClient(client)
 	client.server.commands <- msg
@@ -113,7 +121,7 @@ func (c *Client) readConn() {
 		m.SetClient(c)
 		c.server.commands <- m
 	}
-	c.Destroy()
+	c.ConnectionClosed()
 }
 
 func (client *Client) maybeLogWriteError(err error) bool {
@@ -150,7 +158,7 @@ func (client *Client) writeConn(replies <-chan Reply) {
 			}
 		}
 	}
-	client.Destroy()
+	client.ConnectionClosed()
 }
 
 func (client *Client) Destroy() {
