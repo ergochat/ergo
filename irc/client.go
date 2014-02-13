@@ -84,11 +84,16 @@ func (c *Client) readConn() {
 	for {
 		line, err := c.recv.ReadString('\n')
 		if err != nil {
-			if err != io.EOF {
-				log.Printf("%s → %s error: %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), err)
+			if DEBUG_NET {
+				if err == io.EOF {
+					log.Printf("%s → %s closed", c.conn.RemoteAddr(), c.conn.LocalAddr())
+				} else {
+					log.Printf("%s → %s error: %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), err)
+				}
 			}
 			break
 		}
+
 		line = strings.TrimSpace(line)
 		if DEBUG_NET {
 			log.Printf("%s → %s %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), line)
@@ -96,9 +101,10 @@ func (c *Client) readConn() {
 
 		m, err := ParseCommand(line)
 		if err != nil {
-			if err == NotEnoughArgsError {
+			switch err {
+			case NotEnoughArgsError:
 				c.Reply(ErrNeedMoreParams(c.server, line))
-			} else {
+			default:
 				c.Reply(ErrUnknownCommand(c.server, line))
 			}
 			continue
@@ -112,8 +118,12 @@ func (c *Client) readConn() {
 
 func (client *Client) maybeLogWriteError(err error) bool {
 	if err != nil {
-		if err != io.EOF {
-			log.Printf("%s ← %s error: %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), err)
+		if DEBUG_NET {
+			if err == io.EOF {
+				log.Printf("%s ← %s closed", client.conn.RemoteAddr(), client.conn.LocalAddr())
+			} else {
+				log.Printf("%s ← %s error: %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), err)
+			}
 		}
 		return true
 	}
