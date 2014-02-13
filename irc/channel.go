@@ -7,6 +7,7 @@ import (
 type Channel struct {
 	banList   []UserMask
 	commands  chan<- ChannelCommand
+	destroyed bool
 	key       string
 	members   ClientSet
 	name      string
@@ -46,23 +47,23 @@ func NewChannel(s *Server, name string) *Channel {
 	return channel
 }
 
-func (channel *Channel) Destroy() error {
-	if channel.replies == nil {
-		return ErrAlreadyDestroyed
+func (channel *Channel) Destroy() {
+	if channel.destroyed {
+		return
 	}
+
 	close(channel.replies)
-	channel.replies = nil
-	return nil
+	close(channel.commands)
+
+	channel.server.channels.Remove(channel)
+
+	channel.destroyed = true
 }
 
-func (channel *Channel) Reply(replies ...Reply) error {
-	if channel.replies == nil {
-		return ErrAlreadyDestroyed
-	}
+func (channel *Channel) Reply(replies ...Reply) {
 	for _, reply := range replies {
 		channel.replies <- reply
 	}
-	return nil
 }
 
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
@@ -183,7 +184,7 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 
 	// TODO persistent channels
 	if channel.IsEmpty() {
-		channel.server.channels.Remove(channel)
+		channel.Destroy()
 	}
 }
 

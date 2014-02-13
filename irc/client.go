@@ -15,6 +15,7 @@ type Client struct {
 	awayMessage string
 	channels    ChannelSet
 	conn        net.Conn
+	destroyed   bool
 	hostname    string
 	idleTimer   *time.Timer
 	invisible   bool
@@ -106,6 +107,7 @@ func (c *Client) readConn() {
 		m.SetClient(c)
 		c.server.commands <- m
 	}
+	c.Destroy()
 }
 
 func (client *Client) maybeLogWriteError(err error) bool {
@@ -138,17 +140,17 @@ func (client *Client) writeConn(replies <-chan Reply) {
 			}
 		}
 	}
+	client.Destroy()
 }
 
-func (client *Client) Destroy() error {
-	if client.replies == nil {
-		return ErrAlreadyDestroyed
+func (client *Client) Destroy() {
+	if client.destroyed {
+		return
 	}
 
-	close(client.replies)
-	client.replies = nil
-
 	client.conn.Close()
+
+	close(client.replies)
 
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
@@ -161,17 +163,13 @@ func (client *Client) Destroy() error {
 	// clear channel list
 	client.channels = make(ChannelSet)
 
-	return nil
+	client.destroyed = true
 }
 
-func (client *Client) Reply(replies ...Reply) error {
-	if client.replies == nil {
-		return ErrAlreadyDestroyed
-	}
+func (client *Client) Reply(replies ...Reply) {
 	for _, reply := range replies {
 		client.replies <- reply
 	}
-	return nil
 }
 
 func (client *Client) HasNick() bool {
