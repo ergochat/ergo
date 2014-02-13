@@ -448,7 +448,9 @@ func (msg *CapCommand) HandleServer(server *Server) {
 }
 
 func (msg *ProxyCommand) HandleServer(server *Server) {
-	msg.Client().hostname = LookupHostname(msg.sourceIP)
+	go func() {
+		msg.Client().hostname = LookupHostname(msg.sourceIP)
+	}()
 }
 
 func (msg *AwayCommand) HandleServer(server *Server) {
