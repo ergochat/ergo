@@ -162,18 +162,6 @@ const (
 	ERR_UMODEUNKNOWNFLAG  = 501
 	ERR_USERSDONTMATCH    = 502
 
-	// message codes
-	RPL_ERROR   = "ERROR"
-	RPL_INVITE  = "INVITE"
-	RPL_JOIN    = "JOIN"
-	RPL_NICK    = "NICK"
-	RPL_NOTICE  = "NOTICE"
-	RPL_PART    = "PART"
-	RPL_PING    = "PING"
-	RPL_PONG    = "PONG"
-	RPL_PRIVMSG = "PRIVMSG"
-	RPL_QUIT    = "QUIT"
-
 	Add    ModeOp = '+'
 	List   ModeOp = '='
 	Remove ModeOp = '-'

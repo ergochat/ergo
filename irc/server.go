@@ -348,7 +348,8 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 
 func (m *ModeCommand) HandleServer(s *Server) {
 	client := m.Client()
-	if client.Nick() == m.nickname {
+	target := s.clients[m.nickname]
+	if client == target {
 		for _, change := range m.changes {
 			if change.mode == Invisible {
 				switch change.op {
@@ -363,7 +364,7 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		return
 	}
 
-	client.Reply(ErrUsersDontMatch(client))
+	client.Reply(ErrUsersDontMatch(s))
 }
 
 func (m *WhoisCommand) HandleServer(server *Server) {

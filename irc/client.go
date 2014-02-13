@@ -201,19 +201,18 @@ func (c *Client) ModeString() (str string) {
 }
 
 func (c *Client) UserHost() string {
-	nick := c.nick
-	if nick == "" {
-		nick = "*"
+	username := "*"
+	if c.HasUsername() {
+		username = c.username
 	}
-	username := c.username
-	if username == "" {
-		username = "*"
-	}
-	return fmt.Sprintf("%s!%s@%s", nick, username, c.hostname)
+	return fmt.Sprintf("%s!%s@%s", c.Nick(), username, c.hostname)
 }
 
 func (c *Client) Nick() string {
-	return c.nick
+	if c.HasNick() {
+		return c.nick
+	}
+	return "*"
 }
 
 func (c *Client) Id() string {

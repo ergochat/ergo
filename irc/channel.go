@@ -195,14 +195,17 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 		return
 	}
 
-	if m.topic == "" {
+	if m.setTopic {
+		channel.topic = m.topic
 		channel.GetTopic(client)
+		reply := RplTopicMsg(client, channel)
+		client.Reply(reply)
+		channel.Reply(reply)
 		return
 	}
 
-	channel.topic = m.topic
-
-	channel.GetTopic(channel)
+	channel.GetTopic(client)
+	return
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {

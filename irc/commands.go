@@ -357,8 +357,9 @@ func (m *PrivMsgCommand) TargetIsChannel() bool {
 
 type TopicCommand struct {
 	BaseCommand
-	channel string
-	topic   string
+	channel  string
+	setTopic bool
+	topic    string
 }
 
 func (cmd *TopicCommand) String() string {
@@ -373,6 +374,7 @@ func NewTopicCommand(args []string) (editableCommand, error) {
 		channel: args[0],
 	}
 	if len(args) > 1 {
+		msg.setTopic = true
 		msg.topic = args[1]
 	}
 	return msg, nil
