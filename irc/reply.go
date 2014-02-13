@@ -15,8 +15,14 @@ func joinedLen(names []string) int {
 }
 
 type BaseReply struct {
-	source  Identifier
+	id      string
 	message string
+	source  Identifier
+}
+
+func (reply *BaseReply) SetSource(source Identifier) {
+	reply.id = source.Id()
+	reply.source = source
 }
 
 func (reply *BaseReply) Source() Identifier {
@@ -33,22 +39,22 @@ func NewStringReply(source Identifier, code string,
 	reply := &StringReply{
 		code: code,
 	}
+	reply.SetSource(source)
 	reply.message = fmt.Sprintf(format, args...)
-	reply.source = source
 	return reply
 }
 
 func (reply *StringReply) Format(client *Client) []string {
 	message := fmt.Sprintf("%s %s", reply.code, reply.message)
 	if Identifier(client.server) != reply.source {
-		message = fmt.Sprintf(":%s %s", reply.source.Id(), message)
+		message = fmt.Sprintf(":%s %s", reply.id, message)
 	}
 	return []string{message}
 }
 
 func (reply *StringReply) String() string {
 	return fmt.Sprintf("Reply(source=%s, code=%s, message=%s)",
-		reply.source, reply.code, reply.message)
+		reply.id, reply.code, reply.message)
 }
 
 type NumericReply struct {
@@ -61,8 +67,8 @@ func NewNumericReply(source Identifier, code int, format string,
 	reply := &NumericReply{
 		code: code,
 	}
+	reply.SetSource(source)
 	reply.message = fmt.Sprintf(format, args...)
-	reply.source = source
 	return reply
 }
 
@@ -70,14 +76,14 @@ func (reply *NumericReply) Format(client *Client) []string {
 	message := fmt.Sprintf("%03d %s %s",
 		reply.code, client.Nick(), reply.message)
 	if Identifier(client.server) != reply.source {
-		message = fmt.Sprintf(":%s %s", reply.source.Id(), message)
+		message = fmt.Sprintf(":%s %s", reply.id, message)
 	}
 	return []string{message}
 }
 
 func (reply *NumericReply) String() string {
 	return fmt.Sprintf("Reply(source=%s, code=%d, message=%s)",
-		reply.source, reply.code, reply.message)
+		reply.id, reply.code, reply.message)
 }
 
 // names reply
@@ -88,12 +94,11 @@ type NamesReply struct {
 }
 
 func NewNamesReply(channel *Channel) Reply {
-	return &NamesReply{
-		BaseReply: &BaseReply{
-			source: channel,
-		},
+	reply := &NamesReply{
 		channel: channel,
 	}
+	reply.SetSource(channel)
+	return reply
 }
 
 func (reply *NamesReply) Format(client *Client) []string {
@@ -400,4 +405,8 @@ func ErrChanOPrivIsNeeded(channel *Channel) Reply {
 
 func ErrNoMOTD(server *Server) Reply {
 	return NewNumericReply(server, ERR_NOMOTD, ":MOTD File is missing")
+}
+
+func ErrNoNicknameGiven(server *Server) Reply {
+	return NewNumericReply(server, ERR_NONICKNAMEGIVEN, ":No nickname given")
 }

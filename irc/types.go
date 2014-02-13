@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -51,9 +52,17 @@ func (channels ChannelNameMap) Remove(channel *Channel) error {
 
 type ClientNameMap map[string]*Client
 
+var (
+	ErrNickMissing   = errors.New("nick missing")
+	ErrNicknameInUse = errors.New("nickname in use")
+)
+
 func (clients ClientNameMap) Add(client *Client) error {
+	if !client.HasNick() {
+		return ErrNickMissing
+	}
 	if clients[client.nick] != nil {
-		return fmt.Errorf("%s: already set", client.nick)
+		return ErrNicknameInUse
 	}
 	clients[client.nick] = client
 	return nil

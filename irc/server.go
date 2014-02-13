@@ -233,11 +233,17 @@ func (m *PassCommand) HandleServer(s *Server) {
 func (m *NickCommand) HandleServer(s *Server) {
 	c := m.Client()
 
+	if m.nickname == "" {
+		c.Reply(ErrNoNicknameGiven(s))
+		return
+	}
+
 	if s.clients[m.nickname] != nil {
 		c.Reply(ErrNickNameInUse(s, m.nickname))
 		return
 	}
 
+	// Make reply before changing nick.
 	reply := RplNick(c, m.nickname)
 
 	s.clients.Remove(c)
