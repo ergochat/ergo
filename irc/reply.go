@@ -89,7 +89,7 @@ func (reply *NumericReply) String() string {
 // names reply
 
 type NamesReply struct {
-	*BaseReply
+	BaseReply
 	channel *Channel
 }
 

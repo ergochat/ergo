@@ -67,6 +67,7 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 					// no-op
 				default:
 					client.Reply(ErrPasswdMismatch(server))
+					server.clients.Remove(client)
 					client.Destroy()
 					return
 				}
