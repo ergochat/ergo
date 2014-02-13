@@ -161,6 +161,7 @@ func (client *Client) Destroy() {
 	client.conn.Close()
 
 	close(client.replies)
+	client.replies = nil
 
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
@@ -177,6 +178,9 @@ func (client *Client) Destroy() {
 }
 
 func (client *Client) Reply(replies ...Reply) {
+	if client.replies == nil {
+		return
+	}
 	for _, reply := range replies {
 		client.replies <- reply
 	}

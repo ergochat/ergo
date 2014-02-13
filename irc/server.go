@@ -292,7 +292,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 		cmd := &PartCommand{}
 		cmd.SetClient(c)
 		for channel := range c.channels {
-			channel.commands <- cmd
+			channel.Command(cmd)
 		}
 		return
 	}

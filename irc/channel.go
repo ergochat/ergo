@@ -53,14 +53,26 @@ func (channel *Channel) Destroy() {
 	}
 
 	close(channel.replies)
+	channel.replies = nil
 	close(channel.commands)
+	channel.commands = nil
 
 	channel.server.channels.Remove(channel)
 
 	channel.destroyed = true
 }
 
+func (channel *Channel) Command(command ChannelCommand) {
+	if channel.commands == nil {
+		return
+	}
+	channel.commands <- command
+}
+
 func (channel *Channel) Reply(replies ...Reply) {
+	if channel.replies == nil {
+		return
+	}
 	for _, reply := range replies {
 		channel.replies <- reply
 	}
