@@ -238,19 +238,17 @@ func (m *NickCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if !c.HasNick() {
-		c.nick = m.nickname
-	}
 	reply := RplNick(c, m.nickname)
+
+	s.clients.Remove(c)
+	c.nick = m.nickname
+	s.clients.Add(c)
+
 	iclients := c.InterestedClients()
 	iclients.Add(c)
 	for iclient := range iclients {
 		iclient.Reply(reply)
 	}
-
-	s.clients.Remove(c)
-	c.nick = m.nickname
-	s.clients.Add(c)
 
 	s.tryRegister(c)
 }
