@@ -55,26 +55,39 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 			log.Printf("%s → %s %s", command.Client(), server, command)
 		}
 		client := command.Client()
-		client.Touch()
 
-		if !client.serverPass {
-			if server.password == "" {
-				client.serverPass = true
-
-			} else {
-				switch command.(type) {
-				case *PassCommand, *CapCommand, *ProxyCommand:
-					// no-op
-				default:
-					client.Reply(ErrPasswdMismatch(server))
-					server.clients.Remove(client)
-					client.Destroy()
-					return
-				}
-			}
+		if !server.Authorize(client, command) {
+			client.Destroy()
+			return
 		}
+
+		client.Touch()
 		command.HandleServer(server)
+
+		if DEBUG_SERVER {
+			log.Printf("%s → %s %s processed", command.Client(), server, command)
+		}
 	}
+}
+
+func (server *Server) Authorize(client *Client, command Command) bool {
+	if client.authorized {
+		return true
+	}
+
+	if server.password == "" {
+		client.authorized = true
+		return true
+	}
+
+	switch command.(type) {
+	case *PassCommand, *CapCommand, *ProxyCommand:
+		// no-op
+	default:
+		return false
+	}
+
+	return true
 }
 
 func newListener(config ListenerConfig) (net.Listener, error) {
@@ -222,14 +235,20 @@ func (m *PongCommand) HandleServer(s *Server) {
 }
 
 func (m *PassCommand) HandleServer(s *Server) {
-	if s.password != m.password {
-		m.Client().Reply(ErrPasswdMismatch(s))
-		m.Client().Destroy()
+	client := m.Client()
+
+	if client.registered || client.authorized {
+		client.Reply(ErrAlreadyRegistered(s))
 		return
 	}
 
-	m.Client().serverPass = true
-	// no reply?
+	if s.password != m.password {
+		client.Reply(ErrPasswdMismatch(s))
+		client.Destroy()
+		return
+	}
+
+	client.authorized = true
 }
 
 func (m *NickCommand) HandleServer(s *Server) {
@@ -449,9 +468,7 @@ func (msg *CapCommand) HandleServer(server *Server) {
 }
 
 func (msg *ProxyCommand) HandleServer(server *Server) {
-	go func() {
-		msg.Client().hostname = LookupHostname(msg.sourceIP)
-	}()
+	msg.Client().hostname = LookupHostname(msg.sourceIP)
 }
 
 func (msg *AwayCommand) HandleServer(server *Server) {

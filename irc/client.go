@@ -3,7 +3,6 @@ package irc
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strings"
@@ -11,6 +10,7 @@ import (
 )
 
 type Client struct {
+	atime       time.Time
 	away        bool
 	awayMessage string
 	channels    ChannelSet
@@ -27,7 +27,7 @@ type Client struct {
 	registered  bool
 	replies     chan Reply
 	server      *Server
-	serverPass  bool
+	authorized  bool
 	username    string
 }
 
@@ -48,9 +48,12 @@ func NewClient(server *Server, conn net.Conn) *Client {
 }
 
 func (client *Client) Touch() {
+	client.atime = time.Now()
+
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
 	}
+
 	if client.idleTimer == nil {
 		client.idleTimer = time.AfterFunc(IDLE_TIMEOUT, client.Idle)
 	} else {
@@ -64,6 +67,7 @@ func (client *Client) Idle() {
 	} else {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
+
 	client.Reply(RplPing(client.server, client))
 }
 
@@ -90,11 +94,7 @@ func (c *Client) readConn() {
 		line, err := recv.ReadString('\n')
 		if err != nil {
 			if DEBUG_NET {
-				if err == io.EOF {
-					log.Printf("%s → closed", c.conn.RemoteAddr())
-				} else {
-					log.Printf("%s → error: %s", c.conn.RemoteAddr(), err)
-				}
+				log.Printf("%s → error: %s", c.conn.RemoteAddr(), err)
 			}
 			break
 		}
@@ -124,11 +124,7 @@ func (c *Client) readConn() {
 func (client *Client) maybeLogWriteError(err error) bool {
 	if err != nil {
 		if DEBUG_NET {
-			if err == io.EOF {
-				log.Printf("%s ← closed", client.conn.RemoteAddr())
-			} else {
-				log.Printf("%s ← error: %s", client.conn.RemoteAddr(), err)
-			}
+			log.Printf("%s ← error: %s", client.conn.RemoteAddr(), err)
 		}
 		return true
 	}
@@ -180,6 +176,8 @@ func (client *Client) Destroy() {
 
 	// clear channel list
 	client.channels = make(ChannelSet)
+
+	client.server.clients.Remove(client)
 
 	client.destroyed = true
 }
