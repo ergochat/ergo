@@ -1,11 +1,9 @@
 package irc
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -14,7 +12,6 @@ type Client struct {
 	away        bool
 	awayMessage string
 	channels    ChannelSet
-	conn        net.Conn
 	ctime       time.Time
 	destroyed   bool
 	hostname    string
@@ -28,6 +25,7 @@ type Client struct {
 	registered  bool
 	replies     chan Reply
 	server      *Server
+	socket      *Socket
 	authorized  bool
 	username    string
 }
@@ -37,16 +35,16 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	client := &Client{
 		atime:    now,
 		channels: make(ChannelSet),
-		conn:     conn,
 		ctime:    now,
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		replies:  make(chan Reply),
 		server:   server,
+		socket:   NewSocket(conn),
 	}
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.Destroy)
 
-	go client.readConn()
-	go client.writeConn()
+	go client.readCommands()
+	go client.writeReplies()
 
 	return client
 }
@@ -91,23 +89,8 @@ func (client *Client) ConnectionClosed() {
 	client.server.commands <- msg
 }
 
-func (c *Client) readConn() {
-	recv := bufio.NewReader(c.conn)
-
-	for {
-		line, err := recv.ReadString('\n')
-		if err != nil {
-			if DEBUG_NET {
-				log.Printf("%s → error: %s", c.conn.RemoteAddr(), err)
-			}
-			break
-		}
-
-		line = strings.TrimSpace(line)
-		if DEBUG_NET {
-			log.Printf("%s → %s", c.conn.RemoteAddr(), line)
-		}
-
+func (c *Client) readCommands() {
+	for line := range c.socket.Read() {
 		m, err := ParseCommand(line)
 		if err != nil {
 			switch err {
@@ -125,36 +108,14 @@ func (c *Client) readConn() {
 	c.ConnectionClosed()
 }
 
-func (client *Client) maybeLogWriteError(err error) bool {
-	if err != nil {
-		if DEBUG_NET {
-			log.Printf("%s ← error: %s", client.conn.RemoteAddr(), err)
-		}
-		return true
-	}
-	return false
-}
-
-func (client *Client) writeConn() {
-	send := bufio.NewWriter(client.conn)
-
+func (client *Client) writeReplies() {
 	for reply := range client.replies {
 		if DEBUG_CLIENT {
 			log.Printf("%s ← %s", client, reply)
 		}
-		for _, str := range reply.Format(client) {
-			if DEBUG_NET {
-				log.Printf("%s ← %s", client.conn.RemoteAddr(), str)
-			}
-			if _, err := send.WriteString(str); client.maybeLogWriteError(err) {
-				break
-			}
-			if _, err := send.WriteString(CRLF); client.maybeLogWriteError(err) {
-				break
-			}
-			if err := send.Flush(); client.maybeLogWriteError(err) {
-				break
-			}
+
+		if err := client.socket.Write(reply.Format(client)); err != nil {
+			break
 		}
 	}
 	client.ConnectionClosed()
@@ -171,7 +132,7 @@ func (client *Client) Destroy() {
 
 	client.destroyed = true
 
-	client.conn.Close()
+	client.socket.Close()
 
 	close(client.replies)
 	client.replies = nil
