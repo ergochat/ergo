@@ -113,7 +113,12 @@ func (c *Client) readCommands() {
 		m.SetClient(c)
 		c.server.Command(m)
 	}
-	c.ConnectionClosed()
+
+	if c.registered {
+		c.ConnectionClosed()
+	} else {
+		c.Destroy()
+	}
 }
 
 func (client *Client) writeReplies() {

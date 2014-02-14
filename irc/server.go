@@ -65,10 +65,6 @@ func (server *Server) receiveCommands() {
 
 		client.Touch()
 		command.HandleServer(server)
-
-		if DEBUG_SERVER {
-			log.Printf("%s → %s %+v processed", command.Client(), server, command)
-		}
 	}
 }
 
@@ -311,9 +307,11 @@ func (m *QuitCommand) HandleServer(server *Server) {
 	client.Reply(RplError(server, client))
 	client.Destroy()
 
-	reply := RplQuit(client, m.message)
-	for iclient := range iclients {
-		iclient.Reply(reply)
+	if len(iclients) > 0 {
+		reply := RplQuit(client, m.message)
+		for iclient := range iclients {
+			iclient.Reply(reply)
+		}
 	}
 }
 
