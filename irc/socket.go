@@ -6,15 +6,17 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 )
 
 type Socket struct {
 	closed  bool
 	conn    net.Conn
+	mutex   *sync.Mutex
 	reader  *bufio.Reader
-	writer  *bufio.Writer
-	send    chan string
 	receive chan string
+	send    chan string
+	writer  *bufio.Writer
 }
 
 func NewSocket(conn net.Conn) *Socket {
@@ -23,6 +25,7 @@ func NewSocket(conn net.Conn) *Socket {
 		reader:  bufio.NewReader(conn),
 		receive: make(chan string),
 		send:    make(chan string),
+		mutex:   &sync.Mutex{},
 		writer:  bufio.NewWriter(conn),
 	}
 
@@ -36,8 +39,14 @@ func (socket *Socket) String() string {
 	return socket.conn.RemoteAddr().String()
 }
 
+func (socket *Socket) IsClosed() bool {
+	socket.mutex.Lock()
+	defer socket.mutex.Unlock()
+	return socket.closed
+}
+
 func (socket *Socket) Close() {
-	if socket.closed {
+	if socket.IsClosed() {
 		return
 	}
 
@@ -45,10 +54,12 @@ func (socket *Socket) Close() {
 		log.Printf("%s closed", socket)
 	}
 
+	socket.mutex.Lock()
 	socket.closed = true
 	socket.conn.Close()
 	close(socket.send)
 	close(socket.receive)
+	socket.mutex.Unlock()
 }
 
 func (socket *Socket) Read() <-chan string {
@@ -57,7 +68,7 @@ func (socket *Socket) Read() <-chan string {
 
 func (socket *Socket) Write(lines []string) error {
 	for _, line := range lines {
-		if socket.closed {
+		if socket.IsClosed() {
 			return io.EOF
 		}
 		socket.send <- line

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,7 @@ type Client struct {
 	replies     chan Reply
 	server      *Server
 	socket      *Socket
+	mutex       *sync.Mutex
 	authorized  bool
 	username    string
 }
@@ -40,6 +42,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		replies:  make(chan Reply),
 		server:   server,
 		socket:   NewSocket(conn),
+		mutex:    &sync.Mutex{},
 	}
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.Destroy)
 
@@ -50,7 +53,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 }
 
 func (client *Client) Touch() {
-	if client.destroyed {
+	if client.IsDestroyed() {
 		return
 	}
 
@@ -86,7 +89,7 @@ func (client *Client) ConnectionTimeout() {
 }
 
 func (client *Client) ConnectionClosed() {
-	if client.destroyed {
+	if client.IsDestroyed() {
 		return
 	}
 
@@ -133,8 +136,14 @@ func (client *Client) writeReplies() {
 	}
 }
 
+func (client *Client) IsDestroyed() bool {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	return client.destroyed
+}
+
 func (client *Client) Destroy() {
-	if client.destroyed {
+	if client.IsDestroyed() {
 		return
 	}
 
@@ -142,6 +151,7 @@ func (client *Client) Destroy() {
 		log.Printf("%s destroying", client)
 	}
 
+	client.mutex.Lock()
 	client.destroyed = true
 
 	if client.replies != nil {
@@ -163,6 +173,8 @@ func (client *Client) Destroy() {
 	client.channels = make(ChannelSet)
 
 	client.server.clients.Remove(client)
+
+	client.mutex.Unlock()
 
 	if DEBUG_CLIENT {
 		log.Printf("%s destroyed", client)
