@@ -107,13 +107,7 @@ func (c *Client) readCommands() {
 		}
 
 		m.SetClient(c)
-		if DEBUG_CLIENT {
-			log.Printf("%s sending %s", c, m)
-		}
 		c.server.Command(m)
-		if DEBUG_CLIENT {
-			log.Printf("%s sent %s", c, m)
-		}
 	}
 	c.ConnectionClosed()
 }
@@ -124,12 +118,11 @@ func (client *Client) writeReplies() {
 			log.Printf("%s ← %s", client, reply)
 		}
 
-		if err := client.socket.Write(reply.Format(client)); err != nil {
+		if client.socket.Write(reply.Format(client)) != nil {
 			close(client.replies)
 		}
 	}
 	client.replies = nil
-	client.ConnectionClosed()
 }
 
 func (client *Client) Destroy() {
