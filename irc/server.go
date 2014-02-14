@@ -9,14 +9,16 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
 type Server struct {
 	channels  ChannelNameMap
-	commands  chan<- Command
+	commands  chan Command
 	ctime     time.Time
 	motdFile  string
+	mutex     *sync.Mutex
 	name      string
 	operators map[string]string
 	password  string
@@ -24,13 +26,13 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	commands := make(chan Command)
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
-		commands:  commands,
+		commands:  make(chan Command),
 		ctime:     time.Now(),
 		motdFile:  config.MOTD,
+		mutex:     &sync.Mutex{},
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
@@ -40,7 +42,7 @@ func NewServer(config *Config) *Server {
 		server.operators[opConf.Name] = opConf.Password
 	}
 
-	go server.receiveCommands(commands)
+	go server.receiveCommands()
 
 	for _, listenerConf := range config.Listeners {
 		go server.listen(listenerConf)
@@ -49,8 +51,8 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
-func (server *Server) receiveCommands(commands <-chan Command) {
-	for command := range commands {
+func (server *Server) receiveCommands() {
+	for command := range server.commands {
 		if DEBUG_SERVER {
 			log.Printf("%s → %s %+v", command.Client(), server, command)
 		}
@@ -70,6 +72,12 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 	}
 }
 
+func (server *Server) Command(command Command) {
+	server.mutex.Lock()
+	server.commands <- command
+	server.mutex.Unlock()
+}
+
 func (server *Server) Authorize(client *Client, command Command) bool {
 	if client.authorized {
 		return true
@@ -83,7 +91,7 @@ func (server *Server) Authorize(client *Client, command Command) bool {
 	switch command.(type) {
 	case *PassCommand, *CapCommand, *ProxyCommand:
 		// no-op
-	default:
+	default: // any other commands void authorization
 		return false
 	}
 
