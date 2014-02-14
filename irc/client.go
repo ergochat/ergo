@@ -35,7 +35,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	client := &Client{
 		channels: make(ChannelSet),
 		conn:     conn,
-		hostname: IPString(conn.RemoteAddr()),
+		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		replies:  make(chan Reply),
 		server:   server,
 	}
@@ -91,9 +91,9 @@ func (c *Client) readConn() {
 		if err != nil {
 			if DEBUG_NET {
 				if err == io.EOF {
-					log.Printf("%s → %s closed", c.conn.RemoteAddr(), c.conn.LocalAddr())
+					log.Printf("%s → closed", c.conn.RemoteAddr())
 				} else {
-					log.Printf("%s → %s error: %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), err)
+					log.Printf("%s → error: %s", c.conn.RemoteAddr(), err)
 				}
 			}
 			break
@@ -101,7 +101,7 @@ func (c *Client) readConn() {
 
 		line = strings.TrimSpace(line)
 		if DEBUG_NET {
-			log.Printf("%s → %s %s", c.conn.RemoteAddr(), c.conn.LocalAddr(), line)
+			log.Printf("%s → %s", c.conn.RemoteAddr(), line)
 		}
 
 		m, err := ParseCommand(line)
@@ -125,9 +125,9 @@ func (client *Client) maybeLogWriteError(err error) bool {
 	if err != nil {
 		if DEBUG_NET {
 			if err == io.EOF {
-				log.Printf("%s ← %s closed", client.conn.RemoteAddr(), client.conn.LocalAddr())
+				log.Printf("%s ← closed", client.conn.RemoteAddr())
 			} else {
-				log.Printf("%s ← %s error: %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), err)
+				log.Printf("%s ← error: %s", client.conn.RemoteAddr(), err)
 			}
 		}
 		return true
@@ -144,7 +144,7 @@ func (client *Client) writeConn() {
 		}
 		for _, str := range reply.Format(client) {
 			if DEBUG_NET {
-				log.Printf("%s ← %s %s", client.conn.RemoteAddr(), client.conn.LocalAddr(), str)
+				log.Printf("%s ← %s", client.conn.RemoteAddr(), str)
 			}
 			if _, err := send.WriteString(str); client.maybeLogWriteError(err) {
 				break
