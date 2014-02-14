@@ -87,7 +87,7 @@ func (socket *Socket) readLines() {
 
 func (socket *Socket) writeLines() {
 	for line := range socket.send {
-		if DEBUG_CLIENT {
+		if DEBUG_NET {
 			log.Printf("%s ← %s", socket, line)
 		}
 		if _, err := socket.writer.WriteString(line); socket.maybeLogWriteError(err) {
