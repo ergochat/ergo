@@ -164,7 +164,10 @@ func (channel *Channel) ModeString() (str string) {
 }
 
 func (channel *Channel) Join(client *Client) {
+	channel.mutex.Lock()
 	channel.members.Add(client)
+	channel.mutex.Unlock()
+
 	client.channels.Add(channel)
 	reply := RplJoin(client, channel)
 	client.Reply(reply)
