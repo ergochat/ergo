@@ -55,27 +55,16 @@ func (channel *Channel) Destroy() {
 		return
 	}
 
-	close(channel.replies)
-	channel.replies = nil
-	close(channel.commands)
-	channel.commands = nil
-
-	channel.server.channels.Remove(channel)
-
 	channel.destroyed = true
+	channel.members = make(ClientSet)
+	channel.server.channels.Remove(channel)
 }
 
 func (channel *Channel) Command(command ChannelCommand) {
-	if channel.commands == nil {
-		return
-	}
 	channel.commands <- command
 }
 
 func (channel *Channel) Reply(replies ...Reply) {
-	if channel.replies == nil {
-		return
-	}
 	for _, reply := range replies {
 		channel.replies <- reply
 	}
@@ -83,6 +72,13 @@ func (channel *Channel) Reply(replies ...Reply) {
 
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
+		if channel.destroyed {
+			if DEBUG_CHANNEL {
+				log.Printf("%s → %s %s dropped", command.Source(), channel, command)
+			}
+			continue
+		}
+
 		if DEBUG_CHANNEL {
 			log.Printf("%s → %s %s", command.Source(), channel, command)
 		}
@@ -92,6 +88,13 @@ func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 
 func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
+		if channel.destroyed {
+			if DEBUG_CHANNEL {
+				log.Printf("%s ← %s %s dropped", channel, reply.Source(), reply)
+			}
+			continue
+		}
+
 		if DEBUG_CHANNEL {
 			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 		}

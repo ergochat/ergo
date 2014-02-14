@@ -126,6 +126,13 @@ func (c *Client) readCommands() {
 
 func (client *Client) writeReplies() {
 	for reply := range client.replies {
+		if client.IsDestroyed() {
+			if DEBUG_CLIENT {
+				log.Printf("%s ← %s dropped", client, reply)
+			}
+			continue
+		}
+
 		if DEBUG_CLIENT {
 			log.Printf("%s ← %s", client, reply)
 		}
@@ -154,11 +161,6 @@ func (client *Client) Destroy() {
 	client.mutex.Lock()
 	client.destroyed = true
 
-	if client.replies != nil {
-		close(client.replies)
-		client.replies = nil
-	}
-
 	client.socket.Close()
 
 	if client.idleTimer != nil {
@@ -169,9 +171,7 @@ func (client *Client) Destroy() {
 		client.quitTimer.Stop()
 	}
 
-	// clear channel list
-	client.channels = make(ChannelSet)
-
+	client.channels = make(ChannelSet) // clear channel list
 	client.server.clients.Remove(client)
 
 	client.mutex.Unlock()
