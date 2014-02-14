@@ -128,10 +128,14 @@ func (client *Client) writeReplies() {
 		}
 
 		if client.socket.Write(reply.Format(client)) != nil {
-			close(client.replies)
+			break
 		}
 	}
-	client.replies = nil
+
+	if client.replies != nil {
+		close(client.replies)
+		client.replies = nil
+	}
 }
 
 func (client *Client) Destroy() {
@@ -147,6 +151,7 @@ func (client *Client) Destroy() {
 
 	if client.replies != nil {
 		close(client.replies)
+		client.replies = nil
 	}
 
 	client.socket.Close()
