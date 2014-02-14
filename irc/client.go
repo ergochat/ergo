@@ -82,6 +82,10 @@ func (client *Client) ConnectionTimeout() {
 }
 
 func (client *Client) ConnectionClosed() {
+	if client.destroyed {
+		return
+	}
+
 	msg := &QuitCommand{
 		message: "connection closed",
 	}
@@ -121,10 +125,9 @@ func (client *Client) writeReplies() {
 		}
 
 		if err := client.socket.Write(reply.Format(client)); err != nil {
-			break
+			close(client.replies)
 		}
 	}
-	close(client.replies)
 	client.replies = nil
 	client.ConnectionClosed()
 }
@@ -140,7 +143,9 @@ func (client *Client) Destroy() {
 
 	client.destroyed = true
 
-	close(client.replies)
+	if client.replies != nil {
+		close(client.replies)
+	}
 
 	client.socket.Close()
 
