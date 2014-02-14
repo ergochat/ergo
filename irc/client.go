@@ -131,11 +131,6 @@ func (client *Client) writeReplies() {
 			break
 		}
 	}
-
-	if client.replies != nil {
-		close(client.replies)
-		client.replies = nil
-	}
 }
 
 func (client *Client) Destroy() {
