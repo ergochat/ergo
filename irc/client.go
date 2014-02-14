@@ -103,7 +103,13 @@ func (c *Client) readCommands() {
 		}
 
 		m.SetClient(c)
+		if DEBUG_CLIENT {
+			log.Printf("%s sending %s", c, m)
+		}
 		c.server.commands <- m
+		if DEBUG_CLIENT {
+			log.Printf("%s sent %s", c, m)
+		}
 	}
 	c.ConnectionClosed()
 }
