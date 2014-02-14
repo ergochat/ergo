@@ -135,7 +135,7 @@ func (client *Client) Destroy() {
 	}
 
 	if DEBUG_CLIENT {
-		log.Printf("%s.Destroy", client)
+		log.Printf("%s destroying", client)
 	}
 
 	client.destroyed = true
@@ -159,13 +159,16 @@ func (client *Client) Destroy() {
 
 	client.server.clients.Remove(client)
 
+	if DEBUG_CLIENT {
+		log.Printf("%s destroyed", client)
+	}
 }
 
 func (client *Client) Reply(replies ...Reply) {
 	for _, reply := range replies {
 		if client.replies == nil {
 			if DEBUG_CLIENT {
-				log.Printf("%s.Reply: dropped: %s", client, reply)
+				log.Printf("%s dropped %s", client, reply)
 			}
 			continue
 		}
