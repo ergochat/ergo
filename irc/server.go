@@ -304,7 +304,6 @@ func (m *QuitCommand) HandleServer(server *Server) {
 	iclients := client.InterestedClients()
 	iclients.Remove(client)
 
-	server.clients.Remove(client)
 	for channel := range client.channels {
 		channel.members.Remove(client)
 	}

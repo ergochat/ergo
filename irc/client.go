@@ -78,7 +78,7 @@ func (client *Client) ConnectionTimeout() {
 		message: "connection timeout",
 	}
 	msg.SetClient(client)
-	client.server.commands <- msg
+	client.server.Command(msg)
 }
 
 func (client *Client) ConnectionClosed() {
@@ -86,7 +86,7 @@ func (client *Client) ConnectionClosed() {
 		message: "connection closed",
 	}
 	msg.SetClient(client)
-	client.server.commands <- msg
+	client.server.Command(msg)
 }
 
 func (c *Client) readCommands() {
@@ -106,7 +106,7 @@ func (c *Client) readCommands() {
 		if DEBUG_CLIENT {
 			log.Printf("%s sending %s", c, m)
 		}
-		c.server.commands <- m
+		c.server.Command(m)
 		if DEBUG_CLIENT {
 			log.Printf("%s sent %s", c, m)
 		}
@@ -124,6 +124,8 @@ func (client *Client) writeReplies() {
 			break
 		}
 	}
+	close(client.replies)
+	client.replies = nil
 	client.ConnectionClosed()
 }
 
@@ -138,10 +140,9 @@ func (client *Client) Destroy() {
 
 	client.destroyed = true
 
-	client.socket.Close()
-
 	close(client.replies)
-	client.replies = nil
+
+	client.socket.Close()
 
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
@@ -160,11 +161,11 @@ func (client *Client) Destroy() {
 
 func (client *Client) Reply(replies ...Reply) {
 	for _, reply := range replies {
-		if client.destroyed {
+		if client.replies == nil {
 			if DEBUG_CLIENT {
-				log.Printf("%s.Reply: destroyed: %s", client, reply)
+				log.Printf("%s.Reply: dropped: %s", client, reply)
 			}
-			break
+			continue
 		}
 		client.replies <- reply
 	}
