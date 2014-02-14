@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Server struct {
 	commands  chan Command
 	ctime     time.Time
 	motdFile  string
+	mutex     *sync.Mutex
 	name      string
 	operators map[string]string
 	password  string
@@ -30,6 +32,7 @@ func NewServer(config *Config) *Server {
 		commands:  make(chan Command),
 		ctime:     time.Now(),
 		motdFile:  config.MOTD,
+		mutex:     &sync.Mutex{},
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
@@ -296,7 +299,9 @@ func (m *QuitCommand) HandleServer(server *Server) {
 	iclients.Remove(client)
 
 	for channel := range client.channels {
+		channel.mutex.Lock()
 		channel.members.Remove(client)
+		channel.mutex.Unlock()
 	}
 
 	client.Reply(RplError(server, client))

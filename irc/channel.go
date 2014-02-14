@@ -2,6 +2,7 @@ package irc
 
 import (
 	"log"
+	"sync"
 )
 
 type Channel struct {
@@ -10,6 +11,7 @@ type Channel struct {
 	destroyed bool
 	key       string
 	members   ClientSet
+	mutex     *sync.Mutex
 	name      string
 	noOutside bool
 	password  string
@@ -38,6 +40,7 @@ func NewChannel(s *Server, name string) *Channel {
 		banList:  make([]UserMask, 0),
 		commands: commands,
 		members:  make(ClientSet),
+		mutex:    &sync.Mutex{},
 		name:     name,
 		replies:  replies,
 		server:   s,
@@ -92,11 +95,13 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 		if DEBUG_CHANNEL {
 			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 		}
+		channel.mutex.Lock()
 		for client := range channel.members {
 			if reply.Source() != Identifier(client) {
 				client.Reply(reply)
 			}
 		}
+		channel.mutex.Unlock()
 	}
 }
 
