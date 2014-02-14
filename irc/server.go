@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -18,7 +17,6 @@ type Server struct {
 	commands  chan Command
 	ctime     time.Time
 	motdFile  string
-	mutex     *sync.Mutex
 	name      string
 	operators map[string]string
 	password  string
@@ -32,7 +30,6 @@ func NewServer(config *Config) *Server {
 		commands:  make(chan Command),
 		ctime:     time.Now(),
 		motdFile:  config.MOTD,
-		mutex:     &sync.Mutex{},
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
@@ -69,9 +66,7 @@ func (server *Server) receiveCommands() {
 }
 
 func (server *Server) Command(command Command) {
-	server.mutex.Lock()
 	server.commands <- command
-	server.mutex.Unlock()
 }
 
 func (server *Server) Authorize(client *Client, command Command) bool {
