@@ -15,6 +15,7 @@ type Client struct {
 	awayMessage string
 	channels    ChannelSet
 	conn        net.Conn
+	ctime       time.Time
 	destroyed   bool
 	hostname    string
 	idleTimer   *time.Timer
@@ -32,9 +33,12 @@ type Client struct {
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
+	now := time.Now()
 	client := &Client{
+		atime:    now,
 		channels: make(ChannelSet),
 		conn:     conn,
+		ctime:    now,
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		replies:  make(chan Reply),
 		server:   server,
@@ -136,7 +140,7 @@ func (client *Client) writeConn() {
 
 	for reply := range client.replies {
 		if DEBUG_CLIENT {
-			log.Printf("%s ← %s %s", client, reply.Source(), reply)
+			log.Printf("%s ← %s", client, reply)
 		}
 		for _, str := range reply.Format(client) {
 			if DEBUG_NET {
@@ -161,6 +165,12 @@ func (client *Client) Destroy() {
 		return
 	}
 
+	if DEBUG_CLIENT {
+		log.Printf("%s destroy", client)
+	}
+
+	client.destroyed = true
+
 	client.conn.Close()
 
 	close(client.replies)
@@ -179,11 +189,13 @@ func (client *Client) Destroy() {
 
 	client.server.clients.Remove(client)
 
-	client.destroyed = true
 }
 
 func (client *Client) Reply(replies ...Reply) {
-	if client.replies == nil {
+	if client.destroyed {
+		if DEBUG_CLIENT {
+			log.Printf("%s.Reply: destroyed", client)
+		}
 		return
 	}
 	for _, reply := range replies {

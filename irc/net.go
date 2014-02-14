@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"log"
 	"net"
 	"strings"
 )
@@ -19,9 +20,17 @@ func AddrLookupHostname(addr net.Addr) string {
 }
 
 func LookupHostname(addr string) string {
+	if DEBUG_NET {
+		log.Printf("LookupHostname(%s)", addr)
+	}
 	names, err := net.LookupAddr(addr)
 	if err != nil {
 		return addr
 	}
-	return strings.TrimSuffix(names[0], ".")
+
+	hostname := strings.TrimSuffix(names[0], ".")
+	if DEBUG_NET {
+		log.Printf("LookupHostname(%s) → %s", addr, hostname)
+	}
+	return hostname
 }

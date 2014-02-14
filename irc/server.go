@@ -52,7 +52,7 @@ func NewServer(config *Config) *Server {
 func (server *Server) receiveCommands(commands <-chan Command) {
 	for command := range commands {
 		if DEBUG_SERVER {
-			log.Printf("%s → %s %s", command.Client(), server, command)
+			log.Printf("%s → %s %+v", command.Client(), server, command)
 		}
 		client := command.Client()
 
@@ -65,7 +65,7 @@ func (server *Server) receiveCommands(commands <-chan Command) {
 		command.HandleServer(server)
 
 		if DEBUG_SERVER {
-			log.Printf("%s → %s %s processed", command.Client(), server, command)
+			log.Printf("%s → %s %+v processed", command.Client(), server, command)
 		}
 	}
 }
