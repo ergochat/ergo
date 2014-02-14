@@ -50,6 +50,10 @@ func NewClient(server *Server, conn net.Conn) *Client {
 }
 
 func (client *Client) Touch() {
+	if client.destroyed {
+		return
+	}
+
 	client.atime = time.Now()
 
 	if client.quitTimer != nil {

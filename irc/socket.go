@@ -66,7 +66,7 @@ func (socket *Socket) Write(lines []string) error {
 }
 
 func (socket *Socket) readLines() {
-	for !socket.closed {
+	for {
 		line, err := socket.reader.ReadString('\n')
 		if err != nil {
 			if DEBUG_NET {
