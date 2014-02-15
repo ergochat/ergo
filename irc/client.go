@@ -19,17 +19,15 @@ type Client struct {
 	idleTimer   *time.Timer
 	invisible   bool
 	loginTimer  *time.Timer
+	mutex       *sync.Mutex
 	nick        string
 	operator    bool
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	registered  bool
 	replies     chan Reply
 	server      *Server
 	socket      *Socket
-	mutex       *sync.Mutex
-	authorized  bool
 	username    string
 }
 
@@ -119,7 +117,7 @@ func (c *Client) readCommands() {
 		c.server.Command(m)
 	}
 
-	if c.registered {
+	if c.phase == Normal {
 		c.ConnectionClosed()
 	} else {
 		c.Destroy()

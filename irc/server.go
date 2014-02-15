@@ -169,7 +169,6 @@ func (s *Server) GenerateGuestNick() string {
 
 func (s *Server) tryRegister(c *Client) {
 	if c.HasNick() && c.HasUsername() {
-		c.registered = true
 		c.phase = Normal
 		c.loginTimer.Stop()
 		c.Reply(
@@ -250,7 +249,6 @@ func (m *PassCommand) HandleAuthServer(s *Server) {
 		return
 	}
 
-	client.authorized = true
 	client.phase = Registration
 }
 

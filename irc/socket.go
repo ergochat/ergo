@@ -111,7 +111,6 @@ func (socket *Socket) writeLines() {
 			break
 		}
 	}
-	socket.Close()
 }
 
 func (socket *Socket) maybeLogWriteError(err error) bool {
