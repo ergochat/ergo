@@ -45,10 +45,8 @@ func NewStringReply(source Identifier, code string,
 }
 
 func (reply *StringReply) Format(client *Client) []string {
-	message := fmt.Sprintf("%s %s", reply.code, reply.message)
-	if Identifier(client.server) != reply.source {
-		message = fmt.Sprintf(":%s %s", reply.id, message)
-	}
+	message := fmt.Sprintf(":%s %s %s",
+		reply.id, reply.code, reply.message)
 	return []string{message}
 }
 
@@ -59,10 +57,10 @@ func (reply *StringReply) String() string {
 
 type NumericReply struct {
 	BaseReply
-	code int
+	code Numeric
 }
 
-func NewNumericReply(source Identifier, code int, format string,
+func NewNumericReply(source Identifier, code Numeric, format string,
 	args ...interface{}) *NumericReply {
 	reply := &NumericReply{
 		code: code,
@@ -73,11 +71,8 @@ func NewNumericReply(source Identifier, code int, format string,
 }
 
 func (reply *NumericReply) Format(client *Client) []string {
-	message := fmt.Sprintf("%03d %s %s",
-		reply.code, client.Nick(), reply.message)
-	if Identifier(client.server) != reply.source {
-		message = fmt.Sprintf(":%s %s", reply.id, message)
-	}
+	message := fmt.Sprintf(":%s %s %s %s",
+		reply.id, reply.code, client.Nick(), reply.message)
 	return []string{message}
 }
 

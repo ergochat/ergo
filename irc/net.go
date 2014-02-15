@@ -20,17 +20,11 @@ func AddrLookupHostname(addr net.Addr) string {
 }
 
 func LookupHostname(addr string) string {
-	if DEBUG_NET {
-		log.Printf("LookupHostname(%s)", addr)
-	}
 	names, err := net.LookupAddr(addr)
 	if err != nil {
 		return addr
 	}
 
 	hostname := strings.TrimSuffix(names[0], ".")
-	if DEBUG_NET {
-		log.Printf("LookupHostname(%s) → %s", addr, hostname)
-	}
 	return hostname
 }

@@ -18,10 +18,16 @@ type ModeOp rune
 // user mode flags
 type UserMode rune
 
-type Phase uint
-
 func (mode UserMode) String() string {
 	return fmt.Sprintf("%c", mode)
+}
+
+type Phase uint
+
+type Numeric uint
+
+func (code Numeric) String() string {
+	return fmt.Sprintf("%03d", code)
 }
 
 // channel mode flags
