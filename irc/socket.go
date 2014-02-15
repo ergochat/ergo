@@ -57,7 +57,6 @@ func (socket *Socket) Close() {
 	socket.mutex.Lock()
 	socket.closed = true
 	socket.conn.Close()
-	close(socket.send)
 	close(socket.receive)
 	socket.mutex.Unlock()
 }
