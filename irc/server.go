@@ -171,11 +171,10 @@ func (s *Server) tryRegister(c *Client) {
 	if c.HasNick() && c.HasUsername() {
 		c.phase = Normal
 		c.loginTimer.Stop()
-		c.Reply(
-			RplWelcome(s, c),
-			RplYourHost(s),
-			RplCreated(s),
-			RplMyInfo(s))
+		c.Reply(RplWelcome(s, c))
+		c.Reply(RplYourHost(s))
+		c.Reply(RplCreated(s))
+		c.Reply(RplMyInfo(s))
 		s.MOTD(c)
 	}
 }

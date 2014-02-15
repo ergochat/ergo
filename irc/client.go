@@ -181,16 +181,14 @@ func (client *Client) Destroy() {
 	}
 }
 
-func (client *Client) Reply(replies ...Reply) {
-	for _, reply := range replies {
-		if client.replies == nil {
-			if DEBUG_CLIENT {
-				log.Printf("%s dropped %s", client, reply)
-			}
-			continue
+func (client *Client) Reply(reply Reply) {
+	if client.replies == nil {
+		if DEBUG_CLIENT {
+			log.Printf("%s dropped %s", client, reply)
 		}
-		client.replies <- reply
+		return
 	}
+	client.replies <- reply
 }
 
 func (client *Client) HasNick() bool {

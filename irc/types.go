@@ -125,7 +125,7 @@ type Identifier interface {
 }
 
 type Replier interface {
-	Reply(...Reply)
+	Reply(Reply)
 }
 
 type Reply interface {

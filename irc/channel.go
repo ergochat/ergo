@@ -64,10 +64,8 @@ func (channel *Channel) Command(command ChannelCommand) {
 	channel.commands <- command
 }
 
-func (channel *Channel) Reply(replies ...Reply) {
-	for _, reply := range replies {
-		channel.replies <- reply
-	}
+func (channel *Channel) Reply(reply Reply) {
+	channel.replies <- reply
 }
 
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
