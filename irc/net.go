@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"log"
 	"net"
 	"strings"
 )
