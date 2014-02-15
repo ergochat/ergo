@@ -135,9 +135,9 @@ func (s *Server) listen(config ListenerConfig) {
 }
 
 func (s *Server) GetOrMakeChannel(name string) *Channel {
-	channel := s.channels[name]
+	channel, ok := s.channels[name]
 
-	if channel == nil {
+	if !ok {
 		channel = NewChannel(s, name)
 		s.channels[name] = channel
 	}

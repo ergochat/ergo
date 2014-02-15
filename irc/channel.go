@@ -9,12 +9,11 @@ type Channel struct {
 	banList   []UserMask
 	commands  chan<- ChannelCommand
 	destroyed bool
+	flags     map[ChannelMode]bool
 	key       string
 	members   ClientSet
 	mutex     *sync.Mutex
 	name      string
-	noOutside bool
-	password  string
 	replies   chan<- Reply
 	server    *Server
 	topic     string
@@ -39,6 +38,7 @@ func NewChannel(s *Server, name string) *Channel {
 	channel := &Channel{
 		banList:  make([]UserMask, 0),
 		commands: commands,
+		flags:    make(map[ChannelMode]bool),
 		members:  make(ClientSet),
 		mutex:    &sync.Mutex{},
 		name:     name,
@@ -124,15 +124,21 @@ func (channel *Channel) GetUsers(replier Replier) {
 }
 
 func (channel *Channel) ClientIsOperator(client *Client) bool {
-	// TODO client-channel relations
-	return false
+	return channel.members.HasMode(client, ChannelOperator)
 }
 
 func (channel *Channel) Nicks() []string {
 	nicks := make([]string, len(channel.members))
 	i := 0
-	for client := range channel.members {
-		nicks[i] = client.Nick()
+	for client, modes := range channel.members {
+		switch {
+		case modes[ChannelOperator]:
+			nicks[i] = "@" + client.Nick()
+		case modes[Voice]:
+			nicks[i] = "+" + client.Nick()
+		default:
+			nicks[i] = client.Nick()
+		}
 		i += 1
 	}
 	return nicks
@@ -152,18 +158,32 @@ func (channel *Channel) String() string {
 
 // <mode> <mode params>
 func (channel *Channel) ModeString() (str string) {
-	if channel.noOutside {
-		str += NoOutside.String()
+	if channel.key != "" {
+		str += Key.String()
 	}
+
+	for mode := range channel.flags {
+		str += mode.String()
+	}
+
 	if len(str) > 0 {
 		str = "+" + str
 	}
+
+	if channel.key != "" {
+		str += " " + channel.key
+	}
+
 	return
 }
 
 func (channel *Channel) Join(client *Client) {
 	channel.mutex.Lock()
 	channel.members.Add(client)
+	if len(channel.members) == 1 {
+		channel.members[client][ChannelCreator] = true
+		channel.members[client][ChannelOperator] = true
+	}
 	channel.mutex.Unlock()
 
 	client.channels.Add(channel)
@@ -180,7 +200,7 @@ func (channel *Channel) Join(client *Client) {
 
 func (m *JoinCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
-	if channel.key != m.channels[channel.name] {
+	if (channel.key != "") && (channel.key != m.channels[channel.name]) {
 		client.Reply(ErrBadChannelKey(channel))
 		return
 	}
@@ -218,6 +238,11 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 	}
 
 	if m.setTopic {
+		if channel.flags[OpOnlyTopic] {
+			client.Reply(ErrChanOPrivIsNeeded(channel))
+			return
+		}
+
 		channel.topic = m.topic
 		channel.GetTopic(client)
 		reply := RplTopicMsg(client, channel)
@@ -232,7 +257,7 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
-	if channel.noOutside && !channel.members.Has(client) {
+	if channel.flags[NoOutside] && !channel.members.Has(client) {
 		client.Reply(ErrCannotSendToChan(channel))
 		return
 	}
@@ -250,16 +275,70 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				client.Reply(RplBanList(channel, banMask))
 			}
 			client.Reply(RplEndOfBanList(channel))
-		case NoOutside:
-			if channel.ClientIsOperator(client) {
-				switch modeOp.op {
-				case Add:
-					channel.noOutside = true
-				case Remove:
-					channel.noOutside = false
-				}
-			} else {
+
+		case NoOutside, Private, Secret, OpOnlyTopic:
+			if !channel.ClientIsOperator(client) {
 				client.Reply(ErrChanOPrivIsNeeded(channel))
+				continue
+			}
+
+			switch modeOp.op {
+			case Add:
+				channel.flags[modeOp.mode] = true
+
+			case Remove:
+				delete(channel.flags, modeOp.mode)
+			}
+
+		case Key:
+			if !channel.ClientIsOperator(client) {
+				client.Reply(ErrChanOPrivIsNeeded(channel))
+				continue
+			}
+
+			switch modeOp.op {
+			case Add:
+				if modeOp.arg == "" {
+					// TODO err reply
+					continue
+				}
+
+				channel.key = modeOp.arg
+
+			case Remove:
+				channel.key = ""
+			}
+		}
+
+		mmode := ChannelMemberMode(modeOp.mode)
+		switch mmode {
+		case ChannelOperator, Voice:
+			if !channel.ClientIsOperator(client) {
+				client.Reply(ErrChanOPrivIsNeeded(channel))
+				continue
+			}
+
+			if modeOp.arg == "" {
+				// TODO err reply
+				continue
+			}
+
+			target := channel.server.clients[modeOp.arg]
+			if target == nil {
+				// TODO err reply
+				continue
+			}
+
+			if channel.members[target] == nil {
+				// TODO err reply
+				continue
+			}
+
+			switch modeOp.op {
+			case Add:
+				channel.members[target][mmode] = true
+			case Remove:
+				channel.members[target][mmode] = false
 			}
 		}
 	}
@@ -269,7 +348,7 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 
 func (m *NoticeCommand) HandleChannel(channel *Channel) {
 	client := m.Client()
-	if channel.noOutside && !channel.members.Has(client) {
+	if channel.flags[NoOutside] && !channel.members.Has(client) {
 		client.Reply(ErrCannotSendToChan(channel))
 		return
 	}

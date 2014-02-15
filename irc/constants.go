@@ -188,9 +188,9 @@ const (
 	Secret        ChannelMode = 's' // flag
 	UserLimit     ChannelMode = 'l' // flag arg
 
-	ChannelCreator  UserChannelMode = 'O'
-	ChannelOperator UserChannelMode = 'o'
-	Voice           UserChannelMode = 'v'
+	ChannelCreator  ChannelMemberMode = 'O' // flag
+	ChannelOperator ChannelMemberMode = 'o' // arg
+	Voice           ChannelMemberMode = 'v' // arg
 )
 
 const (

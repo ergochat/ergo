@@ -38,7 +38,7 @@ func (mode ChannelMode) String() string {
 }
 
 // user-channel mode flags
-type UserChannelMode rune
+type ChannelMemberMode rune
 
 type ChannelNameMap map[string]*Channel
 
@@ -84,18 +84,29 @@ func (clients ClientNameMap) Remove(client *Client) error {
 	return nil
 }
 
-type ClientSet map[*Client]bool
+type ChannelMemberModeSet map[ChannelMemberMode]bool
+
+type ClientSet map[*Client]ChannelMemberModeSet
 
 func (clients ClientSet) Add(client *Client) {
-	clients[client] = true
+	clients[client] = make(ChannelMemberModeSet)
 }
 
 func (clients ClientSet) Remove(client *Client) {
 	delete(clients, client)
 }
 
+func (clients ClientSet) HasMode(client *Client, mode ChannelMemberMode) bool {
+	modes, ok := clients[client]
+	if !ok {
+		return false
+	}
+	return modes[mode]
+}
+
 func (clients ClientSet) Has(client *Client) bool {
-	return clients[client]
+	_, ok := clients[client]
+	return ok
 }
 
 type ChannelSet map[*Channel]bool
