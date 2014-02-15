@@ -58,13 +58,32 @@ func (server *Server) receiveCommands() {
 		}
 		client := command.Client()
 
-		if !server.Authorize(client, command) {
-			client.Destroy()
-			return
-		}
+		switch client.phase {
+		case Authorization:
+			authCommand, ok := command.(AuthServerCommand)
+			if !ok {
+				client.Destroy()
+				return
+			}
+			authCommand.HandleAuthServer(server)
 
-		client.Touch()
-		command.HandleServer(server)
+		case Registration:
+			regCommand, ok := command.(RegServerCommand)
+			if !ok {
+				client.Destroy()
+				return
+			}
+			regCommand.HandleRegServer(server)
+
+		default:
+			serverCommand, ok := command.(ServerCommand)
+			if !ok {
+				client.Reply(ErrUnknownCommand(server, command.Name()))
+				return
+			}
+			client.Touch()
+			serverCommand.HandleServer(server)
+		}
 	}
 }
 
@@ -72,24 +91,11 @@ func (server *Server) Command(command Command) {
 	server.commands <- command
 }
 
-func (server *Server) Authorize(client *Client, command Command) bool {
-	if client.authorized {
-		return true
-	}
-
+func (server *Server) InitPhase() Phase {
 	if server.password == "" {
-		client.authorized = true
-		return true
+		return Registration
 	}
-
-	switch command.(type) {
-	case *PassCommand, *CapCommand, *ProxyCommand:
-		// no-op
-	default: // any other commands void authorization
-		return false
-	}
-
-	return true
+	return Authorization
 }
 
 func newListener(config ListenerConfig) (net.Listener, error) {
@@ -157,11 +163,14 @@ func (s *Server) GenerateGuestNick() string {
 	}
 }
 
+//
 // server functionality
+//
 
 func (s *Server) tryRegister(c *Client) {
-	if !c.registered && c.HasNick() && c.HasUsername() {
+	if c.HasNick() && c.HasUsername() {
 		c.registered = true
+		c.phase = Normal
 		c.loginTimer.Stop()
 		c.Reply(
 			RplWelcome(s, c),
@@ -221,28 +230,19 @@ func (s *Server) Nick() string {
 }
 
 //
-// commands
+// authorization commands
 //
 
-func (m *UnknownCommand) HandleServer(s *Server) {
-	m.Client().Reply(ErrUnknownCommand(s, m.command))
+func (msg *ProxyCommand) HandleAuthServer(server *Server) {
+	msg.Client().hostname = LookupHostname(msg.sourceIP)
 }
 
-func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().Reply(RplPong(s, m.Client()))
+func (msg *CapCommand) HandleAuthServer(server *Server) {
+	// TODO
 }
 
-func (m *PongCommand) HandleServer(s *Server) {
-	// no-op
-}
-
-func (m *PassCommand) HandleServer(s *Server) {
+func (m *PassCommand) HandleAuthServer(s *Server) {
 	client := m.Client()
-
-	if client.registered || client.authorized {
-		client.Reply(ErrAlreadyRegistered(s))
-		return
-	}
 
 	if s.password != m.password {
 		client.Reply(ErrPasswdMismatch(s))
@@ -251,6 +251,52 @@ func (m *PassCommand) HandleServer(s *Server) {
 	}
 
 	client.authorized = true
+	client.phase = Registration
+}
+
+//
+// registration commands
+//
+
+func (m *NickCommand) HandleRegServer(s *Server) {
+	client := m.Client()
+
+	if m.nickname == "" {
+		client.Reply(ErrNoNicknameGiven(s))
+		return
+	}
+
+	if s.clients[m.nickname] != nil {
+		client.Reply(ErrNickNameInUse(s, m.nickname))
+		return
+	}
+
+	client.nick = m.nickname
+	s.clients.Add(client)
+	client.Reply(RplNick(client, m.nickname))
+	s.tryRegister(client)
+}
+
+func (m *UserMsgCommand) HandleRegServer(s *Server) {
+	c := m.Client()
+	c.username, c.realname = m.user, m.realname
+	s.tryRegister(c)
+}
+
+//
+// normal commands
+//
+
+func (m *PassCommand) HandleServer(s *Server) {
+	m.Client().Reply(ErrAlreadyRegistered(s))
+}
+
+func (m *PingCommand) HandleServer(s *Server) {
+	m.Client().Reply(RplPong(s, m.Client()))
+}
+
+func (m *PongCommand) HandleServer(s *Server) {
+	// no-op
 }
 
 func (m *NickCommand) HandleServer(s *Server) {
@@ -274,23 +320,13 @@ func (m *NickCommand) HandleServer(s *Server) {
 	s.clients.Add(c)
 
 	iclients := c.InterestedClients()
-	iclients.Add(c)
 	for iclient := range iclients {
 		iclient.Reply(reply)
 	}
-
-	s.tryRegister(c)
 }
 
 func (m *UserMsgCommand) HandleServer(s *Server) {
-	c := m.Client()
-	if c.registered {
-		c.Reply(ErrAlreadyRegistered(s))
-		return
-	}
-
-	c.username, c.realname = m.user, m.realname
-	s.tryRegister(c)
+	m.Client().Reply(ErrAlreadyRegistered(s))
 }
 
 func (m *QuitCommand) HandleServer(server *Server) {
@@ -466,14 +502,6 @@ func (msg *OperCommand) HandleServer(server *Server) {
 
 	client.Reply(RplYoureOper(server))
 	client.Reply(RplUModeIs(server, client))
-}
-
-func (msg *CapCommand) HandleServer(server *Server) {
-	// TODO
-}
-
-func (msg *ProxyCommand) HandleServer(server *Server) {
-	msg.Client().hostname = LookupHostname(msg.sourceIP)
 }
 
 func (msg *AwayCommand) HandleServer(server *Server) {

@@ -9,6 +9,7 @@ import (
 
 type editableCommand interface {
 	Command
+	SetName(string)
 	SetClient(*Client)
 }
 
@@ -43,6 +44,7 @@ var (
 
 type BaseCommand struct {
 	client *Client
+	name   string
 }
 
 func (command *BaseCommand) Client() *Client {
@@ -53,21 +55,34 @@ func (command *BaseCommand) SetClient(c *Client) {
 	command.client = c
 }
 
+func (command *BaseCommand) Name() string {
+	return command.name
+}
+
+func (command *BaseCommand) SetName(name string) {
+	command.name = name
+}
+
 func (command *BaseCommand) Source() Identifier {
-	return command.client
+	return command.Client()
 }
 
 func (command *BaseCommand) Reply(reply Reply) {
 	command.client.Reply(reply)
 }
 
-func ParseCommand(line string) (editableCommand, error) {
+func ParseCommand(line string) (cmd editableCommand, err error) {
 	command, args := parseLine(line)
 	constructor := parseCommandFuncs[command]
 	if constructor == nil {
-		return NewUnknownCommand(command, args), nil
+		cmd = NewUnknownCommand(command, args)
+	} else {
+		cmd, err = constructor(args)
 	}
-	return constructor(args)
+	if cmd != nil {
+		cmd.SetName(command)
+	}
+	return
 }
 
 func parseArg(line string) (arg string, rest string) {
@@ -100,18 +115,16 @@ func parseLine(line string) (command string, args []string) {
 
 type UnknownCommand struct {
 	BaseCommand
-	command string
-	args    []string
+	args []string
 }
 
 func (cmd *UnknownCommand) String() string {
-	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.command, cmd.args)
+	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.Name(), cmd.args)
 }
 
 func NewUnknownCommand(command string, args []string) *UnknownCommand {
 	return &UnknownCommand{
-		command: command,
-		args:    args,
+		args: args,
 	}
 }
 

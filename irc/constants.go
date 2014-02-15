@@ -192,3 +192,9 @@ const (
 	ChannelOperator UserChannelMode = 'o'
 	Voice           UserChannelMode = 'v'
 )
+
+const (
+	Authorization Phase = iota
+	Registration  Phase = iota
+	Normal        Phase = iota
+)

@@ -18,6 +18,8 @@ type ModeOp rune
 // user mode flags
 type UserMode rune
 
+type Phase uint
+
 func (mode UserMode) String() string {
 	return fmt.Sprintf("%c", mode)
 }
@@ -125,13 +127,26 @@ type Reply interface {
 	Source() Identifier
 }
 
-// commands the server understands
-// TODO rename ServerCommand
 type Command interface {
+	Name() string
 	Client() *Client
 	Source() Identifier
 	Reply(Reply)
+}
+
+type ServerCommand interface {
+	Command
 	HandleServer(*Server)
+}
+
+type AuthServerCommand interface {
+	Command
+	HandleAuthServer(*Server)
+}
+
+type RegServerCommand interface {
+	Command
+	HandleRegServer(*Server)
 }
 
 type ChannelCommand interface {

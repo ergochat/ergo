@@ -21,6 +21,7 @@ type Client struct {
 	loginTimer  *time.Timer
 	nick        string
 	operator    bool
+	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
 	registered  bool
@@ -39,6 +40,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		channels: make(ChannelSet),
 		ctime:    now,
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
+		phase:    server.InitPhase(),
 		replies:  make(chan Reply),
 		server:   server,
 		socket:   NewSocket(conn),
