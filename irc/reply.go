@@ -218,7 +218,7 @@ func RplNamReply(channel *Channel, names []string) *NumericReply {
 }
 
 func RplEndOfNames(channel *Channel) Reply {
-	return NewNumericReply(channel, RPL_ENDOFNAMES,
+	return NewNumericReply(channel.server, RPL_ENDOFNAMES,
 		"%s :End of NAMES list", channel.name)
 }
 
