@@ -59,7 +59,10 @@ func (channel *Channel) Destroy() {
 		channel.destroyed = true
 		channel.members = make(ClientSet)
 	})
-	channel.server.channels.Remove(channel)
+
+	channel.server.withMutex(func() {
+		channel.server.channels.Remove(channel)
+	})
 }
 
 func (channel *Channel) Command(command ChannelCommand) {
@@ -112,14 +115,14 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 		if DEBUG_CHANNEL {
 			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 		}
-		channel.mutex.Lock()
-		for client := range channel.members {
-			if IsPrivMsg(reply) && (reply.Source() == Identifier(client)) {
-				continue
+		channel.withMutex(func() {
+			for client := range channel.members {
+				if IsPrivMsg(reply) && (reply.Source() == Identifier(client)) {
+					continue
+				}
+				client.Reply(reply)
 			}
-			client.Reply(reply)
-		}
-		channel.mutex.Unlock()
+		})
 	}
 }
 

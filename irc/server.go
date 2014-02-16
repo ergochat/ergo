@@ -51,6 +51,12 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
+func (server *Server) withMutex(f func()) {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	f()
+}
+
 func (server *Server) receiveCommands() {
 	for command := range server.commands {
 		if DEBUG_SERVER {
@@ -139,7 +145,9 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 
 	if !ok {
 		channel = NewChannel(s, name)
-		s.channels[name] = channel
+		s.withMutex(func() {
+			s.channels[name] = channel
+		})
 	}
 
 	return channel
@@ -331,9 +339,9 @@ func (m *QuitCommand) HandleServer(server *Server) {
 	iclients.Remove(client)
 
 	for channel := range client.channels {
-		channel.mutex.Lock()
-		channel.members.Remove(client)
-		channel.mutex.Unlock()
+		channel.withMutex(func() {
+			channel.members.Remove(client)
+		})
 	}
 
 	client.Reply(RplError(server, client))
