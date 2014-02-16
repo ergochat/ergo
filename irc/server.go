@@ -364,12 +364,14 @@ func (m *JoinCommand) HandleServer(s *Server) {
 	}
 }
 
-func (m *PartCommand) HandleServer(s *Server) {
+func (m *PartCommand) HandleServer(server *Server) {
 	for _, chname := range m.channels {
-		channel := s.channels[chname]
+		server.mutex.Lock()
+		channel := server.channels[chname]
+		server.mutex.Unlock()
 
 		if channel == nil {
-			m.Client().Reply(ErrNoSuchChannel(s, channel.name))
+			m.Client().Reply(ErrNoSuchChannel(server, channel.name))
 			continue
 		}
 

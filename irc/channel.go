@@ -51,12 +51,14 @@ func NewChannel(s *Server, name string) *Channel {
 }
 
 func (channel *Channel) Destroy() {
-	if channel.destroyed {
+	if channel.IsDestroyed() {
 		return
 	}
 
-	channel.destroyed = true
-	channel.members = make(ClientSet)
+	channel.withMutex(func() {
+		channel.destroyed = true
+		channel.members = make(ClientSet)
+	})
 	channel.server.channels.Remove(channel)
 }
 
@@ -70,7 +72,7 @@ func (channel *Channel) Reply(reply Reply) {
 
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
-		if channel.destroyed {
+		if channel.IsDestroyed() {
 			if DEBUG_CHANNEL {
 				log.Printf("%s → %s %s dropped", command.Source(), channel, command)
 			}
@@ -92,9 +94,15 @@ func IsPrivMsg(reply Reply) bool {
 	return strReply.code == "PRIVMSG"
 }
 
+func (channel *Channel) IsDestroyed() bool {
+	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	return channel.destroyed
+}
+
 func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
-		if channel.destroyed {
+		if channel.IsDestroyed() {
 			if DEBUG_CHANNEL {
 				log.Printf("%s ← %s %s dropped", channel, reply.Source(), reply)
 			}
