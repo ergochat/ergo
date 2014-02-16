@@ -129,7 +129,8 @@ func (channel *Channel) IsEmpty() bool {
 
 func (channel *Channel) GetTopic(replier Replier) {
 	if channel.topic == "" {
-		replier.Reply(RplNoTopic(channel))
+		// clients appear not to expect this
+		//replier.Reply(RplNoTopic(channel))
 		return
 	}
 
