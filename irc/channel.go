@@ -186,16 +186,22 @@ func (channel *Channel) ModeString() (str string) {
 	return
 }
 
-func (channel *Channel) Join(client *Client) {
+func (channel *Channel) withMutex(f func()) {
 	channel.mutex.Lock()
-	channel.members.Add(client)
-	if len(channel.members) == 1 {
-		channel.members[client][ChannelCreator] = true
-		channel.members[client][ChannelOperator] = true
-	}
-	channel.mutex.Unlock()
+	defer channel.mutex.Unlock()
+	f()
+}
 
-	client.channels.Add(channel)
+func (channel *Channel) Join(client *Client) {
+	channel.withMutex(func() {
+		channel.members.Add(client)
+		if len(channel.members) == 1 {
+			channel.members[client][ChannelCreator] = true
+			channel.members[client][ChannelOperator] = true
+		}
+		client.channels.Add(channel)
+	})
+
 	channel.Reply(RplJoin(client, channel))
 	channel.GetTopic(client)
 	channel.GetUsers(client)
