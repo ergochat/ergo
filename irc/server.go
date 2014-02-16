@@ -371,7 +371,7 @@ func (m *PartCommand) HandleServer(server *Server) {
 		server.mutex.Unlock()
 
 		if channel == nil {
-			m.Client().Reply(ErrNoSuchChannel(server, channel.name))
+			m.Client().Reply(ErrNoSuchChannel(server, chname))
 			continue
 		}
 
