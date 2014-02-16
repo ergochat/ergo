@@ -270,7 +270,6 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 
 	client.nick = m.nickname
 	s.clients.Add(client)
-	client.Reply(RplNick(client, m.nickname))
 	s.tryRegister(client)
 }
 
@@ -414,22 +413,31 @@ func (m *PrivMsgCommand) HandleServer(s *Server) {
 func (m *ModeCommand) HandleServer(s *Server) {
 	client := m.Client()
 	target := s.clients[m.nickname]
-	if client == target {
-		for _, change := range m.changes {
-			if change.mode == Invisible {
-				switch change.op {
-				case Add:
-					client.invisible = true
-				case Remove:
-					client.invisible = false
-				}
-			}
-		}
-		client.Reply(RplUModeIs(s, client))
+	// TODO other auth
+	if client != target {
+		client.Reply(ErrUsersDontMatch(s))
 		return
 	}
 
-	client.Reply(ErrUsersDontMatch(s))
+	changes := make(ModeChanges, 0)
+
+	for _, change := range m.changes {
+		if change.mode == Invisible {
+			switch change.op {
+			case Add:
+				client.invisible = true
+				changes = append(changes, change)
+
+			case Remove:
+				client.invisible = false
+				changes = append(changes, change)
+			}
+		}
+	}
+
+	if len(changes) > 0 {
+		client.Reply(RplMode(client, changes))
+	}
 }
 
 func (m *WhoisCommand) HandleServer(server *Server) {

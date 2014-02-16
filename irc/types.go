@@ -15,6 +15,10 @@ type Mask string
 // add, remove, list modes
 type ModeOp rune
 
+func (op ModeOp) String() string {
+	return string(op)
+}
+
 // user mode flags
 type UserMode rune
 
@@ -36,9 +40,6 @@ type ChannelMode rune
 func (mode ChannelMode) String() string {
 	return fmt.Sprintf("%c", mode)
 }
-
-// user-channel mode flags
-type ChannelMemberMode rune
 
 type ChannelNameMap map[string]*Channel
 
@@ -84,19 +85,19 @@ func (clients ClientNameMap) Remove(client *Client) error {
 	return nil
 }
 
-type ChannelMemberModeSet map[ChannelMemberMode]bool
+type ChannelModeSet map[ChannelMode]bool
 
-type ClientSet map[*Client]ChannelMemberModeSet
+type ClientSet map[*Client]ChannelModeSet
 
 func (clients ClientSet) Add(client *Client) {
-	clients[client] = make(ChannelMemberModeSet)
+	clients[client] = make(ChannelModeSet)
 }
 
 func (clients ClientSet) Remove(client *Client) {
 	delete(clients, client)
 }
 
-func (clients ClientSet) HasMode(client *Client, mode ChannelMemberMode) bool {
+func (clients ClientSet) HasMode(client *Client, mode ChannelMode) bool {
 	modes, ok := clients[client]
 	if !ok {
 		return false

@@ -402,6 +402,26 @@ func (change *ModeChange) String() string {
 	return fmt.Sprintf("%s%s", change.op, change.mode)
 }
 
+type ModeChanges []ModeChange
+
+func (changes ModeChanges) String() string {
+	if len(changes) == 0 {
+		return ""
+	}
+
+	op := changes[0].op
+	str := changes[0].op.String()
+	for _, change := range changes {
+		if change.op == op {
+			str += change.mode.String()
+		} else {
+			op = change.op
+			str += " " + change.op.String()
+		}
+	}
+	return str
+}
+
 type ModeCommand struct {
 	BaseCommand
 	nickname string
@@ -436,27 +456,47 @@ func (cmd *ModeCommand) String() string {
 	return fmt.Sprintf("MODE(nickname=%s, changes=%s)", cmd.nickname, cmd.changes)
 }
 
-type ChannelModeOp struct {
+type ChannelModeChange struct {
 	mode ChannelMode
 	op   ModeOp
 	arg  string
 }
 
-func (op *ChannelModeOp) String() string {
+func (op *ChannelModeChange) String() string {
 	return fmt.Sprintf("{%s %s %s}", op.op, op.mode, op.arg)
+}
+
+type ChannelModeChanges []ChannelModeChange
+
+func (changes ChannelModeChanges) String() string {
+	if len(changes) == 0 {
+		return ""
+	}
+
+	str := "+"
+	if changes[0].op == Remove {
+		str = "-"
+	}
+	for _, change := range changes {
+		str += change.mode.String()
+	}
+	for _, change := range changes {
+		str += " " + change.arg
+	}
+	return str
 }
 
 type ChannelModeCommand struct {
 	BaseCommand
 	channel string
-	modeOps []ChannelModeOp
+	changes ChannelModeChanges
 }
 
 // MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
 func NewChannelModeCommand(args []string) (editableCommand, error) {
 	cmd := &ChannelModeCommand{
 		channel: args[0],
-		modeOps: make([]ChannelModeOp, 0),
+		changes: make(ChannelModeChanges, 0),
 	}
 	args = args[1:]
 
@@ -472,18 +512,18 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 
 		skipArgs := 1
 		for _, mode := range modeArg {
-			modeOp := ChannelModeOp{
+			change := ChannelModeChange{
 				mode: ChannelMode(mode),
 				op:   op,
 			}
-			switch modeOp.mode {
+			switch change.mode {
 			case Key, BanMask, ExceptionMask, InviteMask, UserLimit:
 				if len(args) > skipArgs {
-					modeOp.arg = args[skipArgs]
+					change.arg = args[skipArgs]
 					skipArgs += 1
 				}
 			}
-			cmd.modeOps = append(cmd.modeOps, modeOp)
+			cmd.changes = append(cmd.changes, change)
 		}
 		args = args[skipArgs:]
 	}
@@ -492,7 +532,7 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 }
 
 func (msg *ChannelModeCommand) String() string {
-	return fmt.Sprintf("MODE(channel=%s, modeOps=%s)", msg.channel, msg.modeOps)
+	return fmt.Sprintf("MODE(channel=%s, changes=%s)", msg.channel, msg.changes)
 }
 
 func NewModeCommand(args []string) (editableCommand, error) {

@@ -84,6 +84,14 @@ func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	}
 }
 
+func IsPrivMsg(reply Reply) bool {
+	strReply, ok := reply.(*StringReply)
+	if !ok {
+		return false
+	}
+	return strReply.code == "PRIVMSG"
+}
+
 func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
 		if channel.destroyed {
@@ -98,9 +106,10 @@ func (channel *Channel) receiveReplies(replies <-chan Reply) {
 		}
 		channel.mutex.Lock()
 		for client := range channel.members {
-			if reply.Source() != Identifier(client) {
-				client.Reply(reply)
+			if IsPrivMsg(reply) && (reply.Source() == Identifier(client)) {
+				continue
 			}
+			client.Reply(reply)
 		}
 		channel.mutex.Unlock()
 	}
@@ -187,9 +196,7 @@ func (channel *Channel) Join(client *Client) {
 	channel.mutex.Unlock()
 
 	client.channels.Add(channel)
-	reply := RplJoin(client, channel)
-	client.Reply(reply)
-	channel.Reply(reply)
+	channel.Reply(RplJoin(client, channel))
 	channel.GetTopic(client)
 	channel.GetUsers(client)
 }
@@ -216,9 +223,7 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 		return
 	}
 
-	reply := RplPart(client, channel, m.Message())
-	client.Reply(reply)
-	channel.Reply(reply)
+	channel.Reply(RplPart(client, channel, m.Message()))
 
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
@@ -245,9 +250,7 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 
 		channel.topic = m.topic
 		channel.GetTopic(client)
-		reply := RplTopicMsg(client, channel)
-		client.Reply(reply)
-		channel.Reply(reply)
+		channel.Reply(RplTopicMsg(client, channel))
 		return
 	}
 
@@ -267,10 +270,18 @@ func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
 func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 	client := msg.Client()
 
-	for _, modeOp := range msg.modeOps {
-		switch modeOp.mode {
+	if len(msg.changes) == 0 {
+		client.Reply(RplChannelModeIs(channel))
+		return
+	}
+
+	changes := make(ChannelModeChanges, 0)
+
+	for _, change := range msg.changes {
+		switch change.mode {
 		case BanMask:
 			// TODO add/remove
+
 			for _, banMask := range channel.banList {
 				client.Reply(RplBanList(channel, banMask))
 			}
@@ -282,12 +293,14 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				continue
 			}
 
-			switch modeOp.op {
+			switch change.op {
 			case Add:
-				channel.flags[modeOp.mode] = true
+				channel.flags[change.mode] = true
+				changes = append(changes, change)
 
 			case Remove:
-				delete(channel.flags, modeOp.mode)
+				delete(channel.flags, change.mode)
+				changes = append(changes, change)
 			}
 
 		case Key:
@@ -296,34 +309,33 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				continue
 			}
 
-			switch modeOp.op {
+			switch change.op {
 			case Add:
-				if modeOp.arg == "" {
+				if change.arg == "" {
 					// TODO err reply
 					continue
 				}
 
-				channel.key = modeOp.arg
+				channel.key = change.arg
+				changes = append(changes, change)
 
 			case Remove:
 				channel.key = ""
+				changes = append(changes, change)
 			}
-		}
 
-		mmode := ChannelMemberMode(modeOp.mode)
-		switch mmode {
 		case ChannelOperator, Voice:
 			if !channel.ClientIsOperator(client) {
 				client.Reply(ErrChanOPrivIsNeeded(channel))
 				continue
 			}
 
-			if modeOp.arg == "" {
+			if change.arg == "" {
 				// TODO err reply
 				continue
 			}
 
-			target := channel.server.clients[modeOp.arg]
+			target := channel.server.clients[change.arg]
 			if target == nil {
 				// TODO err reply
 				continue
@@ -334,16 +346,21 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				continue
 			}
 
-			switch modeOp.op {
+			switch change.op {
 			case Add:
-				channel.members[target][mmode] = true
+				channel.members[target][change.mode] = true
+				changes = append(changes, change)
+
 			case Remove:
-				channel.members[target][mmode] = false
+				channel.members[target][change.mode] = false
+				changes = append(changes, change)
 			}
 		}
 	}
 
-	client.Reply(RplChannelModeIs(channel))
+	if len(changes) > 0 {
+		channel.Reply(RplChannelMode(client, channel, changes))
+	}
 }
 
 func (m *NoticeCommand) HandleChannel(channel *Channel) {

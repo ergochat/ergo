@@ -144,11 +144,20 @@ func RplJoin(client *Client, channel *Channel) Reply {
 }
 
 func RplPart(client *Client, channel *Channel, message string) Reply {
-	return NewStringReply(client, "PART", "%s :%s", channel.name, message)
+	return NewStringReply(client, "PART", "%s :%s", channel, message)
+}
+
+func RplMode(client *Client, changes ModeChanges) Reply {
+	return NewStringReply(client, "MODE", "%s :%s", client.Nick(), changes)
+}
+
+func RplChannelMode(client *Client, channel *Channel,
+	changes ChannelModeChanges) Reply {
+	return NewStringReply(client, "MODE", "%s %s", channel, changes)
 }
 
 func RplTopicMsg(source Identifier, channel *Channel) Reply {
-	return NewStringReply(source, "TOPIC", "%s :%s", channel.name, channel.topic)
+	return NewStringReply(source, "TOPIC", "%s :%s", channel, channel.topic)
 }
 
 func RplPing(server *Server, target Identifier) Reply {
@@ -207,9 +216,11 @@ func RplTopic(channel *Channel) Reply {
 		"%s :%s", channel.name, channel.topic)
 }
 
+// <nick> <channel>
+// NB: correction in errata
 func RplInvitingMsg(channel *Channel, invitee *Client) Reply {
 	return NewNumericReply(channel.server, RPL_INVITING,
-		"%s %s", channel.name, invitee.Nick())
+		"%s %s", invitee.Nick(), channel.name)
 }
 
 func RplNamReply(channel *Channel, names []string) *NumericReply {
@@ -238,7 +249,7 @@ func RplEndOfWhois(server *Server) Reply {
 
 func RplChannelModeIs(channel *Channel) Reply {
 	return NewNumericReply(channel.server, RPL_CHANNELMODEIS, "%s %s",
-		channel.name, channel.ModeString())
+		channel, channel.ModeString())
 }
 
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
