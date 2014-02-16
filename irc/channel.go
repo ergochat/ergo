@@ -242,20 +242,18 @@ func (m *TopicCommand) HandleChannel(channel *Channel) {
 		return
 	}
 
-	if m.setTopic {
-		if channel.flags[OpOnlyTopic] {
-			client.Reply(ErrChanOPrivIsNeeded(channel))
-			return
-		}
-
-		channel.topic = m.topic
+	if !m.setTopic {
 		channel.GetTopic(client)
-		channel.Reply(RplTopicMsg(client, channel))
 		return
 	}
 
-	channel.GetTopic(client)
-	return
+	if channel.flags[OpOnlyTopic] {
+		client.Reply(ErrChanOPrivIsNeeded(channel))
+		return
+	}
+
+	channel.topic = m.topic
+	channel.Reply(RplTopicMsg(client, channel))
 }
 
 func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
