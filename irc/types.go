@@ -171,7 +171,7 @@ type Reply interface {
 }
 
 type Command interface {
-	Name() string
+	Code() StringCode
 	Client() *Client
 	Source() Identifier
 	Reply(Reply)

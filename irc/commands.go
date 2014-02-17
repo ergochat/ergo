@@ -9,7 +9,7 @@ import (
 
 type editableCommand interface {
 	Command
-	SetName(string)
+	SetCode(StringCode)
 	SetClient(*Client)
 }
 
@@ -18,33 +18,34 @@ type parseCommandFunc func([]string) (editableCommand, error)
 var (
 	NotEnoughArgsError = errors.New("not enough arguments")
 	ErrParseCommand    = errors.New("failed to parse message")
-	parseCommandFuncs  = map[string]parseCommandFunc{
-		"AWAY":    NewAwayCommand,
-		"CAP":     NewCapCommand,
-		"ISON":    NewIsOnCommand,
-		"JOIN":    NewJoinCommand,
-		"MODE":    NewModeCommand,
-		"MOTD":    NewMOTDCommand,
-		"NICK":    NewNickCommand,
-		"NOTICE":  NewNoticeCommand,
-		"OPER":    NewOperCommand,
-		"PART":    NewPartCommand,
-		"PASS":    NewPassCommand,
-		"PING":    NewPingCommand,
-		"PONG":    NewPongCommand,
-		"PRIVMSG": NewPrivMsgCommand,
-		"PROXY":   NewProxyCommand,
-		"QUIT":    NewQuitCommand,
-		"TOPIC":   NewTopicCommand,
-		"USER":    NewUserMsgCommand,
-		"WHO":     NewWhoCommand,
-		"WHOIS":   NewWhoisCommand,
+	parseCommandFuncs  = map[StringCode]parseCommandFunc{
+		AWAY:    NewAwayCommand,
+		CAP:     NewCapCommand,
+		ISON:    NewIsOnCommand,
+		JOIN:    NewJoinCommand,
+		KICK:    NewKickCommand,
+		MODE:    NewModeCommand,
+		MOTD:    NewMOTDCommand,
+		NICK:    NewNickCommand,
+		NOTICE:  NewNoticeCommand,
+		OPER:    NewOperCommand,
+		PART:    NewPartCommand,
+		PASS:    NewPassCommand,
+		PING:    NewPingCommand,
+		PONG:    NewPongCommand,
+		PRIVMSG: NewPrivMsgCommand,
+		PROXY:   NewProxyCommand,
+		QUIT:    NewQuitCommand,
+		TOPIC:   NewTopicCommand,
+		USER:    NewUserMsgCommand,
+		WHO:     NewWhoCommand,
+		WHOIS:   NewWhoisCommand,
 	}
 )
 
 type BaseCommand struct {
 	client *Client
-	name   string
+	code   StringCode
 }
 
 func (command *BaseCommand) Client() *Client {
@@ -55,12 +56,12 @@ func (command *BaseCommand) SetClient(c *Client) {
 	command.client = c
 }
 
-func (command *BaseCommand) Name() string {
-	return command.name
+func (command *BaseCommand) Code() StringCode {
+	return command.code
 }
 
-func (command *BaseCommand) SetName(name string) {
-	command.name = name
+func (command *BaseCommand) SetCode(code StringCode) {
+	command.code = code
 }
 
 func (command *BaseCommand) Source() Identifier {
@@ -72,15 +73,15 @@ func (command *BaseCommand) Reply(reply Reply) {
 }
 
 func ParseCommand(line string) (cmd editableCommand, err error) {
-	command, args := parseLine(line)
-	constructor := parseCommandFuncs[command]
+	code, args := parseLine(line)
+	constructor := parseCommandFuncs[code]
 	if constructor == nil {
-		cmd = NewUnknownCommand(command, args)
+		cmd = NewUnknownCommand(args)
 	} else {
 		cmd, err = constructor(args)
 	}
 	if cmd != nil {
-		cmd.SetName(command)
+		cmd.SetCode(code)
 	}
 	return
 }
@@ -102,13 +103,13 @@ func parseArg(line string) (arg string, rest string) {
 	return
 }
 
-func parseLine(line string) (command string, args []string) {
+func parseLine(line string) (command StringCode, args []string) {
 	args = make([]string, 0)
 	for arg, rest := parseArg(line); arg != ""; arg, rest = parseArg(rest) {
 		args = append(args, arg)
 	}
 	if len(args) > 0 {
-		command, args = strings.ToUpper(args[0]), args[1:]
+		command, args = StringCode(strings.ToUpper(args[0])), args[1:]
 	}
 	return
 }
@@ -121,10 +122,10 @@ type UnknownCommand struct {
 }
 
 func (cmd *UnknownCommand) String() string {
-	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.Name(), cmd.args)
+	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.Code(), cmd.args)
 }
 
-func NewUnknownCommand(command string, args []string) *UnknownCommand {
+func NewUnknownCommand(args []string) *UnknownCommand {
 	return &UnknownCommand{
 		args: args,
 	}
@@ -738,4 +739,42 @@ func NewNoticeCommand(args []string) (editableCommand, error) {
 		target:  args[0],
 		message: args[1],
 	}, nil
+}
+
+type KickCommand struct {
+	BaseCommand
+	kicks   map[string]string
+	comment string
+}
+
+func (msg *KickCommand) Comment() string {
+	if msg.comment == "" {
+		return msg.Source().Nick()
+	}
+	return msg.comment
+}
+
+func NewKickCommand(args []string) (editableCommand, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+	channels := strings.Split(args[0], ",")
+	users := strings.Split(args[1], ",")
+	if (len(channels) != len(users)) && (len(users) != 1) {
+		return nil, NotEnoughArgsError
+	}
+	cmd := &KickCommand{
+		kicks: make(map[string]string),
+	}
+	for index, channel := range channels {
+		if len(users) == 1 {
+			cmd.kicks[channel] = users[0]
+		} else {
+			cmd.kicks[channel] = users[index]
+		}
+	}
+	if len(args) > 2 {
+		cmd.comment = args[2]
+	}
+	return cmd, nil
 }

@@ -183,6 +183,11 @@ func RplInviteMsg(channel *Channel, inviter *Client) Reply {
 	return NewStringReply(inviter, INVITE, channel.name)
 }
 
+func RplKick(channel *Channel, client *Client, target *Client, comment string) Reply {
+	return NewStringReply(client, KICK, "%s %s :%s",
+		channel, target.Nick(), comment)
+}
+
 // numeric replies
 
 func RplWelcome(source Identifier, client *Client) Reply {
@@ -330,9 +335,9 @@ func ErrNickNameInUse(source Identifier, nick string) Reply {
 		"%s :Nickname is already in use", nick)
 }
 
-func ErrUnknownCommand(source Identifier, command string) Reply {
+func ErrUnknownCommand(source Identifier, code StringCode) Reply {
 	return NewNumericReply(source, ERR_UNKNOWNCOMMAND,
-		"%s :Unknown command", command)
+		"%s :Unknown command", code)
 }
 
 func ErrUsersDontMatch(source Identifier) Reply {
@@ -381,7 +386,7 @@ func ErrPasswdMismatch(server *Server) Reply {
 
 func ErrNoChanModes(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_NOCHANMODES,
-		"%s :Channel doesn't support modes", channel.name)
+		"%s :Channel doesn't support modes", channel)
 }
 
 func ErrNoPrivileges(server *Server) Reply {
@@ -396,20 +401,20 @@ func ErrNoSuchServer(server *Server, target string) Reply {
 	return NewNumericReply(server, ERR_NOSUCHSERVER, "%s :No such server", target)
 }
 
-func ErrUserNotInChannel(server *Server, nick string, channel *Channel) Reply {
-	return NewNumericReply(server, ERR_USERNOTINCHANNEL,
-		"%s %s :They aren't on that channel", nick, channel.name)
+func ErrUserNotInChannel(channel *Channel, client *Client) Reply {
+	return NewNumericReply(channel.server, ERR_USERNOTINCHANNEL,
+		"%s %s :They aren't on that channel", client.Nick(), channel)
 }
 
 func ErrCannotSendToChan(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_CANNOTSENDTOCHAN,
-		"%s :Cannot send to channel", channel.name)
+		"%s :Cannot send to channel", channel)
 }
 
 // <channel> :You're not channel operator
 func ErrChanOPrivIsNeeded(channel *Channel) Reply {
 	return NewNumericReply(channel.server, ERR_CHANOPRIVSNEEDED,
-		"%s :You're not channel operator", channel.name)
+		"%s :You're not channel operator", channel)
 }
 
 func ErrNoMOTD(server *Server) Reply {

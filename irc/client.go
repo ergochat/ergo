@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -57,9 +58,8 @@ func (client *Client) readCommands() {
 		if err != nil {
 			switch err {
 			case NotEnoughArgsError:
-				client.Reply(ErrNeedMoreParams(client.server, line))
-			default:
-				client.Reply(ErrUnknownCommand(client.server, line))
+				parts := strings.SplitN(line, " ", 2)
+				client.Reply(ErrNeedMoreParams(client.server, parts[0]))
 			}
 			continue
 		}

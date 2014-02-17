@@ -145,13 +145,7 @@ func (channel *Channel) Part(client *Client, message string) {
 	}
 
 	channel.Reply(RplPart(client, channel, message))
-
-	channel.members.Remove(client)
-	client.channels.Remove(channel)
-
-	for member := range channel.members {
-		member.RemoveFriend(client)
-	}
+	channel.Quit(client)
 
 	if channel.IsEmpty() {
 		channel.server.channels.Remove(channel)
@@ -305,4 +299,23 @@ func (channel *Channel) Quit(client *Client) {
 	}
 
 	channel.members.Remove(client)
+	client.channels.Remove(channel)
+}
+
+func (channel *Channel) Kick(client *Client, target *Client, comment string) {
+	if !channel.members.Has(client) {
+		client.Reply(ErrNotOnChannel(channel))
+		return
+	}
+	if !channel.ClientIsOperator(client) {
+		client.Reply(ErrChanOPrivIsNeeded(channel))
+		return
+	}
+	if !channel.members.Has(target) {
+		client.Reply(ErrUserNotInChannel(channel, target))
+		return
+	}
+
+	channel.Reply(RplKick(channel, client, target, comment))
+	channel.Quit(target)
 }

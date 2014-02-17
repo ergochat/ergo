@@ -80,7 +80,7 @@ func (server *Server) ReceiveCommands() {
 			default:
 				serverCommand, ok := command.(ServerCommand)
 				if !ok {
-					client.Reply(ErrUnknownCommand(server, command.Name()))
+					client.Reply(ErrUnknownCommand(server, command.Code()))
 					continue
 				}
 				client.Touch()
@@ -541,4 +541,23 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		return
 	}
 	target.Reply(RplNotice(client, target, msg.message))
+}
+
+func (msg *KickCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	for chname, nickname := range msg.kicks {
+		channel := server.channels[chname]
+		if channel == nil {
+			client.Reply(ErrNoSuchChannel(server, chname))
+			continue
+		}
+
+		target := server.clients[nickname]
+		if target == nil {
+			client.Reply(ErrNoSuchNick(server, nickname))
+			continue
+		}
+
+		channel.Kick(client, target, msg.Comment())
+	}
 }
