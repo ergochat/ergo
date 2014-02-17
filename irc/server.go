@@ -16,6 +16,7 @@ type Server struct {
 	channels  ChannelNameMap
 	clients   ClientNameMap
 	commands  chan Command
+	conns     chan net.Conn
 	ctime     time.Time
 	motdFile  string
 	name      string
@@ -28,6 +29,7 @@ func NewServer(config *Config) *Server {
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command),
+		conns:     make(chan net.Conn),
 		ctime:     time.Now(),
 		motdFile:  config.MOTD,
 		name:      config.Name,
@@ -39,7 +41,6 @@ func NewServer(config *Config) *Server {
 		server.operators[opConf.Name] = opConf.Password
 	}
 
-	go server.receiveCommands()
 	for _, listenerConf := range config.Listeners {
 		go server.listen(listenerConf)
 	}
@@ -47,38 +48,44 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
-func (server *Server) receiveCommands() {
-	for command := range server.commands {
-		if DEBUG_SERVER {
-			log.Printf("%s → %s %+v", command.Client(), server, command)
-		}
-		client := command.Client()
+func (server *Server) ReceiveCommands() {
+	for {
+		select {
+		case conn := <-server.conns:
+			NewClient(server, conn)
 
-		switch client.phase {
-		case Authorization:
-			authCommand, ok := command.(AuthServerCommand)
-			if !ok {
-				client.Destroy()
-				return
+		case command := <-server.commands:
+			if DEBUG_SERVER {
+				log.Printf("%s → %s %+v", command.Client(), server, command)
 			}
-			authCommand.HandleAuthServer(server)
+			client := command.Client()
 
-		case Registration:
-			regCommand, ok := command.(RegServerCommand)
-			if !ok {
-				client.Destroy()
-				return
-			}
-			regCommand.HandleRegServer(server)
+			switch client.phase {
+			case Authorization:
+				authCommand, ok := command.(AuthServerCommand)
+				if !ok {
+					client.Destroy()
+					continue
+				}
+				authCommand.HandleAuthServer(server)
 
-		default:
-			serverCommand, ok := command.(ServerCommand)
-			if !ok {
-				client.Reply(ErrUnknownCommand(server, command.Name()))
-				return
+			case Registration:
+				regCommand, ok := command.(RegServerCommand)
+				if !ok {
+					client.Destroy()
+					continue
+				}
+				regCommand.HandleRegServer(server)
+
+			default:
+				serverCommand, ok := command.(ServerCommand)
+				if !ok {
+					client.Reply(ErrUnknownCommand(server, command.Name()))
+					continue
+				}
+				client.Touch()
+				serverCommand.HandleServer(server)
 			}
-			client.Touch()
-			serverCommand.HandleServer(server)
 		}
 	}
 }
@@ -123,9 +130,7 @@ func (s *Server) listen(config ListenerConfig) {
 			log.Print("Server.Accept: ", conn.RemoteAddr())
 		}
 
-		s.commands <- &NewClientCommand{
-			conn: conn,
-		}
+		s.conns <- conn
 	}
 }
 
@@ -536,13 +541,4 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		return
 	}
 	target.Reply(RplNotice(client, target, msg.message))
-}
-
-type NewClientCommand struct {
-	BaseCommand
-	conn net.Conn
-}
-
-func (msg *NewClientCommand) HandleServer(server *Server) {
-	NewClient(server, conn)
 }
