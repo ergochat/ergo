@@ -462,18 +462,25 @@ type ChannelModeChange struct {
 	arg  string
 }
 
-func (op *ChannelModeChange) String() string {
-	return fmt.Sprintf("{%s %s %s}", op.op, op.mode, op.arg)
+func (change *ChannelModeChange) String() (str string) {
+	if (change.op == Add) || (change.op == Remove) {
+		str = change.op.String()
+	}
+	str += change.mode.String()
+	if change.arg != "" {
+		str += " " + change.arg
+	}
+	return
 }
 
 type ChannelModeChanges []ChannelModeChange
 
-func (changes ChannelModeChanges) String() string {
+func (changes ChannelModeChanges) String() (str string) {
 	if len(changes) == 0 {
-		return ""
+		return
 	}
 
-	str := "+"
+	str = "+"
 	if changes[0].op == Remove {
 		str = "-"
 	}
@@ -481,9 +488,12 @@ func (changes ChannelModeChanges) String() string {
 		str += change.mode.String()
 	}
 	for _, change := range changes {
+		if change.arg == "" {
+			continue
+		}
 		str += " " + change.arg
 	}
-	return str
+	return
 }
 
 type ChannelModeCommand struct {
@@ -517,7 +527,8 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 				op:   op,
 			}
 			switch change.mode {
-			case Key, BanMask, ExceptionMask, InviteMask, UserLimit:
+			case Key, BanMask, ExceptionMask, InviteMask, UserLimit,
+				ChannelOperator, ChannelCreator, Voice:
 				if len(args) > skipArgs {
 					change.arg = args[skipArgs]
 					skipArgs += 1
