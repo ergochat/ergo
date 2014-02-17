@@ -122,7 +122,10 @@ func (s *Server) listen(config ListenerConfig) {
 		if DEBUG_SERVER {
 			log.Print("Server.Accept: ", conn.RemoteAddr())
 		}
-		NewClient(s, conn)
+
+		s.commands <- &NewClientCommand{
+			conn: conn,
+		}
 	}
 }
 
@@ -533,4 +536,13 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		return
 	}
 	target.Reply(RplNotice(client, target, msg.message))
+}
+
+type NewClientCommand struct {
+	BaseCommand
+	conn net.Conn
+}
+
+func (msg *NewClientCommand) HandleServer(server *Server) {
+	NewClient(server, conn)
 }
