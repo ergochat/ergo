@@ -192,15 +192,6 @@ type RegServerCommand interface {
 	HandleRegServer(*Server)
 }
 
-type ChannelCommand interface {
-	Command
-	HandleChannel(channel *Channel)
-}
-
-type ClientCommand interface {
-	HandleClient(client *Client)
-}
-
 //
 // structs
 //

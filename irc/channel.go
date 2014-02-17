@@ -5,15 +5,13 @@ import (
 )
 
 type Channel struct {
-	banList  []UserMask
-	commands chan<- ChannelCommand
-	flags    ChannelModeSet
-	key      string
-	members  MemberSet
-	name     string
-	replies  chan<- Reply
-	server   *Server
-	topic    string
+	banList []UserMask
+	flags   ChannelModeSet
+	key     string
+	members MemberSet
+	name    string
+	server  *Server
+	topic   string
 }
 
 func IsChannel(target string) bool {
@@ -30,80 +28,32 @@ func IsChannel(target string) bool {
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
-	commands := make(chan ChannelCommand)
-	replies := make(chan Reply)
 	channel := &Channel{
-		banList:  make([]UserMask, 0),
-		commands: commands,
-		flags:    make(ChannelModeSet),
-		members:  make(MemberSet),
-		name:     name,
-		replies:  replies,
-		server:   s,
+		banList: make([]UserMask, 0),
+		flags:   make(ChannelModeSet),
+		members: make(MemberSet),
+		name:    name,
+		server:  s,
 	}
-	go channel.receiveCommands(commands)
-	go channel.receiveReplies(replies)
 	return channel
 }
 
-type DestroyChannel struct {
-	BaseCommand
-	channel *Channel
-}
-
-func (channel *Channel) Destroy() {
-	channel.server.Command(&DestroyChannel{
-		channel: channel,
-	})
-	close(channel.commands)
-	close(channel.replies)
-}
-
-func (channel *Channel) Command(command ChannelCommand) {
-	channel.commands <- command
-}
-
 func (channel *Channel) Reply(reply Reply) {
-	channel.replies <- reply
-}
-
-func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
-	for command := range commands {
-		if DEBUG_CHANNEL {
-			log.Printf("%s → %s %s", command.Source(), channel, command)
-		}
-		command.HandleChannel(channel)
+	if DEBUG_CHANNEL {
+		log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 	}
-}
 
-func (channel *Channel) receiveReplies(replies <-chan Reply) {
-	for reply := range replies {
-		if DEBUG_CHANNEL {
-			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
+	for client := range channel.members {
+		if (reply.Code() == ReplyCode(PRIVMSG)) &&
+			(reply.Source() == Identifier(client)) {
+			continue
 		}
-
-		for client := range channel.members {
-			if (reply.Code() == ReplyCode(PRIVMSG)) &&
-				(reply.Source() == Identifier(client)) {
-				continue
-			}
-			client.Reply(reply)
-		}
+		client.Reply(reply)
 	}
 }
 
 func (channel *Channel) IsEmpty() bool {
 	return len(channel.members) == 0
-}
-
-func (channel *Channel) GetTopic(replier Replier) {
-	if channel.topic == "" {
-		// clients appear not to expect this
-		//replier.Reply(RplNoTopic(channel))
-		return
-	}
-
-	replier.Reply(RplTopic(channel))
 }
 
 func (channel *Channel) GetUsers(replier Replier) {
@@ -164,18 +114,8 @@ func (channel *Channel) ModeString() (str string) {
 	return
 }
 
-type JoinChannel struct {
-	BaseCommand
-	channel *Channel
-}
-
-//
-// commands
-//
-
-func (m *JoinCommand) HandleChannel(channel *Channel) {
-	client := m.Client()
-	if (channel.key != "") && (channel.key != m.channels[channel.name]) {
+func (channel *Channel) Join(client *Client, key string) {
+	if (channel.key != "") && (channel.key != key) {
 		client.Reply(ErrBadChannelKey(channel))
 		return
 	}
@@ -186,18 +126,11 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 		channel.members[client][ChannelOperator] = true
 	}
 
-	client.commands <- &JoinChannel{
-		channel: channel,
-	}
+	client.channels.Add(channel)
 
-	addClient := &AddFriend{
-		client: client,
-	}
 	for member := range channel.members {
-		client.commands <- &AddFriend{
-			client: member,
-		}
-		member.commands <- addClient
+		client.AddFriend(member)
+		member.AddFriend(client)
 	}
 
 	channel.Reply(RplJoin(client, channel))
@@ -205,77 +138,73 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 	channel.GetUsers(client)
 }
 
-type PartChannel struct {
-	channel *Channel
-}
-
-func (m *PartCommand) HandleChannel(channel *Channel) {
-	client := m.Client()
-
+func (channel *Channel) Part(client *Client, message string) {
 	if !channel.members.Has(client) {
 		client.Reply(ErrNotOnChannel(channel))
 		return
 	}
 
-	channel.Reply(RplPart(client, channel, m.Message()))
+	channel.Reply(RplPart(client, channel, message))
 
 	channel.members.Remove(client)
-	client.commands <- &PartChannel{
-		channel: channel,
-	}
+	client.channels.Remove(channel)
+
 	for member := range channel.members {
-		member.commands <- &RemoveFriend{
-			client: client,
-		}
+		member.RemoveFriend(client)
 	}
 
 	if channel.IsEmpty() {
-		channel.Destroy()
+		channel.server.channels.Remove(channel)
 	}
 }
 
-func (m *TopicCommand) HandleChannel(channel *Channel) {
-	client := m.Client()
-
+func (channel *Channel) GetTopic(client *Client) {
 	if !channel.members.Has(client) {
 		client.Reply(ErrNotOnChannel(channel))
 		return
 	}
 
-	if !m.setTopic {
-		channel.GetTopic(client)
+	if channel.topic == "" {
+		// clients appear not to expect this
+		//replier.Reply(RplNoTopic(channel))
 		return
 	}
 
-	if channel.flags[OpOnlyTopic] {
+	client.Reply(RplTopic(channel))
+}
+
+func (channel *Channel) SetTopic(client *Client, topic string) {
+	if !channel.members.Has(client) {
+		client.Reply(ErrNotOnChannel(channel))
+		return
+	}
+
+	if channel.flags[OpOnlyTopic] && !channel.members[client][ChannelOperator] {
 		client.Reply(ErrChanOPrivIsNeeded(channel))
 		return
 	}
 
-	channel.topic = m.topic
+	channel.topic = topic
 	channel.Reply(RplTopicMsg(client, channel))
 }
 
-func (m *PrivMsgCommand) HandleChannel(channel *Channel) {
-	client := m.Client()
+func (channel *Channel) PrivMsg(client *Client, message string) {
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
 		client.Reply(ErrCannotSendToChan(channel))
 		return
 	}
-	channel.Reply(RplPrivMsg(client, channel, m.message))
+	channel.Reply(RplPrivMsg(client, channel, message))
 }
 
-func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
-	client := msg.Client()
-
-	if len(msg.changes) == 0 {
+func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
+	if len(changes) == 0 {
 		client.Reply(RplChannelModeIs(channel))
 		return
 	}
 
-	changes := make(ChannelModeChanges, 0)
+	applied := make(ChannelModeChanges, 0)
 
-	for _, change := range msg.changes {
+	for _, change := range changes {
 		switch change.mode {
 		case BanMask:
 			// TODO add/remove
@@ -294,11 +223,11 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 			switch change.op {
 			case Add:
 				channel.flags[change.mode] = true
-				changes = append(changes, change)
+				applied = append(applied, change)
 
 			case Remove:
 				delete(channel.flags, change.mode)
-				changes = append(changes, change)
+				applied = append(applied, change)
 			}
 
 		case Key:
@@ -315,11 +244,11 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 				}
 
 				channel.key = change.arg
-				changes = append(changes, change)
+				applied = append(applied, change)
 
 			case Remove:
 				channel.key = ""
-				changes = append(changes, change)
+				applied = append(applied, change)
 			}
 
 		case ChannelOperator, Voice:
@@ -347,40 +276,33 @@ func (msg *ChannelModeCommand) HandleChannel(channel *Channel) {
 			switch change.op {
 			case Add:
 				channel.members[target][change.mode] = true
-				changes = append(changes, change)
+				applied = append(applied, change)
 
 			case Remove:
 				channel.members[target][change.mode] = false
-				changes = append(changes, change)
+				applied = append(applied, change)
 			}
 		}
 	}
 
-	if len(changes) > 0 {
-		channel.Reply(RplChannelMode(client, channel, changes))
+	if len(applied) > 0 {
+		channel.Reply(RplChannelMode(client, channel, applied))
 	}
 }
 
-func (m *NoticeCommand) HandleChannel(channel *Channel) {
-	client := m.Client()
+func (channel *Channel) Notice(client *Client, message string) {
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
 		client.Reply(ErrCannotSendToChan(channel))
 		return
 	}
-	channel.Reply(RplNotice(client, channel, m.message))
+	channel.Reply(RplNotice(client, channel, message))
 }
 
-func (msg *QuitCommand) HandleChannel(channel *Channel) {
-	client := msg.Client()
-	removeClient := &RemoveFriend{
-		client: client,
-	}
+func (channel *Channel) Quit(client *Client) {
 	for member := range channel.members {
-		member.commands <- removeClient
+		client.RemoveFriend(member)
+		member.RemoveFriend(client)
 	}
-	channel.members.Remove(client)
-}
 
-func (msg *DestroyClient) HandleChannel(channel *Channel) {
-	channel.members.Remove(msg.client)
+	channel.members.Remove(client)
 }

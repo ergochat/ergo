@@ -83,10 +83,6 @@ func (server *Server) receiveCommands() {
 	}
 }
 
-func (server *Server) Command(command Command) {
-	server.commands <- command
-}
-
 func (server *Server) InitPhase() Phase {
 	if server.password == "" {
 		return Registration
@@ -228,7 +224,8 @@ func (s *Server) Nick() string {
 //
 
 func (msg *ProxyCommand) HandleAuthServer(server *Server) {
-	msg.Client().hostname = LookupHostname(msg.sourceIP)
+	client := msg.Client()
+	client.hostname = LookupHostname(msg.sourceIP)
 }
 
 func (msg *CapCommand) HandleAuthServer(server *Server) {
@@ -264,15 +261,15 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		return
 	}
 
-	client.nick = m.nickname
+	client.ChangeNickname(m.nickname)
 	s.clients.Add(client)
 	s.tryRegister(client)
 }
 
-func (m *UserMsgCommand) HandleRegServer(s *Server) {
-	c := m.Client()
-	c.username, c.realname = m.user, m.realname
-	s.tryRegister(c)
+func (msg *UserMsgCommand) HandleRegServer(server *Server) {
+	client := msg.Client()
+	client.username, client.realname = msg.user, msg.realname
+	server.tryRegister(client)
 }
 
 //
@@ -291,54 +288,52 @@ func (m *PongCommand) HandleServer(s *Server) {
 	// no-op
 }
 
-func (m *NickCommand) HandleServer(s *Server) {
-	c := m.Client()
+func (msg *NickCommand) HandleServer(server *Server) {
+	client := msg.Client()
 
-	if m.nickname == "" {
-		c.Reply(ErrNoNicknameGiven(s))
+	if msg.nickname == "" {
+		client.Reply(ErrNoNicknameGiven(server))
 		return
 	}
 
-	if s.clients[m.nickname] != nil {
-		c.Reply(ErrNickNameInUse(s, m.nickname))
+	if server.clients[msg.nickname] != nil {
+		client.Reply(ErrNickNameInUse(server, msg.nickname))
 		return
 	}
 
-	s.clients.Remove(c)
-	c.commands <- m
-	s.clients.Add(c)
+	server.clients.Remove(client)
+	client.ChangeNickname(msg.nickname)
+	server.clients.Add(client)
 }
 
 func (m *UserMsgCommand) HandleServer(s *Server) {
 	m.Client().Reply(ErrAlreadyRegistered(s))
 }
 
-func (m *QuitCommand) HandleServer(server *Server) {
-	client := m.Client()
-
+func (msg *QuitCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	client.Quit(msg.message)
 	server.clients.Remove(client)
-
-	client.commands <- m
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {
-	c := m.Client()
+	client := m.Client()
 
 	if m.zero {
-		cmd := &PartCommand{}
-		cmd.SetClient(c)
-		for channel := range c.channels {
-			channel.Command(cmd)
+		for channel := range client.channels {
+			channel.Part(client, client.Nick())
 		}
 		return
 	}
 
 	for name := range m.channels {
-		s.GetOrMakeChannel(name).Command(m)
+		channel := s.GetOrMakeChannel(name)
+		channel.Join(client, m.channels[name])
 	}
 }
 
 func (m *PartCommand) HandleServer(server *Server) {
+	client := m.Client()
 	for _, chname := range m.channels {
 		channel := server.channels[chname]
 
@@ -347,40 +342,46 @@ func (m *PartCommand) HandleServer(server *Server) {
 			continue
 		}
 
-		channel.Command(m)
+		channel.Part(client, m.Message())
 	}
 }
 
-func (m *TopicCommand) HandleServer(s *Server) {
-	channel := s.channels[m.channel]
+func (msg *TopicCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	channel := server.channels[msg.channel]
 	if channel == nil {
-		m.Client().Reply(ErrNoSuchChannel(s, m.channel))
+		client.Reply(ErrNoSuchChannel(server, msg.channel))
 		return
 	}
 
-	channel.Command(m)
+	if msg.setTopic {
+		channel.SetTopic(client, msg.topic)
+	} else {
+		channel.GetTopic(client)
+	}
 }
 
-func (m *PrivMsgCommand) HandleServer(s *Server) {
-	if m.TargetIsChannel() {
-		channel := s.channels[m.target]
+func (msg *PrivMsgCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if IsChannel(msg.target) {
+		channel := server.channels[msg.target]
 		if channel == nil {
-			m.Client().Reply(ErrNoSuchChannel(s, m.target))
+			client.Reply(ErrNoSuchChannel(server, msg.target))
 			return
 		}
 
-		channel.Command(m)
+		channel.PrivMsg(client, msg.message)
 		return
 	}
 
-	target := s.clients[m.target]
+	target := server.clients[msg.target]
 	if target == nil {
-		m.Client().Reply(ErrNoSuchNick(s, m.target))
+		client.Reply(ErrNoSuchNick(server, msg.target))
 		return
 	}
-	target.Reply(RplPrivMsg(m.Client(), target, m.message))
+	target.Reply(RplPrivMsg(client, target, msg.message))
 	if target.away {
-		m.Client().Reply(RplAway(s, target))
+		client.Reply(RplAway(server, target))
 	}
 }
 
@@ -436,7 +437,8 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 		client.Reply(ErrNoSuchChannel(server, msg.channel))
 		return
 	}
-	channel.Command(msg)
+
+	channel.Mode(client, msg.changes)
 }
 
 func whoChannel(client *Client, server *Server, channel *Channel) {
@@ -513,29 +515,22 @@ func (msg *MOTDCommand) HandleServer(server *Server) {
 }
 
 func (msg *NoticeCommand) HandleServer(server *Server) {
+	client := msg.Client()
 	if IsChannel(msg.target) {
 		channel := server.channels[msg.target]
 		if channel == nil {
-			msg.Client().Reply(ErrNoSuchChannel(server, msg.target))
+			client.Reply(ErrNoSuchChannel(server, msg.target))
 			return
 		}
 
-		channel.Command(msg)
+		channel.Notice(client, msg.message)
 		return
 	}
 
 	target := server.clients[msg.target]
 	if target == nil {
-		msg.Client().Reply(ErrNoSuchNick(server, msg.target))
+		client.Reply(ErrNoSuchNick(server, msg.target))
 		return
 	}
-	target.Reply(RplPrivMsg(msg.Client(), target, msg.message))
-}
-
-func (msg *DestroyChannel) HandleServer(server *Server) {
-	server.channels.Remove(msg.channel)
-}
-
-func (msg *DestroyClient) HandleServer(server *Server) {
-	server.clients.Remove(msg.client)
+	target.Reply(RplNotice(client, target, msg.message))
 }

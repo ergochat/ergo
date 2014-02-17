@@ -362,10 +362,6 @@ func NewPrivMsgCommand(args []string) (editableCommand, error) {
 	}, nil
 }
 
-func (m *PrivMsgCommand) TargetIsChannel() bool {
-	return IsChannel(m.target)
-}
-
 // TOPIC [newtopic]
 
 type TopicCommand struct {

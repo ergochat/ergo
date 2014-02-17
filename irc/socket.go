@@ -2,17 +2,13 @@ package irc
 
 import (
 	"bufio"
-	"io"
 	"log"
 	"net"
 	"strings"
-	"sync"
 )
 
 type Socket struct {
-	closed  bool
 	conn    net.Conn
-	mutex   *sync.Mutex
 	reader  *bufio.Reader
 	receive chan string
 	send    chan string
@@ -25,7 +21,6 @@ func NewSocket(conn net.Conn) *Socket {
 		reader:  bufio.NewReader(conn),
 		receive: make(chan string),
 		send:    make(chan string),
-		mutex:   &sync.Mutex{},
 		writer:  bufio.NewWriter(conn),
 	}
 
@@ -39,40 +34,19 @@ func (socket *Socket) String() string {
 	return socket.conn.RemoteAddr().String()
 }
 
-func (socket *Socket) IsClosed() bool {
-	socket.mutex.Lock()
-	defer socket.mutex.Unlock()
-	return socket.closed
-}
-
 func (socket *Socket) Close() {
-	if socket.IsClosed() {
-		return
-	}
-
-	if DEBUG_NET {
-		log.Printf("%s closed", socket)
-	}
-
-	socket.mutex.Lock()
-	socket.closed = true
 	socket.conn.Close()
-	close(socket.receive)
-	socket.mutex.Unlock()
 }
 
 func (socket *Socket) Read() <-chan string {
 	return socket.receive
 }
 
-func (socket *Socket) Write(lines []string) error {
+func (socket *Socket) Write(lines []string) {
 	for _, line := range lines {
-		if socket.IsClosed() {
-			return io.EOF
-		}
 		socket.send <- line
 	}
-	return nil
+	return
 }
 
 func (socket *Socket) readLines() {
@@ -92,7 +66,7 @@ func (socket *Socket) readLines() {
 
 		socket.receive <- line
 	}
-	socket.Close()
+	close(socket.receive)
 }
 
 func (socket *Socket) writeLines() {
@@ -106,6 +80,7 @@ func (socket *Socket) writeLines() {
 		if _, err := socket.writer.WriteString(CRLF); socket.maybeLogWriteError(err) {
 			break
 		}
+
 		if err := socket.writer.Flush(); socket.maybeLogWriteError(err) {
 			break
 		}
