@@ -31,6 +31,7 @@ const (
 	ISON    StringCode = "ISON"
 	JOIN    StringCode = "JOIN"
 	KICK    StringCode = "KICK"
+	LIST    StringCode = "LIST"
 	MODE    StringCode = "MODE"
 	MOTD    StringCode = "MOTD"
 	NICK    StringCode = "NICK"

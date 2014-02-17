@@ -561,3 +561,34 @@ func (msg *KickCommand) HandleServer(server *Server) {
 		channel.Kick(client, target, msg.Comment())
 	}
 }
+
+func (msg *ListCommand) HandleServer(server *Server) {
+	client := msg.Client()
+
+	// TODO target server
+	if msg.target != "" {
+		client.Reply(ErrNoSuchServer(server, msg.target))
+		return
+	}
+
+	if len(msg.channels) == 0 {
+		for _, channel := range server.channels {
+			if channel.flags[Secret] || channel.flags[Private] {
+				continue
+			}
+			client.Reply(RplList(channel))
+		}
+	} else {
+		for _, chname := range msg.channels {
+			channel := server.channels[chname]
+			if channel == nil ||
+				channel.flags[Secret] ||
+				channel.flags[Private] {
+				client.Reply(ErrNoSuchChannel(server, chname))
+				continue
+			}
+			client.Reply(RplList(channel))
+		}
+	}
+	client.Reply(RplListEnd(server))
+}

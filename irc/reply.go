@@ -321,6 +321,15 @@ func RplMOTDEnd(server *Server) Reply {
 		":End of MOTD command")
 }
 
+func RplList(channel *Channel) Reply {
+	return NewNumericReply(channel.server, RPL_LIST, "%s %d :%s",
+		channel, len(channel.members), channel.topic)
+}
+
+func RplListEnd(server *Server) Reply {
+	return NewNumericReply(server, RPL_LISTEND, ":End of LIST")
+}
+
 //
 // errors (also numeric)
 //

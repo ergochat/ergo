@@ -24,6 +24,7 @@ var (
 		ISON:    NewIsOnCommand,
 		JOIN:    NewJoinCommand,
 		KICK:    NewKickCommand,
+		LIST:    NewListCommand,
 		MODE:    NewModeCommand,
 		MOTD:    NewMOTDCommand,
 		NICK:    NewNickCommand,
@@ -775,6 +776,23 @@ func NewKickCommand(args []string) (editableCommand, error) {
 	}
 	if len(args) > 2 {
 		cmd.comment = args[2]
+	}
+	return cmd, nil
+}
+
+type ListCommand struct {
+	BaseCommand
+	channels []string
+	target   string
+}
+
+func NewListCommand(args []string) (editableCommand, error) {
+	cmd := &ListCommand{}
+	if len(args) > 0 {
+		cmd.channels = strings.Split(args[0], ",")
+	}
+	if len(args) > 1 {
+		cmd.target = args[1]
 	}
 	return cmd, nil
 }
