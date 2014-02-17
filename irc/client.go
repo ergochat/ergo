@@ -143,6 +143,8 @@ type DestroyClient struct {
 func (client *Client) Destroy() {
 	client.socket.Close()
 
+	client.loginTimer.Stop()
+
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
 	}
