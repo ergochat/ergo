@@ -388,7 +388,7 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 		return
 	}
 	target.Reply(RplPrivMsg(client, target, msg.message))
-	if target.away {
+	if target.flags[Away] {
 		client.Reply(RplAway(server, target))
 	}
 }
@@ -396,8 +396,8 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 func (m *ModeCommand) HandleServer(s *Server) {
 	client := m.Client()
 	target := s.clients[m.nickname]
-	// TODO other auth
-	if client != target {
+
+	if client != target && !client.flags[Operator] {
 		client.Reply(ErrUsersDontMatch(s))
 		return
 	}
@@ -405,14 +405,21 @@ func (m *ModeCommand) HandleServer(s *Server) {
 	changes := make(ModeChanges, 0)
 
 	for _, change := range m.changes {
-		if change.mode == Invisible {
+		switch change.mode {
+		case Invisible, ServerNotice, WallOps:
 			switch change.op {
 			case Add:
-				client.invisible = true
+				client.flags[change.mode] = true
 				changes = append(changes, change)
 
 			case Remove:
-				client.invisible = false
+				delete(client.flags, change.mode)
+				changes = append(changes, change)
+			}
+
+		case Operator, LocalOperator:
+			if change.op == Remove {
+				delete(client.flags, change.mode)
 				changes = append(changes, change)
 			}
 		}
@@ -487,7 +494,7 @@ func (msg *OperCommand) HandleServer(server *Server) {
 		return
 	}
 
-	client.operator = true
+	client.flags[Operator] = true
 
 	client.Reply(RplYoureOper(server))
 	client.Reply(RplUModeIs(server, client))
@@ -495,10 +502,14 @@ func (msg *OperCommand) HandleServer(server *Server) {
 
 func (msg *AwayCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	client.away = msg.away
+	if msg.away {
+		client.flags[Away] = true
+	} else {
+		delete(client.flags, Away)
+	}
 	client.awayMessage = msg.text
 
-	if client.away {
+	if client.flags[Away] {
 		client.Reply(RplNowAway(server))
 	} else {
 		client.Reply(RplUnAway(server))
@@ -573,7 +584,8 @@ func (msg *ListCommand) HandleServer(server *Server) {
 
 	if len(msg.channels) == 0 {
 		for _, channel := range server.channels {
-			if channel.flags[Secret] || channel.flags[Private] {
+			if !client.flags[Operator] &&
+				(channel.flags[Secret] || channel.flags[Private]) {
 				continue
 			}
 			client.Reply(RplList(channel))
@@ -581,9 +593,8 @@ func (msg *ListCommand) HandleServer(server *Server) {
 	} else {
 		for _, chname := range msg.channels {
 			channel := server.channels[chname]
-			if channel == nil ||
-				channel.flags[Secret] ||
-				channel.flags[Private] {
+			if channel == nil || (!client.flags[Operator] &&
+				(channel.flags[Secret] || channel.flags[Private])) {
 				client.Reply(ErrNoSuchChannel(server, chname))
 				continue
 			}

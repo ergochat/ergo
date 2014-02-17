@@ -61,7 +61,7 @@ func (channel *Channel) GetUsers(replier Replier) {
 }
 
 func (channel *Channel) ClientIsOperator(client *Client) bool {
-	return channel.members.HasMode(client, ChannelOperator)
+	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator)
 }
 
 func (channel *Channel) Nicks() []string {
@@ -303,7 +303,7 @@ func (channel *Channel) Quit(client *Client) {
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
-	if !channel.members.Has(client) {
+	if !client.flags[Operator] && !channel.members.Has(client) {
 		client.Reply(ErrNotOnChannel(channel))
 		return
 	}

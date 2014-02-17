@@ -10,17 +10,15 @@ import (
 
 type Client struct {
 	atime       time.Time
-	away        bool
 	awayMessage string
 	channels    ChannelSet
 	ctime       time.Time
+	flags       map[UserMode]bool
 	friends     map[*Client]uint
 	hostname    string
 	idleTimer   *time.Timer
-	invisible   bool
 	loginTimer  *time.Timer
 	nick        string
-	operator    bool
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
@@ -36,6 +34,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		atime:    now,
 		channels: make(ChannelSet),
 		ctime:    now,
+		flags:    make(map[UserMode]bool),
 		friends:  make(map[*Client]uint),
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		phase:    server.InitPhase(),
@@ -163,11 +162,8 @@ func (client *Client) HasUsername() bool {
 
 // <mode>
 func (c *Client) ModeString() (str string) {
-	if c.invisible {
-		str += Invisible.String()
-	}
-	if c.operator {
-		str += Operator.String()
+	for flag := range c.flags {
+		str += flag.String()
 	}
 
 	if len(str) > 0 {
