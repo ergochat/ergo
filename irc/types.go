@@ -28,9 +28,19 @@ func (mode UserMode) String() string {
 
 type Phase uint
 
-type Numeric uint
+type ReplyCode interface {
+	String() string
+}
 
-func (code Numeric) String() string {
+type StringCode string
+
+func (code StringCode) String() string {
+	return string(code)
+}
+
+type NumericCode uint
+
+func (code NumericCode) String() string {
 	return fmt.Sprintf("%03d", code)
 }
 
@@ -87,27 +97,41 @@ func (clients ClientNameMap) Remove(client *Client) error {
 
 type ChannelModeSet map[ChannelMode]bool
 
-type ClientSet map[*Client]ChannelModeSet
+type ClientSet map[*Client]bool
 
 func (clients ClientSet) Add(client *Client) {
-	clients[client] = make(ChannelModeSet)
+	clients[client] = true
 }
 
 func (clients ClientSet) Remove(client *Client) {
 	delete(clients, client)
 }
 
-func (clients ClientSet) HasMode(client *Client, mode ChannelMode) bool {
-	modes, ok := clients[client]
+func (clients ClientSet) Has(client *Client) bool {
+	return clients[client]
+}
+
+type MemberSet map[*Client]ChannelModeSet
+
+func (members MemberSet) Add(member *Client) {
+	members[member] = make(ChannelModeSet)
+}
+
+func (members MemberSet) Remove(member *Client) {
+	delete(members, member)
+}
+
+func (members MemberSet) Has(member *Client) bool {
+	_, ok := members[member]
+	return ok
+}
+
+func (members MemberSet) HasMode(member *Client, mode ChannelMode) bool {
+	modes, ok := members[member]
 	if !ok {
 		return false
 	}
 	return modes[mode]
-}
-
-func (clients ClientSet) Has(client *Client) bool {
-	_, ok := clients[client]
-	return ok
 }
 
 type ChannelSet map[*Channel]bool
@@ -141,6 +165,7 @@ type Replier interface {
 }
 
 type Reply interface {
+	Code() ReplyCode
 	Format(*Client) []string
 	Source() Identifier
 }
@@ -170,6 +195,10 @@ type RegServerCommand interface {
 type ChannelCommand interface {
 	Command
 	HandleChannel(channel *Channel)
+}
+
+type ClientCommand interface {
+	HandleClient(client *Client)
 }
 
 //

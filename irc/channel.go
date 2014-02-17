@@ -2,21 +2,18 @@ package irc
 
 import (
 	"log"
-	"sync"
 )
 
 type Channel struct {
-	banList   []UserMask
-	commands  chan<- ChannelCommand
-	destroyed bool
-	flags     map[ChannelMode]bool
-	key       string
-	members   ClientSet
-	mutex     *sync.Mutex
-	name      string
-	replies   chan<- Reply
-	server    *Server
-	topic     string
+	banList  []UserMask
+	commands chan<- ChannelCommand
+	flags    ChannelModeSet
+	key      string
+	members  MemberSet
+	name     string
+	replies  chan<- Reply
+	server   *Server
+	topic    string
 }
 
 func IsChannel(target string) bool {
@@ -38,9 +35,8 @@ func NewChannel(s *Server, name string) *Channel {
 	channel := &Channel{
 		banList:  make([]UserMask, 0),
 		commands: commands,
-		flags:    make(map[ChannelMode]bool),
-		members:  make(ClientSet),
-		mutex:    &sync.Mutex{},
+		flags:    make(ChannelModeSet),
+		members:  make(MemberSet),
 		name:     name,
 		replies:  replies,
 		server:   s,
@@ -50,19 +46,17 @@ func NewChannel(s *Server, name string) *Channel {
 	return channel
 }
 
+type DestroyChannel struct {
+	BaseCommand
+	channel *Channel
+}
+
 func (channel *Channel) Destroy() {
-	if channel.IsDestroyed() {
-		return
-	}
-
-	channel.withMutex(func() {
-		channel.destroyed = true
-		channel.members = make(ClientSet)
+	channel.server.Command(&DestroyChannel{
+		channel: channel,
 	})
-
-	channel.server.withMutex(func() {
-		channel.server.channels.Remove(channel)
-	})
+	close(channel.commands)
+	close(channel.replies)
 }
 
 func (channel *Channel) Command(command ChannelCommand) {
@@ -75,13 +69,6 @@ func (channel *Channel) Reply(reply Reply) {
 
 func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	for command := range commands {
-		if channel.IsDestroyed() {
-			if DEBUG_CHANNEL {
-				log.Printf("%s → %s %s dropped", command.Source(), channel, command)
-			}
-			continue
-		}
-
 		if DEBUG_CHANNEL {
 			log.Printf("%s → %s %s", command.Source(), channel, command)
 		}
@@ -89,40 +76,19 @@ func (channel *Channel) receiveCommands(commands <-chan ChannelCommand) {
 	}
 }
 
-func IsPrivMsg(reply Reply) bool {
-	strReply, ok := reply.(*StringReply)
-	if !ok {
-		return false
-	}
-	return strReply.code == "PRIVMSG"
-}
-
-func (channel *Channel) IsDestroyed() bool {
-	channel.mutex.Lock()
-	defer channel.mutex.Unlock()
-	return channel.destroyed
-}
-
 func (channel *Channel) receiveReplies(replies <-chan Reply) {
 	for reply := range replies {
-		if channel.IsDestroyed() {
-			if DEBUG_CHANNEL {
-				log.Printf("%s ← %s %s dropped", channel, reply.Source(), reply)
-			}
-			continue
-		}
-
 		if DEBUG_CHANNEL {
 			log.Printf("%s ← %s %s", channel, reply.Source(), reply)
 		}
-		channel.withMutex(func() {
-			for client := range channel.members {
-				if IsPrivMsg(reply) && (reply.Source() == Identifier(client)) {
-					continue
-				}
-				client.Reply(reply)
+
+		for client := range channel.members {
+			if (reply.Code() == ReplyCode(PRIVMSG)) &&
+				(reply.Source() == Identifier(client)) {
+				continue
 			}
-		})
+			client.Reply(reply)
+		}
 	}
 }
 
@@ -198,25 +164,9 @@ func (channel *Channel) ModeString() (str string) {
 	return
 }
 
-func (channel *Channel) withMutex(f func()) {
-	channel.mutex.Lock()
-	defer channel.mutex.Unlock()
-	f()
-}
-
-func (channel *Channel) Join(client *Client) {
-	channel.withMutex(func() {
-		channel.members.Add(client)
-		if len(channel.members) == 1 {
-			channel.members[client][ChannelCreator] = true
-			channel.members[client][ChannelOperator] = true
-		}
-		client.channels.Add(channel)
-	})
-
-	channel.Reply(RplJoin(client, channel))
-	channel.GetTopic(client)
-	channel.GetUsers(client)
+type JoinChannel struct {
+	BaseCommand
+	channel *Channel
 }
 
 //
@@ -230,7 +180,33 @@ func (m *JoinCommand) HandleChannel(channel *Channel) {
 		return
 	}
 
-	channel.Join(client)
+	channel.members.Add(client)
+	if len(channel.members) == 1 {
+		channel.members[client][ChannelCreator] = true
+		channel.members[client][ChannelOperator] = true
+	}
+
+	client.commands <- &JoinChannel{
+		channel: channel,
+	}
+
+	addClient := &AddFriend{
+		client: client,
+	}
+	for member := range channel.members {
+		client.commands <- &AddFriend{
+			client: member,
+		}
+		member.commands <- addClient
+	}
+
+	channel.Reply(RplJoin(client, channel))
+	channel.GetTopic(client)
+	channel.GetUsers(client)
+}
+
+type PartChannel struct {
+	channel *Channel
 }
 
 func (m *PartCommand) HandleChannel(channel *Channel) {
@@ -244,9 +220,15 @@ func (m *PartCommand) HandleChannel(channel *Channel) {
 	channel.Reply(RplPart(client, channel, m.Message()))
 
 	channel.members.Remove(client)
-	client.channels.Remove(channel)
+	client.commands <- &PartChannel{
+		channel: channel,
+	}
+	for member := range channel.members {
+		member.commands <- &RemoveFriend{
+			client: client,
+		}
+	}
 
-	// TODO persistent channels
 	if channel.IsEmpty() {
 		channel.Destroy()
 	}
@@ -386,4 +368,19 @@ func (m *NoticeCommand) HandleChannel(channel *Channel) {
 		return
 	}
 	channel.Reply(RplNotice(client, channel, m.message))
+}
+
+func (msg *QuitCommand) HandleChannel(channel *Channel) {
+	client := msg.Client()
+	removeClient := &RemoveFriend{
+		client: client,
+	}
+	for member := range channel.members {
+		member.commands <- removeClient
+	}
+	channel.members.Remove(client)
+}
+
+func (msg *DestroyClient) HandleChannel(channel *Channel) {
+	channel.members.Remove(msg.client)
 }

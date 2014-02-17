@@ -9,20 +9,18 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 )
 
 type Server struct {
 	channels  ChannelNameMap
+	clients   ClientNameMap
 	commands  chan Command
 	ctime     time.Time
 	motdFile  string
-	mutex     *sync.Mutex
 	name      string
 	operators map[string]string
 	password  string
-	clients   ClientNameMap
 }
 
 func NewServer(config *Config) *Server {
@@ -32,7 +30,6 @@ func NewServer(config *Config) *Server {
 		commands:  make(chan Command),
 		ctime:     time.Now(),
 		motdFile:  config.MOTD,
-		mutex:     &sync.Mutex{},
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
@@ -43,18 +40,11 @@ func NewServer(config *Config) *Server {
 	}
 
 	go server.receiveCommands()
-
 	for _, listenerConf := range config.Listeners {
 		go server.listen(listenerConf)
 	}
 
 	return server
-}
-
-func (server *Server) withMutex(f func()) {
-	server.mutex.Lock()
-	defer server.mutex.Unlock()
-	f()
 }
 
 func (server *Server) receiveCommands() {
@@ -145,9 +135,7 @@ func (s *Server) GetOrMakeChannel(name string) *Channel {
 
 	if !ok {
 		channel = NewChannel(s, name)
-		s.withMutex(func() {
-			s.channels[name] = channel
-		})
+		s.channels[name] = channel
 	}
 
 	return channel
@@ -316,17 +304,9 @@ func (m *NickCommand) HandleServer(s *Server) {
 		return
 	}
 
-	// Make reply before changing nick.
-	reply := RplNick(c, m.nickname)
-
 	s.clients.Remove(c)
-	c.nick = m.nickname
+	c.commands <- m
 	s.clients.Add(c)
-
-	iclients := c.InterestedClients()
-	for iclient := range iclients {
-		iclient.Reply(reply)
-	}
 }
 
 func (m *UserMsgCommand) HandleServer(s *Server) {
@@ -335,24 +315,10 @@ func (m *UserMsgCommand) HandleServer(s *Server) {
 
 func (m *QuitCommand) HandleServer(server *Server) {
 	client := m.Client()
-	iclients := client.InterestedClients()
-	iclients.Remove(client)
 
-	for channel := range client.channels {
-		channel.withMutex(func() {
-			channel.members.Remove(client)
-		})
-	}
+	server.clients.Remove(client)
 
-	client.Reply(RplError(server, client))
-	client.Destroy()
-
-	if len(iclients) > 0 {
-		reply := RplQuit(client, m.message)
-		for iclient := range iclients {
-			iclient.Reply(reply)
-		}
-	}
+	client.commands <- m
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {
@@ -374,9 +340,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 
 func (m *PartCommand) HandleServer(server *Server) {
 	for _, chname := range m.channels {
-		server.mutex.Lock()
 		channel := server.channels[chname]
-		server.mutex.Unlock()
 
 		if channel == nil {
 			m.Client().Reply(ErrNoSuchChannel(server, chname))
@@ -566,4 +530,12 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		return
 	}
 	target.Reply(RplPrivMsg(msg.Client(), target, msg.message))
+}
+
+func (msg *DestroyChannel) HandleServer(server *Server) {
+	server.channels.Remove(msg.channel)
+}
+
+func (msg *DestroyClient) HandleServer(server *Server) {
+	server.clients.Remove(msg.client)
 }

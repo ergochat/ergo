@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -13,13 +12,13 @@ type Client struct {
 	away        bool
 	awayMessage string
 	channels    ChannelSet
+	commands    chan ClientCommand
 	ctime       time.Time
-	destroyed   bool
+	friends     map[*Client]uint
 	hostname    string
 	idleTimer   *time.Timer
 	invisible   bool
 	loginTimer  *time.Timer
-	mutex       *sync.Mutex
 	nick        string
 	operator    bool
 	phase       Phase
@@ -36,16 +35,18 @@ func NewClient(server *Server, conn net.Conn) *Client {
 	client := &Client{
 		atime:    now,
 		channels: make(ChannelSet),
+		commands: make(chan ClientCommand),
 		ctime:    now,
+		friends:  make(map[*Client]uint),
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		phase:    server.InitPhase(),
 		replies:  make(chan Reply),
 		server:   server,
 		socket:   NewSocket(conn),
-		mutex:    &sync.Mutex{},
 	}
-	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.Destroy)
 
+	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.Destroy)
+	go client.readClientCommands()
 	go client.readCommands()
 	go client.writeReplies()
 
@@ -53,10 +54,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 }
 
 func (client *Client) Touch() {
-	if client.IsDestroyed() {
-		return
-	}
-
 	client.atime = time.Now()
 
 	if client.quitTimer != nil {
@@ -89,15 +86,17 @@ func (client *Client) ConnectionTimeout() {
 }
 
 func (client *Client) ConnectionClosed() {
-	if client.IsDestroyed() {
-		return
-	}
-
 	msg := &QuitCommand{
 		message: "connection closed",
 	}
 	msg.SetClient(client)
 	client.server.Command(msg)
+}
+
+func (client *Client) readClientCommands() {
+	for command := range client.commands {
+		command.HandleClient(client)
+	}
 }
 
 func (c *Client) readCommands() {
@@ -126,13 +125,6 @@ func (c *Client) readCommands() {
 
 func (client *Client) writeReplies() {
 	for reply := range client.replies {
-		if client.IsDestroyed() {
-			if DEBUG_CLIENT {
-				log.Printf("%s ← %s dropped", client, reply)
-			}
-			continue
-		}
-
 		if DEBUG_CLIENT {
 			log.Printf("%s ← %s", client, reply)
 		}
@@ -143,24 +135,12 @@ func (client *Client) writeReplies() {
 	}
 }
 
-func (client *Client) IsDestroyed() bool {
-	client.mutex.Lock()
-	defer client.mutex.Unlock()
-	return client.destroyed
+type DestroyClient struct {
+	BaseCommand
+	client *Client
 }
 
 func (client *Client) Destroy() {
-	if client.IsDestroyed() {
-		return
-	}
-
-	if DEBUG_CLIENT {
-		log.Printf("%s destroying", client)
-	}
-
-	client.mutex.Lock()
-	client.destroyed = true
-
 	client.socket.Close()
 
 	if client.idleTimer != nil {
@@ -171,14 +151,15 @@ func (client *Client) Destroy() {
 		client.quitTimer.Stop()
 	}
 
-	client.channels = make(ChannelSet) // clear channel list
-	client.server.clients.Remove(client)
-
-	client.mutex.Unlock()
-
-	if DEBUG_CLIENT {
-		log.Printf("%s destroyed", client)
+	cmd := &DestroyClient{
+		client: client,
 	}
+
+	for channel := range client.channels {
+		channel.Command(cmd)
+	}
+
+	client.server.Command(cmd)
 }
 
 func (client *Client) Reply(reply Reply) {
@@ -197,16 +178,6 @@ func (client *Client) HasNick() bool {
 
 func (client *Client) HasUsername() bool {
 	return client.username != ""
-}
-
-func (client *Client) InterestedClients() ClientSet {
-	clients := make(ClientSet)
-	for channel := range client.channels {
-		for member := range channel.members {
-			clients.Add(member)
-		}
-	}
-	return clients
 }
 
 // <mode>
@@ -245,4 +216,64 @@ func (c *Client) Id() string {
 
 func (c *Client) String() string {
 	return c.UserHost()
+}
+
+//
+// commands
+//
+
+type AddFriend struct {
+	client *Client
+}
+
+func (msg *AddFriend) HandleClient(client *Client) {
+	client.friends[msg.client] += 1
+}
+
+type RemoveFriend struct {
+	client *Client
+}
+
+func (msg *RemoveFriend) HandleClient(client *Client) {
+	client.friends[msg.client] -= 1
+	if client.friends[msg.client] <= 0 {
+		delete(client.friends, msg.client)
+	}
+}
+
+func (msg *JoinChannel) HandleClient(client *Client) {
+	client.channels.Add(msg.channel)
+}
+
+func (msg *PartChannel) HandleClient(client *Client) {
+	client.channels.Remove(msg.channel)
+}
+
+func (msg *NickCommand) HandleClient(client *Client) {
+	// Make reply before changing nick.
+	reply := RplNick(client, msg.nickname)
+
+	client.nick = msg.nickname
+
+	for friend := range client.friends {
+		friend.Reply(reply)
+	}
+}
+
+func (msg *QuitCommand) HandleClient(client *Client) {
+	if len(client.friends) > 0 {
+		reply := RplQuit(client, msg.message)
+		for friend := range client.friends {
+			if friend == client {
+				continue
+			}
+			friend.Reply(reply)
+		}
+	}
+
+	for channel := range client.channels {
+		channel.commands <- msg
+	}
+
+	client.Destroy()
 }
