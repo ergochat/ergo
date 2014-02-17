@@ -3,6 +3,7 @@ package irc
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 //
@@ -72,24 +73,32 @@ func (channels ChannelNameMap) Remove(channel *Channel) error {
 type ClientNameMap map[string]*Client
 
 var (
-	ErrNickMissing   = errors.New("nick missing")
-	ErrNicknameInUse = errors.New("nickname in use")
+	ErrNickMissing      = errors.New("nick missing")
+	ErrNicknameInUse    = errors.New("nickname in use")
+	ErrNicknameMismatch = errors.New("nickname mismatch")
 )
+
+func (clients ClientNameMap) Get(nick string) *Client {
+	return clients[strings.ToLower(nick)]
+}
 
 func (clients ClientNameMap) Add(client *Client) error {
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
-	if clients[client.nick] != nil {
+	if clients.Get(client.nick) != nil {
 		return ErrNicknameInUse
 	}
-	clients[client.nick] = client
+	clients[strings.ToLower(client.nick)] = client
 	return nil
 }
 
 func (clients ClientNameMap) Remove(client *Client) error {
-	if clients[client.nick] != client {
-		return fmt.Errorf("%s: mismatch", client.nick)
+	if !client.HasNick() {
+		return ErrNickMissing
+	}
+	if clients.Get(client.nick) != client {
+		return ErrNicknameMismatch
 	}
 	delete(clients, client.nick)
 	return nil
