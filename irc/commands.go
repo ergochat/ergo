@@ -107,7 +107,9 @@ func parseLine(line string) (command string, args []string) {
 	for arg, rest := parseArg(line); arg != ""; arg, rest = parseArg(rest) {
 		args = append(args, arg)
 	}
-	command, args = strings.ToUpper(args[0]), args[1:]
+	if len(args) > 0 {
+		command, args = strings.ToUpper(args[0]), args[1:]
+	}
 	return
 }
 
