@@ -60,6 +60,9 @@ func (socket *Socket) readLines() {
 		}
 
 		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
 		if DEBUG_NET {
 			log.Printf("%s → %s", socket, line)
 		}
