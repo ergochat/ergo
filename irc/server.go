@@ -461,7 +461,7 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 			client.Reply(RplWhoisOperator(mclient))
 		}
 		client.Reply(RplWhoisIdle(mclient))
-		client.Reply(RplWhoisChannels(mclient))
+		client.Reply(NewWhoisChannelsReply(mclient))
 		client.Reply(RplEndOfWhois(server))
 	}
 }

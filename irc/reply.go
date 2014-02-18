@@ -6,14 +6,6 @@ import (
 	"time"
 )
 
-func joinedLen(names []string) int {
-	var l = len(names) - 1 // " " between names
-	for _, name := range names {
-		l += len(name)
-	}
-	return l
-}
-
 type BaseReply struct {
 	code    ReplyCode
 	id      string
@@ -82,7 +74,46 @@ func (reply *NumericReply) String() string {
 		reply.id, reply.code, reply.message)
 }
 
-// names reply
+//
+// multiline replies
+//
+
+type MultilineReply interface {
+	formatLine(*Client, []string) string
+	names() []string
+}
+
+func joinedLen(names []string) int {
+	var l = len(names) - 1 // " " between names
+	for _, name := range names {
+		l += len(name)
+	}
+	return l
+}
+
+func multilineFormat(reply MultilineReply, client *Client) []string {
+	lines := make([]string, 0)
+	baseLen := len(reply.formatLine(client, []string{}))
+	tooLong := func(names []string) bool {
+		return (baseLen + joinedLen(names)) > MAX_REPLY_LEN
+	}
+	from, to := 0, 1
+	names := reply.names()
+	for to < len(names) {
+		if (from < (to - 1)) && tooLong(names[from:to]) {
+			lines = append(lines, reply.formatLine(client, names[from:to-1]))
+			from, to = to-1, to
+		} else {
+			to += 1
+		}
+	}
+	if from < len(names) {
+		lines = append(lines, reply.formatLine(client, names[from:]))
+	}
+	return lines
+}
+
+// names
 
 type NamesReply struct {
 	BaseReply
@@ -97,28 +128,16 @@ func NewNamesReply(channel *Channel) Reply {
 	return reply
 }
 
+func (reply *NamesReply) names() []string {
+	return reply.channel.Nicks()
+}
+
+func (reply *NamesReply) formatLine(client *Client, names []string) string {
+	return RplNamReply(reply.channel, names).Format(client)[0]
+}
+
 func (reply *NamesReply) Format(client *Client) []string {
-	lines := make([]string, 0)
-	base := RplNamReply(reply.channel, []string{})
-	baseLen := len(base.Format(client)[0])
-	tooLong := func(names []string) bool {
-		return (baseLen + joinedLen(names)) > MAX_REPLY_LEN
-	}
-	from, to := 0, 1
-	nicks := reply.channel.Nicks()
-	for to < len(nicks) {
-		if (from < (to - 1)) && tooLong(nicks[from:to]) {
-			lines = append(lines, RplNamReply(reply.channel,
-				nicks[from:to-1]).Format(client)...)
-			from, to = to-1, to
-		} else {
-			to += 1
-		}
-	}
-	if from < len(nicks) {
-		lines = append(lines, RplNamReply(reply.channel,
-			nicks[from:]).Format(client)...)
-	}
+	lines := multilineFormat(reply, client)
 	lines = append(lines, RplEndOfNames(reply.channel).Format(client)...)
 	return lines
 }
@@ -128,7 +147,51 @@ func (reply *NamesReply) String() string {
 		reply.channel, reply.channel.Nicks())
 }
 
+// whois channels
+
+type WhoisChannelsReply struct {
+	BaseReply
+	client *Client
+}
+
+func NewWhoisChannelsReply(client *Client) *WhoisChannelsReply {
+	reply := &WhoisChannelsReply{
+		client: client,
+	}
+	reply.SetSource(client.server)
+	return reply
+}
+
+func (reply *WhoisChannelsReply) names() []string {
+	chstrs := make([]string, len(reply.client.channels))
+	index := 0
+	for channel := range reply.client.channels {
+		switch {
+		case channel.members[reply.client][ChannelOperator]:
+			chstrs[index] = "@" + channel.name
+
+		case channel.members[reply.client][Voice]:
+			chstrs[index] = "+" + channel.name
+
+		default:
+			chstrs[index] = channel.name
+		}
+		index += 1
+	}
+	return chstrs
+}
+
+func (reply *WhoisChannelsReply) formatLine(client *Client, names []string) string {
+	return RplWhoisChannels(reply.client, names).Format(client)[0]
+}
+
+func (reply *WhoisChannelsReply) Format(client *Client) []string {
+	return multilineFormat(reply, client)
+}
+
+//
 // messaging replies
+//
 
 func RplPrivMsg(source Identifier, target Identifier, message string) Reply {
 	return NewStringReply(source, PRIVMSG, "%s :%s", target.Nick(), message)
@@ -262,20 +325,7 @@ func RplWhoisIdle(client *Client) Reply {
 		client.Nick(), client.IdleSeconds(), client.SignonTime())
 }
 
-// TODO check message length
-func RplWhoisChannels(client *Client) Reply {
-	chstrs := make([]string, len(client.channels))
-	index := 0
-	for channel := range client.channels {
-		if channel.members[client][ChannelOperator] {
-			chstrs[index] = "@" + channel.name
-		} else if channel.members[client][Voice] {
-			chstrs[index] = "+" + channel.name
-		} else {
-			chstrs[index] = channel.name
-		}
-		index += 1
-	}
+func RplWhoisChannels(client *Client, chstrs []string) Reply {
 	return NewNumericReply(client.server, RPL_WHOISCHANNELS,
 		"%s :%s", client.Nick(), strings.Join(chstrs, " "))
 }
