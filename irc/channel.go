@@ -120,12 +120,6 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 
 	client.channels.Add(channel)
-
-	for member := range channel.members {
-		client.AddFriend(member)
-		member.AddFriend(client)
-	}
-
 	channel.Reply(RplJoin(client, channel))
 	channel.GetTopic(client)
 	channel.Names(client)
@@ -286,11 +280,6 @@ func (channel *Channel) Notice(client *Client, message string) {
 }
 
 func (channel *Channel) Quit(client *Client) {
-	for member := range channel.members {
-		client.RemoveFriend(member)
-		member.RemoveFriend(client)
-	}
-
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
 }

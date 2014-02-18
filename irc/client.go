@@ -18,7 +18,6 @@ type Client struct {
 	channels    ChannelSet
 	ctime       time.Time
 	flags       map[UserMode]bool
-	friends     map[*Client]uint
 	hasQuit     bool
 	hops        uint
 	hostname    string
@@ -40,7 +39,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		channels: make(ChannelSet),
 		ctime:    now,
 		flags:    make(map[UserMode]bool),
-		friends:  make(map[*Client]uint),
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		phase:    server.InitPhase(),
 		server:   server,
@@ -137,7 +135,6 @@ func (client *Client) Idle() {
 func (client *Client) Register() {
 	client.phase = Normal
 	client.loginTimer.Stop()
-	client.AddFriend(client)
 	client.Touch()
 }
 
@@ -228,15 +225,15 @@ func (c *Client) String() string {
 	return c.Id()
 }
 
-func (client *Client) AddFriend(friend *Client) {
-	client.friends[friend] += 1
-}
-
-func (client *Client) RemoveFriend(friend *Client) {
-	client.friends[friend] -= 1
-	if client.friends[friend] <= 0 {
-		delete(client.friends, friend)
+func (client *Client) Friends() ClientSet {
+	friends := make(ClientSet)
+	friends.Add(client)
+	for channel := range client.channels {
+		for member := range channel.members {
+			friends.Add(member)
+		}
 	}
+	return friends
 }
 
 func (client *Client) ChangeNickname(nickname string) {
@@ -245,7 +242,7 @@ func (client *Client) ChangeNickname(nickname string) {
 
 	client.nick = nickname
 
-	for friend := range client.friends {
+	for friend := range client.Friends() {
 		friend.Reply(reply)
 	}
 }
@@ -256,14 +253,13 @@ func (client *Client) Quit(message string) {
 	}
 	client.hasQuit = true
 	client.Reply(RplError(client.server, client.Nick()))
+	friends := client.Friends()
+	friends.Remove(client)
 	client.Destroy()
 
-	if len(client.friends) > 0 {
+	if len(friends) > 0 {
 		reply := RplQuit(client, message)
-		for friend := range client.friends {
-			if friend == client {
-				continue
-			}
+		for friend := range friends {
 			friend.Reply(reply)
 		}
 	}
