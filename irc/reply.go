@@ -238,8 +238,8 @@ func RplQuit(client *Client, message string) Reply {
 	return NewStringReply(client, QUIT, ":%s", message)
 }
 
-func RplError(server *Server, target Identifier) Reply {
-	return NewStringReply(server, ERROR, target.Nick())
+func RplError(server *Server, message string) Reply {
+	return NewStringReply(server, ERROR, message)
 }
 
 func RplInviteMsg(channel *Channel, inviter *Client) Reply {

@@ -19,6 +19,7 @@ type Client struct {
 	ctime       time.Time
 	flags       map[UserMode]bool
 	friends     map[*Client]uint
+	hasQuit     bool
 	hops        uint
 	hostname    string
 	idleTimer   *time.Timer
@@ -46,11 +47,15 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		socket:   NewSocket(conn),
 	}
 
-	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionClosed)
+	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
 	go client.readCommands()
 
 	return client
 }
+
+//
+// socket read gorountine
+//
 
 func (client *Client) readCommands() {
 	for line := range client.socket.Read() {
@@ -68,12 +73,46 @@ func (client *Client) readCommands() {
 		client.server.commands <- msg
 	}
 
-	client.server.toDestroy <- client
+	client.connectionClosed()
+}
+
+func (client *Client) connectionClosed() {
+	msg := &QuitCommand{
+		message: "connection closed",
+	}
+	msg.SetClient(client)
+	client.server.commands <- msg
+}
+
+//
+// idle timer goroutine
+//
+
+func (client *Client) connectionIdle() {
+	client.server.idle <- client
+}
+
+//
+// quit timer goroutine
+//
+
+func (client *Client) connectionTimeout() {
+	msg := &QuitCommand{
+		message: "connection timeout",
+	}
+	msg.SetClient(client)
+	client.server.commands <- msg
+}
+
+//
+// server goroutine
+//
+
+func (client *Client) Active() {
+	client.atime = time.Now()
 }
 
 func (client *Client) Touch() {
-	client.atime = time.Now()
-
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
 	}
@@ -95,24 +134,11 @@ func (client *Client) Idle() {
 	}
 }
 
-func (client *Client) connectionIdle() {
-	client.server.idle <- client
-}
-
-func (client *Client) connectionTimeout() {
-	msg := &QuitCommand{
-		message: "connection timeout",
-	}
-	msg.SetClient(client)
-	client.server.commands <- msg
-}
-
-func (client *Client) connectionClosed() {
-	msg := &QuitCommand{
-		message: "connection closed",
-	}
-	msg.SetClient(client)
-	client.server.commands <- msg
+func (client *Client) Register() {
+	client.phase = Normal
+	client.loginTimer.Stop()
+	client.AddFriend(client)
+	client.Touch()
 }
 
 func (client *Client) Destroy() {
@@ -225,6 +251,13 @@ func (client *Client) ChangeNickname(nickname string) {
 }
 
 func (client *Client) Quit(message string) {
+	if client.hasQuit {
+		return
+	}
+	client.hasQuit = true
+	client.Reply(RplError(client.server, client.Nick()))
+	client.Destroy()
+
 	if len(client.friends) > 0 {
 		reply := RplQuit(client, message)
 		for friend := range client.friends {
@@ -234,7 +267,4 @@ func (client *Client) Quit(message string) {
 			friend.Reply(reply)
 		}
 	}
-
-	client.Reply(RplError(client.server, client))
-	client.socket.Close()
 }

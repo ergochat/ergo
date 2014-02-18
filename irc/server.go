@@ -24,7 +24,6 @@ type Server struct {
 	name      string
 	operators map[string]string
 	password  string
-	toDestroy chan *Client
 }
 
 func NewServer(config *Config) *Server {
@@ -39,7 +38,6 @@ func NewServer(config *Config) *Server {
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
-		toDestroy: make(chan *Client),
 	}
 
 	for _, opConf := range config.Operators {
@@ -59,9 +57,6 @@ func (server *Server) ReceiveCommands() {
 		case conn := <-server.conns:
 			NewClient(server, conn)
 
-		case client := <-server.toDestroy:
-			client.Destroy()
-
 		case client := <-server.idle:
 			client.Idle()
 
@@ -75,7 +70,7 @@ func (server *Server) ReceiveCommands() {
 			case Authorization:
 				authCmd, ok := cmd.(AuthServerCommand)
 				if !ok {
-					client.socket.Close()
+					client.Quit("unexpected command")
 					continue
 				}
 				authCmd.HandleAuthServer(server)
@@ -83,7 +78,7 @@ func (server *Server) ReceiveCommands() {
 			case Registration:
 				regCmd, ok := cmd.(RegServerCommand)
 				if !ok {
-					client.socket.Close()
+					client.Quit("unexpected command")
 					continue
 				}
 				regCmd.HandleRegServer(server)
@@ -94,7 +89,15 @@ func (server *Server) ReceiveCommands() {
 					client.Reply(ErrUnknownCommand(server, cmd.Code()))
 					continue
 				}
-				client.Touch()
+				switch srvCmd.(type) {
+				case *PingCommand, *PongCommand:
+					client.Touch()
+				case *QuitCommand:
+					// no-op
+				default:
+					client.Active()
+					client.Touch()
+				}
 				srvCmd.HandleServer(server)
 			}
 		}
@@ -184,10 +187,7 @@ func (s *Server) GenerateGuestNick() string {
 
 func (s *Server) tryRegister(c *Client) {
 	if c.HasNick() && c.HasUsername() {
-		c.phase = Normal
-		c.loginTimer.Stop()
-		c.AddFriend(c)
-
+		c.Register()
 		c.Reply(RplWelcome(s, c))
 		c.Reply(RplYourHost(s))
 		c.Reply(RplCreated(s))
@@ -270,6 +270,10 @@ func (m *PassCommand) HandleAuthServer(s *Server) {
 	client.phase = Registration
 }
 
+func (msg *QuitCommand) HandleAuthServer(server *Server) {
+	msg.Client().Quit(msg.message)
+}
+
 //
 // registration commands
 //
@@ -317,6 +321,10 @@ func (msg *UserCommand) HandleRegServer2(server *Server) {
 	client := msg.Client()
 	client.username, client.realname = msg.username, msg.realname
 	server.tryRegister(client)
+}
+
+func (msg *QuitCommand) HandleRegServer(server *Server) {
+	msg.Client().Quit(msg.message)
 }
 
 //
