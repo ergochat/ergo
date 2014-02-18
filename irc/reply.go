@@ -258,7 +258,8 @@ func RplWhoisOperator(client *Client) Reply {
 
 func RplWhoisIdle(client *Client) Reply {
 	return NewNumericReply(client.server, RPL_WHOISIDLE,
-		"%s %d :seconds idle", client.Nick(), client.IdleSeconds())
+		"%s %d %d :seconds idle, signon time",
+		client.Nick(), client.IdleSeconds(), client.SignonTime())
 }
 
 // TODO check message length

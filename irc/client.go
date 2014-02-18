@@ -165,6 +165,10 @@ func (client *Client) IdleTime() time.Duration {
 	return time.Since(client.atime)
 }
 
+func (client *Client) SignonTime() int64 {
+	return client.ctime.Unix()
+}
+
 func (client *Client) IdleSeconds() uint64 {
 	return uint64(client.IdleTime().Seconds())
 }
