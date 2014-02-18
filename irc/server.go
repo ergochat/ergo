@@ -23,6 +23,7 @@ type Server struct {
 	name      string
 	operators map[string]string
 	password  string
+	toDestroy chan *Client
 }
 
 func NewServer(config *Config) *Server {
@@ -36,6 +37,7 @@ func NewServer(config *Config) *Server {
 		name:      config.Name,
 		operators: make(map[string]string),
 		password:  config.Password,
+		toDestroy: make(chan *Client),
 	}
 
 	for _, opConf := range config.Operators {
@@ -55,6 +57,9 @@ func (server *Server) ReceiveCommands() {
 		case conn := <-server.conns:
 			NewClient(server, conn)
 
+		case client := <-server.toDestroy:
+			client.Destroy()
+
 		case cmd := <-server.commands:
 			client := cmd.Client()
 			if DEBUG_SERVER {
@@ -65,7 +70,7 @@ func (server *Server) ReceiveCommands() {
 			case Authorization:
 				authCmd, ok := cmd.(AuthServerCommand)
 				if !ok {
-					client.Destroy()
+					client.socket.Close()
 					continue
 				}
 				authCmd.HandleAuthServer(server)
@@ -73,7 +78,7 @@ func (server *Server) ReceiveCommands() {
 			case Registration:
 				regCmd, ok := cmd.(RegServerCommand)
 				if !ok {
-					client.Destroy()
+					client.socket.Close()
 					continue
 				}
 				regCmd.HandleRegServer(server)
@@ -249,7 +254,7 @@ func (m *PassCommand) HandleAuthServer(s *Server) {
 
 	if s.password != m.password {
 		client.Reply(ErrPasswdMismatch(s))
-		client.Destroy()
+		client.socket.Close()
 		return
 	}
 

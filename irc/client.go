@@ -67,6 +67,8 @@ func (client *Client) readCommands() {
 		msg.SetClient(client)
 		client.server.commands <- msg
 	}
+
+	client.server.toDestroy <- client
 }
 
 func (client *Client) Touch() {
@@ -117,9 +119,8 @@ func (client *Client) connectionClosed() {
 
 func (client *Client) Destroy() {
 	if DEBUG_CLIENT {
-		log.Printf("%s destroy", client)
+		log.Printf("%s: destroying", client)
 	}
-
 	// clean up self
 
 	client.socket.Close()
@@ -143,7 +144,7 @@ func (client *Client) Destroy() {
 	client.server.clients.Remove(client)
 
 	if DEBUG_CLIENT {
-		log.Printf("%s destroyed", client)
+		log.Printf("%s: destroyed", client)
 	}
 }
 
@@ -203,7 +204,7 @@ func (c *Client) Id() string {
 }
 
 func (c *Client) String() string {
-	return c.UserHost()
+	return c.Id()
 }
 
 func (client *Client) AddFriend(friend *Client) {
@@ -240,5 +241,5 @@ func (client *Client) Quit(message string) {
 	}
 
 	client.Reply(RplError(client.server, client))
-	client.Destroy()
+	client.socket.Close()
 }

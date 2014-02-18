@@ -13,7 +13,6 @@ const (
 )
 
 type Socket struct {
-	closed  bool
 	conn    net.Conn
 	done    chan bool
 	reader  *bufio.Reader
@@ -43,13 +42,7 @@ func (socket *Socket) String() string {
 }
 
 func (socket *Socket) Close() {
-	if socket.closed {
-		return
-	}
-
-	socket.closed = true
 	socket.done <- true
-	close(socket.done)
 }
 
 func (socket *Socket) Read() <-chan string {
@@ -82,6 +75,7 @@ func (socket *Socket) readLines() {
 	}
 
 	close(socket.receive)
+	socket.Close()
 	if DEBUG_NET {
 		log.Printf("%s closed", socket)
 	}
@@ -114,10 +108,16 @@ func (socket *Socket) writeLines() {
 	if DEBUG_NET {
 		log.Printf("%s closing", socket)
 	}
-	socket.conn.Close()
+	if done {
+		socket.conn.Close()
+	}
 
-	for _ = range socket.send {
-		// discard lines
+	// read incoming messages and discard to avoid hangs
+	for {
+		select {
+		case <-socket.send:
+		case <-socket.done:
+		}
 	}
 }
 

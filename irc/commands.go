@@ -460,14 +460,14 @@ func (changes ModeChanges) String() string {
 type ModeCommand struct {
 	BaseCommand
 	nickname string
-	changes  []ModeChange
+	changes  ModeChanges
 }
 
 // MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
 func NewUserModeCommand(args []string) (editableCommand, error) {
 	cmd := &ModeCommand{
 		nickname: args[0],
-		changes:  make([]ModeChange, 0),
+		changes:  make(ModeChanges, 0),
 	}
 
 	for _, modeChange := range args[1:] {
