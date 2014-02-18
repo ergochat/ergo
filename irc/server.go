@@ -344,9 +344,7 @@ func (m *UserCommand) HandleServer(s *Server) {
 }
 
 func (msg *QuitCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	client.Quit(msg.message)
-	server.clients.Remove(client)
+	msg.Client().Quit(msg.message)
 }
 
 func (m *JoinCommand) HandleServer(s *Server) {

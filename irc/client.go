@@ -27,7 +27,6 @@ type Client struct {
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	replies     chan Reply
 	server      *Server
 	socket      *Socket
 	username    string
@@ -43,14 +42,12 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		friends:  make(map[*Client]uint),
 		hostname: AddrLookupHostname(conn.RemoteAddr()),
 		phase:    server.InitPhase(),
-		replies:  make(chan Reply),
 		server:   server,
 		socket:   NewSocket(conn),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionClosed)
 	go client.readCommands()
-	go client.writeReplies()
 
 	return client
 }
@@ -69,16 +66,6 @@ func (client *Client) readCommands() {
 
 		msg.SetClient(client)
 		client.server.commands <- msg
-	}
-}
-
-func (client *Client) writeReplies() {
-	for reply := range client.replies {
-		if DEBUG_CLIENT {
-			log.Printf("%s ← %s", client, reply)
-		}
-
-		client.socket.Write(reply.Format(client))
 	}
 }
 
@@ -133,17 +120,25 @@ func (client *Client) Destroy() {
 		log.Printf("%s destroy", client)
 	}
 
+	// clean up self
+
 	client.socket.Close()
 
 	client.loginTimer.Stop()
-
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
 	}
-
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
 	}
+
+	// clean up channels
+
+	for channel := range client.channels {
+		channel.Quit(client)
+	}
+
+	// clean up server
 
 	client.server.clients.Remove(client)
 
@@ -153,13 +148,7 @@ func (client *Client) Destroy() {
 }
 
 func (client *Client) Reply(reply Reply) {
-	if client.replies == nil {
-		if DEBUG_CLIENT {
-			log.Printf("%s dropped %s", client, reply)
-		}
-		return
-	}
-	client.replies <- reply
+	client.socket.Write(reply.Format(client)...)
 }
 
 func (client *Client) IdleTime() time.Duration {
@@ -248,10 +237,6 @@ func (client *Client) Quit(message string) {
 			}
 			friend.Reply(reply)
 		}
-	}
-
-	for channel := range client.channels {
-		channel.Quit(client)
 	}
 
 	client.Reply(RplError(client.server, client))
