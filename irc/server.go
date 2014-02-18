@@ -283,9 +283,25 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 	s.tryRegister(client)
 }
 
-func (msg *UserMsgCommand) HandleRegServer(server *Server) {
+func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
+	msg.HandleRegServer2(server)
+}
+
+func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 	client := msg.Client()
-	client.username, client.realname = msg.user, msg.realname
+	flags := msg.Flags()
+	if len(flags) > 0 {
+		for _, mode := range msg.Flags() {
+			client.flags[mode] = true
+		}
+		client.Reply(RplUModeIs(server, client))
+	}
+	msg.HandleRegServer2(server)
+}
+
+func (msg *UserCommand) HandleRegServer2(server *Server) {
+	client := msg.Client()
+	client.username, client.realname = msg.username, msg.realname
 	server.tryRegister(client)
 }
 
@@ -323,7 +339,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 	server.clients.Add(client)
 }
 
-func (m *UserMsgCommand) HandleServer(s *Server) {
+func (m *UserCommand) HandleServer(s *Server) {
 	m.Client().Reply(ErrAlreadyRegistered(s))
 }
 

@@ -39,7 +39,7 @@ var (
 		PROXY:   NewProxyCommand,
 		QUIT:    NewQuitCommand,
 		TOPIC:   NewTopicCommand,
-		USER:    NewUserMsgCommand,
+		USER:    NewUserCommand,
 		WHO:     NewWhoCommand,
 		WHOIS:   NewWhoisCommand,
 	}
@@ -223,34 +223,68 @@ func NewNickCommand(args []string) (editableCommand, error) {
 	}, nil
 }
 
-// USER <user> <mode> <unused> <realname>
-
-type UserMsgCommand struct {
+type UserCommand struct {
 	BaseCommand
-	user     string
-	mode     uint8
-	unused   string
+	username string
 	realname string
 }
 
-func (cmd *UserMsgCommand) String() string {
-	return fmt.Sprintf("USER(user=%s, mode=%o, unused=%s, realname=%s)",
-		cmd.user, cmd.mode, cmd.unused, cmd.realname)
+// USER <username> <hostname> <servername> <realname>
+type RFC1459UserCommand struct {
+	UserCommand
+	hostname   string
+	servername string
 }
 
-func NewUserMsgCommand(args []string) (editableCommand, error) {
+func (cmd *RFC1459UserCommand) String() string {
+	return fmt.Sprintf("USER(username=%s, hostname=%s, servername=%s, realname=%s)",
+		cmd.username, cmd.hostname, cmd.servername, cmd.realname)
+}
+
+// USER <user> <mode> <unused> <realname>
+type RFC2812UserCommand struct {
+	UserCommand
+	mode   uint8
+	unused string
+}
+
+func (cmd *RFC2812UserCommand) String() string {
+	return fmt.Sprintf("USER(username=%s, mode=%d, unused=%s, realname=%s)",
+		cmd.username, cmd.mode, cmd.unused, cmd.realname)
+}
+
+func (cmd *RFC2812UserCommand) Flags() []UserMode {
+	flags := make([]UserMode, 0)
+	if (cmd.mode & 4) == 4 {
+		flags = append(flags, WallOps)
+	}
+	if (cmd.mode & 8) == 8 {
+		flags = append(flags, Invisible)
+	}
+	return flags
+}
+
+func NewUserCommand(args []string) (editableCommand, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
-	msg := &UserMsgCommand{
-		user:     args[0],
-		unused:   args[2],
-		realname: args[3],
-	}
 	mode, err := strconv.ParseUint(args[1], 10, 8)
 	if err == nil {
-		msg.mode = uint8(mode)
+		msg := &RFC2812UserCommand{
+			mode:   uint8(mode),
+			unused: args[2],
+		}
+		msg.username = args[0]
+		msg.realname = args[3]
+		return msg, nil
 	}
+
+	msg := &RFC1459UserCommand{
+		hostname:   args[1],
+		servername: args[2],
+	}
+	msg.username = args[0]
+	msg.realname = args[3]
 	return msg, nil
 }
 

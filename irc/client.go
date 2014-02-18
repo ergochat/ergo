@@ -254,5 +254,6 @@ func (client *Client) Quit(message string) {
 		channel.Quit(client)
 	}
 
+	client.Reply(RplError(client.server, client))
 	client.Destroy()
 }
