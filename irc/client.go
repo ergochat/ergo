@@ -95,6 +95,10 @@ func (client *Client) Touch() {
 	}
 }
 
+type ClientIdle struct {
+	BaseCommand
+}
+
 func (client *Client) Idle() {
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -102,7 +106,9 @@ func (client *Client) Idle() {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
 
-	client.Reply(RplPing(client.server, client))
+	cmd := &ClientIdle{}
+	cmd.SetClient(client)
+	client.server.commands <- cmd
 }
 
 func (client *Client) connectionTimeout() {

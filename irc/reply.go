@@ -192,17 +192,17 @@ func RplKick(channel *Channel, client *Client, target *Client, comment string) R
 
 func RplWelcome(source Identifier, client *Client) Reply {
 	return NewNumericReply(source, RPL_WELCOME,
-		"Welcome to the Internet Relay Network %s", client.Id())
+		":Welcome to the Internet Relay Network %s", client.Id())
 }
 
 func RplYourHost(server *Server) Reply {
 	return NewNumericReply(server, RPL_YOURHOST,
-		"Your host is %s, running version %s", server.name, VERSION)
+		":Your host is %s, running version %s", server.name, VERSION)
 }
 
 func RplCreated(server *Server) Reply {
 	return NewNumericReply(server, RPL_CREATED,
-		"This server was created %s", server.ctime.Format(time.RFC1123))
+		":This server was created %s", server.ctime.Format(time.RFC1123))
 }
 
 func RplMyInfo(server *Server) Reply {

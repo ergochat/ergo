@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -171,6 +172,8 @@ func (s *Server) tryRegister(c *Client) {
 	if c.HasNick() && c.HasUsername() {
 		c.phase = Normal
 		c.loginTimer.Stop()
+		c.AddFriend(c)
+
 		c.Reply(RplWelcome(s, c))
 		c.Reply(RplYourHost(s))
 		c.Reply(RplCreated(s))
@@ -199,6 +202,7 @@ func (server *Server) MOTD(client *Client) {
 		if err != nil {
 			break
 		}
+		line = strings.TrimRight(line, "\r\n")
 
 		if len(line) > 80 {
 			for len(line) > 80 {
@@ -612,4 +616,9 @@ func (msg *ListCommand) HandleServer(server *Server) {
 		}
 	}
 	client.Reply(RplListEnd(server))
+}
+
+func (msg *ClientIdle) HandleServer(server *Server) {
+	client := msg.Client()
+	client.Reply(RplPing(server, client))
 }

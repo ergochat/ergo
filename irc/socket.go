@@ -59,7 +59,7 @@ func (socket *Socket) readLines() {
 			break
 		}
 
-		line = strings.TrimSpace(line)
+		line = strings.TrimRight(line, "\r\n")
 		if len(line) == 0 {
 			continue
 		}
