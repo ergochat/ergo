@@ -236,12 +236,17 @@ func (client *Client) Friends() ClientSet {
 	return friends
 }
 
-func (client *Client) ChangeNickname(nickname string) {
-	// Make reply before changing nick.
-	reply := RplNick(client, nickname)
-
+func (client *Client) SetNickname(nickname string) {
 	client.nick = nickname
+	client.server.clients.Add(client)
+}
 
+func (client *Client) ChangeNickname(nickname string) {
+	// Make reply before changing nick to capture original source id.
+	reply := RplNick(client, nickname)
+	client.server.clients.Remove(client)
+	client.nick = nickname
+	client.server.clients.Add(client)
 	for friend := range client.Friends() {
 		friend.Reply(reply)
 	}

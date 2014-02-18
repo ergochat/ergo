@@ -296,8 +296,7 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		return
 	}
 
-	client.ChangeNickname(m.nickname)
-	s.clients.Add(client)
+	client.SetNickname(m.nickname)
 	s.tryRegister(client)
 }
 
@@ -356,9 +355,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 		return
 	}
 
-	server.clients.Remove(client)
 	client.ChangeNickname(msg.nickname)
-	server.clients.Add(client)
 }
 
 func (m *UserCommand) HandleServer(s *Server) {
