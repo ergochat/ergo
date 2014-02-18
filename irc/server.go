@@ -121,19 +121,23 @@ func newListener(config ListenerConfig) (net.Listener, error) {
 func (s *Server) listen(config ListenerConfig) {
 	listener, err := newListener(config)
 	if err != nil {
-		log.Fatal("Server.Listen: ", err)
+		log.Fatal(s, "listen error: ", err)
 	}
 
-	log.Print("Server.Listen: listening on ", config.Address)
+	if DEBUG_SERVER {
+		log.Printf("%s listening on %s", s, config.Address)
+	}
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Print("Server.Accept: ", err)
+			if DEBUG_SERVER {
+				log.Printf("%s accept error: %s", s, err)
+			}
 			continue
 		}
 		if DEBUG_SERVER {
-			log.Print("Server.Accept: ", conn.RemoteAddr())
+			log.Printf("%s accept: %s", s, conn.RemoteAddr())
 		}
 
 		s.conns <- conn

@@ -76,9 +76,6 @@ func (socket *Socket) readLines() {
 
 	close(socket.receive)
 	socket.Close()
-	if DEBUG_NET {
-		log.Printf("%s closed", socket)
-	}
 }
 
 func (socket *Socket) writeLines() {
@@ -105,11 +102,12 @@ func (socket *Socket) writeLines() {
 		}
 	}
 
-	if DEBUG_NET {
-		log.Printf("%s closing", socket)
-	}
 	if done {
 		socket.conn.Close()
+	}
+
+	if DEBUG_NET {
+		log.Printf("%s closed", socket)
 	}
 
 	// read incoming messages and discard to avoid hangs

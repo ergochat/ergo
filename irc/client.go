@@ -118,9 +118,6 @@ func (client *Client) connectionClosed() {
 }
 
 func (client *Client) Destroy() {
-	if DEBUG_CLIENT {
-		log.Printf("%s: destroying", client)
-	}
 	// clean up self
 
 	client.socket.Close()
