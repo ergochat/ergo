@@ -19,6 +19,7 @@ type Client struct {
 	ctime       time.Time
 	flags       map[UserMode]bool
 	friends     map[*Client]uint
+	hops        uint
 	hostname    string
 	idleTimer   *time.Timer
 	loginTimer  *time.Timer

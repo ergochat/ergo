@@ -477,9 +477,11 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	channel.Mode(client, msg.changes)
 }
 
-func whoChannel(client *Client, server *Server, channel *Channel) {
+func whoChannel(client *Client, channel *Channel) {
 	for member := range channel.members {
-		client.Reply(RplWhoReply(server, channel, member))
+		if !client.flags[Invisible] {
+			client.Reply(RplWhoReply(channel, member))
+		}
 	}
 }
 
@@ -490,17 +492,17 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	mask := string(msg.mask)
 	if mask == "" {
 		for _, channel := range server.channels {
-			whoChannel(client, server, channel)
+			whoChannel(client, channel)
 		}
 	} else if IsChannel(mask) {
 		channel := server.channels[mask]
 		if channel != nil {
-			whoChannel(client, server, channel)
+			whoChannel(client, channel)
 		}
 	} else {
 		mclient := server.clients[mask]
-		if mclient != nil {
-			client.Reply(RplWhoReply(server, mclient.channels.First(), mclient))
+		if mclient != nil && !mclient.flags[Invisible] {
+			client.Reply(RplWhoReply(nil, mclient))
 		}
 	}
 

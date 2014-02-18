@@ -341,14 +341,32 @@ func RplChannelModeIs(channel *Channel) Reply {
 
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func RplWhoReply(server *Server, channel *Channel, client *Client) Reply {
+func RplWhoReply(channel *Channel, client *Client) Reply {
 	channelName := "*"
+	flags := ""
+
+	if client.flags[Away] {
+		flags = "G"
+	} else {
+		flags = "H"
+	}
+	if client.flags[Operator] {
+		flags += "*"
+	}
+
 	if channel != nil {
 		channelName = channel.name
+
+		if channel.members[client][ChannelOperator] {
+			flags += "@"
+		} else if channel.members[client][Voice] {
+			flags += "+"
+		}
 	}
-	return NewNumericReply(server, RPL_WHOREPLY, "%s %s %s %s %s H :0 %s",
-		channelName, client.username, client.hostname, server.name, client.Nick(),
-		client.realname)
+	return NewNumericReply(client.server, RPL_WHOREPLY,
+		"%s %s %s %s %s %s :%d %s",
+		channelName, client.username, client.hostname, client.server.name,
+		client.Nick(), flags, client.hops, client.realname)
 }
 
 // <name> :End of WHO list
