@@ -246,9 +246,37 @@ func RplYoureOper(server *Server) Reply {
 	return NewNumericReply(server, RPL_YOUREOPER, ":You are now an IRC operator")
 }
 
-func RplWhoisUser(server *Server, client *Client) Reply {
-	return NewNumericReply(server, RPL_WHOISUSER, "%s %s %s * :%s",
+func RplWhoisUser(client *Client) Reply {
+	return NewNumericReply(client.server, RPL_WHOISUSER, "%s %s %s * :%s",
 		client.Nick(), client.username, client.hostname, client.realname)
+}
+
+func RplWhoisOperator(client *Client) Reply {
+	return NewNumericReply(client.server, RPL_WHOISOPERATOR,
+		"%s :is an IRC operator", client.Nick())
+}
+
+func RplWhoisIdle(client *Client) Reply {
+	return NewNumericReply(client.server, RPL_WHOISIDLE,
+		"%s %d :seconds idle", client.Nick(), client.IdleSeconds())
+}
+
+// TODO check message length
+func RplWhoisChannels(client *Client) Reply {
+	chstrs := make([]string, len(client.channels))
+	index := 0
+	for channel := range client.channels {
+		if channel.members[client][ChannelOperator] {
+			chstrs[index] = "@" + channel.name
+		} else if channel.members[client][Voice] {
+			chstrs[index] = "+" + channel.name
+		} else {
+			chstrs[index] = channel.name
+		}
+		index += 1
+	}
+	return NewNumericReply(client.server, RPL_WHOISCHANNELS,
+		"%s :%s", client.Nick(), strings.Join(chstrs, " "))
 }
 
 func RplEndOfWhois(server *Server) Reply {

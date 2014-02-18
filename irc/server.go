@@ -451,12 +451,19 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 
 	for _, mask := range m.masks {
 		// TODO implement wildcard matching
-		mclient := server.clients[mask]
-		if mclient != nil {
-			client.Reply(RplWhoisUser(server, mclient))
+		mclient := server.clients.Get(mask)
+		if mclient == nil {
+			client.Reply(ErrNoSuchNick(server, mask))
+			continue
 		}
+		client.Reply(RplWhoisUser(mclient))
+		if client.flags[Operator] {
+			client.Reply(RplWhoisOperator(mclient))
+		}
+		client.Reply(RplWhoisIdle(mclient))
+		client.Reply(RplWhoisChannels(mclient))
+		client.Reply(RplEndOfWhois(server))
 	}
-	client.Reply(RplEndOfWhois(server))
 }
 
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
