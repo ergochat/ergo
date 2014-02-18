@@ -19,6 +19,7 @@ type Server struct {
 	commands  chan Command
 	conns     chan net.Conn
 	ctime     time.Time
+	idle      chan *Client
 	motdFile  string
 	name      string
 	operators map[string]string
@@ -33,6 +34,7 @@ func NewServer(config *Config) *Server {
 		commands:  make(chan Command),
 		conns:     make(chan net.Conn),
 		ctime:     time.Now(),
+		idle:      make(chan *Client),
 		motdFile:  config.MOTD,
 		name:      config.Name,
 		operators: make(map[string]string),
@@ -59,6 +61,9 @@ func (server *Server) ReceiveCommands() {
 
 		case client := <-server.toDestroy:
 			client.Destroy()
+
+		case client := <-server.idle:
+			client.Idle()
 
 		case cmd := <-server.commands:
 			client := cmd.Client()
@@ -648,11 +653,6 @@ func (msg *ListCommand) HandleServer(server *Server) {
 		}
 	}
 	client.Reply(RplListEnd(server))
-}
-
-func (msg *ClientIdle) HandleServer(server *Server) {
-	client := msg.Client()
-	client.Reply(RplPing(server, client))
 }
 
 func (msg *NamesCommand) HandleServer(server *Server) {

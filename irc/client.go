@@ -79,26 +79,24 @@ func (client *Client) Touch() {
 	}
 
 	if client.idleTimer == nil {
-		client.idleTimer = time.AfterFunc(IDLE_TIMEOUT, client.Idle)
+		client.idleTimer = time.AfterFunc(IDLE_TIMEOUT, client.connectionIdle)
 	} else {
 		client.idleTimer.Reset(IDLE_TIMEOUT)
 	}
 }
 
-type ClientIdle struct {
-	BaseCommand
-}
-
 func (client *Client) Idle() {
+	client.Reply(RplPing(client.server, client))
+
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
 	} else {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
+}
 
-	cmd := &ClientIdle{}
-	cmd.SetClient(client)
-	client.server.commands <- cmd
+func (client *Client) connectionIdle() {
+	client.server.idle <- client
 }
 
 func (client *Client) connectionTimeout() {
