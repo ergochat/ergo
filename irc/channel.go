@@ -49,8 +49,8 @@ func (channel *Channel) IsEmpty() bool {
 	return len(channel.members) == 0
 }
 
-func (channel *Channel) GetUsers(replier Replier) {
-	replier.Reply(NewNamesReply(channel))
+func (channel *Channel) Names(client *Client) {
+	client.Reply(NewNamesReply(channel))
 }
 
 func (channel *Channel) ClientIsOperator(client *Client) bool {
@@ -128,7 +128,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	channel.Reply(RplJoin(client, channel))
 	channel.GetTopic(client)
-	channel.GetUsers(client)
+	channel.Names(client)
 }
 
 func (channel *Channel) Part(client *Client, message string) {

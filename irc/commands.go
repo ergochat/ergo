@@ -27,6 +27,7 @@ var (
 		LIST:    NewListCommand,
 		MODE:    NewModeCommand,
 		MOTD:    NewMOTDCommand,
+		NAMES:   NewNamesCommand,
 		NICK:    NewNickCommand,
 		NOTICE:  NewNoticeCommand,
 		OPER:    NewOperCommand,
@@ -799,6 +800,23 @@ type ListCommand struct {
 
 func NewListCommand(args []string) (editableCommand, error) {
 	cmd := &ListCommand{}
+	if len(args) > 0 {
+		cmd.channels = strings.Split(args[0], ",")
+	}
+	if len(args) > 1 {
+		cmd.target = args[1]
+	}
+	return cmd, nil
+}
+
+type NamesCommand struct {
+	BaseCommand
+	channels []string
+	target   string
+}
+
+func NewNamesCommand(args []string) (editableCommand, error) {
+	cmd := &NamesCommand{}
 	if len(args) > 0 {
 		cmd.channels = strings.Split(args[0], ",")
 	}

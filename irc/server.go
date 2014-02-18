@@ -629,3 +629,22 @@ func (msg *ClientIdle) HandleServer(server *Server) {
 	client := msg.Client()
 	client.Reply(RplPing(server, client))
 }
+
+func (msg *NamesCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if len(server.channels) == 0 {
+		for _, channel := range server.channels {
+			channel.Names(client)
+		}
+		return
+	}
+
+	for _, chname := range msg.channels {
+		channel := server.channels[chname]
+		if channel == nil {
+			client.Reply(ErrNoSuchChannel(server, chname))
+			continue
+		}
+		channel.Names(client)
+	}
+}

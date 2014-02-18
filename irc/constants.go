@@ -42,6 +42,7 @@ const (
 	LIST    StringCode = "LIST"
 	MODE    StringCode = "MODE"
 	MOTD    StringCode = "MOTD"
+	NAMES   StringCode = "NAMES"
 	NICK    StringCode = "NICK"
 	NOTICE  StringCode = "NOTICE"
 	OPER    StringCode = "OPER"
