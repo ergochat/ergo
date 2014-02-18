@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func IsNickname(nick string) bool {
+	return NicknameExpr.MatchString(nick)
+}
+
 type Client struct {
 	atime       time.Time
 	awayMessage string
@@ -43,8 +47,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		socket:   NewSocket(conn),
 	}
 
-	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.ConnectionClosed)
-
+	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionClosed)
 	go client.readCommands()
 	go client.writeReplies()
 
@@ -94,7 +97,7 @@ func (client *Client) Touch() {
 
 func (client *Client) Idle() {
 	if client.quitTimer == nil {
-		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.ConnectionTimeout)
+		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
 	} else {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
@@ -102,7 +105,7 @@ func (client *Client) Idle() {
 	client.Reply(RplPing(client.server, client))
 }
 
-func (client *Client) ConnectionTimeout() {
+func (client *Client) connectionTimeout() {
 	msg := &QuitCommand{
 		message: "connection timeout",
 	}
@@ -110,7 +113,7 @@ func (client *Client) ConnectionTimeout() {
 	client.server.commands <- msg
 }
 
-func (client *Client) ConnectionClosed() {
+func (client *Client) connectionClosed() {
 	msg := &QuitCommand{
 		message: "connection closed",
 	}

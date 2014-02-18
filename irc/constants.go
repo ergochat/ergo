@@ -2,16 +2,24 @@ package irc
 
 import (
 	"errors"
+	"regexp"
 	"time"
 )
 
 var (
+	// debugging flags
 	DEBUG_NET     = false
 	DEBUG_CLIENT  = false
 	DEBUG_CHANNEL = false
 	DEBUG_SERVER  = false
 
+	// errors
 	ErrAlreadyDestroyed = errors.New("already destroyed")
+
+	// regexps
+	ChannelNameExpr = regexp.MustCompile(`^[&!#+][[:word:]]{1,63}$`)
+	NicknameExpr    = regexp.MustCompile(
+		"^[[:alpha:]\\[\\]{}^`][[:word:]\\[\\]{}^`]{1,31}$")
 )
 
 const (

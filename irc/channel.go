@@ -15,14 +15,7 @@ type Channel struct {
 }
 
 func IsChannel(target string) bool {
-	if target == "" {
-		return false
-	}
-	switch target[0] {
-	case '&', '#', '+', '!':
-		return true
-	}
-	return false
+	return ChannelNameExpr.MatchString(target)
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`

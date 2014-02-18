@@ -54,37 +54,37 @@ func (server *Server) ReceiveCommands() {
 		case conn := <-server.conns:
 			NewClient(server, conn)
 
-		case command := <-server.commands:
+		case cmd := <-server.commands:
+			client := cmd.Client()
 			if DEBUG_SERVER {
-				log.Printf("%s → %s %+v", command.Client(), server, command)
+				log.Printf("%s → %s %s", client, server, cmd)
 			}
-			client := command.Client()
 
 			switch client.phase {
 			case Authorization:
-				authCommand, ok := command.(AuthServerCommand)
+				authCmd, ok := cmd.(AuthServerCommand)
 				if !ok {
 					client.Destroy()
 					continue
 				}
-				authCommand.HandleAuthServer(server)
+				authCmd.HandleAuthServer(server)
 
 			case Registration:
-				regCommand, ok := command.(RegServerCommand)
+				regCmd, ok := cmd.(RegServerCommand)
 				if !ok {
 					client.Destroy()
 					continue
 				}
-				regCommand.HandleRegServer(server)
+				regCmd.HandleRegServer(server)
 
 			default:
-				serverCommand, ok := command.(ServerCommand)
+				srvCmd, ok := cmd.(ServerCommand)
 				if !ok {
-					client.Reply(ErrUnknownCommand(server, command.Code()))
+					client.Reply(ErrUnknownCommand(server, cmd.Code()))
 					continue
 				}
 				client.Touch()
-				serverCommand.HandleServer(server)
+				srvCmd.HandleServer(server)
 			}
 		}
 	}
@@ -264,8 +264,13 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		return
 	}
 
-	if s.clients[m.nickname] != nil {
+	if s.clients.Get(m.nickname) != nil {
 		client.Reply(ErrNickNameInUse(s, m.nickname))
+		return
+	}
+
+	if !IsNickname(m.nickname) {
+		client.Reply(ErrErroneusNickname(s, m.nickname))
 		return
 	}
 
@@ -304,7 +309,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 		return
 	}
 
-	if server.clients[msg.nickname] != nil {
+	if server.clients.Get(msg.nickname) != nil {
 		client.Reply(ErrNickNameInUse(server, msg.nickname))
 		return
 	}
@@ -395,7 +400,12 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 
 func (m *ModeCommand) HandleServer(s *Server) {
 	client := m.Client()
-	target := s.clients[m.nickname]
+	target := s.clients.Get(m.nickname)
+
+	if target == nil {
+		client.Reply(ErrNoSuchNick(s, m.nickname))
+		return
+	}
 
 	if client != target && !client.flags[Operator] {
 		client.Reply(ErrUsersDontMatch(s))
@@ -521,8 +531,8 @@ func (msg *IsOnCommand) HandleServer(server *Server) {
 
 	ison := make([]string, 0)
 	for _, nick := range msg.nicks {
-		if _, ok := server.clients[nick]; ok {
-			ison = append(ison, nick)
+		if iclient := server.clients.Get(nick); iclient != nil {
+			ison = append(ison, iclient.Nick())
 		}
 	}
 
@@ -546,7 +556,7 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		return
 	}
 
-	target := server.clients[msg.target]
+	target := server.clients.Get(msg.target)
 	if target == nil {
 		client.Reply(ErrNoSuchNick(server, msg.target))
 		return

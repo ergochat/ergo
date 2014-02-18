@@ -433,3 +433,8 @@ func ErrNoMOTD(server *Server) Reply {
 func ErrNoNicknameGiven(server *Server) Reply {
 	return NewNumericReply(server, ERR_NONICKNAMEGIVEN, ":No nickname given")
 }
+
+func ErrErroneusNickname(server *Server, nick string) Reply {
+	return NewNumericReply(server, ERR_ERRONEUSNICKNAME,
+		"%s :Erroneous nickname", nick)
+}
