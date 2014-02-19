@@ -26,8 +26,8 @@ func NewSocket(conn net.Conn) *Socket {
 		conn:    conn,
 		done:    make(chan bool),
 		reader:  bufio.NewReader(conn),
-		receive: make(chan string),
-		send:    make(chan string),
+		receive: make(chan string, 16),
+		send:    make(chan string, 16),
 		writer:  bufio.NewWriter(conn),
 	}
 
