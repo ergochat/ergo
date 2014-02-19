@@ -40,8 +40,8 @@ func NewStringReply(source Identifier, code StringCode,
 }
 
 func (reply *StringReply) Format(client *Client) []string {
-	message := fmt.Sprintf(":%s %s %s",
-		reply.id, reply.code, reply.message)
+	message := fmt.Sprintf(":%s %s %s%s",
+		reply.id, reply.code, reply.message, CRLF)
 	return []string{message}
 }
 
@@ -64,8 +64,8 @@ func NewNumericReply(source Identifier, code NumericCode, format string,
 }
 
 func (reply *NumericReply) Format(client *Client) []string {
-	message := fmt.Sprintf(":%s %s %s %s",
-		reply.id, reply.code, client.Nick(), reply.message)
+	message := fmt.Sprintf(":%s %s %s %s%s",
+		reply.id, reply.code, client.Nick(), reply.message, CRLF)
 	return []string{message}
 }
 

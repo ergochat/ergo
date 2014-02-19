@@ -113,13 +113,13 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
+	client.channels.Add(channel)
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
 		channel.members[client][ChannelCreator] = true
 		channel.members[client][ChannelOperator] = true
 	}
 
-	client.channels.Add(channel)
 	channel.Reply(RplJoin(client, channel))
 	channel.GetTopic(client)
 	channel.Names(client)

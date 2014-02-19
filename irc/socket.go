@@ -24,7 +24,7 @@ type Socket struct {
 func NewSocket(conn net.Conn) *Socket {
 	socket := &Socket{
 		conn:    conn,
-		done:    make(chan bool),
+		done:    make(chan bool, 1),
 		reader:  bufio.NewReader(conn),
 		receive: make(chan string, 16),
 		send:    make(chan string, 16),
@@ -86,9 +86,6 @@ func (socket *Socket) writeLines() {
 			if _, err := socket.writer.WriteString(line); socket.isError(err, W) {
 				break
 			}
-			if _, err := socket.writer.WriteString(CRLF); socket.isError(err, W) {
-				break
-			}
 
 			if err := socket.writer.Flush(); socket.isError(err, W) {
 				break
@@ -98,6 +95,9 @@ func (socket *Socket) writeLines() {
 			}
 
 		case done = <-socket.done:
+			if DEBUG_NET {
+				log.Printf("%s done", socket)
+			}
 			continue
 		}
 	}

@@ -376,9 +376,9 @@ func (m *JoinCommand) HandleServer(s *Server) {
 		return
 	}
 
-	for name := range m.channels {
+	for name, key := range m.channels {
 		channel := s.GetOrMakeChannel(name)
-		channel.Join(client, m.channels[name])
+		channel.Join(client, key)
 	}
 }
 
