@@ -2,19 +2,22 @@ package irc
 
 import (
 	"bufio"
+	"io"
 	"log"
 	"net"
 	"strings"
 )
 
 const (
-	R = '→'
-	W = '←'
+	R   = '→'
+	W   = '←'
+	EOF = ""
 )
 
 type Socket struct {
 	closed bool
 	conn   net.Conn
+	read   chan string
 	reader *bufio.Reader
 	writer *bufio.Writer
 }
@@ -22,9 +25,12 @@ type Socket struct {
 func NewSocket(conn net.Conn) *Socket {
 	socket := &Socket{
 		conn:   conn,
+		read:   make(chan string),
 		reader: bufio.NewReader(conn),
 		writer: bufio.NewWriter(conn),
 	}
+
+	go socket.readLines()
 
 	return socket
 }
@@ -44,9 +50,9 @@ func (socket *Socket) Close() {
 	}
 }
 
-func (socket *Socket) Read() (line string, err error) {
-	for len(line) == 0 {
-		line, err = socket.reader.ReadString('\n')
+func (socket *Socket) readLines() {
+	for {
+		line, err := socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
 			break
 		}
@@ -58,8 +64,13 @@ func (socket *Socket) Read() (line string, err error) {
 		if DEBUG_NET {
 			log.Printf("%s → %s", socket, line)
 		}
+		socket.read <- line
 	}
-	return
+	close(socket.read)
+}
+
+func (socket *Socket) Read() <-chan string {
+	return socket.read
 }
 
 func (socket *Socket) Write(lines ...string) (err error) {
@@ -93,7 +104,7 @@ func (socket *Socket) WriteLine(line string) (err error) {
 
 func (socket *Socket) isError(err error, dir rune) bool {
 	if err != nil {
-		if DEBUG_NET {
+		if DEBUG_NET && (err != io.EOF) {
 			log.Printf("%s %c error: %s", socket, dir, err)
 		}
 		return true

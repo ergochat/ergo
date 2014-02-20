@@ -13,31 +13,16 @@ import (
 	"time"
 )
 
-type ConnData struct {
-	conn     net.Conn
-	hostname string
-}
-
-func NewConnData(conn net.Conn) *ConnData {
-	return &ConnData{
-		conn: conn,
-	}
-}
-
-func (data *ConnData) LookupHostname(newConns chan<- *ConnData) {
-	data.hostname = AddrLookupHostname(data.conn.RemoteAddr())
-	newConns <- data
-}
-
 type Server struct {
 	channels  ChannelNameMap
 	clients   ClientNameMap
 	commands  chan Command
-	newConns  chan *ConnData
 	ctime     time.Time
+	hostnames chan *HostnameLookup
 	idle      chan *Client
 	motdFile  string
 	name      string
+	newConns  chan net.Conn
 	operators map[string]string
 	password  string
 }
@@ -46,12 +31,13 @@ func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
-		commands:  make(chan Command),
-		newConns:  make(chan *ConnData),
+		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		idle:      make(chan *Client),
+		hostnames: make(chan *HostnameLookup, 16),
+		idle:      make(chan *Client, 16),
 		motdFile:  config.MOTD,
 		name:      config.Name,
+		newConns:  make(chan net.Conn, 16),
 		operators: make(map[string]string),
 		password:  config.Password,
 	}
@@ -70,8 +56,15 @@ func NewServer(config *Config) *Server {
 func (server *Server) ReceiveCommands() {
 	for {
 		select {
-		case data := <-server.newConns:
-			NewClient(server, data.conn, data.hostname)
+		case conn := <-server.newConns:
+			NewClient(server, conn)
+
+		case lookup := <-server.hostnames:
+			if DEBUG_SERVER {
+				log.Printf("%s setting hostname of %s to %s",
+					server, lookup.client, lookup.hostname)
+			}
+			lookup.client.hostname = lookup.hostname
 
 		case client := <-server.idle:
 			client.Idle()
@@ -168,7 +161,7 @@ func (s *Server) listen(config ListenerConfig) {
 			log.Printf("%s accept: %s", s, conn.RemoteAddr())
 		}
 
-		go NewConnData(conn).LookupHostname(s.newConns)
+		s.newConns <- conn
 	}
 }
 
@@ -270,8 +263,7 @@ func (s *Server) Nick() string {
 //
 
 func (msg *ProxyCommand) HandleAuthServer(server *Server) {
-	client := msg.Client()
-	client.hostname = LookupHostname(msg.sourceIP)
+	go msg.Client().LookupHostname(msg.sourceIP)
 }
 
 func (msg *CapCommand) HandleAuthServer(server *Server) {

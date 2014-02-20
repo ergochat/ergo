@@ -12,6 +12,18 @@ func IsNickname(nick string) bool {
 	return NicknameExpr.MatchString(nick)
 }
 
+type HostnameLookup struct {
+	client   *Client
+	hostname string
+}
+
+func NewHostnameLookup(client *Client, ipAddr string) *HostnameLookup {
+	return &HostnameLookup{
+		client:   client,
+		hostname: LookupHostname(ipAddr),
+	}
+}
+
 type Client struct {
 	atime       time.Time
 	awayMessage string
@@ -23,6 +35,7 @@ type Client struct {
 	hostname    string
 	idleTimer   *time.Timer
 	loginTimer  *time.Timer
+	lookups     chan string
 	nick        string
 	phase       Phase
 	quitTimer   *time.Timer
@@ -33,14 +46,14 @@ type Client struct {
 	username    string
 }
 
-func NewClient(server *Server, conn net.Conn, hostname string) *Client {
+func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
 		atime:    now,
 		channels: make(ChannelSet),
 		ctime:    now,
 		flags:    make(map[UserMode]bool),
-		hostname: hostname,
+		lookups:  make(chan string),
 		phase:    server.InitPhase(),
 		server:   server,
 		socket:   NewSocket(conn),
@@ -48,6 +61,7 @@ func NewClient(server *Server, conn net.Conn, hostname string) *Client {
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
+	go client.LookupHostname(IPString(conn.RemoteAddr()))
 	go client.readCommands()
 	go client.writeReplies()
 
@@ -59,26 +73,37 @@ func NewClient(server *Server, conn net.Conn, hostname string) *Client {
 //
 
 func (client *Client) readCommands() {
-	for {
-		line, err := client.socket.Read()
-		if err != nil {
-			break
-		}
-		msg, err := ParseCommand(line)
-		if err != nil {
-			switch err {
-			case NotEnoughArgsError:
-				parts := strings.SplitN(line, " ", 2)
-				client.ErrNeedMoreParams(parts[0])
-			}
-			continue
-		}
+	done := false
+	for !done {
+		select {
+		case ipAddr := <-client.lookups:
+			client.server.hostnames <- NewHostnameLookup(client, ipAddr)
 
-		msg.SetClient(client)
-		client.server.commands <- msg
+		case line := <-client.socket.Read():
+			if line == EOF {
+				done = true
+				break
+			}
+			msg, err := ParseCommand(line)
+			if err != nil {
+				switch err {
+				case NotEnoughArgsError:
+					parts := strings.SplitN(line, " ", 2)
+					client.ErrNeedMoreParams(parts[0])
+				}
+				continue
+			}
+
+			msg.SetClient(client)
+			client.server.commands <- msg
+		}
 	}
 
 	client.connectionClosed()
+}
+
+func (client *Client) LookupHostname(ipAddr string) {
+	client.lookups <- ipAddr
 }
 
 func (client *Client) connectionClosed() {
@@ -95,11 +120,18 @@ func (client *Client) connectionClosed() {
 
 func (client *Client) writeReplies() {
 	for reply := range client.replies {
+		if reply == EOF {
+			break
+		}
 		if client.socket.Write(reply) != nil {
 			break
 		}
 	}
 	client.socket.Close()
+
+	for _ = range client.replies {
+		// discard
+	}
 }
 
 //
@@ -160,8 +192,6 @@ func (client *Client) Register() {
 
 func (client *Client) destroy() {
 	// clean up self
-
-	close(client.replies)
 
 	client.loginTimer.Stop()
 
@@ -275,6 +305,7 @@ func (client *Client) Quit(message string) {
 	}
 
 	client.replies <- RplError(client.server, "connection closed")
+	client.replies <- EOF
 
 	client.hasQuit = true
 	friends := client.Friends()
