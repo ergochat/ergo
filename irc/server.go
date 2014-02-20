@@ -17,7 +17,7 @@ type Server struct {
 	channels  ChannelNameMap
 	clients   ClientNameMap
 	commands  chan Command
-	conns     chan net.Conn
+	newConns  chan net.Conn
 	ctime     time.Time
 	idle      chan *Client
 	motdFile  string
@@ -31,7 +31,7 @@ func NewServer(config *Config) *Server {
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command),
-		conns:     make(chan net.Conn),
+		newConns:  make(chan net.Conn),
 		ctime:     time.Now(),
 		idle:      make(chan *Client),
 		motdFile:  config.MOTD,
@@ -54,7 +54,7 @@ func NewServer(config *Config) *Server {
 func (server *Server) ReceiveCommands() {
 	for {
 		select {
-		case conn := <-server.conns:
+		case conn := <-server.newConns:
 			NewClient(server, conn)
 
 		case client := <-server.idle:
@@ -126,6 +126,10 @@ func newListener(config ListenerConfig) (net.Listener, error) {
 	return net.Listen("tcp", config.Address)
 }
 
+//
+// listen goroutine
+//
+
 func (s *Server) listen(config ListenerConfig) {
 	listener, err := newListener(config)
 	if err != nil {
@@ -148,7 +152,7 @@ func (s *Server) listen(config ListenerConfig) {
 			log.Printf("%s accept: %s", s, conn.RemoteAddr())
 		}
 
-		s.conns <- conn
+		s.newConns <- conn
 	}
 }
 

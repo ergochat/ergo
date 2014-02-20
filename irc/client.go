@@ -28,7 +28,7 @@ type Client struct {
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	replies     chan string
+	replies     chan Reply
 	server      *Server
 	socket      *Socket
 	username    string
@@ -46,7 +46,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		phase:       server.InitPhase(),
 		server:      server,
 		socket:      NewSocket(conn),
-		replies:     make(chan string),
+		replies:     make(chan Reply),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -96,8 +96,8 @@ func (client *Client) connectionClosed() {
 //
 
 func (client *Client) writeReplies() {
-	for line := range client.replies {
-		client.socket.Write(line)
+	for reply := range client.replies {
+		client.socket.Write(reply.Format(client)...)
 	}
 	client.socket.Close()
 	client.doneWriting <- true
@@ -195,9 +195,7 @@ func (client *Client) Reply(reply Reply) {
 		}
 		return
 	}
-	for _, line := range reply.Format(client) {
-		client.replies <- line
-	}
+	client.replies <- reply
 }
 
 func (client *Client) IdleTime() time.Duration {

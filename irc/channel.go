@@ -38,7 +38,7 @@ func (channel *Channel) Reply(reply Reply) {
 
 	for client := range channel.members {
 		if (reply.Code() == ReplyCode(PRIVMSG)) &&
-			(reply.Source() == Identifier(client)) {
+			(reply.Source() == client.Id()) {
 			continue
 		}
 		client.Reply(reply)

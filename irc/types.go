@@ -176,7 +176,7 @@ type Replier interface {
 type Reply interface {
 	Code() ReplyCode
 	Format(*Client) []string
-	Source() Identifier
+	Source() string
 }
 
 type Command interface {

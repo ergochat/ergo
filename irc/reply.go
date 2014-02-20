@@ -10,7 +10,6 @@ type BaseReply struct {
 	code    ReplyCode
 	id      string
 	message string
-	source  Identifier
 }
 
 func (reply *BaseReply) Code() ReplyCode {
@@ -19,11 +18,10 @@ func (reply *BaseReply) Code() ReplyCode {
 
 func (reply *BaseReply) SetSource(source Identifier) {
 	reply.id = source.Id()
-	reply.source = source
 }
 
-func (reply *BaseReply) Source() Identifier {
-	return reply.source
+func (reply *BaseReply) Source() string {
+	return reply.id
 }
 
 type StringReply struct {
