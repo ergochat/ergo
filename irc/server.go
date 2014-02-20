@@ -13,11 +13,27 @@ import (
 	"time"
 )
 
+type ConnData struct {
+	conn     net.Conn
+	hostname string
+}
+
+func NewConnData(conn net.Conn) *ConnData {
+	return &ConnData{
+		conn: conn,
+	}
+}
+
+func (data *ConnData) LookupHostname(newConns chan<- *ConnData) {
+	data.hostname = AddrLookupHostname(data.conn.RemoteAddr())
+	newConns <- data
+}
+
 type Server struct {
 	channels  ChannelNameMap
 	clients   ClientNameMap
 	commands  chan Command
-	newConns  chan net.Conn
+	newConns  chan *ConnData
 	ctime     time.Time
 	idle      chan *Client
 	motdFile  string
@@ -31,7 +47,7 @@ func NewServer(config *Config) *Server {
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command),
-		newConns:  make(chan net.Conn),
+		newConns:  make(chan *ConnData),
 		ctime:     time.Now(),
 		idle:      make(chan *Client),
 		motdFile:  config.MOTD,
@@ -54,8 +70,8 @@ func NewServer(config *Config) *Server {
 func (server *Server) ReceiveCommands() {
 	for {
 		select {
-		case conn := <-server.newConns:
-			NewClient(server, conn)
+		case data := <-server.newConns:
+			NewClient(server, data.conn, data.hostname)
 
 		case client := <-server.idle:
 			client.Idle()
@@ -152,7 +168,7 @@ func (s *Server) listen(config ListenerConfig) {
 			log.Printf("%s accept: %s", s, conn.RemoteAddr())
 		}
 
-		s.newConns <- conn
+		go NewConnData(conn).LookupHostname(s.newConns)
 	}
 }
 

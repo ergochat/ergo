@@ -33,14 +33,14 @@ type Client struct {
 	username    string
 }
 
-func NewClient(server *Server, conn net.Conn) *Client {
+func NewClient(server *Server, conn net.Conn, hostname string) *Client {
 	now := time.Now()
 	client := &Client{
 		atime:    now,
 		channels: make(ChannelSet),
 		ctime:    now,
 		flags:    make(map[UserMode]bool),
-		hostname: AddrLookupHostname(conn.RemoteAddr()),
+		hostname: hostname,
 		phase:    server.InitPhase(),
 		server:   server,
 		socket:   NewSocket(conn),
