@@ -44,7 +44,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		phase:    server.InitPhase(),
 		server:   server,
 		socket:   NewSocket(conn),
-		replies:  make(chan Reply, 16),
+		replies:  make(chan Reply),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)

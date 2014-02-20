@@ -30,10 +30,10 @@ func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
-		commands:  make(chan Command, 16),
-		conns:     make(chan net.Conn, 16),
+		commands:  make(chan Command),
+		conns:     make(chan net.Conn),
 		ctime:     time.Now(),
-		idle:      make(chan *Client, 16),
+		idle:      make(chan *Client),
 		motdFile:  config.MOTD,
 		name:      config.Name,
 		operators: make(map[string]string),
