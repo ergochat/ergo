@@ -170,20 +170,13 @@ type Identifier interface {
 }
 
 type Replier interface {
-	Reply(Reply)
-}
-
-type Reply interface {
-	Code() ReplyCode
-	Format(*Client) []string
-	Source() string
+	Reply(...string)
 }
 
 type Command interface {
 	Code() StringCode
 	Client() *Client
 	Source() Identifier
-	Reply(Reply)
 }
 
 type ServerCommand interface {

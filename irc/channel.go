@@ -1,9 +1,5 @@
 package irc
 
-import (
-	"log"
-)
-
 type Channel struct {
 	banList []UserMask
 	flags   ChannelModeSet
@@ -31,26 +27,14 @@ func NewChannel(s *Server, name string) *Channel {
 	return channel
 }
 
-func (channel *Channel) Reply(reply Reply) {
-	if DEBUG_CHANNEL {
-		log.Printf("%s ← %s %s", channel, reply.Source(), reply)
-	}
-
-	for client := range channel.members {
-		if (reply.Code() == ReplyCode(PRIVMSG)) &&
-			(reply.Source() == client.Id()) {
-			continue
-		}
-		client.Reply(reply)
-	}
-}
-
 func (channel *Channel) IsEmpty() bool {
 	return len(channel.members) == 0
 }
 
 func (channel *Channel) Names(client *Client) {
-	client.Reply(NewNamesReply(channel))
+	client.MultilineReply(channel.Nicks(), RPL_NAMREPLY,
+		"= %s :%s", channel.name)
+	client.RplEndOfNames(channel)
 }
 
 func (channel *Channel) ClientIsOperator(client *Client) bool {
@@ -109,7 +93,7 @@ func (channel *Channel) ModeString() (str string) {
 
 func (channel *Channel) Join(client *Client, key string) {
 	if (channel.key != "") && (channel.key != key) {
-		client.Reply(ErrBadChannelKey(channel))
+		client.ErrBadChannelKey(channel)
 		return
 	}
 
@@ -120,18 +104,23 @@ func (channel *Channel) Join(client *Client, key string) {
 		channel.members[client][ChannelOperator] = true
 	}
 
-	channel.Reply(RplJoin(client, channel))
+	reply := RplJoin(client, channel)
+	for member := range channel.members {
+		member.replies <- reply
+	}
 	channel.GetTopic(client)
 	channel.Names(client)
 }
 
 func (channel *Channel) Part(client *Client, message string) {
 	if !channel.members.Has(client) {
-		client.Reply(ErrNotOnChannel(channel))
+		client.ErrNotOnChannel(channel)
 		return
 	}
 
-	channel.Reply(RplPart(client, channel, message))
+	for member := range channel.members {
+		member.replies <- RplPart(member, channel, message)
+	}
 	channel.Quit(client)
 
 	if channel.IsEmpty() {
@@ -141,7 +130,7 @@ func (channel *Channel) Part(client *Client, message string) {
 
 func (channel *Channel) GetTopic(client *Client) {
 	if !channel.members.Has(client) {
-		client.Reply(ErrNotOnChannel(channel))
+		client.ErrNotOnChannel(channel)
 		return
 	}
 
@@ -151,35 +140,42 @@ func (channel *Channel) GetTopic(client *Client) {
 		return
 	}
 
-	client.Reply(RplTopic(channel))
+	client.RplTopic(channel)
 }
 
 func (channel *Channel) SetTopic(client *Client, topic string) {
 	if !channel.members.Has(client) {
-		client.Reply(ErrNotOnChannel(channel))
+		client.ErrNotOnChannel(channel)
 		return
 	}
 
 	if channel.flags[OpOnlyTopic] && !channel.members[client][ChannelOperator] {
-		client.Reply(ErrChanOPrivIsNeeded(channel))
+		client.ErrChanOPrivIsNeeded(channel)
 		return
 	}
 
 	channel.topic = topic
-	channel.Reply(RplTopicMsg(client, channel))
+	for member := range channel.members {
+		member.replies <- RplTopicMsg(client, channel)
+	}
 }
 
 func (channel *Channel) PrivMsg(client *Client, message string) {
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
-		client.Reply(ErrCannotSendToChan(channel))
+		client.ErrCannotSendToChan(channel)
 		return
 	}
-	channel.Reply(RplPrivMsg(client, channel, message))
+	for member := range channel.members {
+		if member == client {
+			continue
+		}
+		member.replies <- RplPrivMsg(client, channel, message)
+	}
 }
 
 func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	if len(changes) == 0 {
-		client.Reply(RplChannelModeIs(channel))
+		client.RplChannelModeIs(channel)
 		return
 	}
 
@@ -191,13 +187,13 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 			// TODO add/remove
 
 			for _, banMask := range channel.banList {
-				client.Reply(RplBanList(channel, banMask))
+				client.RplBanList(channel, banMask)
 			}
-			client.Reply(RplEndOfBanList(channel))
+			client.RplEndOfBanList(channel)
 
 		case NoOutside, Private, Secret, OpOnlyTopic:
 			if !channel.ClientIsOperator(client) {
-				client.Reply(ErrChanOPrivIsNeeded(channel))
+				client.ErrChanOPrivIsNeeded(channel)
 				continue
 			}
 
@@ -213,7 +209,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 
 		case Key:
 			if !channel.ClientIsOperator(client) {
-				client.Reply(ErrChanOPrivIsNeeded(channel))
+				client.ErrChanOPrivIsNeeded(channel)
 				continue
 			}
 
@@ -234,7 +230,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 
 		case ChannelOperator, Voice:
 			if !channel.ClientIsOperator(client) {
-				client.Reply(ErrChanOPrivIsNeeded(channel))
+				client.ErrChanOPrivIsNeeded(channel)
 				continue
 			}
 
@@ -267,16 +263,23 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	}
 
 	if len(applied) > 0 {
-		channel.Reply(RplChannelMode(client, channel, applied))
+		for member := range channel.members {
+			member.replies <- RplChannelMode(client, channel, applied)
+		}
 	}
 }
 
 func (channel *Channel) Notice(client *Client, message string) {
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
-		client.Reply(ErrCannotSendToChan(channel))
+		client.ErrCannotSendToChan(channel)
 		return
 	}
-	channel.Reply(RplNotice(client, channel, message))
+	for member := range channel.members {
+		if member == client {
+			continue
+		}
+		member.replies <- RplNotice(client, channel, message)
+	}
 }
 
 func (channel *Channel) Quit(client *Client) {
@@ -286,18 +289,20 @@ func (channel *Channel) Quit(client *Client) {
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 	if !client.flags[Operator] && !channel.members.Has(client) {
-		client.Reply(ErrNotOnChannel(channel))
+		client.ErrNotOnChannel(channel)
 		return
 	}
 	if !channel.ClientIsOperator(client) {
-		client.Reply(ErrChanOPrivIsNeeded(channel))
+		client.ErrChanOPrivIsNeeded(channel)
 		return
 	}
 	if !channel.members.Has(target) {
-		client.Reply(ErrUserNotInChannel(channel, target))
+		client.ErrUserNotInChannel(channel, target)
 		return
 	}
 
-	channel.Reply(RplKick(channel, client, target, comment))
+	for member := range channel.members {
+		member.replies <- RplKick(channel, client, target, comment)
+	}
 	channel.Quit(target)
 }

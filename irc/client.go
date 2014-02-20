@@ -28,7 +28,7 @@ type Client struct {
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	replies     chan Reply
+	replies     chan string
 	server      *Server
 	socket      *Socket
 	username    string
@@ -46,7 +46,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		phase:       server.InitPhase(),
 		server:      server,
 		socket:      NewSocket(conn),
-		replies:     make(chan Reply),
+		replies:     make(chan string),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -71,7 +71,7 @@ func (client *Client) readCommands() {
 			switch err {
 			case NotEnoughArgsError:
 				parts := strings.SplitN(line, " ", 2)
-				client.Reply(ErrNeedMoreParams(client.server, parts[0]))
+				client.ErrNeedMoreParams(parts[0])
 			}
 			continue
 		}
@@ -97,7 +97,7 @@ func (client *Client) connectionClosed() {
 
 func (client *Client) writeReplies() {
 	for reply := range client.replies {
-		client.socket.Write(reply.Format(client)...)
+		client.socket.Write(reply)
 	}
 	client.socket.Close()
 	client.doneWriting <- true
@@ -144,7 +144,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.Reply(RplPing(client.server, client))
+	client.replies <- RplPing(client.server, client)
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -186,16 +186,6 @@ func (client *Client) destroy() {
 	if DEBUG_CLIENT {
 		log.Printf("%s: destroyed", client)
 	}
-}
-
-func (client *Client) Reply(reply Reply) {
-	if client.hasQuit {
-		if DEBUG_CLIENT {
-			log.Printf("%s dropping %s", client, reply)
-		}
-		return
-	}
-	client.replies <- reply
 }
 
 func (client *Client) IdleTime() time.Duration {
@@ -276,7 +266,7 @@ func (client *Client) ChangeNickname(nickname string) {
 	client.nick = nickname
 	client.server.clients.Add(client)
 	for friend := range client.Friends() {
-		friend.Reply(reply)
+		friend.replies <- reply
 	}
 }
 
@@ -285,7 +275,7 @@ func (client *Client) Quit(message string) {
 		return
 	}
 
-	client.Reply(RplError(client.server, client.Nick()))
+	client.replies <- RplError(client.server, "connection closed")
 
 	client.hasQuit = true
 	friends := client.Friends()
@@ -295,7 +285,7 @@ func (client *Client) Quit(message string) {
 	if len(friends) > 0 {
 		reply := RplQuit(client, message)
 		for friend := range friends {
-			friend.Reply(reply)
+			friend.replies <- reply
 		}
 	}
 }

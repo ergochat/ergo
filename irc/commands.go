@@ -70,10 +70,6 @@ func (command *BaseCommand) Source() Identifier {
 	return command.Client()
 }
 
-func (command *BaseCommand) Reply(reply Reply) {
-	command.client.Reply(reply)
-}
-
 func ParseCommand(line string) (cmd editableCommand, err error) {
 	code, args := parseLine(line)
 	constructor := parseCommandFuncs[code]

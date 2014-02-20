@@ -86,7 +86,7 @@ func (server *Server) ReceiveCommands() {
 			default:
 				srvCmd, ok := cmd.(ServerCommand)
 				if !ok {
-					client.Reply(ErrUnknownCommand(server, cmd.Code()))
+					client.ErrUnknownCommand(cmd.Code())
 					continue
 				}
 				switch srvCmd.(type) {
@@ -192,28 +192,28 @@ func (s *Server) GenerateGuestNick() string {
 func (s *Server) tryRegister(c *Client) {
 	if c.HasNick() && c.HasUsername() {
 		c.Register()
-		c.Reply(RplWelcome(s, c))
-		c.Reply(RplYourHost(s))
-		c.Reply(RplCreated(s))
-		c.Reply(RplMyInfo(s))
+		c.RplWelcome()
+		c.RplYourHost()
+		c.RplCreated()
+		c.RplMyInfo()
 		s.MOTD(c)
 	}
 }
 
 func (server *Server) MOTD(client *Client) {
 	if server.motdFile == "" {
-		client.Reply(ErrNoMOTD(server))
+		client.ErrNoMOTD()
 		return
 	}
 
 	file, err := os.Open(server.motdFile)
 	if err != nil {
-		client.Reply(ErrNoMOTD(server))
+		client.ErrNoMOTD()
 		return
 	}
 	defer file.Close()
 
-	client.Reply(RplMOTDStart(server))
+	client.RplMOTDStart()
 	reader := bufio.NewReader(file)
 	for {
 		line, err := reader.ReadString('\n')
@@ -224,17 +224,17 @@ func (server *Server) MOTD(client *Client) {
 
 		if len(line) > 80 {
 			for len(line) > 80 {
-				client.Reply(RplMOTD(server, line[0:80]))
+				client.RplMOTD(line[0:80])
 				line = line[80:]
 			}
 			if len(line) > 0 {
-				client.Reply(RplMOTD(server, line))
+				client.RplMOTD(line)
 			}
 		} else {
-			client.Reply(RplMOTD(server, line))
+			client.RplMOTD(line)
 		}
 	}
-	client.Reply(RplMOTDEnd(server))
+	client.RplMOTDEnd()
 }
 
 func (s *Server) Id() string {
@@ -266,7 +266,7 @@ func (m *PassCommand) HandleAuthServer(s *Server) {
 	client := m.Client()
 
 	if s.password != m.password {
-		client.Reply(ErrPasswdMismatch(s))
+		client.ErrPasswdMismatch()
 		client.socket.Close()
 		return
 	}
@@ -286,17 +286,17 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 	client := m.Client()
 
 	if m.nickname == "" {
-		client.Reply(ErrNoNicknameGiven(s))
+		client.ErrNoNicknameGiven()
 		return
 	}
 
 	if s.clients.Get(m.nickname) != nil {
-		client.Reply(ErrNickNameInUse(s, m.nickname))
+		client.ErrNickNameInUse(m.nickname)
 		return
 	}
 
 	if !IsNickname(m.nickname) {
-		client.Reply(ErrErroneusNickname(s, m.nickname))
+		client.ErrErroneusNickname(m.nickname)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 		for _, mode := range msg.Flags() {
 			client.flags[mode] = true
 		}
-		client.Reply(RplUModeIs(server, client))
+		client.RplUModeIs(client)
 	}
 	msg.HandleRegServer2(server)
 }
@@ -335,11 +335,11 @@ func (msg *QuitCommand) HandleRegServer(server *Server) {
 //
 
 func (m *PassCommand) HandleServer(s *Server) {
-	m.Client().Reply(ErrAlreadyRegistered(s))
+	m.Client().ErrAlreadyRegistered()
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().Reply(RplPong(s, m.Client()))
+	m.Client().replies <- RplPong(s, m.Client())
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -350,12 +350,12 @@ func (msg *NickCommand) HandleServer(server *Server) {
 	client := msg.Client()
 
 	if msg.nickname == "" {
-		client.Reply(ErrNoNicknameGiven(server))
+		client.ErrNoNicknameGiven()
 		return
 	}
 
 	if server.clients.Get(msg.nickname) != nil {
-		client.Reply(ErrNickNameInUse(server, msg.nickname))
+		client.ErrNickNameInUse(msg.nickname)
 		return
 	}
 
@@ -363,7 +363,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 }
 
 func (m *UserCommand) HandleServer(s *Server) {
-	m.Client().Reply(ErrAlreadyRegistered(s))
+	m.Client().ErrAlreadyRegistered()
 }
 
 func (msg *QuitCommand) HandleServer(server *Server) {
@@ -392,7 +392,7 @@ func (m *PartCommand) HandleServer(server *Server) {
 		channel := server.channels[chname]
 
 		if channel == nil {
-			m.Client().Reply(ErrNoSuchChannel(server, chname))
+			m.Client().ErrNoSuchChannel(chname)
 			continue
 		}
 
@@ -404,7 +404,7 @@ func (msg *TopicCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	channel := server.channels[msg.channel]
 	if channel == nil {
-		client.Reply(ErrNoSuchChannel(server, msg.channel))
+		client.ErrNoSuchChannel(msg.channel)
 		return
 	}
 
@@ -420,7 +420,7 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	if IsChannel(msg.target) {
 		channel := server.channels[msg.target]
 		if channel == nil {
-			client.Reply(ErrNoSuchChannel(server, msg.target))
+			client.ErrNoSuchChannel(msg.target)
 			return
 		}
 
@@ -430,12 +430,12 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 
 	target := server.clients[msg.target]
 	if target == nil {
-		client.Reply(ErrNoSuchNick(server, msg.target))
+		client.ErrNoSuchNick(msg.target)
 		return
 	}
-	target.Reply(RplPrivMsg(client, target, msg.message))
+	target.replies <- RplPrivMsg(client, target, msg.message)
 	if target.flags[Away] {
-		client.Reply(RplAway(server, target))
+		target.RplAway(client)
 	}
 }
 
@@ -444,12 +444,12 @@ func (m *ModeCommand) HandleServer(s *Server) {
 	target := s.clients.Get(m.nickname)
 
 	if target == nil {
-		client.Reply(ErrNoSuchNick(s, m.nickname))
+		client.ErrNoSuchNick(m.nickname)
 		return
 	}
 
 	if client != target && !client.flags[Operator] {
-		client.Reply(ErrUsersDontMatch(s))
+		client.ErrUsersDontMatch()
 		return
 	}
 
@@ -460,25 +460,45 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		case Invisible, ServerNotice, WallOps:
 			switch change.op {
 			case Add:
-				client.flags[change.mode] = true
+				target.flags[change.mode] = true
 				changes = append(changes, change)
 
 			case Remove:
-				delete(client.flags, change.mode)
+				delete(target.flags, change.mode)
 				changes = append(changes, change)
 			}
 
 		case Operator, LocalOperator:
 			if change.op == Remove {
-				delete(client.flags, change.mode)
+				delete(target.flags, change.mode)
 				changes = append(changes, change)
 			}
 		}
 	}
 
+	// Who should get these replies?
 	if len(changes) > 0 {
-		client.Reply(RplMode(client, changes))
+		client.replies <- RplMode(client, target, changes)
 	}
+}
+
+func (client *Client) WhoisChannelsNames() []string {
+	chstrs := make([]string, len(client.channels))
+	index := 0
+	for channel := range client.channels {
+		switch {
+		case channel.members[client][ChannelOperator]:
+			chstrs[index] = "@" + channel.name
+
+		case channel.members[client][Voice]:
+			chstrs[index] = "+" + channel.name
+
+		default:
+			chstrs[index] = channel.name
+		}
+		index += 1
+	}
+	return chstrs
 }
 
 func (m *WhoisCommand) HandleServer(server *Server) {
@@ -490,16 +510,17 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 		// TODO implement wildcard matching
 		mclient := server.clients.Get(mask)
 		if mclient == nil {
-			client.Reply(ErrNoSuchNick(server, mask))
+			client.ErrNoSuchNick(mask)
 			continue
 		}
-		client.Reply(RplWhoisUser(mclient))
+		client.RplWhoisUser(mclient)
 		if client.flags[Operator] {
-			client.Reply(RplWhoisOperator(mclient))
+			client.RplWhoisOperator(mclient)
 		}
-		client.Reply(RplWhoisIdle(mclient))
-		client.Reply(NewWhoisChannelsReply(mclient))
-		client.Reply(RplEndOfWhois(server))
+		client.RplWhoisIdle(mclient)
+		client.MultilineReply(client.WhoisChannelsNames(), RPL_WHOISCHANNELS,
+			"%s :%s", client.Nick())
+		client.RplEndOfWhois()
 	}
 }
 
@@ -507,7 +528,7 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	channel := server.channels[msg.channel]
 	if channel == nil {
-		client.Reply(ErrNoSuchChannel(server, msg.channel))
+		client.ErrNoSuchChannel(msg.channel)
 		return
 	}
 
@@ -517,15 +538,15 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 func whoChannel(client *Client, channel *Channel) {
 	for member := range channel.members {
 		if !client.flags[Invisible] {
-			client.Reply(RplWhoReply(channel, member))
+			client.RplWhoReply(channel, member)
 		}
 	}
 }
 
 func (msg *WhoCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	// TODO implement wildcard matching
 
+	// TODO implement wildcard matching
 	mask := string(msg.mask)
 	if mask == "" {
 		for _, channel := range server.channels {
@@ -539,25 +560,25 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	} else {
 		mclient := server.clients[mask]
 		if mclient != nil && !mclient.flags[Invisible] {
-			client.Reply(RplWhoReply(nil, mclient))
+			client.RplWhoReply(nil, mclient)
 		}
 	}
 
-	client.Reply(RplEndOfWho(server, mask))
+	client.RplEndOfWho(mask)
 }
 
 func (msg *OperCommand) HandleServer(server *Server) {
 	client := msg.Client()
 
 	if server.operators[msg.name] != msg.password {
-		client.Reply(ErrPasswdMismatch(server))
+		client.ErrPasswdMismatch()
 		return
 	}
 
 	client.flags[Operator] = true
 
-	client.Reply(RplYoureOper(server))
-	client.Reply(RplUModeIs(server, client))
+	client.RplYoureOper()
+	client.RplUModeIs(client)
 }
 
 func (msg *AwayCommand) HandleServer(server *Server) {
@@ -570,9 +591,9 @@ func (msg *AwayCommand) HandleServer(server *Server) {
 	client.awayMessage = msg.text
 
 	if client.flags[Away] {
-		client.Reply(RplNowAway(server))
+		client.RplNowAway()
 	} else {
-		client.Reply(RplUnAway(server))
+		client.RplUnAway()
 	}
 }
 
@@ -586,7 +607,7 @@ func (msg *IsOnCommand) HandleServer(server *Server) {
 		}
 	}
 
-	client.Reply(RplIsOn(server, ison))
+	client.RplIsOn(ison)
 }
 
 func (msg *MOTDCommand) HandleServer(server *Server) {
@@ -598,7 +619,7 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 	if IsChannel(msg.target) {
 		channel := server.channels[msg.target]
 		if channel == nil {
-			client.Reply(ErrNoSuchChannel(server, msg.target))
+			client.ErrNoSuchChannel(msg.target)
 			return
 		}
 
@@ -608,10 +629,10 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 
 	target := server.clients.Get(msg.target)
 	if target == nil {
-		client.Reply(ErrNoSuchNick(server, msg.target))
+		client.ErrNoSuchNick(msg.target)
 		return
 	}
-	target.Reply(RplNotice(client, target, msg.message))
+	target.replies <- RplNotice(client, target, msg.message)
 }
 
 func (msg *KickCommand) HandleServer(server *Server) {
@@ -619,13 +640,13 @@ func (msg *KickCommand) HandleServer(server *Server) {
 	for chname, nickname := range msg.kicks {
 		channel := server.channels[chname]
 		if channel == nil {
-			client.Reply(ErrNoSuchChannel(server, chname))
+			client.ErrNoSuchChannel(chname)
 			continue
 		}
 
 		target := server.clients[nickname]
 		if target == nil {
-			client.Reply(ErrNoSuchNick(server, nickname))
+			client.ErrNoSuchNick(nickname)
 			continue
 		}
 
@@ -638,7 +659,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 
 	// TODO target server
 	if msg.target != "" {
-		client.Reply(ErrNoSuchServer(server, msg.target))
+		client.ErrNoSuchServer(msg.target)
 		return
 	}
 
@@ -648,20 +669,20 @@ func (msg *ListCommand) HandleServer(server *Server) {
 				(channel.flags[Secret] || channel.flags[Private]) {
 				continue
 			}
-			client.Reply(RplList(channel))
+			client.RplList(channel)
 		}
 	} else {
 		for _, chname := range msg.channels {
 			channel := server.channels[chname]
 			if channel == nil || (!client.flags[Operator] &&
 				(channel.flags[Secret] || channel.flags[Private])) {
-				client.Reply(ErrNoSuchChannel(server, chname))
+				client.ErrNoSuchChannel(chname)
 				continue
 			}
-			client.Reply(RplList(channel))
+			client.RplList(channel)
 		}
 	}
-	client.Reply(RplListEnd(server))
+	client.RplListEnd(server)
 }
 
 func (msg *NamesCommand) HandleServer(server *Server) {
@@ -676,7 +697,7 @@ func (msg *NamesCommand) HandleServer(server *Server) {
 	for _, chname := range msg.channels {
 		channel := server.channels[chname]
 		if channel == nil {
-			client.Reply(ErrNoSuchChannel(server, chname))
+			client.ErrNoSuchChannel(chname)
 			continue
 		}
 		channel.Names(client)
