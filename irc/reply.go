@@ -10,14 +10,14 @@ func NewStringReply(source Identifier, code StringCode,
 	format string, args ...interface{}) string {
 	header := fmt.Sprintf(":%s %s ", source, code)
 	message := fmt.Sprintf(format, args...)
-	return header + message + CRLF
+	return header + message
 }
 
 func NewNumericReply(target *Client, code NumericCode,
 	format string, args ...interface{}) string {
 	header := fmt.Sprintf(":%s %s %s ", target.server.Id(), code, target.Nick())
 	message := fmt.Sprintf(format, args...)
-	return header + message + CRLF
+	return header + message
 }
 
 func (target *Client) NumericReply(code NumericCode,

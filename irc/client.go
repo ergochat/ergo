@@ -17,7 +17,6 @@ type Client struct {
 	awayMessage string
 	channels    ChannelSet
 	ctime       time.Time
-	doneWriting chan bool
 	flags       map[UserMode]bool
 	hasQuit     bool
 	hops        uint
@@ -37,16 +36,15 @@ type Client struct {
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
-		atime:       now,
-		channels:    make(ChannelSet),
-		ctime:       now,
-		doneWriting: make(chan bool),
-		flags:       make(map[UserMode]bool),
-		hostname:    AddrLookupHostname(conn.RemoteAddr()),
-		phase:       server.InitPhase(),
-		server:      server,
-		socket:      NewSocket(conn),
-		replies:     make(chan string),
+		atime:    now,
+		channels: make(ChannelSet),
+		ctime:    now,
+		flags:    make(map[UserMode]bool),
+		hostname: AddrLookupHostname(conn.RemoteAddr()),
+		phase:    server.InitPhase(),
+		server:   server,
+		socket:   NewSocket(conn),
+		replies:  make(chan string, 16),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -97,10 +95,11 @@ func (client *Client) connectionClosed() {
 
 func (client *Client) writeReplies() {
 	for reply := range client.replies {
-		client.socket.Write(reply)
+		if client.socket.Write(reply) != nil {
+			break
+		}
 	}
 	client.socket.Close()
-	client.doneWriting <- true
 }
 
 //
@@ -163,7 +162,7 @@ func (client *Client) destroy() {
 	// clean up self
 
 	close(client.replies)
-	<-client.doneWriting
+
 	client.loginTimer.Stop()
 
 	if client.idleTimer != nil {

@@ -77,9 +77,14 @@ func (socket *Socket) WriteLine(line string) (err error) {
 		return
 	}
 
+	if _, err = socket.writer.WriteString(CRLF); socket.isError(err, W) {
+		return
+	}
+
 	if err = socket.writer.Flush(); socket.isError(err, W) {
 		return
 	}
+
 	if DEBUG_NET {
 		log.Printf("%s ← %s", socket, line)
 	}
