@@ -13,26 +13,18 @@ const (
 )
 
 type Socket struct {
-	conn    net.Conn
-	done    chan bool
-	reader  *bufio.Reader
-	receive chan string
-	send    chan string
-	writer  *bufio.Writer
+	closed bool
+	conn   net.Conn
+	reader *bufio.Reader
+	writer *bufio.Writer
 }
 
 func NewSocket(conn net.Conn) *Socket {
 	socket := &Socket{
-		conn:    conn,
-		done:    make(chan bool, 1),
-		reader:  bufio.NewReader(conn),
-		receive: make(chan string, 16),
-		send:    make(chan string, 16),
-		writer:  bufio.NewWriter(conn),
+		conn:   conn,
+		reader: bufio.NewReader(conn),
+		writer: bufio.NewWriter(conn),
 	}
-
-	go socket.readLines()
-	go socket.writeLines()
 
 	return socket
 }
@@ -42,23 +34,19 @@ func (socket *Socket) String() string {
 }
 
 func (socket *Socket) Close() {
-	socket.done <- true
-}
-
-func (socket *Socket) Read() <-chan string {
-	return socket.receive
-}
-
-func (socket *Socket) Write(lines ...string) {
-	for _, line := range lines {
-		socket.send <- line
+	if socket.closed {
+		return
 	}
-	return
+	socket.closed = true
+	socket.conn.Close()
+	if DEBUG_NET {
+		log.Printf("%s closed", socket)
+	}
 }
 
-func (socket *Socket) readLines() {
-	for {
-		line, err := socket.reader.ReadString('\n')
+func (socket *Socket) Read() (line string, err error) {
+	for len(line) == 0 {
+		line, err = socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
 			break
 		}
@@ -70,53 +58,32 @@ func (socket *Socket) readLines() {
 		if DEBUG_NET {
 			log.Printf("%s → %s", socket, line)
 		}
-
-		socket.receive <- line
 	}
-
-	close(socket.receive)
-	socket.Close()
+	return
 }
 
-func (socket *Socket) writeLines() {
-	done := false
-	for !done {
-		select {
-		case line := <-socket.send:
-			if _, err := socket.writer.WriteString(line); socket.isError(err, W) {
-				break
-			}
-
-			if err := socket.writer.Flush(); socket.isError(err, W) {
-				break
-			}
-			if DEBUG_NET {
-				log.Printf("%s ← %s", socket, line)
-			}
-
-		case done = <-socket.done:
-			if DEBUG_NET {
-				log.Printf("%s done", socket)
-			}
-			continue
+func (socket *Socket) Write(lines ...string) (err error) {
+	for _, line := range lines {
+		err = socket.WriteLine(line)
+		if err != nil {
+			break
 		}
 	}
+	return
+}
 
-	if done {
-		socket.conn.Close()
+func (socket *Socket) WriteLine(line string) (err error) {
+	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
+		return
 	}
 
+	if err = socket.writer.Flush(); socket.isError(err, W) {
+		return
+	}
 	if DEBUG_NET {
-		log.Printf("%s closed", socket)
+		log.Printf("%s ← %s", socket, line)
 	}
-
-	// read incoming messages and discard to avoid hangs
-	for {
-		select {
-		case <-socket.send:
-		case <-socket.done:
-		}
-	}
+	return
 }
 
 func (socket *Socket) isError(err error, dir rune) bool {

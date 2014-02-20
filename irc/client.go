@@ -59,7 +59,11 @@ func NewClient(server *Server, conn net.Conn) *Client {
 //
 
 func (client *Client) readCommands() {
-	for line := range client.socket.Read() {
+	for {
+		line, err := client.socket.Read()
+		if err != nil {
+			break
+		}
 		msg, err := ParseCommand(line)
 		if err != nil {
 			switch err {
