@@ -17,6 +17,7 @@ type Client struct {
 	awayMessage string
 	channels    ChannelSet
 	ctime       time.Time
+	doneWriting chan bool
 	flags       map[UserMode]bool
 	hasQuit     bool
 	hops        uint
@@ -27,7 +28,7 @@ type Client struct {
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	replies     chan Reply
+	replies     chan string
 	server      *Server
 	socket      *Socket
 	username    string
@@ -36,15 +37,16 @@ type Client struct {
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
-		atime:    now,
-		channels: make(ChannelSet),
-		ctime:    now,
-		flags:    make(map[UserMode]bool),
-		hostname: AddrLookupHostname(conn.RemoteAddr()),
-		phase:    server.InitPhase(),
-		server:   server,
-		socket:   NewSocket(conn),
-		replies:  make(chan Reply),
+		atime:       now,
+		channels:    make(ChannelSet),
+		ctime:       now,
+		doneWriting: make(chan bool),
+		flags:       make(map[UserMode]bool),
+		hostname:    AddrLookupHostname(conn.RemoteAddr()),
+		phase:       server.InitPhase(),
+		server:      server,
+		socket:      NewSocket(conn),
+		replies:     make(chan string),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -94,9 +96,11 @@ func (client *Client) connectionClosed() {
 //
 
 func (client *Client) writeReplies() {
-	for reply := range client.replies {
-		client.socket.Write(reply.Format(client)...)
+	for line := range client.replies {
+		client.socket.Write(line)
 	}
+	client.socket.Close()
+	client.doneWriting <- true
 }
 
 //
@@ -155,12 +159,13 @@ func (client *Client) Register() {
 	client.Touch()
 }
 
-func (client *Client) Destroy() {
+func (client *Client) destroy() {
 	// clean up self
 
-	client.socket.Close()
-
+	close(client.replies)
+	<-client.doneWriting
 	client.loginTimer.Stop()
+
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
 	}
@@ -184,7 +189,15 @@ func (client *Client) Destroy() {
 }
 
 func (client *Client) Reply(reply Reply) {
-	client.replies <- reply
+	if client.hasQuit {
+		if DEBUG_CLIENT {
+			log.Printf("%s dropping %s", client, reply)
+		}
+		return
+	}
+	for _, line := range reply.Format(client) {
+		client.replies <- line
+	}
 }
 
 func (client *Client) IdleTime() time.Duration {
@@ -273,11 +286,13 @@ func (client *Client) Quit(message string) {
 	if client.hasQuit {
 		return
 	}
-	client.hasQuit = true
+
 	client.Reply(RplError(client.server, client.Nick()))
+
+	client.hasQuit = true
 	friends := client.Friends()
 	friends.Remove(client)
-	client.Destroy()
+	client.destroy()
 
 	if len(friends) > 0 {
 		reply := RplQuit(client, message)
