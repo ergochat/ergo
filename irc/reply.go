@@ -213,6 +213,7 @@ func RplPart(client *Client, channel *Channel, message string) Reply {
 	return NewStringReply(client, PART, "%s :%s", channel, message)
 }
 
+// TODO separate source and target
 func RplMode(client *Client, changes ModeChanges) Reply {
 	return NewStringReply(client, MODE, "%s :%s", client.Nick(), changes)
 }

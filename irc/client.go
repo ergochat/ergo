@@ -27,6 +27,7 @@ type Client struct {
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
+	replies     chan Reply
 	server      *Server
 	socket      *Socket
 	username    string
@@ -43,10 +44,12 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		phase:    server.InitPhase(),
 		server:   server,
 		socket:   NewSocket(conn),
+		replies:  make(chan Reply, 16),
 	}
 
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
 	go client.readCommands()
+	go client.writeReplies()
 
 	return client
 }
@@ -80,6 +83,16 @@ func (client *Client) connectionClosed() {
 	}
 	msg.SetClient(client)
 	client.server.commands <- msg
+}
+
+//
+// reply writing goroutine
+//
+
+func (client *Client) writeReplies() {
+	for reply := range client.replies {
+		client.socket.Write(reply.Format(client)...)
+	}
 }
 
 //
@@ -167,7 +180,7 @@ func (client *Client) Destroy() {
 }
 
 func (client *Client) Reply(reply Reply) {
-	client.socket.Write(reply.Format(client)...)
+	client.replies <- reply
 }
 
 func (client *Client) IdleTime() time.Duration {
