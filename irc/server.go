@@ -562,16 +562,22 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	mask := string(msg.mask)
 	if mask == "" {
 		for _, channel := range server.channels {
-			whoChannel(client, channel)
+			for member := range channel.members {
+				if !client.flags[Invisible] {
+					client.RplWhoReply(channel, member)
+				}
+			}
 		}
 	} else if IsChannel(mask) {
 		channel := server.channels[mask]
 		if channel != nil {
-			whoChannel(client, channel)
+			for member := range channel.members {
+				client.RplWhoReply(channel, member)
+			}
 		}
 	} else {
 		mclient := server.clients[mask]
-		if mclient != nil && !mclient.flags[Invisible] {
+		if mclient != nil {
 			client.RplWhoReply(nil, mclient)
 		}
 	}
