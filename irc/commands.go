@@ -643,7 +643,7 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 }
 
 func (msg *WhoCommand) String() string {
-	return fmt.Sprintf("WHO(mask=%s, operatorOnly=%s)", msg.mask, msg.operatorOnly)
+	return fmt.Sprintf("WHO(mask=%s, operatorOnly=%t)", msg.mask, msg.operatorOnly)
 }
 
 type OperCommand struct {

@@ -98,7 +98,7 @@ func RplTopicMsg(source Identifier, channel *Channel) string {
 }
 
 func RplPing(server *Server, target Identifier) string {
-	return NewStringReply(server, PING, target.Nick())
+	return NewStringReply(server, PING, ":%s", target.Nick())
 }
 
 func RplPong(server *Server, client *Client) string {
