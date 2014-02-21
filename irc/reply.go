@@ -9,11 +9,9 @@ import (
 func NewStringReply(source Identifier, code StringCode,
 	format string, args ...interface{}) string {
 	var header string
-	switch source.(type) {
-	case *Server:
-		// TODO only omit prefix for local server
+	if source == nil {
 		header = fmt.Sprintf("%s ", code)
-	default:
+	} else {
 		header = fmt.Sprintf(":%s %s ", source, code)
 	}
 	message := fmt.Sprintf(format, args...)
@@ -104,20 +102,20 @@ func RplTopicMsg(source Identifier, channel *Channel) string {
 	return NewStringReply(source, TOPIC, "%s :%s", channel, channel.topic)
 }
 
-func RplPing(server *Server, target Identifier) string {
-	return NewStringReply(server, PING, ":%s", target.Nick())
+func RplPing(target Identifier) string {
+	return NewStringReply(nil, PING, ":%s", target.Nick())
 }
 
-func RplPong(server *Server, client *Client) string {
-	return NewStringReply(server, PONG, client.Nick())
+func RplPong(client *Client) string {
+	return NewStringReply(nil, PONG, client.Nick())
 }
 
 func RplQuit(client *Client, message string) string {
 	return NewStringReply(client, QUIT, ":%s", message)
 }
 
-func RplError(server *Server, message string) string {
-	return NewStringReply(server, ERROR, ":%s", message)
+func RplError(message string) string {
+	return NewStringReply(nil, ERROR, ":%s", message)
 }
 
 func RplInviteMsg(channel *Channel, inviter *Client) string {

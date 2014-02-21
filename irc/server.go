@@ -351,7 +351,7 @@ func (m *PassCommand) HandleServer(s *Server) {
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().replies <- RplPong(s, m.Client())
+	m.Client().replies <- RplPong(m.Client())
 }
 
 func (m *PongCommand) HandleServer(s *Server) {

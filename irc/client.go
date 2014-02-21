@@ -175,7 +175,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.replies <- RplPing(client.server, client)
+	client.replies <- RplPing(client)
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -304,7 +304,7 @@ func (client *Client) Quit(message string) {
 		return
 	}
 
-	client.replies <- RplError(client.server, "connection closed")
+	client.replies <- RplError("connection closed")
 	client.replies <- EOF
 
 	client.hasQuit = true
