@@ -118,8 +118,9 @@ func (channel *Channel) Part(client *Client, message string) {
 		return
 	}
 
+	reply := RplPart(client, channel, message)
 	for member := range channel.members {
-		member.replies <- RplPart(client, channel, message)
+		member.replies <- reply
 	}
 	channel.Quit(client)
 
