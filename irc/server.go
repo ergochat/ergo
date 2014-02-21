@@ -290,6 +290,10 @@ func (msg *QuitCommand) HandleAuthServer(server *Server) {
 // registration commands
 //
 
+func (msg *CapCommand) HandleRegServer(server *Server) {
+	// TODO
+}
+
 func (m *NickCommand) HandleRegServer(s *Server) {
 	client := m.Client()
 
