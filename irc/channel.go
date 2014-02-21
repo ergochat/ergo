@@ -155,14 +155,16 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		return
 	}
 
-	if channel.flags[OpOnlyTopic] && !channel.members[client][ChannelOperator] {
+	if channel.flags[OpOnlyTopic] && !channel.ClientIsOperator(client) {
 		client.ErrChanOPrivIsNeeded(channel)
 		return
 	}
 
 	channel.topic = topic
+
+	reply := RplTopicMsg(client, channel)
 	for member := range channel.members {
-		member.replies <- RplTopicMsg(client, channel)
+		member.replies <- reply
 	}
 }
 
@@ -307,8 +309,9 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 		return
 	}
 
+	reply := RplKick(channel, client, target, comment)
 	for member := range channel.members {
-		member.replies <- RplKick(channel, client, target, comment)
+		member.replies <- reply
 	}
 	channel.Quit(target)
 }

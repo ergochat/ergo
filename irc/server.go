@@ -526,12 +526,12 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 			continue
 		}
 		client.RplWhoisUser(mclient)
-		if client.flags[Operator] {
+		if mclient.flags[Operator] {
 			client.RplWhoisOperator(mclient)
 		}
 		client.RplWhoisIdle(mclient)
-		client.MultilineReply(client.WhoisChannelsNames(), RPL_WHOISCHANNELS,
-			"%s :%s", client.Nick())
+		client.MultilineReply(mclient.WhoisChannelsNames(), RPL_WHOISCHANNELS,
+			"%s :%s", mclient.Nick())
 		client.RplEndOfWhois()
 	}
 }
