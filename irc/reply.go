@@ -8,7 +8,14 @@ import (
 
 func NewStringReply(source Identifier, code StringCode,
 	format string, args ...interface{}) string {
-	header := fmt.Sprintf(":%s %s ", source, code)
+	var header string
+	switch source.(type) {
+	case *Server:
+		// TODO only omit prefix for local server
+		header = fmt.Sprintf("%s ", code)
+	default:
+		header = fmt.Sprintf(":%s %s ", source, code)
+	}
 	message := fmt.Sprintf(format, args...)
 	return header + message
 }
