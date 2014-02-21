@@ -3,6 +3,7 @@ package irc
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -84,6 +85,10 @@ func ParseCommand(line string) (cmd editableCommand, err error) {
 	return
 }
 
+var (
+	spacesExpr = regexp.MustCompile(` +`)
+)
+
 func parseArg(line string) (arg string, rest string) {
 	if line == "" {
 		return
@@ -92,7 +97,7 @@ func parseArg(line string) (arg string, rest string) {
 	if strings.HasPrefix(line, ":") {
 		arg = line[1:]
 	} else {
-		parts := strings.SplitN(line, " ", 2)
+		parts := spacesExpr.Split(line, 2)
 		arg = parts[0]
 		if len(parts) > 1 {
 			rest = parts[1]
@@ -104,6 +109,9 @@ func parseArg(line string) (arg string, rest string) {
 func parseLine(line string) (command StringCode, args []string) {
 	args = make([]string, 0)
 	for arg, rest := parseArg(line); arg != ""; arg, rest = parseArg(rest) {
+		if arg == "" {
+			continue
+		}
 		args = append(args, arg)
 	}
 	if len(args) > 0 {
