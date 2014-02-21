@@ -97,6 +97,11 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
+	if channel.members[client] != nil {
+		// already joined, no message?
+		return
+	}
+
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
