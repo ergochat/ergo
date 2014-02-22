@@ -1,7 +1,6 @@
 # Ergonomadic
 
-Ergonomadic is an IRC daemon written from scratch in Go. It supports (or will)
-multiple concurrent connections for the same nick.
+Ergonomadic is an IRC daemon written from scratch in Go.
 
 ## Why?
 
