@@ -212,7 +212,7 @@ const (
 	BanMask         ChannelMode = 'b' // arg
 	ChannelCreator  ChannelMode = 'O' // flag
 	ChannelOperator ChannelMode = 'o' // arg
-	ExceptionMask   ChannelMode = 'e' // arg
+	ExceptMask      ChannelMode = 'e' // arg
 	InviteMask      ChannelMode = 'I' // arg
 	InviteOnly      ChannelMode = 'i' // flag
 	Key             ChannelMode = 'k' // flag arg

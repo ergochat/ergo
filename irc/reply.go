@@ -253,14 +253,60 @@ func (target *Client) RplEndOfWho(name string) {
 		"%s :End of WHO list", name)
 }
 
-func (target *Client) RplBanList(channel *Channel, ban UserMask) {
+func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask UserMask) {
+	switch mode {
+	case BanMask:
+		target.RplBanList(channel, mask)
+
+	case ExceptMask:
+		target.RplExceptList(channel, mask)
+
+	case InviteMask:
+		target.RplInviteList(channel, mask)
+	}
+}
+
+func (target *Client) RplEndOfMaskList(mode ChannelMode, channel *Channel) {
+	switch mode {
+	case BanMask:
+		target.RplEndOfBanList(channel)
+
+	case ExceptMask:
+		target.RplEndOfExceptList(channel)
+
+	case InviteMask:
+		target.RplEndOfInviteList(channel)
+	}
+}
+
+func (target *Client) RplBanList(channel *Channel, mask UserMask) {
 	target.NumericReply(RPL_BANLIST,
-		"%s %s", channel.name, ban)
+		"%s %s", channel, mask)
 }
 
 func (target *Client) RplEndOfBanList(channel *Channel) {
 	target.NumericReply(RPL_ENDOFBANLIST,
-		"%s :End of channel ban list", channel.name)
+		"%s :End of channel ban list", channel)
+}
+
+func (target *Client) RplExceptList(channel *Channel, mask UserMask) {
+	target.NumericReply(RPL_EXCEPTLIST,
+		"%s %s", channel, mask)
+}
+
+func (target *Client) RplEndOfExceptList(channel *Channel) {
+	target.NumericReply(RPL_ENDOFEXCEPTLIST,
+		"%s :End of channel exception list", channel)
+}
+
+func (target *Client) RplInviteList(channel *Channel, mask UserMask) {
+	target.NumericReply(RPL_INVITELIST,
+		"%s %s", channel, mask)
+}
+
+func (target *Client) RplEndOfInviteList(channel *Channel) {
+	target.NumericReply(RPL_ENDOFINVITELIST,
+		"%s :End of channel invite list", channel)
 }
 
 func (target *Client) RplNowAway() {

@@ -5,8 +5,8 @@ import (
 )
 
 type Channel struct {
-	banList   []UserMask
 	flags     ChannelModeSet
+	lists     map[ChannelMode][]UserMask
 	key       string
 	members   MemberSet
 	name      string
@@ -23,8 +23,12 @@ func IsChannel(target string) bool {
 // string, which must be unique on the server.
 func NewChannel(s *Server, name string) *Channel {
 	channel := &Channel{
-		banList: make([]UserMask, 0),
-		flags:   make(ChannelModeSet),
+		flags: make(ChannelModeSet),
+		lists: map[ChannelMode][]UserMask{
+			BanMask:    []UserMask{},
+			ExceptMask: []UserMask{},
+			InviteMask: []UserMask{},
+		},
 		members: make(MemberSet),
 		name:    name,
 		server:  s,
@@ -228,31 +232,72 @@ func (channel *Channel) PrivMsg(client *Client, message string) {
 	}
 }
 
+func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
+	op ModeOp) bool {
+	if !channel.ClientIsOperator(client) {
+		client.ErrChanOPrivIsNeeded(channel)
+		return false
+	}
+
+	switch op {
+	case Add:
+		channel.flags[mode] = true
+		return true
+
+	case Remove:
+		delete(channel.flags, mode)
+		return true
+	}
+	return false
+}
+
+func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
+	op ModeOp, nick string) bool {
+	if !channel.ClientIsOperator(client) {
+		client.ErrChanOPrivIsNeeded(channel)
+		return false
+	}
+
+	if nick == "" {
+		client.ErrNeedMoreParams("MODE")
+		return false
+	}
+
+	target := channel.server.clients.Get(nick)
+	if target == nil {
+		client.ErrNoSuchNick(nick)
+		return false
+	}
+
+	if !channel.members.Has(target) {
+		client.ErrUserNotInChannel(channel, target)
+		return false
+	}
+
+	switch op {
+	case Add:
+		channel.members[target][mode] = true
+		return true
+
+	case Remove:
+		channel.members[target][mode] = false
+		return true
+	}
+	return false
+}
+
 func (channel *Channel) applyMode(client *Client, change ChannelModeChange) bool {
 	switch change.mode {
-	case BanMask:
+	case BanMask, ExceptMask, InviteMask:
 		// TODO add/remove
 
-		for _, banMask := range channel.banList {
-			client.RplBanList(channel, banMask)
+		for _, mask := range channel.lists[change.mode] {
+			client.RplMaskList(change.mode, channel, mask)
 		}
-		client.RplEndOfBanList(channel)
+		client.RplEndOfMaskList(change.mode, channel)
 
 	case Moderated, NoOutside, OpOnlyTopic, Private:
-		if !channel.ClientIsOperator(client) {
-			client.ErrChanOPrivIsNeeded(channel)
-			return false
-		}
-
-		switch change.op {
-		case Add:
-			channel.flags[change.mode] = true
-			return true
-
-		case Remove:
-			delete(channel.flags, change.mode)
-			return true
-		}
+		return channel.applyModeFlag(client, change.mode, change.op)
 
 	case Key:
 		if !channel.ClientIsOperator(client) {
@@ -289,36 +334,7 @@ func (channel *Channel) applyMode(client *Client, change ChannelModeChange) bool
 		return true
 
 	case ChannelOperator, Voice:
-		if !channel.ClientIsOperator(client) {
-			client.ErrChanOPrivIsNeeded(channel)
-			return false
-		}
-
-		if change.arg == "" {
-			client.ErrNeedMoreParams("MODE")
-			return false
-		}
-
-		target := channel.server.clients.Get(change.arg)
-		if target == nil {
-			client.ErrNoSuchNick(change.arg)
-			return false
-		}
-
-		if !channel.members.Has(target) {
-			client.ErrUserNotInChannel(channel, target)
-			return false
-		}
-
-		switch change.op {
-		case Add:
-			channel.members[target][change.mode] = true
-			return true
-
-		case Remove:
-			channel.members[target][change.mode] = false
-			return true
-		}
+		return channel.applyModeMember(client, change.mode, change.op, change.arg)
 
 	default:
 		client.ErrUnknownMode(change.mode, channel)

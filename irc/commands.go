@@ -566,7 +566,7 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 				op:   op,
 			}
 			switch change.mode {
-			case Key, BanMask, ExceptionMask, InviteMask, UserLimit,
+			case Key, BanMask, ExceptMask, InviteMask, UserLimit,
 				ChannelOperator, ChannelCreator, Voice:
 				if len(args) > skipArgs {
 					change.arg = args[skipArgs]
