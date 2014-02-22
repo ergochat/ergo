@@ -308,6 +308,16 @@ func (target *Client) RplListEnd(server *Server) {
 		":End of LIST")
 }
 
+func (target *Client) RplNamReply(channel *Channel) {
+	target.MultilineReply(channel.Nicks(), RPL_NAMREPLY,
+		"= %s :%s", channel)
+}
+
+func (target *Client) RplWhoisChannels(client *Client) {
+	target.MultilineReply(client.WhoisChannelsNames(), RPL_WHOISCHANNELS,
+		"%s :%s", client.Nick())
+}
+
 //
 // errors (also numeric)
 //

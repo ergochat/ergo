@@ -29,6 +29,7 @@ func NewChannel(s *Server, name string) *Channel {
 		name:    name,
 		server:  s,
 	}
+	s.channels[name] = channel
 	return channel
 }
 
@@ -37,8 +38,7 @@ func (channel *Channel) IsEmpty() bool {
 }
 
 func (channel *Channel) Names(client *Client) {
-	client.MultilineReply(channel.Nicks(), RPL_NAMREPLY,
-		"= %s :%s", channel.name)
+	client.RplNamReply(channel)
 	client.RplEndOfNames(channel)
 }
 

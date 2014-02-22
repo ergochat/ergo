@@ -390,7 +390,6 @@ func (m *JoinCommand) HandleServer(s *Server) {
 		channel := s.channels[name]
 		if channel == nil {
 			channel = NewChannel(s, name)
-			s.channels[name] = channel
 		}
 		channel.Join(client, key)
 	}
@@ -528,8 +527,7 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 			client.RplWhoisOperator(mclient)
 		}
 		client.RplWhoisIdle(mclient)
-		client.MultilineReply(mclient.WhoisChannelsNames(), RPL_WHOISCHANNELS,
-			"%s :%s", mclient.Nick())
+		client.RplWhoisChannels(mclient)
 		client.RplEndOfWhois()
 	}
 }
