@@ -27,7 +27,7 @@ func NewNumericReply(target *Client, code NumericCode,
 
 func (target *Client) NumericReply(code NumericCode,
 	format string, args ...interface{}) {
-	target.replies <- NewNumericReply(target, code, format, args...)
+	target.Reply(NewNumericReply(target, code, format, args...))
 }
 
 //

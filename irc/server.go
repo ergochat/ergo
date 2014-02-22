@@ -340,7 +340,7 @@ func (m *PassCommand) HandleServer(s *Server) {
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().replies <- RplPong(m.Client())
+	m.Client().Reply(RplPong(m.Client()))
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -443,7 +443,7 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 		client.ErrNoSuchNick(msg.target)
 		return
 	}
-	target.replies <- RplPrivMsg(client, target, msg.message)
+	target.Reply(RplPrivMsg(client, target, msg.message))
 	if target.flags[Away] {
 		target.RplAway(client)
 	}
@@ -488,7 +488,7 @@ func (m *ModeCommand) HandleServer(s *Server) {
 
 	// Who should get these replies?
 	if len(changes) > 0 {
-		client.replies <- RplMode(client, target, changes)
+		client.Reply(RplMode(client, target, changes))
 	}
 }
 
@@ -648,7 +648,7 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 		client.ErrNoSuchNick(msg.target)
 		return
 	}
-	target.replies <- RplNotice(client, target, msg.message)
+	target.Reply(RplNotice(client, target, msg.message))
 }
 
 func (msg *KickCommand) HandleServer(server *Server) {

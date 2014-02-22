@@ -128,10 +128,6 @@ func (client *Client) writeReplies() {
 		}
 	}
 	client.socket.Close()
-
-	for _ = range client.replies {
-		// discard
-	}
 }
 
 //
@@ -175,7 +171,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.replies <- RplPing(client)
+	client.Reply(RplPing(client))
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -295,8 +291,15 @@ func (client *Client) ChangeNickname(nickname string) {
 	client.nick = nickname
 	client.server.clients.Add(client)
 	for friend := range client.Friends() {
-		friend.replies <- reply
+		friend.Reply(reply)
 	}
+}
+
+func (client *Client) Reply(reply string) {
+	if client.hasQuit {
+		return
+	}
+	client.replies <- reply
 }
 
 func (client *Client) Quit(message string) {
@@ -304,8 +307,8 @@ func (client *Client) Quit(message string) {
 		return
 	}
 
-	client.replies <- RplError("connection closed")
-	client.replies <- EOF
+	client.Reply(RplError("connection closed"))
+	client.Reply(EOF)
 
 	client.hasQuit = true
 	friends := client.Friends()
@@ -315,7 +318,7 @@ func (client *Client) Quit(message string) {
 	if len(friends) > 0 {
 		reply := RplQuit(client, message)
 		for friend := range friends {
-			friend.replies <- reply
+			friend.Reply(reply)
 		}
 	}
 }

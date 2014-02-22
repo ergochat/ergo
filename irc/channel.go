@@ -111,7 +111,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	reply := RplJoin(client, channel)
 	for member := range channel.members {
-		member.replies <- reply
+		member.Reply(reply)
 	}
 	channel.GetTopic(client)
 	channel.Names(client)
@@ -125,7 +125,7 @@ func (channel *Channel) Part(client *Client, message string) {
 
 	reply := RplPart(client, channel, message)
 	for member := range channel.members {
-		member.replies <- reply
+		member.Reply(reply)
 	}
 	channel.Quit(client)
 
@@ -164,7 +164,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 
 	reply := RplTopicMsg(client, channel)
 	for member := range channel.members {
-		member.replies <- reply
+		member.Reply(reply)
 	}
 }
 
@@ -177,7 +177,7 @@ func (channel *Channel) PrivMsg(client *Client, message string) {
 		if member == client {
 			continue
 		}
-		member.replies <- RplPrivMsg(client, channel, message)
+		member.Reply(RplPrivMsg(client, channel, message))
 	}
 }
 
@@ -247,7 +247,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 				continue
 			}
 
-			target := channel.server.clients[change.arg]
+			target := channel.server.clients.Get(change.arg)
 			if target == nil {
 				// TODO err reply
 				continue
@@ -272,7 +272,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 
 	if len(applied) > 0 {
 		for member := range channel.members {
-			member.replies <- RplChannelMode(client, channel, applied)
+			member.Reply(RplChannelMode(client, channel, applied))
 		}
 	}
 }
@@ -286,7 +286,7 @@ func (channel *Channel) Notice(client *Client, message string) {
 		if member == client {
 			continue
 		}
-		member.replies <- RplNotice(client, channel, message)
+		member.Reply(RplNotice(client, channel, message))
 	}
 }
 
@@ -311,7 +311,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 
 	reply := RplKick(channel, client, target, comment)
 	for member := range channel.members {
-		member.replies <- reply
+		member.Reply(reply)
 	}
 	channel.Quit(target)
 }
