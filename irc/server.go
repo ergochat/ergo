@@ -165,17 +165,6 @@ func (s *Server) listen(config ListenerConfig) {
 	}
 }
 
-func (s *Server) GetOrMakeChannel(name string) *Channel {
-	channel, ok := s.channels[name]
-
-	if !ok {
-		channel = NewChannel(s, name)
-		s.channels[name] = channel
-	}
-
-	return channel
-}
-
 func (s *Server) GenerateGuestNick() string {
 	bytes := make([]byte, 8)
 	for {
@@ -393,7 +382,16 @@ func (m *JoinCommand) HandleServer(s *Server) {
 	}
 
 	for name, key := range m.channels {
-		channel := s.GetOrMakeChannel(name)
+		if !IsChannel(name) {
+			client.ErrNoSuchChannel(name)
+			continue
+		}
+
+		channel := s.channels[name]
+		if channel == nil {
+			channel = NewChannel(s, name)
+			s.channels[name] = channel
+		}
 		channel.Join(client, key)
 	}
 }
