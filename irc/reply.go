@@ -215,7 +215,7 @@ func (target *Client) RplEndOfWhois() {
 
 func (target *Client) RplChannelModeIs(channel *Channel) {
 	target.NumericReply(RPL_CHANNELMODEIS,
-		"%s %s", channel, channel.ModeString())
+		"%s %s", channel, channel.ModeString(target))
 }
 
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
@@ -420,4 +420,9 @@ func (target *Client) ErrErroneusNickname(nick string) {
 func (target *Client) ErrUnknownMode(mode ChannelMode, channel *Channel) {
 	target.NumericReply(ERR_UNKNOWNMODE,
 		"%s :is unknown mode char to me for %s", mode, channel)
+}
+
+func (target *Client) ErrChannelIsFull(channel *Channel) {
+	target.NumericReply(ERR_CHANNELISFULL,
+		"%s :Cannot join channel (+l)", channel)
 }

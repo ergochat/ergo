@@ -222,7 +222,7 @@ const (
 	Private         ChannelMode = 'p' // flag
 	Quiet           ChannelMode = 'q' // flag
 	ReOp            ChannelMode = 'r' // flag
-	Secret          ChannelMode = 's' // flag
+	Secret          ChannelMode = 's' // flag, deprecated
 	UserLimit       ChannelMode = 'l' // flag arg
 	Voice           ChannelMode = 'v' // arg
 )

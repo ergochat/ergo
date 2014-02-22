@@ -1,13 +1,18 @@
 package irc
 
+import (
+	"strconv"
+)
+
 type Channel struct {
-	banList []UserMask
-	flags   ChannelModeSet
-	key     string
-	members MemberSet
-	name    string
-	server  *Server
-	topic   string
+	banList   []UserMask
+	flags     ChannelModeSet
+	key       string
+	members   MemberSet
+	name      string
+	server    *Server
+	topic     string
+	userLimit uint64
 }
 
 func IsChannel(target string) bool {
@@ -71,11 +76,20 @@ func (channel *Channel) String() string {
 }
 
 // <mode> <mode params>
-func (channel *Channel) ModeString() (str string) {
-	if channel.key != "" {
+func (channel *Channel) ModeString(client *Client) (str string) {
+	isMember := client.flags[Operator] || channel.members.Has(client)
+	showKey := isMember && (channel.key != "")
+	showUserLimit := channel.userLimit > 0
+
+	// flags with args
+	if showKey {
 		str += Key.String()
 	}
+	if showUserLimit {
+		str += UserLimit.String()
+	}
 
+	// flags
 	for mode := range channel.flags {
 		str += mode.String()
 	}
@@ -84,21 +98,40 @@ func (channel *Channel) ModeString() (str string) {
 		str = "+" + str
 	}
 
-	if channel.key != "" {
+	// args for flags with args: The order must match above to keep
+	// positional arguments in place.
+	if showKey {
 		str += " " + channel.key
+	}
+	if showUserLimit {
+		str += " " + strconv.FormatUint(channel.userLimit, 10)
 	}
 
 	return
 }
 
+func (channel *Channel) IsFull() bool {
+	return (channel.userLimit > 0) &&
+		(uint64(len(channel.members)) >= channel.userLimit)
+}
+
+func (channel *Channel) CheckKey(key string) bool {
+	return (channel.key == "") || (channel.key == key)
+}
+
 func (channel *Channel) Join(client *Client, key string) {
-	if (channel.key != "") && (channel.key != key) {
-		client.ErrBadChannelKey(channel)
+	if channel.members.Has(client) {
+		// already joined, no message?
 		return
 	}
 
-	if channel.members[client] != nil {
-		// already joined, no message?
+	if channel.IsFull() {
+		client.ErrChannelIsFull(channel)
+		return
+	}
+
+	if !channel.CheckKey(key) {
+		client.ErrBadChannelKey(channel)
 		return
 	}
 
@@ -150,7 +183,7 @@ func (channel *Channel) GetTopic(client *Client) {
 }
 
 func (channel *Channel) SetTopic(client *Client, topic string) {
-	if !channel.members.Has(client) {
+	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.ErrNotOnChannel(channel)
 		return
 	}
@@ -168,8 +201,22 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 }
 
-func (channel *Channel) PrivMsg(client *Client, message string) {
+func (channel *Channel) CanSpeak(client *Client) bool {
+	if client.flags[Operator] {
+		return true
+	}
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
+		return false
+	}
+	if channel.flags[Moderated] && !(channel.members.HasMode(client, Voice) ||
+		channel.members.HasMode(client, ChannelOperator)) {
+		return false
+	}
+	return true
+}
+
+func (channel *Channel) PrivMsg(client *Client, message string) {
+	if !channel.CanSpeak(client) {
 		client.ErrCannotSendToChan(channel)
 		return
 	}
@@ -181,6 +228,105 @@ func (channel *Channel) PrivMsg(client *Client, message string) {
 	}
 }
 
+func (channel *Channel) applyMode(client *Client, change ChannelModeChange) bool {
+	switch change.mode {
+	case BanMask:
+		// TODO add/remove
+
+		for _, banMask := range channel.banList {
+			client.RplBanList(channel, banMask)
+		}
+		client.RplEndOfBanList(channel)
+
+	case Moderated, NoOutside, OpOnlyTopic, Private:
+		if !channel.ClientIsOperator(client) {
+			client.ErrChanOPrivIsNeeded(channel)
+			return false
+		}
+
+		switch change.op {
+		case Add:
+			channel.flags[change.mode] = true
+			return true
+
+		case Remove:
+			delete(channel.flags, change.mode)
+			return true
+		}
+
+	case Key:
+		if !channel.ClientIsOperator(client) {
+			client.ErrChanOPrivIsNeeded(channel)
+			return false
+		}
+
+		switch change.op {
+		case Add:
+			if change.arg == "" {
+				client.ErrNeedMoreParams("MODE")
+				return false
+			}
+
+			channel.key = change.arg
+			return true
+
+		case Remove:
+			channel.key = ""
+			return true
+		}
+
+	case UserLimit:
+		limit, err := strconv.ParseUint(change.arg, 10, 64)
+		if err != nil {
+			client.ErrNeedMoreParams("MODE")
+			return false
+		}
+		if limit == 0 {
+			return false
+		}
+
+		channel.userLimit = limit
+		return true
+
+	case ChannelOperator, Voice:
+		if !channel.ClientIsOperator(client) {
+			client.ErrChanOPrivIsNeeded(channel)
+			return false
+		}
+
+		if change.arg == "" {
+			client.ErrNeedMoreParams("MODE")
+			return false
+		}
+
+		target := channel.server.clients.Get(change.arg)
+		if target == nil {
+			client.ErrNoSuchNick(change.arg)
+			return false
+		}
+
+		if !channel.members.Has(target) {
+			client.ErrUserNotInChannel(channel, target)
+			return false
+		}
+
+		switch change.op {
+		case Add:
+			channel.members[target][change.mode] = true
+			return true
+
+		case Remove:
+			channel.members[target][change.mode] = false
+			return true
+		}
+
+	default:
+		client.ErrUnknownMode(change.mode, channel)
+		return false
+	}
+	return false
+}
+
 func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	if len(changes) == 0 {
 		client.RplChannelModeIs(channel)
@@ -188,100 +334,22 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	}
 
 	applied := make(ChannelModeChanges, 0)
-
 	for _, change := range changes {
-		switch change.mode {
-		case BanMask:
-			// TODO add/remove
-
-			for _, banMask := range channel.banList {
-				client.RplBanList(channel, banMask)
-			}
-			client.RplEndOfBanList(channel)
-
-		case NoOutside, Private, Secret, OpOnlyTopic:
-			if !channel.ClientIsOperator(client) {
-				client.ErrChanOPrivIsNeeded(channel)
-				continue
-			}
-
-			switch change.op {
-			case Add:
-				channel.flags[change.mode] = true
-				applied = append(applied, change)
-
-			case Remove:
-				delete(channel.flags, change.mode)
-				applied = append(applied, change)
-			}
-
-		case Key:
-			if !channel.ClientIsOperator(client) {
-				client.ErrChanOPrivIsNeeded(channel)
-				continue
-			}
-
-			switch change.op {
-			case Add:
-				if change.arg == "" {
-					client.ErrNeedMoreParams("MODE")
-					continue
-				}
-
-				channel.key = change.arg
-				applied = append(applied, change)
-
-			case Remove:
-				channel.key = ""
-				applied = append(applied, change)
-			}
-
-		case ChannelOperator, Voice:
-			if !channel.ClientIsOperator(client) {
-				client.ErrChanOPrivIsNeeded(channel)
-				continue
-			}
-
-			if change.arg == "" {
-				client.ErrNeedMoreParams("MODE")
-				continue
-			}
-
-			target := channel.server.clients.Get(change.arg)
-			if target == nil {
-				client.ErrNoSuchNick(change.arg)
-				continue
-			}
-
-			if !channel.members.Has(target) {
-				client.ErrUserNotInChannel(channel, target)
-				continue
-			}
-
-			switch change.op {
-			case Add:
-				channel.members[target][change.mode] = true
-				applied = append(applied, change)
-
-			case Remove:
-				channel.members[target][change.mode] = false
-				applied = append(applied, change)
-			}
-
-		default:
-			client.ErrUnknownMode(change.mode, channel)
+		if channel.applyMode(client, change) {
+			applied = append(applied, change)
 		}
 	}
 
 	if len(applied) > 0 {
+		reply := RplChannelMode(client, channel, applied)
 		for member := range channel.members {
-			member.Reply(RplChannelMode(client, channel, applied))
+			member.Reply(reply)
 		}
 	}
 }
 
 func (channel *Channel) Notice(client *Client, message string) {
-	if channel.flags[NoOutside] && !channel.members.Has(client) {
+	if !channel.CanSpeak(client) {
 		client.ErrCannotSendToChan(channel)
 		return
 	}
@@ -299,7 +367,7 @@ func (channel *Channel) Quit(client *Client) {
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
-	if !client.flags[Operator] && !channel.members.Has(client) {
+	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.ErrNotOnChannel(channel)
 		return
 	}
