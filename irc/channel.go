@@ -224,7 +224,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 			switch change.op {
 			case Add:
 				if change.arg == "" {
-					// TODO err reply
+					client.ErrNeedMoreParams("MODE")
 					continue
 				}
 
@@ -243,18 +243,18 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 			}
 
 			if change.arg == "" {
-				// TODO err reply
+				client.ErrNeedMoreParams("MODE")
 				continue
 			}
 
 			target := channel.server.clients.Get(change.arg)
 			if target == nil {
-				// TODO err reply
+				client.ErrNoSuchNick(change.arg)
 				continue
 			}
 
-			if channel.members[target] == nil {
-				// TODO err reply
+			if !channel.members.Has(target) {
+				client.ErrUserNotInChannel(channel, target)
 				continue
 			}
 
@@ -267,6 +267,9 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 				channel.members[target][change.mode] = false
 				applied = append(applied, change)
 			}
+
+		default:
+			client.ErrUnknownMode(change.mode, channel)
 		}
 	}
 

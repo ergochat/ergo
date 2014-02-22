@@ -10,18 +10,28 @@ func NewStringReply(source Identifier, code StringCode,
 	format string, args ...interface{}) string {
 	var header string
 	if source == nil {
-		header = fmt.Sprintf("%s ", code)
+		header = code.String() + " "
 	} else {
 		header = fmt.Sprintf(":%s %s ", source, code)
 	}
-	message := fmt.Sprintf(format, args...)
+	var message string
+	if len(args) > 0 {
+		message = fmt.Sprintf(format, args...)
+	} else {
+		message = format
+	}
 	return header + message
 }
 
 func NewNumericReply(target *Client, code NumericCode,
 	format string, args ...interface{}) string {
 	header := fmt.Sprintf(":%s %s %s ", target.server.Id(), code, target.Nick())
-	message := fmt.Sprintf(format, args...)
+	var message string
+	if len(args) > 0 {
+		message = fmt.Sprintf(format, args...)
+	} else {
+		message = format
+	}
 	return header + message
 }
 
@@ -405,4 +415,9 @@ func (target *Client) ErrNoNicknameGiven() {
 func (target *Client) ErrErroneusNickname(nick string) {
 	target.NumericReply(ERR_ERRONEUSNICKNAME,
 		"%s :Erroneous nickname", nick)
+}
+
+func (target *Client) ErrUnknownMode(mode ChannelMode, channel *Channel) {
+	target.NumericReply(ERR_UNKNOWNMODE,
+		"%s :is unknown mode char to me for %s", mode, channel)
 }
