@@ -183,30 +183,41 @@ func (client *Client) Idle() {
 func (client *Client) Register() {
 	client.phase = Normal
 	client.loginTimer.Stop()
+	client.loginTimer = nil
 	client.Touch()
 }
 
 func (client *Client) destroy() {
-	// clean up self
-
-	client.loginTimer.Stop()
-
-	if client.idleTimer != nil {
-		client.idleTimer.Stop()
-	}
-	if client.quitTimer != nil {
-		client.quitTimer.Stop()
-	}
-
 	// clean up channels
 
 	for channel := range client.channels {
 		channel.Quit(client)
 	}
+	client.channels = nil
 
 	// clean up server
 
 	client.server.clients.Remove(client)
+
+	// clean up self
+
+	if client.loginTimer != nil {
+		client.loginTimer.Stop()
+		client.loginTimer = nil
+	}
+	if client.idleTimer != nil {
+		client.idleTimer.Stop()
+		client.idleTimer = nil
+	}
+	if client.quitTimer != nil {
+		client.quitTimer.Stop()
+		client.quitTimer = nil
+	}
+
+	client.lookups = nil
+	client.replies = nil
+	client.server = nil
+	client.socket = nil
 
 	if DEBUG_CLIENT {
 		log.Printf("%s: destroyed", client)
