@@ -74,6 +74,9 @@ func (socket *Socket) Read() <-chan string {
 }
 
 func (socket *Socket) Write(lines ...string) (err error) {
+	if socket.closed {
+		return io.EOF
+	}
 	for _, line := range lines {
 		err = socket.WriteLine(line)
 		if err != nil {

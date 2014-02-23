@@ -9,6 +9,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
+	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 	"time"
 )
@@ -715,5 +718,49 @@ func (msg *NamesCommand) HandleServer(server *Server) {
 			continue
 		}
 		channel.Names(client)
+	}
+}
+
+func (server *Server) Reply(target *Client, format string, args ...interface{}) {
+	target.Reply(RplPrivMsg(server, target, fmt.Sprintf(format, args...)))
+}
+
+func (msg *DebugCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if !client.flags[Operator] {
+		return
+	}
+
+	switch msg.subCommand {
+	case "GC":
+		runtime.GC()
+		server.Reply(client, "OK")
+
+	case "GCSTATS":
+		stats := &debug.GCStats{
+			PauseQuantiles: make([]time.Duration, 5),
+		}
+		server.Reply(client, "last GC:     %s", stats.LastGC.Format(time.RFC1123))
+		server.Reply(client, "num GC:      %d", stats.NumGC)
+		server.Reply(client, "pause total: %s", stats.PauseTotal)
+		server.Reply(client, "pause quantiles min%%: %s", stats.PauseQuantiles[0])
+		server.Reply(client, "pause quantiles 25%%:  %s", stats.PauseQuantiles[1])
+		server.Reply(client, "pause quantiles 50%%:  %s", stats.PauseQuantiles[2])
+		server.Reply(client, "pause quantiles 75%%:  %s", stats.PauseQuantiles[3])
+		server.Reply(client, "pause quantiles max%%: %s", stats.PauseQuantiles[4])
+
+	case "NUMGOROUTINE":
+		count := runtime.NumGoroutine()
+		server.Reply(client, "num goroutines: %d", count)
+
+	case "PROFILEHEAP":
+		file, err := os.Create("ergonomadic.heap.prof")
+		if err != nil {
+			log.Printf("error: %s", err)
+			break
+		}
+		defer file.Close()
+		pprof.Lookup("heap").WriteTo(file, 0)
+		server.Reply(client, "written to ergonomadic-heap.prof")
 	}
 }

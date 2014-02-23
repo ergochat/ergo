@@ -34,6 +34,7 @@ const (
 	// string codes
 	AWAY    StringCode = "AWAY"
 	CAP     StringCode = "CAP"
+	DEBUG   StringCode = "DEBUG"
 	ERROR   StringCode = "ERROR"
 	INVITE  StringCode = "INVITE"
 	ISON    StringCode = "ISON"

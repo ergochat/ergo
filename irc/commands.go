@@ -22,6 +22,7 @@ var (
 	parseCommandFuncs  = map[StringCode]parseCommandFunc{
 		AWAY:    NewAwayCommand,
 		CAP:     NewCapCommand,
+		DEBUG:   NewDebugCommand,
 		ISON:    NewIsOnCommand,
 		JOIN:    NewJoinCommand,
 		KICK:    NewKickCommand,
@@ -862,4 +863,19 @@ func NewNamesCommand(args []string) (editableCommand, error) {
 		cmd.target = args[1]
 	}
 	return cmd, nil
+}
+
+type DebugCommand struct {
+	BaseCommand
+	subCommand string
+}
+
+func NewDebugCommand(args []string) (editableCommand, error) {
+	if len(args) == 0 {
+		return nil, NotEnoughArgsError
+	}
+
+	return &DebugCommand{
+		subCommand: strings.ToUpper(args[0]),
+	}, nil
 }
