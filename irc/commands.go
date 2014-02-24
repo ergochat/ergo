@@ -438,7 +438,7 @@ func (change *ModeChange) String() string {
 	return fmt.Sprintf("%s%s", change.op, change.mode)
 }
 
-type ModeChanges []ModeChange
+type ModeChanges []*ModeChange
 
 func (changes ModeChanges) String() string {
 	if len(changes) == 0 {
@@ -478,7 +478,7 @@ func NewUserModeCommand(args []string) (editableCommand, error) {
 		}
 
 		for _, mode := range modeChange[1:] {
-			cmd.changes = append(cmd.changes, ModeChange{
+			cmd.changes = append(cmd.changes, &ModeChange{
 				mode: UserMode(mode),
 				op:   op,
 			})
@@ -509,7 +509,7 @@ func (change *ChannelModeChange) String() (str string) {
 	return
 }
 
-type ChannelModeChanges []ChannelModeChange
+type ChannelModeChanges []*ChannelModeChange
 
 func (changes ChannelModeChanges) String() (str string) {
 	if len(changes) == 0 {
@@ -558,7 +558,7 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 
 		skipArgs := 1
 		for _, mode := range modeArg {
-			change := ChannelModeChange{
+			change := &ChannelModeChange{
 				mode: ChannelMode(mode),
 				op:   op,
 			}

@@ -286,7 +286,7 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 	return false
 }
 
-func (channel *Channel) applyMode(client *Client, change ChannelModeChange) bool {
+func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) bool {
 	switch change.mode {
 	case BanMask, ExceptMask, InviteMask:
 		// TODO add/remove

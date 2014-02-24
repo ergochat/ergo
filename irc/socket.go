@@ -15,10 +15,9 @@ const (
 )
 
 type Socket struct {
-	closed bool
+	client *Client
 	conn   net.Conn
 	reader *bufio.Reader
-	client *Client
 	writer *bufio.Writer
 }
 
@@ -40,10 +39,6 @@ func (socket *Socket) String() string {
 }
 
 func (socket *Socket) Close() {
-	if socket.closed {
-		return
-	}
-	socket.closed = true
 	socket.conn.Close()
 	if DEBUG_NET {
 		log.Printf("%s closed", socket)
@@ -60,7 +55,6 @@ func (socket *Socket) readLines(commands chan<- Command) {
 	for {
 		line, err := socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
-			socket.closed = true
 			break
 		}
 		line = strings.TrimRight(line, "\r\n")
@@ -88,21 +82,15 @@ func (socket *Socket) readLines(commands chan<- Command) {
 }
 
 func (socket *Socket) Write(line string) (err error) {
-	if socket.closed {
-		return io.EOF
-	}
 	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
-		socket.closed = true
 		return
 	}
 
 	if _, err = socket.writer.WriteString(CRLF); socket.isError(err, W) {
-		socket.closed = true
 		return
 	}
 
 	if err = socket.writer.Flush(); socket.isError(err, W) {
-		socket.closed = true
 		return
 	}
 
