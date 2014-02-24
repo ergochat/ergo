@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"code.google.com/p/go.crypto/bcrypt"
 	"fmt"
 	"log"
 	"net"
@@ -16,7 +15,6 @@ type Client struct {
 	atime       time.Time
 	awayMessage string
 	channels    ChannelSet
-	checkPass   chan CheckCommand
 	commands    chan editableCommand
 	ctime       time.Time
 	flags       map[UserMode]bool
@@ -37,14 +35,13 @@ type Client struct {
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
-		atime:     now,
-		channels:  make(ChannelSet),
-		checkPass: make(chan CheckCommand),
-		commands:  make(chan editableCommand),
-		ctime:     now,
-		flags:     make(map[UserMode]bool),
-		phase:     server.InitPhase(),
-		server:    server,
+		atime:    now,
+		channels: make(ChannelSet),
+		commands: make(chan editableCommand),
+		ctime:    now,
+		flags:    make(map[UserMode]bool),
+		phase:    server.InitPhase(),
+		server:   server,
 	}
 	client.socket = NewSocket(conn, client.commands)
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -57,56 +54,17 @@ func NewClient(server *Server, conn net.Conn) *Client {
 // command goroutine
 //
 
-type CheckCommand interface {
-	Response() editableCommand
-}
-
-type CheckedPassCommand struct {
-	BaseCommand
-	isRight bool
-}
-
-type CheckPassCommand struct {
-	hash     []byte
-	password []byte
-}
-
-func (cmd *CheckPassCommand) CheckPassword() bool {
-	return bcrypt.CompareHashAndPassword(cmd.hash, cmd.password) == nil
-}
-
-func (cmd *CheckPassCommand) Response() editableCommand {
-	return &CheckedPassCommand{
-		isRight: cmd.CheckPassword(),
-	}
-}
-
-type CheckOperCommand struct {
-	CheckPassCommand
-}
-
-type CheckedOperCommand struct {
-	CheckedPassCommand
-}
-
-func (cmd *CheckOperCommand) Response() editableCommand {
-	response := &CheckedOperCommand{}
-	response.isRight = cmd.CheckPassword()
-	return response
-}
-
 func (client *Client) run() {
 	for command := range client.commands {
 		command.SetClient(client)
-		client.server.commands <- command
 
-		switch command.(type) {
-		case *PassCommand, *OperCommand:
-			cmd := <-client.checkPass
-			response := cmd.Response()
-			response.SetClient(client)
-			client.server.commands <- response
+		checkPass, ok := command.(checkPasswordCommand)
+		if ok {
+			checkPass.LoadPassword(client.server)
+			checkPass.CheckPassword()
 		}
+
+		client.server.commands <- command
 	}
 }
 
@@ -159,7 +117,6 @@ func (client *Client) Idle() {
 func (client *Client) Register() {
 	client.phase = Normal
 	client.loginTimer.Stop()
-	client.loginTimer = nil
 	client.Touch()
 }
 

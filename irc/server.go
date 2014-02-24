@@ -34,19 +34,15 @@ func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
-		commands:  make(chan Command),
+		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		idle:      make(chan *Client),
+		idle:      make(chan *Client, 16),
 		motdFile:  config.MOTD,
 		name:      config.Name,
-		newConns:  make(chan net.Conn),
-		operators: make(map[string][]byte),
+		newConns:  make(chan net.Conn, 16),
+		operators: config.OperatorsMap(),
 		password:  config.PasswordBytes(),
 		timeout:   make(chan *Client),
-	}
-
-	for _, opConf := range config.Operators {
-		server.operators[opConf.Name] = opConf.PasswordBytes()
 	}
 
 	for _, listenerConf := range config.Listeners {
@@ -266,18 +262,7 @@ func (msg *CapCommand) HandleAuthServer(server *Server) {
 
 func (msg *PassCommand) HandleAuthServer(server *Server) {
 	client := msg.Client()
-	cmd := &CheckPassCommand{
-		hash:     server.password,
-		password: []byte(msg.password),
-	}
-	go func() {
-		client.checkPass <- cmd
-	}()
-}
-
-func (msg *CheckedPassCommand) HandleAuthServer(server *Server) {
-	client := msg.Client()
-	if !msg.isRight {
+	if msg.err != nil {
 		client.ErrPasswdMismatch()
 		client.Quit("bad password")
 		return
@@ -603,21 +588,7 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 func (msg *OperCommand) HandleServer(server *Server) {
 	client := msg.Client()
 
-	cmd := &CheckOperCommand{}
-	cmd.hash = server.operators[msg.name]
-	if cmd.hash == nil {
-		client.ErrPasswdMismatch()
-		return
-	}
-	cmd.password = []byte(msg.password)
-	go func() {
-		client.checkPass <- cmd
-	}()
-}
-
-func (msg *CheckedOperCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if !msg.isRight {
+	if (msg.hash == nil) || (msg.err != nil) {
 		client.ErrPasswdMismatch()
 		return
 	}

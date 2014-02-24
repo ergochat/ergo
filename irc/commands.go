@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"code.google.com/p/go.crypto/bcrypt"
 	"errors"
 	"fmt"
 	"regexp"
@@ -12,6 +13,11 @@ type editableCommand interface {
 	Command
 	SetCode(StringCode)
 	SetClient(*Client)
+}
+
+type checkPasswordCommand interface {
+	LoadPassword(*Server)
+	CheckPassword()
 }
 
 type parseCommandFunc func([]string) (editableCommand, error)
@@ -188,11 +194,26 @@ func NewPongCommand(args []string) (editableCommand, error) {
 
 type PassCommand struct {
 	BaseCommand
-	password string
+	hash     []byte
+	password []byte
+	err      error
 }
+
+var ErrCannotCheck = errors.New("cannot check password")
 
 func (cmd *PassCommand) String() string {
 	return fmt.Sprintf("PASS(password=%s)", cmd.password)
+}
+
+func (cmd *PassCommand) LoadPassword(server *Server) {
+	cmd.hash = server.password
+}
+
+func (cmd *PassCommand) CheckPassword() {
+	if cmd.hash == nil {
+		return
+	}
+	cmd.err = bcrypt.CompareHashAndPassword(cmd.hash, cmd.password)
 }
 
 func NewPassCommand(args []string) (editableCommand, error) {
@@ -200,7 +221,7 @@ func NewPassCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PassCommand{
-		password: args[0],
+		password: []byte(args[0]),
 	}, nil
 }
 
@@ -652,13 +673,16 @@ func (msg *WhoCommand) String() string {
 }
 
 type OperCommand struct {
-	BaseCommand
-	name     string
-	password string
+	PassCommand
+	name string
 }
 
 func (msg *OperCommand) String() string {
 	return fmt.Sprintf("OPER(name=%s, password=%s)", msg.name, msg.password)
+}
+
+func (msg *OperCommand) LoadPassword(server *Server) {
+	msg.hash = server.operators[msg.name]
 }
 
 // OPER <name> <password>
@@ -667,10 +691,11 @@ func NewOperCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 
-	return &OperCommand{
-		name:     args[0],
-		password: args[1],
-	}, nil
+	cmd := &OperCommand{
+		name: args[0],
+	}
+	cmd.password = []byte(args[1])
+	return cmd, nil
 }
 
 // TODO

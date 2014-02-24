@@ -32,6 +32,14 @@ func (conf *Config) PasswordBytes() []byte {
 	return decodePassword(conf.Password)
 }
 
+func (conf *Config) OperatorsMap() map[string][]byte {
+	operators := make(map[string][]byte)
+	for _, opConf := range conf.Operators {
+		operators[opConf.Name] = opConf.PasswordBytes()
+	}
+	return operators
+}
+
 type OperatorConfig struct {
 	Name     string
 	Password string

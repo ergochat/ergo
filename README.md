@@ -2,6 +2,17 @@
 
 Ergonomadic is an IRC daemon written from scratch in Go.
 
+## Some Features
+
+- follows the RFC where possible
+- JSON-based configuration
+- server password
+- channels with many standard modes
+- IRC operators
+- TLS support (but better to use stunnel with proxy protocol)
+- haproxy PROXY protocol header for hostname setting
+- passwords stored in bcrypt format
+
 ## Why?
 
 I wanted to learn Go.
@@ -20,16 +31,14 @@ I wanted to learn Go.
 
 ## Running the Server
 
-You must create an `ergonomadic.json` config file in the current directory.
+See the example `config.json`. Passwords are base64-encoded bcrypted
+byte strings. You can generate them with e.g. `ergonomadic -genpasswd
+'hunter21!'`.
 
 ### from your GOPATH
 
 ```sh
+go get
 go install
-ergonomadic
-```
-
-### from local
-```sh
-go run ergonomadic.go
+ergonomadic -conf '/path/to/ergonomadic.json'
 ```
