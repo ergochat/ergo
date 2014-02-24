@@ -60,6 +60,7 @@ func (socket *Socket) readLines(commands chan<- Command) {
 	for {
 		line, err := socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
+			socket.closed = true
 			break
 		}
 		line = strings.TrimRight(line, "\r\n")
@@ -91,14 +92,17 @@ func (socket *Socket) Write(line string) (err error) {
 		return io.EOF
 	}
 	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
+		socket.closed = true
 		return
 	}
 
 	if _, err = socket.writer.WriteString(CRLF); socket.isError(err, W) {
+		socket.closed = true
 		return
 	}
 
 	if err = socket.writer.Flush(); socket.isError(err, W) {
+		socket.closed = true
 		return
 	}
 
