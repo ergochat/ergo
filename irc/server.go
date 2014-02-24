@@ -25,8 +25,8 @@ type Server struct {
 	motdFile  string
 	name      string
 	newConns  chan net.Conn
-	operators map[string]string
-	password  string
+	operators map[string][]byte
+	password  []byte
 	timeout   chan *Client
 }
 
@@ -34,19 +34,19 @@ func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
-		commands:  make(chan Command, 16),
+		commands:  make(chan Command),
 		ctime:     time.Now(),
-		idle:      make(chan *Client, 16),
+		idle:      make(chan *Client),
 		motdFile:  config.MOTD,
 		name:      config.Name,
-		newConns:  make(chan net.Conn, 16),
-		operators: make(map[string]string),
-		password:  config.Password,
+		newConns:  make(chan net.Conn),
+		operators: make(map[string][]byte),
+		password:  config.PasswordBytes(),
 		timeout:   make(chan *Client),
 	}
 
 	for _, opConf := range config.Operators {
-		server.operators[opConf.Name] = opConf.Password
+		server.operators[opConf.Name] = opConf.PasswordBytes()
 	}
 
 	for _, listenerConf := range config.Listeners {
@@ -106,20 +106,20 @@ func (server *Server) Run() {
 		case conn := <-server.newConns:
 			NewClient(server, conn)
 
+		case cmd := <-server.commands:
+			server.ProcessCommand(cmd)
+
 		case client := <-server.idle:
 			client.Idle()
 
 		case client := <-server.timeout:
 			client.Quit("connection timeout")
-
-		case cmd := <-server.commands:
-			server.ProcessCommand(cmd)
 		}
 	}
 }
 
 func (server *Server) InitPhase() Phase {
-	if server.password == "" {
+	if server.password == nil {
 		return Registration
 	}
 	return Authorization
@@ -264,10 +264,20 @@ func (msg *CapCommand) HandleAuthServer(server *Server) {
 	// TODO
 }
 
-func (m *PassCommand) HandleAuthServer(s *Server) {
-	client := m.Client()
+func (msg *PassCommand) HandleAuthServer(server *Server) {
+	client := msg.Client()
+	cmd := &CheckPassCommand{
+		hash:     server.password,
+		password: []byte(msg.password),
+	}
+	go func() {
+		client.checkPass <- cmd
+	}()
+}
 
-	if s.password != m.password {
+func (msg *CheckedPassCommand) HandleAuthServer(server *Server) {
+	client := msg.Client()
+	if !msg.isRight {
 		client.ErrPasswdMismatch()
 		client.Quit("bad password")
 		return
@@ -593,13 +603,26 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 func (msg *OperCommand) HandleServer(server *Server) {
 	client := msg.Client()
 
-	if server.operators[msg.name] != msg.password {
+	cmd := &CheckOperCommand{}
+	cmd.hash = server.operators[msg.name]
+	if cmd.hash == nil {
+		client.ErrPasswdMismatch()
+		return
+	}
+	cmd.password = []byte(msg.password)
+	go func() {
+		client.checkPass <- cmd
+	}()
+}
+
+func (msg *CheckedOperCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if !msg.isRight {
 		client.ErrPasswdMismatch()
 		return
 	}
 
 	client.flags[Operator] = true
-
 	client.RplYoureOper()
 	client.RplUModeIs(client)
 }

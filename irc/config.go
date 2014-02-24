@@ -1,9 +1,23 @@
 package irc
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"log"
 	"os"
+	"path/filepath"
 )
+
+func decodePassword(password string) []byte {
+	if password == "" {
+		return nil
+	}
+	bytes, err := base64.StdEncoding.DecodeString(password)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return bytes
+}
 
 type Config struct {
 	Debug     map[string]bool
@@ -14,9 +28,17 @@ type Config struct {
 	Password  string
 }
 
+func (conf *Config) PasswordBytes() []byte {
+	return decodePassword(conf.Password)
+}
+
 type OperatorConfig struct {
 	Name     string
 	Password string
+}
+
+func (conf *OperatorConfig) PasswordBytes() []byte {
+	return decodePassword(conf.Password)
 }
 
 type ListenerConfig struct {
@@ -30,10 +52,10 @@ func (config *ListenerConfig) IsTLS() bool {
 	return (config.Key != "") && (config.Certificate != "")
 }
 
-func LoadConfig() (config *Config, err error) {
+func LoadConfig(filename string) (config *Config, err error) {
 	config = &Config{}
 
-	file, err := os.Open("ergonomadic.json")
+	file, err := os.Open(filename)
 	if err != nil {
 		return
 	}
@@ -44,6 +66,10 @@ func LoadConfig() (config *Config, err error) {
 	if err != nil {
 		return
 	}
+
+	dir := filepath.Dir(filename)
+	config.MOTD = filepath.Join(dir, config.MOTD)
+
 	for _, lconf := range config.Listeners {
 		if lconf.Net == "" {
 			lconf.Net = "tcp"

@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"code.google.com/p/go.crypto/bcrypt"
 	"fmt"
 	"log"
 	"net"
@@ -15,6 +16,8 @@ type Client struct {
 	atime       time.Time
 	awayMessage string
 	channels    ChannelSet
+	checkPass   chan CheckCommand
+	commands    chan editableCommand
 	ctime       time.Time
 	flags       map[UserMode]bool
 	hasQuit     bool
@@ -34,17 +37,77 @@ type Client struct {
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
-		atime:    now,
-		channels: make(ChannelSet),
-		ctime:    now,
-		flags:    make(map[UserMode]bool),
-		phase:    server.InitPhase(),
-		server:   server,
+		atime:     now,
+		channels:  make(ChannelSet),
+		checkPass: make(chan CheckCommand),
+		commands:  make(chan editableCommand),
+		ctime:     now,
+		flags:     make(map[UserMode]bool),
+		phase:     server.InitPhase(),
+		server:    server,
 	}
-	client.socket = NewSocket(conn, client, server.commands)
+	client.socket = NewSocket(conn, client.commands)
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
+	go client.run()
 
 	return client
+}
+
+//
+// command goroutine
+//
+
+type CheckCommand interface {
+	Response() editableCommand
+}
+
+type CheckedPassCommand struct {
+	BaseCommand
+	isRight bool
+}
+
+type CheckPassCommand struct {
+	hash     []byte
+	password []byte
+}
+
+func (cmd *CheckPassCommand) CheckPassword() bool {
+	return bcrypt.CompareHashAndPassword(cmd.hash, cmd.password) == nil
+}
+
+func (cmd *CheckPassCommand) Response() editableCommand {
+	return &CheckedPassCommand{
+		isRight: cmd.CheckPassword(),
+	}
+}
+
+type CheckOperCommand struct {
+	CheckPassCommand
+}
+
+type CheckedOperCommand struct {
+	CheckedPassCommand
+}
+
+func (cmd *CheckOperCommand) Response() editableCommand {
+	response := &CheckedOperCommand{}
+	response.isRight = cmd.CheckPassword()
+	return response
+}
+
+func (client *Client) run() {
+	for command := range client.commands {
+		command.SetClient(client)
+		client.server.commands <- command
+
+		switch command.(type) {
+		case *PassCommand, *OperCommand:
+			cmd := <-client.checkPass
+			response := cmd.Response()
+			response.SetClient(client)
+			client.server.commands <- response
+		}
+	}
 }
 
 //
@@ -106,7 +169,6 @@ func (client *Client) destroy() {
 	for channel := range client.channels {
 		channel.Quit(client)
 	}
-	client.channels = nil
 
 	// clean up server
 
@@ -116,21 +178,15 @@ func (client *Client) destroy() {
 
 	if client.loginTimer != nil {
 		client.loginTimer.Stop()
-		client.loginTimer = nil
 	}
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
-		client.idleTimer = nil
 	}
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
-		client.quitTimer = nil
 	}
 
 	client.socket.Close()
-
-	client.socket = nil
-	client.server = nil
 
 	if DEBUG_CLIENT {
 		log.Printf("%s: destroyed", client)

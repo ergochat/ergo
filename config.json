@@ -1,0 +1,13 @@
+{ "name": "irc.example.com",
+  "motd": "motd.txt",
+  "listeners": [
+      { "address": "localhost:7777" },
+      { "address": "[::1]:7777" } ],
+  "operators": [
+      { "name": "root",
+        "password": "JDJhJDEwJFRWWGUya2E3Unk5bnZlb2o3alJ0ZnVQQm9ZVW1HOE53L29nVHg5QWh5TnpaMmtOaEwya1Vl" } ],
+  "debug": {
+      "net": true,
+      "client": false,
+      "channel": false,
+      "server": false } }

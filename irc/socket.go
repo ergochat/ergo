@@ -15,17 +15,15 @@ const (
 )
 
 type Socket struct {
-	client *Client
 	conn   net.Conn
 	reader *bufio.Reader
 	writer *bufio.Writer
 }
 
-func NewSocket(conn net.Conn, client *Client, commands chan<- Command) *Socket {
+func NewSocket(conn net.Conn, commands chan<- editableCommand) *Socket {
 	socket := &Socket{
 		conn:   conn,
 		reader: bufio.NewReader(conn),
-		client: client,
 		writer: bufio.NewWriter(conn),
 	}
 
@@ -45,12 +43,10 @@ func (socket *Socket) Close() {
 	}
 }
 
-func (socket *Socket) readLines(commands chan<- Command) {
-	hostnameLookup := &ProxyCommand{
+func (socket *Socket) readLines(commands chan<- editableCommand) {
+	commands <- &ProxyCommand{
 		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
 	}
-	hostnameLookup.SetClient(socket.client)
-	commands <- hostnameLookup
 
 	for {
 		line, err := socket.reader.ReadString('\n')
@@ -70,15 +66,12 @@ func (socket *Socket) readLines(commands chan<- Command) {
 			// TODO error messaging to client
 			continue
 		}
-		msg.SetClient(socket.client)
 		commands <- msg
 	}
 
-	msg := &QuitCommand{
+	commands <- &QuitCommand{
 		message: "connection closed",
 	}
-	msg.SetClient(socket.client)
-	commands <- msg
 }
 
 func (socket *Socket) Write(line string) (err error) {
