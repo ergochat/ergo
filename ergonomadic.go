@@ -17,5 +17,5 @@ func main() {
 	irc.DEBUG_CHANNEL = config.Debug["channel"]
 	irc.DEBUG_SERVER = config.Debug["server"]
 
-	irc.NewServer(config).ReceiveCommands()
+	irc.NewServer(config).Run()
 }

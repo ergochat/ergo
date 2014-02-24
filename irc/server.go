@@ -56,7 +56,51 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
-func (server *Server) ReceiveCommands() {
+func (server *Server) ProcessCommand(cmd Command) {
+	client := cmd.Client()
+	if DEBUG_SERVER {
+		log.Printf("%s → %s %s", client, server, cmd)
+	}
+
+	switch client.phase {
+	case Authorization:
+		authCmd, ok := cmd.(AuthServerCommand)
+		if !ok {
+			client.Quit("unexpected command")
+			return
+		}
+		authCmd.HandleAuthServer(server)
+
+	case Registration:
+		regCmd, ok := cmd.(RegServerCommand)
+		if !ok {
+			client.Quit("unexpected command")
+			return
+		}
+		regCmd.HandleRegServer(server)
+
+	default:
+		srvCmd, ok := cmd.(ServerCommand)
+		if !ok {
+			client.ErrUnknownCommand(cmd.Code())
+			return
+		}
+		switch srvCmd.(type) {
+		case *PingCommand, *PongCommand:
+			client.Touch()
+
+		case *QuitCommand:
+			// no-op
+
+		default:
+			client.Active()
+			client.Touch()
+		}
+		srvCmd.HandleServer(server)
+	}
+}
+
+func (server *Server) Run() {
 	for {
 		select {
 		case conn := <-server.newConns:
@@ -69,45 +113,7 @@ func (server *Server) ReceiveCommands() {
 			client.Quit("connection timeout")
 
 		case cmd := <-server.commands:
-			client := cmd.Client()
-			if DEBUG_SERVER {
-				log.Printf("%s → %s %s", client, server, cmd)
-			}
-
-			switch client.phase {
-			case Authorization:
-				authCmd, ok := cmd.(AuthServerCommand)
-				if !ok {
-					client.Quit("unexpected command")
-					continue
-				}
-				authCmd.HandleAuthServer(server)
-
-			case Registration:
-				regCmd, ok := cmd.(RegServerCommand)
-				if !ok {
-					client.Quit("unexpected command")
-					continue
-				}
-				regCmd.HandleRegServer(server)
-
-			default:
-				srvCmd, ok := cmd.(ServerCommand)
-				if !ok {
-					client.ErrUnknownCommand(cmd.Code())
-					continue
-				}
-				switch srvCmd.(type) {
-				case *PingCommand, *PongCommand:
-					client.Touch()
-				case *QuitCommand:
-					// no-op
-				default:
-					client.Active()
-					client.Touch()
-				}
-				srvCmd.HandleServer(server)
-			}
+			server.ProcessCommand(cmd)
 		}
 	}
 }
