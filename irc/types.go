@@ -176,7 +176,6 @@ type Replier interface {
 type Command interface {
 	Code() StringCode
 	Client() *Client
-	Source() Identifier
 }
 
 type ServerCommand interface {

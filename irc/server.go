@@ -21,13 +21,13 @@ type Server struct {
 	clients   ClientNameMap
 	commands  chan Command
 	ctime     time.Time
-	hostnames chan *HostnameLookup
 	idle      chan *Client
 	motdFile  string
 	name      string
 	newConns  chan net.Conn
 	operators map[string]string
 	password  string
+	timeout   chan *Client
 }
 
 func NewServer(config *Config) *Server {
@@ -36,13 +36,13 @@ func NewServer(config *Config) *Server {
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		hostnames: make(chan *HostnameLookup, 16),
 		idle:      make(chan *Client, 16),
 		motdFile:  config.MOTD,
 		name:      config.Name,
 		newConns:  make(chan net.Conn, 16),
 		operators: make(map[string]string),
 		password:  config.Password,
+		timeout:   make(chan *Client),
 	}
 
 	for _, opConf := range config.Operators {
@@ -62,15 +62,11 @@ func (server *Server) ReceiveCommands() {
 		case conn := <-server.newConns:
 			NewClient(server, conn)
 
-		case lookup := <-server.hostnames:
-			if DEBUG_SERVER {
-				log.Printf("%s setting hostname of %s to %s",
-					server, lookup.client, lookup.hostname)
-			}
-			lookup.client.hostname = lookup.hostname
-
 		case client := <-server.idle:
 			client.Idle()
+
+		case client := <-server.timeout:
+			client.Quit("connection timeout")
 
 		case cmd := <-server.commands:
 			client := cmd.Client()
@@ -255,7 +251,7 @@ func (s *Server) Nick() string {
 //
 
 func (msg *ProxyCommand) HandleAuthServer(server *Server) {
-	go msg.Client().LookupHostname(msg.sourceIP)
+	msg.Client().hostname = msg.hostname
 }
 
 func (msg *CapCommand) HandleAuthServer(server *Server) {
@@ -267,7 +263,7 @@ func (m *PassCommand) HandleAuthServer(s *Server) {
 
 	if s.password != m.password {
 		client.ErrPasswdMismatch()
-		client.socket.Close()
+		client.Quit("bad password")
 		return
 	}
 
@@ -281,6 +277,10 @@ func (msg *QuitCommand) HandleAuthServer(server *Server) {
 //
 // registration commands
 //
+
+func (msg *ProxyCommand) HandleRegServer(server *Server) {
+	msg.Client().hostname = msg.hostname
+}
 
 func (msg *CapCommand) HandleRegServer(server *Server) {
 	// TODO

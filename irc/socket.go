@@ -17,20 +17,20 @@ const (
 type Socket struct {
 	closed bool
 	conn   net.Conn
-	read   chan string
 	reader *bufio.Reader
+	client *Client
 	writer *bufio.Writer
 }
 
-func NewSocket(conn net.Conn) *Socket {
+func NewSocket(conn net.Conn, client *Client, commands chan<- Command) *Socket {
 	socket := &Socket{
 		conn:   conn,
-		read:   make(chan string),
 		reader: bufio.NewReader(conn),
+		client: client,
 		writer: bufio.NewWriter(conn),
 	}
 
-	go socket.readLines()
+	go socket.readLines(commands)
 
 	return socket
 }
@@ -50,13 +50,18 @@ func (socket *Socket) Close() {
 	}
 }
 
-func (socket *Socket) readLines() {
+func (socket *Socket) readLines(commands chan<- Command) {
+	hostnameLookup := &ProxyCommand{
+		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
+	}
+	hostnameLookup.SetClient(socket.client)
+	commands <- hostnameLookup
+
 	for {
 		line, err := socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
 			break
 		}
-
 		line = strings.TrimRight(line, "\r\n")
 		if len(line) == 0 {
 			continue
@@ -64,29 +69,27 @@ func (socket *Socket) readLines() {
 		if DEBUG_NET {
 			log.Printf("%s → %s", socket, line)
 		}
-		socket.read <- line
+
+		msg, err := ParseCommand(line)
+		if err != nil {
+			// TODO error messaging to client
+			continue
+		}
+		msg.SetClient(socket.client)
+		commands <- msg
 	}
-	close(socket.read)
+
+	msg := &QuitCommand{
+		message: "connection closed",
+	}
+	msg.SetClient(socket.client)
+	commands <- msg
 }
 
-func (socket *Socket) Read() <-chan string {
-	return socket.read
-}
-
-func (socket *Socket) Write(lines ...string) (err error) {
+func (socket *Socket) Write(line string) (err error) {
 	if socket.closed {
 		return io.EOF
 	}
-	for _, line := range lines {
-		err = socket.WriteLine(line)
-		if err != nil {
-			break
-		}
-	}
-	return
-}
-
-func (socket *Socket) WriteLine(line string) (err error) {
 	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
 		return
 	}

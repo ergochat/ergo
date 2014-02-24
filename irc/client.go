@@ -4,24 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 )
 
 func IsNickname(nick string) bool {
 	return NicknameExpr.MatchString(nick)
-}
-
-type HostnameLookup struct {
-	client   *Client
-	hostname string
-}
-
-func NewHostnameLookup(client *Client, ipAddr string) *HostnameLookup {
-	return &HostnameLookup{
-		client:   client,
-		hostname: LookupHostname(ipAddr),
-	}
 }
 
 type Client struct {
@@ -35,12 +22,10 @@ type Client struct {
 	hostname    string
 	idleTimer   *time.Timer
 	loginTimer  *time.Timer
-	lookups     chan string
 	nick        string
 	phase       Phase
 	quitTimer   *time.Timer
 	realname    string
-	replies     chan string
 	server      *Server
 	socket      *Socket
 	username    string
@@ -53,81 +38,13 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		channels: make(ChannelSet),
 		ctime:    now,
 		flags:    make(map[UserMode]bool),
-		lookups:  make(chan string),
 		phase:    server.InitPhase(),
 		server:   server,
-		socket:   NewSocket(conn),
-		replies:  make(chan string, 16),
 	}
-
+	client.socket = NewSocket(conn, client, server.commands)
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
-	go client.LookupHostname(IPString(conn.RemoteAddr()))
-	go client.readCommands()
-	go client.writeReplies()
 
 	return client
-}
-
-//
-// socket read gorountine
-//
-
-func (client *Client) readCommands() {
-	done := false
-	for !done {
-		select {
-		case ipAddr := <-client.lookups:
-			client.server.hostnames <- NewHostnameLookup(client, ipAddr)
-
-		case line := <-client.socket.Read():
-			if line == EOF {
-				done = true
-				break
-			}
-			msg, err := ParseCommand(line)
-			if err != nil {
-				switch err {
-				case NotEnoughArgsError:
-					parts := strings.SplitN(line, " ", 2)
-					client.ErrNeedMoreParams(parts[0])
-				}
-				continue
-			}
-
-			msg.SetClient(client)
-			client.server.commands <- msg
-		}
-	}
-
-	client.connectionClosed()
-}
-
-func (client *Client) LookupHostname(ipAddr string) {
-	client.lookups <- ipAddr
-}
-
-func (client *Client) connectionClosed() {
-	msg := &QuitCommand{
-		message: "connection closed",
-	}
-	msg.SetClient(client)
-	client.server.commands <- msg
-}
-
-//
-// reply writing goroutine
-//
-
-func (client *Client) writeReplies() {
-	for reply := range client.replies {
-		if reply == EOF {
-			break
-		}
-		if client.socket.Write(reply) != nil {
-			break
-		}
-	}
-	client.socket.Close()
 }
 
 //
@@ -143,11 +60,7 @@ func (client *Client) connectionIdle() {
 //
 
 func (client *Client) connectionTimeout() {
-	msg := &QuitCommand{
-		message: "connection timeout",
-	}
-	msg.SetClient(client)
-	client.server.commands <- msg
+	client.server.timeout <- client
 }
 
 //
@@ -214,10 +127,10 @@ func (client *Client) destroy() {
 		client.quitTimer = nil
 	}
 
-	client.lookups = nil
-	client.replies = nil
-	client.server = nil
+	client.socket.Close()
+
 	client.socket = nil
+	client.server = nil
 
 	if DEBUG_CLIENT {
 		log.Printf("%s: destroyed", client)
@@ -307,10 +220,7 @@ func (client *Client) ChangeNickname(nickname string) {
 }
 
 func (client *Client) Reply(reply string) {
-	if client.hasQuit {
-		return
-	}
-	client.replies <- reply
+	client.socket.Write(reply)
 }
 
 func (client *Client) Quit(message string) {
@@ -319,7 +229,6 @@ func (client *Client) Quit(message string) {
 	}
 
 	client.Reply(RplError("connection closed"))
-	client.Reply(EOF)
 
 	client.hasQuit = true
 	friends := client.Friends()

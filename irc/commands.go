@@ -56,8 +56,8 @@ func (command *BaseCommand) Client() *Client {
 	return command.client
 }
 
-func (command *BaseCommand) SetClient(c *Client) {
-	command.client = c
+func (command *BaseCommand) SetClient(client *Client) {
+	command.client = client
 }
 
 func (command *BaseCommand) Code() StringCode {
@@ -66,10 +66,6 @@ func (command *BaseCommand) Code() StringCode {
 
 func (command *BaseCommand) SetCode(code StringCode) {
 	command.code = code
-}
-
-func (command *BaseCommand) Source() Identifier {
-	return command.Client()
 }
 
 func ParseCommand(line string) (cmd editableCommand, err error) {
@@ -362,7 +358,7 @@ type PartCommand struct {
 
 func (cmd *PartCommand) Message() string {
 	if cmd.message == "" {
-		return cmd.Source().Nick()
+		return cmd.Client().Nick()
 	}
 	return cmd.message
 }
@@ -701,6 +697,7 @@ type ProxyCommand struct {
 	destIP     string
 	sourcePort string
 	destPort   string
+	hostname   string // looked up in socket thread
 }
 
 func (msg *ProxyCommand) String() string {
@@ -717,6 +714,7 @@ func NewProxyCommand(args []string) (editableCommand, error) {
 		destIP:     args[2],
 		sourcePort: args[3],
 		destPort:   args[4],
+		hostname:   LookupHostname(args[1]),
 	}, nil
 }
 
@@ -801,7 +799,7 @@ type KickCommand struct {
 
 func (msg *KickCommand) Comment() string {
 	if msg.comment == "" {
-		return msg.Source().Nick()
+		return msg.Client().Nick()
 	}
 	return msg.comment
 }
