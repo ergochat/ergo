@@ -137,6 +137,11 @@ func RplKick(channel *Channel, client *Client, target *Client, comment string) s
 		channel, target.Nick(), comment)
 }
 
+func RplKill(client *Client, target *Client, comment string) string {
+	return NewStringReply(client, KICK,
+		"%s :%s", target.Nick(), comment)
+}
+
 // numeric replies
 
 func (target *Client) RplWelcome() {

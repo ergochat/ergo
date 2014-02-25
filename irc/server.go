@@ -793,9 +793,27 @@ func (msg *InviteCommand) HandleServer(server *Server) {
 }
 
 func (msg *TimeCommand) HandleServer(server *Server) {
+	client := msg.Client()
 	if (msg.target != "") && (msg.target != server.name) {
-		msg.Client().ErrNoSuchServer(msg.target)
+		client.ErrNoSuchServer(msg.target)
 		return
 	}
-	msg.Client().RplTime()
+	client.RplTime()
+}
+
+func (msg *KillCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if !client.flags[Operator] {
+		client.ErrNoPrivileges()
+		return
+	}
+
+	target := server.clients.Get(msg.nickname)
+	if target == nil {
+		client.ErrNoSuchNick(msg.nickname)
+		return
+	}
+
+	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), msg.comment)
+	target.Quit(quitMsg)
 }

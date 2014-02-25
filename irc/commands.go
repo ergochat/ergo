@@ -33,6 +33,7 @@ var (
 		ISON:    NewIsOnCommand,
 		JOIN:    NewJoinCommand,
 		KICK:    NewKickCommand,
+		KILL:    NewKillCommand,
 		LIST:    NewListCommand,
 		MODE:    NewModeCommand,
 		MOTD:    NewMOTDCommand,
@@ -945,4 +946,20 @@ func NewTimeCommand(args []string) (editableCommand, error) {
 		cmd.target = args[0]
 	}
 	return cmd, nil
+}
+
+type KillCommand struct {
+	BaseCommand
+	nickname string
+	comment  string
+}
+
+func NewKillCommand(args []string) (editableCommand, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+	return &KillCommand{
+		nickname: args[0],
+		comment:  args[1],
+	}, nil
 }

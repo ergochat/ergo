@@ -40,6 +40,7 @@ const (
 	ISON    StringCode = "ISON"
 	JOIN    StringCode = "JOIN"
 	KICK    StringCode = "KICK"
+	KILL    StringCode = "KILL"
 	LIST    StringCode = "LIST"
 	MODE    StringCode = "MODE"
 	MOTD    StringCode = "MOTD"
