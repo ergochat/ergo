@@ -106,6 +106,16 @@ func (clients ClientNameMap) Remove(client *Client) error {
 
 type ChannelModeSet map[ChannelMode]bool
 
+func (set ChannelModeSet) String() string {
+	strs := make([]string, len(set))
+	index := 0
+	for mode := range set {
+		strs[index] = mode.String()
+		index += 1
+	}
+	return strings.Join(strs, "")
+}
+
 type ClientSet map[*Client]bool
 
 func (clients ClientSet) Add(client *Client) {

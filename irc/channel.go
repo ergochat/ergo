@@ -33,7 +33,14 @@ func NewChannel(s *Server, name string) *Channel {
 		name:    name,
 		server:  s,
 	}
+
 	s.channels[name] = channel
+	s.db.Exec(`INSERT INTO channel
+                 (name, flags, key, topic, user_limit)
+                 VALUES (?, ?, ?, ?, ?)`,
+		channel.name, channel.flags.String(), channel.key, channel.topic,
+		channel.userLimit)
+
 	return channel
 }
 
@@ -142,7 +149,9 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
-		channel.members[client][ChannelCreator] = true
+		if !channel.flags[Persistent] {
+			channel.members[client][ChannelCreator] = true
+		}
 		channel.members[client][ChannelOperator] = true
 	}
 
@@ -198,6 +207,10 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 
 	channel.topic = topic
+	channel.server.db.Exec(`
+        UPDATE channel
+          SET topic = ?
+          WHERE name = ?`, channel.topic, channel.name)
 
 	reply := RplTopicMsg(client, channel)
 	for member := range channel.members {
@@ -361,6 +374,11 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 		for member := range channel.members {
 			member.Reply(reply)
 		}
+
+		channel.server.db.Exec(`
+            UPDATE channel
+              SET flags = ?
+              WHERE name = ?`, channel.flags.String(), channel.name)
 	}
 }
 
