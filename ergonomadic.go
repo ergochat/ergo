@@ -10,8 +10,7 @@ import (
 )
 
 func genPasswd(passwd string) {
-	log.Printf("encoding password \"%s\"\n", passwd)
-	crypted, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
+	crypted, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.MinCost)
 	if err != nil {
 		log.Fatal(err)
 	}
