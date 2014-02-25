@@ -33,10 +33,10 @@ func initDB(config *irc.Config) {
 	_, err = db.Exec(`
         CREATE TABLE channel (
           name TEXT NOT NULL UNIQUE,
-          flags TEXT,
-          key TEXT,
-          topic TEXT,
-          user_limit INTEGER)`)
+          flags TEXT NOT NULL,
+          key TEXT NOT NULL,
+          topic TEXT NOT NULL,
+          user_limit INTEGER DEFAULT 0)`)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -35,7 +35,6 @@ func NewChannel(s *Server, name string) *Channel {
 	}
 
 	s.channels[name] = channel
-	s.db.Exec(`INSERT INTO channel (name) VALUES (?)`, channel.name)
 
 	return channel
 }
@@ -203,15 +202,13 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 
 	channel.topic = topic
-	channel.server.db.Exec(`
-        UPDATE channel
-          SET topic = ?
-          WHERE name = ?`, channel.topic, channel.name)
 
 	reply := RplTopicMsg(client, channel)
 	for member := range channel.members {
 		member.Reply(reply)
 	}
+
+	channel.Persist()
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
@@ -371,10 +368,19 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 			member.Reply(reply)
 		}
 
+		channel.Persist()
+	}
+}
+
+func (channel *Channel) Persist() {
+	if channel.flags[Persistent] {
 		channel.server.db.Exec(`
-            UPDATE channel
-              SET flags = ?
-              WHERE name = ?`, channel.flags.String(), channel.name)
+            INSERT OR REPLACE INTO channel
+              (name, flags, key, topic)
+              VALUES (?, ?, ?, ?)`,
+			channel.name, channel.flags.String(), channel.key, channel.topic)
+	} else {
+		channel.server.db.Exec(`DELETE FROM channel WHERE name = ?`, channel.name)
 	}
 }
 

@@ -107,6 +107,9 @@ func (clients ClientNameMap) Remove(client *Client) error {
 type ChannelModeSet map[ChannelMode]bool
 
 func (set ChannelModeSet) String() string {
+	if len(set) == 0 {
+		return ""
+	}
 	strs := make([]string, len(set))
 	index := 0
 	for mode := range set {

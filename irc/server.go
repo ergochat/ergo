@@ -59,7 +59,17 @@ func NewServer(config *Config) *Server {
 
 	signal.Notify(server.signals, os.Interrupt, os.Kill)
 
-	rows, err := db.Query(`
+	server.loadChannels()
+
+	for _, listenerConf := range config.Listeners {
+		go server.listen(listenerConf)
+	}
+
+	return server
+}
+
+func (server *Server) loadChannels() {
+	rows, err := server.db.Query(`
         SELECT name, flags, key, topic, user_limit
           FROM channel`)
 	if err != nil {
@@ -75,19 +85,13 @@ func NewServer(config *Config) *Server {
 		}
 
 		channel := NewChannel(server, name)
-		for flag := range flags {
+		for _, flag := range flags {
 			channel.flags[ChannelMode(flag)] = true
 		}
 		channel.key = key
 		channel.topic = topic
 		channel.userLimit = userLimit
 	}
-
-	for _, listenerConf := range config.Listeners {
-		go server.listen(listenerConf)
-	}
-
-	return server
 }
 
 func (server *Server) processCommand(cmd Command) {
