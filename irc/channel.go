@@ -166,7 +166,7 @@ func (channel *Channel) Part(client *Client, message string) {
 	}
 	channel.Quit(client)
 
-	if channel.IsEmpty() {
+	if !channel.flags[Persistent] && channel.IsEmpty() {
 		channel.server.channels.Remove(channel)
 	}
 }
@@ -296,7 +296,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 		}
 		client.RplEndOfMaskList(change.mode, channel)
 
-	case Moderated, NoOutside, OpOnlyTopic, Private:
+	case Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
 		return channel.applyModeFlag(client, change.mode, change.op)
 
 	case Key:

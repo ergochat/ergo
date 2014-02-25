@@ -223,6 +223,7 @@ const (
 	Moderated       ChannelMode = 'm' // flag
 	NoOutside       ChannelMode = 'n' // flag
 	OpOnlyTopic     ChannelMode = 't' // flag
+	Persistent      ChannelMode = 'P' // flag
 	Private         ChannelMode = 'p' // flag
 	Quiet           ChannelMode = 'q' // flag
 	ReOp            ChannelMode = 'r' // flag
