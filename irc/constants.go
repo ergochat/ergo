@@ -23,9 +23,9 @@ var (
 )
 
 const (
-	VERSION       = "1.0.0"
-	CRLF          = "\r\n"
-	MAX_REPLY_LEN = 512 - len(CRLF)
+	SERVER_VERSION = "1.0.0"
+	CRLF           = "\r\n"
+	MAX_REPLY_LEN  = 512 - len(CRLF)
 
 	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
 	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
@@ -56,6 +56,7 @@ const (
 	QUIT    StringCode = "QUIT"
 	TOPIC   StringCode = "TOPIC"
 	USER    StringCode = "USER"
+	VERSION StringCode = "VERSION"
 	WHO     StringCode = "WHO"
 	WHOIS   StringCode = "WHOIS"
 

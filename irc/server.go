@@ -762,3 +762,13 @@ func (msg *DebugCommand) HandleServer(server *Server) {
 		server.Reply(client, "written to ergonomadic-heap.prof")
 	}
 }
+
+func (msg *VersionCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	if (msg.target != "") && (msg.target != server.name) {
+		client.ErrNoSuchServer(msg.target)
+		return
+	}
+
+	client.RplVersion()
+}

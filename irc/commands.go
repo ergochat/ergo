@@ -48,6 +48,7 @@ var (
 		QUIT:    NewQuitCommand,
 		TOPIC:   NewTopicCommand,
 		USER:    NewUserCommand,
+		VERSION: NewVersionCommand,
 		WHO:     NewWhoCommand,
 		WHOIS:   NewWhoisCommand,
 	}
@@ -899,4 +900,17 @@ func NewDebugCommand(args []string) (editableCommand, error) {
 	return &DebugCommand{
 		subCommand: strings.ToUpper(args[0]),
 	}, nil
+}
+
+type VersionCommand struct {
+	BaseCommand
+	target string
+}
+
+func NewVersionCommand(args []string) (editableCommand, error) {
+	cmd := &VersionCommand{}
+	if len(args) > 0 {
+		cmd.target = args[0]
+	}
+	return cmd, nil
 }
