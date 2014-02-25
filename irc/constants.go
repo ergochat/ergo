@@ -23,9 +23,9 @@ var (
 )
 
 const (
-	SERVER_VERSION = "1.1.0"
-	CRLF           = "\r\n"
-	MAX_REPLY_LEN  = 512 - len(CRLF)
+	SEMVER        = "ergonomadic-1.1.0"
+	CRLF          = "\r\n"
+	MAX_REPLY_LEN = 512 - len(CRLF)
 
 	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
 	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
