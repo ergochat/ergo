@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	SERVER_VERSION = "1.0.0"
+	SERVER_VERSION = "1.1.0"
 	CRLF           = "\r\n"
 	MAX_REPLY_LEN  = 512 - len(CRLF)
 
