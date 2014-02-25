@@ -35,11 +35,7 @@ func NewChannel(s *Server, name string) *Channel {
 	}
 
 	s.channels[name] = channel
-	s.db.Exec(`INSERT INTO channel
-                 (name, flags, key, topic, user_limit)
-                 VALUES (?, ?, ?, ?, ?)`,
-		channel.name, channel.flags.String(), channel.key, channel.topic,
-		channel.userLimit)
+	s.db.Exec(`INSERT INTO channel (name) VALUES (?)`, channel.name)
 
 	return channel
 }

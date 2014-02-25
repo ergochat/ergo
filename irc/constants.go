@@ -209,7 +209,7 @@ const (
 	LocalOperator UserMode = 'O'
 	Operator      UserMode = 'o'
 	Restricted    UserMode = 'r'
-	ServerNotice  UserMode = 's'
+	ServerNotice  UserMode = 's' // deprecated
 	WallOps       UserMode = 'w'
 
 	Anonymous       ChannelMode = 'a' // flag
