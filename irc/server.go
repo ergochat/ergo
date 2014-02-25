@@ -42,7 +42,7 @@ func NewServer(config *Config) *Server {
 		newConns:  make(chan net.Conn, 16),
 		operators: config.OperatorsMap(),
 		password:  config.PasswordBytes(),
-		timeout:   make(chan *Client),
+		timeout:   make(chan *Client, 16),
 	}
 
 	for _, listenerConf := range config.Listeners {
