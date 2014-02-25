@@ -199,8 +199,6 @@ type PassCommand struct {
 	err      error
 }
 
-var ErrCannotCheck = errors.New("cannot check password")
-
 func (cmd *PassCommand) String() string {
 	return fmt.Sprintf("PASS(password=%s)", cmd.password)
 }

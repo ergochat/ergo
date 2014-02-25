@@ -40,5 +40,5 @@ byte strings. You can generate them with e.g. `ergonomadic -genpasswd
 ```sh
 go get
 go install
-ergonomadic -conf '/path/to/ergonomadic.json'
+ergonomadic -conf '/path/to/config.json'
 ```

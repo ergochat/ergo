@@ -52,7 +52,7 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
-func (server *Server) ProcessCommand(cmd Command) {
+func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
 	if DEBUG_SERVER {
 		log.Printf("%s → %s %s", client, server, cmd)
@@ -103,7 +103,7 @@ func (server *Server) Run() {
 			NewClient(server, conn)
 
 		case cmd := <-server.commands:
-			server.ProcessCommand(cmd)
+			server.processCommand(cmd)
 
 		case client := <-server.idle:
 			client.Idle()
@@ -682,8 +682,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 
 	if len(msg.channels) == 0 {
 		for _, channel := range server.channels {
-			if !client.flags[Operator] &&
-				(channel.flags[Secret] || channel.flags[Private]) {
+			if !client.flags[Operator] && channel.flags[Private] {
 				continue
 			}
 			client.RplList(channel)
@@ -691,8 +690,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 	} else {
 		for _, chname := range msg.channels {
 			channel := server.channels[chname]
-			if channel == nil || (!client.flags[Operator] &&
-				(channel.flags[Secret] || channel.flags[Private])) {
+			if channel == nil || (!client.flags[Operator] && channel.flags[Private]) {
 				client.ErrNoSuchChannel(chname)
 				continue
 			}
