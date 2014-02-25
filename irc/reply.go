@@ -374,6 +374,11 @@ func (target *Client) RplInviting(invitee *Client, channel string) {
 		"%s %s", invitee.Nick(), channel)
 }
 
+func (target *Client) RplTime() {
+	target.NumericReply(RPL_TIME,
+		"%s :%s", target.server.name, time.Now().Format(time.RFC1123))
+}
+
 //
 // errors (also numeric)
 //

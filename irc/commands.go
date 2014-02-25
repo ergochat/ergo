@@ -47,6 +47,7 @@ var (
 		PRIVMSG: NewPrivMsgCommand,
 		PROXY:   NewProxyCommand,
 		QUIT:    NewQuitCommand,
+		TIME:    NewTimeCommand,
 		TOPIC:   NewTopicCommand,
 		USER:    NewUserCommand,
 		VERSION: NewVersionCommand,
@@ -931,4 +932,17 @@ func NewInviteCommand(args []string) (editableCommand, error) {
 		nickname: args[0],
 		channel:  args[1],
 	}, nil
+}
+
+type TimeCommand struct {
+	BaseCommand
+	target string
+}
+
+func NewTimeCommand(args []string) (editableCommand, error) {
+	cmd := &TimeCommand{}
+	if len(args) > 0 {
+		cmd.target = args[0]
+	}
+	return cmd, nil
 }

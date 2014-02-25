@@ -54,6 +54,7 @@ const (
 	PRIVMSG StringCode = "PRIVMSG"
 	PROXY   StringCode = "PROXY"
 	QUIT    StringCode = "QUIT"
+	TIME    StringCode = "TIME"
 	TOPIC   StringCode = "TOPIC"
 	USER    StringCode = "USER"
 	VERSION StringCode = "VERSION"

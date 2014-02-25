@@ -791,3 +791,11 @@ func (msg *InviteCommand) HandleServer(server *Server) {
 
 	channel.Invite(target, client)
 }
+
+func (msg *TimeCommand) HandleServer(server *Server) {
+	if (msg.target != "") && (msg.target != server.name) {
+		msg.Client().ErrNoSuchServer(msg.target)
+		return
+	}
+	msg.Client().RplTime()
+}
