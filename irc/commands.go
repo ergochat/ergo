@@ -29,6 +29,7 @@ var (
 		AWAY:    NewAwayCommand,
 		CAP:     NewCapCommand,
 		DEBUG:   NewDebugCommand,
+		INVITE:  NewInviteCommand,
 		ISON:    NewIsOnCommand,
 		JOIN:    NewJoinCommand,
 		KICK:    NewKickCommand,
@@ -913,4 +914,21 @@ func NewVersionCommand(args []string) (editableCommand, error) {
 		cmd.target = args[0]
 	}
 	return cmd, nil
+}
+
+type InviteCommand struct {
+	BaseCommand
+	nickname string
+	channel  string
+}
+
+func NewInviteCommand(args []string) (editableCommand, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+
+	return &InviteCommand{
+		nickname: args[0],
+		channel:  args[1],
+	}, nil
 }

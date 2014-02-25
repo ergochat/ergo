@@ -448,7 +448,7 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	}
 	target.Reply(RplPrivMsg(client, target, msg.message))
 	if target.flags[Away] {
-		target.RplAway(client)
+		client.RplAway(target)
 	}
 }
 
@@ -771,4 +771,23 @@ func (msg *VersionCommand) HandleServer(server *Server) {
 	}
 
 	client.RplVersion()
+}
+
+func (msg *InviteCommand) HandleServer(server *Server) {
+	client := msg.Client()
+
+	target := server.clients.Get(msg.nickname)
+	if target == nil {
+		client.ErrNoSuchNick(msg.nickname)
+		return
+	}
+
+	channel := server.channels[msg.channel]
+	if channel == nil {
+		client.RplInviting(target, msg.channel)
+		target.Reply(RplInviteMsg(client, msg.channel))
+		return
+	}
+
+	channel.Invite(target, client)
 }

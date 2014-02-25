@@ -402,3 +402,22 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 	}
 	channel.Quit(target)
 }
+
+func (channel *Channel) Invite(invitee *Client, inviter *Client) {
+	if channel.flags[InviteOnly] && !channel.ClientIsOperator(inviter) {
+		inviter.ErrChanOPrivIsNeeded(channel)
+		return
+	}
+
+	if !channel.members.Has(inviter) {
+		inviter.ErrNotOnChannel(channel)
+		return
+	}
+
+	// TODO Modify channel masks
+	inviter.RplInviting(invitee, channel.name)
+	invitee.Reply(RplInviteMsg(inviter, channel.name))
+	if invitee.flags[Away] {
+		inviter.RplAway(invitee)
+	}
+}

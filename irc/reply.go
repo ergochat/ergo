@@ -128,8 +128,8 @@ func RplError(message string) string {
 	return NewStringReply(nil, ERROR, ":%s", message)
 }
 
-func RplInviteMsg(channel *Channel, inviter *Client) string {
-	return NewStringReply(inviter, INVITE, channel.name)
+func RplInviteMsg(inviter *Client, channel string) string {
+	return NewStringReply(inviter, INVITE, channel)
 }
 
 func RplKick(channel *Channel, client *Client, target *Client, comment string) string {
@@ -175,9 +175,9 @@ func (target *Client) RplTopic(channel *Channel) {
 
 // <nick> <channel>
 // NB: correction in errata
-func (target *Client) RplInvitingMsg(channel *Channel, invitee *Client) {
+func (target *Client) RplInvitingMsg(invitee *Client, channel string) {
 	target.NumericReply(RPL_INVITING,
-		"%s %s", invitee.Nick(), channel.name)
+		"%s %s", invitee.Nick(), channel)
 }
 
 func (target *Client) RplEndOfNames(channel *Channel) {
@@ -367,6 +367,11 @@ func (target *Client) RplWhoisChannels(client *Client) {
 func (target *Client) RplVersion() {
 	target.NumericReply(RPL_VERSION,
 		"ergonomadic-%s %s", SERVER_VERSION, target.server.name)
+}
+
+func (target *Client) RplInviting(invitee *Client, channel string) {
+	target.NumericReply(RPL_INVITING,
+		"%s %s", invitee.Nick(), channel)
 }
 
 //
