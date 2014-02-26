@@ -377,7 +377,7 @@ func (channel *Channel) Persist() {
 	if channel.flags[Persistent] {
 		channel.server.db.Exec(`
             INSERT OR REPLACE INTO channel
-              (name, flags, key, topic)
+              (name, flags, key, topic, user_list)
               VALUES (?, ?, ?, ?, ?)`,
 			channel.name, channel.flags.String(), channel.key, channel.topic,
 			channel.userLimit)
