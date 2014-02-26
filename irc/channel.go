@@ -248,10 +248,16 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 
 	switch op {
 	case Add:
+		if channel.flags[mode] {
+			return false
+		}
 		channel.flags[mode] = true
 		return true
 
 	case Remove:
+		if !channel.flags[mode] {
+			return false
+		}
 		delete(channel.flags, mode)
 		return true
 	}
@@ -283,10 +289,16 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 
 	switch op {
 	case Add:
+		if channel.members[target][mode] {
+			return false
+		}
 		channel.members[target][mode] = true
 		return true
 
 	case Remove:
+		if !channel.members[target][mode] {
+			return false
+		}
 		channel.members[target][mode] = false
 		return true
 	}
@@ -318,6 +330,9 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 				client.ErrNeedMoreParams("MODE")
 				return false
 			}
+			if change.arg == channel.key {
+				return false
+			}
 
 			channel.key = change.arg
 			return true
@@ -333,7 +348,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 			client.ErrNeedMoreParams("MODE")
 			return false
 		}
-		if limit == 0 {
+		if (limit == 0) || (limit == channel.userLimit) {
 			return false
 		}
 

@@ -525,16 +525,25 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		case Invisible, ServerNotice, WallOps:
 			switch change.op {
 			case Add:
+				if target.flags[change.mode] {
+					continue
+				}
 				target.flags[change.mode] = true
 				changes = append(changes, change)
 
 			case Remove:
+				if !target.flags[change.mode] {
+					continue
+				}
 				delete(target.flags, change.mode)
 				changes = append(changes, change)
 			}
 
 		case Operator, LocalOperator:
 			if change.op == Remove {
+				if !target.flags[change.mode] {
+					continue
+				}
 				delete(target.flags, change.mode)
 				changes = append(changes, change)
 			}
