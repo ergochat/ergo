@@ -407,6 +407,10 @@ func (msg *NickCommand) HandleServer(server *Server) {
 		return
 	}
 
+	if msg.nickname == client.nick {
+		return
+	}
+
 	if server.clients.Get(msg.nickname) != client {
 		client.ErrNickNameInUse(msg.nickname)
 		return
