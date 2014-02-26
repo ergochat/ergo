@@ -2,6 +2,7 @@ package irc
 
 import (
 	"code.google.com/p/go.crypto/bcrypt"
+	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"regexp"
@@ -99,10 +100,11 @@ var (
 func parseLine(line string) (StringCode, []string) {
 	var parts []string
 	if colonIndex := strings.IndexRune(line, ':'); colonIndex >= 0 {
-		lastArg := line[colonIndex+len(":"):]
-		line = line[:colonIndex-len(" ")]
+		lastArg := norm.NFC.String(line[colonIndex+len(":"):])
+		line = norm.NFKC.String(line[:colonIndex-len(" ")])
 		parts = append(spacesExpr.Split(line, -1), lastArg)
 	} else {
+		line = norm.NFKC.String(line)
 		parts = spacesExpr.Split(line, -1)
 	}
 	return StringCode(strings.ToUpper(parts[0])), parts[1:]
