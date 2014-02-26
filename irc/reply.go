@@ -151,7 +151,7 @@ func (target *Client) RplWelcome() {
 
 func (target *Client) RplYourHost() {
 	target.NumericReply(RPL_YOURHOST,
-		":Your host is %s, running version %s", target.server.name, SERVER_VERSION)
+		":Your host is %s, running version %s", target.server.name, SEM_VER)
 }
 
 func (target *Client) RplCreated() {
@@ -161,7 +161,7 @@ func (target *Client) RplCreated() {
 
 func (target *Client) RplMyInfo() {
 	target.NumericReply(RPL_MYINFO,
-		"%s %s aiOorsw abeIikmntpqrsl", target.server.name, SERVER_VERSION)
+		"%s %s aiOorsw abeIikmntpqrsl", target.server.name, SEM_VER)
 }
 
 func (target *Client) RplUModeIs(client *Client) {
@@ -371,7 +371,7 @@ func (target *Client) RplWhoisChannels(client *Client) {
 
 func (target *Client) RplVersion() {
 	target.NumericReply(RPL_VERSION,
-		"ergonomadic-%s %s", SERVER_VERSION, target.server.name)
+		"%s %s", SEM_VER, target.server.name)
 }
 
 func (target *Client) RplInviting(invitee *Client, channel string) {

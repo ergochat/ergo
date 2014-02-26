@@ -33,7 +33,9 @@ func NewChannel(s *Server, name string) *Channel {
 		name:    name,
 		server:  s,
 	}
+
 	s.channels[name] = channel
+
 	return channel
 }
 
@@ -142,7 +144,9 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
-		channel.members[client][ChannelCreator] = true
+		if !channel.flags[Persistent] {
+			channel.members[client][ChannelCreator] = true
+		}
 		channel.members[client][ChannelOperator] = true
 	}
 
@@ -166,7 +170,7 @@ func (channel *Channel) Part(client *Client, message string) {
 	}
 	channel.Quit(client)
 
-	if channel.IsEmpty() {
+	if !channel.flags[Persistent] && channel.IsEmpty() {
 		channel.server.channels.Remove(channel)
 	}
 }
@@ -203,6 +207,8 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	for member := range channel.members {
 		member.Reply(reply)
 	}
+
+	channel.Persist()
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
@@ -296,7 +302,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 		}
 		client.RplEndOfMaskList(change.mode, channel)
 
-	case Moderated, NoOutside, OpOnlyTopic, Private:
+	case Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
 		return channel.applyModeFlag(client, change.mode, change.op)
 
 	case Key:
@@ -361,6 +367,21 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 		for member := range channel.members {
 			member.Reply(reply)
 		}
+
+		channel.Persist()
+	}
+}
+
+func (channel *Channel) Persist() {
+	if channel.flags[Persistent] {
+		channel.server.db.Exec(`
+            INSERT OR REPLACE INTO channel
+              (name, flags, key, topic)
+              VALUES (?, ?, ?, ?, ?)`,
+			channel.name, channel.flags.String(), channel.key, channel.topic,
+			channel.userLimit)
+	} else {
+		channel.server.db.Exec(`DELETE FROM channel WHERE name = ?`, channel.name)
 	}
 }
 

@@ -96,35 +96,17 @@ var (
 	spacesExpr = regexp.MustCompile(` +`)
 )
 
-func parseArg(line string) (arg string, rest string) {
-	if line == "" {
-		return
-	}
-
-	if strings.HasPrefix(line, ":") {
-		arg = line[1:]
+func parseLine(line string) (StringCode, []string) {
+	var parts []string
+	if colonIndex := strings.IndexRune(line, ':'); colonIndex >= 0 {
+		lastArg := line[colonIndex+len(":"):]
+		line = line[:colonIndex-len(" ")]
+		parts = append(spacesExpr.Split(line, -1), lastArg)
 	} else {
-		parts := spacesExpr.Split(line, 2)
-		arg = parts[0]
-		if len(parts) > 1 {
-			rest = parts[1]
-		}
-	}
-	return
-}
+		parts = spacesExpr.Split(line, -1)
 
-func parseLine(line string) (command StringCode, args []string) {
-	args = make([]string, 0)
-	for arg, rest := parseArg(line); arg != ""; arg, rest = parseArg(rest) {
-		if arg == "" {
-			continue
-		}
-		args = append(args, arg)
 	}
-	if len(args) > 0 {
-		command, args = StringCode(strings.ToUpper(args[0])), args[1:]
-	}
-	return
+	return StringCode(strings.ToUpper(parts[0])), parts[1:]
 }
 
 // <command> [args...]

@@ -23,9 +23,9 @@ var (
 )
 
 const (
-	SERVER_VERSION = "1.1.0"
-	CRLF           = "\r\n"
-	MAX_REPLY_LEN  = 512 - len(CRLF)
+	SEM_VER       = "ergonomadic-1.1.0"
+	CRLF          = "\r\n"
+	MAX_REPLY_LEN = 512 - len(CRLF)
 
 	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
 	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
@@ -209,7 +209,7 @@ const (
 	LocalOperator UserMode = 'O'
 	Operator      UserMode = 'o'
 	Restricted    UserMode = 'r'
-	ServerNotice  UserMode = 's'
+	ServerNotice  UserMode = 's' // deprecated
 	WallOps       UserMode = 'w'
 
 	Anonymous       ChannelMode = 'a' // flag
@@ -223,6 +223,7 @@ const (
 	Moderated       ChannelMode = 'm' // flag
 	NoOutside       ChannelMode = 'n' // flag
 	OpOnlyTopic     ChannelMode = 't' // flag
+	Persistent      ChannelMode = 'P' // flag
 	Private         ChannelMode = 'p' // flag
 	Quiet           ChannelMode = 'q' // flag
 	ReOp            ChannelMode = 'r' // flag

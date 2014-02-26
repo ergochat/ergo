@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"crypto/rand"
 	"crypto/tls"
+	"database/sql"
 	"encoding/binary"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
@@ -21,35 +24,74 @@ type Server struct {
 	clients   ClientNameMap
 	commands  chan Command
 	ctime     time.Time
+	db        *sql.DB
 	idle      chan *Client
 	motdFile  string
 	name      string
 	newConns  chan net.Conn
 	operators map[string][]byte
 	password  []byte
+	signals   chan os.Signal
 	timeout   chan *Client
 }
 
 func NewServer(config *Config) *Server {
+	db, err := sql.Open("sqlite3", config.Database())
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
+		db:        db,
 		idle:      make(chan *Client, 16),
 		motdFile:  config.MOTD,
 		name:      config.Name,
 		newConns:  make(chan net.Conn, 16),
 		operators: config.OperatorsMap(),
 		password:  config.PasswordBytes(),
+		signals:   make(chan os.Signal, 1),
 		timeout:   make(chan *Client, 16),
 	}
+
+	signal.Notify(server.signals, os.Interrupt, os.Kill)
+
+	server.loadChannels()
 
 	for _, listenerConf := range config.Listeners {
 		go server.listen(listenerConf)
 	}
 
 	return server
+}
+
+func (server *Server) loadChannels() {
+	rows, err := server.db.Query(`
+        SELECT name, flags, key, topic, user_limit
+          FROM channel`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for rows.Next() {
+		var name, flags, key, topic string
+		var userLimit uint64
+		err = rows.Scan(&name, &flags, &key, &topic, &userLimit)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		channel := NewChannel(server, name)
+		for _, flag := range flags {
+			channel.flags[ChannelMode(flag)] = true
+		}
+		channel.key = key
+		channel.topic = topic
+		channel.userLimit = userLimit
+	}
 }
 
 func (server *Server) processCommand(cmd Command) {
@@ -97,8 +139,14 @@ func (server *Server) processCommand(cmd Command) {
 }
 
 func (server *Server) Run() {
-	for {
+	done := false
+	for !done {
 		select {
+		case <-server.signals:
+			server.db.Close()
+			done = true
+			continue
+
 		case conn := <-server.newConns:
 			NewClient(server, conn)
 

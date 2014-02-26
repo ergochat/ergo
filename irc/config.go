@@ -26,6 +26,11 @@ type Config struct {
 	Name      string
 	Operators []OperatorConfig
 	Password  string
+	directory string
+}
+
+func (conf *Config) Database() string {
+	return filepath.Join(conf.directory, "ergonomadic.db")
 }
 
 func (conf *Config) PasswordBytes() []byte {
@@ -75,9 +80,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return
 	}
 
-	dir := filepath.Dir(filename)
-	config.MOTD = filepath.Join(dir, config.MOTD)
-
+	config.directory = filepath.Dir(filename)
+	config.MOTD = filepath.Join(config.directory, config.MOTD)
 	for _, lconf := range config.Listeners {
 		if lconf.Net == "" {
 			lconf.Net = "tcp"
