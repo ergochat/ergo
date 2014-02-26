@@ -104,7 +104,6 @@ func parseLine(line string) (StringCode, []string) {
 		parts = append(spacesExpr.Split(line, -1), lastArg)
 	} else {
 		parts = spacesExpr.Split(line, -1)
-
 	}
 	return StringCode(strings.ToUpper(parts[0])), parts[1:]
 }
@@ -477,6 +476,9 @@ func NewUserModeCommand(args []string) (editableCommand, error) {
 	}
 
 	for _, modeChange := range args[1:] {
+		if len(modeChange) == 0 {
+			continue
+		}
 		op := ModeOp(modeChange[0])
 		if (op != Add) && (op != Remove) {
 			return nil, ErrParseCommand
@@ -552,8 +554,12 @@ func NewChannelModeCommand(args []string) (editableCommand, error) {
 	args = args[1:]
 
 	for len(args) > 0 {
-		modeArg := args[0]
+		if len(args[0]) == 0 {
+			args = args[1:]
+			continue
+		}
 
+		modeArg := args[0]
 		op := ModeOp(modeArg[0])
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
