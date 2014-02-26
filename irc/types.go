@@ -54,6 +54,10 @@ func (mode ChannelMode) String() string {
 
 type ChannelNameMap map[string]*Channel
 
+func (channels ChannelNameMap) Get(name string) *Channel {
+	return channels[strings.ToLower(name)]
+}
+
 func (channels ChannelNameMap) Add(channel *Channel) error {
 	if channels[channel.name] != nil {
 		return fmt.Errorf("%s: already set", channel.name)
@@ -100,7 +104,7 @@ func (clients ClientNameMap) Remove(client *Client) error {
 	if clients.Get(client.nick) != client {
 		return ErrNicknameMismatch
 	}
-	delete(clients, client.nick)
+	delete(clients, strings.ToLower(client.nick))
 	return nil
 }
 

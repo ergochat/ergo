@@ -226,7 +226,7 @@ func (s *Server) GenerateGuestNick() string {
 			continue // TODO handle error
 		}
 		nick := fmt.Sprintf("guest%d", randInt)
-		if s.clients[nick] == nil {
+		if s.clients.Get(nick) == nil {
 			return nick
 		}
 	}
@@ -407,7 +407,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 		return
 	}
 
-	if server.clients.Get(msg.nickname) != nil {
+	if server.clients.Get(msg.nickname) != client {
 		client.ErrNickNameInUse(msg.nickname)
 		return
 	}
@@ -439,7 +439,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 			continue
 		}
 
-		channel := s.channels[name]
+		channel := s.channels.Get(name)
 		if channel == nil {
 			channel = NewChannel(s, name)
 		}
@@ -450,7 +450,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 func (m *PartCommand) HandleServer(server *Server) {
 	client := m.Client()
 	for _, chname := range m.channels {
-		channel := server.channels[chname]
+		channel := server.channels.Get(chname)
 
 		if channel == nil {
 			m.Client().ErrNoSuchChannel(chname)
@@ -463,7 +463,7 @@ func (m *PartCommand) HandleServer(server *Server) {
 
 func (msg *TopicCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	channel := server.channels[msg.channel]
+	channel := server.channels.Get(msg.channel)
 	if channel == nil {
 		client.ErrNoSuchChannel(msg.channel)
 		return
@@ -479,7 +479,7 @@ func (msg *TopicCommand) HandleServer(server *Server) {
 func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	if IsChannel(msg.target) {
-		channel := server.channels[msg.target]
+		channel := server.channels.Get(msg.target)
 		if channel == nil {
 			client.ErrNoSuchChannel(msg.target)
 			return
@@ -489,7 +489,7 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 		return
 	}
 
-	target := server.clients[msg.target]
+	target := server.clients.Get(msg.target)
 	if target == nil {
 		client.ErrNoSuchNick(msg.target)
 		return
@@ -586,7 +586,7 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	channel := server.channels[msg.channel]
+	channel := server.channels.Get(msg.channel)
 	if channel == nil {
 		client.ErrNoSuchChannel(msg.channel)
 		return
@@ -617,14 +617,14 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 			}
 		}
 	} else if IsChannel(mask) {
-		channel := server.channels[mask]
+		channel := server.channels.Get(mask)
 		if channel != nil {
 			for member := range channel.members {
 				client.RplWhoReply(channel, member)
 			}
 		}
 	} else {
-		mclient := server.clients[mask]
+		mclient := server.clients.Get(mask)
 		if mclient != nil {
 			client.RplWhoReply(nil, mclient)
 		}
@@ -682,7 +682,7 @@ func (msg *MOTDCommand) HandleServer(server *Server) {
 func (msg *NoticeCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	if IsChannel(msg.target) {
-		channel := server.channels[msg.target]
+		channel := server.channels.Get(msg.target)
 		if channel == nil {
 			client.ErrNoSuchChannel(msg.target)
 			return
@@ -703,13 +703,13 @@ func (msg *NoticeCommand) HandleServer(server *Server) {
 func (msg *KickCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	for chname, nickname := range msg.kicks {
-		channel := server.channels[chname]
+		channel := server.channels.Get(chname)
 		if channel == nil {
 			client.ErrNoSuchChannel(chname)
 			continue
 		}
 
-		target := server.clients[nickname]
+		target := server.clients.Get(nickname)
 		if target == nil {
 			client.ErrNoSuchNick(nickname)
 			continue
@@ -737,7 +737,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 		}
 	} else {
 		for _, chname := range msg.channels {
-			channel := server.channels[chname]
+			channel := server.channels.Get(chname)
 			if channel == nil || (!client.flags[Operator] && channel.flags[Private]) {
 				client.ErrNoSuchChannel(chname)
 				continue
@@ -758,7 +758,7 @@ func (msg *NamesCommand) HandleServer(server *Server) {
 	}
 
 	for _, chname := range msg.channels {
-		channel := server.channels[chname]
+		channel := server.channels.Get(chname)
 		if channel == nil {
 			client.ErrNoSuchChannel(chname)
 			continue
@@ -830,10 +830,11 @@ func (msg *InviteCommand) HandleServer(server *Server) {
 		return
 	}
 
-	channel := server.channels[msg.channel]
+	channel := server.channels.Get(msg.channel)
 	if channel == nil {
-		client.RplInviting(target, msg.channel)
-		target.Reply(RplInviteMsg(client, msg.channel))
+		name := strings.ToLower(msg.channel)
+		client.RplInviting(target, name)
+		target.Reply(RplInviteMsg(client, name))
 		return
 	}
 
