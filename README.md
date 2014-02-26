@@ -12,6 +12,7 @@ Ergonomadic is an IRC daemon written from scratch in Go.
 - TLS support (but better to use stunnel with proxy protocol)
 - haproxy PROXY protocol header for hostname setting
 - passwords stored in bcrypt format
+- channels that persist between restarts (+P)
 
 ## Why?
 
