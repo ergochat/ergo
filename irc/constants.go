@@ -17,13 +17,13 @@ var (
 	ErrAlreadyDestroyed = errors.New("already destroyed")
 
 	// regexps
-	ChannelNameExpr = regexp.MustCompile(`^[&!#+][[:word:]]{1,63}$`)
+	ChannelNameExpr = regexp.MustCompile(`^[&!#+][\pL\pN]{1,63}$`)
 	NicknameExpr    = regexp.MustCompile(
-		"^[[:alpha:]\\[\\]{}^`][[:word:]\\[\\]{}^`]{1,31}$")
+		"^[\\pL\\[\\]{}^`][\\pL\\pN\\[\\]{}^`]{1,31}$")
 )
 
 const (
-	SEM_VER       = "ergonomadic-1.2.6"
+	SEM_VER       = "ergonomadic-1.2.7"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 
