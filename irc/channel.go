@@ -377,8 +377,9 @@ func (channel *Channel) Persist() {
 		channel.server.db.Exec(`
             INSERT OR REPLACE INTO channel
               (name, flags, key, topic)
-              VALUES (?, ?, ?, ?)`,
-			channel.name, channel.flags.String(), channel.key, channel.topic)
+              VALUES (?, ?, ?, ?, ?)`,
+			channel.name, channel.flags.String(), channel.key, channel.topic,
+			channel.userLimit)
 	} else {
 		channel.server.db.Exec(`DELETE FROM channel WHERE name = ?`, channel.name)
 	}
