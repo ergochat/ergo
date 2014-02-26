@@ -2,6 +2,7 @@ package irc
 
 import (
 	"strconv"
+	"strings"
 )
 
 type Channel struct {
@@ -30,11 +31,11 @@ func NewChannel(s *Server, name string) *Channel {
 			InviteMask: []UserMask{},
 		},
 		members: make(MemberSet),
-		name:    name,
+		name:    strings.ToLower(name),
 		server:  s,
 	}
 
-	s.channels[name] = channel
+	s.channels.Add(channel)
 
 	return channel
 }

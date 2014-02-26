@@ -2,6 +2,7 @@ package irc
 
 import (
 	"bufio"
+	"code.google.com/p/go.text/unicode/norm"
 	"io"
 	"log"
 	"net"
@@ -23,7 +24,7 @@ type Socket struct {
 func NewSocket(conn net.Conn, commands chan<- editableCommand) *Socket {
 	socket := &Socket{
 		conn:   conn,
-		reader: bufio.NewReader(conn),
+		reader: bufio.NewReader(norm.NFKC.Reader(conn)),
 		writer: bufio.NewWriter(conn),
 	}
 
