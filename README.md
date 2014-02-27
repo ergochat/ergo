@@ -30,17 +30,25 @@ I wanted to learn Go.
 - [RFC 2813: IRC Server Protocol](http://tools.ietf.org/html/rfc2813)
 - [IRC/2 Numeric List](https://www.alien.net.au/irc/irc2numerics.html)
 
-## Running the Server
-
-See the example `config.json`. Passwords are base64-encoded bcrypted
-byte strings. You can generate them with e.g. `ergonomadic -genpasswd
-'hunter21!'`.
-
-### from your GOPATH
+## Installation
 
 ```sh
 go get
 go install
 ergonomadic -conf '/path/to/config.json' -initdb
+```
+
+## Configuration
+
+See the example `config.json`. Passwords are base64-encoded bcrypted
+byte strings. You can generate them with the `genpasswd` subcommand.
+
+```sh
+ergonomadic -genpasswd 'hunter21!'
+```
+
+## Running the Server
+
+```sh
 ergonomadic -conf '/path/to/config.json'
 ```
