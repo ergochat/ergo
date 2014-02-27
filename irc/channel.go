@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"log"
 	"strconv"
 	"strings"
 )
@@ -209,7 +210,9 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		member.Reply(reply)
 	}
 
-	channel.Persist()
+	if err := channel.Persist(); err != nil {
+		log.Println(err)
+	}
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
@@ -384,21 +387,25 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 			member.Reply(reply)
 		}
 
-		channel.Persist()
+		if err := channel.Persist(); err != nil {
+			log.Println(err)
+		}
 	}
 }
 
-func (channel *Channel) Persist() {
+func (channel *Channel) Persist() (err error) {
 	if channel.flags[Persistent] {
-		channel.server.db.Exec(`
+		_, err = channel.server.db.Exec(`
             INSERT OR REPLACE INTO channel
-              (name, flags, key, topic, user_list)
+              (name, flags, key, topic, user_limit)
               VALUES (?, ?, ?, ?, ?)`,
 			channel.name, channel.flags.String(), channel.key, channel.topic,
 			channel.userLimit)
 	} else {
-		channel.server.db.Exec(`DELETE FROM channel WHERE name = ?`, channel.name)
+		_, err = channel.server.db.Exec(`
+            DELETE FROM channel WHERE name = ?`, channel.name)
 	}
+	return
 }
 
 func (channel *Channel) Notice(client *Client, message string) {
