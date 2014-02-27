@@ -1,6 +1,7 @@
 # Ergonomadic
 
-Ergonomadic is an IRC daemon written from scratch in Go.
+Ergonomadic is an IRC daemon written from scratch in Go. Pull requests
+and issues are welcome.
 
 ## Some Features
 
@@ -21,14 +22,6 @@ I wanted to learn Go.
 ## What's with the name?
 
 "Ergonomadic" is an anagram of "Go IRC Daemon".
-
-## Helpful Documentation
-
-- [RFC 1459: Internet Relay Chat Protocol](http://tools.ietf.org/html/rfc1459)
-- [RFC 2811: IRC Channel Management](http://tools.ietf.org/html/rfc2811)
-- [RFC 2812: IRC Client Protocol](http://tools.ietf.org/html/rfc2812)
-- [RFC 2813: IRC Server Protocol](http://tools.ietf.org/html/rfc2813)
-- [IRC/2 Numeric List](https://www.alien.net.au/irc/irc2numerics.html)
 
 ## Installation
 
@@ -52,3 +45,11 @@ ergonomadic -genpasswd 'hunter21!'
 ```sh
 ergonomadic -conf '/path/to/config.json'
 ```
+
+## Helpful Documentation
+
+- [RFC 1459: Internet Relay Chat Protocol](http://tools.ietf.org/html/rfc1459)
+- [RFC 2811: IRC Channel Management](http://tools.ietf.org/html/rfc2811)
+- [RFC 2812: IRC Client Protocol](http://tools.ietf.org/html/rfc2812)
+- [RFC 2813: IRC Server Protocol](http://tools.ietf.org/html/rfc2813)
+- [IRC/2 Numeric List](https://www.alien.net.au/irc/irc2numerics.html)
