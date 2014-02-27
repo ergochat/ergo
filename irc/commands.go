@@ -101,9 +101,11 @@ func parseLine(line string) (StringCode, []string) {
 	var parts []string
 	if colonIndex := strings.IndexRune(line, ':'); colonIndex >= 0 {
 		lastArg := norm.NFC.String(line[colonIndex+len(":"):])
-		line = norm.NFKC.String(line[:colonIndex-len(" ")])
+		line = strings.TrimRight(line[:colonIndex], " ")
+		line = norm.NFKC.String(line)
 		parts = append(spacesExpr.Split(line, -1), lastArg)
 	} else {
+		line = strings.TrimRight(line, " ")
 		line = norm.NFKC.String(line)
 		parts = spacesExpr.Split(line, -1)
 	}

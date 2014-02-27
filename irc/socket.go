@@ -53,7 +53,7 @@ func (socket *Socket) readLines(commands chan<- editableCommand) {
 		if socket.isError(err, R) {
 			break
 		}
-		line = strings.TrimRight(line, "\r\n")
+		line = strings.TrimRight(line, CRLF)
 		if len(line) == 0 {
 			continue
 		}
