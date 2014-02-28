@@ -171,10 +171,6 @@ func (channel *Channel) Part(client *Client, message string) {
 		member.Reply(reply)
 	}
 	channel.Quit(client)
-
-	if !channel.flags[Persistent] && channel.IsEmpty() {
-		channel.server.channels.Remove(channel)
-	}
 }
 
 func (channel *Channel) GetTopic(client *Client) {
@@ -424,6 +420,10 @@ func (channel *Channel) Notice(client *Client, message string) {
 func (channel *Channel) Quit(client *Client) {
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
+
+	if !channel.flags[Persistent] && channel.IsEmpty() {
+		channel.server.channels.Remove(channel)
+	}
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
