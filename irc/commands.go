@@ -80,7 +80,7 @@ func (command *BaseCommand) SetCode(code StringCode) {
 }
 
 func ParseCommand(line string) (cmd editableCommand, err error) {
-	code, args := parseLine(line)
+	code, args := ParseLine(line)
 	constructor := parseCommandFuncs[code]
 	if constructor == nil {
 		cmd = NewUnknownCommand(args)
@@ -97,19 +97,33 @@ var (
 	spacesExpr = regexp.MustCompile(` +`)
 )
 
-func parseLine(line string) (StringCode, []string) {
-	var parts []string
-	if colonIndex := strings.IndexRune(line, ':'); colonIndex >= 0 {
-		lastArg := norm.NFC.String(line[colonIndex+len(":"):])
-		line = strings.TrimRight(line[:colonIndex], " ")
-		line = norm.NFKC.String(line)
-		parts = append(spacesExpr.Split(line, -1), lastArg)
-	} else {
-		line = strings.TrimRight(line, " ")
-		line = norm.NFKC.String(line)
-		parts = spacesExpr.Split(line, -1)
+func splitArg(line string) (arg string, rest string) {
+	parts := spacesExpr.Split(line, 2)
+	if len(parts) > 0 {
+		arg = parts[0]
 	}
-	return StringCode(strings.ToUpper(parts[0])), parts[1:]
+	if len(parts) > 1 {
+		rest = parts[1]
+	}
+	return
+}
+
+func ParseLine(line string) (command StringCode, args []string) {
+	args = make([]string, 0)
+	if strings.HasPrefix(line, ":") {
+		_, line = splitArg(line)
+	}
+	arg, line := splitArg(line)
+	command = StringCode(strings.ToUpper(arg))
+	for len(line) > 0 {
+		if strings.HasPrefix(line, ":") {
+			args = append(args, norm.NFC.String(line[len(":"):]))
+			break
+		}
+		arg, line = splitArg(line)
+		args = append(args, norm.NFKC.String(arg))
+	}
+	return
 }
 
 // <command> [args...]
