@@ -10,6 +10,25 @@ import (
 // simple types
 //
 
+type CapSubCommand string
+
+type Capability string
+
+type CapModifier rune
+
+type CapState uint
+
+type CapabilitySet map[Capability]bool
+
+func (set CapabilitySet) String() string {
+	strs := make([]string, len(set))
+	index := 0
+	for capability := range set {
+		strs[index] = string(capability)
+	}
+	return strings.Join(strs, " ")
+}
+
 // a string with wildcards
 type Mask string
 
@@ -24,7 +43,7 @@ func (op ModeOp) String() string {
 type UserMode rune
 
 func (mode UserMode) String() string {
-	return fmt.Sprintf("%c", mode)
+	return string(mode)
 }
 
 type Phase uint
@@ -49,7 +68,7 @@ func (code NumericCode) String() string {
 type ChannelMode rune
 
 func (mode ChannelMode) String() string {
-	return fmt.Sprintf("%c", mode)
+	return string(mode)
 }
 
 type ChannelNameMap map[string]*Channel

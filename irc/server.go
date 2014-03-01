@@ -32,7 +32,6 @@ type Server struct {
 	operators map[string][]byte
 	password  []byte
 	signals   chan os.Signal
-	timeout   chan *Client
 }
 
 func NewServer(config *Config) *Server {
@@ -54,7 +53,6 @@ func NewServer(config *Config) *Server {
 		operators: config.OperatorsMap(),
 		password:  config.PasswordBytes(),
 		signals:   make(chan os.Signal, 1),
-		timeout:   make(chan *Client, 16),
 	}
 
 	signal.Notify(server.signals, os.Interrupt, os.Kill)
@@ -101,14 +99,6 @@ func (server *Server) processCommand(cmd Command) {
 	}
 
 	switch client.phase {
-	case Authorization:
-		authCmd, ok := cmd.(AuthServerCommand)
-		if !ok {
-			client.Quit("unexpected command")
-			return
-		}
-		authCmd.HandleAuthServer(server)
-
 	case Registration:
 		regCmd, ok := cmd.(RegServerCommand)
 		if !ok {
@@ -117,7 +107,7 @@ func (server *Server) processCommand(cmd Command) {
 		}
 		regCmd.HandleRegServer(server)
 
-	default:
+	case Normal:
 		srvCmd, ok := cmd.(ServerCommand)
 		if !ok {
 			client.ErrUnknownCommand(cmd.Code())
@@ -155,18 +145,8 @@ func (server *Server) Run() {
 
 		case client := <-server.idle:
 			client.Idle()
-
-		case client := <-server.timeout:
-			client.Quit("connection timeout")
 		}
 	}
-}
-
-func (server *Server) InitPhase() Phase {
-	if server.password == nil {
-		return Registration
-	}
-	return Authorization
 }
 
 func newListener(config ListenerConfig) (net.Listener, error) {
@@ -237,7 +217,7 @@ func (s *Server) GenerateGuestNick() string {
 //
 
 func (s *Server) tryRegister(c *Client) {
-	if c.HasNick() && c.HasUsername() {
+	if c.HasNick() && c.HasUsername() && (c.capState != CapNegotiating) {
 		c.Register()
 		c.RplWelcome()
 		c.RplYourHost()
@@ -297,18 +277,10 @@ func (s *Server) Nick() string {
 }
 
 //
-// authorization commands
+// registration commands
 //
 
-func (msg *ProxyCommand) HandleAuthServer(server *Server) {
-	msg.Client().hostname = msg.hostname
-}
-
-func (msg *CapCommand) HandleAuthServer(server *Server) {
-	// TODO
-}
-
-func (msg *PassCommand) HandleAuthServer(server *Server) {
+func (msg *PassCommand) HandleRegServer(server *Server) {
 	client := msg.Client()
 	if msg.err != nil {
 		client.ErrPasswdMismatch()
@@ -316,27 +288,62 @@ func (msg *PassCommand) HandleAuthServer(server *Server) {
 		return
 	}
 
-	client.phase = Registration
+	client.authorized = true
 }
-
-func (msg *QuitCommand) HandleAuthServer(server *Server) {
-	msg.Client().Quit(msg.message)
-}
-
-//
-// registration commands
-//
 
 func (msg *ProxyCommand) HandleRegServer(server *Server) {
 	msg.Client().hostname = msg.hostname
 }
 
 func (msg *CapCommand) HandleRegServer(server *Server) {
-	// TODO
+	client := msg.Client()
+
+	switch msg.subCommand {
+	case CAP_LS:
+		client.capState = CapNegotiating
+		client.Reply(fmt.Sprintf("CAP LS :%d", MultiPrefix))
+
+	case CAP_LIST:
+		client.Reply(fmt.Sprintf("CAP LIST :%s", client.capabilities))
+
+	case CAP_REQ:
+		client.capState = CapNegotiating
+		caps := msg.Capabilities()
+		if (len(caps) != 1) && (caps[0] != MultiPrefix) {
+			client.Reply("CAP NAK :" + msg.args[0])
+			return
+		}
+		for _, capability := range caps {
+			client.capabilities[capability] = true
+		}
+		client.Reply("CAP ACK :" + msg.args[0])
+
+	case CAP_CLEAR:
+		for capability := range client.capabilities {
+			delete(client.capabilities, capability)
+		}
+		client.Reply("CAP ACK :")
+
+	case CAP_END:
+		client.capState = CapNegotiated
+		server.tryRegister(client)
+
+	default:
+		client.ErrInvalidCapCmd(msg.subCommand)
+	}
 }
 
 func (m *NickCommand) HandleRegServer(s *Server) {
 	client := m.Client()
+	if !client.authorized {
+		client.ErrPasswdMismatch()
+		client.Quit("bad password")
+		return
+	}
+
+	if client.capState == CapNegotiating {
+		client.capState = CapNegotiated
+	}
 
 	if m.nickname == "" {
 		client.ErrNoNicknameGiven()
@@ -358,11 +365,22 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 }
 
 func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
+	client := msg.Client()
+	if !client.authorized {
+		client.ErrPasswdMismatch()
+		client.Quit("bad password")
+		return
+	}
 	msg.HandleRegServer2(server)
 }
 
 func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 	client := msg.Client()
+	if !client.authorized {
+		client.ErrPasswdMismatch()
+		client.Quit("bad password")
+		return
+	}
 	flags := msg.Flags()
 	if len(flags) > 0 {
 		for _, mode := range msg.Flags() {
@@ -375,6 +393,9 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 
 func (msg *UserCommand) HandleRegServer2(server *Server) {
 	client := msg.Client()
+	if client.capState == CapNegotiating {
+		client.capState = CapNegotiated
+	}
 	client.username, client.realname = msg.username, msg.realname
 	server.tryRegister(client)
 }
