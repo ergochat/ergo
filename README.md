@@ -6,12 +6,11 @@ and issues are welcome.
 ## Some Features
 
 - follows the RFC where possible
-- JSON-based configuration
-- server password
-- channels with many standard modes
-- IRC operators
-- TLS support (but better to use stunnel with proxy protocol)
-- haproxy PROXY protocol header for hostname setting
+- gcfg gitconfig-style configuration
+- server password (PASS command)
+- channels with most standard modes
+- IRC operators (OPER command)
+- haproxy [PROXY protocol](http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt) header for hostname setting
 - passwords stored in bcrypt format
 - channels that persist between restarts (+P)
 
@@ -23,6 +22,17 @@ I wanted to learn Go.
 
 "Ergonomadic" is an anagram of "Go IRC Daemon".
 
+## What about SSL/TLS support?
+
+Go has a not-yet-verified-as-safe TLS 1.2 implementation. Sadly, many
+popular IRC clients will negotiate nothing newer than SSLv2. If you
+want to use SSL to protect traffic, I recommend using
+[stunnel](https://www.stunnel.org/index.html) version 4.56 with
+haproxy's
+[PROXY protocol](http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt). This
+will allow the server to get the client's original addresses for
+hostname lookups.
+
 ## Installation
 
 ```sh
@@ -33,11 +43,12 @@ ergonomadic -conf '/path/to/config.json' -initdb
 
 ## Configuration
 
-See the example `config.json`. Passwords are base64-encoded bcrypted
-byte strings. You can generate them with the `genpasswd` subcommand.
+See the example `ergonomadic.conf`. Passwords are base64-encoded
+bcrypted byte strings. You can generate them with the `genpasswd`
+subcommand.
 
 ```sh
-ergonomadic -genpasswd 'hunter21!'
+ergonomadic -genpasswd 'hunter2!'
 ```
 
 ## Running the Server
