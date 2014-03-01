@@ -1,18 +1,22 @@
 package irc
 
 import (
+	"code.google.com/p/gcfg"
 	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"log"
-	"os"
 	"path/filepath"
 )
 
-func decodePassword(password string) []byte {
-	if password == "" {
+type PassConfig struct {
+	Password string
+}
+
+func (conf *PassConfig) PasswordBytes() []byte {
+	if conf.Password == "" {
 		return nil
 	}
-	bytes, err := base64.StdEncoding.DecodeString(password)
+	bytes, err := base64.StdEncoding.DecodeString(conf.Password)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -20,72 +24,56 @@ func decodePassword(password string) []byte {
 }
 
 type Config struct {
-	Debug     map[string]bool
-	Listeners []ListenerConfig
-	MOTD      string
-	Name      string
-	Operators []OperatorConfig
-	Password  string
-	directory string
+	Server struct {
+		PassConfig
+		Database string
+		Listen   []string
+		MOTD     string
+		Name     string
+	}
+
+	Operator map[string]*PassConfig
+
+	Debug struct {
+		Net     bool
+		Client  bool
+		Channel bool
+		Server  bool
+	}
 }
 
-func (conf *Config) Database() string {
-	return filepath.Join(conf.directory, "ergonomadic.db")
-}
-
-func (conf *Config) PasswordBytes() []byte {
-	return decodePassword(conf.Password)
-}
-
-func (conf *Config) OperatorsMap() map[string][]byte {
+func (conf *Config) Operators() map[string][]byte {
 	operators := make(map[string][]byte)
-	for _, opConf := range conf.Operators {
-		operators[opConf.Name] = opConf.PasswordBytes()
+	for name, opConf := range conf.Operator {
+		operators[name] = opConf.PasswordBytes()
 	}
 	return operators
 }
 
-type OperatorConfig struct {
-	Name     string
-	Password string
-}
-
-func (conf *OperatorConfig) PasswordBytes() []byte {
-	return decodePassword(conf.Password)
-}
-
-type ListenerConfig struct {
-	Net         string
-	Address     string
-	Key         string
-	Certificate string
-}
-
-func (config *ListenerConfig) IsTLS() bool {
-	return (config.Key != "") && (config.Certificate != "")
-}
-
 func LoadConfig(filename string) (config *Config, err error) {
 	config = &Config{}
-
-	file, err := os.Open(filename)
+	err = gcfg.ReadFileInto(config, filename)
 	if err != nil {
 		return
 	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(config)
-	if err != nil {
+	if config.Server.Name == "" {
+		err = errors.New("server.name missing")
+		return
+	}
+	if config.Server.Database == "" {
+		err = errors.New("server.database missing")
+		return
+	}
+	if len(config.Server.Listen) == 0 {
+		err = errors.New("server.listen missing")
 		return
 	}
 
-	config.directory = filepath.Dir(filename)
-	config.MOTD = filepath.Join(config.directory, config.MOTD)
-	for _, lconf := range config.Listeners {
-		if lconf.Net == "" {
-			lconf.Net = "tcp"
-		}
+	// make
+	dir := filepath.Dir(filename)
+	if config.Server.MOTD != "" {
+		config.Server.MOTD = filepath.Join(dir, config.Server.MOTD)
 	}
+	config.Server.Database = filepath.Join(dir, config.Server.Database)
 	return
 }

@@ -22,9 +22,9 @@ func genPasswd(passwd string) {
 }
 
 func initDB(config *irc.Config) {
-	os.Remove(config.Database())
+	os.Remove(config.Server.Database)
 
-	db, err := sql.Open("sqlite3", config.Database())
+	db, err := sql.Open("sqlite3", config.Server.Database)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,10 +64,10 @@ func main() {
 	}
 
 	// TODO move to data structures
-	irc.DEBUG_NET = config.Debug["net"]
-	irc.DEBUG_CLIENT = config.Debug["client"]
-	irc.DEBUG_CHANNEL = config.Debug["channel"]
-	irc.DEBUG_SERVER = config.Debug["server"]
+	irc.DEBUG_NET = config.Debug.Net
+	irc.DEBUG_CLIENT = config.Debug.Client
+	irc.DEBUG_CHANNEL = config.Debug.Channel
+	irc.DEBUG_SERVER = config.Debug.Server
 
 	irc.NewServer(config).Run()
 }
