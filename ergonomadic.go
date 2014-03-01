@@ -1,23 +1,11 @@
 package main
 
 import (
-	"code.google.com/p/go.crypto/bcrypt"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"github.com/jlatt/ergonomadic/irc"
 	"log"
-	"os"
 )
-
-func genPasswd(passwd string) {
-	crypted, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.MinCost)
-	if err != nil {
-		log.Fatal(err)
-	}
-	encoded := base64.StdEncoding.EncodeToString(crypted)
-	fmt.Println(encoded)
-}
 
 func main() {
 	conf := flag.String("conf", "ergonomadic.json", "ergonomadic config file")
@@ -26,7 +14,11 @@ func main() {
 	flag.Parse()
 
 	if *passwd != "" {
-		genPasswd(*passwd)
+		encoded, err := irc.GenerateEncodedPassword(*passwd)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(encoded)
 		return
 	}
 
@@ -37,6 +29,7 @@ func main() {
 
 	if *initdb {
 		irc.InitDB(config.Database())
+		log.Println("database initialized: " + config.Database())
 		return
 	}
 

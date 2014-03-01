@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"log"
 	"os"
@@ -9,10 +8,7 @@ import (
 )
 
 func decodePassword(password string) []byte {
-	if password == "" {
-		return nil
-	}
-	bytes, err := base64.StdEncoding.DecodeString(password)
+	bytes, err := DecodePassword(password)
 	if err != nil {
 		log.Fatal(err)
 	}
