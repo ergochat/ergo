@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net"
 	"os"
@@ -37,17 +36,12 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	db, err := sql.Open("sqlite3", config.Database())
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		db:        db,
+		db:        OpenDB(config.Database()),
 		idle:      make(chan *Client, 16),
 		motdFile:  config.MOTD,
 		name:      config.Name,
