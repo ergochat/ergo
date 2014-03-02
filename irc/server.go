@@ -52,13 +52,14 @@ func NewServer(config *Config) *Server {
 		timeout:   make(chan *Client, 16),
 	}
 
-	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP)
-
 	server.loadChannels()
 
 	for _, listenerConf := range config.Listeners {
 		go server.listen(listenerConf)
 	}
+
+	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGTERM, syscall.SIGQUIT)
 
 	return server
 }
