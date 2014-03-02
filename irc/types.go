@@ -16,6 +16,10 @@ type Capability string
 
 type CapModifier rune
 
+func (mod CapModifier) String() string {
+	return string(mod)
+}
+
 type CapState uint
 
 type CapabilitySet map[Capability]bool
@@ -25,6 +29,7 @@ func (set CapabilitySet) String() string {
 	index := 0
 	for capability := range set {
 		strs[index] = string(capability)
+		index += 1
 	}
 	return strings.Join(strs, " ")
 }

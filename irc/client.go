@@ -235,7 +235,10 @@ func (client *Client) ChangeNickname(nickname string) {
 	}
 }
 
-func (client *Client) Reply(reply string) {
+func (client *Client) Reply(reply string, args ...interface{}) {
+	if len(args) > 0 {
+		reply = fmt.Sprintf(reply, args...)
+	}
 	client.socket.Write(reply)
 }
 

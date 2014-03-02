@@ -708,21 +708,13 @@ func NewOperCommand(args []string) (editableCommand, error) {
 
 type CapCommand struct {
 	BaseCommand
-	subCommand CapSubCommand
-	args       []string
+	subCommand   CapSubCommand
+	capabilities CapabilitySet
 }
 
 func (msg *CapCommand) String() string {
-	return fmt.Sprintf("CAP(subCommand=%s, args=%s)", msg.subCommand, msg.args)
-}
-
-func (msg *CapCommand) Capabilities() []Capability {
-	strs := strings.Split(msg.args[0], " ")
-	caps := make([]Capability, len(strs))
-	for index, str := range strs {
-		caps[index] = Capability(str)
-	}
-	return caps
+	return fmt.Sprintf("CAP(subCommand=%s, capabilities=%s)",
+		msg.subCommand, msg.capabilities)
 }
 
 func NewCapCommand(args []string) (editableCommand, error) {
@@ -731,8 +723,15 @@ func NewCapCommand(args []string) (editableCommand, error) {
 	}
 
 	cmd := &CapCommand{
-		subCommand: CapSubCommand(args[0]),
-		args:       args[1:],
+		subCommand:   CapSubCommand(strings.ToUpper(args[0])),
+		capabilities: make(CapabilitySet),
+	}
+
+	if len(args) > 1 {
+		strs := spacesExpr.Split(args[1], -1)
+		for _, str := range strs {
+			cmd.capabilities[Capability(str)] = true
+		}
 	}
 	return cmd, nil
 }

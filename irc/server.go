@@ -301,28 +301,36 @@ func (msg *CapCommand) HandleRegServer(server *Server) {
 	switch msg.subCommand {
 	case CAP_LS:
 		client.capState = CapNegotiating
-		client.Reply(fmt.Sprintf("CAP LS :%d", MultiPrefix))
+		client.Reply("CAP LS * :%s", SupportedCapabilities)
 
 	case CAP_LIST:
-		client.Reply(fmt.Sprintf("CAP LIST :%s", client.capabilities))
+		client.Reply("CAP LIST * :%s", client.capabilities)
 
 	case CAP_REQ:
 		client.capState = CapNegotiating
-		caps := msg.Capabilities()
-		if (len(caps) != 1) && (caps[0] != MultiPrefix) {
-			client.Reply("CAP NAK :" + msg.args[0])
-			return
+		for capability := range msg.capabilities {
+			if !SupportedCapabilities[capability] {
+				client.Reply("CAP NAK * :%s", msg.capabilities)
+				return
+			}
 		}
-		for _, capability := range caps {
+		for capability := range msg.capabilities {
 			client.capabilities[capability] = true
 		}
-		client.Reply("CAP ACK :" + msg.args[0])
+		client.Reply("CAP ACK * :%s", msg.capabilities)
 
 	case CAP_CLEAR:
+		format := strings.TrimRight(
+			strings.Repeat("%s%s ", len(client.capabilities)), " ")
+		args := make([]interface{}, len(client.capabilities))
+		index := 0
 		for capability := range client.capabilities {
+			args[index] = Disable
+			args[index+1] = capability
+			index += 2
 			delete(client.capabilities, capability)
 		}
-		client.Reply("CAP ACK :")
+		client.Reply("CAP ACK * :"+format, args...)
 
 	case CAP_END:
 		client.capState = CapNegotiated
