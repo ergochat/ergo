@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"log"
-	"path/filepath"
 )
 
 type PassConfig struct {
@@ -68,12 +67,5 @@ func LoadConfig(filename string) (config *Config, err error) {
 		err = errors.New("server.listen missing")
 		return
 	}
-
-	// make
-	dir := filepath.Dir(filename)
-	if config.Server.MOTD != "" {
-		config.Server.MOTD = filepath.Join(dir, config.Server.MOTD)
-	}
-	config.Server.Database = filepath.Join(dir, config.Server.Database)
 	return
 }

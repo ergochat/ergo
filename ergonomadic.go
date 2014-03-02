@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 func genPasswd(passwd string) {
@@ -54,6 +55,10 @@ func main() {
 	}
 
 	config, err := irc.LoadConfig(*conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Chdir(filepath.Dir(*conf))
 	if err != nil {
 		log.Fatal(err)
 	}
