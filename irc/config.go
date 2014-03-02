@@ -2,7 +2,6 @@ package irc
 
 import (
 	"code.google.com/p/gcfg"
-	"encoding/base64"
 	"errors"
 	"log"
 )
@@ -12,10 +11,7 @@ type PassConfig struct {
 }
 
 func (conf *PassConfig) PasswordBytes() []byte {
-	if conf.Password == "" {
-		return nil
-	}
-	bytes, err := base64.StdEncoding.DecodeString(conf.Password)
+	bytes, err := DecodePassword(conf.Password)
 	if err != nil {
 		log.Fatal(err)
 	}

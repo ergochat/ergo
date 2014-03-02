@@ -1,47 +1,13 @@
 package main
 
 import (
-	"code.google.com/p/go.crypto/bcrypt"
-	"database/sql"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"github.com/jlatt/ergonomadic/irc"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
 	"path/filepath"
 )
-
-func genPasswd(passwd string) {
-	crypted, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.MinCost)
-	if err != nil {
-		log.Fatal(err)
-	}
-	encoded := base64.StdEncoding.EncodeToString(crypted)
-	fmt.Println(encoded)
-}
-
-func initDB(config *irc.Config) {
-	os.Remove(config.Server.Database)
-
-	db, err := sql.Open("sqlite3", config.Server.Database)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`
-        CREATE TABLE channel (
-          name TEXT NOT NULL UNIQUE,
-          flags TEXT NOT NULL,
-          key TEXT NOT NULL,
-          topic TEXT NOT NULL,
-          user_limit INTEGER DEFAULT 0)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 func main() {
 	conf := flag.String("conf", "ergonomadic.json", "ergonomadic config file")
@@ -50,7 +16,11 @@ func main() {
 	flag.Parse()
 
 	if *passwd != "" {
-		genPasswd(*passwd)
+		encoded, err := irc.GenerateEncodedPassword(*passwd)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(encoded)
 		return
 	}
 
@@ -64,7 +34,8 @@ func main() {
 	}
 
 	if *initdb {
-		initDB(config)
+		irc.InitDB(config.Server.Database)
+		log.Println("database initialized: " + config.Server.Database)
 		return
 	}
 

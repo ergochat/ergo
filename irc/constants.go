@@ -19,11 +19,11 @@ var (
 	// regexps
 	ChannelNameExpr = regexp.MustCompile(`^[&!#+][\pL\pN]{1,63}$`)
 	NicknameExpr    = regexp.MustCompile(
-		"^[\\pL\\[\\]{}^`][\\pL\\pN\\[\\]{}^`]{1,31}$")
+		"^[\\pL\\[\\]{}^`_][\\pL\\pN\\[\\]{}^`_]{1,31}$")
 )
 
 const (
-	SEM_VER       = "ergonomadic-1.2.11"
+	SEM_VER       = "ergonomadic-1.2.12"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 

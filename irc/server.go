@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -33,17 +33,12 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	db, err := sql.Open("sqlite3", config.Server.Database)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		db:        db,
+		db:        OpenDB(config.Server.Database),
 		idle:      make(chan *Client, 16),
 		motdFile:  config.Server.MOTD,
 		name:      config.Server.Name,
@@ -54,7 +49,7 @@ func NewServer(config *Config) *Server {
 		timeout:   make(chan *Client, 16),
 	}
 
-	signal.Notify(server.signals, os.Interrupt, os.Kill)
+	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP)
 
 	server.loadChannels()
 
@@ -135,14 +130,20 @@ func (server *Server) processCommand(cmd Command) {
 	}
 }
 
+func (server *Server) Shutdown() {
+	server.db.Close()
+	for _, client := range server.clients {
+		client.Reply(RplNotice(server, client, "shutting down"))
+	}
+}
+
 func (server *Server) Run() {
 	done := false
 	for !done {
 		select {
 		case <-server.signals:
-			server.db.Close()
+			server.Shutdown()
 			done = true
-			continue
 
 		case conn := <-server.newConns:
 			NewClient(server, conn)
