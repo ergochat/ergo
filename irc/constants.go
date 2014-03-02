@@ -19,7 +19,7 @@ var (
 	// regexps
 	ChannelNameExpr = regexp.MustCompile(`^[&!#+][\pL\pN]{1,63}$`)
 	NicknameExpr    = regexp.MustCompile(
-		"^[\\pL\\[\\]{}^`][\\pL\\pN\\[\\]{}^`]{1,31}$")
+		"^[\\pL\\[\\]{}^`_][\\pL\\pN\\[\\]{}^`_]{1,31}$")
 )
 
 const (
