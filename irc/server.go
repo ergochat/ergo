@@ -16,6 +16,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -57,7 +58,7 @@ func NewServer(config *Config) *Server {
 		timeout:   make(chan *Client, 16),
 	}
 
-	signal.Notify(server.signals, os.Interrupt, os.Kill)
+	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP)
 
 	server.loadChannels()
 
@@ -138,14 +139,20 @@ func (server *Server) processCommand(cmd Command) {
 	}
 }
 
+func (server *Server) Shutdown() {
+	server.db.Close()
+	for _, client := range server.clients {
+		client.Reply(RplNotice(server, client, "shutting down"))
+	}
+}
+
 func (server *Server) Run() {
 	done := false
 	for !done {
 		select {
 		case <-server.signals:
-			server.db.Close()
+			server.Shutdown()
 			done = true
-			continue
 
 		case conn := <-server.newConns:
 			NewClient(server, conn)
