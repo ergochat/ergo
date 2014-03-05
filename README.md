@@ -38,7 +38,7 @@ hostname lookups.
 ```sh
 go get
 go install
-ergonomadic -conf '/path/to/config.json' -initdb
+ergonomadic -conf ergonomadic.conf -initdb
 ```
 
 ## Configuration
@@ -54,7 +54,7 @@ ergonomadic -genpasswd 'hunter2!'
 ## Running the Server
 
 ```sh
-ergonomadic -conf '/path/to/config.json'
+ergonomadic -conf ergonomadic.conf
 ```
 
 ## Helpful Documentation
