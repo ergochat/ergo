@@ -844,6 +844,15 @@ func (msg *KillCommand) HandleServer(server *Server) {
 	target.Quit(quitMsg)
 }
 
+func (msg *WhoWasCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	for _, nickname := range msg.nicknames {
+		// TODO implement nick history
+		client.ErrWasNoSuchNick(nickname)
+		client.RplEndOfWhoWas(nickname)
+	}
+}
+
 //
 // keeping track of clients
 //

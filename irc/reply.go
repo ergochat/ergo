@@ -394,6 +394,16 @@ func (target *Client) RplTime() {
 		"%s :%s", target.server.name, time.Now().Format(time.RFC1123))
 }
 
+func (target *Client) RplWhoWasUser(nickname, username, hostname, realname string) {
+	target.NumericReply(RPL_WHOWASUSER,
+		"%s %s %s * :%s", nickname, username, hostname, realname)
+}
+
+func (target *Client) RplEndOfWhoWas(nickname string) {
+	target.NumericReply(RPL_ENDOFWHOWAS,
+		"%s :End of WHOWAS", nickname)
+}
+
 //
 // errors (also numeric)
 //
@@ -511,4 +521,9 @@ func (target *Client) ErrUnknownMode(mode ChannelMode, channel *Channel) {
 func (target *Client) ErrChannelIsFull(channel *Channel) {
 	target.NumericReply(ERR_CHANNELISFULL,
 		"%s :Cannot join channel (+l)", channel)
+}
+
+func (target *Client) ErrWasNoSuchNick(nickname string) {
+	target.NumericReply(ERR_WASNOSUCHNICK,
+		"%s :There was no such nickname", nickname)
 }
