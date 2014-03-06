@@ -44,9 +44,12 @@ func NewServer(config *Config) *Server {
 		name:      config.Server.Name,
 		newConns:  make(chan net.Conn, 16),
 		operators: config.Operators(),
-		password:  config.Server.PasswordBytes(),
 		signals:   make(chan os.Signal, 1),
 		timeout:   make(chan *Client, 16),
+	}
+
+	if config.Server.Password != "" {
+		server.password = config.Server.PasswordBytes()
 	}
 
 	server.loadChannels()
