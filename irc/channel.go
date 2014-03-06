@@ -456,9 +456,8 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 		return
 	}
 
-	// TODO Modify channel masks
 	inviter.RplInviting(invitee, channel.name)
-	invitee.Reply(RplInviteMsg(inviter, channel.name))
+	invitee.Reply(RplInviteMsg(inviter, invitee, channel.name))
 	if invitee.flags[Away] {
 		inviter.RplAway(invitee)
 	}

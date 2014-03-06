@@ -853,9 +853,8 @@ func (msg *InviteCommand) HandleServer(server *Server) {
 
 	channel := server.channels.Get(msg.channel)
 	if channel == nil {
-		name := strings.ToLower(msg.channel)
-		client.RplInviting(target, name)
-		target.Reply(RplInviteMsg(client, name))
+		client.RplInviting(target, msg.channel)
+		target.Reply(RplInviteMsg(client, target, msg.channel))
 		return
 	}
 

@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	SEM_VER       = "ergonomadic-1.2.12"
+	SEM_VER       = "ergonomadic-1.2.13"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 
