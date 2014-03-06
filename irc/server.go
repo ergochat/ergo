@@ -30,6 +30,7 @@ type Server struct {
 	password  []byte
 	signals   chan os.Signal
 	timeout   chan *Client
+	whoWas    *WhoWasList
 }
 
 func NewServer(config *Config) *Server {
@@ -46,6 +47,7 @@ func NewServer(config *Config) *Server {
 		operators: config.Operators(),
 		signals:   make(chan os.Signal, 1),
 		timeout:   make(chan *Client, 16),
+		whoWas:    NewWhoWasList(100),
 	}
 
 	if config.Server.Password != "" {
@@ -846,8 +848,14 @@ func (msg *KillCommand) HandleServer(server *Server) {
 func (msg *WhoWasCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	for _, nickname := range msg.nicknames {
-		// TODO implement nick history
-		client.ErrWasNoSuchNick(nickname)
+		results := server.whoWas.Find(nickname, msg.count)
+		if len(results) == 0 {
+			client.ErrWasNoSuchNick(nickname)
+		} else {
+			for _, whoWas := range results {
+				client.RplWhoWasUser(whoWas)
+			}
+		}
 		client.RplEndOfWhoWas(nickname)
 	}
 }

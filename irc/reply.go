@@ -394,9 +394,10 @@ func (target *Client) RplTime() {
 		"%s :%s", target.server.name, time.Now().Format(time.RFC1123))
 }
 
-func (target *Client) RplWhoWasUser(nickname, username, hostname, realname string) {
+func (target *Client) RplWhoWasUser(whoWas *WhoWas) {
 	target.NumericReply(RPL_WHOWASUSER,
-		"%s %s %s * :%s", nickname, username, hostname, realname)
+		"%s %s %s * :%s",
+		whoWas.nickname, whoWas.username, whoWas.hostname, whoWas.realname)
 }
 
 func (target *Client) RplEndOfWhoWas(nickname string) {
