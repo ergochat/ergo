@@ -13,7 +13,7 @@ type PassConfig struct {
 func (conf *PassConfig) PasswordBytes() []byte {
 	bytes, err := DecodePassword(conf.Password)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("decode password error: ", err)
 	}
 	return bytes
 }

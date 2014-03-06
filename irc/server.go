@@ -66,7 +66,7 @@ func (server *Server) loadChannels() {
         SELECT name, flags, key, topic, user_limit
           FROM channel`)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error loading channels: ", err)
 	}
 	for rows.Next() {
 		var name, flags, key, topic string

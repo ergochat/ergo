@@ -18,7 +18,7 @@ func main() {
 	if *passwd != "" {
 		encoded, err := irc.GenerateEncodedPassword(*passwd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("encoding error: ", err)
 		}
 		fmt.Println(encoded)
 		return
@@ -26,11 +26,11 @@ func main() {
 
 	config, err := irc.LoadConfig(*conf)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error loading config: ", err)
 	}
 	err = os.Chdir(filepath.Dir(*conf))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("chdir error: ", err)
 	}
 
 	if *initdb {

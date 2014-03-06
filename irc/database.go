@@ -19,14 +19,14 @@ func InitDB(path string) {
           topic TEXT NOT NULL,
           user_limit INTEGER DEFAULT 0)`)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("initdb error: ", err)
 	}
 }
 
 func OpenDB(path string) *sql.DB {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("open db error: ", err)
 	}
 	return db
 }
