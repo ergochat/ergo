@@ -2,10 +2,7 @@ package irc
 
 import (
 	"bufio"
-	"crypto/rand"
-	"crypto/tls"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -41,21 +38,21 @@ func NewServer(config *Config) *Server {
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		db:        OpenDB(config.Database()),
+		db:        OpenDB(config.Server.Database),
 		idle:      make(chan *Client, 16),
-		motdFile:  config.MOTD,
-		name:      config.Name,
+		motdFile:  config.Server.MOTD,
+		name:      config.Server.Name,
 		newConns:  make(chan net.Conn, 16),
-		operators: config.OperatorsMap(),
-		password:  config.PasswordBytes(),
+		operators: config.Operators(),
+		password:  config.Server.PasswordBytes(),
 		signals:   make(chan os.Signal, 1),
 		timeout:   make(chan *Client, 16),
 	}
 
 	server.loadChannels()
 
-	for _, listenerConf := range config.Listeners {
-		go server.listen(listenerConf)
+	for _, addr := range config.Server.Listen {
+		go server.listen(addr)
 	}
 
 	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP,
@@ -171,33 +168,18 @@ func (server *Server) InitPhase() Phase {
 	return Authorization
 }
 
-func newListener(config ListenerConfig) (net.Listener, error) {
-	if config.IsTLS() {
-		certificate, err := tls.LoadX509KeyPair(config.Certificate, config.Key)
-		if err != nil {
-			return nil, err
-		}
-		return tls.Listen("tcp", config.Address, &tls.Config{
-			Certificates:             []tls.Certificate{certificate},
-			PreferServerCipherSuites: true,
-		})
-	}
-
-	return net.Listen("tcp", config.Address)
-}
-
 //
 // listen goroutine
 //
 
-func (s *Server) listen(config ListenerConfig) {
-	listener, err := newListener(config)
+func (s *Server) listen(addr string) {
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(s, "listen error: ", err)
 	}
 
 	if DEBUG_SERVER {
-		log.Printf("%s listening on %s", s, config.Address)
+		log.Printf("%s listening on %s", s, addr)
 	}
 
 	for {
@@ -213,24 +195,6 @@ func (s *Server) listen(config ListenerConfig) {
 		}
 
 		s.newConns <- conn
-	}
-}
-
-func (s *Server) GenerateGuestNick() string {
-	bytes := make([]byte, 8)
-	for {
-		_, err := rand.Read(bytes)
-		if err != nil {
-			panic(err)
-		}
-		randInt, n := binary.Uvarint(bytes)
-		if n <= 0 {
-			continue // TODO handle error
-		}
-		nick := fmt.Sprintf("guest%d", randInt)
-		if s.clients.Get(nick) == nil {
-			return nick
-		}
 	}
 }
 

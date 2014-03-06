@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/jlatt/ergonomadic/irc"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -26,18 +28,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = os.Chdir(filepath.Dir(*conf))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if *initdb {
-		irc.InitDB(config.Database())
-		log.Println("database initialized: " + config.Database())
+		irc.InitDB(config.Server.Database)
+		log.Println("database initialized: " + config.Server.Database)
 		return
 	}
 
 	// TODO move to data structures
-	irc.DEBUG_NET = config.Debug["net"]
-	irc.DEBUG_CLIENT = config.Debug["client"]
-	irc.DEBUG_CHANNEL = config.Debug["channel"]
-	irc.DEBUG_SERVER = config.Debug["server"]
+	irc.DEBUG_NET = config.Debug.Net
+	irc.DEBUG_CLIENT = config.Debug.Client
+	irc.DEBUG_CHANNEL = config.Debug.Channel
+	irc.DEBUG_SERVER = config.Debug.Server
 
 	irc.NewServer(config).Run()
 }
