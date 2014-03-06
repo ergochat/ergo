@@ -3,6 +3,7 @@ package irc
 import (
 	"bufio"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -18,7 +19,7 @@ import (
 
 type Server struct {
 	channels  ChannelNameMap
-	clients   ClientNameMap
+	clients   *ClientLookupSet
 	commands  chan Command
 	ctime     time.Time
 	db        *sql.DB
@@ -35,7 +36,7 @@ type Server struct {
 func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
-		clients:   make(ClientNameMap),
+		clients:   NewClientLookupSet(),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
 		db:        OpenDB(config.Server.Database),
@@ -136,7 +137,7 @@ func (server *Server) processCommand(cmd Command) {
 
 func (server *Server) Shutdown() {
 	server.db.Close()
-	for _, client := range server.clients {
+	for _, client := range server.clients.byNick {
 		client.Reply(RplNotice(server, client, "shutting down"))
 	}
 }
@@ -556,19 +557,14 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 	// TODO implement target query
 
 	for _, mask := range m.masks {
-		// TODO implement wildcard matching
-		mclient := server.clients.Get(mask)
-		if mclient == nil {
+		matches := server.clients.FindAll(mask)
+		if len(matches) == 0 {
 			client.ErrNoSuchNick(mask)
 			continue
 		}
-		client.RplWhoisUser(mclient)
-		if mclient.flags[Operator] {
-			client.RplWhoisOperator(mclient)
+		for mclient := range matches {
+			client.RplWhois(mclient)
 		}
-		client.RplWhoisIdle(mclient)
-		client.RplWhoisChannels(mclient)
-		client.RplEndOfWhois()
 	}
 }
 
@@ -583,9 +579,9 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	channel.Mode(client, msg.changes)
 }
 
-func whoChannel(client *Client, channel *Channel) {
+func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 	for member := range channel.members {
-		if !client.flags[Invisible] {
+		if !client.flags[Invisible] || friends[client] {
 			client.RplWhoReply(channel, member)
 		}
 	}
@@ -593,27 +589,21 @@ func whoChannel(client *Client, channel *Channel) {
 
 func (msg *WhoCommand) HandleServer(server *Server) {
 	client := msg.Client()
+	friends := client.Friends()
+	mask := msg.mask
 
-	// TODO implement wildcard matching
-	mask := string(msg.mask)
 	if mask == "" {
 		for _, channel := range server.channels {
-			for member := range channel.members {
-				if !client.flags[Invisible] {
-					client.RplWhoReply(channel, member)
-				}
-			}
+			whoChannel(client, channel, friends)
 		}
 	} else if IsChannel(mask) {
+		// TODO implement wildcard matching
 		channel := server.channels.Get(mask)
 		if channel != nil {
-			for member := range channel.members {
-				client.RplWhoReply(channel, member)
-			}
+			whoChannel(client, channel, friends)
 		}
 	} else {
-		mclient := server.clients.Get(mask)
-		if mclient != nil {
+		for mclient := range server.clients.FindAll(mask) {
 			client.RplWhoReply(nil, mclient)
 		}
 	}
@@ -852,4 +842,164 @@ func (msg *KillCommand) HandleServer(server *Server) {
 
 	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), msg.comment)
 	target.Quit(quitMsg)
+}
+
+//
+// keeping track of clients
+//
+
+type ClientLookupSet struct {
+	byNick map[string]*Client
+	db     *ClientDB
+}
+
+func NewClientLookupSet() *ClientLookupSet {
+	return &ClientLookupSet{
+		byNick: make(map[string]*Client),
+		db:     NewClientDB(),
+	}
+}
+
+var (
+	ErrNickMissing      = errors.New("nick missing")
+	ErrNicknameInUse    = errors.New("nickname in use")
+	ErrNicknameMismatch = errors.New("nickname mismatch")
+)
+
+func (clients *ClientLookupSet) Get(nick string) *Client {
+	return clients.byNick[strings.ToLower(nick)]
+}
+
+func (clients *ClientLookupSet) Add(client *Client) error {
+	if !client.HasNick() {
+		return ErrNickMissing
+	}
+	if clients.Get(client.nick) != nil {
+		return ErrNicknameInUse
+	}
+	clients.byNick[strings.ToLower(client.nick)] = client
+	clients.db.Add(client)
+	return nil
+}
+
+func (clients *ClientLookupSet) Remove(client *Client) error {
+	if !client.HasNick() {
+		return ErrNickMissing
+	}
+	if clients.Get(client.nick) != client {
+		return ErrNicknameMismatch
+	}
+	delete(clients.byNick, strings.ToLower(client.nick))
+	clients.db.Remove(client)
+	return nil
+}
+
+func ExpandUserHost(userhost string) (expanded string) {
+	expanded = userhost
+	// fill in missing wildcards for nicks
+	if !strings.Contains(expanded, "!") {
+		expanded += "!*"
+	}
+	if !strings.Contains(expanded, "@") {
+		expanded += "@*"
+	}
+	return
+}
+
+func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
+	userhost = ExpandUserHost(userhost)
+	set = make(ClientSet)
+	rows, err := clients.db.db.Query(
+		`SELECT nickname FROM client
+           WHERE userhost LIKE ? ESCAPE '\'`,
+		QuoteLike(userhost))
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var nickname string
+		err := rows.Scan(&nickname)
+		if err != nil {
+			return
+		}
+		client := clients.Get(nickname)
+		if client != nil {
+			set.Add(client)
+		}
+	}
+	return
+}
+
+func (clients *ClientLookupSet) Find(userhost string) *Client {
+	userhost = ExpandUserHost(userhost)
+	row := clients.db.db.QueryRow(
+		`SELECT nickname FROM client
+           WHERE userhost LIKE ? ESCAPE \
+           LIMIT 1`,
+		QuoteLike(userhost))
+	var nickname string
+	err := row.Scan(&nickname)
+	if err != nil {
+		log.Println("ClientLookupSet.Find: ", err)
+		return nil
+	}
+	return clients.Get(nickname)
+}
+
+//
+// client db
+//
+
+type ClientDB struct {
+	db *sql.DB
+}
+
+func NewClientDB() *ClientDB {
+	db := &ClientDB{
+		db: OpenDB(":memory:"),
+	}
+	_, err := db.db.Exec(`
+        CREATE TABLE client (
+          nickname TEXT NOT NULL UNIQUE,
+          userhost TEXT NOT NULL)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.db.Exec(`
+        CREATE UNIQUE INDEX nickname_index ON client (nickname)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
+
+func (db *ClientDB) Add(client *Client) {
+	_, err := db.db.Exec(`INSERT INTO client (nickname, userhost) VALUES (?, ?)`,
+		client.Nick(), client.UserHost())
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (db *ClientDB) Remove(client *Client) {
+	_, err := db.db.Exec(`DELETE FROM client WHERE nickname = ?`,
+		client.Nick())
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func QuoteLike(userhost string) (like string) {
+	like = userhost
+	// escape escape char
+	like = strings.Replace(like, `\`, `\\`, -1)
+	// escape meta-many
+	like = strings.Replace(like, `%`, `\%`, -1)
+	// escape meta-one
+	like = strings.Replace(like, `_`, `\_`, -1)
+	// swap meta-many
+	like = strings.Replace(like, `*`, `%`, -1)
+	// swap meta-one
+	like = strings.Replace(like, `?`, `_`, -1)
+	return
 }

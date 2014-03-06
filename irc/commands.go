@@ -656,7 +656,7 @@ func (msg *WhoisCommand) String() string {
 
 type WhoCommand struct {
 	BaseCommand
-	mask         Mask
+	mask         string
 	operatorOnly bool
 }
 
@@ -665,7 +665,7 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
-		cmd.mask = Mask(args[0])
+		cmd.mask = args[0]
 	}
 
 	if (len(args) > 1) && (args[1] == "o") {

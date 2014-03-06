@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -10,8 +9,7 @@ import (
 // simple types
 //
 
-// a string with wildcards
-type Mask string
+type UserMaskSet map[string]bool
 
 // add, remove, list modes
 type ModeOp rune
@@ -71,40 +69,6 @@ func (channels ChannelNameMap) Remove(channel *Channel) error {
 		return fmt.Errorf("%s: mismatch", channel.name)
 	}
 	delete(channels, channel.name)
-	return nil
-}
-
-type ClientNameMap map[string]*Client
-
-var (
-	ErrNickMissing      = errors.New("nick missing")
-	ErrNicknameInUse    = errors.New("nickname in use")
-	ErrNicknameMismatch = errors.New("nickname mismatch")
-)
-
-func (clients ClientNameMap) Get(nick string) *Client {
-	return clients[strings.ToLower(nick)]
-}
-
-func (clients ClientNameMap) Add(client *Client) error {
-	if !client.HasNick() {
-		return ErrNickMissing
-	}
-	if clients.Get(client.nick) != nil {
-		return ErrNicknameInUse
-	}
-	clients[strings.ToLower(client.nick)] = client
-	return nil
-}
-
-func (clients ClientNameMap) Remove(client *Client) error {
-	if !client.HasNick() {
-		return ErrNickMissing
-	}
-	if clients.Get(client.nick) != client {
-		return ErrNicknameMismatch
-	}
-	delete(clients, strings.ToLower(client.nick))
 	return nil
 }
 
@@ -208,18 +172,4 @@ type AuthServerCommand interface {
 type RegServerCommand interface {
 	Command
 	HandleRegServer(*Server)
-}
-
-//
-// structs
-//
-
-type UserMask struct {
-	nickname Mask
-	username Mask
-	hostname Mask
-}
-
-func (mask *UserMask) String() string {
-	return fmt.Sprintf("%s!%s@%s", mask.nickname, mask.username, mask.hostname)
 }

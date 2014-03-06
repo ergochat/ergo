@@ -196,6 +196,16 @@ func (target *Client) RplYoureOper() {
 		":You are now an IRC operator")
 }
 
+func (target *Client) RplWhois(client *Client) {
+	target.RplWhoisUser(client)
+	if client.flags[Operator] {
+		target.RplWhoisOperator(client)
+	}
+	target.RplWhoisIdle(client)
+	target.RplWhoisChannels(client)
+	target.RplEndOfWhois()
+}
+
 func (target *Client) RplWhoisUser(client *Client) {
 	target.NumericReply(RPL_WHOISUSER,
 		"%s %s %s * :%s", client.Nick(), client.username, client.hostname,
@@ -258,7 +268,7 @@ func (target *Client) RplEndOfWho(name string) {
 		"%s :End of WHO list", name)
 }
 
-func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask UserMask) {
+func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask string) {
 	switch mode {
 	case BanMask:
 		target.RplBanList(channel, mask)
@@ -284,7 +294,7 @@ func (target *Client) RplEndOfMaskList(mode ChannelMode, channel *Channel) {
 	}
 }
 
-func (target *Client) RplBanList(channel *Channel, mask UserMask) {
+func (target *Client) RplBanList(channel *Channel, mask string) {
 	target.NumericReply(RPL_BANLIST,
 		"%s %s", channel, mask)
 }
@@ -294,7 +304,7 @@ func (target *Client) RplEndOfBanList(channel *Channel) {
 		"%s :End of channel ban list", channel)
 }
 
-func (target *Client) RplExceptList(channel *Channel, mask UserMask) {
+func (target *Client) RplExceptList(channel *Channel, mask string) {
 	target.NumericReply(RPL_EXCEPTLIST,
 		"%s %s", channel, mask)
 }
@@ -304,7 +314,7 @@ func (target *Client) RplEndOfExceptList(channel *Channel) {
 		"%s :End of channel exception list", channel)
 }
 
-func (target *Client) RplInviteList(channel *Channel, mask UserMask) {
+func (target *Client) RplInviteList(channel *Channel, mask string) {
 	target.NumericReply(RPL_INVITELIST,
 		"%s %s", channel, mask)
 }

@@ -8,7 +8,7 @@ import (
 
 type Channel struct {
 	flags     ChannelModeSet
-	lists     map[ChannelMode][]UserMask
+	lists     map[ChannelMode]UserMaskSet
 	key       string
 	members   MemberSet
 	name      string
@@ -26,10 +26,10 @@ func IsChannel(target string) bool {
 func NewChannel(s *Server, name string) *Channel {
 	channel := &Channel{
 		flags: make(ChannelModeSet),
-		lists: map[ChannelMode][]UserMask{
-			BanMask:    []UserMask{},
-			ExceptMask: []UserMask{},
-			InviteMask: []UserMask{},
+		lists: map[ChannelMode]UserMaskSet{
+			BanMask:    make(UserMaskSet),
+			ExceptMask: make(UserMaskSet),
+			InviteMask: make(UserMaskSet),
 		},
 		members: make(MemberSet),
 		name:    strings.ToLower(name),
@@ -307,7 +307,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 	case BanMask, ExceptMask, InviteMask:
 		// TODO add/remove
 
-		for _, mask := range channel.lists[change.mode] {
+		for mask := range channel.lists[change.mode] {
 			client.RplMaskList(change.mode, channel, mask)
 		}
 		client.RplEndOfMaskList(change.mode, channel)
