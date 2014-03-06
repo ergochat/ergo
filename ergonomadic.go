@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	conf := flag.String("conf", "ergonomadic.json", "ergonomadic config file")
+	conf := flag.String("conf", "ergonomadic.conf", "ergonomadic config file")
 	initdb := flag.Bool("initdb", false, "initialize database")
 	passwd := flag.String("genpasswd", "", "bcrypt a password")
 	flag.Parse()
