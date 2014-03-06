@@ -128,8 +128,8 @@ func RplError(message string) string {
 	return NewStringReply(nil, ERROR, ":%s", message)
 }
 
-func RplInviteMsg(inviter *Client, channel string) string {
-	return NewStringReply(inviter, INVITE, channel)
+func RplInviteMsg(inviter *Client, invitee *Client, channel string) string {
+	return NewStringReply(inviter, INVITE, "%s :%s", invitee.Nick(), channel)
 }
 
 func RplKick(channel *Channel, client *Client, target *Client, comment string) string {

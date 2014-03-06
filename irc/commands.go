@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"code.google.com/p/go.crypto/bcrypt"
 	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
@@ -214,7 +213,7 @@ func (cmd *PassCommand) CheckPassword() {
 	if cmd.hash == nil {
 		return
 	}
-	cmd.err = bcrypt.CompareHashAndPassword(cmd.hash, cmd.password)
+	cmd.err = ComparePassword(cmd.hash, cmd.password)
 }
 
 func NewPassCommand(args []string) (editableCommand, error) {

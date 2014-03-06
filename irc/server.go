@@ -2,12 +2,8 @@ package irc
 
 import (
 	"bufio"
-	"crypto/rand"
-	"crypto/tls"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net"
 	"os"
@@ -16,6 +12,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -35,33 +32,29 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	db, err := sql.Open("sqlite3", config.Database())
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   make(ClientNameMap),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
-		db:        db,
+		db:        OpenDB(config.Server.Database),
 		idle:      make(chan *Client, 16),
-		motdFile:  config.MOTD,
-		name:      config.Name,
+		motdFile:  config.Server.MOTD,
+		name:      config.Server.Name,
 		newConns:  make(chan net.Conn, 16),
-		operators: config.OperatorsMap(),
-		password:  config.PasswordBytes(),
+		operators: config.Operators(),
+		password:  config.Server.PasswordBytes(),
 		signals:   make(chan os.Signal, 1),
 	}
 
-	signal.Notify(server.signals, os.Interrupt, os.Kill)
-
 	server.loadChannels()
 
-	for _, listenerConf := range config.Listeners {
-		go server.listen(listenerConf)
+	for _, addr := range config.Server.Listen {
+		go server.listen(addr)
 	}
+
+	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGTERM, syscall.SIGQUIT)
 
 	return server
 }
@@ -71,7 +64,7 @@ func (server *Server) loadChannels() {
         SELECT name, flags, key, topic, user_limit
           FROM channel`)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error loading channels: ", err)
 	}
 	for rows.Next() {
 		var name, flags, key, topic string
@@ -128,14 +121,20 @@ func (server *Server) processCommand(cmd Command) {
 	}
 }
 
+func (server *Server) Shutdown() {
+	server.db.Close()
+	for _, client := range server.clients {
+		client.Reply(RplNotice(server, client, "shutting down"))
+	}
+}
+
 func (server *Server) Run() {
 	done := false
 	for !done {
 		select {
 		case <-server.signals:
-			server.db.Close()
+			server.Shutdown()
 			done = true
-			continue
 
 		case conn := <-server.newConns:
 			NewClient(server, conn)
@@ -149,33 +148,18 @@ func (server *Server) Run() {
 	}
 }
 
-func newListener(config ListenerConfig) (net.Listener, error) {
-	if config.IsTLS() {
-		certificate, err := tls.LoadX509KeyPair(config.Certificate, config.Key)
-		if err != nil {
-			return nil, err
-		}
-		return tls.Listen("tcp", config.Address, &tls.Config{
-			Certificates:             []tls.Certificate{certificate},
-			PreferServerCipherSuites: true,
-		})
-	}
-
-	return net.Listen("tcp", config.Address)
-}
-
 //
 // listen goroutine
 //
 
-func (s *Server) listen(config ListenerConfig) {
-	listener, err := newListener(config)
+func (s *Server) listen(addr string) {
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(s, "listen error: ", err)
 	}
 
 	if DEBUG_SERVER {
-		log.Printf("%s listening on %s", s, config.Address)
+		log.Printf("%s listening on %s", s, addr)
 	}
 
 	for {
@@ -191,24 +175,6 @@ func (s *Server) listen(config ListenerConfig) {
 		}
 
 		s.newConns <- conn
-	}
-}
-
-func (s *Server) GenerateGuestNick() string {
-	bytes := make([]byte, 8)
-	for {
-		_, err := rand.Read(bytes)
-		if err != nil {
-			panic(err)
-		}
-		randInt, n := binary.Uvarint(bytes)
-		if n <= 0 {
-			continue // TODO handle error
-		}
-		nick := fmt.Sprintf("guest%d", randInt)
-		if s.clients.Get(nick) == nil {
-			return nick
-		}
 	}
 }
 
@@ -880,9 +846,8 @@ func (msg *InviteCommand) HandleServer(server *Server) {
 
 	channel := server.channels.Get(msg.channel)
 	if channel == nil {
-		name := strings.ToLower(msg.channel)
-		client.RplInviting(target, name)
-		target.Reply(RplInviteMsg(client, name))
+		client.RplInviting(target, msg.channel)
+		target.Reply(RplInviteMsg(client, target, msg.channel))
 		return
 	}
 
