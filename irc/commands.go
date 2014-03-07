@@ -706,20 +706,34 @@ func NewOperCommand(args []string) (editableCommand, error) {
 	return cmd, nil
 }
 
-// TODO
 type CapCommand struct {
 	BaseCommand
-	args []string
+	subCommand   CapSubCommand
+	capabilities CapabilitySet
 }
 
 func (msg *CapCommand) String() string {
-	return fmt.Sprintf("CAP(args=%s)", msg.args)
+	return fmt.Sprintf("CAP(subCommand=%s, capabilities=%s)",
+		msg.subCommand, msg.capabilities)
 }
 
 func NewCapCommand(args []string) (editableCommand, error) {
-	return &CapCommand{
-		args: args,
-	}, nil
+	if len(args) < 1 {
+		return nil, NotEnoughArgsError
+	}
+
+	cmd := &CapCommand{
+		subCommand:   CapSubCommand(strings.ToUpper(args[0])),
+		capabilities: make(CapabilitySet),
+	}
+
+	if len(args) > 1 {
+		strs := spacesExpr.Split(args[1], -1)
+		for _, str := range strs {
+			cmd.capabilities[Capability(str)] = true
+		}
+	}
+	return cmd, nil
 }
 
 // HAPROXY support

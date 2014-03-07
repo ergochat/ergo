@@ -12,36 +12,41 @@ func IsNickname(nick string) bool {
 }
 
 type Client struct {
-	atime       time.Time
-	awayMessage string
-	channels    ChannelSet
-	commands    chan editableCommand
-	ctime       time.Time
-	flags       map[UserMode]bool
-	hasQuit     bool
-	hops        uint
-	hostname    string
-	idleTimer   *time.Timer
-	loginTimer  *time.Timer
-	nick        string
-	phase       Phase
-	quitTimer   *time.Timer
-	realname    string
-	server      *Server
-	socket      *Socket
-	username    string
+	atime        time.Time
+	authorized   bool
+	awayMessage  string
+	capabilities CapabilitySet
+	capState     CapState
+	channels     ChannelSet
+	commands     chan editableCommand
+	ctime        time.Time
+	flags        map[UserMode]bool
+	hasQuit      bool
+	hops         uint
+	hostname     string
+	idleTimer    *time.Timer
+	loginTimer   *time.Timer
+	nick         string
+	phase        Phase
+	quitTimer    *time.Timer
+	realname     string
+	server       *Server
+	socket       *Socket
+	username     string
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
 	client := &Client{
-		atime:    now,
-		channels: make(ChannelSet),
-		commands: make(chan editableCommand),
-		ctime:    now,
-		flags:    make(map[UserMode]bool),
-		phase:    server.InitPhase(),
-		server:   server,
+		atime:        now,
+		capState:     CapNone,
+		capabilities: make(CapabilitySet),
+		channels:     make(ChannelSet),
+		commands:     make(chan editableCommand),
+		ctime:        now,
+		flags:        make(map[UserMode]bool),
+		phase:        Registration,
+		server:       server,
 	}
 	client.socket = NewSocket(conn, client.commands)
 	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
@@ -68,20 +73,18 @@ func (client *Client) run() {
 	}
 }
 
+func (client *Client) connectionTimeout() {
+	client.commands <- &QuitCommand{
+		message: "connection timeout",
+	}
+}
+
 //
 // idle timer goroutine
 //
 
 func (client *Client) connectionIdle() {
 	client.server.idle <- client
-}
-
-//
-// quit timer goroutine
-//
-
-func (client *Client) connectionTimeout() {
-	client.server.timeout <- client
 }
 
 //
@@ -233,7 +236,10 @@ func (client *Client) ChangeNickname(nickname string) {
 	}
 }
 
-func (client *Client) Reply(reply string) {
+func (client *Client) Reply(reply string, args ...interface{}) {
+	if len(args) > 0 {
+		reply = fmt.Sprintf(reply, args...)
+	}
 	client.socket.Write(reply)
 }
 

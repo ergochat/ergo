@@ -11,6 +11,30 @@ import (
 
 type UserMaskSet map[string]bool
 
+type CapSubCommand string
+
+type Capability string
+
+type CapModifier rune
+
+func (mod CapModifier) String() string {
+	return string(mod)
+}
+
+type CapState uint
+
+type CapabilitySet map[Capability]bool
+
+func (set CapabilitySet) String() string {
+	strs := make([]string, len(set))
+	index := 0
+	for capability := range set {
+		strs[index] = string(capability)
+		index += 1
+	}
+	return strings.Join(strs, " ")
+}
+
 // add, remove, list modes
 type ModeOp rune
 
@@ -22,7 +46,7 @@ func (op ModeOp) String() string {
 type UserMode rune
 
 func (mode UserMode) String() string {
-	return fmt.Sprintf("%c", mode)
+	return string(mode)
 }
 
 type Phase uint
@@ -47,7 +71,7 @@ func (code NumericCode) String() string {
 type ChannelMode rune
 
 func (mode ChannelMode) String() string {
-	return fmt.Sprintf("%c", mode)
+	return string(mode)
 }
 
 type ChannelNameMap map[string]*Channel

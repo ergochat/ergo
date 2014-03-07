@@ -156,6 +156,7 @@ const (
 	ERR_TOOMANYTARGETS    NumericCode = 407
 	ERR_NOSUCHSERVICE     NumericCode = 408
 	ERR_NOORIGIN          NumericCode = 409
+	ERR_INVALIDCAPCMD     NumericCode = 410
 	ERR_NORECIPIENT       NumericCode = 411
 	ERR_NOTEXTTOSEND      NumericCode = 412
 	ERR_NOTOPLEVEL        NumericCode = 413
@@ -201,6 +202,14 @@ const (
 	ERR_UMODEUNKNOWNFLAG  NumericCode = 501
 	ERR_USERSDONTMATCH    NumericCode = 502
 
+	CAP_LS    CapSubCommand = "LS"
+	CAP_LIST  CapSubCommand = "LIST"
+	CAP_REQ   CapSubCommand = "REQ"
+	CAP_ACK   CapSubCommand = "ACK"
+	CAP_NAK   CapSubCommand = "NAK"
+	CAP_CLEAR CapSubCommand = "CLEAR"
+	CAP_END   CapSubCommand = "END"
+
 	Add    ModeOp = '+'
 	List   ModeOp = '='
 	Remove ModeOp = '-'
@@ -231,10 +240,28 @@ const (
 	Secret          ChannelMode = 's' // flag, deprecated
 	UserLimit       ChannelMode = 'l' // flag arg
 	Voice           ChannelMode = 'v' // arg
+
+	MultiPrefix Capability = "multi-prefix"
+	SASL        Capability = "sasl"
+
+	Disable CapModifier = '-'
+	Ack     CapModifier = '~'
+	Sticky  CapModifier = '='
+)
+
+var (
+	SupportedCapabilities = CapabilitySet{
+		MultiPrefix: true,
+	}
 )
 
 const (
-	Authorization Phase = iota
-	Registration  Phase = iota
-	Normal        Phase = iota
+	Registration Phase = iota
+	Normal       Phase = iota
+)
+
+const (
+	CapNone        CapState = iota
+	CapNegotiating CapState = iota
+	CapNegotiated  CapState = iota
 )
