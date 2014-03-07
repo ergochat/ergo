@@ -329,7 +329,7 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 }
 
 func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
-	msg.HandleRegServer2(server)
+	msg.setUserInfo(server)
 }
 
 func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
@@ -341,10 +341,10 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 		}
 		client.RplUModeIs(client)
 	}
-	msg.HandleRegServer2(server)
+	msg.setUserInfo(server)
 }
 
-func (msg *UserCommand) HandleRegServer2(server *Server) {
+func (msg *UserCommand) setUserInfo(server *Server) {
 	client := msg.Client()
 	server.clients.Remove(client)
 	client.username, client.realname = msg.username, msg.realname
@@ -497,7 +497,7 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		return
 	}
 
-	changes := make(ModeChanges, 0)
+	changes := make(ModeChanges, 0, len(m.changes))
 
 	for _, change := range m.changes {
 		switch change.mode {
