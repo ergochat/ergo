@@ -54,18 +54,26 @@ func (channel *Channel) ClientIsOperator(client *Client) bool {
 	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator)
 }
 
-func (channel *Channel) Nicks() []string {
+func (channel *Channel) Nicks(target *Client) []string {
+	isMultiPrefix := (target != nil) && target.capabilities[MultiPrefix]
 	nicks := make([]string, len(channel.members))
 	i := 0
 	for client, modes := range channel.members {
-		switch {
-		case modes[ChannelOperator]:
-			nicks[i] = "@" + client.Nick()
-		case modes[Voice]:
-			nicks[i] = "+" + client.Nick()
-		default:
-			nicks[i] = client.Nick()
+		if isMultiPrefix {
+			if modes[ChannelOperator] {
+				nicks[i] += "@"
+			}
+			if modes[Voice] {
+				nicks[i] += "+"
+			}
+		} else {
+			if modes[ChannelOperator] {
+				nicks[i] += "@"
+			} else if modes[Voice] {
+				nicks[i] += "+"
+			}
 		}
+		nicks[i] += client.Nick()
 		i += 1
 	}
 	return nicks

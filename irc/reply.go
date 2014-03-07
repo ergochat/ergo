@@ -240,11 +240,19 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 
 	if channel != nil {
 		channelName = channel.name
-
-		if channel.members[client][ChannelOperator] {
-			flags += "@"
-		} else if channel.members[client][Voice] {
-			flags += "+"
+		if target.capabilities[MultiPrefix] {
+			if channel.members[client][ChannelOperator] {
+				flags += "@"
+			}
+			if channel.members[client][Voice] {
+				flags += "+"
+			}
+		} else {
+			if channel.members[client][ChannelOperator] {
+				flags += "@"
+			} else if channel.members[client][Voice] {
+				flags += "+"
+			}
 		}
 	}
 	target.NumericReply(RPL_WHOREPLY,
@@ -360,7 +368,7 @@ func (target *Client) RplListEnd(server *Server) {
 }
 
 func (target *Client) RplNamReply(channel *Channel) {
-	target.MultilineReply(channel.Nicks(), RPL_NAMREPLY,
+	target.MultilineReply(channel.Nicks(target), RPL_NAMREPLY,
 		"= %s :%s", channel)
 }
 
@@ -501,4 +509,9 @@ func (target *Client) ErrUnknownMode(mode ChannelMode, channel *Channel) {
 func (target *Client) ErrChannelIsFull(channel *Channel) {
 	target.NumericReply(ERR_CHANNELISFULL,
 		"%s :Cannot join channel (+l)", channel)
+}
+
+func (target *Client) ErrInvalidCapCmd(subCommand CapSubCommand) {
+	target.NumericReply(ERR_INVALIDCAPCMD,
+		"%s :Invalid CAP subcommand", subCommand)
 }
