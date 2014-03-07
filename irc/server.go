@@ -346,7 +346,9 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 
 func (msg *UserCommand) HandleRegServer2(server *Server) {
 	client := msg.Client()
+	server.clients.Remove(client)
 	client.username, client.realname = msg.username, msg.realname
+	server.clients.Add(client)
 	server.tryRegister(client)
 }
 

@@ -4,8 +4,43 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"regexp"
 	"strings"
 )
+
+var (
+	ErrNickMissing      = errors.New("nick missing")
+	ErrNicknameInUse    = errors.New("nickname in use")
+	ErrNicknameMismatch = errors.New("nickname mismatch")
+	wildMaskExpr        = regexp.MustCompile(`\*|\?`)
+	likeQuoter          = strings.NewReplacer(
+		`\`, `\\`,
+		`%`, `\%`,
+		`_`, `\_`,
+		`*`, `%`,
+		`?`, `_`)
+)
+
+func HasWildcards(mask string) bool {
+	return wildMaskExpr.MatchString(mask)
+}
+
+func ExpandUserHost(userhost string) (expanded string) {
+	expanded = userhost
+	// fill in missing wildcards for nicks
+	if !strings.Contains(expanded, "!") {
+		expanded += "!*"
+	}
+	if !strings.Contains(expanded, "@") {
+		expanded += "@*"
+	}
+	return
+}
+
+func QuoteLike(userhost string) (like string) {
+	like = likeQuoter.Replace(userhost)
+	return
+}
 
 type ClientLookupSet struct {
 	byNick map[string]*Client
@@ -18,12 +53,6 @@ func NewClientLookupSet() *ClientLookupSet {
 		db:     NewClientDB(),
 	}
 }
-
-var (
-	ErrNickMissing      = errors.New("nick missing")
-	ErrNicknameInUse    = errors.New("nickname in use")
-	ErrNicknameMismatch = errors.New("nickname mismatch")
-)
 
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	return clients.byNick[strings.ToLower(nick)]
@@ -53,38 +82,35 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	return nil
 }
 
-func ExpandUserHost(userhost string) (expanded string) {
-	expanded = userhost
-	// fill in missing wildcards for nicks
-	if !strings.Contains(expanded, "!") {
-		expanded += "!*"
-	}
-	if !strings.Contains(expanded, "@") {
-		expanded += "@*"
-	}
-	return
-}
-
 func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	userhost = ExpandUserHost(userhost)
 	set = make(ClientSet)
 	rows, err := clients.db.db.Query(
-		`SELECT nickname FROM client
-           WHERE userhost LIKE ? ESCAPE '\'`,
+		`SELECT nickname FROM client WHERE userhost LIKE ? ESCAPE '\'`,
 		QuoteLike(userhost))
 	if err != nil {
+		if DEBUG_SERVER {
+			log.Println("ClientLookupSet.FindAll.Query:", err)
+		}
 		return
 	}
 	for rows.Next() {
 		var nickname string
 		err := rows.Scan(&nickname)
 		if err != nil {
+			if DEBUG_SERVER {
+				log.Println("ClientLookupSet.FindAll.Scan:", err)
+			}
 			return
 		}
 		client := clients.Get(nickname)
-		if client != nil {
-			set.Add(client)
+		if client == nil {
+			if DEBUG_SERVER {
+				log.Println("ClientLookupSet.FindAll: missing client:", nickname)
+			}
+			continue
 		}
+		set.Add(client)
 	}
 	return
 }
@@ -92,14 +118,14 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 func (clients *ClientLookupSet) Find(userhost string) *Client {
 	userhost = ExpandUserHost(userhost)
 	row := clients.db.db.QueryRow(
-		`SELECT nickname FROM client
-           WHERE userhost LIKE ? ESCAPE \
-           LIMIT 1`,
+		`SELECT nickname FROM client WHERE userhost LIKE ? ESCAPE '\' LIMIT 1`,
 		QuoteLike(userhost))
 	var nickname string
 	err := row.Scan(&nickname)
 	if err != nil {
-		log.Println("ClientLookupSet.Find: ", err)
+		if DEBUG_SERVER {
+			log.Println("ClientLookupSet.Find:", err)
+		}
 		return nil
 	}
 	return clients.Get(nickname)
@@ -117,17 +143,19 @@ func NewClientDB() *ClientDB {
 	db := &ClientDB{
 		db: OpenDB(":memory:"),
 	}
-	_, err := db.db.Exec(`
-        CREATE TABLE client (
-          nickname TEXT NOT NULL UNIQUE,
-          userhost TEXT NOT NULL)`)
-	if err != nil {
-		log.Fatal(err)
+	stmts := []string{
+		`CREATE TABLE client (
+          nickname TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          userhost TEXT NOT NULL COLLATE NOCASE,
+          UNIQUE (nickname, userhost) ON CONFLICT REPLACE)`,
+		`CREATE UNIQUE INDEX idx_nick ON client (nickname COLLATE NOCASE)`,
+		`CREATE UNIQUE INDEX idx_uh ON client (userhost COLLATE NOCASE)`,
 	}
-	_, err = db.db.Exec(`
-        CREATE UNIQUE INDEX nickname_index ON client (nickname)`)
-	if err != nil {
-		log.Fatal(err)
+	for _, stmt := range stmts {
+		_, err := db.db.Exec(stmt)
+		if err != nil {
+			log.Fatal("NewClientDB: ", stmt, err)
+		}
 	}
 	return db
 }
@@ -136,7 +164,9 @@ func (db *ClientDB) Add(client *Client) {
 	_, err := db.db.Exec(`INSERT INTO client (nickname, userhost) VALUES (?, ?)`,
 		client.Nick(), client.UserHost())
 	if err != nil {
-		log.Println(err)
+		if DEBUG_SERVER {
+			log.Println("ClientDB.Add:", err)
+		}
 	}
 }
 
@@ -144,21 +174,8 @@ func (db *ClientDB) Remove(client *Client) {
 	_, err := db.db.Exec(`DELETE FROM client WHERE nickname = ?`,
 		client.Nick())
 	if err != nil {
-		log.Println(err)
+		if DEBUG_SERVER {
+			log.Println("ClientDB.Remove:", err)
+		}
 	}
-}
-
-func QuoteLike(userhost string) (like string) {
-	like = userhost
-	// escape escape char
-	like = strings.Replace(like, `\`, `\\`, -1)
-	// escape meta-many
-	like = strings.Replace(like, `%`, `\%`, -1)
-	// escape meta-one
-	like = strings.Replace(like, `_`, `\_`, -1)
-	// swap meta-many
-	like = strings.Replace(like, `*`, `%`, -1)
-	// swap meta-one
-	like = strings.Replace(like, `?`, `_`, -1)
-	return
 }
