@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+var (
+	SERVER_SIGNALS = []os.Signal{syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGTERM, syscall.SIGQUIT}
+)
+
 type Server struct {
 	channels  ChannelNameMap
 	clients   *ClientLookupSet
@@ -36,15 +41,15 @@ func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   NewClientLookupSet(),
-		commands:  make(chan Command, 16),
+		commands:  make(chan Command),
 		ctime:     time.Now(),
 		db:        OpenDB(config.Server.Database),
-		idle:      make(chan *Client, 16),
+		idle:      make(chan *Client),
 		motdFile:  config.Server.MOTD,
 		name:      config.Server.Name,
-		newConns:  make(chan net.Conn, 16),
+		newConns:  make(chan net.Conn),
 		operators: config.Operators(),
-		signals:   make(chan os.Signal, 1),
+		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
 		whoWas:    NewWhoWasList(100),
 	}
 
@@ -58,8 +63,7 @@ func NewServer(config *Config) *Server {
 		go server.listen(addr)
 	}
 
-	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP,
-		syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(server.signals, SERVER_SIGNALS...)
 
 	return server
 }
