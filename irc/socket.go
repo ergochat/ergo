@@ -20,7 +20,7 @@ type Socket struct {
 	writer *bufio.Writer
 }
 
-func NewSocket(conn net.Conn, commands chan<- editableCommand) *Socket {
+func NewSocket(conn net.Conn, commands chan<- Command) *Socket {
 	socket := &Socket{
 		conn:   conn,
 		reader: bufio.NewReader(conn),
@@ -43,7 +43,7 @@ func (socket *Socket) Close() {
 	}
 }
 
-func (socket *Socket) readLines(commands chan<- editableCommand) {
+func (socket *Socket) readLines(commands chan<- Command) {
 	commands <- &ProxyCommand{
 		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
 	}

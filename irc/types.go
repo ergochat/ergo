@@ -193,6 +193,8 @@ type Replier interface {
 type Command interface {
 	Code() StringCode
 	Client() *Client
+	SetCode(StringCode)
+	SetClient(*Client)
 }
 
 type ServerCommand interface {

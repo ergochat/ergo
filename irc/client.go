@@ -18,7 +18,7 @@ type Client struct {
 	capabilities CapabilitySet
 	capState     CapState
 	channels     ChannelSet
-	commands     chan editableCommand
+	commands     chan Command
 	ctime        time.Time
 	flags        map[UserMode]bool
 	hasQuit      bool
@@ -43,7 +43,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		capState:     CapNone,
 		capabilities: make(CapabilitySet),
 		channels:     make(ChannelSet),
-		commands:     make(chan editableCommand),
+		commands:     make(chan Command),
 		ctime:        now,
 		flags:        make(map[UserMode]bool),
 		phase:        Registration,
