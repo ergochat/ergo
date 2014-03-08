@@ -52,6 +52,8 @@ func main() {
 	irc.DEBUG_CHANNEL = config.Debug.Channel
 	irc.DEBUG_SERVER = config.Debug.Server
 
+	server := irc.NewServer(config)
 	log.Println(irc.SEM_VER, "running")
-	irc.NewServer(config).Run()
+	defer log.Println(irc.SEM_VER, "exiting")
+	server.Run()
 }
