@@ -541,3 +541,13 @@ func (target *Client) ErrInvalidCapCmd(subCommand CapSubCommand) {
 	target.NumericReply(ERR_INVALIDCAPCMD,
 		"%s :Invalid CAP subcommand", subCommand)
 }
+
+func (target *Client) ErrBannedFromChan(channel *Channel) {
+	target.NumericReply(ERR_BANNEDFROMCHAN,
+		"%s :Cannot join channel (+b)", channel)
+}
+
+func (target *Client) ErrInviteOnlyChan(channel *Channel) {
+	target.NumericReply(ERR_INVITEONLYCHAN,
+		"%s :Cannot join channel (+i)", channel)
+}

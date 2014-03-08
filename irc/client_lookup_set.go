@@ -178,3 +178,60 @@ func (db *ClientDB) Remove(client *Client) {
 		}
 	}
 }
+
+//
+// usermask to regexp
+//
+
+type UserMaskSet struct {
+	masks  map[string]bool
+	regexp *regexp.Regexp
+}
+
+func NewUserMaskSet() *UserMaskSet {
+	return &UserMaskSet{
+		masks: make(map[string]bool),
+	}
+}
+
+func (set *UserMaskSet) Add(mask string) {
+	set.masks[mask] = true
+	set.setRegexp()
+}
+
+func (set *UserMaskSet) Remove(mask string) {
+	delete(set.masks, mask)
+	set.setRegexp()
+}
+
+func (set *UserMaskSet) Match(userhost string) bool {
+	if set.regexp == nil {
+		return false
+	}
+	return set.regexp.MatchString(userhost)
+}
+
+func (set *UserMaskSet) setRegexp() {
+	if len(set.masks) == 0 {
+		set.regexp = nil
+		return
+	}
+
+	maskExprs := make([]string, len(set.masks))
+	index := 0
+	for mask := range set.masks {
+		manyParts := strings.Split(mask, "*")
+		manyExprs := make([]string, len(manyParts))
+		for mindex, manyPart := range manyParts {
+			oneParts := strings.Split(manyPart, "?")
+			oneExprs := make([]string, len(oneParts))
+			for oindex, onePart := range oneParts {
+				oneExprs[oindex] = regexp.QuoteMeta(onePart)
+			}
+			manyExprs[mindex] = strings.Join(oneExprs, ".")
+		}
+		maskExprs[index] = strings.Join(manyExprs, ".*")
+	}
+	expr := "^" + strings.Join(maskExprs, "|") + "$"
+	set.regexp, _ = regexp.Compile(expr)
+}

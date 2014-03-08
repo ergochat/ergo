@@ -8,7 +8,7 @@ import (
 
 type Channel struct {
 	flags     ChannelModeSet
-	lists     map[ChannelMode]UserMaskSet
+	lists     map[ChannelMode]*UserMaskSet
 	key       string
 	members   MemberSet
 	name      string
@@ -26,10 +26,10 @@ func IsChannel(target string) bool {
 func NewChannel(s *Server, name string) *Channel {
 	channel := &Channel{
 		flags: make(ChannelModeSet),
-		lists: map[ChannelMode]UserMaskSet{
-			BanMask:    make(UserMaskSet),
-			ExceptMask: make(UserMaskSet),
-			InviteMask: make(UserMaskSet),
+		lists: map[ChannelMode]*UserMaskSet{
+			BanMask:    NewUserMaskSet(),
+			ExceptMask: NewUserMaskSet(),
+			InviteMask: NewUserMaskSet(),
 		},
 		members: make(MemberSet),
 		name:    strings.ToLower(name),
@@ -151,6 +151,19 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
+	isInvited := channel.lists[InviteMask].Match(client.UserHost())
+	if channel.flags[InviteOnly] && !isInvited {
+		client.ErrInviteOnlyChan(channel)
+		return
+	}
+
+	if channel.lists[BanMask].Match(client.UserHost()) &&
+		!isInvited &&
+		!channel.lists[ExceptMask].Match(client.UserHost()) {
+		client.ErrBannedFromChan(channel)
+		return
+	}
+
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if !channel.flags[Persistent] && (len(channel.members) == 1) {
@@ -213,7 +226,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 
 	if err := channel.Persist(); err != nil {
-		log.Println(err)
+		log.Println("Channel.Persist:", channel, err)
 	}
 }
 
@@ -310,15 +323,35 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 	return false
 }
 
+func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp, mask string) bool {
+	if !channel.ClientIsOperator(client) {
+		client.ErrChanOPrivIsNeeded(channel)
+		return false
+	}
+
+	list := channel.lists[mode]
+	if list == nil {
+		// This should never happen, but better safe than panicky.
+		return false
+	}
+
+	if op == Add {
+		list.Add(mask)
+	} else if op == Remove {
+		list.Remove(mask)
+	}
+
+	for lmask := range channel.lists[mode].masks {
+		client.RplMaskList(mode, channel, lmask)
+	}
+	client.RplEndOfMaskList(mode, channel)
+	return true
+}
+
 func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) bool {
 	switch change.mode {
 	case BanMask, ExceptMask, InviteMask:
-		// TODO add/remove
-
-		for mask := range channel.lists[change.mode] {
-			client.RplMaskList(change.mode, channel, mask)
-		}
-		client.RplEndOfMaskList(change.mode, channel)
+		return channel.applyModeMask(client, change.mode, change.op, change.arg)
 
 	case Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
 		return channel.applyModeFlag(client, change.mode, change.op)
@@ -390,7 +423,7 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 		}
 
 		if err := channel.Persist(); err != nil {
-			log.Println(err)
+			log.Println("Channel.Persist:", channel, err)
 		}
 	}
 }
@@ -462,6 +495,13 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 	if !channel.members.Has(inviter) {
 		inviter.ErrNotOnChannel(channel)
 		return
+	}
+
+	if channel.flags[InviteOnly] {
+		channel.lists[InviteMask].Add(invitee.UserHost())
+		if err := channel.Persist(); err != nil {
+			log.Println("Channel.Persist:", channel, err)
+		}
 	}
 
 	inviter.RplInviting(invitee, channel.name)

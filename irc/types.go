@@ -9,8 +9,6 @@ import (
 // simple types
 //
 
-type UserMaskSet map[string]bool
-
 type CapSubCommand string
 
 type Capability string
