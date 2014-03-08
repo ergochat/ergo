@@ -291,7 +291,6 @@ func (msg *CapCommand) HandleRegServer(server *Server) {
 		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
 
 	case CAP_REQ:
-		client.capState = CapNegotiating
 		for capability := range msg.capabilities {
 			if !SupportedCapabilities[capability] {
 				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
