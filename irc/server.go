@@ -64,9 +64,19 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
+func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
+	if list == "" {
+		return
+	}
+	for _, mask := range strings.Split(list, " ") {
+		channel.lists[maskMode].Add(mask)
+	}
+}
+
 func (server *Server) loadChannels() {
 	rows, err := server.db.Query(`
-        SELECT name, flags, key, topic, user_limit
+        SELECT name, flags, key, topic, user_limit, ban_list, except_list,
+               invite_list
           FROM channel`)
 	if err != nil {
 		log.Fatal("error loading channels: ", err)
@@ -74,9 +84,11 @@ func (server *Server) loadChannels() {
 	for rows.Next() {
 		var name, flags, key, topic string
 		var userLimit uint64
-		err = rows.Scan(&name, &flags, &key, &topic, &userLimit)
+		var banList, exceptList, inviteList string
+		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
+			&exceptList, &inviteList)
 		if err != nil {
-			log.Println(err)
+			log.Println("Server.loadChannels:", err)
 			continue
 		}
 
@@ -87,6 +99,9 @@ func (server *Server) loadChannels() {
 		channel.key = key
 		channel.topic = topic
 		channel.userLimit = userLimit
+		loadChannelList(channel, banList, BanMask)
+		loadChannelList(channel, exceptList, ExceptMask)
+		loadChannelList(channel, inviteList, InviteMask)
 	}
 }
 

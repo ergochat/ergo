@@ -219,6 +219,16 @@ func (set *UserMaskSet) Match(userhost string) bool {
 	return set.regexp.MatchString(userhost)
 }
 
+func (set *UserMaskSet) String() string {
+	masks := make([]string, len(set.masks))
+	index := 0
+	for mask := range set.masks {
+		masks[index] = mask
+		index += 1
+	}
+	return strings.Join(masks, " ")
+}
+
 func (set *UserMaskSet) setRegexp() {
 	if len(set.masks) == 0 {
 		set.regexp = nil

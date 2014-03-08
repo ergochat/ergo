@@ -443,10 +443,12 @@ func (channel *Channel) Persist() (err error) {
 	if channel.flags[Persistent] {
 		_, err = channel.server.db.Exec(`
             INSERT OR REPLACE INTO channel
-              (name, flags, key, topic, user_limit)
-              VALUES (?, ?, ?, ?, ?)`,
+              (name, flags, key, topic, user_limit, ban_list, except_list,
+               invite_list)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			channel.name, channel.flags.String(), channel.key, channel.topic,
-			channel.userLimit)
+			channel.userLimit, channel.lists[BanMask].String(),
+			channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
 	} else {
 		_, err = channel.server.db.Exec(`
             DELETE FROM channel WHERE name = ?`, channel.name)
