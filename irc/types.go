@@ -14,6 +14,10 @@ type CapSubCommand string
 
 type Capability string
 
+func (capability Capability) String() string {
+	return string(capability)
+}
+
 type CapModifier rune
 
 func (mod CapModifier) String() string {
@@ -32,6 +36,16 @@ func (set CapabilitySet) String() string {
 		index += 1
 	}
 	return strings.Join(strs, " ")
+}
+
+func (set CapabilitySet) DisableString() string {
+	parts := make([]string, len(set))
+	index := 0
+	for capability := range set {
+		parts[index] = Disable.String() + capability.String()
+		index += 1
+	}
+	return strings.Join(parts, " ")
 }
 
 // a string with wildcards

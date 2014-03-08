@@ -142,6 +142,10 @@ func RplKill(client *Client, target *Client, comment string) string {
 		"%s :%s", target.Nick(), comment)
 }
 
+func RplCap(client *Client, subCommand CapSubCommand, arg interface{}) string {
+	return NewStringReply(nil, CAP, "%s %s :%s", client.Nick(), subCommand, arg)
+}
+
 // numeric replies
 
 func (target *Client) RplWelcome() {
