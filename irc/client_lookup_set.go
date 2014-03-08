@@ -88,25 +88,19 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 		`SELECT nickname FROM client WHERE userhost LIKE ? ESCAPE '\'`,
 		QuoteLike(userhost))
 	if err != nil {
-		if DEBUG_SERVER {
-			log.Println("ClientLookupSet.FindAll.Query:", err)
-		}
+		Log.error.Println("ClientLookupSet.FindAll.Query:", err)
 		return
 	}
 	for rows.Next() {
 		var nickname string
 		err := rows.Scan(&nickname)
 		if err != nil {
-			if DEBUG_SERVER {
-				log.Println("ClientLookupSet.FindAll.Scan:", err)
-			}
+			Log.error.Println("ClientLookupSet.FindAll.Scan:", err)
 			return
 		}
 		client := clients.Get(nickname)
 		if client == nil {
-			if DEBUG_SERVER {
-				log.Println("ClientLookupSet.FindAll: missing client:", nickname)
-			}
+			Log.error.Println("ClientLookupSet.FindAll: missing client:", nickname)
 			continue
 		}
 		set.Add(client)
@@ -122,9 +116,7 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 	var nickname string
 	err := row.Scan(&nickname)
 	if err != nil {
-		if DEBUG_SERVER {
-			log.Println("ClientLookupSet.Find:", err)
-		}
+		Log.error.Println("ClientLookupSet.Find:", err)
 		return nil
 	}
 	return clients.Get(nickname)
@@ -163,9 +155,7 @@ func (db *ClientDB) Add(client *Client) {
 	_, err := db.db.Exec(`INSERT INTO client (nickname, userhost) VALUES (?, ?)`,
 		client.Nick(), client.UserHost())
 	if err != nil {
-		if DEBUG_SERVER {
-			log.Println("ClientDB.Add:", err)
-		}
+		Log.error.Println("ClientDB.Add:", err)
 	}
 }
 
@@ -173,9 +163,7 @@ func (db *ClientDB) Remove(client *Client) {
 	_, err := db.db.Exec(`DELETE FROM client WHERE nickname = ?`,
 		client.Nick())
 	if err != nil {
-		if DEBUG_SERVER {
-			log.Println("ClientDB.Remove:", err)
-		}
+		Log.error.Println("ClientDB.Remove:", err)
 	}
 }
 

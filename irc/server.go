@@ -109,9 +109,7 @@ func (server *Server) loadChannels() {
 
 func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
-	if DEBUG_SERVER {
-		log.Printf("%s → %s %s", client, server, cmd)
-	}
+	Log.debug.Printf("%s → %s %s", client, server, cmd)
 
 	switch client.phase {
 	case Registration:
@@ -180,21 +178,15 @@ func (s *Server) listen(addr string) {
 		log.Fatal(s, "listen error: ", err)
 	}
 
-	if DEBUG_SERVER {
-		log.Printf("%s listening on %s", s, addr)
-	}
+	Log.info.Printf("%s listening on %s", s, addr)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if DEBUG_SERVER {
-				log.Printf("%s accept error: %s", s, err)
-			}
+			Log.error.Printf("%s accept error: %s", s, err)
 			continue
 		}
-		if DEBUG_SERVER {
-			log.Printf("%s accept: %s", s, conn.RemoteAddr())
-		}
+		Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
 		s.newConns <- conn
 	}

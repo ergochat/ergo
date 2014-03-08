@@ -46,12 +46,7 @@ func main() {
 		return
 	}
 
-	// TODO move to data structures
-	irc.DEBUG_NET = config.Debug.Net
-	irc.DEBUG_CLIENT = config.Debug.Client
-	irc.DEBUG_CHANNEL = config.Debug.Channel
-	irc.DEBUG_SERVER = config.Debug.Server
-
+	irc.Log.SetLevel(config.Server.Log)
 	server := irc.NewServer(config)
 	log.Println(irc.SEM_VER, "running")
 	defer log.Println(irc.SEM_VER, "exiting")

@@ -23,18 +23,12 @@ type Config struct {
 		PassConfig
 		Database string
 		Listen   []string
+		Log      string
 		MOTD     string
 		Name     string
 	}
 
 	Operator map[string]*PassConfig
-
-	Debug struct {
-		Net     bool
-		Client  bool
-		Channel bool
-		Server  bool
-	}
 }
 
 func (conf *Config) Operators() map[string][]byte {

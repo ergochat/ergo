@@ -2,7 +2,6 @@ package irc
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"time"
 )
@@ -149,9 +148,7 @@ func (client *Client) destroy() {
 
 	client.socket.Close()
 
-	if DEBUG_CLIENT {
-		log.Printf("%s: destroyed", client)
-	}
+	Log.debug.Printf("%s: destroyed", client)
 }
 
 func (client *Client) IdleTime() time.Duration {

@@ -7,12 +7,6 @@ import (
 )
 
 var (
-	// debugging flags
-	DEBUG_NET     = false
-	DEBUG_CLIENT  = false
-	DEBUG_CHANNEL = false
-	DEBUG_SERVER  = false
-
 	// errors
 	ErrAlreadyDestroyed = errors.New("already destroyed")
 
