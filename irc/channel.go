@@ -323,29 +323,40 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 	return false
 }
 
-func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp, mask string) bool {
-	if !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
-		return false
+func (channel *Channel) ShowMaskList(client *Client, mode ChannelMode) {
+	for lmask := range channel.lists[mode].masks {
+		client.RplMaskList(mode, channel, lmask)
 	}
+	client.RplEndOfMaskList(mode, channel)
+}
 
+func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp,
+	mask string) bool {
 	list := channel.lists[mode]
 	if list == nil {
 		// This should never happen, but better safe than panicky.
 		return false
 	}
 
-	if op == Add {
-		list.Add(mask)
-	} else if op == Remove {
-		list.Remove(mask)
+	if (op == List) || (mask == "") {
+		channel.ShowMaskList(client, mode)
+		return false
 	}
 
-	for lmask := range channel.lists[mode].masks {
-		client.RplMaskList(mode, channel, lmask)
+	if !channel.ClientIsOperator(client) {
+		client.ErrChanOPrivIsNeeded(channel)
+		return false
 	}
-	client.RplEndOfMaskList(mode, channel)
-	return true
+
+	if op == Add {
+		return list.Add(mask)
+	}
+
+	if op == Remove {
+		return list.Remove(mask)
+	}
+
+	return false
 }
 
 func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) bool {
@@ -353,7 +364,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 	case BanMask, ExceptMask, InviteMask:
 		return channel.applyModeMask(client, change.mode, change.op, change.arg)
 
-	case Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
+	case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
 		return channel.applyModeFlag(client, change.mode, change.op)
 
 	case Key:

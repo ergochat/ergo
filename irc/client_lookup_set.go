@@ -194,14 +194,22 @@ func NewUserMaskSet() *UserMaskSet {
 	}
 }
 
-func (set *UserMaskSet) Add(mask string) {
+func (set *UserMaskSet) Add(mask string) bool {
+	if set.masks[mask] {
+		return false
+	}
 	set.masks[mask] = true
 	set.setRegexp()
+	return true
 }
 
-func (set *UserMaskSet) Remove(mask string) {
+func (set *UserMaskSet) Remove(mask string) bool {
+	if !set.masks[mask] {
+		return false
+	}
 	delete(set.masks, mask)
 	set.setRegexp()
+	return true
 }
 
 func (set *UserMaskSet) Match(userhost string) bool {
