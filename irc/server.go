@@ -285,36 +285,28 @@ func (msg *CapCommand) HandleRegServer(server *Server) {
 	switch msg.subCommand {
 	case CAP_LS:
 		client.capState = CapNegotiating
-		client.Reply("CAP LS * :%s", SupportedCapabilities)
+		client.Reply(RplCap(client, CAP_LS, SupportedCapabilities))
 
 	case CAP_LIST:
-		client.Reply("CAP LIST * :%s", client.capabilities)
+		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
 
 	case CAP_REQ:
 		client.capState = CapNegotiating
 		for capability := range msg.capabilities {
 			if !SupportedCapabilities[capability] {
-				client.Reply("CAP NAK * :%s", msg.capabilities)
+				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
 				return
 			}
 		}
 		for capability := range msg.capabilities {
 			client.capabilities[capability] = true
 		}
-		client.Reply("CAP ACK * :%s", msg.capabilities)
+		client.Reply(RplCap(client, CAP_ACK, msg.capabilities))
 
 	case CAP_CLEAR:
-		format := strings.TrimRight(
-			strings.Repeat("%s%s ", len(client.capabilities)), " ")
-		args := make([]interface{}, len(client.capabilities))
-		index := 0
-		for capability := range client.capabilities {
-			args[index] = Disable
-			args[index+1] = capability
-			index += 2
-			delete(client.capabilities, capability)
-		}
-		client.Reply("CAP ACK * :"+format, args...)
+		reply := RplCap(client, CAP_ACK, client.capabilities.DisableString())
+		client.capabilities = make(CapabilitySet)
+		client.Reply(reply)
 
 	case CAP_END:
 		client.capState = CapNegotiated
