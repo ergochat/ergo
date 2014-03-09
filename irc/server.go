@@ -68,9 +68,7 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 	if list == "" {
 		return
 	}
-	for _, mask := range strings.Split(list, " ") {
-		channel.lists[maskMode].Add(mask)
-	}
+	channel.lists[maskMode].AddAll(strings.Split(list, " "))
 }
 
 func (server *Server) loadChannels() {

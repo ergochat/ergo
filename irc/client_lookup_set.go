@@ -203,6 +203,17 @@ func (set *UserMaskSet) Add(mask string) bool {
 	return true
 }
 
+func (set *UserMaskSet) AddAll(masks []string) (added bool) {
+	for _, mask := range masks {
+		if !added && !set.masks[mask] {
+			added = true
+		}
+		set.masks[mask] = true
+	}
+	set.setRegexp()
+	return
+}
+
 func (set *UserMaskSet) Remove(mask string) bool {
 	if !set.masks[mask] {
 		return false
@@ -229,6 +240,12 @@ func (set *UserMaskSet) String() string {
 	return strings.Join(masks, " ")
 }
 
+// Generate a regular expression from the set of user mask
+// strings. Masks are split at the two types of wildcards, `*` and
+// `?`. All the pieces are meta-escaped. `*` is replaced with `.*`,
+// the regexp equivalent. Likewise, `?` is replaced with `.`. The
+// parts are re-joined and finally all masks are joined into a big
+// or-expression.
 func (set *UserMaskSet) setRegexp() {
 	if len(set.masks) == 0 {
 		set.regexp = nil
