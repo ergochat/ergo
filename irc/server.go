@@ -18,7 +18,7 @@ import (
 
 type Server struct {
 	channels  ChannelNameMap
-	clients   ClientNameMap
+	clients   *ClientLookupSet
 	commands  chan Command
 	ctime     time.Time
 	db        *sql.DB
@@ -29,12 +29,13 @@ type Server struct {
 	operators map[string][]byte
 	password  []byte
 	signals   chan os.Signal
+	whoWas    *WhoWasList
 }
 
 func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
-		clients:   make(ClientNameMap),
+		clients:   NewClientLookupSet(),
 		commands:  make(chan Command, 16),
 		ctime:     time.Now(),
 		db:        OpenDB(config.Server.Database),
@@ -44,6 +45,7 @@ func NewServer(config *Config) *Server {
 		newConns:  make(chan net.Conn, 16),
 		operators: config.Operators(),
 		signals:   make(chan os.Signal, 1),
+		whoWas:    NewWhoWasList(100),
 	}
 
 	if config.Server.Password != "" {
@@ -62,9 +64,17 @@ func NewServer(config *Config) *Server {
 	return server
 }
 
+func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
+	if list == "" {
+		return
+	}
+	channel.lists[maskMode].AddAll(strings.Split(list, " "))
+}
+
 func (server *Server) loadChannels() {
 	rows, err := server.db.Query(`
-        SELECT name, flags, key, topic, user_limit
+        SELECT name, flags, key, topic, user_limit, ban_list, except_list,
+               invite_list
           FROM channel`)
 	if err != nil {
 		log.Fatal("error loading channels: ", err)
@@ -72,9 +82,11 @@ func (server *Server) loadChannels() {
 	for rows.Next() {
 		var name, flags, key, topic string
 		var userLimit uint64
-		err = rows.Scan(&name, &flags, &key, &topic, &userLimit)
+		var banList, exceptList, inviteList string
+		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
+			&exceptList, &inviteList)
 		if err != nil {
-			log.Println(err)
+			log.Println("Server.loadChannels:", err)
 			continue
 		}
 
@@ -85,6 +97,9 @@ func (server *Server) loadChannels() {
 		channel.key = key
 		channel.topic = topic
 		channel.userLimit = userLimit
+		loadChannelList(channel, banList, BanMask)
+		loadChannelList(channel, exceptList, ExceptMask)
+		loadChannelList(channel, inviteList, InviteMask)
 	}
 }
 
@@ -126,7 +141,7 @@ func (server *Server) processCommand(cmd Command) {
 
 func (server *Server) Shutdown() {
 	server.db.Close()
-	for _, client := range server.clients {
+	for _, client := range server.clients.byNick {
 		client.Reply(RplNotice(server, client, "shutting down"))
 	}
 }
@@ -340,7 +355,7 @@ func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
 		client.Quit("bad password")
 		return
 	}
-	msg.HandleRegServer2(server)
+	msg.setUserInfo(server)
 }
 
 func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
@@ -357,15 +372,19 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 		}
 		client.RplUModeIs(client)
 	}
-	msg.HandleRegServer2(server)
+	msg.setUserInfo(server)
 }
 
-func (msg *UserCommand) HandleRegServer2(server *Server) {
+func (msg *UserCommand) setUserInfo(server *Server) {
 	client := msg.Client()
 	if client.capState == CapNegotiating {
 		client.capState = CapNegotiated
 	}
+
+	server.clients.Remove(client)
 	client.username, client.realname = msg.username, msg.realname
+	server.clients.Add(client)
+
 	server.tryRegister(client)
 }
 
@@ -514,7 +533,7 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		return
 	}
 
-	changes := make(ModeChanges, 0)
+	changes := make(ModeChanges, 0, len(m.changes))
 
 	for _, change := range m.changes {
 		switch change.mode {
@@ -577,19 +596,14 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 	// TODO implement target query
 
 	for _, mask := range m.masks {
-		// TODO implement wildcard matching
-		mclient := server.clients.Get(mask)
-		if mclient == nil {
+		matches := server.clients.FindAll(mask)
+		if len(matches) == 0 {
 			client.ErrNoSuchNick(mask)
 			continue
 		}
-		client.RplWhoisUser(mclient)
-		if mclient.flags[Operator] {
-			client.RplWhoisOperator(mclient)
+		for mclient := range matches {
+			client.RplWhois(mclient)
 		}
-		client.RplWhoisIdle(mclient)
-		client.RplWhoisChannels(mclient)
-		client.RplEndOfWhois()
 	}
 }
 
@@ -604,9 +618,9 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	channel.Mode(client, msg.changes)
 }
 
-func whoChannel(client *Client, channel *Channel) {
+func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 	for member := range channel.members {
-		if !client.flags[Invisible] {
+		if !client.flags[Invisible] || friends[client] {
 			client.RplWhoReply(channel, member)
 		}
 	}
@@ -614,27 +628,21 @@ func whoChannel(client *Client, channel *Channel) {
 
 func (msg *WhoCommand) HandleServer(server *Server) {
 	client := msg.Client()
+	friends := client.Friends()
+	mask := msg.mask
 
-	// TODO implement wildcard matching
-	mask := string(msg.mask)
 	if mask == "" {
 		for _, channel := range server.channels {
-			for member := range channel.members {
-				if !client.flags[Invisible] {
-					client.RplWhoReply(channel, member)
-				}
-			}
+			whoChannel(client, channel, friends)
 		}
 	} else if IsChannel(mask) {
+		// TODO implement wildcard matching
 		channel := server.channels.Get(mask)
 		if channel != nil {
-			for member := range channel.members {
-				client.RplWhoReply(channel, member)
-			}
+			whoChannel(client, channel, friends)
 		}
 	} else {
-		mclient := server.clients.Get(mask)
-		if mclient != nil {
+		for mclient := range server.clients.FindAll(mask) {
 			client.RplWhoReply(nil, mclient)
 		}
 	}
@@ -873,4 +881,19 @@ func (msg *KillCommand) HandleServer(server *Server) {
 
 	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), msg.comment)
 	target.Quit(quitMsg)
+}
+
+func (msg *WhoWasCommand) HandleServer(server *Server) {
+	client := msg.Client()
+	for _, nickname := range msg.nicknames {
+		results := server.whoWas.Find(nickname, msg.count)
+		if len(results) == 0 {
+			client.ErrWasNoSuchNick(nickname)
+		} else {
+			for _, whoWas := range results {
+				client.RplWhoWasUser(whoWas)
+			}
+		}
+		client.RplEndOfWhoWas(nickname)
+	}
 }

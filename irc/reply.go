@@ -200,6 +200,16 @@ func (target *Client) RplYoureOper() {
 		":You are now an IRC operator")
 }
 
+func (target *Client) RplWhois(client *Client) {
+	target.RplWhoisUser(client)
+	if client.flags[Operator] {
+		target.RplWhoisOperator(client)
+	}
+	target.RplWhoisIdle(client)
+	target.RplWhoisChannels(client)
+	target.RplEndOfWhois()
+}
+
 func (target *Client) RplWhoisUser(client *Client) {
 	target.NumericReply(RPL_WHOISUSER,
 		"%s %s %s * :%s", client.Nick(), client.username, client.hostname,
@@ -270,7 +280,7 @@ func (target *Client) RplEndOfWho(name string) {
 		"%s :End of WHO list", name)
 }
 
-func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask UserMask) {
+func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask string) {
 	switch mode {
 	case BanMask:
 		target.RplBanList(channel, mask)
@@ -296,7 +306,7 @@ func (target *Client) RplEndOfMaskList(mode ChannelMode, channel *Channel) {
 	}
 }
 
-func (target *Client) RplBanList(channel *Channel, mask UserMask) {
+func (target *Client) RplBanList(channel *Channel, mask string) {
 	target.NumericReply(RPL_BANLIST,
 		"%s %s", channel, mask)
 }
@@ -306,7 +316,7 @@ func (target *Client) RplEndOfBanList(channel *Channel) {
 		"%s :End of channel ban list", channel)
 }
 
-func (target *Client) RplExceptList(channel *Channel, mask UserMask) {
+func (target *Client) RplExceptList(channel *Channel, mask string) {
 	target.NumericReply(RPL_EXCEPTLIST,
 		"%s %s", channel, mask)
 }
@@ -316,7 +326,7 @@ func (target *Client) RplEndOfExceptList(channel *Channel) {
 		"%s :End of channel exception list", channel)
 }
 
-func (target *Client) RplInviteList(channel *Channel, mask UserMask) {
+func (target *Client) RplInviteList(channel *Channel, mask string) {
 	target.NumericReply(RPL_INVITELIST,
 		"%s %s", channel, mask)
 }
@@ -394,6 +404,17 @@ func (target *Client) RplInviting(invitee *Client, channel string) {
 func (target *Client) RplTime() {
 	target.NumericReply(RPL_TIME,
 		"%s :%s", target.server.name, time.Now().Format(time.RFC1123))
+}
+
+func (target *Client) RplWhoWasUser(whoWas *WhoWas) {
+	target.NumericReply(RPL_WHOWASUSER,
+		"%s %s %s * :%s",
+		whoWas.nickname, whoWas.username, whoWas.hostname, whoWas.realname)
+}
+
+func (target *Client) RplEndOfWhoWas(nickname string) {
+	target.NumericReply(RPL_ENDOFWHOWAS,
+		"%s :End of WHOWAS", nickname)
 }
 
 //
@@ -515,7 +536,22 @@ func (target *Client) ErrChannelIsFull(channel *Channel) {
 		"%s :Cannot join channel (+l)", channel)
 }
 
+func (target *Client) ErrWasNoSuchNick(nickname string) {
+	target.NumericReply(ERR_WASNOSUCHNICK,
+		"%s :There was no such nickname", nickname)
+}
+
 func (target *Client) ErrInvalidCapCmd(subCommand CapSubCommand) {
 	target.NumericReply(ERR_INVALIDCAPCMD,
 		"%s :Invalid CAP subcommand", subCommand)
+}
+
+func (target *Client) ErrBannedFromChan(channel *Channel) {
+	target.NumericReply(ERR_BANNEDFROMCHAN,
+		"%s :Cannot join channel (+b)", channel)
+}
+
+func (target *Client) ErrInviteOnlyChan(channel *Channel) {
+	target.NumericReply(ERR_INVITEONLYCHAN,
+		"%s :Cannot join channel (+i)", channel)
 }

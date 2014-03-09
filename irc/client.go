@@ -229,6 +229,7 @@ func (client *Client) ChangeNickname(nickname string) {
 	// Make reply before changing nick to capture original source id.
 	reply := RplNick(client, nickname)
 	client.server.clients.Remove(client)
+	client.server.whoWas.Append(client)
 	client.nick = nickname
 	client.server.clients.Add(client)
 	for friend := range client.Friends() {
@@ -249,8 +250,8 @@ func (client *Client) Quit(message string) {
 	}
 
 	client.Reply(RplError("connection closed"))
-
 	client.hasQuit = true
+	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
 	client.destroy()

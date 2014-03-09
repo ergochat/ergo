@@ -54,6 +54,7 @@ var (
 		VERSION: NewVersionCommand,
 		WHO:     NewWhoCommand,
 		WHOIS:   NewWhoisCommand,
+		WHOWAS:  NewWhoWasCommand,
 	}
 )
 
@@ -656,7 +657,7 @@ func (msg *WhoisCommand) String() string {
 
 type WhoCommand struct {
 	BaseCommand
-	mask         Mask
+	mask         string
 	operatorOnly bool
 }
 
@@ -665,7 +666,7 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
-		cmd.mask = Mask(args[0])
+		cmd.mask = args[0]
 	}
 
 	if (len(args) > 1) && (args[1] == "o") {
@@ -981,4 +982,27 @@ func NewKillCommand(args []string) (editableCommand, error) {
 		nickname: args[0],
 		comment:  args[1],
 	}, nil
+}
+
+type WhoWasCommand struct {
+	BaseCommand
+	nicknames []string
+	count     int64
+	target    string
+}
+
+func NewWhoWasCommand(args []string) (editableCommand, error) {
+	if len(args) < 1 {
+		return nil, NotEnoughArgsError
+	}
+	cmd := &WhoWasCommand{
+		nicknames: strings.Split(args[0], ","),
+	}
+	if len(args) > 1 {
+		cmd.count, _ = strconv.ParseInt(args[1], 10, 64)
+	}
+	if len(args) > 2 {
+		cmd.target = args[2]
+	}
+	return cmd, nil
 }

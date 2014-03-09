@@ -12,6 +12,7 @@ import (
 func main() {
 	conf := flag.String("conf", "ergonomadic.conf", "ergonomadic config file")
 	initdb := flag.Bool("initdb", false, "initialize database")
+	upgradedb := flag.Bool("upgradedb", false, "update database")
 	passwd := flag.String("genpasswd", "", "bcrypt a password")
 	flag.Parse()
 
@@ -35,7 +36,13 @@ func main() {
 
 	if *initdb {
 		irc.InitDB(config.Server.Database)
-		log.Println("database initialized: " + config.Server.Database)
+		log.Println("database initialized: ", config.Server.Database)
+		return
+	}
+
+	if *upgradedb {
+		irc.UpgradeDB(config.Server.Database)
+		log.Println("database upgraded: ", config.Server.Database)
 		return
 	}
 
@@ -45,5 +52,8 @@ func main() {
 	irc.DEBUG_CHANNEL = config.Debug.Channel
 	irc.DEBUG_SERVER = config.Debug.Server
 
-	irc.NewServer(config).Run()
+	server := irc.NewServer(config)
+	log.Println(irc.SEM_VER, "running")
+	defer log.Println(irc.SEM_VER, "exiting")
+	server.Run()
 }

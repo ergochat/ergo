@@ -1,0 +1,73 @@
+package irc
+
+type WhoWasList struct {
+	buffer []*WhoWas
+	start  uint
+	end    uint
+}
+
+type WhoWas struct {
+	nickname string
+	username string
+	hostname string
+	realname string
+}
+
+func NewWhoWasList(size uint) *WhoWasList {
+	return &WhoWasList{
+		buffer: make([]*WhoWas, size),
+	}
+}
+
+func (list *WhoWasList) Append(client *Client) {
+	list.buffer[list.end] = &WhoWas{
+		nickname: client.Nick(),
+		username: client.username,
+		hostname: client.hostname,
+		realname: client.realname,
+	}
+	list.end = (list.end + 1) % uint(len(list.buffer))
+	if list.end == list.start {
+		list.start = (list.end + 1) % uint(len(list.buffer))
+	}
+}
+
+func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
+	results := make([]*WhoWas, 0)
+	for whoWas := range list.Each() {
+		if nickname != whoWas.nickname {
+			continue
+		}
+		results = append(results, whoWas)
+		if int64(len(results)) >= limit {
+			break
+		}
+	}
+	return results
+}
+
+func (list *WhoWasList) prev(index uint) uint {
+	index -= 1
+	if index < 0 {
+		index += uint(len(list.buffer))
+	}
+	return index
+}
+
+// Iterate the buffer in reverse.
+func (list *WhoWasList) Each() <-chan *WhoWas {
+	ch := make(chan *WhoWas)
+	go func() {
+		defer close(ch)
+		if list.start == list.end {
+			return
+		}
+		start := list.prev(list.end)
+		end := list.prev(list.start)
+		for start != end {
+			ch <- list.buffer[start]
+			start = list.prev(start)
+		}
+	}()
+	return ch
+}

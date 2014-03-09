@@ -61,6 +61,7 @@ const (
 	VERSION StringCode = "VERSION"
 	WHO     StringCode = "WHO"
 	WHOIS   StringCode = "WHOIS"
+	WHOWAS  StringCode = "WHOWAS"
 
 	// numeric codes
 	RPL_WELCOME           NumericCode = 1
