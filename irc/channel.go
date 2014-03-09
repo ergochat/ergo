@@ -3,27 +3,22 @@ package irc
 import (
 	"log"
 	"strconv"
-	"strings"
 )
 
 type Channel struct {
 	flags     ChannelModeSet
 	lists     map[ChannelMode]*UserMaskSet
-	key       string
+	key       Text
 	members   MemberSet
-	name      string
+	name      Name
 	server    *Server
-	topic     string
+	topic     Text
 	userLimit uint64
-}
-
-func IsChannel(target string) bool {
-	return ChannelNameExpr.MatchString(target)
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string) *Channel {
+func NewChannel(s *Server, name Name) *Channel {
 	channel := &Channel{
 		flags: make(ChannelModeSet),
 		lists: map[ChannelMode]*UserMaskSet{
@@ -32,7 +27,7 @@ func NewChannel(s *Server, name string) *Channel {
 			InviteMask: NewUserMaskSet(),
 		},
 		members: make(MemberSet),
-		name:    strings.ToLower(name),
+		name:    name,
 		server:  s,
 	}
 
@@ -73,22 +68,22 @@ func (channel *Channel) Nicks(target *Client) []string {
 				nicks[i] += "+"
 			}
 		}
-		nicks[i] += client.Nick()
+		nicks[i] += client.Nick().String()
 		i += 1
 	}
 	return nicks
 }
 
-func (channel *Channel) Id() string {
+func (channel *Channel) Id() Name {
 	return channel.name
 }
 
-func (channel *Channel) Nick() string {
+func (channel *Channel) Nick() Name {
 	return channel.name
 }
 
 func (channel *Channel) String() string {
-	return channel.Id()
+	return channel.Id().String()
 }
 
 // <mode> <mode params>
@@ -117,7 +112,7 @@ func (channel *Channel) ModeString(client *Client) (str string) {
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
 	if showKey {
-		str += " " + channel.key
+		str += " " + channel.key.String()
 	}
 	if showUserLimit {
 		str += " " + strconv.FormatUint(channel.userLimit, 10)
@@ -131,11 +126,11 @@ func (channel *Channel) IsFull() bool {
 		(uint64(len(channel.members)) >= channel.userLimit)
 }
 
-func (channel *Channel) CheckKey(key string) bool {
+func (channel *Channel) CheckKey(key Text) bool {
 	return (channel.key == "") || (channel.key == key)
 }
 
-func (channel *Channel) Join(client *Client, key string) {
+func (channel *Channel) Join(client *Client, key Text) {
 	if channel.members.Has(client) {
 		// already joined, no message?
 		return
@@ -179,7 +174,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.Names(client)
 }
 
-func (channel *Channel) Part(client *Client, message string) {
+func (channel *Channel) Part(client *Client, message Text) {
 	if !channel.members.Has(client) {
 		client.ErrNotOnChannel(channel)
 		return
@@ -207,7 +202,7 @@ func (channel *Channel) GetTopic(client *Client) {
 	client.RplTopic(channel)
 }
 
-func (channel *Channel) SetTopic(client *Client, topic string) {
+func (channel *Channel) SetTopic(client *Client, topic Text) {
 	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.ErrNotOnChannel(channel)
 		return
@@ -244,7 +239,7 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func (channel *Channel) PrivMsg(client *Client, message string) {
+func (channel *Channel) PrivMsg(client *Client, message Text) {
 	if !channel.CanSpeak(client) {
 		client.ErrCannotSendToChan(channel)
 		return
@@ -283,7 +278,7 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 }
 
 func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
-	op ModeOp, nick string) bool {
+	op ModeOp, nick Name) bool {
 	if !channel.ClientIsOperator(client) {
 		client.ErrChanOPrivIsNeeded(channel)
 		return false
@@ -331,7 +326,7 @@ func (channel *Channel) ShowMaskList(client *Client, mode ChannelMode) {
 }
 
 func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp,
-	mask string) bool {
+	mask Name) bool {
 	list := channel.lists[mode]
 	if list == nil {
 		// This should never happen, but better safe than panicky.
@@ -362,7 +357,8 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) bool {
 	switch change.mode {
 	case BanMask, ExceptMask, InviteMask:
-		return channel.applyModeMask(client, change.mode, change.op, change.arg)
+		return channel.applyModeMask(client, change.mode, change.op,
+			NewName(change.arg))
 
 	case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Private:
 		return channel.applyModeFlag(client, change.mode, change.op)
@@ -379,11 +375,12 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 				client.ErrNeedMoreParams("MODE")
 				return false
 			}
-			if change.arg == channel.key {
+			key := NewText(change.arg)
+			if key == channel.key {
 				return false
 			}
 
-			channel.key = change.arg
+			channel.key = key
 			return true
 
 		case Remove:
@@ -405,7 +402,8 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 		return true
 
 	case ChannelOperator, Voice:
-		return channel.applyModeMember(client, change.mode, change.op, change.arg)
+		return channel.applyModeMember(client, change.mode, change.op,
+			NewName(change.arg))
 
 	default:
 		client.ErrUnknownMode(change.mode, channel)
@@ -456,7 +454,7 @@ func (channel *Channel) Persist() (err error) {
 	return
 }
 
-func (channel *Channel) Notice(client *Client, message string) {
+func (channel *Channel) Notice(client *Client, message Text) {
 	if !channel.CanSpeak(client) {
 		client.ErrCannotSendToChan(channel)
 		return
@@ -478,7 +476,7 @@ func (channel *Channel) Quit(client *Client) {
 	}
 }
 
-func (channel *Channel) Kick(client *Client, target *Client, comment string) {
+func (channel *Channel) Kick(client *Client, target *Client, comment Text) {
 	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.ErrNotOnChannel(channel)
 		return

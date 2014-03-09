@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"regexp"
@@ -114,14 +113,14 @@ func ParseLine(line string) (command StringCode, args []string) {
 		_, line = splitArg(line)
 	}
 	arg, line := splitArg(line)
-	command = StringCode(strings.ToUpper(arg))
+	command = StringCode(NewName(strings.ToUpper(arg)))
 	for len(line) > 0 {
 		if strings.HasPrefix(line, ":") {
-			args = append(args, norm.NFC.String(line[len(":"):]))
+			args = append(args, line[len(":"):])
 			break
 		}
 		arg, line = splitArg(line)
-		args = append(args, norm.NFKC.String(arg))
+		args = append(args, arg)
 	}
 	return
 }
@@ -147,8 +146,8 @@ func NewUnknownCommand(args []string) *UnknownCommand {
 
 type PingCommand struct {
 	BaseCommand
-	server  string
-	server2 string
+	server  Name
+	server2 Name
 }
 
 func (cmd *PingCommand) String() string {
@@ -160,10 +159,10 @@ func NewPingCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PingCommand{
-		server: args[0],
+		server: NewName(args[0]),
 	}
 	if len(args) > 1 {
-		msg.server2 = args[1]
+		msg.server2 = NewName(args[1])
 	}
 	return msg, nil
 }
@@ -172,8 +171,8 @@ func NewPingCommand(args []string) (editableCommand, error) {
 
 type PongCommand struct {
 	BaseCommand
-	server1 string
-	server2 string
+	server1 Name
+	server2 Name
 }
 
 func (cmd *PongCommand) String() string {
@@ -185,10 +184,10 @@ func NewPongCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	message := &PongCommand{
-		server1: args[0],
+		server1: NewName(args[0]),
 	}
 	if len(args) > 1 {
-		message.server2 = args[1]
+		message.server2 = NewName(args[1])
 	}
 	return message, nil
 }
@@ -230,7 +229,7 @@ func NewPassCommand(args []string) (editableCommand, error) {
 
 type NickCommand struct {
 	BaseCommand
-	nickname string
+	nickname Name
 }
 
 func (m *NickCommand) String() string {
@@ -242,21 +241,21 @@ func NewNickCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &NickCommand{
-		nickname: args[0],
+		nickname: NewName(args[0]),
 	}, nil
 }
 
 type UserCommand struct {
 	BaseCommand
-	username string
-	realname string
+	username Name
+	realname Text
 }
 
 // USER <username> <hostname> <servername> <realname>
 type RFC1459UserCommand struct {
 	UserCommand
-	hostname   string
-	servername string
+	hostname   Name
+	servername Name
 }
 
 func (cmd *RFC1459UserCommand) String() string {
@@ -297,17 +296,17 @@ func NewUserCommand(args []string) (editableCommand, error) {
 			mode:   uint8(mode),
 			unused: args[2],
 		}
-		msg.username = args[0]
-		msg.realname = args[3]
+		msg.username = NewName(args[0])
+		msg.realname = NewText(args[3])
 		return msg, nil
 	}
 
 	msg := &RFC1459UserCommand{
-		hostname:   args[1],
-		servername: args[2],
+		hostname:   NewName(args[1]),
+		servername: NewName(args[2]),
 	}
-	msg.username = args[0]
-	msg.realname = args[3]
+	msg.username = NewName(args[0])
+	msg.realname = NewText(args[3])
 	return msg, nil
 }
 
@@ -315,7 +314,7 @@ func NewUserCommand(args []string) (editableCommand, error) {
 
 type QuitCommand struct {
 	BaseCommand
-	message string
+	message Text
 }
 
 func (cmd *QuitCommand) String() string {
@@ -325,7 +324,7 @@ func (cmd *QuitCommand) String() string {
 func NewQuitCommand(args []string) (editableCommand, error) {
 	msg := &QuitCommand{}
 	if len(args) > 0 {
-		msg.message = args[0]
+		msg.message = NewText(args[0])
 	}
 	return msg, nil
 }
@@ -334,7 +333,7 @@ func NewQuitCommand(args []string) (editableCommand, error) {
 
 type JoinCommand struct {
 	BaseCommand
-	channels map[string]string
+	channels map[Name]Text
 	zero     bool
 }
 
@@ -344,7 +343,7 @@ func (cmd *JoinCommand) String() string {
 
 func NewJoinCommand(args []string) (editableCommand, error) {
 	msg := &JoinCommand{
-		channels: make(map[string]string),
+		channels: make(map[Name]Text),
 	}
 
 	if len(args) == 0 {
@@ -364,7 +363,7 @@ func NewJoinCommand(args []string) (editableCommand, error) {
 		}
 	}
 	for i, channel := range channels {
-		msg.channels[channel] = keys[i]
+		msg.channels[NewName(channel)] = NewText(keys[i])
 	}
 
 	return msg, nil
@@ -374,13 +373,13 @@ func NewJoinCommand(args []string) (editableCommand, error) {
 
 type PartCommand struct {
 	BaseCommand
-	channels []string
-	message  string
+	channels []Name
+	message  Text
 }
 
-func (cmd *PartCommand) Message() string {
+func (cmd *PartCommand) Message() Text {
 	if cmd.message == "" {
-		return cmd.Client().Nick()
+		return cmd.Client().Nick().Text()
 	}
 	return cmd.message
 }
@@ -394,10 +393,10 @@ func NewPartCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &PartCommand{
-		channels: strings.Split(args[0], ","),
+		channels: NewNames(strings.Split(args[0], ",")),
 	}
 	if len(args) > 1 {
-		msg.message = args[1]
+		msg.message = NewText(args[1])
 	}
 	return msg, nil
 }
@@ -406,8 +405,8 @@ func NewPartCommand(args []string) (editableCommand, error) {
 
 type PrivMsgCommand struct {
 	BaseCommand
-	target  string
-	message string
+	target  Name
+	message Text
 }
 
 func (cmd *PrivMsgCommand) String() string {
@@ -419,8 +418,8 @@ func NewPrivMsgCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &PrivMsgCommand{
-		target:  args[0],
-		message: args[1],
+		target:  NewName(args[0]),
+		message: NewText(args[1]),
 	}, nil
 }
 
@@ -428,9 +427,9 @@ func NewPrivMsgCommand(args []string) (editableCommand, error) {
 
 type TopicCommand struct {
 	BaseCommand
-	channel  string
+	channel  Name
 	setTopic bool
-	topic    string
+	topic    Text
 }
 
 func (cmd *TopicCommand) String() string {
@@ -442,11 +441,11 @@ func NewTopicCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	msg := &TopicCommand{
-		channel: args[0],
+		channel: NewName(args[0]),
 	}
 	if len(args) > 1 {
 		msg.setTopic = true
-		msg.topic = args[1]
+		msg.topic = NewText(args[1])
 	}
 	return msg, nil
 }
@@ -482,18 +481,18 @@ func (changes ModeChanges) String() string {
 
 type ModeCommand struct {
 	BaseCommand
-	nickname string
+	nickname Name
 	changes  ModeChanges
 }
 
 // MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
-func NewUserModeCommand(args []string) (editableCommand, error) {
+func NewUserModeCommand(nickname Name, args []string) (editableCommand, error) {
 	cmd := &ModeCommand{
-		nickname: args[0],
+		nickname: nickname,
 		changes:  make(ModeChanges, 0),
 	}
 
-	for _, modeChange := range args[1:] {
+	for _, modeChange := range args {
 		if len(modeChange) == 0 {
 			continue
 		}
@@ -559,17 +558,16 @@ func (changes ChannelModeChanges) String() (str string) {
 
 type ChannelModeCommand struct {
 	BaseCommand
-	channel string
+	channel Name
 	changes ChannelModeChanges
 }
 
 // MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
-func NewChannelModeCommand(args []string) (editableCommand, error) {
+func NewChannelModeCommand(channel Name, args []string) (editableCommand, error) {
 	cmd := &ChannelModeCommand{
-		channel: args[0],
+		channel: channel,
 		changes: make(ChannelModeChanges, 0),
 	}
-	args = args[1:]
 
 	for len(args) > 0 {
 		if len(args[0]) == 0 {
@@ -616,17 +614,18 @@ func NewModeCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 
-	if IsChannel(args[0]) {
-		return NewChannelModeCommand(args)
+	name := NewName(args[0])
+	if name.IsChannel() {
+		return NewChannelModeCommand(name, args[1:])
 	} else {
-		return NewUserModeCommand(args)
+		return NewUserModeCommand(name, args[1:])
 	}
 }
 
 type WhoisCommand struct {
 	BaseCommand
-	target string
-	masks  []string
+	target Name
+	masks  []Name
 }
 
 // WHOIS [ <target> ] <mask> *( "," <mask> )
@@ -646,8 +645,8 @@ func NewWhoisCommand(args []string) (editableCommand, error) {
 	}
 
 	return &WhoisCommand{
-		target: target,
-		masks:  strings.Split(masks, ","),
+		target: NewName(target),
+		masks:  NewNames(strings.Split(masks, ",")),
 	}, nil
 }
 
@@ -657,7 +656,7 @@ func (msg *WhoisCommand) String() string {
 
 type WhoCommand struct {
 	BaseCommand
-	mask         string
+	mask         Name
 	operatorOnly bool
 }
 
@@ -666,7 +665,7 @@ func NewWhoCommand(args []string) (editableCommand, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
-		cmd.mask = args[0]
+		cmd.mask = NewName(args[0])
 	}
 
 	if (len(args) > 1) && (args[1] == "o") {
@@ -682,7 +681,7 @@ func (msg *WhoCommand) String() string {
 
 type OperCommand struct {
 	PassCommand
-	name string
+	name Name
 }
 
 func (msg *OperCommand) String() string {
@@ -700,7 +699,7 @@ func NewOperCommand(args []string) (editableCommand, error) {
 	}
 
 	cmd := &OperCommand{
-		name: args[0],
+		name: NewName(args[0]),
 	}
 	cmd.password = []byte(args[1])
 	return cmd, nil
@@ -739,12 +738,12 @@ func NewCapCommand(args []string) (editableCommand, error) {
 // HAPROXY support
 type ProxyCommand struct {
 	BaseCommand
-	net        string
-	sourceIP   string
-	destIP     string
-	sourcePort string
-	destPort   string
-	hostname   string // looked up in socket thread
+	net        Name
+	sourceIP   Name
+	destIP     Name
+	sourcePort Name
+	destPort   Name
+	hostname   Name // looked up in socket thread
 }
 
 func (msg *ProxyCommand) String() string {
@@ -756,18 +755,18 @@ func NewProxyCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &ProxyCommand{
-		net:        args[0],
-		sourceIP:   args[1],
-		destIP:     args[2],
-		sourcePort: args[3],
-		destPort:   args[4],
-		hostname:   LookupHostname(args[1]),
+		net:        NewName(args[0]),
+		sourceIP:   NewName(args[1]),
+		destIP:     NewName(args[2]),
+		sourcePort: NewName(args[3]),
+		destPort:   NewName(args[4]),
+		hostname:   LookupHostname(NewName(args[1])),
 	}, nil
 }
 
 type AwayCommand struct {
 	BaseCommand
-	text string
+	text Text
 	away bool
 }
 
@@ -779,7 +778,7 @@ func NewAwayCommand(args []string) (editableCommand, error) {
 	cmd := &AwayCommand{}
 
 	if len(args) > 0 {
-		cmd.text = args[0]
+		cmd.text = NewText(args[0])
 		cmd.away = true
 	}
 
@@ -788,7 +787,7 @@ func NewAwayCommand(args []string) (editableCommand, error) {
 
 type IsOnCommand struct {
 	BaseCommand
-	nicks []string
+	nicks []Name
 }
 
 func (msg *IsOnCommand) String() string {
@@ -801,27 +800,27 @@ func NewIsOnCommand(args []string) (editableCommand, error) {
 	}
 
 	return &IsOnCommand{
-		nicks: args,
+		nicks: NewNames(args),
 	}, nil
 }
 
 type MOTDCommand struct {
 	BaseCommand
-	target string
+	target Name
 }
 
 func NewMOTDCommand(args []string) (editableCommand, error) {
 	cmd := &MOTDCommand{}
 	if len(args) > 0 {
-		cmd.target = args[0]
+		cmd.target = NewName(args[0])
 	}
 	return cmd, nil
 }
 
 type NoticeCommand struct {
 	BaseCommand
-	target  string
-	message string
+	target  Name
+	message Text
 }
 
 func (cmd *NoticeCommand) String() string {
@@ -833,20 +832,20 @@ func NewNoticeCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &NoticeCommand{
-		target:  args[0],
-		message: args[1],
+		target:  NewName(args[0]),
+		message: NewText(args[1]),
 	}, nil
 }
 
 type KickCommand struct {
 	BaseCommand
-	kicks   map[string]string
-	comment string
+	kicks   map[Name]Name
+	comment Text
 }
 
-func (msg *KickCommand) Comment() string {
+func (msg *KickCommand) Comment() Text {
 	if msg.comment == "" {
-		return msg.Client().Nick()
+		return msg.Client().Nick().Text()
 	}
 	return msg.comment
 }
@@ -855,13 +854,13 @@ func NewKickCommand(args []string) (editableCommand, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
-	channels := strings.Split(args[0], ",")
-	users := strings.Split(args[1], ",")
+	channels := NewNames(strings.Split(args[0], ","))
+	users := NewNames(strings.Split(args[1], ","))
 	if (len(channels) != len(users)) && (len(users) != 1) {
 		return nil, NotEnoughArgsError
 	}
 	cmd := &KickCommand{
-		kicks: make(map[string]string),
+		kicks: make(map[Name]Name),
 	}
 	for index, channel := range channels {
 		if len(users) == 1 {
@@ -871,48 +870,48 @@ func NewKickCommand(args []string) (editableCommand, error) {
 		}
 	}
 	if len(args) > 2 {
-		cmd.comment = args[2]
+		cmd.comment = NewText(args[2])
 	}
 	return cmd, nil
 }
 
 type ListCommand struct {
 	BaseCommand
-	channels []string
-	target   string
+	channels []Name
+	target   Name
 }
 
 func NewListCommand(args []string) (editableCommand, error) {
 	cmd := &ListCommand{}
 	if len(args) > 0 {
-		cmd.channels = strings.Split(args[0], ",")
+		cmd.channels = NewNames(strings.Split(args[0], ","))
 	}
 	if len(args) > 1 {
-		cmd.target = args[1]
+		cmd.target = NewName(args[1])
 	}
 	return cmd, nil
 }
 
 type NamesCommand struct {
 	BaseCommand
-	channels []string
-	target   string
+	channels []Name
+	target   Name
 }
 
 func NewNamesCommand(args []string) (editableCommand, error) {
 	cmd := &NamesCommand{}
 	if len(args) > 0 {
-		cmd.channels = strings.Split(args[0], ",")
+		cmd.channels = NewNames(strings.Split(args[0], ","))
 	}
 	if len(args) > 1 {
-		cmd.target = args[1]
+		cmd.target = NewName(args[1])
 	}
 	return cmd, nil
 }
 
 type DebugCommand struct {
 	BaseCommand
-	subCommand string
+	subCommand Name
 }
 
 func NewDebugCommand(args []string) (editableCommand, error) {
@@ -921,27 +920,27 @@ func NewDebugCommand(args []string) (editableCommand, error) {
 	}
 
 	return &DebugCommand{
-		subCommand: strings.ToUpper(args[0]),
+		subCommand: NewName(strings.ToUpper(args[0])),
 	}, nil
 }
 
 type VersionCommand struct {
 	BaseCommand
-	target string
+	target Name
 }
 
 func NewVersionCommand(args []string) (editableCommand, error) {
 	cmd := &VersionCommand{}
 	if len(args) > 0 {
-		cmd.target = args[0]
+		cmd.target = NewName(args[0])
 	}
 	return cmd, nil
 }
 
 type InviteCommand struct {
 	BaseCommand
-	nickname string
-	channel  string
+	nickname Name
+	channel  Name
 }
 
 func NewInviteCommand(args []string) (editableCommand, error) {
@@ -950,28 +949,28 @@ func NewInviteCommand(args []string) (editableCommand, error) {
 	}
 
 	return &InviteCommand{
-		nickname: args[0],
-		channel:  args[1],
+		nickname: NewName(args[0]),
+		channel:  NewName(args[1]),
 	}, nil
 }
 
 type TimeCommand struct {
 	BaseCommand
-	target string
+	target Name
 }
 
 func NewTimeCommand(args []string) (editableCommand, error) {
 	cmd := &TimeCommand{}
 	if len(args) > 0 {
-		cmd.target = args[0]
+		cmd.target = NewName(args[0])
 	}
 	return cmd, nil
 }
 
 type KillCommand struct {
 	BaseCommand
-	nickname string
-	comment  string
+	nickname Name
+	comment  Text
 }
 
 func NewKillCommand(args []string) (editableCommand, error) {
@@ -979,16 +978,16 @@ func NewKillCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	return &KillCommand{
-		nickname: args[0],
-		comment:  args[1],
+		nickname: NewName(args[0]),
+		comment:  NewText(args[1]),
 	}, nil
 }
 
 type WhoWasCommand struct {
 	BaseCommand
-	nicknames []string
+	nicknames []Name
 	count     int64
-	target    string
+	target    Name
 }
 
 func NewWhoWasCommand(args []string) (editableCommand, error) {
@@ -996,13 +995,13 @@ func NewWhoWasCommand(args []string) (editableCommand, error) {
 		return nil, NotEnoughArgsError
 	}
 	cmd := &WhoWasCommand{
-		nicknames: strings.Split(args[0], ","),
+		nicknames: NewNames(strings.Split(args[0], ",")),
 	}
 	if len(args) > 1 {
 		cmd.count, _ = strconv.ParseInt(args[1], 10, 64)
 	}
 	if len(args) > 2 {
-		cmd.target = args[2]
+		cmd.target = NewName(args[2])
 	}
 	return cmd, nil
 }
