@@ -12,14 +12,10 @@ const (
 	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
 )
 
-func IsNickname(nick string) bool {
-	return NicknameExpr.MatchString(nick)
-}
-
 type Client struct {
 	atime        time.Time
 	authorized   bool
-	awayMessage  string
+	awayMessage  Text
 	capabilities CapabilitySet
 	capState     CapState
 	channels     ChannelSet
@@ -28,16 +24,16 @@ type Client struct {
 	flags        map[UserMode]bool
 	hasQuit      bool
 	hops         uint
-	hostname     string
+	hostname     Name
 	idleTimer    *time.Timer
 	loginTimer   *time.Timer
-	nick         string
+	nick         Name
 	quitTimer    *time.Timer
-	realname     string
+	realname     Text
 	registered   bool
 	server       *Server
 	socket       *Socket
-	username     string
+	username     Name
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -191,27 +187,27 @@ func (c *Client) ModeString() (str string) {
 	return
 }
 
-func (c *Client) UserHost() string {
+func (c *Client) UserHost() Name {
 	username := "*"
 	if c.HasUsername() {
-		username = c.username
+		username = c.username.String()
 	}
-	return fmt.Sprintf("%s!%s@%s", c.Nick(), username, c.hostname)
+	return Name(fmt.Sprintf("%s!%s@%s", c.Nick(), username, c.hostname))
 }
 
-func (c *Client) Nick() string {
+func (c *Client) Nick() Name {
 	if c.HasNick() {
 		return c.nick
 	}
-	return "*"
+	return Name("*")
 }
 
-func (c *Client) Id() string {
+func (c *Client) Id() Name {
 	return c.UserHost()
 }
 
 func (c *Client) String() string {
-	return c.Id()
+	return c.Id().String()
 }
 
 func (client *Client) Friends() ClientSet {
@@ -225,12 +221,12 @@ func (client *Client) Friends() ClientSet {
 	return friends
 }
 
-func (client *Client) SetNickname(nickname string) {
+func (client *Client) SetNickname(nickname Name) {
 	client.nick = nickname
 	client.server.clients.Add(client)
 }
 
-func (client *Client) ChangeNickname(nickname string) {
+func (client *Client) ChangeNickname(nickname Name) {
 	// Make reply before changing nick to capture original source id.
 	reply := RplNick(client, nickname)
 	client.server.clients.Remove(client)
@@ -249,7 +245,7 @@ func (client *Client) Reply(reply string, args ...interface{}) {
 	client.socket.Write(reply)
 }
 
-func (client *Client) Quit(message string) {
+func (client *Client) Quit(message Text) {
 	if client.hasQuit {
 		return
 	}

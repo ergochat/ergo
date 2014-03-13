@@ -30,25 +30,25 @@ func (mode ChannelMode) String() string {
 	return string(mode)
 }
 
-type ChannelNameMap map[string]*Channel
+type ChannelNameMap map[Name]*Channel
 
-func (channels ChannelNameMap) Get(name string) *Channel {
-	return channels[strings.ToLower(name)]
+func (channels ChannelNameMap) Get(name Name) *Channel {
+	return channels[name.ToLower()]
 }
 
 func (channels ChannelNameMap) Add(channel *Channel) error {
-	if channels[channel.name] != nil {
+	if channels[channel.name.ToLower()] != nil {
 		return fmt.Errorf("%s: already set", channel.name)
 	}
-	channels[channel.name] = channel
+	channels[channel.name.ToLower()] = channel
 	return nil
 }
 
 func (channels ChannelNameMap) Remove(channel *Channel) error {
-	if channel != channels[channel.name] {
+	if channel != channels[channel.name.ToLower()] {
 		return fmt.Errorf("%s: mismatch", channel.name)
 	}
-	delete(channels, channel.name)
+	delete(channels, channel.name.ToLower())
 	return nil
 }
 
@@ -126,6 +126,6 @@ func (channels ChannelSet) First() *Channel {
 //
 
 type Identifiable interface {
-	Id() string
-	Nick() string
+	Id() Name
+	Nick() Name
 }

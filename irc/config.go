@@ -31,10 +31,10 @@ type Config struct {
 	Operator map[string]*PassConfig
 }
 
-func (conf *Config) Operators() map[string][]byte {
-	operators := make(map[string][]byte)
+func (conf *Config) Operators() map[Name][]byte {
+	operators := make(map[Name][]byte)
 	for name, opConf := range conf.Operator {
-		operators[name] = opConf.PasswordBytes()
+		operators[NewName(name)] = opConf.PasswordBytes()
 	}
 	return operators
 }

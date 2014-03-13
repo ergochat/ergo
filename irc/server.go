@@ -34,9 +34,9 @@ type Server struct {
 	db        *sql.DB
 	idle      chan *Client
 	motdFile  string
-	name      string
+	name      Name
 	newConns  chan net.Conn
-	operators map[string][]byte
+	operators map[Name][]byte
 	password  []byte
 	signals   chan os.Signal
 	whoWas    *WhoWasList
@@ -56,7 +56,7 @@ func NewServer(config *Config) *Server {
 		db:        OpenDB(config.Server.Database),
 		idle:      make(chan *Client),
 		motdFile:  config.Server.MOTD,
-		name:      config.Server.Name,
+		name:      NewName(config.Server.Name),
 		newConns:  make(chan net.Conn),
 		operators: config.Operators(),
 		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
@@ -82,7 +82,7 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 	if list == "" {
 		return
 	}
-	channel.lists[maskMode].AddAll(strings.Split(list, " "))
+	channel.lists[maskMode].AddAll(NewNames(strings.Split(list, " ")))
 }
 
 func (server *Server) loadChannels() {
@@ -94,7 +94,9 @@ func (server *Server) loadChannels() {
 		log.Fatal("error loading channels: ", err)
 	}
 	for rows.Next() {
-		var name, flags, key, topic string
+		var name Name
+		var flags string
+		var key, topic Text
 		var userLimit uint64
 		var banList, exceptList, inviteList string
 		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
@@ -256,15 +258,15 @@ func (server *Server) MOTD(client *Client) {
 	client.RplMOTDEnd()
 }
 
-func (s *Server) Id() string {
+func (s *Server) Id() Name {
 	return s.name
 }
 
 func (s *Server) String() string {
-	return s.name
+	return s.name.String()
 }
 
-func (s *Server) Nick() string {
+func (s *Server) Nick() Name {
 	return s.Id()
 }
 
@@ -309,7 +311,7 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		return
 	}
 
-	if !IsNickname(m.nickname) {
+	if !m.nickname.IsNickname() {
 		client.ErrErroneusNickname(m.nickname)
 		return
 	}
@@ -386,7 +388,7 @@ func (msg *NickCommand) HandleServer(server *Server) {
 		return
 	}
 
-	if !IsNickname(msg.nickname) {
+	if !msg.nickname.IsNickname() {
 		client.ErrErroneusNickname(msg.nickname)
 		return
 	}
@@ -417,13 +419,13 @@ func (m *JoinCommand) HandleServer(s *Server) {
 
 	if m.zero {
 		for channel := range client.channels {
-			channel.Part(client, client.Nick())
+			channel.Part(client, client.Nick().Text())
 		}
 		return
 	}
 
 	for name, key := range m.channels {
-		if !IsChannel(name) {
+		if !name.IsChannel() {
 			client.ErrNoSuchChannel(name)
 			continue
 		}
@@ -467,7 +469,7 @@ func (msg *TopicCommand) HandleServer(server *Server) {
 
 func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	if IsChannel(msg.target) {
+	if msg.target.IsChannel() {
 		channel := server.channels.Get(msg.target)
 		if channel == nil {
 			client.ErrNoSuchChannel(msg.target)
@@ -547,13 +549,13 @@ func (client *Client) WhoisChannelsNames() []string {
 	for channel := range client.channels {
 		switch {
 		case channel.members[client][ChannelOperator]:
-			chstrs[index] = "@" + channel.name
+			chstrs[index] = "@" + channel.name.String()
 
 		case channel.members[client][Voice]:
-			chstrs[index] = "+" + channel.name
+			chstrs[index] = "+" + channel.name.String()
 
 		default:
-			chstrs[index] = channel.name
+			chstrs[index] = channel.name.String()
 		}
 		index += 1
 	}
@@ -605,7 +607,7 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 		for _, channel := range server.channels {
 			whoChannel(client, channel, friends)
 		}
-	} else if IsChannel(mask) {
+	} else if mask.IsChannel() {
 		// TODO implement wildcard matching
 		channel := server.channels.Get(mask)
 		if channel != nil {
@@ -655,7 +657,7 @@ func (msg *IsOnCommand) HandleServer(server *Server) {
 	ison := make([]string, 0)
 	for _, nick := range msg.nicks {
 		if iclient := server.clients.Get(nick); iclient != nil {
-			ison = append(ison, iclient.Nick())
+			ison = append(ison, iclient.Nick().String())
 		}
 	}
 
@@ -668,7 +670,7 @@ func (msg *MOTDCommand) HandleServer(server *Server) {
 
 func (msg *NoticeCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	if IsChannel(msg.target) {
+	if msg.target.IsChannel() {
 		channel := server.channels.Get(msg.target)
 		if channel == nil {
 			client.ErrNoSuchChannel(msg.target)
@@ -755,7 +757,7 @@ func (msg *NamesCommand) HandleServer(server *Server) {
 }
 
 func (server *Server) Reply(target *Client, format string, args ...interface{}) {
-	target.Reply(RplPrivMsg(server, target, fmt.Sprintf(format, args...)))
+	target.Reply(RplPrivMsg(server, target, NewText(fmt.Sprintf(format, args...))))
 }
 
 func (msg *DebugCommand) HandleServer(server *Server) {
@@ -850,7 +852,7 @@ func (msg *KillCommand) HandleServer(server *Server) {
 	}
 
 	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), msg.comment)
-	target.Quit(quitMsg)
+	target.Quit(NewText(quitMsg))
 }
 
 func (msg *WhoWasCommand) HandleServer(server *Server) {
