@@ -9,27 +9,6 @@ import (
 // simple types
 //
 
-// add, remove, list modes
-type ModeOp rune
-
-func (op ModeOp) String() string {
-	return string(op)
-}
-
-// user mode flags
-type UserMode rune
-
-func (mode UserMode) String() string {
-	return string(mode)
-}
-
-// channel mode flags
-type ChannelMode rune
-
-func (mode ChannelMode) String() string {
-	return string(mode)
-}
-
 type ChannelNameMap map[Name]*Channel
 
 func (channels ChannelNameMap) Get(name Name) *Channel {

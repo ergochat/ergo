@@ -181,7 +181,8 @@ func (target *Client) RplCreated() {
 
 func (target *Client) RplMyInfo() {
 	target.NumericReply(RPL_MYINFO,
-		"%s %s aiOorsw abeIikmntpqrsl", target.server.name, SEM_VER)
+		"%s %s %s %s",
+		target.server.name, SEM_VER, SupportedUserModes, SupportedChannelModes)
 }
 
 func (target *Client) RplUModeIs(client *Client) {

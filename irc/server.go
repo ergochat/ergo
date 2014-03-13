@@ -94,9 +94,7 @@ func (server *Server) loadChannels() {
 		log.Fatal("error loading channels: ", err)
 	}
 	for rows.Next() {
-		var name Name
-		var flags string
-		var key, topic Text
+		var name, flags, key, topic string
 		var userLimit uint64
 		var banList, exceptList, inviteList string
 		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
@@ -106,12 +104,12 @@ func (server *Server) loadChannels() {
 			continue
 		}
 
-		channel := NewChannel(server, name)
+		channel := NewChannel(server, NewName(name))
 		for _, flag := range flags {
 			channel.flags[ChannelMode(flag)] = true
 		}
-		channel.key = key
-		channel.topic = topic
+		channel.key = NewText(key)
+		channel.topic = NewText(topic)
 		channel.userLimit = userLimit
 		loadChannelList(channel, banList, BanMask)
 		loadChannelList(channel, exceptList, ExceptMask)
@@ -339,7 +337,7 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 	}
 	flags := msg.Flags()
 	if len(flags) > 0 {
-		for _, mode := range msg.Flags() {
+		for _, mode := range flags {
 			client.flags[mode] = true
 		}
 		client.RplUModeIs(client)
@@ -491,58 +489,6 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	}
 }
 
-func (m *ModeCommand) HandleServer(s *Server) {
-	client := m.Client()
-	target := s.clients.Get(m.nickname)
-
-	if target == nil {
-		client.ErrNoSuchNick(m.nickname)
-		return
-	}
-
-	if client != target && !client.flags[Operator] {
-		client.ErrUsersDontMatch()
-		return
-	}
-
-	changes := make(ModeChanges, 0, len(m.changes))
-
-	for _, change := range m.changes {
-		switch change.mode {
-		case Invisible, ServerNotice, WallOps:
-			switch change.op {
-			case Add:
-				if target.flags[change.mode] {
-					continue
-				}
-				target.flags[change.mode] = true
-				changes = append(changes, change)
-
-			case Remove:
-				if !target.flags[change.mode] {
-					continue
-				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
-			}
-
-		case Operator, LocalOperator:
-			if change.op == Remove {
-				if !target.flags[change.mode] {
-					continue
-				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
-			}
-		}
-	}
-
-	// Who should get these replies?
-	if len(changes) > 0 {
-		client.Reply(RplMode(client, target, changes))
-	}
-}
-
 func (client *Client) WhoisChannelsNames() []string {
 	chstrs := make([]string, len(client.channels))
 	index := 0
@@ -577,17 +523,6 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 			client.RplWhois(mclient)
 		}
 	}
-}
-
-func (msg *ChannelModeCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	channel := server.channels.Get(msg.channel)
-	if channel == nil {
-		client.ErrNoSuchChannel(msg.channel)
-		return
-	}
-
-	channel.Mode(client, msg.changes)
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {

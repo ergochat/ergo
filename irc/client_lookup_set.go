@@ -153,7 +153,7 @@ func NewClientDB() *ClientDB {
 
 func (db *ClientDB) Add(client *Client) {
 	_, err := db.db.Exec(`INSERT INTO client (nickname, userhost) VALUES (?, ?)`,
-		client.Nick(), client.UserHost())
+		client.Nick().String(), client.UserHost().String())
 	if err != nil {
 		Log.error.Println("ClientDB.Add:", err)
 	}
@@ -161,7 +161,7 @@ func (db *ClientDB) Add(client *Client) {
 
 func (db *ClientDB) Remove(client *Client) {
 	_, err := db.db.Exec(`DELETE FROM client WHERE nickname = ?`,
-		client.Nick())
+		client.Nick().String())
 	if err != nil {
 		Log.error.Println("ClientDB.Remove:", err)
 	}

@@ -444,8 +444,8 @@ func (channel *Channel) Persist() (err error) {
               (name, flags, key, topic, user_limit, ban_list, except_list,
                invite_list)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			channel.name, channel.flags.String(), channel.key, channel.topic,
-			channel.userLimit, channel.lists[BanMask].String(),
+			channel.name.String(), channel.flags.String(), channel.key.String(),
+			channel.topic.String(), channel.userLimit, channel.lists[BanMask].String(),
 			channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
 	} else {
 		_, err = channel.server.db.Exec(`

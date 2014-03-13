@@ -1,14 +1,5 @@
 package irc
 
-import (
-	"errors"
-)
-
-var (
-	// errors
-	ErrAlreadyDestroyed = errors.New("already destroyed")
-)
-
 const (
 	SEM_VER       = "ergonomadic-1.3.1"
 	CRLF          = "\r\n"
@@ -184,35 +175,4 @@ const (
 	ERR_NOOPERHOST        NumericCode = 491
 	ERR_UMODEUNKNOWNFLAG  NumericCode = 501
 	ERR_USERSDONTMATCH    NumericCode = 502
-
-	Add    ModeOp = '+'
-	List   ModeOp = '='
-	Remove ModeOp = '-'
-
-	Away          UserMode = 'a'
-	Invisible     UserMode = 'i'
-	LocalOperator UserMode = 'O'
-	Operator      UserMode = 'o'
-	Restricted    UserMode = 'r'
-	ServerNotice  UserMode = 's' // deprecated
-	WallOps       UserMode = 'w'
-
-	Anonymous       ChannelMode = 'a' // flag
-	BanMask         ChannelMode = 'b' // arg
-	ChannelCreator  ChannelMode = 'O' // flag
-	ChannelOperator ChannelMode = 'o' // arg
-	ExceptMask      ChannelMode = 'e' // arg
-	InviteMask      ChannelMode = 'I' // arg
-	InviteOnly      ChannelMode = 'i' // flag
-	Key             ChannelMode = 'k' // flag arg
-	Moderated       ChannelMode = 'm' // flag
-	NoOutside       ChannelMode = 'n' // flag
-	OpOnlyTopic     ChannelMode = 't' // flag
-	Persistent      ChannelMode = 'P' // flag
-	Private         ChannelMode = 'p' // flag
-	Quiet           ChannelMode = 'q' // flag
-	ReOp            ChannelMode = 'r' // flag
-	Secret          ChannelMode = 's' // flag, deprecated
-	UserLimit       ChannelMode = 'l' // flag arg
-	Voice           ChannelMode = 'v' // arg
 )
