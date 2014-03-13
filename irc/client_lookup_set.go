@@ -25,36 +25,36 @@ func HasWildcards(mask string) bool {
 	return wildMaskExpr.MatchString(mask)
 }
 
-func ExpandUserHost(userhost string) (expanded string) {
+func ExpandUserHost(userhost Name) (expanded Name) {
 	expanded = userhost
 	// fill in missing wildcards for nicks
-	if !strings.Contains(expanded, "!") {
+	if !strings.Contains(expanded.String(), "!") {
 		expanded += "!*"
 	}
-	if !strings.Contains(expanded, "@") {
+	if !strings.Contains(expanded.String(), "@") {
 		expanded += "@*"
 	}
 	return
 }
 
-func QuoteLike(userhost string) string {
-	return likeQuoter.Replace(userhost)
+func QuoteLike(userhost Name) Name {
+	return Name(likeQuoter.Replace(userhost.String()))
 }
 
 type ClientLookupSet struct {
-	byNick map[string]*Client
+	byNick map[Name]*Client
 	db     *ClientDB
 }
 
 func NewClientLookupSet() *ClientLookupSet {
 	return &ClientLookupSet{
-		byNick: make(map[string]*Client),
+		byNick: make(map[Name]*Client),
 		db:     NewClientDB(),
 	}
 }
 
-func (clients *ClientLookupSet) Get(nick string) *Client {
-	return clients.byNick[strings.ToLower(nick)]
+func (clients *ClientLookupSet) Get(nick Name) *Client {
+	return clients.byNick[nick.ToLower()]
 }
 
 func (clients *ClientLookupSet) Add(client *Client) error {
@@ -64,7 +64,7 @@ func (clients *ClientLookupSet) Add(client *Client) error {
 	if clients.Get(client.nick) != nil {
 		return ErrNicknameInUse
 	}
-	clients.byNick[strings.ToLower(client.nick)] = client
+	clients.byNick[client.Nick().ToLower()] = client
 	clients.db.Add(client)
 	return nil
 }
@@ -76,12 +76,12 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	if clients.Get(client.nick) != client {
 		return ErrNicknameMismatch
 	}
-	delete(clients.byNick, strings.ToLower(client.nick))
+	delete(clients.byNick, client.nick.ToLower())
 	clients.db.Remove(client)
 	return nil
 }
 
-func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
+func (clients *ClientLookupSet) FindAll(userhost Name) (set ClientSet) {
 	userhost = ExpandUserHost(userhost)
 	set = make(ClientSet)
 	rows, err := clients.db.db.Query(
@@ -94,7 +94,7 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 		return
 	}
 	for rows.Next() {
-		var nickname string
+		var nickname Name
 		err := rows.Scan(&nickname)
 		if err != nil {
 			if DEBUG_SERVER {
@@ -114,12 +114,12 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	return
 }
 
-func (clients *ClientLookupSet) Find(userhost string) *Client {
+func (clients *ClientLookupSet) Find(userhost Name) *Client {
 	userhost = ExpandUserHost(userhost)
 	row := clients.db.db.QueryRow(
 		`SELECT nickname FROM client WHERE userhost LIKE ? ESCAPE '\' LIMIT 1`,
 		QuoteLike(userhost))
-	var nickname string
+	var nickname Name
 	err := row.Scan(&nickname)
 	if err != nil {
 		if DEBUG_SERVER {
@@ -184,17 +184,17 @@ func (db *ClientDB) Remove(client *Client) {
 //
 
 type UserMaskSet struct {
-	masks  map[string]bool
+	masks  map[Name]bool
 	regexp *regexp.Regexp
 }
 
 func NewUserMaskSet() *UserMaskSet {
 	return &UserMaskSet{
-		masks: make(map[string]bool),
+		masks: make(map[Name]bool),
 	}
 }
 
-func (set *UserMaskSet) Add(mask string) bool {
+func (set *UserMaskSet) Add(mask Name) bool {
 	if set.masks[mask] {
 		return false
 	}
@@ -203,7 +203,7 @@ func (set *UserMaskSet) Add(mask string) bool {
 	return true
 }
 
-func (set *UserMaskSet) AddAll(masks []string) (added bool) {
+func (set *UserMaskSet) AddAll(masks []Name) (added bool) {
 	for _, mask := range masks {
 		if !added && !set.masks[mask] {
 			added = true
@@ -214,7 +214,7 @@ func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 	return
 }
 
-func (set *UserMaskSet) Remove(mask string) bool {
+func (set *UserMaskSet) Remove(mask Name) bool {
 	if !set.masks[mask] {
 		return false
 	}
@@ -223,18 +223,18 @@ func (set *UserMaskSet) Remove(mask string) bool {
 	return true
 }
 
-func (set *UserMaskSet) Match(userhost string) bool {
+func (set *UserMaskSet) Match(userhost Name) bool {
 	if set.regexp == nil {
 		return false
 	}
-	return set.regexp.MatchString(userhost)
+	return set.regexp.MatchString(userhost.String())
 }
 
 func (set *UserMaskSet) String() string {
 	masks := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
-		masks[index] = mask
+		masks[index] = mask.String()
 		index += 1
 	}
 	return strings.Join(masks, " ")
@@ -255,7 +255,7 @@ func (set *UserMaskSet) setRegexp() {
 	maskExprs := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
-		manyParts := strings.Split(mask, "*")
+		manyParts := strings.Split(mask.String(), "*")
 		manyExprs := make([]string, len(manyParts))
 		for mindex, manyPart := range manyParts {
 			oneParts := strings.Split(manyPart, "?")

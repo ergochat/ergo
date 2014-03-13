@@ -7,10 +7,10 @@ type WhoWasList struct {
 }
 
 type WhoWas struct {
-	nickname string
-	username string
-	hostname string
-	realname string
+	nickname Name
+	username Name
+	hostname Name
+	realname Text
 }
 
 func NewWhoWasList(size uint) *WhoWasList {
@@ -32,7 +32,7 @@ func (list *WhoWasList) Append(client *Client) {
 	}
 }
 
-func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
+func (list *WhoWasList) Find(nickname Name, limit int64) []*WhoWas {
 	results := make([]*WhoWas, 0)
 	for whoWas := range list.Each() {
 		if nickname != whoWas.nickname {

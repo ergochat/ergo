@@ -79,23 +79,23 @@ func (target *Client) MultilineReply(names []string, code NumericCode, format st
 // messaging replies
 //
 
-func RplPrivMsg(source Identifier, target Identifier, message string) string {
+func RplPrivMsg(source Identifier, target Identifier, message Text) string {
 	return NewStringReply(source, PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
-func RplNotice(source Identifier, target Identifier, message string) string {
+func RplNotice(source Identifier, target Identifier, message Text) string {
 	return NewStringReply(source, NOTICE, "%s :%s", target.Nick(), message)
 }
 
-func RplNick(source Identifier, newNick string) string {
-	return NewStringReply(source, NICK, newNick)
+func RplNick(source Identifier, newNick Name) string {
+	return NewStringReply(source, NICK, newNick.String())
 }
 
 func RplJoin(client *Client, channel *Channel) string {
-	return NewStringReply(client, JOIN, channel.name)
+	return NewStringReply(client, JOIN, channel.name.String())
 }
 
-func RplPart(client *Client, channel *Channel, message string) string {
+func RplPart(client *Client, channel *Channel, message Text) string {
 	return NewStringReply(client, PART, "%s :%s", channel, message)
 }
 
@@ -117,10 +117,10 @@ func RplPing(target Identifier) string {
 }
 
 func RplPong(client *Client) string {
-	return NewStringReply(nil, PONG, client.Nick())
+	return NewStringReply(nil, PONG, client.Nick().String())
 }
 
-func RplQuit(client *Client, message string) string {
+func RplQuit(client *Client, message Text) string {
 	return NewStringReply(client, QUIT, ":%s", message)
 }
 
@@ -128,16 +128,16 @@ func RplError(message string) string {
 	return NewStringReply(nil, ERROR, ":%s", message)
 }
 
-func RplInviteMsg(inviter *Client, invitee *Client, channel string) string {
+func RplInviteMsg(inviter *Client, invitee *Client, channel Name) string {
 	return NewStringReply(inviter, INVITE, "%s :%s", invitee.Nick(), channel)
 }
 
-func RplKick(channel *Channel, client *Client, target *Client, comment string) string {
+func RplKick(channel *Channel, client *Client, target *Client, comment Text) string {
 	return NewStringReply(client, KICK, "%s %s :%s",
 		channel, target.Nick(), comment)
 }
 
-func RplKill(client *Client, target *Client, comment string) string {
+func RplKill(client *Client, target *Client, comment Text) string {
 	return NewStringReply(client, KICK,
 		"%s :%s", target.Nick(), comment)
 }
@@ -184,7 +184,7 @@ func (target *Client) RplTopic(channel *Channel) {
 
 // <nick> <channel>
 // NB: correction in errata
-func (target *Client) RplInvitingMsg(invitee *Client, channel string) {
+func (target *Client) RplInvitingMsg(invitee *Client, channel Name) {
 	target.NumericReply(RPL_INVITING,
 		"%s %s", invitee.Nick(), channel)
 }
@@ -253,7 +253,7 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
-		channelName = channel.name
+		channelName = channel.name.String()
 		if target.capabilities[MultiPrefix] {
 			if channel.members[client][ChannelOperator] {
 				flags += "@"
@@ -275,12 +275,12 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 }
 
 // <name> :End of WHO list
-func (target *Client) RplEndOfWho(name string) {
+func (target *Client) RplEndOfWho(name Name) {
 	target.NumericReply(RPL_ENDOFWHO,
 		"%s :End of WHO list", name)
 }
 
-func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask string) {
+func (target *Client) RplMaskList(mode ChannelMode, channel *Channel, mask Name) {
 	switch mode {
 	case BanMask:
 		target.RplBanList(channel, mask)
@@ -306,7 +306,7 @@ func (target *Client) RplEndOfMaskList(mode ChannelMode, channel *Channel) {
 	}
 }
 
-func (target *Client) RplBanList(channel *Channel, mask string) {
+func (target *Client) RplBanList(channel *Channel, mask Name) {
 	target.NumericReply(RPL_BANLIST,
 		"%s %s", channel, mask)
 }
@@ -316,7 +316,7 @@ func (target *Client) RplEndOfBanList(channel *Channel) {
 		"%s :End of channel ban list", channel)
 }
 
-func (target *Client) RplExceptList(channel *Channel, mask string) {
+func (target *Client) RplExceptList(channel *Channel, mask Name) {
 	target.NumericReply(RPL_EXCEPTLIST,
 		"%s %s", channel, mask)
 }
@@ -326,7 +326,7 @@ func (target *Client) RplEndOfExceptList(channel *Channel) {
 		"%s :End of channel exception list", channel)
 }
 
-func (target *Client) RplInviteList(channel *Channel, mask string) {
+func (target *Client) RplInviteList(channel *Channel, mask Name) {
 	target.NumericReply(RPL_INVITELIST,
 		"%s %s", channel, mask)
 }
@@ -396,7 +396,7 @@ func (target *Client) RplVersion() {
 		"%s %s", SEM_VER, target.server.name)
 }
 
-func (target *Client) RplInviting(invitee *Client, channel string) {
+func (target *Client) RplInviting(invitee *Client, channel Name) {
 	target.NumericReply(RPL_INVITING,
 		"%s %s", invitee.Nick(), channel)
 }
@@ -412,7 +412,7 @@ func (target *Client) RplWhoWasUser(whoWas *WhoWas) {
 		whoWas.nickname, whoWas.username, whoWas.hostname, whoWas.realname)
 }
 
-func (target *Client) RplEndOfWhoWas(nickname string) {
+func (target *Client) RplEndOfWhoWas(nickname Name) {
 	target.NumericReply(RPL_ENDOFWHOWAS,
 		"%s :End of WHOWAS", nickname)
 }
@@ -426,7 +426,7 @@ func (target *Client) ErrAlreadyRegistered() {
 		":You may not reregister")
 }
 
-func (target *Client) ErrNickNameInUse(nick string) {
+func (target *Client) ErrNickNameInUse(nick Name) {
 	target.NumericReply(ERR_NICKNAMEINUSE,
 		"%s :Nickname is already in use", nick)
 }
@@ -441,12 +441,12 @@ func (target *Client) ErrUsersDontMatch() {
 		":Cannot change mode for other users")
 }
 
-func (target *Client) ErrNeedMoreParams(command string) {
+func (target *Client) ErrNeedMoreParams(command StringCode) {
 	target.NumericReply(ERR_NEEDMOREPARAMS,
 		"%s :Not enough parameters", command)
 }
 
-func (target *Client) ErrNoSuchChannel(channel string) {
+func (target *Client) ErrNoSuchChannel(channel Name) {
 	target.NumericReply(ERR_NOSUCHCHANNEL,
 		"%s :No such channel", channel)
 }
@@ -471,7 +471,7 @@ func (target *Client) ErrBadChannelKey(channel *Channel) {
 		"%s :Cannot join channel (+k)", channel.name)
 }
 
-func (target *Client) ErrNoSuchNick(nick string) {
+func (target *Client) ErrNoSuchNick(nick Name) {
 	target.NumericReply(ERR_NOSUCHNICK,
 		"%s :No such nick/channel", nick)
 }
@@ -493,7 +493,7 @@ func (target *Client) ErrRestricted() {
 	target.NumericReply(ERR_RESTRICTED, ":Your connection is restricted!")
 }
 
-func (target *Client) ErrNoSuchServer(server string) {
+func (target *Client) ErrNoSuchServer(server Name) {
 	target.NumericReply(ERR_NOSUCHSERVER, "%s :No such server", server)
 }
 
@@ -521,7 +521,7 @@ func (target *Client) ErrNoNicknameGiven() {
 	target.NumericReply(ERR_NONICKNAMEGIVEN, ":No nickname given")
 }
 
-func (target *Client) ErrErroneusNickname(nick string) {
+func (target *Client) ErrErroneusNickname(nick Name) {
 	target.NumericReply(ERR_ERRONEUSNICKNAME,
 		"%s :Erroneous nickname", nick)
 }
@@ -536,7 +536,7 @@ func (target *Client) ErrChannelIsFull(channel *Channel) {
 		"%s :Cannot join channel (+l)", channel)
 }
 
-func (target *Client) ErrWasNoSuchNick(nickname string) {
+func (target *Client) ErrWasNoSuchNick(nickname Name) {
 	target.NumericReply(ERR_WASNOSUCHNICK,
 		"%s :There was no such nickname", nickname)
 }

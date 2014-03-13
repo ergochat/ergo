@@ -2,7 +2,6 @@ package irc
 
 import (
 	"errors"
-	"regexp"
 	"time"
 )
 
@@ -15,11 +14,6 @@ var (
 
 	// errors
 	ErrAlreadyDestroyed = errors.New("already destroyed")
-
-	// regexps
-	ChannelNameExpr = regexp.MustCompile(`^[&!#+][\pL\pN]{1,63}$`)
-	NicknameExpr    = regexp.MustCompile(
-		"^[\\pL\\pN\\pP\\pS]{1,32}$")
 )
 
 const (
