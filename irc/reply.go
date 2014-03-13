@@ -548,6 +548,11 @@ func (target *Client) ErrUnknownMode(mode ChannelMode, channel *Channel) {
 		"%s :is unknown mode char to me for %s", mode, channel)
 }
 
+func (target *Client) ErrConfiguredMode(mode ChannelMode) {
+	target.NumericReply(ERR_UNKNOWNMODE,
+		"%s :can only change this mode in daemon configuration", mode)
+}
+
 func (target *Client) ErrChannelIsFull(channel *Channel) {
 	target.NumericReply(ERR_CHANNELISFULL,
 		"%s :Cannot join channel (+l)", channel)

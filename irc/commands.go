@@ -49,6 +49,7 @@ var (
 		PRIVMSG: NewPrivMsgCommand,
 		PROXY:   NewProxyCommand,
 		QUIT:    NewQuitCommand,
+		THEATER: NewTheaterCommand, // nonstandard
 		TIME:    NewTimeCommand,
 		TOPIC:   NewTopicCommand,
 		USER:    NewUserCommand,
@@ -945,6 +946,31 @@ func NewInviteCommand(args []string) (Command, error) {
 		nickname: NewName(args[0]),
 		channel:  NewName(args[1]),
 	}, nil
+}
+
+func NewTheaterCommand(args []string) (Command, error) {
+	if len(args) < 1 {
+		return nil, NotEnoughArgsError
+	} else if upperSubCmd := strings.ToUpper(args[0]); upperSubCmd == "IDENTIFY" && len(args) == 3 {
+		return &TheaterIdentifyCommand{
+			channel:     NewName(args[1]),
+			PassCommand: PassCommand{password: []byte(args[2])},
+		}, nil
+	} else if upperSubCmd == "PRIVMSG" && len(args) == 4 {
+		return &TheaterPrivMsgCommand{
+			channel: NewName(args[1]),
+			asNick:  NewName(args[2]),
+			message: NewText(args[3]),
+		}, nil
+	} else if upperSubCmd == "ACTION" && len(args) == 4 {
+		return &TheaterActionCommand{
+			channel: NewName(args[1]),
+			asNick:  NewName(args[2]),
+			action:  NewText(args[3]),
+		}, nil
+	} else {
+		return nil, ErrParseCommand
+	}
 }
 
 type TimeCommand struct {
