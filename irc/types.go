@@ -23,24 +23,6 @@ func (mode UserMode) String() string {
 	return string(mode)
 }
 
-type Phase uint
-
-type ReplyCode interface {
-	String() string
-}
-
-type StringCode string
-
-func (code StringCode) String() string {
-	return string(code)
-}
-
-type NumericCode uint
-
-func (code NumericCode) String() string {
-	return fmt.Sprintf("%03d", code)
-}
-
 // channel mode flags
 type ChannelMode rune
 
@@ -143,33 +125,7 @@ func (channels ChannelSet) First() *Channel {
 // interfaces
 //
 
-type Identifier interface {
+type Identifiable interface {
 	Id() string
 	Nick() string
-}
-
-type Replier interface {
-	Reply(...string)
-}
-
-type Command interface {
-	Code() StringCode
-	Client() *Client
-	SetCode(StringCode)
-	SetClient(*Client)
-}
-
-type ServerCommand interface {
-	Command
-	HandleServer(*Server)
-}
-
-type AuthServerCommand interface {
-	Command
-	HandleAuthServer(*Server)
-}
-
-type RegServerCommand interface {
-	Command
-	HandleRegServer(*Server)
 }

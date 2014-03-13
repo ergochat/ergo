@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+type Command interface {
+	Client() *Client
+	Code() StringCode
+	SetClient(*Client)
+	SetCode(StringCode)
+}
+
 type checkPasswordCommand interface {
 	LoadPassword(*Server)
 	CheckPassword()

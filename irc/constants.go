@@ -3,7 +3,6 @@ package irc
 import (
 	"errors"
 	"regexp"
-	"time"
 )
 
 var (
@@ -20,10 +19,6 @@ const (
 	SEM_VER       = "ergonomadic-1.3.1"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
-
-	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
-	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
-	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
 
 	// string codes
 	AWAY    StringCode = "AWAY"
@@ -226,9 +221,4 @@ const (
 	Secret          ChannelMode = 's' // flag, deprecated
 	UserLimit       ChannelMode = 'l' // flag arg
 	Voice           ChannelMode = 'v' // arg
-)
-
-const (
-	Registration Phase = iota
-	Normal       Phase = iota
 )

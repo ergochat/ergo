@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+const (
+	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
+	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
+	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
+)
+
 func IsNickname(nick string) bool {
 	return NicknameExpr.MatchString(nick)
 }
@@ -26,9 +32,9 @@ type Client struct {
 	idleTimer    *time.Timer
 	loginTimer   *time.Timer
 	nick         string
-	phase        Phase
 	quitTimer    *time.Timer
 	realname     string
+	registered   bool
 	server       *Server
 	socket       *Socket
 	username     string
@@ -45,7 +51,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		commands:     make(chan Command),
 		ctime:        now,
 		flags:        make(map[UserMode]bool),
-		phase:        Registration,
 		server:       server,
 	}
 	client.socket = NewSocket(conn, client.commands)
@@ -118,7 +123,10 @@ func (client *Client) Idle() {
 }
 
 func (client *Client) Register() {
-	client.phase = Normal
+	if client.registered {
+		return
+	}
+	client.registered = true
 	client.loginTimer.Stop()
 	client.Touch()
 }

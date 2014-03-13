@@ -16,10 +16,15 @@ import (
 	"time"
 )
 
-var (
-	SERVER_SIGNALS = []os.Signal{syscall.SIGINT, syscall.SIGHUP,
-		syscall.SIGTERM, syscall.SIGQUIT}
-)
+type ServerCommand interface {
+	Command
+	HandleServer(*Server)
+}
+
+type RegServerCommand interface {
+	Command
+	HandleRegServer(*Server)
+}
 
 type Server struct {
 	channels  ChannelNameMap
@@ -36,6 +41,11 @@ type Server struct {
 	signals   chan os.Signal
 	whoWas    *WhoWasList
 }
+
+var (
+	SERVER_SIGNALS = []os.Signal{syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGTERM, syscall.SIGQUIT}
+)
 
 func NewServer(config *Config) *Server {
 	server := &Server{
@@ -111,34 +121,33 @@ func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
 	Log.debug.Printf("%s → %s %s", client, server, cmd)
 
-	switch client.phase {
-	case Registration:
+	if !client.registered {
 		regCmd, ok := cmd.(RegServerCommand)
 		if !ok {
 			client.Quit("unexpected command")
 			return
 		}
 		regCmd.HandleRegServer(server)
-
-	case Normal:
-		srvCmd, ok := cmd.(ServerCommand)
-		if !ok {
-			client.ErrUnknownCommand(cmd.Code())
-			return
-		}
-		switch srvCmd.(type) {
-		case *PingCommand, *PongCommand:
-			client.Touch()
-
-		case *QuitCommand:
-			// no-op
-
-		default:
-			client.Active()
-			client.Touch()
-		}
-		srvCmd.HandleServer(server)
+		return
 	}
+
+	srvCmd, ok := cmd.(ServerCommand)
+	if !ok {
+		client.ErrUnknownCommand(cmd.Code())
+		return
+	}
+	switch srvCmd.(type) {
+	case *PingCommand, *PongCommand:
+		client.Touch()
+
+	case *QuitCommand:
+		// no-op
+
+	default:
+		client.Active()
+		client.Touch()
+	}
+	srvCmd.HandleServer(server)
 }
 
 func (server *Server) Shutdown() {
@@ -197,14 +206,17 @@ func (s *Server) listen(addr string) {
 //
 
 func (s *Server) tryRegister(c *Client) {
-	if c.HasNick() && c.HasUsername() && (c.capState != CapNegotiating) {
-		c.Register()
-		c.RplWelcome()
-		c.RplYourHost()
-		c.RplCreated()
-		c.RplMyInfo()
-		s.MOTD(c)
+	if c.registered || !c.HasNick() || !c.HasUsername() ||
+		(c.capState == CapNegotiating) {
+		return
 	}
+
+	c.Register()
+	c.RplWelcome()
+	c.RplYourHost()
+	c.RplCreated()
+	c.RplMyInfo()
+	s.MOTD(c)
 }
 
 func (server *Server) MOTD(client *Client) {
