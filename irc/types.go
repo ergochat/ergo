@@ -9,44 +9,6 @@ import (
 // simple types
 //
 
-type CapSubCommand string
-
-type Capability string
-
-func (capability Capability) String() string {
-	return string(capability)
-}
-
-type CapModifier rune
-
-func (mod CapModifier) String() string {
-	return string(mod)
-}
-
-type CapState uint
-
-type CapabilitySet map[Capability]bool
-
-func (set CapabilitySet) String() string {
-	strs := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		strs[index] = string(capability)
-		index += 1
-	}
-	return strings.Join(strs, " ")
-}
-
-func (set CapabilitySet) DisableString() string {
-	parts := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		parts[index] = Disable.String() + capability.String()
-		index += 1
-	}
-	return strings.Join(parts, " ")
-}
-
 // add, remove, list modes
 type ModeOp rune
 

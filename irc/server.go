@@ -275,43 +275,6 @@ func (msg *ProxyCommand) HandleRegServer(server *Server) {
 	msg.Client().hostname = msg.hostname
 }
 
-func (msg *CapCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
-
-	switch msg.subCommand {
-	case CAP_LS:
-		client.capState = CapNegotiating
-		client.Reply(RplCap(client, CAP_LS, SupportedCapabilities))
-
-	case CAP_LIST:
-		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
-
-	case CAP_REQ:
-		for capability := range msg.capabilities {
-			if !SupportedCapabilities[capability] {
-				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
-				return
-			}
-		}
-		for capability := range msg.capabilities {
-			client.capabilities[capability] = true
-		}
-		client.Reply(RplCap(client, CAP_ACK, msg.capabilities))
-
-	case CAP_CLEAR:
-		reply := RplCap(client, CAP_ACK, client.capabilities.DisableString())
-		client.capabilities = make(CapabilitySet)
-		client.Reply(reply)
-
-	case CAP_END:
-		client.capState = CapNegotiated
-		server.tryRegister(client)
-
-	default:
-		client.ErrInvalidCapCmd(msg.subCommand)
-	}
-}
-
 func (m *NickCommand) HandleRegServer(s *Server) {
 	client := m.Client()
 	if !client.authorized {
