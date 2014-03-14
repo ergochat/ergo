@@ -1,29 +1,9 @@
 package irc
 
-import (
-	"errors"
-	"time"
-)
-
-var (
-	// debugging flags
-	DEBUG_NET     = false
-	DEBUG_CLIENT  = false
-	DEBUG_CHANNEL = false
-	DEBUG_SERVER  = false
-
-	// errors
-	ErrAlreadyDestroyed = errors.New("already destroyed")
-)
-
 const (
 	SEM_VER       = "ergonomadic-1.3.1"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
-
-	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
-	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
-	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
 
 	// string codes
 	AWAY    StringCode = "AWAY"
@@ -195,67 +175,4 @@ const (
 	ERR_NOOPERHOST        NumericCode = 491
 	ERR_UMODEUNKNOWNFLAG  NumericCode = 501
 	ERR_USERSDONTMATCH    NumericCode = 502
-
-	CAP_LS    CapSubCommand = "LS"
-	CAP_LIST  CapSubCommand = "LIST"
-	CAP_REQ   CapSubCommand = "REQ"
-	CAP_ACK   CapSubCommand = "ACK"
-	CAP_NAK   CapSubCommand = "NAK"
-	CAP_CLEAR CapSubCommand = "CLEAR"
-	CAP_END   CapSubCommand = "END"
-
-	Add    ModeOp = '+'
-	List   ModeOp = '='
-	Remove ModeOp = '-'
-
-	Away          UserMode = 'a'
-	Invisible     UserMode = 'i'
-	LocalOperator UserMode = 'O'
-	Operator      UserMode = 'o'
-	Restricted    UserMode = 'r'
-	ServerNotice  UserMode = 's' // deprecated
-	WallOps       UserMode = 'w'
-
-	Anonymous       ChannelMode = 'a' // flag
-	BanMask         ChannelMode = 'b' // arg
-	ChannelCreator  ChannelMode = 'O' // flag
-	ChannelOperator ChannelMode = 'o' // arg
-	ExceptMask      ChannelMode = 'e' // arg
-	InviteMask      ChannelMode = 'I' // arg
-	InviteOnly      ChannelMode = 'i' // flag
-	Key             ChannelMode = 'k' // flag arg
-	Moderated       ChannelMode = 'm' // flag
-	NoOutside       ChannelMode = 'n' // flag
-	OpOnlyTopic     ChannelMode = 't' // flag
-	Persistent      ChannelMode = 'P' // flag
-	Private         ChannelMode = 'p' // flag
-	Quiet           ChannelMode = 'q' // flag
-	ReOp            ChannelMode = 'r' // flag
-	Secret          ChannelMode = 's' // flag, deprecated
-	UserLimit       ChannelMode = 'l' // flag arg
-	Voice           ChannelMode = 'v' // arg
-
-	MultiPrefix Capability = "multi-prefix"
-	SASL        Capability = "sasl"
-
-	Disable CapModifier = '-'
-	Ack     CapModifier = '~'
-	Sticky  CapModifier = '='
-)
-
-var (
-	SupportedCapabilities = CapabilitySet{
-		MultiPrefix: true,
-	}
-)
-
-const (
-	Registration Phase = iota
-	Normal       Phase = iota
-)
-
-const (
-	CapNone        CapState = iota
-	CapNegotiating CapState = iota
-	CapNegotiated  CapState = iota
 )

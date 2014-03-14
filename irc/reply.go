@@ -6,7 +6,23 @@ import (
 	"time"
 )
 
-func NewStringReply(source Identifier, code StringCode,
+type ReplyCode interface {
+	String() string
+}
+
+type StringCode string
+
+func (code StringCode) String() string {
+	return string(code)
+}
+
+type NumericCode uint
+
+func (code NumericCode) String() string {
+	return fmt.Sprintf("%03d", code)
+}
+
+func NewStringReply(source Identifiable, code StringCode,
 	format string, args ...interface{}) string {
 	var header string
 	if source == nil {
@@ -79,15 +95,15 @@ func (target *Client) MultilineReply(names []string, code NumericCode, format st
 // messaging replies
 //
 
-func RplPrivMsg(source Identifier, target Identifier, message Text) string {
+func RplPrivMsg(source Identifiable, target Identifiable, message Text) string {
 	return NewStringReply(source, PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
-func RplNotice(source Identifier, target Identifier, message Text) string {
+func RplNotice(source Identifiable, target Identifiable, message Text) string {
 	return NewStringReply(source, NOTICE, "%s :%s", target.Nick(), message)
 }
 
-func RplNick(source Identifier, newNick Name) string {
+func RplNick(source Identifiable, newNick Name) string {
 	return NewStringReply(source, NICK, newNick.String())
 }
 
@@ -108,11 +124,11 @@ func RplChannelMode(client *Client, channel *Channel,
 	return NewStringReply(client, MODE, "%s %s", channel, changes)
 }
 
-func RplTopicMsg(source Identifier, channel *Channel) string {
+func RplTopicMsg(source Identifiable, channel *Channel) string {
 	return NewStringReply(source, TOPIC, "%s :%s", channel, channel.topic)
 }
 
-func RplPing(target Identifier) string {
+func RplPing(target Identifiable) string {
 	return NewStringReply(nil, PING, ":%s", target.Nick())
 }
 
@@ -165,7 +181,8 @@ func (target *Client) RplCreated() {
 
 func (target *Client) RplMyInfo() {
 	target.NumericReply(RPL_MYINFO,
-		"%s %s aiOorsw abeIikmntpqrsl", target.server.name, SEM_VER)
+		"%s %s %s %s",
+		target.server.name, SEM_VER, SupportedUserModes, SupportedChannelModes)
 }
 
 func (target *Client) RplUModeIs(client *Client) {

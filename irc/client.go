@@ -2,9 +2,14 @@ package irc
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"time"
+)
+
+const (
+	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
+	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
+	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
 )
 
 type Client struct {
@@ -14,7 +19,7 @@ type Client struct {
 	capabilities CapabilitySet
 	capState     CapState
 	channels     ChannelSet
-	commands     chan editableCommand
+	commands     chan Command
 	ctime        time.Time
 	flags        map[UserMode]bool
 	hasQuit      bool
@@ -23,9 +28,9 @@ type Client struct {
 	idleTimer    *time.Timer
 	loginTimer   *time.Timer
 	nick         Name
-	phase        Phase
 	quitTimer    *time.Timer
 	realname     Text
+	registered   bool
 	server       *Server
 	socket       *Socket
 	username     Name
@@ -39,10 +44,9 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		capState:     CapNone,
 		capabilities: make(CapabilitySet),
 		channels:     make(ChannelSet),
-		commands:     make(chan editableCommand),
+		commands:     make(chan Command),
 		ctime:        now,
 		flags:        make(map[UserMode]bool),
-		phase:        Registration,
 		server:       server,
 	}
 	client.socket = NewSocket(conn, client.commands)
@@ -115,7 +119,10 @@ func (client *Client) Idle() {
 }
 
 func (client *Client) Register() {
-	client.phase = Normal
+	if client.registered {
+		return
+	}
+	client.registered = true
 	client.loginTimer.Stop()
 	client.Touch()
 }
@@ -145,9 +152,7 @@ func (client *Client) destroy() {
 
 	client.socket.Close()
 
-	if DEBUG_CLIENT {
-		log.Printf("%s: destroyed", client)
-	}
+	Log.debug.Printf("%s: destroyed", client)
 }
 
 func (client *Client) IdleTime() time.Duration {

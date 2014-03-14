@@ -38,7 +38,7 @@ hostname lookups.
 ```sh
 go get
 go install
-ergonomadic -conf ergonomadic.conf -initdb
+ergonomadic initdb -conf ergonomadic.conf
 ```
 
 ## Configuration
@@ -48,16 +48,16 @@ bcrypted byte strings. You can generate them with the `genpasswd`
 subcommand.
 
 ```sh
-ergonomadic -genpasswd 'hunter2!'
+ergonomadic genpasswd 'hunter2!'
 ```
 
 ## Running the Server
 
 ```sh
-ergonomadic -conf ergonomadic.conf
+ergonomadic run -conf ergonomadic.conf
 ```
 
-## Helpful Documentation
+## IRC Documentation
 
 - [RFC 1459: Internet Relay Chat Protocol](http://tools.ietf.org/html/rfc1459)
 - [RFC 2811: IRC Channel Management](http://tools.ietf.org/html/rfc2811)

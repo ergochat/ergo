@@ -16,6 +16,16 @@ import (
 	"time"
 )
 
+type ServerCommand interface {
+	Command
+	HandleServer(*Server)
+}
+
+type RegServerCommand interface {
+	Command
+	HandleRegServer(*Server)
+}
+
 type Server struct {
 	channels  ChannelNameMap
 	clients   *ClientLookupSet
@@ -32,19 +42,24 @@ type Server struct {
 	whoWas    *WhoWasList
 }
 
+var (
+	SERVER_SIGNALS = []os.Signal{syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGTERM, syscall.SIGQUIT}
+)
+
 func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:  make(ChannelNameMap),
 		clients:   NewClientLookupSet(),
-		commands:  make(chan Command, 16),
+		commands:  make(chan Command),
 		ctime:     time.Now(),
 		db:        OpenDB(config.Server.Database),
-		idle:      make(chan *Client, 16),
+		idle:      make(chan *Client),
 		motdFile:  config.Server.MOTD,
 		name:      NewName(config.Server.Name),
-		newConns:  make(chan net.Conn, 16),
+		newConns:  make(chan net.Conn),
 		operators: config.Operators(),
-		signals:   make(chan os.Signal, 1),
+		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
 		whoWas:    NewWhoWasList(100),
 	}
 
@@ -58,8 +73,7 @@ func NewServer(config *Config) *Server {
 		go server.listen(addr)
 	}
 
-	signal.Notify(server.signals, syscall.SIGINT, syscall.SIGHUP,
-		syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(server.signals, SERVER_SIGNALS...)
 
 	return server
 }
@@ -80,9 +94,7 @@ func (server *Server) loadChannels() {
 		log.Fatal("error loading channels: ", err)
 	}
 	for rows.Next() {
-		var name Name
-		var flags string
-		var key, topic Text
+		var name, flags, key, topic string
 		var userLimit uint64
 		var banList, exceptList, inviteList string
 		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
@@ -92,12 +104,12 @@ func (server *Server) loadChannels() {
 			continue
 		}
 
-		channel := NewChannel(server, name)
+		channel := NewChannel(server, NewName(name))
 		for _, flag := range flags {
 			channel.flags[ChannelMode(flag)] = true
 		}
-		channel.key = key
-		channel.topic = topic
+		channel.key = NewText(key)
+		channel.topic = NewText(topic)
 		channel.userLimit = userLimit
 		loadChannelList(channel, banList, BanMask)
 		loadChannelList(channel, exceptList, ExceptMask)
@@ -107,38 +119,35 @@ func (server *Server) loadChannels() {
 
 func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
-	if DEBUG_SERVER {
-		log.Printf("%s → %s %s", client, server, cmd)
-	}
+	Log.debug.Printf("%s → %s %s", client, server, cmd)
 
-	switch client.phase {
-	case Registration:
+	if !client.registered {
 		regCmd, ok := cmd.(RegServerCommand)
 		if !ok {
 			client.Quit("unexpected command")
 			return
 		}
 		regCmd.HandleRegServer(server)
-
-	case Normal:
-		srvCmd, ok := cmd.(ServerCommand)
-		if !ok {
-			client.ErrUnknownCommand(cmd.Code())
-			return
-		}
-		switch srvCmd.(type) {
-		case *PingCommand, *PongCommand:
-			client.Touch()
-
-		case *QuitCommand:
-			// no-op
-
-		default:
-			client.Active()
-			client.Touch()
-		}
-		srvCmd.HandleServer(server)
+		return
 	}
+
+	srvCmd, ok := cmd.(ServerCommand)
+	if !ok {
+		client.ErrUnknownCommand(cmd.Code())
+		return
+	}
+	switch srvCmd.(type) {
+	case *PingCommand, *PongCommand:
+		client.Touch()
+
+	case *QuitCommand:
+		// no-op
+
+	default:
+		client.Active()
+		client.Touch()
+	}
+	srvCmd.HandleServer(server)
 }
 
 func (server *Server) Shutdown() {
@@ -178,21 +187,15 @@ func (s *Server) listen(addr string) {
 		log.Fatal(s, "listen error: ", err)
 	}
 
-	if DEBUG_SERVER {
-		log.Printf("%s listening on %s", s, addr)
-	}
+	Log.info.Printf("%s listening on %s", s, addr)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if DEBUG_SERVER {
-				log.Printf("%s accept error: %s", s, err)
-			}
+			Log.error.Printf("%s accept error: %s", s, err)
 			continue
 		}
-		if DEBUG_SERVER {
-			log.Printf("%s accept: %s", s, conn.RemoteAddr())
-		}
+		Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
 		s.newConns <- conn
 	}
@@ -203,14 +206,17 @@ func (s *Server) listen(addr string) {
 //
 
 func (s *Server) tryRegister(c *Client) {
-	if c.HasNick() && c.HasUsername() && (c.capState != CapNegotiating) {
-		c.Register()
-		c.RplWelcome()
-		c.RplYourHost()
-		c.RplCreated()
-		c.RplMyInfo()
-		s.MOTD(c)
+	if c.registered || !c.HasNick() || !c.HasUsername() ||
+		(c.capState == CapNegotiating) {
+		return
 	}
+
+	c.Register()
+	c.RplWelcome()
+	c.RplYourHost()
+	c.RplCreated()
+	c.RplMyInfo()
+	s.MOTD(c)
 }
 
 func (server *Server) MOTD(client *Client) {
@@ -281,44 +287,6 @@ func (msg *ProxyCommand) HandleRegServer(server *Server) {
 	msg.Client().hostname = msg.hostname
 }
 
-func (msg *CapCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
-
-	switch msg.subCommand {
-	case CAP_LS:
-		client.capState = CapNegotiating
-		client.Reply(RplCap(client, CAP_LS, SupportedCapabilities))
-
-	case CAP_LIST:
-		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
-
-	case CAP_REQ:
-		client.capState = CapNegotiating
-		for capability := range msg.capabilities {
-			if !SupportedCapabilities[capability] {
-				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
-				return
-			}
-		}
-		for capability := range msg.capabilities {
-			client.capabilities[capability] = true
-		}
-		client.Reply(RplCap(client, CAP_ACK, msg.capabilities))
-
-	case CAP_CLEAR:
-		reply := RplCap(client, CAP_ACK, client.capabilities.DisableString())
-		client.capabilities = make(CapabilitySet)
-		client.Reply(reply)
-
-	case CAP_END:
-		client.capState = CapNegotiated
-		server.tryRegister(client)
-
-	default:
-		client.ErrInvalidCapCmd(msg.subCommand)
-	}
-}
-
 func (m *NickCommand) HandleRegServer(s *Server) {
 	client := m.Client()
 	if !client.authorized {
@@ -369,7 +337,7 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 	}
 	flags := msg.Flags()
 	if len(flags) > 0 {
-		for _, mode := range msg.Flags() {
+		for _, mode := range flags {
 			client.flags[mode] = true
 		}
 		client.RplUModeIs(client)
@@ -521,58 +489,6 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	}
 }
 
-func (m *ModeCommand) HandleServer(s *Server) {
-	client := m.Client()
-	target := s.clients.Get(m.nickname)
-
-	if target == nil {
-		client.ErrNoSuchNick(m.nickname)
-		return
-	}
-
-	if client != target && !client.flags[Operator] {
-		client.ErrUsersDontMatch()
-		return
-	}
-
-	changes := make(ModeChanges, 0, len(m.changes))
-
-	for _, change := range m.changes {
-		switch change.mode {
-		case Invisible, ServerNotice, WallOps:
-			switch change.op {
-			case Add:
-				if target.flags[change.mode] {
-					continue
-				}
-				target.flags[change.mode] = true
-				changes = append(changes, change)
-
-			case Remove:
-				if !target.flags[change.mode] {
-					continue
-				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
-			}
-
-		case Operator, LocalOperator:
-			if change.op == Remove {
-				if !target.flags[change.mode] {
-					continue
-				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
-			}
-		}
-	}
-
-	// Who should get these replies?
-	if len(changes) > 0 {
-		client.Reply(RplMode(client, target, changes))
-	}
-}
-
 func (client *Client) WhoisChannelsNames() []string {
 	chstrs := make([]string, len(client.channels))
 	index := 0
@@ -607,17 +523,6 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 			client.RplWhois(mclient)
 		}
 	}
-}
-
-func (msg *ChannelModeCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	channel := server.channels.Get(msg.channel)
-	if channel == nil {
-		client.ErrNoSuchChannel(msg.channel)
-		return
-	}
-
-	channel.Mode(client, msg.changes)
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {

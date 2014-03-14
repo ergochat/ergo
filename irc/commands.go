@@ -8,10 +8,11 @@ import (
 	"strings"
 )
 
-type editableCommand interface {
-	Command
-	SetCode(StringCode)
+type Command interface {
+	Client() *Client
+	Code() StringCode
 	SetClient(*Client)
+	SetCode(StringCode)
 }
 
 type checkPasswordCommand interface {
@@ -19,7 +20,7 @@ type checkPasswordCommand interface {
 	CheckPassword()
 }
 
-type parseCommandFunc func([]string) (editableCommand, error)
+type parseCommandFunc func([]string) (Command, error)
 
 var (
 	NotEnoughArgsError = errors.New("not enough arguments")
@@ -78,7 +79,7 @@ func (command *BaseCommand) SetCode(code StringCode) {
 	command.code = code
 }
 
-func ParseCommand(line string) (cmd editableCommand, err error) {
+func ParseCommand(line string) (cmd Command, err error) {
 	code, args := ParseLine(line)
 	constructor := parseCommandFuncs[code]
 	if constructor == nil {
@@ -154,7 +155,7 @@ func (cmd *PingCommand) String() string {
 	return fmt.Sprintf("PING(server=%s, server2=%s)", cmd.server, cmd.server2)
 }
 
-func NewPingCommand(args []string) (editableCommand, error) {
+func NewPingCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -179,7 +180,7 @@ func (cmd *PongCommand) String() string {
 	return fmt.Sprintf("PONG(server1=%s, server2=%s)", cmd.server1, cmd.server2)
 }
 
-func NewPongCommand(args []string) (editableCommand, error) {
+func NewPongCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -216,7 +217,7 @@ func (cmd *PassCommand) CheckPassword() {
 	cmd.err = ComparePassword(cmd.hash, cmd.password)
 }
 
-func NewPassCommand(args []string) (editableCommand, error) {
+func NewPassCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -236,7 +237,7 @@ func (m *NickCommand) String() string {
 	return fmt.Sprintf("NICK(nickname=%s)", m.nickname)
 }
 
-func NewNickCommand(args []string) (editableCommand, error) {
+func NewNickCommand(args []string) (Command, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -286,7 +287,7 @@ func (cmd *RFC2812UserCommand) Flags() []UserMode {
 	return flags
 }
 
-func NewUserCommand(args []string) (editableCommand, error) {
+func NewUserCommand(args []string) (Command, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
@@ -321,7 +322,7 @@ func (cmd *QuitCommand) String() string {
 	return fmt.Sprintf("QUIT(message=%s)", cmd.message)
 }
 
-func NewQuitCommand(args []string) (editableCommand, error) {
+func NewQuitCommand(args []string) (Command, error) {
 	msg := &QuitCommand{}
 	if len(args) > 0 {
 		msg.message = NewText(args[0])
@@ -341,7 +342,7 @@ func (cmd *JoinCommand) String() string {
 	return fmt.Sprintf("JOIN(channels=%s, zero=%t)", cmd.channels, cmd.zero)
 }
 
-func NewJoinCommand(args []string) (editableCommand, error) {
+func NewJoinCommand(args []string) (Command, error) {
 	msg := &JoinCommand{
 		channels: make(map[Name]Text),
 	}
@@ -388,7 +389,7 @@ func (cmd *PartCommand) String() string {
 	return fmt.Sprintf("PART(channels=%s, message=%s)", cmd.channels, cmd.message)
 }
 
-func NewPartCommand(args []string) (editableCommand, error) {
+func NewPartCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -413,7 +414,7 @@ func (cmd *PrivMsgCommand) String() string {
 	return fmt.Sprintf("PRIVMSG(target=%s, message=%s)", cmd.target, cmd.message)
 }
 
-func NewPrivMsgCommand(args []string) (editableCommand, error) {
+func NewPrivMsgCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -436,7 +437,7 @@ func (cmd *TopicCommand) String() string {
 	return fmt.Sprintf("TOPIC(channel=%s, topic=%s)", cmd.channel, cmd.topic)
 }
 
-func NewTopicCommand(args []string) (editableCommand, error) {
+func NewTopicCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -486,7 +487,7 @@ type ModeCommand struct {
 }
 
 // MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
-func NewUserModeCommand(nickname Name, args []string) (editableCommand, error) {
+func NewUserModeCommand(nickname Name, args []string) (Command, error) {
 	cmd := &ModeCommand{
 		nickname: nickname,
 		changes:  make(ModeChanges, 0),
@@ -563,7 +564,7 @@ type ChannelModeCommand struct {
 }
 
 // MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
-func NewChannelModeCommand(channel Name, args []string) (editableCommand, error) {
+func NewChannelModeCommand(channel Name, args []string) (Command, error) {
 	cmd := &ChannelModeCommand{
 		channel: channel,
 		changes: make(ChannelModeChanges, 0),
@@ -609,7 +610,7 @@ func (msg *ChannelModeCommand) String() string {
 	return fmt.Sprintf("MODE(channel=%s, changes=%s)", msg.channel, msg.changes)
 }
 
-func NewModeCommand(args []string) (editableCommand, error) {
+func NewModeCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
@@ -629,7 +630,7 @@ type WhoisCommand struct {
 }
 
 // WHOIS [ <target> ] <mask> *( "," <mask> )
-func NewWhoisCommand(args []string) (editableCommand, error) {
+func NewWhoisCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -661,7 +662,7 @@ type WhoCommand struct {
 }
 
 // WHO [ <mask> [ "o" ] ]
-func NewWhoCommand(args []string) (editableCommand, error) {
+func NewWhoCommand(args []string) (Command, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
@@ -693,7 +694,7 @@ func (msg *OperCommand) LoadPassword(server *Server) {
 }
 
 // OPER <name> <password>
-func NewOperCommand(args []string) (editableCommand, error) {
+func NewOperCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -716,7 +717,7 @@ func (msg *CapCommand) String() string {
 		msg.subCommand, msg.capabilities)
 }
 
-func NewCapCommand(args []string) (editableCommand, error) {
+func NewCapCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -750,7 +751,7 @@ func (msg *ProxyCommand) String() string {
 	return fmt.Sprintf("PROXY(sourceIP=%s, sourcePort=%s)", msg.sourceIP, msg.sourcePort)
 }
 
-func NewProxyCommand(args []string) (editableCommand, error) {
+func NewProxyCommand(args []string) (Command, error) {
 	if len(args) < 5 {
 		return nil, NotEnoughArgsError
 	}
@@ -774,7 +775,7 @@ func (msg *AwayCommand) String() string {
 	return fmt.Sprintf("AWAY(%s)", msg.text)
 }
 
-func NewAwayCommand(args []string) (editableCommand, error) {
+func NewAwayCommand(args []string) (Command, error) {
 	cmd := &AwayCommand{}
 
 	if len(args) > 0 {
@@ -794,7 +795,7 @@ func (msg *IsOnCommand) String() string {
 	return fmt.Sprintf("ISON(nicks=%s)", msg.nicks)
 }
 
-func NewIsOnCommand(args []string) (editableCommand, error) {
+func NewIsOnCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
@@ -809,7 +810,7 @@ type MOTDCommand struct {
 	target Name
 }
 
-func NewMOTDCommand(args []string) (editableCommand, error) {
+func NewMOTDCommand(args []string) (Command, error) {
 	cmd := &MOTDCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -827,7 +828,7 @@ func (cmd *NoticeCommand) String() string {
 	return fmt.Sprintf("NOTICE(target=%s, message=%s)", cmd.target, cmd.message)
 }
 
-func NewNoticeCommand(args []string) (editableCommand, error) {
+func NewNoticeCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -850,7 +851,7 @@ func (msg *KickCommand) Comment() Text {
 	return msg.comment
 }
 
-func NewKickCommand(args []string) (editableCommand, error) {
+func NewKickCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -881,7 +882,7 @@ type ListCommand struct {
 	target   Name
 }
 
-func NewListCommand(args []string) (editableCommand, error) {
+func NewListCommand(args []string) (Command, error) {
 	cmd := &ListCommand{}
 	if len(args) > 0 {
 		cmd.channels = NewNames(strings.Split(args[0], ","))
@@ -898,7 +899,7 @@ type NamesCommand struct {
 	target   Name
 }
 
-func NewNamesCommand(args []string) (editableCommand, error) {
+func NewNamesCommand(args []string) (Command, error) {
 	cmd := &NamesCommand{}
 	if len(args) > 0 {
 		cmd.channels = NewNames(strings.Split(args[0], ","))
@@ -914,7 +915,7 @@ type DebugCommand struct {
 	subCommand Name
 }
 
-func NewDebugCommand(args []string) (editableCommand, error) {
+func NewDebugCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
@@ -929,7 +930,7 @@ type VersionCommand struct {
 	target Name
 }
 
-func NewVersionCommand(args []string) (editableCommand, error) {
+func NewVersionCommand(args []string) (Command, error) {
 	cmd := &VersionCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -943,7 +944,7 @@ type InviteCommand struct {
 	channel  Name
 }
 
-func NewInviteCommand(args []string) (editableCommand, error) {
+func NewInviteCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -959,7 +960,7 @@ type TimeCommand struct {
 	target Name
 }
 
-func NewTimeCommand(args []string) (editableCommand, error) {
+func NewTimeCommand(args []string) (Command, error) {
 	cmd := &TimeCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -973,7 +974,7 @@ type KillCommand struct {
 	comment  Text
 }
 
-func NewKillCommand(args []string) (editableCommand, error) {
+func NewKillCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -990,7 +991,7 @@ type WhoWasCommand struct {
 	target    Name
 }
 
-func NewWhoWasCommand(args []string) (editableCommand, error) {
+func NewWhoWasCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}

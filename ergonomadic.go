@@ -9,51 +9,68 @@ import (
 	"path/filepath"
 )
 
+func usage() {
+	fmt.Fprintln(os.Stderr, "ergonomadic <run|genpasswd|initdb|upgradedb> [options]")
+	fmt.Fprintln(os.Stderr, "  run -conf <config>     -- run server")
+	fmt.Fprintln(os.Stderr, "  initdb -conf <config>  -- initialize database")
+	fmt.Fprintln(os.Stderr, "  upgrade -conf <config> -- upgrade database")
+	fmt.Fprintln(os.Stderr, "  genpasswd <password>   -- bcrypt a password")
+	flag.PrintDefaults()
+}
+
+func loadConfig(conf string) *irc.Config {
+	config, err := irc.LoadConfig(conf)
+	if err != nil {
+		log.Fatalln("error loading config:", err)
+	}
+
+	err = os.Chdir(filepath.Dir(conf))
+	if err != nil {
+		log.Fatalln("chdir error:", err)
+	}
+	return config
+}
+
+func genPasswd() {
+}
+
 func main() {
-	conf := flag.String("conf", "ergonomadic.conf", "ergonomadic config file")
-	initdb := flag.Bool("initdb", false, "initialize database")
-	upgradedb := flag.Bool("upgradedb", false, "update database")
-	passwd := flag.String("genpasswd", "", "bcrypt a password")
+	var conf string
+	flag.Usage = usage
+
+	runFlags := flag.NewFlagSet("run", flag.ExitOnError)
+	runFlags.Usage = usage
+	runFlags.StringVar(&conf, "conf", "ergonomadic.conf", "ergonomadic config file")
+
 	flag.Parse()
 
-	if *passwd != "" {
-		encoded, err := irc.GenerateEncodedPassword(*passwd)
+	switch flag.Arg(0) {
+	case "genpasswd":
+		encoded, err := irc.GenerateEncodedPassword(flag.Arg(1))
 		if err != nil {
-			log.Fatal("encoding error: ", err)
+			log.Fatalln("encoding error:", err)
 		}
 		fmt.Println(encoded)
-		return
-	}
 
-	config, err := irc.LoadConfig(*conf)
-	if err != nil {
-		log.Fatal("error loading config: ", err)
-	}
-	err = os.Chdir(filepath.Dir(*conf))
-	if err != nil {
-		log.Fatal("chdir error: ", err)
-	}
-
-	if *initdb {
+	case "initdb":
+		runFlags.Parse(flag.Args()[1:])
+		config := loadConfig(conf)
 		irc.InitDB(config.Server.Database)
 		log.Println("database initialized: ", config.Server.Database)
-		return
-	}
 
-	if *upgradedb {
+	case "upgradedb":
+		runFlags.Parse(flag.Args()[1:])
+		config := loadConfig(conf)
 		irc.UpgradeDB(config.Server.Database)
 		log.Println("database upgraded: ", config.Server.Database)
-		return
+
+	default:
+		runFlags.Parse(flag.Args()[1:])
+		config := loadConfig(conf)
+		irc.Log.SetLevel(config.Server.Log)
+		server := irc.NewServer(config)
+		log.Println(irc.SEM_VER, "running")
+		defer log.Println(irc.SEM_VER, "exiting")
+		server.Run()
 	}
-
-	// TODO move to data structures
-	irc.DEBUG_NET = config.Debug.Net
-	irc.DEBUG_CLIENT = config.Debug.Client
-	irc.DEBUG_CHANNEL = config.Debug.Channel
-	irc.DEBUG_SERVER = config.Debug.Server
-
-	server := irc.NewServer(config)
-	log.Println(irc.SEM_VER, "running")
-	defer log.Println(irc.SEM_VER, "exiting")
-	server.Run()
 }

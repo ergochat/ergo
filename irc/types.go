@@ -9,83 +9,6 @@ import (
 // simple types
 //
 
-type CapSubCommand string
-
-type Capability string
-
-func (capability Capability) String() string {
-	return string(capability)
-}
-
-type CapModifier rune
-
-func (mod CapModifier) String() string {
-	return string(mod)
-}
-
-type CapState uint
-
-type CapabilitySet map[Capability]bool
-
-func (set CapabilitySet) String() string {
-	strs := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		strs[index] = string(capability)
-		index += 1
-	}
-	return strings.Join(strs, " ")
-}
-
-func (set CapabilitySet) DisableString() string {
-	parts := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		parts[index] = Disable.String() + capability.String()
-		index += 1
-	}
-	return strings.Join(parts, " ")
-}
-
-// add, remove, list modes
-type ModeOp rune
-
-func (op ModeOp) String() string {
-	return string(op)
-}
-
-// user mode flags
-type UserMode rune
-
-func (mode UserMode) String() string {
-	return string(mode)
-}
-
-type Phase uint
-
-type ReplyCode interface {
-	String() string
-}
-
-type StringCode Name
-
-func (code StringCode) String() string {
-	return string(code)
-}
-
-type NumericCode uint
-
-func (code NumericCode) String() string {
-	return fmt.Sprintf("%03d", code)
-}
-
-// channel mode flags
-type ChannelMode rune
-
-func (mode ChannelMode) String() string {
-	return string(mode)
-}
-
 type ChannelNameMap map[Name]*Channel
 
 func (channels ChannelNameMap) Get(name Name) *Channel {
@@ -181,31 +104,7 @@ func (channels ChannelSet) First() *Channel {
 // interfaces
 //
 
-type Identifier interface {
+type Identifiable interface {
 	Id() Name
 	Nick() Name
-}
-
-type Replier interface {
-	Reply(...string)
-}
-
-type Command interface {
-	Code() StringCode
-	Client() *Client
-}
-
-type ServerCommand interface {
-	Command
-	HandleServer(*Server)
-}
-
-type AuthServerCommand interface {
-	Command
-	HandleAuthServer(*Server)
-}
-
-type RegServerCommand interface {
-	Command
-	HandleRegServer(*Server)
 }

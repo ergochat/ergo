@@ -3,7 +3,6 @@ package irc
 import (
 	"bufio"
 	"io"
-	"log"
 	"net"
 	"strings"
 )
@@ -20,7 +19,7 @@ type Socket struct {
 	writer *bufio.Writer
 }
 
-func NewSocket(conn net.Conn, commands chan<- editableCommand) *Socket {
+func NewSocket(conn net.Conn, commands chan<- Command) *Socket {
 	socket := &Socket{
 		conn:   conn,
 		reader: bufio.NewReader(conn),
@@ -38,12 +37,10 @@ func (socket *Socket) String() string {
 
 func (socket *Socket) Close() {
 	socket.conn.Close()
-	if DEBUG_NET {
-		log.Printf("%s closed", socket)
-	}
+	Log.debug.Printf("%s closed", socket)
 }
 
-func (socket *Socket) readLines(commands chan<- editableCommand) {
+func (socket *Socket) readLines(commands chan<- Command) {
 	commands <- &ProxyCommand{
 		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
 	}
@@ -57,9 +54,7 @@ func (socket *Socket) readLines(commands chan<- editableCommand) {
 		if len(line) == 0 {
 			continue
 		}
-		if DEBUG_NET {
-			log.Printf("%s → %s", socket, line)
-		}
+		Log.debug.Printf("%s → %s", socket, line)
 
 		msg, err := ParseCommand(line)
 		if err != nil {
@@ -87,16 +82,14 @@ func (socket *Socket) Write(line string) (err error) {
 		return
 	}
 
-	if DEBUG_NET {
-		log.Printf("%s ← %s", socket, line)
-	}
+	Log.debug.Printf("%s ← %s", socket, line)
 	return
 }
 
 func (socket *Socket) isError(err error, dir rune) bool {
 	if err != nil {
-		if DEBUG_NET && (err != io.EOF) {
-			log.Printf("%s %c error: %s", socket, dir, err)
+		if err != io.EOF {
+			Log.debug.Printf("%s %c error: %s", socket, dir, err)
 		}
 		return true
 	}
