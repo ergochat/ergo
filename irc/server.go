@@ -70,7 +70,7 @@ func NewServer(config *Config) *Server {
 	server.loadChannels()
 
 	for _, addr := range config.Server.Listen {
-		go server.listen(addr)
+		server.listen(addr)
 	}
 
 	signal.Notify(server.signals, SERVER_SIGNALS...)
@@ -189,16 +189,18 @@ func (s *Server) listen(addr string) {
 
 	Log.info.Printf("%s listening on %s", s, addr)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			Log.error.Printf("%s accept error: %s", s, err)
-			continue
-		}
-		Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				Log.error.Printf("%s accept error: %s", s, err)
+				continue
+			}
+			Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
-		s.newConns <- conn
-	}
+			s.newConns <- conn
+		}
+	}()
 }
 
 //
