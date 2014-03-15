@@ -64,7 +64,7 @@ func main() {
 		irc.UpgradeDB(config.Server.Database)
 		log.Println("database upgraded: ", config.Server.Database)
 
-	default:
+	case "run":
 		runFlags.Parse(flag.Args()[1:])
 		config := loadConfig(conf)
 		irc.Log.SetLevel(config.Server.Log)
@@ -72,5 +72,8 @@ func main() {
 		log.Println(irc.SEM_VER, "running")
 		defer log.Println(irc.SEM_VER, "exiting")
 		server.Run()
+
+	default:
+		usage()
 	}
 }
