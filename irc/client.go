@@ -67,6 +67,11 @@ func (client *Client) run() {
 		checkPass, ok := command.(checkPasswordCommand)
 		if ok {
 			checkPass.LoadPassword(client.server)
+			// Block the client thread while handling a potentially expensive
+			// password bcrypt operation. Since the server is single-threaded
+			// for commands, we don't want the server to perform the bcrypt,
+			// blocking anyone else from sending commands until it
+			// completes. This could be a form of DoS if handled naively.
 			checkPass.CheckPassword()
 		}
 
