@@ -449,7 +449,7 @@ func (channel *Channel) Persist() (err error) {
 			channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
 	} else {
 		_, err = channel.server.db.Exec(`
-            DELETE FROM channel WHERE name = ?`, channel.name)
+            DELETE FROM channel WHERE name = ?`, channel.name.String())
 	}
 	return
 }
