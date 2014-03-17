@@ -37,8 +37,8 @@ func ExpandUserHost(userhost Name) (expanded Name) {
 	return
 }
 
-func QuoteLike(userhost Name) Name {
-	return Name(likeQuoter.Replace(userhost.String()))
+func QuoteLike(userhost Name) string {
+	return likeQuoter.Replace(userhost.String())
 }
 
 type ClientLookupSet struct {
