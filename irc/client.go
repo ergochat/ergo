@@ -227,6 +227,10 @@ func (client *Client) Friends() ClientSet {
 }
 
 func (client *Client) SetNickname(nickname Name) {
+	if client.HasNick() {
+		Log.error.Printf("%s nickname already set!", client)
+		return
+	}
 	client.nick = nickname
 	client.server.clients.Add(client)
 }

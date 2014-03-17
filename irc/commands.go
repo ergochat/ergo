@@ -40,6 +40,7 @@ var (
 		NAMES:   NewNamesCommand,
 		NICK:    NewNickCommand,
 		NOTICE:  NewNoticeCommand,
+		ONICK:   NewOperNickCommand,
 		OPER:    NewOperCommand,
 		PART:    NewPartCommand,
 		PASS:    NewPassCommand,
@@ -227,15 +228,6 @@ func NewPassCommand(args []string) (Command, error) {
 }
 
 // NICK <nickname>
-
-type NickCommand struct {
-	BaseCommand
-	nickname Name
-}
-
-func (m *NickCommand) String() string {
-	return fmt.Sprintf("NICK(nickname=%s)", m.nickname)
-}
 
 func NewNickCommand(args []string) (Command, error) {
 	if len(args) != 1 {
@@ -1005,4 +997,15 @@ func NewWhoWasCommand(args []string) (Command, error) {
 		cmd.target = NewName(args[2])
 	}
 	return cmd, nil
+}
+
+func NewOperNickCommand(args []string) (Command, error) {
+	if len(args) < 2 {
+		return nil, NotEnoughArgsError
+	}
+
+	return &OperNickCommand{
+		target: NewName(args[0]),
+		nick:   NewName(args[1]),
+	}, nil
 }

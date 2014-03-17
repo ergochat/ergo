@@ -21,6 +21,7 @@ const (
 	NAMES   StringCode = "NAMES"
 	NICK    StringCode = "NICK"
 	NOTICE  StringCode = "NOTICE"
+	ONICK   StringCode = "ONICK"
 	OPER    StringCode = "OPER"
 	PART    StringCode = "PART"
 	PASS    StringCode = "PASS"
