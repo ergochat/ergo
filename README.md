@@ -1,7 +1,8 @@
 # Ergonomadic
 
-Ergonomadic is an IRC daemon written from scratch in Go. Pull requests
-and issues are welcome.
+Ergonomadic is an IRC daemon written from scratch in Go. Pull requests and
+issues are welcome. Discuss it here or on Freenode in
+[#ergonomadic](irc://chat.freenode.net/#ergonomadic).
 
 ## Some Features
 
