@@ -5,14 +5,14 @@ issues are welcome. Discuss it here or on Freenode in [#ergonomadic][irc].
 
 ## Some Features
 
-- follows the RFC where possible
-- gcfg gitconfig-style configuration
+- follows the RFCs where possible
+- [gcfg][gcfg] gitconfig-style configuration
 - server password (PASS command)
 - channels with most standard modes
 - IRC operators (OPER command)
 - haproxy [PROXY protocol][proxy-proto] header for hostname setting
-- passwords stored in bcrypt format
-- channels that persist between restarts (+P)
+- passwords stored in [bcrypt][go-crypto] format
+- channels that [persist][go-sqlite] between restarts (+P)
 
 ## Why?
 
@@ -46,7 +46,7 @@ ergonomadic initdb -conf ergonomadic.conf
 
 ## Configuration
 
-See the example `ergonomadic.conf`. Passwords are base64-encoded bcrypted byte
+See the example [`ergonomadic.conf`][conf]. Passwords are base64-encoded bcrypted byte
 strings. You can generate them with the `genpasswd` subcommand.
 
 ```sh
@@ -68,6 +68,10 @@ ergonomadic run -conf ergonomadic.conf
 - [IRC/2 Numeric List](https://www.alien.net.au/irc/irc2numerics.html)
 
 
-[proxy-proto]: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+[conf]: blob/master/ergonomadic.conf
+[gcfg]: https://code.google.com/p/gcfg/
+[go-crypto]: http://godoc.org/code.google.com/p/go.crypto
+[go-sqlite]: https://github.com/mattn/go-sqlite3
 [irc]: irc://chat.freenode.net/#ergonomadic
+[proxy-proto]: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
 [stunnel]: https://www.stunnel.org/index.html
