@@ -6,6 +6,7 @@ issues are welcome. Discuss it here or on Freenode in [#ergonomadic][irc].
 ## Some Features
 
 - follows the RFCs where possible
+- UTF-8 nick and channel names
 - [gcfg][gcfg] gitconfig-style configuration
 - server password (PASS command)
 - channels with most standard modes
