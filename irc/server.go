@@ -289,37 +289,6 @@ func (msg *ProxyCommand) HandleRegServer(server *Server) {
 	msg.Client().hostname = msg.hostname
 }
 
-func (m *NickCommand) HandleRegServer(s *Server) {
-	client := m.Client()
-	if !client.authorized {
-		client.ErrPasswdMismatch()
-		client.Quit("bad password")
-		return
-	}
-
-	if client.capState == CapNegotiating {
-		client.capState = CapNegotiated
-	}
-
-	if m.nickname == "" {
-		client.ErrNoNicknameGiven()
-		return
-	}
-
-	if s.clients.Get(m.nickname) != nil {
-		client.ErrNickNameInUse(m.nickname)
-		return
-	}
-
-	if !m.nickname.IsNickname() {
-		client.ErrErroneusNickname(m.nickname)
-		return
-	}
-
-	client.SetNickname(m.nickname)
-	s.tryRegister(client)
-}
-
 func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
 	client := msg.Client()
 	if !client.authorized {
@@ -378,32 +347,6 @@ func (m *PingCommand) HandleServer(s *Server) {
 
 func (m *PongCommand) HandleServer(s *Server) {
 	// no-op
-}
-
-func (msg *NickCommand) HandleServer(server *Server) {
-	client := msg.Client()
-
-	if msg.nickname == "" {
-		client.ErrNoNicknameGiven()
-		return
-	}
-
-	if !msg.nickname.IsNickname() {
-		client.ErrErroneusNickname(msg.nickname)
-		return
-	}
-
-	if msg.nickname == client.nick {
-		return
-	}
-
-	target := server.clients.Get(msg.nickname)
-	if (target != nil) && (target != client) {
-		client.ErrNickNameInUse(msg.nickname)
-		return
-	}
-
-	client.ChangeNickname(msg.nickname)
 }
 
 func (m *UserCommand) HandleServer(s *Server) {
