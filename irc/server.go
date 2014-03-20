@@ -40,6 +40,7 @@ type Server struct {
 	password  []byte
 	signals   chan os.Signal
 	whoWas    *WhoWasList
+	theaters  map[Name][]byte
 }
 
 var (
@@ -61,6 +62,7 @@ func NewServer(config *Config) *Server {
 		operators: config.Operators(),
 		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
 		whoWas:    NewWhoWasList(100),
+		theaters:  config.Theaters(),
 	}
 
 	if config.Server.Password != "" {
