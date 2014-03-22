@@ -34,7 +34,6 @@ type Client struct {
 	server          *Server
 	socket          *Socket
 	username        Name
-	theaterChannels []*Channel
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -258,10 +257,6 @@ func (client *Client) Reply(reply string, args ...interface{}) {
 func (client *Client) Quit(message Text) {
 	if client.hasQuit {
 		return
-	}
-
-	for _, channel := range client.theaterChannels {
-		delete(channel.flags, Theater)
 	}
 
 	client.Reply(RplError("connection closed"))

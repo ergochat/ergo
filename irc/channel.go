@@ -14,7 +14,6 @@ type Channel struct {
 	server      *Server
 	topic       Text
 	userLimit   uint64
-	theaterUser *Client
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -405,9 +404,6 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 	case ChannelOperator, Voice:
 		return channel.applyModeMember(client, change.mode, change.op,
 			NewName(change.arg))
-
-	case Theater:
-		client.ErrConfiguredMode(change.mode)
 
 	default:
 		client.ErrUnknownMode(change.mode, channel)

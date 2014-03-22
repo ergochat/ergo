@@ -83,6 +83,15 @@ func (members MemberSet) HasMode(member *Client, mode ChannelMode) bool {
 	return modes[mode]
 }
 
+func (members MemberSet) AnyHasMode(mode ChannelMode) bool {
+	for _, modes := range members {
+		if modes[Theater] {
+			return true
+		}
+	}
+	return false
+}
+
 type ChannelSet map[*Channel]bool
 
 func (channels ChannelSet) Add(channel *Channel) {

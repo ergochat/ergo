@@ -51,10 +51,8 @@ func (m *TheaterIdentifyCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == nil {
-		client.theaterChannels = append(client.theaterChannels, channel)
-		channel.flags[Theater] = true
-		channel.theaterUser = client
+	if !channel.members.AnyHasMode(Theater) {
+		channel.members[client][Theater] = true
 	}
 }
 
@@ -82,7 +80,7 @@ func (m *TheaterPrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == client {
+	if channel.members.HasMode(client, Theater) {
 		for member := range channel.members {
 			member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, m.message))
 		}
@@ -113,7 +111,7 @@ func (m *TheaterActionCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == client {
+	if channel.members.HasMode(client, Theater) {
 		for member := range channel.members {
 			member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, NewText(fmt.Sprintf("\001ACTION %s\001", m.action))))
 		}
