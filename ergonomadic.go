@@ -15,6 +15,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  initdb -conf <config>  -- initialize database")
 	fmt.Fprintln(os.Stderr, "  upgrade -conf <config> -- upgrade database")
 	fmt.Fprintln(os.Stderr, "  genpasswd <password>   -- bcrypt a password")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "software version:", irc.SEM_VER)
 	flag.PrintDefaults()
 }
 
