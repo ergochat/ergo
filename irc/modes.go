@@ -145,10 +145,12 @@ func (m *ModeCommand) HandleServer(s *Server) {
 		}
 	}
 
-	// Who should get these replies?
 	if len(changes) > 0 {
-		client.Reply(RplMode(client, target, changes))
+		client.Reply(RplModeChanges(client, target, changes))
+	} else if client == target {
+		client.RplUModeIs(client)
 	}
+	client.Reply(RplCurrentMode(client, target))
 }
 
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
