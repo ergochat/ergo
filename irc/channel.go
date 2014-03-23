@@ -6,14 +6,14 @@ import (
 )
 
 type Channel struct {
-	flags       ChannelModeSet
-	lists       map[ChannelMode]*UserMaskSet
-	key         Text
-	members     MemberSet
-	name        Name
-	server      *Server
-	topic       Text
-	userLimit   uint64
+	flags     ChannelModeSet
+	lists     map[ChannelMode]*UserMaskSet
+	key       Text
+	members   MemberSet
+	name      Name
+	server    *Server
+	topic     Text
+	userLimit uint64
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
