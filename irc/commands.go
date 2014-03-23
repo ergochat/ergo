@@ -966,7 +966,7 @@ func NewTheaterCommand(args []string) (Command, error) {
 		return &TheaterActionCommand{
 			channel: NewName(args[1]),
 			asNick:  NewName(args[2]),
-			action:  NewText(args[3]),
+			action:  NewCTCPText(args[3]),
 		}, nil
 	} else {
 		return nil, ErrParseCommand
