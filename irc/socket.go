@@ -41,10 +41,6 @@ func (socket *Socket) Close() {
 }
 
 func (socket *Socket) readLines(commands chan<- Command) {
-	commands <- &ProxyCommand{
-		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
-	}
-
 	for {
 		line, err := socket.reader.ReadString('\n')
 		if socket.isError(err, R) {
@@ -64,9 +60,7 @@ func (socket *Socket) readLines(commands chan<- Command) {
 		commands <- msg
 	}
 
-	commands <- &QuitCommand{
-		message: "connection closed",
-	}
+	close(commands)
 }
 
 func (socket *Socket) Write(line string) (err error) {

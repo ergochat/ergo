@@ -60,10 +60,17 @@ func NewClient(server *Server, conn net.Conn) *Client {
 // command goroutine
 //
 
-func (client *Client) run() {
-	for command := range client.commands {
-		command.SetClient(client)
+func (client *Client) send(command Command) {
+	command.SetClient(client)
+	client.server.commands <- command
+}
 
+func (client *Client) run() {
+	client.send(&ProxyCommand{
+		hostname: AddrLookupHostname(client.socket.conn.RemoteAddr()),
+	})
+
+	for command := range client.commands {
 		checkPass, ok := command.(checkPasswordCommand)
 		if ok {
 			checkPass.LoadPassword(client.server)
@@ -75,8 +82,12 @@ func (client *Client) run() {
 			checkPass.CheckPassword()
 		}
 
-		client.server.commands <- command
+		client.send(command)
 	}
+
+	client.send(&QuitCommand{
+		message: "connection closed",
+	})
 }
 
 func (client *Client) connectionTimeout() {
@@ -259,8 +270,8 @@ func (client *Client) Quit(message Text) {
 		return
 	}
 
-	client.Reply(RplError("connection closed"))
 	client.hasQuit = true
+	client.Reply(RplError("quit"))
 	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
