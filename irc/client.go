@@ -13,28 +13,27 @@ const (
 )
 
 type Client struct {
-	atime           time.Time
-	authorized      bool
-	awayMessage     Text
-	capabilities    CapabilitySet
-	capState        CapState
-	channels        ChannelSet
-	commands        chan Command
-	ctime           time.Time
-	flags           map[UserMode]bool
-	hasQuit         bool
-	hops            uint
-	hostname        Name
-	idleTimer       *time.Timer
-	loginTimer      *time.Timer
-	nick            Name
-	quitTimer       *time.Timer
-	realname        Text
-	registered      bool
-	server          *Server
-	socket          *Socket
-	username        Name
-	theaterChannels []*Channel
+	atime        time.Time
+	authorized   bool
+	awayMessage  Text
+	capabilities CapabilitySet
+	capState     CapState
+	channels     ChannelSet
+	commands     chan Command
+	ctime        time.Time
+	flags        map[UserMode]bool
+	hasQuit      bool
+	hops         uint
+	hostname     Name
+	idleTimer    *time.Timer
+	loginTimer   *time.Timer
+	nick         Name
+	quitTimer    *time.Timer
+	realname     Text
+	registered   bool
+	server       *Server
+	socket       *Socket
+	username     Name
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -258,10 +257,6 @@ func (client *Client) Reply(reply string, args ...interface{}) {
 func (client *Client) Quit(message Text) {
 	if client.hasQuit {
 		return
-	}
-
-	for _, channel := range client.theaterChannels {
-		delete(channel.flags, Theater)
 	}
 
 	client.Reply(RplError("connection closed"))

@@ -83,7 +83,7 @@ const (
 	Quiet           ChannelMode = 'q' // flag
 	ReOp            ChannelMode = 'r' // flag
 	Secret          ChannelMode = 's' // flag, deprecated
-	Theater         ChannelMode = 'T' // flag arg, nonstandard
+	Theater         ChannelMode = 'T' // flag, nonstandard
 	UserLimit       ChannelMode = 'l' // flag arg
 	Voice           ChannelMode = 'v' // arg
 )

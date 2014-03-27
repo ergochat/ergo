@@ -51,11 +51,12 @@ func (m *TheaterIdentifyCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == nil {
-		client.theaterChannels = append(client.theaterChannels, channel)
-		channel.flags[Theater] = true
-		channel.theaterUser = client
+	if channel.members.AnyHasMode(Theater) {
+		client.Reply(RplNotice(s, client, "someone else is +T in this channel"))
+		return
 	}
+
+	channel.members[client][Theater] = true
 }
 
 type TheaterPrivMsgCommand struct {
@@ -71,6 +72,7 @@ func (cmd *TheaterPrivMsgCommand) String() string {
 }
 func (m *TheaterPrivMsgCommand) HandleServer(s *Server) {
 	client := m.Client()
+
 	if !m.channel.IsChannel() {
 		client.ErrNoSuchChannel(m.channel)
 		return
@@ -82,10 +84,13 @@ func (m *TheaterPrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == client {
-		for member := range channel.members {
-			member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, m.message))
-		}
+	if !channel.members.HasMode(client, Theater) {
+		client.Reply(RplNotice(s, client, "you are not +T"))
+		return
+	}
+
+	for member := range channel.members {
+		member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, m.message))
 	}
 }
 
@@ -93,7 +98,7 @@ type TheaterActionCommand struct {
 	BaseCommand
 	channel Name
 	asNick  Name
-	action  Text
+	action  CTCPText
 }
 
 func (cmd *TheaterActionCommand) String() string {
@@ -102,7 +107,8 @@ func (cmd *TheaterActionCommand) String() string {
 
 func (m *TheaterActionCommand) HandleServer(s *Server) {
 	client := m.Client()
-	if m.channel.IsChannel() {
+
+	if !m.channel.IsChannel() {
 		client.ErrNoSuchChannel(m.channel)
 		return
 	}
@@ -113,9 +119,12 @@ func (m *TheaterActionCommand) HandleServer(s *Server) {
 		return
 	}
 
-	if channel.theaterUser == client {
-		for member := range channel.members {
-			member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, NewText(fmt.Sprintf("\001ACTION %s\001", m.action))))
-		}
+	if !channel.members.HasMode(client, Theater) {
+		client.Reply(RplNotice(s, client, "you are not +T"))
+		return
+	}
+
+	for member := range channel.members {
+		member.Reply(RplCTCPAction(TheaterClient(m.asNick), channel, m.action))
 	}
 }

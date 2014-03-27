@@ -99,6 +99,10 @@ func RplPrivMsg(source Identifiable, target Identifiable, message Text) string {
 	return NewStringReply(source, PRIVMSG, "%s :%s", target.Nick(), message)
 }
 
+func RplCTCPAction(source Identifiable, target Identifiable, action CTCPText) string {
+	return RplPrivMsg(source, target, NewText(fmt.Sprintf("\x01ACTION %s\x01", action)))
+}
+
 func RplNotice(source Identifiable, target Identifiable, message Text) string {
 	return NewStringReply(source, NOTICE, "%s :%s", target.Nick(), message)
 }
