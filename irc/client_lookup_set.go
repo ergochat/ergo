@@ -92,12 +92,13 @@ func (clients *ClientLookupSet) FindAll(userhost Name) (set ClientSet) {
 		return
 	}
 	for rows.Next() {
-		var nickname Name
-		err := rows.Scan(&nickname)
+		var sqlNickname string
+		err := rows.Scan(&sqlNickname)
 		if err != nil {
 			Log.error.Println("ClientLookupSet.FindAll.Scan:", err)
 			return
 		}
+		nickname := Name(sqlNickname)
 		client := clients.Get(nickname)
 		if client == nil {
 			Log.error.Println("ClientLookupSet.FindAll: missing client:", nickname)
