@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"net"
-	"strings"
 )
 
 const (
@@ -15,14 +14,12 @@ const (
 
 type Socket struct {
 	conn   net.Conn
-	reader *bufio.Reader
 	writer *bufio.Writer
 }
 
 func NewSocket(conn net.Conn, commands chan<- Command) *Socket {
 	socket := &Socket{
 		conn:   conn,
-		reader: bufio.NewReader(conn),
 		writer: bufio.NewWriter(conn),
 	}
 
@@ -41,12 +38,9 @@ func (socket *Socket) Close() {
 }
 
 func (socket *Socket) readLines(commands chan<- Command) {
-	for {
-		line, err := socket.reader.ReadString('\n')
-		if socket.isError(err, R) {
-			break
-		}
-		line = strings.TrimRight(line, CRLF)
+	scanner := bufio.NewScanner(socket.conn)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if len(line) == 0 {
 			continue
 		}
@@ -58,6 +52,10 @@ func (socket *Socket) readLines(commands chan<- Command) {
 			continue
 		}
 		commands <- msg
+	}
+
+	if err := scanner.Err(); err != nil {
+		Log.debug.Printf("%s error: %s", socket, err)
 	}
 
 	close(commands)
