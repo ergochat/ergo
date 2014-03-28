@@ -81,7 +81,7 @@ func (target *Client) MultilineReply(names []string, code NumericCode, format st
 	for to < len(names) {
 		if (from < (to - 1)) && tooLong(names[from:to]) {
 			target.NumericReply(code, format, argsAndNames(names[from:to-1])...)
-			from, to = to-1, to
+			from = to - 1
 		} else {
 			to += 1
 		}
