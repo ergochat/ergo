@@ -77,9 +77,7 @@ func (client *Client) run() {
 }
 
 func (client *Client) connectionTimeout() {
-	client.commands <- &QuitCommand{
-		message: "connection timeout",
-	}
+	client.commands <- NewQuitCommand("connection timeout")
 }
 
 //

@@ -26,37 +26,37 @@ var (
 	NotEnoughArgsError = errors.New("not enough arguments")
 	ErrParseCommand    = errors.New("failed to parse message")
 	parseCommandFuncs  = map[StringCode]parseCommandFunc{
-		AWAY:    NewAwayCommand,
-		CAP:     NewCapCommand,
-		DEBUG:   NewDebugCommand,
-		INVITE:  NewInviteCommand,
-		ISON:    NewIsOnCommand,
-		JOIN:    NewJoinCommand,
-		KICK:    NewKickCommand,
-		KILL:    NewKillCommand,
-		LIST:    NewListCommand,
-		MODE:    NewModeCommand,
-		MOTD:    NewMOTDCommand,
-		NAMES:   NewNamesCommand,
-		NICK:    NewNickCommand,
-		NOTICE:  NewNoticeCommand,
-		ONICK:   NewOperNickCommand,
-		OPER:    NewOperCommand,
-		PART:    NewPartCommand,
-		PASS:    NewPassCommand,
-		PING:    NewPingCommand,
-		PONG:    NewPongCommand,
-		PRIVMSG: NewPrivMsgCommand,
-		PROXY:   NewProxyCommand,
-		QUIT:    NewQuitCommand,
-		THEATER: NewTheaterCommand, // nonstandard
-		TIME:    NewTimeCommand,
-		TOPIC:   NewTopicCommand,
-		USER:    NewUserCommand,
-		VERSION: NewVersionCommand,
-		WHO:     NewWhoCommand,
-		WHOIS:   NewWhoisCommand,
-		WHOWAS:  NewWhoWasCommand,
+		AWAY:    ParseAwayCommand,
+		CAP:     ParseCapCommand,
+		DEBUG:   ParseDebugCommand,
+		INVITE:  ParseInviteCommand,
+		ISON:    ParseIsOnCommand,
+		JOIN:    ParseJoinCommand,
+		KICK:    ParseKickCommand,
+		KILL:    ParseKillCommand,
+		LIST:    ParseListCommand,
+		MODE:    ParseModeCommand,
+		MOTD:    ParseMOTDCommand,
+		NAMES:   ParseNamesCommand,
+		NICK:    ParseNickCommand,
+		NOTICE:  ParseNoticeCommand,
+		ONICK:   ParseOperNickCommand,
+		OPER:    ParseOperCommand,
+		PART:    ParsePartCommand,
+		PASS:    ParsePassCommand,
+		PING:    ParsePingCommand,
+		PONG:    ParsePongCommand,
+		PRIVMSG: ParsePrivMsgCommand,
+		PROXY:   ParseProxyCommand,
+		QUIT:    ParseQuitCommand,
+		THEATER: ParseTheaterCommand, // nonstandard
+		TIME:    ParseTimeCommand,
+		TOPIC:   ParseTopicCommand,
+		USER:    ParseUserCommand,
+		VERSION: ParseVersionCommand,
+		WHO:     ParseWhoCommand,
+		WHOIS:   ParseWhoisCommand,
+		WHOWAS:  ParseWhoWasCommand,
 	}
 )
 
@@ -85,7 +85,7 @@ func ParseCommand(line string) (cmd Command, err error) {
 	code, args := ParseLine(line)
 	constructor := parseCommandFuncs[code]
 	if constructor == nil {
-		cmd = NewUnknownCommand(args)
+		cmd = ParseUnknownCommand(args)
 	} else {
 		cmd, err = constructor(args)
 	}
@@ -135,11 +135,7 @@ type UnknownCommand struct {
 	args []string
 }
 
-func (cmd *UnknownCommand) String() string {
-	return fmt.Sprintf("UNKNOWN(command=%s, args=%s)", cmd.Code(), cmd.args)
-}
-
-func NewUnknownCommand(args []string) *UnknownCommand {
+func ParseUnknownCommand(args []string) *UnknownCommand {
 	return &UnknownCommand{
 		args: args,
 	}
@@ -153,11 +149,7 @@ type PingCommand struct {
 	server2 Name
 }
 
-func (cmd *PingCommand) String() string {
-	return fmt.Sprintf("PING(server=%s, server2=%s)", cmd.server, cmd.server2)
-}
-
-func NewPingCommand(args []string) (Command, error) {
+func ParsePingCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -178,11 +170,7 @@ type PongCommand struct {
 	server2 Name
 }
 
-func (cmd *PongCommand) String() string {
-	return fmt.Sprintf("PONG(server1=%s, server2=%s)", cmd.server1, cmd.server2)
-}
-
-func NewPongCommand(args []string) (Command, error) {
+func ParsePongCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -204,10 +192,6 @@ type PassCommand struct {
 	err      error
 }
 
-func (cmd *PassCommand) String() string {
-	return fmt.Sprintf("PASS(password=%s)", cmd.password)
-}
-
 func (cmd *PassCommand) LoadPassword(server *Server) {
 	cmd.hash = server.password
 }
@@ -219,7 +203,7 @@ func (cmd *PassCommand) CheckPassword() {
 	cmd.err = ComparePassword(cmd.hash, cmd.password)
 }
 
-func NewPassCommand(args []string) (Command, error) {
+func ParsePassCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -230,7 +214,7 @@ func NewPassCommand(args []string) (Command, error) {
 
 // NICK <nickname>
 
-func NewNickCommand(args []string) (Command, error) {
+func ParseNickCommand(args []string) (Command, error) {
 	if len(args) != 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -252,21 +236,11 @@ type RFC1459UserCommand struct {
 	servername Name
 }
 
-func (cmd *RFC1459UserCommand) String() string {
-	return fmt.Sprintf("USER(username=%s, hostname=%s, servername=%s, realname=%s)",
-		cmd.username, cmd.hostname, cmd.servername, cmd.realname)
-}
-
 // USER <user> <mode> <unused> <realname>
 type RFC2812UserCommand struct {
 	UserCommand
 	mode   uint8
 	unused string
-}
-
-func (cmd *RFC2812UserCommand) String() string {
-	return fmt.Sprintf("USER(username=%s, mode=%d, unused=%s, realname=%s)",
-		cmd.username, cmd.mode, cmd.unused, cmd.realname)
 }
 
 func (cmd *RFC2812UserCommand) Flags() []UserMode {
@@ -280,7 +254,7 @@ func (cmd *RFC2812UserCommand) Flags() []UserMode {
 	return flags
 }
 
-func NewUserCommand(args []string) (Command, error) {
+func ParseUserCommand(args []string) (Command, error) {
 	if len(args) != 4 {
 		return nil, NotEnoughArgsError
 	}
@@ -311,11 +285,15 @@ type QuitCommand struct {
 	message Text
 }
 
-func (cmd *QuitCommand) String() string {
-	return fmt.Sprintf("QUIT(message=%s)", cmd.message)
+func NewQuitCommand(message Text) *QuitCommand {
+	cmd := &QuitCommand{
+		message: message,
+	}
+	cmd.code = QUIT
+	return cmd
 }
 
-func NewQuitCommand(args []string) (Command, error) {
+func ParseQuitCommand(args []string) (Command, error) {
 	msg := &QuitCommand{}
 	if len(args) > 0 {
 		msg.message = NewText(args[0])
@@ -331,11 +309,7 @@ type JoinCommand struct {
 	zero     bool
 }
 
-func (cmd *JoinCommand) String() string {
-	return fmt.Sprintf("JOIN(channels=%s, zero=%t)", cmd.channels, cmd.zero)
-}
-
-func NewJoinCommand(args []string) (Command, error) {
+func ParseJoinCommand(args []string) (Command, error) {
 	msg := &JoinCommand{
 		channels: make(map[Name]Text),
 	}
@@ -378,11 +352,7 @@ func (cmd *PartCommand) Message() Text {
 	return cmd.message
 }
 
-func (cmd *PartCommand) String() string {
-	return fmt.Sprintf("PART(channels=%s, message=%s)", cmd.channels, cmd.message)
-}
-
-func NewPartCommand(args []string) (Command, error) {
+func ParsePartCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -403,11 +373,7 @@ type PrivMsgCommand struct {
 	message Text
 }
 
-func (cmd *PrivMsgCommand) String() string {
-	return fmt.Sprintf("PRIVMSG(target=%s, message=%s)", cmd.target, cmd.message)
-}
-
-func NewPrivMsgCommand(args []string) (Command, error) {
+func ParsePrivMsgCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -426,11 +392,7 @@ type TopicCommand struct {
 	topic    Text
 }
 
-func (cmd *TopicCommand) String() string {
-	return fmt.Sprintf("TOPIC(channel=%s, topic=%s)", cmd.channel, cmd.topic)
-}
-
-func NewTopicCommand(args []string) (Command, error) {
+func ParseTopicCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -480,7 +442,7 @@ type ModeCommand struct {
 }
 
 // MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
-func NewUserModeCommand(nickname Name, args []string) (Command, error) {
+func ParseUserModeCommand(nickname Name, args []string) (Command, error) {
 	cmd := &ModeCommand{
 		nickname: nickname,
 		changes:  make(ModeChanges, 0),
@@ -504,10 +466,6 @@ func NewUserModeCommand(nickname Name, args []string) (Command, error) {
 	}
 
 	return cmd, nil
-}
-
-func (cmd *ModeCommand) String() string {
-	return fmt.Sprintf("MODE(nickname=%s, changes=%s)", cmd.nickname, cmd.changes)
 }
 
 type ChannelModeChange struct {
@@ -557,7 +515,7 @@ type ChannelModeCommand struct {
 }
 
 // MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
-func NewChannelModeCommand(channel Name, args []string) (Command, error) {
+func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 	cmd := &ChannelModeCommand{
 		channel: channel,
 		changes: make(ChannelModeChanges, 0),
@@ -599,20 +557,16 @@ func NewChannelModeCommand(channel Name, args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (msg *ChannelModeCommand) String() string {
-	return fmt.Sprintf("MODE(channel=%s, changes=%s)", msg.channel, msg.changes)
-}
-
-func NewModeCommand(args []string) (Command, error) {
+func ParseModeCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
 
 	name := NewName(args[0])
 	if name.IsChannel() {
-		return NewChannelModeCommand(name, args[1:])
+		return ParseChannelModeCommand(name, args[1:])
 	} else {
-		return NewUserModeCommand(name, args[1:])
+		return ParseUserModeCommand(name, args[1:])
 	}
 }
 
@@ -623,7 +577,7 @@ type WhoisCommand struct {
 }
 
 // WHOIS [ <target> ] <mask> *( "," <mask> )
-func NewWhoisCommand(args []string) (Command, error) {
+func ParseWhoisCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -644,10 +598,6 @@ func NewWhoisCommand(args []string) (Command, error) {
 	}, nil
 }
 
-func (msg *WhoisCommand) String() string {
-	return fmt.Sprintf("WHOIS(target=%s, masks=%s)", msg.target, msg.masks)
-}
-
 type WhoCommand struct {
 	BaseCommand
 	mask         Name
@@ -655,7 +605,7 @@ type WhoCommand struct {
 }
 
 // WHO [ <mask> [ "o" ] ]
-func NewWhoCommand(args []string) (Command, error) {
+func ParseWhoCommand(args []string) (Command, error) {
 	cmd := &WhoCommand{}
 
 	if len(args) > 0 {
@@ -669,17 +619,9 @@ func NewWhoCommand(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (msg *WhoCommand) String() string {
-	return fmt.Sprintf("WHO(mask=%s, operatorOnly=%t)", msg.mask, msg.operatorOnly)
-}
-
 type OperCommand struct {
 	PassCommand
 	name Name
-}
-
-func (msg *OperCommand) String() string {
-	return fmt.Sprintf("OPER(name=%s, password=%s)", msg.name, msg.password)
 }
 
 func (msg *OperCommand) LoadPassword(server *Server) {
@@ -687,7 +629,7 @@ func (msg *OperCommand) LoadPassword(server *Server) {
 }
 
 // OPER <name> <password>
-func NewOperCommand(args []string) (Command, error) {
+func ParseOperCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -705,12 +647,7 @@ type CapCommand struct {
 	capabilities CapabilitySet
 }
 
-func (msg *CapCommand) String() string {
-	return fmt.Sprintf("CAP(subCommand=%s, capabilities=%s)",
-		msg.subCommand, msg.capabilities)
-}
-
-func NewCapCommand(args []string) (Command, error) {
+func ParseCapCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -740,11 +677,15 @@ type ProxyCommand struct {
 	hostname   Name // looked up in socket thread
 }
 
-func (msg *ProxyCommand) String() string {
-	return fmt.Sprintf("PROXY(sourceIP=%s, sourcePort=%s)", msg.sourceIP, msg.sourcePort)
+func NewProxyCommand(hostname Name) *ProxyCommand {
+	cmd := &ProxyCommand{
+		hostname: hostname,
+	}
+	cmd.code = PROXY
+	return cmd
 }
 
-func NewProxyCommand(args []string) (Command, error) {
+func ParseProxyCommand(args []string) (Command, error) {
 	if len(args) < 5 {
 		return nil, NotEnoughArgsError
 	}
@@ -764,11 +705,7 @@ type AwayCommand struct {
 	away bool
 }
 
-func (msg *AwayCommand) String() string {
-	return fmt.Sprintf("AWAY(%s)", msg.text)
-}
-
-func NewAwayCommand(args []string) (Command, error) {
+func ParseAwayCommand(args []string) (Command, error) {
 	cmd := &AwayCommand{}
 
 	if len(args) > 0 {
@@ -784,11 +721,7 @@ type IsOnCommand struct {
 	nicks []Name
 }
 
-func (msg *IsOnCommand) String() string {
-	return fmt.Sprintf("ISON(nicks=%s)", msg.nicks)
-}
-
-func NewIsOnCommand(args []string) (Command, error) {
+func ParseIsOnCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
@@ -803,7 +736,7 @@ type MOTDCommand struct {
 	target Name
 }
 
-func NewMOTDCommand(args []string) (Command, error) {
+func ParseMOTDCommand(args []string) (Command, error) {
 	cmd := &MOTDCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -817,11 +750,7 @@ type NoticeCommand struct {
 	message Text
 }
 
-func (cmd *NoticeCommand) String() string {
-	return fmt.Sprintf("NOTICE(target=%s, message=%s)", cmd.target, cmd.message)
-}
-
-func NewNoticeCommand(args []string) (Command, error) {
+func ParseNoticeCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -844,7 +773,7 @@ func (msg *KickCommand) Comment() Text {
 	return msg.comment
 }
 
-func NewKickCommand(args []string) (Command, error) {
+func ParseKickCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -875,7 +804,7 @@ type ListCommand struct {
 	target   Name
 }
 
-func NewListCommand(args []string) (Command, error) {
+func ParseListCommand(args []string) (Command, error) {
 	cmd := &ListCommand{}
 	if len(args) > 0 {
 		cmd.channels = NewNames(strings.Split(args[0], ","))
@@ -892,7 +821,7 @@ type NamesCommand struct {
 	target   Name
 }
 
-func NewNamesCommand(args []string) (Command, error) {
+func ParseNamesCommand(args []string) (Command, error) {
 	cmd := &NamesCommand{}
 	if len(args) > 0 {
 		cmd.channels = NewNames(strings.Split(args[0], ","))
@@ -908,7 +837,7 @@ type DebugCommand struct {
 	subCommand Name
 }
 
-func NewDebugCommand(args []string) (Command, error) {
+func ParseDebugCommand(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, NotEnoughArgsError
 	}
@@ -923,7 +852,7 @@ type VersionCommand struct {
 	target Name
 }
 
-func NewVersionCommand(args []string) (Command, error) {
+func ParseVersionCommand(args []string) (Command, error) {
 	cmd := &VersionCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -937,7 +866,7 @@ type InviteCommand struct {
 	channel  Name
 }
 
-func NewInviteCommand(args []string) (Command, error) {
+func ParseInviteCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -948,7 +877,7 @@ func NewInviteCommand(args []string) (Command, error) {
 	}, nil
 }
 
-func NewTheaterCommand(args []string) (Command, error) {
+func ParseTheaterCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	} else if upperSubCmd := strings.ToUpper(args[0]); upperSubCmd == "IDENTIFY" && len(args) == 3 {
@@ -978,7 +907,7 @@ type TimeCommand struct {
 	target Name
 }
 
-func NewTimeCommand(args []string) (Command, error) {
+func ParseTimeCommand(args []string) (Command, error) {
 	cmd := &TimeCommand{}
 	if len(args) > 0 {
 		cmd.target = NewName(args[0])
@@ -992,7 +921,7 @@ type KillCommand struct {
 	comment  Text
 }
 
-func NewKillCommand(args []string) (Command, error) {
+func ParseKillCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}
@@ -1009,7 +938,7 @@ type WhoWasCommand struct {
 	target    Name
 }
 
-func NewWhoWasCommand(args []string) (Command, error) {
+func ParseWhoWasCommand(args []string) (Command, error) {
 	if len(args) < 1 {
 		return nil, NotEnoughArgsError
 	}
@@ -1025,7 +954,7 @@ func NewWhoWasCommand(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func NewOperNickCommand(args []string) (Command, error) {
+func ParseOperNickCommand(args []string) (Command, error) {
 	if len(args) < 2 {
 		return nil, NotEnoughArgsError
 	}

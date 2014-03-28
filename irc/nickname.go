@@ -1,16 +1,8 @@
 package irc
 
-import (
-	"fmt"
-)
-
 type NickCommand struct {
 	BaseCommand
 	nickname Name
-}
-
-func (m *NickCommand) String() string {
-	return fmt.Sprintf("NICK(nickname=%s)", m.nickname)
 }
 
 func (m *NickCommand) HandleRegServer(s *Server) {
@@ -89,9 +81,18 @@ func (msg *OperNickCommand) HandleServer(server *Server) {
 		return
 	}
 
+	if msg.nick == client.nick {
+		return
+	}
+
 	target := server.clients.Get(msg.target)
 	if target == nil {
 		client.ErrNoSuchNick(msg.target)
+		return
+	}
+
+	if server.clients.Get(msg.nick) != nil {
+		client.ErrNickNameInUse(msg.nick)
 		return
 	}
 

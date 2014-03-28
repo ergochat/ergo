@@ -1,9 +1,5 @@
 package irc
 
-import (
-	"fmt"
-)
-
 type TheaterClient Name
 
 func (c TheaterClient) Id() Name {
@@ -27,10 +23,6 @@ type TheaterIdentifyCommand struct {
 
 func (m *TheaterIdentifyCommand) LoadPassword(s *Server) {
 	m.hash = s.theaters[m.channel]
-}
-
-func (cmd *TheaterIdentifyCommand) String() string {
-	return fmt.Sprintf("THEATER_IDENTIFY(channel=%s)", cmd.channel)
 }
 
 func (m *TheaterIdentifyCommand) HandleServer(s *Server) {
@@ -66,10 +58,6 @@ type TheaterPrivMsgCommand struct {
 	message Text
 }
 
-func (cmd *TheaterPrivMsgCommand) String() string {
-	return fmt.Sprintf("THEATER_PRIVMSG(channel=%s, asNick=%s, message=%s)", cmd.channel, cmd.asNick, cmd.message)
-
-}
 func (m *TheaterPrivMsgCommand) HandleServer(s *Server) {
 	client := m.Client()
 
@@ -100,10 +88,6 @@ type TheaterActionCommand struct {
 	channel Name
 	asNick  Name
 	action  CTCPText
-}
-
-func (cmd *TheaterActionCommand) String() string {
-	return fmt.Sprintf("THEATER_ACTION(channel=%s, asNick=%s, action=%s)", cmd.channel, cmd.asNick, cmd.action)
 }
 
 func (m *TheaterActionCommand) HandleServer(s *Server) {

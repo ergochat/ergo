@@ -38,9 +38,7 @@ func (socket *Socket) Close() {
 }
 
 func (socket *Socket) readLines(commands chan<- Command) {
-	commands <- &ProxyCommand{
-		hostname: AddrLookupHostname(socket.conn.RemoteAddr()),
-	}
+	commands <- NewProxyCommand(AddrLookupHostname(socket.conn.RemoteAddr()))
 
 	scanner := bufio.NewScanner(socket.conn)
 	for scanner.Scan() {
@@ -62,9 +60,7 @@ func (socket *Socket) readLines(commands chan<- Command) {
 		Log.debug.Printf("%s error: %s", socket, err)
 	}
 
-	commands <- &QuitCommand{
-		message: "connection closed",
-	}
+	commands <- NewQuitCommand("connection closed")
 
 	close(commands)
 }

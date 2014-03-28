@@ -121,7 +121,7 @@ func (server *Server) loadChannels() {
 
 func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
-	Log.debug.Printf("%s → %s %s", client, server, cmd)
+	Log.debug.Printf("%s → %+v", client, cmd)
 
 	if !client.registered {
 		regCmd, ok := cmd.(RegServerCommand)
