@@ -654,9 +654,11 @@ func (msg *DebugCommand) HandleServer(server *Server) {
 		server.Reply(client, "OK")
 
 	case "GCSTATS":
-		stats := &debug.GCStats{
+		stats := debug.GCStats{
+			Pause:          make([]time.Duration, 10),
 			PauseQuantiles: make([]time.Duration, 5),
 		}
+		debug.ReadGCStats(&stats)
 		server.Reply(client, "last GC:     %s", stats.LastGC.Format(time.RFC1123))
 		server.Reply(client, "num GC:      %d", stats.NumGC)
 		server.Reply(client, "pause total: %s", stats.PauseTotal)
@@ -671,14 +673,15 @@ func (msg *DebugCommand) HandleServer(server *Server) {
 		server.Reply(client, "num goroutines: %d", count)
 
 	case "PROFILEHEAP":
-		file, err := os.Create("ergonomadic.heap.prof")
+		profFile := "ergonomadic-heap.prof"
+		file, err := os.Create(profFile)
 		if err != nil {
 			log.Printf("error: %s", err)
 			break
 		}
 		defer file.Close()
 		pprof.Lookup("heap").WriteTo(file, 0)
-		server.Reply(client, "written to ergonomadic-heap.prof")
+		server.Reply(client, "written to %s", profFile)
 	}
 }
 
