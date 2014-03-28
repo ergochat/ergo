@@ -60,19 +60,9 @@ func NewClient(server *Server, conn net.Conn) *Client {
 // command goroutine
 //
 
-func (client *Client) send(command Command) {
-	command.SetClient(client)
-	client.server.commands <- command
-}
-
 func (client *Client) run() {
-	client.send(&ProxyCommand{
-		hostname: AddrLookupHostname(client.socket.conn.RemoteAddr()),
-	})
-
 	for command := range client.commands {
-		checkPass, ok := command.(checkPasswordCommand)
-		if ok {
+		if checkPass, ok := command.(checkPasswordCommand); ok {
 			checkPass.LoadPassword(client.server)
 			// Block the client thread while handling a potentially expensive
 			// password bcrypt operation. Since the server is single-threaded
@@ -81,13 +71,9 @@ func (client *Client) run() {
 			// completes. This could be a form of DoS if handled naively.
 			checkPass.CheckPassword()
 		}
-
-		client.send(command)
+		command.SetClient(client)
+		client.server.commands <- command
 	}
-
-	client.send(&QuitCommand{
-		message: "connection closed",
-	})
 }
 
 func (client *Client) connectionTimeout() {
