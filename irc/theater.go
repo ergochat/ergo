@@ -89,8 +89,9 @@ func (m *TheaterPrivMsgCommand) HandleServer(s *Server) {
 		return
 	}
 
+	reply := RplPrivMsg(TheaterClient(m.asNick), channel, m.message)
 	for member := range channel.members {
-		member.Reply(RplPrivMsg(TheaterClient(m.asNick), channel, m.message))
+		member.Reply(reply)
 	}
 }
 
@@ -124,7 +125,8 @@ func (m *TheaterActionCommand) HandleServer(s *Server) {
 		return
 	}
 
+	reply := RplCTCPAction(TheaterClient(m.asNick), channel, m.action)
 	for member := range channel.members {
-		member.Reply(RplCTCPAction(TheaterClient(m.asNick), channel, m.action))
+		member.Reply(reply)
 	}
 }

@@ -244,11 +244,12 @@ func (channel *Channel) PrivMsg(client *Client, message Text) {
 		client.ErrCannotSendToChan(channel)
 		return
 	}
+	reply := RplPrivMsg(client, channel, message)
 	for member := range channel.members {
 		if member == client {
 			continue
 		}
-		member.Reply(RplPrivMsg(client, channel, message))
+		member.Reply(reply)
 	}
 }
 
@@ -458,11 +459,12 @@ func (channel *Channel) Notice(client *Client, message Text) {
 		client.ErrCannotSendToChan(channel)
 		return
 	}
+	reply := RplNotice(client, channel, message)
 	for member := range channel.members {
 		if member == client {
 			continue
 		}
-		member.Reply(RplNotice(client, channel, message))
+		member.Reply(reply)
 	}
 }
 
