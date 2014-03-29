@@ -14,6 +14,7 @@ issues are welcome. Discuss it here or on Freenode in [#ergonomadic][irc].
 - haproxy [PROXY protocol][proxy-proto] header for hostname setting
 - passwords stored in [bcrypt][go-crypto] format
 - channels that [persist][go-sqlite] between restarts (+P)
+- messages are queued in the same order to all connected clients
 
 ## Why?
 
