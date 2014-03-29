@@ -74,14 +74,12 @@ func (socket *Socket) Write(line string) (err error) {
 		return
 	}
 
-	go socket.flush()
+	if err = socket.writer.Flush(); socket.isError(err, W) {
+		return
+	}
 
 	Log.debug.Printf("%s ← %s", socket, line)
 	return
-}
-
-func (socket *Socket) flush() {
-	socket.isError(socket.writer.Flush(), W)
 }
 
 func (socket *Socket) isError(err error, dir rune) bool {
