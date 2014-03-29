@@ -119,8 +119,23 @@ func RplPart(client *Client, channel *Channel, message Text) string {
 	return NewStringReply(client, PART, "%s :%s", channel, message)
 }
 
-func RplMode(client *Client, target *Client, changes ModeChanges) string {
+func RplModeChanges(client *Client, target *Client, changes ModeChanges) string {
 	return NewStringReply(client, MODE, "%s :%s", target.Nick(), changes)
+}
+
+func RplCurrentMode(client *Client, target *Client) string {
+	globalFlags := "global:"
+	for mode, _ := range target.flags {
+		globalFlags += mode.String()
+	}
+
+	perChannelFlags := ""
+	for channel, _ := range target.channels {
+		perChannelFlags += fmt.Sprintf(" %s:%s", channel.name, channel.members[target])
+	}
+
+	response := NewText(fmt.Sprintf("user %s has %s%s", target.nick, globalFlags, perChannelFlags))
+	return RplNotice(client.server, client, response)
 }
 
 func RplChannelMode(client *Client, channel *Channel,
