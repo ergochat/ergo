@@ -124,7 +124,7 @@ func RplModeChanges(client *Client, target *Client, changes ModeChanges) string 
 }
 
 func RplCurrentMode(client *Client, target *Client) string {
-	globalFlags := ""
+	globalFlags := "global:"
 	for mode, _ := range target.flags {
 		globalFlags += mode.String()
 	}
@@ -134,8 +134,8 @@ func RplCurrentMode(client *Client, target *Client) string {
 		perChannelFlags += fmt.Sprintf(" %s:%s", channel.name, channel.members[target])
 	}
 
-	response := fmt.Sprintf("All user modes: %s%s", globalFlags, perChannelFlags)
-	return NewStringReply(client, NOTICE, "%s :%s", target.Nick(), response)
+	response := NewText(fmt.Sprintf("user %s has %s%s", target.nick, globalFlags, perChannelFlags))
+	return RplNotice(client.server, client, response)
 }
 
 func RplChannelMode(client *Client, channel *Channel,
