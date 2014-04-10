@@ -2,8 +2,8 @@ package irc
 
 type WhoWasList struct {
 	buffer []*WhoWas
-	start  uint
-	end    uint
+	start  int
+	end    int
 }
 
 type WhoWas struct {
@@ -26,9 +26,9 @@ func (list *WhoWasList) Append(client *Client) {
 		hostname: client.hostname,
 		realname: client.realname,
 	}
-	list.end = (list.end + 1) % uint(len(list.buffer))
+	list.end = (list.end + 1) % len(list.buffer)
 	if list.end == list.start {
-		list.start = (list.end + 1) % uint(len(list.buffer))
+		list.start = (list.end + 1) % len(list.buffer)
 	}
 }
 
@@ -46,10 +46,10 @@ func (list *WhoWasList) Find(nickname Name, limit int64) []*WhoWas {
 	return results
 }
 
-func (list *WhoWasList) prev(index uint) uint {
+func (list *WhoWasList) prev(index int) int {
 	index -= 1
 	if index < 0 {
-		index += uint(len(list.buffer))
+		index += len(list.buffer)
 	}
 	return index
 }

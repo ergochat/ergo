@@ -1,7 +1,7 @@
 package irc
 
 const (
-	SEM_VER       = "ergonomadic-1.4.2"
+	SEM_VER       = "ergonomadic-1.4.3"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 
