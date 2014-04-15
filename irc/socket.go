@@ -12,6 +12,7 @@ const (
 )
 
 type Socket struct {
+	closed  bool
 	conn    net.Conn
 	scanner *bufio.Scanner
 	writer  *bufio.Writer
@@ -30,11 +31,20 @@ func (socket *Socket) String() string {
 }
 
 func (socket *Socket) Close() {
+	if socket.closed {
+		return
+	}
+	socket.closed = true
 	socket.conn.Close()
 	Log.debug.Printf("%s closed", socket)
 }
 
 func (socket *Socket) Read() (line string, err error) {
+	if socket.closed {
+		err = io.EOF
+		return
+	}
+
 	for socket.scanner.Scan() {
 		line = socket.scanner.Text()
 		if len(line) == 0 {
@@ -53,6 +63,11 @@ func (socket *Socket) Read() (line string, err error) {
 }
 
 func (socket *Socket) Write(line string) (err error) {
+	if socket.closed {
+		err = io.EOF
+		return
+	}
+
 	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
 		return
 	}

@@ -264,11 +264,8 @@ func (client *Client) ChangeNickname(nickname Name) {
 	}
 }
 
-func (client *Client) Reply(reply string, args ...interface{}) {
-	if len(args) > 0 {
-		reply = fmt.Sprintf(reply, args...)
-	}
-	client.socket.Write(reply)
+func (client *Client) Reply(reply string) error {
+	return client.socket.Write(reply)
 }
 
 func (client *Client) Quit(message Text) {
