@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	LOGIN_TIMEOUT = time.Minute / 2 // how long the client has to login
-	IDLE_TIMEOUT  = time.Minute     // how long before a client is considered idle
-	QUIT_TIMEOUT  = time.Minute     // how long after idle before a client is kicked
+	IDLE_TIMEOUT = time.Minute // how long before a client is considered idle
+	QUIT_TIMEOUT = time.Minute // how long after idle before a client is kicked
 )
 
 type Client struct {
@@ -19,14 +18,12 @@ type Client struct {
 	capabilities CapabilitySet
 	capState     CapState
 	channels     ChannelSet
-	commands     chan Command
 	ctime        time.Time
 	flags        map[UserMode]bool
 	hasQuit      bool
 	hops         uint
 	hostname     Name
 	idleTimer    *time.Timer
-	loginTimer   *time.Timer
 	nick         Name
 	quitTimer    *time.Timer
 	realname     Text
@@ -44,13 +41,12 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		capState:     CapNone,
 		capabilities: make(CapabilitySet),
 		channels:     make(ChannelSet),
-		commands:     make(chan Command),
 		ctime:        now,
 		flags:        make(map[UserMode]bool),
 		server:       server,
+		socket:       NewSocket(conn),
 	}
-	client.socket = NewSocket(conn, client.commands)
-	client.loginTimer = time.AfterFunc(LOGIN_TIMEOUT, client.connectionTimeout)
+	client.Touch()
 	go client.run()
 
 	return client
@@ -61,8 +57,31 @@ func NewClient(server *Server, conn net.Conn) *Client {
 //
 
 func (client *Client) run() {
-	for command := range client.commands {
-		if checkPass, ok := command.(checkPasswordCommand); ok {
+	var command Command
+	var err error
+	var line string
+
+	// Set the hostname for this client. The client may later send a PROXY
+	// command from stunnel that sets the hostname to something more accurate.
+	client.send(NewProxyCommand(AddrLookupHostname(
+		client.socket.conn.RemoteAddr())))
+
+	for err == nil {
+		if line, err = client.socket.Read(); err != nil {
+			command = NewQuitCommand("connection closed")
+
+		} else if command, err = ParseCommand(line); err != nil {
+			switch err {
+			case ErrParseCommand:
+				client.Reply(RplNotice(client.server, client,
+					NewText("failed to parse command")))
+
+			case NotEnoughArgsError:
+				// TODO
+			}
+			continue
+
+		} else if checkPass, ok := command.(checkPasswordCommand); ok {
 			checkPass.LoadPassword(client.server)
 			// Block the client thread while handling a potentially expensive
 			// password bcrypt operation. Since the server is single-threaded
@@ -71,13 +90,20 @@ func (client *Client) run() {
 			// completes. This could be a form of DoS if handled naively.
 			checkPass.CheckPassword()
 		}
-		command.SetClient(client)
-		client.server.commands <- command
+
+		client.send(command)
 	}
 }
 
+func (client *Client) send(command Command) {
+	command.SetClient(client)
+	client.server.commands <- command
+}
+
+// quit timer goroutine
+
 func (client *Client) connectionTimeout() {
-	client.commands <- NewQuitCommand("connection timeout")
+	client.send(NewQuitCommand("connection timeout"))
 }
 
 //
@@ -109,7 +135,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.Reply(RplPing(client))
+	client.Reply(RplPing(client.server))
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -123,7 +149,6 @@ func (client *Client) Register() {
 		return
 	}
 	client.registered = true
-	client.loginTimer.Stop()
 	client.Touch()
 }
 
@@ -140,9 +165,6 @@ func (client *Client) destroy() {
 
 	// clean up self
 
-	if client.loginTimer != nil {
-		client.loginTimer.Stop()
-	}
 	if client.idleTimer != nil {
 		client.idleTimer.Stop()
 	}
