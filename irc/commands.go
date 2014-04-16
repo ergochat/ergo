@@ -702,7 +702,6 @@ func ParseProxyCommand(args []string) (Command, error) {
 type AwayCommand struct {
 	BaseCommand
 	text Text
-	away bool
 }
 
 func ParseAwayCommand(args []string) (Command, error) {
@@ -710,7 +709,6 @@ func ParseAwayCommand(args []string) (Command, error) {
 
 	if len(args) > 0 {
 		cmd.text = NewText(args[0])
-		cmd.away = true
 	}
 
 	return cmd, nil

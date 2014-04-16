@@ -151,8 +151,8 @@ func RplPing(target Identifiable) string {
 	return NewStringReply(nil, PING, ":%s", target.Nick())
 }
 
-func RplPong(client *Client) string {
-	return NewStringReply(nil, PONG, client.Nick().String())
+func RplPong(client *Client, msg Text) string {
+	return NewStringReply(nil, PONG, "%s :%s", client.server, msg.String())
 }
 
 func RplQuit(client *Client, message Text) string {

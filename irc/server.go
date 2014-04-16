@@ -8,9 +8,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -121,7 +118,6 @@ func (server *Server) loadChannels() {
 
 func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
-	Log.debug.Printf("%s → %+v", client, cmd)
 
 	if !client.registered {
 		regCmd, ok := cmd.(RegServerCommand)
@@ -138,6 +134,7 @@ func (server *Server) processCommand(cmd Command) {
 		client.ErrUnknownCommand(cmd.Code())
 		return
 	}
+
 	switch srvCmd.(type) {
 	case *PingCommand, *PongCommand:
 		client.Touch()
@@ -149,6 +146,7 @@ func (server *Server) processCommand(cmd Command) {
 		client.Active()
 		client.Touch()
 	}
+
 	srvCmd.HandleServer(server)
 }
 
@@ -272,6 +270,14 @@ func (s *Server) Nick() Name {
 	return s.Id()
 }
 
+func (server *Server) Reply(target *Client, message string) {
+	target.Reply(RplPrivMsg(server, target, NewText(message)))
+}
+
+func (server *Server) Replyf(target *Client, format string, args ...interface{}) {
+	server.Reply(target, fmt.Sprintf(format, args...))
+}
+
 //
 // registration commands
 //
@@ -344,7 +350,8 @@ func (m *PassCommand) HandleServer(s *Server) {
 }
 
 func (m *PingCommand) HandleServer(s *Server) {
-	m.Client().Reply(RplPong(m.Client()))
+	client := m.Client()
+	client.Reply(RplPong(client, m.server.Text()))
 }
 
 func (m *PongCommand) HandleServer(s *Server) {
@@ -514,23 +521,33 @@ func (msg *OperCommand) HandleServer(server *Server) {
 
 	client.flags[Operator] = true
 	client.RplYoureOper()
-	client.RplUModeIs(client)
+	client.Reply(RplModeChanges(client, client, ModeChanges{&ModeChange{
+		mode: Operator,
+		op:   Add,
+	}}))
 }
 
 func (msg *AwayCommand) HandleServer(server *Server) {
 	client := msg.Client()
-	if msg.away {
+	if len(msg.text) > 0 {
 		client.flags[Away] = true
 	} else {
 		delete(client.flags, Away)
 	}
 	client.awayMessage = msg.text
 
+	var op ModeOp
 	if client.flags[Away] {
+		op = Add
 		client.RplNowAway()
 	} else {
+		op = Remove
 		client.RplUnAway()
 	}
+	client.Reply(RplModeChanges(client, client, ModeChanges{&ModeChange{
+		mode: Away,
+		op:   op,
+	}}))
 }
 
 func (msg *IsOnCommand) HandleServer(server *Server) {
@@ -635,53 +652,6 @@ func (msg *NamesCommand) HandleServer(server *Server) {
 			continue
 		}
 		channel.Names(client)
-	}
-}
-
-func (server *Server) Reply(target *Client, format string, args ...interface{}) {
-	target.Reply(RplPrivMsg(server, target, NewText(fmt.Sprintf(format, args...))))
-}
-
-func (msg *DebugCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if !client.flags[Operator] {
-		return
-	}
-
-	switch msg.subCommand {
-	case "GC":
-		runtime.GC()
-		server.Reply(client, "OK")
-
-	case "GCSTATS":
-		stats := debug.GCStats{
-			Pause:          make([]time.Duration, 10),
-			PauseQuantiles: make([]time.Duration, 5),
-		}
-		debug.ReadGCStats(&stats)
-		server.Reply(client, "last GC:     %s", stats.LastGC.Format(time.RFC1123))
-		server.Reply(client, "num GC:      %d", stats.NumGC)
-		server.Reply(client, "pause total: %s", stats.PauseTotal)
-		server.Reply(client, "pause quantiles min%%: %s", stats.PauseQuantiles[0])
-		server.Reply(client, "pause quantiles 25%%:  %s", stats.PauseQuantiles[1])
-		server.Reply(client, "pause quantiles 50%%:  %s", stats.PauseQuantiles[2])
-		server.Reply(client, "pause quantiles 75%%:  %s", stats.PauseQuantiles[3])
-		server.Reply(client, "pause quantiles max%%: %s", stats.PauseQuantiles[4])
-
-	case "NUMGOROUTINE":
-		count := runtime.NumGoroutine()
-		server.Reply(client, "num goroutines: %d", count)
-
-	case "PROFILEHEAP":
-		profFile := "ergonomadic-heap.prof"
-		file, err := os.Create(profFile)
-		if err != nil {
-			log.Printf("error: %s", err)
-			break
-		}
-		defer file.Close()
-		pprof.Lookup("heap").WriteTo(file, 0)
-		server.Reply(client, "written to %s", profFile)
 	}
 }
 

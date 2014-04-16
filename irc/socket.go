@@ -7,25 +7,23 @@ import (
 )
 
 const (
-	R   = '→'
-	W   = '←'
-	EOF = ""
+	R = '→'
+	W = '←'
 )
 
 type Socket struct {
-	conn   net.Conn
-	writer *bufio.Writer
+	closed  bool
+	conn    net.Conn
+	scanner *bufio.Scanner
+	writer  *bufio.Writer
 }
 
-func NewSocket(conn net.Conn, commands chan<- Command) *Socket {
-	socket := &Socket{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
+func NewSocket(conn net.Conn) *Socket {
+	return &Socket{
+		conn:    conn,
+		scanner: bufio.NewScanner(conn),
+		writer:  bufio.NewWriter(conn),
 	}
-
-	go socket.readLines(commands)
-
-	return socket
 }
 
 func (socket *Socket) String() string {
@@ -33,39 +31,43 @@ func (socket *Socket) String() string {
 }
 
 func (socket *Socket) Close() {
+	if socket.closed {
+		return
+	}
+	socket.closed = true
 	socket.conn.Close()
 	Log.debug.Printf("%s closed", socket)
 }
 
-func (socket *Socket) readLines(commands chan<- Command) {
-	commands <- NewProxyCommand(AddrLookupHostname(socket.conn.RemoteAddr()))
+func (socket *Socket) Read() (line string, err error) {
+	if socket.closed {
+		err = io.EOF
+		return
+	}
 
-	scanner := bufio.NewScanner(socket.conn)
-	for scanner.Scan() {
-		line := scanner.Text()
+	for socket.scanner.Scan() {
+		line = socket.scanner.Text()
 		if len(line) == 0 {
 			continue
 		}
 		Log.debug.Printf("%s → %s", socket, line)
-
-		msg, err := ParseCommand(line)
-		if err != nil {
-			// TODO error messaging to client
-			continue
-		}
-		commands <- msg
+		return
 	}
 
-	if err := scanner.Err(); err != nil {
-		Log.debug.Printf("%s error: %s", socket, err)
+	err = socket.scanner.Err()
+	socket.isError(err, R)
+	if err == nil {
+		err = io.EOF
 	}
-
-	commands <- NewQuitCommand("connection closed")
-
-	close(commands)
+	return
 }
 
 func (socket *Socket) Write(line string) (err error) {
+	if socket.closed {
+		err = io.EOF
+		return
+	}
+
 	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
 		return
 	}
