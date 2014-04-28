@@ -16,6 +16,11 @@ issues are welcome. Discuss it here or on Freenode in [#ergonomadic][irc].
 - channels that [persist][go-sqlite] between restarts (+P)
 - messages are queued in the same order to all connected clients
 
+## Users
+
+If anyone is running and using this software, I'd love to link to you here with
+any details you deem appropriate.
+
 ## Why?
 
 I wanted to learn Go.
