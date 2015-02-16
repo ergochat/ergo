@@ -152,7 +152,8 @@ func RplPing(target Identifiable) string {
 }
 
 func RplPong(client *Client, msg Text) string {
-	return NewStringReply(nil, PONG, "%s :%s", client.server, msg.String())
+	// #5: IRC for Android will time out if it doesn't get the prefix back.
+	return NewStringReply(client, PONG, "%s :%s", client.server, msg.String())
 }
 
 func RplQuit(client *Client, message Text) string {
