@@ -53,7 +53,7 @@ ergonomadic initdb -conf ergonomadic.conf
 
 ## Configuration
 
-See the example [`ergonomadic.conf`][conf]. Passwords are base64-encoded bcrypted byte
+See the example [`ergonomadic.conf`](ergonomadic.conf). Passwords are base64-encoded bcrypted byte
 strings. You can generate them with the `genpasswd` subcommand.
 
 ```sh
