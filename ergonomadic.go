@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/jlatt/ergonomadic/irc"
+	"github.com/edmund-huber/ergonomadic/irc"
 	"log"
 	"os"
 	"path/filepath"
