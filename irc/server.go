@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -70,6 +71,10 @@ func NewServer(config *Config) *Server {
 
 	for _, addr := range config.Server.Listen {
 		server.listen(addr)
+	}
+
+	if config.Server.Wslisten != "" {
+		server.wslisten(config.Server.Wslisten)
 	}
 
 	signal.Notify(server.signals, SERVER_SIGNALS...)
@@ -199,6 +204,37 @@ func (s *Server) listen(addr string) {
 			Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
 			s.newConns <- conn
+		}
+	}()
+}
+
+//
+// websocket listen goroutine
+//
+
+func (s *Server) wslisten(addr string) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			Log.error.Printf("%s method not allowed", s)
+			return
+		}
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			Log.error.Printf("%s websocket upgrade error: %s", s, err)
+			return
+		}
+
+		wsc := WSContainer{
+			conn: ws,
+		}
+
+		s.newConns <- wsc
+	})
+	go func() {
+		Log.info.Printf("%s listening on %s", s, addr)
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			Log.error.Printf("%s listenAndServe error: %s", s, err)
 		}
 	}()
 }
