@@ -40,7 +40,8 @@ func (this WSContainer) Write(msg []byte) (int, error) {
 }
 
 func (this WSContainer) SetDeadline(t time.Time) error {
-	err := this.SetWriteDeadline(t)
-	err = this.SetReadDeadline(t)
-	return err
+	if err := this.SetWriteDeadline(t); err != nil {
+		return err
+	}
+	return this.SetReadDeadline(t)
 }
