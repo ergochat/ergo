@@ -10,6 +10,15 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	/* If a WS session contains sensitive information, and you choose to use
+	   cookies for authentication (during the HTTP(S) upgrade request), then
+	   you should check that Origin is a domain under your control. If it
+	   isn't, then it is possible for users of your site, visiting a naughty
+	   Origin, to have a WS opened using their credentials. See
+	   http://www.christian-schneider.net/CrossSiteWebSocketHijacking.html#main.
+	   We don't care about Origin because the (IRC) authentication is contained
+	   in the WS stream -- the WS session is not privileged when it is opened.
+	*/
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
