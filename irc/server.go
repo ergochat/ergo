@@ -232,11 +232,7 @@ func (s *Server) wslisten(addr string) {
 			return
 		}
 
-		wsc := WSContainer{
-			conn: ws,
-		}
-
-		s.newConns <- wsc
+		s.newConns <- WSContainer{ws}
 	})
 	go func() {
 		Log.info.Printf("%s listening on %s", s, addr)
