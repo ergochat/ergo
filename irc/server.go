@@ -218,6 +218,14 @@ func (s *Server) wslisten(addr string) {
 			Log.error.Printf("%s method not allowed", s)
 			return
 		}
+
+		// We don't have any subprotocols, so if someone attempts to `new
+		// WebSocket(server, "subprotocol")` they'll break here, instead of
+		// getting the default, ambiguous, response from gorilla.
+		if v, ok := r.Header["Sec-Websocket-Protocol"]; ok {
+			http.Error(w, fmt.Sprintf("WebSocket subprocotols (e.g. %s) not supported", v), 400)
+		}
+
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			Log.error.Printf("%s websocket upgrade error: %s", s, err)
