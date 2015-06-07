@@ -327,6 +327,9 @@ func ParseJoinCommand(args []string) (Command, error) {
 	keys := make([]string, len(channels))
 	if len(args) > 1 {
 		for i, key := range strings.Split(args[1], ",") {
+			if i >= len(channels) {
+				break
+			}
 			keys[i] = key
 		}
 	}
