@@ -23,6 +23,7 @@ type Config struct {
 		PassConfig
 		Database string
 		Listen   []string
+		Wslisten string
 		Log      string
 		MOTD     string
 		Name     string

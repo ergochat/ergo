@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -70,6 +71,10 @@ func NewServer(config *Config) *Server {
 
 	for _, addr := range config.Server.Listen {
 		server.listen(addr)
+	}
+
+	if config.Server.Wslisten != "" {
+		server.wslisten(config.Server.Wslisten)
 	}
 
 	signal.Notify(server.signals, SERVER_SIGNALS...)
@@ -199,6 +204,41 @@ func (s *Server) listen(addr string) {
 			Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
 			s.newConns <- conn
+		}
+	}()
+}
+
+//
+// websocket listen goroutine
+//
+
+func (s *Server) wslisten(addr string) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			Log.error.Printf("%s method not allowed", s)
+			return
+		}
+
+		// We don't have any subprotocols, so if someone attempts to `new
+		// WebSocket(server, "subprotocol")` they'll break here, instead of
+		// getting the default, ambiguous, response from gorilla.
+		if v, ok := r.Header["Sec-Websocket-Protocol"]; ok {
+			http.Error(w, fmt.Sprintf("WebSocket subprocotols (e.g. %s) not supported", v), 400)
+		}
+
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			Log.error.Printf("%s websocket upgrade error: %s", s, err)
+			return
+		}
+
+		s.newConns <- WSContainer{ws}
+	})
+	go func() {
+		Log.info.Printf("%s listening on %s", s, addr)
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			Log.error.Printf("%s listenAndServe error: %s", s, err)
 		}
 	}()
 }
