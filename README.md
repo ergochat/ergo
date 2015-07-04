@@ -64,6 +64,6 @@ ergonomadic run -conf ergonomadic.conf
 * Niels Freier, added WebSocket support, <https://github.com/stumpyfr>
 * apologies to anyone I forgot.
 
-[go-crypto]: http://godoc.org/code.google.com/p/go.crypto
+[go-crypto]: https://godoc.org/golang.org/x/crypto
 [go-sqlite]: https://github.com/mattn/go-sqlite3
 [proxy-proto]: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
