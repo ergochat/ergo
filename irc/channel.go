@@ -105,9 +105,7 @@ func (channel *Channel) ModeString(client *Client) (str string) {
 		str += mode.String()
 	}
 
-	if len(str) > 0 {
-		str = "+" + str
-	}
+	str = "+" + str
 
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
