@@ -10,7 +10,7 @@ Discussion at:
 
 * follows the RFCs where possible
 * UTF-8 nick and channel names
-* [gcfg](https://code.google.com/p/gcfg/) gitconfig-style configuration
+* [gcfg](https://github.com/go-gcfg/gcfg/tree/v1) gitconfig-style configuration
 * server password (PASS command)
 * channels with most standard modes
 * IRC operators (OPER command)

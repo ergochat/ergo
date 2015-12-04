@@ -1,7 +1,7 @@
 package irc
 
 import (
-	"code.google.com/p/gcfg"
+	"gopkg.in/gcfg.v1"
 	"errors"
 	"log"
 )
