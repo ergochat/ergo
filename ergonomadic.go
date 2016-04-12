@@ -1,81 +1,63 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"github.com/edmund-huber/ergonomadic/irc"
 	"log"
-	"os"
-	"path/filepath"
+	"syscall"
+
+	"github.com/docopt/docopt-go"
+	"github.com/edmund-huber/ergonomadic/irc"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-func usage() {
-	fmt.Fprintln(os.Stderr, "ergonomadic <run|genpasswd|initdb|upgradedb> [options]")
-	fmt.Fprintln(os.Stderr, "  run -conf <config>     -- run server")
-	fmt.Fprintln(os.Stderr, "  initdb -conf <config>  -- initialize database")
-	fmt.Fprintln(os.Stderr, "  upgrade -conf <config> -- upgrade database")
-	fmt.Fprintln(os.Stderr, "  genpasswd <password>   -- bcrypt a password")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "software version:", irc.SEM_VER)
-	flag.PrintDefaults()
-}
-
-func loadConfig(conf string) *irc.Config {
-	config, err := irc.LoadConfig(conf)
-	if err != nil {
-		log.Fatalln("error loading config:", err)
-	}
-
-	err = os.Chdir(filepath.Dir(conf))
-	if err != nil {
-		log.Fatalln("chdir error:", err)
-	}
-	return config
-}
-
-func genPasswd() {
-}
-
 func main() {
-	var conf string
-	flag.Usage = usage
+	version := irc.SEM_VER
+	usage := `ergonomadic.
+Usage:
+	ergonomadic initdb [--conf <filename>]
+	ergonomadic upgradedb [--conf <filename>]
+	ergonomadic genpasswd [--conf <filename>]
+	ergonomadic run [--conf <filename>]
+	ergonomadic -h | --help
+	ergonomadic --version
+Options:
+	--conf <filename>  Configuration file to use [default: ircd.yaml].
+	-h --help          Show this screen.
+	--version          Show version.`
 
-	runFlags := flag.NewFlagSet("run", flag.ExitOnError)
-	runFlags.Usage = usage
-	runFlags.StringVar(&conf, "conf", "ergonomadic.conf", "ergonomadic config file")
+	arguments, _ := docopt.Parse(usage, nil, true, version, false)
 
-	flag.Parse()
+	// load config now because it's the same process for all
+	configfile := arguments["--conf"].(string)
+	config, err := irc.LoadConfig(configfile)
+	if err != nil {
+		log.Fatal("Config file did not load successfully:", err.Error())
+	}
 
-	switch flag.Arg(0) {
-	case "genpasswd":
-		encoded, err := irc.GenerateEncodedPassword(flag.Arg(1))
+	if arguments["genpasswd"].(bool) {
+		fmt.Print("Enter Password: ")
+		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			log.Fatal("Error reading password:", err.Error())
+		}
+		password := string(bytePassword)
+		encoded, err := irc.GenerateEncodedPassword(password)
 		if err != nil {
 			log.Fatalln("encoding error:", err)
 		}
+		fmt.Print("\n")
 		fmt.Println(encoded)
-
-	case "initdb":
-		runFlags.Parse(flag.Args()[1:])
-		config := loadConfig(conf)
+	} else if arguments["initdb"].(bool) {
 		irc.InitDB(config.Server.Database)
 		log.Println("database initialized: ", config.Server.Database)
-
-	case "upgradedb":
-		runFlags.Parse(flag.Args()[1:])
-		config := loadConfig(conf)
+	} else if arguments["upgradedb"].(bool) {
 		irc.UpgradeDB(config.Server.Database)
 		log.Println("database upgraded: ", config.Server.Database)
-
-	case "run":
-		runFlags.Parse(flag.Args()[1:])
-		config := loadConfig(conf)
+	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
 		server := irc.NewServer(config)
 		log.Println(irc.SEM_VER, "running")
 		defer log.Println(irc.SEM_VER, "exiting")
 		server.Run()
-
-	default:
-		usage()
 	}
 }

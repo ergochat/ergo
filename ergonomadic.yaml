@@ -1,0 +1,34 @@
+# ergonomadic IRCd config
+server:
+    # server name
+    name: ergonomadic.test
+
+    # database filename (sqlite db)
+    database: ircd.db
+
+    # addresses to listen on
+    listen:
+        - ":6667"
+        - "127.0.0.1:6668"
+        - "[::1]:6668"
+
+    # websocket listening port
+    wslisten: ":8080"
+
+    # password to login to the server
+    # generated using  "ergonomadic genpasswd"
+    #password: ""
+
+    # log level, one of error, warn, info, debug
+    log: debug
+
+    # motd filename
+    motd: ircd.motd
+
+# ircd operators
+operator:
+    # operator named 'dan'
+    dan:
+        # password to login with /OPER command
+        # generated using  "ergonomadic genpasswd"
+        password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu

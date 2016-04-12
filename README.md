@@ -10,7 +10,7 @@ Discussion at:
 
 * follows the RFCs where possible
 * UTF-8 nick and channel names
-* [gcfg](https://github.com/go-gcfg/gcfg/tree/v1) gitconfig-style configuration
+* [yaml](http://yaml.org/) configuration
 * server password (PASS command)
 * channels with most standard modes
 * IRC operators (OPER command)
@@ -39,22 +39,24 @@ and channel sync issues created during netsplits.
 ```sh
 go get
 go install
-ergonomadic initdb -conf ergonomadic.conf
+cp ergonomadic.yaml ircd.yaml
+vim ircd.yaml  # modify the config file to your liking
+ergonomadic initdb
 ```
 
 # Configuration
 
-See the example [`ergonomadic.conf`](ergonomadic.conf). Passwords are base64-encoded bcrypted byte
+See the example [`ergonomadic.yaml`](ergonomadic.yaml). Passwords are base64-encoded bcrypted byte
 strings. You can generate them with the `genpasswd` subcommand.
 
 ```sh
-ergonomadic genpasswd 'hunter2!'
+ergonomadic genpasswd
 ```
 
 # Running the server
 
 ```sh
-ergonomadic run -conf ergonomadic.conf
+ergonomadic run
 ```
 
 # Credits

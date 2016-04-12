@@ -1,9 +1,11 @@
 package irc
 
 import (
-	"gopkg.in/gcfg.v1"
 	"errors"
+	"io/ioutil"
 	"log"
+
+	"gopkg.in/yaml.v2"
 )
 
 type PassConfig struct {
@@ -55,22 +57,24 @@ func (conf *Config) Theaters() map[Name][]byte {
 }
 
 func LoadConfig(filename string) (config *Config, err error) {
-	config = &Config{}
-	err = gcfg.ReadFileInto(config, filename)
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return
+		return nil, err
 	}
+
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Server.Name == "" {
-		err = errors.New("server.name missing")
-		return
+		return nil, errors.New("Server name missing")
 	}
 	if config.Server.Database == "" {
-		err = errors.New("server.database missing")
-		return
+		return nil, errors.New("Server database missing")
 	}
 	if len(config.Server.Listen) == 0 {
-		err = errors.New("server.listen missing")
-		return
+		return nil, errors.New("Server listening addresses missing")
 	}
-	return
+	return config, nil
 }
