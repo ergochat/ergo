@@ -94,9 +94,9 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("NETWORK", config.Network.Name)
 	server.isupport.Add("NICKLEN", "") //TODO(dan): Support nick length
 	server.isupport.Add("PREFIX", "(ov)@+")
-	server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, make sure it's actually supported
-	server.isupport.Add("TARGMAX", "")     //TODO(dan): Support this
-	server.isupport.Add("TOPICLEN", "")    //TODO(dan): Support topic length
+	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, support STATUSMSG
+	server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
+	server.isupport.Add("TOPICLEN", "") //TODO(dan): Support topic length
 	server.isupport.RegenerateCachedReply()
 
 	return server
