@@ -1,9 +1,10 @@
 package irc
 
 import (
-	"golang.org/x/text/unicode/norm"
 	"regexp"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -35,7 +36,15 @@ func (name Name) IsChannel() bool {
 }
 
 func (name Name) IsNickname() bool {
-	return NicknameExpr.MatchString(name.String())
+	namestr := name.String()
+	// * is used for unregistered clients
+	// , is used as a separator by the protocol
+	// # is a channel prefix
+	// @+ are channel membership prefixes
+	if namestr == "*" || strings.Contains(namestr, ",") || strings.Contains("#@+", string(namestr[0])) {
+		return false
+	}
+	return NicknameExpr.MatchString(namestr)
 }
 
 // conversions
