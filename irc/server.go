@@ -88,11 +88,11 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
-	server.isupport.Add("KICKLEN", "")            //TODO(dan): Support kick length?
-	server.isupport.Add("MAXLIST", "")            //TODO(dan): Support max list length?
-	server.isupport.Add("MODES", "")              //TODO(dan): Support max modes?
-	server.isupport.Add("NETWORK", "NetNameHere") //TODO(dan): Support network name
-	server.isupport.Add("NICKLEN", "")            //TODO(dan): Support nick length
+	server.isupport.Add("KICKLEN", "") //TODO(dan): Support kick length?
+	server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
+	server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
+	server.isupport.Add("NETWORK", config.Network.Name)
+	server.isupport.Add("NICKLEN", "") //TODO(dan): Support nick length
 	server.isupport.Add("PREFIX", "(ov)@+")
 	server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, make sure it's actually supported
 	server.isupport.Add("TARGMAX", "")     //TODO(dan): Support this

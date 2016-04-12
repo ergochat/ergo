@@ -21,14 +21,18 @@ func (conf *PassConfig) PasswordBytes() []byte {
 }
 
 type Config struct {
+	Network struct {
+		Name string
+	}
+
 	Server struct {
 		PassConfig
+		Name     string
 		Database string
 		Listen   []string
 		Wslisten string
 		Log      string
 		MOTD     string
-		Name     string
 	}
 
 	Operator map[string]*PassConfig
@@ -67,6 +71,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, err
 	}
 
+	if config.Network.Name == "" {
+		return nil, errors.New("Network name missing")
+	}
 	if config.Server.Name == "" {
 		return nil, errors.New("Server name missing")
 	}

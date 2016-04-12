@@ -1,4 +1,11 @@
 # oragono IRCd config
+
+# network configuration
+network:
+    # name of the network
+    name: OragonoTest
+
+# server configuration
 server:
     # server name
     name: oragono.test
