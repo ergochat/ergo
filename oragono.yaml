@@ -1,7 +1,7 @@
-# ergonomadic IRCd config
+# oragono IRCd config
 server:
     # server name
-    name: ergonomadic.test
+    name: oragono.test
 
     # database filename (sqlite db)
     database: ircd.db
@@ -16,7 +16,7 @@ server:
     wslisten: ":8080"
 
     # password to login to the server
-    # generated using  "ergonomadic genpasswd"
+    # generated using  "oragono genpasswd"
     #password: ""
 
     # log level, one of error, warn, info, debug
@@ -30,5 +30,5 @@ operator:
     # operator named 'dan'
     dan:
         # password to login with /OPER command
-        # generated using  "ergonomadic genpasswd"
+        # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu

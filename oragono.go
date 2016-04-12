@@ -5,21 +5,21 @@ import (
 	"log"
 	"syscall"
 
+	"github.com/DanielOaks/oragono/irc"
 	"github.com/docopt/docopt-go"
-	"github.com/edmund-huber/ergonomadic/irc"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 func main() {
 	version := irc.SEM_VER
-	usage := `ergonomadic.
+	usage := `oragono.
 Usage:
-	ergonomadic initdb [--conf <filename>]
-	ergonomadic upgradedb [--conf <filename>]
-	ergonomadic genpasswd [--conf <filename>]
-	ergonomadic run [--conf <filename>]
-	ergonomadic -h | --help
-	ergonomadic --version
+	oragono initdb [--conf <filename>]
+	oragono upgradedb [--conf <filename>]
+	oragono genpasswd [--conf <filename>]
+	oragono run [--conf <filename>]
+	oragono -h | --help
+	oragono --version
 Options:
 	--conf <filename>  Configuration file to use [default: ircd.yaml].
 	-h --help          Show this screen.
