@@ -205,6 +205,14 @@ func (target *Client) RplMyInfo() {
 		target.server.name, SEM_VER, SupportedUserModes, SupportedChannelModes)
 }
 
+func (target *Client) RplISupport() {
+	for _, tokenline := range target.server.isupport.CachedReply {
+		target.NumericReply(RPL_ISUPPORT,
+			"%s :are supported by this server",
+			tokenline)
+	}
+}
+
 func (target *Client) RplUModeIs(client *Client) {
 	target.NumericReply(RPL_UMODEIS, client.ModeString())
 }

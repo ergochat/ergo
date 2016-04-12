@@ -39,6 +39,7 @@ type Server struct {
 	signals   chan os.Signal
 	whoWas    *WhoWasList
 	theaters  map[Name][]byte
+	isupport  *ISupportList
 }
 
 var (
@@ -78,6 +79,25 @@ func NewServer(config *Config) *Server {
 	}
 
 	signal.Notify(server.signals, SERVER_SIGNALS...)
+
+	// add RPL_ISUPPORT tokens
+	server.isupport = NewISupportList()
+	server.isupport.Add("CASEMAPPING", "ascii")
+	server.isupport.Add("CHANMODES", "")  //TODO(dan): Channel mode list here
+	server.isupport.Add("CHANNELLEN", "") //TODO(dan): Support channel length
+	server.isupport.Add("CHANTYPES", "#")
+	server.isupport.Add("EXCEPTS", "")
+	server.isupport.Add("INVEX", "")
+	server.isupport.Add("KICKLEN", "")            //TODO(dan): Support kick length?
+	server.isupport.Add("MAXLIST", "")            //TODO(dan): Support max list length?
+	server.isupport.Add("MODES", "")              //TODO(dan): Support max modes?
+	server.isupport.Add("NETWORK", "NetNameHere") //TODO(dan): Support network name
+	server.isupport.Add("NICKLEN", "")            //TODO(dan): Support nick length
+	server.isupport.Add("PREFIX", "(ov)@+")
+	server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, make sure it's actually supported
+	server.isupport.Add("TARGMAX", "")     //TODO(dan): Support this
+	server.isupport.Add("TOPICLEN", "")    //TODO(dan): Support topic length
+	server.isupport.RegenerateCachedReply()
 
 	return server
 }
@@ -258,6 +278,7 @@ func (s *Server) tryRegister(c *Client) {
 	c.RplYourHost()
 	c.RplCreated()
 	c.RplMyInfo()
+	c.RplISupport()
 	s.MOTD(c)
 }
 

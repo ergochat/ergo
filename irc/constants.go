@@ -44,7 +44,8 @@ const (
 	RPL_YOURHOST          NumericCode = 2
 	RPL_CREATED           NumericCode = 3
 	RPL_MYINFO            NumericCode = 4
-	RPL_BOUNCE            NumericCode = 5
+	RPL_ISUPPORT          NumericCode = 5
+	RPL_BOUNCE            NumericCode = 10
 	RPL_TRACELINK         NumericCode = 200
 	RPL_TRACECONNECTING   NumericCode = 201
 	RPL_TRACEHANDSHAKE    NumericCode = 202
