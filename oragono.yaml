@@ -23,7 +23,8 @@ server:
     log: debug
 
     # motd filename
-    motd: ircd.motd
+    # if you change the motd, you should move it to ircd.motd
+    motd: oragono.motd
 
 # ircd operators
 operator:
