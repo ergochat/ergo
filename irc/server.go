@@ -283,17 +283,7 @@ func (server *Server) MOTD(client *Client) {
 		}
 		line = strings.TrimRight(line, "\r\n")
 
-		if len(line) > 80 {
-			for len(line) > 80 {
-				client.RplMOTD(line[0:80])
-				line = line[80:]
-			}
-			if len(line) > 0 {
-				client.RplMOTD(line)
-			}
-		} else {
-			client.RplMOTD(line)
-		}
+		client.RplMOTD(line)
 	}
 	client.RplMOTDEnd()
 }
