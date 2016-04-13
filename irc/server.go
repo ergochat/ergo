@@ -2,6 +2,7 @@ package irc
 
 import (
 	"bufio"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
@@ -88,7 +89,7 @@ func NewServer(config *Config) *Server {
 	server.loadChannels()
 
 	for _, addr := range config.Server.Listen {
-		server.listen(addr)
+		server.listen(addr, config.SSLListeners())
 	}
 
 	if config.Server.Wslisten != "" {
@@ -223,13 +224,18 @@ func (server *Server) Run() {
 // listen goroutine
 //
 
-func (s *Server) listen(addr string) {
+func (s *Server) listen(addr string, ssl map[Name]*tls.Config) {
+	config, listenSSL := ssl[NewName(addr)]
+
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(s, "listen error: ", err)
 	}
 
-	Log.info.Printf("%s listening on %s", s, addr)
+	if listenSSL {
+		listener = tls.NewListener(listener, config)
+	}
+	Log.info.Printf("%s listening on %s. ssl: %t", s, addr, listenSSL)
 
 	go func() {
 		for {
@@ -250,6 +256,7 @@ func (s *Server) listen(addr string) {
 //
 
 func (s *Server) wslisten(addr string) {
+	//TODO(dan): open a https websocket here if ssl/tls details are setup in the config for the wslistener
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			Log.error.Printf("%s method not allowed", s)

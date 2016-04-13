@@ -18,6 +18,7 @@ server:
         - ":6667"
         - "127.0.0.1:6668"
         - "[::1]:6668"
+        - ":6697" # ssl port
 
     # websocket listening port
     wslisten: ":8080"
@@ -32,6 +33,13 @@ server:
     # motd filename
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
+
+# ssl listeners
+ssllistener:
+    # listener on ":6697"
+    ":6697":
+        key: ssl.key
+        cert: ssl.crt
 
 # ircd operators
 operator:

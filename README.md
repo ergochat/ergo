@@ -11,14 +11,13 @@ Oragono is a very early, extremely experimental fork of the [Ergonomadic](https:
 * channels that [persist][go-sqlite] between restarts (+P)
 * messages are queued in the same order to all connected clients
 
-# What about SSL/TLS support?
+# What about SSL/TLS?
 
-Go has a not-yet-verified-as-safe TLS 1.2 implementation. Sadly, many popular
-IRC clients will negotiate nothing newer than SSLv2. If you want to use SSL to
-protect traffic, I recommend using
+There is inbuilt TLS support using the Go TLS implementation. However,
 [stunnel](https://www.stunnel.org/index.html) version 4.56 with haproxy's
-[PROXY protocol][proxy-proto]. This will allow the server to get the client's
-original addresses for hostname lookups.
+[PROXY protocol](http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt)
+may also be used. This will allow the server to get the client's original
+addresses for hostname lookups.
 
 # Installation
 

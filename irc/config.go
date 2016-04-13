@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"crypto/tls"
 	"errors"
 	"io/ioutil"
 	"log"
@@ -10,6 +11,24 @@ import (
 
 type PassConfig struct {
 	Password string
+}
+
+// SSLListenConfig defines configuration options for listening on SSL
+type SSLListenConfig struct {
+	Cert string
+	Key  string
+}
+
+// Certificate returns the SSL certificate assicated with this SSLListenConfig
+func (conf *SSLListenConfig) Config() (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(conf.Cert, conf.Key)
+	if err != nil {
+		return nil, errors.New("ssl cert+key: invalid pair")
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}, err
 }
 
 func (conf *PassConfig) PasswordBytes() []byte {
@@ -35,6 +54,8 @@ type Config struct {
 		MOTD     string
 	}
 
+	SSLListener map[string]*SSLListenConfig
+
 	Operator map[string]*PassConfig
 
 	Theater map[string]*PassConfig
@@ -58,6 +79,18 @@ func (conf *Config) Theaters() map[Name][]byte {
 		theaters[name] = theaterConf.PasswordBytes()
 	}
 	return theaters
+}
+
+func (conf *Config) SSLListeners() map[Name]*tls.Config {
+	sslListeners := make(map[Name]*tls.Config)
+	for s, sslListenersConf := range conf.SSLListener {
+		config, err := sslListenersConf.Config()
+		if err != nil {
+			log.Fatal(err)
+		}
+		sslListeners[NewName(s)] = config
+	}
+	return sslListeners
 }
 
 func LoadConfig(filename string) (config *Config, err error) {
