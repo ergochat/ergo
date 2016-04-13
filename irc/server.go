@@ -31,7 +31,7 @@ type Server struct {
 	ctime     time.Time
 	db        *sql.DB
 	idle      chan *Client
-	motdFile  string
+	motdLines []string
 	name      Name
 	newConns  chan net.Conn
 	operators map[Name][]byte
@@ -55,13 +55,30 @@ func NewServer(config *Config) *Server {
 		ctime:     time.Now(),
 		db:        OpenDB(config.Server.Database),
 		idle:      make(chan *Client),
-		motdFile:  config.Server.MOTD,
 		name:      NewName(config.Server.Name),
 		newConns:  make(chan net.Conn),
 		operators: config.Operators(),
 		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
 		whoWas:    NewWhoWasList(100),
 		theaters:  config.Theaters(),
+	}
+
+	if config.Server.MOTD != "" {
+		file, err := os.Open(config.Server.MOTD)
+		if err == nil {
+			defer file.Close()
+
+			reader := bufio.NewReader(file)
+			for {
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					break
+				}
+				line = strings.TrimRight(line, "\r\n")
+
+				server.motdLines = append(server.motdLines, line)
+			}
+		}
 	}
 
 	if config.Server.Password != "" {
@@ -283,27 +300,13 @@ func (s *Server) tryRegister(c *Client) {
 }
 
 func (server *Server) MOTD(client *Client) {
-	if server.motdFile == "" {
+	if len(server.motdLines) < 1 {
 		client.ErrNoMOTD()
 		return
 	}
-
-	file, err := os.Open(server.motdFile)
-	if err != nil {
-		client.ErrNoMOTD()
-		return
-	}
-	defer file.Close()
 
 	client.RplMOTDStart()
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			break
-		}
-		line = strings.TrimRight(line, "\r\n")
-
+	for _, line := range server.motdLines {
 		client.RplMOTD(line)
 	}
 	client.RplMOTDEnd()
