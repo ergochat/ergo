@@ -737,6 +737,7 @@ func (msg *VersionCommand) HandleServer(server *Server) {
 	}
 
 	client.RplVersion()
+	client.RplISupport()
 }
 
 func (msg *InviteCommand) HandleServer(server *Server) {
