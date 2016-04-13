@@ -298,21 +298,8 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
+		flags += channel.members[client].Prefixes(target.capabilities[MultiPrefix])
 		channelName = channel.name.String()
-		if target.capabilities[MultiPrefix] {
-			if channel.members[client][ChannelOperator] {
-				flags += "@"
-			}
-			if channel.members[client][Voice] {
-				flags += "+"
-			}
-		} else {
-			if channel.members[client][ChannelOperator] {
-				flags += "@"
-			} else if channel.members[client][Voice] {
-				flags += "+"
-			}
-		}
 	}
 	target.NumericReply(RPL_WHOREPLY,
 		"%s %s %s %s %s %s :%d %s", channelName, client.username, client.hostname,
@@ -432,7 +419,7 @@ func (target *Client) RplNamReply(channel *Channel) {
 }
 
 func (target *Client) RplWhoisChannels(client *Client) {
-	target.MultilineReply(client.WhoisChannelsNames(), RPL_WHOISCHANNELS,
+	target.MultilineReply(client.WhoisChannelsNames(target.capabilities[MultiPrefix]), RPL_WHOISCHANNELS,
 		"%s :%s", client.Nick())
 }
 

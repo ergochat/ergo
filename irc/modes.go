@@ -67,31 +67,46 @@ var (
 )
 
 const (
-	Anonymous       ChannelMode = 'a' // flag
-	BanMask         ChannelMode = 'b' // arg
-	ChannelCreator  ChannelMode = 'O' // flag
+	ChannelFounder  ChannelMode = 'q' // arg
+	ChannelAdmin    ChannelMode = 'a' // arg
 	ChannelOperator ChannelMode = 'o' // arg
-	ExceptMask      ChannelMode = 'e' // arg
-	InviteMask      ChannelMode = 'I' // arg
-	InviteOnly      ChannelMode = 'i' // flag
-	Key             ChannelMode = 'k' // flag arg
-	Moderated       ChannelMode = 'm' // flag
-	NoOutside       ChannelMode = 'n' // flag
-	OpOnlyTopic     ChannelMode = 't' // flag
-	Persistent      ChannelMode = 'P' // flag
-	Private         ChannelMode = 'p' // flag
-	Quiet           ChannelMode = 'q' // flag
-	ReOp            ChannelMode = 'r' // flag
-	Secret          ChannelMode = 's' // flag, deprecated
-	Theater         ChannelMode = 'T' // flag, nonstandard
-	UserLimit       ChannelMode = 'l' // flag arg
+	Halfop          ChannelMode = 'h' // arg
 	Voice           ChannelMode = 'v' // arg
+
+	BanMask     ChannelMode = 'b' // arg
+	ExceptMask  ChannelMode = 'e' // arg
+	InviteMask  ChannelMode = 'I' // arg
+	InviteOnly  ChannelMode = 'i' // flag
+	Key         ChannelMode = 'k' // flag arg
+	Moderated   ChannelMode = 'm' // flag
+	NoOutside   ChannelMode = 'n' // flag
+	OpOnlyTopic ChannelMode = 't' // flag
+	Persistent  ChannelMode = 'P' // flag
+	Private     ChannelMode = 'p' // flag
+	ReOp        ChannelMode = 'r' // flag
+	Secret      ChannelMode = 's' // flag, deprecated
+	Theater     ChannelMode = 'T' // flag, nonstandard
+	UserLimit   ChannelMode = 'l' // flag arg
 )
 
 var (
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
 		OpOnlyTopic, Persistent, Private, Theater, UserLimit,
+	}
+
+	// ChannelPrivModes holds the list of modes that are privileged, ie founder/op/halfop, in order.
+	// voice is not in this list because it cannot perform channel operator actions.
+	ChannelPrivModes = ChannelModes{
+		ChannelFounder, ChannelAdmin, ChannelOperator, Halfop,
+	}
+
+	ChannelModePrefixes = map[ChannelMode]string{
+		ChannelFounder:  "~",
+		ChannelAdmin:    "&",
+		ChannelOperator: "@",
+		Halfop:          "%",
+		Voice:           "+",
 	}
 )
 

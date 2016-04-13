@@ -545,8 +545,9 @@ func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 				op:   op,
 			}
 			switch change.mode {
+			// TODO(dan): separate this into the type A/B/C/D args and use those lists here
 			case Key, BanMask, ExceptMask, InviteMask, UserLimit,
-				ChannelOperator, ChannelCreator, Voice:
+				ChannelOperator, ChannelFounder, ChannelAdmin, Halfop, Voice:
 				if len(args) > skipArgs {
 					change.arg = args[skipArgs]
 					skipArgs += 1

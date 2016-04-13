@@ -111,7 +111,7 @@ func NewServer(config *Config) *Server {
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("NETWORK", config.Network.Name)
 	// server.isupport.Add("NICKLEN", "") //TODO(dan): Support nick length
-	server.isupport.Add("PREFIX", "(ov)@+")
+	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
 	// server.isupport.Add("TOPICLEN", "") //TODO(dan): Support topic length
@@ -504,20 +504,12 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	}
 }
 
-func (client *Client) WhoisChannelsNames() []string {
+func (client *Client) WhoisChannelsNames(isMultiPrefix bool) []string {
 	chstrs := make([]string, len(client.channels))
 	index := 0
+	//TODO(dan): handle secret (+s) channels here properly?
 	for channel := range client.channels {
-		switch {
-		case channel.members[client][ChannelOperator]:
-			chstrs[index] = "@" + channel.name.String()
-
-		case channel.members[client][Voice]:
-			chstrs[index] = "+" + channel.name.String()
-
-		default:
-			chstrs[index] = channel.name.String()
-		}
+		chstrs[index] = channel.members[client].Prefixes(isMultiPrefix) + channel.name.String()
 		index += 1
 	}
 	return chstrs
@@ -664,7 +656,28 @@ func (msg *KickCommand) HandleServer(server *Server) {
 			continue
 		}
 
-		channel.Kick(client, target, msg.Comment())
+		// make sure client has privs to kick the given user
+		var hasPrivs bool
+		for _, mode := range ChannelPrivModes {
+			if channel.members[client][mode] {
+				hasPrivs = true
+
+				// admins cannot kick other admins
+				if mode == ChannelAdmin && channel.members[target][ChannelAdmin] {
+					hasPrivs = false
+				}
+
+				break
+			} else if channel.members[target][mode] {
+				break
+			}
+		}
+
+		if hasPrivs {
+			channel.Kick(client, target, msg.Comment())
+		} else {
+			client.ErrChanOPrivIsNeeded(channel)
+		}
 	}
 }
 

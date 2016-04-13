@@ -49,25 +49,33 @@ func (channel *Channel) ClientIsOperator(client *Client) bool {
 	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator)
 }
 
+// Prefixes returns a list of prefixes for the given set of channel modes.
+func (modes ChannelModeSet) Prefixes(isMultiPrefix bool) string {
+	var prefixes string
+
+	// add prefixes in order from highest to lowest privs
+	for _, mode := range ChannelPrivModes {
+		if modes[mode] {
+			prefixes += ChannelModePrefixes[mode]
+		}
+	}
+	if modes[Voice] {
+		prefixes += ChannelModePrefixes[Voice]
+	}
+
+	if !isMultiPrefix && len(prefixes) > 1 {
+		prefixes = string(prefixes[0])
+	}
+
+	return prefixes
+}
+
 func (channel *Channel) Nicks(target *Client) []string {
 	isMultiPrefix := (target != nil) && target.capabilities[MultiPrefix]
 	nicks := make([]string, len(channel.members))
 	i := 0
 	for client, modes := range channel.members {
-		if isMultiPrefix {
-			if modes[ChannelOperator] {
-				nicks[i] += "@"
-			}
-			if modes[Voice] {
-				nicks[i] += "+"
-			}
-		} else {
-			if modes[ChannelOperator] {
-				nicks[i] += "@"
-			} else if modes[Voice] {
-				nicks[i] += "+"
-			}
-		}
+		nicks[i] += modes.Prefixes(isMultiPrefix)
 		nicks[i] += client.Nick().String()
 		i += 1
 	}
@@ -160,7 +168,7 @@ func (channel *Channel) Join(client *Client, key Text) {
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if !channel.flags[Persistent] && (len(channel.members) == 1) {
-		channel.members[client][ChannelCreator] = true
+		channel.members[client][ChannelFounder] = true
 		channel.members[client][ChannelOperator] = true
 	}
 
@@ -400,9 +408,38 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 		channel.userLimit = limit
 		return true
 
-	case ChannelOperator, Voice:
-		return channel.applyModeMember(client, change.mode, change.op,
-			NewName(change.arg))
+	case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+		var hasPrivs bool
+
+		// make sure client has privs to edit the given prefix
+		for _, mode := range ChannelPrivModes {
+			if channel.members[client][mode] {
+				hasPrivs = true
+
+				// Admins can't give other people Admin or remove it from others,
+				// standard for that channel mode, we worry about this later
+				if mode == ChannelAdmin && change.mode == ChannelAdmin {
+					hasPrivs = false
+				}
+
+				break
+			} else if mode == change.mode {
+				break
+			}
+		}
+
+		name := NewName(change.arg)
+
+		if !hasPrivs {
+			if change.op == Remove && name.ToLower() == client.nick.ToLower() {
+				// success!
+			} else {
+				client.ErrChanOPrivIsNeeded(channel)
+				return false
+			}
+		}
+
+		return channel.applyModeMember(client, change.mode, change.op, name)
 
 	default:
 		client.ErrUnknownMode(change.mode, channel)
