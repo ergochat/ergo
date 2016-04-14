@@ -82,9 +82,8 @@ const (
 	NoOutside   ChannelMode = 'n' // flag
 	OpOnlyTopic ChannelMode = 't' // flag
 	Persistent  ChannelMode = 'P' // flag
-	Private     ChannelMode = 'p' // flag
 	ReOp        ChannelMode = 'r' // flag
-	Secret      ChannelMode = 's' // flag, deprecated
+	Secret      ChannelMode = 's' // flag
 	Theater     ChannelMode = 'T' // flag, nonstandard
 	UserLimit   ChannelMode = 'l' // flag arg
 )
@@ -92,7 +91,7 @@ const (
 var (
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
-		OpOnlyTopic, Persistent, Private, Theater, UserLimit,
+		OpOnlyTopic, Persistent, Secret, Theater, UserLimit,
 	}
 
 	// ChannelPrivModes holds the list of modes that are privileged, ie founder/op/halfop, in order.

@@ -501,13 +501,17 @@ func (msg *PrivMsgCommand) HandleServer(server *Server) {
 	}
 }
 
-func (client *Client) WhoisChannelsNames(isMultiPrefix bool) []string {
-	chstrs := make([]string, len(client.channels))
+func (client *Client) WhoisChannelsNames(target *Client) []string {
+	isMultiPrefix := target.capabilities[MultiPrefix]
+	var chstrs []string
 	index := 0
-	//TODO(dan): handle secret (+s) channels here properly?
 	for channel := range client.channels {
-		chstrs[index] = channel.members[client].Prefixes(isMultiPrefix) + channel.name.String()
-		index += 1
+		// channel is secret and the target can't see it
+		if !target.flags[Operator] && channel.flags[Secret] && !channel.members.Has(target) {
+			continue
+		}
+		chstrs = append(chstrs, channel.members[client].Prefixes(isMultiPrefix)+channel.name.String())
+		index++
 	}
 	return chstrs
 }
@@ -689,7 +693,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 
 	if len(msg.channels) == 0 {
 		for _, channel := range server.channels {
-			if !client.flags[Operator] && channel.flags[Private] {
+			if !client.flags[Operator] && channel.flags[Secret] {
 				continue
 			}
 			client.RplList(channel)
@@ -697,7 +701,7 @@ func (msg *ListCommand) HandleServer(server *Server) {
 	} else {
 		for _, chname := range msg.channels {
 			channel := server.channels.Get(chname)
-			if channel == nil || (!client.flags[Operator] && channel.flags[Private]) {
+			if channel == nil || (!client.flags[Operator] && channel.flags[Secret]) {
 				client.ErrNoSuchChannel(chname)
 				continue
 			}

@@ -407,7 +407,7 @@ func (target *Client) RplNamReply(channel *Channel) {
 }
 
 func (target *Client) RplWhoisChannels(client *Client) {
-	target.MultilineReply(client.WhoisChannelsNames(target.capabilities[MultiPrefix]), RPL_WHOISCHANNELS,
+	target.MultilineReply(client.WhoisChannelsNames(target), RPL_WHOISCHANNELS,
 		"%s :%s", client.Nick())
 }
 
