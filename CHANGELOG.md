@@ -1,24 +1,26 @@
 # Changelog
+All notable changes to Oragono will be documented in this file.
+This project adheres to [Semantic Versioning](http://semver.org/).
 
-Notable changes to Oragono are listed in this file. The 'Unreleased' section may not always be up to date.
 
 ## Unreleased
-
-* Initial release of Oragono!
+Initial release of Oragono!
 
 ### Added
-
+* Added YAML config file format.
 * Added native SSL/TLS support (@edmand).
-* Add [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) support.
+* We now advertise the [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric.
 
 ### Changed
+* Added channel Founder/Admin/Halfops (`qah`) privileges, and removed channel creator (`O`) privilege (from RFC2812, not used in the real world).
+* CLI argument names made more consistent with typical software.
 
-* Gitconfig config format changed to YAML.
-* Add Channel Founder/Admin/Halfops (`qah`) privileges, and remove Channel Creator (`O`) (privilege from 2812 that is not used in the real world).
+### Removed
+* Gitconfig config format completely removed and replaced with YAML.
 
-### Fixes
-
+### Fixed
 * Improve nickname handling, restrict nicknames that break the protocol.
+* Registration is now properly suspended during CAP negotiation.
 * CAP: Remove CAP CLEAR, and allow capability negotiation after registration.
 * MOTD: Now store MOTD in-memory rather than on-disk, and don't limit it to 80 characters per line (not required with today's servers or clients).
 * WHOIS: Include `<nick>` param on `RPL_ENDOFWHOIS`.
