@@ -21,3 +21,4 @@ Notable changes to Oragono are listed in this file. The 'Unreleased' section may
 * Improve nickname handling, restrict nicknames that break the protocol.
 * CAP: Remove CAP CLEAR, and allow capability negotiation after registration.
 * MOTD: Now store MOTD in-memory rather than on-disk, and don't limit it to 80 characters per line (not required with today's servers or clients).
+* WHOIS: Include `<nick>` param on `RPL_ENDOFWHOIS`.
