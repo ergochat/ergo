@@ -165,7 +165,6 @@ func (m *ModeCommand) HandleServer(s *Server) {
 	} else if client == target {
 		client.RplUModeIs(client)
 	}
-	client.Reply(RplCurrentMode(client, target))
 }
 
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
