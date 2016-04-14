@@ -252,7 +252,7 @@ func (target *Client) RplWhois(client *Client) {
 	}
 	target.RplWhoisIdle(client)
 	target.RplWhoisChannels(client)
-	target.RplEndOfWhois()
+	target.RplEndOfWhois(client)
 }
 
 func (target *Client) RplWhoisUser(client *Client) {
@@ -272,9 +272,9 @@ func (target *Client) RplWhoisIdle(client *Client) {
 		client.Nick(), client.IdleSeconds(), client.SignonTime())
 }
 
-func (target *Client) RplEndOfWhois() {
+func (target *Client) RplEndOfWhois(client *Client) {
 	target.NumericReply(RPL_ENDOFWHOIS,
-		":End of WHOIS list")
+		"%s :End of WHOIS list", client.Nick())
 }
 
 func (target *Client) RplChannelModeIs(channel *Channel) {
