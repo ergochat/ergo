@@ -428,12 +428,11 @@ func (changes ModeChanges) String() string {
 	op := changes[0].op
 	str := changes[0].op.String()
 	for _, change := range changes {
-		if change.op == op {
-			str += change.mode.String()
-		} else {
+		if change.op != op {
 			op = change.op
-			str += " " + change.op.String()
+			str += change.op.String()
 		}
+		str += change.mode.String()
 	}
 	return str
 }
@@ -444,7 +443,7 @@ type ModeCommand struct {
 	changes  ModeChanges
 }
 
-// MODE <nickname> *( ( "+" / "-" ) *( "i" / "w" / "o" / "O" / "r" ) )
+// MODE <nickname> ( "+" / "-" )? *( "+" / "-" / <mode character> )
 func ParseUserModeCommand(nickname Name, args []string) (Command, error) {
 	cmd := &ModeCommand{
 		nickname: nickname,
@@ -461,6 +460,10 @@ func ParseUserModeCommand(nickname Name, args []string) (Command, error) {
 		}
 
 		for _, mode := range modeChange[1:] {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
 			cmd.changes = append(cmd.changes, &ModeChange{
 				mode: UserMode(mode),
 				op:   op,
@@ -490,25 +493,29 @@ func (change *ChannelModeChange) String() (str string) {
 
 type ChannelModeChanges []*ChannelModeChange
 
-func (changes ChannelModeChanges) String() (str string) {
+func (changes ChannelModeChanges) String() string {
 	if len(changes) == 0 {
-		return
+		return ""
 	}
 
-	str = "+"
-	if changes[0].op == Remove {
-		str = "-"
-	}
+	op := changes[0].op
+	str := changes[0].op.String()
+
 	for _, change := range changes {
+		if change.op != op {
+			op = change.op
+			str += change.op.String()
+		}
 		str += change.mode.String()
 	}
+
 	for _, change := range changes {
 		if change.arg == "" {
 			continue
 		}
 		str += " " + change.arg
 	}
-	return
+	return str
 }
 
 type ChannelModeCommand struct {
@@ -517,7 +524,7 @@ type ChannelModeCommand struct {
 	changes ChannelModeChanges
 }
 
-// MODE <channel> *( ( "-" / "+" ) *<modes> *<modeparams> )
+// MODE <channel> ( "+" / "-" )? *( "+" / "-" / <mode character> ) *<modeparams>
 func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 	cmd := &ChannelModeCommand{
 		channel: channel,
@@ -540,6 +547,10 @@ func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 
 		skipArgs := 1
 		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
 			change := &ChannelModeChange{
 				mode: ChannelMode(mode),
 				op:   op,
