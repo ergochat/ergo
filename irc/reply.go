@@ -179,7 +179,10 @@ func RplKill(client *Client, target *Client, comment Text) string {
 }
 
 func RplCap(client *Client, subCommand CapSubCommand, arg interface{}) string {
-	return NewStringReply(nil, CAP, "%s %s :%s", client.Nick(), subCommand, arg)
+	// client.server needs to be here to workaround a parsing bug in weechat 1.4
+	// and let it connect to the server (otherwise it doesn't respond to the CAP
+	// message with anything and just hangs on connection)
+	return NewStringReply(client.server, CAP, "%s %s :%s", client.Nick(), subCommand, arg)
 }
 
 // numeric replies

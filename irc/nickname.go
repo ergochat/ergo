@@ -13,10 +13,6 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		return
 	}
 
-	if client.capState == CapNegotiating {
-		client.capState = CapNegotiated
-	}
-
 	if m.nickname == "" {
 		client.ErrNoNicknameGiven()
 		return

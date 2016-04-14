@@ -387,9 +387,6 @@ func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
 
 func (msg *UserCommand) setUserInfo(server *Server) {
 	client := msg.Client()
-	if client.capState == CapNegotiating {
-		client.capState = CapNegotiated
-	}
 
 	server.clients.Remove(client)
 	client.username, client.realname = msg.username, msg.realname
