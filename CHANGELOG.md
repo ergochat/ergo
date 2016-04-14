@@ -26,3 +26,4 @@ Initial release of Oragono!
 * CAP: Remove CAP CLEAR, and allow capability negotiation after registration.
 * MOTD: Now store MOTD in-memory rather than on-disk, and don't limit it to 80 characters per line (not required with today's servers or clients).
 * WHOIS: Include `<nick>` param on `RPL_ENDOFWHOIS`.
+* MODE: Fixed `<modestring>` evaluation (we were parsing all ungrabbed parameters as a modestring, when it is actually only the first param).
