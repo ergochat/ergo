@@ -1,7 +1,7 @@
 package irc
 
 const (
-	SEM_VER       = "oragono-1.4.4"
+	SEM_VER       = "oragono-0.1.0-unreleased"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 

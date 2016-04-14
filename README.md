@@ -1,5 +1,7 @@
 Oragono is a very early, extremely experimental fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon. Ergonomadic looks cool, and this is something I can experiment on. Hopefully most of the stuff I do in this can be merged back into Ergonomadic! Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for something similar written in Python.
 
+This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
+
 # Features
 
 * UTF-8 nick and channel names
