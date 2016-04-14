@@ -15,6 +15,7 @@ Initial release of Oragono!
 
 ### Changed
 * Added channel Founder/Admin/Halfops (`qah`) privileges, and removed channel creator (`O`) privilege (from RFC2812, not used in the real world).
+* Added secret (`+s`) channel mode to replace private (`+p`) for hiding channels, since everything else uses `+s` over `+p` these days.
 * CLI argument names made more consistent with typical software.
 
 ### Removed
@@ -28,3 +29,4 @@ Initial release of Oragono!
 * MOTD: Now store MOTD in-memory rather than on-disk, and don't limit it to 80 characters per line (not required with today's servers or clients).
 * NICK: Improve nickname handling, restrict nicknames that break the protocol.
 * WHOIS: Include the required `<nick>` param on `RPL_ENDOFWHOIS`.
+* WHOIS: Hide hidden channels in WHOIS responses.
