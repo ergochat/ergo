@@ -270,50 +270,11 @@ type UserCommand struct {
 	realname Text
 }
 
-// USER <username> <hostname> <servername> <realname>
-type RFC1459UserCommand struct {
-	UserCommand
-	hostname   Name
-	servername Name
-}
-
-// USER <user> <mode> <unused> <realname>
-type RFC2812UserCommand struct {
-	UserCommand
-	mode   uint8
-	unused string
-}
-
-func (cmd *RFC2812UserCommand) Flags() []UserMode {
-	flags := make([]UserMode, 0)
-	if (cmd.mode & 4) == 4 {
-		flags = append(flags, WallOps)
-	}
-	if (cmd.mode & 8) == 8 {
-		flags = append(flags, Invisible)
-	}
-	return flags
-}
-
 func ParseUserCommand(args []string) (Command, error) {
-	mode, err := strconv.ParseUint(args[1], 10, 8)
-	if err == nil {
-		msg := &RFC2812UserCommand{
-			mode:   uint8(mode),
-			unused: args[2],
-		}
-		msg.username = NewName(args[0])
-		msg.realname = NewText(args[3])
-		return msg, nil
-	}
-
-	msg := &RFC1459UserCommand{
-		hostname:   NewName(args[1]),
-		servername: NewName(args[2]),
-	}
-	msg.username = NewName(args[0])
-	msg.realname = NewText(args[3])
-	return msg, nil
+	return &UserCommand{
+		username: NewName(args[0]),
+		realname: NewText(args[3]),
+	}, nil
 }
 
 // QUIT [ <Quit Command> ]

@@ -20,6 +20,7 @@ Initial release of Oragono!
 
 ### Removed
 * Gitconfig config format completely removed and replaced with YAML.
+* USER: No longer parse out the second and third parameters.
 
 ### Fixed
 * CAP: Registration is now properly suspended during CAP negotiation.

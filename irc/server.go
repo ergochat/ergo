@@ -372,37 +372,17 @@ func (msg *ProxyCommand) HandleRegServer(server *Server) {
 	msg.Client().hostname = msg.hostname
 }
 
-func (msg *RFC1459UserCommand) HandleRegServer(server *Server) {
+func (msg *UserCommand) HandleRegServer(server *Server) {
 	client := msg.Client()
 	if !client.authorized {
 		client.ErrPasswdMismatch()
 		client.Quit("bad password")
 		return
 	}
-	msg.setUserInfo(server)
-}
 
-func (msg *RFC2812UserCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
-	if !client.authorized {
-		client.ErrPasswdMismatch()
-		client.Quit("bad password")
-		return
-	}
-	flags := msg.Flags()
-	if len(flags) > 0 {
-		for _, mode := range flags {
-			client.flags[mode] = true
-		}
-		client.RplUModeIs(client)
-	}
-	msg.setUserInfo(server)
-}
-
-func (msg *UserCommand) setUserInfo(server *Server) {
-	client := msg.Client()
-
+	// set user info and log client in
 	server.clients.Remove(client)
+	//TODO(dan): Could there be a race condition here with adding/removing the client?
 	client.username, client.realname = msg.username, msg.realname
 	server.clients.Add(client)
 
