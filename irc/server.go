@@ -64,6 +64,14 @@ func NewServer(config *Config) *Server {
 		theaters:  config.Theaters(),
 	}
 
+	// ensure that there is a minimum number of args specified for every command
+	for name, _ := range parseCommandFuncs {
+		_, exists := commandMinimumArgs[name]
+		if !exists {
+			log.Fatal("commandMinArgs not found for ", name)
+		}
+	}
+
 	if config.Server.MOTD != "" {
 		file, err := os.Open(config.Server.MOTD)
 		if err == nil {
@@ -161,6 +169,12 @@ func (server *Server) loadChannels() {
 
 func (server *Server) processCommand(cmd Command) {
 	client := cmd.Client()
+
+	numCmd, ok := cmd.(*NeedMoreParamsCommand)
+	if ok {
+		client.ErrNeedMoreParams(numCmd.code)
+		return
+	}
 
 	if !client.registered {
 		regCmd, ok := cmd.(RegServerCommand)

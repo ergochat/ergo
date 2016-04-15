@@ -58,6 +58,39 @@ var (
 		WHOIS:   ParseWhoisCommand,
 		WHOWAS:  ParseWhoWasCommand,
 	}
+	commandMinimumArgs = map[StringCode]int{
+		AWAY:    0,
+		CAP:     1,
+		DEBUG:   1,
+		INVITE:  2,
+		ISON:    1,
+		JOIN:    1,
+		KICK:    2,
+		KILL:    2,
+		LIST:    0,
+		MODE:    1,
+		MOTD:    0,
+		NAMES:   0,
+		NICK:    1,
+		NOTICE:  2,
+		ONICK:   2,
+		OPER:    2,
+		PART:    1,
+		PASS:    1,
+		PING:    1,
+		PONG:    1,
+		PRIVMSG: 2,
+		PROXY:   5,
+		QUIT:    0,
+		THEATER: 1,
+		TIME:    0,
+		TOPIC:   1,
+		USER:    4,
+		VERSION: 0,
+		WHO:     0,
+		WHOIS:   1,
+		WHOWAS:  1,
+	}
 )
 
 type BaseCommand struct {
@@ -81,13 +114,33 @@ func (command *BaseCommand) SetCode(code StringCode) {
 	command.code = code
 }
 
+type NeedMoreParamsCommand struct {
+	BaseCommand
+	code StringCode
+}
+
+func ParseNeedMoreParams(code StringCode) *NeedMoreParamsCommand {
+	return &NeedMoreParamsCommand{
+		code: code,
+	}
+}
+
 func ParseCommand(line string) (cmd Command, err error) {
 	code, args := ParseLine(line)
 	constructor := parseCommandFuncs[code]
+	minArgs := commandMinimumArgs[code]
 	if constructor == nil {
 		cmd = ParseUnknownCommand(args)
+	} else if len(args) < minArgs {
+		cmd = ParseNeedMoreParams(code)
 	} else {
 		cmd, err = constructor(args)
+
+		// if NotEnoughArgsError was returned in the command handler itself
+		if err == NotEnoughArgsError {
+			cmd = ParseNeedMoreParams(code)
+			err = nil
+		}
 	}
 	if cmd != nil {
 		cmd.SetCode(code)
@@ -150,9 +203,6 @@ type PingCommand struct {
 }
 
 func ParsePingCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	msg := &PingCommand{
 		server: NewName(args[0]),
 	}
@@ -171,9 +221,6 @@ type PongCommand struct {
 }
 
 func ParsePongCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	message := &PongCommand{
 		server1: NewName(args[0]),
 	}
@@ -204,9 +251,6 @@ func (cmd *PassCommand) CheckPassword() {
 }
 
 func ParsePassCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	return &PassCommand{
 		password: []byte(args[0]),
 	}, nil
@@ -215,9 +259,6 @@ func ParsePassCommand(args []string) (Command, error) {
 // NICK <nickname>
 
 func ParseNickCommand(args []string) (Command, error) {
-	if len(args) != 1 {
-		return nil, NotEnoughArgsError
-	}
 	return &NickCommand{
 		nickname: NewName(args[0]),
 	}, nil
@@ -255,9 +296,6 @@ func (cmd *RFC2812UserCommand) Flags() []UserMode {
 }
 
 func ParseUserCommand(args []string) (Command, error) {
-	if len(args) != 4 {
-		return nil, NotEnoughArgsError
-	}
 	mode, err := strconv.ParseUint(args[1], 10, 8)
 	if err == nil {
 		msg := &RFC2812UserCommand{
@@ -314,10 +352,6 @@ func ParseJoinCommand(args []string) (Command, error) {
 		channels: make(map[Name]Text),
 	}
 
-	if len(args) == 0 {
-		return nil, NotEnoughArgsError
-	}
-
 	if args[0] == "0" {
 		msg.zero = true
 		return msg, nil
@@ -356,9 +390,6 @@ func (cmd *PartCommand) Message() Text {
 }
 
 func ParsePartCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	msg := &PartCommand{
 		channels: NewNames(strings.Split(args[0], ",")),
 	}
@@ -377,9 +408,6 @@ type PrivMsgCommand struct {
 }
 
 func ParsePrivMsgCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
 	return &PrivMsgCommand{
 		target:  NewName(args[0]),
 		message: NewText(args[1]),
@@ -396,9 +424,6 @@ type TopicCommand struct {
 }
 
 func ParseTopicCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	msg := &TopicCommand{
 		channel: NewName(args[0]),
 	}
@@ -579,10 +604,6 @@ func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 }
 
 func ParseModeCommand(args []string) (Command, error) {
-	if len(args) == 0 {
-		return nil, NotEnoughArgsError
-	}
-
 	name := NewName(args[0])
 	if name.IsChannel() {
 		return ParseChannelModeCommand(name, args[1:])
@@ -599,10 +620,6 @@ type WhoisCommand struct {
 
 // WHOIS [ <target> ] <mask> *( "," <mask> )
 func ParseWhoisCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
-
 	var masks string
 	var target string
 
@@ -651,10 +668,6 @@ func (msg *OperCommand) LoadPassword(server *Server) {
 
 // OPER <name> <password>
 func ParseOperCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
-
 	cmd := &OperCommand{
 		name: NewName(args[0]),
 	}
@@ -669,10 +682,6 @@ type CapCommand struct {
 }
 
 func ParseCapCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
-
 	cmd := &CapCommand{
 		subCommand:   CapSubCommand(strings.ToUpper(args[0])),
 		capabilities: make(CapabilitySet),
@@ -707,9 +716,6 @@ func NewProxyCommand(hostname Name) *ProxyCommand {
 }
 
 func ParseProxyCommand(args []string) (Command, error) {
-	if len(args) < 5 {
-		return nil, NotEnoughArgsError
-	}
 	return &ProxyCommand{
 		net:        NewName(args[0]),
 		sourceIP:   NewName(args[1]),
@@ -741,10 +747,6 @@ type IsOnCommand struct {
 }
 
 func ParseIsOnCommand(args []string) (Command, error) {
-	if len(args) == 0 {
-		return nil, NotEnoughArgsError
-	}
-
 	return &IsOnCommand{
 		nicks: NewNames(args),
 	}, nil
@@ -770,9 +772,6 @@ type NoticeCommand struct {
 }
 
 func ParseNoticeCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
 	return &NoticeCommand{
 		target:  NewName(args[0]),
 		message: NewText(args[1]),
@@ -793,9 +792,6 @@ func (msg *KickCommand) Comment() Text {
 }
 
 func ParseKickCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
 	channels := NewNames(strings.Split(args[0], ","))
 	users := NewNames(strings.Split(args[1], ","))
 	if (len(channels) != len(users)) && (len(users) != 1) {
@@ -857,10 +853,6 @@ type DebugCommand struct {
 }
 
 func ParseDebugCommand(args []string) (Command, error) {
-	if len(args) == 0 {
-		return nil, NotEnoughArgsError
-	}
-
 	return &DebugCommand{
 		subCommand: NewName(strings.ToUpper(args[0])),
 	}, nil
@@ -886,10 +878,6 @@ type InviteCommand struct {
 }
 
 func ParseInviteCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
-
 	return &InviteCommand{
 		nickname: NewName(args[0]),
 		channel:  NewName(args[1]),
@@ -897,9 +885,7 @@ func ParseInviteCommand(args []string) (Command, error) {
 }
 
 func ParseTheaterCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	} else if upperSubCmd := strings.ToUpper(args[0]); upperSubCmd == "IDENTIFY" && len(args) == 3 {
+	if upperSubCmd := strings.ToUpper(args[0]); upperSubCmd == "IDENTIFY" && len(args) == 3 {
 		return &TheaterIdentifyCommand{
 			channel:     NewName(args[1]),
 			PassCommand: PassCommand{password: []byte(args[2])},
@@ -941,9 +927,6 @@ type KillCommand struct {
 }
 
 func ParseKillCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
 	return &KillCommand{
 		nickname: NewName(args[0]),
 		comment:  NewText(args[1]),
@@ -958,9 +941,6 @@ type WhoWasCommand struct {
 }
 
 func ParseWhoWasCommand(args []string) (Command, error) {
-	if len(args) < 1 {
-		return nil, NotEnoughArgsError
-	}
 	cmd := &WhoWasCommand{
 		nicknames: NewNames(strings.Split(args[0], ",")),
 	}
@@ -974,10 +954,6 @@ func ParseWhoWasCommand(args []string) (Command, error) {
 }
 
 func ParseOperNickCommand(args []string) (Command, error) {
-	if len(args) < 2 {
-		return nil, NotEnoughArgsError
-	}
-
 	return &OperNickCommand{
 		target: NewName(args[0]),
 		nick:   NewName(args[1]),
