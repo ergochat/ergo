@@ -31,3 +31,4 @@ Initial release of Oragono!
 * NICK: Improve nickname handling, restrict nicknames that break the protocol.
 * WHOIS: Include the required `<nick>` param on `RPL_ENDOFWHOIS`.
 * WHOIS: Hide hidden channels in WHOIS responses.
+* Fixed clients no longer being able to send commands after a single command errored out.

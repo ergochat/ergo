@@ -67,18 +67,19 @@ func (client *Client) run() {
 		client.socket.conn.RemoteAddr())))
 
 	for err == nil {
+		//TODO(dan): does this read sockets correctly and split lines properly? (think that ZNC bug that kept happening with mammon)
 		if line, err = client.socket.Read(); err != nil {
 			command = NewQuitCommand("connection closed")
 
 		} else if command, err = ParseCommand(line); err != nil {
 			switch err {
 			case ErrParseCommand:
+				//TODO(dan): why is this a notice? there's a proper numeric for this I swear
 				client.Reply(RplNotice(client.server, client,
 					NewText("failed to parse command")))
-
-			case NotEnoughArgsError:
-				// TODO
 			}
+			// so the read loop will continue
+			err = nil
 			continue
 
 		} else if checkPass, ok := command.(checkPasswordCommand); ok {
