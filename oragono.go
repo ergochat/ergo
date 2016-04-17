@@ -27,7 +27,6 @@ Options:
 
 	arguments, _ := docopt.Parse(usage, nil, true, version, false)
 
-	// load config now because it's the same process for all
 	configfile := arguments["--conf"].(string)
 	config, err := irc.LoadConfig(configfile)
 	if err != nil {
