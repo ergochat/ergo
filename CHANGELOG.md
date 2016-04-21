@@ -29,6 +29,7 @@ Initial release of Oragono!
 * MODE: New-style mode change syntax (with both adding and removing modes in a single command) is now parsed properly.
 * MOTD: Now store MOTD in-memory rather than on-disk, and don't limit it to 80 characters per line (not required with today's servers or clients).
 * NICK: Restrict nicknames that break the protocol.
+* PROXY: Restrict to specified hostnames only.
 * USER: Restrict usernames that break the protocol.
 * WHOIS: Include the required `<nick>` param on `RPL_ENDOFWHOIS`.
 * WHOIS: Hide hidden channels in WHOIS responses.
