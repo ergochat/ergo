@@ -94,6 +94,10 @@ var (
 		OpOnlyTopic, Persistent, Secret, Theater, UserLimit,
 	}
 
+	DefaultChannelModes = ChannelModes{
+		NoOutside, OpOnlyTopic,
+	}
+
 	// ChannelPrivModes holds the list of modes that are privileged, ie founder/op/halfop, in order.
 	// voice is not in this list because it cannot perform channel operator actions.
 	ChannelPrivModes = ChannelModes{

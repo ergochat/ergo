@@ -156,7 +156,7 @@ func (server *Server) loadChannels() {
 			continue
 		}
 
-		channel := NewChannel(server, NewName(name))
+		channel := NewChannel(server, NewName(name), false)
 		for _, flag := range flags {
 			channel.flags[ChannelMode(flag)] = true
 		}
@@ -449,7 +449,7 @@ func (m *JoinCommand) HandleServer(s *Server) {
 
 		channel := s.channels.Get(name)
 		if channel == nil {
-			channel = NewChannel(s, name)
+			channel = NewChannel(s, name, true)
 		}
 		channel.Join(client, key)
 	}

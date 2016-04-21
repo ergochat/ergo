@@ -18,7 +18,7 @@ type Channel struct {
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name Name) *Channel {
+func NewChannel(s *Server, name Name, addDefaultModes bool) *Channel {
 	channel := &Channel{
 		flags: make(ChannelModeSet),
 		lists: map[ChannelMode]*UserMaskSet{
@@ -29,6 +29,12 @@ func NewChannel(s *Server, name Name) *Channel {
 		members: make(MemberSet),
 		name:    name,
 		server:  s,
+	}
+
+	if addDefaultModes {
+		for _, mode := range DefaultChannelModes {
+			channel.flags[mode] = true
+		}
 	}
 
 	s.channels.Add(channel)
