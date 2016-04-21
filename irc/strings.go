@@ -41,7 +41,10 @@ func (name Name) IsNickname() bool {
 	// , is used as a separator by the protocol
 	// # is a channel prefix
 	// @+ are channel membership prefixes
-	if namestr == "*" || strings.Contains(namestr, ",") || strings.Contains("#@+", string(namestr[0])) {
+	// ! separates username from nickname
+	// @ separates nick+user from hostname
+	if namestr == "*" || strings.Contains(namestr, ",") || strings.Contains("#@+", string(namestr[0])) ||
+		strings.Contains(namestr, "!") || strings.Contains(namestr, "@") {
 		return false
 	}
 	return NicknameExpr.MatchString(namestr)
