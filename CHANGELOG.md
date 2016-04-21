@@ -16,6 +16,7 @@ Initial release of Oragono!
 ### Changed
 * Added channel Founder/Admin/Halfops (`qah`) privileges, and removed channel creator (`O`) privilege (from RFC2812, not used in the real world).
 * Added secret (`+s`) channel mode to replace private (`+p`) for hiding channels, since everything else uses `+s` over `+p` these days.
+* Default channel modes are now (`+nt`), matching most other IRCds.
 * CLI argument names made more consistent with typical software.
 
 ### Removed
