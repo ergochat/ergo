@@ -47,6 +47,10 @@ func (name Name) IsNickname() bool {
 		strings.Contains(namestr, "!") || strings.Contains(namestr, "@") {
 		return false
 	}
+	// names that look like hostnames are restricted to servers, as with other ircds
+	if IsHostname(namestr) {
+		return false
+	}
 	return NicknameExpr.MatchString(namestr)
 }
 
