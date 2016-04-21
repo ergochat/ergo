@@ -63,8 +63,7 @@ func (client *Client) run() {
 
 	// Set the hostname for this client. The client may later send a PROXY
 	// command from stunnel that sets the hostname to something more accurate.
-	client.send(NewProxyCommand(AddrLookupHostname(
-		client.socket.conn.RemoteAddr())))
+	client.hostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	for err == nil {
 		//TODO(dan): does this read sockets correctly and split lines properly? (think that ZNC bug that kept happening with mammon)

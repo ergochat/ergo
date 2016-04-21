@@ -26,21 +26,22 @@ type RegServerCommand interface {
 }
 
 type Server struct {
-	channels  ChannelNameMap
-	clients   *ClientLookupSet
-	commands  chan Command
-	ctime     time.Time
-	db        *sql.DB
-	idle      chan *Client
-	motdLines []string
-	name      Name
-	newConns  chan net.Conn
-	operators map[Name][]byte
-	password  []byte
-	signals   chan os.Signal
-	whoWas    *WhoWasList
-	theaters  map[Name][]byte
-	isupport  *ISupportList
+	channels         ChannelNameMap
+	clients          *ClientLookupSet
+	commands         chan Command
+	ctime            time.Time
+	db               *sql.DB
+	idle             chan *Client
+	motdLines        []string
+	name             Name
+	newConns         chan net.Conn
+	operators        map[Name][]byte
+	password         []byte
+	signals          chan os.Signal
+	proxyAllowedFrom []string
+	whoWas           *WhoWasList
+	theaters         map[Name][]byte
+	isupport         *ISupportList
 }
 
 var (
@@ -50,18 +51,19 @@ var (
 
 func NewServer(config *Config) *Server {
 	server := &Server{
-		channels:  make(ChannelNameMap),
-		clients:   NewClientLookupSet(),
-		commands:  make(chan Command),
-		ctime:     time.Now(),
-		db:        OpenDB(config.Server.Database),
-		idle:      make(chan *Client),
-		name:      NewName(config.Server.Name),
-		newConns:  make(chan net.Conn),
-		operators: config.Operators(),
-		signals:   make(chan os.Signal, len(SERVER_SIGNALS)),
-		whoWas:    NewWhoWasList(100),
-		theaters:  config.Theaters(),
+		channels:         make(ChannelNameMap),
+		clients:          NewClientLookupSet(),
+		commands:         make(chan Command),
+		ctime:            time.Now(),
+		db:               OpenDB(config.Server.Database),
+		idle:             make(chan *Client),
+		name:             NewName(config.Server.Name),
+		newConns:         make(chan net.Conn),
+		operators:        config.Operators(),
+		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
+		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
+		whoWas:           NewWhoWasList(100),
+		theaters:         config.Theaters(),
 	}
 
 	// ensure that there is a minimum number of args specified for every command
@@ -369,7 +371,18 @@ func (msg *PassCommand) HandleRegServer(server *Server) {
 }
 
 func (msg *ProxyCommand) HandleRegServer(server *Server) {
-	msg.Client().hostname = msg.hostname
+	client := msg.Client()
+	clientAddress := IPString(client.socket.conn.RemoteAddr()).String()
+	clientHostname := client.hostname.String()
+
+	for _, address := range server.proxyAllowedFrom {
+		if clientHostname == address || clientAddress == address {
+			client.hostname = msg.hostname
+			return
+		}
+	}
+
+	client.Quit("PROXY command is not usable from your address")
 }
 
 func (msg *UserCommand) HandleRegServer(server *Server) {

@@ -34,6 +34,11 @@ server:
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
 
+    # addresses/hostnames the PROXY command can be used from
+    proxy-allowed-from:
+        - "localhost"
+        - "127.0.0.1"
+
 # ssl listeners
 ssllistener:
     # listener on ":6697"

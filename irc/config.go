@@ -46,12 +46,13 @@ type Config struct {
 
 	Server struct {
 		PassConfig
-		Name     string
-		Database string
-		Listen   []string
-		Wslisten string
-		Log      string
-		MOTD     string
+		Name             string
+		Database         string
+		Listen           []string
+		Wslisten         string
+		Log              string
+		MOTD             string
+		ProxyAllowedFrom []string `yaml:"proxy-allowed-from"`
 	}
 
 	SSLListener map[string]*SSLListenConfig
