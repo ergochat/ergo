@@ -21,7 +21,14 @@ server:
         - ":6697" # ssl port
 
     # websocket listening port
-    wslisten: ":8080"
+    ws-listen: ":8080"
+
+    # tls listeners
+    tls-listeners:
+        # listener on ":6697"
+        ":6697":
+            key: tls.key
+            cert: tls.crt
 
     # password to login to the server
     # generated using  "oragono genpasswd"
@@ -38,13 +45,6 @@ server:
     proxy-allowed-from:
         - "localhost"
         - "127.0.0.1"
-
-# ssl listeners
-ssllistener:
-    # listener on ":6697"
-    ":6697":
-        key: ssl.key
-        cert: ssl.crt
 
 # ircd operators
 operator:

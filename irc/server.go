@@ -99,7 +99,7 @@ func NewServer(config *Config) *Server {
 	server.loadChannels()
 
 	for _, addr := range config.Server.Listen {
-		server.listen(addr, config.SSLListeners())
+		server.listen(addr, config.TLSListeners())
 	}
 
 	if config.Server.Wslisten != "" {
@@ -240,18 +240,20 @@ func (server *Server) Run() {
 // listen goroutine
 //
 
-func (s *Server) listen(addr string, ssl map[Name]*tls.Config) {
-	config, listenSSL := ssl[NewName(addr)]
+func (s *Server) listen(addr string, tlsMap map[Name]*tls.Config) {
+	config, listenTLS := tlsMap[NewName(addr)]
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(s, "listen error: ", err)
 	}
 
-	if listenSSL {
+	tlsString := "plaintext"
+	if listenTLS {
 		listener = tls.NewListener(listener, config)
+		tlsString = "TLS"
 	}
-	Log.info.Printf("%s listening on %s. ssl: %t", s, addr, listenSSL)
+	Log.info.Printf("%s listening on %s using %s.", s, addr, tlsString)
 
 	go func() {
 		for {

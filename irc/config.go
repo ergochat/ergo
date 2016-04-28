@@ -13,17 +13,17 @@ type PassConfig struct {
 	Password string
 }
 
-// SSLListenConfig defines configuration options for listening on SSL
-type SSLListenConfig struct {
+// TLSListenConfig defines configuration options for listening on TLS
+type TLSListenConfig struct {
 	Cert string
 	Key  string
 }
 
-// Certificate returns the SSL certificate assicated with this SSLListenConfig
-func (conf *SSLListenConfig) Config() (*tls.Config, error) {
+// Certificate returns the TLS certificate assicated with this TLSListenConfig
+func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
-		return nil, errors.New("ssl cert+key: invalid pair")
+		return nil, errors.New("tls cert+key: invalid pair")
 	}
 
 	return &tls.Config{
@@ -49,13 +49,12 @@ type Config struct {
 		Name             string
 		Database         string
 		Listen           []string
-		Wslisten         string
+		Wslisten         string                      `yaml:"ws-listen"`
+		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		Log              string
 		MOTD             string
 		ProxyAllowedFrom []string `yaml:"proxy-allowed-from"`
 	}
-
-	SSLListener map[string]*SSLListenConfig
 
 	Operator map[string]*PassConfig
 
@@ -82,16 +81,16 @@ func (conf *Config) Theaters() map[Name][]byte {
 	return theaters
 }
 
-func (conf *Config) SSLListeners() map[Name]*tls.Config {
-	sslListeners := make(map[Name]*tls.Config)
-	for s, sslListenersConf := range conf.SSLListener {
-		config, err := sslListenersConf.Config()
+func (conf *Config) TLSListeners() map[Name]*tls.Config {
+	tlsListeners := make(map[Name]*tls.Config)
+	for s, tlsListenersConf := range conf.Server.TLSListeners {
+		config, err := tlsListenersConf.Config()
 		if err != nil {
 			log.Fatal(err)
 		}
-		sslListeners[NewName(s)] = config
+		tlsListeners[NewName(s)] = config
 	}
-	return sslListeners
+	return tlsListeners
 }
 
 func LoadConfig(filename string) (config *Config, err error) {
