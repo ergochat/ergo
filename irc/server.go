@@ -103,7 +103,7 @@ func NewServer(config *Config) *Server {
 	}
 
 	if config.Server.Wslisten != "" {
-		server.wslisten(config.Server.Wslisten)
+		server.wslisten(config.Server.Wslisten, config.Server.TLSListeners)
 	}
 
 	signal.Notify(server.signals, SERVER_SIGNALS...)
@@ -273,8 +273,7 @@ func (s *Server) listen(addr string, tlsMap map[Name]*tls.Config) {
 // websocket listen goroutine
 //
 
-func (s *Server) wslisten(addr string) {
-	//TODO(dan): open a https websocket here if ssl/tls details are setup in the config for the wslistener
+func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			Log.error.Printf("%s method not allowed", s)
@@ -297,10 +296,22 @@ func (s *Server) wslisten(addr string) {
 		s.newConns <- WSContainer{ws}
 	})
 	go func() {
-		Log.info.Printf("%s listening on %s", s, addr)
-		err := http.ListenAndServe(addr, nil)
+		config, listenTLS := tlsMap[addr]
+
+		tlsString := "plaintext"
+		var err error
+		if listenTLS {
+			tlsString = "TLS"
+		}
+		Log.info.Printf("%s websocket listening on %s using %s.", s, addr, tlsString)
+
+		if listenTLS {
+			err = http.ListenAndServeTLS(addr, config.Cert, config.Key, nil)
+		} else {
+			err = http.ListenAndServe(addr, nil)
+		}
 		if err != nil {
-			Log.error.Printf("%s listenAndServe error: %s", s, err)
+			Log.error.Printf("%s listenAndServe (%s) error: %s", s, tlsString, err)
 		}
 	}()
 }
