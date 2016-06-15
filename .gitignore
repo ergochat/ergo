@@ -1,4 +1,5 @@
 /ircd.*
 /ssl.*
 /tls.*
+/oragono
 _test
