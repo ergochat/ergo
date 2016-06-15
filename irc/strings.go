@@ -38,13 +38,16 @@ func (name Name) IsChannel() bool {
 func (name Name) IsNickname() bool {
 	namestr := name.String()
 	// * is used for unregistered clients
+	// * is used for mask matching
+	// ? is used for mask matching
 	// , is used as a separator by the protocol
-	// # is a channel prefix
-	// @+ are channel membership prefixes
 	// ! separates username from nickname
 	// @ separates nick+user from hostname
-	if namestr == "*" || strings.Contains(namestr, ",") || strings.Contains("#@+", string(namestr[0])) ||
-		strings.Contains(namestr, "!") || strings.Contains(namestr, "@") {
+	// # is a channel prefix
+	// @+ are channel membership prefixes
+	if strings.Contains(namestr, "*") || strings.Contains(namestr, "?") ||
+		strings.Contains(namestr, ",") || strings.Contains(namestr, "!") ||
+		strings.Contains(namestr, "@") || strings.Contains("#@+", string(namestr[0])) {
 		return false
 	}
 	// names that look like hostnames are restricted to servers, as with other ircds
