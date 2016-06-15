@@ -1,9 +1,13 @@
+// Copyright (c) 2012-2014 Jeremy Latt
+// released under the MIT license
+
 package irc
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"encoding/base64"
 	"errors"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (

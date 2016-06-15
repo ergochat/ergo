@@ -1,3 +1,6 @@
+// Copyright (c) 2012-2014 Jeremy Latt
+// released under the MIT license
+
 package irc
 
 type WhoWasList struct {

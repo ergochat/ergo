@@ -1,11 +1,15 @@
+// Copyright (c) 2012-2014 Jeremy Latt
+// released under the MIT license
+
 package irc
 
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func InitDB(path string) {

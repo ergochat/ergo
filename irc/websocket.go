@@ -1,9 +1,14 @@
+// Copyright (c) 2015 Niels Freier
+// Copyright (c) 2015 Edmund Huber
+// released under the MIT license
+
 package irc
 
 import (
-	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -17,7 +22,7 @@ var upgrader = websocket.Upgrader{
 	// http://www.christian-schneider.net/CrossSiteWebSocketHijacking.html#main.
 	// We don't care about Origin because the (IRC) authentication is contained
 	// in the WS stream -- the WS session is not privileged when it is opened.
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 type WSContainer struct {
