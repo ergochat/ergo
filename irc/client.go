@@ -35,6 +35,7 @@ type Client struct {
 
 func NewClient(server *Server, conn net.Conn) *Client {
 	now := time.Now()
+	socket := NewSocket(conn)
 	client := &Client{
 		atime:        now,
 		authorized:   server.password == nil,
@@ -44,7 +45,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		ctime:        now,
 		flags:        make(map[UserMode]bool),
 		server:       server,
-		socket:       NewSocket(conn),
+		socket:       &socket,
 	}
 	client.Touch()
 	go client.run()
@@ -265,7 +266,8 @@ func (client *Client) ChangeNickname(nickname Name) {
 }
 
 func (client *Client) Reply(reply string) error {
-	return client.socket.Write(reply)
+	//TODO(dan): We'll be passing around real message objects instead of raw strings
+	return client.socket.WriteLine(reply)
 }
 
 func (client *Client) Quit(message Text) {

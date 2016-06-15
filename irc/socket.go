@@ -4,92 +4,74 @@ import (
 	"bufio"
 	"io"
 	"net"
+	"strings"
 )
 
-const (
-	R = '→'
-	W = '←'
-)
-
+// Socket represents an IRC socket.
 type Socket struct {
-	closed  bool
-	conn    net.Conn
-	scanner *bufio.Scanner
-	writer  *bufio.Writer
+	Closed bool
+	conn   net.Conn
+	reader *bufio.Reader
 }
 
-func NewSocket(conn net.Conn) *Socket {
-	return &Socket{
-		conn:    conn,
-		scanner: bufio.NewScanner(conn),
-		writer:  bufio.NewWriter(conn),
+// NewSocket returns a new Socket.
+func NewSocket(conn net.Conn) Socket {
+	return Socket{
+		conn:   conn,
+		reader: bufio.NewReader(conn),
 	}
 }
 
-func (socket *Socket) String() string {
-	return socket.conn.RemoteAddr().String()
-}
-
+// Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
-	if socket.closed {
+	if socket.Closed {
 		return
 	}
-	socket.closed = true
+	socket.Closed = true
 	socket.conn.Close()
-	Log.debug.Printf("%s closed", socket)
 }
 
-func (socket *Socket) Read() (line string, err error) {
-	if socket.closed {
-		err = io.EOF
-		return
+// Read returns a single IRC line from a Socket.
+func (socket *Socket) Read() (string, error) {
+	if socket.Closed {
+		return "", io.EOF
 	}
 
-	for socket.scanner.Scan() {
-		line = socket.scanner.Text()
-		if len(line) == 0 {
-			continue
-		}
-		Log.debug.Printf("%s → %s", socket, line)
-		return
+	lineBytes, err := socket.reader.ReadBytes('\n')
+
+	// convert bytes to string
+	line := string(lineBytes[:])
+
+	// read last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
+	if err == io.EOF {
+		socket.Close()
 	}
 
-	err = socket.scanner.Err()
-	socket.isError(err, R)
-	if err == nil {
-		err = io.EOF
+	if err == io.EOF && strings.TrimSpace(line) != "" {
+		// don't do anything
+	} else if err != nil {
+		return "", err
 	}
-	return
+
+	return strings.TrimRight(line, "\r\n"), nil
 }
 
-func (socket *Socket) Write(line string) (err error) {
-	if socket.closed {
-		err = io.EOF
-		return
+// Write sends the given string out of Socket.
+func (socket *Socket) Write(data string) error {
+	if socket.Closed {
+		return io.EOF
 	}
 
-	if _, err = socket.writer.WriteString(line); socket.isError(err, W) {
-		return
-	}
-
-	if _, err = socket.writer.WriteString(CRLF); socket.isError(err, W) {
-		return
-	}
-
-	if err = socket.writer.Flush(); socket.isError(err, W) {
-		return
-	}
-
-	Log.debug.Printf("%s ← %s", socket, line)
-	return
-}
-
-func (socket *Socket) isError(err error, dir rune) bool {
+	// write data
+	_, err := socket.conn.Write([]byte(data))
 	if err != nil {
-		if err != io.EOF {
-			Log.debug.Printf("%s %c error: %s", socket, dir, err)
-		}
-		return true
+		socket.Close()
+		return err
 	}
-	return false
+	return nil
+}
+
+// WriteLine writes the given line out of Socket.
+func (socket *Socket) WriteLine(line string) error {
+	return socket.Write(line + "\r\n")
 }
