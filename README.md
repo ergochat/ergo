@@ -52,6 +52,7 @@ oragono run
 * Jeremy Latt, creator of Ergonomadic, <https://github.com/jlatt>
 * Edmund Huber, maintainer of Ergonomadic, <https://github.com/edmund-huber>
 * Niels Freier, added WebSocket support to Ergonomadic, <https://github.com/stumpyfr>
+* Daniel Oakley, maintainer of Oragono, <https://github.com/DanielOaks>
 * apologies to anyone I forgot.
 
 [go-crypto]: https://godoc.org/golang.org/x/crypto

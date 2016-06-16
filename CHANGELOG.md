@@ -7,6 +7,11 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 ## Unreleased
 Initial release of Oragono!
 
+### Security
+* PROXY command is now restricted appropriately.
+* Nicknames, usernames and channel names that break the protocol are no longer allowed.
+* Default channel modes set to restrict new channels more appropriately by default.
+
 ### Added
 * Added YAML config file format.
 * Added native SSL/TLS support (thanks to @edmand).
