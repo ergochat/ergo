@@ -15,20 +15,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
-
-type ServerCommand interface {
-	Command
-	HandleServer(*Server)
-}
-
-type RegServerCommand interface {
-	Command
-	HandleRegServer(*Server)
-}
 
 type Server struct {
 	channels         ChannelNameMap
@@ -217,6 +210,7 @@ func (server *Server) processCommand(cmd Command) {
 func (server *Server) Shutdown() {
 	server.db.Close()
 	for _, client := range server.clients.byNick {
+		client.Send("notice")
 		client.Reply(RplNotice(server, client, "shutting down"))
 	}
 }
@@ -331,6 +325,7 @@ func (s *Server) tryRegister(c *Client) {
 		return
 	}
 
+	c.Send("Intro to the network")
 	c.Register()
 	c.RplWelcome()
 	c.RplYourHost()
@@ -342,14 +337,17 @@ func (s *Server) tryRegister(c *Client) {
 
 func (server *Server) MOTD(client *Client) {
 	if len(server.motdLines) < 1 {
+		c.Send("send")
 		client.ErrNoMOTD()
 		return
 	}
 
 	client.RplMOTDStart()
 	for _, line := range server.motdLines {
+		c.Send("send")
 		client.RplMOTD(line)
 	}
+	c.Send("send")
 	client.RplMOTDEnd()
 }
 
@@ -365,103 +363,132 @@ func (s *Server) Nick() Name {
 	return s.Id()
 }
 
-func (server *Server) Reply(target *Client, message string) {
-	target.Reply(RplPrivMsg(server, target, NewText(message)))
-}
-
-func (server *Server) Replyf(target *Client, format string, args ...interface{}) {
-	server.Reply(target, fmt.Sprintf(format, args...))
-}
-
 //
 // registration commands
 //
 
-func (msg *PassCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
-	if msg.err != nil {
-		client.ErrPasswdMismatch()
+// PASS <password>
+func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	if client.Registered {
+		client.Send("send")
+		client.ErrAlreadyRegistered()
+		return false
+	}
+
+	// check the provided password
+	logger.Fatal("Implement PASS command")
+	password := []byte(args[0])
+	if ComparePassword(server.password, password) != nil {
+		logger.Fatal("SEND BACK REJECTION")
 		client.Quit("bad password")
-		return
+		return true
 	}
 
 	client.authorized = true
+	return false
 }
 
-func (msg *ProxyCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
+// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
+// http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt
+func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	clientAddress := IPString(client.socket.conn.RemoteAddr()).String()
 	clientHostname := client.hostname.String()
 
 	for _, address := range server.proxyAllowedFrom {
 		if clientHostname == address || clientAddress == address {
-			client.hostname = msg.hostname
-			return
+			client.hostname = LookupHostname(NewName(msg.Params[1]))
+			return false
 		}
 	}
 
 	client.Quit("PROXY command is not usable from your address")
+	return true
 }
 
-func (msg *UserCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
+// USER <username> * 0 <realname>
+func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	if client.Registered {
+		client.Send("send")
+		client.ErrAlreadyRegistered()
+		return false
+	}
+
 	if !client.authorized {
-		client.ErrPasswdMismatch()
 		client.Quit("bad password")
-		return
+		return true
+	}
+
+	if client.username != "" && client.realname != "" {
+		return false
 	}
 
 	// set user info and log client in
-	server.clients.Remove(client)
 	//TODO(dan): Could there be a race condition here with adding/removing the client?
-	client.username, client.realname = msg.username, msg.realname
+	//TODO(dan): we should do something like server.clients.Replace(client) instead
+
+	// we do it this way to ONLY replace what hasn't already been set
+	server.clients.Remove(client)
+
+	if client.username != "" {
+		client.username = msg.username
+	}
+	if client.realname != "" {
+		client.realname = msg.realname
+	}
+
 	server.clients.Add(client)
 
 	server.tryRegister(client)
 }
 
-func (msg *QuitCommand) HandleRegServer(server *Server) {
-	msg.Client().Quit(msg.message)
+// QUIT [<reason>]
+func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	reason := "Quit"
+	if len(msg.Params) > 0 {
+		reason += ": " + msg.Params[0]
+	}
+	client.Quit(msg.message)
+	return true
 }
 
 //
 // normal commands
 //
 
-func (m *PassCommand) HandleServer(s *Server) {
-	m.Client().ErrAlreadyRegistered()
+// PING <server1> [<server2>]
+func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// client.Socket.Send(response here)
+	return true
 }
 
-func (m *PingCommand) HandleServer(s *Server) {
-	client := m.Client()
-	client.Reply(RplPong(client, m.server.Text()))
+// PONG <server> [ <server2> ]
+func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	//TODO(dan): update client idle timer from this
+	//TODO(dan): use this to affect how often we send pings
+	return true
 }
 
-func (m *PongCommand) HandleServer(s *Server) {
-	// no-op
-}
-
-func (m *UserCommand) HandleServer(s *Server) {
-	m.Client().ErrAlreadyRegistered()
-}
-
-func (msg *QuitCommand) HandleServer(server *Server) {
-	msg.Client().Quit(msg.message)
-}
-
-func (m *JoinCommand) HandleServer(s *Server) {
-	client := m.Client()
-
-	if m.zero {
+// JOIN <channel>{,<channel>} [<key>{,<key>}]
+// JOIN 0
+func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// handle JOIN 0
+	if msg.Params[0] == "0" {
 		for channel := range client.channels {
 			channel.Part(client, client.Nick().Text())
 		}
-		return
+		return false
 	}
 
-	for name, key := range m.channels {
+	// handle regular JOINs
+	channels := strings.Split(msg.Params[0], ",")
+	var keys []string
+	if len(msg.Params) > 1 {
+		keys = strings.Split(msg.Params[1], ",")
+	}
+
+	for i, name := range channels {
 		if !name.IsChannel() {
-			client.ErrNoSuchChannel(name)
+			log.Fatal("Implement ErrNoSuchChannel")
 			continue
 		}
 
@@ -469,17 +496,29 @@ func (m *JoinCommand) HandleServer(s *Server) {
 		if channel == nil {
 			channel = NewChannel(s, name, true)
 		}
+
+		var key string
+		if len(keys) > i {
+			key = keys[i]
+		}
+
 		channel.Join(client, key)
 	}
 }
 
-func (m *PartCommand) HandleServer(server *Server) {
-	client := m.Client()
-	for _, chname := range m.channels {
+// PART <channel>{,<channel>} [<reason>]
+func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	channels := strings.Split(msg.Params[0], ",")
+	var reason string //TODO(dan): should this be the user's nickname instead of empty?
+	if len(msg.Params) > 1 {
+		reason = msg.Params[1]
+	}
+
+	for _, chname := range channels {
 		channel := server.channels.Get(chname)
 
 		if channel == nil {
-			m.Client().ErrNoSuchChannel(chname)
+			log.Fatal("Implement ErrNoSuchChannel")
 			continue
 		}
 
@@ -487,42 +526,47 @@ func (m *PartCommand) HandleServer(server *Server) {
 	}
 }
 
-func (msg *TopicCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	channel := server.channels.Get(msg.channel)
+// TOPIC <channel> [<topic>]
+func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	channel := server.channels.Get(msg.Params[0])
 	if channel == nil {
-		client.ErrNoSuchChannel(msg.channel)
+		log.Fatal("Implement ErrNoSuchChannel")
 		return
 	}
 
-	if msg.setTopic {
-		channel.SetTopic(client, msg.topic)
+	if len(msg.Params) > 1 {
+		channel.SetTopic(client, msg.Params[1])
 	} else {
 		channel.GetTopic(client)
 	}
 }
 
-func (msg *PrivMsgCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if msg.target.IsChannel() {
-		channel := server.channels.Get(msg.target)
-		if channel == nil {
-			client.ErrNoSuchChannel(msg.target)
-			return
+// PRIVMSG <target>{,<target>} <message>
+func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	targets := strings.Split(msg.Params[0], ",")
+	message := msg.Params[1]
+
+	for _, target := range targets {
+		if target.IsChannel() {
+			channel := server.channels.Get(target)
+			if channel == nil {
+				client.Send("send")
+				client.ErrNoSuchChannel(target)
+				continue
+			}
+			channel.PrivMsg(client, message)
+		} else {
+			user := server.clients.Get(target)
+			if user == nil {
+				client.Send("send")
+				client.ErrNoSuchNick(target)
+				return
+			}
+			user.Send("content here")
+			if user.flags[Away] {
+				client.Send("target is AWAY")
+			}
 		}
-
-		channel.PrivMsg(client, msg.message)
-		return
-	}
-
-	target := server.clients.Get(msg.target)
-	if target == nil {
-		client.ErrNoSuchNick(msg.target)
-		return
-	}
-	target.Reply(RplPrivMsg(client, target, msg.message))
-	if target.flags[Away] {
-		client.RplAway(target)
 	}
 }
 
@@ -541,19 +585,29 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	return chstrs
 }
 
-func (m *WhoisCommand) HandleServer(server *Server) {
-	client := m.Client()
+// WHOIS [ <target> ] <mask> *( "," <mask> )
+func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var masks string
+	var target string
+
+	if len(msg.Params) > 1 {
+		target = msg.Params[0]
+		masks = msg.Params[1]
+	} else {
+		masks = msg.Params[0]
+	}
 
 	// TODO implement target query
-
-	for _, mask := range m.masks {
+	for _, mask := range masks {
 		matches := server.clients.FindAll(mask)
 		if len(matches) == 0 {
 			client.ErrNoSuchNick(mask)
+			client.Send("NOSUCHNICK")
 			continue
 		}
 		for mclient := range matches {
 			client.RplWhois(mclient)
+			client.Send("WHOIS")
 		}
 	}
 }
@@ -561,15 +615,27 @@ func (m *WhoisCommand) HandleServer(server *Server) {
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 	for member := range channel.members {
 		if !client.flags[Invisible] || friends[client] {
+			client.Send("send")
 			client.RplWhoReply(channel, member)
 		}
 	}
 }
 
-func (msg *WhoCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// WHO [ <mask> [ "o" ] ]
+func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	friends := client.Friends()
-	mask := msg.mask
+
+	var mask string
+	if len(msg.Params) > 0 {
+		mask = NewName(msg.Params[0])
+	}
+
+	//TODO(dan): is this used and would I put this param in the Modern doc?
+	// if not, can we remove it?
+	var operatorOnly bool
+	if len(msg.Params) > 1 && msr.Params[1] == "o" {
+		operatorOnly = true
+	}
 
 	if mask == "" {
 		for _, channel := range server.channels {
@@ -584,101 +650,161 @@ func (msg *WhoCommand) HandleServer(server *Server) {
 	} else {
 		for mclient := range server.clients.FindAll(mask) {
 			client.RplWhoReply(nil, mclient)
+			client.Send("REPLY")
 		}
 	}
 
 	client.RplEndOfWho(mask)
+	client.Send("ENDOFWHO")
 }
 
-func (msg *OperCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// OPER <name> <password>
+func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	name = NewName(msg.Params[0])
+	hash = server.operators[name]
+	password = []byte(msg.Params[1])
 
-	if (msg.hash == nil) || (msg.err != nil) {
+	err = ComparePassword(hash, password)
+
+	if (hash == nil) || (err != nil) {
 		client.ErrPasswdMismatch()
-		return
+		client.Send("PASSWDBAD")
+		return true
 	}
 
+	//TODO(dan): Split this into client.makeOper() ??
 	client.flags[Operator] = true
 	client.RplYoureOper()
+	client.Send("YOUROPER")
 	client.Reply(RplModeChanges(client, client, ModeChanges{&ModeChange{
 		mode: Operator,
 		op:   Add,
 	}}))
+	client.Send("OPERMODECHANGE")
 }
 
-func (msg *AwayCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if len(msg.text) > 0 {
+// AWAY [<message>]
+func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var isAway bool
+	var text string
+	if len(msg.Params) > 0 {
+		isAway = True
+		text = NewText(msg.Params[0])
+	}
+
+	if isAway {
 		client.flags[Away] = true
 	} else {
 		delete(client.flags, Away)
 	}
-	client.awayMessage = msg.text
+	client.awayMessage = text
 
 	var op ModeOp
 	if client.flags[Away] {
 		op = Add
+		client.Send("imaway")
 		client.RplNowAway()
 	} else {
 		op = Remove
+		client.Send("unaway")
 		client.RplUnAway()
 	}
+	client.Send("mode changes I guess?")
 	client.Reply(RplModeChanges(client, client, ModeChanges{&ModeChange{
 		mode: Away,
 		op:   op,
 	}}))
 }
 
-func (msg *IsOnCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// ISON <nick>{ <nick>}
+func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var nicks = NewNames(msg.Params)
 
 	ison := make([]string, 0)
-	for _, nick := range msg.nicks {
+	for _, nick := range nicks {
 		if iclient := server.clients.Get(nick); iclient != nil {
 			ison = append(ison, iclient.Nick().String())
 		}
 	}
 
+	client.Send("ISON")
 	client.RplIsOn(ison)
 }
 
-func (msg *MOTDCommand) HandleServer(server *Server) {
+// MOTD [<target>]
+func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	//TODO(dan): hook this up when we have multiple servers I guess???
+	var target string
+	if len(msg.Params) > 0 {
+		target = NewName(msg.Params[0])
+	}
+
+	client.Send("MOTD")
 	server.MOTD(msg.Client())
 }
 
-func (msg *NoticeCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if msg.target.IsChannel() {
-		channel := server.channels.Get(msg.target)
+// NOTICE <target>{,<target>} <message>
+func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	targetName := NewName(msg.Params[0])
+	message := NewText(msg.Params[1])
+
+	if targetName.IsChannel() {
+		channel := server.channels.Get(targetName)
 		if channel == nil {
-			client.ErrNoSuchChannel(msg.target)
+			client.Send("ERRNOSUCHCHAN")
+			client.ErrNoSuchChannel(targetName)
 			return
 		}
 
-		channel.Notice(client, msg.message)
+		channel.Notice(client, message)
 		return
 	}
 
-	target := server.clients.Get(msg.target)
+	target := server.clients.Get(targetName)
 	if target == nil {
-		client.ErrNoSuchNick(msg.target)
+		client.Send("ERRNOSUCHNICK")
+		client.ErrNoSuchNick(targetName)
 		return
 	}
-	target.Reply(RplNotice(client, target, msg.message))
+	client.Send("NOTICE")
+	target.Reply(RplNotice(client, target, message))
 }
 
-func (msg *KickCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	for chname, nickname := range msg.kicks {
+// KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
+func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	channels := NewNames(strings.Split(msg.Params[0], ","))
+	users := NewNames(strings.Split(msg.Params[1], ","))
+	if (len(channels) != len(users)) && (len(users) != 1) {
+		client.Send("NotEnoughArgs??")
+		return false
+		// not needed return nil, NotEnoughArgsError
+	}
+
+	kicks := make(map[Name]Name)
+	for index, channel := range channels {
+		if len(users) == 1 {
+			kicks[channel] = users[0]
+		} else {
+			kicks[channel] = users[index]
+		}
+	}
+
+	var comment string
+	if len(msg.Params) > 2 {
+		comment = msg.Params[2]
+	}
+	for chname, nickname := range kicks {
 		channel := server.channels.Get(chname)
 		if channel == nil {
 			client.ErrNoSuchChannel(chname)
+			client.Send("send")
 			continue
 		}
 
 		target := server.clients.Get(nickname)
 		if target == nil {
 			client.ErrNoSuchNick(nickname)
+			client.Send("send")
 			continue
 		}
 
@@ -700,128 +826,196 @@ func (msg *KickCommand) HandleServer(server *Server) {
 		}
 
 		if hasPrivs {
-			channel.Kick(client, target, msg.Comment())
+			if comment == "" {
+				channel.Kick(client, target, nickname)
+			} else {
+				channel.Kick(client, target, comment)
+			}
 		} else {
 			client.ErrChanOPrivIsNeeded(channel)
+			client.Send("send")
 		}
 	}
 }
 
-func (msg *ListCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// LIST [<channel>{,<channel>} [<server>]]
+func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var channels []Name
+	if len(args) > 0 {
+		channels = NewNames(strings.Split(args[0], ","))
+	}
+	var target Name
+	if len(args) > 1 {
+		target = NewName(args[1])
+	}
 
-	// TODO target server
-	if msg.target != "" {
+	//TODO(dan): target server when we have multiple servers
+	//TODO(dan): we should continue just fine if it's this current server though
+	if target != "" {
 		client.ErrNoSuchServer(msg.target)
+		client.Send("send")
 		return
 	}
 
-	if len(msg.channels) == 0 {
+	if len(channels) == 0 {
 		for _, channel := range server.channels {
 			if !client.flags[Operator] && channel.flags[Secret] {
 				continue
 			}
 			client.RplList(channel)
+			client.Send("send")
 		}
 	} else {
-		for _, chname := range msg.channels {
+		for _, chname := range channels {
 			channel := server.channels.Get(chname)
 			if channel == nil || (!client.flags[Operator] && channel.flags[Secret]) {
 				client.ErrNoSuchChannel(chname)
+				client.Send("send")
 				continue
 			}
 			client.RplList(channel)
+			client.Send("send")
 		}
 	}
 	client.RplListEnd(server)
+	client.Send("send")
 }
 
-func (msg *NamesCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if len(server.channels) == 0 {
+// NAMES [<channel>{,<channel>}]
+func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var channels []Name
+	if len(args) > 0 {
+		channels = NewNames(strings.Split(args[0], ","))
+	}
+	var target Name
+	if len(args) > 1 {
+		target = NewName(args[1])
+	}
+
+	if len(channels) == 0 {
 		for _, channel := range server.channels {
 			channel.Names(client)
 		}
-		return
+		return false
 	}
 
-	for _, chname := range msg.channels {
+	for _, chname := range channels {
 		channel := server.channels.Get(chname)
 		if channel == nil {
 			client.ErrNoSuchChannel(chname)
+			client.Send("send")
 			continue
 		}
 		channel.Names(client)
+		client.Send("send")
 	}
 }
 
-func (msg *VersionCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if (msg.target != "") && (msg.target != server.name) {
-		client.ErrNoSuchServer(msg.target)
+// VERSION [<server>]
+func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var target Name
+	if len(args) > 0 {
+		target = NewName(args[0])
+	}
+	if (target != "") && (target != server.name) {
+		client.ErrNoSuchServer(target)
+		client.Send("send")
 		return
 	}
 
 	client.RplVersion()
+	client.Send("send")
 	client.RplISupport()
+	client.Send("send")
 }
 
-func (msg *InviteCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// INVITE <nickname> <channel>
+func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	nickname := NewName(msg.Params[0])
+	channelName := NewName(msg.Params[1])
 
-	target := server.clients.Get(msg.nickname)
+	target := server.clients.Get(nickname)
 	if target == nil {
-		client.ErrNoSuchNick(msg.nickname)
+		client.ErrNoSuchNick(nickname)
+		client.Send("send")
 		return
 	}
 
-	channel := server.channels.Get(msg.channel)
+	channel := server.channels.Get(channelName)
 	if channel == nil {
-		client.RplInviting(target, msg.channel)
-		target.Reply(RplInviteMsg(client, target, msg.channel))
+		client.RplInviting(target, channelName)
+		client.Send("send")
+		target.Reply(RplInviteMsg(client, target, channelName))
+		client.Send("send")
 		return
 	}
 
 	channel.Invite(target, client)
 }
 
-func (msg *TimeCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	if (msg.target != "") && (msg.target != server.name) {
-		client.ErrNoSuchServer(msg.target)
+// TIME [<server>]
+func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	var target Name
+	if len(msg.Params) > 0 {
+		target = NewName(msg.Params[0])
+	}
+	if (target != "") && (target != server.name) {
+		client.ErrNoSuchServer(target)
+		client.Send("send")
 		return
 	}
 	client.RplTime()
+	client.Send("send")
 }
 
-func (msg *KillCommand) HandleServer(server *Server) {
-	client := msg.Client()
+// KILL <nickname> <comment>
+func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	nickname := NewName(msg.Params[0])
+	comment := NewText(msg.Params[1])
+
 	if !client.flags[Operator] {
 		client.ErrNoPrivileges()
+		client.Send("send")
 		return
 	}
 
-	target := server.clients.Get(msg.nickname)
+	target := server.clients.Get(nickname)
 	if target == nil {
-		client.ErrNoSuchNick(msg.nickname)
+		client.ErrNoSuchNick(nickname)
+		client.Send("send")
 		return
 	}
 
-	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), msg.comment)
+	//TODO(dan): make below format match that from other IRCds
+	quitMsg := fmt.Sprintf("KILLed by %s: %s", client.Nick(), comment)
 	target.Quit(NewText(quitMsg))
+	return true
 }
 
-func (msg *WhoWasCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	for _, nickname := range msg.nicknames {
+// WHOWAS <nickname> [<count> [<server>]]
+func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	nicknames := NewNames(strings.Split(msg.Params[0], ","))
+
+	var count int
+	if len(msg.Params) > 1 {
+		count, _ = strconv.ParseInt(msg.Params[1], 10, 64)
+	}
+	var target Name
+	if len(msg.Params) > 2 {
+		target = NewName(msg.Params[2])
+	}
+	for _, nickname := range nicknames {
 		results := server.whoWas.Find(nickname, msg.count)
 		if len(results) == 0 {
 			client.ErrWasNoSuchNick(nickname)
+			client.Send("send")
 		} else {
 			for _, whoWas := range results {
 				client.RplWhoWasUser(whoWas)
+				client.Send("send")
 			}
 		}
 		client.RplEndOfWhoWas(nickname)
+		client.Send("send")
 	}
 }

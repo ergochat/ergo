@@ -122,6 +122,7 @@ var (
 // commands
 //
 
+/*
 func (m *ModeCommand) HandleServer(s *Server) {
 	client := m.Client()
 	target := s.clients.Get(m.nickname)
@@ -185,3 +186,4 @@ func (msg *ChannelModeCommand) HandleServer(server *Server) {
 
 	channel.Mode(client, msg.changes)
 }
+*/

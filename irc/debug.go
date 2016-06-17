@@ -9,15 +9,16 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"time"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
-func (msg *DebugCommand) HandleServer(server *Server) {
-	client := msg.Client()
+func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.flags[Operator] {
 		return
 	}
 
-	switch msg.subCommand {
+	switch msg.Params[0] {
 	case "GCSTATS":
 		stats := debug.GCStats{
 			Pause:          make([]time.Duration, 10),

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
 const (
@@ -65,51 +67,44 @@ func NewClient(server *Server, conn net.Conn) *Client {
 func (client *Client) run() {
 	var command Command
 	var err error
+	var isExiting bool
 	var line string
+	var msg ircmsg.IrcMessage
 
 	// Set the hostname for this client. The client may later send a PROXY
 	// command from stunnel that sets the hostname to something more accurate.
 	client.hostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
-	for err == nil {
-		//TODO(dan): does this read sockets correctly and split lines properly? (think that ZNC bug that kept happening with mammon)
-		if line, err = client.socket.Read(); err != nil {
-			command = NewQuitCommand("connection closed")
-
-		} else if command, err = ParseCommand(line); err != nil {
-			switch err {
-			case ErrParseCommand:
-				//TODO(dan): why is this a notice? there's a proper numeric for this I swear
-				client.Reply(RplNotice(client.server, client,
-					NewText("failed to parse command")))
-			}
-			// so the read loop will continue
-			err = nil
-			continue
-
-		} else if checkPass, ok := command.(checkPasswordCommand); ok {
-			checkPass.LoadPassword(client.server)
-			// Block the client thread while handling a potentially expensive
-			// password bcrypt operation. Since the server is single-threaded
-			// for commands, we don't want the server to perform the bcrypt,
-			// blocking anyone else from sending commands until it
-			// completes. This could be a form of DoS if handled naively.
-			checkPass.CheckPassword()
+	//TODO(dan): Make this a socketreactor from ircbnc
+	for {
+		line, err = client.socket.Read()
+		if err != nil {
+			client.Quit("connection closed")
+			break
 		}
 
-		client.send(command)
+		msg, err = ParseLine(line)
+		if err != nil {
+			client.Quit("received malformed command")
+			break
+		}
+
+		isExiting = Run(client.server, client, msg)
+		if isExiting {
+			break
+		}
 	}
+
+	// ensure client connection gets closed
+	client.Destroy()
 }
 
-func (client *Client) send(command Command) {
-	command.SetClient(client)
-	client.server.commands <- command
-}
-
+//
 // quit timer goroutine
+//
 
 func (client *Client) connectionTimeout() {
-	client.send(NewQuitCommand("connection timeout"))
+	client.Quit("connection timeout")
 }
 
 //
@@ -156,31 +151,6 @@ func (client *Client) Register() {
 	}
 	client.registered = true
 	client.Touch()
-}
-
-func (client *Client) destroy() {
-	// clean up channels
-
-	for channel := range client.channels {
-		channel.Quit(client)
-	}
-
-	// clean up server
-
-	client.server.clients.Remove(client)
-
-	// clean up self
-
-	if client.idleTimer != nil {
-		client.idleTimer.Stop()
-	}
-	if client.quitTimer != nil {
-		client.quitTimer.Stop()
-	}
-
-	client.socket.Close()
-
-	Log.debug.Printf("%s: destroyed", client)
 }
 
 func (client *Client) IdleTime() time.Duration {
@@ -238,6 +208,7 @@ func (c *Client) String() string {
 	return c.Id().String()
 }
 
+// Friends refers to clients that share a channel with this client.
 func (client *Client) Friends() ClientSet {
 	friends := make(ClientSet)
 	friends.Add(client)
@@ -276,16 +247,36 @@ func (client *Client) Reply(reply string) error {
 }
 
 func (client *Client) Quit(message Text) {
-	if client.hasQuit {
+	client.Send("QUIT", message)
+}
+
+func (client *Client) destroy() {
+	if client.isDestroyed {
 		return
 	}
 
-	client.hasQuit = true
-	client.Reply(RplError("quit"))
+	client.isDestroyed = true
 	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
-	client.destroy()
+
+	// clean up channels
+	for channel := range client.channels {
+		channel.Quit(client)
+	}
+
+	// clean up server
+	client.server.clients.Remove(client)
+
+	// clean up self
+	if client.idleTimer != nil {
+		client.idleTimer.Stop()
+	}
+	if client.quitTimer != nil {
+		client.quitTimer.Stop()
+	}
+
+	client.socket.Close()
 
 	if len(friends) > 0 {
 		reply := RplQuit(client, message)

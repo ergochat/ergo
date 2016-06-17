@@ -4,6 +4,7 @@
 
 package irc
 
+/*
 type NickCommand struct {
 	BaseCommand
 	nickname Name
@@ -98,3 +99,4 @@ func (msg *OperNickCommand) HandleServer(server *Server) {
 
 	target.ChangeNickname(msg.nick)
 }
+*/
