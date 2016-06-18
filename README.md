@@ -34,8 +34,7 @@ oragono createcerts
 
 # Configuration
 
-See the example [`oragono.yaml`](oragono.yaml). Passwords are base64-encoded bcrypted byte
-strings. You can generate them with the `genpasswd` subcommand.
+See the example [`oragono.yaml`](oragono.yaml). Passwords are stored using bcrypt. You can generate encrypted password strings for use in the config with the `genpasswd` subcommand.
 
 ```sh
 oragono genpasswd
