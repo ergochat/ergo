@@ -338,7 +338,7 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 	if target == nil {
 		//TODO(dan): investigate using NOSUCHNICK and NOSUCHCHANNEL specifically as that other IRCd (insp?) does,
 		// since I think that would make sense
-		client.Send(nil, client.server.nameString, ERR_NOSUCHNICK, nick, "No such nick/channel")
+		client.Send(nil, client.server.nameString, ERR_NOSUCHNICK, nick, "No such nick")
 		return false
 	}
 

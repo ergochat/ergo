@@ -13,7 +13,7 @@ type WhoWas struct {
 	nickname Name
 	username Name
 	hostname Name
-	realname Text
+	realname string
 }
 
 func NewWhoWasList(size uint) *WhoWasList {

@@ -494,7 +494,7 @@ func (target *Client) ErrBadChannelKey(channel *Channel) {
 
 func (target *Client) ErrNoSuchNick(nick Name) {
 	target.NumericReply(ERR_NOSUCHNICK,
-		"%s :No such nick/channel", nick)
+		"%s :No such nick", nick)
 }
 
 func (target *Client) ErrPasswdMismatch() {

@@ -3,22 +3,19 @@
 
 package irc
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 // ISupportList holds a list of ISUPPORT tokens
 type ISupportList struct {
 	Tokens      map[string]*string
-	CachedReply []string
+	CachedReply [][]string
 }
 
 // NewISupportList returns a new ISupportList
 func NewISupportList() *ISupportList {
 	var il ISupportList
 	il.Tokens = make(map[string]*string)
-	il.CachedReply = make([]string, 0)
+	il.CachedReply = make([][]string, 0)
 	return &il
 }
 
@@ -34,7 +31,7 @@ func (il *ISupportList) AddNoValue(name string) {
 
 // RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
 func (il *ISupportList) RegenerateCachedReply() {
-	il.CachedReply = make([]string, 0)
+	il.CachedReply = make([][]string, 0)
 	maxlen := 400      // Max length of a single ISUPPORT token line
 	var length int     // Length of the current cache
 	var cache []string // Token list cache
@@ -57,13 +54,21 @@ func (il *ISupportList) RegenerateCachedReply() {
 		}
 
 		if len(cache) == 13 || len(token)+length >= maxlen {
-			il.CachedReply = append(il.CachedReply, strings.Join(cache, " "))
+			cache = append(cache, "are supported by this server")
+			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)
 			length = 0
 		}
 	}
 
 	if len(cache) > 0 {
-		il.CachedReply = append(il.CachedReply, strings.Join(cache, " "))
+		cache = append(cache, "are supported by this server")
+		il.CachedReply = append(il.CachedReply, cache)
+	}
+}
+
+func (client *Client) RplISupport() {
+	for _, tokenline := range client.server.isupport.CachedReply {
+		client.Send(nil, client.server.nameString, RPL_ISUPPORT, tokenline...)
 	}
 }

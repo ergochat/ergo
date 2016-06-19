@@ -35,7 +35,7 @@ type Client struct {
 	nickString     string // cache for nick string since it's used with most numerics
 	nickMaskString string // cache for nickmask string since it's used with lots of replies
 	quitTimer      *time.Timer
-	realname       Text
+	realname       string
 	registered     bool
 	server         *Server
 	socket         *Socket

@@ -69,6 +69,8 @@ var (
 	SupportedUserModes = UserModes{
 		Away, Invisible, Operator,
 	}
+	// supportedUserModesString acts as a cache for when we introduce users
+	supportedUserModesString = SupportedUserModes.String()
 )
 
 const (
@@ -98,6 +100,8 @@ var (
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
 		OpOnlyTopic, Persistent, Secret, Theater, UserLimit,
 	}
+	// supportedChannelModesString acts as a cache for when we introduce users
+	supportedChannelModesString = SupportedChannelModes.String()
 
 	DefaultChannelModes = ChannelModes{
 		NoOutside, OpOnlyTopic,

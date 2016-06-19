@@ -9,9 +9,11 @@ import "github.com/DanielOaks/girc-go/ircmsg"
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler      func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
-	usablePreReg bool
-	minParams    int
+	handler           func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
+	usablePreReg      bool
+	leaveClientActive bool // if true, leaves the client active time alone. reversed because we can't default a struct element to True
+	leaveClientIdle   bool
+	minParams         int
 }
 
 // Run runs this command with the given client/message.
@@ -23,6 +25,12 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	if len(msg.Params) < cmd.minParams {
 		client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
 		return false
+	}
+	if !cmd.leaveClientActive {
+		client.Active()
+	}
+	if !cmd.leaveClientIdle {
+		client.Touch()
 	}
 	exiting := cmd.handler(server, client, msg)
 
@@ -95,11 +103,10 @@ var Commands = map[string]Command{
 		handler:   noticeHandler,
 		minParams: 2,
 	},
-	/*TODO(dan): ADD THIS BACK
 	"ONICK": Command{
 		handler:   onickHandler,
 		minParams: 2,
-	},*/
+	},
 	"OPER": Command{
 		handler:   operHandler,
 		minParams: 2,
@@ -114,14 +121,16 @@ var Commands = map[string]Command{
 		minParams:    1,
 	},
 	"PING": Command{
-		handler:      pingHandler,
-		usablePreReg: true,
-		minParams:    1,
+		handler:           pingHandler,
+		usablePreReg:      true,
+		minParams:         1,
+		leaveClientActive: true,
 	},
 	"PONG": Command{
-		handler:      pongHandler,
-		usablePreReg: true,
-		minParams:    1,
+		handler:           pongHandler,
+		usablePreReg:      true,
+		minParams:         1,
+		leaveClientActive: true,
 	},
 	"PRIVMSG": Command{
 		handler:   privmsgHandler,
