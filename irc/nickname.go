@@ -11,7 +11,9 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check NICK validity
 	// send NICK change to primary server thread for processing
 	//   |-> ensure no other client exists with that nickname
-	//TODO(dan): SET client.nickString APPROPRIATELY
+
+	// do this after replacing nickname
+	client.updateNickMask()
 	return true
 }
 

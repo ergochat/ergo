@@ -19,27 +19,28 @@ const (
 )
 
 type Client struct {
-	atime        time.Time
-	authorized   bool
-	awayMessage  Text
-	capabilities CapabilitySet
-	capState     CapState
-	channels     ChannelSet
-	ctime        time.Time
-	flags        map[UserMode]bool
-	hasQuit      bool
-	hops         uint
-	hostname     Name
-	idleTimer    *time.Timer
-	nick         Name
-	nickString   string // cache for nick string since it's used with every reply
-	quitTimer    *time.Timer
-	realname     Text
-	registered   bool
-	server       *Server
-	socket       *Socket
-	username     Name
-	isDestroyed  bool
+	atime          time.Time
+	authorized     bool
+	awayMessage    string
+	capabilities   CapabilitySet
+	capState       CapState
+	channels       ChannelSet
+	ctime          time.Time
+	flags          map[UserMode]bool
+	hasQuit        bool
+	hops           uint
+	hostname       Name
+	idleTimer      *time.Timer
+	nick           Name
+	nickString     string // cache for nick string since it's used with most numerics
+	nickMaskString string // cache for nickmask string since it's used with every reply
+	quitTimer      *time.Timer
+	realname       Text
+	registered     bool
+	server         *Server
+	socket         *Socket
+	username       Name
+	isDestroyed    bool
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -255,8 +256,8 @@ func (client *Client) Reply(reply string) error {
 }
 
 func (client *Client) Quit(message string) {
-	client.Send(nil, client.nickString, "QUIT", message)
-	client.Send(nil, client.nickString, "ERROR", message)
+	client.Send(nil, client.nickMaskString, "QUIT", message)
+	client.Send(nil, client.nickMaskString, "ERROR", message)
 }
 
 func (client *Client) destroy() {
@@ -288,7 +289,7 @@ func (client *Client) destroy() {
 	client.socket.Close()
 	for friend := range client.Friends() {
 		//TODO(dan): store quit message in user, if exists use that instead here
-		friend.Send(nil, client.nickString, "QUIT", "Exited")
+		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
 	}
 }
 

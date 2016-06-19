@@ -6,19 +6,21 @@
 package irc
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 )
 
 type Channel struct {
-	flags     ChannelModeSet
-	lists     map[ChannelMode]*UserMaskSet
-	key       Text
-	members   MemberSet
-	name      Name
-	server    *Server
-	topic     Text
-	userLimit uint64
+	flags      ChannelModeSet
+	lists      map[ChannelMode]*UserMaskSet
+	key        string
+	members    MemberSet
+	name       Name
+	nameString string
+	server     *Server
+	topic      string
+	userLimit  uint64
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -31,9 +33,10 @@ func NewChannel(s *Server, name Name, addDefaultModes bool) *Channel {
 			ExceptMask: NewUserMaskSet(),
 			InviteMask: NewUserMaskSet(),
 		},
-		members: make(MemberSet),
-		name:    name,
-		server:  s,
+		members:    make(MemberSet),
+		name:       name,
+		nameString: name.String(),
+		server:     s,
 	}
 
 	if addDefaultModes {
@@ -52,8 +55,28 @@ func (channel *Channel) IsEmpty() bool {
 }
 
 func (channel *Channel) Names(client *Client) {
-	client.RplNamReply(channel)
-	client.RplEndOfNames(channel)
+	currentNicks := channel.Nicks(client)
+	// assemble and send replies
+	maxNamLen := 480 - len(client.server.name) - len(client.nickString)
+	var buffer string
+	for _, nick := range currentNicks {
+		if buffer == "" {
+			buffer += nick
+			continue
+		}
+
+		if len(buffer)+1+len(nick) > maxNamLen {
+			client.Send(nil, client.server.name, RPL_NAMREPLY, "=", channel.nameString, buffer)
+			buffer = nick
+			continue
+		}
+
+		buffer += " "
+		buffer += nick
+	}
+
+	client.Send(nil, client.server.name, RPL_NAMREPLY, "=", channel.nameString, buffer)
+	client.Send(nil, client.server.name, RPL_ENDOFNAMES, channel.nameString, "End of NAMES list")
 }
 
 func (channel *Channel) ClientIsOperator(client *Client) bool {
@@ -129,7 +152,7 @@ func (channel *Channel) ModeString(client *Client) (str string) {
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
 	if showKey {
-		str += " " + channel.key.String()
+		str += " " + channel.key
 	}
 	if showUserLimit {
 		str += " " + strconv.FormatUint(channel.userLimit, 10)
@@ -143,36 +166,36 @@ func (channel *Channel) IsFull() bool {
 		(uint64(len(channel.members)) >= channel.userLimit)
 }
 
-func (channel *Channel) CheckKey(key Text) bool {
+func (channel *Channel) CheckKey(key string) bool {
 	return (channel.key == "") || (channel.key == key)
 }
 
-func (channel *Channel) Join(client *Client, key Text) {
+func (channel *Channel) Join(client *Client, key string) {
 	if channel.members.Has(client) {
 		// already joined, no message?
 		return
 	}
 
 	if channel.IsFull() {
-		client.ErrChannelIsFull(channel)
+		client.Send(nil, client.server.name, ERR_CHANNELISFULL, channel.nameString, "Cannot join channel (+l)")
 		return
 	}
 
 	if !channel.CheckKey(key) {
-		client.ErrBadChannelKey(channel)
+		client.Send(nil, client.server.name, ERR_BADCHANNELKEY, channel.nameString, "Cannot join channel (+k)")
 		return
 	}
 
 	isInvited := channel.lists[InviteMask].Match(client.UserHost())
 	if channel.flags[InviteOnly] && !isInvited {
-		client.ErrInviteOnlyChan(channel)
+		client.Send(nil, client.server.name, ERR_INVITEONLYCHAN, channel.nameString, "Cannot join channel (+i)")
 		return
 	}
 
 	if channel.lists[BanMask].Match(client.UserHost()) &&
 		!isInvited &&
 		!channel.lists[ExceptMask].Match(client.UserHost()) {
-		client.ErrBannedFromChan(channel)
+		client.Send(nil, client.server.name, ERR_BANNEDFROMCHAN, channel.nameString, "Cannot join channel (+b)")
 		return
 	}
 
@@ -183,30 +206,34 @@ func (channel *Channel) Join(client *Client, key Text) {
 		channel.members[client][ChannelOperator] = true
 	}
 
-	reply := RplJoin(client, channel)
-	for member := range channel.members {
-		member.Reply(reply)
-	}
-	channel.GetTopic(client)
-	channel.Names(client)
+	client.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
+	return
+	//TODO(dan): should we be continuing here????
+	// return was above this originally, is it required?
+	/*
+		for member := range channel.members {
+			member.Reply(reply)
+		}
+		channel.GetTopic(client)
+		channel.Names(client)
+	*/
 }
 
-func (channel *Channel) Part(client *Client, message Text) {
+func (channel *Channel) Part(client *Client, message string) {
 	if !channel.members.Has(client) {
-		client.ErrNotOnChannel(channel)
+		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.nameString, "You're not on that channel")
 		return
 	}
 
-	reply := RplPart(client, channel, message)
 	for member := range channel.members {
-		member.Reply(reply)
+		member.Send(nil, client.nickMaskString, "PART", channel.nameString, message)
 	}
 	channel.Quit(client)
 }
 
 func (channel *Channel) GetTopic(client *Client) {
 	if !channel.members.Has(client) {
-		client.ErrNotOnChannel(channel)
+		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.nameString, "You're not on that channel")
 		return
 	}
 
@@ -216,25 +243,24 @@ func (channel *Channel) GetTopic(client *Client) {
 		return
 	}
 
-	client.RplTopic(channel)
+	client.Send(nil, client.server.name, RPL_TOPIC, channel.nameString, channel.topic)
 }
 
-func (channel *Channel) SetTopic(client *Client, topic Text) {
+func (channel *Channel) SetTopic(client *Client, topic string) {
 	if !(client.flags[Operator] || channel.members.Has(client)) {
-		client.ErrNotOnChannel(channel)
+		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.nameString, "You're not on that channel")
 		return
 	}
 
 	if channel.flags[OpOnlyTopic] && !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
+		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 		return
 	}
 
 	channel.topic = topic
 
-	reply := RplTopicMsg(client, channel)
 	for member := range channel.members {
-		member.Reply(reply)
+		member.Send(nil, client.nickMaskString, "TOPIC", channel.nameString, channel.topic)
 	}
 
 	if err := channel.Persist(); err != nil {
@@ -256,24 +282,24 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func (channel *Channel) PrivMsg(client *Client, message Text) {
+func (channel *Channel) PrivMsg(client *Client, message string) {
 	if !channel.CanSpeak(client) {
-		client.ErrCannotSendToChan(channel)
+		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.nameString, "Cannot send to channel")
 		return
 	}
-	reply := RplPrivMsg(client, channel, message)
 	for member := range channel.members {
 		if member == client {
 			continue
 		}
-		member.Reply(reply)
+		//TODO(dan): use nickmask instead of nickString here lel
+		member.Send(nil, client.nickMaskString, "PRIVMSG", channel.nameString, message)
 	}
 }
 
 func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 	op ModeOp) bool {
 	if !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
+		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 		return false
 	}
 
@@ -296,25 +322,28 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 }
 
 func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
-	op ModeOp, nick Name) bool {
+	op ModeOp, nick string) bool {
 	if !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
+		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 		return false
 	}
 
 	if nick == "" {
-		client.ErrNeedMoreParams("MODE")
+		//TODO(dan): shouldn't this be handled before it reaches this function?
+		client.Send(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", "Not enough parameters")
 		return false
 	}
 
-	target := channel.server.clients.Get(nick)
+	target := channel.server.clients.Get(Name(nick))
 	if target == nil {
-		client.ErrNoSuchNick(nick)
+		//TODO(dan): investigate using NOSUCHNICK and NOSUCHCHANNEL specifically as that other IRCd (insp?) does,
+		// since I think that would make sense
+		client.Send(nil, client.server.name, ERR_NOSUCHNICK, nick, "No such nick/channel")
 		return false
 	}
 
 	if !channel.members.Has(target) {
-		client.ErrUserNotInChannel(channel, target)
+		client.Send(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nickString, channel.nameString, "They aren't on that channel")
 		return false
 	}
 
@@ -337,10 +366,13 @@ func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 }
 
 func (channel *Channel) ShowMaskList(client *Client, mode ChannelMode) {
-	for lmask := range channel.lists[mode].masks {
-		client.RplMaskList(mode, channel, lmask)
-	}
-	client.RplEndOfMaskList(mode, channel)
+	//TODO(dan): WE NEED TO fiX this PROPERLY
+	log.Fatal("Implement ShowMaskList")
+	/*
+		for lmask := range channel.lists[mode].masks {
+			client.RplMaskList(mode, channel, lmask)
+		}
+		client.RplEndOfMaskList(mode, channel)*/
 }
 
 func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp,
@@ -357,7 +389,7 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 	}
 
 	if !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
+		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 		return false
 	}
 
@@ -383,17 +415,17 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 
 	case Key:
 		if !channel.ClientIsOperator(client) {
-			client.ErrChanOPrivIsNeeded(channel)
+			client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 			return false
 		}
 
 		switch change.op {
 		case Add:
 			if change.arg == "" {
-				client.ErrNeedMoreParams("MODE")
+				client.Send(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", "Not enough parameters")
 				return false
 			}
-			key := NewText(change.arg)
+			key := change.arg
 			if key == channel.key {
 				return false
 			}
@@ -409,7 +441,7 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 	case UserLimit:
 		limit, err := strconv.ParseUint(change.arg, 10, 64)
 		if err != nil {
-			client.ErrNeedMoreParams("MODE")
+			client.Send(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", "Not enough parameters")
 			return false
 		}
 		if (limit == 0) || (limit == channel.userLimit) {
@@ -445,22 +477,22 @@ func (channel *Channel) applyMode(client *Client, change *ChannelModeChange) boo
 			if change.op == Remove && name.ToLower() == client.nick.ToLower() {
 				// success!
 			} else {
-				client.ErrChanOPrivIsNeeded(channel)
+				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 				return false
 			}
 		}
 
-		return channel.applyModeMember(client, change.mode, change.op, name)
+		return channel.applyModeMember(client, change.mode, change.op, name.String())
 
 	default:
-		client.ErrUnknownMode(change.mode, channel)
+		client.Send(nil, client.server.name, ERR_UNKNOWNMODE, change.mode.String(), fmt.Sprintf(":is an unknown mode char to me for %s", channel))
 	}
 	return false
 }
 
 func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	if len(changes) == 0 {
-		client.RplChannelModeIs(channel)
+		client.Send(nil, client.server.name, RPL_CHANNELMODEIS, channel.nameString, channel.ModeString(client))
 		return
 	}
 
@@ -472,9 +504,9 @@ func (channel *Channel) Mode(client *Client, changes ChannelModeChanges) {
 	}
 
 	if len(applied) > 0 {
-		reply := RplChannelMode(client, channel, applied)
+		appliedString := applied.String()
 		for member := range channel.members {
-			member.Reply(reply)
+			member.Send(nil, client.nickMaskString, "MODE", channel.nameString, appliedString)
 		}
 
 		if err := channel.Persist(); err != nil {
@@ -490,8 +522,8 @@ func (channel *Channel) Persist() (err error) {
               (name, flags, key, topic, user_limit, ban_list, except_list,
                invite_list)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			channel.name.String(), channel.flags.String(), channel.key.String(),
-			channel.topic.String(), channel.userLimit, channel.lists[BanMask].String(),
+			channel.name.String(), channel.flags.String(), channel.key,
+			channel.topic, channel.userLimit, channel.lists[BanMask].String(),
 			channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
 	} else {
 		_, err = channel.server.db.Exec(`
@@ -500,17 +532,16 @@ func (channel *Channel) Persist() (err error) {
 	return
 }
 
-func (channel *Channel) Notice(client *Client, message Text) {
+func (channel *Channel) Notice(client *Client, message string) {
 	if !channel.CanSpeak(client) {
-		client.ErrCannotSendToChan(channel)
+		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.nameString, "Cannot send to channel")
 		return
 	}
-	reply := RplNotice(client, channel, message)
 	for member := range channel.members {
 		if member == client {
 			continue
 		}
-		member.Reply(reply)
+		member.Send(nil, client.nickMaskString, "NOTICE", channel.nameString, message)
 	}
 }
 
@@ -523,35 +554,34 @@ func (channel *Channel) Quit(client *Client) {
 	}
 }
 
-func (channel *Channel) Kick(client *Client, target *Client, comment Text) {
+func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 	if !(client.flags[Operator] || channel.members.Has(client)) {
-		client.ErrNotOnChannel(channel)
+		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.nameString, "You're not on that channel")
 		return
 	}
 	if !channel.ClientIsOperator(client) {
-		client.ErrChanOPrivIsNeeded(channel)
+		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.nameString, "Cannot send to channel")
 		return
 	}
 	if !channel.members.Has(target) {
-		client.ErrUserNotInChannel(channel, target)
+		client.Send(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nickString, channel.nameString, "They aren't on that channel")
 		return
 	}
 
-	reply := RplKick(channel, client, target, comment)
 	for member := range channel.members {
-		member.Reply(reply)
+		member.Send(nil, client.nickMaskString, "KICK", channel.nameString, target.nickString, comment)
 	}
 	channel.Quit(target)
 }
 
 func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 	if channel.flags[InviteOnly] && !channel.ClientIsOperator(inviter) {
-		inviter.ErrChanOPrivIsNeeded(channel)
+		inviter.Send(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
 		return
 	}
 
 	if !channel.members.Has(inviter) {
-		inviter.ErrNotOnChannel(channel)
+		inviter.Send(nil, inviter.server.name, ERR_NOTONCHANNEL, channel.nameString, "You're not on that channel")
 		return
 	}
 
@@ -562,9 +592,10 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 		}
 	}
 
-	inviter.RplInviting(invitee, channel.name)
-	invitee.Reply(RplInviteMsg(inviter, invitee, channel.name))
+	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?
+	inviter.Send(nil, inviter.server.name, RPL_INVITING, invitee.nickString, channel.nameString)
+	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nickString, channel.nameString)
 	if invitee.flags[Away] {
-		inviter.RplAway(invitee)
+		inviter.Send(nil, inviter.server.name, RPL_AWAY, invitee.nickString, invitee.awayMessage)
 	}
 }

@@ -436,6 +436,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if client.realname != "" {
 		client.realname = msg.realname
 	}
+	client.updateNickMask()
 
 	server.clients.Add(client)
 
