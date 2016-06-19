@@ -7,14 +7,14 @@ package irc
 
 import "github.com/DanielOaks/girc-go/ircmsg"
 
-// Command represents a command accepted on a listener.
+// Command represents a command accepted from a client.
 type Command struct {
 	handler      func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	usablePreReg bool
 	minParams    int
 }
 
-// Run runs this command with the given listener/message.
+// Run runs this command with the given client/message.
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
 		// command silently ignored
