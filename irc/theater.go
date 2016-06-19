@@ -14,17 +14,7 @@ func (c TheaterClient) Nick() Name {
 	return Name(c)
 }
 
-type TheaterSubCommand string
-
-type theaterSubCommand interface {
-	String() string
-}
-
-type TheaterIdentifyCommand struct {
-	PassCommand
-	channel Name
-}
-
+/*
 func (m *TheaterIdentifyCommand) LoadPassword(s *Server) {
 	m.hash = s.theaters[m.channel]
 }
@@ -118,3 +108,4 @@ func (m *TheaterActionCommand) HandleServer(s *Server) {
 		member.Reply(reply)
 	}
 }
+*/

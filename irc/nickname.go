@@ -4,6 +4,17 @@
 
 package irc
 
+import "github.com/DanielOaks/girc-go/ircmsg"
+
+// NICK <nickname>
+func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// check NICK validity
+	// send NICK change to primary server thread for processing
+	//   |-> ensure no other client exists with that nickname
+	//TODO(dan): SET client.nickString APPROPRIATELY
+	return true
+}
+
 /*
 type NickCommand struct {
 	BaseCommand
@@ -17,6 +28,7 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 		client.Quit("bad password")
 		return
 	}
+	//TODO(dan): SET client.nickString APPROPRIATELY
 
 	if m.nickname == "" {
 		client.ErrNoNicknameGiven()
@@ -39,6 +51,7 @@ func (m *NickCommand) HandleRegServer(s *Server) {
 
 func (msg *NickCommand) HandleServer(server *Server) {
 	client := msg.Client()
+	//TODO(dan): SET client.nickString APPROPRIATELY
 
 	if msg.nickname == "" {
 		client.ErrNoNicknameGiven()
@@ -71,6 +84,7 @@ type OperNickCommand struct {
 
 func (msg *OperNickCommand) HandleServer(server *Server) {
 	client := msg.Client()
+	//TODO(dan): SET client.nickString APPROPRIATELY
 
 	if !client.flags[Operator] {
 		client.ErrNoPrivileges()

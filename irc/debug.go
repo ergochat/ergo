@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -13,9 +14,10 @@ import (
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
+// DEBUG GCSTATS/NUMGOROUTINE/etc
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.flags[Operator] {
-		return
+		return false
 	}
 
 	switch msg.Params[0] {
@@ -26,47 +28,48 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 		debug.ReadGCStats(&stats)
 
-		server.Replyf(client, "last GC:     %s", stats.LastGC.Format(time.RFC1123))
-		server.Replyf(client, "num GC:      %d", stats.NumGC)
-		server.Replyf(client, "pause total: %s", stats.PauseTotal)
-		server.Replyf(client, "pause quantiles min%%: %s", stats.PauseQuantiles[0])
-		server.Replyf(client, "pause quantiles 25%%:  %s", stats.PauseQuantiles[1])
-		server.Replyf(client, "pause quantiles 50%%:  %s", stats.PauseQuantiles[2])
-		server.Replyf(client, "pause quantiles 75%%:  %s", stats.PauseQuantiles[3])
-		server.Replyf(client, "pause quantiles max%%: %s", stats.PauseQuantiles[4])
+		client.Notice(fmt.Sprintf("last GC:     %s", stats.LastGC.Format(time.RFC1123)))
+		client.Notice(fmt.Sprintf("num GC:      %d", stats.NumGC))
+		client.Notice(fmt.Sprintf("pause total: %s", stats.PauseTotal))
+		client.Notice(fmt.Sprintf("pause quantiles min%%: %s", stats.PauseQuantiles[0]))
+		client.Notice(fmt.Sprintf("pause quantiles 25%%:  %s", stats.PauseQuantiles[1]))
+		client.Notice(fmt.Sprintf("pause quantiles 50%%:  %s", stats.PauseQuantiles[2]))
+		client.Notice(fmt.Sprintf("pause quantiles 75%%:  %s", stats.PauseQuantiles[3]))
+		client.Notice(fmt.Sprintf("pause quantiles max%%: %s", stats.PauseQuantiles[4]))
 
 	case "NUMGOROUTINE":
 		count := runtime.NumGoroutine()
-		server.Replyf(client, "num goroutines: %d", count)
+		client.Notice(fmt.Sprintf("num goroutines: %d", count))
 
 	case "PROFILEHEAP":
 		profFile := "ergonomadic.mprof"
 		file, err := os.Create(profFile)
 		if err != nil {
-			server.Replyf(client, "error: %s", err)
+			client.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 		defer file.Close()
 		pprof.Lookup("heap").WriteTo(file, 0)
-		server.Replyf(client, "written to %s", profFile)
+		client.Notice(fmt.Sprintf("written to %s", profFile))
 
 	case "STARTCPUPROFILE":
 		profFile := "ergonomadic.prof"
 		file, err := os.Create(profFile)
 		if err != nil {
-			server.Replyf(client, "error: %s", err)
+			client.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 		if err := pprof.StartCPUProfile(file); err != nil {
 			defer file.Close()
-			server.Replyf(client, "error: %s", err)
+			client.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 
-		server.Replyf(client, "CPU profile writing to %s", profFile)
+		client.Notice(fmt.Sprintf("CPU profile writing to %s", profFile))
 
 	case "STOPCPUPROFILE":
 		pprof.StopCPUProfile()
-		server.Reply(client, "CPU profiling stopped")
+		client.Notice(fmt.Sprintf("CPU profiling stopped"))
 	}
+	return false
 }

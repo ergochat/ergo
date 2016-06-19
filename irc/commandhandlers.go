@@ -5,19 +5,7 @@
 
 package irc
 
-import (
-	"fmt"
-
-	"github.com/DanielOaks/girc-go/ircmsg"
-)
-
-// NICK <nickname>
-func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// check NICK validity
-	// send NICK change to primary server thread for processing
-	//   |-> ensure no other client exists with that nickname
-	return true
-}
+import "fmt"
 
 type ModeChange struct {
 	mode UserMode

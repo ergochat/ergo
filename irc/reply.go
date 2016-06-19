@@ -5,11 +5,7 @@
 
 package irc
 
-import (
-	"fmt"
-	"strings"
-	"time"
-)
+/*
 
 type ReplyCode interface {
 	String() string
@@ -585,3 +581,4 @@ func (target *Client) ErrInviteOnlyChan(channel *Channel) {
 	target.NumericReply(ERR_INVITEONLYCHAN,
 		"%s :Cannot join channel (+i)", channel)
 }
+*/

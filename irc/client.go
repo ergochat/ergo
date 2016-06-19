@@ -32,12 +32,14 @@ type Client struct {
 	hostname     Name
 	idleTimer    *time.Timer
 	nick         Name
+	nickString   string // cache for nick string since it's used with every reply
 	quitTimer    *time.Timer
 	realname     Text
 	registered   bool
 	server       *Server
 	socket       *Socket
 	username     Name
+	isDestroyed  bool
 }
 
 func NewClient(server *Server, conn net.Conn) *Client {
@@ -83,20 +85,26 @@ func (client *Client) run() {
 			break
 		}
 
-		msg, err = ParseLine(line)
+		msg, err = ircmsg.ParseLine(line)
 		if err != nil {
 			client.Quit("received malformed command")
 			break
 		}
 
-		isExiting = Run(client.server, client, msg)
+		cmd, exists := Commands[msg.Command]
+		if !exists {
+			//TODO(dan): Reply with 400 or whatever unknown cmd is
+			client.Quit("Received unknown command")
+		}
+
+		isExiting = cmd.Run(client.server, client, msg)
 		if isExiting {
 			break
 		}
 	}
 
 	// ensure client connection gets closed
-	client.Destroy()
+	client.destroy()
 }
 
 //
@@ -246,8 +254,9 @@ func (client *Client) Reply(reply string) error {
 	return client.socket.WriteLine(reply)
 }
 
-func (client *Client) Quit(message Text) {
-	client.Send("QUIT", message)
+func (client *Client) Quit(message string) {
+	client.Send(nil, client.nickString, "QUIT", message)
+	client.Send(nil, client.nickString, "ERROR", message)
 }
 
 func (client *Client) destroy() {
@@ -277,11 +286,24 @@ func (client *Client) destroy() {
 	}
 
 	client.socket.Close()
-
-	if len(friends) > 0 {
-		reply := RplQuit(client, message)
-		for friend := range friends {
-			friend.Reply(reply)
-		}
+	for friend := range client.Friends() {
+		//TODO(dan): store quit message in user, if exists use that instead here
+		friend.Send(nil, client.nickString, "QUIT", "Exited")
 	}
+}
+
+// Send sends an IRC line to the client.
+func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+	ircmsg := ircmsg.MakeMessage(tags, prefix, command, params...)
+	line, err := ircmsg.Line()
+	if err != nil {
+		return err
+	}
+	client.socket.Write(line)
+	return nil
+}
+
+// Notice sends the client a notice from the server.
+func (client *Client) Notice(text string) {
+	client.Send(nil, client.server.name, "NOTICE", client.nickString, text)
 }

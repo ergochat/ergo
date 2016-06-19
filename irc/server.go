@@ -31,7 +31,7 @@ type Server struct {
 	db               *sql.DB
 	idle             chan *Client
 	motdLines        []string
-	name             Name
+	name             string
 	newConns         chan net.Conn
 	operators        map[Name][]byte
 	password         []byte
@@ -324,6 +324,7 @@ func (s *Server) tryRegister(c *Client) {
 		(c.capState == CapNegotiating) {
 		return
 	}
+	c.registered = true
 
 	c.Send("Intro to the network")
 	c.Register()
@@ -1015,7 +1016,6 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				client.Send("send")
 			}
 		}
-		client.RplEndOfWhoWas(nickname)
-		client.Send("send")
+		client.Send(nil, server.Name, RPL_ENDOFWHOWAS, nickname, "End of WHOWAS")
 	}
 }

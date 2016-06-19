@@ -9,35 +9,26 @@ import "github.com/DanielOaks/girc-go/ircmsg"
 
 // Command represents a command accepted on a listener.
 type Command struct {
-	handler      func(client *Client, msg ircmsg.IrcMessage) bool
+	handler      func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	usablePreReg bool
 	minParams    int
 }
 
 // Run runs this command with the given listener/message.
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	if !client.Registered && !cmd.usablePreReg {
+	if !client.registered && !cmd.usablePreReg {
 		// command silently ignored
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
-		listener.Send(nil, "", "461", client.Nick, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
 		return false
 	}
 	exiting := cmd.handler(server, client, msg)
 
 	// after each command, see if we can send registration to the client
-	if !client.Registered {
-		isRegistered := true
-		for _, fulfilled := range client.regLocks {
-			if !fulfilled {
-				isRegistered = false
-				break
-			}
-		}
-		if isRegistered {
-			client.DumpRegistration()
-		}
+	if !client.registered {
+		server.tryRegister(client)
 	}
 
 	return exiting
@@ -82,10 +73,11 @@ var Commands = map[string]Command{
 		handler:   listHandler,
 		minParams: 0,
 	},
+	/*TODO(dan): ADD THIS BACK.
 	"MODE": Command{
 		handler:   modeHandler,
 		minParams: 1,
-	},
+	},*/
 	"MOTD": Command{
 		handler:   motdHandler,
 		minParams: 0,
@@ -103,10 +95,11 @@ var Commands = map[string]Command{
 		handler:   noticeHandler,
 		minParams: 2,
 	},
+	/*TODO(dan): ADD THIS BACK
 	"ONICK": Command{
 		handler:   onickHandler,
 		minParams: 2,
-	},
+	},*/
 	"OPER": Command{
 		handler:   operHandler,
 		minParams: 2,
@@ -144,10 +137,11 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    0,
 	},
+	/*TODO(dan): ADD THIS BACK IN
 	"THEATRE": Command{
 		handler:   theatreHandler,
 		minParams: 1,
-	},
+	},*/
 	"TIME": Command{
 		handler:   timeHandler,
 		minParams: 0,

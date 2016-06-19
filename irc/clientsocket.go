@@ -120,7 +120,7 @@ func (cs *ClientSocket) processIncomingLine(line string) bool {
 	command, canBeParsed := Commands[msg.Command]
 
 	if canBeParsed {
-		return command.Run(cs, msg)
+		return command.Run(cs.client.server, &cs.client, msg)
 	}
 	//TODO(dan): This is an error+disconnect purely for reasons of testing.
 	// Later it may be downgraded to not-that-bad.

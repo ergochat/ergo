@@ -6,17 +6,8 @@ package irc
 
 import (
 	"strings"
-)
 
-type CapSubCommand string
-
-const (
-	CAP_LS   CapSubCommand = "LS"
-	CAP_LIST CapSubCommand = "LIST"
-	CAP_REQ  CapSubCommand = "REQ"
-	CAP_ACK  CapSubCommand = "ACK"
-	CAP_NAK  CapSubCommand = "NAK"
-	CAP_END  CapSubCommand = "END"
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
 // Capabilities are optional features a client may request from a server.
@@ -81,65 +72,56 @@ func (set CapabilitySet) DisableString() string {
 	return strings.Join(parts, " ")
 }
 
-func (msg *CapCommand) HandleRegServer(server *Server) {
-	client := msg.Client()
+// CAP <subcmd> [<caps>]
+func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	subCommand := strings.ToUpper(msg.Params[0])
+	capabilities := make(CapabilitySet)
+	var capString string
 
-	switch msg.subCommand {
-	case CAP_LS:
-		client.capState = CapNegotiating
-		client.Reply(RplCap(client, CAP_LS, SupportedCapabilities))
-
-	case CAP_LIST:
-		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
-
-	case CAP_REQ:
-		for capability := range msg.capabilities {
-			if !SupportedCapabilities[capability] {
-				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
-				return
+	if len(msg.Params) > 1 {
+		capString = msg.Params[1]
+		strs := strings.Split(capString, " ")
+		for _, str := range strs {
+			if len(str) > 0 {
+				capabilities[Capability(str)] = true
 			}
 		}
-		for capability := range msg.capabilities {
-			client.capabilities[capability] = true
-		}
-		client.Reply(RplCap(client, CAP_ACK, msg.capabilities))
-
-	case CAP_END:
-		client.capState = CapNegotiated
-		server.tryRegister(client)
-
-	default:
-		client.ErrInvalidCapCmd(msg.subCommand)
 	}
-}
 
-func (msg *CapCommand) HandleServer(server *Server) {
-	client := msg.Client()
+	switch subCommand {
+	case "LS":
+		if !client.registered {
+			client.capState = CapNegotiating
+		}
+		// client.server needs to be here to workaround a parsing bug in weechat 1.4
+		// and let it connect to the server (otherwise it doesn't respond to the CAP
+		// message with anything and just hangs on connection)
+		client.Send(nil, server.name, "CAP", client.nickString, subCommand, SupportedCapabilities.String())
 
-	switch msg.subCommand {
-	case CAP_LS:
-		client.Reply(RplCap(client, CAP_LS, SupportedCapabilities))
+	case "LIST":
+		client.Send(nil, server.name, "CAP", client.nickString, subCommand, client.capabilities.String())
 
-	case CAP_LIST:
-		client.Reply(RplCap(client, CAP_LIST, client.capabilities))
-
-	case CAP_REQ:
-		for capability := range msg.capabilities {
+	case "REQ":
+		// make sure all capabilities actually exist
+		for capability := range capabilities {
 			if !SupportedCapabilities[capability] {
-				client.Reply(RplCap(client, CAP_NAK, msg.capabilities))
-				return
+				client.Send(nil, server.name, "CAP", client.nickString, subCommand, capString)
+				return false
 			}
 		}
-		for capability := range msg.capabilities {
+		for capability := range capabilities {
 			client.capabilities[capability] = true
 		}
-		client.Reply(RplCap(client, CAP_ACK, msg.capabilities))
+		client.Send(nil, server.name, "CAP", client.nickString, subCommand, capString)
 
-	case CAP_END:
-		// no-op after registration performed
-		return
+	case "END":
+		if !client.registered {
+			client.capState = CapNegotiated
+			server.tryRegister(client)
+		}
 
 	default:
-		client.ErrInvalidCapCmd(msg.subCommand)
+		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nickString, subCommand, "Invalid CAP subcommand")
 	}
+	return false
 }
