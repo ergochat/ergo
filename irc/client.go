@@ -145,7 +145,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.Reply(RplPing(client.server))
+	client.Send(nil, "", "PING", client.nickString)
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -229,24 +229,31 @@ func (client *Client) Friends() ClientSet {
 	return friends
 }
 
+func (client *Client) updateNickMask() {
+	client.nickString = client.nick.String()
+	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nickString, client.username, client.hostname)
+}
+
 func (client *Client) SetNickname(nickname Name) {
 	if client.HasNick() {
 		Log.error.Printf("%s nickname already set!", client)
 		return
 	}
 	client.nick = nickname
+	client.updateNickMask()
 	client.server.clients.Add(client)
 }
 
 func (client *Client) ChangeNickname(nickname Name) {
-	// Make reply before changing nick to capture original source id.
-	reply := RplNick(client, nickname)
+	origNickMask := client.nickMaskString
 	client.server.clients.Remove(client)
 	client.server.whoWas.Append(client)
 	client.nick = nickname
+	client.updateNickMask()
 	client.server.clients.Add(client)
+	client.Send(nil, origNickMask, "NICK", nickname.String())
 	for friend := range client.Friends() {
-		friend.Reply(reply)
+		friend.Send(nil, origNickMask, "NICK", nickname.String())
 	}
 }
 
