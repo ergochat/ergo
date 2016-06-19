@@ -31,7 +31,8 @@ type Server struct {
 	db               *sql.DB
 	idle             chan *Client
 	motdLines        []string
-	name             string
+	name             Name
+	nameString       string // cache for server name string since it's used with almost every reply
 	newConns         chan net.Conn
 	operators        map[Name][]byte
 	password         []byte
@@ -56,6 +57,7 @@ func NewServer(config *Config) *Server {
 		db:               OpenDB(config.Server.Database),
 		idle:             make(chan *Client),
 		name:             NewName(config.Server.Name),
+		nameString:       NewName(config.Server.Name).String(),
 		newConns:         make(chan net.Conn),
 		operators:        config.Operators(),
 		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),

@@ -21,7 +21,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
+		client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
 		return false
 	}
 	exiting := cmd.handler(server, client, msg)

@@ -33,7 +33,7 @@ type Client struct {
 	idleTimer      *time.Timer
 	nick           Name
 	nickString     string // cache for nick string since it's used with most numerics
-	nickMaskString string // cache for nickmask string since it's used with every reply
+	nickMaskString string // cache for nickmask string since it's used with lots of replies
 	quitTimer      *time.Timer
 	realname       Text
 	registered     bool
@@ -313,5 +313,5 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 
 // Notice sends the client a notice from the server.
 func (client *Client) Notice(text string) {
-	client.Send(nil, client.server.name, "NOTICE", client.nickString, text)
+	client.Send(nil, client.server.nameString, "NOTICE", client.nickString, text)
 }
