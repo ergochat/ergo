@@ -127,6 +127,7 @@ type ChannelModeCommand struct {
 	changes ChannelModeChanges
 }
 
+/*
 // MODE <channel> ( "+" / "-" )? *( "+" / "-" / <mode character> ) *<modeparams>
 func ParseChannelModeCommand(channel Name, args []string) (Command, error) {
 	cmd := &ChannelModeCommand{

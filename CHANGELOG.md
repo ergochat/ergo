@@ -25,6 +25,7 @@ Initial release of Oragono!
 * Default channel modes are now (`+nt`), matching most other IRCds.
 * CLI argument names made more consistent with typical software.
 * ONICK: Renamed to SANICK to be more consistent with other IRCds.
+* USER: Prepend usernames set by the USER command with `"~"`.
 
 ### Removed
 * Gitconfig config format completely removed and replaced with YAML.

@@ -287,11 +287,11 @@ func (s *Server) tryRegister(c *Client) {
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
-	c.Send(nil, s.nameString, RPL_WELCOME, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nickString))
-	c.Send(nil, s.nameString, RPL_YOURHOST, fmt.Sprintf("Your host is %s, running version %s", s.nameString, SEM_VER))
-	c.Send(nil, s.nameString, RPL_CREATED, fmt.Sprintf("This server was created %s", s.ctime.Format(time.RFC1123)))
+	c.Send(nil, s.nameString, RPL_WELCOME, c.nickString, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nickString))
+	c.Send(nil, s.nameString, RPL_YOURHOST, c.nickString, fmt.Sprintf("Your host is %s, running version %s", s.nameString, SEM_VER))
+	c.Send(nil, s.nameString, RPL_CREATED, c.nickString, fmt.Sprintf("This server was created %s", s.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	c.Send(nil, s.nameString, RPL_MYINFO, s.nameString, SEM_VER, supportedUserModesString, supportedChannelModesString)
+	c.Send(nil, s.nameString, RPL_MYINFO, c.nickString, s.nameString, SEM_VER, supportedUserModesString, supportedChannelModesString)
 	c.RplISupport()
 	s.MOTD(c)
 }
@@ -329,6 +329,12 @@ func (s *Server) Nick() Name {
 func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if client.registered {
 		client.Send(nil, server.nameString, ERR_ALREADYREGISTRED, client.nickString, "You may not reregister")
+		return false
+	}
+
+	// if no password exists, skip checking
+	if len(server.password) == 0 {
+		client.authorized = true
 		return false
 	}
 
@@ -383,8 +389,8 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// we do it this way to ONLY replace what hasn't already been set
 	server.clients.Remove(client)
 
-	if client.username != "" {
-		client.username = Name(msg.Params[0])
+	if !client.HasUsername() {
+		client.username = Name("~" + msg.Params[0])
 		client.updateNickMask()
 	}
 	if client.realname != "" {
@@ -446,6 +452,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for i, nameString := range channels {
 		name = Name(nameString)
 		if !name.IsChannel() {
+			fmt.Println("ISN'T CHANNEL NAME:", nameString)
 			client.Send(nil, server.nameString, ERR_NOSUCHCHANNEL, client.nickString, nameString, "No such channel")
 			continue
 		}
@@ -551,10 +558,10 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 // WHOIS [ <target> ] <mask> *( "," <mask> )
 func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var masksString string
-	var target string
+	//var target string
 
 	if len(msg.Params) > 1 {
-		target = msg.Params[0]
+		//target = msg.Params[0]
 		masksString = msg.Params[1]
 	} else {
 		masksString = msg.Params[0]
@@ -639,10 +646,10 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	//TODO(dan): is this used and would I put this param in the Modern doc?
 	// if not, can we remove it?
-	var operatorOnly bool
-	if len(msg.Params) > 1 && msg.Params[1] == "o" {
-		operatorOnly = true
-	}
+	//var operatorOnly bool
+	//if len(msg.Params) > 1 && msg.Params[1] == "o" {
+	//	operatorOnly = true
+	//}
 
 	if mask == "" {
 		for _, channel := range server.channels {
@@ -679,7 +686,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	client.flags[Operator] = true
-	client.Send(nil, server.nameString, RPL_YOUREOPER, client.nickString, "You are not an IRC operator")
+	client.Send(nil, server.nameString, RPL_YOUREOPER, client.nickString, "You are now an IRC operator")
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
 	modech := ModeChanges{&ModeChange{
 		mode: Operator,
@@ -740,10 +747,10 @@ func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // MOTD [<target>]
 func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//TODO(dan): hook this up when we have multiple servers I guess???
-	var target string
-	if len(msg.Params) > 0 {
-		target = msg.Params[0]
-	}
+	//var target string
+	//if len(msg.Params) > 0 {
+	//	target = msg.Params[0]
+	//}
 
 	server.MOTD(client)
 	return false
@@ -902,10 +909,10 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 0 {
 		channels = strings.Split(msg.Params[0], ",")
 	}
-	var target string
-	if len(msg.Params) > 1 {
-		target = msg.Params[1]
-	}
+	//var target string
+	//if len(msg.Params) > 1 {
+	//	target = msg.Params[1]
+	//}
 
 	if len(channels) == 0 {
 		for _, channel := range server.channels {
@@ -1002,10 +1009,10 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 1 {
 		count, _ = strconv.ParseInt(msg.Params[1], 10, 64)
 	}
-	var target string
-	if len(msg.Params) > 2 {
-		target = msg.Params[2]
-	}
+	//var target string
+	//if len(msg.Params) > 2 {
+	//	target = msg.Params[2]
+	//}
 	for _, nickname := range nicknames {
 		results := server.whoWas.Find(Name(nickname), count)
 		if len(results) == 0 {

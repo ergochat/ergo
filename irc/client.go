@@ -56,6 +56,7 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		flags:        make(map[UserMode]bool),
 		server:       server,
 		socket:       &socket,
+		nickString:   "*", // * is used until actual nick is given
 	}
 	client.Touch()
 	go client.run()
@@ -68,7 +69,6 @@ func NewClient(server *Server, conn net.Conn) *Client {
 //
 
 func (client *Client) run() {
-	var command Command
 	var err error
 	var isExiting bool
 	var line string
@@ -88,14 +88,14 @@ func (client *Client) run() {
 
 		msg, err = ircmsg.ParseLine(line)
 		if err != nil {
-			client.Quit("received malformed command")
+			client.Quit("received malformed line")
 			break
 		}
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
-			//TODO(dan): Reply with 400 or whatever unknown cmd is
-			client.Quit("Received unknown command")
+			client.Send(nil, client.server.nameString, ERR_UNKNOWNCOMMAND, client.nickString, msg.Command, "Unknown command")
+			continue
 		}
 
 		isExiting = cmd.Run(client.server, client, msg)

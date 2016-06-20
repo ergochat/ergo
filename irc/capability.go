@@ -105,14 +105,14 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// make sure all capabilities actually exist
 		for capability := range capabilities {
 			if !SupportedCapabilities[capability] {
-				client.Send(nil, server.nameString, "CAP", client.nickString, subCommand, capString)
+				client.Send(nil, server.nameString, "CAP", client.nickString, "NAK", capString)
 				return false
 			}
 		}
 		for capability := range capabilities {
 			client.capabilities[capability] = true
 		}
-		client.Send(nil, server.nameString, "CAP", client.nickString, subCommand, capString)
+		client.Send(nil, server.nameString, "CAP", client.nickString, "ACK", capString)
 
 	case "END":
 		if !client.registered {

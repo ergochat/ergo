@@ -23,7 +23,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		// command silently ignored
 		return false
 	}
-	if (!cmd.oper) && (!client.flags[Operator]) {
+	if cmd.oper && !client.flags[Operator] {
 		client.Send(nil, server.nameString, ERR_NOPRIVILEGES, client.nickString, "Permission Denied - You're not an IRC operator")
 		return false
 	}
@@ -87,11 +87,10 @@ var Commands = map[string]Command{
 		handler:   listHandler,
 		minParams: 0,
 	},
-	/*TODO(dan): ADD THIS BACK.
 	"MODE": Command{
 		handler:   modeHandler,
 		minParams: 1,
-	},*/
+	},
 	"MOTD": Command{
 		handler:   motdHandler,
 		minParams: 0,
@@ -153,7 +152,7 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    0,
 	},
-	/*TODO(dan): ADD THIS BACK IN
+	/*TODO(dan): Add this back in
 	"THEATRE": Command{
 		handler:   theatreHandler,
 		minParams: 1,

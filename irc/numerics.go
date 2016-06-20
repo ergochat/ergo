@@ -90,6 +90,7 @@ const (
 	RPL_USERS             = "393"
 	RPL_ENDOFUSERS        = "394"
 	RPL_NOUSERS           = "395"
+	ERR_UNKNOWNERROR      = "400"
 	ERR_NOSUCHNICK        = "401"
 	ERR_NOSUCHSERVER      = "402"
 	ERR_NOSUCHCHANNEL     = "403"

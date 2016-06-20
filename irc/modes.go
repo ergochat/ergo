@@ -7,6 +7,8 @@ package irc
 
 import (
 	"strings"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
 // user mode flags
@@ -126,60 +128,104 @@ var (
 // commands
 //
 
-/*
-func (m *ModeCommand) HandleServer(s *Server) {
-	client := m.Client()
-	target := s.clients.Get(m.nickname)
+// MODE <target> [<modestring> [<mode arguments>...]]
+func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	name := NewName(msg.Params[0])
+	if name.IsChannel() {
+		// return cmodeHandler(server, client, msg)
+		client.Notice("CMODEs are not yet supported!")
+		return false
+	} else {
+		return umodeHandler(server, client, msg)
+	}
+}
+
+// MODE <target> [<modestring> [<mode arguments>...]]
+func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	nickname := NewName(msg.Params[0])
+
+	target := server.clients.Get(nickname)
 
 	if target == nil {
-		client.ErrNoSuchNick(m.nickname)
-		return
+		client.Send(nil, server.nameString, ERR_NOSUCHNICK, client.nickString, msg.Params[0], "No such nick")
+		return false
 	}
 
+	//TODO(dan): restricting to Operator here should be done with SAMODE only
+	// point SAMODE at this handler too, if they are operator and SAMODE was called then fine
 	if client != target && !client.flags[Operator] {
-		client.ErrUsersDontMatch()
-		return
+		if len(msg.Params) > 1 {
+			client.Send(nil, server.nameString, ERR_USERSDONTMATCH, client.nickString, "Can't change modes for other users")
+		} else {
+			client.Send(nil, server.nameString, ERR_USERSDONTMATCH, client.nickString, "Can't view modes for other users")
+		}
+		return false
 	}
 
-	changes := make(ModeChanges, 0, len(m.changes))
+	// assemble changes
+	changes := make(ModeChanges, 0)
 
-	for _, change := range m.changes {
-		switch change.mode {
-		case Invisible, ServerNotice, WallOps:
-			switch change.op {
-			case Add:
-				if target.flags[change.mode] {
-					continue
-				}
-				target.flags[change.mode] = true
-				changes = append(changes, change)
+	if len(msg.Params) > 1 {
+		modeArg := msg.Params[0]
+		op := ModeOp(modeArg[0])
+		if (op == Add) || (op == Remove) {
+			modeArg = modeArg[1:]
+		} else {
+			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "MODE", "Mode string could not be parsed correctly")
+			return false
+		}
 
-			case Remove:
-				if !target.flags[change.mode] {
-					continue
-				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
+		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
 			}
+			changes = append(changes, &ModeChange{
+				mode: UserMode(mode),
+				op:   op,
+			})
+		}
 
-		case Operator, LocalOperator:
-			if change.op == Remove {
-				if !target.flags[change.mode] {
-					continue
+		for _, change := range changes {
+			switch change.mode {
+			case Invisible, ServerNotice, WallOps:
+				switch change.op {
+				case Add:
+					if target.flags[change.mode] {
+						continue
+					}
+					target.flags[change.mode] = true
+					changes = append(changes, change)
+
+				case Remove:
+					if !target.flags[change.mode] {
+						continue
+					}
+					delete(target.flags, change.mode)
+					changes = append(changes, change)
 				}
-				delete(target.flags, change.mode)
-				changes = append(changes, change)
+
+			case Operator, LocalOperator:
+				if change.op == Remove {
+					if !target.flags[change.mode] {
+						continue
+					}
+					delete(target.flags, change.mode)
+					changes = append(changes, change)
+				}
 			}
 		}
 	}
 
 	if len(changes) > 0 {
-		client.Reply(RplModeChanges(client, target, changes))
+		client.Send(nil, client.nickMaskString, "MODE", target.nickString, changes.String())
 	} else if client == target {
-		client.RplUModeIs(client)
+		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nickString, target.ModeString())
 	}
+	return false
 }
 
+/*
 func (msg *ChannelModeCommand) HandleServer(server *Server) {
 	client := msg.Client()
 	channel := server.channels.Get(msg.channel)
