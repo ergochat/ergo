@@ -24,6 +24,7 @@ Initial release of Oragono!
 * Added secret (`+s`) channel mode to replace private (`+p`) for hiding channels, since everything else uses `+s` over `+p` these days.
 * Default channel modes are now (`+nt`), matching most other IRCds.
 * CLI argument names made more consistent with typical software.
+* ONICK: Renamed to SANICK to be more consistent with other IRCds.
 
 ### Removed
 * Gitconfig config format completely removed and replaced with YAML.

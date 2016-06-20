@@ -10,6 +10,7 @@ import "github.com/DanielOaks/girc-go/ircmsg"
 // Command represents a command accepted from a client.
 type Command struct {
 	handler           func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
+	oper              bool
 	usablePreReg      bool
 	leaveClientActive bool // if true, leaves the client active time alone. reversed because we can't default a struct element to True
 	leaveClientIdle   bool
@@ -20,6 +21,10 @@ type Command struct {
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
 		// command silently ignored
+		return false
+	}
+	if (!cmd.oper) && (!client.flags[Operator]) {
+		client.Send(nil, server.nameString, ERR_NOPRIVILEGES, client.nickString, "Permission Denied - You're not an IRC operator")
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
@@ -76,6 +81,7 @@ var Commands = map[string]Command{
 	"KILL": Command{
 		handler:   killHandler,
 		minParams: 2,
+		oper:      true,
 	},
 	"LIST": Command{
 		handler:   listHandler,
@@ -101,10 +107,6 @@ var Commands = map[string]Command{
 	},
 	"NOTICE": Command{
 		handler:   noticeHandler,
-		minParams: 2,
-	},
-	"ONICK": Command{
-		handler:   onickHandler,
 		minParams: 2,
 	},
 	"OPER": Command{
@@ -140,6 +142,11 @@ var Commands = map[string]Command{
 		handler:      proxyHandler,
 		usablePreReg: true,
 		minParams:    5,
+	},
+	"SANICK": Command{
+		handler:   sanickHandler,
+		minParams: 2,
+		oper:      true,
 	},
 	"QUIT": Command{
 		handler:      quitHandler,

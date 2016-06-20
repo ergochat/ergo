@@ -982,11 +982,6 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname := msg.Params[0]
 	comment := msg.Params[1]
 
-	if !client.flags[Operator] {
-		client.Send(nil, server.nameString, ERR_NOPRIVILEGES, client.nickString, "Permission Denied - You're not an IRC operator")
-		return false
-	}
-
 	target := server.clients.Get(Name(nickname))
 	if target == nil {
 		client.Send(nil, client.server.nameString, ERR_NOSUCHNICK, nickname, "No such nick")

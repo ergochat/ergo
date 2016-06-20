@@ -8,111 +8,75 @@ import "github.com/DanielOaks/girc-go/ircmsg"
 
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// check NICK validity
-	// send NICK change to primary server thread for processing
-	//   |-> ensure no other client exists with that nickname
-
-	// do this after replacing nickname
-	client.updateNickMask()
-	return true
-}
-
-/*
-type NickCommand struct {
-	BaseCommand
-	nickname Name
-}
-
-func (m *NickCommand) HandleRegServer(s *Server) {
-	client := m.Client()
 	if !client.authorized {
-		client.ErrPasswdMismatch()
-		client.Quit("bad password")
-		return
-	}
-	//TODO(dan): SET client.nickString APPROPRIATELY
-
-	if m.nickname == "" {
-		client.ErrNoNicknameGiven()
-		return
+		client.Quit("Bad password")
+		return true
 	}
 
-	if s.clients.Get(m.nickname) != nil {
-		client.ErrNickNameInUse(m.nickname)
-		return
+	nickname := NewName(msg.Params[0])
+
+	if len(nickname) < 1 {
+		client.Send(nil, server.nameString, ERR_NONICKNAMEGIVEN, client.nickString, "No nickname given")
+		return false
 	}
 
-	if !m.nickname.IsNickname() {
-		client.ErrErroneusNickname(m.nickname)
-		return
+	if !nickname.IsNickname() {
+		client.Send(nil, server.nameString, ERR_ERRONEUSNICKNAME, client.nickString, msg.Params[0], "Erroneous nickname")
+		return false
 	}
 
-	client.SetNickname(m.nickname)
-	s.tryRegister(client)
+	if client.nick == nickname {
+		return false
+	}
+
+	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
+	target := server.clients.Get(nickname)
+	if target != nil && target != client {
+		client.Send(nil, server.nameString, ERR_NICKNAMEINUSE, client.nickString, msg.Params[0], "Nickname is already in use")
+		return false
+	}
+
+	client.SetNickname(nickname)
+	server.tryRegister(client)
+	return false
 }
 
-func (msg *NickCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	//TODO(dan): SET client.nickString APPROPRIATELY
-
-	if msg.nickname == "" {
-		client.ErrNoNicknameGiven()
-		return
+// SANICK <oldnick> <nickname>
+func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	if !client.authorized {
+		client.Quit("Bad password")
+		return true
 	}
 
-	if !msg.nickname.IsNickname() {
-		client.ErrErroneusNickname(msg.nickname)
-		return
+	oldnick := NewName(msg.Params[0])
+	nickname := NewName(msg.Params[1])
+
+	if len(nickname) < 1 {
+		client.Send(nil, server.nameString, ERR_NONICKNAMEGIVEN, client.nickString, "No nickname given")
+		return false
 	}
 
-	if msg.nickname == client.nick {
-		return
+	if !nickname.IsNickname() {
+		client.Send(nil, server.nameString, ERR_ERRONEUSNICKNAME, client.nickString, msg.Params[0], "Erroneous nickname")
+		return false
 	}
 
-	target := server.clients.Get(msg.nickname)
-	if (target != nil) && (target != client) {
-		client.ErrNickNameInUse(msg.nickname)
-		return
+	if client.nick == nickname {
+		return false
 	}
 
-	client.ChangeNickname(msg.nickname)
-}
-
-type OperNickCommand struct {
-	BaseCommand
-	target Name
-	nick   Name
-}
-
-func (msg *OperNickCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	//TODO(dan): SET client.nickString APPROPRIATELY
-
-	if !client.flags[Operator] {
-		client.ErrNoPrivileges()
-		return
-	}
-
-	if !msg.nick.IsNickname() {
-		client.ErrErroneusNickname(msg.nick)
-		return
-	}
-
-	if msg.nick == client.nick {
-		return
-	}
-
-	target := server.clients.Get(msg.target)
+	target := server.clients.Get(oldnick)
 	if target == nil {
-		client.ErrNoSuchNick(msg.target)
-		return
+		client.Send(nil, server.nameString, ERR_NOSUCHNICK, msg.Params[0], "No such nick")
+		return false
 	}
 
-	if server.clients.Get(msg.nick) != nil {
-		client.ErrNickNameInUse(msg.nick)
-		return
+	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
+	if server.clients.Get(nickname) != nil {
+		client.Send(nil, server.nameString, ERR_NICKNAMEINUSE, client.nickString, msg.Params[0], "Nickname is already in use")
+		return false
 	}
 
-	target.ChangeNickname(msg.nick)
+	target.SetNickname(nickname)
+	return false
 }
-*/
