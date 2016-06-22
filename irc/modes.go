@@ -132,9 +132,7 @@ var (
 func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	name := NewName(msg.Params[0])
 	if name.IsChannel() {
-		// return cmodeHandler(server, client, msg)
-		client.Notice("CMODEs are not yet supported!")
-		return false
+		return cmodeHandler(server, client, msg)
 	} else {
 		return umodeHandler(server, client, msg)
 	}
@@ -164,14 +162,15 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// assemble changes
 	changes := make(ModeChanges, 0)
+	applied := make(ModeChanges, 0)
 
 	if len(msg.Params) > 1 {
-		modeArg := msg.Params[0]
+		modeArg := msg.Params[1]
 		op := ModeOp(modeArg[0])
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
 		} else {
-			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "MODE", "Mode string could not be parsed correctly")
+			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[1]), "is an unknown mode character to me")
 			return false
 		}
 
@@ -195,14 +194,14 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 						continue
 					}
 					target.flags[change.mode] = true
-					changes = append(changes, change)
+					applied = append(applied, change)
 
 				case Remove:
 					if !target.flags[change.mode] {
 						continue
 					}
 					delete(target.flags, change.mode)
-					changes = append(changes, change)
+					applied = append(applied, change)
 				}
 
 			case Operator, LocalOperator:
@@ -211,7 +210,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 						continue
 					}
 					delete(target.flags, change.mode)
-					changes = append(changes, change)
+					applied = append(applied, change)
 				}
 			}
 		}
@@ -225,15 +224,153 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-/*
-func (msg *ChannelModeCommand) HandleServer(server *Server) {
-	client := msg.Client()
-	channel := server.channels.Get(msg.channel)
+// MODE <target> [<modestring> [<mode arguments>...]]
+func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	channelName := NewName(msg.Params[0])
+	channel := server.channels.Get(channelName)
+
 	if channel == nil {
-		client.ErrNoSuchChannel(msg.channel)
-		return
+		client.Send(nil, server.nameString, ERR_NOSUCHCHANNEL, client.nickString, msg.Params[0], "No such channel")
+		return false
 	}
 
-	channel.Mode(client, msg.changes)
+	// assemble changes
+	//TODO(dan): split out assembling changes into func that returns changes, err
+	changes := make(ChannelModeChanges, 0)
+	applied := make(ChannelModeChanges, 0)
+
+	if len(msg.Params) > 1 {
+		modeArg := msg.Params[1]
+		op := ModeOp(modeArg[0])
+		if (op == Add) || (op == Remove) {
+			modeArg = modeArg[1:]
+		} else {
+			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[1]), "is an unknown mode character to me")
+			return false
+		}
+
+		skipArgs := 2
+		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
+			change := ChannelModeChange{
+				mode: ChannelMode(mode),
+				op:   op,
+			}
+
+			// put arg into modechange if needed
+			switch ChannelMode(mode) {
+			case BanMask, ExceptMask, InviteMask:
+				if len(msg.Params) > skipArgs {
+					change.arg = msg.Params[skipArgs]
+					skipArgs += 1
+				} else {
+					change.op = List
+				}
+			case Key, UserLimit, ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+				if len(msg.Params) > skipArgs {
+					change.arg = msg.Params[skipArgs]
+					skipArgs += 1
+				} else {
+					continue
+				}
+			}
+
+			applied = append(applied, &change)
+		}
+
+		for _, change := range changes {
+			switch change.mode {
+			case BanMask, ExceptMask, InviteMask:
+				mask := change.arg
+				list := channel.lists[change.mode]
+				if list == nil {
+					// This should never happen, but better safe than panicky.
+					client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "MODE", "Could not complete MODE command")
+					return false
+				}
+
+				if (change.op == List) || (mask == "") {
+					channel.ShowMaskList(client, change.mode)
+					continue
+				}
+
+				switch change.op {
+				case Add:
+					list.Add(Name(mask))
+					applied = append(applied, change)
+
+				case Remove:
+					list.Remove(Name(mask))
+					applied = append(applied, change)
+				}
+
+			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Secret:
+				switch change.op {
+				case Add:
+					if channel.flags[change.mode] {
+						continue
+					}
+					channel.flags[change.mode] = true
+					applied = append(applied, change)
+
+				case Remove:
+					if !channel.flags[change.mode] {
+						continue
+					}
+					delete(channel.flags, change.mode)
+					applied = append(applied, change)
+				}
+
+			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+				// make sure client has privs to edit the given prefix
+				var hasPrivs bool
+
+				for _, mode := range ChannelPrivModes {
+					if channel.members[client][mode] {
+						hasPrivs = true
+
+						// Admins can't give other people Admin or remove it from others,
+						// standard for that channel mode, we worry about this later
+						if mode == ChannelAdmin && change.mode == ChannelAdmin {
+							hasPrivs = false
+						}
+
+						break
+					} else if mode == change.mode {
+						break
+					}
+				}
+
+				name := NewName(change.arg)
+
+				if !hasPrivs {
+					if change.op == Remove && name.ToLower() == client.nick.ToLower() {
+						// success!
+					} else {
+						client.Send(nil, client.server.nameString, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
+						continue
+					}
+				}
+
+				change := channel.applyModeMember(client, change.mode, change.op, change.arg)
+				if change != nil {
+					applied = append(changes, change)
+				}
+			}
+		}
+	}
+
+	if len(applied) > 0 {
+		//TODO(dan): we should change the name of String and make it return a slice here
+		args := append([]string{channel.nameString}, strings.Split(applied.String(), " ")...)
+		client.Send(nil, client.nickMaskString, "MODE", args...)
+	} else {
+		//TODO(dan): we should just make ModeString return a slice here
+		args := append([]string{client.nickString, channel.nameString}, strings.Split(channel.ModeString(client), " ")...)
+		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
+	}
+	return false
 }
-*/
