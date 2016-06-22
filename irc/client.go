@@ -27,6 +27,7 @@ type Client struct {
 	channels       ChannelSet
 	ctime          time.Time
 	flags          map[UserMode]bool
+	isQuitting     bool
 	hasQuit        bool
 	hops           uint
 	hostname       Name
@@ -99,7 +100,7 @@ func (client *Client) run() {
 		}
 
 		isExiting = cmd.Run(client.server, client, msg)
-		if isExiting {
+		if isExiting || client.isQuitting {
 			break
 		}
 	}
@@ -114,6 +115,7 @@ func (client *Client) run() {
 
 func (client *Client) connectionTimeout() {
 	client.Quit("connection timeout")
+	client.isQuitting = true
 }
 
 //

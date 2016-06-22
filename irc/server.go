@@ -419,15 +419,14 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // PING <server1> [<server2>]
 func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// client.Socket.Send(response here)
-	return true
+	client.Send(nil, server.nameString, "PONG", msg.Params...)
+	return false
 }
 
 // PONG <server> [ <server2> ]
 func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	//TODO(dan): update client idle timer from this
-	//TODO(dan): use this to affect how often we send pings
-	return true
+	// client gets touched when they send this command, so we don't need to do anything
+	return false
 }
 
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
