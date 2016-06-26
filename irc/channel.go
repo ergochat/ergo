@@ -8,18 +8,22 @@ package irc
 import (
 	"log"
 	"strconv"
+	"time"
 )
 
 type Channel struct {
-	flags      ChannelModeSet
-	lists      map[ChannelMode]*UserMaskSet
-	key        string
-	members    MemberSet
-	name       Name
-	nameString string
-	server     *Server
-	topic      string
-	userLimit  uint64
+	flags        ChannelModeSet
+	lists        map[ChannelMode]*UserMaskSet
+	key          string
+	members      MemberSet
+	name         Name
+	nameString   string
+	server       *Server
+	createdTime  time.Time
+	topic        string
+	topicSetBy   string
+	topicSetTime time.Time
+	userLimit    uint64
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -205,6 +209,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if !channel.flags[Persistent] && (len(channel.members) == 1) {
+		channel.createdTime = time.Now()
 		channel.members[client][ChannelFounder] = true
 		channel.members[client][ChannelOperator] = true
 	}
@@ -238,7 +243,7 @@ func (channel *Channel) GetTopic(client *Client) {
 	}
 
 	client.Send(nil, client.server.nameString, RPL_TOPIC, client.nickString, channel.nameString, channel.topic)
-	//TODO(dan): show topic time and setter here too
+	client.Send(nil, client.server.nameString, RPL_TOPICTIME, client.nickString, channel.nameString, channel.topicSetBy, strconv.FormatInt(channel.topicSetTime.Unix(), 10))
 }
 
 func (channel *Channel) SetTopic(client *Client, topic string) {
@@ -253,6 +258,8 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 
 	channel.topic = topic
+	channel.topicSetBy = client.nickString
+	channel.topicSetTime = time.Now()
 
 	for member := range channel.members {
 		member.Send(nil, client.nickMaskString, "TOPIC", channel.nameString, channel.topic)
@@ -404,6 +411,7 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 
 func (channel *Channel) Persist() (err error) {
 	if channel.flags[Persistent] {
+		//TODO(dan): Save topicSetBy/topicSetTime and createdTime
 		_, err = channel.server.db.Exec(`
             INSERT OR REPLACE INTO channel
               (name, flags, key, topic, user_limit, ban_list, except_list,

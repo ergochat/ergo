@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
@@ -371,6 +372,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		//TODO(dan): we should just make ModeString return a slice here
 		args := append([]string{client.nickString, channel.nameString}, strings.Split(channel.ModeString(client), " ")...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
+		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nickString, channel.nameString, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }
