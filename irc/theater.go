@@ -19,6 +19,26 @@ func (m *TheaterIdentifyCommand) LoadPassword(s *Server) {
 	m.hash = s.theaters[m.channel]
 }
 
+	if upperSubCmd := strings.ToUpper(args[0]); upperSubCmd == "IDENTIFY" && len(args) == 3 {
+		return &TheaterIdentifyCommand{
+			channel:     NewName(args[1]),
+			PassCommand: PassCommand{password: []byte(args[2])},
+		}, nil
+	} else if upperSubCmd == "PRIVMSG" && len(args) == 4 {
+		return &TheaterPrivMsgCommand{
+			channel: NewName(args[1]),
+			asNick:  NewName(args[2]),
+			message: NewText(args[3]),
+		}, nil
+	} else if upperSubCmd == "ACTION" && len(args) == 4 {
+		return &TheaterActionCommand{
+			channel: NewName(args[1]),
+			asNick:  NewName(args[2]),
+			action:  NewCTCPText(args[3]),
+		}, nil
+	} else {
+		return nil, ErrParseCommand
+	}
 func (m *TheaterIdentifyCommand) HandleServer(s *Server) {
 	client := m.Client()
 	if !m.channel.IsChannel() {
