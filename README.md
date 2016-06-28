@@ -2,6 +2,8 @@ Oragono is a very early, extremely experimental fork of the [Ergonomadic](https:
 
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
+*NOTE: Things are probably very broken right now. The `THEATER` command does not work, and I'm currently most of the way through rearchitecting the command handling. It should be finished apart from the `THEATER` command, but things are probably still broken.*
+
 # Features
 
 * UTF-8 nick and channel names
