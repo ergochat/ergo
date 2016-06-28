@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,34 @@ func (modes UserModes) String() string {
 	return strings.Join(strs, "")
 }
 
+type ModeChange struct {
+	mode UserMode
+	op   ModeOp
+}
+
+func (change *ModeChange) String() string {
+	return fmt.Sprintf("%s%s", change.op, change.mode)
+}
+
+type ModeChanges []*ModeChange
+
+func (changes ModeChanges) String() string {
+	if len(changes) == 0 {
+		return ""
+	}
+
+	op := changes[0].op
+	str := changes[0].op.String()
+	for _, change := range changes {
+		if change.op != op {
+			op = change.op
+			str += change.op.String()
+		}
+		str += change.mode.String()
+	}
+	return str
+}
+
 // channel mode flags
 type ChannelMode rune
 
@@ -44,6 +73,55 @@ func (modes ChannelModes) String() string {
 		strs[index] = mode.String()
 	}
 	return strings.Join(strs, "")
+}
+
+type ChannelModeChange struct {
+	mode ChannelMode
+	op   ModeOp
+	arg  string
+}
+
+func (change *ChannelModeChange) String() (str string) {
+	if (change.op == Add) || (change.op == Remove) {
+		str = change.op.String()
+	}
+	str += change.mode.String()
+	if change.arg != "" {
+		str += " " + change.arg
+	}
+	return
+}
+
+type ChannelModeChanges []*ChannelModeChange
+
+func (changes ChannelModeChanges) String() string {
+	if len(changes) == 0 {
+		return ""
+	}
+
+	op := changes[0].op
+	str := changes[0].op.String()
+
+	for _, change := range changes {
+		if change.op != op {
+			op = change.op
+			str += change.op.String()
+		}
+		str += change.mode.String()
+	}
+
+	for _, change := range changes {
+		if change.arg == "" {
+			continue
+		}
+		str += " " + change.arg
+	}
+	return str
+}
+
+type ChannelModeCommand struct {
+	channel Name
+	changes ChannelModeChanges
 }
 
 type ModeOp rune
@@ -240,6 +318,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	changes := make(ChannelModeChanges, 0)
 	applied := make(ChannelModeChanges, 0)
 
+	// TODO(dan): look at separating these into the type A/B/C/D args and using those lists here
 	if len(msg.Params) > 1 {
 		modeArg := msg.Params[1]
 		op := ModeOp(modeArg[0])
