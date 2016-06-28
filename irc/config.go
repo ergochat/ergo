@@ -51,6 +51,7 @@ type Config struct {
 
 	Server struct {
 		PassConfig
+		Password         string
 		Name             string
 		Database         string
 		Listen           []string
@@ -107,6 +108,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
+	}
+
+	// we need this so PasswordBytes returns the correct info
+	if config.Server.Password != "" {
+		config.Server.PassConfig.Password = config.Server.Password
 	}
 
 	if config.Network.Name == "" {

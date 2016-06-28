@@ -341,7 +341,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check the provided password
 	password := []byte(msg.Params[0])
 	if ComparePassword(server.password, password) != nil {
-		client.Quit("bad password")
+		client.Send(nil, server.nameString, ERR_PASSWDMISMATCH, client.nickString, "Password incorrect")
+		client.Send(nil, server.nameString, "ERROR", "Password incorrect")
 		return true
 	}
 
