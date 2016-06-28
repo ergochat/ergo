@@ -143,6 +143,7 @@ const (
 	Operator      UserMode = 'o'
 	Restricted    UserMode = 'r'
 	ServerNotice  UserMode = 's' // deprecated
+	TLS           UserMode = 'Z'
 	WallOps       UserMode = 'w'
 )
 
@@ -292,11 +293,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					applied = append(applied, change)
 				}
 			}
+
+			// can't do anything to TLS mode
 		}
 	}
 
-	if len(changes) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", target.nickString, changes.String())
+	if len(applied) > 0 {
+		client.Send(nil, client.nickMaskString, "MODE", target.nickString, applied.String())
 	} else if client == target {
 		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nickString, target.ModeString())
 	}

@@ -33,7 +33,7 @@ type Server struct {
 	motdLines        []string
 	name             Name
 	nameString       string // cache for server name string since it's used with almost every reply
-	newConns         chan net.Conn
+	newConns         chan clientConn
 	operators        map[Name][]byte
 	password         []byte
 	signals          chan os.Signal
@@ -48,6 +48,11 @@ var (
 		syscall.SIGTERM, syscall.SIGQUIT}
 )
 
+type clientConn struct {
+	Conn  net.Conn
+	IsTLS bool
+}
+
 func NewServer(config *Config) *Server {
 	server := &Server{
 		channels:         make(ChannelNameMap),
@@ -58,7 +63,7 @@ func NewServer(config *Config) *Server {
 		idle:             make(chan *Client),
 		name:             NewName(config.Server.Name),
 		nameString:       NewName(config.Server.Name).String(),
-		newConns:         make(chan net.Conn),
+		newConns:         make(chan clientConn),
 		operators:        config.Operators(),
 		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
 		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
@@ -180,7 +185,7 @@ func (server *Server) Run() {
 			done = true
 
 		case conn := <-server.newConns:
-			NewClient(server, conn)
+			NewClient(server, conn.Conn, conn.IsTLS)
 
 		/*TODO(dan): LOOK AT THIS MORE CLOSELY
 		case cmd := <-server.commands:
@@ -221,7 +226,12 @@ func (s *Server) listen(addr string, tlsMap map[Name]*tls.Config) {
 			}
 			Log.debug.Printf("%s accept: %s", s, conn.RemoteAddr())
 
-			s.newConns <- conn
+			newConn := clientConn{
+				Conn:  conn,
+				IsTLS: listenTLS,
+			}
+
+			s.newConns <- newConn
 		}
 	}()
 }
@@ -250,7 +260,11 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 			return
 		}
 
-		s.newConns <- WSContainer{ws}
+		newConn := clientConn{
+			Conn:  WSContainer{ws},
+			IsTLS: false, //TODO(dan): track TLS or not here properly
+		}
+		s.newConns <- newConn
 	})
 	go func() {
 		config, listenTLS := tlsMap[addr]
@@ -294,6 +308,7 @@ func (s *Server) tryRegister(c *Client) {
 	c.Send(nil, s.nameString, RPL_MYINFO, c.nickString, s.nameString, SEM_VER, supportedUserModesString, supportedChannelModesString)
 	c.RplISupport()
 	s.MOTD(c)
+	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nickString, c.ModeString())
 }
 
 func (server *Server) MOTD(client *Client) {

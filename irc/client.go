@@ -44,7 +44,7 @@ type Client struct {
 	isDestroyed    bool
 }
 
-func NewClient(server *Server, conn net.Conn) *Client {
+func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
 	socket := NewSocket(conn)
 	client := &Client{
@@ -58,6 +58,9 @@ func NewClient(server *Server, conn net.Conn) *Client {
 		server:       server,
 		socket:       &socket,
 		nickString:   "*", // * is used until actual nick is given
+	}
+	if isTLS {
+		client.flags[TLS] = true
 	}
 	client.Touch()
 	go client.run()
