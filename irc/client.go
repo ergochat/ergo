@@ -8,14 +8,19 @@ package irc
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
 const (
-	IDLE_TIMEOUT = time.Minute // how long before a client is considered idle
-	QUIT_TIMEOUT = time.Minute // how long after idle before a client is kicked
+	IDLE_TIMEOUT = time.Minute + time.Second*30 // how long before a client is considered idle
+	QUIT_TIMEOUT = time.Minute                  // how long after idle before a client is kicked
+)
+
+var (
+	TIMEOUT_STATED_SECONDS = strconv.Itoa(int((IDLE_TIMEOUT + QUIT_TIMEOUT).Seconds()))
 )
 
 type Client struct {
@@ -117,7 +122,7 @@ func (client *Client) run() {
 //
 
 func (client *Client) connectionTimeout() {
-	client.Quit("connection timeout")
+	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TIMEOUT_STATED_SECONDS))
 	client.isQuitting = true
 }
 
