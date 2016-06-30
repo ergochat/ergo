@@ -120,7 +120,7 @@ Options:
 
 			keyOut, err := os.OpenFile(conf.Key, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
-				log.Print("failed to open %s for writing:", conf.Key, err)
+				log.Print(fmt.Sprintf("failed to open %s for writing:", conf.Key), err)
 				return
 			}
 			b, err := x509.MarshalECPrivateKey(priv)

@@ -49,105 +49,105 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 
 // Commands holds all commands executable by a client connected to us.
 var Commands = map[string]Command{
-	"AWAY": Command{
+	"AWAY": {
 		handler:   awayHandler,
 		minParams: 0,
 	},
-	"CAP": Command{
+	"CAP": {
 		handler:      capHandler,
 		usablePreReg: true,
 		minParams:    1,
 	},
-	"DEBUG": Command{
+	"DEBUG": {
 		handler:   debugHandler,
 		minParams: 1,
 	},
-	"INVITE": Command{
+	"INVITE": {
 		handler:   inviteHandler,
 		minParams: 2,
 	},
-	"ISON": Command{
+	"ISON": {
 		handler:   isonHandler,
 		minParams: 1,
 	},
-	"JOIN": Command{
+	"JOIN": {
 		handler:   joinHandler,
 		minParams: 1,
 	},
-	"KICK": Command{
+	"KICK": {
 		handler:   kickHandler,
 		minParams: 2,
 	},
-	"KILL": Command{
+	"KILL": {
 		handler:   killHandler,
 		minParams: 2,
 		oper:      true,
 	},
-	"LIST": Command{
+	"LIST": {
 		handler:   listHandler,
 		minParams: 0,
 	},
-	"MODE": Command{
+	"MODE": {
 		handler:   modeHandler,
 		minParams: 1,
 	},
-	"MOTD": Command{
+	"MOTD": {
 		handler:   motdHandler,
 		minParams: 0,
 	},
-	"NAMES": Command{
+	"NAMES": {
 		handler:   namesHandler,
 		minParams: 0,
 	},
-	"NICK": Command{
+	"NICK": {
 		handler:      nickHandler,
 		usablePreReg: true,
 		minParams:    1,
 	},
-	"NOTICE": Command{
+	"NOTICE": {
 		handler:   noticeHandler,
 		minParams: 2,
 	},
-	"OPER": Command{
+	"OPER": {
 		handler:   operHandler,
 		minParams: 2,
 	},
-	"PART": Command{
+	"PART": {
 		handler:   partHandler,
 		minParams: 1,
 	},
-	"PASS": Command{
+	"PASS": {
 		handler:      passHandler,
 		usablePreReg: true,
 		minParams:    1,
 	},
-	"PING": Command{
+	"PING": {
 		handler:           pingHandler,
 		usablePreReg:      true,
 		minParams:         1,
 		leaveClientActive: true,
 	},
-	"PONG": Command{
+	"PONG": {
 		handler:           pongHandler,
 		usablePreReg:      true,
 		minParams:         1,
 		leaveClientActive: true,
 	},
-	"PRIVMSG": Command{
+	"PRIVMSG": {
 		handler:   privmsgHandler,
 		minParams: 2,
 	},
-	"PROXY": Command{
+	"PROXY": {
 		handler:      proxyHandler,
 		usablePreReg: true,
 		minParams:    5,
 	},
-	"SANICK": Command{
+	"SANICK": {
 		handler:   sanickHandler,
 		minParams: 2,
 		oper:      true,
 	},
-	"QUIT": Command{
+	"QUIT": {
 		handler:      quitHandler,
 		usablePreReg: true,
 		minParams:    0,
@@ -157,32 +157,32 @@ var Commands = map[string]Command{
 		handler:   theatreHandler,
 		minParams: 1,
 	},*/
-	"TIME": Command{
+	"TIME": {
 		handler:   timeHandler,
 		minParams: 0,
 	},
-	"TOPIC": Command{
+	"TOPIC": {
 		handler:   topicHandler,
 		minParams: 1,
 	},
-	"USER": Command{
+	"USER": {
 		handler:      userHandler,
 		usablePreReg: true,
 		minParams:    4,
 	},
-	"VERSION": Command{
+	"VERSION": {
 		handler:   versionHandler,
 		minParams: 0,
 	},
-	"WHO": Command{
+	"WHO": {
 		handler:   whoHandler,
 		minParams: 0,
 	},
-	"WHOIS": Command{
+	"WHOIS": {
 		handler:   whoisHandler,
 		minParams: 1,
 	},
-	"WHOWAS": Command{
+	"WHOWAS": {
 		handler:   whowasHandler,
 		minParams: 1,
 	},

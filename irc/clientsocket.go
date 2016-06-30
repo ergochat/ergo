@@ -43,20 +43,17 @@ func (cs *ClientSocket) Start() {
 func (cs *ClientSocket) RunEvents() {
 	var exiting bool
 	var line string
-	for {
+	for !exiting {
 		select {
 		case line = <-cs.receiveLines:
 			if line != "" {
 				fmt.Println("<- ", strings.TrimRight(line, "\r\n"))
 				exiting = cs.processIncomingLine(line)
-				if exiting {
-					cs.socket.Close()
-					break
-				}
 			}
 		}
 	}
 	// empty the receiveLines queue
+	cs.socket.Close()
 	select {
 	case <-cs.receiveLines:
 		// empty
