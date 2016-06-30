@@ -400,6 +400,13 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
+	// confirm that username is valid
+	//
+	if !Name(msg.Params[0]).IsNickname() {
+		client.Send(nil, "", "ERROR", "Malformed username")
+		return true
+	}
+
 	// set user info and log client in
 	//TODO(dan): Could there be a race condition here with adding/removing the client?
 	//TODO(dan): we should do something like server.clients.Replace(client) instead

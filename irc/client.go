@@ -88,7 +88,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 			//TODO(dan): replace this with IsUsername/IsIRCName?
 			if Name(username).IsNickname() {
 				client.Notice("*** Found your username")
-				//TODO(dan): we do a bunch of user replacing in server.go userHandler, do we need that here?
 				client.username = Name(username)
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
