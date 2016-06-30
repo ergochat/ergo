@@ -7,11 +7,13 @@ package irc
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/go-ident"
 )
 
 const (
@@ -66,6 +68,35 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	}
 	if isTLS {
 		client.flags[TLS] = true
+	}
+	if server.checkIdent {
+		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
+		serverPort, _ := strconv.Atoi(serverPortString)
+		if err != nil {
+			log.Fatal(err)
+		}
+		clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
+		clientPort, _ := strconv.Atoi(clientPortString)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		client.Notice("*** Looking up your username")
+		resp, err := ident.Query(clientHost, serverPort, clientPort)
+		if err == nil {
+			username := resp.Identifier
+			//TODO(dan): replace this with IsUsername/IsIRCName?
+			if Name(username).IsNickname() {
+				client.Notice("*** Found your username")
+				//TODO(dan): we do a bunch of user replacing in server.go userHandler, do we need that here?
+				client.username = Name(username)
+				// we don't need to updateNickMask here since nickMask is not used for anything yet
+			} else {
+				client.Notice("*** Got a malformed username, ignoring")
+			}
+		} else {
+			client.Notice("*** Could not find your username")
+		}
 	}
 	client.Touch()
 	go client.run()

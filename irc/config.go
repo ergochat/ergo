@@ -57,6 +57,7 @@ type Config struct {
 		Listen           []string
 		Wslisten         string                      `yaml:"ws-listen"`
 		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		CheckIdent       bool                        `yaml:"check-ident"`
 		Log              string
 		MOTD             string
 		ProxyAllowedFrom []string `yaml:"proxy-allowed-from"`

@@ -16,6 +16,7 @@ Initial release of Oragono!
 * Added YAML config file format.
 * Added native SSL/TLS support (thanks to @edmand).
 * Added ability to generate certificates from the command line.
+* Can now lookup usernames with ident on client connection.
 * We now advertise the [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric.
 * Parse new mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
 * User mode for clients connected via TLS (`+Z`).

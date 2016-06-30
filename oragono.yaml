@@ -30,6 +30,9 @@ server:
             key: tls.key
             cert: tls.crt
 
+    # use ident protocol to get usernames
+    check-ident: true
+
     # password to login to the server
     # generated using  "oragono genpasswd"
     #password: ""

@@ -41,6 +41,7 @@ type Server struct {
 	whoWas           *WhoWasList
 	theaters         map[Name][]byte
 	isupport         *ISupportList
+	checkIdent       bool
 }
 
 var (
@@ -69,6 +70,7 @@ func NewServer(config *Config) *Server {
 		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
 		whoWas:           NewWhoWasList(100),
 		theaters:         config.Theaters(),
+		checkIdent:       config.Server.CheckIdent,
 	}
 
 	if config.Server.MOTD != "" {
