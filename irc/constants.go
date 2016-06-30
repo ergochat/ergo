@@ -5,8 +5,14 @@
 
 package irc
 
+import "fmt"
+
 const (
-	SEM_VER       = "oragono-0.1.0-unreleased"
+	SEM_VER       = "0.1.0-unreleased"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
+)
+
+var (
+	VER = fmt.Sprintf("oragono-%s", SEM_VER)
 )
