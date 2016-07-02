@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	IDLE_TIMEOUT = time.Minute + time.Second*30 // how long before a client is considered idle
-	QUIT_TIMEOUT = time.Minute                  // how long after idle before a client is kicked
+	IDLE_TIMEOUT        = time.Minute + time.Second*30 // how long before a client is considered idle
+	QUIT_TIMEOUT        = time.Minute                  // how long after idle before a client is kicked
+	IdentTimeoutSeconds = 8
 )
 
 var (
@@ -82,7 +83,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		}
 
 		client.Notice("*** Looking up your username")
-		resp, err := ident.Query(clientHost, serverPort, clientPort)
+		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
 			username := resp.Identifier
 			//TODO(dan): replace this with IsUsername/IsIRCName?
