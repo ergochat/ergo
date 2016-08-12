@@ -52,9 +52,11 @@ func (name Name) IsNickname() bool {
 	// @ separates nick+user from hostname
 	// # is a channel prefix
 	// @+ are channel membership prefixes
+	// - is typically disallowed from first char of nicknames
+	// nicknames can't start with digits
 	if strings.Contains(namestr, "*") || strings.Contains(namestr, "?") ||
 		strings.Contains(namestr, ",") || strings.Contains(namestr, "!") ||
-		strings.Contains(namestr, "@") || strings.Contains("#@+", string(namestr[0])) {
+		strings.Contains(namestr, "@") || strings.Contains("#@+-1234567890", string(namestr[0])) {
 		return false
 	}
 	// names that look like hostnames are restricted to servers, as with other ircds
