@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -94,6 +95,10 @@ func NewServer(config *Config) *Server {
 		}
 	}
 
+	//TODO(dan): Hot damn this is an ugly hack. Fix it properly at some point.
+	ChannelNameExpr = regexp.MustCompile(fmt.Sprintf(`^[&!#+][\pL\pN]{1,%d}$`, config.Limits.ChannelLen))
+	NicknameExpr = regexp.MustCompile(fmt.Sprintf("^[\\pL\\pN\\pP\\pS]{1,%d}$", config.Limits.NickLen))
+
 	if config.Server.Password != "" {
 		server.password = config.Server.PasswordBytes()
 	}
@@ -114,7 +119,7 @@ func NewServer(config *Config) *Server {
 	server.isupport = NewISupportList()
 	server.isupport.Add("CASEMAPPING", "ascii")
 	// server.isupport.Add("CHANMODES", "")  //TODO(dan): Channel mode list here
-	// server.isupport.Add("CHANNELLEN", "") //TODO(dan): Support channel length
+	server.isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
@@ -122,7 +127,7 @@ func NewServer(config *Config) *Server {
 	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("NETWORK", config.Network.Name)
-	// server.isupport.Add("NICKLEN", "") //TODO(dan): Support nick length
+	server.isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this

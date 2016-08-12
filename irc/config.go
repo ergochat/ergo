@@ -66,6 +66,11 @@ type Config struct {
 	Operator map[string]*PassConfig
 
 	Theater map[string]*PassConfig
+
+	Limits struct {
+		NickLen    int `yaml:"nicklen"`
+		ChannelLen int `yaml:"channellen"`
+	}
 }
 
 func (conf *Config) Operators() map[Name][]byte {
@@ -130,6 +135,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if len(config.Server.Listen) == 0 {
 		return nil, errors.New("Server listening addresses missing")
+	}
+	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 {
+		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
 	}
 	return config, nil
 }

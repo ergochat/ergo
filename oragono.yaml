@@ -56,3 +56,11 @@ operator:
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu
+
+# limits - these need to be the same across the network
+limits:
+    # nicklen is the max nick length allowed
+    nicklen: 32
+
+    # channellen is the max channel length allowed
+    channellen: 64
