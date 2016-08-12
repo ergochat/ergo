@@ -6,21 +6,12 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"fmt"
 	"log"
-	"math/big"
-	"net"
-	"os"
 	"syscall"
-	"time"
 
 	"github.com/DanielOaks/oragono/irc"
+	"github.com/DanielOaks/oragono/mkcerts"
 	"github.com/docopt/docopt-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -74,64 +65,12 @@ Options:
 		for name, conf := range config.Server.TLSListeners {
 			log.Printf(" creating cert for %s listener\n", name)
 			host := config.Server.Name
-			validFrom := time.Now()
-			validFor := 365 * 24 * time.Hour
-			notAfter := validFrom.Add(validFor)
-
-			priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
-
-			serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-			serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-			if err != nil {
-				log.Fatalf("failed to generate serial number: %s", err)
+			err := mkcerts.CreateCert("Oragono", host, conf.Cert, conf.Key)
+			if err == nil {
+				log.Printf("  Certificate created at %s : %s\n", conf.Cert, conf.Key)
+			} else {
+				log.Fatal("  Could not create certificate:", err.Error())
 			}
-
-			template := x509.Certificate{
-				SerialNumber: serialNumber,
-				Subject: pkix.Name{
-					Organization: []string{"Oragono"},
-				},
-				NotBefore: validFrom,
-				NotAfter:  notAfter,
-
-				KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-				ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-				BasicConstraintsValid: true,
-			}
-
-			// TODO: allow explicitly listing allowed addresses/names
-			template.IPAddresses = append(template.IPAddresses, net.ParseIP("127.0.0.1"))
-			template.IPAddresses = append(template.IPAddresses, net.ParseIP("::1"))
-			template.DNSNames = append(template.DNSNames, host)
-			template.DNSNames = append(template.DNSNames, "localhost")
-
-			derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-			if err != nil {
-				log.Fatalf("Failed to create certificate: %s", err)
-			}
-
-			certOut, err := os.Create(conf.Cert)
-			if err != nil {
-				log.Fatalf("failed to open %s for writing: %s", conf.Cert, err)
-			}
-			pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-			certOut.Close()
-			log.Printf("  wrote %s\n", conf.Cert)
-
-			keyOut, err := os.OpenFile(conf.Key, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-			if err != nil {
-				log.Print(fmt.Sprintf("failed to open %s for writing:", conf.Key), err)
-				return
-			}
-			b, err := x509.MarshalECPrivateKey(priv)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to marshal ECDSA private key: %v", err)
-				os.Exit(2)
-			}
-			pemBlock := pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
-			pem.Encode(keyOut, &pemBlock)
-			keyOut.Close()
-			log.Printf("  wrote %s\n", conf.Key)
 		}
 	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
