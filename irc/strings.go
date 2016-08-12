@@ -47,6 +47,7 @@ func (name Name) IsNickname() bool {
 	// * is used for unregistered clients
 	// * is used for mask matching
 	// ? is used for mask matching
+	// . is used to denote server names
 	// , is used as a separator by the protocol
 	// ! separates username from nickname
 	// @ separates nick+user from hostname
@@ -55,8 +56,9 @@ func (name Name) IsNickname() bool {
 	// - is typically disallowed from first char of nicknames
 	// nicknames can't start with digits
 	if strings.Contains(namestr, "*") || strings.Contains(namestr, "?") ||
-		strings.Contains(namestr, ",") || strings.Contains(namestr, "!") ||
-		strings.Contains(namestr, "@") || strings.Contains("#@+-1234567890", string(namestr[0])) {
+		strings.Contains(namestr, ".") || strings.Contains(namestr, ",") ||
+		strings.Contains(namestr, "!") || strings.Contains(namestr, "@") ||
+		strings.Contains("#@+-1234567890", string(namestr[0])) {
 		return false
 	}
 	// names that look like hostnames are restricted to servers, as with other ircds
