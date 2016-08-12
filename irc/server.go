@@ -721,7 +721,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		mode: Operator,
 		op:   Add,
 	}}
-	client.Send(nil, server.nameString, "MODE", client.nickString, client.nickString, modech.String())
+	client.Send(nil, server.nameString, "MODE", client.nickString, modech.String())
 	return false
 }
 
