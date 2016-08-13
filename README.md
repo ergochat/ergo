@@ -39,7 +39,7 @@ go install
 cp oragono.yaml ircd.yaml
 vim ircd.yaml  # modify the config file to your liking
 oragono initdb
-oragono createcerts
+oragono mkcerts
 ```
 
 ## Configuration

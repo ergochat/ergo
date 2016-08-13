@@ -23,7 +23,7 @@ Usage:
 	oragono initdb [--conf <filename>]
 	oragono upgradedb [--conf <filename>]
 	oragono genpasswd [--conf <filename>]
-	oragono createcerts [--conf <filename>]
+	oragono mkcerts [--conf <filename>]
 	oragono run [--conf <filename>]
 	oragono -h | --help
 	oragono --version
@@ -59,11 +59,11 @@ Options:
 	} else if arguments["upgradedb"].(bool) {
 		irc.UpgradeDB(config.Server.Database)
 		log.Println("database upgraded: ", config.Server.Database)
-	} else if arguments["createcerts"].(bool) {
-		log.Println("creating self-signed certificates")
+	} else if arguments["mkcerts"].(bool) {
+		log.Println("making self-signed certificates")
 
 		for name, conf := range config.Server.TLSListeners {
-			log.Printf(" creating cert for %s listener\n", name)
+			log.Printf(" making cert for %s listener\n", name)
 			host := config.Server.Name
 			err := mkcerts.CreateCert("Oragono", host, conf.Cert, conf.Key)
 			if err == nil {
