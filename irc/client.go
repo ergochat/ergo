@@ -343,6 +343,16 @@ func (client *Client) destroy() {
 
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+	// attach server-time
+	if client.capabilities[ServerTime] {
+		if tags == nil {
+			tags = ircmsg.MakeTags("time", time.Now().Format(time.RFC3339))
+		} else {
+			(*tags)["time"] = ircmsg.MakeTagValue(time.Now().Format(time.RFC3339))
+		}
+	}
+
+	// send out the message
 	ircmsg := ircmsg.MakeMessage(tags, prefix, command, params...)
 	line, err := ircmsg.Line()
 	if err != nil {

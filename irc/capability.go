@@ -16,11 +16,13 @@ type Capability string
 const (
 	MultiPrefix Capability = "multi-prefix"
 	SASL        Capability = "sasl"
+	ServerTime  Capability = "server-time"
 )
 
 var (
 	SupportedCapabilities = CapabilitySet{
 		MultiPrefix: true,
+		ServerTime:  true,
 	}
 )
 

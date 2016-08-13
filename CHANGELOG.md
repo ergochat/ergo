@@ -20,6 +20,7 @@ Initial release of Oragono!
 * We now advertise the [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric.
 * Parse new mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
 * User mode for clients connected via TLS (`+Z`).
+* Support for [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html).
 
 ### Changed
 * Added channel Founder/Admin/Halfops (`qah`) privileges, and removed channel creator (`O`) privilege (from RFC2812, not used in the real world).
