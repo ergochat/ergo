@@ -36,7 +36,11 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	client.SetNickname(nickname)
+	if client.registered {
+		client.ChangeNickname(nickname)
+	} else {
+		client.SetNickname(nickname)
+	}
 	server.tryRegister(client)
 	return false
 }
@@ -77,6 +81,6 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	target.SetNickname(nickname)
+	target.ChangeNickname(nickname)
 	return false
 }
