@@ -15,28 +15,27 @@ Initial release of Oragono!
 ### Added
 * Added YAML config file format.
 * Added native SSL/TLS support (thanks to @edmand).
-* Added ability to generate certificates from the command line.
-* Can now lookup usernames with ident on client connection.
-* We now advertise the [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric.
-* Parse new mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
-* User mode for clients connected via TLS (`+Z`).
-* Support for [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html).
-* Support for [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html).
-* Support for [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
+* Added ability to generate testing certificates from the command line.
+* Added support for looking up usernames with [ident](https://tools.ietf.org/html/rfc1413) on client connection.
+* Added [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric as advertised by most other IRCds today.
+* Added ability to parse complex mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
+* Added user mode for clients connected via TLS (`+Z`).
+* Added support for IRCv3 capabilities [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html), [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html), and [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
 
 ### Changed
-* Added channel Founder/Admin/Halfops (`qah`) privileges, and removed channel creator (`O`) privilege (from RFC2812, not used in the real world).
-* Added secret (`+s`) channel mode to replace private (`+p`) for hiding channels, since everything else uses `+s` over `+p` these days.
-* Default channel modes are now (`+nt`), matching most other IRCds.
-* CLI argument names made more consistent with typical software.
-* ONICK: Renamed to SANICK to be more consistent with other IRCds.
-* USER: Prepend usernames set by the USER command with `"~"`.
+* Changed channel creator (`O`) privilege to founder/admin/halfops (`qah`) privileges.
+* Changed private (`+p`) channel mode to secret (`+s`), to match what's used by servers today.
+* Changed default channel modes to (`+nt`), matching most other IRCds.
+* Changed CLI commands and arguments to be more consistent with typical software.
+* Changed maximum nickname and channel name lengths to be configurable.
+* Changed usernames set by the `USER` command to start with `"~"` (to work with new ident support).
+* Renamed `ONICK` command to `SANICK` to be more consistent with other IRCds.
 
 ### Removed
-* Gitconfig config format completely removed and replaced with YAML.
-* USER: No longer parse out the second and third parameters.
+* Removed gitconfig configuration format [replaced with YAML].
 
 ### Fixed
+* Fixed clients no longer being able to send commands after a single command errored out.
 * CAP: Registration is now properly suspended during CAP negotiation.
 * CAP: Remove CAP CLEAR, and allow capability negotiation after registration.
 * MODE: Fixed `<modestring>` evaluation (we were parsing all ungrabbed parameters as a modestring, when it is actually only the first param).
@@ -47,4 +46,3 @@ Initial release of Oragono!
 * USER: Restrict usernames that break the protocol.
 * WHOIS: Include the required `<nick>` param on `RPL_ENDOFWHOIS`.
 * WHOIS: Hide hidden channels in WHOIS responses.
-* Fixed clients no longer being able to send commands after a single command errored out.
