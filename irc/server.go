@@ -46,8 +46,12 @@ type Server struct {
 }
 
 var (
-	SERVER_SIGNALS = []os.Signal{syscall.SIGINT, syscall.SIGHUP,
-		syscall.SIGTERM, syscall.SIGQUIT}
+	SERVER_SIGNALS = []os.Signal{
+		syscall.SIGINT,
+		syscall.SIGHUP, // eventually we expect to use HUP to reload config
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	}
 )
 
 type clientConn struct {
@@ -113,6 +117,7 @@ func NewServer(config *Config) *Server {
 		server.wslisten(config.Server.Wslisten, config.Server.TLSListeners)
 	}
 
+	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, SERVER_SIGNALS...)
 
 	// add RPL_ISUPPORT tokens
@@ -180,6 +185,10 @@ func (server *Server) Shutdown() {
 	server.db.Close()
 	for _, client := range server.clients.byNick {
 		client.Notice("Server is shutting down")
+	}
+
+	if err := server.db.Close(); err != nil {
+		Log.error.Println("Server.Shutdown: error:", err)
 	}
 }
 
