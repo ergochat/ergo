@@ -100,7 +100,7 @@ func NewServer(config *Config) *Server {
 	}
 
 	//TODO(dan): Hot damn this is an ugly hack. Fix it properly at some point.
-	ChannelNameExpr = regexp.MustCompile(fmt.Sprintf(`^[#][\pL\pN]{1,%d}$`, config.Limits.ChannelLen))
+	ChannelNameExpr = regexp.MustCompile(fmt.Sprintf(`^[#][\pL\pN\pP\pS]{1,%d}$`, config.Limits.ChannelLen))
 	NicknameExpr = regexp.MustCompile(fmt.Sprintf("^[\\pL\\pN\\pP\\pS]{1,%d}$", config.Limits.NickLen))
 
 	if config.Server.Password != "" {
