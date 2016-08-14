@@ -14,15 +14,19 @@ import (
 type Capability string
 
 const (
-	MultiPrefix Capability = "multi-prefix"
-	SASL        Capability = "sasl"
-	ServerTime  Capability = "server-time"
+	ExtendedJoin    Capability = "extended-join"
+	MultiPrefix     Capability = "multi-prefix"
+	SASL            Capability = "sasl"
+	ServerTime      Capability = "server-time"
+	UserhostInNames Capability = "userhost-in-names"
 )
 
 var (
 	SupportedCapabilities = CapabilitySet{
-		MultiPrefix: true,
-		ServerTime:  true,
+		ExtendedJoin:    true,
+		MultiPrefix:     true,
+		ServerTime:      true,
+		UserhostInNames: true,
 	}
 )
 

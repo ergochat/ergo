@@ -109,11 +109,16 @@ func (modes ChannelModeSet) Prefixes(isMultiPrefix bool) string {
 
 func (channel *Channel) Nicks(target *Client) []string {
 	isMultiPrefix := (target != nil) && target.capabilities[MultiPrefix]
+	isUserhostInNames := (target != nil) && target.capabilities[UserhostInNames]
 	nicks := make([]string, len(channel.members))
 	i := 0
 	for client, modes := range channel.members {
 		nicks[i] += modes.Prefixes(isMultiPrefix)
-		nicks[i] += client.Nick().String()
+		if isUserhostInNames {
+			nicks[i] += client.nickMaskString
+		} else {
+			nicks[i] += client.nickString
+		}
 		i += 1
 	}
 	return nicks
@@ -203,7 +208,11 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 
 	for member := range channel.members {
-		member.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
+		if member.capabilities[ExtendedJoin] {
+			member.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.accountName, client.realname)
+		} else {
+			member.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
+		}
 	}
 
 	client.channels.Add(channel)
@@ -214,7 +223,11 @@ func (channel *Channel) Join(client *Client, key string) {
 		channel.members[client][ChannelOperator] = true
 	}
 
-	client.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
+	if client.capabilities[ExtendedJoin] {
+		client.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.accountName, client.realname)
+	} else {
+		client.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
+	}
 	channel.GetTopic(client)
 	channel.Names(client)
 }
