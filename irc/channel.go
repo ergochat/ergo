@@ -278,9 +278,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		member.Send(nil, client.nickMaskString, "TOPIC", channel.nameString, channel.topic)
 	}
 
-	if err := channel.Persist(); err != nil {
-		log.Println("Channel.Persist:", channel, err)
-	}
+	channel.Persist()
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
@@ -437,6 +435,11 @@ func (channel *Channel) Persist() (err error) {
 		_, err = channel.server.db.Exec(`
             DELETE FROM channel WHERE name = ?`, channel.name.String())
 	}
+
+	if err != nil {
+		Log.error.Println("Channel.Persist:", channel, err)
+	}
+
 	return
 }
 
@@ -495,9 +498,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	if channel.flags[InviteOnly] {
 		channel.lists[InviteMask].Add(invitee.UserHost())
-		if err := channel.Persist(); err != nil {
-			log.Println("Channel.Persist:", channel, err)
-		}
+		channel.Persist()
 	}
 
 	//TODO(dan): should inviter.server.nameString here be inviter.nickMaskString ?
