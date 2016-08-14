@@ -1,6 +1,8 @@
 # Oragono
 
-Oragono is a very early, extremely experimental fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon. Ergonomadic looks cool, and this is something I can experiment on. Hopefully most of the stuff I do in this can be merged back into Ergonomadic! Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for something similar written in Python.
+Oragono is an IRC daemon written in Go. It's an early, experimental fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon.
+
+Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for a similar project written in Python instead.
 
 ---
 
@@ -16,14 +18,16 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 * UTF-8 nick and channel names
 * [yaml](http://yaml.org/) configuration
-* server password (PASS command)
+* native TLS/SSL support
+* server password (`PASS` command)
 * channels with most standard modes
-* IRC operators (OPER command)
+* IRC operators
+* ident lookups for usernames
 * passwords stored in [bcrypt][go-crypto] format
 * channels that [persist][go-sqlite] between restarts (+P)
-* messages are queued in the same order to all connected clients
+* IRCv3 support
 
-### What about SSL/TLS?
+### What about TLS/SSL?
 
 There is inbuilt TLS support using the Go TLS implementation. However,
 [stunnel](https://www.stunnel.org/index.html) version 4.56 with haproxy's
@@ -41,6 +45,9 @@ vim ircd.yaml  # modify the config file to your liking
 oragono initdb
 oragono mkcerts
 ```
+
+**Note:** This installation will give you unsigned certificates only suitable for teting purposes.
+For real crets, look into [Let's Encrypt](https://letsencrypt.org/).
 
 ## Configuration
 
