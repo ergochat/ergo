@@ -64,3 +64,6 @@ limits:
 
     # channellen is the max channel length allowed
     channellen: 64
+
+    # whowas entries to store
+    whowas-entries: 100

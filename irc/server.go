@@ -69,7 +69,7 @@ func NewServer(config *Config) *Server {
 		operators:        config.Operators(),
 		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
 		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
-		whoWas:           NewWhoWasList(100),
+		whoWas:           NewWhoWasList(config.Limits.WhowasEntries),
 		theaters:         config.Theaters(),
 		checkIdent:       config.Server.CheckIdent,
 	}

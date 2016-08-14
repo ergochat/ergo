@@ -27,9 +27,10 @@ Initial release of Oragono!
 * Changed private (`+p`) channel mode to secret (`+s`), to match what's used by servers today.
 * Changed default channel modes to (`+nt`), matching most other IRCds.
 * Changed CLI commands and arguments to be more consistent with typical software.
-* Changed maximum nickname and channel name lengths to be configurable.
 * Changed usernames set by the `USER` command to start with `"~"` (to work with new ident support).
 * Renamed `ONICK` command to `SANICK` to be more consistent with other IRCds.
+* Made maximum nickname and channel name lengths configurable.
+* Made maximum `WHOWAS` entries configurable.
 
 ### Removed
 * Removed gitconfig configuration format [replaced with YAML].

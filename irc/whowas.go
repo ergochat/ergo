@@ -18,7 +18,7 @@ type WhoWas struct {
 
 func NewWhoWasList(size uint) *WhoWasList {
 	return &WhoWasList{
-		buffer: make([]*WhoWas, size),
+		buffer: make([]*WhoWas, size+1),
 	}
 }
 

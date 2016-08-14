@@ -68,8 +68,9 @@ type Config struct {
 	Theater map[string]*PassConfig
 
 	Limits struct {
-		NickLen    int `yaml:"nicklen"`
-		ChannelLen int `yaml:"channellen"`
+		NickLen       int  `yaml:"nicklen"`
+		ChannelLen    int  `yaml:"channellen"`
+		WhowasEntries uint `yaml:"whowas-entries"`
 	}
 }
 
