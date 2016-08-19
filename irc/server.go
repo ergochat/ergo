@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/tidwall/buntdb"
 )
 
 type Server struct {
@@ -30,6 +31,7 @@ type Server struct {
 	commands         chan Command
 	ctime            time.Time
 	db               *sql.DB
+	store            buntdb.DB
 	idle             chan *Client
 	motdLines        []string
 	name             Name
@@ -65,7 +67,7 @@ func NewServer(config *Config) *Server {
 		clients:          NewClientLookupSet(),
 		commands:         make(chan Command),
 		ctime:            time.Now(),
-		db:               OpenDB(config.Server.Database),
+		db:               OpenDB(config.Datastore.SQLitePath),
 		idle:             make(chan *Client),
 		name:             NewName(config.Server.Name),
 		nameString:       NewName(config.Server.Name).String(),
@@ -77,6 +79,14 @@ func NewServer(config *Config) *Server {
 		theaters:         config.Theaters(),
 		checkIdent:       config.Server.CheckIdent,
 	}
+
+	// open data store
+	db, err := buntdb.Open(config.Datastore.Path)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+	}
+	defer db.Close()
+	server.store = *db
 
 	if config.Server.MOTD != "" {
 		file, err := os.Open(config.Server.MOTD)

@@ -54,11 +54,11 @@ Options:
 		fmt.Print("\n")
 		fmt.Println(encoded)
 	} else if arguments["initdb"].(bool) {
-		irc.InitDB(config.Server.Database)
-		log.Println("database initialized: ", config.Server.Database)
+		irc.InitDB(config.Datastore.SQLitePath)
+		log.Println("database initialized: ", config.Datastore.SQLitePath)
 	} else if arguments["upgradedb"].(bool) {
-		irc.UpgradeDB(config.Server.Database)
-		log.Println("database upgraded: ", config.Server.Database)
+		irc.UpgradeDB(config.Datastore.SQLitePath)
+		log.Println("database upgraded: ", config.Datastore.SQLitePath)
 	} else if arguments["mkcerts"].(bool) {
 		log.Println("making self-signed certificates")
 

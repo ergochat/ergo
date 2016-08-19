@@ -93,7 +93,7 @@ _testmain.go
 
 
 ### Oragono ###
-/ircd.*
+/ircd*
 /ssl.*
 /tls.*
 /oragono

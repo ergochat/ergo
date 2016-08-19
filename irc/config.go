@@ -49,11 +49,15 @@ type Config struct {
 		Name string
 	}
 
+	Datastore struct {
+		Path       string
+		SQLitePath string `yaml:"sqlite-path"`
+	}
+
 	Server struct {
 		PassConfig
 		Password         string
 		Name             string
-		Database         string
 		Listen           []string
 		Wslisten         string                      `yaml:"ws-listen"`
 		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
@@ -131,8 +135,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !IsHostname(config.Server.Name) {
 		return nil, errors.New("Server name must match the format of a hostname")
 	}
-	if config.Server.Database == "" {
-		return nil, errors.New("Server database missing")
+	if config.Datastore.Path == "" {
+		return nil, errors.New("Datastore path missing")
+	}
+	if config.Datastore.SQLitePath == "" {
+		return nil, errors.New("SQLite database path missing")
 	}
 	if len(config.Server.Listen) == 0 {
 		return nil, errors.New("Server listening addresses missing")

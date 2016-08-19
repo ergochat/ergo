@@ -5,13 +5,21 @@ network:
     # name of the network
     name: OragonoTest
 
+# datastore configuration
+datastore:
+    # path to the datastore
+    # this can also be ":memory:" for an in-memory-only db
+    path: ircd.db
+
+    # path to our sqlite db
+    # currently used to lookup masks and store persistent chan data
+    # but planned to be deprecated in a future release
+    sqlite-path: ircd-sqlite.db
+
 # server configuration
 server:
     # server name
     name: oragono.test
-
-    # database filename (sqlite db)
-    database: ircd.db
 
     # addresses to listen on
     listen:
