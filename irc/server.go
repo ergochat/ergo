@@ -158,15 +158,15 @@ func NewServer(config *Config) *Server {
 	// account registration
 	if server.accountRegistration.Enabled {
 		// 'none' isn't shown in the REGCALLBACKS vars
-		var enabledCallbackTypes []string
-		for _, name := range server.accountRegistration.EnabledCallbackTypes {
+		var enabledCallbacks []string
+		for _, name := range server.accountRegistration.EnabledCallbacks {
 			if name != "*" {
-				enabledCallbackTypes = append(enabledCallbackTypes, name)
+				enabledCallbacks = append(enabledCallbacks, name)
 			}
 		}
 
 		server.isupport.Add("REGCOMMANDS", "CREATE,VERIFY")
-		server.isupport.Add("REGCALLBACKS", strings.Join(enabledCallbackTypes, ","))
+		server.isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
 		server.isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
 

@@ -20,8 +20,9 @@ var (
 
 // AccountRegistration manages the registration of accounts.
 type AccountRegistration struct {
-	Enabled              bool
-	EnabledCallbackTypes []string
+	Enabled                bool
+	EnabledCallbacks       []string
+	EnabledCredentialTypes []string
 }
 
 // NewAccountRegistration returns a new AccountRegistration, configured correctly.
@@ -33,7 +34,12 @@ func NewAccountRegistration(config AccountRegistrationConfig) (accountReg Accoun
 			if name == "none" {
 				name = "*"
 			}
-			accountReg.EnabledCallbackTypes = append(accountReg.EnabledCallbackTypes, name)
+			accountReg.EnabledCallbacks = append(accountReg.EnabledCallbacks, name)
+		}
+		// no need to make this configurable, right now at least
+		accountReg.EnabledCredentialTypes = []string{
+			"passphrase",
+			"certfp",
 		}
 	}
 	return accountReg
@@ -88,14 +94,14 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			callbackValues := strings.SplitN(callback, ":", 2)
 			callbackNamespace, callbackValue = callbackValues[0], callbackValues[1]
 		} else {
-			callbackNamespace = server.accountRegistration.EnabledCallbackTypes[0]
+			callbackNamespace = server.accountRegistration.EnabledCallbacks[0]
 			callbackValue = callback
 		}
 
 		// ensure the callback namespace is valid
 		// need to search callback list, maybe look at using a map later?
 		var callbackValid bool
-		for _, name := range server.accountRegistration.EnabledCallbackTypes {
+		for _, name := range server.accountRegistration.EnabledCallbacks {
 			if callbackNamespace == name {
 				callbackValid = true
 			}
@@ -107,7 +113,7 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			return false
 		}
 
-		// ensure the credential type is valid
+		// get credential type/value
 		var credentialType, credentialValue string
 
 		if len(msg.Params) > 4 {
@@ -118,6 +124,20 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			credentialValue = msg.Params[3]
 		} else {
 			client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
+			//TODO(dan): close out failed account reg (remove values from db)
+			return false
+		}
+
+		// ensure the credential type is valid
+		var credentialValid bool
+		for _, name := range server.accountRegistration.EnabledCredentialTypes {
+			if credentialType == name {
+				credentialValid = true
+			}
+		}
+
+		if !credentialValid {
+			client.Send(nil, server.nameString, ERR_REG_INVALID_CRED_TYPE, client.nickString, credentialType, callbackNamespace, "Credential type is not supported")
 			//TODO(dan): close out failed account reg (remove values from db)
 			return false
 		}
