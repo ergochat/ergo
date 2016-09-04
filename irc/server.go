@@ -159,8 +159,8 @@ func NewServer(config *Config) *Server {
 	if server.accountRegistration.Enabled {
 		// 'none' isn't shown in the REGCALLBACKS vars
 		var enabledCallbackTypes []string
-		for _, name := range server.accountRegistration.EnabledRegistrationCallbackTypes {
-			if name != "none" {
+		for _, name := range server.accountRegistration.EnabledCallbackTypes {
+			if name != "*" {
 				enabledCallbackTypes = append(enabledCallbackTypes, name)
 			}
 		}

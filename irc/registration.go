@@ -20,15 +20,21 @@ var (
 
 // AccountRegistration manages the registration of accounts.
 type AccountRegistration struct {
-	Enabled                          bool
-	EnabledRegistrationCallbackTypes []string
+	Enabled              bool
+	EnabledCallbackTypes []string
 }
 
 // NewAccountRegistration returns a new AccountRegistration, configured correctly.
 func NewAccountRegistration(config AccountRegistrationConfig) (accountReg AccountRegistration) {
 	if config.Enabled {
 		accountReg.Enabled = true
-		accountReg.EnabledRegistrationCallbackTypes = config.EnabledCallbacks
+		for _, name := range config.EnabledCallbacks {
+			// we store "none" as "*" internally
+			if name == "none" {
+				name = "*"
+			}
+			accountReg.EnabledCallbackTypes = append(accountReg.EnabledCallbackTypes, name)
+		}
 	}
 	return accountReg
 }
@@ -73,6 +79,58 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		// account didn't already exist, continue with account creation and dispatching verification (if required)
+		callback := strings.ToLower(msg.Params[2])
+		var callbackNamespace, callbackValue string
+
+		if callback == "*" {
+			callbackNamespace = "*"
+		} else if strings.Contains(callback, ":") {
+			callbackValues := strings.SplitN(callback, ":", 2)
+			callbackNamespace, callbackValue = callbackValues[0], callbackValues[1]
+		} else {
+			callbackNamespace = server.accountRegistration.EnabledCallbackTypes[0]
+			callbackValue = callback
+		}
+
+		// ensure the callback namespace is valid
+		// need to search callback list, maybe look at using a map later?
+		var callbackValid bool
+		for _, name := range server.accountRegistration.EnabledCallbackTypes {
+			if callbackNamespace == name {
+				callbackValid = true
+			}
+		}
+
+		if !callbackValid {
+			client.Send(nil, server.nameString, ERR_REG_INVALID_CALLBACK, client.nickString, msg.Params[1], callbackNamespace, "Callback namespace is not supported")
+			//TODO(dan): close out failed account reg (remove values from db)
+			return false
+		}
+
+		// ensure the credential type is valid
+		var credentialType, credentialValue string
+
+		if len(msg.Params) > 4 {
+			credentialType = strings.ToLower(msg.Params[3])
+			credentialValue = msg.Params[4]
+		} else if len(msg.Params) == 4 {
+			credentialType = "passphrase" // default from the spec
+			credentialValue = msg.Params[3]
+		} else {
+			client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
+			//TODO(dan): close out failed account reg (remove values from db)
+			return false
+		}
+
+		// dispatch callback
+		if callbackNamespace != "*" {
+			client.Notice("Account creation was successful!")
+			//TODO(dan): close out failed account reg (remove values from db)
+			return false
+		}
+
+		client.Notice(fmt.Sprintf("We should dispatch an actual callback here to %s:%s", callbackNamespace, callbackValue))
+		client.Notice(fmt.Sprintf("Primary account credential is with %s:%s", credentialType, credentialValue))
 
 	} else if subcommand == "verify" {
 		client.Notice("Parsing VERIFY")
