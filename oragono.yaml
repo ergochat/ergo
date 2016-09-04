@@ -5,17 +5,6 @@ network:
     # name of the network
     name: OragonoTest
 
-# datastore configuration
-datastore:
-    # path to the datastore
-    # this can also be ":memory:" for an in-memory-only db
-    path: ircd.db
-
-    # path to our sqlite db
-    # currently used to lookup masks and store persistent chan data
-    # but planned to be deprecated in a future release
-    sqlite-path: ircd-sqlite.db
-
 # server configuration
 server:
     # server name
@@ -64,6 +53,17 @@ operator:
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu
+
+# datastore configuration
+datastore:
+    # path to the datastore
+    # this can also be ":memory:" for an in-memory-only db
+    path: ircd.db
+
+    # path to our sqlite db
+    # currently used to lookup masks and store persistent chan data
+    # but planned to be deprecated in a future release
+    sqlite-path: ircd-sqlite.db
 
 # limits - these need to be the same across the network
 limits:

@@ -26,25 +26,27 @@ import (
 )
 
 type Server struct {
-	channels         ChannelNameMap
-	clients          *ClientLookupSet
-	commands         chan Command
-	ctime            time.Time
-	db               *sql.DB
-	store            buntdb.DB
-	idle             chan *Client
-	motdLines        []string
-	name             Name
-	nameString       string // cache for server name string since it's used with almost every reply
-	newConns         chan clientConn
-	operators        map[Name][]byte
-	password         []byte
-	signals          chan os.Signal
-	proxyAllowedFrom []string
-	whoWas           *WhoWasList
-	theaters         map[Name][]byte
-	isupport         *ISupportList
-	checkIdent       bool
+	accounts            map[string]Account
+	channels            ChannelNameMap
+	clients             *ClientLookupSet
+	commands            chan Command
+	ctime               time.Time
+	db                  *sql.DB
+	store               buntdb.DB
+	idle                chan *Client
+	motdLines           []string
+	name                Name
+	nameString          string // cache for server name string since it's used with almost every reply
+	newConns            chan clientConn
+	operators           map[Name][]byte
+	password            []byte
+	accountRegistration *AccountRegistration
+	signals             chan os.Signal
+	proxyAllowedFrom    []string
+	whoWas              *WhoWasList
+	theaters            map[Name][]byte
+	isupport            *ISupportList
+	checkIdent          bool
 }
 
 var (
@@ -63,6 +65,7 @@ type clientConn struct {
 
 func NewServer(config *Config) *Server {
 	server := &Server{
+		accounts:         make(map[string]Account),
 		channels:         make(ChannelNameMap),
 		clients:          NewClientLookupSet(),
 		commands:         make(chan Command),
@@ -127,6 +130,10 @@ func NewServer(config *Config) *Server {
 		server.wslisten(config.Server.Wslisten, config.Server.TLSListeners)
 	}
 
+	// registration
+	accountReg := NewAccountRegistration(config.Registration.Accounts)
+	server.accountRegistration = &accountReg
+
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, SERVER_SIGNALS...)
 
@@ -144,9 +151,25 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("NETWORK", config.Network.Name)
 	server.isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
-	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Autogenerate based on PREFIXes, support STATUSMSG
+	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
 	// server.isupport.Add("TOPICLEN", "") //TODO(dan): Support topic length
+
+	// account registration
+	if server.accountRegistration.Enabled {
+		// 'none' isn't shown in the REGCALLBACKS vars
+		var enabledCallbackTypes []string
+		for _, name := range server.accountRegistration.EnabledRegistrationCallbackTypes {
+			if name != "none" {
+				enabledCallbackTypes = append(enabledCallbackTypes, name)
+			}
+		}
+
+		server.isupport.Add("REGCOMMANDS", "CREATE,VERIFY")
+		server.isupport.Add("REGCALLBACKS", strings.Join(enabledCallbackTypes, ","))
+		server.isupport.Add("REGCREDTYPES", "passphrase,certfp")
+	}
+
 	server.isupport.RegenerateCachedReply()
 
 	return server

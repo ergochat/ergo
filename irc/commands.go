@@ -152,6 +152,10 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    0,
 	},
+	"REG": {
+		handler:   regHandler,
+		minParams: 3,
+	},
 	/*TODO(dan): Add this back in
 	"THEATRE": Command{
 		handler:   theatreHandler,

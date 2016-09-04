@@ -44,14 +44,30 @@ func (conf *PassConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+type AccountRegistrationConfig struct {
+	Enabled          bool
+	EnabledCallbacks []string `yaml:"enabled-callbacks"`
+	Callbacks        struct {
+		Mailto struct {
+			Server string
+			Port   int
+			TLS    struct {
+				Enabled            bool
+				InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
+				ServerName         string `yaml:"servername"`
+			}
+			Username             string
+			Password             string
+			Sender               string
+			VerifyMessageSubject string `yaml:"verify-message-subject"`
+			VerifyMessage        string `yaml:"verify-message"`
+		}
+	}
+}
+
 type Config struct {
 	Network struct {
 		Name string
-	}
-
-	Datastore struct {
-		Path       string
-		SQLitePath string `yaml:"sqlite-path"`
 	}
 
 	Server struct {
@@ -65,6 +81,15 @@ type Config struct {
 		Log              string
 		MOTD             string
 		ProxyAllowedFrom []string `yaml:"proxy-allowed-from"`
+	}
+
+	Datastore struct {
+		Path       string
+		SQLitePath string `yaml:"sqlite-path"`
+	}
+
+	Registration struct {
+		Accounts AccountRegistrationConfig
 	}
 
 	Operator map[string]*PassConfig
