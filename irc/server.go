@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
@@ -40,6 +41,7 @@ type Server struct {
 	newConns            chan clientConn
 	operators           map[Name][]byte
 	password            []byte
+	passwords           *PasswordManager
 	accountRegistration *AccountRegistration
 	signals             chan os.Signal
 	proxyAllowedFrom    []string
@@ -90,6 +92,26 @@ func NewServer(config *Config) *Server {
 	}
 	defer db.Close()
 	server.store = *db
+
+	// load password manager
+	err = server.store.View(func(tx *buntdb.Tx) error {
+		saltString, err := tx.Get(keySalt)
+		if err != nil {
+			return fmt.Errorf("Could not retrieve salt string: %s", err.Error())
+		}
+
+		salt, err := base64.StdEncoding.DecodeString(saltString)
+		if err != nil {
+			return err
+		}
+
+		pwm := NewPasswordManager(salt)
+		server.passwords = &pwm
+		return nil
+	})
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Could not load salt: %s", err.Error()))
+	}
 
 	if config.Server.MOTD != "" {
 		file, err := os.Open(config.Server.MOTD)

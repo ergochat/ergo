@@ -5,18 +5,48 @@ package irc
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tidwall/buntdb"
 )
 
-func InitDB(path string) {
+const (
+	// key for the primary salt used by the ircd
+	keySalt = "crypto.salt"
+)
+
+func InitDB(buntpath string, path string) {
+	// prepare kvstore db
+	os.Remove(buntpath)
+	store, err := buntdb.Open(buntpath)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+	}
+	defer store.Close()
+
+	err = store.Update(func(tx *buntdb.Tx) error {
+		salt, err := NewSalt()
+		encodedSalt := base64.StdEncoding.EncodeToString(salt)
+		if err != nil {
+			log.Fatal("Could not generate cryptographically-secure salt for the user:", err.Error())
+		}
+		tx.Set(keySalt, encodedSalt, nil)
+		return nil
+	})
+
+	if err != nil {
+		log.Fatal("Could not save bunt store:", err.Error())
+	}
+
+	// prepare SQLite db
 	os.Remove(path)
 	db := OpenDB(path)
 	defer db.Close()
-	_, err := db.Exec(`
+	_, err = db.Exec(`
         CREATE TABLE channel (
           name TEXT NOT NULL UNIQUE,
           flags TEXT DEFAULT '',

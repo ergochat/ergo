@@ -4,14 +4,22 @@
 package irc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/tidwall/buntdb"
+)
+
+const (
+	keyAccountExists      = "account %s exists"
+	keyAccountRegTime     = "account %s registered.time"
+	keyAccountCredentials = "account %s credentials"
 )
 
 var (
@@ -23,6 +31,13 @@ type AccountRegistration struct {
 	Enabled                bool
 	EnabledCallbacks       []string
 	EnabledCredentialTypes []string
+}
+
+// AccountCredentials stores the various methods for verifying accounts.
+type AccountCredentials struct {
+	PassphraseSalt []byte
+	PassphraseHash []byte
+	Certificate    string // fingerprint
 }
 
 // NewAccountRegistration returns a new AccountRegistration, configured correctly.
@@ -60,6 +75,18 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// removeFailedRegCreateData removes the data created by REG CREATE if the account creation fails early.
+func removeFailedRegCreateData(store buntdb.DB, account string) {
+	// error is ignored here, we can't do much about it anyways
+	store.Update(func(tx *buntdb.Tx) error {
+		tx.Delete(fmt.Sprintf(keyAccountExists, account))
+		tx.Delete(fmt.Sprintf(keyAccountRegTime, account))
+		tx.Delete(fmt.Sprintf(keyAccountCredentials, account))
+
+		return nil
+	})
+}
+
 // regCreateHandler parses the REG CREATE command.
 func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.Notice("Parsing CREATE")
@@ -75,7 +102,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	// check whether account exists
 	// do it all in one write tx to prevent races
 	err := server.store.Update(func(tx *buntdb.Tx) error {
-		accountKey := fmt.Sprintf("account %s exists", accountString)
+		accountKey := fmt.Sprintf(keyAccountExists, accountString)
 
 		_, err := tx.Get(accountKey)
 		if err != buntdb.ErrNotFound {
@@ -84,7 +111,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 			return errAccountCreation
 		}
 
-		registeredTimeKey := fmt.Sprintf("account %s registered.time", accountString)
+		registeredTimeKey := fmt.Sprintf(keyAccountRegTime, accountString)
 
 		tx.Set(accountKey, "1", nil)
 		tx.Set(registeredTimeKey, strconv.FormatInt(time.Now().Unix(), 10), nil)
@@ -121,7 +148,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 
 	if !callbackValid {
 		client.Send(nil, server.nameString, ERR_REG_INVALID_CALLBACK, client.nickString, msg.Params[1], callbackNamespace, "Callback namespace is not supported")
-		//TODO(dan): close out failed account reg (remove values from db)
+		removeFailedRegCreateData(server.store, accountString)
 		return false
 	}
 
@@ -136,7 +163,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		credentialValue = msg.Params[3]
 	} else {
 		client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
-		//TODO(dan): close out failed account reg (remove values from db)
+		removeFailedRegCreateData(server.store, accountString)
 		return false
 	}
 
@@ -147,22 +174,61 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 			credentialValid = true
 		}
 	}
+	if credentialType == "certfp" && client.certfp == "" {
+		client.Send(nil, server.nameString, ERR_REG_INVALID_CRED_TYPE, client.nickString, credentialType, callbackNamespace, "You are not using a certificiate")
+		removeFailedRegCreateData(server.store, accountString)
+		return false
+	}
 
 	if !credentialValid {
 		client.Send(nil, server.nameString, ERR_REG_INVALID_CRED_TYPE, client.nickString, credentialType, callbackNamespace, "Credential type is not supported")
-		//TODO(dan): close out failed account reg (remove values from db)
+		removeFailedRegCreateData(server.store, accountString)
+		return false
+	}
+
+	// store details
+	err = server.store.Update(func(tx *buntdb.Tx) error {
+		var creds AccountCredentials
+
+		// always set passphrase salt
+		creds.PassphraseSalt, err = NewSalt()
+		if err != nil {
+			return fmt.Errorf("Could not create passphrase salt: %s", err.Error())
+		}
+
+		if credentialType == "certfp" {
+			creds.Certificate = client.certfp
+		} else if credentialType == "passphrase" {
+			creds.PassphraseHash, err = server.passwords.GenerateFromPassword(creds.PassphraseSalt, credentialValue)
+			if err != nil {
+				return fmt.Errorf("Could not hash password: %s", err)
+			}
+		}
+		credText, err := json.Marshal(creds)
+		if err != nil {
+			return fmt.Errorf("Could not marshal creds: %s", err)
+		}
+		tx.Set(keyAccountCredentials, string(credText), nil)
+
+		return nil
+	})
+
+	// details could not be stored and relevant numerics have been dispatched, abort
+	if err != nil {
+		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+		log.Println("Could not save registration creds:", err.Error())
+		return false
+	}
+
+	// automatically complete registration
+	if callbackNamespace != "*" {
+		client.Notice("Account creation was successful!")
+		removeFailedRegCreateData(server.store, accountString)
 		return false
 	}
 
 	// dispatch callback
-	if callbackNamespace != "*" {
-		client.Notice("Account creation was successful!")
-		//TODO(dan): close out failed account reg (remove values from db)
-		return false
-	}
-
 	client.Notice(fmt.Sprintf("We should dispatch an actual callback here to %s:%s", callbackNamespace, callbackValue))
-	client.Notice(fmt.Sprintf("Primary account credential is with %s:%s", credentialType, credentialValue))
 
 	return false
 }

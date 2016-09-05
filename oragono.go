@@ -54,8 +54,8 @@ Options:
 		fmt.Print("\n")
 		fmt.Println(encoded)
 	} else if arguments["initdb"].(bool) {
-		irc.InitDB(config.Datastore.SQLitePath)
-		log.Println("database initialized: ", config.Datastore.SQLitePath)
+		irc.InitDB(config.Datastore.Path, config.Datastore.SQLitePath)
+		log.Println("databases initialized: ", config.Datastore.Path, config.Datastore.SQLitePath)
 	} else if arguments["upgradedb"].(bool) {
 		irc.UpgradeDB(config.Datastore.SQLitePath)
 		log.Println("database upgraded: ", config.Datastore.SQLitePath)
