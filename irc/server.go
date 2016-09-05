@@ -648,7 +648,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				continue
 			}
 			for mclient := range matches {
-				mclient.getWhoisOf(client)
+				client.getWhoisOf(mclient)
 			}
 		}
 	} else {
@@ -668,13 +668,17 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 func (client *Client) getWhoisOf(target *Client) {
 	client.Send(nil, client.server.nameString, RPL_WHOISUSER, client.nickString, target.nickString, target.username.String(), target.hostname.String(), "*", target.realname)
-	if target.flags[Operator] {
-		client.Send(nil, client.server.nameString, RPL_WHOISOPERATOR, client.nickString, target.nickString, "is an IRC operator")
-	}
-	client.Send(nil, client.server.nameString, RPL_WHOISIDLE, client.nickString, target.nickString, string(target.IdleSeconds()), string(target.SignonTime()), "seconds idle, signon time")
+	//TODO(dan): ...one channel per reply? really?
 	for _, line := range client.WhoisChannelsNames(target) {
 		client.Send(nil, client.server.nameString, RPL_WHOISCHANNELS, client.nickString, target.nickString, line)
 	}
+	if target.flags[Operator] {
+		client.Send(nil, client.server.nameString, RPL_WHOISOPERATOR, client.nickString, target.nickString, "is an IRC operator")
+	}
+	if target.certfp != "" && (client.flags[Operator] || client == target) {
+		client.Send(nil, client.server.nameString, RPL_WHOISCERTFP, client.nickString, target.nickString, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
+	}
+	client.Send(nil, client.server.nameString, RPL_WHOISIDLE, client.nickString, target.nickString, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
 }
 
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
