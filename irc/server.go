@@ -90,7 +90,6 @@ func NewServer(config *Config) *Server {
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
 	}
-	defer db.Close()
 	server.store = *db
 
 	// load password manager
@@ -237,13 +236,16 @@ func (server *Server) loadChannels() {
 }
 
 func (server *Server) Shutdown() {
-	server.db.Close()
+	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.byNick {
 		client.Notice("Server is shutting down")
 	}
 
 	if err := server.db.Close(); err != nil {
-		Log.error.Println("Server.Shutdown: error:", err)
+		Log.error.Println("Server.Shutdown db.Close: error:", err)
+	}
+	if err := server.store.Close(); err != nil {
+		Log.error.Println("Server.Shutdown store.Close: error:", err)
 	}
 }
 
