@@ -27,7 +27,7 @@ import (
 )
 
 type Server struct {
-	accounts            map[string]ClientAccount
+	accounts            map[string]*ClientAccount
 	channels            ChannelNameMap
 	clients             *ClientLookupSet
 	commands            chan Command
@@ -67,7 +67,7 @@ type clientConn struct {
 
 func NewServer(config *Config) *Server {
 	server := &Server{
-		accounts:         make(map[string]ClientAccount),
+		accounts:         make(map[string]*ClientAccount),
 		channels:         make(ChannelNameMap),
 		clients:          NewClientLookupSet(),
 		commands:         make(chan Command),

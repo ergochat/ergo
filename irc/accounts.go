@@ -18,5 +18,5 @@ type ClientAccount struct {
 	// RegisteredAt represents the time that the account was registered.
 	RegisteredAt time.Time
 	// Clients that are currently logged into this account (useful for notifications).
-	Clients []Client
+	Clients []*Client
 }

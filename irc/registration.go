@@ -19,6 +19,7 @@ import (
 const (
 	keyAccountExists      = "account %s exists"
 	keyAccountVerified    = "account %s verified"
+	keyAccountName        = "account %s name" // stores the 'preferred name' of the account, casemapped appropriately
 	keyAccountRegTime     = "account %s registered.time"
 	keyAccountCredentials = "account %s credentials"
 )
@@ -94,6 +95,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 
 	// get and sanitise account name
 	account := NewName(msg.Params[1])
+	//TODO(dan): probably don't need explicit check for "*" here... until we actually casemap properly as per rfc7700
 	if !account.IsNickname() || msg.Params[1] == "*" {
 		client.Send(nil, server.nameString, ERR_REG_UNSPECIFIED_ERROR, client.nickString, msg.Params[1], "Account name is not valid")
 		return false
@@ -115,6 +117,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		registeredTimeKey := fmt.Sprintf(keyAccountRegTime, accountString)
 
 		tx.Set(accountKey, "1", nil)
+		tx.Set(fmt.Sprintf(keyAccountName, accountString), strings.TrimSpace(msg.Params[1]), nil)
 		tx.Set(registeredTimeKey, strconv.FormatInt(time.Now().Unix(), 10), nil)
 		return nil
 	})
@@ -230,6 +233,20 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	if callbackNamespace == "*" {
 		err = server.store.Update(func(tx *buntdb.Tx) error {
 			tx.Set(keyAccountVerified, "1", nil)
+
+			// load acct info inside store tx
+			account := ClientAccount{
+				Name:         strings.TrimSpace(msg.Params[1]),
+				RegisteredAt: time.Now(),
+				Clients:      []*Client{client},
+			}
+			//TODO(dan): Consider creating ircd-wide account adding/removing/affecting lock for protecting access to these sorts of variables
+			server.accounts[accountString] = &account
+			client.account = &account
+
+			client.Send(nil, server.nameString, RPL_REGISTRATION_SUCCESS, client.nickString, accountString, "Account created")
+			client.Send(nil, server.nameString, RPL_LOGGEDIN, client.nickString, client.nickMaskString, accountString, fmt.Sprintf("You are now logged in as %s", accountString))
+			client.Send(nil, server.nameString, RPL_SASLSUCCESS, client.nickString, "Authentication successful")
 			return nil
 		})
 		if err != nil {
@@ -239,7 +256,6 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 			return false
 		}
 
-		client.Notice("Account creation was successful!")
 		return false
 	}
 
