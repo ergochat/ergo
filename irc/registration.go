@@ -120,6 +120,10 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
+		if err != errAccountCreation {
+			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+			log.Println("Could not save registration initial data:", err.Error())
+		}
 		return false
 	}
 
@@ -221,14 +225,13 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	}
 
 	// automatically complete registration
-	if callbackNamespace != "*" {
+	if callbackNamespace == "*" {
 		client.Notice("Account creation was successful!")
-		removeFailedRegCreateData(server.store, accountString)
 		return false
 	}
 
 	// dispatch callback
-	client.Notice(fmt.Sprintf("We should dispatch an actual callback here to %s:%s", callbackNamespace, callbackValue))
+	client.Notice(fmt.Sprintf("We should dispatch a real callback here to %s:%s", callbackNamespace, callbackValue))
 
 	return false
 }
