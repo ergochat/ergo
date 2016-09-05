@@ -45,7 +45,7 @@ type Client struct {
 	nickMaskString string // cache for nickmask string since it's used with lots of replies
 	quitTimer      *time.Timer
 	realname       string
-	accountName    string
+	account        *ClientAccount
 	registered     bool
 	server         *Server
 	socket         *Socket
@@ -67,7 +67,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		flags:        make(map[UserMode]bool),
 		server:       server,
 		socket:       &socket,
-		accountName:  "*", // * is used until actual account name is set
+		account:      &NoAccount,
 		nickString:   "*", // * is used until actual nick is given
 	}
 	if isTLS {

@@ -5,8 +5,14 @@ package irc
 
 import "time"
 
-// Account represents a user account.
-type Account struct {
+var (
+	NoAccount = ClientAccount{
+		Name: "*", // * is used until actual account name is set
+	}
+)
+
+// ClientAccount represents a user account.
+type ClientAccount struct {
 	// Name of the account.
 	Name string
 	// RegisteredAt represents the time that the account was registered.

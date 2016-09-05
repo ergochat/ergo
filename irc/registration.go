@@ -18,6 +18,7 @@ import (
 
 const (
 	keyAccountExists      = "account %s exists"
+	keyAccountVerified    = "account %s verified"
 	keyAccountRegTime     = "account %s registered.time"
 	keyAccountCredentials = "account %s credentials"
 )
@@ -221,11 +222,23 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	if err != nil {
 		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
 		log.Println("Could not save registration creds:", err.Error())
+		removeFailedRegCreateData(server.store, accountString)
 		return false
 	}
 
 	// automatically complete registration
 	if callbackNamespace == "*" {
+		err = server.store.Update(func(tx *buntdb.Tx) error {
+			tx.Set(keyAccountVerified, "1", nil)
+			return nil
+		})
+		if err != nil {
+			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+			log.Println("Could not save verification confirmation (*):", err.Error())
+			removeFailedRegCreateData(server.store, accountString)
+			return false
+		}
+
 		client.Notice("Account creation was successful!")
 		return false
 	}

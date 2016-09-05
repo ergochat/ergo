@@ -209,7 +209,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	for member := range channel.members {
 		if member.capabilities[ExtendedJoin] {
-			member.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.accountName, client.realname)
+			member.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.account.Name, client.realname)
 		} else {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
 		}
@@ -224,7 +224,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 
 	if client.capabilities[ExtendedJoin] {
-		client.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.accountName, client.realname)
+		client.Send(nil, client.nickMaskString, "JOIN", channel.nameString, client.account.Name, client.realname)
 	} else {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.nameString)
 	}
