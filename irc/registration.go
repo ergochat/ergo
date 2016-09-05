@@ -19,7 +19,7 @@ import (
 const (
 	keyAccountExists      = "account %s exists"
 	keyAccountVerified    = "account %s verified"
-	keyAccountName        = "account %s name" // stores the 'preferred name' of the account, casemapped appropriately
+	keyAccountName        = "account %s name" // stores the 'preferred name' of the account, not casemapped
 	keyAccountRegTime     = "account %s registered.time"
 	keyAccountCredentials = "account %s credentials"
 )
