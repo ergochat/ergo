@@ -6,9 +6,18 @@ package irc
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
+	"errors"
 	"io"
 	"net"
 	"strings"
+)
+
+var (
+	errNotTls      = errors.New("Not a TLS connection")
+	errNoPeerCerts = errors.New("Client did not provide a certificate")
 )
 
 // Socket represents an IRC socket.
@@ -33,6 +42,24 @@ func (socket *Socket) Close() {
 	}
 	socket.Closed = true
 	socket.conn.Close()
+}
+
+// CertFP returns the fingerprint of the certificate provided by the client.
+func (socket *Socket) CertFP() (string, error) {
+	var tlsConn, isTLS = socket.conn.(*tls.Conn)
+	if !isTLS {
+		return "", errNotTls
+	}
+
+	peerCerts := tlsConn.ConnectionState().PeerCertificates
+	if len(peerCerts) < 1 {
+		return "", errNoPeerCerts
+	}
+
+	rawCert := sha256.Sum256(peerCerts[0].Raw)
+	fingerprint := hex.EncodeToString(rawCert[:])
+
+	return fingerprint, nil
 }
 
 // Read returns a single IRC line from a Socket.

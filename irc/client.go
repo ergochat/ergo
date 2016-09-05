@@ -51,6 +51,7 @@ type Client struct {
 	socket         *Socket
 	username       Name
 	isDestroyed    bool
+	certfp         string
 }
 
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
@@ -200,6 +201,11 @@ func (client *Client) Idle() {
 func (client *Client) Register() {
 	if client.registered {
 		return
+	}
+	if client.flags[TLS] {
+		// error is not useful to us here anyways, so we can ignore it
+		client.certfp, _ = client.socket.CertFP()
+		//TODO(dan): login based on certfp
 	}
 	client.registered = true
 	client.Touch()

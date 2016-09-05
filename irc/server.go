@@ -261,6 +261,7 @@ func (s *Server) listen(addr string, tlsMap map[Name]*tls.Config) {
 
 	tlsString := "plaintext"
 	if listenTLS {
+		config.ClientAuth = tls.RequestClientCert
 		listener = tls.NewListener(listener, config)
 		tlsString = "TLS"
 	}
