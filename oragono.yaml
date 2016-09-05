@@ -46,6 +46,21 @@ server:
         - "localhost"
         - "127.0.0.1"
 
+# account/channel registration
+registration:
+    # account registration
+    accounts:
+        # can users register new accounts?
+        enabled: true
+
+        # length of time a user has to verify their account before it can be re-registered
+        # default is 120 hours, or 5 days
+        verify-timeout: "120h"
+
+        # callbacks to allow
+        enabled-callbacks:
+            - none # no verification needed, will instantly register successfully
+
 # ircd operators
 operator:
     # operator named 'dan'
@@ -57,7 +72,6 @@ operator:
 # datastore configuration
 datastore:
     # path to the datastore
-    # this can also be ":memory:" for an in-memory-only db
     path: ircd.db
 
     # path to our sqlite db
