@@ -250,6 +250,10 @@ func (server *Server) Shutdown() {
 }
 
 func (server *Server) Run() {
+	// defer closing db/store
+	defer server.db.Close()
+	defer server.store.Close()
+
 	done := false
 	for !done {
 		select {
