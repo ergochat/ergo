@@ -49,6 +49,11 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 
 // Commands holds all commands executable by a client connected to us.
 var Commands = map[string]Command{
+	"AUTHENTICATE": {
+		handler:      authenticateHandler,
+		usablePreReg: true,
+		minParams:    1,
+	},
 	"AWAY": {
 		handler:   awayHandler,
 		minParams: 0,

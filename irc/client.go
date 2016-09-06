@@ -27,14 +27,17 @@ var (
 )
 
 type Client struct {
+	account        *ClientAccount
 	atime          time.Time
 	authorized     bool
 	awayMessage    string
 	capabilities   CapabilitySet
 	capState       CapState
+	certfp         string
 	channels       ChannelSet
 	ctime          time.Time
 	flags          map[UserMode]bool
+	isDestroyed    bool
 	isQuitting     bool
 	hasQuit        bool
 	hops           uint
@@ -45,13 +48,13 @@ type Client struct {
 	nickMaskString string // cache for nickmask string since it's used with lots of replies
 	quitTimer      *time.Timer
 	realname       string
-	account        *ClientAccount
 	registered     bool
+	saslInProgress bool
+	saslMechanism  string
+	saslValue      string
 	server         *Server
 	socket         *Socket
 	username       Name
-	isDestroyed    bool
-	certfp         string
 }
 
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {

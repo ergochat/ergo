@@ -25,6 +25,7 @@ var (
 	SupportedCapabilities = CapabilitySet{
 		ExtendedJoin:    true,
 		MultiPrefix:     true,
+		SASL:            true,
 		ServerTime:      true,
 		UserhostInNames: true,
 	}
