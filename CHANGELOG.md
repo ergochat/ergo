@@ -20,8 +20,8 @@ Initial release of Oragono!
 * Added [`RPL_ISUPPORT`](http://modern.ircdocs.horse/#rplisupport-005) numeric as advertised by most other IRCds today.
 * Added ability to parse complex mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
 * Added user mode for clients connected via TLS (`+Z`).
-* Added ability to register accounts.
-* Added support for IRCv3 capabilities [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html), [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html), and [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
+* Added ability to register and login to accounts (with passphrase or certfp).
+* Added support for IRCv3 capabilities [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html), [`sasl`](http://ircv3.net/specs/extensions/sasl-3.1.html), [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html), and [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
 
 ### Changed
 * Changed channel creator (`O`) privilege to founder/admin/halfops (`qah`) privileges.
