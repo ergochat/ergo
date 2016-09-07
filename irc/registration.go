@@ -216,7 +216,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		if err != nil {
 			return fmt.Errorf("Could not marshal creds: %s", err)
 		}
-		tx.Set(keyAccountCredentials, string(credText), nil)
+		tx.Set(fmt.Sprintf(keyAccountCredentials, account), string(credText), nil)
 
 		return nil
 	})

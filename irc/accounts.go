@@ -4,11 +4,17 @@
 package irc
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/tidwall/buntdb"
 )
 
 var (
@@ -23,6 +29,9 @@ var (
 	NoAccount = ClientAccount{
 		Name: "*", // * is used until actual account name is set
 	}
+
+	// generic sasl fail error
+	errSaslFail = errors.New("SASL failed")
 )
 
 // ClientAccount represents a user account.
@@ -113,12 +122,84 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 		return false
 	}
 
+	// sasl is being done now by the handler, so we empty the client's vars now
+	client.saslInProgress = false
+	client.saslMechanism = ""
+	client.saslValue = ""
+
 	return handler(server, client, client.saslMechanism, data)
 }
 
 // authPlainHandler parses the SASL PLAIN mechanism.
 func authPlainHandler(server *Server, client *Client, mechanism string, value []byte) bool {
-	client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: Mechanism not yet implemented")
+	splitValue := bytes.Split(value, []byte{'\000'})
+
+	if len(splitValue) != 3 {
+		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: Invalid auth blob")
+		return false
+	}
+
+	accountString := string(splitValue[0])
+	authzid := string(splitValue[1])
+
+	if accountString != authzid {
+		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: authcid and authzid should be the same")
+		return false
+	}
+
+	// casefolding, rough for now bit will improve later.
+	// keep it the same as in the REG CREATE stage
+	accountString = NewName(accountString).String()
+
+	// load and check acct data all in one update to prevent races.
+	// as noted elsewhere, change to proper locking for Account type later probably
+	err := server.store.Update(func(tx *buntdb.Tx) error {
+		credText, err := tx.Get(fmt.Sprintf(keyAccountCredentials, accountString))
+		if err != nil {
+			return err
+		}
+
+		var creds AccountCredentials
+		err = json.Unmarshal([]byte(credText), &creds)
+		if err != nil {
+			return err
+		}
+
+		// ensure creds are valid
+		password := string(splitValue[2])
+		if len(creds.PassphraseHash) < 1 || len(creds.PassphraseSalt) < 1 || len(password) < 1 {
+			return errSaslFail
+		}
+		err = server.passwords.CompareHashAndPassword(creds.PassphraseHash, creds.PassphraseSalt, password)
+
+		// succeeded, load account info if necessary
+		account, exists := server.accounts[accountString]
+		if !exists {
+			name, _ := tx.Get(fmt.Sprintf(keyAccountName, accountString))
+			regTime, _ := tx.Get(fmt.Sprintf(keyAccountRegTime, accountString))
+			regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
+			accountInfo := ClientAccount{
+				Name:         name,
+				RegisteredAt: time.Unix(regTimeInt, 0),
+				Clients:      []*Client{},
+			}
+			server.accounts[accountString] = &accountInfo
+			account = &accountInfo
+		}
+
+		account.Clients = append(account.Clients, client)
+		client.account = account
+
+		return err
+	})
+
+	if err != nil {
+		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed")
+		return false
+	}
+
+	client.Send(nil, server.nameString, RPL_LOGGEDIN, client.nickString, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
+	client.Send(nil, server.nameString, RPL_SASLSUCCESS, client.nickString, "SASL authentication successful")
 	return false
 }
 
