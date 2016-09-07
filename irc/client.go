@@ -75,6 +75,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	}
 	if isTLS {
 		client.flags[TLS] = true
+
+		// error is not useful to us here anyways so we can ignore it
+		client.certfp, _ = client.socket.CertFP()
 	}
 	if server.checkIdent {
 		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
@@ -204,11 +207,6 @@ func (client *Client) Idle() {
 func (client *Client) Register() {
 	if client.registered {
 		return
-	}
-	if client.flags[TLS] {
-		// error is not useful to us here anyways, so we can ignore it
-		client.certfp, _ = client.socket.CertFP()
-		//TODO(dan): login based on certfp
 	}
 	client.registered = true
 	client.Touch()

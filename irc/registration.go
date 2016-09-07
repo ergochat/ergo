@@ -22,10 +22,12 @@ const (
 	keyAccountName        = "account %s name" // stores the 'preferred name' of the account, not casemapped
 	keyAccountRegTime     = "account %s registered.time"
 	keyAccountCredentials = "account %s credentials"
+	keyCertToAccount      = "account.creds.certfp %s"
 )
 
 var (
-	errAccountCreation = errors.New("Account could not be created")
+	errAccountCreation     = errors.New("Account could not be created")
+	errCertfpAlreadyExists = errors.New("An account already exists with your certificate")
 )
 
 // AccountRegistration manages the registration of accounts.
@@ -91,8 +93,6 @@ func removeFailedRegCreateData(store buntdb.DB, account string) {
 
 // regCreateHandler parses the REG CREATE command.
 func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	client.Notice("Parsing CREATE")
-
 	// get and sanitise account name
 	account := NewName(msg.Params[1])
 	//TODO(dan): probably don't need explicit check for "*" here... until we actually casemap properly as per rfc7700
@@ -196,6 +196,20 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 
 	// store details
 	err = server.store.Update(func(tx *buntdb.Tx) error {
+		// certfp special lookup key
+		if credentialType == "certfp" {
+			assembledKeyCertToAccount := fmt.Sprintf(keyCertToAccount, client.certfp)
+
+			// make sure certfp doesn't already exist because that'd be silly
+			_, err := tx.Get(assembledKeyCertToAccount)
+			if err != buntdb.ErrNotFound {
+				return errCertfpAlreadyExists
+			}
+
+			tx.Set(assembledKeyCertToAccount, account.String(), nil)
+		}
+
+		// make creds
 		var creds AccountCredentials
 
 		// always set passphrase salt
@@ -223,7 +237,11 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 
 	// details could not be stored and relevant numerics have been dispatched, abort
 	if err != nil {
-		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+		errMsg := "Could not register"
+		if err == errCertfpAlreadyExists {
+			errMsg = "An account already exists for your certificate fingerprint"
+		}
+		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", errMsg)
 		log.Println("Could not save registration creds:", err.Error())
 		removeFailedRegCreateData(server.store, accountString)
 		return false

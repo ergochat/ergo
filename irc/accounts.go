@@ -44,6 +44,37 @@ type ClientAccount struct {
 	Clients []*Client
 }
 
+// loadAccountCredentials loads an account's credentials from the store.
+func loadAccountCredentials(tx *buntdb.Tx, accountKey string) (*AccountCredentials, error) {
+	credText, err := tx.Get(fmt.Sprintf(keyAccountCredentials, accountKey))
+	if err != nil {
+		return nil, err
+	}
+
+	var creds AccountCredentials
+	err = json.Unmarshal([]byte(credText), &creds)
+	if err != nil {
+		return nil, err
+	}
+
+	return &creds, nil
+}
+
+// loadAccount loads an account from the store, note that the account must actually exist.
+func loadAccount(server *Server, tx *buntdb.Tx, accountKey string) *ClientAccount {
+	name, _ := tx.Get(fmt.Sprintf(keyAccountName, accountKey))
+	regTime, _ := tx.Get(fmt.Sprintf(keyAccountRegTime, accountKey))
+	regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
+	accountInfo := ClientAccount{
+		Name:         name,
+		RegisteredAt: time.Unix(regTimeInt, 0),
+		Clients:      []*Client{},
+	}
+	server.accounts[accountKey] = &accountInfo
+
+	return &accountInfo
+}
+
 // authenticateHandler parses the AUTHENTICATE command (for SASL authentication).
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// sasl abort
@@ -101,13 +132,17 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	}
 	client.saslValue += rawData
 
-	data, err := base64.StdEncoding.DecodeString(client.saslValue)
-	if err != nil {
-		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: Invalid b64 encoding")
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
-		return false
+	var data []byte
+	var err error
+	if client.saslValue != "+" {
+		data, err = base64.StdEncoding.DecodeString(client.saslValue)
+		if err != nil {
+			client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: Invalid b64 encoding")
+			client.saslInProgress = false
+			client.saslMechanism = ""
+			client.saslValue = ""
+			return false
+		}
 	}
 
 	// call actual handler
@@ -139,28 +174,22 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		return false
 	}
 
-	accountString := string(splitValue[0])
+	accountKey := string(splitValue[0])
 	authzid := string(splitValue[1])
 
-	if accountString != authzid {
+	if accountKey != authzid {
 		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: authcid and authzid should be the same")
 		return false
 	}
 
 	// casefolding, rough for now bit will improve later.
 	// keep it the same as in the REG CREATE stage
-	accountString = NewName(accountString).String()
+	accountKey = NewName(accountKey).String()
 
 	// load and check acct data all in one update to prevent races.
 	// as noted elsewhere, change to proper locking for Account type later probably
 	err := server.store.Update(func(tx *buntdb.Tx) error {
-		credText, err := tx.Get(fmt.Sprintf(keyAccountCredentials, accountString))
-		if err != nil {
-			return err
-		}
-
-		var creds AccountCredentials
-		err = json.Unmarshal([]byte(credText), &creds)
+		creds, err := loadAccountCredentials(tx, accountKey)
 		if err != nil {
 			return err
 		}
@@ -173,18 +202,9 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		err = server.passwords.CompareHashAndPassword(creds.PassphraseHash, creds.PassphraseSalt, password)
 
 		// succeeded, load account info if necessary
-		account, exists := server.accounts[accountString]
+		account, exists := server.accounts[accountKey]
 		if !exists {
-			name, _ := tx.Get(fmt.Sprintf(keyAccountName, accountString))
-			regTime, _ := tx.Get(fmt.Sprintf(keyAccountRegTime, accountString))
-			regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
-			accountInfo := ClientAccount{
-				Name:         name,
-				RegisteredAt: time.Unix(regTimeInt, 0),
-				Clients:      []*Client{},
-			}
-			server.accounts[accountString] = &accountInfo
-			account = &accountInfo
+			account = loadAccount(server, tx, accountKey)
 		}
 
 		account.Clients = append(account.Clients, client)
@@ -205,6 +225,48 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 
 // authExternalHandler parses the SASL EXTERNAL mechanism.
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
-	client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed: Mechanism not yet implemented")
+	if client.certfp == "" {
+		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed, you are not connecting with a certificate")
+		return false
+	}
+
+	err := server.store.Update(func(tx *buntdb.Tx) error {
+		// certfp lookup key
+		accountKey, err := tx.Get(fmt.Sprintf(keyCertToAccount, client.certfp))
+		if err != nil {
+			return errSaslFail
+		}
+
+		// confirm account exists
+		_, err = tx.Get(fmt.Sprintf(keyAccountExists, accountKey))
+		if err != nil {
+			return errSaslFail
+		}
+
+		// confirm the certfp in that account's credentials
+		creds, err := loadAccountCredentials(tx, accountKey)
+		if err != nil || creds.Certificate != client.certfp {
+			return errSaslFail
+		}
+
+		// succeeded, load account info if necessary
+		account, exists := server.accounts[accountKey]
+		if !exists {
+			account = loadAccount(server, tx, accountKey)
+		}
+
+		account.Clients = append(account.Clients, client)
+		client.account = account
+
+		return nil
+	})
+
+	if err != nil {
+		client.Send(nil, server.nameString, ERR_SASLFAIL, client.nickString, "SASL authentication failed")
+		return false
+	}
+
+	client.Send(nil, server.nameString, RPL_LOGGEDIN, client.nickString, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
+	client.Send(nil, server.nameString, RPL_SASLSUCCESS, client.nickString, "SASL authentication successful")
 	return false
 }

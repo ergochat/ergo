@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	errNotTls      = errors.New("Not a TLS connection")
+	errNotTLS      = errors.New("Not a TLS connection")
 	errNoPeerCerts = errors.New("Client did not provide a certificate")
 )
 
@@ -48,8 +48,11 @@ func (socket *Socket) Close() {
 func (socket *Socket) CertFP() (string, error) {
 	var tlsConn, isTLS = socket.conn.(*tls.Conn)
 	if !isTLS {
-		return "", errNotTls
+		return "", errNotTLS
 	}
+
+	// ensure handehake is performed
+	tlsConn.Handshake()
 
 	peerCerts := tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {
