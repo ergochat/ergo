@@ -234,13 +234,12 @@ func (client *Client) HasUsername() bool {
 
 // <mode>
 func (c *Client) ModeString() (str string) {
+	str = "+"
+
 	for flag := range c.flags {
 		str += flag.String()
 	}
 
-	if len(str) > 0 {
-		str = "+" + str
-	}
 	return
 }
 
