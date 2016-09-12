@@ -53,7 +53,6 @@ type Server struct {
 	signals             chan os.Signal
 	proxyAllowedFrom    []string
 	whoWas              *WhoWasList
-	theaters            map[Name][]byte
 	isupport            *ISupportList
 	checkIdent          bool
 }
@@ -92,7 +91,6 @@ func NewServer(config *Config) *Server {
 		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
 		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
 		whoWas:           NewWhoWasList(config.Limits.WhowasEntries),
-		theaters:         config.Theaters(),
 		checkIdent:       config.Server.CheckIdent,
 	}
 

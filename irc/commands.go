@@ -161,11 +161,6 @@ var Commands = map[string]Command{
 		handler:   regHandler,
 		minParams: 3,
 	},
-	/*TODO(dan): Add this back in
-	"THEATRE": Command{
-		handler:   theatreHandler,
-		minParams: 1,
-	},*/
 	"TIME": {
 		handler:   timeHandler,
 		minParams: 0,

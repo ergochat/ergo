@@ -35,6 +35,7 @@ Initial release of Oragono!
 
 ### Removed
 * Removed gitconfig configuration format [replaced with YAML].
+* Removed `THEATER` command (it broke and I'm not that interested in putting the work in to get it working again with the aim of this project. PRs accepted).
 
 ### Fixed
 * Fixed clients no longer being able to send commands after a single command errored out.

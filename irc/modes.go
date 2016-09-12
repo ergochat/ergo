@@ -173,14 +173,13 @@ const (
 	Persistent  ChannelMode = 'P' // flag
 	ReOp        ChannelMode = 'r' // flag
 	Secret      ChannelMode = 's' // flag
-	Theater     ChannelMode = 'T' // flag, nonstandard
 	UserLimit   ChannelMode = 'l' // flag arg
 )
 
 var (
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
-		OpOnlyTopic, Persistent, Secret, Theater, UserLimit,
+		OpOnlyTopic, Persistent, Secret, UserLimit,
 	}
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()

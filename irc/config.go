@@ -94,8 +94,6 @@ type Config struct {
 
 	Operator map[string]*PassConfig
 
-	Theater map[string]*PassConfig
-
 	Limits struct {
 		NickLen       int  `yaml:"nicklen"`
 		ChannelLen    int  `yaml:"channellen"`
@@ -111,18 +109,6 @@ func (conf *Config) Operators() map[Name][]byte {
 		operators[NewName(name)] = opConf.PasswordBytes()
 	}
 	return operators
-}
-
-func (conf *Config) Theaters() map[Name][]byte {
-	theaters := make(map[Name][]byte)
-	for s, theaterConf := range conf.Theater {
-		name := NewName(s)
-		if !name.IsChannel() {
-			log.Fatal("config uses a non-channel for a theater!")
-		}
-		theaters[name] = theaterConf.PasswordBytes()
-	}
-	return theaters
 }
 
 func (conf *Config) TLSListeners() map[Name]*tls.Config {
