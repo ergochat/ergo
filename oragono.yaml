@@ -87,5 +87,11 @@ limits:
     # channellen is the max channel length allowed
     channellen: 64
 
+    # kicklen is the maximum length of a kick message
+    kicklen: 390
+
+    # topiclen is the maximum length of a channel topic
+    topiclen: 390
+
     # whowas entries to store
     whowas-entries: 100

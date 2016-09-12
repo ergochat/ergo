@@ -99,6 +99,8 @@ type Config struct {
 	Limits struct {
 		NickLen       int  `yaml:"nicklen"`
 		ChannelLen    int  `yaml:"channellen"`
+		KickLen       int  `yaml:"kicklen"`
+		TopicLen      int  `yaml:"topiclen"`
 		WhowasEntries uint `yaml:"whowas-entries"`
 	}
 }
@@ -169,7 +171,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if len(config.Server.Listen) == 0 {
 		return nil, errors.New("Server listening addresses missing")
 	}
-	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 {
+	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.TopicLen < 1 {
 		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
 	}
 	return config, nil

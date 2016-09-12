@@ -270,6 +270,10 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		return
 	}
 
+	if len(topic) > client.server.limits.Topic {
+		topic = topic[:client.server.limits.Topic]
+	}
+
 	channel.topic = topic
 	channel.topicSetBy = client.nickString
 	channel.topicSetTime = time.Now()
@@ -476,6 +480,10 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 	if !channel.members.Has(target) {
 		client.Send(nil, client.server.nameString, ERR_USERNOTINCHANNEL, client.nickString, channel.nameString, "They aren't on that channel")
 		return
+	}
+
+	if len(comment) > client.server.limits.Kick {
+		comment = comment[:client.server.limits.Kick]
 	}
 
 	for member := range channel.members {

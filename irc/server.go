@@ -26,6 +26,12 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
+// Limits holds the maximum limits for various things such as topic lengths
+type Limits struct {
+	Kick  int
+	Topic int
+}
+
 type Server struct {
 	accounts            map[string]*ClientAccount
 	channels            ChannelNameMap
@@ -35,6 +41,7 @@ type Server struct {
 	db                  *sql.DB
 	store               buntdb.DB
 	idle                chan *Client
+	limits              Limits
 	motdLines           []string
 	name                Name
 	nameString          string // cache for server name string since it's used with almost every reply
@@ -67,13 +74,17 @@ type clientConn struct {
 
 func NewServer(config *Config) *Server {
 	server := &Server{
-		accounts:         make(map[string]*ClientAccount),
-		channels:         make(ChannelNameMap),
-		clients:          NewClientLookupSet(),
-		commands:         make(chan Command),
-		ctime:            time.Now(),
-		db:               OpenDB(config.Datastore.SQLitePath),
-		idle:             make(chan *Client),
+		accounts: make(map[string]*ClientAccount),
+		channels: make(ChannelNameMap),
+		clients:  NewClientLookupSet(),
+		commands: make(chan Command),
+		ctime:    time.Now(),
+		db:       OpenDB(config.Datastore.SQLitePath),
+		idle:     make(chan *Client),
+		limits: Limits{
+			Kick:  config.Limits.KickLen,
+			Topic: config.Limits.TopicLen,
+		},
 		name:             NewName(config.Server.Name),
 		nameString:       NewName(config.Server.Name).String(),
 		newConns:         make(chan clientConn),
@@ -166,7 +177,7 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
-	// server.isupport.Add("KICKLEN", "") //TODO(dan): Support kick length?
+	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.Kick))
 	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("NETWORK", config.Network.Name)
@@ -174,7 +185,7 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
-	// server.isupport.Add("TOPICLEN", "") //TODO(dan): Support topic length
+	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.Topic))
 
 	// account registration
 	if server.accountRegistration.Enabled {
