@@ -270,8 +270,8 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		return
 	}
 
-	if len(topic) > client.server.limits.Topic {
-		topic = topic[:client.server.limits.Topic]
+	if len(topic) > client.server.limits.TopicLen {
+		topic = topic[:client.server.limits.TopicLen]
 	}
 
 	channel.topic = topic
@@ -482,8 +482,8 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 		return
 	}
 
-	if len(comment) > client.server.limits.Kick {
-		comment = comment[:client.server.limits.Kick]
+	if len(comment) > client.server.limits.KickLen {
+		comment = comment[:client.server.limits.KickLen]
 	}
 
 	for member := range channel.members {

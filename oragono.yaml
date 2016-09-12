@@ -87,6 +87,9 @@ limits:
     # channellen is the max channel length allowed
     channellen: 64
 
+    # awaylen is the maximum length of an away message
+    awaylen: 200
+
     # kicklen is the maximum length of a kick message
     kicklen: 390
 

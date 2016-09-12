@@ -28,8 +28,9 @@ import (
 
 // Limits holds the maximum limits for various things such as topic lengths
 type Limits struct {
-	Kick  int
-	Topic int
+	AwayLen  int
+	KickLen  int
+	TopicLen int
 }
 
 type Server struct {
@@ -81,8 +82,9 @@ func NewServer(config *Config) *Server {
 		db:       OpenDB(config.Datastore.SQLitePath),
 		idle:     make(chan *Client),
 		limits: Limits{
-			Kick:  config.Limits.KickLen,
-			Topic: config.Limits.TopicLen,
+			AwayLen:  config.Limits.AwayLen,
+			KickLen:  config.Limits.KickLen,
+			TopicLen: config.Limits.TopicLen,
 		},
 		name:             NewName(config.Server.Name),
 		nameString:       NewName(config.Server.Name).String(),
@@ -169,13 +171,14 @@ func NewServer(config *Config) *Server {
 
 	// add RPL_ISUPPORT tokens
 	server.isupport = NewISupportList()
+	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", "ascii")
 	// server.isupport.Add("CHANMODES", "")  //TODO(dan): Channel mode list here
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
-	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.Kick))
+	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
 	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("NETWORK", config.Network.Name)
@@ -183,7 +186,7 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
-	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.Topic))
+	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
 	if server.accountRegistration.Enabled {
@@ -816,6 +819,9 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 0 {
 		isAway = true
 		text = msg.Params[0]
+		if len(text) > server.limits.AwayLen {
+			text = text[:server.limits.AwayLen]
+		}
 	}
 
 	if isAway {
