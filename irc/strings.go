@@ -94,12 +94,3 @@ func NewText(str string) Text {
 func (text Text) String() string {
 	return string(text)
 }
-
-// CTCPText is text suitably escaped for CTCP.
-type CTCPText string
-
-var ctcpEscaper = strings.NewReplacer("\x00", "\x200", "\n", "\x20n", "\r", "\x20r")
-
-func NewCTCPText(str string) CTCPText {
-	return CTCPText(ctcpEscaper.Replace(str))
-}
