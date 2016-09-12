@@ -14,6 +14,7 @@ import (
 type Capability string
 
 const (
+	AccountTag      Capability = "account-tag"
 	ExtendedJoin    Capability = "extended-join"
 	MultiPrefix     Capability = "multi-prefix"
 	SASL            Capability = "sasl"
@@ -23,6 +24,7 @@ const (
 
 var (
 	SupportedCapabilities = CapabilitySet{
+		AccountTag:      true,
 		ExtendedJoin:    true,
 		MultiPrefix:     true,
 		SASL:            true,

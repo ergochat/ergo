@@ -304,8 +304,7 @@ func (channel *Channel) PrivMsg(client *Client, message string) {
 		if member == client {
 			continue
 		}
-		//TODO(dan): use nickmask instead of nickString here lel
-		member.Send(nil, client.nickMaskString, "PRIVMSG", channel.nameString, message)
+		member.SendFromClient(client, nil, client.nickMaskString, "PRIVMSG", channel.nameString, message)
 	}
 }
 
@@ -452,7 +451,7 @@ func (channel *Channel) Notice(client *Client, message string) {
 		if member == client {
 			continue
 		}
-		member.Send(nil, client.nickMaskString, "NOTICE", channel.nameString, message)
+		member.SendFromClient(client, nil, client.nickMaskString, "NOTICE", channel.nameString, message)
 	}
 }
 

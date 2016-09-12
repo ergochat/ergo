@@ -349,6 +349,21 @@ func (client *Client) destroy() {
 	}
 }
 
+// SendFromClient sends an IRC line coming from a specific client.
+// Adds account-tag to the line as well.
+func (client *Client) SendFromClient(from *Client, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+	// attach account-tag
+	if client.capabilities[AccountTag] && from.account != &NoAccount {
+		if tags == nil {
+			tags = ircmsg.MakeTags("account", from.account.Name)
+		} else {
+			(*tags)["account"] = ircmsg.MakeTagValue(from.account.Name)
+		}
+	}
+
+	return client.Send(tags, prefix, command, params...)
+}
+
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
