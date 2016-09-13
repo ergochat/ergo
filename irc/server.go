@@ -173,7 +173,7 @@ func NewServer(config *Config) *Server {
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", "ascii")
-	// server.isupport.Add("CHANMODES", "")  //TODO(dan): Channel mode list here
+	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, ReOp, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
