@@ -1,4 +1,4 @@
-# Oragono
+![Oragono logo](docs/logo.png)
 
 Oragono is an IRC daemon written in Go. It's an early, experimental fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon.
 
