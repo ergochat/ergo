@@ -249,7 +249,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
 		} else {
-			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[1]), "is an unknown mode character to me")
+			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[0]), "is an unknown mode character to me")
 			return false
 		}
 
@@ -327,7 +327,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
 		} else {
-			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[1]), "is an unknown mode character to me")
+			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[0]), "is an unknown mode character to me")
 			return false
 		}
 
