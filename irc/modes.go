@@ -347,20 +347,30 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			case BanMask, ExceptMask, InviteMask:
 				if len(msg.Params) > skipArgs {
 					change.arg = msg.Params[skipArgs]
-					skipArgs += 1
+					skipArgs++
 				} else {
 					change.op = List
 				}
-			case Key, UserLimit, ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
 				if len(msg.Params) > skipArgs {
 					change.arg = msg.Params[skipArgs]
-					skipArgs += 1
+					skipArgs++
 				} else {
 					continue
 				}
+			case Key, UserLimit:
+				// don't require value when removing
+				if change.op == Add {
+					if len(msg.Params) > skipArgs {
+						change.arg = msg.Params[skipArgs]
+						skipArgs++
+					} else {
+						continue
+					}
+				}
 			}
 
-			applied = append(applied, &change)
+			changes = append(changes, &change)
 		}
 
 		for _, change := range changes {
@@ -388,6 +398,30 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					list.Remove(Name(mask))
 					applied = append(applied, change)
 				}
+
+			case UserLimit:
+				switch change.op {
+				case Add:
+					val, err := strconv.ParseUint(change.arg, 10, 64)
+					if err == nil {
+						channel.userLimit = val
+						applied = append(applied, change)
+					}
+
+				case Remove:
+					channel.userLimit = 0
+					applied = append(applied, change)
+				}
+
+			case Key:
+				switch change.op {
+				case Add:
+					channel.key = change.arg
+
+				case Remove:
+					channel.key = ""
+				}
+				applied = append(applied, change)
 
 			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Secret:
 				switch change.op {
