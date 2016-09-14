@@ -85,7 +85,7 @@ var Commands = map[string]Command{
 	},
 	"KILL": {
 		handler:   killHandler,
-		minParams: 2,
+		minParams: 1,
 		oper:      true,
 	},
 	"LIST": {

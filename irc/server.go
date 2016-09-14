@@ -1117,7 +1117,10 @@ func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // KILL <nickname> <comment>
 func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname := msg.Params[0]
-	comment := msg.Params[1]
+	comment := "<no reason supplied>"
+	if len(msg.Params) > 1 {
+		comment = msg.Params[1]
+	}
 
 	target := server.clients.Get(Name(nickname))
 	if target == nil {
