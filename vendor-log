@@ -1,0 +1,16 @@
+334b0ef660bcfba69594975e237a52d4f1bd4656	github.com/DanielOaks/girc-go/ircmsg
+4b10b8bfc12ec69d2248de2eea7eb484b5251d47	github.com/DanielOaks/go-ident
+784ddc588536785e7299f7272f39101f7faccc3f	github.com/docopt/docopt-go
+3986be78bf859e01f01af631ad76da5b269d270c	github.com/gorilla/websocket
+3dc190a01779c7f35c9748dd14aba234fcf48a33 (dirty)	github.com/mattn/go-sqlite3
+bde515e1697379bec1427903e54888babf32513a	github.com/tidwall/btree
+6cd540fffb4fd5f2417f8d2c80dee8f3174939a5	github.com/tidwall/buntdb
+2dec1c4e7be3fff111b388536cf94ae23c38add7	github.com/tidwall/gjson
+173748da739a410c5b0b813b956f89ff94730b4c	github.com/tidwall/match
+d4a8a3d30d5729f85edfba1745241f3a621d0359	github.com/tidwall/rtree
+fbbbdbdd6f61a8f86b00866626c2fe3d2a642db0	golang.org/x/crypto/bcrypt
+fbbbdbdd6f61a8f86b00866626c2fe3d2a642db0	golang.org/x/crypto/blowfish
+fbbbdbdd6f61a8f86b00866626c2fe3d2a642db0	golang.org/x/crypto/ssh/terminal
+cf4986612c83df6c55578ba198316d1684a9a287	golang.org/x/text/transform
+cf4986612c83df6c55578ba198316d1684a9a287	golang.org/x/text/unicode/norm
+f7716cbe52baa25d2e9b0d0da546fcf909fc16b4	gopkg.in/yaml.v2
