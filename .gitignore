@@ -97,4 +97,5 @@ _testmain.go
 /ssl.*
 /tls.*
 /oragono
+/build/*
 _test
