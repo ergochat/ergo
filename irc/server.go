@@ -8,7 +8,6 @@ package irc
 import (
 	"bufio"
 	"crypto/tls"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -39,7 +38,6 @@ type Server struct {
 	clients             *ClientLookupSet
 	commands            chan Command
 	ctime               time.Time
-	db                  *sql.DB
 	store               buntdb.DB
 	idle                chan *Client
 	limits              Limits
@@ -79,7 +77,6 @@ func NewServer(config *Config) *Server {
 		clients:  NewClientLookupSet(),
 		commands: make(chan Command),
 		ctime:    time.Now(),
-		db:       OpenDB(config.Datastore.SQLitePath),
 		idle:     make(chan *Client),
 		limits: Limits{
 			AwayLen:  config.Limits.AwayLen,
@@ -216,35 +213,38 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 }
 
 func (server *Server) loadChannels() {
-	rows, err := server.db.Query(`
-        SELECT name, flags, key, topic, user_limit, ban_list, except_list,
-               invite_list
-          FROM channel`)
-	if err != nil {
-		log.Fatal("error loading channels: ", err)
-	}
-	for rows.Next() {
-		var name, flags, key, topic string
-		var userLimit uint64
-		var banList, exceptList, inviteList string
-		err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
-			&exceptList, &inviteList)
-		if err != nil {
-			log.Println("Server.loadChannels:", err)
-			continue
-		}
+	//TODO(dan): Fix channel persistence
+	/*
+			rows, err := server.db.Query(`
+		        SELECT name, flags, key, topic, user_limit, ban_list, except_list,
+		               invite_list
+		          FROM channel`)
+			if err != nil {
+				log.Fatal("error loading channels: ", err)
+			}
+			for rows.Next() {
+				var name, flags, key, topic string
+				var userLimit uint64
+				var banList, exceptList, inviteList string
+				err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
+					&exceptList, &inviteList)
+				if err != nil {
+					log.Println("Server.loadChannels:", err)
+					continue
+				}
 
-		channel := NewChannel(server, NewName(name), false)
-		for _, flag := range flags {
-			channel.flags[ChannelMode(flag)] = true
-		}
-		channel.key = key
-		channel.topic = topic
-		channel.userLimit = userLimit
-		loadChannelList(channel, banList, BanMask)
-		loadChannelList(channel, exceptList, ExceptMask)
-		loadChannelList(channel, inviteList, InviteMask)
-	}
+				channel := NewChannel(server, NewName(name), false)
+				for _, flag := range flags {
+					channel.flags[ChannelMode(flag)] = true
+				}
+				channel.key = key
+				channel.topic = topic
+				channel.userLimit = userLimit
+				loadChannelList(channel, banList, BanMask)
+				loadChannelList(channel, exceptList, ExceptMask)
+				loadChannelList(channel, inviteList, InviteMask)
+			}
+	*/
 }
 
 func (server *Server) Shutdown() {
@@ -253,9 +253,6 @@ func (server *Server) Shutdown() {
 		client.Notice("Server is shutting down")
 	}
 
-	if err := server.db.Close(); err != nil {
-		Log.error.Println("Server.Shutdown db.Close: error:", err)
-	}
 	if err := server.store.Close(); err != nil {
 		Log.error.Println("Server.Shutdown store.Close: error:", err)
 	}
@@ -263,7 +260,6 @@ func (server *Server) Shutdown() {
 
 func (server *Server) Run() {
 	// defer closing db/store
-	defer server.db.Close()
 	defer server.store.Close()
 
 	done := false

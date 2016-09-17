@@ -84,8 +84,7 @@ type Config struct {
 	}
 
 	Datastore struct {
-		Path       string
-		SQLitePath string `yaml:"sqlite-path"`
+		Path string
 	}
 
 	Registration struct {
@@ -151,9 +150,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Datastore.Path == "" {
 		return nil, errors.New("Datastore path missing")
-	}
-	if config.Datastore.SQLitePath == "" {
-		return nil, errors.New("SQLite database path missing")
 	}
 	if len(config.Server.Listen) == 0 {
 		return nil, errors.New("Server listening addresses missing")

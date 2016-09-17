@@ -424,26 +424,31 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 }
 
 func (channel *Channel) Persist() (err error) {
-	if channel.flags[Persistent] {
-		//TODO(dan): Save topicSetBy/topicSetTime and createdTime
-		_, err = channel.server.db.Exec(`
-            INSERT OR REPLACE INTO channel
-              (name, flags, key, topic, user_limit, ban_list, except_list,
-               invite_list)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			channel.name.String(), channel.flags.String(), channel.key,
-			channel.topic, channel.userLimit, channel.lists[BanMask].String(),
-			channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
-	} else {
-		_, err = channel.server.db.Exec(`
-            DELETE FROM channel WHERE name = ?`, channel.name.String())
-	}
-
-	if err != nil {
-		Log.error.Println("Channel.Persist:", channel, err)
-	}
-
 	return
+
+	//TODO(dan): Fix persistence
+	/*
+			if channel.flags[Persistent] {
+				//TODO(dan): Save topicSetBy/topicSetTime and createdTime
+				_, err = channel.server.db.Exec(`
+		            INSERT OR REPLACE INTO channel
+		              (name, flags, key, topic, user_limit, ban_list, except_list,
+		               invite_list)
+		              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+					channel.name.String(), channel.flags.String(), channel.key,
+					channel.topic, channel.userLimit, channel.lists[BanMask].String(),
+					channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
+			} else {
+				_, err = channel.server.db.Exec(`
+		            DELETE FROM channel WHERE name = ?`, channel.name.String())
+			}
+
+			if err != nil {
+				Log.error.Println("Channel.Persist:", channel, err)
+			}
+
+			return
+	*/
 }
 
 func (channel *Channel) Notice(client *Client, message string) {

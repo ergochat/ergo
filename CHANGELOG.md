@@ -14,6 +14,7 @@ Initial release of Oragono!
 
 ### Added
 * Added YAML config file format.
+* Added buntdb key-value store for persistent data.
 * Added native SSL/TLS support (thanks to @edmand).
 * Added ability to generate testing certificates from the command line.
 * Added support for looking up usernames with [ident](https://tools.ietf.org/html/rfc1413) on client connection.
@@ -35,6 +36,7 @@ Initial release of Oragono!
 
 ### Removed
 * Removed gitconfig configuration format [replaced with YAML].
+* Removed sqlite database [replaced with buntdb key-value store].
 * Removed `THEATER` command (it broke and I'm not that interested in putting the work in to get it working again with the aim of this project. PRs accepted).
 
 ### Fixed
