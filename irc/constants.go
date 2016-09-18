@@ -8,7 +8,7 @@ package irc
 import "fmt"
 
 const (
-	SEM_VER       = "0.1.0"
+	SEM_VER       = "0.2.0-unreleased"
 	CRLF          = "\r\n"
 	MAX_REPLY_LEN = 512 - len(CRLF)
 )
