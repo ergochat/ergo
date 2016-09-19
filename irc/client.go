@@ -377,9 +377,13 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 	}
 
 	// send out the message
-	ircmsg := ircmsg.MakeMessage(tags, prefix, command, params...)
-	line, err := ircmsg.Line()
+	message := ircmsg.MakeMessage(tags, prefix, command, params...)
+	line, err := message.Line()
 	if err != nil {
+		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
+		message = ircmsg.MakeMessage(nil, client.server.nameString, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
+		line, _ := message.Line()
+		client.socket.Write(line)
 		return err
 	}
 	client.socket.Write(line)
