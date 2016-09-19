@@ -126,11 +126,10 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 			return false
 		}
 		return false
-	} else if len(client.saslValue) > 0 {
-		client.saslValue += rawData
-		return false
 	}
-	client.saslValue += rawData
+	if rawData != "+" {
+		client.saslValue += rawData
+	}
 
 	var data []byte
 	var err error
