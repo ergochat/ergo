@@ -20,15 +20,16 @@ func main() {
 	version := irc.SEM_VER
 	usage := `oragono.
 Usage:
-	oragono initdb [--conf <filename>]
-	oragono upgradedb [--conf <filename>]
-	oragono genpasswd [--conf <filename>]
-	oragono mkcerts [--conf <filename>]
-	oragono run [--conf <filename>]
+	oragono initdb [--conf <filename>] [--quiet]
+	oragono upgradedb [--conf <filename>] [--quiet]
+	oragono genpasswd [--conf <filename>] [--quiet]
+	oragono mkcerts [--conf <filename>] [--quiet]
+	oragono run [--conf <filename>] [--quiet]
 	oragono -h | --help
 	oragono --version
 Options:
 	--conf <filename>  Configuration file to use [default: ircd.yaml].
+	--quiet            Don't show startup/shutdown lines.
 	-h --help          Show this screen.
 	--version          Show version.`
 
@@ -55,19 +56,27 @@ Options:
 		fmt.Println(encoded)
 	} else if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
-		log.Println("database initialized: ", config.Datastore.Path)
+		if !arguments["--quiet"].(bool) {
+			log.Println("database initialized: ", config.Datastore.Path)
+		}
 	} else if arguments["upgradedb"].(bool) {
 		irc.UpgradeDB(config.Datastore.Path)
-		log.Println("database upgraded: ", config.Datastore.Path)
+		if !arguments["--quiet"].(bool) {
+			log.Println("database upgraded: ", config.Datastore.Path)
+		}
 	} else if arguments["mkcerts"].(bool) {
-		log.Println("making self-signed certificates")
+		if !arguments["--quiet"].(bool) {
+			log.Println("making self-signed certificates")
+		}
 
 		for name, conf := range config.Server.TLSListeners {
 			log.Printf(" making cert for %s listener\n", name)
 			host := config.Server.Name
 			err := mkcerts.CreateCert("Oragono", host, conf.Cert, conf.Key)
 			if err == nil {
-				log.Printf("  Certificate created at %s : %s\n", conf.Cert, conf.Key)
+				if !arguments["--quiet"].(bool) {
+					log.Printf("  Certificate created at %s : %s\n", conf.Cert, conf.Key)
+				}
 			} else {
 				log.Fatal("  Could not create certificate:", err.Error())
 			}
@@ -75,8 +84,10 @@ Options:
 	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
 		server := irc.NewServer(config)
-		log.Println(irc.SEM_VER, "running")
-		defer log.Println(irc.SEM_VER, "exiting")
+		if !arguments["--quiet"].(bool) {
+			log.Println(irc.SEM_VER, "running")
+			defer log.Println(irc.SEM_VER, "exiting")
+		}
 		server.Run()
 	}
 }
