@@ -61,17 +61,18 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
 	socket := NewSocket(conn)
 	client := &Client{
-		atime:        now,
-		authorized:   server.password == nil,
-		capState:     CapNone,
-		capabilities: make(CapabilitySet),
-		channels:     make(ChannelSet),
-		ctime:        now,
-		flags:        make(map[UserMode]bool),
-		server:       server,
-		socket:       &socket,
-		account:      &NoAccount,
-		nickString:   "*", // * is used until actual nick is given
+		atime:          now,
+		authorized:     server.password == nil,
+		capState:       CapNone,
+		capabilities:   make(CapabilitySet),
+		channels:       make(ChannelSet),
+		ctime:          now,
+		flags:          make(map[UserMode]bool),
+		server:         server,
+		socket:         &socket,
+		account:        &NoAccount,
+		nickString:     "*", // * is used until actual nick is given
+		nickMaskString: "*", // * is used until actual nick is given
 	}
 	if isTLS {
 		client.flags[TLS] = true
