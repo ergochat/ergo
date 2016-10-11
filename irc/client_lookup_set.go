@@ -1,10 +1,13 @@
 // Copyright (c) 2012-2014 Jeremy Latt
+// Copyright (c) 2016- Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
 package irc
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -17,31 +20,35 @@ var (
 	ErrNicknameMismatch = errors.New("nickname mismatch")
 )
 
-func ExpandUserHost(userhost Name) (expanded Name) {
+func ExpandUserHost(userhost string) (expanded string) {
 	expanded = userhost
 	// fill in missing wildcards for nicks
 	//TODO(dan): this would fail with dan@lol, do we want to accommodate that?
-	if !strings.Contains(expanded.String(), "!") {
+	if !strings.Contains(expanded, "!") {
 		expanded += "!*"
 	}
-	if !strings.Contains(expanded.String(), "@") {
+	if !strings.Contains(expanded, "@") {
 		expanded += "@*"
 	}
 	return
 }
 
 type ClientLookupSet struct {
-	byNick map[Name]*Client
+	byNick map[string]*Client
 }
 
 func NewClientLookupSet() *ClientLookupSet {
 	return &ClientLookupSet{
-		byNick: make(map[Name]*Client),
+		byNick: make(map[string]*Client),
 	}
 }
 
-func (clients *ClientLookupSet) Get(nick Name) *Client {
-	return clients.byNick[nick.ToLower()]
+func (clients *ClientLookupSet) Get(nick string) *Client {
+	casefoldedName, err := CasefoldName(nick)
+	if err == nil {
+		return clients.byNick[casefoldedName]
+	}
+	return nil
 }
 
 func (clients *ClientLookupSet) Add(client *Client) error {
@@ -51,7 +58,7 @@ func (clients *ClientLookupSet) Add(client *Client) error {
 	if clients.Get(client.nick) != nil {
 		return ErrNicknameInUse
 	}
-	clients.byNick[client.Nick().ToLower()] = client
+	clients.byNick[client.nickCasefolded] = client
 	return nil
 }
 
@@ -62,20 +69,21 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	if clients.Get(client.nick) != client {
 		return ErrNicknameMismatch
 	}
-	delete(clients.byNick, client.nick.ToLower())
+	delete(clients.byNick, client.nickCasefolded)
 	return nil
 }
 
-func (clients *ClientLookupSet) FindAll(userhost Name) (set ClientSet) {
+func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 
-	userhost = ExpandUserHost(userhost)
-	matcher := ircmatch.MakeMatch(userhost.String())
+	userhost, err := Casefold(ExpandUserHost(userhost))
+	if err != nil {
+		return set
+	}
+	matcher := ircmatch.MakeMatch(userhost)
 
-	var casemappedNickMask string
 	for _, client := range clients.byNick {
-		casemappedNickMask = NewName(client.nickMaskString).String()
-		if matcher.Match(casemappedNickMask) {
+		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
 		}
 	}
@@ -83,14 +91,15 @@ func (clients *ClientLookupSet) FindAll(userhost Name) (set ClientSet) {
 	return set
 }
 
-func (clients *ClientLookupSet) Find(userhost Name) *Client {
-	userhost = ExpandUserHost(userhost)
-	matcher := ircmatch.MakeMatch(userhost.String())
+func (clients *ClientLookupSet) Find(userhost string) *Client {
+	userhost, err := Casefold(ExpandUserHost(userhost))
+	if err != nil {
+		return nil
+	}
+	matcher := ircmatch.MakeMatch(userhost)
 
-	var casemappedNickMask string
 	for _, client := range clients.byNick {
-		casemappedNickMask = NewName(client.nickMaskString).String()
-		if matcher.Match(casemappedNickMask) {
+		if matcher.Match(client.nickMaskCasefolded) {
 			return client
 		}
 	}
@@ -105,26 +114,31 @@ func (clients *ClientLookupSet) Find(userhost Name) *Client {
 //TODO(dan): move this over to generally using glob syntax instead?
 // kinda more expected in normal ban/etc masks, though regex is useful (probably as an extban?)
 type UserMaskSet struct {
-	masks  map[Name]bool
+	masks  map[string]bool
 	regexp *regexp.Regexp
 }
 
 func NewUserMaskSet() *UserMaskSet {
 	return &UserMaskSet{
-		masks: make(map[Name]bool),
+		masks: make(map[string]bool),
 	}
 }
 
-func (set *UserMaskSet) Add(mask Name) bool {
-	if set.masks[mask] {
+func (set *UserMaskSet) Add(mask string) bool {
+	casefoldedMask, err := Casefold(mask)
+	if err != nil {
+		log.Println(fmt.Sprintf("ERROR: Could not add mask to usermaskset: [%s]", mask))
 		return false
 	}
-	set.masks[mask] = true
+	if set.masks[casefoldedMask] {
+		return false
+	}
+	set.masks[casefoldedMask] = true
 	set.setRegexp()
 	return true
 }
 
-func (set *UserMaskSet) AddAll(masks []Name) (added bool) {
+func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 	for _, mask := range masks {
 		if !added && !set.masks[mask] {
 			added = true
@@ -135,7 +149,7 @@ func (set *UserMaskSet) AddAll(masks []Name) (added bool) {
 	return
 }
 
-func (set *UserMaskSet) Remove(mask Name) bool {
+func (set *UserMaskSet) Remove(mask string) bool {
 	if !set.masks[mask] {
 		return false
 	}
@@ -144,18 +158,18 @@ func (set *UserMaskSet) Remove(mask Name) bool {
 	return true
 }
 
-func (set *UserMaskSet) Match(userhost Name) bool {
+func (set *UserMaskSet) Match(userhost string) bool {
 	if set.regexp == nil {
 		return false
 	}
-	return set.regexp.MatchString(userhost.String())
+	return set.regexp.MatchString(userhost)
 }
 
 func (set *UserMaskSet) String() string {
 	masks := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
-		masks[index] = mask.String()
+		masks[index] = mask
 		index += 1
 	}
 	return strings.Join(masks, " ")
@@ -176,7 +190,7 @@ func (set *UserMaskSet) setRegexp() {
 	maskExprs := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
-		manyParts := strings.Split(mask.String(), "*")
+		manyParts := strings.Split(mask, "*")
 		manyExprs := make([]string, len(manyParts))
 		for mindex, manyPart := range manyParts {
 			oneParts := strings.Split(manyPart, "?")

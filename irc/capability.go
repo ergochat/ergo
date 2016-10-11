@@ -107,23 +107,23 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// client.server needs to be here to workaround a parsing bug in weechat 1.4
 		// and let it connect to the server (otherwise it doesn't respond to the CAP
 		// message with anything and just hangs on connection)
-		client.Send(nil, server.nameString, "CAP", client.nickString, subCommand, SupportedCapabilities.String())
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String())
 
 	case "LIST":
-		client.Send(nil, server.nameString, "CAP", client.nickString, subCommand, client.capabilities.String())
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String())
 
 	case "REQ":
 		// make sure all capabilities actually exist
 		for capability := range capabilities {
 			if !SupportedCapabilities[capability] {
-				client.Send(nil, server.nameString, "CAP", client.nickString, "NAK", capString)
+				client.Send(nil, server.name, "CAP", client.nick, "NAK", capString)
 				return false
 			}
 		}
 		for capability := range capabilities {
 			client.capabilities[capability] = true
 		}
-		client.Send(nil, server.nameString, "CAP", client.nickString, "ACK", capString)
+		client.Send(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 	case "END":
 		if !client.registered {
@@ -132,7 +132,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 	default:
-		client.Send(nil, server.nameString, ERR_INVALIDCAPCMD, client.nickString, subCommand, "Invalid CAP subcommand")
+		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, "Invalid CAP subcommand")
 	}
 	return false
 }

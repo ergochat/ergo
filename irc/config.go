@@ -103,22 +103,32 @@ type Config struct {
 	}
 }
 
-func (conf *Config) Operators() map[Name][]byte {
-	operators := make(map[Name][]byte)
+func (conf *Config) Operators() map[string][]byte {
+	operators := make(map[string][]byte)
 	for name, opConf := range conf.Operator {
-		operators[NewName(name)] = opConf.PasswordBytes()
+		name, err := CasefoldName(name)
+		if err == nil {
+			operators[name] = opConf.PasswordBytes()
+		} else {
+			log.Println("Could not casefold oper name:", err.Error())
+		}
 	}
 	return operators
 }
 
-func (conf *Config) TLSListeners() map[Name]*tls.Config {
-	tlsListeners := make(map[Name]*tls.Config)
+func (conf *Config) TLSListeners() map[string]*tls.Config {
+	tlsListeners := make(map[string]*tls.Config)
 	for s, tlsListenersConf := range conf.Server.TLSListeners {
 		config, err := tlsListenersConf.Config()
 		if err != nil {
 			log.Fatal(err)
 		}
-		tlsListeners[NewName(s)] = config
+		name, err := CasefoldName(s)
+		if err == nil {
+			tlsListeners[name] = config
+		} else {
+			log.Println("Could not casefold TLS listener:", err.Error())
+		}
 	}
 	return tlsListeners
 }

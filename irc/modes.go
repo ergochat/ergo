@@ -120,7 +120,7 @@ func (changes ChannelModeChanges) String() string {
 }
 
 type ChannelModeCommand struct {
-	channel Name
+	channel string
 	changes ChannelModeChanges
 }
 
@@ -209,8 +209,9 @@ var (
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	name := NewName(msg.Params[0])
-	if name.IsChannel() {
+	_, errChan := CasefoldChannel(msg.Params[0])
+
+	if errChan != nil {
 		return cmodeHandler(server, client, msg)
 	} else {
 		return umodeHandler(server, client, msg)
@@ -219,12 +220,12 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	nickname := NewName(msg.Params[0])
+	nickname, err := CasefoldName(msg.Params[0])
 
 	target := server.clients.Get(nickname)
 
-	if target == nil {
-		client.Send(nil, server.nameString, ERR_NOSUCHNICK, client.nickString, msg.Params[0], "No such nick")
+	if err != nil || target == nil {
+		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
 		return false
 	}
 
@@ -232,9 +233,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// point SAMODE at this handler too, if they are operator and SAMODE was called then fine
 	if client != target && !client.flags[Operator] {
 		if len(msg.Params) > 1 {
-			client.Send(nil, server.nameString, ERR_USERSDONTMATCH, client.nickString, "Can't change modes for other users")
+			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't change modes for other users")
 		} else {
-			client.Send(nil, server.nameString, ERR_USERSDONTMATCH, client.nickString, "Can't view modes for other users")
+			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't view modes for other users")
 		}
 		return false
 	}
@@ -249,7 +250,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
 		} else {
-			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[0]), "is an unknown mode character to me")
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(modeArg[0]), "is an unknown mode character to me")
 			return false
 		}
 
@@ -298,20 +299,20 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(applied) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", target.nickString, applied.String())
+		client.Send(nil, client.nickMaskString, "MODE", target.nick, applied.String())
 	} else if client == target {
-		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nickString, target.ModeString())
+		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nick, target.ModeString())
 	}
 	return false
 }
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	channelName := NewName(msg.Params[0])
+	channelName, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(channelName)
 
-	if channel == nil {
-		client.Send(nil, server.nameString, ERR_NOSUCHCHANNEL, client.nickString, msg.Params[0], "No such channel")
+	if err != nil || channel == nil {
+		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], "No such channel")
 		return false
 	}
 
@@ -327,7 +328,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]
 		} else {
-			client.Send(nil, server.nameString, ERR_UNKNOWNMODE, client.nickString, string(modeArg[0]), "is an unknown mode character to me")
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(modeArg[0]), "is an unknown mode character to me")
 			return false
 		}
 
@@ -380,7 +381,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				list := channel.lists[change.mode]
 				if list == nil {
 					// This should never happen, but better safe than panicky.
-					client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "MODE", "Could not complete MODE command")
+					client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "MODE", "Could not complete MODE command")
 					return false
 				}
 
@@ -389,13 +390,19 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					continue
 				}
 
+				// confirm mask looks valid
+				mask, err = Casefold(mask)
+				if err != nil {
+					continue
+				}
+
 				switch change.op {
 				case Add:
-					list.Add(Name(mask))
+					list.Add(mask)
 					applied = append(applied, change)
 
 				case Remove:
-					list.Remove(Name(mask))
+					list.Remove(mask)
 					applied = append(applied, change)
 				}
 
@@ -460,13 +467,16 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					}
 				}
 
-				name := NewName(change.arg)
+				casefoldedName, err := CasefoldName(change.arg)
+				if err != nil {
+					continue
+				}
 
 				if !hasPrivs {
-					if change.op == Remove && name.ToLower() == client.nick.ToLower() {
+					if change.op == Remove && casefoldedName == client.nickCasefolded {
 						// success!
 					} else {
-						client.Send(nil, client.server.nameString, ERR_CHANOPRIVSNEEDED, channel.nameString, "You're not a channel operator")
+						client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 						continue
 					}
 				}
@@ -481,13 +491,13 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if len(applied) > 0 {
 		//TODO(dan): we should change the name of String and make it return a slice here
-		args := append([]string{channel.nameString}, strings.Split(applied.String(), " ")...)
+		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
 		client.Send(nil, client.nickMaskString, "MODE", args...)
 	} else {
 		//TODO(dan): we should just make ModeString return a slice here
-		args := append([]string{client.nickString, channel.nameString}, strings.Split(channel.ModeString(client), " ")...)
+		args := append([]string{client.nick, channel.name}, strings.Split(channel.ModeString(client), " ")...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nickString, channel.nameString, strconv.FormatInt(channel.createdTime.Unix(), 10))
+		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }

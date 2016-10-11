@@ -1,4 +1,5 @@
 // Copyright (c) 2012-2014 Jeremy Latt
+// Copyright (c) 2016- Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
 package irc
@@ -10,10 +11,11 @@ type WhoWasList struct {
 }
 
 type WhoWas struct {
-	nickname Name
-	username Name
-	hostname Name
-	realname string
+	nicknameCasefolded string
+	nickname           string
+	username           string
+	hostname           string
+	realname           string
 }
 
 func NewWhoWasList(size uint) *WhoWasList {
@@ -24,10 +26,11 @@ func NewWhoWasList(size uint) *WhoWasList {
 
 func (list *WhoWasList) Append(client *Client) {
 	list.buffer[list.end] = &WhoWas{
-		nickname: client.Nick(),
-		username: client.username,
-		hostname: client.hostname,
-		realname: client.realname,
+		nicknameCasefolded: client.nickCasefolded,
+		nickname:           client.nick,
+		username:           client.username,
+		hostname:           client.hostname,
+		realname:           client.realname,
 	}
 	list.end = (list.end + 1) % len(list.buffer)
 	if list.end == list.start {
@@ -35,10 +38,16 @@ func (list *WhoWasList) Append(client *Client) {
 	}
 }
 
-func (list *WhoWasList) Find(nickname Name, limit int64) []*WhoWas {
+func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
 	results := make([]*WhoWas, 0)
+
+	casefoldedNickname, err := CasefoldName(nickname)
+	if err != nil {
+		return results
+	}
+
 	for whoWas := range list.Each() {
-		if nickname != whoWas.nickname {
+		if casefoldedNickname != whoWas.nicknameCasefolded {
 			continue
 		}
 		results = append(results, whoWas)

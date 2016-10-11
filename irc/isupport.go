@@ -70,6 +70,6 @@ func (il *ISupportList) RegenerateCachedReply() {
 func (client *Client) RplISupport() {
 	for _, tokenline := range client.server.isupport.CachedReply {
 		// ugly trickery ahead
-		client.Send(nil, client.server.nameString, RPL_ISUPPORT, append([]string{client.nickString}, tokenline...)...)
+		client.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
 	}
 }

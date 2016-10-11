@@ -9,27 +9,27 @@ import (
 	"strings"
 )
 
-func IPString(addr net.Addr) Name {
+func IPString(addr net.Addr) string {
 	addrStr := addr.String()
 	ipaddr, _, err := net.SplitHostPort(addrStr)
 	if err != nil {
-		return Name(addrStr)
+		return addrStr
 	}
-	return Name(ipaddr)
+	return ipaddr
 }
 
-func AddrLookupHostname(addr net.Addr) Name {
+func AddrLookupHostname(addr net.Addr) string {
 	return LookupHostname(IPString(addr))
 }
 
-func LookupHostname(addr Name) Name {
-	names, err := net.LookupAddr(addr.String())
-	if err != nil {
-		return Name(addr)
+func LookupHostname(addr string) string {
+	names, err := net.LookupAddr(addr)
+	if err != nil || !IsHostname(names[0]) {
+		// return original address
+		return addr
 	}
 
-	hostname := strings.TrimSuffix(names[0], ".")
-	return Name(hostname)
+	return names[0]
 }
 
 var allowedHostnameChars = "abcdefghijklmnopqrstuvwxyz1234567890-."

@@ -27,34 +27,35 @@ var (
 )
 
 type Client struct {
-	account        *ClientAccount
-	atime          time.Time
-	authorized     bool
-	awayMessage    string
-	capabilities   CapabilitySet
-	capState       CapState
-	certfp         string
-	channels       ChannelSet
-	ctime          time.Time
-	flags          map[UserMode]bool
-	isDestroyed    bool
-	isQuitting     bool
-	hasQuit        bool
-	hops           uint
-	hostname       Name
-	idleTimer      *time.Timer
-	nick           Name
-	nickString     string // cache for nick string since it's used with most numerics
-	nickMaskString string // cache for nickmask string since it's used with lots of replies
-	quitTimer      *time.Timer
-	realname       string
-	registered     bool
-	saslInProgress bool
-	saslMechanism  string
-	saslValue      string
-	server         *Server
-	socket         *Socket
-	username       Name
+	account            *ClientAccount
+	atime              time.Time
+	authorized         bool
+	awayMessage        string
+	capabilities       CapabilitySet
+	capState           CapState
+	certfp             string
+	channels           ChannelSet
+	ctime              time.Time
+	flags              map[UserMode]bool
+	isDestroyed        bool
+	isQuitting         bool
+	hasQuit            bool
+	hops               uint
+	hostname           string
+	idleTimer          *time.Timer
+	nick               string
+	nickCasefolded     string
+	nickMaskString     string // cache for nickmask string since it's used with lots of replies
+	nickMaskCasefolded string
+	quitTimer          *time.Timer
+	realname           string
+	registered         bool
+	saslInProgress     bool
+	saslMechanism      string
+	saslValue          string
+	server             *Server
+	socket             *Socket
+	username           string
 }
 
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
@@ -71,7 +72,8 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		server:         server,
 		socket:         &socket,
 		account:        &NoAccount,
-		nickString:     "*", // * is used until actual nick is given
+		nick:           "*", // * is used until actual nick is given
+		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
 	if isTLS {
@@ -96,10 +98,10 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
 			username := resp.Identifier
-			//TODO(dan): replace this with IsUsername/IsIRCName?
-			if Name(username).IsNickname() {
+			_, err := CasefoldName(username) // ensure it's a valid username
+			if err == nil {
 				client.Notice("*** Found your username")
-				client.username = Name(username)
+				client.username = username
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice("*** Got a malformed username, ignoring")
@@ -144,7 +146,7 @@ func (client *Client) run() {
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
-			client.Send(nil, client.server.nameString, ERR_UNKNOWNCOMMAND, client.nickString, msg.Command, "Unknown command")
+			client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, "Unknown command")
 			continue
 		}
 
@@ -196,7 +198,7 @@ func (client *Client) Touch() {
 }
 
 func (client *Client) Idle() {
-	client.Send(nil, "", "PING", client.nickString)
+	client.Send(nil, "", "PING", client.nick)
 
 	if client.quitTimer == nil {
 		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
@@ -226,11 +228,11 @@ func (client *Client) IdleSeconds() uint64 {
 }
 
 func (client *Client) HasNick() bool {
-	return client.nick != ""
+	return client.nick != "" && client.nick != "*"
 }
 
 func (client *Client) HasUsername() bool {
-	return client.username != ""
+	return client.username != "" && client.username != "*"
 }
 
 // <mode>
@@ -244,27 +246,12 @@ func (c *Client) ModeString() (str string) {
 	return
 }
 
-func (c *Client) UserHost() Name {
-	username := "*"
-	if c.HasUsername() {
-		username = c.username.String()
-	}
-	return Name(fmt.Sprintf("%s!%s@%s", c.Nick(), username, c.hostname))
+func (c *Client) UserHost() string {
+	return fmt.Sprintf("%s!%s@%s", c.nick, c.username, c.hostname)
 }
 
-func (c *Client) Nick() Name {
-	if c.HasNick() {
-		return c.nick
-	}
-	return Name("*")
-}
-
-func (c *Client) Id() Name {
+func (c *Client) Id() string {
 	return c.UserHost()
-}
-
-func (c *Client) String() string {
-	return c.Id().String()
 }
 
 // Friends refers to clients that share a channel with this client.
@@ -280,30 +267,42 @@ func (client *Client) Friends() ClientSet {
 }
 
 func (client *Client) updateNickMask() {
-	client.nickString = client.nick.String()
-	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nickString, client.username, client.hostname)
+	casefoldedName, err := CasefoldName(client.nick)
+	if err != nil {
+		log.Println(fmt.Sprintf("ERROR: Nick [%s] couldn't be casefolded... this should never happen.", client.nick))
+	}
+	client.nickCasefolded = casefoldedName
+
+	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
+
+	nickMaskCasefolded, err := Casefold(client.nickMaskString)
+	if err != nil {
+		log.Println(fmt.Sprintf("ERROR: Nickmask [%s] couldn't be casefolded... this should never happen.", client.nickMaskString))
+	}
+	client.nickMaskCasefolded = nickMaskCasefolded
 }
 
-func (client *Client) SetNickname(nickname Name) {
+func (client *Client) SetNickname(nickname string) {
 	if client.HasNick() {
-		Log.error.Printf("%s nickname already set!", client)
+		Log.error.Printf("%s nickname already set!", client.nickMaskString)
 		return
 	}
+	fmt.Println("Setting nick to:", nickname, "from", client.nick)
 	client.nick = nickname
 	client.updateNickMask()
 	client.server.clients.Add(client)
 }
 
-func (client *Client) ChangeNickname(nickname Name) {
+func (client *Client) ChangeNickname(nickname string) {
 	origNickMask := client.nickMaskString
 	client.server.clients.Remove(client)
 	client.server.whoWas.Append(client)
 	client.nick = nickname
 	client.updateNickMask()
 	client.server.clients.Add(client)
-	client.Send(nil, origNickMask, "NICK", nickname.String())
+	client.Send(nil, origNickMask, "NICK", nickname)
 	for friend := range client.Friends() {
-		friend.Send(nil, origNickMask, "NICK", nickname.String())
+		friend.Send(nil, origNickMask, "NICK", nickname)
 	}
 }
 
@@ -381,7 +380,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 	line, err := message.Line()
 	if err != nil {
 		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
-		message = ircmsg.MakeMessage(nil, client.server.nameString, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
+		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.Line()
 		client.socket.Write(line)
 		return err
@@ -392,5 +391,5 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 
 // Notice sends the client a notice from the server.
 func (client *Client) Notice(text string) {
-	client.Send(nil, client.server.nameString, "NOTICE", client.nickString, text)
+	client.Send(nil, client.server.name, "NOTICE", client.nick, text)
 }

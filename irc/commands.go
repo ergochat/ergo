@@ -24,11 +24,11 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		return false
 	}
 	if cmd.oper && !client.flags[Operator] {
-		client.Send(nil, server.nameString, ERR_NOPRIVILEGES, client.nickString, "Permission Denied - You're not an IRC operator")
+		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied - You're not an IRC operator")
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
-		client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
 		return false
 	}
 	if !cmd.leaveClientActive {

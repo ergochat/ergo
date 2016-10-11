@@ -13,25 +13,29 @@ import (
 // simple types
 //
 
-type ChannelNameMap map[Name]*Channel
+type ChannelNameMap map[string]*Channel
 
-func (channels ChannelNameMap) Get(name Name) *Channel {
-	return channels[name.ToLower()]
+func (channels ChannelNameMap) Get(name string) *Channel {
+	name, err := CasefoldChannel(name)
+	if err == nil {
+		return channels[name]
+	}
+	return nil
 }
 
 func (channels ChannelNameMap) Add(channel *Channel) error {
-	if channels[channel.name.ToLower()] != nil {
+	if channels[channel.nameCasefolded] != nil {
 		return fmt.Errorf("%s: already set", channel.name)
 	}
-	channels[channel.name.ToLower()] = channel
+	channels[channel.nameCasefolded] = channel
 	return nil
 }
 
 func (channels ChannelNameMap) Remove(channel *Channel) error {
-	if channel != channels[channel.name.ToLower()] {
+	if channel != channels[channel.nameCasefolded] {
 		return fmt.Errorf("%s: mismatch", channel.name)
 	}
-	delete(channels, channel.name.ToLower())
+	delete(channels, channel.nameCasefolded)
 	return nil
 }
 
@@ -118,6 +122,6 @@ func (channels ChannelSet) First() *Channel {
 //
 
 type Identifiable interface {
-	Id() Name
-	Nick() Name
+	Id() string
+	Nick() string
 }

@@ -73,7 +73,7 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	} else if subcommand == "verify" {
 		client.Notice("Parsing VERIFY")
 	} else {
-		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", msg.Params[0], "Unknown subcommand")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REG", msg.Params[0], "Unknown subcommand")
 	}
 
 	return false
@@ -94,30 +94,30 @@ func removeFailedRegCreateData(store buntdb.DB, account string) {
 // regCreateHandler parses the REG CREATE command.
 func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// get and sanitise account name
-	account := NewName(msg.Params[1])
-	//TODO(dan): probably don't need explicit check for "*" here... until we actually casemap properly as per rfc7700
-	if !account.IsNickname() || msg.Params[1] == "*" {
-		client.Send(nil, server.nameString, ERR_REG_UNSPECIFIED_ERROR, client.nickString, msg.Params[1], "Account name is not valid")
+	account := strings.TrimSpace(msg.Params[1])
+	casefoldedAccount, err := CasefoldName(account)
+	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
+	if err != nil || msg.Params[1] == "*" {
+		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, "Account name is not valid")
 		return false
 	}
-	accountString := account.String()
 
 	// check whether account exists
 	// do it all in one write tx to prevent races
-	err := server.store.Update(func(tx *buntdb.Tx) error {
-		accountKey := fmt.Sprintf(keyAccountExists, accountString)
+	err = server.store.Update(func(tx *buntdb.Tx) error {
+		accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
 
 		_, err := tx.Get(accountKey)
 		if err != buntdb.ErrNotFound {
 			//TODO(dan): if account verified key doesn't exist account is not verified, calc the maximum time without verification and expire and continue if need be
-			client.Send(nil, server.nameString, ERR_ACCOUNT_ALREADY_EXISTS, client.nickString, msg.Params[1], "Account already exists")
+			client.Send(nil, server.name, ERR_ACCOUNT_ALREADY_EXISTS, client.nick, account, "Account already exists")
 			return errAccountCreation
 		}
 
-		registeredTimeKey := fmt.Sprintf(keyAccountRegTime, accountString)
+		registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 
 		tx.Set(accountKey, "1", nil)
-		tx.Set(fmt.Sprintf(keyAccountName, accountString), strings.TrimSpace(msg.Params[1]), nil)
+		tx.Set(fmt.Sprintf(keyAccountName, casefoldedAccount), account, nil)
 		tx.Set(registeredTimeKey, strconv.FormatInt(time.Now().Unix(), 10), nil)
 		return nil
 	})
@@ -125,7 +125,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
 		if err != errAccountCreation {
-			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REG", "CREATE", "Could not register")
 			log.Println("Could not save registration initial data:", err.Error())
 		}
 		return false
@@ -155,8 +155,8 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	}
 
 	if !callbackValid {
-		client.Send(nil, server.nameString, ERR_REG_INVALID_CALLBACK, client.nickString, msg.Params[1], callbackNamespace, "Callback namespace is not supported")
-		removeFailedRegCreateData(server.store, accountString)
+		client.Send(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, "Callback namespace is not supported")
+		removeFailedRegCreateData(server.store, casefoldedAccount)
 		return false
 	}
 
@@ -170,8 +170,8 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		credentialType = "passphrase" // default from the spec
 		credentialValue = msg.Params[3]
 	} else {
-		client.Send(nil, server.nameString, ERR_NEEDMOREPARAMS, client.nickString, msg.Command, "Not enough parameters")
-		removeFailedRegCreateData(server.store, accountString)
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		removeFailedRegCreateData(server.store, casefoldedAccount)
 		return false
 	}
 
@@ -183,14 +183,14 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		client.Send(nil, server.nameString, ERR_REG_INVALID_CRED_TYPE, client.nickString, credentialType, callbackNamespace, "You are not using a certificiate")
-		removeFailedRegCreateData(server.store, accountString)
+		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "You are not using a certificiate")
+		removeFailedRegCreateData(server.store, casefoldedAccount)
 		return false
 	}
 
 	if !credentialValid {
-		client.Send(nil, server.nameString, ERR_REG_INVALID_CRED_TYPE, client.nickString, credentialType, callbackNamespace, "Credential type is not supported")
-		removeFailedRegCreateData(server.store, accountString)
+		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "Credential type is not supported")
+		removeFailedRegCreateData(server.store, casefoldedAccount)
 		return false
 	}
 
@@ -206,7 +206,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 				return errCertfpAlreadyExists
 			}
 
-			tx.Set(assembledKeyCertToAccount, account.String(), nil)
+			tx.Set(assembledKeyCertToAccount, casefoldedAccount, nil)
 		}
 
 		// make creds
@@ -241,9 +241,9 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 		if err == errCertfpAlreadyExists {
 			errMsg = "An account already exists for your certificate fingerprint"
 		}
-		client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", errMsg)
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REG", "CREATE", errMsg)
 		log.Println("Could not save registration creds:", err.Error())
-		removeFailedRegCreateData(server.store, accountString)
+		removeFailedRegCreateData(server.store, casefoldedAccount)
 		return false
 	}
 
@@ -259,18 +259,18 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 				Clients:      []*Client{client},
 			}
 			//TODO(dan): Consider creating ircd-wide account adding/removing/affecting lock for protecting access to these sorts of variables
-			server.accounts[accountString] = &account
+			server.accounts[casefoldedAccount] = &account
 			client.account = &account
 
-			client.Send(nil, server.nameString, RPL_REGISTRATION_SUCCESS, client.nickString, accountString, "Account created")
-			client.Send(nil, server.nameString, RPL_LOGGEDIN, client.nickString, client.nickMaskString, accountString, fmt.Sprintf("You are now logged in as %s", accountString))
-			client.Send(nil, server.nameString, RPL_SASLSUCCESS, client.nickString, "Authentication successful")
+			client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, "Account created")
+			client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf("You are now logged in as %s", account.Name))
+			client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, "Authentication successful")
 			return nil
 		})
 		if err != nil {
-			client.Send(nil, server.nameString, ERR_UNKNOWNERROR, client.nickString, "REG", "CREATE", "Could not register")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REG", "CREATE", "Could not register")
 			log.Println("Could not save verification confirmation (*):", err.Error())
-			removeFailedRegCreateData(server.store, accountString)
+			removeFailedRegCreateData(server.store, casefoldedAccount)
 			return false
 		}
 

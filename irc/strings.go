@@ -6,91 +6,71 @@
 package irc
 
 import (
-	"regexp"
+	"errors"
 	"strings"
 
-	"golang.org/x/text/unicode/norm"
+	"golang.org/x/text/secure/precis"
 )
 
 var (
-	// regexps
-	// these get replaced with real regexes at server load time
-
-	ChannelNameExpr = regexp.MustCompile("^$")
-	NicknameExpr    = regexp.MustCompile("^$")
+	errInvalidCharacter = errors.New("Invalid character")
 )
 
-// Names are normalized and canonicalized to remove formatting marks
-// and simplify usage. They are things like hostnames and usermasks.
-type Name string
-
-func NewName(str string) Name {
-	return Name(norm.NFKC.String(str))
+// Casefold returns a casefolded string, without doing any name or channel character checks.
+func Casefold(str string) (string, error) {
+	return precis.Nickname.String(str)
 }
 
-func NewNames(strs []string) []Name {
-	names := make([]Name, len(strs))
-	for index, str := range strs {
-		names[index] = NewName(str)
+// CasefoldChannel returns a casefolded version of a channel name.
+func CasefoldChannel(name string) (string, error) {
+	lowered, err := precis.Nickname.String(name)
+
+	if err != nil {
+		return "", err
 	}
-	return names
+
+	if lowered[0] != '#' {
+		return "", errInvalidCharacter
+	}
+
+	// space can't be used
+	// , is used as a separator
+	// * is used in mask matching
+	// ? is used in mask matching
+	if strings.Contains(lowered, " ") || strings.Contains(lowered, ",") ||
+		strings.Contains(lowered, "*") || strings.Contains(lowered, "?") {
+		return "", errInvalidCharacter
+	}
+
+	return lowered, err
 }
 
-// tests
+// CasefoldName returns a casefolded version of a nick/user name.
+func CasefoldName(name string) (string, error) {
+	lowered, err := precis.Nickname.String(name)
 
-func (name Name) IsChannel() bool {
-	return ChannelNameExpr.MatchString(name.String())
-}
+	if err != nil {
+		return "", err
+	}
 
-func (name Name) IsNickname() bool {
-	namestr := name.String()
-	// * is used for unregistered clients
-	// * is used for mask matching
-	// ? is used for mask matching
-	// . is used to denote server names
-	// , is used as a separator by the protocol
-	// ! separates username from nickname
-	// @ separates nick+user from hostname
+	// space can't be used
+	// , is used as a separator
+	// * is used in mask matching
+	// ? is used in mask matching
+	// . denotes a server name
+	// ! separates nickname from username
+	// @ separates username from hostname
+	// : means trailing
 	// # is a channel prefix
 	// ~&@%+ are channel membership prefixes
-	// - is typically disallowed from first char of nicknames
-	// nicknames can't start with digits
-	if strings.Contains(namestr, "*") || strings.Contains(namestr, "?") ||
-		strings.Contains(namestr, ".") || strings.Contains(namestr, ",") ||
-		strings.Contains(namestr, "!") || strings.Contains(namestr, "@") ||
-		strings.Contains("#~&@%+-1234567890", string(namestr[0])) {
-		return false
+	// - I feel like disallowing
+	if strings.Contains(lowered, " ") || strings.Contains(lowered, ",") ||
+		strings.Contains(lowered, "*") || strings.Contains(lowered, "?") ||
+		strings.Contains(lowered, ".") || strings.Contains(lowered, "!") ||
+		strings.Contains(lowered, "@") ||
+		strings.Contains("#~&@%+-", string(lowered[0])) {
+		return "", errInvalidCharacter
 	}
-	// names that look like hostnames are restricted to servers, as with other ircds
-	if IsHostname(namestr) {
-		return false
-	}
-	return NicknameExpr.MatchString(namestr)
-}
 
-// conversions
-
-func (name Name) String() string {
-	return string(name)
-}
-
-func (name Name) ToLower() Name {
-	return Name(strings.ToLower(name.String()))
-}
-
-// It's safe to coerce a Name to Text. Name is a strict subset of Text.
-func (name Name) Text() Text {
-	return Text(name)
-}
-
-// Text is PRIVMSG, NOTICE, or TOPIC data. It's canonicalized UTF8
-// data to simplify but keeps all formatting.
-type Text string
-
-func NewText(str string) Text {
-	return Text(norm.NFC.String(str))
-}
-
-func (text Text) String() string {
-	return string(text)
+	return lowered, err
 }
