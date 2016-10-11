@@ -14,6 +14,7 @@ Improved compatibility, more features, etc.
 ### Added
 
 ### Changed
+* Casemapping changed from custom unicode mapping to preliminary [rfc7700](https://github.com/ircv3/ircv3-specifications/pull/272) mapping.
 
 ### Removed
 

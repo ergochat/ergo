@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 ## Features
 
-* UTF-8 nick and channel names
+* UTF-8 nick and channel names with rfc7700
 * [yaml](http://yaml.org/) configuration
 * native TLS/SSL support
 * server password (`PASS` command)
