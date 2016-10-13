@@ -862,7 +862,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.Send(nil, server.name, "MODE", client.nick, client.nick, modech.String())
 
 	// dispatch away-notify
-	for friend := range client.Friends() {
+	for friend := range client.Friends(AwayNotify) {
 		if client.flags[Away] {
 			friend.SendFromClient(client, nil, client.nickMaskString, "AWAY", client.awayMessage)
 		} else {

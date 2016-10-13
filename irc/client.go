@@ -255,11 +255,17 @@ func (c *Client) Id() string {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends() ClientSet {
+func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 	friends := make(ClientSet)
 	friends.Add(client)
 	for channel := range client.channels {
 		for member := range channel.members {
+			// make sure they have all the required caps
+			for _, Cap := range Capabilities {
+				if !member.capabilities[Cap] {
+					continue
+				}
+			}
 			friends.Add(member)
 		}
 	}
