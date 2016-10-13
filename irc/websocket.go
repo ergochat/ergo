@@ -32,7 +32,7 @@ type WSContainer struct {
 func (this WSContainer) Read(msg []byte) (int, error) {
 	ty, bytes, err := this.ReadMessage()
 	if ty == websocket.TextMessage {
-		n := copy(msg, []byte(string(bytes)+CRLF+CRLF))
+		n := copy(msg, []byte(string(bytes)+"\r\n\r\n"))
 		return n, err
 	}
 	// Binary, and other kinds of messages, are thrown away.
