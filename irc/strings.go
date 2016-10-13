@@ -8,8 +8,6 @@ package irc
 import (
 	"errors"
 	"strings"
-
-	"golang.org/x/text/secure/precis"
 )
 
 var (
@@ -18,12 +16,12 @@ var (
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	return precis.Nickname.String(str)
+	return NicknameProfile.String(str)
 }
 
 // CasefoldChannel returns a casefolded version of a channel name.
 func CasefoldChannel(name string) (string, error) {
-	lowered, err := precis.Nickname.String(name)
+	lowered, err := NicknameProfile.String(name)
 
 	if err != nil {
 		return "", err
@@ -47,7 +45,7 @@ func CasefoldChannel(name string) (string, error) {
 
 // CasefoldName returns a casefolded version of a nick/user name.
 func CasefoldName(name string) (string, error) {
-	lowered, err := precis.Nickname.String(name)
+	lowered, err := NicknameProfile.String(name)
 
 	if err != nil {
 		return "", err
