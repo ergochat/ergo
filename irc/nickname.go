@@ -17,15 +17,16 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return true
 	}
 
-	nickname, err := CasefoldName(msg.Params[0])
+	nicknameRaw := strings.TrimSpace(msg.Params[0])
+	nickname, err := CasefoldName(nicknameRaw)
 
-	if len(strings.TrimSpace(msg.Params[0])) < 1 {
+	if len(nicknameRaw) < 1 {
 		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, "No nickname given")
 		return false
 	}
 
-	if err != nil || len(strings.TrimSpace(msg.Params[0])) > server.limits.NickLen {
-		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, msg.Params[0], "Erroneous nickname")
+	if err != nil || len(nicknameRaw) > server.limits.NickLen {
+		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nicknameRaw, "Erroneous nickname")
 		return false
 	}
 
@@ -36,14 +37,14 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
 	target := server.clients.Get(nickname)
 	if target != nil && target != client {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, msg.Params[0], "Nickname is already in use")
+		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
 		return false
 	}
 
 	if client.registered {
-		client.ChangeNickname(nickname)
+		client.ChangeNickname(nicknameRaw)
 	} else {
-		client.SetNickname(nickname)
+		client.SetNickname(nicknameRaw)
 	}
 	server.tryRegister(client)
 	return false
