@@ -15,6 +15,7 @@ type Capability string
 
 const (
 	AccountTag      Capability = "account-tag"
+	AccountNotify   Capability = "account-notify"
 	AwayNotify      Capability = "away-notify"
 	ExtendedJoin    Capability = "extended-join"
 	MultiPrefix     Capability = "multi-prefix"
@@ -26,6 +27,7 @@ const (
 var (
 	SupportedCapabilities = CapabilitySet{
 		AccountTag:      true,
+		AccountNotify:   true,
 		AwayNotify:      true,
 		ExtendedJoin:    true,
 		MultiPrefix:     true,

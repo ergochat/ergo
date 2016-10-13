@@ -12,6 +12,7 @@ Improved compatibility, more features, etc.
 ### Security
 
 ### Added
+* Support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html)
 
 ### Changed
 * Casemapping changed from custom unicode mapping to preliminary [rfc7700](https://github.com/ircv3/ircv3-specifications/pull/272) mapping.
