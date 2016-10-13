@@ -24,7 +24,7 @@ func AddrLookupHostname(addr net.Addr) string {
 
 func LookupHostname(addr string) string {
 	names, err := net.LookupAddr(addr)
-	if err != nil || !IsHostname(names[0]) {
+	if err != nil || len(names) < 1 || !IsHostname(names[0]) {
 		// return original address
 		return addr
 	}
