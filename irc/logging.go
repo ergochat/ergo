@@ -59,5 +59,6 @@ func NewLogging(level string) *Logging {
 }
 
 var (
+	// Log is the default logger.
 	Log = NewLogging("warn")
 )

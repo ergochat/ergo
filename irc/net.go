@@ -12,16 +12,19 @@ import (
 func IPString(addr net.Addr) string {
 	addrStr := addr.String()
 	ipaddr, _, err := net.SplitHostPort(addrStr)
+	//TODO(dan): Why is this needed, does this happen?
 	if err != nil {
 		return addrStr
 	}
 	return ipaddr
 }
 
+// AddrLookupHostname returns the hostname (if possible) or address for the given `net.Addr`.
 func AddrLookupHostname(addr net.Addr) string {
 	return LookupHostname(IPString(addr))
 }
 
+// LookupHostname returns the hostname for `addr` if it has one. Otherwise, just returns `addr`.
 func LookupHostname(addr string) string {
 	names, err := net.LookupAddr(addr)
 	if err != nil || len(names) < 1 || !IsHostname(names[0]) {
@@ -34,6 +37,7 @@ func LookupHostname(addr string) string {
 
 var allowedHostnameChars = "abcdefghijklmnopqrstuvwxyz1234567890-."
 
+// IsHostname returns whether we consider `name` a valid hostname.
 func IsHostname(name string) bool {
 	// IRC hostnames specifically require a period
 	if !strings.Contains(name, ".") || len(name) < 1 || len(name) > 253 {

@@ -8,9 +8,11 @@ package irc
 import "fmt"
 
 const (
-	SEM_VER = "0.2.0-unreleased"
+	// SemVer is the semantic version of Oragono.
+	SemVer = "0.2.0-unreleased"
 )
 
 var (
-	VER = fmt.Sprintf("oragono-%s", SEM_VER)
+	// Ver is the full version of Oragono, used in responses to clients.
+	Ver = fmt.Sprintf("oragono-%s", SemVer)
 )

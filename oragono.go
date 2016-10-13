@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	version := irc.SEM_VER
+	version := irc.SemVer
 	usage := `oragono.
 Usage:
 	oragono initdb [--conf <filename>] [--quiet]
@@ -85,8 +85,8 @@ Options:
 		irc.Log.SetLevel(config.Server.Log)
 		server := irc.NewServer(config)
 		if !arguments["--quiet"].(bool) {
-			log.Println(irc.SEM_VER, "running")
-			defer log.Println(irc.SEM_VER, "exiting")
+			log.Println(irc.SemVer, "running")
+			defer log.Println(irc.SemVer, "exiting")
 		}
 		server.Run()
 	}

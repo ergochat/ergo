@@ -37,7 +37,7 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 }
 
 func (conf *PassConfig) PasswordBytes() []byte {
-	bytes, err := DecodePassword(conf.Password)
+	bytes, err := DecodePasswordHash(conf.Password)
 	if err != nil {
 		log.Fatal("decode password error: ", err)
 	}

@@ -394,10 +394,10 @@ func (s *Server) tryRegister(c *Client) {
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
 	c.Send(nil, s.name, RPL_WELCOME, c.nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nick))
-	c.Send(nil, s.name, RPL_YOURHOST, c.nick, fmt.Sprintf("Your host is %s, running version %s", s.name, VER))
+	c.Send(nil, s.name, RPL_YOURHOST, c.nick, fmt.Sprintf("Your host is %s, running version %s", s.name, Ver))
 	c.Send(nil, s.name, RPL_CREATED, c.nick, fmt.Sprintf("This server was created %s", s.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	c.Send(nil, s.name, RPL_MYINFO, c.nick, s.name, VER, supportedUserModesString, supportedChannelModesString)
+	c.Send(nil, s.name, RPL_MYINFO, c.nick, s.name, Ver, supportedUserModesString, supportedChannelModesString)
 	c.RplISupport()
 	s.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
@@ -1103,7 +1103,7 @@ func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		return false
 	}
 
-	client.Send(nil, server.name, RPL_VERSION, client.nick, VER, server.name)
+	client.Send(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
 	client.RplISupport()
 	return false
 }
