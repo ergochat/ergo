@@ -287,7 +287,6 @@ func (client *Client) SetNickname(nickname string) {
 		Log.error.Printf("%s nickname already set!", client.nickMaskString)
 		return
 	}
-	fmt.Println("Setting nick to:", nickname, "from", client.nick)
 	client.nick = nickname
 	client.updateNickMask()
 	client.server.clients.Add(client)
