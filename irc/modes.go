@@ -170,7 +170,6 @@ const (
 	Moderated   ChannelMode = 'm' // flag
 	NoOutside   ChannelMode = 'n' // flag
 	OpOnlyTopic ChannelMode = 't' // flag
-	Persistent  ChannelMode = 'P' // flag
 	Secret      ChannelMode = 's' // flag
 	UserLimit   ChannelMode = 'l' // flag arg
 )
@@ -178,7 +177,7 @@ const (
 var (
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
-		OpOnlyTopic, Persistent, Secret, UserLimit,
+		OpOnlyTopic, Secret, UserLimit,
 	}
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()
@@ -429,7 +428,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				}
 				applied = append(applied, change)
 
-			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Secret:
+			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret:
 				switch change.op {
 				case Add:
 					if channel.flags[change.mode] {

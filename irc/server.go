@@ -154,8 +154,6 @@ func NewServer(config *Config) *Server {
 		server.password = config.Server.PasswordBytes()
 	}
 
-	server.loadChannels()
-
 	for _, addr := range config.Server.Listen {
 		server.listen(addr, config.TLSListeners())
 	}
@@ -175,7 +173,7 @@ func NewServer(config *Config) *Server {
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", "rfc7700")
-	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, Persistent, Secret}.String()}, ","))
+	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
@@ -215,41 +213,6 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 		return
 	}
 	channel.lists[maskMode].AddAll(strings.Split(list, " "))
-}
-
-func (server *Server) loadChannels() {
-	//TODO(dan): Fix channel persistence
-	/*
-			rows, err := server.db.Query(`
-		        SELECT name, flags, key, topic, user_limit, ban_list, except_list,
-		               invite_list
-		          FROM channel`)
-			if err != nil {
-				log.Fatal("error loading channels: ", err)
-			}
-			for rows.Next() {
-				var name, flags, key, topic string
-				var userLimit uint64
-				var banList, exceptList, inviteList string
-				err = rows.Scan(&name, &flags, &key, &topic, &userLimit, &banList,
-					&exceptList, &inviteList)
-				if err != nil {
-					log.Println("Server.loadChannels:", err)
-					continue
-				}
-
-				channel := NewChannel(server, NewName(name), false)
-				for _, flag := range flags {
-					channel.flags[ChannelMode(flag)] = true
-				}
-				channel.key = key
-				channel.topic = topic
-				channel.userLimit = userLimit
-				loadChannelList(channel, banList, BanMask)
-				loadChannelList(channel, exceptList, ExceptMask)
-				loadChannelList(channel, inviteList, InviteMask)
-			}
-	*/
 }
 
 func (server *Server) Shutdown() {

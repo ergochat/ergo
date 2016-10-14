@@ -220,7 +220,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	client.channels.Add(channel)
 	channel.members.Add(client)
-	if !channel.flags[Persistent] && (len(channel.members) == 1) {
+	if len(channel.members) == 1 {
 		channel.createdTime = time.Now()
 		channel.members[client][ChannelFounder] = true
 		channel.members[client][ChannelOperator] = true
@@ -284,8 +284,6 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	for member := range channel.members {
 		member.Send(nil, client.nickMaskString, "TOPIC", channel.name, channel.topic)
 	}
-
-	channel.Persist()
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
@@ -424,34 +422,6 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 	return false
 }
 
-func (channel *Channel) Persist() (err error) {
-	return
-
-	//TODO(dan): Fix persistence
-	/*
-			if channel.flags[Persistent] {
-				//TODO(dan): Save topicSetBy/topicSetTime and createdTime
-				_, err = channel.server.db.Exec(`
-		            INSERT OR REPLACE INTO channel
-		              (name, flags, key, topic, user_limit, ban_list, except_list,
-		               invite_list)
-		              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-					channel.name.String(), channel.flags.String(), channel.key,
-					channel.topic, channel.userLimit, channel.lists[BanMask].String(),
-					channel.lists[ExceptMask].String(), channel.lists[InviteMask].String())
-			} else {
-				_, err = channel.server.db.Exec(`
-		            DELETE FROM channel WHERE name = ?`, channel.name.String())
-			}
-
-			if err != nil {
-				Log.error.Println("Channel.Persist:", channel, err)
-			}
-
-			return
-	*/
-}
-
 func (channel *Channel) Notice(client *Client, message string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
@@ -469,7 +439,7 @@ func (channel *Channel) Quit(client *Client) {
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
 
-	if !channel.flags[Persistent] && channel.IsEmpty() {
+	if channel.IsEmpty() {
 		channel.server.channels.Remove(channel)
 	}
 }
@@ -511,7 +481,6 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	if channel.flags[InviteOnly] {
 		channel.lists[InviteMask].Add(invitee.UserHost())
-		channel.Persist()
 	}
 
 	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?

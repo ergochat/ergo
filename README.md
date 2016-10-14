@@ -22,7 +22,6 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * IRC operators
 * ident lookups for usernames
 * passwords stored in [bcrypt][go-crypto] format
-* channels that persist between restarts (+P)
 * client accounts and SASL
 * IRCv3 support
 
