@@ -67,6 +67,10 @@ var Commands = map[string]Command{
 		handler:   debugHandler,
 		minParams: 1,
 	},
+	"HELP": {
+		handler:   helpHandler,
+		minParams: 0,
+	},
 	"INVITE": {
 		handler:   inviteHandler,
 		minParams: 2,

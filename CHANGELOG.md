@@ -12,6 +12,7 @@ Improved compatibility, more features, etc.
 ### Security
 
 ### Added
+* Add integrated help.
 * Support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html)
 
 ### Changed
