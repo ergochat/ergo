@@ -171,7 +171,6 @@ const (
 	NoOutside   ChannelMode = 'n' // flag
 	OpOnlyTopic ChannelMode = 't' // flag
 	Persistent  ChannelMode = 'P' // flag
-	ReOp        ChannelMode = 'r' // flag
 	Secret      ChannelMode = 's' // flag
 	UserLimit   ChannelMode = 'l' // flag arg
 )
