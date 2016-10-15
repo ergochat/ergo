@@ -20,6 +20,7 @@ Improved compatibility, more features, etc.
 
 ### Removed
 * Removed channel persistence with the `+P` mode (not too useful as currently implemented, to be replaced later).
+* Removed the `PROXY` command (breaks our TLS user mode, and our integrated support for TLS should be fine).
 
 ### Fixed
 

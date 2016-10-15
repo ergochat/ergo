@@ -126,8 +126,7 @@ func (client *Client) run() {
 	var line string
 	var msg ircmsg.IrcMessage
 
-	// Set the hostname for this client. The client may later send a PROXY
-	// command from stunnel that sets the hostname to something more accurate.
+	// Set the hostname for this client
 	client.hostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	//TODO(dan): Make this a socketreactor from ircbnc

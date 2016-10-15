@@ -51,7 +51,6 @@ type Server struct {
 	passwords           *PasswordManager
 	accountRegistration *AccountRegistration
 	signals             chan os.Signal
-	proxyAllowedFrom    []string
 	whoWas              *WhoWasList
 	isupport            *ISupportList
 	checkIdent          bool
@@ -97,7 +96,6 @@ func NewServer(config *Config) *Server {
 		newConns:         make(chan clientConn),
 		operators:        config.Operators(),
 		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
-		proxyAllowedFrom: config.Server.ProxyAllowedFrom,
 		whoWas:           NewWhoWasList(config.Limits.WhowasEntries),
 		checkIdent:       config.Server.CheckIdent,
 	}
@@ -414,23 +412,6 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	client.authorized = true
 	return false
-}
-
-// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
-// http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt
-func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	clientAddress := IPString(client.socket.conn.RemoteAddr())
-	clientHostname := client.hostname
-
-	for _, address := range server.proxyAllowedFrom {
-		if clientHostname == address || clientAddress == address {
-			client.hostname = LookupHostname(msg.Params[1])
-			return false
-		}
-	}
-
-	client.Quit("PROXY command is not usable from your address")
-	return true
 }
 
 // USER <username> * 0 <realname>

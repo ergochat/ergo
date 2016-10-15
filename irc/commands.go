@@ -146,11 +146,6 @@ var Commands = map[string]Command{
 		handler:   privmsgHandler,
 		minParams: 2,
 	},
-	"PROXY": {
-		handler:      proxyHandler,
-		usablePreReg: true,
-		minParams:    5,
-	},
 	"SANICK": {
 		handler:   sanickHandler,
 		minParams: 2,

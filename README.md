@@ -25,14 +25,6 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * client accounts and SASL
 * IRCv3 support
 
-### What about TLS/SSL?
-
-There is inbuilt TLS support using the Go TLS implementation. However,
-[stunnel](https://www.stunnel.org/index.html) version 4.56 with haproxy's
-[PROXY protocol](http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt)
-may also be used. This will allow the server to get the client's original
-addresses for hostname lookups.
-
 ## Installation
 
 ```sh

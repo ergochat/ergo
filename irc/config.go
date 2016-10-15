@@ -72,15 +72,14 @@ type Config struct {
 
 	Server struct {
 		PassConfig
-		Password         string
-		Name             string
-		Listen           []string
-		Wslisten         string                      `yaml:"ws-listen"`
-		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		CheckIdent       bool                        `yaml:"check-ident"`
-		Log              string
-		MOTD             string
-		ProxyAllowedFrom []string `yaml:"proxy-allowed-from"`
+		Password     string
+		Name         string
+		Listen       []string
+		Wslisten     string                      `yaml:"ws-listen"`
+		TLSListeners map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		CheckIdent   bool                        `yaml:"check-ident"`
+		Log          string
+		MOTD         string
 	}
 
 	Datastore struct {
