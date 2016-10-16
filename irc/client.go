@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -211,6 +212,7 @@ func (client *Client) Idle() {
 	}
 }
 
+// Register sets the client details as appropriate when entering the network.
 func (client *Client) Register() {
 	if client.registered {
 		return
@@ -218,6 +220,7 @@ func (client *Client) Register() {
 	client.registered = true
 	client.Touch()
 
+	client.updateNickMask()
 	client.alertMonitors()
 }
 
@@ -278,18 +281,26 @@ func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 	return friends
 }
 
-func (client *Client) updateNickMask() {
+// updateNick updates the casefolded nickname.
+func (client *Client) updateNick() {
 	casefoldedName, err := CasefoldName(client.nick)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Nick [%s] couldn't be casefolded... this should never happen.", client.nick))
+		log.Println(fmt.Sprintf("ERROR: Nick [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nick))
+		debug.PrintStack()
 	}
 	client.nickCasefolded = casefoldedName
+}
+
+// updateNickMask updates the casefolded nickname and nickmask.
+func (client *Client) updateNickMask() {
+	client.updateNick()
 
 	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
 
 	nickMaskCasefolded, err := Casefold(client.nickMaskString)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Nickmask [%s] couldn't be casefolded... this should never happen.", client.nickMaskString))
+		log.Println(fmt.Sprintf("ERROR: Nickmask [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nickMaskString))
+		debug.PrintStack()
 	}
 	client.nickMaskCasefolded = nickMaskCasefolded
 }
@@ -300,7 +311,7 @@ func (client *Client) SetNickname(nickname string) {
 		return
 	}
 	client.nick = nickname
-	client.updateNickMask()
+	client.updateNick()
 	client.server.clients.Add(client)
 }
 
