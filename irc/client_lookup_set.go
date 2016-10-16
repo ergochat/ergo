@@ -43,6 +43,15 @@ func NewClientLookupSet() *ClientLookupSet {
 	}
 }
 
+func (clients *ClientLookupSet) Has(nick string) bool {
+	casefoldedName, err := CasefoldName(nick)
+	if err == nil {
+		return false
+	}
+	_, exists := clients.byNick[casefoldedName]
+	return exists
+}
+
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {

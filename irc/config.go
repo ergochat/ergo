@@ -93,12 +93,13 @@ type Config struct {
 	Operator map[string]*PassConfig
 
 	Limits struct {
-		NickLen       int  `yaml:"nicklen"`
-		ChannelLen    int  `yaml:"channellen"`
-		AwayLen       int  `yaml:"awaylen"`
-		KickLen       int  `yaml:"kicklen"`
-		TopicLen      int  `yaml:"topiclen"`
-		WhowasEntries uint `yaml:"whowas-entries"`
+		NickLen        uint `yaml:"nicklen"`
+		ChannelLen     uint `yaml:"channellen"`
+		AwayLen        uint `yaml:"awaylen"`
+		KickLen        uint `yaml:"kicklen"`
+		TopicLen       uint `yaml:"topiclen"`
+		WhowasEntries  uint `yaml:"whowas-entries"`
+		MonitorEntries uint `yaml:"monitor-entries"`
 	}
 }
 
@@ -163,7 +164,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if len(config.Server.Listen) == 0 {
 		return nil, errors.New("Server listening addresses missing")
 	}
-	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.TopicLen < 1 || config.Limits.TopicLen < 1 {
+	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
 	}
 	return config, nil

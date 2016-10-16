@@ -86,5 +86,8 @@ limits:
     # topiclen is the maximum length of a channel topic
     topiclen: 390
 
+    # maximum number of monitor entries a client can have
+    monitor-entries: 100
+
     # whowas entries to store
     whowas-entries: 100

@@ -26,11 +26,12 @@ import (
 
 // Limits holds the maximum limits for various things such as topic lengths
 type Limits struct {
-	AwayLen    int
-	ChannelLen int
-	KickLen    int
-	NickLen    int
-	TopicLen   int
+	AwayLen        int
+	ChannelLen     int
+	KickLen        int
+	MonitorEntries int
+	NickLen        int
+	TopicLen       int
 }
 
 type Server struct {
@@ -42,6 +43,7 @@ type Server struct {
 	store               buntdb.DB
 	idle                chan *Client
 	limits              Limits
+	monitoring          map[string][]Client
 	motdLines           []string
 	name                string
 	nameCasefolded      string
@@ -85,12 +87,14 @@ func NewServer(config *Config) *Server {
 		ctime:    time.Now(),
 		idle:     make(chan *Client),
 		limits: Limits{
-			AwayLen:    config.Limits.AwayLen,
-			ChannelLen: config.Limits.ChannelLen,
-			KickLen:    config.Limits.KickLen,
-			NickLen:    config.Limits.NickLen,
-			TopicLen:   config.Limits.TopicLen,
+			AwayLen:        int(config.Limits.AwayLen),
+			ChannelLen:     int(config.Limits.ChannelLen),
+			KickLen:        int(config.Limits.KickLen),
+			MonitorEntries: int(config.Limits.MonitorEntries),
+			NickLen:        int(config.Limits.NickLen),
+			TopicLen:       int(config.Limits.TopicLen),
 		},
+		monitoring:     make(map[string][]Client),
 		name:           config.Server.Name,
 		nameCasefolded: casefoldedName,
 		newConns:       make(chan clientConn),
@@ -172,15 +176,16 @@ func NewServer(config *Config) *Server {
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", "rfc7700")
 	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret}.String()}, ","))
-	server.isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
+	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
 	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
 	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
+	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
 	server.isupport.Add("NETWORK", config.Network.Name)
-	server.isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
+	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this

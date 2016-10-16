@@ -43,6 +43,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if client.registered {
 		client.ChangeNickname(nicknameRaw)
+		client.alertMonitors()
 	} else {
 		client.SetNickname(nicknameRaw)
 	}

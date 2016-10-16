@@ -44,6 +44,7 @@ type Client struct {
 	hops               uint
 	hostname           string
 	idleTimer          *time.Timer
+	monitoring         map[string]bool
 	nick               string
 	nickCasefolded     string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
@@ -59,6 +60,7 @@ type Client struct {
 	username           string
 }
 
+// NewClient returns a client with all the appropriate info setup.
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
 	socket := NewSocket(conn)
@@ -71,6 +73,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		channels:       make(ChannelSet),
 		ctime:          now,
 		flags:          make(map[UserMode]bool),
+		monitoring:     make(map[string]bool),
 		server:         server,
 		socket:         &socket,
 		account:        &NoAccount,
@@ -214,6 +217,8 @@ func (client *Client) Register() {
 	}
 	client.registered = true
 	client.Touch()
+
+	client.alertMonitors()
 }
 
 func (client *Client) IdleTime() time.Duration {
@@ -306,7 +311,6 @@ func (client *Client) ChangeNickname(nickname string) {
 	client.nick = nickname
 	client.updateNickMask()
 	client.server.clients.Add(client)
-	client.Send(nil, origNickMask, "NICK", nickname)
 	for friend := range client.Friends() {
 		friend.Send(nil, origNickMask, "NICK", nickname)
 	}
@@ -331,6 +335,14 @@ func (client *Client) destroy() {
 	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
+
+	// alert monitors
+	for _, mClient := range client.server.monitoring[client.nickCasefolded] {
+		mClient.Send(nil, client.server.name, RPL_MONOFFLINE, mClient.nick, client.nick)
+	}
+
+	// remove my monitors
+	client.clearMonitorList()
 
 	// clean up channels
 	for channel := range client.channels {

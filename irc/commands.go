@@ -100,6 +100,10 @@ var Commands = map[string]Command{
 		handler:   modeHandler,
 		minParams: 1,
 	},
+	"MONITOR": {
+		handler:   monitorHandler,
+		minParams: 1,
+	},
 	"MOTD": {
 		handler:   motdHandler,
 		minParams: 0,
