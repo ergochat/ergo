@@ -1,0 +1,35 @@
+
+                                 ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
+                           ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
+                            ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
+                           ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
+                            ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
+
+-----------------------------------------------------------------------------------------------
+
+Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup
+and use, and to provide the majority of features that IRC users expect today.
+
+It includes features such as UTF-8 nicks and channel names, client accounts and SASL, and other
+assorted IRCv3 support.
+
+                             https://github.com/DanielOaks/oragono
+
+-----------------------------------------------------------------------------------------------
+
+
+=== Installing ===
+
+Copy the example config file to ircd.yaml with a command like:
+
+    $ cp oragono.yaml ircd.yaml
+
+Modify the config file as you like.
+
+Run these commands in order -- these will setup each section of the server:
+
+    $ oragono initdb
+    $ oragono mkcerts
+    $ oragono run
+
+And you should now be running Oragono!
