@@ -12,8 +12,9 @@ Improved compatibility, more features, etc.
 ### Security
 
 ### Added
-* Added integrated help.
-* Support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html), and draft capability [`message-tags`](http://ircv3.net/specs/core/message-tags-3.3.html) as `draft/message-tags`.
+* Added integrated help (with the `/HELP` command).
+* Added support for IRCv3.2 [capability negotiation](http://ircv3.net/specs/core/capability-negotiation-3.2.html) including CAP values.
+* Added support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html), and draft capability [`message-tags`](http://ircv3.net/specs/core/message-tags-3.3.html) as `draft/message-tags`.
 
 ### Changed
 * Casemapping changed from custom unicode mapping to preliminary [rfc7700](https://github.com/ircv3/ircv3-specifications/pull/272) mapping.
@@ -43,7 +44,7 @@ Initial release of Oragono!
 * Ability to parse complex mode change syntax commonly used these days (i.e. `+h-ov dan dan dan`).
 * User mode for clients connected via TLS (`+Z`).
 * Ability to register and login to accounts (with passphrase or certfp).
-* Support for IRCv3 capabilities [`account-tag`](http://ircv3.net/specs/extensions/account-tag-3.2.html), [`away-notify`](http://ircv3.net/specs/extensions/away-notify-3.1.html), [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html), [`sasl`](http://ircv3.net/specs/extensions/sasl-3.1.html), [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html), and [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
+* Added support for IRCv3 capabilities [`account-tag`](http://ircv3.net/specs/extensions/account-tag-3.2.html), [`away-notify`](http://ircv3.net/specs/extensions/away-notify-3.1.html), [`extended-join`](http://ircv3.net/specs/extensions/extended-join-3.1.html), [`sasl`](http://ircv3.net/specs/extensions/sasl-3.1.html), [`server-time`](http://ircv3.net/specs/extensions/server-time-3.2.html), and [`userhost-in-names`](http://ircv3.net/specs/extensions/userhost-in-names-3.2.html).
 
 ### Changed
 * Channel creator (`O`) privilege changed to founder/admin/halfops (`qah`) privileges.

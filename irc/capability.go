@@ -37,6 +37,9 @@ var (
 		ServerTime:      true,
 		UserhostInNames: true,
 	}
+	CapValues = map[Capability]string{
+		SASL: "PLAIN,EXTERNAL",
+	}
 )
 
 func (capability Capability) String() string {
@@ -65,14 +68,32 @@ const (
 	CapNegotiated  CapState = iota
 )
 
+// CapVersion is used to select which max version of CAP the client supports.
+type CapVersion uint
+
+const (
+	// Cap301 refers to the base CAP spec.
+	Cap301 CapVersion = 301
+	// Cap302 refers to the IRCv3.2 CAP spec.
+	Cap302 CapVersion = 302
+)
+
+// CapabilitySet is used to track supported, enabled, and existing caps.
 type CapabilitySet map[Capability]bool
 
-func (set CapabilitySet) String() string {
+func (set CapabilitySet) String(version CapVersion) string {
 	strs := make([]string, len(set))
 	index := 0
 	for capability := range set {
-		strs[index] = string(capability)
-		index += 1
+		capString := string(capability)
+		if version == Cap302 {
+			val, exists := CapValues[capability]
+			if exists {
+				capString += "=" + val
+			}
+		}
+		strs[index] = capString
+		index++
 	}
 	return strings.Join(strs, " ")
 }
@@ -108,13 +129,17 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if !client.registered {
 			client.capState = CapNegotiating
 		}
-		// client.server needs to be here to workaround a parsing bug in weechat 1.4
-		// and let it connect to the server (otherwise it doesn't respond to the CAP
-		// message with anything and just hangs on connection)
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String())
+		if len(msg.Params) > 1 && msg.Params[1] == "302" {
+			client.capVersion = 302
+		}
+		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
+		// the server.name source... otherwise it doesn't respond to the CAP message with
+		// anything and just hangs on connection.
+		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion))
 
 	case "LIST":
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String())
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(Cap301)) // values not sent on LIST so force 3.1
 
 	case "REQ":
 		// make sure all capabilities actually exist
