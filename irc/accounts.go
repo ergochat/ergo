@@ -156,12 +156,15 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 		return false
 	}
 
-	// sasl is being done now by the handler, so we empty the client's vars now
+	// let the SASL handler do its thing
+	exiting := handler(server, client, client.saslMechanism, data)
+
+	// wait 'til SASL is done before emptying the sasl vars
 	client.saslInProgress = false
 	client.saslMechanism = ""
 	client.saslValue = ""
 
-	return handler(server, client, client.saslMechanism, data)
+	return exiting
 }
 
 // authPlainHandler parses the SASL PLAIN mechanism.
