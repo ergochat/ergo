@@ -573,7 +573,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 
 	for _, targetString := range targets {
 		target, err := CasefoldChannel(targetString)
-		if err != nil {
+		if err == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
