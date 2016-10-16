@@ -42,7 +42,7 @@ type Client struct {
 	isDestroyed        bool
 	isQuitting         bool
 	hasQuit            bool
-	hops               uint
+	hops               int
 	hostname           string
 	idleTimer          *time.Timer
 	monitoring         map[string]bool

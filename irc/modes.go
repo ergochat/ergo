@@ -209,7 +209,7 @@ var (
 func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	_, errChan := CasefoldChannel(msg.Params[0])
 
-	if errChan != nil {
+	if errChan == nil {
 		return cmodeHandler(server, client, msg)
 	} else {
 		return umodeHandler(server, client, msg)

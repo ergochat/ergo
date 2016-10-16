@@ -699,7 +699,7 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 		flags += channel.members[client].Prefixes(target.capabilities[MultiPrefix])
 		channelName = channel.name
 	}
-	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.username, client.hostname, client.server.name, client.nick, flags, string(client.hops), client.realname)
+	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.username, client.hostname, client.server.name, client.nick, flags, strconv.Itoa(client.hops)+" "+client.realname)
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
