@@ -28,7 +28,11 @@ func AddrLookupHostname(addr net.Addr) string {
 func LookupHostname(addr string) string {
 	names, err := net.LookupAddr(addr)
 	if err != nil || len(names) < 1 || !IsHostname(names[0]) {
-		// return original address
+		// return original address if no hostname found
+		if len(addr) > 0 && addr[0] == ':' {
+			// fix for IPv6 hostnames (so they don't start with a colon), same as all other IRCds
+			addr = "0" + addr
+		}
 		return addr
 	}
 
