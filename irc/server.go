@@ -91,13 +91,13 @@ func NewServer(config *Config) *Server {
 			NickLen:    config.Limits.NickLen,
 			TopicLen:   config.Limits.TopicLen,
 		},
-		name:             config.Server.Name,
-		nameCasefolded:   casefoldedName,
-		newConns:         make(chan clientConn),
-		operators:        config.Operators(),
-		signals:          make(chan os.Signal, len(SERVER_SIGNALS)),
-		whoWas:           NewWhoWasList(config.Limits.WhowasEntries),
-		checkIdent:       config.Server.CheckIdent,
+		name:           config.Server.Name,
+		nameCasefolded: casefoldedName,
+		newConns:       make(chan clientConn),
+		operators:      config.Operators(),
+		signals:        make(chan os.Signal, len(SERVER_SIGNALS)),
+		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
+		checkIdent:     config.Server.CheckIdent,
 	}
 
 	// open data store
@@ -567,6 +567,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // PRIVMSG <target>{,<target>} <message>
 func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	clientOnlyTags := GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -578,7 +579,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
-			channel.PrivMsg(client, message)
+			channel.PrivMsg(clientOnlyTags, client, message)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -586,7 +587,10 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
 				continue
 			}
-			user.Send(nil, client.nickMaskString, "PRIVMSG", user.nick, message)
+			if !user.capabilities[MessageTags] {
+				clientOnlyTags = nil
+			}
+			user.Send(clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
 			if user.flags[Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
@@ -852,6 +856,7 @@ func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // NOTICE <target>{,<target>} <message>
 func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	clientOnlyTags := GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -863,7 +868,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			channel.PrivMsg(client, message)
+			channel.PrivMsg(clientOnlyTags, client, message)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
@@ -875,7 +880,10 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			user.Send(nil, client.nickMaskString, "NOTICE", user.nick, message)
+			if !user.capabilities[MessageTags] {
+				clientOnlyTags = nil
+			}
+			user.Send(clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
 		}
 	}
 	return false

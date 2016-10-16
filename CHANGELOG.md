@@ -13,7 +13,7 @@ Improved compatibility, more features, etc.
 
 ### Added
 * Added integrated help.
-* Support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html)
+* Support for IRCv3 capability [`account-notify`](http://ircv3.net/specs/extensions/account-notify-3.1.html), and draft capability [`message-tags`](http://ircv3.net/specs/core/message-tags-3.3.html) as `draft/message-tags`.
 
 ### Changed
 * Casemapping changed from custom unicode mapping to preliminary [rfc7700](https://github.com/ircv3/ircv3-specifications/pull/272) mapping.

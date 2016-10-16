@@ -10,6 +10,8 @@ import (
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
 type Channel struct {
@@ -300,7 +302,7 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func (channel *Channel) PrivMsg(client *Client, message string) {
+func (channel *Channel) PrivMsg(clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -309,7 +311,11 @@ func (channel *Channel) PrivMsg(client *Client, message string) {
 		if member == client {
 			continue
 		}
-		member.SendFromClient(client, nil, client.nickMaskString, "PRIVMSG", channel.name, message)
+		if member.capabilities[MessageTags] {
+			member.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", channel.name, message)
+		} else {
+			member.SendFromClient(client, nil, client.nickMaskString, "PRIVMSG", channel.name, message)
+		}
 	}
 }
 
