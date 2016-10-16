@@ -590,7 +590,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.Send(clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
+			user.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
 			if user.flags[Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
@@ -883,7 +883,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.Send(clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
+			user.SendFromClient(client, clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
 		}
 	}
 	return false
