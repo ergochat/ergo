@@ -75,7 +75,7 @@ type clientConn struct {
 func NewServer(config *Config) *Server {
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
-		log.Println(fmt.Sprintf("Server name isn't valid: []", config.Server.Name), err.Error())
+		log.Println(fmt.Sprintf("Server name isn't valid: [%s]", config.Server.Name), err.Error())
 		return nil
 	}
 
