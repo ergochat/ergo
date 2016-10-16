@@ -94,6 +94,7 @@ _testmain.go
 
 
 ### Oragono ###
+/_site/
 /.vscode/*
 /ircd*
 /ssl.*
