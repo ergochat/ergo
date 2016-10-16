@@ -12,7 +12,7 @@ mv oragono.exe ./build/win/
 cp LICENSE ./build/win/
 cp oragono.yaml oragono.motd ./build/win
 cp ./docs/README ./build/win/
-cp ./docs/CHANGELOG.md ./build/win/
+cp ./CHANGELOG.md ./build/win/docs
 cp ./docs/logo* ./build/win/docs
 
 pushd ./build/win
@@ -29,7 +29,7 @@ mv oragono ./build/osx/
 cp LICENSE ./build/osx/
 cp oragono.yaml oragono.motd ./build/osx
 cp ./docs/README ./build/osx/
-cp ./docs/CHANGELOG.md ./build/osx/
+cp ./CHANGELOG.md ./build/osx/docs
 cp ./docs/logo* ./build/osx/docs
 
 pushd ./build/osx
@@ -46,7 +46,7 @@ mv oragono ./build/linux/
 cp LICENSE ./build/linux/
 cp oragono.yaml oragono.motd ./build/linux
 cp ./docs/README ./build/linux/
-cp ./docs/CHANGELOG.md ./build/linux/
+cp ./CHANGELOG.md ./build/linux/docs
 cp ./docs/logo* ./build/linux/docs
 
 pushd ./build/linux
