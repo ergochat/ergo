@@ -1,4 +1,4 @@
-!#/usr/bin/env sh
+#!/usr/bin/env sh
 # release build script
 # to be run inside the Oragono dir
 
@@ -7,9 +7,10 @@ rm -rf ./build/win/
 mkdir -p ./build/win/docs/
 
 GOOS=windows GOATCH=amd64 go build oragono.go
-mv oragono ./build/win/
+mv oragono.exe ./build/win/
 
 cp LICENSE ./build/win/
+cp oragono.yaml oragono.motd ./build/win
 cp ./docs/README ./build/win/
 cp ./docs/CHANGELOG.md ./build/win/
 cp ./docs/logo* ./build/win/docs
@@ -22,10 +23,11 @@ popd
 rm -rf ./build/osx/
 mkdir -p ./build/osx/docs/
 
-GOOS=osx GOATCH=amd64 go build oragono.go
+GOOS=darwin GOATCH=amd64 go build oragono.go
 mv oragono ./build/osx/
 
 cp LICENSE ./build/osx/
+cp oragono.yaml oragono.motd ./build/osx
 cp ./docs/README ./build/osx/
 cp ./docs/CHANGELOG.md ./build/osx/
 cp ./docs/logo* ./build/osx/docs
@@ -42,6 +44,7 @@ GOOS=linux GOATCH=amd64 go build oragono.go
 mv oragono ./build/linux/
 
 cp LICENSE ./build/linux/
+cp oragono.yaml oragono.motd ./build/linux
 cp ./docs/README ./build/linux/
 cp ./docs/CHANGELOG.md ./build/linux/
 cp ./docs/logo* ./build/linux/docs
