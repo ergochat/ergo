@@ -4,12 +4,10 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-The next release of Oragono!
+## [0.2.0] - 2016-10-16
+Improved compatibility, more features.
 
-Improved compatibility, more features, etc.
-
-### Security
+Now comes with a new proper Unicode-capable casemapping and integrated help!
 
 ### Added
 * Added integrated help (with the `/HELP` command).
@@ -22,8 +20,6 @@ Improved compatibility, more features, etc.
 ### Removed
 * Removed channel persistence with the `+P` mode (not too useful as currently implemented, to be replaced later).
 * Removed the `PROXY` command (breaks our TLS user mode, and our integrated support for TLS should be fine).
-
-### Fixed
 
 
 ## [0.1.0] - 2016-09-18
