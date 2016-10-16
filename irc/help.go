@@ -35,7 +35,7 @@ Oragono supports the following channel modes:
 = Type D - flag modes =
 
   +i  |  Invite-only mode, only invited clients can join the channel.
-  +m  |  Moderated mode, only priviledged clients can talk on the channel.
+  +m  |  Moderated mode, only privileged clients can talk on the channel.
   +n  |  No-outside-messages mode, only users that are on the channel can send the channel messages.
   +t  |  Only channel opers can modify the topic.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.  
