@@ -1,6 +1,10 @@
 ![Oragono logo](docs/logo.png)
 
-Oragono is an IRC daemon written in Go. It's an early, experimental fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon.
+Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup and use, and to provide the majority of features that IRC users expect today.
+
+It includes features such as UTF-8 nicks and channel names, client accounts and SASL, and other assorted IRCv3 support.
+
+Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon <3
 
 Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for a similar project written in Python instead.
 
