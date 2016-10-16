@@ -18,6 +18,7 @@ const (
 	AccountNotify   Capability = "account-notify"
 	AwayNotify      Capability = "away-notify"
 	ExtendedJoin    Capability = "extended-join"
+	InviteNotify    Capability = "invite-notify"
 	MessageTags     Capability = "draft/message-tags"
 	MultiPrefix     Capability = "multi-prefix"
 	SASL            Capability = "sasl"
@@ -31,6 +32,7 @@ var (
 		AccountNotify:   true,
 		AwayNotify:      true,
 		ExtendedJoin:    true,
+		InviteNotify:    true,
 		MessageTags:     true,
 		MultiPrefix:     true,
 		SASL:            true,

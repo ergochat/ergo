@@ -91,8 +91,14 @@ func (channel *Channel) Names(client *Client) {
 	client.Send(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, "End of NAMES list")
 }
 
+// ClientIsHalfOp returns whether client is at least a halfop.
+func (channel *Channel) ClientIsHalfOp(client *Client) bool {
+	return client.flags[Operator] || channel.members.HasMode(client, Halfop) || channel.members.HasMode(client, ChannelOperator) || channel.members.HasMode(client, ChannelAdmin) || channel.members.HasMode(client, ChannelFounder)
+}
+
+// ClientIsOperator returns whether client is at least a chanop.
 func (channel *Channel) ClientIsOperator(client *Client) bool {
-	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator)
+	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator) || channel.members.HasMode(client, ChannelAdmin) || channel.members.HasMode(client, ChannelFounder)
 }
 
 // Prefixes returns a list of prefixes for the given set of channel modes.
@@ -485,8 +491,16 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 		return
 	}
 
+	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags[InviteOnly] {
 		channel.lists[InviteMask].Add(invitee.UserHost())
+	}
+
+	// send invite-notify
+	for member := range channel.members {
+		if member.capabilities[InviteNotify] && member != inviter && member != invitee && channel.ClientIsHalfOp(member) {
+			member.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
+		}
 	}
 
 	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?
