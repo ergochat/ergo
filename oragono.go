@@ -83,7 +83,7 @@ Options:
 		}
 	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
-		server := irc.NewServer(config)
+		server := irc.NewServer(configfile, config)
 		if !arguments["--quiet"].(bool) {
 			log.Println(irc.SemVer, "running")
 			defer log.Println(irc.SemVer, "exiting")

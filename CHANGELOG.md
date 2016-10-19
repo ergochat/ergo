@@ -10,6 +10,7 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Added `REHASH` command.
 
 ### Changed
 

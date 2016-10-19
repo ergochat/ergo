@@ -164,6 +164,11 @@ var Commands = map[string]Command{
 		handler:   regHandler,
 		minParams: 3,
 	},
+	"REHASH": {
+		handler:   rehashHandler,
+		minParams: 0,
+		oper:      true,
+	},
 	"TIME": {
 		handler:   timeHandler,
 		minParams: 0,

@@ -5,6 +5,9 @@ package irc
 
 import "fmt"
 
+const isupportSupportedString = "are supported by this server"
+const maxISupportLength = 400 // Max length of a single ISUPPORT token line
+
 // ISupportList holds a list of ISUPPORT tokens
 type ISupportList struct {
 	Tokens      map[string]*string
@@ -29,22 +32,30 @@ func (il *ISupportList) AddNoValue(name string) {
 	il.Tokens[name] = nil
 }
 
-// RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
-func (il *ISupportList) RegenerateCachedReply() {
-	il.CachedReply = make([][]string, 0)
-	maxlen := 400      // Max length of a single ISUPPORT token line
+// getTokenString gets the appropriate string for a token+value.
+func getTokenString(name string, value *string) string {
+	if value == nil {
+		return name
+	}
+	return fmt.Sprintf("%s=%s", name, *value)
+}
+
+// GetDifference returns the difference between two token lists.
+func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
+	replies := make([][]string, 0)
 	var length int     // Length of the current cache
 	var cache []string // Token list cache
 
-	for name, value := range il.Tokens {
-		var token string
-		if value == nil {
-			token = name
-		} else {
-			token = fmt.Sprintf("%s=%s", name, *value)
+	// append removed tokens
+	for name := range il.Tokens {
+		_, exists := newil.Tokens[name]
+		if exists {
+			continue
 		}
 
-		if len(token)+length <= maxlen {
+		token := fmt.Sprintf("-%s", name)
+
+		if len(token)+length <= maxISupportLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
 				length++
@@ -53,8 +64,68 @@ func (il *ISupportList) RegenerateCachedReply() {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxlen {
-			cache = append(cache, "are supported by this server")
+		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+			cache = append(cache, isupportSupportedString)
+			replies = append(replies, cache)
+			cache = make([]string, 0)
+			length = 0
+		}
+	}
+
+	// append added tokens
+	for name, value := range newil.Tokens {
+		newval, exists := il.Tokens[name]
+		if exists && *value == *newval {
+			continue
+		}
+
+		token := getTokenString(name, value)
+
+		if len(token)+length <= maxISupportLength {
+			// account for the space separating tokens
+			if len(cache) > 0 {
+				length++
+			}
+			cache = append(cache, token)
+			length += len(token)
+		}
+
+		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+			cache = append(cache, isupportSupportedString)
+			replies = append(replies, cache)
+			cache = make([]string, 0)
+			length = 0
+		}
+	}
+
+	if len(cache) > 0 {
+		cache = append(cache, isupportSupportedString)
+		replies = append(replies, cache)
+	}
+
+	return replies
+}
+
+// RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
+func (il *ISupportList) RegenerateCachedReply() {
+	il.CachedReply = make([][]string, 0)
+	var length int     // Length of the current cache
+	var cache []string // Token list cache
+
+	for name, value := range il.Tokens {
+		token := getTokenString(name, value)
+
+		if len(token)+length <= maxISupportLength {
+			// account for the space separating tokens
+			if len(cache) > 0 {
+				length++
+			}
+			cache = append(cache, token)
+			length += len(token)
+		}
+
+		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+			cache = append(cache, isupportSupportedString)
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -62,7 +133,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 	}
 
 	if len(cache) > 0 {
-		cache = append(cache, "are supported by this server")
+		cache = append(cache, isupportSupportedString)
 		il.CachedReply = append(il.CachedReply, cache)
 	}
 }

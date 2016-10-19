@@ -39,6 +39,7 @@ type Server struct {
 	channels            ChannelNameMap
 	clients             *ClientLookupSet
 	commands            chan Command
+	configFilename      string
 	ctime               time.Time
 	store               buntdb.DB
 	idle                chan *Client
@@ -47,6 +48,7 @@ type Server struct {
 	motdLines           []string
 	name                string
 	nameCasefolded      string
+	networkName         string
 	newConns            chan clientConn
 	operators           map[string][]byte
 	password            []byte
@@ -72,7 +74,8 @@ type clientConn struct {
 	IsTLS bool
 }
 
-func NewServer(config *Config) *Server {
+// NewServer returns a new Oragono server.
+func NewServer(configFilename string, config *Config) *Server {
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
 		log.Println(fmt.Sprintf("Server name isn't valid: [%s]", config.Server.Name), err.Error())
@@ -80,12 +83,13 @@ func NewServer(config *Config) *Server {
 	}
 
 	server := &Server{
-		accounts: make(map[string]*ClientAccount),
-		channels: make(ChannelNameMap),
-		clients:  NewClientLookupSet(),
-		commands: make(chan Command),
-		ctime:    time.Now(),
-		idle:     make(chan *Client),
+		accounts:       make(map[string]*ClientAccount),
+		channels:       make(ChannelNameMap),
+		clients:        NewClientLookupSet(),
+		commands:       make(chan Command),
+		configFilename: configFilename,
+		ctime:          time.Now(),
+		idle:           make(chan *Client),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
 			ChannelLen:     int(config.Limits.ChannelLen),
@@ -97,6 +101,7 @@ func NewServer(config *Config) *Server {
 		monitoring:     make(map[string][]Client),
 		name:           config.Server.Name,
 		nameCasefolded: casefoldedName,
+		networkName:    config.Network.Name,
 		newConns:       make(chan clientConn),
 		operators:      config.Operators(),
 		signals:        make(chan os.Signal, len(SERVER_SIGNALS)),
@@ -171,6 +176,13 @@ func NewServer(config *Config) *Server {
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, SERVER_SIGNALS...)
 
+	server.setISupport()
+
+	return server
+}
+
+// setISupport sets up our RPL_ISUPPORT reply.
+func (server *Server) setISupport() {
 	// add RPL_ISUPPORT tokens
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
@@ -184,7 +196,7 @@ func NewServer(config *Config) *Server {
 	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
-	server.isupport.Add("NETWORK", config.Network.Name)
+	server.isupport.Add("NETWORK", server.networkName)
 	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
@@ -207,8 +219,6 @@ func NewServer(config *Config) *Server {
 	}
 
 	server.isupport.RegenerateCachedReply()
-
-	return server
 }
 
 func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
@@ -220,7 +230,7 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 
 func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
-	for _, client := range server.clients.byNick {
+	for _, client := range server.clients.ByNick {
 		client.Notice("Server is shutting down")
 	}
 
@@ -511,13 +521,16 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for i, name := range channels {
 		casefoldedName, err := CasefoldChannel(name)
 		if err != nil {
-			log.Println("ISN'T CHANNEL NAME:", name)
 			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
 			continue
 		}
 
 		channel := server.channels.Get(casefoldedName)
 		if channel == nil {
+			if len(casefoldedName) > server.limits.ChannelLen {
+				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
+				continue
+			}
 			channel = NewChannel(server, name, true)
 		}
 
@@ -777,6 +790,50 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		op:   Add,
 	}}
 	client.Send(nil, server.name, "MODE", client.nick, modech.String())
+	return false
+}
+
+// REHASH
+func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	config, err := LoadConfig(server.configFilename)
+
+	if err != nil {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", fmt.Sprintf("Error rehashing config file: %s", err.Error()))
+		return false
+	}
+
+	//TODO(dan): burst CAP DEL for sasl
+
+	// set server options
+	server.limits = Limits{
+		AwayLen:        int(config.Limits.AwayLen),
+		ChannelLen:     int(config.Limits.ChannelLen),
+		KickLen:        int(config.Limits.KickLen),
+		MonitorEntries: int(config.Limits.MonitorEntries),
+		NickLen:        int(config.Limits.NickLen),
+		TopicLen:       int(config.Limits.TopicLen),
+	}
+	server.operators = config.Operators()
+	server.checkIdent = config.Server.CheckIdent
+
+	// registration
+	accountReg := NewAccountRegistration(config.Registration.Accounts)
+	server.accountRegistration = &accountReg
+
+	// set RPL_ISUPPORT
+	oldISupportList := server.isupport
+	server.setISupport()
+	newISupportReplies := oldISupportList.GetDifference(server.isupport)
+
+	// push new info to all of our clients
+	for _, sClient := range server.clients.ByNick {
+		for _, tokenline := range newISupportReplies {
+			// ugly trickery ahead
+			sClient.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
+		}
+	}
+
+	client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
 	return false
 }
 
