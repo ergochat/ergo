@@ -34,12 +34,12 @@ func ExpandUserHost(userhost string) (expanded string) {
 }
 
 type ClientLookupSet struct {
-	byNick map[string]*Client
+	ByNick map[string]*Client
 }
 
 func NewClientLookupSet() *ClientLookupSet {
 	return &ClientLookupSet{
-		byNick: make(map[string]*Client),
+		ByNick: make(map[string]*Client),
 	}
 }
 
@@ -48,14 +48,14 @@ func (clients *ClientLookupSet) Has(nick string) bool {
 	if err == nil {
 		return false
 	}
-	_, exists := clients.byNick[casefoldedName]
+	_, exists := clients.ByNick[casefoldedName]
 	return exists
 }
 
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
-		return clients.byNick[casefoldedName]
+		return clients.ByNick[casefoldedName]
 	}
 	return nil
 }
@@ -67,7 +67,7 @@ func (clients *ClientLookupSet) Add(client *Client) error {
 	if clients.Get(client.nick) != nil {
 		return ErrNicknameInUse
 	}
-	clients.byNick[client.nickCasefolded] = client
+	clients.ByNick[client.nickCasefolded] = client
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	if clients.Get(client.nick) != client {
 		return ErrNicknameMismatch
 	}
-	delete(clients.byNick, client.nickCasefolded)
+	delete(clients.ByNick, client.nickCasefolded)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	}
 	matcher := ircmatch.MakeMatch(userhost)
 
-	for _, client := range clients.byNick {
+	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
 		}
@@ -107,7 +107,7 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 	}
 	matcher := ircmatch.MakeMatch(userhost)
 
-	for _, client := range clients.byNick {
+	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			return client
 		}
