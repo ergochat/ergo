@@ -59,32 +59,33 @@ type ListenerEvent struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts            map[string]*ClientAccount
-	channels            ChannelNameMap
-	clients             *ClientLookupSet
-	commands            chan Command
-	configFilename      string
-	ctime               time.Time
-	store               buntdb.DB
-	idle                chan *Client
-	limits              Limits
-	listenerUpdateMutex sync.Mutex
-	listeners           map[string]ListenerInterface
-	monitoring          map[string][]Client
-	motdLines           []string
-	name                string
-	nameCasefolded      string
-	networkName         string
-	newConns            chan clientConn
-	operators           map[string][]byte
-	password            []byte
-	passwords           *PasswordManager
-	rehashMutex         sync.Mutex
-	accountRegistration *AccountRegistration
-	signals             chan os.Signal
-	whoWas              *WhoWasList
-	isupport            *ISupportList
-	checkIdent          bool
+	accounts              map[string]*ClientAccount
+	channels              ChannelNameMap
+	clients               *ClientLookupSet
+	commands              chan Command
+	configFilename        string
+	ctime                 time.Time
+	store                 buntdb.DB
+	idle                  chan *Client
+	limits                Limits
+	listenerEventActMutex sync.Mutex
+	listenerUpdateMutex   sync.Mutex
+	listeners             map[string]ListenerInterface
+	monitoring            map[string][]Client
+	motdLines             []string
+	name                  string
+	nameCasefolded        string
+	networkName           string
+	newConns              chan clientConn
+	operators             map[string][]byte
+	password              []byte
+	passwords             *PasswordManager
+	rehashMutex           sync.Mutex
+	accountRegistration   *AccountRegistration
+	signals               chan os.Signal
+	whoWas                *WhoWasList
+	isupport              *ISupportList
+	checkIdent            bool
 }
 
 var (
@@ -341,6 +342,11 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 
 			select {
 			case event := <-s.listeners[addr].Events:
+				// this is used to confirm that whoever passed us this event has closed the existing listener correctly (in an attempt to get us to notice the event).
+				// this is required to keep REHASH from having a very small race possibility of killing the primary listener
+				s.listenerEventActMutex.Lock()
+				s.listenerEventActMutex.Unlock()
+
 				if event.Type == DestroyListener {
 					// listener should already be closed, this is just for safety
 					listener.Close()
@@ -922,6 +928,7 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			}
 		}
 
+		server.listenerEventActMutex.Lock()
 		if exists {
 			// update old listener
 			fmt.Println("refreshing", addr)
@@ -938,6 +945,8 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 		// force listener to apply the event right away
 		server.listeners[addr].Listener.Close()
+
+		server.listenerEventActMutex.Unlock()
 	}
 
 	for _, newaddr := range config.Server.Listen {
