@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Security
+* Prevent a denial of service where the server would stop accepting connections.
 
 ### Added
 * Added `REHASH` command.
