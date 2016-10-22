@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -34,6 +35,29 @@ type Limits struct {
 	TopicLen       int
 }
 
+// ListenerInterface represents an interface for a listener.
+type ListenerInterface struct {
+	Listener net.Listener
+	Events   chan ListenerEvent
+}
+
+const (
+	// DestroyListener instructs the listener to destroy itself.
+	DestroyListener ListenerEventType = iota
+	// UpdateListener instructs the listener to update itself (grab new certs, etc).
+	UpdateListener = iota
+)
+
+// ListenerEventType is the type of event this is.
+type ListenerEventType int
+
+// ListenerEvent is an event that's passed to the listener.
+type ListenerEvent struct {
+	Type      ListenerEventType
+	NewConfig *tls.Config
+}
+
+// Server is the main Oragono server.
 type Server struct {
 	accounts            map[string]*ClientAccount
 	channels            ChannelNameMap
@@ -44,6 +68,8 @@ type Server struct {
 	store               buntdb.DB
 	idle                chan *Client
 	limits              Limits
+	listenerUpdateMutex sync.Mutex
+	listeners           map[string]ListenerInterface
 	monitoring          map[string][]Client
 	motdLines           []string
 	name                string
@@ -53,6 +79,7 @@ type Server struct {
 	operators           map[string][]byte
 	password            []byte
 	passwords           *PasswordManager
+	rehashMutex         sync.Mutex
 	accountRegistration *AccountRegistration
 	signals             chan os.Signal
 	whoWas              *WhoWasList
@@ -98,6 +125,7 @@ func NewServer(configFilename string, config *Config) *Server {
 			NickLen:        int(config.Limits.NickLen),
 			TopicLen:       int(config.Limits.TopicLen),
 		},
+		listeners:      make(map[string]ListenerInterface),
 		monitoring:     make(map[string][]Client),
 		name:           config.Server.Name,
 		nameCasefolded: casefoldedName,
@@ -162,7 +190,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	}
 
 	for _, addr := range config.Server.Listen {
-		server.listen(addr, config.TLSListeners())
+		server.createListener(addr, config.TLSListeners())
 	}
 
 	if config.Server.Wslisten != "" {
@@ -251,12 +279,7 @@ func (server *Server) Run() {
 			done = true
 
 		case conn := <-server.newConns:
-			NewClient(server, conn.Conn, conn.IsTLS)
-
-		/*TODO(dan): LOOK AT THIS MORE CLOSELY
-		case cmd := <-server.commands:
-			server.processCommand(cmd)
-		*/
+			go NewClient(server, conn.Conn, conn.IsTLS)
 
 		case client := <-server.idle:
 			client.Idle()
@@ -265,13 +288,21 @@ func (server *Server) Run() {
 }
 
 //
-// listen goroutine
+// IRC protocol listeners
 //
 
-func (s *Server) listen(addr string, tlsMap map[string]*tls.Config) {
-	//TODO(dan): we could casemap this but... eh
+func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 	config, listenTLS := tlsMap[addr]
 
+	_, alreadyExists := s.listeners[addr]
+	if alreadyExists {
+		log.Fatal(s, "listener already exists:", addr)
+	}
+
+	// make listener event channel
+	listenerEventChannel := make(chan ListenerEvent, 1)
+
+	// make listener
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(s, "listen error: ", err)
@@ -283,23 +314,67 @@ func (s *Server) listen(addr string, tlsMap map[string]*tls.Config) {
 		listener = tls.NewListener(listener, config)
 		tlsString = "TLS"
 	}
+
+	// throw our details to the server so we can be modified/killed later
+	li := ListenerInterface{
+		Events:   listenerEventChannel,
+		Listener: listener,
+	}
+	s.listeners[addr] = li
+
+	// start listening
 	Log.info.Printf("%s listening on %s using %s.", s.name, addr, tlsString)
 
+	// setup accept goroutine
 	go func() {
 		for {
 			conn, err := listener.Accept()
-			if err != nil {
-				Log.error.Printf("%s accept error: %s", s.name, err)
-				continue
-			}
-			Log.debug.Printf("%s accept: %s", s.name, conn.RemoteAddr())
 
-			newConn := clientConn{
-				Conn:  conn,
-				IsTLS: listenTLS,
+			if err == nil {
+				newConn := clientConn{
+					Conn:  conn,
+					IsTLS: listenTLS,
+				}
+
+				s.newConns <- newConn
 			}
 
-			s.newConns <- newConn
+			select {
+			case event := <-s.listeners[addr].Events:
+				if event.Type == DestroyListener {
+					// listener should already be closed, this is just for safety
+					listener.Close()
+					return
+				} else if event.Type == UpdateListener {
+					// close old listener
+					listener.Close()
+
+					// make new listener
+					listener, err = net.Listen("tcp", addr)
+					if err != nil {
+						log.Fatal(s, "listen error: ", err)
+					}
+
+					tlsString := "plaintext"
+					if event.NewConfig != nil {
+						config = event.NewConfig
+						config.ClientAuth = tls.RequestClientCert
+						listener = tls.NewListener(listener, config)
+						tlsString = "TLS"
+					}
+
+					// update server ListenerInterface
+					li.Listener = listener
+					s.listenerUpdateMutex.Lock()
+					s.listeners[addr] = li
+					s.listenerUpdateMutex.Unlock()
+
+					// print notice
+					Log.info.Printf("%s updated listener %s using %s.", s.name, addr, tlsString)
+				}
+			default:
+				// no events waiting for us, fall-through and continue
+			}
 		}
 	}()
 }
@@ -795,6 +870,9 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// only let one REHASH go on at a time
+	server.rehashMutex.Lock()
+
 	config, err := LoadConfig(server.configFilename)
 
 	if err != nil {
@@ -832,6 +910,46 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			sClient.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
 		}
 	}
+
+	// destroy old listeners
+	tlsListeners := config.TLSListeners()
+	for addr := range server.listeners {
+		var exists bool
+		for _, newaddr := range config.Server.Listen {
+			if newaddr == addr {
+				exists = true
+				break
+			}
+		}
+
+		if exists {
+			// update old listener
+			fmt.Println("refreshing", addr)
+			server.listeners[addr].Events <- ListenerEvent{
+				Type:      UpdateListener,
+				NewConfig: tlsListeners[addr],
+			}
+		} else {
+			// destroy nonexistent listener
+			fmt.Println("destroying", addr)
+			server.listeners[addr].Events <- ListenerEvent{
+				Type: DestroyListener,
+			}
+		}
+		// force listener to apply the event right away
+		server.listeners[addr].Listener.Close()
+	}
+
+	for _, newaddr := range config.Server.Listen {
+		_, exists := server.listeners[newaddr]
+		if !exists {
+			// make new listener
+			fmt.Println("creating", newaddr)
+			server.createListener(newaddr, tlsListeners)
+		}
+	}
+
+	server.rehashMutex.Unlock()
 
 	client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
 	return false
