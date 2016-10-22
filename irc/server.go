@@ -83,6 +83,7 @@ type Server struct {
 	rehashMutex           sync.Mutex
 	accountRegistration   *AccountRegistration
 	signals               chan os.Signal
+	rehashSignal          chan os.Signal
 	whoWas                *WhoWasList
 	isupport              *ISupportList
 	checkIdent            bool
@@ -91,7 +92,6 @@ type Server struct {
 var (
 	SERVER_SIGNALS = []os.Signal{
 		syscall.SIGINT,
-		syscall.SIGHUP, // eventually we expect to use HUP to reload config
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
@@ -134,6 +134,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		newConns:       make(chan clientConn),
 		operators:      config.Operators(),
 		signals:        make(chan os.Signal, len(SERVER_SIGNALS)),
+		rehashSignal:   make(chan os.Signal, 1),
 		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
 		checkIdent:     config.Server.CheckIdent,
 	}
@@ -204,6 +205,7 @@ func NewServer(configFilename string, config *Config) *Server {
 
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, SERVER_SIGNALS...)
+	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
 	server.setISupport()
 
@@ -278,6 +280,13 @@ func (server *Server) Run() {
 		case <-server.signals:
 			server.Shutdown()
 			done = true
+
+		case <-server.rehashSignal:
+			// eventually we expect to use HUP to reload config
+			err := server.rehash()
+			if err != nil {
+				Log.error.Println("Failed to rehash:", err.Error())
+			}
 
 		case conn := <-server.newConns:
 			go NewClient(server, conn.Conn, conn.IsTLS)
@@ -874,16 +883,15 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// REHASH
-func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+// rehash reloads the config and applies the changes from the config file.
+func (server *Server) rehash() error {
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
 
 	config, err := LoadConfig(server.configFilename)
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", fmt.Sprintf("Error rehashing config file: %s", err.Error()))
-		return false
+		return fmt.Errorf("Error rehashing config file: %s", err.Error())
 	}
 
 	//TODO(dan): burst CAP DEL for sasl
@@ -913,7 +921,7 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for _, sClient := range server.clients.ByNick {
 		for _, tokenline := range newISupportReplies {
 			// ugly trickery ahead
-			sClient.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
+			sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
 		}
 	}
 
@@ -931,14 +939,12 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		server.listenerEventActMutex.Lock()
 		if exists {
 			// update old listener
-			fmt.Println("refreshing", addr)
 			server.listeners[addr].Events <- ListenerEvent{
 				Type:      UpdateListener,
 				NewConfig: tlsListeners[addr],
 			}
 		} else {
 			// destroy nonexistent listener
-			fmt.Println("destroying", addr)
 			server.listeners[addr].Events <- ListenerEvent{
 				Type: DestroyListener,
 			}
@@ -953,14 +959,23 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		_, exists := server.listeners[newaddr]
 		if !exists {
 			// make new listener
-			fmt.Println("creating", newaddr)
 			server.createListener(newaddr, tlsListeners)
 		}
 	}
 
 	server.rehashMutex.Unlock()
+	return nil
+}
 
-	client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
+// REHASH
+func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	err := server.rehash()
+
+	if err == nil {
+		client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
+	} else {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
+	}
 	return false
 }
 
