@@ -4,8 +4,10 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.3.0] - 2016-10-23
+We now support dynamically reloading the config file, along with some new IRCv3 capabilities and some fixes.
+
+The `REHASH` changes are fairly extensive here, but should now be stable (this also fixes a denial of service possible with the old code).
 
 ### Security
 * Prevent a denial of service where the server would stop accepting connections.
@@ -17,11 +19,10 @@ New release of Oragono!
 * Added support for IRCv3 capabilities [`cap-notify`](http://ircv3.net/specs/extensions/cap-notify-3.2.html) and [`echo-message`](http://ircv3.net/specs/extensions/echo-message-3.2.html).
 
 ### Changed
-* Server operators no longer have permissions to do everything in channels. 
-
-### Removed
+* Server operators no longer have permissions to do everything in channels.
 
 ### Fixed
+* MODE: Fixed issue where channel privelege changes returned incorrectly.
 
 
 ## [0.2.0] - 2016-10-16
