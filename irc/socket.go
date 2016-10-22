@@ -13,11 +13,13 @@ import (
 	"io"
 	"net"
 	"strings"
+	"time"
 )
 
 var (
-	errNotTLS      = errors.New("Not a TLS connection")
-	errNoPeerCerts = errors.New("Client did not provide a certificate")
+	errNotTLS           = errors.New("Not a TLS connection")
+	errNoPeerCerts      = errors.New("Client did not provide a certificate")
+	handshakeTimeout, _ = time.ParseDuration("5s")
 )
 
 // Socket represents an IRC socket.
@@ -51,8 +53,14 @@ func (socket *Socket) CertFP() (string, error) {
 		return "", errNotTLS
 	}
 
-	// ensure handehake is performed
-	tlsConn.Handshake()
+	// ensure handehake is performed, and timeout after a few seconds
+	tlsConn.SetDeadline(time.Now().Add(handshakeTimeout))
+	err := tlsConn.Handshake()
+	tlsConn.SetDeadline(time.Time{})
+
+	if err != nil {
+		return "", err
+	}
 
 	peerCerts := tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {
