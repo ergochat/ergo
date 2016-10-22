@@ -513,7 +513,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 				change := channel.applyModeMember(client, change.mode, change.op, change.arg)
 				if change != nil {
-					applied = append(changes, change)
+					applied = append(applied, change)
 				}
 			}
 		}
