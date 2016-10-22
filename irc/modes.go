@@ -156,12 +156,6 @@ var (
 )
 
 const (
-	ChannelFounder  ChannelMode = 'q' // arg
-	ChannelAdmin    ChannelMode = 'a' // arg
-	ChannelOperator ChannelMode = 'o' // arg
-	Halfop          ChannelMode = 'h' // arg
-	Voice           ChannelMode = 'v' // arg
-
 	BanMask     ChannelMode = 'b' // arg
 	ExceptMask  ChannelMode = 'e' // arg
 	InviteMask  ChannelMode = 'I' // arg
@@ -175,6 +169,12 @@ const (
 )
 
 var (
+	ChannelFounder  ChannelMode = 'q' // arg
+	ChannelAdmin    ChannelMode = 'a' // arg
+	ChannelOperator ChannelMode = 'o' // arg
+	Halfop          ChannelMode = 'h' // arg
+	Voice           ChannelMode = 'v' // arg
+
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
 		OpOnlyTopic, Secret, UserLimit,
@@ -200,6 +200,38 @@ var (
 		Voice:           "+",
 	}
 )
+
+// SplitChannelMembershipPrefixes takes a target and returns the prefixes on it, then the name.
+func SplitChannelMembershipPrefixes(target string) (prefixes string, name string) {
+	name = target
+	for {
+		if len(name) == 0 || strings.Contains("~&@%+", string(name[0])) {
+			prefixes += string(name[0])
+			name = name[1:]
+		} else {
+			break
+		}
+	}
+
+	return prefixes, name
+}
+
+// GetLowestChannelModePrefix returns the lowest channel prefix mode out of the given prefixes.
+func GetLowestChannelModePrefix(prefixes string) *ChannelMode {
+	var lowest *ChannelMode
+
+	if strings.Contains(prefixes, "+") {
+		lowest = &Voice
+	} else {
+		for i, mode := range ChannelPrivModes {
+			if strings.Contains(prefixes, ChannelModePrefixes[mode]) {
+				lowest = &ChannelPrivModes[i]
+			}
+		}
+	}
+
+	return lowest
+}
 
 //
 // commands

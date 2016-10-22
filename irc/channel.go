@@ -91,14 +91,25 @@ func (channel *Channel) Names(client *Client) {
 	client.Send(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, "End of NAMES list")
 }
 
-// ClientIsHalfOp returns whether client is at least a halfop.
-func (channel *Channel) ClientIsHalfOp(client *Client) bool {
-	return client.flags[Operator] || channel.members.HasMode(client, Halfop) || channel.members.HasMode(client, ChannelOperator) || channel.members.HasMode(client, ChannelAdmin) || channel.members.HasMode(client, ChannelFounder)
-}
+// ClientIsAtLeast returns whether the client has at least the given channel privilege.
+func (channel *Channel) ClientIsAtLeast(client *Client, permission ChannelMode) bool {
+	// get voice, since it's not a part of ChannelPrivModes
+	if channel.members.HasMode(client, permission) {
+		return true
+	}
 
-// ClientIsOperator returns whether client is at least a chanop.
-func (channel *Channel) ClientIsOperator(client *Client) bool {
-	return client.flags[Operator] || channel.members.HasMode(client, ChannelOperator) || channel.members.HasMode(client, ChannelAdmin) || channel.members.HasMode(client, ChannelFounder)
+	// check regular modes
+	for _, mode := range ChannelPrivModes {
+		if channel.members.HasMode(client, mode) {
+			return true
+		}
+
+		if mode == permission {
+			break
+		}
+	}
+
+	return false
 }
 
 // Prefixes returns a list of prefixes for the given set of channel modes.
@@ -276,7 +287,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		return
 	}
 
-	if channel.flags[OpOnlyTopic] && !channel.ClientIsOperator(client) {
+	if channel.flags[OpOnlyTopic] && !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return
 	}
@@ -308,12 +319,22 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func (channel *Channel) PrivMsg(clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
+// PrivMsg sends a private message to everyone in this channel.
+func (channel *Channel) PrivMsg(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
 	}
+	// for STATUSMSG
+	var minPrefixMode ChannelMode
+	if minPrefix != nil {
+		minPrefixMode = *minPrefix
+	}
 	for member := range channel.members {
+		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
+			// STATUSMSG
+			continue
+		}
 		if member == client && !client.capabilities[EchoMessage] {
 			continue
 		}
@@ -327,7 +348,7 @@ func (channel *Channel) PrivMsg(clientOnlyTags *map[string]ircmsg.TagValue, clie
 
 func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 	op ModeOp) bool {
-	if !channel.ClientIsOperator(client) {
+	if !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return false
 	}
@@ -418,7 +439,7 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 		return false
 	}
 
-	if !channel.ClientIsOperator(client) {
+	if !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return false
 	}
@@ -461,7 +482,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
 	}
-	if !channel.ClientIsOperator(client) {
+	if !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
 	}
@@ -481,7 +502,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 }
 
 func (channel *Channel) Invite(invitee *Client, inviter *Client) {
-	if channel.flags[InviteOnly] && !channel.ClientIsOperator(inviter) {
+	if channel.flags[InviteOnly] && !channel.ClientIsAtLeast(inviter, ChannelOperator) {
 		inviter.Send(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return
 	}
@@ -498,7 +519,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	// send invite-notify
 	for member := range channel.members {
-		if member.capabilities[InviteNotify] && member != inviter && member != invitee && channel.ClientIsHalfOp(member) {
+		if member.capabilities[InviteNotify] && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
 			member.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
 		}
 	}

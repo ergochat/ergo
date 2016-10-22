@@ -236,7 +236,7 @@ func (server *Server) setISupport() {
 	server.isupport.Add("NETWORK", server.networkName)
 	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
-	// server.isupport.Add("STATUSMSG", "@+") //TODO(dan): Support STATUSMSG
+	server.isupport.Add("STATUSMSG", "~&@%+")
 	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
@@ -686,6 +686,9 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	message := msg.Params[1]
 
 	for _, targetString := range targets {
+		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+
 		target, err := CasefoldChannel(targetString)
 		if err == nil {
 			channel := server.channels.Get(target)
@@ -693,7 +696,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
-			channel.PrivMsg(clientOnlyTags, client, message)
+			channel.PrivMsg(lowestPrefix, clientOnlyTags, client, message)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -1112,6 +1115,9 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	message := msg.Params[1]
 
 	for _, targetString := range targets {
+		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+
 		target, cerr := CasefoldChannel(targetString)
 		if cerr == nil {
 			channel := server.channels.Get(target)
@@ -1119,7 +1125,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			channel.PrivMsg(clientOnlyTags, client, message)
+			channel.PrivMsg(lowestPrefix, clientOnlyTags, client, message)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
