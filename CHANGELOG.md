@@ -4,6 +4,20 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.3.0] - 2016-10-23
 We now support dynamically reloading the config file, along with some new IRCv3 capabilities and some fixes.
 
