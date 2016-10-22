@@ -17,6 +17,7 @@ const (
 	AccountTag      Capability = "account-tag"
 	AccountNotify   Capability = "account-notify"
 	AwayNotify      Capability = "away-notify"
+	CapNotify       Capability = "cap-notify"
 	ExtendedJoin    Capability = "extended-join"
 	InviteNotify    Capability = "invite-notify"
 	MessageTags     Capability = "draft/message-tags"
@@ -28,14 +29,15 @@ const (
 
 var (
 	SupportedCapabilities = CapabilitySet{
-		AccountTag:      true,
-		AccountNotify:   true,
-		AwayNotify:      true,
-		ExtendedJoin:    true,
-		InviteNotify:    true,
-		MessageTags:     true,
-		MultiPrefix:     true,
-		SASL:            true,
+		AccountTag:    true,
+		AccountNotify: true,
+		AwayNotify:    true,
+		CapNotify:     true,
+		ExtendedJoin:  true,
+		InviteNotify:  true,
+		MessageTags:   true,
+		MultiPrefix:   true,
+		// SASL is set during server startup
 		ServerTime:      true,
 		UserhostInNames: true,
 	}

@@ -12,6 +12,8 @@ New release of Oragono!
 
 ### Added
 * Added `REHASH` command.
+* Added ability to enable and disable SASL.
+* Added support for IRCv3 capability [`cap-notify`](http://ircv3.net/specs/extensions/cap-notify-3.2.html).
 
 ### Changed
 

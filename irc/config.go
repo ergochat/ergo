@@ -86,6 +86,8 @@ type Config struct {
 		Path string
 	}
 
+	AuthenticationEnabled bool `yaml:"authentication-enabled"`
+
 	Registration struct {
 		Accounts AccountRegistrationConfig
 	}

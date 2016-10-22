@@ -60,6 +60,7 @@ type ListenerEvent struct {
 // Server is the main Oragono server.
 type Server struct {
 	accounts              map[string]*ClientAccount
+	authenticationEnabled bool
 	channels              ChannelNameMap
 	clients               *ClientLookupSet
 	commands              chan Command
@@ -110,14 +111,19 @@ func NewServer(configFilename string, config *Config) *Server {
 		return nil
 	}
 
+	if config.AuthenticationEnabled {
+		SupportedCapabilities[SASL] = true
+	}
+
 	server := &Server{
-		accounts:       make(map[string]*ClientAccount),
-		channels:       make(ChannelNameMap),
-		clients:        NewClientLookupSet(),
-		commands:       make(chan Command),
-		configFilename: configFilename,
-		ctime:          time.Now(),
-		idle:           make(chan *Client),
+		accounts:              make(map[string]*ClientAccount),
+		authenticationEnabled: config.AuthenticationEnabled,
+		channels:              make(ChannelNameMap),
+		clients:               NewClientLookupSet(),
+		commands:              make(chan Command),
+		configFilename:        configFilename,
+		ctime:                 time.Now(),
+		idle:                  make(chan *Client),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
 			ChannelLen:     int(config.Limits.ChannelLen),
@@ -894,7 +900,45 @@ func (server *Server) rehash() error {
 		return fmt.Errorf("Error rehashing config file: %s", err.Error())
 	}
 
-	//TODO(dan): burst CAP DEL for sasl
+	// setup new and removed caps
+	addedCaps := make(CapabilitySet)
+	removedCaps := make(CapabilitySet)
+
+	// SASL
+	if config.AuthenticationEnabled && !server.authenticationEnabled {
+		// enabling SASL
+		SupportedCapabilities[SASL] = true
+		addedCaps[SASL] = true
+	}
+	if !config.AuthenticationEnabled && server.authenticationEnabled {
+		// disabling SASL
+		SupportedCapabilities[SASL] = false
+		removedCaps[SASL] = true
+	}
+	server.authenticationEnabled = config.AuthenticationEnabled
+
+	// burst new and removed caps
+	var capBurstClients ClientSet
+	added := make(map[CapVersion]string)
+	var removed string
+
+	if len(addedCaps) > 0 || len(removedCaps) > 0 {
+		capBurstClients = server.clients.AllWithCaps(CapNotify)
+
+		added[Cap301] = addedCaps.String(Cap301)
+		added[Cap302] = addedCaps.String(Cap302)
+		// removed never has values
+		removed = removedCaps.String(Cap301)
+	}
+
+	for sClient := range capBurstClients {
+		if len(addedCaps) > 0 {
+			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
+		}
+		if len(removedCaps) > 0 {
+			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
+		}
+	}
 
 	// set server options
 	server.limits = Limits{

@@ -82,6 +82,24 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	return nil
 }
 
+func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) {
+	set = make(ClientSet)
+
+	var client *Client
+	for _, client = range clients.ByNick {
+		// make sure they have all the required caps
+		for _, Cap := range caps {
+			if !client.capabilities[Cap] {
+				continue
+			}
+		}
+
+		set.Add(client)
+	}
+
+	return set
+}
+
 func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 

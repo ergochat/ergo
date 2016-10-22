@@ -41,6 +41,9 @@ server:
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
 
+# whether account authentication is enabled
+authentication-enabled: true
+
 # account/channel registration
 registration:
     # account registration
