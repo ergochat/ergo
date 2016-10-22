@@ -314,7 +314,7 @@ func (channel *Channel) PrivMsg(clientOnlyTags *map[string]ircmsg.TagValue, clie
 		return
 	}
 	for member := range channel.members {
-		if member == client {
+		if member == client && !client.capabilities[EchoMessage] {
 			continue
 		}
 		if member.capabilities[MessageTags] {
