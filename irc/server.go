@@ -114,6 +114,14 @@ func NewServer(configFilename string, config *Config) *Server {
 		return nil
 	}
 
+	// startup check that we have HELP entries for every command
+	for name := range Commands {
+		_, exists := Help[strings.ToLower(name)]
+		if !exists {
+			log.Fatal("Help entry does not exist for ", name)
+		}
+	}
+
 	if config.AuthenticationEnabled {
 		SupportedCapabilities[SASL] = true
 	}

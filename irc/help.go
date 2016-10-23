@@ -18,7 +18,7 @@ type HelpEntry struct {
 // used for duplicates
 var (
 	cmodeHelpText = `== Channel Modes ==
-        
+
 Oragono supports the following channel modes:
 
 = Type A - list modes =
@@ -38,7 +38,7 @@ Oragono supports the following channel modes:
   +m  |  Moderated mode, only privileged clients can talk on the channel.
   +n  |  No-outside-messages mode, only users that are on the channel can send the channel messages.
   +t  |  Only channel opers can modify the topic.
-  +s  |  Secret mode, channel won't show up in /LIST or whois replies.  
+  +s  |  Secret mode, channel won't show up in /LIST or whois replies.
 
 = Prefixes =
 
@@ -48,7 +48,7 @@ Oragono supports the following channel modes:
   +h (%)  |  Halfop channel mode.
   +v (+)  |  Voice channel mode.`
 	umodeHelpText = `== User Modes ==
-        
+
 Oragono supports the following user modes:
 
   +a  |  User is marked as being away. This mode is set with the /AWAY command.
@@ -62,7 +62,7 @@ var Help = map[string]HelpEntry{
 	// Commands
 	"authenticate": {
 		text: `AUTHENTICATE
-        
+
 Used during SASL authentication. See the IRCv3 specs for more info:
 http://ircv3.net/specs/extensions/sasl-3.1.html`,
 	},
@@ -74,7 +74,7 @@ longer away.`,
 	},
 	"cap": {
 		text: `CAP <subcommand> [:<capabilities>]
-        
+
 Used in capability negotiation. See the IRCv3 specs for more info:
 http://ircv3.net/specs/core/capability-negotiation-3.1.html
 http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
@@ -82,7 +82,7 @@ http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 	"debug": {
 		oper: true,
 		text: `DEBUG <option>
-        
+
 Prints debug information about the IRCd. <option> can be one of:
 
 * GCSTATS: Garbage control statistics.
@@ -90,6 +90,11 @@ Prints debug information about the IRCd. <option> can be one of:
 * STARTCPUPROFILE: Starts the CPU profiler.
 * STOPCPUPROFILE: Stops the CPU profiler.
 * PROFILEHEAP: Writes out the CPU profiler info.`,
+	},
+	"help": {
+		text: `HELP <argument>
+
+Get an explanation of <argument>.`,
 	},
 	"invite": {
 		text: `INVITE <nickname> <channel>
@@ -99,7 +104,7 @@ appropriate channel privs.`,
 	},
 	"ison": {
 		text: `ISON <nickname>{ <nickname>}
-        
+
 Returns whether the given nicks exist on the network.`,
 	},
 	"join": {
@@ -111,55 +116,76 @@ parts all channels instead.`,
 	},
 	"kick": {
 		text: `KICK <channel> <user> [reason]
-        
+
 Removes the user from the given channel, so long as you have the appropriate
 channel privs.`,
 	},
 	"kill": {
 		oper: true,
 		text: `KILL <nickname> [reason]
-        
+
 Removes the given user from the network, showing them the reason if it is
 supplied.`,
 	},
 	"list": {
 		text: `LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
-        
+
 Shows information on the given channels (or if none are given, then on all
 channels). <elistcond>s modify how the channels are selected.`,
 		//TODO(dan): Explain <elistcond>s in more specific detail
 	},
 	"mode": {
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
-        
+
 Sets and removes modes from the given target. For more specific information on
 mode characters, see the help for "cmode" and "umode".`,
 	},
+	"monitor": {
+		text: `MONITOR <subcmd>
+
+Allows the monitoring of nicknames, for alerts when they are online and
+offline. The subcommands are:
+
+    MONITOR + target{,target}
+Adds the given names to your list of monitored nicknames.
+
+    MONITOR - target{,target}
+Removes the given names from your list of monitored nicknames.
+
+    MONITOR C
+Clears your list of monitored nicknames.
+
+    MONITOR L
+Lists all the nicknames you are currently monitoring.
+
+    MONITOR S
+Lists whether each nick in your MONITOR list is online or offline.`,
+	},
 	"motd": {
 		text: `MOTD [server]
-        
+
 Returns the message of the day for this, or the given, server.`,
 	},
 	"names": {
 		text: `NAMES [<channel>{,<channel>}]
-        
+
 Views the clients joined to a channel and their channel membership prefixes. To
 view the channel membership prefixes supported by this server, see the help for
 "PREFIX".`,
 	},
 	"nick": {
 		text: `NICK <newnick>
-        
+
 Sets your nickname to the new given one.`,
 	},
 	"notice": {
 		text: `NOTICE <target>{,<target>} <text to be sent>
-        
+
 Sends the text to the given targets as a NOTICE.`,
 	},
 	"oper": {
 		text: `OPER <name> <password>
-        
+
 If the correct details are given, gives you IRCop privs.`,
 	},
 	"part": {
@@ -169,23 +195,23 @@ Leaves the given channels and shows people the given reason.`,
 	},
 	"pass": {
 		text: `PASS <password>
-        
+
 When the server requires a connection password to join, used to send us the
 password.`,
 	},
 	"ping": {
 		text: `PING <args>...
-        
+
 Requests a PONG. Used to check link connectivity.`,
 	},
 	"pong": {
 		text: `PONG <args>...
-        
+
 Replies to a PING. Used to check link connectivity.`,
 	},
 	"privmsg": {
 		text: `PRIVMSG <target>{,<target>} <text to be sent>
-        
+
 Sends the text to the given targets as a PRIVMSG.`,
 	},
 	"sanick": {
@@ -196,7 +222,7 @@ Gives the given user a new nickname.`,
 	},
 	"quit": {
 		text: `QUIT [reason]
-        
+
 Indicates that you're leaving the server, and shows everyone the given reason.`,
 	},
 	"reg": {
@@ -206,26 +232,32 @@ REG VERIFY <accountname> <auth_code>
 Used in account registration. See the relevant specs for more info:
 https://github.com/DanielOaks/ircv3-specifications/blob/register-and-verify/extensions/reg-core-3.3.md`,
 	},
+	"rehash": {
+		oper: true,
+		text: `REHASH
+
+Reloads the config file and updates TLS certificates on listeners`,
+	},
 	"time": {
 		text: `TIME [server]
-        
+
 Shows the time of the current, or the given, server.`,
 	},
 	"topic": {
 		text: `TOPIC <channel> [topic]
-        
+
 If [topic] is given, sets the topic in the channel to that. If [topic] is not
 given, views the current topic on the channel.`,
 	},
 	"user": {
 		text: `USER <username> 0 * <realname>
-        
+
 Used in connection registration, sets your username and realname to the given
 values (though your username may also be looked up with Ident).`,
 	},
 	"version": {
 		text: `VERSION [server]
-        
+
 Views the version of software and the RPL_ISUPPORT tokens for the given server.`,
 	},
 	"who": {
@@ -235,12 +267,12 @@ Returns information for the given user.`,
 	},
 	"whois": {
 		text: `WHOIS <client>{,<client>}
-        
+
 Returns information for the given user(s).`,
 	},
 	"whowas": {
 		text: `WHOWAS <nickname>
-        
+
 Returns historical information on the last user with the given nickname.`,
 	},
 
@@ -261,7 +293,7 @@ Returns historical information on the last user with the given nickname.`,
 	// RPL_ISUPPORT
 	"casemapping": {
 		text: `RPL_ISUPPORT CASEMAPPING
-        
+
 Oragono supports an experimental unicode casemapping designed for extended
 Unicode support. This casemapping is based off RFC 7700 and the draft rfc7700
 casemapping spec here:
@@ -305,14 +337,14 @@ func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if len(argument) < 1 {
 		client.sendHelp("HELP", `HELP <argument>
-        
+
 Get an explanation of <argument>.`)
 		return false
 	}
 
 	helpHandler, exists := Help[argument]
 
-	if exists && (!client.flags[Operator] || (helpHandler.oper && client.flags[Operator])) {
+	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[Operator])) {
 		client.sendHelp(strings.ToUpper(argument), helpHandler.text)
 	} else {
 		args := msg.Params
