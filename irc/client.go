@@ -61,6 +61,7 @@ type Client struct {
 	server             *Server
 	socket             *Socket
 	username           string
+	whoisLine          string
 }
 
 // NewClient returns a client with all the appropriate info setup.

@@ -106,6 +106,9 @@ opers:
         # which capabilities this oper has access to
         class: "server-admin"
 
+        # custom whois line
+        whois-line: is a cool dude
+
         # custom hostname
         vhost: "n"
 

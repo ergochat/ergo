@@ -799,8 +799,8 @@ func (client *Client) getWhoisOf(target *Client) {
 	for _, line := range client.WhoisChannelsNames(target) {
 		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, line)
 	}
-	if target.flags[Operator] {
-		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, "is an IRC operator")
+	if target.class != nil {
+		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
 	if target.certfp != "" && (client.flags[Operator] || client == target) {
 		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
@@ -902,6 +902,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.operName = name
 	client.class = server.operators[name].Class
 	server.currentOpers[client] = true
+	client.whoisLine = server.operators[name].WhoisLine
 
 	//TODO(dan): push out CHGHOST if vhost is applied
 

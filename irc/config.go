@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -68,14 +69,16 @@ type AccountRegistrationConfig struct {
 
 type OperClassConfig struct {
 	Title        string
+	WhoisLine    string
 	Extends      string
 	Capabilities []string
 }
 
 type OperConfig struct {
-	Class    string
-	Vhost    string
-	Password string
+	Class     string
+	Vhost     string
+	WhoisLine string `yaml:"whois-line"`
+	Password  string
 }
 
 func (conf *OperConfig) PasswordBytes() []byte {
@@ -130,6 +133,7 @@ type Config struct {
 
 type OperClass struct {
 	Title        string
+	WhoisLine    string          `yaml:"whois-line"`
 	Capabilities map[string]bool // map to make lookups much easier
 }
 
@@ -179,6 +183,16 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 			for _, capab := range info.Capabilities {
 				oc.Capabilities[capab] = true
 			}
+			if len(info.WhoisLine) > 0 {
+				oc.WhoisLine = info.WhoisLine
+			} else {
+				oc.WhoisLine = "is a"
+				if strings.Contains(strings.ToLower(string(oc.Title[0])), "aeiou") {
+					oc.WhoisLine += "n"
+				}
+				oc.WhoisLine += " "
+				oc.WhoisLine += oc.Title
+			}
 
 			ocs[name] = oc
 		}
@@ -193,8 +207,9 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 }
 
 type Oper struct {
-	Class *OperClass
-	Pass  []byte
+	Class     *OperClass
+	WhoisLine string
+	Pass      []byte
 }
 
 func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error) {
@@ -214,6 +229,11 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 			return nil, fmt.Errorf("Could not load operator [%s] - they use operclass [%s] which does not exist", name, opConf.Class)
 		}
 		oper.Class = &class
+		if len(opConf.WhoisLine) > 0 {
+			oper.WhoisLine = opConf.WhoisLine
+		} else {
+			oper.WhoisLine = class.WhoisLine
+		}
 
 		// successful, attach to list of opers
 		operators[name] = oper
