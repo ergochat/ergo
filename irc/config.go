@@ -8,6 +8,7 @@ package irc
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 
@@ -65,6 +66,26 @@ type AccountRegistrationConfig struct {
 	}
 }
 
+type OperClassConfig struct {
+	Title        string
+	Extends      string
+	Capabilities []string
+}
+
+type OperConfig struct {
+	Class    string
+	Vhost    string
+	Password string
+}
+
+func (conf *OperConfig) PasswordBytes() []byte {
+	bytes, err := DecodePasswordHash(conf.Password)
+	if err != nil {
+		log.Fatal("decode password error: ", err)
+	}
+	return bytes
+}
+
 type Config struct {
 	Network struct {
 		Name string
@@ -92,7 +113,9 @@ type Config struct {
 		Accounts AccountRegistrationConfig
 	}
 
-	Operator map[string]*PassConfig
+	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
+
+	Opers map[string]*OperConfig
 
 	Limits struct {
 		NickLen        uint `yaml:"nicklen"`
@@ -105,17 +128,97 @@ type Config struct {
 	}
 }
 
-func (conf *Config) Operators() map[string][]byte {
-	operators := make(map[string][]byte)
-	for name, opConf := range conf.Operator {
-		name, err := CasefoldName(name)
-		if err == nil {
-			operators[name] = opConf.PasswordBytes()
-		} else {
-			log.Println("Could not casefold oper name:", err.Error())
+type OperClass struct {
+	Title        string
+	Capabilities map[string]bool // map to make lookups much easier
+}
+
+func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
+	ocs := make(map[string]OperClass)
+
+	// loop from no extends to most extended, breaking if we can't add any more
+	lenOfLastOcs := -1
+	for {
+		if lenOfLastOcs == len(ocs) {
+			return nil, errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
+		}
+		lenOfLastOcs = len(ocs)
+
+		var anyMissing bool
+		for name, info := range conf.OperClasses {
+			_, exists := ocs[name]
+			_, extendsExists := ocs[info.Extends]
+			if exists {
+				// class already exists
+				continue
+			} else if len(info.Extends) > 0 && !extendsExists {
+				// class we extend on doesn't exist
+				_, exists := conf.OperClasses[info.Extends]
+				if !exists {
+					return nil, fmt.Errorf("Operclass [%s] extends [%s], which doesn't exist", name, info.Extends)
+				}
+				anyMissing = true
+				continue
+			}
+
+			// create new operclass
+			var oc OperClass
+			oc.Capabilities = make(map[string]bool)
+
+			// get inhereted info from other operclasses
+			if len(info.Extends) > 0 {
+				einfo, _ := ocs[info.Extends]
+
+				for capab := range einfo.Capabilities {
+					oc.Capabilities[capab] = true
+				}
+			}
+
+			// add our own info
+			oc.Title = info.Title
+			for _, capab := range info.Capabilities {
+				oc.Capabilities[capab] = true
+			}
+
+			ocs[name] = oc
+		}
+
+		if !anyMissing {
+			// we've got every operclass!
+			break
 		}
 	}
-	return operators
+
+	return &ocs, nil
+}
+
+type Oper struct {
+	Class *OperClass
+	Pass  []byte
+}
+
+func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error) {
+	operators := make(map[string]Oper)
+	for name, opConf := range conf.Opers {
+		var oper Oper
+
+		// oper name
+		name, err := CasefoldName(name)
+		if err != nil {
+			return nil, fmt.Errorf("Could not casefold oper name: %s", err.Error())
+		}
+
+		oper.Pass = opConf.PasswordBytes()
+		class, exists := (*oc)[opConf.Class]
+		if !exists {
+			return nil, fmt.Errorf("Could not load operator [%s] - they use operclass [%s] which does not exist", name, opConf.Class)
+		}
+		oper.Class = &class
+
+		// successful, attach to list of opers
+		operators[name] = oper
+	}
+	return operators, nil
 }
 
 func (conf *Config) TLSListeners() map[string]*tls.Config {
@@ -169,5 +272,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
 	}
+
 	return config, nil
 }

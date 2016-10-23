@@ -59,10 +59,56 @@ registration:
         enabled-callbacks:
             - none # no verification needed, will instantly register successfully
 
+# operator classes
+oper-classes:
+    # local operator
+    "local-oper":
+        # title shown in WHOIS
+        title: Local Operator
+
+        # capability names
+        capabilities:
+            - "oper:local_kill"
+            - "oper:local_ban"
+            - "oper:local_unban"
+
+    # network operator
+    "network-oper":
+        # title shown in WHOIS
+        title: Network Operator
+
+        # oper class this extends from
+        extends: "local-oper"
+
+        # capability names
+        capabilities:
+            - "oper:remote_kill"
+            - "oper:remote_ban"
+            - "oper:remote_unban"
+
+    # server admin
+    "server-admin":
+        # title shown in WHOIS
+        title: Server Admin
+
+        # oper class this extends from
+        extends: "local-oper"
+
+        # capability names
+        capabilities:
+            - "oper:rehash"
+            - "oper:die"
+
 # ircd operators
-operator:
+opers:
     # operator named 'dan'
     dan:
+        # which capabilities this oper has access to
+        class: "server-admin"
+
+        # custom hostname
+        vhost: "n"
+
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu

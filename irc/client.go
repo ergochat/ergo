@@ -37,6 +37,7 @@ type Client struct {
 	capVersion         CapVersion
 	certfp             string
 	channels           ChannelSet
+	class              *OperClass
 	ctime              time.Time
 	flags              map[UserMode]bool
 	isDestroyed        bool
@@ -50,6 +51,7 @@ type Client struct {
 	nickCasefolded     string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	nickMaskCasefolded string
+	operName           string
 	quitTimer          *time.Timer
 	realname           string
 	registered         bool
@@ -346,6 +348,12 @@ func (client *Client) destroy() {
 	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
+
+	// remove from opers list
+	_, exists := client.server.currentOpers[client]
+	if exists {
+		delete(client.server.currentOpers, client)
+	}
 
 	// alert monitors
 	for _, mClient := range client.server.monitoring[client.nickCasefolded] {

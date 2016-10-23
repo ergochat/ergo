@@ -66,6 +66,7 @@ type Server struct {
 	commands              chan Command
 	configFilename        string
 	ctime                 time.Time
+	currentOpers          map[*Client]bool
 	store                 buntdb.DB
 	idle                  chan *Client
 	limits                Limits
@@ -78,7 +79,8 @@ type Server struct {
 	nameCasefolded        string
 	networkName           string
 	newConns              chan clientConn
-	operators             map[string][]byte
+	operators             map[string]Oper
+	operclasses           map[string]OperClass
 	password              []byte
 	passwords             *PasswordManager
 	rehashMutex           sync.Mutex
@@ -115,6 +117,15 @@ func NewServer(configFilename string, config *Config) *Server {
 		SupportedCapabilities[SASL] = true
 	}
 
+	operClasses, err := config.OperatorClasses()
+	if err != nil {
+		log.Fatal("Error loading oper classes:", err.Error())
+	}
+	opers, err := config.Operators(operClasses)
+	if err != nil {
+		log.Fatal("Error loading operators:", err.Error())
+	}
+
 	server := &Server{
 		accounts:              make(map[string]*ClientAccount),
 		authenticationEnabled: config.AuthenticationEnabled,
@@ -123,6 +134,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		commands:              make(chan Command),
 		configFilename:        configFilename,
 		ctime:                 time.Now(),
+		currentOpers:          make(map[*Client]bool),
 		idle:                  make(chan *Client),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
@@ -138,7 +150,8 @@ func NewServer(configFilename string, config *Config) *Server {
 		nameCasefolded: casefoldedName,
 		networkName:    config.Network.Name,
 		newConns:       make(chan clientConn),
-		operators:      config.Operators(),
+		operclasses:    *operClasses,
+		operators:      opers,
 		signals:        make(chan os.Signal, len(SERVER_SIGNALS)),
 		rehashSignal:   make(chan os.Signal, 1),
 		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
@@ -874,17 +887,24 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
 	}
-	hash := server.operators[name]
+	hash := server.operators[name].Pass
 	password := []byte(msg.Params[1])
 
 	err = ComparePassword(hash, password)
 
 	if (hash == nil) || (err != nil) {
+		fmt.Println("2", hash)
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
 	}
 
 	client.flags[Operator] = true
+	client.operName = name
+	client.class = server.operators[name].Class
+	server.currentOpers[client] = true
+
+	//TODO(dan): push out CHGHOST if vhost is applied
+
 	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, "You are now an IRC operator")
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
 	modech := ModeChanges{&ModeChange{
@@ -904,6 +924,22 @@ func (server *Server) rehash() error {
 
 	if err != nil {
 		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+	}
+
+	// confirm operator stuff all exists and is fine
+	operclasses, err := config.OperatorClasses()
+	if err != nil {
+		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+	}
+	opers, err := config.Operators(operclasses)
+	if err != nil {
+		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+	}
+	for client := range server.currentOpers {
+		_, exists := opers[client.operName]
+		if !exists {
+			return fmt.Errorf("Oper [%s] no longer exists (used by client [%s])", client.operName, client.nickMaskString)
+		}
 	}
 
 	// setup new and removed caps
@@ -955,7 +991,8 @@ func (server *Server) rehash() error {
 		NickLen:        int(config.Limits.NickLen),
 		TopicLen:       int(config.Limits.TopicLen),
 	}
-	server.operators = config.Operators()
+	server.operclasses = *operclasses
+	server.operators = opers
 	server.checkIdent = config.Server.CheckIdent
 
 	// registration

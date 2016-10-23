@@ -10,8 +10,10 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Operator classes, allowing for more finely-grained permissions for operators.
 
 ### Changed
+* In the config file, "operator" changed to "opers", and new oper class is required.
 
 ### Removed
 
