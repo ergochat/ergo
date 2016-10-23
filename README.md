@@ -23,11 +23,13 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * native TLS/SSL support
 * server password (`PASS` command)
 * channels with most standard modes
-* IRC operators
+* IRC operators with an extensible privilege system
 * ident lookups for usernames
+* automated client connection limits
+* rehashing (on-the-fly updating server config and TLS certificates)
 * passwords stored in [bcrypt][go-crypto] format
 * client accounts and SASL
-* IRCv3 support
+* [IRCv3 support](http://ircv3.net/software/servers.html)
 
 ## Installation
 
