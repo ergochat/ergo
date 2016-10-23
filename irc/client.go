@@ -247,6 +247,21 @@ func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
 
+// HasCapabs returns true if client has the given (role) capabilities.
+func (client *Client) HasCapabs(capabs ...string) bool {
+	if client.class == nil {
+		return false
+	}
+
+	for _, capab := range capabs {
+		if !client.class.Capabilities[capab] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // <mode>
 func (c *Client) ModeString() (str string) {
 	str = "+"

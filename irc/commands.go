@@ -15,6 +15,7 @@ type Command struct {
 	leaveClientActive bool // if true, leaves the client active time alone. reversed because we can't default a struct element to True
 	leaveClientIdle   bool
 	minParams         int
+	capabs            []string
 }
 
 // Run runs this command with the given client/message.
@@ -25,6 +26,10 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 	if cmd.oper && !client.flags[Operator] {
 		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied - You're not an IRC operator")
+		return false
+	}
+	if len(cmd.capabs) > 0 && !client.HasCapabs(cmd.capabs...) {
+		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied")
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
@@ -91,6 +96,7 @@ var Commands = map[string]Command{
 		handler:   killHandler,
 		minParams: 1,
 		oper:      true,
+		capabs:    []string{"oper:local_kill"}, //TODO(dan): when we have S2S, this will be checked in the command handler itself
 	},
 	"LIST": {
 		handler:   listHandler,
@@ -168,6 +174,7 @@ var Commands = map[string]Command{
 		handler:   rehashHandler,
 		minParams: 0,
 		oper:      true,
+		capabs:    []string{"oper:rehash"},
 	},
 	"TIME": {
 		handler:   timeHandler,
