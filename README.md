@@ -22,14 +22,14 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * [yaml](http://yaml.org/) configuration
 * native TLS/SSL support
 * server password (`PASS` command)
-* channels with most standard modes
-* IRC operators with an extensible privilege system
+* an extensible privilege system for IRC operators
 * ident lookups for usernames
 * automated client connection limits
-* rehashing (on-the-fly updating server config and TLS certificates)
-* passwords stored in [bcrypt][go-crypto] format
+* on-the-fly updating server config and TLS certificates (rehashing)
 * client accounts and SASL
+* passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
 * [IRCv3 support](http://ircv3.net/software/servers.html)
+* a heavy focus on developing with [specifications](http://oragono.io/specs.html)
 
 ## Installation
 
@@ -66,5 +66,3 @@ oragono run
 * Niels Freier, added WebSocket support to Ergonomadic, <https://github.com/stumpyfr>
 * Daniel Oakley, maintainer of Oragono, <https://github.com/DanielOaks>
 * apologies to anyone I forgot.
-
-[go-crypto]: https://godoc.org/golang.org/x/crypto
