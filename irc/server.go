@@ -59,20 +59,22 @@ type ListenerEvent struct {
 
 // Server is the main Oragono server.
 type Server struct {
+	accountRegistration   *AccountRegistration
 	accounts              map[string]*ClientAccount
 	authenticationEnabled bool
 	channels              ChannelNameMap
+	checkIdent            bool
 	clients               *ClientLookupSet
 	commands              chan Command
 	configFilename        string
 	ctime                 time.Time
 	currentOpers          map[*Client]bool
-	store                 buntdb.DB
 	idle                  chan *Client
+	isupport              *ISupportList
 	limits                Limits
 	listenerEventActMutex sync.Mutex
-	listenerUpdateMutex   sync.Mutex
 	listeners             map[string]ListenerInterface
+	listenerUpdateMutex   sync.Mutex
 	monitoring            map[string][]Client
 	motdLines             []string
 	name                  string
@@ -84,16 +86,15 @@ type Server struct {
 	password              []byte
 	passwords             *PasswordManager
 	rehashMutex           sync.Mutex
-	accountRegistration   *AccountRegistration
-	signals               chan os.Signal
 	rehashSignal          chan os.Signal
+	signals               chan os.Signal
+	store                 buntdb.DB
 	whoWas                *WhoWasList
-	isupport              *ISupportList
-	checkIdent            bool
 }
 
 var (
-	SERVER_SIGNALS = []os.Signal{
+	// ServerExitSignals are the signals the server will exit on.
+	ServerExitSignals = []os.Signal{
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
@@ -152,7 +153,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		newConns:       make(chan clientConn),
 		operclasses:    *operClasses,
 		operators:      opers,
-		signals:        make(chan os.Signal, len(SERVER_SIGNALS)),
+		signals:        make(chan os.Signal, len(ServerExitSignals)),
 		rehashSignal:   make(chan os.Signal, 1),
 		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
 		checkIdent:     config.Server.CheckIdent,
@@ -223,7 +224,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	server.accountRegistration = &accountReg
 
 	// Attempt to clean up when receiving these signals.
-	signal.Notify(server.signals, SERVER_SIGNALS...)
+	signal.Notify(server.signals, ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
 	server.setISupport()
@@ -289,6 +290,7 @@ func (server *Server) Shutdown() {
 	}
 }
 
+// Run starts the server.
 func (server *Server) Run() {
 	// defer closing db/store
 	defer server.store.Close()
@@ -320,12 +322,13 @@ func (server *Server) Run() {
 // IRC protocol listeners
 //
 
-func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
+// createListener starts the given listeners.
+func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 	config, listenTLS := tlsMap[addr]
 
-	_, alreadyExists := s.listeners[addr]
+	_, alreadyExists := server.listeners[addr]
 	if alreadyExists {
-		log.Fatal(s, "listener already exists:", addr)
+		log.Fatal(server, "listener already exists:", addr)
 	}
 
 	// make listener event channel
@@ -334,7 +337,7 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 	// make listener
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(s, "listen error: ", err)
+		log.Fatal(server, "listen error: ", err)
 	}
 
 	tlsString := "plaintext"
@@ -349,10 +352,10 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 		Events:   listenerEventChannel,
 		Listener: listener,
 	}
-	s.listeners[addr] = li
+	server.listeners[addr] = li
 
 	// start listening
-	Log.info.Printf("%s listening on %s using %s.", s.name, addr, tlsString)
+	Log.info.Printf("%s listening on %s using %s.", server.name, addr, tlsString)
 
 	// setup accept goroutine
 	go func() {
@@ -365,15 +368,15 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 					IsTLS: listenTLS,
 				}
 
-				s.newConns <- newConn
+				server.newConns <- newConn
 			}
 
 			select {
-			case event := <-s.listeners[addr].Events:
+			case event := <-server.listeners[addr].Events:
 				// this is used to confirm that whoever passed us this event has closed the existing listener correctly (in an attempt to get us to notice the event).
 				// this is required to keep REHASH from having a very small race possibility of killing the primary listener
-				s.listenerEventActMutex.Lock()
-				s.listenerEventActMutex.Unlock()
+				server.listenerEventActMutex.Lock()
+				server.listenerEventActMutex.Unlock()
 
 				if event.Type == DestroyListener {
 					// listener should already be closed, this is just for safety
@@ -386,7 +389,7 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 					// make new listener
 					listener, err = net.Listen("tcp", addr)
 					if err != nil {
-						log.Fatal(s, "listen error: ", err)
+						log.Fatal(server, "listen error: ", err)
 					}
 
 					tlsString := "plaintext"
@@ -399,12 +402,12 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 
 					// update server ListenerInterface
 					li.Listener = listener
-					s.listenerUpdateMutex.Lock()
-					s.listeners[addr] = li
-					s.listenerUpdateMutex.Unlock()
+					server.listenerUpdateMutex.Lock()
+					server.listeners[addr] = li
+					server.listenerUpdateMutex.Unlock()
 
 					// print notice
-					Log.info.Printf("%s updated listener %s using %s.", s.name, addr, tlsString)
+					Log.info.Printf("%s updated listener %s using %s.", server.name, addr, tlsString)
 				}
 			default:
 				// no events waiting for us, fall-through and continue
@@ -417,10 +420,10 @@ func (s *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 // websocket listen goroutine
 //
 
-func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
+func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			Log.error.Printf("%s method not allowed", s.name)
+			Log.error.Printf("%s method not allowed", server.name)
 			return
 		}
 
@@ -433,7 +436,7 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			Log.error.Printf("%s websocket upgrade error: %s", s.name, err)
+			Log.error.Printf("%s websocket upgrade error: %s", server.name, err)
 			return
 		}
 
@@ -441,7 +444,7 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 			Conn:  WSContainer{ws},
 			IsTLS: false, //TODO(dan): track TLS or not here properly
 		}
-		s.newConns <- newConn
+		server.newConns <- newConn
 	})
 	go func() {
 		config, listenTLS := tlsMap[addr]
@@ -451,7 +454,7 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 		if listenTLS {
 			tlsString = "TLS"
 		}
-		Log.info.Printf("%s websocket listening on %s using %s.", s.name, addr, tlsString)
+		Log.info.Printf("%s websocket listening on %s using %s.", server.name, addr, tlsString)
 
 		if listenTLS {
 			err = http.ListenAndServeTLS(addr, config.Cert, config.Key, nil)
@@ -459,7 +462,7 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 			err = http.ListenAndServe(addr, nil)
 		}
 		if err != nil {
-			Log.error.Printf("%s listenAndServe (%s) error: %s", s.name, tlsString, err)
+			Log.error.Printf("%s listenAndServe (%s) error: %s", server.name, tlsString, err)
 		}
 	}()
 }
@@ -468,7 +471,7 @@ func (s *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 // server functionality
 //
 
-func (s *Server) tryRegister(c *Client) {
+func (server *Server) tryRegister(c *Client) {
 	if c.registered || !c.HasNick() || !c.HasUsername() ||
 		(c.capState == CapNegotiating) {
 		return
@@ -478,13 +481,13 @@ func (s *Server) tryRegister(c *Client) {
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
-	c.Send(nil, s.name, RPL_WELCOME, c.nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nick))
-	c.Send(nil, s.name, RPL_YOURHOST, c.nick, fmt.Sprintf("Your host is %s, running version %s", s.name, Ver))
-	c.Send(nil, s.name, RPL_CREATED, c.nick, fmt.Sprintf("This server was created %s", s.ctime.Format(time.RFC1123)))
+	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nick))
+	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf("Your host is %s, running version %s", server.name, Ver))
+	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf("This server was created %s", server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	c.Send(nil, s.name, RPL_MYINFO, c.nick, s.name, Ver, supportedUserModesString, supportedChannelModesString)
+	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 	c.RplISupport()
-	s.MOTD(c)
+	server.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
 }
 
@@ -501,12 +504,12 @@ func (server *Server) MOTD(client *Client) {
 	client.Send(nil, server.name, RPL_ENDOFMOTD, client.nick, "End of MOTD command")
 }
 
-func (s *Server) Id() string {
-	return s.name
+func (server *Server) Id() string {
+	return server.name
 }
 
-func (s *Server) Nick() string {
-	return s.Id()
+func (server *Server) Nick() string {
+	return server.Id()
 }
 
 //

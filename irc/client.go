@@ -27,6 +27,7 @@ var (
 	TIMEOUT_STATED_SECONDS = strconv.Itoa(int((IDLE_TIMEOUT + QUIT_TIMEOUT).Seconds()))
 )
 
+// Client is an IRC client.
 type Client struct {
 	account            *ClientAccount
 	atime              time.Time
@@ -191,10 +192,12 @@ func (client *Client) connectionIdle() {
 // server goroutine
 //
 
+// Active marks the client as 'active' (i.e. the user should be there).
 func (client *Client) Active() {
 	client.atime = time.Now()
 }
 
+// Touch marks the client as alive.
 func (client *Client) Touch() {
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
@@ -207,6 +210,7 @@ func (client *Client) Touch() {
 	}
 }
 
+// Idle resets the timeout handlers and sends the client a PING.
 func (client *Client) Idle() {
 	client.Send(nil, "", "PING", client.nick)
 
@@ -229,22 +233,27 @@ func (client *Client) Register() {
 	client.alertMonitors()
 }
 
+// IdleTime returns how long this client's been idle.
 func (client *Client) IdleTime() time.Duration {
 	return time.Since(client.atime)
 }
 
+// SignonTime returns this client's signon time as a unix timestamp.
 func (client *Client) SignonTime() int64 {
 	return client.ctime.Unix()
 }
 
+// IdleSeconds returns the number of seconds this client's been idle.
 func (client *Client) IdleSeconds() uint64 {
 	return uint64(client.IdleTime().Seconds())
 }
 
+// HasNick returns true if the client's nickname is set (used in registration).
 func (client *Client) HasNick() bool {
 	return client.nick != "" && client.nick != "*"
 }
 
+// HasNick returns true if the client's username is set (used in registration).
 func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
@@ -273,14 +282,6 @@ func (c *Client) ModeString() (str string) {
 	}
 
 	return
-}
-
-func (c *Client) UserHost() string {
-	return fmt.Sprintf("%s!%s@%s", c.nick, c.username, c.hostname)
-}
-
-func (c *Client) Id() string {
-	return c.UserHost()
 }
 
 // Friends refers to clients that share a channel with this client.
@@ -331,6 +332,7 @@ func (client *Client) updateNickMask() {
 	client.nickMaskCasefolded = nickMaskCasefolded
 }
 
+// SetNickname sets the very first nickname for the client.
 func (client *Client) SetNickname(nickname string) {
 	if client.HasNick() {
 		Log.error.Printf("%s nickname already set!", client.nickMaskString)
@@ -341,6 +343,7 @@ func (client *Client) SetNickname(nickname string) {
 	client.server.clients.Add(client)
 }
 
+// ChangeNickname changes the existing nickname of the client.
 func (client *Client) ChangeNickname(nickname string) {
 	origNickMask := client.nickMaskString
 	client.server.clients.Remove(client)
@@ -353,16 +356,12 @@ func (client *Client) ChangeNickname(nickname string) {
 	}
 }
 
-func (client *Client) Reply(reply string) error {
-	//TODO(dan): We'll be passing around real message objects instead of raw strings
-	return client.socket.WriteLine(reply)
-}
-
 func (client *Client) Quit(message string) {
 	client.Send(nil, client.nickMaskString, "QUIT", message)
 	client.Send(nil, client.nickMaskString, "ERROR", message)
 }
 
+// destroy gets rid of a client, removes them from server lists etc.
 func (client *Client) destroy() {
 	if client.isDestroyed {
 		return

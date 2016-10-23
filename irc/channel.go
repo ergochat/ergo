@@ -216,15 +216,15 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
-	isInvited := channel.lists[InviteMask].Match(client.UserHost())
+	isInvited := channel.lists[InviteMask].Match(client.nickMaskCasefolded)
 	if channel.flags[InviteOnly] && !isInvited {
 		client.Send(nil, client.server.name, ERR_INVITEONLYCHAN, channel.name, "Cannot join channel (+i)")
 		return
 	}
 
-	if channel.lists[BanMask].Match(client.UserHost()) &&
+	if channel.lists[BanMask].Match(client.nickMaskCasefolded) &&
 		!isInvited &&
-		!channel.lists[ExceptMask].Match(client.UserHost()) {
+		!channel.lists[ExceptMask].Match(client.nickMaskCasefolded) {
 		client.Send(nil, client.server.name, ERR_BANNEDFROMCHAN, channel.name, "Cannot join channel (+b)")
 		return
 	}
@@ -514,7 +514,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags[InviteOnly] {
-		channel.lists[InviteMask].Add(invitee.UserHost())
+		channel.lists[InviteMask].Add(invitee.nickMaskCasefolded)
 	}
 
 	// send invite-notify
