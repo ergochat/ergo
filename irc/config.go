@@ -209,6 +209,7 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 type Oper struct {
 	Class     *OperClass
 	WhoisLine string
+	Vhost     string
 	Pass      []byte
 }
 
@@ -224,6 +225,7 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 		}
 
 		oper.Pass = opConf.PasswordBytes()
+		oper.Vhost = opConf.Vhost
 		class, exists := (*oc)[opConf.Class]
 		if !exists {
 			return nil, fmt.Errorf("Could not load operator [%s] - they use operclass [%s] which does not exist", name, opConf.Class)

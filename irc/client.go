@@ -45,6 +45,8 @@ type Client struct {
 	hasQuit            bool
 	hops               int
 	hostname           string
+	rawHostname        string
+	vhost              string
 	idleTimer          *time.Timer
 	monitoring         map[string]bool
 	nick               string
@@ -136,7 +138,7 @@ func (client *Client) run() {
 	var msg ircmsg.IrcMessage
 
 	// Set the hostname for this client
-	client.hostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
+	client.rawHostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	//TODO(dan): Make this a socketreactor from ircbnc
 	for {
@@ -312,6 +314,12 @@ func (client *Client) updateNick() {
 // updateNickMask updates the casefolded nickname and nickmask.
 func (client *Client) updateNickMask() {
 	client.updateNick()
+
+	if len(client.vhost) > 0 {
+		client.hostname = client.vhost
+	} else {
+		client.hostname = client.rawHostname
+	}
 
 	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
 

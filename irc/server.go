@@ -904,7 +904,15 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.currentOpers[client] = true
 	client.whoisLine = server.operators[name].WhoisLine
 
-	//TODO(dan): push out CHGHOST if vhost is applied
+	// push new vhost if one is set
+	if len(server.operators[name].Vhost) > 0 {
+		originalHost := client.nickMaskString
+		client.vhost = server.operators[name].Vhost
+		for fClient := range client.Friends(ChgHost) {
+			fClient.SendFromClient(client, nil, originalHost, "CHGHOST", client.username, client.vhost)
+		}
+		client.updateNickMask()
+	}
 
 	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, "You are now an IRC operator")
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?

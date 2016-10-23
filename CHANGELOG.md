@@ -11,6 +11,7 @@ New release of Oragono!
 
 ### Added
 * Operator classes, allowing for more finely-grained permissions for operators.
+* Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
 
 ### Changed
 * In the config file, "operator" changed to "opers", and new oper class is required.

@@ -18,6 +18,7 @@ const (
 	AccountNotify   Capability = "account-notify"
 	AwayNotify      Capability = "away-notify"
 	CapNotify       Capability = "cap-notify"
+	ChgHost         Capability = "chghost"
 	EchoMessage     Capability = "echo-message"
 	ExtendedJoin    Capability = "extended-join"
 	InviteNotify    Capability = "invite-notify"
@@ -34,6 +35,7 @@ var (
 		AccountNotify: true,
 		AwayNotify:    true,
 		CapNotify:     true,
+		ChgHost:       true,
 		EchoMessage:   true,
 		ExtendedJoin:  true,
 		InviteNotify:  true,
