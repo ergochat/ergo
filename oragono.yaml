@@ -58,9 +58,6 @@ server:
             - "127.0.0.1/8"
             - "::1/128"
 
-# whether account authentication is enabled
-authentication-enabled: true
-
 # account/channel registration
 registration:
     # account registration
@@ -75,6 +72,9 @@ registration:
         # callbacks to allow
         enabled-callbacks:
             - none # no verification needed, will instantly register successfully
+
+# whether account authentication is enabled
+authentication-enabled: true
 
 # operator classes
 oper-classes:
