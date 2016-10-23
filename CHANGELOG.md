@@ -20,6 +20,7 @@ New release of Oragono!
 
 ### Fixed
 * Fixed bug where `HELP` wouldn't correctly display for operators, and added more help topics.
+* Fixed display of large `MONITOR` lists.
 
 
 ## [0.3.0] - 2016-10-23

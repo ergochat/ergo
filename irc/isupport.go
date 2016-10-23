@@ -6,7 +6,6 @@ package irc
 import "fmt"
 
 const isupportSupportedString = "are supported by this server"
-const maxISupportLength = 400 // Max length of a single ISUPPORT token line
 
 // ISupportList holds a list of ISUPPORT tokens
 type ISupportList struct {
@@ -55,7 +54,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 
 		token := fmt.Sprintf("-%s", name)
 
-		if len(token)+length <= maxISupportLength {
+		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
 				length++
@@ -64,7 +63,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
 			cache = append(cache, isupportSupportedString)
 			replies = append(replies, cache)
 			cache = make([]string, 0)
@@ -81,7 +80,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 
 		token := getTokenString(name, value)
 
-		if len(token)+length <= maxISupportLength {
+		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
 				length++
@@ -90,7 +89,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
 			cache = append(cache, isupportSupportedString)
 			replies = append(replies, cache)
 			cache = make([]string, 0)
@@ -115,7 +114,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 	for name, value := range il.Tokens {
 		token := getTokenString(name, value)
 
-		if len(token)+length <= maxISupportLength {
+		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
 				length++
@@ -124,7 +123,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxISupportLength {
+		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
 			cache = append(cache, isupportSupportedString)
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)

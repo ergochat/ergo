@@ -116,7 +116,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 	targets := strings.Split(msg.Params[1], ",")
 	for len(targets) > 0 {
 		// check name length
-		if len(targets[0]) < 1 {
+		if len(targets[0]) < 1 || len(targets[0]) > server.limits.NickLen {
 			targets = targets[1:]
 			continue
 		}
@@ -176,7 +176,9 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		monitorList = append(monitorList, name)
 	}
 
-	client.Send(nil, server.name, RPL_MONLIST, client.nick, strings.Join(monitorList, ","))
+	for _, line := range argsToStrings(maxLastArgLength, monitorList, ",") {
+		client.Send(nil, server.name, RPL_MONLIST, client.nick, line)
+	}
 
 	return false
 }
@@ -195,10 +197,14 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	}
 
 	if len(online) > 0 {
-		client.Send(nil, server.name, RPL_MONONLINE, client.nick, strings.Join(online, ","))
+		for _, line := range argsToStrings(maxLastArgLength, online, ",") {
+			client.Send(nil, server.name, RPL_MONONLINE, client.nick, line)
+		}
 	}
 	if len(offline) > 0 {
-		client.Send(nil, server.name, RPL_MONOFFLINE, client.nick, strings.Join(offline, ","))
+		for _, line := range argsToStrings(maxLastArgLength, offline, ",") {
+			client.Send(nil, server.name, RPL_MONOFFLINE, client.nick, line)
+		}
 	}
 
 	return false
