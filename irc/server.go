@@ -269,13 +269,14 @@ func (server *Server) setISupport() {
 	server.isupport.Add("INVEX", "")
 	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
 	server.isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
-	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
+	server.isupport.Add("MAXTARGETS", "4")
+	server.isupport.Add("MODES", "")
 	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
 	server.isupport.Add("NETWORK", server.networkName)
 	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	server.isupport.Add("STATUSMSG", "~&@%+")
-	// server.isupport.Add("TARGMAX", "")  //TODO(dan): Support this
+	server.isupport.Add("TARGMAX", "NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,MONITOR:")
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
@@ -739,7 +740,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
-	for _, targetString := range targets {
+	for _, targetString := range targets[:4] {
 		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
 		lowestPrefix := GetLowestChannelModePrefix(prefixes)
 
@@ -819,9 +820,8 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			}
 		}
 	} else {
-		// specifically treat this as a single lookup rather than splitting as we do above
-		// this is by design
-		casefoldedMask, err := Casefold(masksString)
+		// only get the first request
+		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
 		mclient := server.clients.Get(casefoldedMask)
 		if err != nil || mclient == nil {
 			client.Send(nil, client.server.name, ERR_NOSUCHNICK, masksString, "No such nick")
@@ -1220,7 +1220,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
-	for _, targetString := range targets {
+	for _, targetString := range targets[:4] {
 		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
 		lowestPrefix := GetLowestChannelModePrefix(prefixes)
 
@@ -1349,6 +1349,11 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			client.RplList(channel)
 		}
 	} else {
+		// limit regular users to only listing one channel
+		if !client.flags[Operator] {
+			channels = channels[:1]
+		}
+
 		for _, chname := range channels {
 			casefoldedChname, err := CasefoldChannel(chname)
 			channel := server.channels.Get(casefoldedChname)
@@ -1395,6 +1400,11 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			channel.Names(client)
 		}
 		return false
+	}
+
+	// limit regular users to only listing one channel
+	if !client.flags[Operator] {
+		channels = channels[:1]
 	}
 
 	for _, chname := range channels {
