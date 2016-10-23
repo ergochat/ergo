@@ -12,6 +12,7 @@ New release of Oragono!
 ### Added
 * Added operator classes, allowing for more finely-grained permissions for operators.
 * Added automatic client connection limiting, similar to other IRCds.
+* Length of channel mode lists (ban / ban-except / invite-except) is now restricted to the limit in config.
 * Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
 
 ### Changed

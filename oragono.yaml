@@ -160,3 +160,6 @@ limits:
 
     # whowas entries to store
     whowas-entries: 100
+
+    # maximum length of channel lists (beI modes)
+    chan-list-modes: 60

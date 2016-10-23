@@ -136,6 +136,7 @@ type Config struct {
 		TopicLen       uint `yaml:"topiclen"`
 		WhowasEntries  uint `yaml:"whowas-entries"`
 		MonitorEntries uint `yaml:"monitor-entries"`
+		ChanListModes  uint `yaml:"chan-list-modes"`
 	}
 }
 

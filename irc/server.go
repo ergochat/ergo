@@ -39,6 +39,7 @@ type Limits struct {
 	MonitorEntries int
 	NickLen        int
 	TopicLen       int
+	ChanListModes  int
 }
 
 // ListenerInterface represents an interface for a listener.
@@ -166,6 +167,7 @@ func NewServer(configFilename string, config *Config) *Server {
 			MonitorEntries: int(config.Limits.MonitorEntries),
 			NickLen:        int(config.Limits.NickLen),
 			TopicLen:       int(config.Limits.TopicLen),
+			ChanListModes:  int(config.Limits.ChanListModes),
 		},
 		listeners:      make(map[string]ListenerInterface),
 		monitoring:     make(map[string][]Client),
@@ -266,7 +268,7 @@ func (server *Server) setISupport() {
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
 	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
-	// server.isupport.Add("MAXLIST", "") //TODO(dan): Support max list length?
+	server.isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
 	// server.isupport.Add("MODES", "")   //TODO(dan): Support max modes?
 	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
 	server.isupport.Add("NETWORK", server.networkName)
@@ -1056,6 +1058,7 @@ func (server *Server) rehash() error {
 		MonitorEntries: int(config.Limits.MonitorEntries),
 		NickLen:        int(config.Limits.NickLen),
 		TopicLen:       int(config.Limits.TopicLen),
+		ChanListModes:  int(config.Limits.ChanListModes),
 	}
 	server.operclasses = *operclasses
 	server.operators = opers

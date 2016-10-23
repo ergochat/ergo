@@ -404,6 +404,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			changes = append(changes, &change)
 		}
 
+		// so we only output one warning for each list type when full
+		listFullWarned := make(map[ChannelMode]bool)
+
 		for _, change := range changes {
 			switch change.mode {
 			case BanMask, ExceptMask, InviteMask:
@@ -428,6 +431,14 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 				switch change.op {
 				case Add:
+					if len(list.masks) >= server.limits.ChanListModes {
+						if !listFullWarned[change.mode] {
+							client.Send(nil, server.name, ERR_BANLISTFULL, client.nick, channel.name, change.mode.String(), "Channel list is full")
+							listFullWarned[change.mode] = true
+						}
+						continue
+					}
+
 					list.Add(mask)
 					applied = append(applied, change)
 
