@@ -10,7 +10,8 @@ New release of Oragono!
 ### Security
 
 ### Added
-* Operator classes, allowing for more finely-grained permissions for operators.
+* Added operator classes, allowing for more finely-grained permissions for operators.
+* Added automatic client connection limiting, similar to other IRCds.
 * Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
 
 ### Changed

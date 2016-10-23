@@ -41,6 +41,23 @@ server:
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
 
+    # maximum number of connections per subnet
+    connection-limits:
+        # how wide the cidr should be for IPv4 
+        cidr-len-ipv4: 24
+
+        # how wide the cidr should be for IPv6
+        cidr-len-ipv6: 120
+
+        # maximum number of IPs per subnet (defined above by the cird length)
+        ips-per-subnet: 16
+
+        # IPs/networks which are exempted from connection limits
+        exempted:
+            - "127.0.0.1"
+            - "127.0.0.1/8"
+            - "::1/128"
+
 # whether account authentication is enabled
 authentication-enabled: true
 

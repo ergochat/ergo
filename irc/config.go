@@ -89,6 +89,13 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+type ConnectionLimitsConfig struct {
+	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
+	IPsPerCidr  int `yaml:"ips-per-subnet"`
+	Exempted    []string
+}
+
 type Config struct {
 	Network struct {
 		Name string
@@ -96,14 +103,15 @@ type Config struct {
 
 	Server struct {
 		PassConfig
-		Password     string
-		Name         string
-		Listen       []string
-		Wslisten     string                      `yaml:"ws-listen"`
-		TLSListeners map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		CheckIdent   bool                        `yaml:"check-ident"`
-		Log          string
-		MOTD         string
+		Password         string
+		Name             string
+		Listen           []string
+		Wslisten         string                      `yaml:"ws-listen"`
+		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		CheckIdent       bool                        `yaml:"check-ident"`
+		Log              string
+		MOTD             string
+		ConnectionLimits ConnectionLimitsConfig `yaml:"connection-limits"`
 	}
 
 	Datastore struct {

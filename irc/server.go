@@ -25,6 +25,12 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
+var (
+	// cached because this may be used lots
+	tooManyClientsMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your IP or network")
+	tooManyClientsBytes, _ = tooManyClientsMsg.Line()
+)
+
 // Limits holds the maximum limits for various things such as topic lengths
 type Limits struct {
 	AwayLen        int
@@ -67,6 +73,8 @@ type Server struct {
 	clients               *ClientLookupSet
 	commands              chan Command
 	configFilename        string
+	connectionLimits      *ConnectionLimits
+	connectionLimitsMutex sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                 time.Time
 	currentOpers          map[*Client]bool
 	idle                  chan *Client
@@ -135,6 +143,11 @@ func NewServer(configFilename string, config *Config) *Server {
 		log.Fatal("Error loading operators:", err.Error())
 	}
 
+	connectionLimits, err := NewConnectionLimits(config.Server.ConnectionLimits)
+	if err != nil {
+		log.Fatal("Error loading connection limits:", err.Error())
+	}
+
 	server := &Server{
 		accounts:              make(map[string]*ClientAccount),
 		authenticationEnabled: config.AuthenticationEnabled,
@@ -142,6 +155,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		clients:               NewClientLookupSet(),
 		commands:              make(chan Command),
 		configFilename:        configFilename,
+		connectionLimits:      connectionLimits,
 		ctime:                 time.Now(),
 		currentOpers:          make(map[*Client]bool),
 		idle:                  make(chan *Client),
@@ -318,7 +332,21 @@ func (server *Server) Run() {
 			}
 
 		case conn := <-server.newConns:
-			go NewClient(server, conn.Conn, conn.IsTLS)
+			// check connection limits
+			ipaddr := net.ParseIP(IPString(conn.Conn.RemoteAddr()))
+			if ipaddr != nil {
+				server.connectionLimitsMutex.Lock()
+				err := server.connectionLimits.AddClient(ipaddr, false)
+				server.connectionLimitsMutex.Unlock()
+				if err == nil {
+					go NewClient(server, conn.Conn, conn.IsTLS)
+					continue
+				}
+			}
+			// too many connections from one client, tell the client and close the connection
+			// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+			conn.Conn.Write([]byte(tooManyClientsBytes))
+			conn.Conn.Close()
 
 		case client := <-server.idle:
 			client.Idle()
@@ -946,6 +974,12 @@ func (server *Server) rehash() error {
 		return fmt.Errorf("Error rehashing config file: %s", err.Error())
 	}
 
+	// confirm connectionLimits are fine
+	connectionLimits, err := NewConnectionLimits(config.Server.ConnectionLimits)
+	if err != nil {
+		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+	}
+
 	// confirm operator stuff all exists and is fine
 	operclasses, err := config.OperatorClasses()
 	if err != nil {
@@ -961,6 +995,18 @@ func (server *Server) rehash() error {
 			return fmt.Errorf("Oper [%s] no longer exists (used by client [%s])", client.operName, client.nickMaskString)
 		}
 	}
+
+	// apply new connectionlimits
+	server.connectionLimitsMutex.Lock()
+	server.connectionLimits = connectionLimits
+
+	for _, client := range server.clients.ByNick {
+		ipaddr := net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+		if ipaddr != nil {
+			server.connectionLimits.AddClient(ipaddr, true)
+		}
+	}
+	server.connectionLimitsMutex.Unlock()
 
 	// setup new and removed caps
 	addedCaps := make(CapabilitySet)

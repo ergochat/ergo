@@ -372,6 +372,15 @@ func (client *Client) destroy() {
 	friends := client.Friends()
 	friends.Remove(client)
 
+	// remove from connection limits
+	ipaddr := net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+	// this check shouldn't be required but eh
+	if ipaddr != nil {
+		client.server.connectionLimitsMutex.Lock()
+		client.server.connectionLimits.RemoveClient(ipaddr)
+		client.server.connectionLimitsMutex.Unlock()
+	}
+
 	// remove from opers list
 	_, exists := client.server.currentOpers[client]
 	if exists {
