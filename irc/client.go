@@ -287,7 +287,19 @@ func (c *Client) ModeString() (str string) {
 // Friends refers to clients that share a channel with this client.
 func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 	friends := make(ClientSet)
-	friends.Add(client)
+
+	// make sure that I have the right caps
+	hasCaps := true
+	for _, Cap := range Capabilities {
+		if !client.capabilities[Cap] {
+			hasCaps = false
+			break
+		}
+	}
+	if hasCaps {
+		friends.Add(client)
+	}
+
 	for channel := range client.channels {
 		for member := range channel.members {
 			// make sure they have all the required caps
