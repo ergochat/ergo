@@ -258,6 +258,8 @@ func NewServer(configFilename string, config *Config) *Server {
 
 // setISupport sets up our RPL_ISUPPORT reply.
 func (server *Server) setISupport() {
+	maxTargetsString := strconv.Itoa(maxTargets)
+
 	// add RPL_ISUPPORT tokens
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
@@ -269,14 +271,14 @@ func (server *Server) setISupport() {
 	server.isupport.Add("INVEX", "")
 	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
 	server.isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
-	server.isupport.Add("MAXTARGETS", "4")
+	server.isupport.Add("MAXTARGETS", maxTargetsString)
 	server.isupport.Add("MODES", "")
 	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
 	server.isupport.Add("NETWORK", server.networkName)
 	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
 	server.isupport.Add("STATUSMSG", "~&@%+")
-	server.isupport.Add("TARGMAX", "NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,MONITOR:")
+	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString))
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
@@ -740,7 +742,11 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
-	for _, targetString := range targets[:4] {
+	for i, targetString := range targets {
+		// max of four targets per privmsg
+		if i > maxTargets-1 {
+			break
+		}
 		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
 		lowestPrefix := GetLowestChannelModePrefix(prefixes)
 
@@ -1220,7 +1226,11 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
-	for _, targetString := range targets[:4] {
+	for i, targetString := range targets {
+		// max of four targets per privmsg
+		if i > maxTargets-1 {
+			break
+		}
 		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
 		lowestPrefix := GetLowestChannelModePrefix(prefixes)
 
