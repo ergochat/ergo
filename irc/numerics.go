@@ -150,6 +150,7 @@ const (
 	ERR_UMODEUNKNOWNFLAG            = "501"
 	ERR_USERSDONTMATCH              = "502"
 	ERR_HELPNOTFOUND                = "524"
+	ERR_CANNOTSENDRP                = "573"
 	RPL_HELPSTART                   = "704"
 	RPL_HELPTXT                     = "705"
 	RPL_ENDOFHELP                   = "706"

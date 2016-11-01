@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	npcNickMask   = "%s!%s@npc.fakeuser.invalid"
+	npcNickMask   = "*%s*!%s@npc.fakeuser.invalid"
 	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
 
@@ -30,6 +30,13 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2]
+
+	_, err := CasefoldName(fakeSource)
+	if err != nil {
+		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, "Fake source must be a valid nickname")
+		return false
+	}
+
 	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
 
 	sendRoleplayMessage(server, client, sourceString, target, false, message)
@@ -43,6 +50,12 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	fakeSource := msg.Params[1]
 	message := msg.Params[2]
 	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
+
+	_, err := CasefoldName(fakeSource)
+	if err != nil {
+		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, "Fake source must be a valid nickname")
+		return false
+	}
 
 	sendRoleplayMessage(server, client, sourceString, target, true, message)
 
@@ -69,6 +82,11 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
+		if !channel.flags[ChanRoleplaying] {
+			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, "Channel doesn't have roleplaying mode available")
+			return
+		}
+
 		for member := range channel.members {
 			if member == client && !client.capabilities[EchoMessage] {
 				continue
@@ -82,6 +100,12 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
 			return
 		}
+
+		if !user.flags[UserRoleplaying] {
+			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, "User doesn't have roleplaying mode enabled")
+			return
+		}
+
 		user.Send(nil, source, "PRIVMSG", user.nick, message)
 		if client.capabilities[EchoMessage] {
 			client.Send(nil, source, "PRIVMSG", user.nick, message)
