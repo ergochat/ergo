@@ -264,7 +264,7 @@ func (server *Server) setISupport() {
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", "rfc7700")
-	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret}.String()}, ","))
+	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
@@ -277,6 +277,8 @@ func (server *Server) setISupport() {
 	server.isupport.Add("NETWORK", server.networkName)
 	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
 	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
+	server.isupport.Add("RPCHAN", "E")
+	server.isupport.Add("RPUSER", "E")
 	server.isupport.Add("STATUSMSG", "~&@%+")
 	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString))
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
@@ -1436,7 +1438,7 @@ func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		target = msg.Params[0]
 	}
 	casefoldedTarget, err := Casefold(target)
-	if (target != "") && err != nil || (casefoldedTarget != server.nameCasefolded) {
+	if target != "" && (err != nil || casefoldedTarget != server.nameCasefolded) {
 		client.Send(nil, server.name, ERR_NOSUCHSERVER, client.nick, target, "No such server")
 		return false
 	}

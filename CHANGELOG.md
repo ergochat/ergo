@@ -15,6 +15,7 @@ New release of Oragono!
 * Length of channel mode lists (ban / ban-except / invite-except) is now restricted to the limit in config.
 * Support `MAXLIST`, `MAXTARGETS`, `MODES`, `TARGMAX` in `RPL_ISUPPORT`.
 * Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
+* Roleplaying commands, both inside channels and between clients.
 
 ### Changed
 * In the config file, "operator" changed to "opers", and new oper class is required.

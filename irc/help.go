@@ -60,6 +60,11 @@ Oragono supports the following user modes:
 // Help contains the help strings distributed with the IRCd.
 var Help = map[string]HelpEntry{
 	// Commands
+	"ambiance": {
+		text: `AMBIANCE <target> <text to be sent>
+
+The AMBIANCE command is used to send a scene notification to the given target.`,
+	},
 	"authenticate": {
 		text: `AUTHENTICATE
 
@@ -183,6 +188,16 @@ Sets your nickname to the new given one.`,
 
 Sends the text to the given targets as a NOTICE.`,
 	},
+	"npc": {
+		text: `NPC <target> <sourcenick> <text to be sent>
+		
+The NPC command is used to send a message to the target as the source.`,
+	},
+	"npca": {
+		text: `NPCA <target> <sourcenick> <text to be sent>
+		
+The NPC command is used to send an action to the target as the source.`,
+	},
 	"oper": {
 		text: `OPER <name> <password>
 
@@ -219,6 +234,11 @@ Sends the text to the given targets as a PRIVMSG.`,
 		text: `SANICK <currentnick> <newnick>
 
 Gives the given user a new nickname.`,
+	},
+	"scene": {
+		text: `SCENE <target> <text to be sent>
+
+The SCENE command is used to send a scene notification to the given target.`,
 	},
 	"quit": {
 		text: `QUIT [reason]

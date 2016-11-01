@@ -25,7 +25,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if err != nil || len(nicknameRaw) > server.limits.NickLen {
+	if err != nil || len(nicknameRaw) > server.limits.NickLen || nickname == "=scene=" {
 		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nicknameRaw, "Erroneous nickname")
 		return false
 	}
@@ -59,14 +59,14 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	oldnick, oerr := CasefoldName(msg.Params[0])
-	casefoldedNickname, err := CasefoldName(msg.Params[1])
+	nickname, err := CasefoldName(msg.Params[1])
 
-	if len(casefoldedNickname) < 1 {
+	if len(nickname) < 1 {
 		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, "No nickname given")
 		return false
 	}
 
-	if oerr != nil || err != nil || len(strings.TrimSpace(msg.Params[1])) > server.limits.NickLen {
+	if oerr != nil || err != nil || len(strings.TrimSpace(msg.Params[1])) > server.limits.NickLen || nickname == "=scene=" {
 		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, msg.Params[0], "Erroneous nickname")
 		return false
 	}
@@ -82,7 +82,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
-	if server.clients.Get(casefoldedNickname) != nil || server.clients.Get(casefoldedNickname) != target {
+	if server.clients.Get(nickname) != nil || server.clients.Get(nickname) != target {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, msg.Params[0], "Nickname is already in use")
 		return false
 	}

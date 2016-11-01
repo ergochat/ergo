@@ -54,6 +54,10 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 
 // Commands holds all commands executable by a client connected to us.
 var Commands = map[string]Command{
+	"AMBIANCE": {
+		handler:   sceneHandler,
+		minParams: 2,
+	},
 	"AUTHENTICATE": {
 		handler:      authenticateHandler,
 		usablePreReg: true,
@@ -127,6 +131,14 @@ var Commands = map[string]Command{
 		handler:   noticeHandler,
 		minParams: 2,
 	},
+	"NPC": {
+		handler:   npcHandler,
+		minParams: 3,
+	},
+	"NPCA": {
+		handler:   npcaHandler,
+		minParams: 3,
+	},
 	"OPER": {
 		handler:   operHandler,
 		minParams: 2,
@@ -160,6 +172,10 @@ var Commands = map[string]Command{
 		handler:   sanickHandler,
 		minParams: 2,
 		oper:      true,
+	},
+	"SCENE": {
+		handler:   sceneHandler,
+		minParams: 2,
 	},
 	"QUIT": {
 		handler:      quitHandler,

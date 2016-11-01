@@ -137,35 +137,37 @@ const (
 )
 
 const (
-	Away          UserMode = 'a'
-	Invisible     UserMode = 'i'
-	LocalOperator UserMode = 'O'
-	Operator      UserMode = 'o'
-	Restricted    UserMode = 'r'
-	ServerNotice  UserMode = 's' // deprecated
-	TLS           UserMode = 'Z'
-	WallOps       UserMode = 'w'
+	Away            UserMode = 'a'
+	Invisible       UserMode = 'i'
+	LocalOperator   UserMode = 'O'
+	Operator        UserMode = 'o'
+	Restricted      UserMode = 'r'
+	ServerNotice    UserMode = 's' // deprecated
+	TLS             UserMode = 'Z'
+	UserRoleplaying UserMode = 'E'
+	WallOps         UserMode = 'w'
 )
 
 var (
 	SupportedUserModes = UserModes{
-		Away, Invisible, Operator,
+		Away, Invisible, Operator, UserRoleplaying,
 	}
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = SupportedUserModes.String()
 )
 
 const (
-	BanMask     ChannelMode = 'b' // arg
-	ExceptMask  ChannelMode = 'e' // arg
-	InviteMask  ChannelMode = 'I' // arg
-	InviteOnly  ChannelMode = 'i' // flag
-	Key         ChannelMode = 'k' // flag arg
-	Moderated   ChannelMode = 'm' // flag
-	NoOutside   ChannelMode = 'n' // flag
-	OpOnlyTopic ChannelMode = 't' // flag
-	Secret      ChannelMode = 's' // flag
-	UserLimit   ChannelMode = 'l' // flag arg
+	BanMask         ChannelMode = 'b' // arg
+	ChanRoleplaying ChannelMode = 'E' // flag
+	ExceptMask      ChannelMode = 'e' // arg
+	InviteMask      ChannelMode = 'I' // arg
+	InviteOnly      ChannelMode = 'i' // flag
+	Key             ChannelMode = 'k' // flag arg
+	Moderated       ChannelMode = 'm' // flag
+	NoOutside       ChannelMode = 'n' // flag
+	OpOnlyTopic     ChannelMode = 't' // flag
+	Secret          ChannelMode = 's' // flag
+	UserLimit       ChannelMode = 'l' // flag arg
 )
 
 var (
@@ -177,7 +179,7 @@ var (
 
 	SupportedChannelModes = ChannelModes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
-		OpOnlyTopic, Secret, UserLimit,
+		OpOnlyTopic, Secret, UserLimit, ChanRoleplaying,
 	}
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()
@@ -297,7 +299,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		for _, change := range changes {
 			switch change.mode {
-			case Invisible, ServerNotice, WallOps:
+			case Invisible, ServerNotice, WallOps, UserRoleplaying:
 				switch change.op {
 				case Add:
 					if target.flags[change.mode] {
@@ -471,7 +473,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				}
 				applied = append(applied, change)
 
-			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret:
+			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret, ChanRoleplaying:
 				switch change.op {
 				case Add:
 					if channel.flags[change.mode] {

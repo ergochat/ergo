@@ -461,6 +461,8 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 	line, err := message.Line()
 	if err != nil {
 		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
+		// log.Println("Error assembling message:")
+		// spew.Dump(message)
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.Line()
 		client.socket.Write(line)
