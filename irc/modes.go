@@ -409,7 +409,20 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// so we only output one warning for each list type when full
 		listFullWarned := make(map[ChannelMode]bool)
 
+		clientIsOp := channel.ClientIsAtLeast(client, ChannelOperator)
+		var alreadySentPrivError bool
+
 		for _, change := range changes {
+			// chan priv modes are checked specially so ignore them
+			// means regular users can't view ban/except lists... but I'm not worried about that
+			if ChannelModePrefixes[change.mode] == "" && !clientIsOp {
+				if !alreadySentPrivError {
+					alreadySentPrivError = true
+					client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+				}
+				continue
+			}
+
 			switch change.mode {
 			case BanMask, ExceptMask, InviteMask:
 				mask := change.arg
@@ -519,7 +532,10 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					if change.op == Remove && casefoldedName == client.nickCasefolded {
 						// success!
 					} else {
-						client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+						if !alreadySentPrivError {
+							alreadySentPrivError = true
+							client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+						}
 						continue
 					}
 				}

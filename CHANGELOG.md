@@ -26,6 +26,7 @@ New release of Oragono!
 * Fixed bug where `HELP` wouldn't correctly display for operators, and added more help topics.
 * Fixed display of large `MONITOR` lists.
 * Fixed bug where you would always have certain capabilities enabled.
+* Fixed being able to change modes when not an operator.
 
 
 ## [0.3.0] - 2016-10-23
