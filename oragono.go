@@ -85,7 +85,7 @@ Options:
 		irc.Log.SetLevel(config.Server.Log)
 		server := irc.NewServer(configfile, config)
 		if !arguments["--quiet"].(bool) {
-			log.Println(irc.SemVer, "running")
+			log.Println(fmt.Sprintf("Oragono v%s running", irc.SemVer))
 			defer log.Println(irc.SemVer, "exiting")
 		}
 		server.Run()
