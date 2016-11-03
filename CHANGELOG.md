@@ -4,6 +4,20 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.4.0] - 2016-11-03
 This release packs a more extensive oper privelege framework, bugfixes for capabilities/modes, support for new RP commands and more `RPL_ISUPPORT` tokens. In general, a bunch of new features and bugfixes to make using Oragono more smooth.
 
