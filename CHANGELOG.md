@@ -4,29 +4,25 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
-
-### Security
+## [0.4.0] - 2016-11-03
+This release packs a more extensive oper privelege framework, bugfixes for capabilities/modes, support for new RP commands and more `RPL_ISUPPORT` tokens. In general, a bunch of new features and bugfixes to make using Oragono more smooth.
 
 ### Added
-* Added operator classes, allowing for more finely-grained permissions for operators.
 * Added automatic client connection limiting, similar to other IRCds.
+* Added operator classes, allowing for more finely-grained permissions for operators.
 * Length of channel mode lists (ban / ban-except / invite-except) is now restricted to the limit in config.
+* Roleplaying commands, both inside channels and between clients.
 * Support `MAXLIST`, `MAXTARGETS`, `MODES`, `TARGMAX` in `RPL_ISUPPORT`.
 * Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
-* Roleplaying commands, both inside channels and between clients.
 
 ### Changed
 * In the config file, "operator" changed to "opers", and new oper class is required.
 
-### Removed
-
 ### Fixed
-* Fixed bug where `HELP` wouldn't correctly display for operators, and added more help topics.
-* Fixed display of large `MONITOR` lists.
-* Fixed bug where you would always have certain capabilities enabled.
 * Fixed being able to change modes when not an operator.
+* Fixed bug where `HELP` wouldn't correctly display for operators, and added more help topics.
+* Fixed bug where you would always have certain capabilities enabled.
+* Fixed display of large `MONITOR` lists.
 
 
 ## [0.3.0] - 2016-10-23
