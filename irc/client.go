@@ -20,7 +20,7 @@ import (
 const (
 	IDLE_TIMEOUT        = time.Minute + time.Second*30 // how long before a client is considered idle
 	QUIT_TIMEOUT        = time.Minute                  // how long after idle before a client is kicked
-	IdentTimeoutSeconds = 8
+	IdentTimeoutSeconds = 5
 )
 
 var (
@@ -157,7 +157,11 @@ func (client *Client) run() {
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
-			client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, "Unknown command")
+			if len(msg.Command) > 0 {
+				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, "Unknown command")
+			} else {
+				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, "lastcmd", "No command given")
+			}
 			continue
 		}
 
@@ -463,6 +467,8 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
 		// log.Println("Error assembling message:")
 		// spew.Dump(message)
+		// debug.PrintStack()
+
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.Line()
 		client.socket.Write(line)

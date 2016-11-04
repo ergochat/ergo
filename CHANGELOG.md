@@ -17,6 +17,8 @@ New release of Oragono!
 ### Removed
 
 ### Fixed
+* Fixed crash when using STATUSMSG-like messaging.
+* Fixed crash with gIRC-Go ircmsg library we depend on.
 
 
 ## [0.4.0] - 2016-11-03

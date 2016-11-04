@@ -354,7 +354,7 @@ func (server *Server) Run() {
 				if isBanned {
 					banMessage := fmt.Sprintf(bannedFromServerBytes, info.Reason)
 					if info.Time != nil {
-						banMessage += fmt.Sprintf(" [%s]", info.Time.Length.String())
+						banMessage += fmt.Sprintf(" [%s]", info.Time.Duration.String())
 					}
 					conn.Conn.Write([]byte(banMessage))
 					conn.Conn.Close()
@@ -698,7 +698,9 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for i, name := range channels {
 		casefoldedName, err := CasefoldChannel(name)
 		if err != nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
+			if len(name) > 0 {
+				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
+			}
 			continue
 		}
 
@@ -734,7 +736,9 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		channel := server.channels.Get(casefoldedChannelName)
 
 		if err != nil || channel == nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+			if len(chname) > 0 {
+				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+			}
 			continue
 		}
 
@@ -748,7 +752,9 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	name, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(name)
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], "No such channel")
+		if len(msg.Params[0]) > 0 {
+			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], "No such channel")
+		}
 		return false
 	}
 
@@ -774,6 +780,11 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
 		lowestPrefix := GetLowestChannelModePrefix(prefixes)
 
+		// eh, no need to notify them
+		if len(targetString) < 1 {
+			continue
+		}
+
 		target, err := CasefoldChannel(targetString)
 		if err == nil {
 			channel := server.channels.Get(target)
@@ -786,7 +797,9 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
-				client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+				if len(target) > 0 {
+					client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+				}
 				continue
 			}
 			if !user.capabilities[MessageTags] {
@@ -830,6 +843,11 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		masksString = msg.Params[1]
 	} else {
 		masksString = msg.Params[0]
+	}
+
+	if len(strings.TrimSpace(masksString)) < 1 {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "No masks given")
+		return false
 	}
 
 	if client.flags[Operator] {
@@ -964,7 +982,6 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	err = ComparePassword(hash, password)
 
 	if (hash == nil) || (err != nil) {
-		fmt.Println("2", hash)
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
 	}
@@ -1392,7 +1409,9 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			casefoldedChname, err := CasefoldChannel(chname)
 			channel := server.channels.Get(casefoldedChname)
 			if err != nil || channel == nil || (!client.flags[Operator] && channel.flags[Secret]) {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+				if len(chname) > 0 {
+					client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+				}
 				continue
 			}
 			client.RplList(channel)
@@ -1445,7 +1464,9 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedChname, err := CasefoldChannel(chname)
 		channel := server.channels.Get(casefoldedChname)
 		if err != nil || channel == nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+			if len(chname) > 0 {
+				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
+			}
 			continue
 		}
 		channel.Names(client)
@@ -1545,13 +1566,17 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for _, nickname := range nicknames {
 		results := server.whoWas.Find(nickname, count)
 		if len(results) == 0 {
-			client.Send(nil, server.name, ERR_WASNOSUCHNICK, client.nick, nickname, "There was no such nickname")
+			if len(nickname) > 0 {
+				client.Send(nil, server.name, ERR_WASNOSUCHNICK, client.nick, nickname, "There was no such nickname")
+			}
 		} else {
 			for _, whoWas := range results {
 				client.Send(nil, server.name, RPL_WHOWASUSER, client.nick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 			}
 		}
-		client.Send(nil, server.name, RPL_ENDOFWHOWAS, client.nick, nickname, "End of WHOWAS")
+		if len(nickname) > 0 {
+			client.Send(nil, server.name, RPL_ENDOFWHOWAS, client.nick, nickname, "End of WHOWAS")
+		}
 	}
 	return false
 }

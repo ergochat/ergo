@@ -207,7 +207,7 @@ var (
 func SplitChannelMembershipPrefixes(target string) (prefixes string, name string) {
 	name = target
 	for {
-		if len(name) == 0 || strings.Contains("~&@%+", string(name[0])) {
+		if len(name) > 0 && strings.Contains("~&@%+", string(name[0])) {
 			prefixes += string(name[0])
 			name = name[1:]
 		} else {
@@ -257,7 +257,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := server.clients.Get(nickname)
 
 	if err != nil || target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
+		if len(msg.Params[0]) > 0 {
+			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
+		}
 		return false
 	}
 
