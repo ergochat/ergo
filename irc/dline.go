@@ -135,7 +135,7 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 				return true, &addrInfo.Info
 			}
 		} else {
-			return true, nil
+			return true, &addrInfo.Info
 		}
 	}
 
@@ -155,7 +155,7 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 				return true, &addrInfo.Info
 			}
 		} else {
-			return true, nil
+			return true, &addrInfo.Info
 		}
 	}
 
@@ -349,6 +349,9 @@ func (s *Server) loadDLines() {
 	s.store.View(func(tx *buntdb.Tx) error {
 		//TODO(dan): We could make this safer
 		tx.AscendKeys("bans.dline *", func(key, value string) bool {
+			// get address name
+			key = key[len("bans.dline "):]
+
 			// load addr/net
 			var hostAddr net.IP
 			var hostNet *net.IPNet
