@@ -29,6 +29,9 @@ var (
 	// cached because this may be used lots
 	tooManyClientsMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your IP or network")
 	tooManyClientsBytes, _ = tooManyClientsMsg.Line()
+
+	bannedFromServerMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")
+	bannedFromServerBytes, _ = bannedFromServerMsg.Line()
 )
 
 // Limits holds the maximum limits for various things such as topic lengths
@@ -78,6 +81,7 @@ type Server struct {
 	connectionLimitsMutex sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                 time.Time
 	currentOpers          map[*Client]bool
+	dlines                *DLineManager
 	idle                  chan *Client
 	isupport              *ISupportList
 	limits                Limits
@@ -189,6 +193,9 @@ func NewServer(configFilename string, config *Config) *Server {
 		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
 	}
 	server.store = *db
+
+	// load dlines
+	server.loadDLines()
 
 	// load password manager
 	err = server.store.View(func(tx *buntdb.Tx) error {
@@ -342,18 +349,33 @@ func (server *Server) Run() {
 			// check connection limits
 			ipaddr := net.ParseIP(IPString(conn.Conn.RemoteAddr()))
 			if ipaddr != nil {
+				// check DLINEs
+				isBanned, info := server.dlines.CheckIP(ipaddr)
+				if isBanned {
+					banMessage := fmt.Sprintf(bannedFromServerBytes, info.Reason)
+					if info.Time != nil {
+						banMessage += fmt.Sprintf(" [%s]", info.Time.Length.String())
+					}
+					conn.Conn.Write([]byte(banMessage))
+					conn.Conn.Close()
+					continue
+				}
+
+				// check connection limits
 				server.connectionLimitsMutex.Lock()
 				err := server.connectionLimits.AddClient(ipaddr, false)
 				server.connectionLimitsMutex.Unlock()
-				if err == nil {
-					go NewClient(server, conn.Conn, conn.IsTLS)
+				if err != nil {
+					// too many connections from one client, tell the client and close the connection
+					// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+					conn.Conn.Write([]byte(tooManyClientsBytes))
+					conn.Conn.Close()
 					continue
 				}
+
+				go NewClient(server, conn.Conn, conn.IsTLS)
+				continue
 			}
-			// too many connections from one client, tell the client and close the connection
-			// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-			conn.Conn.Write([]byte(tooManyClientsBytes))
-			conn.Conn.Close()
 
 		case client := <-server.idle:
 			client.Idle()

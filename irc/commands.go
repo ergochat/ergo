@@ -76,6 +76,11 @@ var Commands = map[string]Command{
 		handler:   debugHandler,
 		minParams: 1,
 	},
+	"DLINE": {
+		handler:   dlineHandler,
+		minParams: 1,
+		oper:      true,
+	},
 	"HELP": {
 		handler:   helpHandler,
 		minParams: 0,
@@ -199,6 +204,11 @@ var Commands = map[string]Command{
 	"TOPIC": {
 		handler:   topicHandler,
 		minParams: 1,
+	},
+	"UNDLINE": {
+		handler:   undlineHandler,
+		minParams: 1,
+		oper:      true,
 	},
 	"USER": {
 		handler:      userHandler,

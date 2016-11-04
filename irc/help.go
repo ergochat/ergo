@@ -36,7 +36,8 @@ Oragono supports the following channel modes:
 
   +i  |  Invite-only mode, only invited clients can join the channel.
   +m  |  Moderated mode, only privileged clients can talk on the channel.
-  +n  |  No-outside-messages mode, only users that are on the channel can send the channel messages.
+  +n  |  No-outside-messages mode, only users that are on the channel can send
+      |  messages to it.
   +t  |  Only channel opers can modify the topic.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
 
@@ -95,6 +96,26 @@ Prints debug information about the IRCd. <option> can be one of:
 * STARTCPUPROFILE: Starts the CPU profiler.
 * STOPCPUPROFILE: Stops the CPU profiler.
 * PROFILEHEAP: Writes out the CPU profiler info.`,
+	},
+	"dline": {
+		oper: true,
+		text: `DLINE [duration] <ip>/<net> [reason [| oper reason]]
+
+Bans an IP address or network from connecting to the server. If the duration is
+given then only for that long. The reason is shown to the user themselves, but
+everyone else will see a standard message. The oper reason is shown to
+operators getting info about the DLINEs that exist.
+
+Bans are saved across subsequent launches of the server.
+
+[duration] can be of the following forms:
+	10h 8m 13s
+
+<net> is specified in typical CIDR notation. For example:
+	127.0.0.1/8
+	8.8.8.8/24
+
+[reason] and [oper reason], if they exist, are separated by a vertical bar (|).`,
 	},
 	"help": {
 		text: `HELP <argument>
@@ -250,7 +271,7 @@ Indicates that you're leaving the server, and shows everyone the given reason.`,
 REG VERIFY <accountname> <auth_code>
 
 Used in account registration. See the relevant specs for more info:
-https://github.com/DanielOaks/ircv3-specifications/blob/register-and-verify/extensions/reg-core-3.3.md`,
+http://oragono.io/specs.html`,
 	},
 	"rehash": {
 		oper: true,
@@ -268,6 +289,16 @@ Shows the time of the current, or the given, server.`,
 
 If [topic] is given, sets the topic in the channel to that. If [topic] is not
 given, views the current topic on the channel.`,
+	},
+	"undline": {
+		oper: true,
+		text: `UNDLINE <ip>/<net>
+
+Removes an existing ban on an IP address or a network.
+
+<net> is specified in typical CIDR notation. For example:
+	127.0.0.1/8
+	8.8.8.8/24`,
 	},
 	"user": {
 		text: `USER <username> 0 * <realname>
@@ -316,8 +347,7 @@ Returns historical information on the last user with the given nickname.`,
 
 Oragono supports an experimental unicode casemapping designed for extended
 Unicode support. This casemapping is based off RFC 7700 and the draft rfc7700
-casemapping spec here:
-https://github.com/DanielOaks/ircv3-specifications/blob/master%2Brfc7700/documentation/rfc7700.md`,
+casemapping spec here: http://oragono.io/specs.html`,
 	},
 	"prefix": {
 		text: `RPL_ISUPPORT PREFIX

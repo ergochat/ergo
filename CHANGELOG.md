@@ -10,6 +10,7 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Added ability to `DLINE` IP addresses ad networks, to allow for fast blocking.
 
 ### Changed
 
