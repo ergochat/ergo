@@ -3,15 +3,34 @@
 
 package irc
 
-import "net"
-import "time"
+import (
+	"errors"
+	"fmt"
+	"net"
+	"time"
+
+	"strings"
+
+	"encoding/json"
+
+	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/tidwall/buntdb"
+)
+
+const (
+	keyDlineEntry = "bans.dline %s"
+)
+
+var (
+	errNoExistingBan = errors.New("Ban does not exist")
+)
 
 // IPRestrictTime contains the expiration info about the given IP.
 type IPRestrictTime struct {
+	// Duration is how long this block lasts for.
+	Duration time.Duration
 	// Expires is when this block expires.
 	Expires time.Time
-	// Length is how long this block lasts for.
-	Length time.Duration
 }
 
 // IsExpired returns true if the time has expired.
@@ -24,7 +43,7 @@ type IPBanInfo struct {
 	// Reason is the ban reason.
 	Reason string
 	// OperReason is an oper ban reason.
-	OperReason string
+	OperReason string `json:"oper_reason"`
 	// Time holds details about the duration, if it exists.
 	Time *IPRestrictTime
 }
@@ -55,22 +74,21 @@ type DLineManager struct {
 
 // NewDLineManager returns a new DLineManager.
 func NewDLineManager() *DLineManager {
-	dm := DLineManager{
-		addresses: make(map[string]*dLineAddr),
-		networks:  make(map[string]*dLineNet),
-	}
+	var dm DLineManager
+	dm.addresses = make(map[string]*dLineAddr)
+	dm.networks = make(map[string]*dLineNet)
 	return &dm
 }
 
 // AddNetwork adds a network to the blocked list.
-func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime) {
+func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, reason string, operReason string) {
 	netString := network.String()
 	dln := dLineNet{
 		Network: network,
 		Info: IPBanInfo{
 			Time:       length,
-			Reason:     "",
-			OperReason: "",
+			Reason:     reason,
+			OperReason: operReason,
 		},
 	}
 	dm.networks[netString] = &dln
@@ -83,14 +101,14 @@ func (dm *DLineManager) RemoveNetwork(network net.IPNet) {
 }
 
 // AddIP adds an IP address to the blocked list.
-func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime) {
+func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason string, operReason string) {
 	addrString := addr.String()
 	dla := dLineAddr{
 		Address: addr,
 		Info: IPBanInfo{
 			Time:       length,
-			Reason:     "",
-			OperReason: "",
+			Reason:     reason,
+			OperReason: operReason,
 		},
 	}
 	dm.addresses[addrString] = &dla
@@ -148,4 +166,210 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 
 	// no matches!
 	return false, nil
+}
+
+// DLINE [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
+func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// check oper permissions
+	if !client.class.Capabilities["oper:local_ban"] {
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		return false
+	}
+
+	currentArg := 0
+
+	// duration
+	duration, err := time.ParseDuration(msg.Params[currentArg])
+	durationIsUsed := err == nil
+	if durationIsUsed {
+		currentArg++
+	}
+
+	// get host
+	if len(msg.Params) < currentArg+1 {
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		return false
+	}
+	hostString := msg.Params[currentArg]
+	currentArg++
+
+	// check host
+	var hostAddr net.IP
+	var hostNet *net.IPNet
+
+	_, hostNet, err = net.ParseCIDR(hostString)
+	if err != nil {
+		hostAddr = net.ParseIP(hostString)
+	}
+
+	if hostAddr == nil && hostNet == nil {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Could not parse IP address or CIDR network")
+		return false
+	}
+
+	if hostNet == nil {
+		hostString = hostAddr.String()
+	} else {
+		hostString = hostNet.String()
+	}
+
+	// check remote
+	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Remote servers not yet supported")
+		return false
+	}
+
+	// get comment(s)
+	reason := "No reason given"
+	operReason := "No reason given"
+	if len(msg.Params) > currentArg {
+		tempReason := strings.TrimSpace(msg.Params[currentArg])
+		if len(tempReason) > 0 && tempReason != "|" {
+			tempReasons := strings.SplitN(tempReason, "|", 2)
+			if tempReasons[0] != "" {
+				reason = tempReasons[0]
+			}
+			if len(tempReasons) > 1 && tempReasons[1] != "" {
+				operReason = tempReasons[1]
+			} else {
+				operReason = reason
+			}
+		}
+	}
+
+	// assemble ban info
+	var banTime *IPRestrictTime
+	if durationIsUsed {
+		banTime = &IPRestrictTime{
+			Duration: duration,
+			Expires:  time.Now().Add(duration),
+		}
+	}
+
+	info := IPBanInfo{
+		Reason:     reason,
+		OperReason: operReason,
+		Time:       banTime,
+	}
+
+	// save in datastore
+	err = server.store.Update(func(tx *buntdb.Tx) error {
+		dlineKey := fmt.Sprintf(keyDlineEntry, hostString)
+
+		// assemble json from ban info
+		b, err := json.Marshal(info)
+		if err != nil {
+			return err
+		}
+
+		tx.Set(dlineKey, string(b), nil)
+
+		return nil
+	})
+
+	if hostNet == nil {
+		server.dlines.AddIP(hostAddr, banTime, reason, operReason)
+	} else {
+		server.dlines.AddNetwork(*hostNet, banTime, reason, operReason)
+	}
+
+	if durationIsUsed {
+		client.Notice(fmt.Sprintf("Added temporary (%s) D-Line for %s", duration.String(), hostString))
+	} else {
+		client.Notice(fmt.Sprintf("Added D-Line for %s", hostString))
+	}
+
+	return false
+}
+
+func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// check oper permissions
+	if !client.class.Capabilities["oper:local_unban"] {
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		return false
+	}
+
+	// get host
+	hostString := msg.Params[0]
+
+	// check host
+	var hostAddr net.IP
+	var hostNet *net.IPNet
+
+	_, hostNet, err := net.ParseCIDR(hostString)
+	if err != nil {
+		hostAddr = net.ParseIP(hostString)
+	}
+
+	if hostAddr == nil && hostNet == nil {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Could not parse IP address or CIDR network")
+		return false
+	}
+
+	if hostNet == nil {
+		hostString = hostAddr.String()
+	} else {
+		hostString = hostNet.String()
+	}
+
+	// save in datastore
+	err = server.store.Update(func(tx *buntdb.Tx) error {
+		dlineKey := fmt.Sprintf(keyDlineEntry, hostString)
+
+		// check if it exists or not
+		val, err := tx.Get(dlineKey)
+		if val == "" {
+			return errNoExistingBan
+		} else if err != nil {
+			return err
+		}
+
+		tx.Delete(hostString)
+		return nil
+	})
+
+	if err != nil {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf("Could not remove ban [%s]", err.Error()))
+	}
+
+	if hostNet == nil {
+		server.dlines.RemoveIP(hostAddr)
+	} else {
+		server.dlines.RemoveNetwork(*hostNet)
+	}
+
+	client.Notice(fmt.Sprintf("Removed D-Line for %s", hostString))
+	return false
+}
+
+func (s *Server) loadDLines() {
+	s.dlines = NewDLineManager()
+
+	// load from datastore
+	s.store.View(func(tx *buntdb.Tx) error {
+		//TODO(dan): We could make this safer
+		tx.AscendKeys("bans.dline *", func(key, value string) bool {
+			// load addr/net
+			var hostAddr net.IP
+			var hostNet *net.IPNet
+			_, hostNet, err := net.ParseCIDR(key)
+			if err != nil {
+				hostAddr = net.ParseIP(key)
+			}
+
+			// load ban info
+			var info IPBanInfo
+			json.Unmarshal([]byte(value), &info)
+
+			// add to the server
+			if hostNet == nil {
+				s.dlines.AddIP(hostAddr, info.Time, info.Reason, info.OperReason)
+			} else {
+				s.dlines.AddNetwork(*hostNet, info.Time, info.Reason, info.OperReason)
+			}
+
+			return true // true to continue I guess?
+		})
+		return nil
+	})
 }

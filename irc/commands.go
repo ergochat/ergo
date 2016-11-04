@@ -206,7 +206,7 @@ var Commands = map[string]Command{
 		minParams: 1,
 	},
 	"UNDLINE": {
-		handler:   undlineHandler,
+		handler:   unDLineHandler,
 		minParams: 1,
 		oper:      true,
 	},

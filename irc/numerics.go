@@ -154,6 +154,7 @@ const (
 	RPL_HELPSTART                   = "704"
 	RPL_HELPTXT                     = "705"
 	RPL_ENDOFHELP                   = "706"
+	ERR_NOPRIVS                     = "723"
 	RPL_MONONLINE                   = "730"
 	RPL_MONOFFLINE                  = "731"
 	RPL_MONLIST                     = "732"

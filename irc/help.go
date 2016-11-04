@@ -99,7 +99,7 @@ Prints debug information about the IRCd. <option> can be one of:
 	},
 	"dline": {
 		oper: true,
-		text: `DLINE [duration] <ip>/<net> [reason [| oper reason]]
+		text: `DLINE [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 
 Bans an IP address or network from connecting to the server. If the duration is
 given then only for that long. The reason is shown to the user themselves, but
