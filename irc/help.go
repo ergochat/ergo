@@ -99,7 +99,7 @@ Prints debug information about the IRCd. <option> can be one of:
 	},
 	"dline": {
 		oper: true,
-		text: `DLINE [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
+		text: `DLINE [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 
 Bans an IP address or network from connecting to the server. If the duration is
 given then only for that long. The reason is shown to the user themselves, but
@@ -108,12 +108,17 @@ operators getting info about the DLINEs that exist.
 
 Bans are saved across subsequent launches of the server.
 
+"MYSELF" is required when the DLINE matches the address the person applying it is connected
+from. If "MYSELF" is not given, trying to DLINE yourself will result in an error.
+
 [duration] can be of the following forms:
 	10h 8m 13s
 
 <net> is specified in typical CIDR notation. For example:
 	127.0.0.1/8
 	8.8.8.8/24
+
+ON <server> specifies that the ban is to be set on that specific server.
 
 [reason] and [oper reason], if they exist, are separated by a vertical bar (|).`,
 	},
