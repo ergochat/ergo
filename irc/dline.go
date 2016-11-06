@@ -218,13 +218,13 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if hostNet == nil {
 		hostString = hostAddr.String()
 		if !dlineMyself && hostAddr.Equal(net.ParseIP(IPString(client.socket.conn.RemoteAddr()))) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must pass use the command:  /DLINE MYSELF <arguments>")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
 			return false
 		}
 	} else {
 		hostString = hostNet.String()
 		if !dlineMyself && hostNet.Contains(net.ParseIP(IPString(client.socket.conn.RemoteAddr()))) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must pass use the command:  /DLINE MYSELF <arguments>")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
 			return false
 		}
 	}
