@@ -1,0 +1,17 @@
+# oragono web interface config
+
+# hostname of the web interface
+hostname: localhost
+
+# address to listen on
+listen: "localhost:8090"
+
+# tls listeners
+tls-listeners:
+    # listener on ":6697"
+    ":8090":
+        key: web-tls.key
+        cert: web-tls.crt
+
+# log level, one of error, warn, info, debug
+log: debug

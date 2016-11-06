@@ -97,6 +97,8 @@ _testmain.go
 /_site/
 /.vscode/*
 /ircd*
+/web-*
+/web.*
 /ssl.*
 /tls.*
 /oragono

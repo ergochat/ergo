@@ -16,6 +16,8 @@ Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for a si
 
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
+# Oragono
+
 ## Features
 
 * UTF-8 nick and channel names with rfc7700
@@ -30,12 +32,12 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
 * [IRCv3 support](http://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](http://oragono.io/specs.html)
+* integrated REST API and web interface
 
 ## Installation
 
 ```sh
-go get
-go install
+go build oragono.go
 cp oragono.yaml ircd.yaml
 vim ircd.yaml  # modify the config file to your liking
 oragono initdb
@@ -53,13 +55,32 @@ See the example [`oragono.yaml`](oragono.yaml). Passwords are stored using bcryp
 oragono genpasswd
 ```
 
-## Running the server
+## Running
 
 ```sh
 oragono run
 ```
 
-## Credits
+# Web interface
+
+Oragono also includes a web interface, which works with the REST API to provide a way to manage user accounts and bans.
+
+## Installation
+
+```sh
+go build oragono-web.go
+cp oragono-web.yaml web.yaml
+vim web.yaml  # modify the config file to your liking
+oragono-web mkcerts
+```
+
+## Running
+
+```sh
+oragono-web run
+```
+
+# Credits
 
 * Jeremy Latt, creator of Ergonomadic, <https://github.com/jlatt>
 * Edmund Huber, maintainer of Ergonomadic, <https://github.com/edmund-huber>
