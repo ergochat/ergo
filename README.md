@@ -42,7 +42,7 @@ oragono initdb
 oragono mkcerts
 ```
 
-**Note:** This installation will give you unsigned certificates only suitable for teting purposes.
+**Note:** This installation will give you unsigned certificates only suitable for testing purposes.
 For real crets, look into [Let's Encrypt](https://letsencrypt.org/).
 
 ## Configuration
