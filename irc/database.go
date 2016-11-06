@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/tidwall/buntdb"
 )
@@ -15,6 +16,8 @@ import (
 const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
+	// latest schema of the db
+	latestDbSchema = "2"
 	// key for the primary salt used by the ircd
 	keySalt = "crypto.salt"
 )
@@ -40,16 +43,68 @@ func InitDB(path string) {
 		tx.Set(keySalt, encodedSalt, nil)
 
 		// set schema version
-		tx.Set(keySchemaVersion, "1", nil)
+		tx.Set(keySchemaVersion, "2", nil)
 		return nil
 	})
 
 	if err != nil {
-		log.Fatal("Could not save bunt store:", err.Error())
+		log.Fatal("Could not save datastore:", err.Error())
 	}
 }
 
 // UpgradeDB upgrades the datastore to the latest schema.
 func UpgradeDB(path string) {
+	store, err := buntdb.Open(path)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+	}
+	defer store.Close()
+
+	err = store.Update(func(tx *buntdb.Tx) error {
+		version, _ := tx.Get(keySchemaVersion)
+
+		// == version 1 -> 2 ==
+		// account key changes and account.verified key bugfix.
+		if version == "1" {
+			log.Println("Updating store v1 to v2")
+
+			var keysToRemove []string
+			newKeys := make(map[string]string)
+
+			tx.AscendKeys("account *", func(key, value string) bool {
+				keysToRemove = append(keysToRemove, key)
+				splitkey := strings.Split(key, " ")
+
+				// work around bug
+				if splitkey[2] == "exists" {
+					// manually create new verified key
+					newVerifiedKey := fmt.Sprintf("%s.verified %s", splitkey[0], splitkey[1])
+					newKeys[newVerifiedKey] = "1"
+				} else if splitkey[1] == "%s" {
+					return true
+				}
+
+				newKey := fmt.Sprintf("%s.%s %s", splitkey[0], splitkey[2], splitkey[1])
+				newKeys[newKey] = value
+
+				return true
+			})
+
+			for _, key := range keysToRemove {
+				tx.Delete(key)
+			}
+			for key, value := range newKeys {
+				tx.Set(key, value, nil)
+			}
+
+			tx.Set(keySchemaVersion, "2", nil)
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.Fatal("Could not update datastore:", err.Error())
+	}
+
 	return
 }

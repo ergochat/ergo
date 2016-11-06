@@ -8,11 +8,13 @@ package irc
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"fmt"
 
 	"github.com/gorilla/mux"
+	"github.com/tidwall/buntdb"
 )
 
 const restErr = "{\"error\":\"An unknown error occurred\"}"
@@ -21,7 +23,10 @@ const restErr = "{\"error\":\"An unknown error occurred\"}"
 // way to do it, given how HTTP handlers dispatch and work.
 var restAPIServer *Server
 
-type restVersionResp struct {
+type restInfoResp struct {
+	ServerName  string `json:"server-name"`
+	NetworkName string `json:"network-name"`
+
 	Version string `json:"version"`
 }
 
@@ -36,13 +41,13 @@ type restDLinesResp struct {
 }
 
 type restAcct struct {
-	Name         string
+	Name         string    `json:"name"`
 	RegisteredAt time.Time `json:"registered-at"`
-	Clients      int
+	Clients      int       `json:"clients"`
 }
 
 type restAccountsResp struct {
-	Accounts map[string]restAcct `json:"accounts"`
+	Verified map[string]restAcct `json:"verified"`
 }
 
 type restRehashResp struct {
@@ -51,9 +56,11 @@ type restRehashResp struct {
 	Time       time.Time `json:"time"`
 }
 
-func restVersion(w http.ResponseWriter, r *http.Request) {
-	rs := restVersionResp{
-		Version: SemVer,
+func restInfo(w http.ResponseWriter, r *http.Request) {
+	rs := restInfoResp{
+		Version:     SemVer,
+		ServerName:  restAPIServer.name,
+		NetworkName: restAPIServer.networkName,
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -91,17 +98,44 @@ func restGetDLines(w http.ResponseWriter, r *http.Request) {
 
 func restGetAccounts(w http.ResponseWriter, r *http.Request) {
 	rs := restAccountsResp{
-		Accounts: make(map[string]restAcct),
+		Verified: make(map[string]restAcct),
 	}
 
-	// get accts
-	for key, info := range restAPIServer.accounts {
-		rs.Accounts[key] = restAcct{
-			Name:         info.Name,
-			RegisteredAt: info.RegisteredAt,
-			Clients:      len(info.Clients),
-		}
-	}
+	// get accounts
+	err := restAPIServer.store.View(func(tx *buntdb.Tx) error {
+		tx.AscendKeys("account.exists *", func(key, value string) bool {
+			key = key[len("account.exists "):]
+			_, err := tx.Get(fmt.Sprintf(keyAccountVerified, key))
+			verified := err == nil
+			fmt.Println(fmt.Sprintf(keyAccountVerified, key))
+
+			// get other details
+			name, _ := tx.Get(fmt.Sprintf(keyAccountName, key))
+			regTimeStr, _ := tx.Get(fmt.Sprintf(keyAccountRegTime, key))
+			regTimeInt, _ := strconv.ParseInt(regTimeStr, 10, 64)
+			regTime := time.Unix(regTimeInt, 0)
+
+			var clients int
+			acct := restAPIServer.accounts[key]
+			if acct != nil {
+				clients = len(acct.Clients)
+			}
+
+			if verified {
+				rs.Verified[key] = restAcct{
+					Name:         name,
+					RegisteredAt: regTime,
+					Clients:      clients,
+				}
+			} else {
+				//TODO(dan): Add to unverified list
+			}
+
+			return true // true to continue I guess?
+		})
+
+		return nil
+	})
 
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -139,7 +173,7 @@ func (s *Server) startRestAPI() {
 
 	// GET methods
 	rg := r.Methods("GET").Subrouter()
-	rg.HandleFunc("/version", restVersion)
+	rg.HandleFunc("/info", restInfo)
 	rg.HandleFunc("/status", restStatus)
 	rg.HandleFunc("/dlines", restGetDLines)
 	rg.HandleFunc("/accounts", restGetAccounts)

@@ -84,6 +84,10 @@ Options:
 	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
 		server := irc.NewServer(configfile, config)
+		if server == nil {
+			log.Println("Could not load server")
+			return
+		}
 		if !arguments["--quiet"].(bool) {
 			log.Println(fmt.Sprintf("Oragono v%s running", irc.SemVer))
 			defer log.Println(irc.SemVer, "exiting")

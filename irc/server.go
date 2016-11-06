@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -32,6 +33,8 @@ var (
 
 	bannedFromServerMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")
 	bannedFromServerBytes, _ = bannedFromServerMsg.Line()
+
+	errDbOutOfDate = errors.New("Database schema is old.")
 )
 
 // Limits holds the maximum limits for various things such as topic lengths
@@ -102,7 +105,7 @@ type Server struct {
 	rehashSignal          chan os.Signal
 	restAPI               *RestAPIConfig
 	signals               chan os.Signal
-	store                 buntdb.DB
+	store                 *buntdb.DB
 	whoWas                *WhoWasList
 }
 
@@ -194,7 +197,22 @@ func NewServer(configFilename string, config *Config) *Server {
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
 	}
-	server.store = *db
+	server.store = db
+
+	// check db version
+	err = server.store.View(func(tx *buntdb.Tx) error {
+		version, _ := tx.Get(keySchemaVersion)
+		if version != latestDbSchema {
+			log.Println(fmt.Sprintf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version))
+			return errDbOutOfDate
+		}
+		return nil
+	})
+	if err != nil {
+		// close the db
+		db.Close()
+		return nil
+	}
 
 	// load dlines
 	server.loadDLines()

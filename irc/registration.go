@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	keyAccountExists      = "account %s exists"
-	keyAccountVerified    = "account %s verified"
-	keyAccountName        = "account %s name" // stores the 'preferred name' of the account, not casemapped
-	keyAccountRegTime     = "account %s registered.time"
-	keyAccountCredentials = "account %s credentials"
+	keyAccountExists      = "account.exists %s"
+	keyAccountVerified    = "account.verified %s"
+	keyAccountName        = "account.name %s" // stores the 'preferred name' of the account, not casemapped
+	keyAccountRegTime     = "account.registered.time %s"
+	keyAccountCredentials = "account.credentials %s"
 	keyCertToAccount      = "account.creds.certfp %s"
 )
 
@@ -80,7 +80,7 @@ func regHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // removeFailedRegCreateData removes the data created by REG CREATE if the account creation fails early.
-func removeFailedRegCreateData(store buntdb.DB, account string) {
+func removeFailedRegCreateData(store *buntdb.DB, account string) {
 	// error is ignored here, we can't do much about it anyways
 	store.Update(func(tx *buntdb.Tx) error {
 		tx.Delete(fmt.Sprintf(keyAccountExists, account))
@@ -250,7 +250,7 @@ func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) boo
 	// automatically complete registration
 	if callbackNamespace == "*" {
 		err = server.store.Update(func(tx *buntdb.Tx) error {
-			tx.Set(keyAccountVerified, "1", nil)
+			tx.Set(fmt.Sprintf(keyAccountVerified, casefoldedAccount), "1", nil)
 
 			// load acct info inside store tx
 			account := ClientAccount{
