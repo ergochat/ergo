@@ -8,6 +8,7 @@ package irc
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"fmt"
 
@@ -28,6 +29,16 @@ type restStatusResp struct {
 
 type restDLinesResp struct {
 	DLines map[string]IPBanInfo `json:"dlines"`
+}
+
+type restAcct struct {
+	Name         string
+	RegisteredAt time.Time `json:"registered-at"`
+	Clients      int
+}
+
+type restAccountsResp struct {
+	Accounts map[string]restAcct
 }
 
 func restStatus(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +67,28 @@ func restDLines(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func restAccounts(w http.ResponseWriter, r *http.Request) {
+	rs := restAccountsResp{
+		Accounts: make(map[string]restAcct),
+	}
+
+	// get accts
+	for key, info := range restAPIServer.accounts {
+		rs.Accounts[key] = restAcct{
+			Name:         info.Name,
+			RegisteredAt: info.RegisteredAt,
+			Clients:      len(info.Clients),
+		}
+	}
+
+	b, err := json.Marshal(rs)
+	if err != nil {
+		fmt.Fprintln(w, restErr)
+	} else {
+		fmt.Fprintln(w, string(b))
+	}
+}
+
 func (s *Server) startRestAPI() {
 	// so handlers can ref it later
 	restAPIServer = s
@@ -63,7 +96,8 @@ func (s *Server) startRestAPI() {
 	// start router
 	r := mux.NewRouter()
 	r.HandleFunc("/status", restStatus)
-	r.HandleFunc("/dlines", restDLines)
+	r.HandleFunc("/status/dlines", restDLines)
+	r.HandleFunc("/status/accounts", restAccounts)
 
 	// start api
 	go http.ListenAndServe(s.restAPI.Listen, r)
