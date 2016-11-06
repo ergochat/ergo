@@ -27,6 +27,14 @@ server:
             key: tls.key
             cert: tls.crt
 
+    # rest API, for use with web interface
+    rest-api:
+        # whether the API is enabled or not
+        enabled: true
+
+        # rest API listening port
+        listen: "localhost:8090"
+
     # use ident protocol to get usernames
     check-ident: true
 

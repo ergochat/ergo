@@ -89,6 +89,11 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+type RestAPIConfig struct {
+	Enabled bool
+	Listen  string
+}
+
 type ConnectionLimitsConfig struct {
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
@@ -108,6 +113,7 @@ type Config struct {
 		Listen           []string
 		Wslisten         string                      `yaml:"ws-listen"`
 		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		RestAPI          RestAPIConfig               `yaml:"rest-api"`
 		CheckIdent       bool                        `yaml:"check-ident"`
 		Log              string
 		MOTD             string

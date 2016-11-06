@@ -100,6 +100,7 @@ type Server struct {
 	passwords             *PasswordManager
 	rehashMutex           sync.Mutex
 	rehashSignal          chan os.Signal
+	restAPI               *RestAPIConfig
 	signals               chan os.Signal
 	store                 buntdb.DB
 	whoWas                *WhoWasList
@@ -183,6 +184,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		operators:      opers,
 		signals:        make(chan os.Signal, len(ServerExitSignals)),
 		rehashSignal:   make(chan os.Signal, 1),
+		restAPI:        &config.Server.RestAPI,
 		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
 		checkIdent:     config.Server.CheckIdent,
 	}
@@ -259,6 +261,12 @@ func NewServer(configFilename string, config *Config) *Server {
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
 	server.setISupport()
+
+	// start API if enabled
+	if server.restAPI.Enabled {
+		Log.info.Printf("%s rest API started on %s .", server.name, server.restAPI.Listen)
+		server.startRestAPI()
+	}
 
 	return server
 }

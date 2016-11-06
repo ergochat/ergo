@@ -80,6 +80,20 @@ func NewDLineManager() *DLineManager {
 	return &dm
 }
 
+// AllBans returns all bans (for use with APIs, etc).
+func (dm *DLineManager) AllBans() map[string]IPBanInfo {
+	allb := make(map[string]IPBanInfo)
+
+	for name, info := range dm.addresses {
+		allb[name] = info.Info
+	}
+	for name, info := range dm.networks {
+		allb[name] = info.Info
+	}
+
+	return allb
+}
+
 // AddNetwork adds a network to the blocked list.
 func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, reason string, operReason string) {
 	netString := network.String()

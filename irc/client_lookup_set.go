@@ -43,6 +43,10 @@ func NewClientLookupSet() *ClientLookupSet {
 	}
 }
 
+func (clients *ClientLookupSet) Count() int {
+	return len(clients.ByNick)
+}
+
 func (clients *ClientLookupSet) Has(nick string) bool {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
