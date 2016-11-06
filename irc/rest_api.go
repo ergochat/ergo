@@ -21,6 +21,10 @@ const restErr = "{\"error\":\"An unknown error occurred\"}"
 // way to do it, given how HTTP handlers dispatch and work.
 var restAPIServer *Server
 
+type restVersionResp struct {
+	Version string `json:"version"`
+}
+
 type restStatusResp struct {
 	Clients  int `json:"clients"`
 	Opers    int `json:"opers"`
@@ -38,7 +42,25 @@ type restAcct struct {
 }
 
 type restAccountsResp struct {
-	Accounts map[string]restAcct
+	Accounts map[string]restAcct `json:"accounts"`
+}
+
+type restRehashResp struct {
+	Successful bool      `json:"successful"`
+	Error      string    `json:"error"`
+	Time       time.Time `json:"time"`
+}
+
+func restVersion(w http.ResponseWriter, r *http.Request) {
+	rs := restVersionResp{
+		Version: SemVer,
+	}
+	b, err := json.Marshal(rs)
+	if err != nil {
+		fmt.Fprintln(w, restErr)
+	} else {
+		fmt.Fprintln(w, string(b))
+	}
 }
 
 func restStatus(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +77,7 @@ func restStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restDLines(w http.ResponseWriter, r *http.Request) {
+func restGetDLines(w http.ResponseWriter, r *http.Request) {
 	rs := restDLinesResp{
 		DLines: restAPIServer.dlines.AllBans(),
 	}
@@ -67,7 +89,7 @@ func restDLines(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restAccounts(w http.ResponseWriter, r *http.Request) {
+func restGetAccounts(w http.ResponseWriter, r *http.Request) {
 	rs := restAccountsResp{
 		Accounts: make(map[string]restAcct),
 	}
@@ -89,15 +111,42 @@ func restAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func restRehash(w http.ResponseWriter, r *http.Request) {
+	err := restAPIServer.rehash()
+
+	rs := restRehashResp{
+		Successful: err == nil,
+		Time:       time.Now(),
+	}
+	if err != nil {
+		rs.Error = err.Error()
+	}
+
+	b, err := json.Marshal(rs)
+	if err != nil {
+		fmt.Fprintln(w, restErr)
+	} else {
+		fmt.Fprintln(w, string(b))
+	}
+}
+
 func (s *Server) startRestAPI() {
 	// so handlers can ref it later
 	restAPIServer = s
 
 	// start router
 	r := mux.NewRouter()
-	r.HandleFunc("/status", restStatus)
-	r.HandleFunc("/status/dlines", restDLines)
-	r.HandleFunc("/status/accounts", restAccounts)
+
+	// GET methods
+	rg := r.Methods("GET").Subrouter()
+	rg.HandleFunc("/version", restVersion)
+	rg.HandleFunc("/status", restStatus)
+	rg.HandleFunc("/dlines", restGetDLines)
+	rg.HandleFunc("/accounts", restGetAccounts)
+
+	// PUT methods
+	rp := r.Methods("POST").Subrouter()
+	rp.HandleFunc("/rehash", restRehash)
 
 	// start api
 	go http.ListenAndServe(s.restAPI.Listen, r)
