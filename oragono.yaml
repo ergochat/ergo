@@ -27,10 +27,10 @@ server:
             key: tls.key
             cert: tls.crt
 
-    # rest API, for use with web interface
+    # rest management API, for use with web interface
     rest-api:
         # whether the API is enabled or not
-        enabled: true
+        enabled: false
 
         # rest API listening port
         listen: "localhost:8090"

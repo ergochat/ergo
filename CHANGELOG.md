@@ -10,8 +10,8 @@ New release of Oragono!
 ### Security
 
 ### Added
-* Added ability to ban IP addresses and networks from the server with `DLINE`.
-* Added REST API for use with web interface to manage accounts, DLINEs, etc.
+* Added ability to ban IP addresses and networks from the server with the `DLINE` and `UNDLINE` commands.
+* Added alpha REST API (intended primarily for use with a future web interface to manage accounts, DLINEs, etc).
 
 ### Changed
 * Database upgraded to make handling accounts simpler.
