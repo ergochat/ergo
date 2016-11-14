@@ -21,7 +21,7 @@ type Command struct {
 // Run runs this command with the given client/message.
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
-		// command silently ignored
+		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, "You need to register before you can use that command")
 		return false
 	}
 	if cmd.oper && !client.flags[Operator] {
