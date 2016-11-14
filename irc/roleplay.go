@@ -25,7 +25,7 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// NPC <target> <text to be sent>
+// NPC <target> <sourcenick> <text to be sent>
 func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
@@ -44,7 +44,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// NPCA <target> <text to be sent>
+// NPCA <target> <sourcenick> <text to be sent>
 func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]

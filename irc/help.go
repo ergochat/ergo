@@ -217,12 +217,16 @@ Sends the text to the given targets as a NOTICE.`,
 	"npc": {
 		text: `NPC <target> <sourcenick> <text to be sent>
 		
-The NPC command is used to send a message to the target as the source.`,
+The NPC command is used to send a message to the target as the source.
+
+Requires the roleplay mode (+E) to be set on the target.`,
 	},
 	"npca": {
 		text: `NPCA <target> <sourcenick> <text to be sent>
 		
-The NPC command is used to send an action to the target as the source.`,
+The NPC command is used to send an action to the target as the source.
+
+Requires the roleplay mode (+E) to be set on the target.`,
 	},
 	"oper": {
 		text: `OPER <name> <password>
