@@ -11,6 +11,10 @@ import (
 	"regexp"
 	"strings"
 
+	"sync"
+
+	"runtime/debug"
+
 	"github.com/DanielOaks/girc-go/ircmatch"
 )
 
@@ -33,8 +37,25 @@ func ExpandUserHost(userhost string) (expanded string) {
 	return
 }
 
+type LoggingMutex struct {
+	mutex sync.Mutex
+}
+
+func (lm *LoggingMutex) Lock() {
+	lm.mutex.Lock()
+	fmt.Println("--- locked, stack:")
+	debug.PrintStack()
+}
+
+func (lm *LoggingMutex) Unlock() {
+	fmt.Println("--- unlocking")
+	lm.mutex.Unlock()
+	fmt.Println("--- unlocked")
+}
+
 type ClientLookupSet struct {
-	ByNick map[string]*Client
+	ByNickMutex LoggingMutex
+	ByNick      map[string]*Client
 }
 
 func NewClientLookupSet() *ClientLookupSet {
@@ -44,34 +65,62 @@ func NewClientLookupSet() *ClientLookupSet {
 }
 
 func (clients *ClientLookupSet) Count() int {
-	return len(clients.ByNick)
+	clients.ByNickMutex.Lock()
+	count := len(clients.ByNick)
+	clients.ByNickMutex.Unlock()
+	return count
 }
 
+//TODO(dan): wouldn't it be best to always use Get rather than this?
 func (clients *ClientLookupSet) Has(nick string) bool {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
 		return false
 	}
+	clients.ByNickMutex.Lock()
 	_, exists := clients.ByNick[casefoldedName]
+	clients.ByNickMutex.Unlock()
 	return exists
+}
+
+func (clients *ClientLookupSet) getNoMutex(nick string) *Client {
+	casefoldedName, err := CasefoldName(nick)
+	if err == nil {
+		cli := clients.ByNick[casefoldedName]
+		return cli
+	}
+	return nil
 }
 
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
-		return clients.ByNick[casefoldedName]
+		clients.ByNickMutex.Lock()
+		cli := clients.ByNick[casefoldedName]
+		clients.ByNickMutex.Unlock()
+		return cli
 	}
 	return nil
 }
 
 func (clients *ClientLookupSet) Add(client *Client) error {
+	fmt.Println("Initial nick:", client.nick)
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
-	if clients.Get(client.nick) != nil {
+	fmt.Println("- getting lock:", client.nick)
+	clients.ByNickMutex.Lock()
+	fmt.Println("- got lock:", client.nick)
+	if clients.getNoMutex(client.nick) != nil {
+		fmt.Println("- already exists:", client.nick)
+		clients.ByNickMutex.Unlock()
 		return ErrNicknameInUse
 	}
+	fmt.Println("- adding:", client.nick)
 	clients.ByNick[client.nickCasefolded] = client
+	fmt.Println("- set:", client.nick)
+	clients.ByNickMutex.Unlock()
+	fmt.Println("- released lock:", client.nick)
 	return nil
 }
 
@@ -79,16 +128,19 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
-	if clients.Get(client.nick) != client {
+	if clients.getNoMutex(client.nick) != client {
 		return ErrNicknameMismatch
 	}
+	clients.ByNickMutex.Lock()
 	delete(clients.ByNick, client.nickCasefolded)
+	clients.ByNickMutex.Unlock()
 	return nil
 }
 
 func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) {
 	set = make(ClientSet)
 
+	clients.ByNickMutex.Lock()
 	var client *Client
 	for _, client = range clients.ByNick {
 		// make sure they have all the required caps
@@ -100,6 +152,7 @@ func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) 
 
 		set.Add(client)
 	}
+	clients.ByNickMutex.Unlock()
 
 	return set
 }
@@ -113,11 +166,13 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	}
 	matcher := ircmatch.MakeMatch(userhost)
 
+	clients.ByNickMutex.Lock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
 		}
 	}
+	clients.ByNickMutex.Unlock()
 
 	return set
 }
@@ -128,14 +183,18 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 		return nil
 	}
 	matcher := ircmatch.MakeMatch(userhost)
+	var matchedClient *Client
 
+	clients.ByNickMutex.Lock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
-			return client
+			matchedClient = client
+			break
 		}
 	}
+	clients.ByNickMutex.Unlock()
 
-	return nil
+	return matchedClient
 }
 
 //

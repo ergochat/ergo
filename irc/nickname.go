@@ -34,18 +34,23 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
+	// bleh, this will be replaced and done below
 	target := server.clients.Get(nickname)
 	if target != nil && target != client {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
 		return false
 	}
-
 	if client.registered {
-		client.ChangeNickname(nicknameRaw)
-		client.alertMonitors()
+		err = client.ChangeNickname(nicknameRaw)
 	} else {
-		client.SetNickname(nicknameRaw)
+		err = client.SetNickname(nicknameRaw)
+	}
+	if err != nil {
+		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
+		return false
+	}
+	if client.registered {
+		client.alertMonitors()
 	}
 	server.tryRegister(client)
 	return false
