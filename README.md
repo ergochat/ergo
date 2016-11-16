@@ -32,7 +32,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
 * [IRCv3 support](http://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](http://oragono.io/specs.html)
-* integrated REST API and web interface
+* integrated (alpha) REST API and web interface
 
 ## Installation
 
@@ -64,6 +64,8 @@ oragono run
 # Web interface
 
 Oragono also includes a web interface, which works with the REST API to provide a way to manage user accounts and bans.
+
+This interface is an early alpha, is in no way secure and will not be in a final release for a while. Requires the alpha REST API to be enabled (check your server config to enable that if you really want to).
 
 ## Installation
 
