@@ -567,7 +567,6 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 func (server *Server) tryRegister(c *Client) {
 	if c.registered || !c.HasNick() || !c.HasUsername() ||
 		(c.capState == CapNegotiating) {
-		fmt.Println("Try Reg:", &c, c.registered, c.HasNick(), c.HasUsername(), c.capState == CapNegotiating, c.capState)
 		return
 	}
 	c.Register()

@@ -13,8 +13,6 @@ import (
 
 	"sync"
 
-	"runtime/debug"
-
 	"github.com/DanielOaks/girc-go/ircmatch"
 )
 
@@ -37,24 +35,8 @@ func ExpandUserHost(userhost string) (expanded string) {
 	return
 }
 
-type LoggingMutex struct {
-	mutex sync.Mutex
-}
-
-func (lm *LoggingMutex) Lock() {
-	lm.mutex.Lock()
-	fmt.Println("--- locked, stack:")
-	debug.PrintStack()
-}
-
-func (lm *LoggingMutex) Unlock() {
-	fmt.Println("--- unlocking")
-	lm.mutex.Unlock()
-	fmt.Println("--- unlocked")
-}
-
 type ClientLookupSet struct {
-	ByNickMutex LoggingMutex
+	ByNickMutex sync.Mutex
 	ByNick      map[string]*Client
 }
 
@@ -83,6 +65,7 @@ func (clients *ClientLookupSet) Has(nick string) bool {
 	return exists
 }
 
+// getNoMutex is used internally, for getting clients when no mutex is required (i.e. is already set).
 func (clients *ClientLookupSet) getNoMutex(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
@@ -104,23 +87,15 @@ func (clients *ClientLookupSet) Get(nick string) *Client {
 }
 
 func (clients *ClientLookupSet) Add(client *Client) error {
-	fmt.Println("Initial nick:", client.nick)
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
-	fmt.Println("- getting lock:", client.nick)
 	clients.ByNickMutex.Lock()
-	fmt.Println("- got lock:", client.nick)
+	defer clients.ByNickMutex.Unlock()
 	if clients.getNoMutex(client.nick) != nil {
-		fmt.Println("- already exists:", client.nick)
-		clients.ByNickMutex.Unlock()
 		return ErrNicknameInUse
 	}
-	fmt.Println("- adding:", client.nick)
 	clients.ByNick[client.nickCasefolded] = client
-	fmt.Println("- set:", client.nick)
-	clients.ByNickMutex.Unlock()
-	fmt.Println("- released lock:", client.nick)
 	return nil
 }
 
@@ -128,12 +103,46 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
+	clients.ByNickMutex.Lock()
 	if clients.getNoMutex(client.nick) != client {
+		clients.ByNickMutex.Unlock()
 		return ErrNicknameMismatch
 	}
-	clients.ByNickMutex.Lock()
 	delete(clients.ByNick, client.nickCasefolded)
 	clients.ByNickMutex.Unlock()
+	return nil
+}
+
+func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client) error {
+	// get casefolded nicknames
+	oldNick, err := CasefoldName(oldNick)
+	if err != nil {
+		return err
+	}
+	newNick, err = CasefoldName(newNick)
+	if err != nil {
+		return err
+	}
+
+	// remove and replace
+	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
+
+	oldClient := clients.getNoMutex(newNick)
+	if oldClient != nil {
+		return ErrNicknameInUse
+	}
+	if oldClient != client {
+		return ErrNicknameMismatch
+	}
+
+	if oldNick == newNick {
+		// if they're only changing case, don't need to remove+re-add them
+		return nil
+	}
+
+	delete(clients.ByNick, oldNick)
+	clients.ByNick[newNick] = client
 	return nil
 }
 

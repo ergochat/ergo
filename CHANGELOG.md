@@ -19,6 +19,8 @@ New release of Oragono!
 ### Removed
 
 ### Fixed
+* Prevented a DoS related to lots of clients connecting at once.
+* Removed races around setting and changing `NICK`s, to be more safe.
 * Fixed crash when using STATUSMSG-like messaging.
 * Fixed crash with gIRC-Go ircmsg library we depend on.
 

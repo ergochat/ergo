@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"time"
 
-	"strings"
-
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/DanielOaks/go-ident"
 )
@@ -146,14 +144,12 @@ func (client *Client) run() {
 	client.rawHostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	//TODO(dan): Make this a socketreactor from ircbnc
-	fmt.Println("START", &client)
 	for {
 		line, err = client.socket.Read()
 		if err != nil {
 			client.Quit("connection closed")
 			break
 		}
-		fmt.Println("  LINE", &client, strings.TrimSpace(line))
 
 		msg, err = ircmsg.ParseLine(line)
 		if err != nil {
@@ -163,7 +159,6 @@ func (client *Client) run() {
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
-			fmt.Println("    BADLINE", &client, strings.TrimSpace(line))
 			if len(msg.Command) > 0 {
 				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, "Unknown command")
 			} else {
@@ -171,15 +166,11 @@ func (client *Client) run() {
 			}
 			continue
 		}
-		fmt.Println("    GUDLINE", &client, strings.TrimSpace(line))
 
 		isExiting = cmd.Run(client.server, client, msg)
-		fmt.Println("      CMDRUN", &client, strings.TrimSpace(line))
 		if isExiting || client.isQuitting {
-			fmt.Println("        BREAKING", &client, strings.TrimSpace(line))
 			break
 		}
-		fmt.Println("        CONTINUE", &client, strings.TrimSpace(line))
 	}
 
 	// ensure client connection gets closed
@@ -368,22 +359,22 @@ func (client *Client) SetNickname(nickname string) error {
 
 	client.nick = nickname
 	client.updateNick()
-	client.server.clients.Add(client)
-	return nil
+	return client.server.clients.Add(client)
 }
 
 // ChangeNickname changes the existing nickname of the client.
 func (client *Client) ChangeNickname(nickname string) error {
 	origNickMask := client.nickMaskString
-	client.server.clients.Remove(client)
-	client.server.whoWas.Append(client)
-	client.nick = nickname
 	client.updateNickMask()
-	client.server.clients.Add(client)
-	for friend := range client.Friends() {
-		friend.Send(nil, origNickMask, "NICK", nickname)
+	err := client.server.clients.Replace(client.nick, nickname, client)
+	if err == nil {
+		client.server.whoWas.Append(client)
+		client.nick = nickname
+		for friend := range client.Friends() {
+			friend.Send(nil, origNickMask, "NICK", nickname)
+		}
 	}
-	return nil
+	return err
 }
 
 func (client *Client) Quit(message string) {

@@ -5,6 +5,7 @@
 package irc
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
@@ -35,18 +36,16 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// bleh, this will be replaced and done below
-	target := server.clients.Get(nickname)
-	if target != nil && target != client {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
-		return false
-	}
 	if client.registered {
 		err = client.ChangeNickname(nicknameRaw)
 	} else {
 		err = client.SetNickname(nicknameRaw)
 	}
-	if err != nil {
+	if err == ErrNicknameInUse {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
+		return false
+	} else if err != nil {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf("Could not set or change nickname: %s", err.Error()))
 		return false
 	}
 	if client.registered {
