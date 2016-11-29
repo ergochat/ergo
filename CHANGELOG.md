@@ -37,6 +37,7 @@ This release also updates the database, so be sure to run the `oragono upgradedb
 ### Added
 * Added ability to ban IP addresses and networks from the server with the `DLINE` and `UNDLINE` commands.
 * Added alpha REST API (intended primarily for use with a future web interface to manage accounts, DLINEs, etc).
+* Added proposed IRCv3 capability [`maxline`](https://github.com/ircv3/ircv3-specifications/pull/281).
 
 ### Changed
 * Database upgraded to make handling accounts simpler.

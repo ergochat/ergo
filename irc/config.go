@@ -151,14 +151,15 @@ type Config struct {
 	Opers map[string]*OperConfig
 
 	Limits struct {
-		NickLen        uint `yaml:"nicklen"`
-		ChannelLen     uint `yaml:"channellen"`
 		AwayLen        uint `yaml:"awaylen"`
+		ChanListModes  uint `yaml:"chan-list-modes"`
+		ChannelLen     uint `yaml:"channellen"`
 		KickLen        uint `yaml:"kicklen"`
+		LineLen        uint `yaml:"linelen"`
+		MonitorEntries uint `yaml:"monitor-entries"`
+		NickLen        uint `yaml:"nicklen"`
 		TopicLen       uint `yaml:"topiclen"`
 		WhowasEntries  uint `yaml:"whowas-entries"`
-		MonitorEntries uint `yaml:"monitor-entries"`
-		ChanListModes  uint `yaml:"chan-list-modes"`
 	}
 }
 
@@ -334,6 +335,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
 		}
+	}
+	if config.Limits.LineLen < 512 {
+		return nil, errors.New("Line length must be 512 or greater")
 	}
 
 	return config, nil

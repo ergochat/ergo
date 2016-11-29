@@ -152,7 +152,14 @@ func (client *Client) run() {
 			break
 		}
 
-		msg, err = ircmsg.ParseLine(line)
+		var maxLen int
+		if client.capabilities[MaxLine] {
+			maxLen = maxLineLength
+		} else {
+			maxLen = 512
+		}
+
+		msg, err = ircmsg.ParseLineMaxLen(line, maxLen)
 		if err != nil {
 			client.Quit("received malformed line")
 			break
@@ -505,9 +512,16 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		}
 	}
 
+	var maxLen int
+	if client.capabilities[MaxLine] {
+		maxLen = maxLineLength
+	} else {
+		maxLen = 512
+	}
+
 	// send out the message
 	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	line, err := message.Line()
+	line, err := message.LineMaxLen(maxLen)
 	if err != nil {
 		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
 		// log.Println("Error assembling message:")

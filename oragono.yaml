@@ -186,13 +186,13 @@ limits:
     channellen: 64
 
     # awaylen is the maximum length of an away message
-    awaylen: 200
+    awaylen: 500
 
     # kicklen is the maximum length of a kick message
-    kicklen: 390
+    kicklen: 1000
 
     # topiclen is the maximum length of a channel topic
-    topiclen: 390
+    topiclen: 1000
 
     # maximum number of monitor entries a client can have
     monitor-entries: 100
@@ -202,3 +202,6 @@ limits:
 
     # maximum length of channel lists (beI modes)
     chan-list-modes: 60
+
+    # maximum length of IRC lines
+    linelen: 2048

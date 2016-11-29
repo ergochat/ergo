@@ -46,6 +46,7 @@ type Limits struct {
 	NickLen        int
 	TopicLen       int
 	ChanListModes  int
+	LineLen        int
 }
 
 // ListenerInterface represents an interface for a listener.
@@ -146,6 +147,12 @@ func NewServer(configFilename string, config *Config) *Server {
 		SupportedCapabilities[SASL] = true
 	}
 
+	if config.Limits.LineLen > 512 {
+		maxLineLength = int(config.Limits.LineLen)
+		SupportedCapabilities[MaxLine] = true
+		CapValues[MaxLine] = strconv.Itoa(int(config.Limits.LineLen))
+	}
+
 	operClasses, err := config.OperatorClasses()
 	if err != nil {
 		log.Fatal("Error loading oper classes:", err.Error())
@@ -184,6 +191,7 @@ func NewServer(configFilename string, config *Config) *Server {
 			NickLen:        int(config.Limits.NickLen),
 			TopicLen:       int(config.Limits.TopicLen),
 			ChanListModes:  int(config.Limits.ChanListModes),
+			LineLen:        int(config.Limits.LineLen),
 		},
 		listeners:      make(map[string]ListenerInterface),
 		monitoring:     make(map[string][]Client),
@@ -1097,6 +1105,11 @@ func (server *Server) rehash() error {
 
 	if err != nil {
 		return fmt.Errorf("Error rehashing config file config: %s", err.Error())
+	}
+
+	// line lengths cannot be changed after launching the server
+	if maxLineLength != int(config.Limits.LineLen) {
+		return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 	}
 
 	// confirm connectionLimits are fine
