@@ -416,6 +416,12 @@ func (client *Client) destroy() {
 	// remove my monitors
 	client.clearMonitorList()
 
+	// send quit messages to friends
+	for friend := range client.Friends() {
+		//TODO(dan): store quit message in user, if exists use that instead here
+		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
+	}
+
 	// clean up channels
 	for channel := range client.channels {
 		channel.Quit(client)
@@ -433,10 +439,6 @@ func (client *Client) destroy() {
 	}
 
 	client.socket.Close()
-	for friend := range client.Friends() {
-		//TODO(dan): store quit message in user, if exists use that instead here
-		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
-	}
 }
 
 // SendFromClient sends an IRC line coming from a specific client.
