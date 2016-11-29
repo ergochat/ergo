@@ -358,9 +358,12 @@ func (client *Client) SetNickname(nickname string) error {
 		return ErrNickAlreadySet
 	}
 
-	client.nick = nickname
-	client.updateNick()
-	return client.server.clients.Add(client)
+	err := client.server.clients.Add(client, nickname)
+	if err == nil {
+		client.nick = nickname
+		client.updateNick()
+	}
+	return err
 }
 
 // ChangeNickname changes the existing nickname of the client.

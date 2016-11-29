@@ -48,8 +48,8 @@ func NewClientLookupSet() *ClientLookupSet {
 
 func (clients *ClientLookupSet) Count() int {
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	count := len(clients.ByNick)
-	clients.ByNickMutex.Unlock()
 	return count
 }
 
@@ -60,8 +60,8 @@ func (clients *ClientLookupSet) Has(nick string) bool {
 		return false
 	}
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	_, exists := clients.ByNick[casefoldedName]
-	clients.ByNickMutex.Unlock()
 	return exists
 }
 
@@ -79,23 +79,24 @@ func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
 		clients.ByNickMutex.Lock()
+		defer clients.ByNickMutex.Unlock()
 		cli := clients.ByNick[casefoldedName]
-		clients.ByNickMutex.Unlock()
 		return cli
 	}
 	return nil
 }
 
-func (clients *ClientLookupSet) Add(client *Client) error {
-	if !client.HasNick() {
-		return ErrNickMissing
+func (clients *ClientLookupSet) Add(client *Client, nick string) error {
+	nick, err := CasefoldName(nick)
+	if err != nil {
+		return err
 	}
 	clients.ByNickMutex.Lock()
 	defer clients.ByNickMutex.Unlock()
-	if clients.getNoMutex(client.nick) != nil {
+	if clients.getNoMutex(nick) != nil {
 		return ErrNicknameInUse
 	}
-	clients.ByNick[client.nickCasefolded] = client
+	clients.ByNick[nick] = client
 	return nil
 }
 
@@ -104,12 +105,11 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 		return ErrNickMissing
 	}
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	if clients.getNoMutex(client.nick) != client {
-		clients.ByNickMutex.Unlock()
 		return ErrNicknameMismatch
 	}
 	delete(clients.ByNick, client.nickCasefolded)
-	clients.ByNickMutex.Unlock()
 	return nil
 }
 
@@ -150,6 +150,7 @@ func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) 
 	set = make(ClientSet)
 
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	var client *Client
 	for _, client = range clients.ByNick {
 		// make sure they have all the required caps
@@ -161,7 +162,6 @@ func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) 
 
 		set.Add(client)
 	}
-	clients.ByNickMutex.Unlock()
 
 	return set
 }
@@ -176,12 +176,12 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	matcher := ircmatch.MakeMatch(userhost)
 
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
 		}
 	}
-	clients.ByNickMutex.Unlock()
 
 	return set
 }
@@ -195,13 +195,13 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 	var matchedClient *Client
 
 	clients.ByNickMutex.Lock()
+	defer clients.ByNickMutex.Unlock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			matchedClient = client
 			break
 		}
 	}
-	clients.ByNickMutex.Unlock()
 
 	return matchedClient
 }

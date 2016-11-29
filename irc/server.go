@@ -658,13 +658,6 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return true
 	}
 
-	// set user info and log client in
-	//TODO(dan): Could there be a race condition here with adding/removing the client?
-	//TODO(dan): we should do something like server.clients.Replace(client) instead
-
-	// we do it this way to ONLY replace what hasn't already been set
-	server.clients.Remove(client)
-
 	if !client.HasUsername() {
 		client.username = "~" + msg.Params[0]
 		// don't bother updating nickmask here, it's not valid anyway
@@ -673,7 +666,6 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.realname = msg.Params[3]
 	}
 
-	server.clients.Add(client)
 	server.tryRegister(client)
 
 	return false
