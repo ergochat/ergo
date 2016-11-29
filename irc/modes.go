@@ -553,7 +553,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(applied) > 0 {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
-		client.Send(nil, client.nickMaskString, "MODE", args...)
+		for member := range channel.members {
+			member.Send(nil, client.nickMaskString, "MODE", args...)
+		}
 	} else {
 		//TODO(dan): we should just make ModeString return a slice here
 		args := append([]string{client.nick, channel.name}, strings.Split(channel.ModeString(client), " ")...)
