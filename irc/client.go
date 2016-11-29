@@ -58,6 +58,7 @@ type Client struct {
 	nickMaskCasefolded string
 	operName           string
 	quitTimer          *time.Timer
+	quitMessageSent    bool
 	realname           string
 	registered         bool
 	saslInProgress     bool
@@ -378,8 +379,11 @@ func (client *Client) ChangeNickname(nickname string) error {
 }
 
 func (client *Client) Quit(message string) {
-	client.Send(nil, client.nickMaskString, "QUIT", message)
-	client.Send(nil, client.nickMaskString, "ERROR", message)
+	if !client.quitMessageSent {
+		client.Send(nil, client.nickMaskString, "QUIT", message)
+		client.Send(nil, client.nickMaskString, "ERROR", message)
+		client.quitMessageSent = true
+	}
 }
 
 // destroy gets rid of a client, removes them from server lists etc.
@@ -387,6 +391,9 @@ func (client *Client) destroy() {
 	if client.isDestroyed {
 		return
 	}
+
+	// send quit/error message to client if they haven't been sent already
+	client.Quit("Connection closed")
 
 	client.isDestroyed = true
 	client.server.whoWas.Append(client)
@@ -416,12 +423,6 @@ func (client *Client) destroy() {
 	// remove my monitors
 	client.clearMonitorList()
 
-	// send quit messages to friends
-	for friend := range client.Friends() {
-		//TODO(dan): store quit message in user, if exists use that instead here
-		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
-	}
-
 	// clean up channels
 	for channel := range client.channels {
 		channel.Quit(client)
@@ -439,6 +440,12 @@ func (client *Client) destroy() {
 	}
 
 	client.socket.Close()
+
+	// send quit messages to friends
+	for friend := range friends {
+		//TODO(dan): store quit message in user, if exists use that instead here
+		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
+	}
 }
 
 // SendFromClient sends an IRC line coming from a specific client.
