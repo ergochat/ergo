@@ -321,6 +321,15 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 
 // PrivMsg sends a private message to everyone in this channel.
 func (channel *Channel) PrivMsg(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
+	channel.sendMessage("PRIVMSG", minPrefix, clientOnlyTags, client, message)
+}
+
+// Notice sends a private message to everyone in this channel.
+func (channel *Channel) Notice(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
+	channel.sendMessage("NOTICE", minPrefix, clientOnlyTags, client, message)
+}
+
+func (channel *Channel) sendMessage(cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -339,9 +348,9 @@ func (channel *Channel) PrivMsg(minPrefix *ChannelMode, clientOnlyTags *map[stri
 			continue
 		}
 		if member.capabilities[MessageTags] {
-			member.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", channel.name, message)
+			member.SendFromClient(client, clientOnlyTags, client.nickMaskString, cmd, channel.name, message)
 		} else {
-			member.SendFromClient(client, nil, client.nickMaskString, "PRIVMSG", channel.name, message)
+			member.SendFromClient(client, nil, client.nickMaskString, cmd, channel.name, message)
 		}
 	}
 }
@@ -453,19 +462,6 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 	}
 
 	return false
-}
-
-func (channel *Channel) Notice(client *Client, message string) {
-	if !channel.CanSpeak(client) {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
-		return
-	}
-	for member := range channel.members {
-		if member == client {
-			continue
-		}
-		member.SendFromClient(client, nil, client.nickMaskString, "NOTICE", channel.name, message)
-	}
 }
 
 func (channel *Channel) Quit(client *Client) {

@@ -1314,7 +1314,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			channel.PrivMsg(lowestPrefix, clientOnlyTags, client, message)
+			channel.Notice(lowestPrefix, clientOnlyTags, client, message)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
