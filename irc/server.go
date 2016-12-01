@@ -1339,12 +1339,12 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	kicks := make(map[string]string)
+	var kicks [][]string
 	for index, channel := range channels {
 		if len(users) == 1 {
-			kicks[channel] = users[0]
+			kicks = append(kicks, []string{channel, users[0]})
 		} else {
-			kicks[channel] = users[index]
+			kicks = append(kicks, []string{channel, users[index]})
 		}
 	}
 
@@ -1352,7 +1352,9 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 2 {
 		comment = msg.Params[2]
 	}
-	for chname, nickname := range kicks {
+	for _, info := range kicks {
+		chname := info[0]
+		nickname := info[1]
 		casefoldedChname, err := CasefoldChannel(chname)
 		channel := server.channels.Get(casefoldedChname)
 		if err != nil || channel == nil {
