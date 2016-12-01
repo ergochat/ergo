@@ -241,7 +241,8 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
 		channel.createdTime = time.Now()
-		channel.members[client][ChannelFounder] = true
+		// // we should only do this on registered channels
+		// channel.members[client][ChannelFounder] = true
 		channel.members[client][ChannelOperator] = true
 	}
 
