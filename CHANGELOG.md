@@ -15,16 +15,19 @@ New release of Oragono!
 
 ### Changed
 * Database upgraded to make handling accounts simpler.
+* Only give chanop (`@`) on channel join, not channel founder (`~`). We'll do channel founder and all on registered chans only.
 
 ### Removed
 
 ### Fixed
+* Fix a bunch of bugs around setting nicknames on join.
 * Fixed crash when using STATUSMSG-like messaging.
 * Fixed crash with gIRC-Go ircmsg library we depend on.
 * Fixed not sending `MODE` changes to all clients in a channel.
 * Fixed timeout issue with go-ident library we depend on (which caused hangs on connection).
 * Prevented a DoS related to lots of clients connecting at once.
 * Removed races around setting and changing `NICK`s, to be more safe.
+* Send channel `NOTICE`s properly.
 
 
 ## [0.4.0] - 2016-11-03
