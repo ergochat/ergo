@@ -4,10 +4,12 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.5.0] - 2016-12-10
+This release includes a ton of fixes, as well as the ability to ban IP addresses from your network with the `DLINE` command!
 
-### Security
+As well, there are some major fixes with the libraries Oragono depends on, which fix various DoS attacks, crashes and timeouts. In short, this release is more stable and fixes a bunch of issues.
+
+This release also updates the database, so be sure to run the `oragono upgradedb` command.
 
 ### Added
 * Added ability to ban IP addresses and networks from the server with the `DLINE` and `UNDLINE` commands.
@@ -16,8 +18,6 @@ New release of Oragono!
 ### Changed
 * Database upgraded to make handling accounts simpler.
 * Only give chanop (`@`) on channel join, not channel founder (`~`). We'll do channel founder and all on registered chans only.
-
-### Removed
 
 ### Fixed
 * Fix a bunch of bugs around setting nicknames on join.
