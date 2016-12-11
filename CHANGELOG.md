@@ -4,6 +4,20 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.5.0] - 2016-12-10
 This release includes a ton of fixes, as well as the ability to ban IP addresses from your network with the `DLINE` command!
 
