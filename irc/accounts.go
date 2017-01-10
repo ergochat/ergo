@@ -198,6 +198,12 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	// load and check acct data all in one update to prevent races.
 	// as noted elsewhere, change to proper locking for Account type later probably
 	err = server.store.Update(func(tx *buntdb.Tx) error {
+		// confirm account is verified
+		_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
+		if err != nil {
+			return errSaslFail
+		}
+
 		creds, err := loadAccountCredentials(tx, accountKey)
 		if err != nil {
 			return err
@@ -247,6 +253,12 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 
 		// confirm account exists
 		_, err = tx.Get(fmt.Sprintf(keyAccountExists, accountKey))
+		if err != nil {
+			return errSaslFail
+		}
+
+		// confirm account is verified
+		_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
 		if err != nil {
 			return errSaslFail
 		}
