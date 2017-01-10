@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # release build script
 # to be run inside the Oragono dir
 
