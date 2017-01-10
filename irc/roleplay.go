@@ -87,12 +87,14 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
+		channel.membersMutex.RLock()
 		for member := range channel.members {
 			if member == client && !client.capabilities[EchoMessage] {
 				continue
 			}
 			member.Send(nil, source, "PRIVMSG", channel.name, message)
 		}
+		channel.membersMutex.RUnlock()
 	} else {
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)

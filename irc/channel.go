@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"sync"
+
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
@@ -18,6 +20,7 @@ type Channel struct {
 	flags          ChannelModeSet
 	lists          map[ChannelMode]*UserMaskSet
 	key            string
+	membersMutex   sync.RWMutex
 	members        MemberSet
 	name           string
 	nameCasefolded string
@@ -63,6 +66,8 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 }
 
 func (channel *Channel) IsEmpty() bool {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
 	return len(channel.members) == 0
 }
 
@@ -93,6 +98,9 @@ func (channel *Channel) Names(client *Client) {
 
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
 func (channel *Channel) ClientIsAtLeast(client *Client, permission ChannelMode) bool {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	// get voice, since it's not a part of ChannelPrivModes
 	if channel.members.HasMode(client, permission) {
 		return true
@@ -134,6 +142,9 @@ func (modes ChannelModeSet) Prefixes(isMultiPrefix bool) string {
 }
 
 func (channel *Channel) Nicks(target *Client) []string {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	isMultiPrefix := (target != nil) && target.capabilities[MultiPrefix]
 	isUserhostInNames := (target != nil) && target.capabilities[UserhostInNames]
 	nicks := make([]string, len(channel.members))
@@ -160,7 +171,9 @@ func (channel *Channel) Nick() string {
 
 // <mode> <mode params>
 func (channel *Channel) ModeString(client *Client) (str string) {
+	channel.membersMutex.RLock()
 	isMember := client.flags[Operator] || channel.members.Has(client)
+	channel.membersMutex.RUnlock()
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 
@@ -192,6 +205,9 @@ func (channel *Channel) ModeString(client *Client) (str string) {
 }
 
 func (channel *Channel) IsFull() bool {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	return (channel.userLimit > 0) &&
 		(uint64(len(channel.members)) >= channel.userLimit)
 }
@@ -201,6 +217,9 @@ func (channel *Channel) CheckKey(key string) bool {
 }
 
 func (channel *Channel) Join(client *Client, key string) {
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
 	if channel.members.Has(client) {
 		// already joined, no message?
 		return
@@ -256,6 +275,9 @@ func (channel *Channel) Join(client *Client, key string) {
 }
 
 func (channel *Channel) Part(client *Client, message string) {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	if !channel.members.Has(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
@@ -268,6 +290,9 @@ func (channel *Channel) Part(client *Client, message string) {
 }
 
 func (channel *Channel) GetTopic(client *Client) {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	if !channel.members.Has(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, client.nick, channel.name, "You're not on that channel")
 		return
@@ -283,6 +308,9 @@ func (channel *Channel) GetTopic(client *Client) {
 }
 
 func (channel *Channel) SetTopic(client *Client, topic string) {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
@@ -307,6 +335,9 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	if client.flags[Operator] {
 		return true
 	}
@@ -335,6 +366,10 @@ func (channel *Channel) sendMessage(cmd string, minPrefix *ChannelMode, clientOn
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
 	}
+
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	// for STATUSMSG
 	var minPrefixMode ChannelMode
 	if minPrefix != nil {
@@ -383,6 +418,9 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 
 func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
 	op ModeOp, nick string) *ChannelModeChange {
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
 	if nick == "" {
 		//TODO(dan): shouldn't this be handled before it reaches this function?
 		client.Send(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", "Not enough parameters")
@@ -466,6 +504,9 @@ func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeO
 }
 
 func (channel *Channel) Quit(client *Client) {
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
 	channel.members.Remove(client)
 	client.channels.Remove(channel)
 
@@ -475,6 +516,9 @@ func (channel *Channel) Quit(client *Client) {
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
 	if !(client.flags[Operator] || channel.members.Has(client)) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
@@ -503,6 +547,9 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 		inviter.Send(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return
 	}
+
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
 
 	if !channel.members.Has(inviter) {
 		inviter.Send(nil, inviter.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")

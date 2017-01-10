@@ -843,6 +843,9 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	var chstrs []string
 	index := 0
 	for channel := range client.channels {
+		channel.membersMutex.RLock()
+		defer channel.membersMutex.RUnlock()
+
 		// channel is secret and the target can't see it
 		if !target.flags[Operator] && channel.flags[Secret] && !channel.members.Has(target) {
 			continue
@@ -933,6 +936,9 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
+		channel.membersMutex.RLock()
+		defer channel.membersMutex.RUnlock()
+
 		flags += channel.members[client].Prefixes(target.capabilities[MultiPrefix])
 		channelName = channel.name
 	}
@@ -940,6 +946,9 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	for member := range channel.members {
 		if !client.flags[Invisible] || friends[client] {
 			client.RplWhoReply(channel, member)
@@ -1372,6 +1381,9 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// make sure client has privs to kick the given user
 		//TODO(dan): split this into a separate function that checks if users have privs
 		// over other users, useful for things like -aoh as well
+		channel.membersMutex.RLock()
+		defer channel.membersMutex.RUnlock()
+
 		var hasPrivs bool
 		for _, mode := range ChannelPrivModes {
 			if channel.members[client][mode] {
@@ -1448,6 +1460,9 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 func (target *Client) RplList(channel *Channel) {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
 	// get the correct number of channel members
 	var memberCount int
 	if target.flags[Operator] || channel.members.Has(target) {

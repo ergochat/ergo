@@ -345,6 +345,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	channelName, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(channelName)
 
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
 	if err != nil || channel == nil {
 		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], "No such channel")
 		return false
