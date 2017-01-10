@@ -36,7 +36,7 @@ func ExpandUserHost(userhost string) (expanded string) {
 }
 
 type ClientLookupSet struct {
-	ByNickMutex sync.Mutex
+	ByNickMutex sync.RWMutex
 	ByNick      map[string]*Client
 }
 
@@ -47,8 +47,8 @@ func NewClientLookupSet() *ClientLookupSet {
 }
 
 func (clients *ClientLookupSet) Count() int {
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.ByNickMutex.RLock()
+	defer clients.ByNickMutex.RUnlock()
 	count := len(clients.ByNick)
 	return count
 }
@@ -59,8 +59,8 @@ func (clients *ClientLookupSet) Has(nick string) bool {
 	if err == nil {
 		return false
 	}
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.ByNickMutex.RLock()
+	defer clients.ByNickMutex.RUnlock()
 	_, exists := clients.ByNick[casefoldedName]
 	return exists
 }
@@ -78,8 +78,8 @@ func (clients *ClientLookupSet) getNoMutex(nick string) *Client {
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
-		clients.ByNickMutex.Lock()
-		defer clients.ByNickMutex.Unlock()
+		clients.ByNickMutex.RLock()
+		defer clients.ByNickMutex.RUnlock()
 		cli := clients.ByNick[casefoldedName]
 		return cli
 	}
@@ -149,8 +149,8 @@ func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client)
 func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) {
 	set = make(ClientSet)
 
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.ByNickMutex.RLock()
+	defer clients.ByNickMutex.RUnlock()
 	var client *Client
 	for _, client = range clients.ByNick {
 		// make sure they have all the required caps
@@ -175,8 +175,8 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	}
 	matcher := ircmatch.MakeMatch(userhost)
 
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.ByNickMutex.RLock()
+	defer clients.ByNickMutex.RUnlock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
@@ -194,8 +194,8 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 	matcher := ircmatch.MakeMatch(userhost)
 	var matchedClient *Client
 
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.ByNickMutex.RLock()
+	defer clients.ByNickMutex.RUnlock()
 	for _, client := range clients.ByNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			matchedClient = client

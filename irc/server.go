@@ -343,11 +343,11 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 
 func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
-	server.clients.ByNickMutex.Lock()
+	server.clients.ByNickMutex.RLock()
 	for _, client := range server.clients.ByNick {
 		client.Notice("Server is shutting down")
 	}
-	server.clients.ByNickMutex.Unlock()
+	server.clients.ByNickMutex.RUnlock()
 
 	if err := server.store.Close(); err != nil {
 		Log.error.Println("Server.Shutdown store.Close: error:", err)
@@ -1069,14 +1069,14 @@ func (server *Server) rehash() error {
 	server.connectionLimitsMutex.Lock()
 	server.connectionLimits = connectionLimits
 
-	server.clients.ByNickMutex.Lock()
+	server.clients.ByNickMutex.RLock()
 	for _, client := range server.clients.ByNick {
 		ipaddr := net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
 		if ipaddr != nil {
 			server.connectionLimits.AddClient(ipaddr, true)
 		}
 	}
-	server.clients.ByNickMutex.Unlock()
+	server.clients.ByNickMutex.RUnlock()
 	server.connectionLimitsMutex.Unlock()
 
 	// setup new and removed caps
@@ -1143,14 +1143,14 @@ func (server *Server) rehash() error {
 	newISupportReplies := oldISupportList.GetDifference(server.isupport)
 
 	// push new info to all of our clients
-	server.clients.ByNickMutex.Lock()
+	server.clients.ByNickMutex.RLock()
 	for _, sClient := range server.clients.ByNick {
 		for _, tokenline := range newISupportReplies {
 			// ugly trickery ahead
 			sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
 		}
 	}
-	server.clients.ByNickMutex.Unlock()
+	server.clients.ByNickMutex.RUnlock()
 
 	// destroy old listeners
 	tlsListeners := config.TLSListeners()
