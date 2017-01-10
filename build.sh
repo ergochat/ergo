@@ -6,7 +6,7 @@
 rm -rf ./build/win/
 mkdir -p ./build/win/docs/
 
-GOOS=windows GOATCH=amd64 go build oragono.go
+GOOS=windows GOARCH=amd64 go build oragono.go
 mv oragono.exe ./build/win/
 
 cp LICENSE ./build/win/
@@ -23,7 +23,7 @@ popd
 rm -rf ./build/osx/
 mkdir -p ./build/osx/docs/
 
-GOOS=darwin GOATCH=amd64 go build oragono.go
+GOOS=darwin GOARCH=amd64 go build oragono.go
 mv oragono ./build/osx/
 
 cp LICENSE ./build/osx/
@@ -40,7 +40,7 @@ popd
 rm -rf ./build/linux
 mkdir -p ./build/linux/docs/
 
-GOOS=linux GOATCH=amd64 go build oragono.go
+GOOS=linux GOARCH=amd64 go build oragono.go
 mv oragono ./build/linux/
 
 cp LICENSE ./build/linux/
@@ -51,4 +51,21 @@ cp ./docs/logo* ./build/linux/docs
 
 pushd ./build/linux
 tar -czvf ../oragono-XXX-linux.tgz *
+popd
+
+## arm ##
+rm -rf ./build/arm
+mkdir -p ./build/arm/docs/
+
+GOARM=6 GOARCH=arm go build oragono.go
+mv oragono ./build/arm/
+
+cp LICENSE ./build/arm/
+cp oragono.yaml oragono.motd ./build/arm
+cp ./docs/README ./build/arm/
+cp ./CHANGELOG.md ./build/arm/docs
+cp ./docs/logo* ./build/arm/docs
+
+pushd ./build/arm
+tar -czvf ../oragono-XXX-arm.tgz *
 popd
