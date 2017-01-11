@@ -158,6 +158,30 @@ channel privs.`,
 Removes the given user from the network, showing them the reason if it is
 supplied.`,
 	},
+	"kline": {
+		oper: true,
+		text: `KLINE [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
+
+Bans a mask from connecting to the server. If the duration is given then only for that
+long. The reason is shown to the user themselves, but everyone else will see a standard
+message. The oper reason is shown to operators getting info about the KLINEs that exist.
+
+Bans are saved across subsequent launches of the server.
+
+"MYSELF" is required when the KLINE matches the address the person applying it is connected
+from. If "MYSELF" is not given, trying to KLINE yourself will result in an error.
+
+[duration] can be of the following forms:
+	10h 8m 13s
+
+<mask> is specified in typical IRC format. For example:
+	dan
+	dan!5*@127.*
+
+ON <server> specifies that the ban is to be set on that specific server.
+
+[reason] and [oper reason], if they exist, are separated by a vertical bar (|).`,
+	},
 	"list": {
 		text: `LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
 
@@ -308,6 +332,16 @@ Removes an existing ban on an IP address or a network.
 <net> is specified in typical CIDR notation. For example:
 	127.0.0.1/8
 	8.8.8.8/24`,
+	},
+	"unkline": {
+		oper: true,
+		text: `UNKLINE <mask>
+
+Removes an existing ban on a mask.
+
+For example:
+	dan
+	dan!5*@127.*`,
 	},
 	"user": {
 		text: `USER <username> 0 * <realname>

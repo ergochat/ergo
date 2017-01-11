@@ -353,6 +353,32 @@ func (client *Client) updateNickMask() {
 	client.nickMaskCasefolded = nickMaskCasefolded
 }
 
+// AllNickmasks returns all the possible nickmasks for the client.
+func (client *Client) AllNickmasks() []string {
+	var masks []string
+	var mask string
+	var err error
+
+	if len(client.vhost) > 0 {
+		mask, err = Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.vhost))
+		if err == nil {
+			masks = append(masks, mask)
+		}
+	}
+
+	mask, err = Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.rawHostname))
+	if err == nil {
+		masks = append(masks, mask)
+	}
+
+	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, IPString(client.socket.conn.RemoteAddr())))
+	if err == nil && mask2 != mask {
+		masks = append(masks, mask2)
+	}
+
+	return masks
+}
+
 // SetNickname sets the very first nickname for the client.
 func (client *Client) SetNickname(nickname string) error {
 	if client.HasNick() {

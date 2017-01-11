@@ -87,6 +87,7 @@ type Server struct {
 	dlines                *DLineManager
 	idle                  chan *Client
 	isupport              *ISupportList
+	klines                *KLineManager
 	limits                Limits
 	listenerEventActMutex sync.Mutex
 	listeners             map[string]ListenerInterface
@@ -214,8 +215,9 @@ func NewServer(configFilename string, config *Config) *Server {
 		return nil
 	}
 
-	// load dlines
+	// load *lines
 	server.loadDLines()
+	server.loadKLines()
 
 	// load password manager
 	err = server.store.View(func(tx *buntdb.Tx) error {
@@ -569,6 +571,21 @@ func (server *Server) tryRegister(c *Client) {
 		(c.capState == CapNegotiating) {
 		return
 	}
+
+	// check KLINEs
+	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+	if isBanned {
+		reason := info.Reason
+		if info.Time != nil {
+			reason += fmt.Sprintf(" [%s]", info.Time.Duration.String())
+		}
+		c.Send(nil, "", "ERROR", fmt.Sprintf("You are banned from this server (%s)", reason))
+		c.quitMessageSent = true
+		c.destroy()
+		return
+	}
+
+	// continue registration
 	c.Register()
 
 	// send welcome text

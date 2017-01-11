@@ -107,6 +107,11 @@ var Commands = map[string]Command{
 		oper:      true,
 		capabs:    []string{"oper:local_kill"}, //TODO(dan): when we have S2S, this will be checked in the command handler itself
 	},
+	"KLINE": {
+		handler:   klineHandler,
+		minParams: 1,
+		oper:      true,
+	},
 	"LIST": {
 		handler:   listHandler,
 		minParams: 0,
@@ -207,6 +212,11 @@ var Commands = map[string]Command{
 	},
 	"UNDLINE": {
 		handler:   unDLineHandler,
+		minParams: 1,
+		oper:      true,
+	},
+	"UNKLINE": {
+		handler:   unKLineHandler,
 		minParams: 1,
 		oper:      true,
 	},
