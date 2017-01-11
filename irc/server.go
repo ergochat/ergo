@@ -1381,8 +1381,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// make sure client has privs to kick the given user
 		//TODO(dan): split this into a separate function that checks if users have privs
 		// over other users, useful for things like -aoh as well
-		channel.membersMutex.RLock()
-		defer channel.membersMutex.RUnlock()
+		channel.membersMutex.Lock()
 
 		var hasPrivs bool
 		for _, mode := range ChannelPrivModes {
@@ -1404,10 +1403,12 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if comment == "" {
 				comment = nickname
 			}
-			channel.Kick(client, target, comment)
+			channel.kickNoMutex(client, target, comment)
 		} else {
 			client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, chname, "You're not a channel operator")
 		}
+
+		channel.membersMutex.Unlock()
 	}
 	return false
 }
