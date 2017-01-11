@@ -360,6 +360,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 
 	if err != nil {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf("Could not remove ban [%s]", err.Error()))
+		return false
 	}
 
 	if hostNet == nil {
