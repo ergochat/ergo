@@ -10,12 +10,16 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Added ARM build (for Raspberry PIs and similar).
+* Added `KLINE` and `UNDLINE` commands. Complementing `KLINE`, this lets you ban masks from the server.
 
 ### Changed
 
 ### Removed
 
 ### Fixed
+* Fixed an issue where `UNDLINE` didn't save across server launches.
+* Removed several race conditions and made the server more resiliant to these bugs.
 
 
 ## [0.5.0] - 2016-12-10
@@ -34,7 +38,7 @@ This release also updates the database, so be sure to run the `oragono upgradedb
 * Only give chanop (`@`) on channel join, not channel founder (`~`). We'll do channel founder and all on registered chans only.
 
 ### Fixed
-* Fix a bunch of bugs around setting nicknames on join.
+* Fixed a bunch of bugs around setting nicknames on join.
 * Fixed crash when using STATUSMSG-like messaging.
 * Fixed crash with gIRC-Go ircmsg library we depend on.
 * Fixed not sending `MODE` changes to all clients in a channel.
@@ -50,8 +54,8 @@ This release packs a more extensive oper privelege framework, bugfixes for capab
 ### Added
 * Added automatic client connection limiting, similar to other IRCds.
 * Added operator classes, allowing for more finely-grained permissions for operators.
+* Added roleplaying commands, both inside channels and between clients.
 * Length of channel mode lists (ban / ban-except / invite-except) is now restricted to the limit in config.
-* Roleplaying commands, both inside channels and between clients.
 * Support `MAXLIST`, `MAXTARGETS`, `MODES`, `TARGMAX` in `RPL_ISUPPORT`.
 * Added support for IRCv3 capability [`chghost`](http://ircv3.net/specs/extensions/chghost-3.2.html).
 

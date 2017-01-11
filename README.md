@@ -30,6 +30,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * on-the-fly updating server config and TLS certificates (rehashing)
 * client accounts and SASL
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
+* banning ips/nets and masks with `KLINE` and `DLINE`
 * [IRCv3 support](http://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](http://oragono.io/specs.html)
 * integrated (alpha) REST API and web interface
