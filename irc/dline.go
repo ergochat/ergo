@@ -354,7 +354,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			return err
 		}
 
-		tx.Delete(hostString)
+		tx.Delete(dlineKey)
 		return nil
 	})
 
