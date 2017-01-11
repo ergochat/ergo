@@ -185,10 +185,10 @@ func (channel *Channel) Nick() string {
 }
 
 // <mode> <mode params>
-func (channel *Channel) ModeString(client *Client) (str string) {
-	channel.membersMutex.RLock()
+func (channel *Channel) modeStringNoLock(client *Client) (str string) {
+	// RLock()
 	isMember := client.flags[Operator] || channel.members.Has(client)
-	channel.membersMutex.RUnlock()
+	// RUnlock()
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 
@@ -436,10 +436,9 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 	return false
 }
 
-func (channel *Channel) applyModeMember(client *Client, mode ChannelMode,
+func (channel *Channel) applyModeMemberNoMutex(client *Client, mode ChannelMode,
 	op ModeOp, nick string) *ChannelModeChange {
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
+	// requires Lock()
 
 	if nick == "" {
 		//TODO(dan): shouldn't this be handled before it reaches this function?

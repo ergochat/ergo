@@ -414,7 +414,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// so we only output one warning for each list type when full
 		listFullWarned := make(map[ChannelMode]bool)
 
-		clientIsOp := channel.ClientIsAtLeast(client, ChannelOperator)
+		clientIsOp := channel.clientIsAtLeastNoMutex(client, ChannelOperator)
 		var alreadySentPrivError bool
 
 		for _, change := range changes {
@@ -545,7 +545,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 					}
 				}
 
-				change := channel.applyModeMember(client, change.mode, change.op, change.arg)
+				change := channel.applyModeMemberNoMutex(client, change.mode, change.op, change.arg)
 				if change != nil {
 					applied = append(applied, change)
 				}
@@ -561,7 +561,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	} else {
 		//TODO(dan): we should just make ModeString return a slice here
-		args := append([]string{client.nick, channel.name}, strings.Split(channel.ModeString(client), " ")...)
+		args := append([]string{client.nick, channel.name}, strings.Split(channel.modeStringNoLock(client), " ")...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
