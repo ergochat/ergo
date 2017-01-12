@@ -11,15 +11,17 @@ New release of Oragono!
 
 ### Added
 * Added ARM build (for Raspberry PIs and similar).
-* Added `KLINE` and `UNDLINE` commands. Complementing `KLINE`, this lets you ban masks from the server.
+* Added automated connection throttling! To enable this, copy the `connection-throttling` section from the config.
+* Added `KLINE` and `UNDLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
 
 ### Changed
+* Connection limits can now be freely enabled or disabled. To enable automated limit handling, see the new `enabled` flag in the config, under `connection-limits`.
 
 ### Removed
 
 ### Fixed
 * Fixed an issue where `UNDLINE` didn't save across server launches.
-* Removed several race conditions and made the server more resiliant to these bugs.
+* Removed several race conditions which could result in server panics.
 
 
 ## [0.5.0] - 2016-12-10

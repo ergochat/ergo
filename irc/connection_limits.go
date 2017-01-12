@@ -15,6 +15,7 @@ var (
 
 // ConnectionLimits manages the automated client connection limits.
 type ConnectionLimits struct {
+	enabled  bool
 	ipv4Mask net.IPMask
 	ipv6Mask net.IPMask
 	// subnetLimit is the maximum number of clients per subnet
@@ -44,6 +45,10 @@ func (cl *ConnectionLimits) maskAddr(addr net.IP) net.IP {
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
 // 'force' is used to add already-existing clients (i.e. ones that are already on the network).
 func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
+	if !cl.enabled {
+		return nil
+	}
+
 	// check exempted lists
 	// we don't track populations for exempted addresses or nets - this is by design
 	if cl.exemptedIPs[addr.String()] {
@@ -70,6 +75,10 @@ func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
 
 // RemoveClient removes the given address from our population
 func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
+	if !cl.enabled {
+		return
+	}
+
 	addrString := addr.String()
 	cl.population[addrString] = cl.population[addrString] - 1
 
@@ -82,6 +91,8 @@ func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
 // NewConnectionLimits returns a new connection limit handler.
 func NewConnectionLimits(config ConnectionLimitsConfig) (*ConnectionLimits, error) {
 	var cl ConnectionLimits
+	cl.enabled = config.Enabled
+
 	cl.population = make(map[string]int)
 	cl.exemptedIPs = make(map[string]bool)
 

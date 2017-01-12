@@ -28,7 +28,7 @@ import (
 
 var (
 	// cached because this may be used lots
-	tooManyClientsMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your IP or network")
+	tooManyClientsMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your network")
 	tooManyClientsBytes, _ = tooManyClientsMsg.Line()
 
 	bannedFromServerMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")
@@ -72,42 +72,44 @@ type ListenerEvent struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accountRegistration   *AccountRegistration
-	accounts              map[string]*ClientAccount
-	authenticationEnabled bool
-	channels              ChannelNameMap
-	checkIdent            bool
-	clients               *ClientLookupSet
-	commands              chan Command
-	configFilename        string
-	connectionLimits      *ConnectionLimits
-	connectionLimitsMutex sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
-	ctime                 time.Time
-	currentOpers          map[*Client]bool
-	dlines                *DLineManager
-	idle                  chan *Client
-	isupport              *ISupportList
-	klines                *KLineManager
-	limits                Limits
-	listenerEventActMutex sync.Mutex
-	listeners             map[string]ListenerInterface
-	listenerUpdateMutex   sync.Mutex
-	monitoring            map[string][]Client
-	motdLines             []string
-	name                  string
-	nameCasefolded        string
-	networkName           string
-	newConns              chan clientConn
-	operators             map[string]Oper
-	operclasses           map[string]OperClass
-	password              []byte
-	passwords             *PasswordManager
-	rehashMutex           sync.Mutex
-	rehashSignal          chan os.Signal
-	restAPI               *RestAPIConfig
-	signals               chan os.Signal
-	store                 *buntdb.DB
-	whoWas                *WhoWasList
+	accountRegistration     *AccountRegistration
+	accounts                map[string]*ClientAccount
+	authenticationEnabled   bool
+	channels                ChannelNameMap
+	checkIdent              bool
+	clients                 *ClientLookupSet
+	commands                chan Command
+	configFilename          string
+	connectionThrottle      *ConnectionThrottle
+	connectionThrottleMutex sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
+	connectionLimits        *ConnectionLimits
+	connectionLimitsMutex   sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
+	ctime                   time.Time
+	currentOpers            map[*Client]bool
+	dlines                  *DLineManager
+	idle                    chan *Client
+	isupport                *ISupportList
+	klines                  *KLineManager
+	limits                  Limits
+	listenerEventActMutex   sync.Mutex
+	listeners               map[string]ListenerInterface
+	listenerUpdateMutex     sync.Mutex
+	monitoring              map[string][]Client
+	motdLines               []string
+	name                    string
+	nameCasefolded          string
+	networkName             string
+	newConns                chan clientConn
+	operators               map[string]Oper
+	operclasses             map[string]OperClass
+	password                []byte
+	passwords               *PasswordManager
+	rehashMutex             sync.Mutex
+	rehashSignal            chan os.Signal
+	restAPI                 *RestAPIConfig
+	signals                 chan os.Signal
+	store                   *buntdb.DB
+	whoWas                  *WhoWasList
 }
 
 var (
@@ -157,6 +159,10 @@ func NewServer(configFilename string, config *Config) *Server {
 	if err != nil {
 		log.Fatal("Error loading connection limits:", err.Error())
 	}
+	connectionThrottle, err := NewConnectionThrottle(config.Server.ConnectionThrottle)
+	if err != nil {
+		log.Fatal("Error loading connection throttler:", err.Error())
+	}
 
 	server := &Server{
 		accounts:              make(map[string]*ClientAccount),
@@ -166,6 +172,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		commands:              make(chan Command),
 		configFilename:        configFilename,
 		connectionLimits:      connectionLimits,
+		connectionThrottle:    connectionThrottle,
 		ctime:                 time.Now(),
 		currentOpers:          make(map[*Client]bool),
 		idle:                  make(chan *Client),
@@ -399,6 +406,27 @@ func (server *Server) Run() {
 					// too many connections from one client, tell the client and close the connection
 					// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
 					conn.Conn.Write([]byte(tooManyClientsBytes))
+					conn.Conn.Close()
+					continue
+				}
+
+				// check connection throttle
+				server.connectionThrottleMutex.Lock()
+				err = server.connectionThrottle.AddClient(ipaddr)
+				server.connectionThrottleMutex.Unlock()
+				if err != nil {
+					// too many connections too quickly from client, tell them and close the connection
+					length := &IPRestrictTime{
+						Duration: server.connectionThrottle.BanDuration,
+						Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
+					}
+					server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
+
+					// reset ban on connectionThrottle
+					server.connectionThrottle.ResetFor(ipaddr)
+
+					// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+					conn.Conn.Write([]byte(server.connectionThrottle.BanMessageBytes))
 					conn.Conn.Close()
 					continue
 				}
@@ -1066,23 +1094,29 @@ func (server *Server) rehash() error {
 	config, err := LoadConfig(server.configFilename)
 
 	if err != nil {
-		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+		return fmt.Errorf("Error rehashing config file config: %s", err.Error())
 	}
 
 	// confirm connectionLimits are fine
 	connectionLimits, err := NewConnectionLimits(config.Server.ConnectionLimits)
 	if err != nil {
-		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+		return fmt.Errorf("Error rehashing config file connection-limits: %s", err.Error())
+	}
+
+	// confirm connectionThrottler is fine
+	connectionThrottle, err := NewConnectionThrottle(config.Server.ConnectionThrottle)
+	if err != nil {
+		return fmt.Errorf("Error rehashing config file connection-throttle: %s", err.Error())
 	}
 
 	// confirm operator stuff all exists and is fine
 	operclasses, err := config.OperatorClasses()
 	if err != nil {
-		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+		return fmt.Errorf("Error rehashing config file operclasses: %s", err.Error())
 	}
 	opers, err := config.Operators(operclasses)
 	if err != nil {
-		return fmt.Errorf("Error rehashing config file: %s", err.Error())
+		return fmt.Errorf("Error rehashing config file opers: %s", err.Error())
 	}
 	for client := range server.currentOpers {
 		_, exists := opers[client.operName]
@@ -1094,6 +1128,8 @@ func (server *Server) rehash() error {
 	// apply new connectionlimits
 	server.connectionLimitsMutex.Lock()
 	server.connectionLimits = connectionLimits
+	server.connectionThrottleMutex.Lock()
+	server.connectionThrottle = connectionThrottle
 
 	server.clients.ByNickMutex.RLock()
 	for _, client := range server.clients.ByNick {

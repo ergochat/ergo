@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -95,10 +96,24 @@ type RestAPIConfig struct {
 }
 
 type ConnectionLimitsConfig struct {
+	Enabled     bool
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
 	IPsPerCidr  int `yaml:"ips-per-subnet"`
 	Exempted    []string
+}
+
+type ConnectionThrottleConfig struct {
+	Enabled            bool
+	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6        int           `yaml:"cidr-len-ipv6"`
+	ConnectionsPerCidr int           `yaml:"max-connections"`
+	DurationString     string        `yaml:"duration"`
+	Duration           time.Duration `yaml:"duration-time"`
+	BanDurationString  string        `yaml:"ban-duration"`
+	BanDuration        time.Duration
+	BanMessage         string `yaml:"ban-message"`
+	Exempted           []string
 }
 
 type Config struct {
@@ -108,16 +123,17 @@ type Config struct {
 
 	Server struct {
 		PassConfig
-		Password         string
-		Name             string
-		Listen           []string
-		Wslisten         string                      `yaml:"ws-listen"`
-		TLSListeners     map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		RestAPI          RestAPIConfig               `yaml:"rest-api"`
-		CheckIdent       bool                        `yaml:"check-ident"`
-		Log              string
-		MOTD             string
-		ConnectionLimits ConnectionLimitsConfig `yaml:"connection-limits"`
+		Password           string
+		Name               string
+		Listen             []string
+		Wslisten           string                      `yaml:"ws-listen"`
+		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		RestAPI            RestAPIConfig               `yaml:"rest-api"`
+		CheckIdent         bool                        `yaml:"check-ident"`
+		Log                string
+		MOTD               string
+		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
+		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
 	}
 
 	Datastore struct {
@@ -308,6 +324,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
+	}
+	if config.Server.ConnectionThrottle.Enabled {
+		config.Server.ConnectionThrottle.Duration, err = time.ParseDuration(config.Server.ConnectionThrottle.DurationString)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse connection-throttle duration: %s", err.Error())
+		}
+		config.Server.ConnectionThrottle.BanDuration, err = time.ParseDuration(config.Server.ConnectionThrottle.BanDurationString)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
+		}
 	}
 
 	return config, nil

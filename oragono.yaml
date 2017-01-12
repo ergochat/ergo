@@ -51,6 +51,9 @@ server:
 
     # maximum number of connections per subnet
     connection-limits:
+        # whether to throttle limits or not
+        enabled: true
+
         # how wide the cidr should be for IPv4 
         cidr-len-ipv4: 24
 
@@ -59,6 +62,34 @@ server:
 
         # maximum number of IPs per subnet (defined above by the cird length)
         ips-per-subnet: 16
+
+        # IPs/networks which are exempted from connection limits
+        exempted:
+            - "127.0.0.1"
+            - "127.0.0.1/8"
+            - "::1/128"
+
+    # automated connection throttling
+    connection-throttling:
+        # whether to throttle connections or not
+        enabled: true
+
+        # how wide the cidr should be for IPv4 
+        cidr-len-ipv4: 32
+
+        # how wide the cidr should be for IPv6
+        cidr-len-ipv6: 128
+
+        # how long to keep track of connections for
+        duration: 10m
+
+        # maximum number of connections, per subnet, within the given duration
+        max-connections: 12
+
+        # how long to ban offenders for, and the message to use
+        # after banning them, the number of connections is reset (which lets you use UNDLINE to unban people)
+        ban-duration: 10m
+        ban-message: You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect.
 
         # IPs/networks which are exempted from connection limits
         exempted:
