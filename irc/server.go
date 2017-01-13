@@ -952,9 +952,10 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 func (client *Client) getWhoisOf(target *Client) {
 	client.Send(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
-	//TODO(dan): ...one channel per reply? really?
-	for _, line := range client.WhoisChannelsNames(target) {
-		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, line)
+
+	whoischannels := client.WhoisChannelsNames(target)
+	if whoischannels != nil {
+		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, fmt.Sprintf(": %s", strings.Join(whoischannels, " ")))
 	}
 	if target.class != nil {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
