@@ -37,7 +37,7 @@ var (
 	errDbOutOfDate = errors.New("Database schema is old.")
 )
 
-// Limits holds the maximum limits for various things such as topic lengths
+// Limits holds the maximum limits for various things such as topic lengths.
 type Limits struct {
 	AwayLen        int
 	ChannelLen     int
@@ -46,7 +46,13 @@ type Limits struct {
 	NickLen        int
 	TopicLen       int
 	ChanListModes  int
-	LineLen        int
+	LineLen        LineLenLimits
+}
+
+// LineLenLimits holds the maximum limits for IRC lines.
+type LineLenLimits struct {
+	Tags int
+	Rest int
 }
 
 // ListenerInterface represents an interface for a listener.
@@ -147,10 +153,9 @@ func NewServer(configFilename string, config *Config) *Server {
 		SupportedCapabilities[SASL] = true
 	}
 
-	if config.Limits.LineLen > 512 {
-		maxLineLength = int(config.Limits.LineLen)
+	if config.Limits.LineLen.Tags > 512 || config.Limits.LineLen.Rest > 512 {
 		SupportedCapabilities[MaxLine] = true
-		CapValues[MaxLine] = strconv.Itoa(int(config.Limits.LineLen))
+		CapValues[MaxLine] = fmt.Sprintf("%d,%d", config.Limits.LineLen.Tags, config.Limits.LineLen.Rest)
 	}
 
 	operClasses, err := config.OperatorClasses()
@@ -191,7 +196,10 @@ func NewServer(configFilename string, config *Config) *Server {
 			NickLen:        int(config.Limits.NickLen),
 			TopicLen:       int(config.Limits.TopicLen),
 			ChanListModes:  int(config.Limits.ChanListModes),
-			LineLen:        int(config.Limits.LineLen),
+			LineLen: LineLenLimits{
+				Tags: config.Limits.LineLen.Tags,
+				Rest: config.Limits.LineLen.Rest,
+			},
 		},
 		listeners:      make(map[string]ListenerInterface),
 		monitoring:     make(map[string][]Client),
@@ -1108,7 +1116,7 @@ func (server *Server) rehash() error {
 	}
 
 	// line lengths cannot be changed after launching the server
-	if maxLineLength != int(config.Limits.LineLen) {
+	if maxLineTagsLength != config.Limits.LineLen.Tags || maxLineRestLength != config.Limits.LineLen.Rest {
 		return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 	}
 

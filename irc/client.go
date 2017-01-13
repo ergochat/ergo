@@ -135,6 +135,21 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 // command goroutine
 //
 
+func (client *Client) maxlens() (int, int) {
+	maxlenTags := 512
+	maxlenRest := 512
+	if client.capabilities[MessageTags] {
+		maxlenTags = 4096
+	}
+	if client.capabilities[MaxLine] {
+		if maxLineTagsLength > maxlenTags {
+			maxlenTags = maxLineTagsLength
+		}
+		maxlenRest = maxLineRestLength
+	}
+	return maxlenTags, maxlenRest
+}
+
 func (client *Client) run() {
 	var err error
 	var isExiting bool
@@ -152,14 +167,9 @@ func (client *Client) run() {
 			break
 		}
 
-		var maxLen int
-		if client.capabilities[MaxLine] {
-			maxLen = maxLineLength
-		} else {
-			maxLen = 512
-		}
+		maxlenTags, maxlenRest := client.maxlens()
 
-		msg, err = ircmsg.ParseLineMaxLen(line, maxLen)
+		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
 		if err != nil {
 			client.Quit("received malformed line")
 			break
@@ -512,16 +522,10 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		}
 	}
 
-	var maxLen int
-	if client.capabilities[MaxLine] {
-		maxLen = maxLineLength
-	} else {
-		maxLen = 512
-	}
-
 	// send out the message
 	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	line, err := message.LineMaxLen(maxLen)
+	maxlenTags, maxlenRest := client.maxlens()
+	line, err := message.LineMaxLen(maxlenTags, maxlenRest)
 	if err != nil {
 		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
 		// log.Println("Error assembling message:")

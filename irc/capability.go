@@ -23,7 +23,7 @@ const (
 	ExtendedJoin    Capability = "extended-join"
 	InviteNotify    Capability = "invite-notify"
 	MaxLine         Capability = "draft/maxline"
-	MessageTags     Capability = "draft/message-tags"
+	MessageTags     Capability = "draft/message-tags-0.2"
 	MultiPrefix     Capability = "multi-prefix"
 	SASL            Capability = "sasl"
 	ServerTime      Capability = "server-time"

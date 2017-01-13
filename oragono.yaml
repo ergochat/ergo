@@ -204,4 +204,9 @@ limits:
     chan-list-modes: 60
 
     # maximum length of IRC lines
-    linelen: 2048
+    linelen:
+        # tags section
+        tags: 2048
+
+        # rest of the message
+        rest: 2048

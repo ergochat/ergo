@@ -116,6 +116,11 @@ type ConnectionThrottleConfig struct {
 	Exempted           []string
 }
 
+type LineLenConfig struct {
+	Tags int
+	Rest int
+}
+
 type Config struct {
 	Network struct {
 		Name string
@@ -151,15 +156,15 @@ type Config struct {
 	Opers map[string]*OperConfig
 
 	Limits struct {
-		AwayLen        uint `yaml:"awaylen"`
-		ChanListModes  uint `yaml:"chan-list-modes"`
-		ChannelLen     uint `yaml:"channellen"`
-		KickLen        uint `yaml:"kicklen"`
-		LineLen        uint `yaml:"linelen"`
-		MonitorEntries uint `yaml:"monitor-entries"`
-		NickLen        uint `yaml:"nicklen"`
-		TopicLen       uint `yaml:"topiclen"`
-		WhowasEntries  uint `yaml:"whowas-entries"`
+		AwayLen        uint          `yaml:"awaylen"`
+		ChanListModes  uint          `yaml:"chan-list-modes"`
+		ChannelLen     uint          `yaml:"channellen"`
+		KickLen        uint          `yaml:"kicklen"`
+		MonitorEntries uint          `yaml:"monitor-entries"`
+		NickLen        uint          `yaml:"nicklen"`
+		TopicLen       uint          `yaml:"topiclen"`
+		WhowasEntries  uint          `yaml:"whowas-entries"`
+		LineLen        LineLenConfig `yaml:"linelen"`
 	}
 }
 
@@ -336,7 +341,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
 		}
 	}
-	if config.Limits.LineLen < 512 {
+	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, errors.New("Line length must be 512 or greater")
 	}
 
