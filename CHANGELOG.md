@@ -22,6 +22,7 @@ New release of Oragono!
 ### Fixed
 * Fixed an issue where `UNDLINE` didn't save across server launches.
 * Removed several race conditions which could result in server panics.
+* WHOIS: Multiple channels now appear in a single reply (thanks @vegax87!).
 
 
 ## [0.5.0] - 2016-12-10
