@@ -389,7 +389,7 @@ Returns historical information on the last user with the given nickname.`,
 		text: `RPL_ISUPPORT CASEMAPPING
 
 Oragono supports an experimental unicode casemapping designed for extended
-Unicode support. This casemapping is based off RFC 7700 and the draft rfc7700
+Unicode support. This casemapping is based off RFC 7613 and the draft rfc7613
 casemapping spec here: http://oragono.io/specs.html`,
 	},
 	"prefix": {

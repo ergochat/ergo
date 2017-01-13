@@ -15,6 +15,7 @@ New release of Oragono!
 * Added `KLINE` and `UNKLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
 
 ### Changed
+* Changed casemapping from "rfc7700" to "rfc7613", to match new draft spec.
 * Connection limits can now be freely enabled or disabled. If updating, check the new `enabled` flag under the `connection-limits` section of the config.
 
 ### Removed
