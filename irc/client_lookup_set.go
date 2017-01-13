@@ -128,12 +128,11 @@ func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client)
 	clients.ByNickMutex.Lock()
 	defer clients.ByNickMutex.Unlock()
 
-	oldClient := clients.getNoMutex(newNick)
-	if oldClient != nil {
+	oldClient := clients.ByNick[newNick]
+	if oldClient == nil || oldClient == client {
+		// whoo
+	} else {
 		return ErrNicknameInUse
-	}
-	if oldClient != client {
-		return ErrNicknameMismatch
 	}
 
 	if oldNick == newNick {

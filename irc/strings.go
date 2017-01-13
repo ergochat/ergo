@@ -12,18 +12,22 @@ import (
 	"golang.org/x/text/secure/precis"
 )
 
+const (
+	casemappingName = "rfc7613"
+)
+
 var (
 	errInvalidCharacter = errors.New("Invalid character")
 )
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	return precis.Nickname.CompareKey(str)
+	return precis.UsernameCaseMapped.CompareKey(str)
 }
 
 // CasefoldChannel returns a casefolded version of a channel name.
 func CasefoldChannel(name string) (string, error) {
-	lowered, err := precis.Nickname.CompareKey(name)
+	lowered, err := Casefold(name)
 
 	if err != nil {
 		return "", err
@@ -47,7 +51,7 @@ func CasefoldChannel(name string) (string, error) {
 
 // CasefoldName returns a casefolded version of a nick/user name.
 func CasefoldName(name string) (string, error) {
-	lowered, err := precis.Nickname.CompareKey(name)
+	lowered, err := Casefold(name)
 
 	if err != nil {
 		return "", err

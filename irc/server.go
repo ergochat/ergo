@@ -305,7 +305,7 @@ func (server *Server) setISupport() {
 	// add RPL_ISUPPORT tokens
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
-	server.isupport.Add("CASEMAPPING", "rfc7700")
+	server.isupport.Add("CASEMAPPING", casemappingName)
 	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")

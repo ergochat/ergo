@@ -397,11 +397,11 @@ func (client *Client) SetNickname(nickname string) error {
 // ChangeNickname changes the existing nickname of the client.
 func (client *Client) ChangeNickname(nickname string) error {
 	origNickMask := client.nickMaskString
-	client.updateNickMask()
 	err := client.server.clients.Replace(client.nick, nickname, client)
 	if err == nil {
 		client.server.whoWas.Append(client)
 		client.nick = nickname
+		client.updateNickMask()
 		for friend := range client.Friends() {
 			friend.Send(nil, origNickMask, "NICK", nickname)
 		}
