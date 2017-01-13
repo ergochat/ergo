@@ -955,7 +955,7 @@ func (client *Client) getWhoisOf(target *Client) {
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
-		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, fmt.Sprintf(": %s", strings.Join(whoischannels, " ")))
+		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
 	}
 	if target.class != nil {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
