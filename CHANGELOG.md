@@ -11,11 +11,11 @@ New release of Oragono!
 
 ### Added
 * Added ARM build (for Raspberry PIs and similar).
-* Added automated connection throttling! To enable this, copy the `connection-throttling` section from the config.
+* Added automated connection throttling! See the new `connection-throttling` section in the config.
 * Added `KLINE` and `UNKLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
 
 ### Changed
-* Connection limits can now be freely enabled or disabled. To enable automated limit handling, see the new `enabled` flag in the config, under `connection-limits`.
+* Connection limits can now be freely enabled or disabled. If updating, check the new `enabled` flag under the `connection-limits` section of the config.
 
 ### Removed
 
