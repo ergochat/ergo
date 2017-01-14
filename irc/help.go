@@ -301,6 +301,12 @@ Gives the given user a new nickname.`,
 
 The SCENE command is used to send a scene notification to the given target.`,
 	},
+	"tagmsg": {
+		text: `@+client-only-tags TAGMSG <target>{,<target>}
+
+Sends the given client-only tags to the given targets as a TAGMSG. See the IRCv3
+specs for more info: http://ircv3.net/specs/core/message-tags-3.3.html`,
+	},
 	"quit": {
 		text: `QUIT [reason]
 

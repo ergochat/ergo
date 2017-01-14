@@ -371,17 +371,22 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
+// TagMsg sends a tag message to everyone in this channel who can accept them.
+func (channel *Channel) TagMsg(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client) {
+	channel.sendMessage("TAGMSG", []Capability{MessageTags}, minPrefix, clientOnlyTags, client, nil)
+}
+
 // PrivMsg sends a private message to everyone in this channel.
 func (channel *Channel) PrivMsg(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
-	channel.sendMessage("PRIVMSG", minPrefix, clientOnlyTags, client, message)
+	channel.sendMessage("PRIVMSG", nil, minPrefix, clientOnlyTags, client, &message)
 }
 
 // Notice sends a private message to everyone in this channel.
 func (channel *Channel) Notice(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
-	channel.sendMessage("NOTICE", minPrefix, clientOnlyTags, client, message)
+	channel.sendMessage("NOTICE", nil, minPrefix, clientOnlyTags, client, &message)
 }
 
-func (channel *Channel) sendMessage(cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
+func (channel *Channel) sendMessage(cmd string, requiredCaps []Capability, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -403,10 +408,29 @@ func (channel *Channel) sendMessage(cmd string, minPrefix *ChannelMode, clientOn
 		if member == client && !client.capabilities[EchoMessage] {
 			continue
 		}
+
+		canReceive := true
+		for _, capName := range requiredCaps {
+			if !member.capabilities[capName] {
+				canReceive = false
+			}
+		}
+		if !canReceive {
+			continue
+		}
+
 		if member.capabilities[MessageTags] {
-			member.SendFromClient(client, clientOnlyTags, client.nickMaskString, cmd, channel.name, message)
+			if message == nil {
+				member.SendFromClient(client, clientOnlyTags, client.nickMaskString, cmd, channel.name)
+			} else {
+				member.SendFromClient(client, clientOnlyTags, client.nickMaskString, cmd, channel.name, *message)
+			}
 		} else {
-			member.SendFromClient(client, nil, client.nickMaskString, cmd, channel.name, message)
+			if message == nil {
+				member.SendFromClient(client, nil, client.nickMaskString, cmd, channel.name)
+			} else {
+				member.SendFromClient(client, nil, client.nickMaskString, cmd, channel.name, *message)
+			}
 		}
 	}
 }

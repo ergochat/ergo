@@ -19,5 +19,9 @@ func GetClientOnlyTags(tags map[string]ircmsg.TagValue) *map[string]ircmsg.TagVa
 		}
 	}
 
+	if len(clientOnlyTags) < 1 {
+		return nil
+	}
+
 	return &clientOnlyTags
 }

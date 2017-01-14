@@ -338,7 +338,7 @@ func (server *Server) setISupport() {
 	server.isupport.Add("RPCHAN", "E")
 	server.isupport.Add("RPUSER", "E")
 	server.isupport.Add("STATUSMSG", "~&@%+")
-	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString))
+	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
@@ -953,6 +953,63 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			user.SendSplitMsgFromClient(client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			if client.capabilities[EchoMessage] {
 				client.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
+			}
+			if user.flags[Away] {
+				//TODO(dan): possibly implement cooldown of away notifications to users
+				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+			}
+		}
+	}
+	return false
+}
+
+// TAGMSG <target>{,<target>}
+func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	clientOnlyTags := GetClientOnlyTags(msg.Tags)
+	// no client-only tags, so we can drop it
+	if clientOnlyTags == nil {
+		return false
+	}
+
+	targets := strings.Split(msg.Params[0], ",")
+
+	for i, targetString := range targets {
+		// max of four targets per privmsg
+		if i > maxTargets-1 {
+			break
+		}
+		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+
+		// eh, no need to notify them
+		if len(targetString) < 1 {
+			continue
+		}
+
+		target, err := CasefoldChannel(targetString)
+		if err == nil {
+			channel := server.channels.Get(target)
+			if channel == nil {
+				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
+				continue
+			}
+			channel.TagMsg(lowestPrefix, clientOnlyTags, client)
+		} else {
+			target, err = CasefoldName(targetString)
+			user := server.clients.Get(target)
+			if err != nil || user == nil {
+				if len(target) > 0 {
+					client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+				}
+				continue
+			}
+			// end user can't receive tagmsgs
+			if !user.capabilities[MessageTags] {
+				continue
+			}
+			user.SendFromClient(client, clientOnlyTags, "TAGMSG", user.nick)
+			if client.capabilities[EchoMessage] {
+				client.SendFromClient(client, clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.flags[Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users

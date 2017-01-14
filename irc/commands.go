@@ -191,6 +191,10 @@ var Commands = map[string]Command{
 		handler:   sceneHandler,
 		minParams: 2,
 	},
+	"TAGMSG": {
+		handler:   tagmsgHandler,
+		minParams: 1,
+	},
 	"QUIT": {
 		handler:      quitHandler,
 		usablePreReg: true,
