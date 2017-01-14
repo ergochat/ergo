@@ -955,7 +955,8 @@ func (client *Client) getWhoisOf(target *Client) {
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
-		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
+		// the dodgy +" " hack here is to work around some silly clients that don't parse trailing params correctly. This forces last param to be a trailing always.
+		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " ")+" ")
 	}
 	if target.class != nil {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
