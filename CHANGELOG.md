@@ -14,7 +14,7 @@ New release of Oragono!
 * Added automated connection throttling! See the new `connection-throttling` section in the config.
 * Added `KLINE` and `UNKLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
 * Added `LUSERS` command (thanks @vegax87!).
-* Added draft IRCv3 capability [`draft/message-tags-0.2`](http://ircv3.net/specs/core/message-tags-3.3.html).
+* Added draft IRCv3 capabilities [`draft/message-tags-0.2`](http://ircv3.net/specs/core/message-tags-3.3.html) and [`draft/message-ids`](http://ircv3.net/specs/extensions/message-ids.html).
 * Added proposed IRCv3 capability [`draft/maxline`](https://github.com/ircv3/ircv3-specifications/pull/281).
 
 ### Changed
