@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -606,6 +607,11 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 	}()
 }
 
+// generateMessageID returns a network-unique message ID.
+func (server *Server) generateMessageID() string {
+	return fmt.Sprintf("%s-%s", strconv.FormatInt(time.Now().UTC().UnixNano(), 10), strconv.FormatInt(rand.Int63(), 10))
+}
+
 //
 // server functionality
 //
@@ -937,7 +943,8 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
-			channel.SplitPrivMsg(lowestPrefix, clientOnlyTags, client, splitMsg)
+			msgid := server.generateMessageID()
+			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -950,9 +957,10 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.SendSplitMsgFromClient(client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+			msgid := server.generateMessageID()
+			user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			if client.capabilities[EchoMessage] {
-				client.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
+				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.flags[Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
@@ -993,7 +1001,9 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
-			channel.TagMsg(lowestPrefix, clientOnlyTags, client)
+			msgid := server.generateMessageID()
+
+			channel.TagMsg(msgid, lowestPrefix, clientOnlyTags, client)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -1003,13 +1013,15 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				}
 				continue
 			}
+			msgid := server.generateMessageID()
+
 			// end user can't receive tagmsgs
 			if !user.capabilities[MessageTags] {
 				continue
 			}
-			user.SendFromClient(client, clientOnlyTags, "TAGMSG", user.nick)
+			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			if client.capabilities[EchoMessage] {
-				client.SendFromClient(client, clientOnlyTags, "TAGMSG", user.nick)
+				client.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.flags[Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
@@ -1210,7 +1222,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		originalHost := client.nickMaskString
 		client.vhost = server.operators[name].Vhost
 		for fClient := range client.Friends(ChgHost) {
-			fClient.SendFromClient(client, nil, originalHost, "CHGHOST", client.username, client.vhost)
+			fClient.SendFromClient("", client, nil, originalHost, "CHGHOST", client.username, client.vhost)
 		}
 		client.updateNickMask()
 	}
@@ -1449,9 +1461,9 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// dispatch away-notify
 	for friend := range client.Friends(AwayNotify) {
 		if client.flags[Away] {
-			friend.SendFromClient(client, nil, client.nickMaskString, "AWAY", client.awayMessage)
+			friend.SendFromClient("", client, nil, client.nickMaskString, "AWAY", client.awayMessage)
 		} else {
-			friend.SendFromClient(client, nil, client.nickMaskString, "AWAY")
+			friend.SendFromClient("", client, nil, client.nickMaskString, "AWAY")
 		}
 	}
 
@@ -1515,7 +1527,8 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			channel.SplitNotice(lowestPrefix, clientOnlyTags, client, splitMsg)
+			msgid := server.generateMessageID()
+			channel.SplitNotice(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
@@ -1530,9 +1543,10 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.SendSplitMsgFromClient(client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+			msgid := server.generateMessageID()
+			user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			if client.capabilities[EchoMessage] {
-				client.SendFromClient(client, clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
+				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 		}
 	}

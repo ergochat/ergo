@@ -498,25 +498,33 @@ func (client *Client) destroy() {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendSplitMsgFromClient(from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
+func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
 	if client.capabilities[MaxLine] {
-		client.SendFromClient(from, tags, from.nickMaskString, command, target, message.ForMaxLine)
+		client.SendFromClient(msgid, from, tags, from.nickMaskString, command, target, message.ForMaxLine)
 	} else {
 		for _, str := range message.For512 {
-			client.SendFromClient(from, tags, from.nickMaskString, command, target, str)
+			client.SendFromClient(msgid, from, tags, from.nickMaskString, command, target, str)
 		}
 	}
 }
 
 // SendFromClient sends an IRC line coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendFromClient(from *Client, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach account-tag
 	if client.capabilities[AccountTag] && from.account != &NoAccount {
 		if tags == nil {
 			tags = ircmsg.MakeTags("account", from.account.Name)
 		} else {
 			(*tags)["account"] = ircmsg.MakeTagValue(from.account.Name)
+		}
+	}
+	// attach message-id
+	if len(msgid) > 0 && client.capabilities[MessageIDs] {
+		if tags == nil {
+			tags = ircmsg.MakeTags("draft/msgid", msgid)
+		} else {
+			(*tags)["draft/msgid"] = ircmsg.MakeTagValue(msgid)
 		}
 	}
 

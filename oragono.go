@@ -8,7 +8,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"syscall"
+	"time"
 
 	"github.com/DanielOaks/oragono/irc"
 	"github.com/DanielOaks/oragono/mkcerts"
@@ -83,6 +85,7 @@ Options:
 		}
 	} else if arguments["run"].(bool) {
 		irc.Log.SetLevel(config.Server.Log)
+		rand.Seed(time.Now().UTC().UnixNano())
 		server := irc.NewServer(configfile, config)
 		if server == nil {
 			log.Println("Could not load server")
