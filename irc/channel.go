@@ -376,16 +376,6 @@ func (channel *Channel) TagMsg(msgid string, minPrefix *ChannelMode, clientOnlyT
 	channel.sendMessage(msgid, "TAGMSG", []Capability{MessageTags}, minPrefix, clientOnlyTags, client, nil)
 }
 
-// PrivMsg sends a private message to everyone in this channel.
-func (channel *Channel) PrivMsg(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
-	channel.sendMessage(msgid, "PRIVMSG", nil, minPrefix, clientOnlyTags, client, &message)
-}
-
-// Notice sends a private message to everyone in this channel.
-func (channel *Channel) Notice(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message string) {
-	channel.sendMessage(msgid, "NOTICE", nil, minPrefix, clientOnlyTags, client, &message)
-}
-
 func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
@@ -425,24 +415,24 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability
 		}
 
 		if message == nil {
-			member.SendFromClient(msgid, client, messageTagsToUse, client.nickMaskString, cmd, channel.name)
+			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
 		} else {
-			member.SendFromClient(msgid, client, messageTagsToUse, client.nickMaskString, cmd, channel.name, *message)
+			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
 		}
 	}
 }
 
 // SplitPrivMsg sends a private message to everyone in this channel.
 func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
-	channel.sendSplitMessage(msgid, "PRIVMSG", minPrefix, clientOnlyTags, client, message)
+	channel.sendSplitMessage(msgid, "PRIVMSG", minPrefix, clientOnlyTags, client, &message)
 }
 
 // SplitNotice sends a private message to everyone in this channel.
 func (channel *Channel) SplitNotice(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
-	channel.sendSplitMessage(msgid, "NOTICE", minPrefix, clientOnlyTags, client, message)
+	channel.sendSplitMessage(msgid, "NOTICE", minPrefix, clientOnlyTags, client, &message)
 }
 
-func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *SplitMessage) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -464,10 +454,15 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMo
 		if member == client && !client.capabilities[EchoMessage] {
 			continue
 		}
+		var tagsToUse *map[string]ircmsg.TagValue
 		if member.capabilities[MessageTags] {
-			member.SendSplitMsgFromClient(msgid, client, clientOnlyTags, cmd, channel.name, message)
+			tagsToUse = clientOnlyTags
+		}
+
+		if message == nil {
+			member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
 		} else {
-			member.SendSplitMsgFromClient(msgid, client, nil, cmd, channel.name, message)
+			member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
 		}
 	}
 }

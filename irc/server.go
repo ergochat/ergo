@@ -900,12 +900,12 @@ type SplitMessage struct {
 	ForMaxLine string
 }
 
-func (server *Server) splitMessage(original string) SplitMessage {
+func (server *Server) splitMessage(original string, origIs512 bool) SplitMessage {
 	var newSplit SplitMessage
 
 	newSplit.ForMaxLine = original
 
-	if len(original) > 400 {
+	if !origIs512 && len(original) > 400 {
 		newSplit.For512 = wordWrap(original, 400)
 	} else {
 		newSplit.For512 = []string{original}
@@ -921,7 +921,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message)
+	splitMsg := server.splitMessage(message, !client.capabilities[MaxLine])
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1219,11 +1219,11 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// push new vhost if one is set
 	if len(server.operators[name].Vhost) > 0 {
-		originalHost := client.nickMaskString
-		client.vhost = server.operators[name].Vhost
 		for fClient := range client.Friends(ChgHost) {
-			fClient.SendFromClient("", client, nil, originalHost, "CHGHOST", client.username, client.vhost)
+			fClient.SendFromClient("", client, nil, "CHGHOST", client.username, server.operators[name].Vhost)
 		}
+		// CHGHOST requires prefix nickmask to have original hostname, so do that before updating nickmask
+		client.vhost = server.operators[name].Vhost
 		client.updateNickMask()
 	}
 
@@ -1461,9 +1461,9 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// dispatch away-notify
 	for friend := range client.Friends(AwayNotify) {
 		if client.flags[Away] {
-			friend.SendFromClient("", client, nil, client.nickMaskString, "AWAY", client.awayMessage)
+			friend.SendFromClient("", client, nil, "AWAY", client.awayMessage)
 		} else {
-			friend.SendFromClient("", client, nil, client.nickMaskString, "AWAY")
+			friend.SendFromClient("", client, nil, "AWAY")
 		}
 	}
 
@@ -1510,7 +1510,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message)
+	splitMsg := server.splitMessage(message, !client.capabilities[MaxLine])
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg

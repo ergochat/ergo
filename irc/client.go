@@ -510,7 +510,7 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 
 // SendFromClient sends an IRC line coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
 	if client.capabilities[AccountTag] && from.account != &NoAccount {
 		if tags == nil {
@@ -528,7 +528,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 		}
 	}
 
-	return client.Send(tags, prefix, command, params...)
+	return client.Send(tags, from.nickMaskString, command, params...)
 }
 
 // Send sends an IRC line to the client.
