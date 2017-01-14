@@ -411,6 +411,46 @@ func (channel *Channel) sendMessage(cmd string, minPrefix *ChannelMode, clientOn
 	}
 }
 
+// SplitPrivMsg sends a private message to everyone in this channel.
+func (channel *Channel) SplitPrivMsg(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+	channel.sendSplitMessage("PRIVMSG", minPrefix, clientOnlyTags, client, message)
+}
+
+// SplitNotice sends a private message to everyone in this channel.
+func (channel *Channel) SplitNotice(minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+	channel.sendSplitMessage("NOTICE", minPrefix, clientOnlyTags, client, message)
+}
+
+func (channel *Channel) sendSplitMessage(cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+	if !channel.CanSpeak(client) {
+		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
+		return
+	}
+
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
+	// for STATUSMSG
+	var minPrefixMode ChannelMode
+	if minPrefix != nil {
+		minPrefixMode = *minPrefix
+	}
+	for member := range channel.members {
+		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
+			// STATUSMSG
+			continue
+		}
+		if member == client && !client.capabilities[EchoMessage] {
+			continue
+		}
+		if member.capabilities[MessageTags] {
+			member.SendSplitMsgFromClient(client, clientOnlyTags, cmd, channel.name, message)
+		} else {
+			member.SendSplitMsgFromClient(client, nil, cmd, channel.name, message)
+		}
+	}
+}
+
 func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 	op ModeOp) bool {
 	if !channel.ClientIsAtLeast(client, ChannelOperator) {

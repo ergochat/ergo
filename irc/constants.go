@@ -16,9 +16,6 @@ var (
 	// Ver is the full version of Oragono, used in responses to clients.
 	Ver = fmt.Sprintf("oragono-%s", SemVer)
 
-	// Used as the standard maximum line length unless overridden at runtime.
-	maxLineTagsLength = 512
-	maxLineRestLength = 512
 	// maxLastArgLength is used to simply cap off the final argument when creating general messages where we need to select a limit.
 	// for instance, in MONITOR lists, RPL_ISUPPORT lists, etc.
 	maxLastArgLength = 400

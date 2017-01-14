@@ -142,10 +142,10 @@ func (client *Client) maxlens() (int, int) {
 		maxlenTags = 4096
 	}
 	if client.capabilities[MaxLine] {
-		if maxLineTagsLength > maxlenTags {
-			maxlenTags = maxLineTagsLength
+		if client.server.limits.LineLen.Tags > maxlenTags {
+			maxlenTags = client.server.limits.LineLen.Tags
 		}
-		maxlenRest = maxLineRestLength
+		maxlenRest = client.server.limits.LineLen.Rest
 	}
 	return maxlenTags, maxlenRest
 }
@@ -493,6 +493,18 @@ func (client *Client) destroy() {
 	for friend := range friends {
 		//TODO(dan): store quit message in user, if exists use that instead here
 		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
+	}
+}
+
+// SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
+// Adds account-tag to the line as well.
+func (client *Client) SendSplitMsgFromClient(from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
+	if client.capabilities[MaxLine] {
+		client.SendFromClient(from, tags, from.nickMaskString, command, target, message.ForMaxLine)
+	} else {
+		for _, str := range message.For512 {
+			client.SendFromClient(from, tags, from.nickMaskString, command, target, str)
+		}
 	}
 }
 

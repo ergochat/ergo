@@ -847,11 +847,75 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// func wordWrap(text string, lineWidth int) []string {
+// 	var split []string
+// 	var cache, cacheLastWord string
+
+// 	for _, char := range text {
+// 		if char == " " {
+// 			cache += cacheLastWord + char
+// 			continue
+// 		}
+
+// 		cacheLastWord += char
+// 		if cache + cacheLastWord ==
+
+// 		if len(cacheLastWord) >= lineWidth
+// 	}
+// }
+
+// taken from https://gist.github.com/kennwhite/306317d81ab4a885a965e25aa835b8ef
+func wordWrap(text string, lineWidth int) []string {
+	var split []string
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return split
+	}
+	cache := words[0]
+	spaceLeft := lineWidth - len(cache)
+	for _, word := range words[1:] {
+		if len(word)+1 > spaceLeft {
+			split = append(split, cache)
+			cache = word
+			spaceLeft = lineWidth - len(word)
+		} else {
+			cache += " " + word
+			spaceLeft -= 1 + len(word)
+		}
+	}
+	split = append(split, cache)
+
+	return split
+}
+
+// SplitMessage represents a message that's been split for sending.
+type SplitMessage struct {
+	For512     []string
+	ForMaxLine string
+}
+
+func (server *Server) splitMessage(original string) SplitMessage {
+	var newSplit SplitMessage
+
+	newSplit.ForMaxLine = original
+
+	if len(original) > 400 {
+		newSplit.For512 = wordWrap(original, 400)
+	} else {
+		newSplit.For512 = []string{original}
+	}
+
+	return newSplit
+}
+
 // PRIVMSG <target>{,<target>} <message>
 func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	clientOnlyTags := GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
+
+	// split privmsg
+	splitMsg := server.splitMessage(message)
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -873,7 +937,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
-			channel.PrivMsg(lowestPrefix, clientOnlyTags, client, message)
+			channel.SplitPrivMsg(lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -886,7 +950,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
+			user.SendSplitMsgFromClient(client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			if client.capabilities[EchoMessage] {
 				client.SendFromClient(client, clientOnlyTags, client.nickMaskString, "PRIVMSG", user.nick, message)
 			}
@@ -1116,7 +1180,7 @@ func (server *Server) rehash() error {
 	}
 
 	// line lengths cannot be changed after launching the server
-	if maxLineTagsLength != config.Limits.LineLen.Tags || maxLineRestLength != config.Limits.LineLen.Rest {
+	if server.limits.LineLen.Tags != config.Limits.LineLen.Tags || server.limits.LineLen.Rest != config.Limits.LineLen.Rest {
 		return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 	}
 
@@ -1376,6 +1440,9 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
+	// split privmsg
+	splitMsg := server.splitMessage(message)
+
 	for i, targetString := range targets {
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
@@ -1391,7 +1458,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			channel.Notice(lowestPrefix, clientOnlyTags, client, message)
+			channel.SplitNotice(lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
@@ -1406,7 +1473,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.capabilities[MessageTags] {
 				clientOnlyTags = nil
 			}
-			user.SendFromClient(client, clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
+			user.SendSplitMsgFromClient(client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			if client.capabilities[EchoMessage] {
 				client.SendFromClient(client, clientOnlyTags, client.nickMaskString, "NOTICE", user.nick, message)
 			}
