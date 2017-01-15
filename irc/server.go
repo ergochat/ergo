@@ -1680,16 +1680,15 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // LUSERS [ <mask> [ <target> ] ]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	//TODO(vegax87) Fix Unknown connections and additional parameters
-
+	//TODO(vegax87) Fix Unknown connections,network statistics and additional parameters
 	var totalcount int
 	var invisiblecount int
 	var opercount int
 	var chancount int
-
+	
 	server.clients.ByNickMutex.RLock()
 	defer server.clients.ByNickMutex.RUnlock()
-
+	
 	for _, onlineusers := range server.clients.ByNick {
 		totalcount += 1
 		if onlineusers.flags[Invisible] {
@@ -1699,7 +1698,6 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			opercount += 1
 		}
 	}
-
 	for chans := range server.channels {
 		//Little hack just to avoid "variable declared but not used" error
 		_ = chans
@@ -1707,7 +1705,7 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf("There are %d users and %d invisible on %d server(s)", totalcount, invisiblecount, 1))
 	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d operators online", opercount))
-	client.Send(nil, server.name, RPL_LUSERUNKNOWN, client.nick, "X unknown connection(s)")
+	client.Send(nil, server.name, RPL_LUSERUNKNOWN, client.nick, "X unknown connection(s)") //placeholder
 	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", chancount))
 	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf("I have %d clients and %d servers", totalcount, 1))
 	return false
