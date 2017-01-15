@@ -13,6 +13,8 @@ New release of Oragono!
 * Added ARM build (for Raspberry PIs and similar).
 * Added automated connection throttling! See the new `connection-throttling` section in the config.
 * Added `KLINE` and `UNKLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
+
+
 * Added LUSERS command. It works for a single server for now (by @vegax87)
 
 ### Changed
