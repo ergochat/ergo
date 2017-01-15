@@ -116,6 +116,10 @@ var Commands = map[string]Command{
 		handler:   listHandler,
 		minParams: 0,
 	},
+	"LUSERS": {
+		handler:   lusersHandler,
+		minParams: 0,
+	},
 	"MODE": {
 		handler:   modeHandler,
 		minParams: 1,
