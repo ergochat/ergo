@@ -1678,30 +1678,28 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// LUSERS [ <mask> [ <target> ] ]
+// LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
 	var totalcount int
 	var invisiblecount int
 	var opercount int
 	var chancount int
-	
+
 	server.clients.ByNickMutex.RLock()
 	defer server.clients.ByNickMutex.RUnlock()
-	
+
 	for _, onlineusers := range server.clients.ByNick {
-		totalcount += 1
+		totalcount++
 		if onlineusers.flags[Invisible] {
-			invisiblecount += 1
+			invisiblecount++
 		}
 		if onlineusers.flags[Operator] {
-			opercount += 1
+			opercount++
 		}
 	}
-	for chans := range server.channels {
-		//Little hack just to avoid "variable declared but not used" error
-		_ = chans
-		chancount += 1
+	for range server.channels {
+		chancount++
 	}
 	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf("There are %d users and %d invisible on %d server(s)", totalcount, invisiblecount, 1))
 	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d operators online", opercount))

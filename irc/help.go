@@ -190,13 +190,11 @@ channels). <elistcond>s modify how the channels are selected.`,
 		//TODO(dan): Explain <elistcond>s in more specific detail
 	},
 	"lusers": {
-		text: `LUSERS [ <mask> [ <target> ] ]
+		text: `LUSERS [<mask> [<server>]]
 
-Returns statistics about the size of the network.
-If called with no arguments, the statistics will reflect the entire network. 
-If <mask> is given, it will return only statistics reflecting the masked subset of the network. 
-If <target> is given, the command will be forwarded to <server> for evaluation.`,
-		//TODO(vegax87): Include network statistics and parameters
+Shows statistics about the size of the network. If <mask> is given, only
+returns stats for servers matching the given mask.  If <server> is given, the
+command is processed by that server.`,
 	},
 	"mode": {
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
