@@ -2,6 +2,8 @@
 
 Most development happens on the `develop` branch, which is occasionally rebased + merged into `master` when it's not incredibly broken. When this happens, the `develop` branch is usually pruned until I feel like making 'unsafe' changes again.
 
+I may also name the branch `develop+feature` if I'm developing multiple, or particularly unstable, features.
+
 The intent is to keep `master` relatively stable.
 
 
