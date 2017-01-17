@@ -342,7 +342,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
-		return nil, errors.New("Line length must be 512 or greater")
+		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	}
 
 	return config, nil

@@ -204,6 +204,7 @@ limits:
     chan-list-modes: 60
 
     # maximum length of IRC lines
+    # this should generally be 1024-2048, and will only apply when negotiated by clients
     linelen:
         # tags section
         tags: 2048
