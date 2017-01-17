@@ -853,45 +853,34 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// func wordWrap(text string, lineWidth int) []string {
-// 	var split []string
-// 	var cache, cacheLastWord string
-
-// 	for _, char := range text {
-// 		if char == " " {
-// 			cache += cacheLastWord + char
-// 			continue
-// 		}
-
-// 		cacheLastWord += char
-// 		if cache + cacheLastWord ==
-
-// 		if len(cacheLastWord) >= lineWidth
-// 	}
-// }
-
-// taken from https://gist.github.com/kennwhite/306317d81ab4a885a965e25aa835b8ef
 func wordWrap(text string, lineWidth int) []string {
-	var split []string
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return split
-	}
-	cache := words[0]
-	spaceLeft := lineWidth - len(cache)
-	for _, word := range words[1:] {
-		if len(word)+1 > spaceLeft {
-			split = append(split, cache)
-			cache = word
-			spaceLeft = lineWidth - len(word)
+	var lines []string
+	var cacheLine, cacheWord string
+
+	for _, char := range text {
+		if (char == ' ' || char == '-') && len(cacheLine)+len(cacheWord)+1 < lineWidth {
+			cacheLine += cacheWord + string(char)
+			cacheWord = ""
+		} else if len(cacheLine)+len(cacheWord)+1 >= lineWidth {
+			if len(cacheLine) < (lineWidth / 2) {
+				// there must be a really long word or something, just split on word boundary
+				cacheLine += cacheWord + string(char)
+				cacheWord = ""
+			}
+			lines = append(lines, cacheLine)
+			cacheLine = ""
 		} else {
-			cache += " " + word
-			spaceLeft -= 1 + len(word)
+			cacheWord += string(char)
 		}
 	}
-	split = append(split, cache)
+	if len(cacheWord) > 0 {
+		cacheLine += cacheWord
+	}
+	if len(cacheLine) > 0 {
+		lines = append(lines, cacheLine)
+	}
 
-	return split
+	return lines
 }
 
 // SplitMessage represents a message that's been split for sending.
@@ -905,7 +894,7 @@ func (server *Server) splitMessage(original string, origIs512 bool) SplitMessage
 
 	newSplit.ForMaxLine = original
 
-	if !origIs512 && len(original) > 400 {
+	if !origIs512 {
 		newSplit.For512 = wordWrap(original, 400)
 	} else {
 		newSplit.For512 = []string{original}

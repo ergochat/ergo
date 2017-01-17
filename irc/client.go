@@ -500,10 +500,10 @@ func (client *Client) destroy() {
 // Adds account-tag to the line as well.
 func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
 	if client.capabilities[MaxLine] {
-		client.SendFromClient(msgid, from, tags, from.nickMaskString, command, target, message.ForMaxLine)
+		client.SendFromClient(msgid, from, tags, command, target, message.ForMaxLine)
 	} else {
 		for _, str := range message.For512 {
-			client.SendFromClient(msgid, from, tags, from.nickMaskString, command, target, str)
+			client.SendFromClient(msgid, from, tags, command, target, str)
 		}
 	}
 }
