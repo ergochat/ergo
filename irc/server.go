@@ -1681,10 +1681,7 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
-	var totalcount int
-	var invisiblecount int
-	var opercount int
-	var chancount int
+	var totalcount, invisiblecount, opercount int
 
 	server.clients.ByNickMutex.RLock()
 	defer server.clients.ByNickMutex.RUnlock()
@@ -1698,12 +1695,9 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			opercount++
 		}
 	}
-	for range server.channels {
-		chancount++
-	}
 	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf("There are %d users and %d invisible on %d server(s)", totalcount, invisiblecount, 1))
 	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d operators online", opercount))
-	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", chancount))
+	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", len(server.channels)))
 	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf("I have %d clients and %d servers", totalcount, 1))
 	return false
 }
