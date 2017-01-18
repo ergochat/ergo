@@ -170,7 +170,9 @@ func (client *Client) run() {
 		maxlenTags, maxlenRest := client.maxlens()
 
 		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
-		if err != nil {
+		if err == ircmsg.ErrorLineIsEmpty {
+			continue
+		} else if err != nil {
 			client.Quit("received malformed line")
 			break
 		}
@@ -429,7 +431,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 func (client *Client) Quit(message string) {
 	if !client.quitMessageSent {
 		client.Send(nil, client.nickMaskString, "QUIT", message)
-		client.Send(nil, client.nickMaskString, "ERROR", message)
+		client.Send(nil, "", "ERROR", message)
 		client.quitMessageSent = true
 	}
 }
