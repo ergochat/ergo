@@ -4,16 +4,21 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.6.0] - 2017-01-19
+We've added a ton of new features in this release! Automated connection throttling, the ability to `KLINE`, updated casemapping and line-length specifications.
 
-### Security
+I've also started including a new section in the changelog called **Config Changes**, which should help you find what you need to update across releases.
+
+### Config Changes
+* `enabled` key added under the `connection-limits` section.
+* `connection-throttling` section added under `server`.
+* `linelen` section added under `limits`.
 
 ### Added
 * Added ARM build (for Raspberry PIs and similar).
 * Added automated connection throttling! See the new `connection-throttling` section in the config.
 * Added `KLINE` and `UNKLINE` commands. Complementing `DLINE`'s per-IP and per-network bans, this lets you ban masks from the server.
-* Added `LUSERS` command (thanks @vegax87!).
+* Added `LUSERS` command (thanks @vegax87).
 * Added draft IRCv3 capabilities [`draft/message-tags-0.2`](http://ircv3.net/specs/core/message-tags-3.3.html) and [`draft/message-ids`](http://ircv3.net/specs/extensions/message-ids.html).
 * Added proposed IRCv3 capability [`draft/maxline`](https://github.com/ircv3/ircv3-specifications/pull/281).
 
@@ -21,12 +26,10 @@ New release of Oragono!
 * Changed casemapping from "rfc7700" to "rfc7613", to match new draft spec.
 * Connection limits can now be freely enabled or disabled. If updating, check the new `enabled` flag under the `connection-limits` section of the config.
 
-### Removed
-
 ### Fixed
 * Fixed an issue where `UNDLINE` didn't save across server launches.
 * Removed several race conditions which could result in server panics.
-* WHOIS: Multiple channels now appear in a single reply (thanks @vegax87!).
+* WHOIS: Multiple channels now appear in a single reply (thanks @vegax87).
 
 
 ## [0.5.0] - 2016-12-10
