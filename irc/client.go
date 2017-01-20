@@ -534,18 +534,16 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 	return client.Send(tags, from.nickMaskString, command, params...)
 }
 
+var (
+	// these are all the output commands that MUST have their last param be a trailing
+	commandsThatMustUseTrailing = map[string]bool{
+		"PRIVMSG": true,
+		"NOTICE":  true,
+	}
+)
+
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
-	return client.send(false, tags, prefix, command, params...)
-}
-
-// SendForceTrailing sends an IRC line to the client, forcing the last param to be a trailing.
-// This is a hack. However, there are clients that treat special chars differently.
-func (client *Client) SendForceTrailing(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
-	return client.send(true, tags, prefix, command, params...)
-}
-
-func (client *Client) send(forceTrailing bool, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
 	if client.capabilities[ServerTime] {
 		if tags == nil {
@@ -557,7 +555,7 @@ func (client *Client) send(forceTrailing bool, tags *map[string]ircmsg.TagValue,
 
 	// force trailing
 	var usedSpaceHack bool
-	if forceTrailing && len(params) > 0 {
+	if commandsThatMustUseTrailing[strings.ToUpper(command)] && len(params) > 0 {
 		lastParam := params[len(params)-1]
 		if !strings.Contains(lastParam, " ") {
 			params[len(params)-1] = lastParam + " "
