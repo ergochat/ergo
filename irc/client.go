@@ -12,6 +12,7 @@ import (
 	"net"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
@@ -535,12 +536,32 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+	return client.send(false, tags, prefix, command, params...)
+}
+
+// SendForceTrailing sends an IRC line to the client, forcing the last param to be a trailing.
+// This is a hack. However, there are clients that treat special chars differently.
+func (client *Client) SendForceTrailing(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
+	return client.send(true, tags, prefix, command, params...)
+}
+
+func (client *Client) send(forceTrailing bool, tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
 	if client.capabilities[ServerTime] {
 		if tags == nil {
 			tags = ircmsg.MakeTags("time", time.Now().Format("2006-01-02T15:04:05.999Z"))
 		} else {
 			(*tags)["time"] = ircmsg.MakeTagValue(time.Now().Format("2006-01-02T15:04:05.999Z"))
+		}
+	}
+
+	// force trailing
+	var usedSpaceHack bool
+	if forceTrailing && len(params) > 0 {
+		lastParam := params[len(params)-1]
+		if !strings.Contains(lastParam, " ") {
+			params[len(params)-1] = lastParam + " "
+			usedSpaceHack = true
 		}
 	}
 
@@ -559,6 +580,12 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		client.socket.Write(line)
 		return err
 	}
+
+	// strip space hack if we used it
+	if usedSpaceHack {
+		line = line[:len(line)-3] + "\r\n"
+	}
+
 	client.socket.Write(line)
 	return nil
 }
