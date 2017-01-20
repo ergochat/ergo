@@ -11,6 +11,7 @@ Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for a si
 ---
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/DanielOaks/oragono)](https://goreportcard.com/report/github.com/DanielOaks/oragono)
+[![Freenode #oragono](https://img.shields.io/badge/Freenode-%23oragono-1e72ff.svg?style=flat)](https://www.irccloud.com/invite?channel=%23oragono&hostname=irc.freenode.net&port=6697&ssl=1)
 
 ---
 
