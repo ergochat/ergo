@@ -1,0 +1,45 @@
+[submodule "vendor/github.com/docopt/docopt-go"]
+	path = vendor/github.com/docopt/docopt-go
+	url = https://github.com/docopt/docopt-go
+[submodule "vendor/golang.org/x/crypto"]
+	path = vendor/golang.org/x/crypto
+	url = https://go.googlesource.com/crypto
+[submodule "vendor/github.com/DanielOaks/girc-go"]
+	path = vendor/github.com/DanielOaks/girc-go
+	url = https://github.com/DanielOaks/girc-go
+[submodule "vendor/github.com/DanielOaks/e-nfa"]
+	path = vendor/github.com/DanielOaks/e-nfa
+	url = https://github.com/DanielOaks/e-nfa
+[submodule "vendor/github.com/DanielOaks/go-ident"]
+	path = vendor/github.com/DanielOaks/go-ident
+	url = https://github.com/DanielOaks/go-ident
+[submodule "vendor/github.com/gorilla/mux"]
+	path = vendor/github.com/gorilla/mux
+	url = https://github.com/gorilla/mux
+[submodule "vendor/github.com/gorilla/websocket"]
+	path = vendor/github.com/gorilla/websocket
+	url = https://github.com/gorilla/websocket
+[submodule "vendor/github.com/tidwall/buntdb"]
+	path = vendor/github.com/tidwall/buntdb
+	url = https://github.com/tidwall/buntdb
+[submodule "vendor/github.com/tidwall/btree"]
+	path = vendor/github.com/tidwall/btree
+	url = https://github.com/tidwall/btree
+[submodule "vendor/github.com/tidwall/gjson"]
+	path = vendor/github.com/tidwall/gjson
+	url = https://github.com/tidwall/gjson
+[submodule "vendor/github.com/tidwall/match"]
+	path = vendor/github.com/tidwall/match
+	url = https://github.com/tidwall/match
+[submodule "vendor/github.com/tidwall/grect"]
+	path = vendor/github.com/tidwall/grect
+	url = https://github.com/tidwall/grect
+[submodule "vendor/github.com/tidwall/rtree"]
+	path = vendor/github.com/tidwall/rtree
+	url = https://github.com/tidwall/rtree
+[submodule "vendor/golang.org/x/text"]
+	path = vendor/golang.org/x/text
+	url = https://go.googlesource.com/text
+[submodule "vendor/gopkg.in/yaml.v2"]
+	path = vendor/gopkg.in/yaml.v2
+	url = https://gopkg.in/yaml.v2
