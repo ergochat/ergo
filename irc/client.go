@@ -535,10 +535,14 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 }
 
 var (
-	// these are all the output commands that MUST have their last param be a trailing
+	// these are all the output commands that MUST have their last param be a trailing.
+	// this is needed because silly clients like to treat trailing as separate from the
+	// other params in messages.
 	commandsThatMustUseTrailing = map[string]bool{
 		"PRIVMSG": true,
 		"NOTICE":  true,
+
+		RPL_WHOISCHANNELS: true,
 	}
 )
 
