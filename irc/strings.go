@@ -18,6 +18,7 @@ const (
 
 var (
 	errInvalidCharacter = errors.New("Invalid character")
+	errEmpty            = errors.New("String is empty")
 )
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
@@ -31,6 +32,8 @@ func CasefoldChannel(name string) (string, error) {
 
 	if err != nil {
 		return "", err
+	} else if len(lowered) == 0 {
+		return "", errEmpty
 	}
 
 	if lowered[0] != '#' {
@@ -55,6 +58,8 @@ func CasefoldName(name string) (string, error) {
 
 	if err != nil {
 		return "", err
+	} else if len(lowered) == 0 {
+		return "", errEmpty
 	}
 
 	// space can't be used
