@@ -1679,7 +1679,7 @@ func (target *Client) RplList(channel *Channel) {
 		}
 	}
 
-	target.Send(nil, target.server.name, RPL_LIST, target.nick, channel.name, string(memberCount), channel.topic)
+	target.Send(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
 }
 
 // NAMES [<channel>{,<channel>}]
