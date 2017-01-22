@@ -187,6 +187,11 @@ var Commands = map[string]Command{
 		minParams: 2,
 		oper:      true,
 	},
+	"SAMODE": {
+		handler:   modeHandler,
+		minParams: 1,
+		capabs:    []string{"samode"},
+	},
 	"SCENE": {
 		handler:   sceneHandler,
 		minParams: 2,

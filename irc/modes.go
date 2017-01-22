@@ -263,9 +263,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	//TODO(dan): restricting to Operator here should be done with SAMODE only
-	// point SAMODE at this handler too, if they are operator and SAMODE was called then fine
-	if client != target && !client.flags[Operator] {
+	if client != target && msg.Command != "SAMODE" {
 		if len(msg.Params) > 1 {
 			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't change modes for other users")
 		} else {
@@ -420,7 +418,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		for _, change := range changes {
 			// chan priv modes are checked specially so ignore them
 			// means regular users can't view ban/except lists... but I'm not worried about that
-			if ChannelModePrefixes[change.mode] == "" && !clientIsOp {
+			if msg.Command != "SAMODE" && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
 				if !alreadySentPrivError {
 					alreadySentPrivError = true
 					client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
@@ -512,19 +510,23 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// make sure client has privs to edit the given prefix
 				var hasPrivs bool
 
-				for _, mode := range ChannelPrivModes {
-					if channel.members[client][mode] {
-						hasPrivs = true
+				if msg.Command == "SAMODE" {
+					hasPrivs = true
+				} else {
+					for _, mode := range ChannelPrivModes {
+						if channel.members[client][mode] {
+							hasPrivs = true
 
-						// Admins can't give other people Admin or remove it from others,
-						// standard for that channel mode, we worry about this later
-						if mode == ChannelAdmin && change.mode == ChannelAdmin {
-							hasPrivs = false
+							// Admins can't give other people Admin or remove it from others,
+							// standard for that channel mode, we worry about this later
+							if mode == ChannelAdmin && change.mode == ChannelAdmin {
+								hasPrivs = false
+							}
+
+							break
+						} else if mode == change.mode {
+							break
 						}
-
-						break
-					} else if mode == change.mode {
-						break
 					}
 				}
 

@@ -296,6 +296,14 @@ Sends the text to the given targets as a PRIVMSG.`,
 
 Gives the given user a new nickname.`,
 	},
+	"samode": {
+		oper: true,
+		text: `SAMODE <target> [<modestring> [<mode arguments>...]]
+
+Forcibly sets and removes modes from the given target -- only available to
+opers. For more specific information on mode characters, see the help for
+"cmode" and "umode".`,
+	},
 	"scene": {
 		text: `SCENE <target> <text to be sent>
 
