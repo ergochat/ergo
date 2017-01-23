@@ -3,6 +3,11 @@
 
 package irc
 
+import (
+	"strings"
+	"unicode"
+)
+
 // argsToStrings takes the arguments and splits them into a series of strings,
 // each argument separated by delim and each string bounded by maxLength.
 func argsToStrings(maxLength int, arguments []string, delim string) []string {
@@ -32,4 +37,16 @@ func argsToStrings(maxLength int, arguments []string, delim string) []string {
 	}
 
 	return messages
+}
+
+// stripSpaces removes all whitespaces inside a string
+func stripSpaces(str string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			// if the character is a space, drop it
+			return -1
+		}
+		// else keep it in the string
+		return r
+	}, str)
 }

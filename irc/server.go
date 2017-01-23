@@ -1843,12 +1843,13 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf("There are %d users and %d invisible on %d server(s)", totalcount, invisiblecount, 1))
-	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d operators online", opercount))
+	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d IRC Operators online", opercount))
 	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", len(server.channels)))
 	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf("I have %d clients and %d servers", totalcount, 1))
 	return false
 }
 
+// USERHOST <nickname> [<nickname> <nickname> ...]
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname := msg.Params[0]
 
@@ -1860,9 +1861,9 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	}
 
 	if target.flags[Away] {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf(strings.TrimSpace("%s =- %s @ %s"), target.nick, target.username, target.hostname))
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s =- %s @ %s", target.nick, target.username, target.hostname))
 	} else {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf(strings.TrimSpace("%s =+ %s @ %s"), target.nick, target.username, target.hostname))
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s =- %s @ %s", target.nick, target.username, target.hostname))
 	}
 	return false
 }
