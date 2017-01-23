@@ -1848,3 +1848,21 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf("I have %d clients and %d servers", totalcount, 1))
 	return false
 }
+
+func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	nickname := msg.Params[0]
+
+	casefoldedNickname, err := CasefoldName(nickname)
+	target := server.clients.Get(casefoldedNickname)
+	if err != nil || target == nil {
+		client.Send(nil, client.server.name, ERR_NOSUCHNICK, nickname, "No such nick")
+		return false
+	}
+
+	if target.flags[Away] {
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf(strings.TrimSpace("%s =- %s @ %s"), target.nick, target.username, target.hostname))
+	} else {
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf(strings.TrimSpace("%s =+ %s @ %s"), target.nick, target.username, target.hostname))
+	}
+	return false
+}

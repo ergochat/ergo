@@ -12,6 +12,7 @@ New release of Oragono!
 ### Security
  
 ### Added
+* Added `USERHOST` command (thanks @vegax87).
  
 ### Changed
  

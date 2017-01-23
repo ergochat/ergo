@@ -238,6 +238,10 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    4,
 	},
+	"USERHOST": {
+		handler:   userhostHandler,
+		minParams: 1,
+	},
 	"VERSION": {
 		handler:   versionHandler,
 		minParams: 0,
