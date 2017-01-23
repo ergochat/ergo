@@ -1861,9 +1861,9 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	}
 
 	if target.flags[Away] {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s =- %s @ %s", target.nick, target.username, target.hostname))
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s=-%s@%s", target.nick, target.username, target.hostname))
 	} else {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s =+ %s @ %s", target.nick, target.username, target.hostname))
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s=+%s@%s", target.nick, target.username, target.hostname))
 	}
 	return false
 }

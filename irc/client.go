@@ -543,6 +543,7 @@ var (
 		"NOTICE":  true,
 
 		RPL_WHOISCHANNELS: true,
+		RPL_USERHOST: true,
 	}
 )
 
