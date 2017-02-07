@@ -550,10 +550,11 @@ var (
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
 	if client.capabilities[ServerTime] {
+		t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
 		if tags == nil {
-			tags = ircmsg.MakeTags("time", time.Now().Format("2006-01-02T15:04:05.999Z"))
+			tags = ircmsg.MakeTags("time", t)
 		} else {
-			(*tags)["time"] = ircmsg.MakeTagValue(time.Now().Format("2006-01-02T15:04:05.999Z"))
+			(*tags)["time"] = ircmsg.MakeTagValue(t)
 		}
 	}
 
