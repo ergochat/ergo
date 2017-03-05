@@ -35,7 +35,7 @@ var (
 	bannedFromServerMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")
 	bannedFromServerBytes, _ = bannedFromServerMsg.Line()
 
-	errDbOutOfDate = errors.New("Database schema is old.")
+	errDbOutOfDate = errors.New("Database schema is old")
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -367,6 +367,7 @@ func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
 	channel.lists[maskMode].AddAll(strings.Split(list, " "))
 }
 
+// Shutdown shuts down the server.
 func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
 	server.clients.ByNickMutex.RLock()
@@ -651,6 +652,7 @@ func (server *Server) tryRegister(c *Client) {
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
 }
 
+// MOTD serves the Message of the Day.
 func (server *Server) MOTD(client *Client) {
 	if len(server.motdLines) < 1 {
 		client.Send(nil, server.name, ERR_NOMOTD, client.nick, "MOTD File is missing")
@@ -662,14 +664,6 @@ func (server *Server) MOTD(client *Client) {
 		client.Send(nil, server.name, RPL_MOTD, client.nick, line)
 	}
 	client.Send(nil, server.name, RPL_ENDOFMOTD, client.nick, "End of MOTD command")
-}
-
-func (server *Server) Id() string {
-	return server.name
-}
-
-func (server *Server) Nick() string {
-	return server.Id()
 }
 
 //
@@ -1021,6 +1015,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// WhoisChannelsNames returns the common channel names between two users.
 func (client *Client) WhoisChannelsNames(target *Client) []string {
 	isMultiPrefix := target.capabilities[MultiPrefix]
 	var chstrs []string
@@ -1104,6 +1099,7 @@ func (client *Client) getWhoisOf(target *Client) {
 	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
 }
 
+// RplWhoReply returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
 func (target *Client) RplWhoReply(channel *Channel, client *Client) {
@@ -1673,7 +1669,7 @@ func (target *Client) RplList(channel *Channel) {
 	} else {
 		for member := range channel.members {
 			if !member.flags[Invisible] {
-				memberCount += 1
+				memberCount++
 			}
 		}
 	}
