@@ -371,8 +371,9 @@ Used in connection registration, sets your username and realname to the given
 values (though your username may also be looked up with Ident).`,
 	},
 	"userhost": {
-		text: `Show the nick, user and host of a user. Normally only used by the client or in scripts.
-Note: if you are not an IRCOp then it will show a cloaked hostname if the user is +x (and it's not yourself). `,
+		text: `USERHOST <nickname>{ <nickname>}
+		
+Shows information about the given users. Takes up to 10 nicknames.`,
 	},
 	"version": {
 		text: `VERSION [server]

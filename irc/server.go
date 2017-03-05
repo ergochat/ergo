@@ -339,7 +339,7 @@ func (server *Server) setISupport() {
 	server.isupport.Add("RPCHAN", "E")
 	server.isupport.Add("RPUSER", "E")
 	server.isupport.Add("STATUSMSG", "~&@%+")
-	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
+	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
@@ -1851,19 +1851,38 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // USERHOST <nickname> [<nickname> <nickname> ...]
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	nickname := msg.Params[0]
+	returnedNicks := make(map[string]bool)
 
-	casefoldedNickname, err := CasefoldName(nickname)
-	target := server.clients.Get(casefoldedNickname)
-	if err != nil || target == nil {
-		client.Send(nil, client.server.name, ERR_NOSUCHNICK, nickname, "No such nick")
-		return false
+	for i, nickname := range msg.Params {
+		if i >= 10 {
+			break
+		}
+
+		casefoldedNickname, err := CasefoldName(nickname)
+		target := server.clients.Get(casefoldedNickname)
+		if err != nil || target == nil {
+			client.Send(nil, client.server.name, ERR_NOSUCHNICK, nickname, "No such nick")
+			return false
+		}
+		if returnedNicks[casefoldedNickname] {
+			continue
+		}
+
+		// to prevent returning multiple results for a single nick
+		returnedNicks[casefoldedNickname] = true
+
+		var isOper, isAway string
+
+		if target.flags[Operator] {
+			isOper = "*"
+		}
+		if target.flags[Away] {
+			isAway = "-"
+		} else {
+			isAway = "+"
+		}
+		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s%s=%s%s@%s", target.nick, isOper, isAway, target.username, target.hostname))
 	}
 
-	if target.flags[Away] {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s=-%s@%s", target.nick, target.username, target.hostname))
-	} else {
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s=+%s@%s", target.nick, target.username, target.hostname))
-	}
 	return false
 }
