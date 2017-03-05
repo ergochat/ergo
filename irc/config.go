@@ -145,10 +145,9 @@ type Config struct {
 		Path string
 	}
 
-	AuthenticationEnabled bool `yaml:"authentication-enabled"`
-
-	Registration struct {
-		Accounts AccountRegistrationConfig
+	Accounts struct {
+		Registration          AccountRegistrationConfig
+		AuthenticationEnabled bool `yaml:"authentication-enabled"`
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`

@@ -80,44 +80,44 @@ type ListenerEvent struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accountRegistration     *AccountRegistration
-	accounts                map[string]*ClientAccount
-	authenticationEnabled   bool
-	channels                ChannelNameMap
-	checkIdent              bool
-	clients                 *ClientLookupSet
-	commands                chan Command
-	configFilename          string
-	connectionThrottle      *ConnectionThrottle
-	connectionThrottleMutex sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
-	connectionLimits        *ConnectionLimits
-	connectionLimitsMutex   sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
-	ctime                   time.Time
-	currentOpers            map[*Client]bool
-	dlines                  *DLineManager
-	idle                    chan *Client
-	isupport                *ISupportList
-	klines                  *KLineManager
-	limits                  Limits
-	listenerEventActMutex   sync.Mutex
-	listeners               map[string]ListenerInterface
-	listenerUpdateMutex     sync.Mutex
-	monitoring              map[string][]Client
-	motdLines               []string
-	name                    string
-	nameCasefolded          string
-	networkName             string
-	newConns                chan clientConn
-	operators               map[string]Oper
-	operclasses             map[string]OperClass
-	password                []byte
-	passwords               *PasswordManager
-	rehashMutex             sync.Mutex
-	rehashSignal            chan os.Signal
-	restAPI                 *RestAPIConfig
-	signals                 chan os.Signal
-	store                   *buntdb.DB
-	whoWas                  *WhoWasList
+	accountRegistration          *AccountRegistration
+	accounts                     map[string]*ClientAccount
+	accountAuthenticationEnabled bool
+	channels                     ChannelNameMap
+	checkIdent                   bool
+	clients                      *ClientLookupSet
+	commands                     chan Command
+	configFilename               string
+	connectionThrottle           *ConnectionThrottle
+	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
+	connectionLimits             *ConnectionLimits
+	connectionLimitsMutex        sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
+	ctime                        time.Time
+	currentOpers                 map[*Client]bool
+	dlines                       *DLineManager
+	idle                         chan *Client
+	isupport                     *ISupportList
+	klines                       *KLineManager
+	limits                       Limits
+	listenerEventActMutex        sync.Mutex
+	listeners                    map[string]ListenerInterface
+	listenerUpdateMutex          sync.Mutex
+	monitoring                   map[string][]Client
+	motdLines                    []string
+	name                         string
+	nameCasefolded               string
+	networkName                  string
+	newConns                     chan clientConn
+	operators                    map[string]Oper
+	operclasses                  map[string]OperClass
+	password                     []byte
+	passwords                    *PasswordManager
+	rehashMutex                  sync.Mutex
+	rehashSignal                 chan os.Signal
+	restAPI                      *RestAPIConfig
+	signals                      chan os.Signal
+	store                        *buntdb.DB
+	whoWas                       *WhoWasList
 }
 
 var (
@@ -150,7 +150,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		}
 	}
 
-	if config.AuthenticationEnabled {
+	if config.Accounts.AuthenticationEnabled {
 		SupportedCapabilities[SASL] = true
 	}
 
@@ -178,17 +178,17 @@ func NewServer(configFilename string, config *Config) *Server {
 	}
 
 	server := &Server{
-		accounts:              make(map[string]*ClientAccount),
-		authenticationEnabled: config.AuthenticationEnabled,
-		channels:              make(ChannelNameMap),
-		clients:               NewClientLookupSet(),
-		commands:              make(chan Command),
-		configFilename:        configFilename,
-		connectionLimits:      connectionLimits,
-		connectionThrottle:    connectionThrottle,
-		ctime:                 time.Now(),
-		currentOpers:          make(map[*Client]bool),
-		idle:                  make(chan *Client),
+		accounts:                     make(map[string]*ClientAccount),
+		accountAuthenticationEnabled: config.Accounts.AuthenticationEnabled,
+		channels:                     make(ChannelNameMap),
+		clients:                      NewClientLookupSet(),
+		commands:                     make(chan Command),
+		configFilename:               configFilename,
+		connectionLimits:             connectionLimits,
+		connectionThrottle:           connectionThrottle,
+		ctime:                        time.Now(),
+		currentOpers:                 make(map[*Client]bool),
+		idle:                         make(chan *Client),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
 			ChannelLen:     int(config.Limits.ChannelLen),
@@ -297,7 +297,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	}
 
 	// registration
-	accountReg := NewAccountRegistration(config.Registration.Accounts)
+	accountReg := NewAccountRegistration(config.Accounts.Registration)
 	server.accountRegistration = &accountReg
 
 	// Attempt to clean up when receiving these signals.
@@ -1286,17 +1286,17 @@ func (server *Server) rehash() error {
 	removedCaps := make(CapabilitySet)
 
 	// SASL
-	if config.AuthenticationEnabled && !server.authenticationEnabled {
+	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
 		// enabling SASL
 		SupportedCapabilities[SASL] = true
 		addedCaps[SASL] = true
 	}
-	if !config.AuthenticationEnabled && server.authenticationEnabled {
+	if !config.Accounts.AuthenticationEnabled && server.accountAuthenticationEnabled {
 		// disabling SASL
 		SupportedCapabilities[SASL] = false
 		removedCaps[SASL] = true
 	}
-	server.authenticationEnabled = config.AuthenticationEnabled
+	server.accountAuthenticationEnabled = config.Accounts.AuthenticationEnabled
 
 	// burst new and removed caps
 	var capBurstClients ClientSet
@@ -1336,7 +1336,7 @@ func (server *Server) rehash() error {
 	server.checkIdent = config.Server.CheckIdent
 
 	// registration
-	accountReg := NewAccountRegistration(config.Registration.Accounts)
+	accountReg := NewAccountRegistration(config.Accounts.Registration)
 	server.accountRegistration = &accountReg
 
 	// set RPL_ISUPPORT

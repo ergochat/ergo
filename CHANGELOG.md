@@ -8,7 +8,8 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
  
 ### Config Changes
- 
+* `registration` and `authentication-enabled` keys moved under `accounts` section.
+
 ### Security
  
 ### Added
