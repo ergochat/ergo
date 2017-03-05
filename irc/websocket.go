@@ -12,8 +12,8 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
 	// If a WS session contains sensitive information, and you choose to use
 	// cookies for authentication (during the HTTP(S) upgrade request), then
 	// you should check that Origin is a domain under your control. If it
