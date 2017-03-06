@@ -14,10 +14,8 @@ import (
 type LogLevel int
 
 const (
-	// LogErr is an error value.
-	LogErr LogLevel = iota
 	// LogDebug represents debug messages.
-	LogDebug
+	LogDebug LogLevel = iota
 	// LogInfo represents informational messages.
 	LogInfo
 	// LogWarn represents warnings.
@@ -64,8 +62,32 @@ type Logger struct {
 }
 
 // NewLogger returns a new Logger.
-func NewLogger(config LoggingConfig) (*Logger, error) {
-	return nil, fmt.Errorf("Not implemented")
+func NewLogger(config []LoggingConfig) (*Logger, error) {
+	var logger Logger
+
+	for _, logConfig := range config {
+		sLogger := SingleLogger{
+			MethodSTDERR: logConfig.Methods["stderr"],
+			MethodFile: fileMethod{
+				Enabled:  logConfig.Methods["file"],
+				Filename: logConfig.Filename,
+			},
+			Level:         logConfig.Level,
+			Types:         logConfig.Types,
+			ExcludedTypes: logConfig.ExcludedTypes,
+		}
+		if sLogger.MethodFile.Enabled {
+			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_APPEND, 0666)
+			if err != nil {
+				return nil, fmt.Errorf("Could not open log file %s [%s]", sLogger.MethodFile.Filename, err.Error())
+			}
+			writer := bufio.NewWriter(file)
+			sLogger.MethodFile.File = file
+			sLogger.MethodFile.Writer = writer
+		}
+	}
+
+	return &logger, nil
 }
 
 // Log logs the given message with the given details.
@@ -75,15 +97,17 @@ func (logger *Logger) Log(level LogLevel, logType, object, message string) {
 	}
 }
 
+type fileMethod struct {
+	Enabled  bool
+	Filename string
+	File     *os.File
+	Writer   *bufio.Writer
+}
+
 // SingleLogger represents a single logger instance.
 type SingleLogger struct {
-	MethodSTDERR bool
-	MethodFile   struct {
-		Enabled  bool
-		Filename string
-		File     os.File
-		Writer   bufio.Writer
-	}
+	MethodSTDERR  bool
+	MethodFile    fileMethod
 	Level         LogLevel
 	Types         map[string]bool
 	ExcludedTypes map[string]bool
