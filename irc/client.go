@@ -170,7 +170,7 @@ func (client *Client) run() {
 
 		maxlenTags, maxlenRest := client.maxlens()
 
-		client.server.logger.Log(LogDebug, "userinput ", client.nick, " ->", line)
+		client.server.logger.Log(LogDebug, "userinput ", client.nick, "<- ", line)
 
 		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
 		if err == ircmsg.ErrorLineIsEmpty {
@@ -595,7 +595,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		line = line[:len(line)-3] + "\r\n"
 	}
 
-	client.server.logger.Log(LogDebug, "useroutput", client.nick, "<- ", strings.TrimRight(line, "\r\n"))
+	client.server.logger.Log(LogDebug, "useroutput", client.nick, " ->", strings.TrimRight(line, "\r\n"))
 
 	client.socket.Write(line)
 	return nil
