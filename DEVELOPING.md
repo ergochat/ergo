@@ -7,6 +7,20 @@ I may also name the branch `develop+feature` if I'm developing multiple, or part
 The intent is to keep `master` relatively stable.
 
 
+## Updating `vendor/`
+
+The `vendor/` directory holds our dependencies. When we import new pages, we need to update this folder to contain these new deps.
+
+To update this folder:
+
+1. Install https://github.com/dpw/vendetta
+2. `cd` to Oragono folder
+3. `vendetta -u -p`
+4. Commit the result with the message `"vendor: Updated submodules"`
+
+This will make sure things stay nice and up-to-date for users.
+
+
 ## Fuzzing and Testing
 
 Fuzzing can be useful. We don't have testing done inside the IRCd itself, but this fuzzer I've written works alright and has helped shake out various bugs: [irc_fuzz.py](https://gist.github.com/DanielOaks/63ae611039cdf591dfa4).
