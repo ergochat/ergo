@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/mgutz/ansi"
 )
 
 // LogLevel represents the level to log messages at.
@@ -139,11 +141,29 @@ func (logger *SingleLogger) Log(level LogLevel, logType, object, message string)
 	}
 
 	// assemble full line
-	fullString := fmt.Sprintf("%s : %s : %s : %s : %s", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], logType, object, message)
+	grey := ansi.ColorFunc("8")
+	alert := ansi.ColorFunc("232+b:red")
+	warn := ansi.ColorFunc("black:214")
+	info := ansi.ColorFunc("33")
+	debug := ansi.ColorFunc("78")
+
+	levelDisplay := logLevelDisplayNames[level]
+	if level == LogError {
+		levelDisplay = alert(levelDisplay)
+	} else if level == LogWarn {
+		levelDisplay = warn(levelDisplay)
+	} else if level == LogInfo {
+		levelDisplay = info(levelDisplay)
+	} else if level == LogDebug {
+		levelDisplay = debug(levelDisplay)
+	}
+
+	fullStringFormatted := fmt.Sprintf("%s  %s : %s : %s : %s", grey(time.Now().UTC().Format("2006-01-02T15:04:05Z")), levelDisplay, logType, object, message)
+	fullString := fmt.Sprintf("%s  %s : %s : %s : %s", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], logType, object, message)
 
 	// output
 	if logger.MethodSTDERR {
-		fmt.Fprintln(os.Stderr, fullString)
+		fmt.Fprintln(os.Stderr, fullStringFormatted)
 	}
 	if logger.MethodFile.Enabled {
 		logger.MethodFile.Writer.WriteString(fullString + "\n")
