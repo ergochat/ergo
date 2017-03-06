@@ -9,6 +9,7 @@ New release of Oragono!
  
 ### Config Changes
 * `registration` and `authentication-enabled` keys moved under `accounts` section.
+* `logging` key under `server` removed, replaced with `logging` section.
 
 ### Security
  

@@ -42,9 +42,6 @@ server:
     # generated using  "oragono genpasswd"
     #password: ""
 
-    # log level, one of error, warn, info, debug
-    log: debug
-
     # motd filename
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
@@ -172,6 +169,37 @@ opers:
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu
+
+# logging, takes inspiration from Insp
+logging:
+    -
+        # how to log these messages
+        #
+        #   file    log to given target filename
+        #   stderr  log to stderr
+        method: file stderr
+
+        # filename to log to, if file method is selected
+        filename: ircd.log
+
+        # type(s) of logs to keep here. you can use - to exclude those types
+        #
+        # exclusions take precedent over inclusions, so if you exclude a type it will NEVER
+        # be logged, even if you explicitly include it
+        #
+        # useful types include:
+        #   *               everything (usually used with exclusing some types below)
+        #   accounts        account registration and authentication
+        #   channels        channel creation and operations
+        #   commands        command calling and operations
+        #   opers           oper actions, authentication, etc
+        #   password        password hashing and comparing
+        #   userinput       raw lines sent by users
+        #   useroutput      raw lines sent to users
+        type: "* -userinput -useroutput"
+
+        # one of: debug info warn error
+        level: warn
 
 # datastore configuration
 datastore:
