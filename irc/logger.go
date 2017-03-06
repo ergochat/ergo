@@ -34,6 +34,12 @@ var (
 		"error":    LogError,
 		"errors":   LogError,
 	}
+	logLevelDisplayNames = map[LogLevel]string{
+		LogDebug: "debug",
+		LogInfo:  "info",
+		LogWarn:  "warning",
+		LogError: "error",
+	}
 )
 
 // ClientLogger is a logger dedicated to a single client. This is a convenience class that
@@ -77,7 +83,7 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 			ExcludedTypes: logConfig.ExcludedTypes,
 		}
 		if sLogger.MethodFile.Enabled {
-			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_APPEND, 0666)
+			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 			if err != nil {
 				return nil, fmt.Errorf("Could not open log file %s [%s]", sLogger.MethodFile.Filename, err.Error())
 			}
@@ -85,6 +91,7 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 			sLogger.MethodFile.File = file
 			sLogger.MethodFile.Writer = writer
 		}
+		logger.loggers = append(logger.loggers, sLogger)
 	}
 
 	return &logger, nil
@@ -132,7 +139,7 @@ func (logger *SingleLogger) Log(level LogLevel, logType, object, message string)
 	}
 
 	// assemble full line
-	fullString := fmt.Sprintf("%s : %s : %s : %s", time.Now().UTC().Format("2006-01-02T15:04:05.999Z"), logType, object, message)
+	fullString := fmt.Sprintf("%s : %s : %s : %s : %s", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], logType, object, message)
 
 	// output
 	if logger.MethodSTDERR {

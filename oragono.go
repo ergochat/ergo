@@ -43,6 +43,11 @@ Options:
 		log.Fatal("Config file did not load successfully:", err.Error())
 	}
 
+	logger, err := irc.NewLogger(config.Logging)
+	if err != nil {
+		log.Fatal("Logger did not load successfully:", err.Error())
+	}
+
 	if arguments["genpasswd"].(bool) {
 		fmt.Print("Enter Password: ")
 		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -52,7 +57,7 @@ Options:
 		password := string(bytePassword)
 		encoded, err := irc.GenerateEncodedPassword(password)
 		if err != nil {
-			log.Fatalln("encoding error:", err)
+			log.Fatal("encoding error:", err.Error())
 		}
 		fmt.Print("\n")
 		fmt.Println(encoded)
@@ -84,16 +89,15 @@ Options:
 			}
 		}
 	} else if arguments["run"].(bool) {
-		irc.Log.SetLevel(config.Server.Log)
 		rand.Seed(time.Now().UTC().UnixNano())
-		server := irc.NewServer(configfile, config)
-		if server == nil {
-			log.Println("Could not load server")
+		server, err := irc.NewServer(configfile, config, logger)
+		if err != nil {
+			logger.Log(irc.LogError, "startup", "server", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			log.Println(fmt.Sprintf("Oragono v%s running", irc.SemVer))
-			defer log.Println(irc.SemVer, "exiting")
+			logger.Log(irc.LogInfo, "startup", "server", fmt.Sprintf("Oragono v%s running", irc.SemVer))
+			defer logger.Log(irc.LogInfo, "shutdown", "server", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}

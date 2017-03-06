@@ -402,7 +402,7 @@ func (client *Client) AllNickmasks() []string {
 // SetNickname sets the very first nickname for the client.
 func (client *Client) SetNickname(nickname string) error {
 	if client.HasNick() {
-		Log.error.Printf("%s nickname already set!", client.nickMaskString)
+		client.server.logger.Log(LogError, "nick", client.nick, fmt.Sprintf("%s nickname already set, something is wrong with server consistency", client.nickMaskString))
 		return ErrNickAlreadySet
 	}
 
@@ -543,7 +543,7 @@ var (
 		"NOTICE":  true,
 
 		RPL_WHOISCHANNELS: true,
-		RPL_USERHOST: true,
+		RPL_USERHOST:      true,
 	}
 )
 

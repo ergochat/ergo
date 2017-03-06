@@ -136,18 +136,17 @@ type clientConn struct {
 }
 
 // NewServer returns a new Oragono server.
-func NewServer(configFilename string, config *Config) *Server {
+func NewServer(configFilename string, config *Config, logger *Logger) (*Server, error) {
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
-		log.Println(fmt.Sprintf("Server name isn't valid: [%s]", config.Server.Name), err.Error())
-		return nil
+		return nil, fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
 	}
 
 	// startup check that we have HELP entries for every command
 	for name := range Commands {
 		_, exists := Help[strings.ToLower(name)]
 		if !exists {
-			log.Fatal("Help entry does not exist for ", name)
+			return nil, fmt.Errorf("Help entry does not exist for command %s", name)
 		}
 	}
 
@@ -162,20 +161,20 @@ func NewServer(configFilename string, config *Config) *Server {
 
 	operClasses, err := config.OperatorClasses()
 	if err != nil {
-		log.Fatal("Error loading oper classes:", err.Error())
+		return nil, fmt.Errorf("Error loading oper classes: %s", err.Error())
 	}
 	opers, err := config.Operators(operClasses)
 	if err != nil {
-		log.Fatal("Error loading operators:", err.Error())
+		return nil, fmt.Errorf("Error loading operators: %s", err.Error())
 	}
 
 	connectionLimits, err := NewConnectionLimits(config.Server.ConnectionLimits)
 	if err != nil {
-		log.Fatal("Error loading connection limits:", err.Error())
+		return nil, fmt.Errorf("Error loading connection limits: %s", err.Error())
 	}
 	connectionThrottle, err := NewConnectionThrottle(config.Server.ConnectionThrottle)
 	if err != nil {
-		log.Fatal("Error loading connection throttler:", err.Error())
+		return nil, fmt.Errorf("Error loading connection throttler: %s", err.Error())
 	}
 
 	server := &Server{
@@ -204,6 +203,7 @@ func NewServer(configFilename string, config *Config) *Server {
 			},
 		},
 		listeners:      make(map[string]ListenerInterface),
+		logger:         logger,
 		monitoring:     make(map[string][]Client),
 		name:           config.Server.Name,
 		nameCasefolded: casefoldedName,
@@ -221,7 +221,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	// open data store
 	db, err := buntdb.Open(config.Datastore.Path)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+		return nil, fmt.Errorf("Failed to open datastore: %s", err.Error())
 	}
 	server.store = db
 
@@ -229,7 +229,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	err = server.store.View(func(tx *buntdb.Tx) error {
 		version, _ := tx.Get(keySchemaVersion)
 		if version != latestDbSchema {
-			log.Println(fmt.Sprintf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version))
+			logger.Log(LogError, "startup", "server", fmt.Sprintf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version))
 			return errDbOutOfDate
 		}
 		return nil
@@ -237,7 +237,7 @@ func NewServer(configFilename string, config *Config) *Server {
 	if err != nil {
 		// close the db
 		db.Close()
-		return nil
+		return nil, errDbOutOfDate
 	}
 
 	// load *lines
@@ -261,7 +261,7 @@ func NewServer(configFilename string, config *Config) *Server {
 		return nil
 	})
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Could not load salt: %s", err.Error()))
+		return nil, fmt.Errorf("Could not load salt: %s", err.Error())
 	}
 
 	if config.Server.MOTD != "" {
@@ -309,11 +309,11 @@ func NewServer(configFilename string, config *Config) *Server {
 
 	// start API if enabled
 	if server.restAPI.Enabled {
-		Log.info.Printf("%s rest API started on %s .", server.name, server.restAPI.Listen)
+		logger.Log(LogInfo, "startup", "server", fmt.Sprintf("%s rest API started on %s.", server.name, server.restAPI.Listen))
 		server.startRestAPI()
 	}
 
-	return server
+	return server, nil
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
@@ -378,7 +378,7 @@ func (server *Server) Shutdown() {
 	server.clients.ByNickMutex.RUnlock()
 
 	if err := server.store.Close(); err != nil {
-		Log.error.Println("Server.Shutdown store.Close: error:", err)
+		server.logger.Log(LogError, "shutdown", "db", fmt.Sprintln("Server.Shutdown store.Close: error:", err))
 	}
 }
 
@@ -398,7 +398,7 @@ func (server *Server) Run() {
 			// eventually we expect to use HUP to reload config
 			err := server.rehash()
 			if err != nil {
-				Log.error.Println("Failed to rehash:", err.Error())
+				server.logger.Log(LogError, "rehash", "server", fmt.Sprintln("Failed to rehash:", err.Error()))
 			}
 
 		case conn := <-server.newConns:
@@ -497,7 +497,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 	server.listeners[addr] = li
 
 	// start listening
-	Log.info.Printf("%s listening on %s using %s.", server.name, addr, tlsString)
+	server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
 
 	// setup accept goroutine
 	go func() {
@@ -549,7 +549,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 					server.listenerUpdateMutex.Unlock()
 
 					// print notice
-					Log.info.Printf("%s updated listener %s using %s.", server.name, addr, tlsString)
+					server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
 				}
 			default:
 				// no events waiting for us, fall-through and continue
@@ -565,7 +565,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			Log.error.Printf("%s method not allowed", server.name)
+			server.logger.Log(LogError, "ws", addr, fmt.Sprintf("%s method not allowed", r.Method))
 			return
 		}
 
@@ -578,7 +578,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			Log.error.Printf("%s websocket upgrade error: %s", server.name, err)
+			server.logger.Log(LogError, "ws", addr, fmt.Sprintf("%s websocket upgrade error: %s", server.name, err))
 			return
 		}
 
@@ -596,7 +596,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 		if listenTLS {
 			tlsString = "TLS"
 		}
-		Log.info.Printf("%s websocket listening on %s using %s.", server.name, addr, tlsString)
+		server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("websocket listening on %s using %s.", addr, tlsString))
 
 		if listenTLS {
 			err = http.ListenAndServeTLS(addr, config.Cert, config.Key, nil)
@@ -604,7 +604,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 			err = http.ListenAndServe(addr, nil)
 		}
 		if err != nil {
-			Log.error.Printf("%s listenAndServe (%s) error: %s", server.name, tlsString, err)
+			server.logger.Log(LogError, "listeners", "listener", fmt.Sprintf("listenAndServe error [%s]: %s", tlsString, err))
 		}
 	}()
 }

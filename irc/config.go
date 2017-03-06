@@ -355,8 +355,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	}
+	var newLogConfigs []LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
+		logConfig.Methods = make(map[string]bool)
 		for _, method := range strings.Split(logConfig.Method, " ") {
 			if len(method) > 0 {
 				logConfig.Methods[strings.ToLower(method)] = true
@@ -374,6 +376,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 		logConfig.Level = level
 
 		// types
+		logConfig.Types = make(map[string]bool)
+		logConfig.ExcludedTypes = make(map[string]bool)
 		for _, typeStr := range strings.Split(logConfig.TypeString, " ") {
 			if len(typeStr) == 0 {
 				continue
@@ -391,7 +395,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if len(logConfig.Types) < 1 {
 			return nil, errors.New("Logger has no types to log")
 		}
+
+		newLogConfigs = append(newLogConfigs, logConfig)
 	}
+	config.Logging = newLogConfigs
 
 	return config, nil
 }
