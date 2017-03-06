@@ -196,10 +196,15 @@ logging:
         #   password        password hashing and comparing
         #   userinput       raw lines sent by users
         #   useroutput      raw lines sent to users
-        type: "* -userinput -useroutput"
+        type: "* -userinput -useroutput -localconnect -localconnect-ip"
 
         # one of: debug info warn error
-        level: warn
+        level: info
+    -
+        # avoid logging IP addresses to file
+        method: stderr
+        type: localconnect localconnect-ip
+        level: debug
 
 # datastore configuration
 datastore:

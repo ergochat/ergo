@@ -264,6 +264,8 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
+	client.server.logger.Log(LogDebug, "join", fmt.Sprintf("%s joined channel %s", client.nick, channel.name))
+
 	for member := range channel.members {
 		if member.capabilities[ExtendedJoin] {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
@@ -303,6 +305,8 @@ func (channel *Channel) Part(client *Client, message string) {
 		member.Send(nil, client.nickMaskString, "PART", channel.name, message)
 	}
 	channel.Quit(client)
+
+	client.server.logger.Log(LogDebug, "part", fmt.Sprintf("%s left channel %s", client.nick, channel.name))
 }
 
 func (channel *Channel) GetTopic(client *Client) {

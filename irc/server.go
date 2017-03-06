@@ -644,6 +644,7 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	// continue registration
+	server.logger.Log(LogDebug, "localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
 	c.Register()
 
 	// send welcome text
@@ -657,8 +658,6 @@ func (server *Server) tryRegister(c *Client) {
 	c.RplISupport()
 	server.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
-
-	server.logger.Log(LogDebug, "localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
 }
 
 // MOTD serves the Message of the Day.

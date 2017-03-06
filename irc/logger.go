@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"strings"
+
 	"github.com/mgutz/ansi"
 )
 
@@ -115,7 +117,8 @@ func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...
 	}
 
 	// ensure we're capturing this logType
-	capturing := (logger.Types["*"] || logger.Types[logType]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logType]
+	logTypeCleaned := strings.ToLower(strings.TrimSpace(logType))
+	capturing := (logger.Types["*"] || logger.Types[logTypeCleaned]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logTypeCleaned]
 	if !capturing {
 		return
 	}

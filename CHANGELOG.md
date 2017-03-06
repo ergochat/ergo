@@ -17,6 +17,7 @@ New release of Oragono!
 * Added `USERHOST` command (thanks @vegax87).
  
 ### Changed
+* Logging is now much better and useful.
  
 ### Removed
  

@@ -170,6 +170,8 @@ func (client *Client) run() {
 
 		maxlenTags, maxlenRest := client.maxlens()
 
+		client.server.logger.Log(LogDebug, "userinput ", client.nick, " ->", line)
+
 		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
@@ -402,7 +404,7 @@ func (client *Client) AllNickmasks() []string {
 // SetNickname sets the very first nickname for the client.
 func (client *Client) SetNickname(nickname string) error {
 	if client.HasNick() {
-		client.server.logger.Log(LogError, "nick", client.nick, fmt.Sprintf("%s nickname already set, something is wrong with server consistency", client.nickMaskString))
+		client.server.logger.Log(LogError, "nick", fmt.Sprintf("%s nickname already set, something is wrong with server consistency", client.nickMaskString))
 		return ErrNickAlreadySet
 	}
 
@@ -419,6 +421,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 	origNickMask := client.nickMaskString
 	err := client.server.clients.Replace(client.nick, nickname, client)
 	if err == nil {
+		client.server.logger.Log(LogDebug, "nick", fmt.Sprintf("%s changed nickname to %s", client.nick, nickname))
 		client.server.whoWas.Append(client)
 		client.nick = nickname
 		client.updateNickMask()
@@ -442,6 +445,8 @@ func (client *Client) destroy() {
 	if client.isDestroyed {
 		return
 	}
+
+	client.server.logger.Log(LogDebug, "quit", fmt.Sprintf("%s is no longer on the server", client.nick))
 
 	// send quit/error message to client if they haven't been sent already
 	client.Quit("Connection closed")
@@ -589,6 +594,8 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 	if usedSpaceHack {
 		line = line[:len(line)-3] + "\r\n"
 	}
+
+	client.server.logger.Log(LogDebug, "useroutput", client.nick, "<- ", strings.TrimRight(line, "\r\n"))
 
 	client.socket.Write(line)
 	return nil
