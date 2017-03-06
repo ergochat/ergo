@@ -14,14 +14,28 @@ import (
 type LogLevel int
 
 const (
+	// LogErr is an error value.
+	LogErr LogLevel = iota
 	// LogDebug represents debug messages.
-	LogDebug LogLevel = iota
+	LogDebug
 	// LogInfo represents informational messages.
 	LogInfo
 	// LogWarn represents warnings.
 	LogWarn
 	// LogError represents errors.
 	LogError
+)
+
+var (
+	logLevelNames = map[string]LogLevel{
+		"debug":    LogDebug,
+		"info":     LogInfo,
+		"warn":     LogWarn,
+		"warning":  LogWarn,
+		"warnings": LogWarn,
+		"error":    LogError,
+		"errors":   LogError,
+	}
 )
 
 // ClientLogger is a logger dedicated to a single client. This is a convenience class that
@@ -50,7 +64,7 @@ type Logger struct {
 }
 
 // NewLogger returns a new Logger.
-func NewLogger(config LogConfig) (*Logger, error) {
+func NewLogger(config LoggingConfig) (*Logger, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
 

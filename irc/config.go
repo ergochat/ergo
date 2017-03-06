@@ -116,6 +116,17 @@ type ConnectionThrottleConfig struct {
 	Exempted           []string
 }
 
+type LoggingConfig struct {
+	Method        string
+	Methods       map[string]bool
+	Filename      string
+	TypeString    string          `yaml:"type"`
+	Types         map[string]bool `yaml:"real-types"`
+	ExcludedTypes map[string]bool `yaml:"real-excluded-types"`
+	LevelString   string          `yaml:"level"`
+	Level         LogLevel        `yaml:"level-real"`
+}
+
 type LineLenConfig struct {
 	Tags int
 	Rest int
@@ -135,7 +146,6 @@ type Config struct {
 		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		RestAPI            RestAPIConfig               `yaml:"rest-api"`
 		CheckIdent         bool                        `yaml:"check-ident"`
-		Log                string
 		MOTD               string
 		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
 		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
@@ -153,6 +163,8 @@ type Config struct {
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
 
 	Opers map[string]*OperConfig
+
+	Logging []LoggingConfig
 
 	Limits struct {
 		AwayLen        uint          `yaml:"awaylen"`
@@ -342,6 +354,43 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
+	}
+	for _, logConfig := range config.Logging {
+		// methods
+		for _, method := range strings.Split(logConfig.Method, " ") {
+			if len(method) > 0 {
+				logConfig.Methods[strings.ToLower(method)] = true
+			}
+		}
+		if logConfig.Methods["file"] && logConfig.Filename == "" {
+			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
+		}
+
+		// levels
+		level, exists := logLevelNames[strings.ToLower(logConfig.LevelString)]
+		if !exists {
+			return nil, fmt.Errorf("Could not translate log leve [%s]", logConfig.LevelString)
+		}
+		logConfig.Level = level
+
+		// types
+		for _, typeStr := range strings.Split(logConfig.TypeString, " ") {
+			if len(typeStr) == 0 {
+				continue
+			}
+			if typeStr == "-" {
+				return nil, errors.New("Encountered logging type '-' with no type to exclude")
+			}
+			if typeStr[0] == '-' {
+				typeStr = typeStr[1:]
+				logConfig.ExcludedTypes[typeStr] = true
+			} else {
+				logConfig.Types[typeStr] = true
+			}
+		}
+		if len(logConfig.Types) < 1 {
+			return nil, errors.New("Logger has no types to log")
+		}
 	}
 
 	return config, nil
