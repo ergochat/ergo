@@ -43,3 +43,9 @@
 [submodule "vendor/gopkg.in/yaml.v2"]
 	path = vendor/gopkg.in/yaml.v2
 	url = https://gopkg.in/yaml.v2
+[submodule "vendor/github.com/mgutz/ansi"]
+	path = vendor/github.com/mgutz/ansi
+	url = https://github.com/mgutz/ansi
+[submodule "vendor/github.com/mattn/go-colorable"]
+	path = vendor/github.com/mattn/go-colorable
+	url = https://github.com/mattn/go-colorable
