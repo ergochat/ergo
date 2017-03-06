@@ -44,26 +44,6 @@ var (
 	}
 )
 
-// ClientLogger is a logger dedicated to a single client. This is a convenience class that
-// automagically adds the client nick to logged messages.
-type ClientLogger struct {
-	client *Client
-}
-
-// NewClientLogger returns a new ClientLogger.
-func NewClientLogger(client *Client) ClientLogger {
-	logger := ClientLogger{
-		client: client,
-	}
-	return logger
-}
-
-// Log logs the given message with the given details.
-func (logger *ClientLogger) Log(level LogLevel, logType, object, message string) {
-	object = fmt.Sprintf("%s : %s", logger.client.nick, object)
-	logger.client.server.logger.Log(level, logType, object, message)
-}
-
 // Logger is the main interface used to log debug/info/error messages.
 type Logger struct {
 	loggers []SingleLogger
@@ -100,9 +80,9 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 }
 
 // Log logs the given message with the given details.
-func (logger *Logger) Log(level LogLevel, logType, object, message string) {
+func (logger *Logger) Log(level LogLevel, logType string, messageParts ...string) {
 	for _, singleLogger := range logger.loggers {
-		singleLogger.Log(level, logType, object, message)
+		singleLogger.Log(level, logType, messageParts...)
 	}
 }
 
@@ -123,7 +103,7 @@ type SingleLogger struct {
 }
 
 // Log logs the given message with the given details.
-func (logger *SingleLogger) Log(level LogLevel, logType, object, message string) {
+func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...string) {
 	// no logging enabled
 	if !(logger.MethodSTDERR || logger.MethodFile.Enabled) {
 		return
@@ -141,11 +121,13 @@ func (logger *SingleLogger) Log(level LogLevel, logType, object, message string)
 	}
 
 	// assemble full line
+	timeGrey := ansi.ColorFunc("243")
 	grey := ansi.ColorFunc("8")
 	alert := ansi.ColorFunc("232+b:red")
 	warn := ansi.ColorFunc("black:214")
-	info := ansi.ColorFunc("33")
+	info := ansi.ColorFunc("117")
 	debug := ansi.ColorFunc("78")
+	section := ansi.ColorFunc("229")
 
 	levelDisplay := logLevelDisplayNames[level]
 	if level == LogError {
@@ -158,14 +140,23 @@ func (logger *SingleLogger) Log(level LogLevel, logType, object, message string)
 		levelDisplay = debug(levelDisplay)
 	}
 
-	fullStringFormatted := fmt.Sprintf("%s  %s : %s : %s : %s", grey(time.Now().UTC().Format("2006-01-02T15:04:05Z")), levelDisplay, logType, object, message)
-	fullString := fmt.Sprintf("%s  %s : %s : %s : %s", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], logType, object, message)
+	sep := grey(":")
+	fullStringFormatted := fmt.Sprintf("%s %s %s %s %s %s ", timeGrey(time.Now().UTC().Format("2006-01-02T15:04:05Z")), sep, levelDisplay, sep, section(logType), sep)
+	fullStringRaw := fmt.Sprintf("%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], section(logType))
+	for i, p := range messageParts {
+		fullStringFormatted += p
+		fullStringRaw += p
+		if i != len(messageParts)-1 {
+			fullStringFormatted += " " + sep + " "
+			fullStringRaw += " : "
+		}
+	}
 
 	// output
 	if logger.MethodSTDERR {
 		fmt.Fprintln(os.Stderr, fullStringFormatted)
 	}
 	if logger.MethodFile.Enabled {
-		logger.MethodFile.Writer.WriteString(fullString + "\n")
+		logger.MethodFile.Writer.WriteString(fullStringRaw + "\n")
 	}
 }

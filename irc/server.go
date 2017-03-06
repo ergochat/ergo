@@ -219,6 +219,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 	}
 
 	// open data store
+	server.logger.Log(LogDebug, "startup", "Opening datastore")
 	db, err := buntdb.Open(config.Datastore.Path)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open datastore: %s", err.Error())
@@ -241,10 +242,12 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 	}
 
 	// load *lines
+	server.logger.Log(LogDebug, "startup", "Loading D/Klines")
 	server.loadDLines()
 	server.loadKLines()
 
 	// load password manager
+	server.logger.Log(LogDebug, "startup", "Loading passwords")
 	err = server.store.View(func(tx *buntdb.Tx) error {
 		saltString, err := tx.Get(keySalt)
 		if err != nil {
@@ -264,6 +267,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 		return nil, fmt.Errorf("Could not load salt: %s", err.Error())
 	}
 
+	server.logger.Log(LogDebug, "startup", "Loading MOTD")
 	if config.Server.MOTD != "" {
 		file, err := os.Open(config.Server.MOTD)
 		if err == nil {
@@ -378,7 +382,7 @@ func (server *Server) Shutdown() {
 	server.clients.ByNickMutex.RUnlock()
 
 	if err := server.store.Close(); err != nil {
-		server.logger.Log(LogError, "shutdown", "db", fmt.Sprintln("Server.Shutdown store.Close: error:", err))
+		server.logger.Log(LogError, "shutdown", fmt.Sprintln("Could not close datastore:", err))
 	}
 }
 
@@ -395,10 +399,10 @@ func (server *Server) Run() {
 			done = true
 
 		case <-server.rehashSignal:
-			// eventually we expect to use HUP to reload config
+			server.logger.Log(LogInfo, "rehash", "Rehashing due to SIGHUP")
 			err := server.rehash()
 			if err != nil {
-				server.logger.Log(LogError, "rehash", "server", fmt.Sprintln("Failed to rehash:", err.Error()))
+				server.logger.Log(LogError, "rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
 			}
 
 		case conn := <-server.newConns:
@@ -450,6 +454,8 @@ func (server *Server) Run() {
 					continue
 				}
 
+				server.logger.Log(LogDebug, "localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+
 				go NewClient(server, conn.Conn, conn.IsTLS)
 				continue
 			}
@@ -497,7 +503,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 	server.listeners[addr] = li
 
 	// start listening
-	server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
+	server.logger.Log(LogInfo, "listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
 
 	// setup accept goroutine
 	go func() {
@@ -549,7 +555,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 					server.listenerUpdateMutex.Unlock()
 
 					// print notice
-					server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
+					server.logger.Log(LogInfo, "listeners", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
 				}
 			default:
 				// no events waiting for us, fall-through and continue
@@ -596,7 +602,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 		if listenTLS {
 			tlsString = "TLS"
 		}
-		server.logger.Log(LogInfo, "listeners", "listener", fmt.Sprintf("websocket listening on %s using %s.", addr, tlsString))
+		server.logger.Log(LogInfo, "listeners", fmt.Sprintf("websocket listening on %s using %s.", addr, tlsString))
 
 		if listenTLS {
 			err = http.ListenAndServeTLS(addr, config.Cert, config.Key, nil)
@@ -604,7 +610,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 			err = http.ListenAndServe(addr, nil)
 		}
 		if err != nil {
-			server.logger.Log(LogError, "listeners", "listener", fmt.Sprintf("listenAndServe error [%s]: %s", tlsString, err))
+			server.logger.Log(LogError, "listeners", fmt.Sprintf("listenAndServe error [%s]: %s", tlsString, err))
 		}
 	}()
 }
@@ -651,6 +657,8 @@ func (server *Server) tryRegister(c *Client) {
 	c.RplISupport()
 	server.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
+
+	server.logger.Log(LogDebug, "localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
 }
 
 // MOTD serves the Message of the Day.
@@ -1399,11 +1407,13 @@ func (server *Server) rehash() error {
 
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	server.logger.Log(LogInfo, "rehash", fmt.Sprintf("REHASH command used by %s", client.nick))
 	err := server.rehash()
 
 	if err == nil {
 		client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
 	} else {
+		server.logger.Log(LogError, "rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
 	}
 	return false

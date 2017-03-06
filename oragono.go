@@ -90,14 +90,17 @@ Options:
 		}
 	} else if arguments["run"].(bool) {
 		rand.Seed(time.Now().UTC().UnixNano())
+		if !arguments["--quiet"].(bool) {
+			logger.Log(irc.LogInfo, "startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+		}
 		server, err := irc.NewServer(configfile, config, logger)
 		if err != nil {
-			logger.Log(irc.LogError, "startup", "server", fmt.Sprintf("Could not load server: %s", err.Error()))
+			logger.Log(irc.LogError, "startup", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			logger.Log(irc.LogInfo, "startup", "server", fmt.Sprintf("Oragono v%s running", irc.SemVer))
-			defer logger.Log(irc.LogInfo, "shutdown", "server", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			logger.Log(irc.LogInfo, "startup", "Server running")
+			defer logger.Log(irc.LogInfo, "shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}
