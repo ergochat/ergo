@@ -80,18 +80,18 @@ type ListenerEvent struct {
 
 // Server is the main Oragono server.
 type Server struct {
+	accountAuthenticationEnabled bool
 	accountRegistration          *AccountRegistration
 	accounts                     map[string]*ClientAccount
-	accountAuthenticationEnabled bool
 	channels                     ChannelNameMap
 	checkIdent                   bool
 	clients                      *ClientLookupSet
 	commands                     chan Command
 	configFilename               string
-	connectionThrottle           *ConnectionThrottle
-	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	connectionLimits             *ConnectionLimits
 	connectionLimitsMutex        sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
+	connectionThrottle           *ConnectionThrottle
+	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                        time.Time
 	currentOpers                 map[*Client]bool
 	dlines                       *DLineManager
@@ -102,6 +102,7 @@ type Server struct {
 	listenerEventActMutex        sync.Mutex
 	listeners                    map[string]ListenerInterface
 	listenerUpdateMutex          sync.Mutex
+	logger                       *Logger
 	monitoring                   map[string][]Client
 	motdLines                    []string
 	name                         string
