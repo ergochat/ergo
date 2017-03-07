@@ -28,9 +28,9 @@ var (
 // IPRestrictTime contains the expiration info about the given IP.
 type IPRestrictTime struct {
 	// Duration is how long this block lasts for.
-	Duration time.Duration
+	Duration time.Duration `json:"duration"`
 	// Expires is when this block expires.
-	Expires time.Time
+	Expires time.Time `json:"expires"`
 }
 
 // IsExpired returns true if the time has expired.
@@ -41,11 +41,11 @@ func (iptime *IPRestrictTime) IsExpired() bool {
 // IPBanInfo holds info about an IP/net ban.
 type IPBanInfo struct {
 	// Reason is the ban reason.
-	Reason string
+	Reason string `json:"reason"`
 	// OperReason is an oper ban reason.
 	OperReason string `json:"oper_reason"`
 	// Time holds details about the duration, if it exists.
-	Time *IPRestrictTime
+	Time *IPRestrictTime `json:"time"`
 }
 
 // dLineAddr contains the address itself and expiration time for a given network.

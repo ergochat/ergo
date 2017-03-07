@@ -36,8 +36,9 @@ type restStatusResp struct {
 	Channels int `json:"channels"`
 }
 
-type restDLinesResp struct {
+type restXLinesResp struct {
 	DLines map[string]IPBanInfo `json:"dlines"`
+	KLines map[string]IPBanInfo `json:"klines"`
 }
 
 type restAcct struct {
@@ -84,9 +85,10 @@ func restStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restGetDLines(w http.ResponseWriter, r *http.Request) {
-	rs := restDLinesResp{
+func restGetXLines(w http.ResponseWriter, r *http.Request) {
+	rs := restXLinesResp{
 		DLines: restAPIServer.dlines.AllBans(),
+		KLines: restAPIServer.klines.AllBans(),
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -175,7 +177,7 @@ func (s *Server) startRestAPI() {
 	rg := r.Methods("GET").Subrouter()
 	rg.HandleFunc("/info", restInfo)
 	rg.HandleFunc("/status", restStatus)
-	rg.HandleFunc("/dlines", restGetDLines)
+	rg.HandleFunc("/xlines", restGetXLines)
 	rg.HandleFunc("/accounts", restGetAccounts)
 
 	// PUT methods
