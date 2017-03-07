@@ -112,7 +112,7 @@ Bans are saved across subsequent launches of the server.
 from. If "MYSELF" is not given, trying to DLINE yourself will result in an error.
 
 [duration] can be of the following forms:
-	10h 8m 13s
+	1y 12mo 31d 10h 8m 13s
 
 <net> is specified in typical CIDR notation. For example:
 	127.0.0.1/8
@@ -172,7 +172,7 @@ Bans are saved across subsequent launches of the server.
 from. If "MYSELF" is not given, trying to KLINE yourself will result in an error.
 
 [duration] can be of the following forms:
-	10h 8m 13s
+	1y 12mo 31d 10h 8m 13s
 
 <mask> is specified in typical IRC format. For example:
 	dan

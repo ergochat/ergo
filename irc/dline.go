@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/custime"
 	"github.com/tidwall/buntdb"
 )
 
@@ -201,7 +202,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// duration
-	duration, err := time.ParseDuration(msg.Params[currentArg])
+	duration, err := custime.ParseDuration(msg.Params[currentArg])
 	durationIsUsed := err == nil
 	if durationIsUsed {
 		currentArg++
