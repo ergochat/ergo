@@ -222,8 +222,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 			account = loadAccount(server, tx, accountKey)
 		}
 
-		account.Clients = append(account.Clients, client)
-		client.account = account
+		client.LoginToAccount(account)
 
 		return err
 	})
@@ -235,6 +234,26 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 
 	client.successfulSaslAuth()
 	return false
+}
+
+// LoginToAccount logs the client into the given account.
+func (client *Client) LoginToAccount(account *ClientAccount) {
+	if client.account == account {
+		// already logged into this acct, no changing necessary
+		return
+	} else if client.account != nil {
+		// logout of existing acct
+		var newClientAccounts []*Client
+		for _, c := range account.Clients {
+			if c != client {
+				newClientAccounts = append(newClientAccounts, c)
+			}
+		}
+		account.Clients = newClientAccounts
+	}
+
+	account.Clients = append(account.Clients, client)
+	client.account = account
 }
 
 // authExternalHandler parses the SASL EXTERNAL mechanism.
@@ -275,8 +294,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 			account = loadAccount(server, tx, accountKey)
 		}
 
-		account.Clients = append(account.Clients, client)
-		client.account = account
+		client.LoginToAccount(account)
 
 		return nil
 	})

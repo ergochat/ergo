@@ -22,6 +22,7 @@ New release of Oragono!
 ### Removed
  
 ### Fixed
+* Fixed an account issue where clients could login to multiple accounts at once.
  
  
 ## [0.6.0] - 2017-01-19
