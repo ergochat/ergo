@@ -1,12 +1,8 @@
 ![Oragono logo](docs/logo.png)
 
-Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup and use, and to provide the majority of features that IRC users expect today.
-
-It includes features such as UTF-8 nicks and channel names, client accounts and SASL, and other assorted IRCv3 support.
+Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup and use, and it includes features such as UTF-8 nicks / channel names, client accounts with SASL, and other assorted IRCv3 support.
 
 Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon <3
-
-Also see the [mammon](https://github.com/mammon-ircd/mammon) IRC daemon for a similar project written in Python instead.
 
 ---
 
@@ -46,24 +42,36 @@ oragono initdb
 oragono mkcerts
 ```
 
-**Note:** This installation will give you unsigned certificates only suitable for testing purposes.
-For real crets, look into [Let's Encrypt](https://letsencrypt.org/).
+**Note:** This installation will give you unsigned certificates suitable for testing purposes.
+For real crets, look into [Let's Encrypt](https://letsencrypt.org/)!
 
 ## Configuration
 
-See the example [`oragono.yaml`](oragono.yaml). Passwords are stored using bcrypt. You can generate encrypted password strings for use in the config with the `genpasswd` subcommand.
+The default config file [`oragono.yaml`](oragono.yaml) helps walk you through what each option means and changes. The configuration's intended to be sparse, so if there are options missing it's either because that feature isn't written/configurable yet or because we don't think it should be configurable.
+
+### Logs
+
+By default, logs are stored in the file `ircd.log`. The configuration format of logs is designed to be easily pluggable, and is inspired by the logging config provided by InspIRCd.
+
+### Passwords
+
+Passwords (for both `PASS` and oper logins) are stored using bcrypt. To generate encrypted strings for use in the config, use the `genpasswd` subcommand as such:
 
 ```sh
 oragono genpasswd
 ```
 
+With this, you receive a blob of text which you can plug into your configuration file.
+
 ## Running
+
+After this, running the server is easy! Simply run the below command and you should see the relevant startup information pop up.
 
 ```sh
 oragono run
 ```
 
-# Web interface
+<!--# Web interface
 
 Oragono also includes a web interface, which works with the REST API to provide a way to manage user accounts and bans.
 
@@ -82,7 +90,7 @@ oragono-web mkcerts
 
 ```sh
 oragono-web run
-```
+```-->
 
 # Credits
 
