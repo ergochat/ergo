@@ -18,6 +18,7 @@ New release of Oragono!
  
 ### Changed
 * Logging is now much better and useful.
+* Can now specify years, months and days (e.g. `1y12m30d`) with DLINE and KLINE.
  
 ### Removed
  
