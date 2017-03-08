@@ -48,7 +48,8 @@ var (
 
 // Logger is the main interface used to log debug/info/error messages.
 type Logger struct {
-	loggers []SingleLogger
+	loggers         []SingleLogger
+	DumpingRawInOut bool
 }
 
 // NewLogger returns a new Logger.
@@ -65,6 +66,9 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 			Level:         logConfig.Level,
 			Types:         logConfig.Types,
 			ExcludedTypes: logConfig.ExcludedTypes,
+		}
+		if logConfig.Types["userinput"] || logConfig.Types["useroutput"] || (logConfig.Types["*"] && !(logConfig.ExcludedTypes["userinput"] && logConfig.ExcludedTypes["useroutput"])) {
+			logger.DumpingRawInOut = true
 		}
 		if sLogger.MethodFile.Enabled {
 			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
