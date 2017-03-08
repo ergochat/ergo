@@ -20,6 +20,10 @@ To update this folder:
 
 This will make sure things stay nice and up-to-date for users.
 
+### `/vendor` on Windows
+
+Vendetta on Windows is broken, keep this in mind while updating deps. For reference, see [dpw/vendetta#17](https://github.com/dpw/vendetta/issues/17).
+
 
 ## Fuzzing and Testing
 
