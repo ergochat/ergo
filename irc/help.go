@@ -67,6 +67,13 @@ Oragono supports the following user modes:
 // Help contains the help strings distributed with the IRCd.
 var Help = map[string]HelpEntry{
 	// Commands
+	"acc": {
+		text: `ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
+ACC VERIFY <accountname> <auth_code>
+
+Used in account registration. See the relevant specs for more info:
+http://oragono.io/specs.html`,
+	},
 	"ambiance": {
 		text: `AMBIANCE <target> <text to be sent>
 
@@ -350,13 +357,6 @@ specs for more info: http://ircv3.net/specs/core/message-tags-3.3.html`,
 		text: `QUIT [reason]
 
 Indicates that you're leaving the server, and shows everyone the given reason.`,
-	},
-	"reg": {
-		text: `REG CREATE <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
-REG VERIFY <accountname> <auth_code>
-
-Used in account registration. See the relevant specs for more info:
-http://oragono.io/specs.html`,
 	},
 	"rehash": {
 		oper: true,
