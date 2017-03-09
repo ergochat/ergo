@@ -118,6 +118,7 @@ type Server struct {
 	restAPI                      *RestAPIConfig
 	signals                      chan os.Signal
 	store                        *buntdb.DB
+	stsEnabled                   bool
 	whoWas                       *WhoWasList
 }
 
@@ -152,6 +153,11 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 
 	if config.Accounts.AuthenticationEnabled {
 		SupportedCapabilities[SASL] = true
+	}
+
+	if config.Server.STS.Enabled {
+		SupportedCapabilities[STS] = true
+		CapValues[STS] = config.Server.STS.Value()
 	}
 
 	if config.Limits.LineLen.Tags > 512 || config.Limits.LineLen.Rest > 512 {
@@ -212,6 +218,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 		operclasses:    *operClasses,
 		operators:      opers,
 		signals:        make(chan os.Signal, len(ServerExitSignals)),
+		stsEnabled:     config.Server.STS.Enabled,
 		rehashSignal:   make(chan os.Signal, 1),
 		restAPI:        &config.Server.RestAPI,
 		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
@@ -1234,8 +1241,13 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
+	server.logger.Log(LogDebug, "rehash", "Starting rehash")
+
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
+	defer server.rehashMutex.Unlock()
+
+	server.logger.Log(LogDebug, "rehash", "Got rehash lock")
 
 	config, err := LoadConfig(server.configFilename)
 
@@ -1290,11 +1302,13 @@ func (server *Server) rehash() error {
 		}
 	}
 	server.clients.ByNickMutex.RUnlock()
+	server.connectionThrottleMutex.Unlock()
 	server.connectionLimitsMutex.Unlock()
 
 	// setup new and removed caps
 	addedCaps := make(CapabilitySet)
 	removedCaps := make(CapabilitySet)
+	updatedCaps := make(CapabilitySet)
 
 	// SASL
 	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
@@ -1309,10 +1323,41 @@ func (server *Server) rehash() error {
 	}
 	server.accountAuthenticationEnabled = config.Accounts.AuthenticationEnabled
 
+	// STS
+	stsValue := config.Server.STS.Value()
+	var stsDisabled bool
+	server.logger.Log(LogDebug, "rehash", "STS Vals", CapValues[STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
+	if config.Server.STS.Enabled && !server.stsEnabled {
+		// enabling STS
+		SupportedCapabilities[STS] = true
+		addedCaps[STS] = true
+		CapValues[STS] = stsValue
+	} else if !config.Server.STS.Enabled && server.stsEnabled {
+		// disabling STS
+		SupportedCapabilities[STS] = false
+		removedCaps[STS] = true
+		stsDisabled = true
+	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != CapValues[STS] {
+		// STS policy updated
+		CapValues[STS] = stsValue
+		updatedCaps[STS] = true
+	}
+	server.stsEnabled = config.Server.STS.Enabled
+
 	// burst new and removed caps
 	var capBurstClients ClientSet
 	added := make(map[CapVersion]string)
 	var removed string
+
+	// updated caps get DEL'd and then NEW'd
+	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
+	server.logger.Log(LogDebug, "rehash", "Updated Caps", updatedCaps.String(Cap301), strconv.Itoa(len(updatedCaps)))
+	if len(updatedCaps) > 0 {
+		for capab := range updatedCaps {
+			addedCaps[capab] = true
+			removedCaps[capab] = true
+		}
+	}
 
 	if len(addedCaps) > 0 || len(removedCaps) > 0 {
 		capBurstClients = server.clients.AllWithCaps(CapNotify)
@@ -1324,15 +1369,30 @@ func (server *Server) rehash() error {
 	}
 
 	for sClient := range capBurstClients {
-		if len(addedCaps) > 0 {
-			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
+		if stsDisabled {
+			// remove STS policy
+			//TODO(dan): this is an ugly hack. we can write this better.
+			stsPolicy := "sts=duration=0"
+			if len(addedCaps) > 0 {
+				added[Cap302] = added[Cap302] + " " + stsPolicy
+			} else {
+				addedCaps[STS] = true
+				added[Cap302] = stsPolicy
+			}
 		}
 		if len(removedCaps) > 0 {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
 		}
+		if len(addedCaps) > 0 {
+			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
+		}
 	}
 
 	// set server options
+	lineLenConfig := LineLenLimits{
+		Tags: config.Limits.LineLen.Tags,
+		Rest: config.Limits.LineLen.Rest,
+	}
 	server.limits = Limits{
 		AwayLen:        int(config.Limits.AwayLen),
 		ChannelLen:     int(config.Limits.ChannelLen),
@@ -1341,6 +1401,7 @@ func (server *Server) rehash() error {
 		NickLen:        int(config.Limits.NickLen),
 		TopicLen:       int(config.Limits.TopicLen),
 		ChanListModes:  int(config.Limits.ChanListModes),
+		LineLen:        lineLenConfig,
 	}
 	server.operclasses = *operclasses
 	server.operators = opers
@@ -1403,7 +1464,6 @@ func (server *Server) rehash() error {
 		}
 	}
 
-	server.rehashMutex.Unlock()
 	return nil
 }
 

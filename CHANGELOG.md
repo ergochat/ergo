@@ -15,17 +15,19 @@ New release of Oragono!
  
 ### Added
 * Added `USERHOST` command (thanks @vegax87).
+* Added draft IRCv3 capability [draft/sts](http://ircv3.net/specs/core/sts-3.3.html).
  
 ### Changed
 * Logging is now much better and useful.
 * Can now specify years, months and days (e.g. `1y12m30d`) with DLINE and KLINE.
- 
+
 ### Removed
  
 ### Fixed
 * Fixed an account issue where clients could login to multiple accounts at once.
- 
- 
+* Fixed issues that prevented rehashing after the first rehash had gone through successfully.
+
+
 ## [0.6.0] - 2017-01-19
 We've added a ton of new features in this release! Automated connection throttling, the ability to `KLINE`, updated casemapping and line-length specifications.
 

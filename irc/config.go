@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DanielOaks/oragono/irc/custime"
 	"gopkg.in/yaml.v2"
 )
 
@@ -132,6 +133,26 @@ type LineLenConfig struct {
 	Rest int
 }
 
+type STSConfig struct {
+	Enabled        bool
+	Duration       time.Duration `yaml:"duration-real"`
+	DurationString string        `yaml:"duration"`
+	Port           int
+	Preload        bool
+}
+
+// Value returns the STS value to advertise in CAP
+func (sts *STSConfig) Value() string {
+	val := fmt.Sprintf("duration=%d,", int(sts.Duration.Seconds()))
+	if sts.Enabled && sts.Port > 0 {
+		val += fmt.Sprintf(",port=%d", sts.Port)
+	}
+	if sts.Enabled && sts.Preload {
+		val += ",preload"
+	}
+	return val
+}
+
 type Config struct {
 	Network struct {
 		Name string
@@ -144,8 +165,9 @@ type Config struct {
 		Listen             []string
 		Wslisten           string                      `yaml:"ws-listen"`
 		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		RestAPI            RestAPIConfig               `yaml:"rest-api"`
-		CheckIdent         bool                        `yaml:"check-ident"`
+		STS                STSConfig
+		RestAPI            RestAPIConfig `yaml:"rest-api"`
+		CheckIdent         bool          `yaml:"check-ident"`
 		MOTD               string
 		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
 		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
@@ -341,6 +363,15 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
+	}
+	if config.Server.STS.Enabled {
+		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse STS duration: %s", err.Error())
+		}
+		if config.Server.STS.Port < 0 || config.Server.STS.Port > 65535 {
+			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
+		}
 	}
 	if config.Server.ConnectionThrottle.Enabled {
 		config.Server.ConnectionThrottle.Duration, err = time.ParseDuration(config.Server.ConnectionThrottle.DurationString)

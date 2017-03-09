@@ -26,6 +26,24 @@ server:
         ":6697":
             key: tls.key
             cert: tls.crt
+    
+    # strict transport security, to get clients to automagically use TLS
+    sts:
+        # whether to advertise STS
+        #
+        # to stop advertising STS, leave this enabled and set 'duration' below to "0". this will
+        # advertise to connecting users that the STS policy they have saved is no longer valid
+        enabled: true
+
+        # how long clients should be forced to use TLS for.
+        # setting this to a too-long time will mean bad things if you later remove your TLS
+        duration: 0
+
+        # tls port - you should be listening on this port above
+        port: 6697
+
+        # should clients include this STS policy when they ship their inbuilt preload lists?
+        preload: false
 
     # rest management API, for use with web interface
     rest-api:

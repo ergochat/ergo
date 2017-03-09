@@ -28,6 +28,7 @@ const (
 	MultiPrefix     Capability = "multi-prefix"
 	SASL            Capability = "sasl"
 	ServerTime      Capability = "server-time"
+	STS             Capability = "draft/sts"
 	UserhostInNames Capability = "userhost-in-names"
 )
 
@@ -46,7 +47,8 @@ var (
 		MessageTags: true,
 		MultiPrefix: true,
 		// SASL is set during server startup
-		ServerTime:      true,
+		ServerTime: true,
+		// STS is set during server startup
 		UserhostInNames: true,
 	}
 	CapValues = map[Capability]string{
