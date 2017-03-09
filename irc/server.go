@@ -1380,6 +1380,7 @@ func (server *Server) rehash() error {
 				added[Cap302] = stsPolicy
 			}
 		}
+		// DEL caps and then send NEW ones so that updated caps get removed/added correctly
 		if len(removedCaps) > 0 {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
 		}
