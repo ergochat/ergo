@@ -36,8 +36,9 @@ server:
         enabled: false
 
         # how long clients should be forced to use TLS for.
-        # setting this to a too-long time will mean bad things if you later remove your TLS
-        duration: 1d5m
+        # setting this to a too-long time will mean bad things if you later remove your TLS.
+        # the default duration below is 1 month, 2 days and 5 minutes.
+        duration: 1mo2d5m
 
         # tls port - you should be listening on this port above
         port: 6697
