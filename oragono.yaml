@@ -33,11 +33,11 @@ server:
         #
         # to stop advertising STS, leave this enabled and set 'duration' below to "0". this will
         # advertise to connecting users that the STS policy they have saved is no longer valid
-        enabled: true
+        enabled: false
 
         # how long clients should be forced to use TLS for.
         # setting this to a too-long time will mean bad things if you later remove your TLS
-        duration: 0
+        duration: 1d5m
 
         # tls port - you should be listening on this port above
         port: 6697
