@@ -11,6 +11,9 @@ import (
 
 	"strings"
 
+	"sync"
+
+	colorable "github.com/mattn/go-colorable"
 	"github.com/mgutz/ansi"
 )
 
@@ -49,6 +52,7 @@ var (
 // Logger is the main interface used to log debug/info/error messages.
 type Logger struct {
 	loggers         []SingleLogger
+	stderrWriteLock sync.Mutex
 	DumpingRawInOut bool
 }
 
@@ -63,9 +67,10 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 				Enabled:  logConfig.Methods["file"],
 				Filename: logConfig.Filename,
 			},
-			Level:         logConfig.Level,
-			Types:         logConfig.Types,
-			ExcludedTypes: logConfig.ExcludedTypes,
+			Level:           logConfig.Level,
+			Types:           logConfig.Types,
+			ExcludedTypes:   logConfig.ExcludedTypes,
+			stderrWriteLock: &logger.stderrWriteLock,
 		}
 		if logConfig.Types["userinput"] || logConfig.Types["useroutput"] || (logConfig.Types["*"] && !(logConfig.ExcludedTypes["userinput"] && logConfig.ExcludedTypes["useroutput"])) {
 			logger.DumpingRawInOut = true
@@ -101,11 +106,12 @@ type fileMethod struct {
 
 // SingleLogger represents a single logger instance.
 type SingleLogger struct {
-	MethodSTDERR  bool
-	MethodFile    fileMethod
-	Level         LogLevel
-	Types         map[string]bool
-	ExcludedTypes map[string]bool
+	stderrWriteLock *sync.Mutex
+	MethodSTDERR    bool
+	MethodFile      fileMethod
+	Level           LogLevel
+	Types           map[string]bool
+	ExcludedTypes   map[string]bool
 }
 
 // Log logs the given message with the given details.
@@ -161,7 +167,9 @@ func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...
 
 	// output
 	if logger.MethodSTDERR {
-		fmt.Fprintln(os.Stderr, fullStringFormatted)
+		logger.stderrWriteLock.Lock()
+		fmt.Fprintln(colorable.NewColorableStderr(), fullStringFormatted)
+		logger.stderrWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
 		logger.MethodFile.Writer.WriteString(fullStringRaw + "\n")
