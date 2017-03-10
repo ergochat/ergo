@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DanielOaks/oragono/irc"
+	"github.com/DanielOaks/oragono/irc/logger"
 	"github.com/DanielOaks/oragono/mkcerts"
 	"github.com/docopt/docopt-go"
 	"golang.org/x/crypto/ssh/terminal"
@@ -43,7 +44,20 @@ Options:
 		log.Fatal("Config file did not load successfully:", err.Error())
 	}
 
-	logger, err := irc.NewLogger(config.Logging)
+	// assemble separate log configs
+	var logConfigs []logger.Config
+	for _, lConfig := range config.Logging {
+		logConfigs = append(logConfigs, logger.Config{
+			MethodStderr:  lConfig.MethodStderr,
+			MethodFile:    lConfig.MethodFile,
+			Filename:      lConfig.Filename,
+			Level:         lConfig.Level,
+			Types:         lConfig.Types,
+			ExcludedTypes: lConfig.ExcludedTypes,
+		})
+	}
+
+	logger, err := logger.NewManager(logConfigs...)
 	if err != nil {
 		log.Fatal("Logger did not load successfully:", err.Error())
 	}
@@ -91,16 +105,16 @@ Options:
 	} else if arguments["run"].(bool) {
 		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
-			logger.Log(irc.LogInfo, "startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+			logger.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 		}
 		server, err := irc.NewServer(configfile, config, logger)
 		if err != nil {
-			logger.Log(irc.LogError, "startup", fmt.Sprintf("Could not load server: %s", err.Error()))
+			logger.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			logger.Log(irc.LogInfo, "startup", "Server running")
-			defer logger.Log(irc.LogInfo, "shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			logger.Info("startup", "Server running")
+			defer logger.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}

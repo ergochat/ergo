@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/DanielOaks/oragono/irc/custime"
+	"github.com/DanielOaks/oragono/irc/logger"
 	"gopkg.in/yaml.v2"
 )
 
@@ -119,13 +120,14 @@ type ConnectionThrottleConfig struct {
 
 type LoggingConfig struct {
 	Method        string
-	Methods       map[string]bool
+	MethodStderr  bool
+	MethodFile    bool
 	Filename      string
-	TypeString    string          `yaml:"type"`
-	Types         map[string]bool `yaml:"real-types"`
-	ExcludedTypes map[string]bool `yaml:"real-excluded-types"`
-	LevelString   string          `yaml:"level"`
-	Level         LogLevel        `yaml:"level-real"`
+	TypeString    string       `yaml:"type"`
+	Types         []string     `yaml:"real-types"`
+	ExcludedTypes []string     `yaml:"real-excluded-types"`
+	LevelString   string       `yaml:"level"`
+	Level         logger.Level `yaml:"level-real"`
 }
 
 type LineLenConfig struct {
@@ -389,26 +391,26 @@ func LoadConfig(filename string) (config *Config, err error) {
 	var newLogConfigs []LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
-		logConfig.Methods = make(map[string]bool)
+		methods := make(map[string]bool)
 		for _, method := range strings.Split(logConfig.Method, " ") {
 			if len(method) > 0 {
-				logConfig.Methods[strings.ToLower(method)] = true
+				methods[strings.ToLower(method)] = true
 			}
 		}
-		if logConfig.Methods["file"] && logConfig.Filename == "" {
+		if methods["file"] && logConfig.Filename == "" {
 			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
 		}
+		logConfig.MethodFile = methods["file"]
+		logConfig.MethodStderr = methods["stderr"]
 
 		// levels
-		level, exists := logLevelNames[strings.ToLower(logConfig.LevelString)]
+		level, exists := logger.LogLevelNames[strings.ToLower(logConfig.LevelString)]
 		if !exists {
 			return nil, fmt.Errorf("Could not translate log leve [%s]", logConfig.LevelString)
 		}
 		logConfig.Level = level
 
 		// types
-		logConfig.Types = make(map[string]bool)
-		logConfig.ExcludedTypes = make(map[string]bool)
 		for _, typeStr := range strings.Split(logConfig.TypeString, " ") {
 			if len(typeStr) == 0 {
 				continue
@@ -418,9 +420,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 			if typeStr[0] == '-' {
 				typeStr = typeStr[1:]
-				logConfig.ExcludedTypes[typeStr] = true
+				logConfig.ExcludedTypes = append(logConfig.ExcludedTypes, typeStr)
 			} else {
-				logConfig.Types[typeStr] = true
+				logConfig.Types = append(logConfig.Types, typeStr)
 			}
 		}
 		if len(logConfig.Types) < 1 {

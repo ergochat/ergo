@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/logger"
 	"github.com/tidwall/buntdb"
 )
 
@@ -102,7 +103,7 @@ type Server struct {
 	listenerEventActMutex        sync.Mutex
 	listeners                    map[string]ListenerInterface
 	listenerUpdateMutex          sync.Mutex
-	logger                       *Logger
+	logger                       *logger.Manager
 	monitoring                   map[string][]Client
 	motdLines                    []string
 	name                         string
@@ -137,7 +138,7 @@ type clientConn struct {
 }
 
 // NewServer returns a new Oragono server.
-func NewServer(configFilename string, config *Config, logger *Logger) (*Server, error) {
+func NewServer(configFilename string, config *Config, logger *logger.Manager) (*Server, error) {
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
 		return nil, fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
@@ -226,7 +227,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 	}
 
 	// open data store
-	server.logger.Log(LogDebug, "startup", "Opening datastore")
+	server.logger.Debug("startup", "Opening datastore")
 	db, err := buntdb.Open(config.Datastore.Path)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open datastore: %s", err.Error())
@@ -237,7 +238,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 	err = server.store.View(func(tx *buntdb.Tx) error {
 		version, _ := tx.Get(keySchemaVersion)
 		if version != latestDbSchema {
-			logger.Log(LogError, "startup", "server", fmt.Sprintf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version))
+			logger.Error("startup", "server", fmt.Sprintf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version))
 			return errDbOutOfDate
 		}
 		return nil
@@ -249,12 +250,12 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 	}
 
 	// load *lines
-	server.logger.Log(LogDebug, "startup", "Loading D/Klines")
+	server.logger.Debug("startup", "Loading D/Klines")
 	server.loadDLines()
 	server.loadKLines()
 
 	// load password manager
-	server.logger.Log(LogDebug, "startup", "Loading passwords")
+	server.logger.Debug("startup", "Loading passwords")
 	err = server.store.View(func(tx *buntdb.Tx) error {
 		saltString, err := tx.Get(keySalt)
 		if err != nil {
@@ -274,7 +275,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 		return nil, fmt.Errorf("Could not load salt: %s", err.Error())
 	}
 
-	server.logger.Log(LogDebug, "startup", "Loading MOTD")
+	server.logger.Debug("startup", "Loading MOTD")
 	if config.Server.MOTD != "" {
 		file, err := os.Open(config.Server.MOTD)
 		if err == nil {
@@ -320,7 +321,7 @@ func NewServer(configFilename string, config *Config, logger *Logger) (*Server, 
 
 	// start API if enabled
 	if server.restAPI.Enabled {
-		logger.Log(LogInfo, "startup", "server", fmt.Sprintf("%s rest API started on %s.", server.name, server.restAPI.Listen))
+		logger.Info("startup", "server", fmt.Sprintf("%s rest API started on %s.", server.name, server.restAPI.Listen))
 		server.startRestAPI()
 	}
 
@@ -389,7 +390,7 @@ func (server *Server) Shutdown() {
 	server.clients.ByNickMutex.RUnlock()
 
 	if err := server.store.Close(); err != nil {
-		server.logger.Log(LogError, "shutdown", fmt.Sprintln("Could not close datastore:", err))
+		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
 	}
 }
 
@@ -406,10 +407,10 @@ func (server *Server) Run() {
 			done = true
 
 		case <-server.rehashSignal:
-			server.logger.Log(LogInfo, "rehash", "Rehashing due to SIGHUP")
+			server.logger.Info("rehash", "Rehashing due to SIGHUP")
 			err := server.rehash()
 			if err != nil {
-				server.logger.Log(LogError, "rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
+				server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
 			}
 
 		case conn := <-server.newConns:
@@ -461,7 +462,7 @@ func (server *Server) Run() {
 					continue
 				}
 
-				server.logger.Log(LogDebug, "localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+				server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
 
 				go NewClient(server, conn.Conn, conn.IsTLS)
 				continue
@@ -510,7 +511,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 	server.listeners[addr] = li
 
 	// start listening
-	server.logger.Log(LogInfo, "listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
+	server.logger.Info("listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
 
 	// setup accept goroutine
 	go func() {
@@ -562,7 +563,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 					server.listenerUpdateMutex.Unlock()
 
 					// print notice
-					server.logger.Log(LogInfo, "listeners", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
+					server.logger.Info("listeners", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
 				}
 			default:
 				// no events waiting for us, fall-through and continue
@@ -578,7 +579,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			server.logger.Log(LogError, "ws", addr, fmt.Sprintf("%s method not allowed", r.Method))
+			server.logger.Error("ws", addr, fmt.Sprintf("%s method not allowed", r.Method))
 			return
 		}
 
@@ -591,7 +592,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			server.logger.Log(LogError, "ws", addr, fmt.Sprintf("%s websocket upgrade error: %s", server.name, err))
+			server.logger.Error("ws", addr, fmt.Sprintf("%s websocket upgrade error: %s", server.name, err))
 			return
 		}
 
@@ -609,7 +610,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 		if listenTLS {
 			tlsString = "TLS"
 		}
-		server.logger.Log(LogInfo, "listeners", fmt.Sprintf("websocket listening on %s using %s.", addr, tlsString))
+		server.logger.Info("listeners", fmt.Sprintf("websocket listening on %s using %s.", addr, tlsString))
 
 		if listenTLS {
 			err = http.ListenAndServeTLS(addr, config.Cert, config.Key, nil)
@@ -617,7 +618,7 @@ func (server *Server) wslisten(addr string, tlsMap map[string]*TLSListenConfig) 
 			err = http.ListenAndServe(addr, nil)
 		}
 		if err != nil {
-			server.logger.Log(LogError, "listeners", fmt.Sprintf("listenAndServe error [%s]: %s", tlsString, err))
+			server.logger.Error("listeners", fmt.Sprintf("listenAndServe error [%s]: %s", tlsString, err))
 		}
 	}()
 }
@@ -651,7 +652,7 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	// continue registration
-	server.logger.Log(LogDebug, "localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
+	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
 	c.Register()
 
 	// send welcome text
@@ -1241,13 +1242,13 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
-	server.logger.Log(LogDebug, "rehash", "Starting rehash")
+	server.logger.Debug("rehash", "Starting rehash")
 
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
 	defer server.rehashMutex.Unlock()
 
-	server.logger.Log(LogDebug, "rehash", "Got rehash lock")
+	server.logger.Debug("rehash", "Got rehash lock")
 
 	config, err := LoadConfig(server.configFilename)
 
@@ -1326,7 +1327,7 @@ func (server *Server) rehash() error {
 	// STS
 	stsValue := config.Server.STS.Value()
 	var stsDisabled bool
-	server.logger.Log(LogDebug, "rehash", "STS Vals", CapValues[STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
+	server.logger.Debug("rehash", "STS Vals", CapValues[STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
 	if config.Server.STS.Enabled && !server.stsEnabled {
 		// enabling STS
 		SupportedCapabilities[STS] = true
@@ -1351,7 +1352,7 @@ func (server *Server) rehash() error {
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Log(LogDebug, "rehash", "Updated Caps", updatedCaps.String(Cap301), strconv.Itoa(len(updatedCaps)))
+	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(Cap301), strconv.Itoa(len(updatedCaps)))
 	if len(updatedCaps) > 0 {
 		for capab := range updatedCaps {
 			addedCaps[capab] = true
@@ -1470,13 +1471,13 @@ func (server *Server) rehash() error {
 
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.logger.Log(LogInfo, "rehash", fmt.Sprintf("REHASH command used by %s", client.nick))
+	server.logger.Info("rehash", fmt.Sprintf("REHASH command used by %s", client.nick))
 	err := server.rehash()
 
 	if err == nil {
 		client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", "Rehashing")
 	} else {
-		server.logger.Log(LogError, "rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
+		server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
 	}
 	return false

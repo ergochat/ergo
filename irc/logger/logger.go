@@ -1,7 +1,7 @@
 // Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package logger
 
 import (
 	"bufio"
@@ -17,62 +17,84 @@ import (
 	"github.com/mgutz/ansi"
 )
 
-// LogLevel represents the level to log messages at.
-type LogLevel int
+// Level represents the level to log messages at.
+type Level int
 
 const (
 	// LogDebug represents debug messages.
-	LogDebug LogLevel = iota
+	LogDebug Level = iota
 	// LogInfo represents informational messages.
 	LogInfo
-	// LogWarn represents warnings.
-	LogWarn
+	// LogWarning represents warnings.
+	LogWarning
 	// LogError represents errors.
 	LogError
 )
 
 var (
-	logLevelNames = map[string]LogLevel{
+	LogLevelNames = map[string]Level{
 		"debug":    LogDebug,
 		"info":     LogInfo,
-		"warn":     LogWarn,
-		"warning":  LogWarn,
-		"warnings": LogWarn,
+		"warn":     LogWarning,
+		"warning":  LogWarning,
+		"warnings": LogWarning,
 		"error":    LogError,
 		"errors":   LogError,
 	}
-	logLevelDisplayNames = map[LogLevel]string{
-		LogDebug: "debug",
-		LogInfo:  "info",
-		LogWarn:  "warning",
-		LogError: "error",
+	LogLevelDisplayNames = map[Level]string{
+		LogDebug:   "debug",
+		LogInfo:    "info",
+		LogWarning: "warning",
+		LogError:   "error",
 	}
 )
 
-// Logger is the main interface used to log debug/info/error messages.
-type Logger struct {
-	loggers         []SingleLogger
+// Manager is the main interface used to log debug/info/error messages.
+type Manager struct {
+	loggers         []singleLogger
 	stderrWriteLock sync.Mutex
 	DumpingRawInOut bool
 }
 
-// NewLogger returns a new Logger.
-func NewLogger(config []LoggingConfig) (*Logger, error) {
-	var logger Logger
+// Config represents the configuration of a single logger.
+type Config struct {
+	// logging methods
+	MethodStderr bool
+	MethodFile   bool
+	Filename     string
+	// logging level
+	Level Level
+	// logging types
+	Types         []string
+	ExcludedTypes []string
+}
+
+// NewManager returns a new log manager.
+func NewManager(config ...Config) (*Manager, error) {
+	var logger Manager
 
 	for _, logConfig := range config {
-		sLogger := SingleLogger{
-			MethodSTDERR: logConfig.Methods["stderr"],
+		typeMap := make(map[string]bool)
+		for _, name := range logConfig.Types {
+			typeMap[name] = true
+		}
+		excludedTypeMap := make(map[string]bool)
+		for _, name := range logConfig.ExcludedTypes {
+			excludedTypeMap[name] = true
+		}
+
+		sLogger := singleLogger{
+			MethodSTDERR: logConfig.MethodStderr,
 			MethodFile: fileMethod{
-				Enabled:  logConfig.Methods["file"],
+				Enabled:  logConfig.MethodFile,
 				Filename: logConfig.Filename,
 			},
 			Level:           logConfig.Level,
-			Types:           logConfig.Types,
-			ExcludedTypes:   logConfig.ExcludedTypes,
+			Types:           typeMap,
+			ExcludedTypes:   excludedTypeMap,
 			stderrWriteLock: &logger.stderrWriteLock,
 		}
-		if logConfig.Types["userinput"] || logConfig.Types["useroutput"] || (logConfig.Types["*"] && !(logConfig.ExcludedTypes["userinput"] && logConfig.ExcludedTypes["useroutput"])) {
+		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
 			logger.DumpingRawInOut = true
 		}
 		if sLogger.MethodFile.Enabled {
@@ -91,10 +113,45 @@ func NewLogger(config []LoggingConfig) (*Logger, error) {
 }
 
 // Log logs the given message with the given details.
-func (logger *Logger) Log(level LogLevel, logType string, messageParts ...string) {
+func (logger *Manager) Log(level Level, logType string, messageParts ...string) {
 	for _, singleLogger := range logger.loggers {
 		singleLogger.Log(level, logType, messageParts...)
 	}
+}
+
+// Debug logs the given message as a debug message.
+func (logger *Manager) Debug(logType string, messageParts ...string) {
+	for _, singleLogger := range logger.loggers {
+		singleLogger.Log(LogDebug, logType, messageParts...)
+	}
+}
+
+// Info logs the given message as an info message.
+func (logger *Manager) Info(logType string, messageParts ...string) {
+	for _, singleLogger := range logger.loggers {
+		singleLogger.Log(LogInfo, logType, messageParts...)
+	}
+}
+
+// Warning logs the given message as a warning message.
+func (logger *Manager) Warning(logType string, messageParts ...string) {
+	for _, singleLogger := range logger.loggers {
+		singleLogger.Log(LogWarning, logType, messageParts...)
+	}
+}
+
+// Error logs the given message as an error message.
+func (logger *Manager) Error(logType string, messageParts ...string) {
+	for _, singleLogger := range logger.loggers {
+		singleLogger.Log(LogError, logType, messageParts...)
+	}
+}
+
+// Fatal logs the given message as an error message, then exits.
+func (logger *Manager) Fatal(logType string, messageParts ...string) {
+	logger.Error(logType, messageParts...)
+	logger.Error("FATAL", "Fatal error encountered, application exiting")
+	os.Exit(1)
 }
 
 type fileMethod struct {
@@ -104,18 +161,18 @@ type fileMethod struct {
 	Writer   *bufio.Writer
 }
 
-// SingleLogger represents a single logger instance.
-type SingleLogger struct {
+// singleLogger represents a single logger instance.
+type singleLogger struct {
 	stderrWriteLock *sync.Mutex
 	MethodSTDERR    bool
 	MethodFile      fileMethod
-	Level           LogLevel
+	Level           Level
 	Types           map[string]bool
 	ExcludedTypes   map[string]bool
 }
 
 // Log logs the given message with the given details.
-func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...string) {
+func (logger *singleLogger) Log(level Level, logType string, messageParts ...string) {
 	// no logging enabled
 	if !(logger.MethodSTDERR || logger.MethodFile.Enabled) {
 		return
@@ -142,10 +199,10 @@ func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...
 	debug := ansi.ColorFunc("78")
 	section := ansi.ColorFunc("229")
 
-	levelDisplay := logLevelDisplayNames[level]
+	levelDisplay := LogLevelDisplayNames[level]
 	if level == LogError {
 		levelDisplay = alert(levelDisplay)
-	} else if level == LogWarn {
+	} else if level == LogWarning {
 		levelDisplay = warn(levelDisplay)
 	} else if level == LogInfo {
 		levelDisplay = info(levelDisplay)
@@ -155,7 +212,7 @@ func (logger *SingleLogger) Log(level LogLevel, logType string, messageParts ...
 
 	sep := grey(":")
 	fullStringFormatted := fmt.Sprintf("%s %s %s %s %s %s ", timeGrey(time.Now().UTC().Format("2006-01-02T15:04:05Z")), sep, levelDisplay, sep, section(logType), sep)
-	fullStringRaw := fmt.Sprintf("%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), logLevelDisplayNames[level], section(logType))
+	fullStringRaw := fmt.Sprintf("%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], section(logType))
 	for i, p := range messageParts {
 		fullStringFormatted += p
 		fullStringRaw += p
