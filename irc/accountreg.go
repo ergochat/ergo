@@ -16,15 +16,6 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
-const (
-	keyAccountExists      = "account.exists %s"
-	keyAccountVerified    = "account.verified %s"
-	keyAccountName        = "account.name %s" // stores the 'preferred name' of the account, not casemapped
-	keyAccountRegTime     = "account.registered.time %s"
-	keyAccountCredentials = "account.credentials %s"
-	keyCertToAccount      = "account.creds.certfp %s"
-)
-
 var (
 	errAccountCreation     = errors.New("Account could not be created")
 	errCertfpAlreadyExists = errors.New("An account already exists with your certificate")

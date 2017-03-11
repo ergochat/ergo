@@ -85,6 +85,16 @@ Used in capability negotiation. See the IRCv3 specs for more info:
 http://ircv3.net/specs/core/capability-negotiation-3.1.html
 http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 	},
+	"chanserv": {
+		text: `CHANSERV <subcommand> [params]
+
+ChanServ controls channel registrations.`,
+	},
+	"cs": {
+		text: `CS <subcommand> [params]
+
+ChanServ controls channel registrations.`,
+	},
 	"debug": {
 		oper: true,
 		text: `DEBUG <option>
@@ -240,6 +250,11 @@ view the channel membership prefixes supported by this server, see the help for
 
 Sets your nickname to the new given one.`,
 	},
+	"nickserv": {
+		text: `NICKSERV <subcommand> [params]
+
+NickServ controls accounts and user registrations.`,
+	},
 	"notice": {
 		text: `NOTICE <target>{,<target>} <text to be sent>
 
@@ -258,6 +273,11 @@ Requires the roleplay mode (+E) to be set on the target.`,
 The NPC command is used to send an action to the target as the source.
 
 Requires the roleplay mode (+E) to be set on the target.`,
+	},
+	"ns": {
+		text: `NS <subcommand> [params]
+
+NickServ controls accounts and user registrations.`,
 	},
 	"oper": {
 		text: `OPER <name> <password>

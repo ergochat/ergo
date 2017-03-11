@@ -11,6 +11,14 @@ import (
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
+var (
+	restrictedNicknames = map[string]bool{
+		"=scene=":  true, // used for rp commands
+		"chanserv": true,
+		"nickserv": true,
+	}
+)
+
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.authorized {
@@ -26,7 +34,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if err != nil || len(nicknameRaw) > server.limits.NickLen || nickname == "=scene=" {
+	if err != nil || len(nicknameRaw) > server.limits.NickLen || restrictedNicknames[nickname] {
 		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nicknameRaw, "Erroneous nickname")
 		return false
 	}
@@ -70,7 +78,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if oerr != nil || err != nil || len(strings.TrimSpace(msg.Params[1])) > server.limits.NickLen || nickname == "=scene=" {
+	if oerr != nil || err != nil || len(strings.TrimSpace(msg.Params[1])) > server.limits.NickLen || restrictedNicknames[nickname] {
 		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, msg.Params[0], "Erroneous nickname")
 		return false
 	}

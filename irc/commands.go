@@ -74,6 +74,14 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    1,
 	},
+	"CHANSERV": {
+		handler:   csHandler,
+		minParams: 1,
+	},
+	"CS": {
+		handler:   csHandler,
+		minParams: 1,
+	},
 	"DEBUG": {
 		handler:   debugHandler,
 		minParams: 1,
@@ -143,6 +151,10 @@ var Commands = map[string]Command{
 		usablePreReg: true,
 		minParams:    1,
 	},
+	"NICKSERV": {
+		handler:   nsHandler,
+		minParams: 1,
+	},
 	"NOTICE": {
 		handler:   noticeHandler,
 		minParams: 2,
@@ -154,6 +166,10 @@ var Commands = map[string]Command{
 	"NPCA": {
 		handler:   npcaHandler,
 		minParams: 3,
+	},
+	"NS": {
+		handler:   nsHandler,
+		minParams: 1,
 	},
 	"OPER": {
 		handler:   operHandler,

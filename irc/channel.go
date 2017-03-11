@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/tidwall/buntdb"
 )
 
 type Channel struct {
@@ -277,10 +278,27 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.channels.Add(channel)
 	channel.members.Add(client)
 	if len(channel.members) == 1 {
-		channel.createdTime = time.Now()
-		// // we should only do this on registered channels
-		// channel.members[client][ChannelFounder] = true
-		channel.members[client][ChannelOperator] = true
+		client.server.registeredChannelsMutex.Lock()
+		defer client.server.registeredChannelsMutex.Unlock()
+		client.server.store.Update(func(tx *buntdb.Tx) error {
+			chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
+
+			if chanReg == nil {
+				channel.createdTime = time.Now()
+				channel.members[client][ChannelOperator] = true
+			} else {
+				// we should only do this on registered channels
+				if client.account != nil && client.account.Name == chanReg.Founder {
+					channel.members[client][ChannelFounder] = true
+				}
+				channel.topic = chanReg.Topic
+				channel.topicSetBy = chanReg.TopicSetBy
+				channel.topicSetTime = chanReg.TopicSetTime
+				channel.name = chanReg.Name
+				channel.createdTime = chanReg.RegisteredAt
+			}
+			return nil
+		})
 	}
 
 	if client.capabilities[ExtendedJoin] {

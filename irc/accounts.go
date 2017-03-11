@@ -17,6 +17,15 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
+const (
+	keyAccountExists      = "account.exists %s"
+	keyAccountVerified    = "account.verified %s"
+	keyAccountName        = "account.name %s" // stores the 'preferred name' of the account, not casemapped
+	keyAccountRegTime     = "account.registered.time %s"
+	keyAccountCredentials = "account.credentials %s"
+	keyCertToAccount      = "account.creds.certfp %s"
+)
+
 var (
 	// EnabledSaslMechanisms contains the SASL mechanisms that exist and that we support.
 	// This can be moved to some other data structure/place if we need to load/unload mechs later.

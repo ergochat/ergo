@@ -114,6 +114,8 @@ type Server struct {
 	operclasses                  map[string]OperClass
 	password                     []byte
 	passwords                    *PasswordManager
+	registeredChannels           map[string]*RegisteredChannel
+	registeredChannelsMutex      sync.RWMutex
 	rehashMutex                  sync.Mutex
 	rehashSignal                 chan os.Signal
 	restAPI                      *RestAPIConfig
@@ -185,9 +187,10 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 	}
 
 	server := &Server{
-		accounts:                     make(map[string]*ClientAccount),
 		accountAuthenticationEnabled: config.Accounts.AuthenticationEnabled,
+		accounts:                     make(map[string]*ClientAccount),
 		channels:                     make(ChannelNameMap),
+		checkIdent:                   config.Server.CheckIdent,
 		clients:                      NewClientLookupSet(),
 		commands:                     make(chan Command),
 		configFilename:               configFilename,
@@ -209,21 +212,21 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 				Rest: config.Limits.LineLen.Rest,
 			},
 		},
-		listeners:      make(map[string]ListenerInterface),
-		logger:         logger,
-		monitoring:     make(map[string][]Client),
-		name:           config.Server.Name,
-		nameCasefolded: casefoldedName,
-		networkName:    config.Network.Name,
-		newConns:       make(chan clientConn),
-		operclasses:    *operClasses,
-		operators:      opers,
-		signals:        make(chan os.Signal, len(ServerExitSignals)),
-		stsEnabled:     config.Server.STS.Enabled,
-		rehashSignal:   make(chan os.Signal, 1),
-		restAPI:        &config.Server.RestAPI,
-		whoWas:         NewWhoWasList(config.Limits.WhowasEntries),
-		checkIdent:     config.Server.CheckIdent,
+		listeners:          make(map[string]ListenerInterface),
+		logger:             logger,
+		monitoring:         make(map[string][]Client),
+		name:               config.Server.Name,
+		nameCasefolded:     casefoldedName,
+		networkName:        config.Network.Name,
+		newConns:           make(chan clientConn),
+		operators:          opers,
+		operclasses:        *operClasses,
+		registeredChannels: make(map[string]*RegisteredChannel),
+		rehashSignal:       make(chan os.Signal, 1),
+		restAPI:            &config.Server.RestAPI,
+		signals:            make(chan os.Signal, len(ServerExitSignals)),
+		stsEnabled:         config.Server.STS.Enabled,
+		whoWas:             NewWhoWasList(config.Limits.WhowasEntries),
 	}
 
 	// open data store
@@ -949,6 +952,13 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
 			target, err = CasefoldName(targetString)
+			if target == "chanserv" {
+				server.chanservReceivePrivmsg(client, message)
+				continue
+			} else if target == "nickserv" {
+				server.nickservReceivePrivmsg(client, message)
+				continue
+			}
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
 				if len(target) > 0 {
@@ -1591,6 +1601,13 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
+				continue
+			}
+			if target == "chanserv" {
+				server.chanservReceiveNotice(client, message)
+				continue
+			} else if target == "nickserv" {
+				server.nickservReceiveNotice(client, message)
 				continue
 			}
 
