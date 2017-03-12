@@ -1,87 +1,45 @@
 // Copyright (c) 2012-2014 Jeremy Latt
 // Copyright (c) 2014-2015 Edmund Huber
-// Copyright (c) 2016- Daniel Oaks <daniel@danieloaks.net>
+// Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
 package irc
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
-// user mode flags
-type UserMode rune
+// ModeOp is an operation performed with modes
+type ModeOp rune
 
-func (mode UserMode) String() string {
+func (op ModeOp) String() string {
+	return string(op)
+}
+
+const (
+	Add    ModeOp = '+'
+	List   ModeOp = '='
+	Remove ModeOp = '-'
+)
+
+// Mode represents a user/channel/server mode
+type Mode rune
+
+func (mode Mode) String() string {
 	return string(mode)
 }
 
-type UserModes []UserMode
-
-func (modes UserModes) String() string {
-	strs := make([]string, len(modes))
-	for index, mode := range modes {
-		strs[index] = mode.String()
-	}
-	return strings.Join(strs, "")
-}
-
+// ModeChange is a single mode changing
 type ModeChange struct {
-	mode UserMode
-	op   ModeOp
-}
-
-func (change *ModeChange) String() string {
-	return fmt.Sprintf("%s%s", change.op, change.mode)
-}
-
-type ModeChanges []*ModeChange
-
-func (changes ModeChanges) String() string {
-	if len(changes) == 0 {
-		return ""
-	}
-
-	op := changes[0].op
-	str := changes[0].op.String()
-	for _, change := range changes {
-		if change.op != op {
-			op = change.op
-			str += change.op.String()
-		}
-		str += change.mode.String()
-	}
-	return str
-}
-
-// channel mode flags
-type ChannelMode rune
-
-func (mode ChannelMode) String() string {
-	return string(mode)
-}
-
-type ChannelModes []ChannelMode
-
-func (modes ChannelModes) String() string {
-	strs := make([]string, len(modes))
-	for index, mode := range modes {
-		strs[index] = mode.String()
-	}
-	return strings.Join(strs, "")
-}
-
-type ChannelModeChange struct {
-	mode ChannelMode
+	mode Mode
 	op   ModeOp
 	arg  string
 }
 
-func (change *ChannelModeChange) String() (str string) {
+func (change *ModeChange) String() (str string) {
 	if (change.op == Add) || (change.op == Remove) {
 		str = change.op.String()
 	}
@@ -92,9 +50,10 @@ func (change *ChannelModeChange) String() (str string) {
 	return
 }
 
-type ChannelModeChanges []*ChannelModeChange
+// ModeChanges are a collection of 'ModeChange's
+type ModeChanges []ModeChange
 
-func (changes ChannelModeChanges) String() string {
+func (changes ModeChanges) String() string {
 	if len(changes) == 0 {
 		return ""
 	}
@@ -119,82 +78,78 @@ func (changes ChannelModeChanges) String() string {
 	return str
 }
 
-type ChannelModeCommand struct {
-	channel string
-	changes ChannelModeChanges
+// Modes is just a raw list of modes
+type Modes []Mode
+
+func (modes Modes) String() string {
+	strs := make([]string, len(modes))
+	for index, mode := range modes {
+		strs[index] = mode.String()
+	}
+	return strings.Join(strs, "")
 }
 
-type ModeOp rune
-
-func (op ModeOp) String() string {
-	return string(op)
-}
-
+// User Modes
 const (
-	Add    ModeOp = '+'
-	List   ModeOp = '='
-	Remove ModeOp = '-'
-)
-
-const (
-	Away            UserMode = 'a'
-	Invisible       UserMode = 'i'
-	LocalOperator   UserMode = 'O'
-	Operator        UserMode = 'o'
-	Restricted      UserMode = 'r'
-	ServerNotice    UserMode = 's' // deprecated
-	TLS             UserMode = 'Z'
-	UserRoleplaying UserMode = 'E'
-	WallOps         UserMode = 'w'
+	Away            Mode = 'a'
+	Invisible       Mode = 'i'
+	LocalOperator   Mode = 'O'
+	Operator        Mode = 'o'
+	Restricted      Mode = 'r'
+	ServerNotice    Mode = 's' // deprecated
+	TLS             Mode = 'Z'
+	UserRoleplaying Mode = 'E'
+	WallOps         Mode = 'w'
 )
 
 var (
-	SupportedUserModes = UserModes{
+	SupportedUserModes = Modes{
 		Away, Invisible, Operator, UserRoleplaying,
 	}
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = SupportedUserModes.String()
 )
 
+// Channel Modes
 const (
-	BanMask         ChannelMode = 'b' // arg
-	ChanRoleplaying ChannelMode = 'E' // flag
-	ExceptMask      ChannelMode = 'e' // arg
-	InviteMask      ChannelMode = 'I' // arg
-	InviteOnly      ChannelMode = 'i' // flag
-	Key             ChannelMode = 'k' // flag arg
-	Moderated       ChannelMode = 'm' // flag
-	NoOutside       ChannelMode = 'n' // flag
-	OpOnlyTopic     ChannelMode = 't' // flag
-	Secret          ChannelMode = 's' // flag
-	UserLimit       ChannelMode = 'l' // flag arg
+	BanMask         Mode = 'b' // arg
+	ChanRoleplaying Mode = 'E' // flag
+	ExceptMask      Mode = 'e' // arg
+	InviteMask      Mode = 'I' // arg
+	InviteOnly      Mode = 'i' // flag
+	Key             Mode = 'k' // flag arg
+	Moderated       Mode = 'm' // flag
+	NoOutside       Mode = 'n' // flag
+	OpOnlyTopic     Mode = 't' // flag
+	Secret          Mode = 's' // flag
+	UserLimit       Mode = 'l' // flag arg
 )
 
 var (
-	ChannelFounder  ChannelMode = 'q' // arg
-	ChannelAdmin    ChannelMode = 'a' // arg
-	ChannelOperator ChannelMode = 'o' // arg
-	Halfop          ChannelMode = 'h' // arg
-	Voice           ChannelMode = 'v' // arg
+	ChannelFounder  Mode = 'q' // arg
+	ChannelAdmin    Mode = 'a' // arg
+	ChannelOperator Mode = 'o' // arg
+	Halfop          Mode = 'h' // arg
+	Voice           Mode = 'v' // arg
 
-	SupportedChannelModes = ChannelModes{
+	SupportedChannelModes = Modes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
 		OpOnlyTopic, Secret, UserLimit, ChanRoleplaying,
 	}
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()
 
-	DefaultChannelModes = ChannelModes{
+	DefaultChannelModes = Modes{
 		NoOutside, OpOnlyTopic,
 	}
 
 	// ChannelPrivModes holds the list of modes that are privileged, ie founder/op/halfop, in order.
 	// voice is not in this list because it cannot perform channel operator actions.
-	ChannelPrivModes = ChannelModes{
+	ChannelPrivModes = Modes{
 		ChannelFounder, ChannelAdmin, ChannelOperator, Halfop,
 	}
 
-	ChannelModePrefixes = map[ChannelMode]string{
+	ChannelModePrefixes = map[Mode]string{
 		ChannelFounder:  "~",
 		ChannelAdmin:    "&",
 		ChannelOperator: "@",
@@ -202,6 +157,10 @@ var (
 		Voice:           "+",
 	}
 )
+
+//
+// channel membership prefixes
+//
 
 // SplitChannelMembershipPrefixes takes a target and returns the prefixes on it, then the name.
 func SplitChannelMembershipPrefixes(target string) (prefixes string, name string) {
@@ -245,9 +204,48 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if errChan == nil {
 		return cmodeHandler(server, client, msg)
-	} else {
-		return umodeHandler(server, client, msg)
 	}
+	return umodeHandler(server, client, msg)
+}
+
+// applyModeChanges applies the given changes, and returns the applied changes.
+func (client *Client) applyModeChanges(ModeChanges) ModeChanges {
+	applied := make(ModeChanges, 0)
+
+	for _, change := range changes {
+		switch change.mode {
+		case Invisible, ServerNotice, WallOps, UserRoleplaying:
+			switch change.op {
+			case Add:
+				if client.flags[change.mode] {
+					continue
+				}
+				client.flags[change.mode] = true
+				applied = append(applied, change)
+
+			case Remove:
+				if !client.flags[change.mode] {
+					continue
+				}
+				delete(client.flags, change.mode)
+				applied = append(applied, change)
+			}
+
+		case Operator, LocalOperator:
+			if change.op == Remove {
+				if !client.flags[change.mode] {
+					continue
+				}
+				delete(client.flags, change.mode)
+				applied = append(applied, change)
+			}
+		}
+
+		// can't do anything to TLS mode
+	}
+
+	// return the changes we could actually apply
+	return applied
 }
 
 // MODE <target> [<modestring> [<mode arguments>...]]
@@ -292,42 +290,12 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				continue
 			}
 			changes = append(changes, &ModeChange{
-				mode: UserMode(mode),
+				mode: Mode(mode),
 				op:   op,
 			})
 		}
 
-		for _, change := range changes {
-			switch change.mode {
-			case Invisible, ServerNotice, WallOps, UserRoleplaying:
-				switch change.op {
-				case Add:
-					if target.flags[change.mode] {
-						continue
-					}
-					target.flags[change.mode] = true
-					applied = append(applied, change)
-
-				case Remove:
-					if !target.flags[change.mode] {
-						continue
-					}
-					delete(target.flags, change.mode)
-					applied = append(applied, change)
-				}
-
-			case Operator, LocalOperator:
-				if change.op == Remove {
-					if !target.flags[change.mode] {
-						continue
-					}
-					delete(target.flags, change.mode)
-					applied = append(applied, change)
-				}
-			}
-
-			// can't do anything to TLS mode
-		}
+		applied := target.applyModeChanges(changes)
 	}
 
 	if len(applied) > 0 {
@@ -337,6 +305,16 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 	return false
 }
+
+//////
+//////
+//////
+//////
+//////
+//////
+//////
+//////
+//////
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
