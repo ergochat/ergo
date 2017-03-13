@@ -104,6 +104,7 @@ type Server struct {
 	listeners                    map[string]ListenerInterface
 	listenerUpdateMutex          sync.Mutex
 	logger                       *logger.Manager
+	MaxSendQBytes                uint64
 	monitoring                   map[string][]Client
 	motdLines                    []string
 	name                         string
@@ -211,6 +212,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		},
 		listeners:      make(map[string]ListenerInterface),
 		logger:         logger,
+		MaxSendQBytes:  config.Server.MaxSendQBytes,
 		monitoring:     make(map[string][]Client),
 		name:           config.Server.Name,
 		nameCasefolded: casefoldedName,
@@ -1412,6 +1414,18 @@ func (server *Server) rehash() error {
 	// registration
 	accountReg := NewAccountRegistration(config.Accounts.Registration)
 	server.accountRegistration = &accountReg
+
+	// set new sendqueue size
+	if config.Server.MaxSendQBytes != server.MaxSendQBytes {
+		server.MaxSendQBytes = config.Server.MaxSendQBytes
+
+		// update on all clients
+		server.clients.ByNickMutex.RLock()
+		for _, sClient := range server.clients.ByNick {
+			sClient.socket.MaxSendQBytes = config.Server.MaxSendQBytes
+		}
+		server.clients.ByNickMutex.RUnlock()
+	}
 
 	// set RPL_ISUPPORT
 	oldISupportList := server.isupport

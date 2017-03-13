@@ -30,16 +30,19 @@ type Socket struct {
 	conn   net.Conn
 	reader *bufio.Reader
 
+	MaxSendQBytes uint64
+
 	lineToSendExists chan bool
 	linesToSend      []string
 	linesToSendMutex sync.Mutex
 }
 
 // NewSocket returns a new Socket.
-func NewSocket(conn net.Conn) Socket {
+func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 	return Socket{
 		conn:             conn,
 		reader:           bufio.NewReader(conn),
+		MaxSendQBytes:    maxSendQBytes,
 		lineToSendExists: make(chan bool),
 	}
 }
@@ -129,6 +132,19 @@ func (socket *Socket) RunSocketWriter() {
 		select {
 		case <-socket.lineToSendExists:
 			socket.linesToSendMutex.Lock()
+
+			// check sendq
+			var sendQBytes uint64
+			for _, line := range socket.linesToSend {
+				sendQBytes += uint64(len(line))
+				if socket.MaxSendQBytes < sendQBytes {
+					break
+				}
+			}
+			if socket.MaxSendQBytes < sendQBytes {
+				socket.conn.Write([]byte("\r\nERROR :SendQ Exceeded\r\n"))
+				break
+			}
 
 			// get data
 			data := socket.linesToSend[0]

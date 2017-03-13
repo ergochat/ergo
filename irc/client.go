@@ -74,7 +74,7 @@ type Client struct {
 // NewClient returns a client with all the appropriate info setup.
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
-	socket := NewSocket(conn)
+	socket := NewSocket(conn, server.MaxSendQBytes)
 	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
