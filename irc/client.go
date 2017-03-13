@@ -75,6 +75,7 @@ type Client struct {
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
 	socket := NewSocket(conn)
+	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
 		authorized:     server.password == nil,
