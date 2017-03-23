@@ -50,7 +50,12 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
 	socket.Closed = true
-	// socket will close once all data has been sent
+
+	// 'send data' to force close loop to happen
+	socket.linesToSendMutex.Lock()
+	socket.linesToSend = append(socket.linesToSend, "")
+	socket.linesToSendMutex.Unlock()
+	go socket.fillLineToSendExists()
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -155,12 +160,21 @@ func (socket *Socket) RunSocketWriter() {
 			}
 
 			// write data
-			_, err := socket.conn.Write([]byte(data))
-			if err != nil {
-				errOut = true
-				fmt.Println(err.Error())
+			if 0 < len(data) {
+				_, err := socket.conn.Write([]byte(data))
+				if err != nil {
+					errOut = true
+					fmt.Println(err.Error())
+					break
+				}
+			}
+
+			// check if we're closed
+			if socket.Closed {
+				socket.linesToSendMutex.Unlock()
 				break
 			}
+
 			socket.linesToSendMutex.Unlock()
 		}
 		if errOut {
