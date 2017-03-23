@@ -148,6 +148,7 @@ func (socket *Socket) RunSocketWriter() {
 			}
 			if socket.MaxSendQBytes < sendQBytes {
 				socket.conn.Write([]byte("\r\nERROR :SendQ Exceeded\r\n"))
+				fmt.Println("SendQ exceeded, disconnected client")
 				break
 			}
 

@@ -66,6 +66,7 @@ server:
     motd: oragono.motd
 
     # maximum length of clients' sendQ in bytes
+    # this should be big enough to hold /LIST and HELP replies
     max-sendq: 16k
 
     # maximum number of connections per subnet
