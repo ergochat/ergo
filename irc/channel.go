@@ -374,12 +374,30 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	}
 
 	channel.topic = topic
-	channel.topicSetBy = client.nick
+	channel.topicSetBy = client.nickMaskString
 	channel.topicSetTime = time.Now()
 
 	for member := range channel.members {
 		member.Send(nil, client.nickMaskString, "TOPIC", channel.name, channel.topic)
 	}
+
+	// update saved channel topic for registered chans
+	client.server.registeredChannelsMutex.Lock()
+	defer client.server.registeredChannelsMutex.Unlock()
+
+	client.server.store.Update(func(tx *buntdb.Tx) error {
+		chanInfo := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
+
+		if chanInfo == nil {
+			return nil
+		}
+
+		chanInfo.Topic = topic
+		chanInfo.TopicSetBy = client.nickMaskString
+		chanInfo.TopicSetTime = time.Now()
+		client.server.saveChannelNoMutex(tx, channel.nameCasefolded, *chanInfo)
+		return nil
+	})
 }
 
 func (channel *Channel) CanSpeak(client *Client) bool {
