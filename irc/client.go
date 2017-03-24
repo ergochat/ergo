@@ -332,7 +332,6 @@ func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 
 	for channel := range client.channels {
 		channel.membersMutex.RLock()
-		defer channel.membersMutex.RUnlock()
 		for member := range channel.members {
 			// make sure they have all the required caps
 			for _, Cap := range Capabilities {
@@ -342,6 +341,7 @@ func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 			}
 			friends.Add(member)
 		}
+		channel.membersMutex.RUnlock()
 	}
 	return friends
 }
