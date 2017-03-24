@@ -19,8 +19,9 @@ New release of Oragono!
 * Added draft IRCv3 capability [draft/sts](http://ircv3.net/specs/core/sts-3.3.html).
  
 ### Changed
-* Logging is now much better and useful.
-* Can now specify years, months and days (e.g. `1y12m30d`) with DLINE and KLINE.
+* `DLINE` and `KLINE` now let you specify years, months and days (e.g. `1y12m30d`) in durations.
+* Logging is now much more useful, displays colours and can log to disk.
+* Socket handling has been rewritten, which means we should support more connections more effectively (thanks dp- for the suggestion!).
 
 ### Removed
  

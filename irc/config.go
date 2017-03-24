@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/bytefmt"
+
 	"github.com/DanielOaks/oragono/irc/custime"
 	"github.com/DanielOaks/oragono/irc/logger"
 	"gopkg.in/yaml.v2"
@@ -171,6 +173,8 @@ type Config struct {
 		RestAPI            RestAPIConfig `yaml:"rest-api"`
 		CheckIdent         bool          `yaml:"check-ident"`
 		MOTD               string
+		MaxSendQString     string `yaml:"max-sendq"`
+		MaxSendQBytes      uint64
 		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
 		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
 	}
@@ -432,6 +436,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		newLogConfigs = append(newLogConfigs, logConfig)
 	}
 	config.Logging = newLogConfigs
+
+	config.Server.MaxSendQBytes, err = bytefmt.ToBytes(config.Server.MaxSendQString)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse maximum SendQ size (make sure it only contains whole numbers): %s", err.Error())
+	}
 
 	return config, nil
 }

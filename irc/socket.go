@@ -10,9 +10,11 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,23 +29,33 @@ type Socket struct {
 	Closed bool
 	conn   net.Conn
 	reader *bufio.Reader
+
+	MaxSendQBytes uint64
+
+	lineToSendExists chan bool
+	linesToSend      []string
+	linesToSendMutex sync.Mutex
 }
 
 // NewSocket returns a new Socket.
-func NewSocket(conn net.Conn) Socket {
+func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 	return Socket{
-		conn:   conn,
-		reader: bufio.NewReader(conn),
+		conn:             conn,
+		reader:           bufio.NewReader(conn),
+		MaxSendQBytes:    maxSendQBytes,
+		lineToSendExists: make(chan bool),
 	}
 }
 
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
-	if socket.Closed {
-		return
-	}
 	socket.Closed = true
-	socket.conn.Close()
+
+	// 'send data' to force close loop to happen
+	socket.linesToSendMutex.Lock()
+	socket.linesToSend = append(socket.linesToSend, "")
+	socket.linesToSendMutex.Unlock()
+	go socket.fillLineToSendExists()
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -104,13 +116,78 @@ func (socket *Socket) Write(data string) error {
 		return io.EOF
 	}
 
-	// write data
-	_, err := socket.conn.Write([]byte(data))
-	if err != nil {
-		socket.Close()
-		return err
-	}
+	socket.linesToSendMutex.Lock()
+	socket.linesToSend = append(socket.linesToSend, data)
+	socket.linesToSendMutex.Unlock()
+	go socket.fillLineToSendExists()
+
 	return nil
+}
+
+// fillLineToSendExists only exists because you can't goroutine single statements.
+func (socket *Socket) fillLineToSendExists() {
+	socket.lineToSendExists <- true
+}
+
+// RunSocketWriter starts writing messages to the outgoing socket.
+func (socket *Socket) RunSocketWriter() {
+	var errOut bool
+	for {
+		// wait for new lines
+		select {
+		case <-socket.lineToSendExists:
+			socket.linesToSendMutex.Lock()
+
+			// check sendq
+			var sendQBytes uint64
+			for _, line := range socket.linesToSend {
+				sendQBytes += uint64(len(line))
+				if socket.MaxSendQBytes < sendQBytes {
+					break
+				}
+			}
+			if socket.MaxSendQBytes < sendQBytes {
+				socket.conn.Write([]byte("\r\nERROR :SendQ Exceeded\r\n"))
+				fmt.Println("SendQ exceeded, disconnected client")
+				break
+			}
+
+			// get data
+			data := socket.linesToSend[0]
+			if len(socket.linesToSend) > 1 {
+				socket.linesToSend = socket.linesToSend[1:]
+			} else {
+				socket.linesToSend = []string{}
+			}
+
+			// write data
+			if 0 < len(data) {
+				_, err := socket.conn.Write([]byte(data))
+				if err != nil {
+					errOut = true
+					fmt.Println(err.Error())
+					break
+				}
+			}
+
+			// check if we're closed
+			if socket.Closed {
+				socket.linesToSendMutex.Unlock()
+				break
+			}
+
+			socket.linesToSendMutex.Unlock()
+		}
+		if errOut {
+			// error out, bad stuff happened
+			break
+		}
+	}
+	//TODO(dan): empty socket.lineToSendExists queue
+	socket.conn.Close()
+	if !socket.Closed {
+		socket.Closed = true
+	}
 }
 
 // WriteLine writes the given line out of Socket.
