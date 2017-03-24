@@ -277,6 +277,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	client.channels.Add(channel)
 	channel.members.Add(client)
+	var givenMode *Mode
 	if len(channel.members) == 1 {
 		client.server.registeredChannelsMutex.Lock()
 		defer client.server.registeredChannelsMutex.Unlock()
@@ -286,10 +287,12 @@ func (channel *Channel) Join(client *Client, key string) {
 			if chanReg == nil {
 				channel.createdTime = time.Now()
 				channel.members[client][ChannelOperator] = true
+				givenMode = &ChannelOperator
 			} else {
 				// we should only do this on registered channels
 				if client.account != nil && client.account.Name == chanReg.Founder {
 					channel.members[client][ChannelFounder] = true
+					givenMode = &ChannelFounder
 				}
 				channel.topic = chanReg.Topic
 				channel.topicSetBy = chanReg.TopicSetBy
@@ -308,6 +311,9 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 	channel.getTopicNoMutex(client) // we already have Lock
 	channel.namesNoMutex(client)
+	if givenMode != nil {
+		client.Send(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
+	}
 }
 
 func (channel *Channel) Part(client *Client, message string) {
