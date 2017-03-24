@@ -304,7 +304,7 @@ func (channel *Channel) Part(client *Client, message string) {
 	for member := range channel.members {
 		member.Send(nil, client.nickMaskString, "PART", channel.name, message)
 	}
-	channel.Quit(client)
+	channel.quitNoMutex(client)
 
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, channel.name))
 }
