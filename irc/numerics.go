@@ -5,6 +5,12 @@
 
 package irc
 
+// These numerics have been retrieved from:
+//   http://defs.ircdocs.horse/ and http://modern.ircdocs.horse/
+//
+// They're intended to represent a relatively-standard cross-section of the IRC
+// server ecosystem out there. Custom numerics will be marked as such.
+
 const (
 	RPL_WELCOME                     = "001"
 	RPL_YOURHOST                    = "002"

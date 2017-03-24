@@ -10,7 +10,7 @@ import (
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
-// Capabilities are optional features a client may request from a server.
+// Capability represents an optional feature that a client may request from the server.
 type Capability string
 
 const (
@@ -33,6 +33,7 @@ const (
 )
 
 var (
+	// SupportedCapabilities are the caps we advertise.
 	SupportedCapabilities = CapabilitySet{
 		AccountTag:    true,
 		AccountNotify: true,
@@ -51,6 +52,7 @@ var (
 		// STS is set during server startup
 		UserhostInNames: true,
 	}
+	// CapValues are the actual values we advertise to v3.2 clients.
 	CapValues = map[Capability]string{
 		SASL: "PLAIN,EXTERNAL",
 	}
@@ -60,20 +62,7 @@ func (capability Capability) String() string {
 	return string(capability)
 }
 
-// CapModifiers are indicators showing the state of a capability after a REQ or
-// ACK.
-type CapModifier rune
-
-const (
-	Ack     CapModifier = '~'
-	Disable CapModifier = '-'
-	Sticky  CapModifier = '='
-)
-
-func (mod CapModifier) String() string {
-	return string(mod)
-}
-
+// CapState shows whether we're negotiating caps, finished, etc for connection registration.
 type CapState uint
 
 const (
@@ -116,8 +105,8 @@ func (set CapabilitySet) DisableString() string {
 	parts := make([]string, len(set))
 	index := 0
 	for capability := range set {
-		parts[index] = Disable.String() + capability.String()
-		index += 1
+		parts[index] = "-" + capability.String()
+		index++
 	}
 	return strings.Join(parts, " ")
 }

@@ -22,10 +22,11 @@ var (
 	ErrNicknameMismatch = errors.New("nickname mismatch")
 )
 
+// ExpandUserHost takes a userhost, and returns an expanded version.
 func ExpandUserHost(userhost string) (expanded string) {
 	expanded = userhost
 	// fill in missing wildcards for nicks
-	//TODO(dan): this would fail with dan@lol, do we want to accommodate that?
+	//TODO(dan): this would fail with dan@lol, fix that.
 	if !strings.Contains(expanded, "!") {
 		expanded += "!*"
 	}
@@ -35,17 +36,20 @@ func ExpandUserHost(userhost string) (expanded string) {
 	return
 }
 
+// ClientLookupSet represents a way to store, search and lookup clients.
 type ClientLookupSet struct {
 	ByNickMutex sync.RWMutex
 	ByNick      map[string]*Client
 }
 
+// NewClientLookupSet returns a new lookup set.
 func NewClientLookupSet() *ClientLookupSet {
 	return &ClientLookupSet{
 		ByNick: make(map[string]*Client),
 	}
 }
 
+// Count returns how many clients are in the lookup set.
 func (clients *ClientLookupSet) Count() int {
 	clients.ByNickMutex.RLock()
 	defer clients.ByNickMutex.RUnlock()
@@ -53,7 +57,8 @@ func (clients *ClientLookupSet) Count() int {
 	return count
 }
 
-//TODO(dan): wouldn't it be best to always use Get rather than this?
+// Has returns whether or not the given client exists.
+//TODO(dan): This seems like ripe ground for a race, if code does Has then Get, and assumes the Get will return a client.
 func (clients *ClientLookupSet) Has(nick string) bool {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
@@ -75,6 +80,7 @@ func (clients *ClientLookupSet) getNoMutex(nick string) *Client {
 	return nil
 }
 
+// Get retrieves a client from the set, if they exist.
 func (clients *ClientLookupSet) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
@@ -86,6 +92,7 @@ func (clients *ClientLookupSet) Get(nick string) *Client {
 	return nil
 }
 
+// Add adds a client to the lookup set.
 func (clients *ClientLookupSet) Add(client *Client, nick string) error {
 	nick, err := CasefoldName(nick)
 	if err != nil {
@@ -100,6 +107,7 @@ func (clients *ClientLookupSet) Add(client *Client, nick string) error {
 	return nil
 }
 
+// Remove removes a client from the lookup set.
 func (clients *ClientLookupSet) Remove(client *Client) error {
 	if !client.HasNick() {
 		return ErrNickMissing
@@ -113,6 +121,7 @@ func (clients *ClientLookupSet) Remove(client *Client) error {
 	return nil
 }
 
+// Replace renames an existing client in the lookup set.
 func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client) error {
 	// get casefolded nicknames
 	oldNick, err := CasefoldName(oldNick)
@@ -145,6 +154,7 @@ func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client)
 	return nil
 }
 
+// AllWithCaps returns all clients with the given capabilities.
 func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) {
 	set = make(ClientSet)
 
@@ -165,6 +175,7 @@ func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) 
 	return set
 }
 
+// FindAll returns all clients that match the given userhost mask.
 func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 
@@ -185,6 +196,7 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	return set
 }
 
+// Find returns the first client that matches the given userhost mask.
 func (clients *ClientLookupSet) Find(userhost string) *Client {
 	userhost, err := Casefold(ExpandUserHost(userhost))
 	if err != nil {
