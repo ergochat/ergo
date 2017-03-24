@@ -43,7 +43,7 @@ type Client struct {
 	channels           ChannelSet
 	class              *OperClass
 	ctime              time.Time
-	flags              map[UserMode]bool
+	flags              map[Mode]bool
 	isDestroyed        bool
 	isQuitting         bool
 	hasQuit            bool
@@ -83,7 +83,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		capVersion:     Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
-		flags:          make(map[UserMode]bool),
+		flags:          make(map[Mode]bool),
 		monitoring:     make(map[string]bool),
 		server:         server,
 		socket:         &socket,

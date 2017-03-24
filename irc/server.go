@@ -339,7 +339,7 @@ func (server *Server) setISupport() {
 	server.isupport = NewISupportList()
 	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	server.isupport.Add("CASEMAPPING", casemappingName)
-	server.isupport.Add("CHANMODES", strings.Join([]string{ChannelModes{BanMask, ExceptMask, InviteMask}.String(), "", ChannelModes{UserLimit, Key}.String(), ChannelModes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
+	server.isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
 	server.isupport.Add("EXCEPTS", "")
@@ -376,7 +376,7 @@ func (server *Server) setISupport() {
 	server.isupport.RegenerateCachedReply()
 }
 
-func loadChannelList(channel *Channel, list string, maskMode ChannelMode) {
+func loadChannelList(channel *Channel, list string, maskMode Mode) {
 	if list == "" {
 		return
 	}
@@ -1242,7 +1242,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, "You are now an IRC operator")
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
-	modech := ModeChanges{&ModeChange{
+	modech := ModeChanges{ModeChange{
 		mode: Operator,
 		op:   Add,
 	}}
@@ -1521,7 +1521,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, RPL_UNAWAY, client.nick, "You are no longer marked as being away")
 	}
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
-	modech := ModeChanges{&ModeChange{
+	modech := ModeChanges{ModeChange{
 		mode: Away,
 		op:   op,
 	}}

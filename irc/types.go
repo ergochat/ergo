@@ -39,9 +39,9 @@ func (channels ChannelNameMap) Remove(channel *Channel) error {
 	return nil
 }
 
-type ChannelModeSet map[ChannelMode]bool
+type ModeSet map[Mode]bool
 
-func (set ChannelModeSet) String() string {
+func (set ModeSet) String() string {
 	if len(set) == 0 {
 		return ""
 	}
@@ -68,10 +68,10 @@ func (clients ClientSet) Has(client *Client) bool {
 	return clients[client]
 }
 
-type MemberSet map[*Client]ChannelModeSet
+type MemberSet map[*Client]ModeSet
 
 func (members MemberSet) Add(member *Client) {
-	members[member] = make(ChannelModeSet)
+	members[member] = make(ModeSet)
 }
 
 func (members MemberSet) Remove(member *Client) {
@@ -83,7 +83,7 @@ func (members MemberSet) Has(member *Client) bool {
 	return ok
 }
 
-func (members MemberSet) HasMode(member *Client, mode ChannelMode) bool {
+func (members MemberSet) HasMode(member *Client, mode Mode) bool {
 	modes, ok := members[member]
 	if !ok {
 		return false
@@ -91,7 +91,7 @@ func (members MemberSet) HasMode(member *Client, mode ChannelMode) bool {
 	return modes[mode]
 }
 
-func (members MemberSet) AnyHasMode(mode ChannelMode) bool {
+func (members MemberSet) AnyHasMode(mode Mode) bool {
 	for _, modes := range members {
 		if modes[mode] {
 			return true

@@ -18,8 +18,8 @@ import (
 )
 
 type Channel struct {
-	flags          ChannelModeSet
-	lists          map[ChannelMode]*UserMaskSet
+	flags          ModeSet
+	lists          map[Mode]*UserMaskSet
 	key            string
 	membersMutex   sync.RWMutex
 	members        MemberSet
@@ -43,8 +43,8 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	}
 
 	channel := &Channel{
-		flags: make(ChannelModeSet),
-		lists: map[ChannelMode]*UserMaskSet{
+		flags: make(ModeSet),
+		lists: map[Mode]*UserMaskSet{
 			BanMask:    NewUserMaskSet(),
 			ExceptMask: NewUserMaskSet(),
 			InviteMask: NewUserMaskSet(),
@@ -110,14 +110,14 @@ func (channel *Channel) namesNoMutex(client *Client) {
 }
 
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
-func (channel *Channel) ClientIsAtLeast(client *Client, permission ChannelMode) bool {
+func (channel *Channel) ClientIsAtLeast(client *Client, permission Mode) bool {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
 
 	return channel.clientIsAtLeastNoMutex(client, permission)
 }
 
-func (channel *Channel) clientIsAtLeastNoMutex(client *Client, permission ChannelMode) bool {
+func (channel *Channel) clientIsAtLeastNoMutex(client *Client, permission Mode) bool {
 	// requires RLock()
 
 	// get voice, since it's not a part of ChannelPrivModes
@@ -140,7 +140,7 @@ func (channel *Channel) clientIsAtLeastNoMutex(client *Client, permission Channe
 }
 
 // Prefixes returns a list of prefixes for the given set of channel modes.
-func (modes ChannelModeSet) Prefixes(isMultiPrefix bool) string {
+func (modes ModeSet) Prefixes(isMultiPrefix bool) string {
 	var prefixes string
 
 	// add prefixes in order from highest to lowest privs
@@ -394,11 +394,11 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 }
 
 // TagMsg sends a tag message to everyone in this channel who can accept them.
-func (channel *Channel) TagMsg(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client) {
+func (channel *Channel) TagMsg(msgid string, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client) {
 	channel.sendMessage(msgid, "TAGMSG", []Capability{MessageTags}, minPrefix, clientOnlyTags, client, nil)
 }
 
-func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
+func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -408,7 +408,7 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability
 	defer channel.membersMutex.RUnlock()
 
 	// for STATUSMSG
-	var minPrefixMode ChannelMode
+	var minPrefixMode Mode
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
@@ -445,16 +445,16 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability
 }
 
 // SplitPrivMsg sends a private message to everyone in this channel.
-func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
 	channel.sendSplitMessage(msgid, "PRIVMSG", minPrefix, clientOnlyTags, client, &message)
 }
 
 // SplitNotice sends a private message to everyone in this channel.
-func (channel *Channel) SplitNotice(msgid string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
+func (channel *Channel) SplitNotice(msgid string, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage) {
 	channel.sendSplitMessage(msgid, "NOTICE", minPrefix, clientOnlyTags, client, &message)
 }
 
-func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *SplitMessage) {
+func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *SplitMessage) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -464,7 +464,7 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMo
 	defer channel.membersMutex.RUnlock()
 
 	// for STATUSMSG
-	var minPrefixMode ChannelMode
+	var minPrefixMode Mode
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
@@ -489,7 +489,7 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *ChannelMo
 	}
 }
 
-func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
+func (channel *Channel) applyModeFlag(client *Client, mode Mode,
 	op ModeOp) bool {
 	if !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
@@ -514,8 +514,8 @@ func (channel *Channel) applyModeFlag(client *Client, mode ChannelMode,
 	return false
 }
 
-func (channel *Channel) applyModeMemberNoMutex(client *Client, mode ChannelMode,
-	op ModeOp, nick string) *ChannelModeChange {
+func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
+	op ModeOp, nick string) *ModeChange {
 	// requires Lock()
 
 	if nick == "" {
@@ -542,7 +542,7 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode ChannelMode,
 			return nil
 		}
 		channel.members[target][mode] = true
-		return &ChannelModeChange{
+		return &ModeChange{
 			op:   Add,
 			mode: mode,
 			arg:  nick,
@@ -553,7 +553,7 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode ChannelMode,
 			return nil
 		}
 		channel.members[target][mode] = false
-		return &ChannelModeChange{
+		return &ModeChange{
 			op:   Remove,
 			mode: mode,
 			arg:  nick,
@@ -562,7 +562,7 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode ChannelMode,
 	return nil
 }
 
-func (channel *Channel) ShowMaskList(client *Client, mode ChannelMode) {
+func (channel *Channel) ShowMaskList(client *Client, mode Mode) {
 	//TODO(dan): WE NEED TO fiX this PROPERLY
 	log.Fatal("Implement ShowMaskList")
 	/*
@@ -572,7 +572,7 @@ func (channel *Channel) ShowMaskList(client *Client, mode ChannelMode) {
 		client.RplEndOfMaskList(mode, channel)*/
 }
 
-func (channel *Channel) applyModeMask(client *Client, mode ChannelMode, op ModeOp, mask string) bool {
+func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask string) bool {
 	list := channel.lists[mode]
 	if list == nil {
 		// This should never happen, but better safe than panicky.

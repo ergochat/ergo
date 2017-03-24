@@ -178,8 +178,8 @@ func SplitChannelMembershipPrefixes(target string) (prefixes string, name string
 }
 
 // GetLowestChannelModePrefix returns the lowest channel prefix mode out of the given prefixes.
-func GetLowestChannelModePrefix(prefixes string) *ChannelMode {
-	var lowest *ChannelMode
+func GetLowestChannelModePrefix(prefixes string) *Mode {
+	var lowest *Mode
 
 	if strings.Contains(prefixes, "+") {
 		lowest = &Voice
@@ -208,8 +208,8 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return umodeHandler(server, client, msg)
 }
 
-// applyModeChanges applies the given changes, and returns the applied changes.
-func (client *Client) applyModeChanges(ModeChanges) ModeChanges {
+// applyUserModeChanges applies the given changes, and returns the applied changes.
+func (client *Client) applyUserModeChanges(changes ModeChanges) ModeChanges {
 	applied := make(ModeChanges, 0)
 
 	for _, change := range changes {
@@ -289,13 +289,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				op = ModeOp(mode)
 				continue
 			}
-			changes = append(changes, &ModeChange{
+			changes = append(changes, ModeChange{
 				mode: Mode(mode),
 				op:   op,
 			})
 		}
 
-		applied := target.applyModeChanges(changes)
+		applied = target.applyUserModeChanges(changes)
 	}
 
 	if len(applied) > 0 {
@@ -306,15 +306,219 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-//////
-//////
-//////
-//////
-//////
-//////
-//////
-//////
-//////
+// ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
+func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
+	changes := make(ModeChanges, 0)
+	unknown := make(map[rune]bool)
+
+	if len(params) > 1 {
+		modeArg := params[0]
+		op := ModeOp(modeArg[0])
+		if (op == Add) || (op == Remove) {
+			modeArg = modeArg[1:]
+		} else {
+			unknown[rune(modeArg[0])] = true
+			return changes, unknown
+		}
+
+		skipArgs := 1
+
+		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
+			change := ModeChange{
+				mode: Mode(mode),
+				op:   op,
+			}
+
+			// put arg into modechange if needed
+			switch Mode(mode) {
+			case BanMask, ExceptMask, InviteMask:
+				if len(params) > skipArgs {
+					change.arg = params[skipArgs]
+					skipArgs++
+				} else {
+					change.op = List
+				}
+			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+				if len(params) > skipArgs {
+					change.arg = params[skipArgs]
+					skipArgs++
+				} else {
+					continue
+				}
+			case Key, UserLimit:
+				// don't require value when removing
+				if change.op == Add {
+					if len(params) > skipArgs {
+						change.arg = params[skipArgs]
+						skipArgs++
+					} else {
+						continue
+					}
+				}
+			default:
+				unknown[mode] = true
+			}
+
+			changes = append(changes, change)
+		}
+	}
+
+	return changes, unknown
+}
+
+// ApplyChannelModeChanges applies a given set of mode changes.
+func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, changes ModeChanges) ModeChanges {
+	// so we only output one warning for each list type when full
+	listFullWarned := make(map[Mode]bool)
+
+	clientIsOp := channel.clientIsAtLeastNoMutex(client, ChannelOperator)
+	var alreadySentPrivError bool
+
+	applied := make(ModeChanges, 0)
+
+	for _, change := range changes {
+		// chan priv modes are checked specially so ignore them
+		// means regular users can't view ban/except lists... but I'm not worried about that
+		if isSamode && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
+			if !alreadySentPrivError {
+				alreadySentPrivError = true
+				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+			}
+			continue
+		}
+
+		switch change.mode {
+		case BanMask, ExceptMask, InviteMask:
+			mask := change.arg
+			list := channel.lists[change.mode]
+			if list == nil {
+				// This should never happen, but better safe than panicky.
+				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, client.nick, "MODE", "Could not complete MODE command")
+				return changes
+			}
+
+			if (change.op == List) || (mask == "") {
+				channel.ShowMaskList(client, change.mode)
+				continue
+			}
+
+			// confirm mask looks valid
+			mask, err := Casefold(mask)
+			if err != nil {
+				continue
+			}
+
+			switch change.op {
+			case Add:
+				if len(list.masks) >= client.server.limits.ChanListModes {
+					if !listFullWarned[change.mode] {
+						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.nick, channel.name, change.mode.String(), "Channel list is full")
+						listFullWarned[change.mode] = true
+					}
+					continue
+				}
+
+				list.Add(mask)
+				applied = append(applied, change)
+
+			case Remove:
+				list.Remove(mask)
+				applied = append(applied, change)
+			}
+
+		case UserLimit:
+			switch change.op {
+			case Add:
+				val, err := strconv.ParseUint(change.arg, 10, 64)
+				if err == nil {
+					channel.userLimit = val
+					applied = append(applied, change)
+				}
+
+			case Remove:
+				channel.userLimit = 0
+				applied = append(applied, change)
+			}
+
+		case Key:
+			switch change.op {
+			case Add:
+				channel.key = change.arg
+
+			case Remove:
+				channel.key = ""
+			}
+			applied = append(applied, change)
+
+		case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret, ChanRoleplaying:
+			switch change.op {
+			case Add:
+				if channel.flags[change.mode] {
+					continue
+				}
+				channel.flags[change.mode] = true
+				applied = append(applied, change)
+
+			case Remove:
+				if !channel.flags[change.mode] {
+					continue
+				}
+				delete(channel.flags, change.mode)
+				applied = append(applied, change)
+			}
+
+		case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+			// make sure client has privs to edit the given prefix
+			hasPrivs := isSamode
+
+			if !hasPrivs {
+				for _, mode := range ChannelPrivModes {
+					if channel.members[client][mode] {
+						hasPrivs = true
+
+						// Admins can't give other people Admin or remove it from others,
+						// standard for that channel mode, we worry about this later
+						if mode == ChannelAdmin && change.mode == ChannelAdmin {
+							hasPrivs = false
+						}
+
+						break
+					} else if mode == change.mode {
+						break
+					}
+				}
+			}
+
+			casefoldedName, err := CasefoldName(change.arg)
+			if err != nil {
+				continue
+			}
+
+			if !hasPrivs {
+				if change.op == Remove && casefoldedName == client.nickCasefolded {
+					// success!
+				} else {
+					if !alreadySentPrivError {
+						alreadySentPrivError = true
+						client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+					}
+					continue
+				}
+			}
+
+			change := channel.applyModeMemberNoMutex(client, change.mode, change.op, change.arg)
+			if change != nil {
+				applied = append(applied, *change)
+			}
+		}
+	}
+
+	return applied
+}
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
@@ -329,208 +533,24 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	// assemble changes
-	//TODO(dan): split out assembling changes into func that returns changes, err
-	changes := make(ChannelModeChanges, 0)
-	applied := make(ChannelModeChanges, 0)
+	// applied mode changes
+	applied := make(ModeChanges, 0)
 
-	// TODO(dan): look at separating these into the type A/B/C/D args and using those lists here
-	if len(msg.Params) > 1 {
-		modeArg := msg.Params[1]
-		op := ModeOp(modeArg[0])
-		if (op == Add) || (op == Remove) {
-			modeArg = modeArg[1:]
-		} else {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(modeArg[0]), "is an unknown mode character to me")
+	if 1 < len(msg.Params) {
+		// parse out real mode changes
+		params := msg.Params[1:]
+		changes, unknown := ParseChannelModeChanges(params...)
+
+		// alert for unknown mode changes
+		for char := range unknown {
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), "is an unknown mode character to me")
+		}
+		if len(unknown) == 1 && len(changes) == 0 {
 			return false
 		}
 
-		skipArgs := 2
-		for _, mode := range modeArg {
-			if mode == '-' || mode == '+' {
-				op = ModeOp(mode)
-				continue
-			}
-			change := ChannelModeChange{
-				mode: ChannelMode(mode),
-				op:   op,
-			}
-
-			// put arg into modechange if needed
-			switch ChannelMode(mode) {
-			case BanMask, ExceptMask, InviteMask:
-				if len(msg.Params) > skipArgs {
-					change.arg = msg.Params[skipArgs]
-					skipArgs++
-				} else {
-					change.op = List
-				}
-			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
-				if len(msg.Params) > skipArgs {
-					change.arg = msg.Params[skipArgs]
-					skipArgs++
-				} else {
-					continue
-				}
-			case Key, UserLimit:
-				// don't require value when removing
-				if change.op == Add {
-					if len(msg.Params) > skipArgs {
-						change.arg = msg.Params[skipArgs]
-						skipArgs++
-					} else {
-						continue
-					}
-				}
-			}
-
-			changes = append(changes, &change)
-		}
-
-		// so we only output one warning for each list type when full
-		listFullWarned := make(map[ChannelMode]bool)
-
-		clientIsOp := channel.clientIsAtLeastNoMutex(client, ChannelOperator)
-		var alreadySentPrivError bool
-
-		for _, change := range changes {
-			// chan priv modes are checked specially so ignore them
-			// means regular users can't view ban/except lists... but I'm not worried about that
-			if msg.Command != "SAMODE" && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
-				if !alreadySentPrivError {
-					alreadySentPrivError = true
-					client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
-				}
-				continue
-			}
-
-			switch change.mode {
-			case BanMask, ExceptMask, InviteMask:
-				mask := change.arg
-				list := channel.lists[change.mode]
-				if list == nil {
-					// This should never happen, but better safe than panicky.
-					client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "MODE", "Could not complete MODE command")
-					return false
-				}
-
-				if (change.op == List) || (mask == "") {
-					channel.ShowMaskList(client, change.mode)
-					continue
-				}
-
-				// confirm mask looks valid
-				mask, err = Casefold(mask)
-				if err != nil {
-					continue
-				}
-
-				switch change.op {
-				case Add:
-					if len(list.masks) >= server.limits.ChanListModes {
-						if !listFullWarned[change.mode] {
-							client.Send(nil, server.name, ERR_BANLISTFULL, client.nick, channel.name, change.mode.String(), "Channel list is full")
-							listFullWarned[change.mode] = true
-						}
-						continue
-					}
-
-					list.Add(mask)
-					applied = append(applied, change)
-
-				case Remove:
-					list.Remove(mask)
-					applied = append(applied, change)
-				}
-
-			case UserLimit:
-				switch change.op {
-				case Add:
-					val, err := strconv.ParseUint(change.arg, 10, 64)
-					if err == nil {
-						channel.userLimit = val
-						applied = append(applied, change)
-					}
-
-				case Remove:
-					channel.userLimit = 0
-					applied = append(applied, change)
-				}
-
-			case Key:
-				switch change.op {
-				case Add:
-					channel.key = change.arg
-
-				case Remove:
-					channel.key = ""
-				}
-				applied = append(applied, change)
-
-			case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret, ChanRoleplaying:
-				switch change.op {
-				case Add:
-					if channel.flags[change.mode] {
-						continue
-					}
-					channel.flags[change.mode] = true
-					applied = append(applied, change)
-
-				case Remove:
-					if !channel.flags[change.mode] {
-						continue
-					}
-					delete(channel.flags, change.mode)
-					applied = append(applied, change)
-				}
-
-			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
-				// make sure client has privs to edit the given prefix
-				var hasPrivs bool
-
-				if msg.Command == "SAMODE" {
-					hasPrivs = true
-				} else {
-					for _, mode := range ChannelPrivModes {
-						if channel.members[client][mode] {
-							hasPrivs = true
-
-							// Admins can't give other people Admin or remove it from others,
-							// standard for that channel mode, we worry about this later
-							if mode == ChannelAdmin && change.mode == ChannelAdmin {
-								hasPrivs = false
-							}
-
-							break
-						} else if mode == change.mode {
-							break
-						}
-					}
-				}
-
-				casefoldedName, err := CasefoldName(change.arg)
-				if err != nil {
-					continue
-				}
-
-				if !hasPrivs {
-					if change.op == Remove && casefoldedName == client.nickCasefolded {
-						// success!
-					} else {
-						if !alreadySentPrivError {
-							alreadySentPrivError = true
-							client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
-						}
-						continue
-					}
-				}
-
-				change := channel.applyModeMemberNoMutex(client, change.mode, change.op, change.arg)
-				if change != nil {
-					applied = append(applied, change)
-				}
-			}
-		}
+		// apply mode changes
+		applied = ApplyChannelModeChanges(channel, client, msg.Command == "SAMODE", changes)
 	}
 
 	if len(applied) > 0 {
