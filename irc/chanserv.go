@@ -49,6 +49,11 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 			return
 		}
 
+		if !server.channelRegistrationEnabled {
+			client.ChanServNotice("Channel registration is not enabled")
+			return
+		}
+
 		server.registeredChannelsMutex.Lock()
 		defer server.registeredChannelsMutex.Unlock()
 

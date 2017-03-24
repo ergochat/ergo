@@ -135,6 +135,13 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
+# channel options
+channels:
+    # channel registration - requires an account
+    registration:
+        # can users register new channels?
+        enabled: true
+
 # operator classes
 oper-classes:
     # local operator

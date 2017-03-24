@@ -84,6 +84,7 @@ type Server struct {
 	accountAuthenticationEnabled bool
 	accountRegistration          *AccountRegistration
 	accounts                     map[string]*ClientAccount
+	channelRegistrationEnabled   bool
 	channels                     ChannelNameMap
 	checkIdent                   bool
 	clients                      *ClientLookupSet
@@ -190,6 +191,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 	server := &Server{
 		accountAuthenticationEnabled: config.Accounts.AuthenticationEnabled,
 		accounts:                     make(map[string]*ClientAccount),
+		channelRegistrationEnabled:   config.Channels.Registration.Enabled,
 		channels:                     make(ChannelNameMap),
 		checkIdent:                   config.Server.CheckIdent,
 		clients:                      NewClientLookupSet(),
@@ -1424,6 +1426,7 @@ func (server *Server) rehash() error {
 	// registration
 	accountReg := NewAccountRegistration(config.Accounts.Registration)
 	server.accountRegistration = &accountReg
+	server.channelRegistrationEnabled = config.Channels.Registration.Enabled
 
 	// set new sendqueue size
 	if config.Server.MaxSendQBytes != server.MaxSendQBytes {

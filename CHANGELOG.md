@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
  
 ### Config Changes
+* `channels` section added to control channel registration.
 * `logging` key under `server` removed, replaced with `logging` section.
 * `registration` and `authentication-enabled` keys moved under `accounts` section.
 * `sts` section added under `server`.
@@ -15,6 +16,7 @@ New release of Oragono!
 ### Security
  
 ### Added
+* Added `ChanServ` service, to allow channel registration.
 * Added `USERHOST` command (thanks @vegax87).
 * Added draft IRCv3 capability [draft/sts](http://ircv3.net/specs/core/sts-3.3.html).
  

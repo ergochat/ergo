@@ -72,6 +72,10 @@ type AccountRegistrationConfig struct {
 	}
 }
 
+type ChannelRegistrationConfig struct {
+	Enabled bool
+}
+
 type OperClassConfig struct {
 	Title        string
 	WhoisLine    string
@@ -186,6 +190,10 @@ type Config struct {
 	Accounts struct {
 		Registration          AccountRegistrationConfig
 		AuthenticationEnabled bool `yaml:"authentication-enabled"`
+	}
+
+	Channels struct {
+		Registration ChannelRegistrationConfig
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
