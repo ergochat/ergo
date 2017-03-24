@@ -160,6 +160,8 @@ func (socket *Socket) RunSocketWriter() {
 				socket.linesToSend = []string{}
 			}
 
+			socket.linesToSendMutex.Unlock()
+
 			// write data
 			if 0 < len(data) {
 				_, err := socket.conn.Write([]byte(data))
@@ -172,11 +174,8 @@ func (socket *Socket) RunSocketWriter() {
 
 			// check if we're closed
 			if socket.Closed {
-				socket.linesToSendMutex.Unlock()
 				break
 			}
-
-			socket.linesToSendMutex.Unlock()
 		}
 		if errOut {
 			// error out, bad stuff happened
