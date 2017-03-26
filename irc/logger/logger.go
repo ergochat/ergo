@@ -53,6 +53,7 @@ var (
 type Manager struct {
 	loggers         []singleLogger
 	stderrWriteLock sync.Mutex
+	fileWriteLock   sync.Mutex
 	DumpingRawInOut bool
 }
 
@@ -93,6 +94,7 @@ func NewManager(config ...Config) (*Manager, error) {
 			Types:           typeMap,
 			ExcludedTypes:   excludedTypeMap,
 			stderrWriteLock: &logger.stderrWriteLock,
+			fileWriteLock:   &logger.fileWriteLock,
 		}
 		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
 			logger.DumpingRawInOut = true
@@ -164,6 +166,7 @@ type fileMethod struct {
 // singleLogger represents a single logger instance.
 type singleLogger struct {
 	stderrWriteLock *sync.Mutex
+	fileWriteLock   *sync.Mutex
 	MethodSTDERR    bool
 	MethodFile      fileMethod
 	Level           Level
@@ -229,6 +232,8 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 		logger.stderrWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
+		logger.fileWriteLock.Lock()
 		logger.MethodFile.Writer.WriteString(fullStringRaw + "\n")
+		logger.fileWriteLock.Unlock()
 	}
 }
