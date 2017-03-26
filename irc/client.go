@@ -482,7 +482,7 @@ func (client *Client) destroy() {
 
 	// clean up channels
 	for channel := range client.channels {
-		channel.Quit(client)
+		channel.Quit(client, &friends)
 	}
 
 	// clean up server

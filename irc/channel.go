@@ -221,11 +221,7 @@ func (channel *Channel) modeStringNoLock(client *Client) (str string) {
 }
 
 func (channel *Channel) IsFull() bool {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	return (channel.userLimit > 0) &&
-		(uint64(len(channel.members)) >= channel.userLimit)
+	return (channel.userLimit > 0) && (uint64(len(channel.members)) >= channel.userLimit)
 }
 
 func (channel *Channel) CheckKey(key string) bool {
@@ -234,11 +230,11 @@ func (channel *Channel) CheckKey(key string) bool {
 
 func (channel *Channel) Join(client *Client, key string) {
 	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
 	if channel.members.Has(client) {
-		// already joined, no message?
+		// already joined, no message needs to be sent
 		return
 	}
-	channel.membersMutex.Unlock()
 
 	if channel.IsFull() {
 		client.Send(nil, client.server.name, ERR_CHANNELISFULL, channel.name, "Cannot join channel (+l)")
@@ -256,8 +252,6 @@ func (channel *Channel) Join(client *Client, key string) {
 		return
 	}
 
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
 	if channel.lists[BanMask].Match(client.nickMaskCasefolded) &&
 		!isInvited &&
 		!channel.lists[ExceptMask].Match(client.nickMaskCasefolded) {
@@ -326,8 +320,8 @@ func (channel *Channel) Join(client *Client, key string) {
 }
 
 func (channel *Channel) Part(client *Client, message string) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
 
 	if !channel.members.Has(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
@@ -644,11 +638,16 @@ func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask
 	return false
 }
 
-func (channel *Channel) Quit(client *Client) {
+// Quit removes the given client from the channel, and also updates friends with the latest client list.
+func (channel *Channel) Quit(client *Client, friends *ClientSet) {
 	channel.membersMutex.Lock()
 	defer channel.membersMutex.Unlock()
 
 	channel.quitNoMutex(client)
+
+	for friend := range channel.members {
+		friends.Add(friend)
+	}
 }
 
 func (channel *Channel) quitNoMutex(client *Client) {
