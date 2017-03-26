@@ -299,6 +299,15 @@ func (channel *Channel) Join(client *Client, key string) {
 				channel.topicSetTime = chanReg.TopicSetTime
 				channel.name = chanReg.Name
 				channel.createdTime = chanReg.RegisteredAt
+				for _, mask := range chanReg.Banlist {
+					channel.lists[BanMask].Add(mask)
+				}
+				for _, mask := range chanReg.Exceptlist {
+					channel.lists[ExceptMask].Add(mask)
+				}
+				for _, mask := range chanReg.Invitelist {
+					channel.lists[InviteMask].Add(mask)
+				}
 			}
 			return nil
 		})
@@ -587,13 +596,24 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
 }
 
 func (channel *Channel) ShowMaskList(client *Client, mode Mode) {
-	//TODO(dan): WE NEED TO fiX this PROPERLY
-	log.Fatal("Implement ShowMaskList")
-	/*
-		for lmask := range channel.lists[mode].masks {
-			client.RplMaskList(mode, channel, lmask)
-		}
-		client.RplEndOfMaskList(mode, channel)*/
+	// choose appropriate modes
+	var rpllist, rplendoflist string
+	if mode == BanMask {
+		rpllist = RPL_BANLIST
+		rplendoflist = RPL_ENDOFBANLIST
+	} else if mode == ExceptMask {
+		rpllist = RPL_EXCEPTLIST
+		rplendoflist = RPL_ENDOFEXCEPTLIST
+	} else if mode == InviteMask {
+		rpllist = RPL_INVITELIST
+		rplendoflist = RPL_ENDOFINVITELIST
+	}
+
+	// send out responses
+	for mask := range channel.lists[mode].masks {
+		client.Send(nil, client.server.name, rpllist, client.nick, channel.name, mask)
+	}
+	client.Send(nil, client.server.name, rplendoflist, client.nick, channel.name, "End of list")
 }
 
 func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask string) bool {

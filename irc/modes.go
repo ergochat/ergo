@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/tidwall/buntdb"
 )
 
 // ModeOp is an operation performed with modes
@@ -311,7 +312,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	changes := make(ModeChanges, 0)
 	unknown := make(map[rune]bool)
 
-	if len(params) > 1 {
+	if 0 < len(params) {
 		modeArg := params[0]
 		op := ModeOp(modeArg[0])
 		if (op == Add) || (op == Remove) {
@@ -553,6 +554,53 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		applied = ApplyChannelModeChanges(channel, client, msg.Command == "SAMODE", changes)
 	}
 
+	// save changes to banlist/exceptlist/invexlist
+	var banlistUpdated, exceptlistUpdated, invexlistUpdated bool
+	for _, change := range applied {
+		if change.mode == BanMask {
+			banlistUpdated = true
+		} else if change.mode == ExceptMask {
+			exceptlistUpdated = true
+		} else if change.mode == InviteMask {
+			invexlistUpdated = true
+		}
+	}
+
+	server.registeredChannelsMutex.Lock()
+	if 0 < len(applied) && server.registeredChannels[channel.nameCasefolded] != nil && (banlistUpdated || exceptlistUpdated || invexlistUpdated) {
+		server.store.Update(func(tx *buntdb.Tx) error {
+			chanInfo := server.loadChannelNoMutex(tx, channel.nameCasefolded)
+
+			if banlistUpdated {
+				var banlist []string
+				for mask := range channel.lists[BanMask].masks {
+					banlist = append(banlist, mask)
+				}
+				chanInfo.Banlist = banlist
+			}
+			if exceptlistUpdated {
+				var exceptlist []string
+				for mask := range channel.lists[ExceptMask].masks {
+					exceptlist = append(exceptlist, mask)
+				}
+				chanInfo.Exceptlist = exceptlist
+			}
+			if invexlistUpdated {
+				var invitelist []string
+				for mask := range channel.lists[InviteMask].masks {
+					invitelist = append(invitelist, mask)
+				}
+				chanInfo.Invitelist = invitelist
+			}
+
+			server.saveChannelNoMutex(tx, channel.nameCasefolded, *chanInfo)
+
+			return nil
+		})
+	}
+	server.registeredChannelsMutex.Unlock()
+
+	// send out changes
 	if len(applied) > 0 {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)

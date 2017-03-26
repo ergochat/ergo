@@ -30,6 +30,7 @@ New release of Oragono!
 ### Fixed
 * Fixed an account issue where clients could login to multiple accounts at once.
 * Fixed issues that prevented rehashing after the first rehash had gone through successfully.
+* Fixed the inability to view channel ban, ban exception, and invite exception lists.
 
 
 ## [0.6.0] - 2017-01-19

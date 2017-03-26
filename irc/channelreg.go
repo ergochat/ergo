@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"encoding/json"
+
 	"github.com/tidwall/buntdb"
 )
 
@@ -20,6 +22,9 @@ const (
 	keyChannelTopic        = "channel.topic %s"
 	keyChannelTopicSetBy   = "channel.topic.setby %s"
 	keyChannelTopicSetTime = "channel.topic.settime %s"
+	keyChannelBanlist      = "channel.banlist %s"
+	keyChannelExceptlist   = "channel.exceptlist %s"
+	keyChannelInvitelist   = "channel.invitelist %s"
 )
 
 var (
@@ -40,6 +45,12 @@ type RegisteredChannel struct {
 	TopicSetBy string
 	// TopicSetTime represents the time the topic was set.
 	TopicSetTime time.Time
+	// Banlist represents the bans set on the channel.
+	Banlist []string
+	// Exceptlist represents the exceptions set on the channel.
+	Exceptlist []string
+	// Invitelist represents the invite exceptions set on the channel.
+	Invitelist []string
 }
 
 // loadChannelNoMutex loads a channel from the store.
@@ -63,6 +74,16 @@ func (server *Server) loadChannelNoMutex(tx *buntdb.Tx, channelKey string) *Regi
 	topicSetBy, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetBy, channelKey))
 	topicSetTime, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetTime, channelKey))
 	topicSetTimeInt, _ := strconv.ParseInt(topicSetTime, 10, 64)
+	banlistString, _ := tx.Get(fmt.Sprintf(keyChannelBanlist, channelKey))
+	exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
+	invitelistString, _ := tx.Get(fmt.Sprintf(keyChannelInvitelist, channelKey))
+
+	var banlist []string
+	_ = json.Unmarshal([]byte(banlistString), &banlist)
+	var exceptlist []string
+	_ = json.Unmarshal([]byte(exceptlistString), &exceptlist)
+	var invitelist []string
+	_ = json.Unmarshal([]byte(invitelistString), &invitelist)
 
 	chanInfo := RegisteredChannel{
 		Name:         name,
@@ -71,6 +92,9 @@ func (server *Server) loadChannelNoMutex(tx *buntdb.Tx, channelKey string) *Regi
 		Topic:        topic,
 		TopicSetBy:   topicSetBy,
 		TopicSetTime: time.Unix(topicSetTimeInt, 0),
+		Banlist:      banlist,
+		Exceptlist:   exceptlist,
+		Invitelist:   invitelist,
 	}
 	server.registeredChannels[channelKey] = &chanInfo
 
@@ -86,5 +110,13 @@ func (server *Server) saveChannelNoMutex(tx *buntdb.Tx, channelKey string, chann
 	tx.Set(fmt.Sprintf(keyChannelTopic, channelKey), channelInfo.Topic, nil)
 	tx.Set(fmt.Sprintf(keyChannelTopicSetBy, channelKey), channelInfo.TopicSetBy, nil)
 	tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.Unix(), 10), nil)
+
+	banlistString, _ := json.Marshal(channelInfo.Banlist)
+	tx.Set(fmt.Sprintf(keyChannelBanlist, channelKey), string(banlistString), nil)
+	exceptlistString, _ := json.Marshal(channelInfo.Exceptlist)
+	tx.Set(fmt.Sprintf(keyChannelExceptlist, channelKey), string(exceptlistString), nil)
+	invitelistString, _ := json.Marshal(channelInfo.Invitelist)
+	tx.Set(fmt.Sprintf(keyChannelInvitelist, channelKey), string(invitelistString), nil)
+
 	server.registeredChannels[channelKey] = &channelInfo
 }
