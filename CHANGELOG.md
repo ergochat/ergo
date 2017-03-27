@@ -4,8 +4,12 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.7.0] - 2017-03-27
+This release brings channel registration with ChanServ, logging improvements, and a whole host of improvements across the board.
+
+Thanks to a suggestion by `dp-` on our channel (`#oragono` on Freenode), the socket handling code has been overhauled to allow for a larger number of more stable connections. As well, improved testing has brought with it a bunch of strange hang and crash fixes, which means that Oragono should be more stable than ever.
+
+Channel registration is really cool. Essentially, you register the channel with `/CS REGISTER` as you would on any network, and then all topic changes, the `+b/+e/+I` lists, and your founder status, are all remembered and re-applied when the server's restarted.
  
 ### Config Changes
 * `channels` section added to control channel registration.
@@ -15,8 +19,6 @@ New release of Oragono!
 * `samode` capability added to oper capabilities.
 * `sts` section added under `server`.
 
-### Security
- 
 ### Added
 * Added `ChanServ` service, to allow channel registration.
 * Added `USERHOST` command (thanks @vegax87).
@@ -28,8 +30,6 @@ New release of Oragono!
 * Logging is now much more useful, displays colours and can log to disk.
 * Socket handling has been rewritten, which means we should support more connections more effectively (thanks dp- for the suggestion!).
 
-### Removed
- 
 ### Fixed
 * Fixed a bunch of small hangs and crashes.
 * Fixed an account issue where clients could login to multiple accounts at once.
