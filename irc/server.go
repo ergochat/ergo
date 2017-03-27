@@ -1132,10 +1132,10 @@ func (client *Client) getWhoisOf(target *Client) {
 	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
 }
 
-// RplWhoReply returns the WHO reply between one user and another channel/user.
+// RplWhoReplyNoMutex returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func (target *Client) RplWhoReply(channel *Channel, client *Client) {
+func (target *Client) RplWhoReplyNoMutex(channel *Channel, client *Client) {
 	channelName := "*"
 	flags := ""
 
@@ -1149,9 +1149,6 @@ func (target *Client) RplWhoReply(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
-		channel.membersMutex.RLock()
-		defer channel.membersMutex.RUnlock()
-
 		flags += channel.members[client].Prefixes(target.capabilities[MultiPrefix])
 		channelName = channel.name
 	}
@@ -1164,7 +1161,7 @@ func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 
 	for member := range channel.members {
 		if !client.flags[Invisible] || friends[client] {
-			client.RplWhoReply(channel, member)
+			client.RplWhoReplyNoMutex(channel, member)
 		}
 	}
 }
@@ -1203,7 +1200,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	} else {
 		for mclient := range server.clients.FindAll(mask) {
-			client.RplWhoReply(nil, mclient)
+			client.RplWhoReplyNoMutex(nil, mclient)
 		}
 	}
 
