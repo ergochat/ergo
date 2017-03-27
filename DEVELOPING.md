@@ -34,3 +34,12 @@ https://github.com/DanielOaks/irc-stress-test
 
 As well, there's a decent set of 'tests' here, which I like to run Oragono through now and then:
 https://github.com/DanielOaks/irctest
+
+
+## Debugging Hangs
+
+To debug a hang, the best thing to do is to get a stack trace. Go's nice, and you can do so by running this:
+
+    $ kill -ABRT <procid>
+
+This will kill Oragono and print out a stack trace for you to take a look at.
