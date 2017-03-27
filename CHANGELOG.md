@@ -10,7 +10,9 @@ New release of Oragono!
 ### Config Changes
 * `channels` section added to control channel registration.
 * `logging` key under `server` removed, replaced with `logging` section.
+* `max-sendq` key added under `server`.
 * `registration` and `authentication-enabled` keys moved under `accounts` section.
+* `samode` capability added to oper capabilities.
 * `sts` section added under `server`.
 
 ### Security
@@ -18,6 +20,7 @@ New release of Oragono!
 ### Added
 * Added `ChanServ` service, to allow channel registration.
 * Added `USERHOST` command (thanks @vegax87).
+* Added `SAMODE` command.
 * Added draft IRCv3 capability [draft/sts](http://ircv3.net/specs/core/sts-3.3.html).
  
 ### Changed
@@ -28,7 +31,10 @@ New release of Oragono!
 ### Removed
  
 ### Fixed
+* Fixed a bunch of small hangs and crashes.
 * Fixed an account issue where clients could login to multiple accounts at once.
+* Fixed an issue where server times were incorrect (thanks @martinlindhe!).
+* Fixed halfops not being able to talk during moderated mode (`+m`).
 * Fixed issues that prevented rehashing after the first rehash had gone through successfully.
 * Fixed the inability to view channel ban, ban exception, and invite exception lists.
 
