@@ -66,6 +66,7 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	return channel
 }
 
+// IsEmpty returns true if the channel has no clients.
 func (channel *Channel) IsEmpty() bool {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
@@ -77,6 +78,7 @@ func (channel *Channel) isEmptyNoMutex() bool {
 	return len(channel.members) == 0
 }
 
+// Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client) {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
@@ -172,17 +174,9 @@ func (channel *Channel) nicksNoMutex(target *Client) []string {
 		} else {
 			nicks[i] += client.nick
 		}
-		i += 1
+		i++
 	}
 	return nicks
-}
-
-func (channel *Channel) Id() string {
-	return channel.name
-}
-
-func (channel *Channel) Nick() string {
-	return channel.name
 }
 
 // <mode> <mode params>
@@ -220,14 +214,18 @@ func (channel *Channel) modeStringNoLock(client *Client) (str string) {
 	return str
 }
 
+// IsFull returns true if this channel is at its' members limit.
 func (channel *Channel) IsFull() bool {
 	return (channel.userLimit > 0) && (uint64(len(channel.members)) >= channel.userLimit)
 }
 
+// CheckKey returns true if the key is not set or matches the given key.
 func (channel *Channel) CheckKey(key string) bool {
 	return (channel.key == "") || (channel.key == key)
 }
 
+// Join joins the given client to this channel (if they can be joined).
+//TODO(dan): /SAJOIN and maybe a ForceJoin function?
 func (channel *Channel) Join(client *Client, key string) {
 	channel.membersMutex.Lock()
 	defer channel.membersMutex.Unlock()
@@ -319,6 +317,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 }
 
+// Part parts the given client from this channel, with the given message.
 func (channel *Channel) Part(client *Client, message string) {
 	channel.membersMutex.Lock()
 	defer channel.membersMutex.Unlock()
@@ -336,6 +335,7 @@ func (channel *Channel) Part(client *Client, message string) {
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, channel.name))
 }
 
+// GetTopic sends the channel topic to the given client.
 func (channel *Channel) GetTopic(client *Client) {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
@@ -343,6 +343,8 @@ func (channel *Channel) GetTopic(client *Client) {
 	channel.getTopicNoMutex(client)
 }
 
+// GetTopic sends the channel topic to the given client without getting the membersMutex.
+// This is required because of channel joins.
 func (channel *Channel) getTopicNoMutex(client *Client) {
 	if !channel.members.Has(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, client.nick, channel.name, "You're not on that channel")
@@ -358,6 +360,7 @@ func (channel *Channel) getTopicNoMutex(client *Client) {
 	client.Send(nil, client.server.name, RPL_TOPICTIME, client.nick, channel.name, channel.topicSetBy, strconv.FormatInt(channel.topicSetTime.Unix(), 10))
 }
 
+// SetTopic sets the topic of this channel, if the client is allowed to do so.
 func (channel *Channel) SetTopic(client *Client, topic string) {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
@@ -403,6 +406,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 	})
 }
 
+// CanSpeak returns true if the client can speak on this channel.
 func (channel *Channel) CanSpeak(client *Client) bool {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
@@ -413,8 +417,7 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	if channel.flags[NoOutside] && !channel.members.Has(client) {
 		return false
 	}
-	if channel.flags[Moderated] && !(channel.members.HasMode(client, Voice) ||
-		channel.members.HasMode(client, ChannelOperator)) {
+	if channel.flags[Moderated] && !channel.clientIsAtLeastNoMutex(client, Voice) {
 		return false
 	}
 	return true
@@ -425,6 +428,7 @@ func (channel *Channel) TagMsg(msgid string, minPrefix *Mode, clientOnlyTags *ma
 	channel.sendMessage(msgid, "TAGMSG", []Capability{MessageTags}, minPrefix, clientOnlyTags, client, nil)
 }
 
+// sendMessage sends a given message to everyone on this channel.
 func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
@@ -589,6 +593,7 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
 	return nil
 }
 
+// ShowMaskList shows the given list to the client.
 func (channel *Channel) ShowMaskList(client *Client, mode Mode) {
 	// choose appropriate modes
 	var rpllist, rplendoflist string
@@ -685,6 +690,7 @@ func (channel *Channel) kickNoMutex(client *Client, target *Client, comment stri
 	channel.quitNoMutex(target)
 }
 
+// Invite invites the given client to the channel, if the inviter can do so.
 func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 	if channel.flags[InviteOnly] && !channel.ClientIsAtLeast(inviter, ChannelOperator) {
 		inviter.Send(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
