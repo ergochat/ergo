@@ -269,23 +269,26 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	client.channels.Add(channel)
 	channel.members.Add(client)
-	var givenMode *Mode
-	if len(channel.members) == 1 {
-		client.server.registeredChannelsMutex.Lock()
-		defer client.server.registeredChannelsMutex.Unlock()
-		client.server.store.Update(func(tx *buntdb.Tx) error {
-			chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
 
-			if chanReg == nil {
-				channel.createdTime = time.Now()
-				channel.members[client][ChannelOperator] = true
-				givenMode = &ChannelOperator
-			} else {
-				// we should only do this on registered channels
-				if client.account != nil && client.account.Name == chanReg.Founder {
-					channel.members[client][ChannelFounder] = true
-					givenMode = &ChannelFounder
-				}
+	// give channel mode if necessary
+	var givenMode *Mode
+	client.server.registeredChannelsMutex.Lock()
+	defer client.server.registeredChannelsMutex.Unlock()
+	client.server.store.Update(func(tx *buntdb.Tx) error {
+		chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
+
+		if chanReg == nil {
+			channel.createdTime = time.Now()
+			channel.members[client][ChannelOperator] = true
+			givenMode = &ChannelOperator
+		} else {
+			// we should only do this on registered channels
+			if client.account != nil && client.account.Name == chanReg.Founder {
+				channel.members[client][ChannelFounder] = true
+				givenMode = &ChannelFounder
+			}
+			if len(channel.members) == 1 {
+				// apply other details if new channel
 				channel.topic = chanReg.Topic
 				channel.topicSetBy = chanReg.TopicSetBy
 				channel.topicSetTime = chanReg.TopicSetTime
@@ -301,9 +304,9 @@ func (channel *Channel) Join(client *Client, key string) {
 					channel.lists[InviteMask].Add(mask)
 				}
 			}
-			return nil
-		})
-	}
+		}
+		return nil
+	})
 
 	if client.capabilities[ExtendedJoin] {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
@@ -313,7 +316,9 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.getTopicNoMutex(client) // we already have Lock
 	channel.namesNoMutex(client)
 	if givenMode != nil {
-		client.Send(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
+		for member := range channel.members {
+			member.Send(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
+		}
 	}
 }
 
