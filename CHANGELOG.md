@@ -4,20 +4,11 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
- 
-### Config Changes
- 
+## [0.7.1] - 2017-03-28
+This is a quick patch release of Oragono to work around a discovered bug.
+
 ### Security
- 
-### Added
- 
-### Changed
- 
-### Removed
- 
-### Fixed
+* Fixed a bug where non-logged in users could register channels. Bleh.
  
 
 ## [0.7.0] - 2017-03-27
