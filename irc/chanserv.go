@@ -83,7 +83,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 			}
 
 			account := client.account
-			if account == nil {
+			if account == &NoAccount {
 				client.ChanServNotice("You must be logged in to register a channel")
 				return nil
 			}

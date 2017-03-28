@@ -122,6 +122,7 @@ const (
 	Moderated       Mode = 'm' // flag
 	NoOutside       Mode = 'n' // flag
 	OpOnlyTopic     Mode = 't' // flag
+	RegisteredOnly  Mode = 'r' // flag
 	Secret          Mode = 's' // flag
 	UserLimit       Mode = 'l' // flag arg
 )
@@ -455,7 +456,7 @@ func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, ch
 			}
 			applied = append(applied, change)
 
-		case InviteOnly, Moderated, NoOutside, OpOnlyTopic, Secret, ChanRoleplaying:
+		case InviteOnly, Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, ChanRoleplaying:
 			switch change.op {
 			case Add:
 				if channel.flags[change.mode] {

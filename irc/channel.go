@@ -425,6 +425,9 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	if channel.flags[Moderated] && !channel.clientIsAtLeastNoMutex(client, Voice) {
 		return false
 	}
+	if channel.flags[RegisteredOnly] && client.account == &NoAccount {
+		return false
+	}
 	return true
 }
 

@@ -952,6 +952,10 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
 				continue
 			}
+			if !channel.CanSpeak(client) {
+				client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
+				continue
+			}
 			msgid := server.generateMessageID()
 			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
 		} else {
@@ -1015,6 +1019,10 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			channel := server.channels.Get(target)
 			if channel == nil {
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
+				continue
+			}
+			if !channel.CanSpeak(client) {
+				client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 				continue
 			}
 			msgid := server.generateMessageID()
@@ -1607,6 +1615,10 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if cerr == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
+				// errors silently ignored with NOTICE as per RFC
+				continue
+			}
+			if !channel.CanSpeak(client) {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}

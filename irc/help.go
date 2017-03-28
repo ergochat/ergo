@@ -21,25 +21,18 @@ var (
 
 Oragono supports the following channel modes:
 
-= Type A - list modes =
-
-  +b  |  Client masks that are banned from the channel.
+  +b  |  Client masks that are banned from the channel (e.g. *!*@127.0.0.1)
   +e  |  Client masks that are exempted from bans.
   +I  |  Client masks that are exempted from the invite-only flag.
-
-= Type C - setting modes with a parameter =
-
-  +l  |  Client join limit for the channel.
-  +k  |  Key required when joining the channel.
-
-= Type D - flag modes =
-
   +i  |  Invite-only mode, only invited clients can join the channel.
+  +k  |  Key required when joining the channel.
+  +l  |  Client join limit for the channel.
   +m  |  Moderated mode, only privileged clients can talk on the channel.
   +n  |  No-outside-messages mode, only users that are on the channel can send
       |  messages to it.
-  +t  |  Only channel opers can modify the topic.
+  +r  |  Only registered users can talk in the channel.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
+  +t  |  Only channel opers can modify the topic.
 
 = Prefixes =
 
@@ -210,7 +203,7 @@ command is processed by that server.`,
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
 
 Sets and removes modes from the given target. For more specific information on
-mode characters, see the help for "cmode" and "umode".`,
+mode characters, see the help for "modes".`,
 	},
 	"monitor": {
 		text: `MONITOR <subcmd>
@@ -417,6 +410,9 @@ Returns historical information on the last user with the given nickname.`,
 	},
 
 	// Informational
+	"modes": {
+		text: cmodeHelpText + "\n\n" + umodeHelpText,
+	},
 	"cmode": {
 		text: cmodeHelpText,
 	},
