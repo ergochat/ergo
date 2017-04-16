@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// IPString returns a simple IP string from the given net.Addr.
 func IPString(addr net.Addr) string {
 	addrStr := addr.String()
 	ipaddr, _, err := net.SplitHostPort(addrStr)

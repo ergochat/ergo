@@ -17,6 +17,7 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
+// Channel represents a channel that clients can join.
 type Channel struct {
 	flags          ModeSet
 	lists          map[Mode]*UserMaskSet

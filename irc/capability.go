@@ -66,9 +66,12 @@ func (capability Capability) String() string {
 type CapState uint
 
 const (
-	CapNone        CapState = iota
+	// CapNone means CAP hasn't been negotiated at all.
+	CapNone CapState = iota
+	// CapNegotiating means CAP is being negotiated and registration should be paused.
 	CapNegotiating CapState = iota
-	CapNegotiated  CapState = iota
+	// CapNegotiated means CAP negotiation has been successfully ended and reg should complete.
+	CapNegotiated CapState = iota
 )
 
 // CapVersion is used to select which max version of CAP the client supports.
@@ -99,16 +102,6 @@ func (set CapabilitySet) String(version CapVersion) string {
 		index++
 	}
 	return strings.Join(strs, " ")
-}
-
-func (set CapabilitySet) DisableString() string {
-	parts := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		parts[index] = "-" + capability.String()
-		index++
-	}
-	return strings.Join(parts, " ")
 }
 
 // CAP <subcmd> [<caps>]

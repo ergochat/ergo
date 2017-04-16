@@ -283,7 +283,7 @@ func (client *Client) HasNick() bool {
 	return client.nick != "" && client.nick != "*"
 }
 
-// HasNick returns true if the client's username is set (used in registration).
+// HasUsername returns true if the client's username is set (used in registration).
 func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
@@ -303,11 +303,11 @@ func (client *Client) HasCapabs(capabs ...string) bool {
 	return true
 }
 
-// <mode>
-func (c *Client) ModeString() (str string) {
+// ModeString returns the mode string for this client.
+func (client *Client) ModeString() (str string) {
 	str = "+"
 
-	for flag := range c.flags {
+	for flag := range client.flags {
 		str += flag.String()
 	}
 
@@ -433,6 +433,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 	return err
 }
 
+// Quit sends the given quit message to the client (but does not destroy them).
 func (client *Client) Quit(message string) {
 	if !client.quitMessageSent {
 		client.Send(nil, client.nickMaskString, "QUIT", message)

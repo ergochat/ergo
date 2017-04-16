@@ -21,17 +21,18 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// PassConfig holds the connection password.
 type PassConfig struct {
 	Password string
 }
 
-// TLSListenConfig defines configuration options for listening on TLS
+// TLSListenConfig defines configuration options for listening on TLS.
 type TLSListenConfig struct {
 	Cert string
 	Key  string
 }
 
-// Certificate returns the TLS certificate assicated with this TLSListenConfig
+// Config returns the TLS contiguration assicated with this TLSListenConfig.
 func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
@@ -43,6 +44,7 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 	}, err
 }
 
+// PasswordBytes returns the bytes represented by the password hash.
 func (conf *PassConfig) PasswordBytes() []byte {
 	bytes, err := DecodePasswordHash(conf.Password)
 	if err != nil {
@@ -51,6 +53,7 @@ func (conf *PassConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+// AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
 	Enabled          bool
 	EnabledCallbacks []string `yaml:"enabled-callbacks"`
@@ -72,10 +75,12 @@ type AccountRegistrationConfig struct {
 	}
 }
 
+// ChannelRegistrationConfig controls channel registration.
 type ChannelRegistrationConfig struct {
 	Enabled bool
 }
 
+// OperClassConfig defines a specific operator class.
 type OperClassConfig struct {
 	Title        string
 	WhoisLine    string
@@ -83,6 +88,7 @@ type OperClassConfig struct {
 	Capabilities []string
 }
 
+// OperConfig defines a specific operator's configuration.
 type OperConfig struct {
 	Class     string
 	Vhost     string
@@ -98,11 +104,13 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+// RestAPIConfig controls the integrated REST API.
 type RestAPIConfig struct {
 	Enabled bool
 	Listen  string
 }
 
+// ConnectionLimitsConfig controls the automated connection limits.
 type ConnectionLimitsConfig struct {
 	Enabled     bool
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
@@ -111,6 +119,7 @@ type ConnectionLimitsConfig struct {
 	Exempted    []string
 }
 
+// ConnectionThrottleConfig controls the automated connection throttling.
 type ConnectionThrottleConfig struct {
 	Enabled            bool
 	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
@@ -124,6 +133,7 @@ type ConnectionThrottleConfig struct {
 	Exempted           []string
 }
 
+// LoggingConfig controls a single logging method.
 type LoggingConfig struct {
 	Method        string
 	MethodStderr  bool
@@ -136,11 +146,13 @@ type LoggingConfig struct {
 	Level         logger.Level `yaml:"level-real"`
 }
 
+// LineLenConfig controls line lengths.
 type LineLenConfig struct {
 	Tags int
 	Rest int
 }
 
+// STSConfig controls the STS configuration/
 type STSConfig struct {
 	Enabled        bool
 	Duration       time.Duration `yaml:"duration-real"`
@@ -161,6 +173,7 @@ func (sts *STSConfig) Value() string {
 	return val
 }
 
+// Config defines the overall configuration.
 type Config struct {
 	Network struct {
 		Name string
@@ -215,12 +228,14 @@ type Config struct {
 	}
 }
 
+// OperClass defines an assembled operator class.
 type OperClass struct {
 	Title        string
 	WhoisLine    string          `yaml:"whois-line"`
 	Capabilities map[string]bool // map to make lookups much easier
 }
 
+// OperatorClasses returns a map of assembled operator classes from the given config.
 func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 	ocs := make(map[string]OperClass)
 
@@ -290,6 +305,7 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 	return &ocs, nil
 }
 
+// Oper represents a single assembled operator's config.
 type Oper struct {
 	Class     *OperClass
 	WhoisLine string
@@ -297,6 +313,7 @@ type Oper struct {
 	Pass      []byte
 }
 
+// Operators returns a map of operator configs from the given OperClass and config.
 func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error) {
 	operators := make(map[string]Oper)
 	for name, opConf := range conf.Opers {
@@ -327,6 +344,7 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 	return operators, nil
 }
 
+// TLSListeners returns a list of TLS listeners and their configs.
 func (conf *Config) TLSListeners() map[string]*tls.Config {
 	tlsListeners := make(map[string]*tls.Config)
 	for s, tlsListenersConf := range conf.Server.TLSListeners {
@@ -344,6 +362,7 @@ func (conf *Config) TLSListeners() map[string]*tls.Config {
 	return tlsListeners
 }
 
+// LoadConfig loads the given YAML configuration file.
 func LoadConfig(filename string) (config *Config, err error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {

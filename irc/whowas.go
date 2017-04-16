@@ -59,7 +59,7 @@ func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
 }
 
 func (list *WhoWasList) prev(index int) int {
-	index -= 1
+	index--
 	if index < 0 {
 		index += len(list.buffer)
 	}

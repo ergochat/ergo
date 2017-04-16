@@ -318,12 +318,12 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 }
 
 // successfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
-func (c *Client) successfulSaslAuth() {
-	c.Send(nil, c.server.name, RPL_LOGGEDIN, c.nick, c.nickMaskString, c.account.Name, fmt.Sprintf("You are now logged in as %s", c.account.Name))
-	c.Send(nil, c.server.name, RPL_SASLSUCCESS, c.nick, "SASL authentication successful")
+func (client *Client) successfulSaslAuth() {
+	client.Send(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
+	client.Send(nil, client.server.name, RPL_SASLSUCCESS, client.nick, "SASL authentication successful")
 
 	// dispatch account-notify
-	for friend := range c.Friends(AccountNotify) {
-		friend.Send(nil, c.nickMaskString, "ACCOUNT", c.account.Name)
+	for friend := range client.Friends(AccountNotify) {
+		friend.Send(nil, client.nickMaskString, "ACCOUNT", client.account.Name)
 	}
 }
