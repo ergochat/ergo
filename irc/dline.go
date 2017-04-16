@@ -298,6 +298,11 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return nil
 	})
 
+	if err != nil {
+		client.Notice(fmt.Sprintf("Could not successfully save new D-LINE: %s", err.Error()))
+		return false
+	}
+
 	if hostNet == nil {
 		server.dlines.AddIP(hostAddr, banTime, reason, operReason)
 	} else {

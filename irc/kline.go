@@ -213,6 +213,11 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return nil
 	})
 
+	if err != nil {
+		client.Notice(fmt.Sprintf("Could not successfully save new K-LINE: %s", err.Error()))
+		return false
+	}
+
 	server.klines.AddMask(mask, banTime, reason, operReason)
 
 	if durationIsUsed {
