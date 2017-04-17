@@ -51,10 +51,7 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 func (socket *Socket) Close() {
 	socket.Closed = true
 
-	// 'send data' to force close loop to happen
-	socket.linesToSendMutex.Lock()
-	socket.linesToSend = append(socket.linesToSend, "")
-	socket.linesToSendMutex.Unlock()
+	// force close loop to happen
 	go socket.fillLineToSendExists()
 }
 
@@ -137,6 +134,11 @@ func (socket *Socket) RunSocketWriter() {
 		select {
 		case <-socket.lineToSendExists:
 			socket.linesToSendMutex.Lock()
+
+			// check if we're closed
+			if socket.Closed {
+				break
+			}
 
 			// check sendq
 			var sendQBytes uint64
