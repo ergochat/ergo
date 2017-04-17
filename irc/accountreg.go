@@ -84,6 +84,12 @@ func removeFailedRegCreateData(store *buntdb.DB, account string) {
 
 // regCreateHandler parses the REG CREATE command.
 func regCreateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// make sure reg is enabled
+	if !server.accountRegistration.Enabled {
+		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "Account registration is disabled")
+		return false
+	}
+
 	// get and sanitise account name
 	account := strings.TrimSpace(msg.Params[1])
 	casefoldedAccount, err := CasefoldName(account)
