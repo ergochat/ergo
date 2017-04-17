@@ -433,13 +433,14 @@ func (client *Client) ChangeNickname(nickname string) error {
 	return err
 }
 
-// Quit sends the given quit message to the client (but does not destroy them).
+// Quit sends the given quit message to the client
 func (client *Client) Quit(message string) {
 	if !client.quitMessageSent {
 		client.Send(nil, client.nickMaskString, "QUIT", message)
 		client.Send(nil, "", "ERROR", message)
 		client.socket.Write("\r\n")
 		client.quitMessageSent = true
+		client.socket.Close()
 	}
 }
 
