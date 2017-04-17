@@ -361,7 +361,16 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 						continue
 					}
 				}
-			default:
+			}
+
+			var isKnown bool
+			for _, supportedMode := range SupportedChannelModes {
+				if rune(supportedMode) == mode {
+					isKnown = true
+					break
+				}
+			}
+			if !isKnown {
 				unknown[mode] = true
 			}
 
