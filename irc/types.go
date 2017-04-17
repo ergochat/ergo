@@ -8,36 +8,58 @@ package irc
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 //
 // simple types
 //
 
-type ChannelNameMap map[string]*Channel
+type ChannelNameMap struct {
+	ChansLock sync.RWMutex
+	Chans     map[string]*Channel
+}
+
+func NewChannelNameMap() ChannelNameMap {
+	var channels ChannelNameMap
+	channels.Chans = make(map[string]*Channel)
+	return channels
+}
 
 func (channels ChannelNameMap) Get(name string) *Channel {
 	name, err := CasefoldChannel(name)
 	if err == nil {
-		return channels[name]
+		channels.ChansLock.RLock()
+		defer channels.ChansLock.RUnlock()
+		return channels.Chans[name]
 	}
 	return nil
 }
 
 func (channels ChannelNameMap) Add(channel *Channel) error {
-	if channels[channel.nameCasefolded] != nil {
+	channels.ChansLock.Lock()
+	defer channels.ChansLock.Unlock()
+	if channels.Chans[channel.nameCasefolded] != nil {
 		return fmt.Errorf("%s: already set", channel.name)
 	}
-	channels[channel.nameCasefolded] = channel
+	channels.Chans[channel.nameCasefolded] = channel
 	return nil
 }
 
 func (channels ChannelNameMap) Remove(channel *Channel) error {
-	if channel != channels[channel.nameCasefolded] {
+	channels.ChansLock.Lock()
+	defer channels.ChansLock.Unlock()
+	if channel != channels.Chans[channel.nameCasefolded] {
 		return fmt.Errorf("%s: mismatch", channel.name)
 	}
-	delete(channels, channel.nameCasefolded)
+	delete(channels.Chans, channel.nameCasefolded)
 	return nil
+}
+
+func (channels ChannelNameMap) Len() int {
+	channels.ChansLock.RLock()
+	defer channels.ChansLock.RUnlock()
+	return len(channels.Chans)
 }
 
 type ModeSet map[Mode]bool

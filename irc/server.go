@@ -192,7 +192,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		accountAuthenticationEnabled: config.Accounts.AuthenticationEnabled,
 		accounts:                     make(map[string]*ClientAccount),
 		channelRegistrationEnabled:   config.Channels.Registration.Enabled,
-		channels:                     make(ChannelNameMap),
+		channels:                     NewChannelNameMap(),
 		checkIdent:                   config.Server.CheckIdent,
 		clients:                      NewClientLookupSet(),
 		commands:                     make(chan Command),
@@ -1196,9 +1196,11 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//}
 
 	if mask == "" {
-		for _, channel := range server.channels {
+		server.channels.ChansLock.RLock()
+		for _, channel := range server.channels.Chans {
 			whoChannel(client, channel, friends)
 		}
+		server.channels.ChansLock.RUnlock()
 	} else if mask[0] == '#' {
 		// TODO implement wildcard matching
 		//TODO(dan): ^ only for opers
@@ -1748,12 +1750,14 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(channels) == 0 {
-		for _, channel := range server.channels {
+		server.channels.ChansLock.RLock()
+		for _, channel := range server.channels.Chans {
 			if !client.flags[Operator] && channel.flags[Secret] {
 				continue
 			}
 			client.RplList(channel)
 		}
+		server.channels.ChansLock.RUnlock()
 	} else {
 		// limit regular users to only listing one channel
 		if !client.flags[Operator] {
@@ -1807,9 +1811,11 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//}
 
 	if len(channels) == 0 {
-		for _, channel := range server.channels {
+		server.channels.ChansLock.RLock()
+		for _, channel := range server.channels.Chans {
 			channel.Names(client)
 		}
+		server.channels.ChansLock.RUnlock()
 		return false
 	}
 
@@ -1958,7 +1964,7 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf("There are %d users and %d invisible on %d server(s)", totalcount, invisiblecount, 1))
 	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf("%d IRC Operators online", opercount))
-	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", len(server.channels)))
+	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf("%d channels formed", server.channels.Len()))
 	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf("I have %d clients and %d servers", totalcount, 1))
 	return false
 }

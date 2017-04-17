@@ -75,7 +75,7 @@ func restStatus(w http.ResponseWriter, r *http.Request) {
 	rs := restStatusResp{
 		Clients:  restAPIServer.clients.Count(),
 		Opers:    len(restAPIServer.operators),
-		Channels: len(restAPIServer.channels),
+		Channels: restAPIServer.channels.Len(),
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
