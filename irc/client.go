@@ -438,6 +438,7 @@ func (client *Client) Quit(message string) {
 	if !client.quitMessageSent {
 		client.Send(nil, client.nickMaskString, "QUIT", message)
 		client.Send(nil, "", "ERROR", message)
+		client.socket.Write("\r\n")
 		client.quitMessageSent = true
 	}
 }
