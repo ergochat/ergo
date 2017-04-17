@@ -279,9 +279,11 @@ func (channel *Channel) Join(client *Client, key string) {
 		chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
 
 		if chanReg == nil {
-			channel.createdTime = time.Now()
-			channel.members[client][ChannelOperator] = true
-			givenMode = &ChannelOperator
+			if len(channel.members) == 1 {
+				channel.createdTime = time.Now()
+				channel.members[client][ChannelOperator] = true
+				givenMode = &ChannelOperator
+			}
 		} else {
 			// we should only do this on registered channels
 			if client.account != nil && client.account.Name == chanReg.Founder {
