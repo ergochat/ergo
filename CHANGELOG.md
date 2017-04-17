@@ -4,20 +4,14 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
- 
-### Config Changes
+## [0.7.2] - 2017-04-17
+This is a patch release of Oragono to fix discovered bugs and crashes. I'll also be implementing some more stringent checks before pushing releases after this, to ensure these same sort of bugs don't happen again.
  
 ### Security
- 
-### Added
- 
-### Changed
- 
-### Removed
+* Fixed a bug where any user joining an unregistered channel was given chanop status (thanks @vegax87).
  
 ### Fixed
+* Fixed a number of various crashes and races.
 
 
 ## [0.7.1] - 2017-03-28
