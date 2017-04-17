@@ -140,6 +140,12 @@ func (socket *Socket) RunSocketWriter() {
 				break
 			}
 
+			// check number of lines to send
+			if len(socket.linesToSend) < 1 {
+				fmt.Println("No line to send found on socket writer")
+				continue
+			}
+
 			// check sendq
 			var sendQBytes uint64
 			for _, line := range socket.linesToSend {
@@ -173,16 +179,15 @@ func (socket *Socket) RunSocketWriter() {
 					break
 				}
 			}
-
-			// check if we're closed
-			if socket.Closed {
-				break
-			}
 		}
-		if errOut {
-			// error out, bad stuff happened
+		if errOut || socket.Closed {
+			// error out or we've been closed
 			break
 		}
+	}
+	// empty the lineToSendExists channel
+	for 0 < len(socket.lineToSendExists) {
+		<-socket.lineToSendExists
 	}
 	//TODO(dan): empty socket.lineToSendExists queue
 	socket.conn.Close()
