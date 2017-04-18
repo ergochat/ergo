@@ -31,6 +31,7 @@ type Socket struct {
 	reader *bufio.Reader
 
 	MaxSendQBytes uint64
+	FinalData     string // what to send when we die
 
 	lineToSendExists chan bool
 	linesToSend      []string
@@ -54,8 +55,8 @@ func (socket *Socket) Close() {
 	}
 	socket.Closed = true
 
-	// force close loop to happen
-	go socket.fillLineToSendExists(true)
+	// force close loop to happen if it hasn't already
+	go socket.timedFillLineToSendExists(200 * time.Millisecond)
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -119,15 +120,21 @@ func (socket *Socket) Write(data string) error {
 	socket.linesToSendMutex.Lock()
 	socket.linesToSend = append(socket.linesToSend, data)
 	socket.linesToSendMutex.Unlock()
-	go socket.fillLineToSendExists(false)
+
+	if !socket.Closed {
+		go socket.timedFillLineToSendExists(15 * time.Second)
+	}
 
 	return nil
 }
 
-// fillLineToSendExists only exists because you can't goroutine single statements.
-func (socket *Socket) fillLineToSendExists(force bool) {
-	if force || !socket.Closed {
-		socket.lineToSendExists <- true
+// timedFillLineToSendExists either sends the note or times out.
+func (socket *Socket) timedFillLineToSendExists(duration time.Duration) {
+	select {
+	case socket.lineToSendExists <- true:
+		// passed data successfully
+	case <-time.After(duration):
+		// timed out send
 	}
 }
 
@@ -142,12 +149,13 @@ func (socket *Socket) RunSocketWriter() {
 
 			// check if we're closed
 			if socket.Closed {
+				socket.linesToSendMutex.Unlock()
 				break
 			}
 
-			// check number of lines to send
+			// check whether new lines actually exist or not
 			if len(socket.linesToSend) < 1 {
-				fmt.Println("No line to send found on socket writer")
+				socket.linesToSendMutex.Unlock()
 				continue
 			}
 
@@ -156,22 +164,19 @@ func (socket *Socket) RunSocketWriter() {
 			for _, line := range socket.linesToSend {
 				sendQBytes += uint64(len(line))
 				if socket.MaxSendQBytes < sendQBytes {
+					socket.linesToSendMutex.Unlock()
 					break
 				}
 			}
 			if socket.MaxSendQBytes < sendQBytes {
-				socket.conn.Write([]byte("\r\nERROR :SendQ Exceeded\r\n"))
-				fmt.Println("SendQ exceeded, disconnected client")
+				socket.FinalData = "\r\nERROR :SendQ Exceeded\r\n"
+				socket.linesToSendMutex.Unlock()
 				break
 			}
 
-			// get data
-			data := socket.linesToSend[0]
-			if len(socket.linesToSend) > 1 {
-				socket.linesToSend = socket.linesToSend[1:]
-			} else {
-				socket.linesToSend = []string{}
-			}
+			// get all existing data
+			data := strings.Join(socket.linesToSend, "")
+			socket.linesToSend = []string{}
 
 			socket.linesToSendMutex.Unlock()
 
@@ -190,10 +195,14 @@ func (socket *Socket) RunSocketWriter() {
 			break
 		}
 	}
-	socket.conn.Close()
 	if !socket.Closed {
 		socket.Closed = true
 	}
+	// write error lines
+	if 0 < len(socket.FinalData) {
+		socket.conn.Write([]byte(socket.FinalData))
+	}
+	socket.conn.Close()
 
 	// empty the lineToSendExists channel
 	for 0 < len(socket.lineToSendExists) {
