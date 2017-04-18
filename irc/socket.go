@@ -180,7 +180,7 @@ func (socket *Socket) RunSocketWriter() {
 			for _, line := range socket.linesToSend {
 				sendQBytes += uint64(len(line))
 				if socket.MaxSendQBytes < sendQBytes {
-					socket.linesToSendMutex.Unlock()
+					// don't unlock mutex because this break is just to escape this for loop
 					break
 				}
 			}
