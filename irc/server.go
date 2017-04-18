@@ -86,6 +86,7 @@ type Server struct {
 	accounts                     map[string]*ClientAccount
 	channelRegistrationEnabled   bool
 	channels                     ChannelNameMap
+	channelJoinPartMutex         sync.Mutex // used when joining/parting channels to prevent stomping over each others' access and all
 	checkIdent                   bool
 	clients                      *ClientLookupSet
 	commands                     chan Command
@@ -802,6 +803,10 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		keys = strings.Split(msg.Params[1], ",")
 	}
 
+	// get lock
+	server.channelJoinPartMutex.Lock()
+	defer server.channelJoinPartMutex.Unlock()
+
 	for i, name := range channels {
 		casefoldedName, err := CasefoldChannel(name)
 		if err != nil {
@@ -837,6 +842,10 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 1 {
 		reason = msg.Params[1]
 	}
+
+	// get lock
+	server.channelJoinPartMutex.Lock()
+	defer server.channelJoinPartMutex.Unlock()
 
 	for _, chname := range channels {
 		casefoldedChannelName, err := CasefoldChannel(chname)

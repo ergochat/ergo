@@ -483,9 +483,11 @@ func (client *Client) destroy() {
 	client.clearMonitorList()
 
 	// clean up channels
+	client.server.channelJoinPartMutex.Lock()
 	for channel := range client.channels {
 		channel.Quit(client, &friends)
 	}
+	client.server.channelJoinPartMutex.Unlock()
 
 	// clean up server
 	client.server.clients.Remove(client)
