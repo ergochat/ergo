@@ -49,10 +49,13 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
+	if socket.Closed {
+		return
+	}
 	socket.Closed = true
 
 	// force close loop to happen
-	go socket.fillLineToSendExists()
+	go socket.fillLineToSendExists(true)
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -116,14 +119,16 @@ func (socket *Socket) Write(data string) error {
 	socket.linesToSendMutex.Lock()
 	socket.linesToSend = append(socket.linesToSend, data)
 	socket.linesToSendMutex.Unlock()
-	go socket.fillLineToSendExists()
+	go socket.fillLineToSendExists(false)
 
 	return nil
 }
 
 // fillLineToSendExists only exists because you can't goroutine single statements.
-func (socket *Socket) fillLineToSendExists() {
-	socket.lineToSendExists <- true
+func (socket *Socket) fillLineToSendExists(force bool) {
+	if force || !socket.Closed {
+		socket.lineToSendExists <- true
+	}
 }
 
 // RunSocketWriter starts writing messages to the outgoing socket.
@@ -185,14 +190,15 @@ func (socket *Socket) RunSocketWriter() {
 			break
 		}
 	}
-	// empty the lineToSendExists channel
-	for 0 < len(socket.lineToSendExists) {
-		<-socket.lineToSendExists
-	}
 	//TODO(dan): empty socket.lineToSendExists queue
 	socket.conn.Close()
 	if !socket.Closed {
 		socket.Closed = true
+	}
+
+	// empty the lineToSendExists channel
+	for 0 < len(socket.lineToSendExists) {
+		<-socket.lineToSendExists
 	}
 }
 
