@@ -49,3 +49,6 @@
 [submodule "vendor/github.com/mattn/go-colorable"]
 	path = vendor/github.com/mattn/go-colorable
 	url = https://github.com/mattn/go-colorable
+[submodule "vendor/code.cloudfoundry.org/bytefmt"]
+	path = vendor/code.cloudfoundry.org/bytefmt
+	url = https://github.com/cloudfoundry/bytefmt
