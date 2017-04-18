@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
@@ -43,23 +44,24 @@ type Client struct {
 	channels           ChannelSet
 	class              *OperClass
 	ctime              time.Time
+	destroyMutex       sync.Mutex
 	flags              map[Mode]bool
-	isDestroyed        bool
-	isQuitting         bool
 	hasQuit            bool
 	hops               int
 	hostname           string
-	rawHostname        string
-	vhost              string
 	idleTimer          *time.Timer
+	isDestroyed        bool
+	isQuitting         bool
 	monitoring         map[string]bool
 	nick               string
 	nickCasefolded     string
-	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	nickMaskCasefolded string
+	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	operName           string
-	quitTimer          *time.Timer
 	quitMessageSent    bool
+	quitMutex          sync.Mutex
+	quitTimer          *time.Timer
+	rawHostname        string
 	realname           string
 	registered         bool
 	saslInProgress     bool
@@ -67,7 +69,9 @@ type Client struct {
 	saslValue          string
 	server             *Server
 	socket             *Socket
+	timerMutex         sync.Mutex
 	username           string
+	vhost              string
 	whoisLine          string
 }
 
@@ -229,6 +233,9 @@ func (client *Client) Active() {
 
 // Touch marks the client as alive.
 func (client *Client) Touch() {
+	client.timerMutex.Lock()
+	defer client.timerMutex.Unlock()
+
 	if client.quitTimer != nil {
 		client.quitTimer.Stop()
 	}
@@ -242,6 +249,9 @@ func (client *Client) Touch() {
 
 // Idle resets the timeout handlers and sends the client a PING.
 func (client *Client) Idle() {
+	client.timerMutex.Lock()
+	defer client.timerMutex.Unlock()
+
 	client.Send(nil, "", "PING", client.nick)
 
 	if client.quitTimer == nil {
@@ -435,6 +445,8 @@ func (client *Client) ChangeNickname(nickname string) error {
 
 // Quit sends the given quit message to the client (but does not destroy them).
 func (client *Client) Quit(message string) {
+	client.quitMutex.Lock()
+	defer client.quitMutex.Unlock()
 	if !client.quitMessageSent {
 		quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
 		quitLine, _ := quitMsg.Line()
@@ -442,13 +454,15 @@ func (client *Client) Quit(message string) {
 		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
 		errorLine, _ := errorMsg.Line()
 
-		client.socket.FinalData = quitLine + errorLine
+		client.socket.SetFinalData(quitLine + errorLine)
 		client.quitMessageSent = true
 	}
 }
 
 // destroy gets rid of a client, removes them from server lists etc.
 func (client *Client) destroy() {
+	client.destroyMutex.Lock()
+	defer client.destroyMutex.Unlock()
 	if client.isDestroyed {
 		return
 	}

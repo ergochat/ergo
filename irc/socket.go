@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -26,12 +25,16 @@ var (
 
 // Socket represents an IRC socket.
 type Socket struct {
-	Closed bool
 	conn   net.Conn
 	reader *bufio.Reader
 
 	MaxSendQBytes uint64
-	FinalData     string // what to send when we die
+
+	closed      bool
+	closedMutex sync.Mutex
+
+	finalData      string // what to send when we die
+	finalDataMutex sync.Mutex
 
 	lineToSendExists chan bool
 	linesToSend      []string
@@ -50,10 +53,12 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
-	if socket.Closed {
+	socket.closedMutex.Lock()
+	defer socket.closedMutex.Unlock()
+	if socket.closed {
 		return
 	}
-	socket.Closed = true
+	socket.closed = true
 
 	// force close loop to happen if it hasn't already
 	go socket.timedFillLineToSendExists(200 * time.Millisecond)
@@ -88,7 +93,7 @@ func (socket *Socket) CertFP() (string, error) {
 
 // Read returns a single IRC line from a Socket.
 func (socket *Socket) Read() (string, error) {
-	if socket.Closed {
+	if socket.IsClosed() {
 		return "", io.EOF
 	}
 
@@ -113,7 +118,7 @@ func (socket *Socket) Read() (string, error) {
 
 // Write sends the given string out of Socket.
 func (socket *Socket) Write(data string) error {
-	if socket.Closed {
+	if socket.IsClosed() {
 		return io.EOF
 	}
 
@@ -121,9 +126,7 @@ func (socket *Socket) Write(data string) error {
 	socket.linesToSend = append(socket.linesToSend, data)
 	socket.linesToSendMutex.Unlock()
 
-	if !socket.Closed {
-		go socket.timedFillLineToSendExists(15 * time.Second)
-	}
+	go socket.timedFillLineToSendExists(15 * time.Second)
 
 	return nil
 }
@@ -138,9 +141,22 @@ func (socket *Socket) timedFillLineToSendExists(duration time.Duration) {
 	}
 }
 
+// SetFinalData sets the final data to send when the SocketWriter closes.
+func (socket *Socket) SetFinalData(data string) {
+	socket.finalDataMutex.Lock()
+	socket.finalData = data
+	socket.finalDataMutex.Unlock()
+}
+
+// IsClosed returns whether the socket is closed.
+func (socket *Socket) IsClosed() bool {
+	socket.closedMutex.Lock()
+	defer socket.closedMutex.Unlock()
+	return socket.closed
+}
+
 // RunSocketWriter starts writing messages to the outgoing socket.
 func (socket *Socket) RunSocketWriter() {
-	var errOut bool
 	for {
 		// wait for new lines
 		select {
@@ -148,7 +164,7 @@ func (socket *Socket) RunSocketWriter() {
 			socket.linesToSendMutex.Lock()
 
 			// check if we're closed
-			if socket.Closed {
+			if socket.IsClosed() {
 				socket.linesToSendMutex.Unlock()
 				break
 			}
@@ -169,7 +185,7 @@ func (socket *Socket) RunSocketWriter() {
 				}
 			}
 			if socket.MaxSendQBytes < sendQBytes {
-				socket.FinalData = "\r\nERROR :SendQ Exceeded\r\n"
+				socket.SetFinalData("\r\nERROR :SendQ Exceeded\r\n")
 				socket.linesToSendMutex.Unlock()
 				break
 			}
@@ -184,24 +200,30 @@ func (socket *Socket) RunSocketWriter() {
 			if 0 < len(data) {
 				_, err := socket.conn.Write([]byte(data))
 				if err != nil {
-					errOut = true
-					fmt.Println(err.Error())
 					break
 				}
 			}
 		}
-		if errOut || socket.Closed {
+		if socket.IsClosed() {
 			// error out or we've been closed
 			break
 		}
 	}
-	if !socket.Closed {
-		socket.Closed = true
+	// force closure of socket
+	socket.closedMutex.Lock()
+	if !socket.closed {
+		socket.closed = true
 	}
+	socket.closedMutex.Unlock()
+
 	// write error lines
-	if 0 < len(socket.FinalData) {
-		socket.conn.Write([]byte(socket.FinalData))
+	socket.finalDataMutex.Lock()
+	if 0 < len(socket.finalData) {
+		socket.conn.Write([]byte(socket.finalData))
 	}
+	socket.finalDataMutex.Unlock()
+
+	// close the connection
 	socket.conn.Close()
 
 	// empty the lineToSendExists channel

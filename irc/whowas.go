@@ -4,10 +4,16 @@
 
 package irc
 
+import (
+	"sync"
+)
+
 type WhoWasList struct {
 	buffer []*WhoWas
 	start  int
 	end    int
+
+	accessMutex sync.RWMutex
 }
 
 type WhoWas struct {
@@ -25,6 +31,9 @@ func NewWhoWasList(size uint) *WhoWasList {
 }
 
 func (list *WhoWasList) Append(client *Client) {
+	list.accessMutex.Lock()
+	defer list.accessMutex.Unlock()
+
 	list.buffer[list.end] = &WhoWas{
 		nicknameCasefolded: client.nickCasefolded,
 		nickname:           client.nick,
@@ -39,6 +48,9 @@ func (list *WhoWasList) Append(client *Client) {
 }
 
 func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
+	list.accessMutex.RLock()
+	defer list.accessMutex.RUnlock()
+
 	results := make([]*WhoWas, 0)
 
 	casefoldedNickname, err := CasefoldName(nickname)
@@ -59,6 +71,9 @@ func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
 }
 
 func (list *WhoWasList) prev(index int) int {
+	list.accessMutex.RLock()
+	defer list.accessMutex.RUnlock()
+
 	index--
 	if index < 0 {
 		index += len(list.buffer)
