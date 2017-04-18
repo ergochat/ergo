@@ -190,7 +190,6 @@ func (socket *Socket) RunSocketWriter() {
 			break
 		}
 	}
-	//TODO(dan): empty socket.lineToSendExists queue
 	socket.conn.Close()
 	if !socket.Closed {
 		socket.Closed = true
