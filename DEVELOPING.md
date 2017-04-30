@@ -9,20 +9,19 @@ The intent is to keep `master` relatively stable.
 
 ## Updating `vendor/`
 
-The `vendor/` directory holds our dependencies. When we import new pages, we need to update this folder to contain these new deps.
+The `vendor/` directory holds our dependencies. When we import new repos, we need to update this folder to contain these new deps. This is something that I'll mostly be handling.
 
 To update this folder:
 
 1. Install https://github.com/dpw/vendetta
 2. `cd` to Oragono folder
-3. `vendetta -u -p`
+3. `dep ensure -update`
+4. `cd vendor`
+5. Commit the changes with the message `"Updated packages"`
+6. `cd ..`
 4. Commit the result with the message `"vendor: Updated submodules"`
 
 This will make sure things stay nice and up-to-date for users.
-
-### `/vendor` on Windows
-
-Vendetta on Windows is broken, keep this in mind while updating deps. For reference, see [dpw/vendetta#17](https://github.com/dpw/vendetta/issues/17).
 
 
 ## Fuzzing and Testing
