@@ -8,12 +8,15 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* Added `debug` section containing additional debug settings.
 
 ### Security
 
 ### Added
+* Added ability to use StackImpact profiling.
 
 ### Changed
+* Socket code rewritten to be a lot faster and safer.
 
 ### Removed
 
