@@ -156,6 +156,9 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 			return nil, fmt.Errorf("Help entry does not exist for command %s", name)
 		}
 	}
+	// generate help indexes
+	HelpIndex = GenerateHelpIndex(false)
+	HelpIndexOpers = GenerateHelpIndex(true)
 
 	if config.Accounts.AuthenticationEnabled {
 		SupportedCapabilities[SASL] = true

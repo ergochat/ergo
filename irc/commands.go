@@ -95,6 +95,10 @@ var Commands = map[string]Command{
 		handler:   helpHandler,
 		minParams: 0,
 	},
+	"HELPOP": {
+		handler:   helpHandler,
+		minParams: 0,
+	},
 	"INVITE": {
 		handler:   inviteHandler,
 		minParams: 2,

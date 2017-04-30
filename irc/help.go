@@ -4,15 +4,28 @@
 package irc
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
 )
 
+// HelpEntryType represents the different sorts of help entries that can exist.
+type HelpEntryType int
+
+const (
+	CommandHelpEntry     HelpEntryType = 0
+	InformationHelpEntry HelpEntryType = 1
+	ISupportHelpEntry    HelpEntryType = 2
+)
+
 // HelpEntry represents an entry in the Help map.
 type HelpEntry struct {
-	oper bool
-	text string
+	oper      bool
+	text      string
+	helpType  HelpEntryType
+	duplicate bool
 }
 
 // used for duplicates
@@ -128,7 +141,12 @@ ON <server> specifies that the ban is to be set on that specific server.
 	"help": {
 		text: `HELP <argument>
 
-Get an explanation of <argument>.`,
+Get an explanation of <argument>, or "index" for a list of help topics.`,
+	},
+	"helpop": {
+		text: `HELPOP <argument>
+
+Get an explanation of <argument>, or "index" for a list of help topics.`,
 	},
 	"invite": {
 		text: `INVITE <nickname> <channel>
@@ -411,19 +429,26 @@ Returns historical information on the last user with the given nickname.`,
 
 	// Informational
 	"modes": {
-		text: cmodeHelpText + "\n\n" + umodeHelpText,
+		text:     cmodeHelpText + "\n\n" + umodeHelpText,
+		helpType: InformationHelpEntry,
 	},
 	"cmode": {
-		text: cmodeHelpText,
+		text:     cmodeHelpText,
+		helpType: InformationHelpEntry,
 	},
 	"cmodes": {
-		text: cmodeHelpText,
+		text:      cmodeHelpText,
+		helpType:  InformationHelpEntry,
+		duplicate: true,
 	},
 	"umode": {
-		text: umodeHelpText,
+		text:     umodeHelpText,
+		helpType: InformationHelpEntry,
 	},
 	"umodes": {
-		text: umodeHelpText,
+		text:      umodeHelpText,
+		helpType:  InformationHelpEntry,
+		duplicate: true,
 	},
 
 	// RPL_ISUPPORT
@@ -433,6 +458,7 @@ Returns historical information on the last user with the given nickname.`,
 Oragono supports an experimental unicode casemapping designed for extended
 Unicode support. This casemapping is based off RFC 7613 and the draft rfc7613
 casemapping spec here: http://oragono.io/specs.html`,
+		helpType: ISupportHelpEntry,
 	},
 	"prefix": {
 		text: `RPL_ISUPPORT PREFIX
@@ -444,7 +470,61 @@ Oragono supports the following channel membership prefixes:
   +o (@)  |  Operator channel mode.
   +h (%)  |  Halfop channel mode.
   +v (+)  |  Voice channel mode.`,
+		helpType: ISupportHelpEntry,
 	},
+}
+
+// HelpIndex contains the list of all help topics for regular users.
+var HelpIndex = "list of all help topics for regular users"
+
+// HelpIndexOpers contains the list of all help topics for opers.
+var HelpIndexOpers = "list of all help topics for opers"
+
+// GenerateHelpIndex is used to generate HelpIndex.
+func GenerateHelpIndex(forOpers bool) string {
+	newHelpIndex := `= Help Topics =
+
+Commands:
+%s
+
+RPL_ISUPPORT Tokens:
+%s
+
+Information:
+%s`
+
+	// generate them
+	var commands, isupport, information []string
+
+	var line string
+	for name, info := range Help {
+		if info.duplicate {
+			continue
+		}
+		if info.oper && !forOpers {
+			continue
+		}
+
+		line = fmt.Sprintf("   %s", name)
+
+		if info.helpType == CommandHelpEntry {
+			commands = append(commands, line)
+		} else if info.helpType == ISupportHelpEntry {
+			isupport = append(isupport, line)
+		} else if info.helpType == InformationHelpEntry {
+			information = append(information, line)
+		}
+	}
+
+	// sort the lines
+	sort.Strings(commands)
+	sort.Strings(isupport)
+	sort.Strings(information)
+
+	// sub them in
+	newHelpIndex = fmt.Sprintf(newHelpIndex, strings.Join(commands, "\n"), strings.Join(isupport, "\n"), strings.Join(information, "\n"))
+
+	return newHelpIndex
 }
 
 // sendHelp sends the client help of the given string.
@@ -462,7 +542,7 @@ func (client *Client) sendHelp(name string, text string) {
 		}
 	}
 	args := splitName
-	args = append(args, "End of /HELP")
+	args = append(args, "End of /HELPOP")
 	client.Send(nil, client.server.name, RPL_ENDOFHELP, args...)
 }
 
@@ -471,9 +551,19 @@ func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
 
 	if len(argument) < 1 {
-		client.sendHelp("HELP", `HELP <argument>
+		client.sendHelp("HELPOP", `HELPOP <argument>
 
-Get an explanation of <argument>.`)
+Get an explanation of <argument>, or "index" for a list of help topics.`)
+		return false
+	}
+
+	// handle index
+	if argument == "index" {
+		if client.flags[Operator] {
+			client.sendHelp("HELP", HelpIndexOpers)
+		} else {
+			client.sendHelp("HELP", HelpIndex)
+		}
 		return false
 	}
 
