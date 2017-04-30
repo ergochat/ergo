@@ -11,22 +11,21 @@ import (
 	"sync"
 )
 
-//
-// simple types
-//
-
+// ChannelNameMap is a map that converts channel names to actual channel objects.
 type ChannelNameMap struct {
 	ChansLock sync.RWMutex
 	Chans     map[string]*Channel
 }
 
-func NewChannelNameMap() ChannelNameMap {
+// NewChannelNameMap returns a new ChannelNameMap.
+func NewChannelNameMap() *ChannelNameMap {
 	var channels ChannelNameMap
 	channels.Chans = make(map[string]*Channel)
-	return channels
+	return &channels
 }
 
-func (channels ChannelNameMap) Get(name string) *Channel {
+// Get returns the given channel if it exists.
+func (channels *ChannelNameMap) Get(name string) *Channel {
 	name, err := CasefoldChannel(name)
 	if err == nil {
 		channels.ChansLock.RLock()
@@ -36,7 +35,8 @@ func (channels ChannelNameMap) Get(name string) *Channel {
 	return nil
 }
 
-func (channels ChannelNameMap) Add(channel *Channel) error {
+// Add adds the given channel to our map.
+func (channels *ChannelNameMap) Add(channel *Channel) error {
 	channels.ChansLock.Lock()
 	defer channels.ChansLock.Unlock()
 	if channels.Chans[channel.nameCasefolded] != nil {
@@ -46,7 +46,8 @@ func (channels ChannelNameMap) Add(channel *Channel) error {
 	return nil
 }
 
-func (channels ChannelNameMap) Remove(channel *Channel) error {
+// Remove removes the given channel from our map.
+func (channels *ChannelNameMap) Remove(channel *Channel) error {
 	channels.ChansLock.Lock()
 	defer channels.ChansLock.Unlock()
 	if channel != channels.Chans[channel.nameCasefolded] {
@@ -56,7 +57,8 @@ func (channels ChannelNameMap) Remove(channel *Channel) error {
 	return nil
 }
 
-func (channels ChannelNameMap) Len() int {
+// Len returns how many channels we have.
+func (channels *ChannelNameMap) Len() int {
 	channels.ChansLock.RLock()
 	defer channels.ChansLock.RUnlock()
 	return len(channels.Chans)
@@ -72,7 +74,7 @@ func (set ModeSet) String() string {
 	index := 0
 	for mode := range set {
 		strs[index] = mode.String()
-		index += 1
+		index++
 	}
 	return strings.Join(strs, "")
 }
@@ -138,13 +140,4 @@ func (channels ChannelSet) First() *Channel {
 		return channel
 	}
 	return nil
-}
-
-//
-// interfaces
-//
-
-type Identifiable interface {
-	Id() string
-	Nick() string
 }

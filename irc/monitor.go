@@ -15,7 +15,7 @@ func (client *Client) alertMonitors() {
 	// alert monitors
 	for _, mClient := range client.server.monitoring[client.nickCasefolded] {
 		// don't have to notify ourselves
-		if &mClient != client {
+		if mClient != client {
 			mClient.SendFromClient("", client, nil, RPL_MONONLINE, mClient.nick, client.nickMaskString)
 		}
 	}
@@ -28,7 +28,7 @@ func (client *Client) clearMonitorList() {
 		orig := client.server.monitoring[name]
 		var index int
 		for i, cli := range orig {
-			if &cli == client {
+			if cli == client {
 				index = i
 				break
 			}
@@ -87,7 +87,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 			orig := server.monitoring[casefoldedTarget]
 			var index int
 			for i, cli := range orig {
-				if &cli == client {
+				if cli == client {
 					index = i
 					break
 				}
@@ -139,7 +139,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 			client.monitoring[casefoldedTarget] = true
 
 			orig := server.monitoring[casefoldedTarget]
-			server.monitoring[casefoldedTarget] = append(orig, *client)
+			server.monitoring[casefoldedTarget] = append(orig, client)
 		}
 
 		// add to online / offline lists

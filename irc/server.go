@@ -107,7 +107,7 @@ type Server struct {
 	listenerUpdateMutex          sync.Mutex
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
-	monitoring                   map[string][]Client
+	monitoring                   map[string][]*Client
 	motdLines                    []string
 	name                         string
 	nameCasefolded               string
@@ -193,7 +193,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		accountAuthenticationEnabled: config.Accounts.AuthenticationEnabled,
 		accounts:                     make(map[string]*ClientAccount),
 		channelRegistrationEnabled:   config.Channels.Registration.Enabled,
-		channels:                     NewChannelNameMap(),
+		channels:                     *NewChannelNameMap(),
 		checkIdent:                   config.Server.CheckIdent,
 		clients:                      NewClientLookupSet(),
 		commands:                     make(chan Command),
@@ -219,7 +219,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		listeners:          make(map[string]ListenerInterface),
 		logger:             logger,
 		MaxSendQBytes:      config.Server.MaxSendQBytes,
-		monitoring:         make(map[string][]Client),
+		monitoring:         make(map[string][]*Client),
 		name:               config.Server.Name,
 		nameCasefolded:     casefoldedName,
 		networkName:        config.Network.Name,
