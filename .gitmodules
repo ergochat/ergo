@@ -1,0 +1,3 @@
+[submodule "vendor"]
+	path = vendor
+	url = https://github.com/DanielOaks/oragono-vendor.git
