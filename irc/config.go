@@ -173,6 +173,13 @@ func (sts *STSConfig) Value() string {
 	return val
 }
 
+// StackImpactConfig is the config used for StackImpact's profiling.
+type StackImpactConfig struct {
+	Enabled  bool
+	AgentKey string `yaml:"agent-key"`
+	AppName  string `yaml:"app-name"`
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -214,6 +221,10 @@ type Config struct {
 	Opers map[string]*OperConfig
 
 	Logging []LoggingConfig
+
+	Debug struct {
+		StackImpact StackImpactConfig
+	}
 
 	Limits struct {
 		AwayLen        uint          `yaml:"awaylen"`

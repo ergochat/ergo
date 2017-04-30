@@ -26,7 +26,7 @@ server:
         ":6697":
             key: tls.key
             cert: tls.crt
-    
+
     # strict transport security, to get clients to automagically use TLS
     sts:
         # whether to advertise STS
@@ -74,7 +74,7 @@ server:
         # whether to throttle limits or not
         enabled: true
 
-        # how wide the cidr should be for IPv4 
+        # how wide the cidr should be for IPv4
         cidr-len-ipv4: 24
 
         # how wide the cidr should be for IPv6
@@ -94,7 +94,7 @@ server:
         # whether to throttle connections or not
         enabled: true
 
-        # how wide the cidr should be for IPv4 
+        # how wide the cidr should be for IPv4
         cidr-len-ipv4: 32
 
         # how wide the cidr should be for IPv6
@@ -235,6 +235,19 @@ logging:
         method: stderr
         type: localconnect localconnect-ip
         level: debug
+
+# debug options
+debug:
+    # enabling StackImpact profiling
+    stackimpact:
+        # whether to use StackImpact
+        enabled: false
+
+        # the AgentKey to use
+        agent-key: examplekeyhere
+
+        # the app name to report
+        app-name: Oragono
 
 # datastore configuration
 datastore:

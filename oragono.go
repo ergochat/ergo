@@ -16,6 +16,7 @@ import (
 	"github.com/DanielOaks/oragono/irc/logger"
 	"github.com/DanielOaks/oragono/mkcerts"
 	"github.com/docopt/docopt-go"
+	stackimpact "github.com/stackimpact/stackimpact-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -107,6 +108,21 @@ Options:
 		if !arguments["--quiet"].(bool) {
 			logger.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 		}
+
+		// profiling
+		if config.Debug.StackImpact.Enabled {
+			if config.Debug.StackImpact.AgentKey == "" || config.Debug.StackImpact.AppName == "" {
+				logger.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
+				return
+			}
+
+			agent := stackimpact.NewAgent()
+			agent.Start(stackimpact.Options{AgentKey: config.Debug.StackImpact.AgentKey, AppName: config.Debug.StackImpact.AppName})
+			defer agent.RecordPanic()
+
+			logger.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
+		}
+
 		server, err := irc.NewServer(configfile, config, logger)
 		if err != nil {
 			logger.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
