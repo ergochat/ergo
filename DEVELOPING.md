@@ -13,7 +13,7 @@ The `vendor/` directory holds our dependencies. When we import new repos, we nee
 
 To update this folder:
 
-1. Install https://github.com/dpw/vendetta
+1. Install https://github.com/golang/dep
 2. `cd` to Oragono folder
 3. `dep ensure -update`
 4. `cd vendor`
