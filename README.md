@@ -7,6 +7,7 @@ Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomad
 ---
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/DanielOaks/oragono)](https://goreportcard.com/report/github.com/DanielOaks/oragono)
+[![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/DanielOaks/oragono/releases/latest)
 [![Freenode #oragono](https://img.shields.io/badge/Freenode-%23oragono-1e72ff.svg?style=flat)](https://www.irccloud.com/invite?channel=%23oragono&hostname=irc.freenode.net&port=6697&ssl=1)
 
 ---
@@ -34,8 +35,11 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 ## Installation
 
+Download the latest release from this page: https://github.com/DanielOaks/oragono/releases/latest
+
+Extract it into a folder, then run the following commands:
+
 ```sh
-go build oragono.go
 cp oragono.yaml ircd.yaml
 vim ircd.yaml  # modify the config file to your liking
 oragono initdb
