@@ -663,7 +663,7 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	// continue registration
-	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s]", c.nick))
+	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
 	c.Register()
 
 	// send welcome text
