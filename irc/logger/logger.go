@@ -242,6 +242,7 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	if logger.MethodFile.Enabled {
 		logger.fileWriteLock.Lock()
 		logger.MethodFile.Writer.WriteString(fullStringRaw + "\n")
+		logger.MethodFile.Writer.Flush()
 		logger.fileWriteLock.Unlock()
 	}
 }
