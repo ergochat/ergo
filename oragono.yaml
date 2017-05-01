@@ -206,6 +206,7 @@ logging:
         # how to log these messages
         #
         #   file    log to given target filename
+        #   stdout  log to stdout
         #   stderr  log to stderr
         method: file stderr
 

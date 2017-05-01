@@ -136,6 +136,7 @@ type ConnectionThrottleConfig struct {
 // LoggingConfig controls a single logging method.
 type LoggingConfig struct {
 	Method        string
+	MethodStdout  bool
 	MethodStderr  bool
 	MethodFile    bool
 	Filename      string
@@ -443,6 +444,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
 		}
 		logConfig.MethodFile = methods["file"]
+		logConfig.MethodStdout = methods["stdout"]
 		logConfig.MethodStderr = methods["stderr"]
 
 		// levels

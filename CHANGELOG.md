@@ -9,10 +9,12 @@ New release of Oragono!
 
 ### Config Changes
 * Added `debug` section containing additional debug settings.
+* Added ability to log to `stdout` in logger methods.
 
 ### Security
 
 ### Added
+* Added ability to log to stdout.
 * Added ability to use StackImpact profiling.
 
 ### Changed

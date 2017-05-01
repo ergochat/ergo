@@ -52,7 +52,7 @@ var (
 // Manager is the main interface used to log debug/info/error messages.
 type Manager struct {
 	loggers         []singleLogger
-	stderrWriteLock sync.Mutex
+	stdoutWriteLock sync.Mutex // use one lock for both stdout and stderr
 	fileWriteLock   sync.Mutex
 	DumpingRawInOut bool
 }
@@ -60,6 +60,7 @@ type Manager struct {
 // Config represents the configuration of a single logger.
 type Config struct {
 	// logging methods
+	MethodStdout bool
 	MethodStderr bool
 	MethodFile   bool
 	Filename     string
@@ -85,6 +86,7 @@ func NewManager(config ...Config) (*Manager, error) {
 		}
 
 		sLogger := singleLogger{
+			MethodSTDOUT: logConfig.MethodStdout,
 			MethodSTDERR: logConfig.MethodStderr,
 			MethodFile: fileMethod{
 				Enabled:  logConfig.MethodFile,
@@ -93,7 +95,7 @@ func NewManager(config ...Config) (*Manager, error) {
 			Level:           logConfig.Level,
 			Types:           typeMap,
 			ExcludedTypes:   excludedTypeMap,
-			stderrWriteLock: &logger.stderrWriteLock,
+			stdoutWriteLock: &logger.stdoutWriteLock,
 			fileWriteLock:   &logger.fileWriteLock,
 		}
 		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
@@ -165,8 +167,9 @@ type fileMethod struct {
 
 // singleLogger represents a single logger instance.
 type singleLogger struct {
-	stderrWriteLock *sync.Mutex
+	stdoutWriteLock *sync.Mutex
 	fileWriteLock   *sync.Mutex
+	MethodSTDOUT    bool
 	MethodSTDERR    bool
 	MethodFile      fileMethod
 	Level           Level
@@ -177,7 +180,7 @@ type singleLogger struct {
 // Log logs the given message with the given details.
 func (logger *singleLogger) Log(level Level, logType string, messageParts ...string) {
 	// no logging enabled
-	if !(logger.MethodSTDERR || logger.MethodFile.Enabled) {
+	if !(logger.MethodSTDOUT || logger.MethodSTDERR || logger.MethodFile.Enabled) {
 		return
 	}
 
@@ -226,10 +229,15 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	}
 
 	// output
+	if logger.MethodSTDOUT {
+		logger.stdoutWriteLock.Lock()
+		fmt.Fprintln(colorable.NewColorableStdout(), fullStringFormatted)
+		logger.stdoutWriteLock.Unlock()
+	}
 	if logger.MethodSTDERR {
-		logger.stderrWriteLock.Lock()
+		logger.stdoutWriteLock.Lock()
 		fmt.Fprintln(colorable.NewColorableStderr(), fullStringFormatted)
-		logger.stderrWriteLock.Unlock()
+		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
 		logger.fileWriteLock.Lock()

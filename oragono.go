@@ -49,6 +49,7 @@ Options:
 	var logConfigs []logger.Config
 	for _, lConfig := range config.Logging {
 		logConfigs = append(logConfigs, logger.Config{
+			MethodStdout:  lConfig.MethodStdout,
 			MethodStderr:  lConfig.MethodStderr,
 			MethodFile:    lConfig.MethodFile,
 			Filename:      lConfig.Filename,
