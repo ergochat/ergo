@@ -94,6 +94,7 @@ type OperConfig struct {
 	Vhost     string
 	WhoisLine string `yaml:"whois-line"`
 	Password  string
+	Modes     string
 }
 
 func (conf *OperConfig) PasswordBytes() []byte {
@@ -323,6 +324,7 @@ type Oper struct {
 	WhoisLine string
 	Vhost     string
 	Pass      []byte
+	Modes     string
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -349,6 +351,7 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 		} else {
 			oper.WhoisLine = class.WhoisLine
 		}
+		oper.Modes = strings.TrimSpace(opConf.Modes)
 
 		// successful, attach to list of opers
 		operators[name] = oper

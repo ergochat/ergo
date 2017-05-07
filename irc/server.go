@@ -23,8 +23,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/DanielOaks/oragono/irc/logger"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -123,6 +125,7 @@ type Server struct {
 	rehashSignal                 chan os.Signal
 	restAPI                      *RestAPIConfig
 	signals                      chan os.Signal
+	snomasks                     *SnoManager
 	store                        *buntdb.DB
 	stsEnabled                   bool
 	whoWas                       *WhoWasList
@@ -233,6 +236,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		rehashSignal:       make(chan os.Signal, 1),
 		restAPI:            &config.Server.RestAPI,
 		signals:            make(chan os.Signal, len(ServerExitSignals)),
+		snomasks:           NewSnoManager(),
 		stsEnabled:         config.Server.STS.Enabled,
 		whoWas:             NewWhoWasList(config.Limits.WhowasEntries),
 	}
@@ -474,6 +478,7 @@ func (server *Server) Run() {
 				}
 
 				server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+				// prolly don't need to alert snomasks on this, only on connection reg
 
 				go NewClient(server, conn.Conn, conn.IsTLS)
 				continue
@@ -664,6 +669,7 @@ func (server *Server) tryRegister(c *Client) {
 
 	// continue registration
 	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
+	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf(ircfmt.Unescape("Client registered $c[grey][$r%s$c[grey]] [u:$r%s$c[grey]] [h:$r%s$c[grey]] [r:$r%s$c[grey]]"), c.nick, c.username, c.rawHostname, c.realname))
 	c.Register()
 
 	// send welcome text
@@ -1263,13 +1269,27 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.updateNickMask()
 	}
 
+	// set new modes
+	var applied ModeChanges
+	if 0 < len(server.operators[name].Modes) {
+		modeChanges, unknownChanges := ParseUserModeChanges(strings.Split(server.operators[name].Modes, " ")...)
+		applied = client.applyUserModeChanges(true, modeChanges)
+		if 0 < len(unknownChanges) {
+			var runes string
+			for r := range unknownChanges {
+				runes += string(r)
+			}
+			client.Notice(fmt.Sprintf("Could not apply mode changes: +%s", runes))
+		}
+	}
+
 	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, "You are now an IRC operator")
-	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
-	modech := ModeChanges{ModeChange{
+
+	applied = append(applied, ModeChange{
 		mode: Operator,
 		op:   Add,
-	}}
-	client.Send(nil, server.name, "MODE", client.nick, modech.String())
+	})
+	client.Send(nil, server.name, "MODE", client.nick, applied.String())
 	return false
 }
 

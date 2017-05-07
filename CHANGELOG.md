@@ -9,6 +9,7 @@ New release of Oragono!
 
 ### Config Changes
 * Added `debug` section containing additional debug settings.
+* Added `modes` key on oper config, for setting modes on oper-up.
 * Added ability to log to `stdout` in logger methods.
 
 ### Security
@@ -16,6 +17,7 @@ New release of Oragono!
 ### Added
 * Added ability to log to stdout.
 * Added ability to use StackImpact profiling.
+* Added initial server notice masks (snomasks).
 
 ### Changed
 * Socket code rewritten to be a lot faster and safer.

@@ -17,6 +17,7 @@ const (
 	RPL_CREATED                     = "003"
 	RPL_MYINFO                      = "004"
 	RPL_ISUPPORT                    = "005"
+	RPL_SNOMASKIS                   = "008"
 	RPL_BOUNCE                      = "010"
 	RPL_TRACELINK                   = "200"
 	RPL_TRACECONNECTING             = "201"

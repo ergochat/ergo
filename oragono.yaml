@@ -196,6 +196,9 @@ opers:
         # custom hostname
         vhost: "n"
 
+        # modes are the modes to auto-set upon opering-up
+        modes: +is acjknoqtux
+
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu

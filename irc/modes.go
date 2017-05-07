@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -97,7 +98,7 @@ const (
 	LocalOperator   Mode = 'O'
 	Operator        Mode = 'o'
 	Restricted      Mode = 'r'
-	ServerNotice    Mode = 's' // deprecated
+	ServerNotice    Mode = 's'
 	TLS             Mode = 'Z'
 	UserRoleplaying Mode = 'E'
 	WallOps         Mode = 'w'
@@ -105,7 +106,7 @@ const (
 
 var (
 	SupportedUserModes = Modes{
-		Away, Invisible, Operator, UserRoleplaying,
+		Away, Invisible, Operator, ServerNotice, UserRoleplaying,
 	}
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = SupportedUserModes.String()
@@ -210,15 +211,77 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return umodeHandler(server, client, msg)
 }
 
+// ParseUserModeChanges returns the valid changes, and the list of unknown chars.
+func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
+	changes := make(ModeChanges, 0)
+	unknown := make(map[rune]bool)
+
+	if 0 < len(params) {
+		modeArg := params[0]
+		op := ModeOp(modeArg[0])
+		if (op == Add) || (op == Remove) {
+			modeArg = modeArg[1:]
+		} else {
+			unknown[rune(modeArg[0])] = true
+			return changes, unknown
+		}
+
+		skipArgs := 1
+
+		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
+			change := ModeChange{
+				mode: Mode(mode),
+				op:   op,
+			}
+
+			// put arg into modechange if needed
+			switch Mode(mode) {
+			case ServerNotice:
+				// always require arg
+				if len(params) > skipArgs {
+					change.arg = params[skipArgs]
+					skipArgs++
+				} else {
+					continue
+				}
+			}
+
+			var isKnown bool
+			for _, supportedMode := range SupportedUserModes {
+				if rune(supportedMode) == mode {
+					isKnown = true
+					break
+				}
+			}
+			if !isKnown {
+				unknown[mode] = true
+				continue
+			}
+
+			changes = append(changes, change)
+		}
+	}
+
+	return changes, unknown
+}
+
 // applyUserModeChanges applies the given changes, and returns the applied changes.
-func (client *Client) applyUserModeChanges(changes ModeChanges) ModeChanges {
+func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) ModeChanges {
 	applied := make(ModeChanges, 0)
 
 	for _, change := range changes {
 		switch change.mode {
-		case Invisible, ServerNotice, WallOps, UserRoleplaying:
+		case Invisible, WallOps, UserRoleplaying, Operator, LocalOperator:
 			switch change.op {
 			case Add:
+				if !force && (change.mode == Operator || change.mode == LocalOperator) {
+					continue
+				}
+
 				if client.flags[change.mode] {
 					continue
 				}
@@ -233,12 +296,21 @@ func (client *Client) applyUserModeChanges(changes ModeChanges) ModeChanges {
 				applied = append(applied, change)
 			}
 
-		case Operator, LocalOperator:
-			if change.op == Remove {
-				if !client.flags[change.mode] {
-					continue
+		case ServerNotice:
+			if !client.flags[Operator] {
+				continue
+			}
+			var masks []sno.Mask
+			if change.op == Add || change.op == Remove {
+				for _, char := range change.arg {
+					masks = append(masks, sno.Mask(char))
 				}
-				delete(client.flags, change.mode)
+			}
+			if change.op == Add {
+				client.server.snomasks.AddMasks(client, masks...)
+				applied = append(applied, change)
+			} else if change.op == Remove {
+				client.server.snomasks.RemoveMasks(client, masks...)
 				applied = append(applied, change)
 			}
 		}
@@ -272,38 +344,36 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	// assemble changes
-	changes := make(ModeChanges, 0)
+	// applied mode changes
 	applied := make(ModeChanges, 0)
 
-	if len(msg.Params) > 1 {
-		modeArg := msg.Params[1]
-		op := ModeOp(modeArg[0])
-		if (op == Add) || (op == Remove) {
-			modeArg = modeArg[1:]
-		} else {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(modeArg[0]), "is an unknown mode character to me")
+	if 1 < len(msg.Params) {
+		// parse out real mode changes
+		params := msg.Params[1:]
+		changes, unknown := ParseUserModeChanges(params...)
+
+		// alert for unknown mode changes
+		for char := range unknown {
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), "is an unknown mode character to me")
+		}
+		if len(unknown) == 1 && len(changes) == 0 {
 			return false
 		}
 
-		for _, mode := range modeArg {
-			if mode == '-' || mode == '+' {
-				op = ModeOp(mode)
-				continue
-			}
-			changes = append(changes, ModeChange{
-				mode: Mode(mode),
-				op:   op,
-			})
-		}
-
-		applied = target.applyUserModeChanges(changes)
+		// apply mode changes
+		applied = target.applyUserModeChanges(msg.Command == "SAMODE", changes)
 	}
 
 	if len(applied) > 0 {
 		client.Send(nil, client.nickMaskString, "MODE", target.nick, applied.String())
 	} else if client == target {
 		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nick, target.ModeString())
+		if client.flags[LocalOperator] || client.flags[Operator] {
+			masks := server.snomasks.String(client)
+			if 0 < len(masks) {
+				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, target.nick, masks, "Server notice masks")
+			}
+		}
 	}
 	return false
 }
@@ -372,6 +442,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 			}
 			if !isKnown {
 				unknown[mode] = true
+				continue
 			}
 
 			changes = append(changes, change)
