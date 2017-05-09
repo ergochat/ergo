@@ -165,7 +165,6 @@ func (client *Client) run() {
 	// Set the hostname for this client
 	client.rawHostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
-	//TODO(dan): Make this a socketreactor from ircbnc
 	for {
 		line, err = client.socket.Read()
 		if err != nil {
@@ -206,32 +205,17 @@ func (client *Client) run() {
 }
 
 //
-// quit timer goroutine
+// idle, quit, timers and timeouts
 //
 
-func (client *Client) connectionTimeout() {
-	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TIMEOUT_STATED_SECONDS))
-	client.isQuitting = true
-}
-
-//
-// idle timer goroutine
-//
-
-func (client *Client) connectionIdle() {
-	client.server.idle <- client
-}
-
-//
-// server goroutine
-//
-
-// Active marks the client as 'active' (i.e. the user should be there).
+// Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
 func (client *Client) Active() {
 	client.atime = time.Now()
 }
 
-// Touch marks the client as alive.
+// Touch marks the client as alive (as it it has a connection to us and we
+// can receive messages from it), and resets when we'll send the client a
+// keepalive PING.
 func (client *Client) Touch() {
 	client.timerMutex.Lock()
 	defer client.timerMutex.Unlock()
@@ -247,8 +231,9 @@ func (client *Client) Touch() {
 	}
 }
 
-// Idle resets the timeout handlers and sends the client a PING.
-func (client *Client) Idle() {
+// connectionIdle is run when the client has not sent us any data for a while,
+// sends the client a PING and starts the quit timeout.
+func (client *Client) connectionIdle() {
 	client.timerMutex.Lock()
 	defer client.timerMutex.Unlock()
 
@@ -260,6 +245,18 @@ func (client *Client) Idle() {
 		client.quitTimer.Reset(QUIT_TIMEOUT)
 	}
 }
+
+// connectionTimeout runs after connectionIdle has been run, if we do not receive a
+// ping or any other activity back from the client. When this happens we assume the
+// connection has died and remove the client from the network.
+func (client *Client) connectionTimeout() {
+	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TIMEOUT_STATED_SECONDS))
+	client.isQuitting = true
+}
+
+//
+// server goroutine
+//
 
 // Register sets the client details as appropriate when entering the network.
 func (client *Client) Register() {
@@ -587,13 +584,14 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		}
 	}
 
-	// force trailing
-	var usedSpaceHack bool
+	// force trailing, if message requires it
+	var usedTrailingHack bool
 	if commandsThatMustUseTrailing[strings.ToUpper(command)] && len(params) > 0 {
 		lastParam := params[len(params)-1]
+		// to force trailing, we ensure the final param contains a space
 		if !strings.Contains(lastParam, " ") {
 			params[len(params)-1] = lastParam + " "
-			usedSpaceHack = true
+			usedTrailingHack = true
 		}
 	}
 
@@ -613,8 +611,8 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		return err
 	}
 
-	// strip space hack if we used it
-	if usedSpaceHack {
+	// is we used the trailing hack, we need to strip the final space we appended earlier
+	if usedTrailingHack {
 		line = line[:len(line)-3] + "\r\n"
 	}
 
@@ -625,6 +623,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 }
 
 // Notice sends the client a notice from the server.
+//TODO(dan): Make this handle message splitting.
 func (client *Client) Notice(text string) {
 	client.Send(nil, client.server.name, "NOTICE", client.nick, text)
 }

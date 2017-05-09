@@ -100,7 +100,6 @@ type Server struct {
 	ctime                        time.Time
 	currentOpers                 map[*Client]bool
 	dlines                       *DLineManager
-	idle                         chan *Client
 	isupport                     *ISupportList
 	klines                       *KLineManager
 	limits                       Limits
@@ -208,7 +207,6 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		connectionThrottle:           connectionThrottle,
 		ctime:                        time.Now(),
 		currentOpers:                 make(map[*Client]bool),
-		idle:                         make(chan *Client),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
 			ChannelLen:     int(config.Limits.ChannelLen),
@@ -483,9 +481,6 @@ func (server *Server) Run() {
 				go NewClient(server, conn.Conn, conn.IsTLS)
 				continue
 			}
-
-		case client := <-server.idle:
-			client.Idle()
 		}
 	}
 }
