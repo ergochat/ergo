@@ -4,15 +4,15 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.8.0] - 2017-05-09
+Debugging! Fixes! Better realtime monitoring!
+
+This release isn't too exciting, but packs large improvements to how we handle floods and similar issues. As well, the introduction of snomasks (take a look at `/HELPOP snomasks`) should help opers keep a basic view over their server during use. Only the `"c"` (connects) snomask is active right now, but others will be added and extended in future releases.
 
 ### Config Changes
 * Added `debug` section containing additional debug settings.
 * Added `modes` key on oper config, for setting modes on oper-up.
 * Added ability to log to `stdout` in logger methods.
-
-### Security
 
 ### Added
 * Added ability to log to stdout.
@@ -22,8 +22,6 @@ New release of Oragono!
 ### Changed
 * Socket code rewritten to be a lot faster and safer.
 * Updated account registration to use the latest proposed syntax (now being `/ACC REGISTER` instead of `/REG CREATE`).
-
-### Removed
 
 ### Fixed
 * Clients now timeout properly if they don't complete connection registration.
