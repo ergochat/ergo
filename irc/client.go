@@ -623,7 +623,14 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 }
 
 // Notice sends the client a notice from the server.
-//TODO(dan): Make this handle message splitting.
 func (client *Client) Notice(text string) {
-	client.Send(nil, client.server.name, "NOTICE", client.nick, text)
+	limit := 400
+	if client.capabilities[MaxLine] {
+		limit = client.server.limits.LineLen.Rest - 110
+	}
+	lines := wordWrap(text, limit)
+
+	for _, line := range lines {
+		client.Send(nil, client.server.name, "NOTICE", client.nick, line)
+	}
 }

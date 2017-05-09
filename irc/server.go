@@ -886,30 +886,43 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// wordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
 func wordWrap(text string, lineWidth int) []string {
 	var lines []string
 	var cacheLine, cacheWord string
 
 	for _, char := range text {
-		if (char == ' ' || char == '-') && len(cacheLine)+len(cacheWord)+1 < lineWidth {
+		if char == '\r' {
+			continue
+		} else if char == '\n' {
+			cacheLine += cacheWord
+			lines = append(lines, cacheLine)
+			cacheWord = ""
+			cacheLine = ""
+		} else if (char == ' ' || char == '-') && len(cacheLine)+len(cacheWord)+1 < lineWidth {
+			// natural word boundary
 			cacheLine += cacheWord + string(char)
 			cacheWord = ""
-		} else if len(cacheLine)+len(cacheWord)+1 >= lineWidth {
+		} else if lineWidth <= len(cacheLine)+len(cacheWord)+1 {
+			// time to wrap to next line
 			if len(cacheLine) < (lineWidth / 2) {
-				// there must be a really long word or something, just split on word boundary
+				// this word takes up more than half a line... just split in the middle of the word
 				cacheLine += cacheWord + string(char)
 				cacheWord = ""
+			} else {
+				cacheWord += string(char)
 			}
 			lines = append(lines, cacheLine)
 			cacheLine = ""
 		} else {
+			// normal character
 			cacheWord += string(char)
 		}
 	}
-	if len(cacheWord) > 0 {
+	if 0 < len(cacheWord) {
 		cacheLine += cacheWord
 	}
-	if len(cacheLine) > 0 {
+	if 0 < len(cacheLine) {
 		lines = append(lines, cacheLine)
 	}
 
