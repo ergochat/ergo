@@ -21,10 +21,13 @@ New release of Oragono!
 
 ### Changed
 * Socket code rewritten to be a lot faster and safer.
+* Updated account registration to use the latest proposed syntax (now being `/ACC REGISTER` instead of `/REG CREATE`).
 
 ### Removed
 
 ### Fixed
+* Clients now timeout properly if they don't complete connection registration.
+* Word wrapping (with `draft/maxline`) no longer randomly drops characters.
 
 
 ## [0.7.2] - 2017-04-17
