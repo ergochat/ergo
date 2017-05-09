@@ -1,4 +1,4 @@
-memo = "66c0ffbf25fb28a769da24b8cce6b3d9e4478ffa91d3dbb67dc7a78bedd65fa1"
+memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
 
 [[projects]]
   name = "code.cloudfoundry.org/bytefmt"
@@ -14,7 +14,7 @@ memo = "66c0ffbf25fb28a769da24b8cce6b3d9e4478ffa91d3dbb67dc7a78bedd65fa1"
 [[projects]]
   branch = "master"
   name = "github.com/DanielOaks/girc-go"
-  packages = ["ircmatch","ircmsg"]
+  packages = ["ircfmt","ircmatch","ircmsg"]
   revision = "44f3a36650eee6b315868c0c6ad6a897a338d856"
 
 [[projects]]
@@ -87,7 +87,7 @@ memo = "66c0ffbf25fb28a769da24b8cce6b3d9e4478ffa91d3dbb67dc7a78bedd65fa1"
   branch = "master"
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  revision = "e30a9c1037e0f9fbde93a6a9848a2dd5c59d3b91"
+  revision = "617caec145830f154dcdaffd3e6aa51fd686f01e"
 
 [[projects]]
   branch = "master"
@@ -111,7 +111,7 @@ memo = "66c0ffbf25fb28a769da24b8cce6b3d9e4478ffa91d3dbb67dc7a78bedd65fa1"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "c7af5bf2638a1164f2eb5467c39c6cffbd13a02e"
+  revision = "122d919ec1efcfb58483215da23f815853e24b81"
 
 [[projects]]
   branch = "master"
