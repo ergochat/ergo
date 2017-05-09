@@ -61,7 +61,30 @@ Oragono supports the following user modes:
   +a  |  User is marked as being away. This mode is set with the /AWAY command.
   +i  |  User is marked as invisible (their channels are hidden from whois replies).
   +o  |  User is an IRC operator.
+  +s  |  Server Notice Masks (see help with /HELPOP snomasks).
   +Z  |  User is connected via TLS.`
+	snomaskHelpText = `== Server Notice Masks ==
+
+Oragono supports the following server notice masks for operators:
+
+  a  |  Local announcements.
+  c  |  Local client connections.
+  j  |  Local channel actions.
+  k  |  Local kills.
+  n  |  Local nick changes.
+  o  |  Local oper actions.
+  q  |  Local quits.
+  t  |  Local /STATS usage.
+  u  |  Local client account actions.
+  x  |  Local X-lines (DLINE/KLINE/etc).
+
+To set a snomask, do this with your nickname:
+
+  /MODE <nick> +s <chars>
+
+For instance, this would set the kill, oper, account and xline snomasks on dan:
+
+  /MODE dan +s koux`
 )
 
 // Help contains the help strings distributed with the IRCd.
@@ -449,6 +472,17 @@ Returns historical information on the last user with the given nickname.`,
 		text:      umodeHelpText,
 		helpType:  InformationHelpEntry,
 		duplicate: true,
+	},
+	"snomask": {
+		text:      snomaskHelpText,
+		helpType:  InformationHelpEntry,
+		oper:      true,
+		duplicate: true,
+	},
+	"snomasks": {
+		text:     snomaskHelpText,
+		helpType: InformationHelpEntry,
+		oper:     true,
 	},
 
 	// RPL_ISUPPORT
