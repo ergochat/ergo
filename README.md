@@ -75,6 +75,13 @@ After this, running the server is easy! Simply run the below command and you sho
 oragono run
 ```
 
+### How to register a channel
+
+    Register your account with /quote ACC REGISTER <username> * passphrase :<password>
+    Join the channel with /join #channel
+    Register the channel with /privmsg ChanServ REGISTER #channel
+
+
 <!--# Web interface
 
 Oragono also includes a web interface, which works with the REST API to provide a way to manage user accounts and bans.
