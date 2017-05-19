@@ -440,7 +440,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 	return err
 }
 
-// Quit sends the given quit message to the client (but does not destroy them).
+// Quit sends the given quit message to the client
 func (client *Client) Quit(message string) {
 	client.quitMutex.Lock()
 	defer client.quitMutex.Unlock()
@@ -453,6 +453,7 @@ func (client *Client) Quit(message string) {
 
 		client.socket.SetFinalData(quitLine + errorLine)
 		client.quitMessageSent = true
+		client.socket.Close()
 	}
 }
 
