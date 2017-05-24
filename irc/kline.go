@@ -110,7 +110,7 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanI
 	return false, nil
 }
 
-// KLINE [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
+// KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
 func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
@@ -119,6 +119,13 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	currentArg := 0
+
+	// when setting a ban, if they say "ANDKILL" we should also kill all users who match it
+	var andKill bool
+	if len(msg.Params) > currentArg+1 && strings.ToLower(msg.Params[currentArg]) == "andkill" {
+		andKill = true
+		currentArg++
+	}
 
 	// when setting a ban that covers the oper's current connection, we require them to say
 	// "KLINE MYSELF" so that we're sure they really mean it.
@@ -226,7 +233,32 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Notice(fmt.Sprintf("Added K-Line for %s", mask))
 	}
 
-	return false
+	var killClient bool
+	if andKill {
+		var clientsToKill []*Client
+
+		server.clients.ByNickMutex.RLock()
+		for _, mcl := range server.clients.ByNick {
+			for _, clientMask := range mcl.AllNickmasks() {
+				if matcher.Match(clientMask) {
+					clientsToKill = append(clientsToKill, mcl)
+				}
+			}
+		}
+		server.clients.ByNickMutex.RUnlock()
+
+		for _, mcl := range clientsToKill {
+			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
+			if mcl == client {
+				killClient = true
+			} else {
+				// if mcl == client, we kill them below
+				mcl.destroy()
+			}
+		}
+	}
+
+	return killClient
 }
 
 func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {

@@ -1358,7 +1358,7 @@ func (server *Server) rehash() error {
 
 	server.clients.ByNickMutex.RLock()
 	for _, client := range server.clients.ByNick {
-		ipaddr := net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+		ipaddr := client.IP()
 		if ipaddr != nil {
 			server.connectionLimits.AddClient(ipaddr, true)
 		}

@@ -137,6 +137,11 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	return client
 }
 
+// IP returns the IP address of this client.
+func (client *Client) IP() net.IP {
+	return net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+}
+
 //
 // command goroutine
 //
@@ -475,7 +480,7 @@ func (client *Client) destroy() {
 	friends.Remove(client)
 
 	// remove from connection limits
-	ipaddr := net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+	ipaddr := client.IP()
 	// this check shouldn't be required but eh
 	if ipaddr != nil {
 		client.server.connectionLimitsMutex.Lock()

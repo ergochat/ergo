@@ -183,7 +183,7 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 	return false, nil
 }
 
-// DLINE [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
+// DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
@@ -192,6 +192,13 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	currentArg := 0
+
+	// when setting a ban, if they say "ANDKILL" we should also kill all users who match it
+	var andKill bool
+	if len(msg.Params) > currentArg+1 && strings.ToLower(msg.Params[currentArg]) == "andkill" {
+		andKill = true
+		currentArg++
+	}
 
 	// when setting a ban that covers the oper's current connection, we require them to say
 	// "DLINE MYSELF" so that we're sure they really mean it.
@@ -232,13 +239,13 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if hostNet == nil {
 		hostString = hostAddr.String()
-		if !dlineMyself && hostAddr.Equal(net.ParseIP(IPString(client.socket.conn.RemoteAddr()))) {
+		if !dlineMyself && hostAddr.Equal(client.IP()) {
 			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
 			return false
 		}
 	} else {
 		hostString = hostNet.String()
-		if !dlineMyself && hostNet.Contains(net.ParseIP(IPString(client.socket.conn.RemoteAddr()))) {
+		if !dlineMyself && hostNet.Contains(client.IP()) {
 			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
 			return false
 		}
@@ -315,7 +322,37 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Notice(fmt.Sprintf("Added D-Line for %s", hostString))
 	}
 
-	return false
+	var killClient bool
+	if andKill {
+		var clientsToKill []*Client
+		var toKill bool
+
+		server.clients.ByNickMutex.RLock()
+		for _, mcl := range server.clients.ByNick {
+			if hostNet == nil {
+				toKill = hostAddr.Equal(mcl.IP())
+			} else {
+				toKill = hostNet.Contains(mcl.IP())
+			}
+
+			if toKill {
+				clientsToKill = append(clientsToKill, mcl)
+			}
+		}
+		server.clients.ByNickMutex.RUnlock()
+
+		for _, mcl := range clientsToKill {
+			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
+			if mcl == client {
+				killClient = true
+			} else {
+				// if mcl == client, we kill them below
+				mcl.destroy()
+			}
+		}
+	}
+
+	return killClient
 }
 
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
