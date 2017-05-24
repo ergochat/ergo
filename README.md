@@ -77,9 +77,13 @@ oragono run
 
 ### How to register a channel
 
-    Register your account with /quote ACC REGISTER <username> * passphrase :<password>
-    Join the channel with /join #channel
-    Register the channel with /privmsg ChanServ REGISTER #channel
+1. Register your account with `/quote ACC REGISTER <username> * passphrase :<password>`
+2. Join the channel with `/join #channel`
+3. Register the channel with `/privmsg ChanServ REGISTER #channel`
+
+After this, your channel will remember the fact that you're the owner, the topic, and any modes set on it!
+
+Make sure to setup [SASL](https://freenode.net/kb/answer/sasl) in your client to automatically login to your account when you next join the server.
 
 
 <!--# Web interface
