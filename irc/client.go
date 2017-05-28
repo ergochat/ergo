@@ -16,8 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/DanielOaks/go-ident"
+	"github.com/DanielOaks/oragono/irc/sno"
 )
 
 const (
@@ -435,6 +437,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 	err := client.server.clients.Replace(client.nick, nickname, client)
 	if err == nil {
 		client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s", client.nick, nickname))
+		client.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("Nick changed $c[grey][$r%s$c[grey]] to [$r%s$c[grey]]"), client.nick, nickname))
 		client.server.whoWas.Append(client)
 		client.nick = nickname
 		client.updateNickMask()

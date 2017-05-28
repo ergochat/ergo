@@ -13,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -263,6 +265,7 @@ func (client *Client) LoginToAccount(account *ClientAccount) {
 
 	account.Clients = append(account.Clients, client)
 	client.account = account
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), client.nickMaskString, account.Name))
 }
 
 // authExternalHandler parses the SASL EXTERNAL mechanism.

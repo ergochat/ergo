@@ -1298,6 +1298,8 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		op:   Add,
 	})
 	client.Send(nil, server.name, "MODE", client.nick, applied.String())
+
+	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
 	return false
 }
 

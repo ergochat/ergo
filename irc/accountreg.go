@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -262,6 +264,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 			client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, "Account created")
 			client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf("You are now logged in as %s", account.Name))
 			client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, "Authentication successful")
+			server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), account.Name, client.nickMaskString))
 			return nil
 		})
 		if err != nil {

@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -101,6 +103,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 			client.ChanServNotice(fmt.Sprintf("Channel %s successfully registered", channelName))
 
 			server.logger.Info("chanserv", fmt.Sprintf("Client %s registered channel %s", client.nick, channelName))
+			server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
 
 			channelInfo.membersMutex.Lock()
 			defer channelInfo.membersMutex.Unlock()
