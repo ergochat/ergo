@@ -789,6 +789,115 @@ func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// RENAME <oldchan> <newchan> [<reason>]
+//TODO(dan): Clean up this function so it doesn't look like an eldrich horror... prolly by putting it into a server.renameChannel function.
+func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// get lots of locks... make sure nobody touches anything while we're doing this
+	server.registeredChannelsMutex.Lock()
+	defer server.registeredChannelsMutex.Unlock()
+	server.channels.ChansLock.Lock()
+	defer server.channels.ChansLock.Unlock()
+
+	oldName := strings.TrimSpace(msg.Params[0])
+	newName := strings.TrimSpace(msg.Params[1])
+	reason := "No reason"
+	if 2 < len(msg.Params) {
+		reason = msg.Params[2]
+	}
+
+	// check for all the reasons why the rename couldn't happen
+	casefoldedOldName, err := CasefoldChannel(oldName)
+	if err != nil {
+		//TODO(dan): Change this to ERR_CANNOTRENAME
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, "Old channel name is invalid")
+		return false
+	}
+
+	channel := server.channels.Chans[casefoldedOldName]
+	if channel == nil {
+		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, oldName, "No such channel")
+		return false
+	}
+
+	channel.membersMutex.Lock()
+	defer channel.membersMutex.Unlock()
+
+	casefoldedNewName, err := CasefoldChannel(newName)
+	if err != nil {
+		//TODO(dan): Change this to ERR_CANNOTRENAME
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", newName, "New channel name is invalid")
+		return false
+	}
+
+	newChannel := server.channels.Chans[casefoldedNewName]
+	if newChannel != nil {
+		//TODO(dan): Change this to ERR_CHANNAMEINUSE
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", newName, "New channel name is in use")
+		return false
+	}
+
+	var canEdit bool
+	server.store.Update(func(tx *buntdb.Tx) error {
+		chanReg := server.loadChannelNoMutex(tx, casefoldedOldName)
+		if chanReg == nil || client.account == nil || client.account.Name == chanReg.Founder {
+			canEdit = true
+		}
+
+		chanReg = server.loadChannelNoMutex(tx, casefoldedNewName)
+		if chanReg != nil {
+			canEdit = false
+		}
+		return nil
+	})
+	if !canEdit {
+		//TODO(dan): Change this to ERR_CANNOTRENAME
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, "Only channel founders can change registered channels")
+		return false
+	}
+
+	// perform the channel rename
+	server.channels.Chans[casefoldedOldName] = nil
+	server.channels.Chans[casefoldedNewName] = channel
+
+	channel.name = strings.TrimSpace(msg.Params[1])
+	channel.nameCasefolded = casefoldedNewName
+
+	// rename stored channel info if any exists
+	server.store.Update(func(tx *buntdb.Tx) error {
+		chanReg := server.loadChannelNoMutex(tx, casefoldedOldName)
+		if chanReg == nil {
+			return nil
+		}
+
+		server.deleteChannelNoMutex(tx, casefoldedOldName)
+
+		chanReg.Name = newName
+
+		server.saveChannelNoMutex(tx, casefoldedNewName, *chanReg)
+		return nil
+	})
+
+	// send RENAME messages
+	for mcl := range channel.members {
+		if mcl.capabilities[Rename] {
+			mcl.Send(nil, client.nickMaskString, "RENAME", oldName, newName, reason)
+		} else {
+			mcl.Send(nil, mcl.nickMaskString, "PART", oldName, fmt.Sprintf("Channel renamed: %s", reason))
+			if mcl.capabilities[ExtendedJoin] {
+				accountName := "*"
+				if mcl.account != nil {
+					accountName = mcl.account.Name
+				}
+				mcl.Send(nil, mcl.nickMaskString, "JOIN", newName, accountName, mcl.realname)
+			} else {
+				mcl.Send(nil, mcl.nickMaskString, "JOIN", newName)
+			}
+		}
+	}
+
+	return false
+}
+
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
 // JOIN 0
 func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {

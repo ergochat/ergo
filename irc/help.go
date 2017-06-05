@@ -355,6 +355,14 @@ Replies to a PING. Used to check link connectivity.`,
 
 Sends the text to the given targets as a PRIVMSG.`,
 	},
+	"rename": {
+		text: `RENAME <channel> <newname> [<reason>]
+
+Renames the given channel with the given reason, if possible.
+
+For example:
+	RENAME #ircv2 #ircv3 :Protocol upgrades!`,
+	},
 	"sanick": {
 		oper: true,
 		text: `SANICK <currentnick> <newnick>

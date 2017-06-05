@@ -209,6 +209,10 @@ var Commands = map[string]Command{
 		handler:   privmsgHandler,
 		minParams: 2,
 	},
+	"RENAME": {
+		handler:   renameHandler,
+		minParams: 2,
+	},
 	"SANICK": {
 		handler:   sanickHandler,
 		minParams: 2,

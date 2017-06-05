@@ -14,8 +14,8 @@ import (
 type Capability string
 
 const (
-	AccountTag      Capability = "account-tag"
 	AccountNotify   Capability = "account-notify"
+	AccountTag      Capability = "account-tag"
 	AwayNotify      Capability = "away-notify"
 	CapNotify       Capability = "cap-notify"
 	ChgHost         Capability = "chghost"
@@ -26,6 +26,7 @@ const (
 	MessageIDs      Capability = "draft/message-ids"
 	MessageTags     Capability = "draft/message-tags-0.2"
 	MultiPrefix     Capability = "multi-prefix"
+	Rename          Capability = "draft/rename"
 	SASL            Capability = "sasl"
 	ServerTime      Capability = "server-time"
 	STS             Capability = "draft/sts"
@@ -47,6 +48,7 @@ var (
 		// MaxLine is set during server startup
 		MessageTags: true,
 		MultiPrefix: true,
+		Rename:      true,
 		// SASL is set during server startup
 		ServerTime: true,
 		// STS is set during server startup

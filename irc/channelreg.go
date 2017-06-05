@@ -53,6 +53,12 @@ type RegisteredChannel struct {
 	Invitelist []string
 }
 
+// deleteChannelNoMutex deletes a given channel from our store.
+func (server *Server) deleteChannelNoMutex(tx *buntdb.Tx, channelKey string) {
+	tx.Delete(fmt.Sprintf(keyChannelExists, channelKey))
+	server.registeredChannels[channelKey] = nil
+}
+
 // loadChannelNoMutex loads a channel from the store.
 func (server *Server) loadChannelNoMutex(tx *buntdb.Tx, channelKey string) *RegisteredChannel {
 	// return loaded chan if it already exists
