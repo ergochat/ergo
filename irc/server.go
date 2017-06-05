@@ -819,6 +819,12 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
+	//TODO(dan): allow IRCops to do this?
+	if !channel.ClientIsAtLeast(client, Operator) {
+		client.Send(nil, server.name, ERR_CHANOPRIVSNEEDED, client.nick, oldName, "Only chanops can rename channels")
+		return false
+	}
+
 	channel.membersMutex.Lock()
 	defer channel.membersMutex.Unlock()
 
