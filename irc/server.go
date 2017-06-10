@@ -905,13 +905,10 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
-// JOIN 0
 func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// handle JOIN 0
+	// kill JOIN 0 requests
 	if msg.Params[0] == "0" {
-		for channel := range client.channels {
-			channel.Part(client, client.nickCasefolded)
-		}
+		client.Notice("JOIN 0 is not allowed")
 		return false
 	}
 

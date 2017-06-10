@@ -193,10 +193,8 @@ Returns whether the given nicks exist on the network.`,
 	},
 	"join": {
 		text: `JOIN <channel>{,<channel>} [<key>{,<key>}]
-JOIN 0
 
-Joins the given channels with the matching keys, or if the only param is "0"
-parts all channels instead.`,
+Joins the given channels with the matching keys.`,
 	},
 	"kick": {
 		text: `KICK <channel> <user> [reason]
