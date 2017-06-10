@@ -15,7 +15,7 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "github.com/DanielOaks/girc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "44f3a36650eee6b315868c0c6ad6a897a338d856"
+  revision = "dcb717d58db75d2b0e3ce9f461e1ae1157058e1d"
 
 [[projects]]
   branch = "master"
@@ -39,7 +39,7 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "4c1c3952b7d9d0a061a3fa7b36fd373ba0398ebc"
+  revision = "18fca31550181693b3a834a15b74b564b3605876"
 
 [[projects]]
   branch = "master"
@@ -66,10 +66,10 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
+  branch = "master"
   name = "github.com/stackimpact/stackimpact-go"
   packages = [".","internal","internal/pprof/profile","internal/pprof/trace"]
-  revision = "f127640a7073ac6529379e59ae8ae9b16d8c187c"
-  version = "v1.4.2"
+  revision = "a03a044522bcf79986e12ebaa94989ae2c5371db"
 
 [[projects]]
   branch = "master"
@@ -87,7 +87,7 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  revision = "617caec145830f154dcdaffd3e6aa51fd686f01e"
+  revision = "c784c417818f59d6597274642d8ac1d09efc9b01"
 
 [[projects]]
   branch = "master"
@@ -111,19 +111,19 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "122d919ec1efcfb58483215da23f815853e24b81"
+  revision = "e7ba82683099cae71475961448ab8f903ea77c26"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "9ccfe848b9db8435a24c424abbc07a921adf1df5"
+  revision = "0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","internal","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "470f45bf29f4147d6fbd7dfd0a02a848e49f5bf4"
+  revision = "210eee5cf7323015d097341bcf7166130d001cd8"
 
 [[projects]]
   branch = "v2"
