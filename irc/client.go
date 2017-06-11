@@ -530,6 +530,7 @@ func (client *Client) destroy() {
 		//TODO(dan): store quit message in user, if exists use that instead here
 		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
 	}
+	client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r quit"), client.nick))
 }
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
