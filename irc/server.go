@@ -2121,6 +2121,10 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	quitMsg := fmt.Sprintf("Killed (%s (%s))", client.nick, comment)
+
+	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
+	target.exitedSnomaskSent = true
+
 	target.Quit(quitMsg)
 	target.destroy()
 	return false

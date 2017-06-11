@@ -6,12 +6,15 @@ package irc
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmatch"
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/DanielOaks/oragono/irc/custime"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -236,18 +239,21 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var killClient bool
 	if andKill {
 		var clientsToKill []*Client
+		var killedClientNicks []string
 
 		server.clients.ByNickMutex.RLock()
 		for _, mcl := range server.clients.ByNick {
 			for _, clientMask := range mcl.AllNickmasks() {
 				if matcher.Match(clientMask) {
 					clientsToKill = append(clientsToKill, mcl)
+					killedClientNicks = append(killedClientNicks, mcl.nick)
 				}
 			}
 		}
 		server.clients.ByNickMutex.RUnlock()
 
 		for _, mcl := range clientsToKill {
+			mcl.exitedSnomaskSent = true
 			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
 			if mcl == client {
 				killClient = true
@@ -256,6 +262,10 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				mcl.destroy()
 			}
 		}
+
+		// send snomask
+		sort.Strings(killedClientNicks)
+		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s killed %d clients with a KLINE $c[grey][$r%s$c[grey]]"), client.nick, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
 	}
 
 	return killClient

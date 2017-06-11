@@ -47,6 +47,7 @@ type Client struct {
 	class              *OperClass
 	ctime              time.Time
 	destroyMutex       sync.Mutex
+	exitedSnomaskSent  bool
 	flags              map[Mode]bool
 	hasQuit            bool
 	hops               int
@@ -530,7 +531,9 @@ func (client *Client) destroy() {
 		//TODO(dan): store quit message in user, if exists use that instead here
 		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
 	}
-	client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r quit"), client.nick))
+	if !client.exitedSnomaskSent {
+		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), client.nick))
+	}
 }
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.

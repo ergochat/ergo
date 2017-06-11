@@ -7,14 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"time"
 
 	"strings"
 
 	"encoding/json"
 
+	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
 	"github.com/DanielOaks/oragono/irc/custime"
+	"github.com/DanielOaks/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -325,6 +328,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var killClient bool
 	if andKill {
 		var clientsToKill []*Client
+		var killedClientNicks []string
 		var toKill bool
 
 		server.clients.ByNickMutex.RLock()
@@ -337,11 +341,13 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 			if toKill {
 				clientsToKill = append(clientsToKill, mcl)
+				killedClientNicks = append(killedClientNicks, mcl.nick)
 			}
 		}
 		server.clients.ByNickMutex.RUnlock()
 
 		for _, mcl := range clientsToKill {
+			mcl.exitedSnomaskSent = true
 			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
 			if mcl == client {
 				killClient = true
@@ -350,6 +356,10 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				mcl.destroy()
 			}
 		}
+
+		// send snomask
+		sort.Strings(killedClientNicks)
+		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s killed %d clients with a DLINE $c[grey][$r%s$c[grey]]"), client.nick, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
 	}
 
 	return killClient
