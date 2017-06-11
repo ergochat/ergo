@@ -12,12 +12,17 @@ New release of Oragono!
 ### Security
 
 ### Added
+* `DLINE` / `KLINE` - Add `ANDKILL` parameter to also kill all clients that match the ban.
+* Added proposed channel rename capability [draft/rename](https://github.com/ircv3/ircv3-specifications/pull/308).
 
 ### Changed
+* `JOIN`: Disable `JOIN 0` to help prevent clients from being kicked off (InspIRCd has done the same).
+* `LIST`: Implement extended list conditions `U` (which filters the channels by user count).
 
 ### Removed
 
 ### Fixed
+* Send a bunch more server notice masks with this release (including on account registration/login, channel registration, nick changes and oper-up).
 
 
 ## [0.8.0] - 2017-05-09
