@@ -47,7 +47,15 @@ oragono mkcerts
 ```
 
 **Note:** This installation will give you unsigned certificates suitable for testing purposes.
-For real crets, look into [Let's Encrypt](https://letsencrypt.org/)!
+For real certs, look into [Let's Encrypt](https://letsencrypt.org/)!
+
+### From Source
+
+You can also install this repo and use that instead! However, keep some things in mind if you go that way:
+
+`devel` branches are intentionally unstable, containing fixes that may not work, and they may be rebased or reworked extensively.
+
+The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network. If you'd like to, run the latest tagged version in production instead.
 
 ## Configuration
 
