@@ -352,6 +352,7 @@ func (server *Server) setISupport() {
 	server.isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
 	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	server.isupport.Add("CHANTYPES", "#")
+	server.isupport.Add("ELIST", "U")
 	server.isupport.Add("EXCEPTS", "")
 	server.isupport.Add("INVEX", "")
 	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
@@ -1885,22 +1886,73 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// LIST [<channel>{,<channel>} [<server>]]
-func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	var channels []string
-	if len(msg.Params) > 0 {
-		channels = strings.Split(msg.Params[0], ",")
-	}
-	var target string
-	if len(msg.Params) > 1 {
-		target = msg.Params[1]
+// elistMatcher takes and matches ELIST conditions
+type elistMatcher struct {
+	MinClientsActive bool
+	MinClients       int
+	MaxClientsActive bool
+	MaxClients       int
+}
+
+// Matches checks whether the given channel matches our matches.
+func (matcher *elistMatcher) Matches(channel *Channel) bool {
+	channel.membersMutex.RLock()
+	defer channel.membersMutex.RUnlock()
+
+	if matcher.MinClientsActive {
+		if len(channel.members) < matcher.MinClients {
+			return false
+		}
 	}
 
-	//TODO(dan): target server when we have multiple servers
-	//TODO(dan): we should continue just fine if it's this current server though
-	if target != "" {
-		client.Send(nil, server.name, ERR_NOSUCHSERVER, client.nick, target, "No such server")
-		return false
+	if matcher.MaxClientsActive {
+		if matcher.MaxClients < len(channel.members) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
+func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// get channels
+	var channels []string
+	for _, param := range msg.Params {
+		if 0 < len(param) && param[0] == '#' {
+			for _, channame := range strings.Split(param, ",") {
+				if 0 < len(channame) && channame[0] == '#' {
+					channels = append(channels, channame)
+				}
+			}
+		}
+	}
+
+	// get elist conditions
+	var matcher elistMatcher
+	for _, param := range msg.Params {
+		if len(param) < 1 {
+			continue
+		}
+
+		if param[0] == '<' {
+			param = param[1:]
+			val, err := strconv.Atoi(param)
+			if err != nil {
+				continue
+			}
+			matcher.MaxClientsActive = true
+			matcher.MaxClients = val - 1 // -1 because < means less than the given number
+		}
+		if param[0] == '>' {
+			param = param[1:]
+			val, err := strconv.Atoi(param)
+			if err != nil {
+				continue
+			}
+			matcher.MinClientsActive = true
+			matcher.MinClients = val + 1 // +1 because > means more than the given number
+		}
 	}
 
 	if len(channels) == 0 {
@@ -1909,7 +1961,9 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !client.flags[Operator] && channel.flags[Secret] {
 				continue
 			}
-			client.RplList(channel)
+			if matcher.Matches(channel) {
+				client.RplList(channel)
+			}
 		}
 		server.channels.ChansLock.RUnlock()
 	} else {
@@ -1927,13 +1981,16 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				}
 				continue
 			}
-			client.RplList(channel)
+			if matcher.Matches(channel) {
+				client.RplList(channel)
+			}
 		}
 	}
 	client.Send(nil, server.name, RPL_LISTEND, client.nick, "End of LIST")
 	return false
 }
 
+// RplList returns the RPL_LIST numeric for the given channel.
 func (target *Client) RplList(channel *Channel) {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
