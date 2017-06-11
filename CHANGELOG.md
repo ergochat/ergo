@@ -20,6 +20,7 @@ New release of Oragono!
     * `o`: Clients opering-up.
     * `q`: Clients quitting.
     * `u`: Account registration and login.
+    * `x`: Setting and removing `DLINE`/`KLINE`.
 
 ### Changed
 * `DLINE` and `KLINE`: Added `ANDKILL` parameter to also kill all clients that match the ban.
