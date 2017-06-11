@@ -319,11 +319,15 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		server.dlines.AddNetwork(*hostNet, banTime, reason, operReason)
 	}
 
+	var snoDescription string
 	if durationIsUsed {
 		client.Notice(fmt.Sprintf("Added temporary (%s) D-Line for %s", duration.String(), hostString))
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added temporary (%s) D-Line for %s"), client.nick, duration.String(), hostString)
 	} else {
 		client.Notice(fmt.Sprintf("Added D-Line for %s", hostString))
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added D-Line for %s"), client.nick, hostString)
 	}
+	server.snomasks.Send(sno.LocalXline, snoDescription)
 
 	var killClient bool
 	if andKill {
@@ -423,6 +427,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	}
 
 	client.Notice(fmt.Sprintf("Removed D-Line for %s", hostString))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
 	return false
 }
 

@@ -230,11 +230,15 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	server.klines.AddMask(mask, banTime, reason, operReason)
 
+	var snoDescription string
 	if durationIsUsed {
 		client.Notice(fmt.Sprintf("Added temporary (%s) K-Line for %s", duration.String(), mask))
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added temporary (%s) K-Line for %s"), client.nick, duration.String(), mask)
 	} else {
 		client.Notice(fmt.Sprintf("Added K-Line for %s", mask))
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added K-Line for %s"), client.nick, mask)
 	}
+	server.snomasks.Send(sno.LocalXline, snoDescription)
 
 	var killClient bool
 	if andKill {
@@ -311,6 +315,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	server.klines.RemoveMask(mask)
 
 	client.Notice(fmt.Sprintf("Removed K-Line for %s", mask))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), client.nick, mask))
 	return false
 }
 
