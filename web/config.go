@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/DanielOaks/oragono/irc"
+	"github.com/oragono/oragono/irc"
 
 	"gopkg.in/yaml.v2"
 )

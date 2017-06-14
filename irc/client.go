@@ -18,8 +18,8 @@ import (
 
 	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
-	"github.com/DanielOaks/go-ident"
-	"github.com/DanielOaks/oragono/irc/sno"
+	ident "github.com/oragono/go-ident"
+	"github.com/oragono/oragono/irc/sno"
 )
 
 const (

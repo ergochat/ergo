@@ -14,10 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/logger"
+
 	"code.cloudfoundry.org/bytefmt"
 
-	"github.com/DanielOaks/oragono/irc/custime"
-	"github.com/DanielOaks/oragono/irc/logger"
 	"gopkg.in/yaml.v2"
 )
 

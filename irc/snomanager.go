@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/DanielOaks/girc-go/ircfmt"
-	"github.com/DanielOaks/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/sno"
 )
 
 // SnoManager keeps track of which clients to send snomasks to.

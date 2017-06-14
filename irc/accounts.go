@@ -15,7 +15,7 @@ import (
 
 	"github.com/DanielOaks/girc-go/ircfmt"
 	"github.com/DanielOaks/girc-go/ircmsg"
-	"github.com/DanielOaks/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 

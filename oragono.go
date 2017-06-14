@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DanielOaks/oragono/irc"
-	"github.com/DanielOaks/oragono/irc/logger"
-	"github.com/DanielOaks/oragono/mkcerts"
 	"github.com/docopt/docopt-go"
+	"github.com/oragono/oragono/irc"
+	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/mkcerts"
 	stackimpact "github.com/stackimpact/stackimpact-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
