@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/DanielOaks/oragono/irc"
-	"github.com/DanielOaks/oragono/mkcerts"
-	"github.com/DanielOaks/oragono/web"
 	"github.com/docopt/docopt-go"
+	"github.com/oragono/oragono/mkcerts"
+	"github.com/oragono/oragono/web"
 )
 
 func main() {
