@@ -1,4 +1,4 @@
-memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
+memo = "9034fa4f638b4be39becc52605c7ad9676e513149bacb3666162f51787eb9762"
 
 [[projects]]
   name = "code.cloudfoundry.org/bytefmt"
@@ -7,21 +7,9 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
 
 [[projects]]
   branch = "master"
-  name = "github.com/DanielOaks/e-nfa"
-  packages = ["."]
-  revision = "7071788e394065e6456458a5e9cb503cad545154"
-
-[[projects]]
-  branch = "master"
   name = "github.com/DanielOaks/girc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "dcb717d58db75d2b0e3ce9f461e1ae1157058e1d"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/DanielOaks/go-ident"
-  packages = ["."]
-  revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
+  revision = "8d3dece3acc96fc91d86b18b3b38e418bd72dc45"
 
 [[projects]]
   name = "github.com/docopt/docopt-go"
@@ -64,6 +52,18 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   name = "github.com/mgutz/ansi"
   packages = ["."]
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/oragono/e-nfa"
+  packages = ["."]
+  revision = "7071788e394065e6456458a5e9cb503cad545154"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/oragono/go-ident"
+  packages = ["."]
+  revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
   branch = "master"
@@ -111,7 +111,7 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "e7ba82683099cae71475961448ab8f903ea77c26"
+  revision = "850760c427c516be930bc91280636328f1a62286"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@ memo = "1869a43ba6768adb949f84cd93854aa989fbf16832a5e0c298c8addee06d6eb7"
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","internal","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "210eee5cf7323015d097341bcf7166130d001cd8"
+  revision = "3491b61b9edc56653ad4333e605e2908e46a036b"
 
 [[projects]]
   branch = "v2"
