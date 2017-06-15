@@ -1,15 +1,9 @@
-memo = "9034fa4f638b4be39becc52605c7ad9676e513149bacb3666162f51787eb9762"
+memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
 
 [[projects]]
   name = "code.cloudfoundry.org/bytefmt"
   packages = ["."]
   revision = "cbe033486cf0620d3bb77d8ef7f22ab346ad3628"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/DanielOaks/girc-go"
-  packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "8d3dece3acc96fc91d86b18b3b38e418bd72dc45"
 
 [[projects]]
   name = "github.com/docopt/docopt-go"
@@ -37,9 +31,21 @@ memo = "9034fa4f638b4be39becc52605c7ad9676e513149bacb3666162f51787eb9762"
 
 [[projects]]
   branch = "master"
+  name = "github.com/goshuirc/e-nfa"
+  packages = ["."]
+  revision = "7071788e394065e6456458a5e9cb503cad545154"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/goshuirc/irc-go"
+  packages = ["ircfmt","ircmatch","ircmsg"]
+  revision = "2780e0591fe43cfac709f6e4923cff38d38cb5b2"
+
+[[projects]]
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "ded68f7a9561c023e790de24279db7ebf473ea80"
+  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
+  version = "v0.0.8"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -52,12 +58,6 @@ memo = "9034fa4f638b4be39becc52605c7ad9676e513149bacb3666162f51787eb9762"
   name = "github.com/mgutz/ansi"
   packages = ["."]
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/oragono/e-nfa"
-  packages = ["."]
-  revision = "7071788e394065e6456458a5e9cb503cad545154"
 
 [[projects]]
   branch = "master"
@@ -117,7 +117,7 @@ memo = "9034fa4f638b4be39becc52605c7ad9676e513149bacb3666162f51787eb9762"
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79"
+  revision = "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a"
 
 [[projects]]
   branch = "master"
