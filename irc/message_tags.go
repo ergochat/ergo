@@ -3,7 +3,7 @@
 
 package irc
 
-import "github.com/DanielOaks/girc-go/ircmsg"
+import "github.com/goshuirc/irc-go/ircmsg"
 
 // GetClientOnlyTags takes a tag map and returns a map containing just the client-only tags from it.
 func GetClientOnlyTags(tags map[string]ircmsg.TagValue) *map[string]ircmsg.TagValue {

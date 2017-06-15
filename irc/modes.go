@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )

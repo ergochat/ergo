@@ -6,7 +6,7 @@ package irc
 import (
 	"strings"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // nsHandler handles the /NS and /NICKSERV commands

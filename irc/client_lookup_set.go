@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"sync"
+	"github.com/goshuirc/irc-go/ircmatch"
 
-	"github.com/DanielOaks/girc-go/ircmatch"
+	"sync"
 )
 
 var (

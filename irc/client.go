@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DanielOaks/girc-go/ircfmt"
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/sno"
 )

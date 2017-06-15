@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // alertMonitors alerts everyone monitoring us that we're online.

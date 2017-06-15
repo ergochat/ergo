@@ -5,9 +5,7 @@
 
 package irc
 
-import (
-	"github.com/DanielOaks/girc-go/ircmsg"
-)
+import "github.com/goshuirc/irc-go/ircmsg"
 
 // Command represents a command accepted from a client.
 type Command struct {

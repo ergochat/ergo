@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // ThrottleDetails holds the connection-throttling details for a subnet/IP.

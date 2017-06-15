@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DanielOaks/girc-go/ircfmt"
-	"github.com/DanielOaks/girc-go/ircmatch"
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/goshuirc/irc-go/ircmatch"
+	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"

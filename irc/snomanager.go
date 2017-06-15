@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/DanielOaks/girc-go/ircfmt"
+	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/sno"
 )
 

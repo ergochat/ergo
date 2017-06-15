@@ -7,7 +7,7 @@ package irc
 import (
 	"strings"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // Capability represents an optional feature that a client may request from the server.

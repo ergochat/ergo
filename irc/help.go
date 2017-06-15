@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // HelpEntryType represents the different sorts of help entries that can exist.

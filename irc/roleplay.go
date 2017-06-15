@@ -6,7 +6,7 @@ package irc
 import (
 	"fmt"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 const (
