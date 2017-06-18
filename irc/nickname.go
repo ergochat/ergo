@@ -94,7 +94,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
-	if server.clients.Get(nickname) != nil || server.clients.Get(nickname) != target {
+	if server.clients.Get(nickname) != nil && server.clients.Get(nickname) != target {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, msg.Params[0], "Nickname is already in use")
 		return false
 	}
