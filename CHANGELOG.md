@@ -26,10 +26,12 @@ New release of Oragono!
 * `DLINE` and `KLINE`: Added `ANDKILL` parameter to also kill all clients that match the ban.
 * `JOIN`: Disable `JOIN 0` to help prevent clients from being kicked off (InspIRCd has done the same).
 * `LIST`: Implement extended list conditions `U` (which filters the channels by user count).
+* Renamed a number of dependency libraries, and changed Oragono to its' own organisation (only useful if you're building Oragono from source).
 
 ### Removed
 
 ### Fixed
+* `SANICK` works properly now (thanks @lbeziaud!).
 
 
 ## [0.8.0] - 2017-05-09
