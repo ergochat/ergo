@@ -22,8 +22,11 @@ func (op ModeOp) String() string {
 }
 
 const (
-	Add    ModeOp = '+'
-	List   ModeOp = '='
+	// Add is used when adding the given key.
+	Add ModeOp = '+'
+	// List is used when listing modes (for instance, listing the current bans on a channel).
+	List ModeOp = '='
+	// Remove is used when taking away the given key.
 	Remove ModeOp = '-'
 )
 
@@ -105,6 +108,7 @@ const (
 )
 
 var (
+	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
 		Away, Invisible, Operator, ServerNotice, UserRoleplaying,
 	}
@@ -135,6 +139,7 @@ var (
 	Halfop          Mode = 'h' // arg
 	Voice           Mode = 'v' // arg
 
+	// SupportedChannelModes are the channel modes that we support.
 	SupportedChannelModes = Modes{
 		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
 		OpOnlyTopic, Secret, UserLimit, ChanRoleplaying,
@@ -142,6 +147,7 @@ var (
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()
 
+	// DefaultChannelModes are enabled on brand new channels when they're created.
 	DefaultChannelModes = Modes{
 		NoOutside, OpOnlyTopic,
 	}

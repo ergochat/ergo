@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// WhoWasList holds our list of prior clients (for use with the WHOWAS command).
 type WhoWasList struct {
 	buffer []*WhoWas
 	start  int
@@ -16,6 +17,7 @@ type WhoWasList struct {
 	accessMutex sync.RWMutex
 }
 
+// WhoWas is an entry in the WhoWasList.
 type WhoWas struct {
 	nicknameCasefolded string
 	nickname           string
@@ -24,12 +26,14 @@ type WhoWas struct {
 	realname           string
 }
 
+// NewWhoWasList returns a new WhoWasList
 func NewWhoWasList(size uint) *WhoWasList {
 	return &WhoWasList{
 		buffer: make([]*WhoWas, size+1),
 	}
 }
 
+// Append adds an entry to the WhoWasList.
 func (list *WhoWasList) Append(client *Client) {
 	list.accessMutex.Lock()
 	defer list.accessMutex.Unlock()
@@ -47,6 +51,7 @@ func (list *WhoWasList) Append(client *Client) {
 	}
 }
 
+// Find tries to find an entry in our WhoWasList with the given details.
 func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
 	list.accessMutex.RLock()
 	defer list.accessMutex.RUnlock()
@@ -81,7 +86,7 @@ func (list *WhoWasList) prev(index int) int {
 	return index
 }
 
-// Iterate the buffer in reverse.
+// Each iterates the WhoWasList in reverse.
 func (list *WhoWasList) Each() <-chan *WhoWas {
 	ch := make(chan *WhoWas)
 	go func() {

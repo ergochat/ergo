@@ -32,6 +32,7 @@ const (
 )
 
 var (
+	// LogLevelNames takes a config name and gives the real log level.
 	LogLevelNames = map[string]Level{
 		"debug":    LogDebug,
 		"info":     LogInfo,
@@ -41,6 +42,7 @@ var (
 		"error":    LogError,
 		"errors":   LogError,
 	}
+	// LogLevelDisplayNames gives the display name to use for our log levels.
 	LogLevelDisplayNames = map[Level]string{
 		LogDebug:   "debug",
 		LogInfo:    "info",

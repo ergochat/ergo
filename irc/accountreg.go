@@ -182,7 +182,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "You are not using a certificiate")
+		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "You are not using a TLS certificate")
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}

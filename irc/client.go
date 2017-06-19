@@ -23,14 +23,19 @@ import (
 )
 
 const (
-	IDLE_TIMEOUT        = time.Minute + time.Second*30 // how long before a client is considered idle
-	QUIT_TIMEOUT        = time.Minute                  // how long after idle before a client is kicked
+	// IdleTimeout is how long without traffic before a client's considered idle.
+	IdleTimeout = time.Minute + time.Second*30
+	// QuitTimeout is how long without traffic (after they're considered idle) that clients are killed.
+	QuitTimeout = time.Minute
+	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds = 5
 )
 
 var (
-	TIMEOUT_STATED_SECONDS = strconv.Itoa(int((IDLE_TIMEOUT + QUIT_TIMEOUT).Seconds()))
-	ErrNickAlreadySet      = errors.New("Nickname is already set")
+	// TimeoutStatedSeconds is how many seconds before clients are timed out (IdleTimeout plus QuitTimeout).
+	TimeoutStatedSeconds = strconv.Itoa(int((IdleTimeout + QuitTimeout).Seconds()))
+	// ErrNickAlreadySet is a weird error that's sent when the server's consistency has been compromised.
+	ErrNickAlreadySet = errors.New("Nickname is already set")
 )
 
 // Client is an IRC client.
@@ -233,9 +238,9 @@ func (client *Client) Touch() {
 	}
 
 	if client.idleTimer == nil {
-		client.idleTimer = time.AfterFunc(IDLE_TIMEOUT, client.connectionIdle)
+		client.idleTimer = time.AfterFunc(IdleTimeout, client.connectionIdle)
 	} else {
-		client.idleTimer.Reset(IDLE_TIMEOUT)
+		client.idleTimer.Reset(IdleTimeout)
 	}
 }
 
@@ -248,9 +253,9 @@ func (client *Client) connectionIdle() {
 	client.Send(nil, "", "PING", client.nick)
 
 	if client.quitTimer == nil {
-		client.quitTimer = time.AfterFunc(QUIT_TIMEOUT, client.connectionTimeout)
+		client.quitTimer = time.AfterFunc(QuitTimeout, client.connectionTimeout)
 	} else {
-		client.quitTimer.Reset(QUIT_TIMEOUT)
+		client.quitTimer.Reset(QuitTimeout)
 	}
 }
 
@@ -258,7 +263,7 @@ func (client *Client) connectionIdle() {
 // ping or any other activity back from the client. When this happens we assume the
 // connection has died and remove the client from the network.
 func (client *Client) connectionTimeout() {
-	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TIMEOUT_STATED_SECONDS))
+	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TimeoutStatedSeconds))
 	client.isQuitting = true
 }
 

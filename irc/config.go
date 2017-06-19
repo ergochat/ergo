@@ -98,6 +98,7 @@ type OperConfig struct {
 	Modes     string
 }
 
+// PasswordBytes returns the bytes represented by the password hash.
 func (conf *OperConfig) PasswordBytes() []byte {
 	bytes, err := DecodePasswordHash(conf.Password)
 	if err != nil {

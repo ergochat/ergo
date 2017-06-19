@@ -15,9 +15,12 @@ import (
 type HelpEntryType int
 
 const (
-	CommandHelpEntry     HelpEntryType = 0
+	// CommandHelpEntry is a help entry explaining a client command.
+	CommandHelpEntry HelpEntryType = 0
+	// InformationHelpEntry is a help entry explaining general server info.
 	InformationHelpEntry HelpEntryType = 1
-	ISupportHelpEntry    HelpEntryType = 2
+	// ISupportHelpEntry is a help entry explaining a specific RPL_ISUPPORT token.
+	ISupportHelpEntry HelpEntryType = 2
 )
 
 // HelpEntry represents an entry in the Help map.

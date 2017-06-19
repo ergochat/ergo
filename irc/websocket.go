@@ -25,12 +25,14 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// WSContainer holds the websocket.
 type WSContainer struct {
 	*websocket.Conn
 }
 
-func (this WSContainer) Read(msg []byte) (int, error) {
-	ty, bytes, err := this.ReadMessage()
+// Read reads new incoming messages.
+func (ws WSContainer) Read(msg []byte) (int, error) {
+	ty, bytes, err := ws.ReadMessage()
 	if ty == websocket.TextMessage {
 		n := copy(msg, []byte(string(bytes)+"\r\n\r\n"))
 		return n, err
@@ -39,14 +41,16 @@ func (this WSContainer) Read(msg []byte) (int, error) {
 	return 0, nil
 }
 
-func (this WSContainer) Write(msg []byte) (int, error) {
-	err := this.WriteMessage(websocket.TextMessage, msg)
+// Write writes lines out to the websocket.
+func (ws WSContainer) Write(msg []byte) (int, error) {
+	err := ws.WriteMessage(websocket.TextMessage, msg)
 	return len(msg), err
 }
 
-func (this WSContainer) SetDeadline(t time.Time) error {
-	if err := this.SetWriteDeadline(t); err != nil {
+// SetDeadline sets the read and write deadline on this websocket.
+func (ws WSContainer) SetDeadline(t time.Time) error {
+	if err := ws.SetWriteDeadline(t); err != nil {
 		return err
 	}
-	return this.SetReadDeadline(t)
+	return ws.SetReadDeadline(t)
 }
