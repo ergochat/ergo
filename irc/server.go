@@ -1273,6 +1273,12 @@ func (client *Client) getWhoisOf(target *Client) {
 	if target.class != nil {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
+	if client.flags[Operator] || client == target {
+		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, LookupHostname(target.IPString())), target.IPString(), "Actual user@host, Actual IP")
+	}
+	if target.flags[TLS] {
+		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, "is using a secure connection")
+	}
 	if target.certfp != "" && (client.flags[Operator] || client == target) {
 		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
 	}

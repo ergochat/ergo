@@ -150,6 +150,15 @@ func (client *Client) IP() net.IP {
 	return net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
 }
 
+// IPString returns the IP address of this client as a string.
+func (client *Client) IPString() string {
+	ip := client.IP().String()
+	if 0 < len(ip) && ip[0] == ':' {
+		ip = "0" + ip
+	}
+	return ip
+}
+
 //
 // command goroutine
 //
