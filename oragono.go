@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"net"
+
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
+	cloak "github.com/oragono/oragono/irc/cloaking"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/mkcerts"
 	stackimpact "github.com/stackimpact/stackimpact-go"
@@ -37,6 +40,26 @@ Options:
 	--quiet            Don't show startup/shutdown lines.
 	-h --help          Show this screen.
 	--version          Show version.`
+
+	conf := cloak.Config{
+		Enabled:  true,
+		IPv4KeyA: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
+		IPv4KeyB: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
+		IPv4KeyC: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
+		IPv4KeyD: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
+	}
+	ip := net.ParseIP("8.8.8.8")
+	key, err := cloak.IPv4(ip, conf, "Tst")
+	fmt.Println(ip, key, err)
+	ip = net.ParseIP("9.4.8.8")
+	key, err = cloak.IPv4(ip, conf, "Tst")
+	fmt.Println(ip, key, err)
+	ip = net.ParseIP("8.4.2.8")
+	key, err = cloak.IPv4(ip, conf, "Tst")
+	fmt.Println(ip, key, err)
+	ip = net.ParseIP("8.4.2.1")
+	key, err = cloak.IPv4(ip, conf, "Tst")
+	fmt.Println(ip, key, err)
 
 	arguments, _ := docopt.Parse(usage, nil, true, version, false)
 

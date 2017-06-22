@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"strings"
 	"time"
 
+	cloak "github.com/oragono/oragono/irc/cloaking"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/logger"
 
@@ -187,7 +189,8 @@ type StackImpactConfig struct {
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
-		Name string
+		Name       string
+		IPCloaking cloak.Config `yaml:"ip-cloaking"`
 	}
 
 	Server struct {
@@ -416,6 +419,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 		if config.Server.STS.Port < 0 || config.Server.STS.Port > 65535 {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
+		}
+	}
+	if config.Network.IPCloaking.Enabled {
+		_, err := cloak.IPv4(net.ParseIP("8.8.8.8"), config.Network.IPCloaking, "Config")
+		if err != nil {
+			return nil, fmt.Errorf("IPv4 cloaking config is incorrect: %s", err.Error())
 		}
 	}
 	if config.Server.ConnectionThrottle.Enabled {
