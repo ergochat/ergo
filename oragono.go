@@ -15,6 +15,8 @@ import (
 
 	"net"
 
+	"encoding/base64"
+
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
 	cloak "github.com/oragono/oragono/irc/cloaking"
@@ -41,24 +43,30 @@ Options:
 	-h --help          Show this screen.
 	--version          Show version.`
 
+	keyA, _ := base64.StdEncoding.DecodeString("idXACDbEhqRZsExn0jOTi4rtC6MrKBOcN4edxdSzTAA=")
+	keyB, _ := base64.StdEncoding.DecodeString("qODtg8WEJ0YA6JRnryDDUEoSdJyrGgPFI6hPNnGHyIw=")
+	keyC, _ := base64.StdEncoding.DecodeString("Oxqc6uDsyEO5vZcxHmtZ1zOLL8wwATeYA4KqJmkTJQo=")
+	keyD, _ := base64.StdEncoding.DecodeString("vd2eimWWh3L9fukFwxZThJ9pKTf/I5UZ/k7o/3JHkMc=")
+
 	conf := cloak.Config{
 		Enabled:  true,
-		IPv4KeyA: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
-		IPv4KeyB: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
-		IPv4KeyC: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
-		IPv4KeyD: "n6by5q4wn5ebw534g4e6rtnr6y5t^Nbnrt35NHrghn3rhrhrnr",
+		NetName:  "Test",
+		IPv4KeyA: keyA,
+		IPv4KeyB: keyB,
+		IPv4KeyC: keyC,
+		IPv4KeyD: keyD,
 	}
 	ip := net.ParseIP("8.8.8.8")
-	key, err := cloak.IPv4(ip, conf, "Tst")
+	key, err := cloak.IPv4(ip, conf)
 	fmt.Println(ip, key, err)
 	ip = net.ParseIP("9.4.8.8")
-	key, err = cloak.IPv4(ip, conf, "Tst")
+	key, err = cloak.IPv4(ip, conf)
 	fmt.Println(ip, key, err)
 	ip = net.ParseIP("8.4.2.8")
-	key, err = cloak.IPv4(ip, conf, "Tst")
+	key, err = cloak.IPv4(ip, conf)
 	fmt.Println(ip, key, err)
 	ip = net.ParseIP("8.4.2.1")
-	key, err = cloak.IPv4(ip, conf, "Tst")
+	key, err = cloak.IPv4(ip, conf)
 	fmt.Println(ip, key, err)
 
 	arguments, _ := docopt.Parse(usage, nil, true, version, false)

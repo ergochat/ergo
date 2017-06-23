@@ -422,7 +422,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 	if config.Network.IPCloaking.Enabled {
-		_, err := cloak.IPv4(net.ParseIP("8.8.8.8"), config.Network.IPCloaking, "Config")
+		_, err := cloak.IPv4(net.ParseIP("8.8.8.8"), config.Network.IPCloaking)
 		if err != nil {
 			return nil, fmt.Errorf("IPv4 cloaking config is incorrect: %s", err.Error())
 		}

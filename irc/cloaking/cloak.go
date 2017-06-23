@@ -5,23 +5,27 @@
 package cloak
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 
-	"crypto/sha512"
-	"encoding/base64"
+	"encoding/base32"
 )
 
 const (
-	// MinKeyLength determines how many characters our cloak keys should be, minimum.
+	// MinKeyLength determines how many bytes our cloak keys should be, minimum.
 	// This MUST NOT be higher in future releases, or else it will break existing,
 	// working cloaking for everyone using key lengths this long.
-	MinKeyLength = 50
+	MinKeyLength = 32
+	// partLength is how long each octet is after being base32'd.
+	partLength = 10
 )
 
 var (
+	errNetName             = errors.New("NetName is not the right size (must be 1-10 characters long)")
 	errNotIPv4             = errors.New("The given address is not an IPv4 address")
 	errConfigDisabled      = errors.New("Config has disabled IP cloaking")
 	errKeysTooShort        = fmt.Errorf("Cloaking keys too short (min: %d)", MinKeyLength)
@@ -32,18 +36,24 @@ var (
 type Config struct {
 	// Enabled controls whether cloaking is performed.
 	Enabled bool
-	// IPv4KeyA is used to cloak the `a` part of the IP address.
-	IPv4KeyA string `yaml:"ipv4-key-a"`
-	// IPv4KeyB is used to cloak the `b` part of the IP address.
-	IPv4KeyB string `yaml:"ipv4-key-b"`
-	// IPv4KeyC is used to cloak the `c` part of the IP address.
-	IPv4KeyC string `yaml:"ipv4-key-c"`
-	// IPv4KeyD is used to cloak the `d` part of the IP address.
-	IPv4KeyD string `yaml:"ipv4-key-d"`
+	// NetName is the name used for the network in cloaked addresses.
+	NetName string
+	// IPv4KeyAString is used to cloak the `a` part of the IP address.
+	IPv4KeyAString string `yaml:"ipv4-key-a"`
+	IPv4KeyA       []byte
+	// IPv4KeyBString is used to cloak the `b` part of the IP address.
+	IPv4KeyBString string `yaml:"ipv4-key-b"`
+	IPv4KeyB       []byte
+	// IPv4KeyCString is used to cloak the `c` part of the IP address.
+	IPv4KeyCString string `yaml:"ipv4-key-c"`
+	IPv4KeyC       []byte
+	// IPv4KeyDString is used to cloak the `d` part of the IP address.
+	IPv4KeyDString string `yaml:"ipv4-key-d"`
+	IPv4KeyD       []byte
 }
 
 // IsRandomEnough makes sure people are using keys that are random enough.
-func IsRandomEnough(key string) bool {
+func IsRandomEnough(key []byte) bool {
 	return true
 }
 
@@ -54,6 +64,14 @@ func toByteSlice(orig [64]byte) []byte {
 		new = append(new, val)
 	}
 	return new
+}
+
+// hashOctet does the heavy lifting in terms of hashing and returned an appropriate hashed octet
+func hashOctet(key []byte, data string) string {
+	sig := hmac.New(sha256.New, key)
+	sig.Write([]byte(data))
+	raw := sig.Sum(nil)
+	return strings.ToLower(base32.StdEncoding.EncodeToString(raw))
 }
 
 // IPv4 returns a cloaked IPv4 address
@@ -67,9 +85,12 @@ func toByteSlice(orig [64]byte) []byte {
 // if you have 4.5.6.7 and 4.3.2.1 then the `a` part of those addresses will
 // be the same value. This ensures chanops can properly ban dodgy people as
 // they need to do so.
-func IPv4(address net.IP, config Config, netName string) (string, error) {
+func IPv4(address net.IP, config Config) (string, error) {
 	if !config.Enabled {
 		return "", errConfigDisabled
+	}
+	if len(config.NetName) < 1 || 10 < len(config.NetName) {
+		return "", errNetName
 	}
 
 	// make sure the IP address is an IPv4 address.
@@ -94,24 +115,20 @@ func IPv4(address net.IP, config Config, netName string) (string, error) {
 	partD := address[3]
 
 	// cloak `a` part of IP address.
-	fullKey := fmt.Sprintf("%d%s", partA, config.IPv4KeyA)
-	cryptoHashedKey := toByteSlice(sha512.Sum512([]byte(fullKey)))
-	partAHashed := strings.Trim(strings.Replace(base64.URLEncoding.EncodeToString(cryptoHashedKey), "_", "-", -1)[:16], "-")
+	data := fmt.Sprintf("%d", partA)
+	partAHashed := hashOctet(config.IPv4KeyA, data)[:partLength]
 
 	// cloak `b` part of IP address.
-	fullKey = fmt.Sprintf("%d%d%s", partB, partA, config.IPv4KeyB)
-	cryptoHashedKey = toByteSlice(sha512.Sum512([]byte(fullKey)))
-	partBHashed := strings.Trim(strings.Replace(base64.URLEncoding.EncodeToString(cryptoHashedKey), "_", "-", -1)[:16], "-")
+	data = fmt.Sprintf("%d%d", partB, partA)
+	partBHashed := hashOctet(config.IPv4KeyB, data)[:partLength]
 
 	// cloak `c` part of IP address.
-	fullKey = fmt.Sprintf("%d%d%d%s", partC, partB, partA, config.IPv4KeyC)
-	cryptoHashedKey = toByteSlice(sha512.Sum512([]byte(fullKey)))
-	partCHashed := strings.Trim(strings.Replace(base64.URLEncoding.EncodeToString(cryptoHashedKey), "_", "-", -1)[:16], "-")
+	data = fmt.Sprintf("%d%d%d", partC, partB, partA)
+	partCHashed := hashOctet(config.IPv4KeyC, data)[:partLength]
 
 	// cloak `d` part of IP address.
-	fullKey = fmt.Sprintf("%d%d%d%d%s", partD, partC, partB, partA, config.IPv4KeyD)
-	cryptoHashedKey = toByteSlice(sha512.Sum512([]byte(fullKey)))
-	partDHashed := strings.Trim(strings.Replace(base64.URLEncoding.EncodeToString(cryptoHashedKey), "_", "-", -1)[:16], "-")
+	data = fmt.Sprintf("%d%d%d%d", partD, partC, partB, partA)
+	partDHashed := hashOctet(config.IPv4KeyD, data)[:partLength]
 
-	return fmt.Sprintf("%s.%s.%s.%s.cloaked-%s", partAHashed, partBHashed, partCHashed, partDHashed, netName), nil
+	return fmt.Sprintf("%s.%s.%s.%s.%s-cloaked", partAHashed, partBHashed, partCHashed, partDHashed, strings.ToLower(config.NetName)), nil
 }
