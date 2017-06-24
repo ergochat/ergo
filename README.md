@@ -57,6 +57,26 @@ You can also install this repo and use that instead! However, keep some things i
 
 The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network. If you'd like to, run the latest tagged version in production instead.
 
+from the root folder, run make (for all target systems/release)
+```
+make
+```
+
+or restrict to a specific target system
+```
+# for windows
+make windows
+
+# for linux
+make linux
+
+# for osx
+make osx
+
+# for arm6
+make arm6
+```
+
 ## Configuration
 
 The default config file [`oragono.yaml`](oragono.yaml) helps walk you through what each option means and changes. The configuration's intended to be sparse, so if there are options missing it's either because that feature isn't written/configurable yet or because we don't think it should be configurable.
