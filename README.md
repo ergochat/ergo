@@ -87,7 +87,7 @@ oragono run
 
 1. Register your account with `/quote ACC REGISTER <username> * passphrase :<password>`
 2. Join the channel with `/join #channel`
-3. Register the channel with `/privmsg ChanServ REGISTER #channel`
+3. Register the channel with `/msg ChanServ REGISTER #channel`
 
 After this, your channel will remember the fact that you're the owner, the topic, and any modes set on it!
 
