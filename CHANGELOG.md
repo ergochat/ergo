@@ -24,11 +24,13 @@ New release of Oragono!
 
 ### Changed
 * `DLINE` and `KLINE`: Added `ANDKILL` parameter to also kill all clients that match the ban.
-* `JOIN`: Disable `JOIN 0` to help prevent clients from being kicked off (InspIRCd has done the same).
 * `LIST`: Implement extended list conditions `U` (which filters the channels by user count).
 * Renamed a number of dependency libraries, and changed Oragono to its' own organisation (only useful if you're building Oragono from source).
+* `WHOIS`: Show the target's real IP address if you're whoising yourself or you're an oper.
+* `WHOIS`: Show whether the target has connected securely using TLS.
 
 ### Removed
+* Removed the `JOIN 0` command (matching what InspIRCd has done here), since this is easily abusable.
 
 ### Fixed
 * `SANICK` works properly now (thanks @lbeziaud!).
