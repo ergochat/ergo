@@ -49,6 +49,14 @@ oragono mkcerts
 **Note:** This installation will give you unsigned certificates suitable for testing purposes.
 For real certs, look into [Let's Encrypt](https://letsencrypt.org/)!
 
+### Platform Packaging
+
+Some platforms may support a packaged/installation medium via a normal process for the platform. They are listed here:
+
+| Platform | Link | Maintainer(s) |
+| --- | --- | --- |
+| Arch Linux | [AUR](https://aur.archlinux.org/packages/oragono/) | [Sean Enck (enckse)](https://github.com/enckse) |
+
 ### From Source
 
 You can also install this repo and use that instead! However, keep some things in mind if you go that way:
