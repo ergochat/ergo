@@ -135,6 +135,27 @@ oragono-web mkcerts
 oragono-web run
 ```-->
 
+### Configuration
+
+* Locations where oragono will read/write files can be configured in the `ircd.yaml` file. (**Note:** this applies to multiple options like database location and certificates as well)
+
+For example, to change the logging destination edit `ircd.yaml` and change this line:
+```
+    filename: ircd.log
+```
+
+To this:
+```
+    filename: /var/log/ircd.log
+```
+
+* When using oragono the `--conf` option can be used to change which/where the configuration file is read from.
+
+For example:
+```
+oragono run --conf /path/to/ircd.yaml
+```
+
 # Credits
 
 * Jeremy Latt, creator of Ergonomadic, <https://github.com/jlatt>
