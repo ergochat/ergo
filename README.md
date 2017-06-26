@@ -35,7 +35,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 ## Installation
 
-Download the latest release from this page: https://github.com/oragono/oragono/releases/latest
+To go through the standard installation, download the latest release from this page: https://github.com/oragono/oragono/releases/latest
 
 Extract it into a folder, then run the following commands:
 
@@ -49,13 +49,11 @@ oragono mkcerts
 **Note:** This installation will give you unsigned certificates suitable for testing purposes.
 For real certs, look into [Let's Encrypt](https://letsencrypt.org/)!
 
-### Platform Packaging
+### Platform Packages
 
-Some platforms may support a packaged/installation medium via a normal process for the platform. They are listed here:
+Some platforms/distros also have Oragono packages maintained for them:
 
-| Platform | Link | Maintainer(s) |
-| --- | --- | --- |
-| Arch Linux | [AUR](https://aur.archlinux.org/packages/oragono/) | [Sean Enck (enckse)](https://github.com/enckse) |
+* Arch Linux [AUR](https://aur.archlinux.org/packages/oragono/) - Maintained by [Sean Enck (@enckse)](https://github.com/enckse).
 
 ### From Source
 
@@ -88,6 +86,8 @@ make arm6
 ## Configuration
 
 The default config file [`oragono.yaml`](oragono.yaml) helps walk you through what each option means and changes. The configuration's intended to be sparse, so if there are options missing it's either because that feature isn't written/configurable yet or because we don't think it should be configurable.
+
+You can use the `--conf` parameter when launching Oragono to control where it looks for the config file. For instance: `oragono run --conf /path/to/ircd.yaml`. The configuration file also stores where the log, database, certificate, and other files are opened. Normally, all these files use relative paths, but you can change them to be absolute (such as `/var/log/ircd.log`) when running Oragono as a service.
 
 ### Logs
 
@@ -142,27 +142,6 @@ oragono-web mkcerts
 ```sh
 oragono-web run
 ```-->
-
-### Configuration
-
-* Locations where oragono will read/write files can be configured in the `ircd.yaml` file. (**Note:** this applies to multiple options like database location and certificates as well)
-
-For example, to change the logging destination edit `ircd.yaml` and change this line:
-```
-    filename: ircd.log
-```
-
-To this:
-```
-    filename: /var/log/ircd.log
-```
-
-* When using oragono the `--conf` option can be used to change which/where the configuration file is read from.
-
-For example:
-```
-oragono run --conf /path/to/ircd.yaml
-```
 
 # Credits
 
