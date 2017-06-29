@@ -452,6 +452,9 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 					break
 				}
 			}
+			if mode == rune(Voice) {
+				isKnown = true
+			}
 			if !isKnown {
 				unknown[mode] = true
 				continue
