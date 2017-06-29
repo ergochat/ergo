@@ -446,6 +446,12 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 					break
 				}
 			}
+			for _, supportedMode := range ChannelPrivModes {
+				if rune(supportedMode) == mode {
+					isKnown = true
+					break
+				}
+			}
 			if !isKnown {
 				unknown[mode] = true
 				continue
