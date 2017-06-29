@@ -21,13 +21,13 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "18fca31550181693b3a834a15b74b564b3605876"
+  revision = "8c683ee571b6ee7ffc9f1cafd13103c422e71cbf"
 
 [[projects]]
-  branch = "master"
   name = "github.com/gorilla/websocket"
   packages = ["."]
-  revision = "a91eba7f97777409bc2c443f5534d41dd20c5720"
+  revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -39,7 +39,7 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/goshuirc/irc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "2780e0591fe43cfac709f6e4923cff38d38cb5b2"
+  revision = "28a5d8eed10129308122f66754e83b7a7fd4ab5d"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -66,10 +66,10 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
-  branch = "master"
   name = "github.com/stackimpact/stackimpact-go"
-  packages = [".","internal","internal/pprof/profile","internal/pprof/trace"]
-  revision = "a03a044522bcf79986e12ebaa94989ae2c5371db"
+  packages = [".","internal","internal/pprof/profile"]
+  revision = "bc60d3d44da3e6258b74de63ef914357dc9b07cf"
+  version = "v2.0.1"
 
 [[projects]]
   branch = "master"
@@ -111,19 +111,19 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "850760c427c516be930bc91280636328f1a62286"
+  revision = "5ef0053f77724838734b6945dd364d3847e5de1d"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a"
+  revision = "90796e5a05ce440b41c768bd9af257005e470461"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","internal","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "3491b61b9edc56653ad4333e605e2908e46a036b"
+  revision = "6353ef0f924300eea566d3438817aa4d3374817e"
 
 [[projects]]
   branch = "v2"
