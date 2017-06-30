@@ -90,11 +90,7 @@ func loadAccount(server *Server, tx *buntdb.Tx, accountKey string) *ClientAccoun
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// sasl abort
 	if !server.accountAuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
-		if client.saslInProgress {
-			client.Send(nil, server.name, ERR_SASLABORTED, client.nick, "SASL authentication aborted")
-		} else {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed")
-		}
+		client.Send(nil, server.name, ERR_SASLABORTED, client.nick, "SASL authentication aborted")
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
