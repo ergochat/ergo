@@ -9,7 +9,7 @@ import "fmt"
 
 const (
 	// SemVer is the semantic version of Oragono.
-	SemVer = "0.8.2"
+	SemVer = "0.8.3-unreleased"
 )
 
 var (
