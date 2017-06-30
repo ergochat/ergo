@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"syscall"
 	"time"
 
@@ -122,6 +123,11 @@ Options:
 			defer agent.RecordPanic()
 
 			logger.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
+		}
+
+		// warning if running a non-final version
+		if strings.Contains(irc.SemVer, "unreleased") {
+			logger.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
 		server, err := irc.NewServer(configfile, config, logger)
