@@ -61,14 +61,18 @@ You can also install this repo and use that instead! However, keep some things i
 
 `devel` branches are intentionally unstable, containing fixes that may not work, and they may be rebased or reworked extensively.
 
-The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network. If you'd like to, run the latest tagged version in production instead.
+The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network.
 
-from the root folder, run make (for all target systems/release)
+The `stable` branch contains the latest release. You can run this for a production version without any trouble.
+
+#### Building
+
+Clone the appropriate branch. From the root folder, run `make` to generate all release files for all of our target OSes:
 ```
 make
 ```
 
-or restrict to a specific target system
+You can also only build the release files for a specific system:
 ```
 # for windows
 make windows
@@ -82,6 +86,8 @@ make osx
 # for arm6
 make arm6
 ```
+
+Once you have made the release files, you can find them in the `build` directory. Uncompress these to an empty directory and continue as usual.
 
 ## Configuration
 
