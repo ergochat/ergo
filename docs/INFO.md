@@ -1,6 +1,11 @@
 # Oragono Information
 
-Here's a bunch of misc info the Oragono server!
+Here's a bunch of misc info about the Oragono server! This can include questions, plans on
+how I'm going forward, how to properly use features, or why Oragono does/doesn't do
+something.
+
+Essentially, this document acts as a braindump about Oragono while we figure out a better
+place to put all this information.
 
 
 ## Accounts and Channels
@@ -18,6 +23,23 @@ The plan is to move more features and functionality (such as channel registratio
 permissions and all) over to native commands first and to use the NickServ/ChanServ as
 legacy interfaces to access these functions. However, it's gonna be a while before all of
 this is specified by someone like the IRCv3 WG.
+
+
+## Server-to-Server Linking (or Federation)
+
+Right now Oragono doesn't support linking multiple servers together. It's certainly planned,
+but it's a fair while away.
+
+When I do add S2S linking to Oragono, I want to use it as a testbed for a new sort of
+linking protocol. Mostly, I want a meshy protocol that minimises the effects of netsplits
+while still ensuring that messages get delivered, and preserves the AP nature of IRC
+reliability (in terms of the CAP theorem), which is something that traditional solutions
+based on the Raft protocol don't do.
+
+Basically, I'm going to continue working on my [DCMI](https://github.com/DanielOaks/dcmi)
+protocol, get that to a point where I'm happy with it and _then_ start looking at S2S
+linking properly. If anyone is interested in server protocols and wants to look at this with
+me, please feel free to reach out!
 
 
 ## Rejected Features
