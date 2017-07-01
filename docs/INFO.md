@@ -42,6 +42,36 @@ linking properly. If anyone is interested in server protocols and wants to look 
 me, please feel free to reach out!
 
 
+## Rehashing
+
+Rehashing is reloading the config files and TLS certificates. Of course, you can rehash the
+server by connect, opering-up and using the `/REHASH` command. However, similar to other
+IRCds, you can also make the server rehash by sending an appropriate signal to it!
+
+To make the server rehash from the command line, send it a `SIGHUP` signal. In *nix and OSX,
+you can do this by performing the following command:
+
+    killall -HUP oragono
+
+This will make the server rehash its configuration files and TLS certificates, and so can be
+useful if you're automatically updating your TLS certs!
+
+
+## REST API
+
+Oragono contains a draft, very early REST API implementation. My plans for this is to allow
+external web interfaces or other automated programs to monitor what's going on with the
+server, apply/remove bans, and to essentially allow administration of the server without
+being connected to it and opered-up. This sort of API mimics InspIRCd and Anope, which
+contain similar APIs.
+
+I'm not sure exactly how it's going to continue to be developed, and I'm sure there'll be
+lots of changes around appropriately restricting access to the API, which is why it's
+disabled for now and not exposed in our Docker builds. As well, while it's very unstable,
+the REST API doesn't count for our SemVer versioning. When this feature is more developed
+and I'm happy with where it's at, I'll provide proper support and documentation for the API.
+
+
 ## Rejected Features
 
 'Rejected' sounds harsh, but basically these are features I've decided I'm not gonna
