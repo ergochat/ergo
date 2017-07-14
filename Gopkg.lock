@@ -21,13 +21,13 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "8c683ee571b6ee7ffc9f1cafd13103c422e71cbf"
+  revision = "ac112f7d75a0714af1bd86ab17749b31f7809640"
 
 [[projects]]
+  branch = "master"
   name = "github.com/gorilla/websocket"
   packages = ["."]
-  revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
-  version = "v1.2.0"
+  revision = "462d5c5828f6203e4047c47be2920315937be380"
 
 [[projects]]
   branch = "master"
@@ -42,10 +42,10 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   revision = "28a5d8eed10129308122f66754e83b7a7fd4ab5d"
 
 [[projects]]
+  branch = "master"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
-  version = "v0.0.8"
+  revision = "3fa8c76f9daed4067e4a806fb7e4dc86455c6d6a"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -66,10 +66,10 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
+  branch = "master"
   name = "github.com/stackimpact/stackimpact-go"
   packages = [".","internal","internal/pprof/profile"]
-  revision = "bc60d3d44da3e6258b74de63ef914357dc9b07cf"
-  version = "v2.0.1"
+  revision = "9cf49ba87a179fe027efa8b0d6b0235cb9cbc7fe"
 
 [[projects]]
   branch = "master"
@@ -111,22 +111,22 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "5ef0053f77724838734b6945dd364d3847e5de1d"
+  revision = "dd85ac7e6a88fc6ca420478e934de5f1a42dd3c6"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "90796e5a05ce440b41c768bd9af257005e470461"
+  revision = "abf9c25f54453410d0c6668e519582a9e1115027"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","internal","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "6353ef0f924300eea566d3438817aa4d3374817e"
+  revision = "cfdf022e86b4ecfb646e1efbd7db175dd623a8fa"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b"
+  revision = "3b4ad1db5b2a649883ff3782f5f9f6fb52be71af"
