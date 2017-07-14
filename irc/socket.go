@@ -133,10 +133,12 @@ func (socket *Socket) Write(data string) error {
 
 // timedFillLineToSendExists either sends the note or times out.
 func (socket *Socket) timedFillLineToSendExists(duration time.Duration) {
+	lineToSendTimeout := time.NewTimer(duration)
+	defer lineToSendTimeout.Stop()
 	select {
 	case socket.lineToSendExists <- true:
 		// passed data successfully
-	case <-time.After(duration):
+	case <-lineToSendTimeout.C:
 		// timed out send
 	}
 }
