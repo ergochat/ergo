@@ -6,7 +6,7 @@ ARM6=$(BUILD)arm
 SOURCE=oragono.go
 VERS=XXX
 
-.PHONY: all
+.PHONY: all clean windows osx linux arm6
 
 add-files = mkdir -p $1; \
 	cp oragono.yaml $1; \
