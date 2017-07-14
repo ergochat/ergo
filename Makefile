@@ -1,8 +1,8 @@
-BUILD=./build/
-WIN=$(BUILD)win/
-LINUX=$(BUILD)linux/
-OSX=$(BUILD)osx/
-ARM6=$(BUILD)arm/
+BUILD=./build
+WIN=$(BUILD)win
+LINUX=$(BUILD)linux
+OSX=$(BUILD)osx
+ARM6=$(BUILD)arm
 SOURCE=oragono.go
 VERS=XXX
 
