@@ -1370,6 +1370,10 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
 	}
+	if client.flags[Operator] == true {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, "OPER", "You're already opered-up!")
+		return false
+	}
 	hash := server.operators[name].Pass
 	password := []byte(msg.Params[1])
 
