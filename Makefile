@@ -46,3 +46,6 @@ arm6:
 	$(call add-files,$(ARM6))
 	mv oragono $(ARM6)
 	cd $(ARM6) && tar -czvf ../oragono-$(VERS)-arm.tgz *
+
+deps:
+	go get -v -d
