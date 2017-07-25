@@ -1,0 +1,5 @@
+language: go
+
+install: make deps
+
+script: make
