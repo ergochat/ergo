@@ -2,4 +2,6 @@ language: go
 
 install: make deps
 
-script: make
+script:
+- make
+- make test

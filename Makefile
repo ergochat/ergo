@@ -49,3 +49,6 @@ arm6:
 
 deps:
 	go get -v -d
+
+test:
+	cd irc && go test .
