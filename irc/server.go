@@ -31,12 +31,10 @@ import (
 )
 
 var (
-	// cached because this may be used lots
-	tooManyClientsMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your network")
-	tooManyClientsBytes, _ = tooManyClientsMsg.Line()
-
-	bannedFromServerMsg      = ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")
-	bannedFromServerBytes, _ = bannedFromServerMsg.Line()
+	// common error responses
+	tooManyClientsMsg, _   = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your network")}[0]).Line()
+	couldNotParseIPMsg, _  = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
+	bannedFromServerMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")}[0]).Line()
 
 	errDbOutOfDate = errors.New("Database schema is old")
 )
@@ -430,58 +428,61 @@ func (server *Server) Run() {
 		case conn := <-server.newConns:
 			// check connection limits
 			ipaddr := net.ParseIP(IPString(conn.Conn.RemoteAddr()))
-			if ipaddr != nil {
-				// check DLINEs
-				isBanned, info := server.dlines.CheckIP(ipaddr)
-				if isBanned {
-					banMessage := fmt.Sprintf(bannedFromServerBytes, info.Reason)
-					if info.Time != nil {
-						banMessage += fmt.Sprintf(" [%s]", info.Time.Duration.String())
-					}
-					conn.Conn.Write([]byte(banMessage))
-					conn.Conn.Close()
-					continue
-				}
-
-				// check connection limits
-				server.connectionLimitsMutex.Lock()
-				err := server.connectionLimits.AddClient(ipaddr, false)
-				server.connectionLimitsMutex.Unlock()
-				if err != nil {
-					// too many connections from one client, tell the client and close the connection
-					// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-					conn.Conn.Write([]byte(tooManyClientsBytes))
-					conn.Conn.Close()
-					continue
-				}
-
-				// check connection throttle
-				server.connectionThrottleMutex.Lock()
-				err = server.connectionThrottle.AddClient(ipaddr)
-				server.connectionThrottleMutex.Unlock()
-				if err != nil {
-					// too many connections too quickly from client, tell them and close the connection
-					length := &IPRestrictTime{
-						Duration: server.connectionThrottle.BanDuration,
-						Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
-					}
-					server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
-
-					// reset ban on connectionThrottle
-					server.connectionThrottle.ResetFor(ipaddr)
-
-					// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-					conn.Conn.Write([]byte(server.connectionThrottle.BanMessageBytes))
-					conn.Conn.Close()
-					continue
-				}
-
-				server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
-				// prolly don't need to alert snomasks on this, only on connection reg
-
-				go NewClient(server, conn.Conn, conn.IsTLS)
+			if ipaddr == nil {
+				conn.Conn.Write([]byte(couldNotParseIPMsg))
+				conn.Conn.Close()
 				continue
 			}
+			// check DLINEs
+			isBanned, info := server.dlines.CheckIP(ipaddr)
+			if isBanned {
+				banMessage := fmt.Sprintf(bannedFromServerMsg, info.Reason)
+				if info.Time != nil {
+					banMessage += fmt.Sprintf(" [%s]", info.Time.Duration.String())
+				}
+				conn.Conn.Write([]byte(banMessage))
+				conn.Conn.Close()
+				continue
+			}
+
+			// check connection limits
+			server.connectionLimitsMutex.Lock()
+			err := server.connectionLimits.AddClient(ipaddr, false)
+			server.connectionLimitsMutex.Unlock()
+			if err != nil {
+				// too many connections from one client, tell the client and close the connection
+				// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+				conn.Conn.Write([]byte(tooManyClientsMsg))
+				conn.Conn.Close()
+				continue
+			}
+
+			// check connection throttle
+			server.connectionThrottleMutex.Lock()
+			err = server.connectionThrottle.AddClient(ipaddr)
+			server.connectionThrottleMutex.Unlock()
+			if err != nil {
+				// too many connections too quickly from client, tell them and close the connection
+				length := &IPRestrictTime{
+					Duration: server.connectionThrottle.BanDuration,
+					Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
+				}
+				server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
+
+				// reset ban on connectionThrottle
+				server.connectionThrottle.ResetFor(ipaddr)
+
+				// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+				conn.Conn.Write([]byte(server.connectionThrottle.BanMessageBytes))
+				conn.Conn.Close()
+				continue
+			}
+
+			server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+			// prolly don't need to alert snomasks on this, only on connection reg
+
+			go NewClient(server, conn.Conn, conn.IsTLS)
+			continue
 		}
 	}
 }
