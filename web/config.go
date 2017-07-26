@@ -11,8 +11,6 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/oragono/oragono/irc"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -48,12 +46,7 @@ func (conf *Config) TLSListeners() map[string]*tls.Config {
 		if err != nil {
 			log.Fatal(err)
 		}
-		name, err := irc.CasefoldName(s)
-		if err == nil {
-			tlsListeners[name] = config
-		} else {
-			log.Println("Could not casefold TLS listener:", err.Error())
-		}
+		tlsListeners[name] = config
 	}
 	return tlsListeners
 }

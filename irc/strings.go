@@ -44,8 +44,7 @@ func CasefoldChannel(name string) (string, error) {
 	// , is used as a separator
 	// * is used in mask matching
 	// ? is used in mask matching
-	if strings.Contains(lowered, " ") || strings.Contains(lowered, ",") ||
-		strings.Contains(lowered, "*") || strings.Contains(lowered, "?") {
+	if strings.ContainsAny(lowered, " ,*?") {
 		return "", errInvalidCharacter
 	}
 
@@ -73,11 +72,7 @@ func CasefoldName(name string) (string, error) {
 	// # is a channel prefix
 	// ~&@%+ are channel membership prefixes
 	// - I feel like disallowing
-	if strings.Contains(lowered, " ") || strings.Contains(lowered, ",") ||
-		strings.Contains(lowered, "*") || strings.Contains(lowered, "?") ||
-		strings.Contains(lowered, ".") || strings.Contains(lowered, "!") ||
-		strings.Contains(lowered, "@") ||
-		strings.Contains("#~&@%+-", string(lowered[0])) {
+	if strings.ContainsAny(lowered, " ,*?.!@:") || strings.ContainsAny(string(lowered[0]), "#~&@%+-") {
 		return "", errInvalidCharacter
 	}
 

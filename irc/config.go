@@ -369,12 +369,7 @@ func (conf *Config) TLSListeners() map[string]*tls.Config {
 		if err != nil {
 			log.Fatal(err)
 		}
-		name, err := CasefoldName(s)
-		if err == nil {
-			tlsListeners[name] = config
-		} else {
-			log.Println("Could not casefold TLS listener:", err.Error())
-		}
+		tlsListeners[s] = config
 	}
 	return tlsListeners
 }
