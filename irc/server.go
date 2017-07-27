@@ -312,8 +312,23 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		server.password = config.Server.PasswordBytes()
 	}
 
+	tlsListeners := config.TLSListeners()
 	for _, addr := range config.Server.Listen {
-		server.createListener(addr, config.TLSListeners())
+		server.createListener(addr, tlsListeners)
+	}
+
+	if len(tlsListeners) == 0 {
+		server.logger.Warning("startup", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
+	}
+	var usesStandardTLSPort bool
+	for addr := range config.TLSListeners() {
+		if strings.Contains(addr, "6697") {
+			usesStandardTLSPort = true
+			break
+		}
+	}
+	if 0 < len(tlsListeners) && !usesStandardTLSPort {
+		server.logger.Warning("startup", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
 
 	if config.Server.Wslisten != "" {
