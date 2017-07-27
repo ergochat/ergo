@@ -12,12 +12,19 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Added info document to better explain the design decisions behind Oragono in-depth, how to rehash, etc.
+* Now prints a warning if the server's not listening on a TLS port or if it's not listening for TLS connections on port 6697.
+* Now prints a warning if you're trying to run from source or an otherwise unreleased version.
 
 ### Changed
 
 ### Removed
 
 ### Fixed
+* Fixed a memory leak in our socket code when clients disconnect.
+* Fixed a SASL bug that resulted in certains clients getting caught in a cycle of trying (and failing) to abort authentication.
+* Fixed an instance where clients could use a nickname that isn't sane (thanks @euank!).
+* Fixed an issue where certain clients who connect incorrectly wouldn't be disconnected (thanks @euank!).
 
 
 ## [0.8.2] - 2017-06-30
