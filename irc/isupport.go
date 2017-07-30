@@ -4,6 +4,7 @@
 package irc
 
 import "fmt"
+import "sort"
 
 const isupportSupportedString = "are supported by this server"
 
@@ -41,9 +42,7 @@ func getTokenString(name string, value *string) string {
 
 // GetDifference returns the difference between two token lists.
 func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
-	replies := make([][]string, 0)
-	var length int     // Length of the current cache
-	var cache []string // Token list cache
+	var outTokens sort.StringSlice
 
 	// append removed tokens
 	for name := range il.Tokens {
@@ -54,32 +53,29 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 
 		token := fmt.Sprintf("-%s", name)
 
-		if len(token)+length <= maxLastArgLength {
-			// account for the space separating tokens
-			if len(cache) > 0 {
-				length++
-			}
-			cache = append(cache, token)
-			length += len(token)
-		}
-
-		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
-			cache = append(cache, isupportSupportedString)
-			replies = append(replies, cache)
-			cache = make([]string, 0)
-			length = 0
-		}
+		outTokens = append(outTokens, token)
 	}
 
 	// append added tokens
 	for name, value := range newil.Tokens {
 		newval, exists := il.Tokens[name]
-		if exists && *value == *newval {
+		if exists && ((value == nil && newval == nil) || (value != nil && newval != nil && *value == *newval)) {
 			continue
 		}
 
 		token := getTokenString(name, value)
 
+		outTokens = append(outTokens, token)
+	}
+
+	sort.Sort(outTokens)
+
+	// create output list
+	replies := make([][]string, 0)
+	var length int     // Length of the current cache
+	var cache []string // Token list cache
+
+	for _, token := range outTokens {
 		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
@@ -111,8 +107,15 @@ func (il *ISupportList) RegenerateCachedReply() {
 	var length int     // Length of the current cache
 	var cache []string // Token list cache
 
-	for name, value := range il.Tokens {
-		token := getTokenString(name, value)
+	// make sure we get a sorted list of tokens, needed for tests and looks nice
+	var tokens sort.StringSlice
+	for name := range il.Tokens {
+		tokens = append(tokens, name)
+	}
+	sort.Sort(tokens)
+
+	for _, name := range tokens {
+		token := getTokenString(name, il.Tokens[name])
 
 		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
