@@ -1133,7 +1133,11 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
-			user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+			// restrict messages appropriately when +R is set
+			// intentionally make the sending user think the message went through fine
+			if !user.flags[RegisteredOnly] || client.registered {
+				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+			}
 			if client.capabilities[EchoMessage] {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
@@ -1829,7 +1833,11 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
-			user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+			// restrict messages appropriately when +R is set
+			// intentionally make the sending user think the message went through fine
+			if !user.flags[RegisteredOnly] || client.registered {
+				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+			}
 			if client.capabilities[EchoMessage] {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}

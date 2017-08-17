@@ -64,6 +64,7 @@ Oragono supports the following user modes:
   +a  |  User is marked as being away. This mode is set with the /AWAY command.
   +i  |  User is marked as invisible (their channels are hidden from whois replies).
   +o  |  User is an IRC operator.
+  +R  |  User only accepts messages from other registered users. 
   +s  |  Server Notice Masks (see help with /HELPOP snomasks).
   +Z  |  User is connected via TLS.`
 	snomaskHelpText = `== Server Notice Masks ==

@@ -101,6 +101,7 @@ const (
 	LocalOperator   Mode = 'O'
 	Operator        Mode = 'o'
 	Restricted      Mode = 'r'
+	RegisteredOnly  Mode = 'R'
 	ServerNotice    Mode = 's'
 	TLS             Mode = 'Z'
 	UserRoleplaying Mode = 'E'
@@ -110,7 +111,7 @@ const (
 var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
-		Away, Invisible, Operator, ServerNotice, UserRoleplaying,
+		Away, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
 	}
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = SupportedUserModes.String()
@@ -127,9 +128,9 @@ const (
 	Moderated       Mode = 'm' // flag
 	NoOutside       Mode = 'n' // flag
 	OpOnlyTopic     Mode = 't' // flag
-	RegisteredOnly  Mode = 'r' // flag
-	Secret          Mode = 's' // flag
-	UserLimit       Mode = 'l' // flag arg
+	// RegisteredOnly mode is reused here from umode definition
+	Secret    Mode = 's' // flag
+	UserLimit Mode = 'l' // flag arg
 )
 
 var (
@@ -281,7 +282,7 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 
 	for _, change := range changes {
 		switch change.mode {
-		case Invisible, WallOps, UserRoleplaying, Operator, LocalOperator:
+		case Invisible, WallOps, UserRoleplaying, Operator, LocalOperator, RegisteredOnly:
 			switch change.op {
 			case Add:
 				if !force && (change.mode == Operator || change.mode == LocalOperator) {
