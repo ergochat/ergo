@@ -17,13 +17,31 @@ const (
 )
 
 var (
-	errInvalidCharacter = errors.New("Invalid character")
-	errEmpty            = errors.New("String is empty")
+	errCouldNotStabilize = errors.New("Could not stabilize string while casefolding")
+	errInvalidCharacter  = errors.New("Invalid character")
+	errEmpty             = errors.New("String is empty")
 )
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	return precis.UsernameCaseMapped.CompareKey(str)
+	var err error
+	oldStr := str
+	// follow the stabilizing rules laid out here:
+	// https://tools.ietf.org/html/draft-ietf-precis-7564bis-10.html#section-7
+	for i := 0; i < 4; i++ {
+		str, err = precis.UsernameCaseMapped.CompareKey(str)
+		if err != nil {
+			return "", err
+		}
+		if oldStr == str {
+			break
+		}
+		oldStr = str
+	}
+	if oldStr != str {
+		return "", errCouldNotStabilize
+	}
+	return str, nil
 }
 
 // CasefoldChannel returns a casefolded version of a channel name.

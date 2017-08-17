@@ -1,4 +1,5 @@
 // Copyright (c) 2017 Euan Kemp
+// Copyright (c) 2017 Daniel Oaks
 // released under the MIT license
 
 package irc
@@ -50,14 +51,16 @@ func TestCasefoldChannel(t *testing.T) {
 	for i, tt := range testCases {
 		t.Run(fmt.Sprintf("case %d: %s", i, tt.channel), func(t *testing.T) {
 			res, err := CasefoldChannel(tt.channel)
-			if tt.err {
-				if err == nil {
-					t.Errorf("expected error")
-				}
+			if tt.err && err == nil {
+				t.Errorf("expected error when casefolding [%s], but did not receive one", tt.channel)
+				return
+			}
+			if !tt.err && err != nil {
+				t.Errorf("unexpected error while casefolding [%s]: %s", tt.channel, err.Error())
 				return
 			}
 			if tt.folded != res {
-				t.Errorf("expected %v to be %v", tt.folded, res)
+				t.Errorf("expected [%v] to be [%v]", res, tt.folded)
 			}
 		})
 	}
@@ -91,14 +94,16 @@ func TestCasefoldName(t *testing.T) {
 	for i, tt := range testCases {
 		t.Run(fmt.Sprintf("case %d: %s", i, tt.name), func(t *testing.T) {
 			res, err := CasefoldName(tt.name)
-			if tt.err {
-				if err == nil {
-					t.Errorf("expected error")
-				}
+			if tt.err && err == nil {
+				t.Errorf("expected error when casefolding [%s], but did not receive one", tt.name)
+				return
+			}
+			if !tt.err && err != nil {
+				t.Errorf("unexpected error while casefolding [%s]: %s", tt.name, err.Error())
 				return
 			}
 			if tt.folded != res {
-				t.Errorf("expected %v to be %v", tt.folded, res)
+				t.Errorf("expected [%v] to be [%v]", res, tt.folded)
 			}
 		})
 	}
