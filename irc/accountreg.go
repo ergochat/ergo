@@ -92,6 +92,12 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		return false
 	}
 
+	// clients can't reg new accounts if they're already logged in
+	if client.account != nil {
+		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "You're already logged into an account")
+		return false
+	}
+
 	// get and sanitise account name
 	account := strings.TrimSpace(msg.Params[1])
 	casefoldedAccount, err := CasefoldName(account)
