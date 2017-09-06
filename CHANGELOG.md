@@ -23,6 +23,7 @@ New release of Oragono!
 ### Removed
 
 ### Fixed
+* Fixed a bug where certain clients couldn't connect as we were incorrectly rejecting their valid PTR record (thanks @slingamn!).
 * Fixed a memory leak in our socket code when clients disconnect.
 * Fixed a SASL bug that resulted in certains clients getting caught in a cycle of trying (and failing) to abort authentication.
 * Fixed an instance where clients could use a nickname that isn't sane (thanks @euank!).
