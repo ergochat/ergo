@@ -13,10 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"net"
-
-	"encoding/base64"
-
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
 	cloak "github.com/oragono/oragono/irc/cloaking"
@@ -33,6 +29,7 @@ Usage:
 	oragono initdb [--conf <filename>] [--quiet]
 	oragono upgradedb [--conf <filename>] [--quiet]
 	oragono genpasswd [--conf <filename>] [--quiet]
+	oragono genkeys
 	oragono mkcerts [--conf <filename>] [--quiet]
 	oragono run [--conf <filename>] [--quiet]
 	oragono -h | --help
@@ -43,57 +40,37 @@ Options:
 	-h --help          Show this screen.
 	--version          Show version.`
 
-	keyA, _ := base64.StdEncoding.DecodeString("idXACDbEhqRZsExn0jOTi4rtC6MrKBOcN4edxdSzTAA=")
-	keyB, _ := base64.StdEncoding.DecodeString("qODtg8WEJ0YA6JRnryDDUEoSdJyrGgPFI6hPNnGHyIw=")
-	keyC, _ := base64.StdEncoding.DecodeString("Oxqc6uDsyEO5vZcxHmtZ1zOLL8wwATeYA4KqJmkTJQo=")
-	keyD, _ := base64.StdEncoding.DecodeString("vd2eimWWh3L9fukFwxZThJ9pKTf/I5UZ/k7o/3JHkMc=")
-
-	conf := cloak.Config{
-		Enabled:  true,
-		NetName:  "Test",
-		IPv4KeyA: keyA,
-		IPv4KeyB: keyB,
-		IPv4KeyC: keyC,
-		IPv4KeyD: keyD,
-	}
-	ip := net.ParseIP("8.8.8.8")
-	key, err := cloak.IPv4(ip, conf)
-	fmt.Println(ip, key, err)
-	ip = net.ParseIP("9.4.8.8")
-	key, err = cloak.IPv4(ip, conf)
-	fmt.Println(ip, key, err)
-	ip = net.ParseIP("8.4.2.8")
-	key, err = cloak.IPv4(ip, conf)
-	fmt.Println(ip, key, err)
-	ip = net.ParseIP("8.4.2.1")
-	key, err = cloak.IPv4(ip, conf)
-	fmt.Println(ip, key, err)
-
 	arguments, _ := docopt.Parse(usage, nil, true, version, false)
 
+	// load config and logger for everything but genkeys
+	var err error
 	configfile := arguments["--conf"].(string)
-	config, err := irc.LoadConfig(configfile)
-	if err != nil {
-		log.Fatal("Config file did not load successfully:", err.Error())
-	}
+	var config *irc.Config
+	var logman *logger.Manager
+	if !arguments["genkeys"].(bool) {
+		config, err = irc.LoadConfig(configfile)
+		if err != nil {
+			log.Fatal("Config file did not load successfully:", err.Error())
+		}
 
-	// assemble separate log configs
-	var logConfigs []logger.Config
-	for _, lConfig := range config.Logging {
-		logConfigs = append(logConfigs, logger.Config{
-			MethodStdout:  lConfig.MethodStdout,
-			MethodStderr:  lConfig.MethodStderr,
-			MethodFile:    lConfig.MethodFile,
-			Filename:      lConfig.Filename,
-			Level:         lConfig.Level,
-			Types:         lConfig.Types,
-			ExcludedTypes: lConfig.ExcludedTypes,
-		})
-	}
+		// assemble separate log configs
+		var logConfigs []logger.Config
+		for _, lConfig := range config.Logging {
+			logConfigs = append(logConfigs, logger.Config{
+				MethodStdout:  lConfig.MethodStdout,
+				MethodStderr:  lConfig.MethodStderr,
+				MethodFile:    lConfig.MethodFile,
+				Filename:      lConfig.Filename,
+				Level:         lConfig.Level,
+				Types:         lConfig.Types,
+				ExcludedTypes: lConfig.ExcludedTypes,
+			})
+		}
 
-	logger, err := logger.NewManager(logConfigs...)
-	if err != nil {
-		log.Fatal("Logger did not load successfully:", err.Error())
+		logman, err = logger.NewManager(logConfigs...)
+		if err != nil {
+			log.Fatal("Logger did not load successfully:", err.Error())
+		}
 	}
 
 	if arguments["genpasswd"].(bool) {
@@ -109,6 +86,65 @@ Options:
 		}
 		fmt.Print("\n")
 		fmt.Println(encoded)
+	} else if arguments["genkeys"].(bool) {
+		fmt.Println("Here are your cloak keys:")
+
+		// generate IPv4 keys
+		keyA, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyB, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyC, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyD, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+
+		fmt.Println(fmt.Sprintf(`ipv4-keys: ["%s", "%s", "%s", "%s"]`, keyA, keyB, keyC, keyD))
+
+		// generate IPv6 keys
+		keyA, err = cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyB, err = cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyC, err = cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyD, err = cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyE, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyF, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyG, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+		keyH, err := cloak.GenerateCloakKey()
+		if err != nil {
+			log.Fatal("Error generating cloak keys:", err)
+		}
+
+		fmt.Println(fmt.Sprintf(`ipv6-keys: ["%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s"]`, keyA, keyB, keyC, keyD, keyE, keyF, keyG, keyH))
+
 	} else if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
 		if !arguments["--quiet"].(bool) {
@@ -139,13 +175,13 @@ Options:
 	} else if arguments["run"].(bool) {
 		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
-			logger.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 		}
 
 		// profiling
 		if config.Debug.StackImpact.Enabled {
 			if config.Debug.StackImpact.AgentKey == "" || config.Debug.StackImpact.AppName == "" {
-				logger.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
+				logman.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
 				return
 			}
 
@@ -153,22 +189,22 @@ Options:
 			agent.Start(stackimpact.Options{AgentKey: config.Debug.StackImpact.AgentKey, AppName: config.Debug.StackImpact.AppName})
 			defer agent.RecordPanic()
 
-			logger.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
+			logman.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
 		}
 
 		// warning if running a non-final version
 		if strings.Contains(irc.SemVer, "unreleased") {
-			logger.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
+			logman.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
-		server, err := irc.NewServer(configfile, config, logger)
+		server, err := irc.NewServer(configfile, config, logman)
 		if err != nil {
-			logger.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
+			logman.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			logger.Info("startup", "Server running")
-			defer logger.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			logman.Info("startup", "Server running")
+			defer logman.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}

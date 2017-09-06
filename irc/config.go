@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"strings"
 	"time"
 
@@ -421,11 +420,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}
 	}
-	if config.Network.IPCloaking.Enabled {
-		_, err := cloak.IPv4(net.ParseIP("8.8.8.8"), config.Network.IPCloaking)
-		if err != nil {
-			return nil, fmt.Errorf("IPv4 cloaking config is incorrect: %s", err.Error())
-		}
+	err = config.Network.IPCloaking.CheckConfig()
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse IP cloaking: %s", err.Error())
 	}
 	if config.Server.ConnectionThrottle.Enabled {
 		config.Server.ConnectionThrottle.Duration, err = time.ParseDuration(config.Server.ConnectionThrottle.DurationString)

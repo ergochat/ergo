@@ -5,6 +5,26 @@ network:
     # name of the network
     name: OragonoTest
 
+    # cloaking IP addresses and hostnames
+    ip-cloaking:
+        # enable the cloaking
+        enabled: false
+
+        # short name to use in cloaked hostnames
+        netname: "testnet"
+
+        # ipv4 cloak keys
+        # to generate these keys, run "oragono genkeys"
+        ipv4-keys: ["keyhere", "keyhere", "keyhere", "keyhere"]
+
+        # ipv6 cloak keys
+        # to generate these keys, run "oragono genkeys"
+        ipv6-keys: ["keyhere", "keyhere", "keyhere", "keyhere", "keyhere", "keyhere", "keyhere", "keyhere"]
+
+        # hostname cloaking keys
+        # to generate these keys, run "oragono genkeys"
+        hostname-keys: ["keyhere", "keyhere", "keyhere", "keyhere"]
+
 # server configuration
 server:
     # server name

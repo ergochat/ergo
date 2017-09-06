@@ -6,7 +6,9 @@ package cloak
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -28,7 +30,7 @@ var (
 	errNetName             = errors.New("NetName is not the right size (must be 1-10 characters long)")
 	errNotIPv4             = errors.New("The given address is not an IPv4 address")
 	errConfigDisabled      = errors.New("Config has disabled IP cloaking")
-	errKeysTooShort        = fmt.Errorf("Cloaking keys too short (min: %d)", MinKeyLength)
+	errKeysTooShort        = errors.New("Cloaking keys too short")
 	errKeysNotRandomEnough = errors.New("Cloaking keys aren't random enough")
 )
 
@@ -38,22 +40,63 @@ type Config struct {
 	Enabled bool
 	// NetName is the name used for the network in cloaked addresses.
 	NetName string
-	// IPv4KeyAString is used to cloak the `a` part of the IP address.
-	IPv4KeyAString string `yaml:"ipv4-key-a"`
+	// IPv4KeyString is used to cloak the `a`, `b`, `c` and `d` parts of the IP address.
+	// it is split up into the separate A/B/C/D keys below.
+	IPv4KeysString []string `yaml:"ipv4-keys"`
 	IPv4KeyA       []byte
-	// IPv4KeyBString is used to cloak the `b` part of the IP address.
-	IPv4KeyBString string `yaml:"ipv4-key-b"`
 	IPv4KeyB       []byte
-	// IPv4KeyCString is used to cloak the `c` part of the IP address.
-	IPv4KeyCString string `yaml:"ipv4-key-c"`
 	IPv4KeyC       []byte
-	// IPv4KeyDString is used to cloak the `d` part of the IP address.
-	IPv4KeyDString string `yaml:"ipv4-key-d"`
 	IPv4KeyD       []byte
+}
+
+// CheckConfig checks whether we're configured correctly.
+func (config *Config) CheckConfig() error {
+	if config.Enabled {
+		// IPv4 cloak keys
+		if len(config.IPv4KeysString) < 4 {
+			return errKeysTooShort
+		}
+
+		keyA, errA := base64.StdEncoding.DecodeString(config.IPv4KeysString[0])
+		keyB, errB := base64.StdEncoding.DecodeString(config.IPv4KeysString[1])
+		keyC, errC := base64.StdEncoding.DecodeString(config.IPv4KeysString[2])
+		keyD, errD := base64.StdEncoding.DecodeString(config.IPv4KeysString[3])
+
+		if errA != nil || errB != nil || errC != nil || errD != nil {
+			return fmt.Errorf("Could not decode IPv4 cloak keys")
+		}
+		if len(keyA) < MinKeyLength || len(keyB) < MinKeyLength || len(keyC) < MinKeyLength || len(keyD) < MinKeyLength {
+			return errKeysTooShort
+		}
+
+		config.IPv4KeyA = keyA
+		config.IPv4KeyB = keyB
+		config.IPv4KeyC = keyC
+		config.IPv4KeyD = keyD
+
+		// try cloaking IPs to confirm everything works properly
+		_, err := IPv4(net.ParseIP("8.8.8.8"), config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GenerateCloakKey generates one cloak key.
+func GenerateCloakKey() (string, error) {
+	keyBytes := make([]byte, MinKeyLength)
+	_, err := rand.Read(keyBytes)
+	if err != nil {
+		return "", fmt.Errorf("Could not generate random bytes for cloak key: %s", err.Error())
+	}
+
+	return base64.StdEncoding.EncodeToString(keyBytes), nil
 }
 
 // IsRandomEnough makes sure people are using keys that are random enough.
 func IsRandomEnough(key []byte) bool {
+	//TODO(dan): actually find out how to calc this
 	return true
 }
 
@@ -85,7 +128,7 @@ func hashOctet(key []byte, data string) string {
 // if you have 4.5.6.7 and 4.3.2.1 then the `a` part of those addresses will
 // be the same value. This ensures chanops can properly ban dodgy people as
 // they need to do so.
-func IPv4(address net.IP, config Config) (string, error) {
+func IPv4(address net.IP, config *Config) (string, error) {
 	if !config.Enabled {
 		return "", errConfigDisabled
 	}
