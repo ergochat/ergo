@@ -62,6 +62,8 @@ Temporary Items
 # Linux trash folder which might appear on any partition or disk
 .Trash-*
 
+# vim swapfiles
+*.swp
 
 ### Go ###
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
