@@ -137,6 +137,11 @@ accounts:
 
 # channel options
 channels:
+    # modes that are set when new channels are created
+    # +n is no-external-messages and +t is op-only-topic
+    # see  /QUOTE HELP cmodes  for more channel modes
+    default-modes: +nt
+
     # channel registration - requires an account
     registration:
         # can users register new channels?

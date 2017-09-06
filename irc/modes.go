@@ -149,6 +149,7 @@ var (
 	supportedChannelModesString = SupportedChannelModes.String()
 
 	// DefaultChannelModes are enabled on brand new channels when they're created.
+	// this can be overridden in the `channels` config, with the `default-modes` key
 	DefaultChannelModes = Modes{
 		NoOutside, OpOnlyTopic,
 	}
@@ -385,6 +386,23 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// ParseDefaultChannelModes parses the `default-modes` line of the config
+func ParseDefaultChannelModes(config *Config) Modes {
+	if config.Channels.DefaultModes == nil {
+		// not present in config, fall back to compile-time default
+		return DefaultChannelModes
+	}
+	modeChangeStrings := strings.Split(strings.TrimSpace(*config.Channels.DefaultModes), " ")
+	modeChanges, _ := ParseChannelModeChanges(modeChangeStrings...)
+	defaultChannelModes := make(Modes, 0)
+	for _, modeChange := range modeChanges {
+		if modeChange.op == Add {
+			defaultChannelModes = append(defaultChannelModes, modeChange.mode)
+		}
+	}
+	return defaultChannelModes
+}
+
 // ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
 func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	changes := make(ModeChanges, 0)
@@ -392,6 +410,9 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 
 	if 0 < len(params) {
 		modeArg := params[0]
+		if len(modeArg) == 0 {
+			return changes, unknown
+		}
 		op := ModeOp(modeArg[0])
 		if (op == Add) || (op == Remove) {
 			modeArg = modeArg[1:]

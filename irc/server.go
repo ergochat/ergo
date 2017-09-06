@@ -97,6 +97,7 @@ type Server struct {
 	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                        time.Time
 	currentOpers                 map[*Client]bool
+	defaultChannelModes          Modes
 	dlines                       *DLineManager
 	isupport                     *ISupportList
 	klines                       *KLineManager
@@ -205,6 +206,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		connectionThrottle:           connectionThrottle,
 		ctime:                        time.Now(),
 		currentOpers:                 make(map[*Client]bool),
+		defaultChannelModes:          ParseDefaultChannelModes(config),
 		limits: Limits{
 			AwayLen:        int(config.Limits.AwayLen),
 			ChannelLen:     int(config.Limits.ChannelLen),
@@ -1619,6 +1621,8 @@ func (server *Server) rehash() error {
 	accountReg := NewAccountRegistration(config.Accounts.Registration)
 	server.accountRegistration = &accountReg
 	server.channelRegistrationEnabled = config.Channels.Registration.Enabled
+
+	server.defaultChannelModes = ParseDefaultChannelModes(config)
 
 	// set new sendqueue size
 	if config.Server.MaxSendQBytes != server.MaxSendQBytes {
