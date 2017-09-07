@@ -217,6 +217,7 @@ type Config struct {
 	}
 
 	Channels struct {
+		DefaultModes *string `yaml:"default-modes"`
 		Registration ChannelRegistrationConfig
 	}
 
