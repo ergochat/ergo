@@ -103,8 +103,7 @@ type Server struct {
 	klines                       *KLineManager
 	limits                       Limits
 	listenerEventActMutex        sync.Mutex
-	listeners                    map[string]ListenerInterface
-	listenerUpdateMutex          sync.Mutex
+	listeners                    map[string]*ListenerInterface
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
 	monitoring                   map[string][]*Client
@@ -220,7 +219,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 				Rest: config.Limits.LineLen.Rest,
 			},
 		},
-		listeners:          make(map[string]ListenerInterface),
+		listeners:          make(map[string]*ListenerInterface),
 		logger:             logger,
 		MaxSendQBytes:      config.Server.MaxSendQBytes,
 		monitoring:         make(map[string][]*Client),
@@ -316,7 +315,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 
 	tlsListeners := config.TLSListeners()
 	for _, addr := range config.Server.Listen {
-		server.createListener(addr, tlsListeners)
+		server.listeners[addr] = server.createListener(addr, tlsListeners)
 	}
 
 	if len(tlsListeners) == 0 {
@@ -509,13 +508,8 @@ func (server *Server) Run() {
 //
 
 // createListener starts the given listeners.
-func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
+func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config) *ListenerInterface {
 	config, listenTLS := tlsMap[addr]
-
-	_, alreadyExists := server.listeners[addr]
-	if alreadyExists {
-		log.Fatal(server, "listener already exists:", addr)
-	}
 
 	// make listener event channel
 	listenerEventChannel := make(chan ListenerEvent, 1)
@@ -538,7 +532,6 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 		Events:   listenerEventChannel,
 		Listener: listener,
 	}
-	server.listeners[addr] = li
 
 	// start listening
 	server.logger.Info("listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
@@ -558,7 +551,7 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 			}
 
 			select {
-			case event := <-server.listeners[addr].Events:
+			case event := <-li.Events:
 				// this is used to confirm that whoever passed us this event has closed the existing listener correctly (in an attempt to get us to notice the event).
 				// this is required to keep REHASH from having a very small race possibility of killing the primary listener
 				server.listenerEventActMutex.Lock()
@@ -588,9 +581,6 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 
 					// update server ListenerInterface
 					li.Listener = listener
-					server.listenerUpdateMutex.Lock()
-					server.listeners[addr] = li
-					server.listenerUpdateMutex.Unlock()
 
 					// print notice
 					server.logger.Info("listeners", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
@@ -600,6 +590,8 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 			}
 		}
 	}()
+
+	return &li
 }
 
 //
@@ -1651,9 +1643,10 @@ func (server *Server) rehash() error {
 	}
 	server.clients.ByNickMutex.RUnlock()
 
-	// destroy old listeners
+	// update or destroy all existing listeners
 	tlsListeners := config.TLSListeners()
 	for addr := range server.listeners {
+		currentListener := server.listeners[addr]
 		var exists bool
 		for _, newaddr := range config.Server.Listen {
 			if newaddr == addr {
@@ -1665,27 +1658,29 @@ func (server *Server) rehash() error {
 		server.listenerEventActMutex.Lock()
 		if exists {
 			// update old listener
-			server.listeners[addr].Events <- ListenerEvent{
+			currentListener.Events <- ListenerEvent{
 				Type:      UpdateListener,
 				NewConfig: tlsListeners[addr],
 			}
 		} else {
-			// destroy nonexistent listener
-			server.listeners[addr].Events <- ListenerEvent{
+			// destroy this listener, since it is no longer in the config
+			currentListener.Events <- ListenerEvent{
 				Type: DestroyListener,
 			}
+			delete(server.listeners, addr)
 		}
 		// force listener to apply the event right away
-		server.listeners[addr].Listener.Close()
-
+		// (this causes its Accept() call to return immediately with an error)
+		currentListener.Listener.Close()
 		server.listenerEventActMutex.Unlock()
 	}
 
+	// create new listeners that were not previously configured
 	for _, newaddr := range config.Server.Listen {
 		_, exists := server.listeners[newaddr]
 		if !exists {
 			// make new listener
-			server.createListener(newaddr, tlsListeners)
+			server.listeners[newaddr] = server.createListener(newaddr, tlsListeners)
 		}
 	}
 
