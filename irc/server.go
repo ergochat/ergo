@@ -436,10 +436,12 @@ func (server *Server) Run() {
 
 		case <-server.rehashSignal:
 			server.logger.Info("rehash", "Rehashing due to SIGHUP")
-			err := server.rehash()
-			if err != nil {
-				server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
-			}
+			go func() {
+				err := server.rehash()
+				if err != nil {
+					server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
+				}
+			}()
 
 		case conn := <-server.newConns:
 			// check connection limits
