@@ -262,6 +262,33 @@ func (client *Client) LoginToAccount(account *ClientAccount) {
 	account.Clients = append(account.Clients, client)
 	client.account = account
 	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), client.nickMaskString, account.Name))
+
+	//TODO(dan): This should output the AccountNotify message instead of the sasl accepted function below.
+}
+
+// LogoutOfAccount logs the client out of their current account.
+func (client *Client) LogoutOfAccount() {
+	account := client.account
+	if account == nil {
+		// already logged out
+		return
+	}
+
+	// logout of existing acct
+	var newClientAccounts []*Client
+	for _, c := range account.Clients {
+		if c != client {
+			newClientAccounts = append(newClientAccounts, c)
+		}
+	}
+	account.Clients = newClientAccounts
+
+	client.account = nil
+
+	// dispatch account-notify
+	for friend := range client.Friends(AccountNotify) {
+		friend.Send(nil, client.nickMaskString, "ACCOUNT", "*")
+	}
 }
 
 // authExternalHandler parses the SASL EXTERNAL mechanism.

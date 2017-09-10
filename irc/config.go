@@ -74,6 +74,7 @@ type AccountRegistrationConfig struct {
 			VerifyMessage        string `yaml:"verify-message"`
 		}
 	}
+	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
 }
 
 // ChannelRegistrationConfig controls channel registration.

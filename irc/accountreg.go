@@ -25,9 +25,10 @@ var (
 
 // AccountRegistration manages the registration of accounts.
 type AccountRegistration struct {
-	Enabled                bool
-	EnabledCallbacks       []string
-	EnabledCredentialTypes []string
+	Enabled                    bool
+	EnabledCallbacks           []string
+	EnabledCredentialTypes     []string
+	AllowMultiplePerConnection bool
 }
 
 // AccountCredentials stores the various methods for verifying accounts.
@@ -41,6 +42,7 @@ type AccountCredentials struct {
 func NewAccountRegistration(config AccountRegistrationConfig) (accountReg AccountRegistration) {
 	if config.Enabled {
 		accountReg.Enabled = true
+		accountReg.AllowMultiplePerConnection = config.AllowMultiplePerConnection
 		for _, name := range config.EnabledCallbacks {
 			// we store "none" as "*" internally
 			if name == "none" {
@@ -94,8 +96,12 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 
 	// clients can't reg new accounts if they're already logged in
 	if client.account != nil {
-		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "You're already logged into an account")
-		return false
+		if server.accountRegistration.AllowMultiplePerConnection {
+			client.LogoutOfAccount()
+		} else {
+			client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "You're already logged into an account")
+			return false
+		}
 	}
 
 	// get and sanitise account name
