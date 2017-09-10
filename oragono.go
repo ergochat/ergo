@@ -94,7 +94,9 @@ Options:
 		}
 
 		for name, conf := range config.Server.TLSListeners {
-			log.Printf(" making cert for %s listener\n", name)
+			if !arguments["--quiet"].(bool) {
+				log.Printf(" making cert for %s listener\n", name)
+			}
 			host := config.Server.Name
 			err := mkcerts.CreateCert("Oragono", host, conf.Cert, conf.Key)
 			if err == nil {
