@@ -104,7 +104,7 @@ type Server struct {
 	limits                       Limits
 	listenerEventActMutex        sync.Mutex
 	listeners                    map[string]ListenerInterface
-	listenerUpdateMutex          sync.Mutex
+	listenerUpdateMutex          sync.RWMutex
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
 	monitoring                   map[string][]*Client
@@ -512,7 +512,9 @@ func (server *Server) Run() {
 func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config) {
 	config, listenTLS := tlsMap[addr]
 
+	server.listenerUpdateMutex.RLock()
 	_, alreadyExists := server.listeners[addr]
+	server.listenerUpdateMutex.RUnlock()
 	if alreadyExists {
 		log.Fatal(server, "listener already exists:", addr)
 	}
@@ -538,7 +540,9 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 		Events:   listenerEventChannel,
 		Listener: listener,
 	}
+	server.listenerUpdateMutex.Lock()
 	server.listeners[addr] = li
+	server.listenerUpdateMutex.Unlock()
 
 	// start listening
 	server.logger.Info("listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
@@ -557,8 +561,11 @@ func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config)
 				server.newConns <- newConn
 			}
 
+			server.listenerUpdateMutex.RLock()
+			currentListener := server.listeners[addr]
+			server.listenerUpdateMutex.RUnlock()
 			select {
-			case event := <-server.listeners[addr].Events:
+			case event := <-currentListener.Events:
 				// this is used to confirm that whoever passed us this event has closed the existing listener correctly (in an attempt to get us to notice the event).
 				// this is required to keep REHASH from having a very small race possibility of killing the primary listener
 				server.listenerEventActMutex.Lock()
@@ -1662,27 +1669,33 @@ func (server *Server) rehash() error {
 			}
 		}
 
+		server.listenerUpdateMutex.RLock()
+		currentListener := server.listeners[addr]
+		server.listenerUpdateMutex.RUnlock()
+
 		server.listenerEventActMutex.Lock()
 		if exists {
 			// update old listener
-			server.listeners[addr].Events <- ListenerEvent{
+			currentListener.Events <- ListenerEvent{
 				Type:      UpdateListener,
 				NewConfig: tlsListeners[addr],
 			}
 		} else {
 			// destroy nonexistent listener
-			server.listeners[addr].Events <- ListenerEvent{
+			currentListener.Events <- ListenerEvent{
 				Type: DestroyListener,
 			}
 		}
 		// force listener to apply the event right away
-		server.listeners[addr].Listener.Close()
+		currentListener.Listener.Close()
 
 		server.listenerEventActMutex.Unlock()
 	}
 
 	for _, newaddr := range config.Server.Listen {
+		server.listenerUpdateMutex.RLock()
 		_, exists := server.listeners[newaddr]
+		server.listenerUpdateMutex.RUnlock()
 		if !exists {
 			// make new listener
 			server.createListener(newaddr, tlsListeners)
