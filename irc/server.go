@@ -2239,9 +2239,21 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	clientHostname := client.hostname
 	for _, address := range server.proxyAllowedFrom {
 		if clientHostname == address || clientAddress == address {
+			proxiedIP := msg.Params[1]
+
+			// ensure IP is sane
+			parsedProxiedIP := net.ParseIP(proxiedIP)
+			if parsedProxiedIP == nil {
+				client.Quit(fmt.Sprintf("Proxied IP address is not valid: [%s]", proxiedIP))
+				return true
+			}
+
 			//TODO(dan): check DLINEs and connection throttling/limits
+
+			// override the client's regular IP
 			client.proxiedIP = msg.Params[1]
 			client.hostname = LookupHostname(msg.Params[1])
+			client.rawHostname = LookupHostname(msg.Params[1])
 			return false
 		}
 	}
