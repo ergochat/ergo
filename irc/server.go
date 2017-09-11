@@ -2228,12 +2228,18 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 }
 
 // PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
-// http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt
+// http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	// only allow unregistered clients to use this command
+	if client.registered {
+		return false
+	}
+
 	clientAddress := IPString(client.socket.conn.RemoteAddr())
 	clientHostname := client.hostname
 	for _, address := range server.proxyAllowedFrom {
 		if clientHostname == address || clientAddress == address {
+			//TODO(dan): check DLINEs and connection throttling/limits
 			client.proxiedIP = msg.Params[1]
 			client.hostname = LookupHostname(msg.Params[1])
 			return false

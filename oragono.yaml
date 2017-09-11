@@ -67,7 +67,10 @@ server:
 
     # addresses/hostnames the PROXY command can be used from
     # this should be restricted to 127.0.0.1 and localhost at most
-    proxy-allowed-from: []
+    # you should also add these addresses to the connection limits and throttling exemption lists
+    proxy-allowed-from:
+        # - localhost
+        # - "127.0.0.1"
 
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold /LIST and HELP replies
