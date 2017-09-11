@@ -66,6 +66,7 @@ type Client struct {
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	operName           string
+	proxiedIP          string // actual remote IP if using the PROXY protocol
 	quitMessageSent    bool
 	quitMutex          sync.Mutex
 	quitTimer          *time.Timer
@@ -147,11 +148,19 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 
 // IP returns the IP address of this client.
 func (client *Client) IP() net.IP {
+	if client.proxiedIP != "" {
+		return net.ParseIP(client.proxiedIP)
+	}
+
 	return net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
 }
 
 // IPString returns the IP address of this client as a string.
 func (client *Client) IPString() string {
+	if client.proxiedIP != "" {
+		return client.proxiedIP
+	}
+
 	ip := client.IP().String()
 	if 0 < len(ip) && ip[0] == ':' {
 		ip = "0" + ip
@@ -185,6 +194,7 @@ func (client *Client) run() {
 	var msg ircmsg.IrcMessage
 
 	// Set the hostname for this client
+	// (may be overridden by a later PROXY command from stunnel)
 	client.rawHostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	for {

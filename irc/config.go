@@ -202,7 +202,8 @@ type Config struct {
 		RestAPI            RestAPIConfig `yaml:"rest-api"`
 		CheckIdent         bool          `yaml:"check-ident"`
 		MOTD               string
-		MaxSendQString     string `yaml:"max-sendq"`
+		ProxyAllowedFrom   []string `yaml:"proxy-allowed-from"`
+		MaxSendQString     string   `yaml:"max-sendq"`
 		MaxSendQBytes      uint64
 		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
 		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`

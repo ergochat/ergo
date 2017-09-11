@@ -109,6 +109,7 @@ type Server struct {
 	rehashMutex                  sync.Mutex
 	rehashSignal                 chan os.Signal
 	restAPI                      *RestAPIConfig
+	proxyAllowedFrom             []string
 	signals                      chan os.Signal
 	snomasks                     *SnoManager
 	store                        *buntdb.DB
@@ -217,6 +218,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 		newConns:           make(chan clientConn),
 		operators:          opers,
 		operclasses:        *operClasses,
+		proxyAllowedFrom:   config.Server.ProxyAllowedFrom,
 		registeredChannels: make(map[string]*RegisteredChannel),
 		rehashSignal:       make(chan os.Signal, 1),
 		restAPI:            &config.Server.RestAPI,
@@ -2223,4 +2225,20 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	}
 
 	return false
+}
+
+// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
+// http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt
+func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	clientAddress := IPString(client.socket.conn.RemoteAddr())
+	clientHostname := client.hostname
+	for _, address := range server.proxyAllowedFrom {
+		if clientHostname == address || clientAddress == address {
+			client.proxiedIP = msg.Params[1]
+			client.hostname = LookupHostname(msg.Params[1])
+			return false
+		}
+	}
+	client.Quit("PROXY command is not usable from your address")
+	return true
 }
