@@ -57,26 +57,15 @@ type LineLenLimits struct {
 	Rest int
 }
 
-// ListenerInterface represents an interface for a listener.
-type ListenerInterface struct {
-	Listener net.Listener
-	Events   chan ListenerEvent
-}
-
-const (
-	// DestroyListener instructs the listener to destroy itself.
-	DestroyListener ListenerEventType = iota
-	// UpdateListener instructs the listener to update itself (grab new certs, etc).
-	UpdateListener = iota
-)
-
-// ListenerEventType is the type of event this is.
-type ListenerEventType int
-
-// ListenerEvent is an event that's passed to the listener.
-type ListenerEvent struct {
-	Type      ListenerEventType
-	NewConfig *tls.Config
+// ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
+type ListenerWrapper struct {
+	listener    net.Listener
+	tlsConfig   *tls.Config
+	shouldStop  bool
+	// lets the ListenerWrapper inform the server that it has stopped:
+	stopEvent   chan bool
+	// protects atomic update of tlsConfig and shouldStop:
+	configMutex sync.Mutex
 }
 
 // Server is the main Oragono server.
@@ -102,8 +91,7 @@ type Server struct {
 	isupport                     *ISupportList
 	klines                       *KLineManager
 	limits                       Limits
-	listenerEventActMutex        sync.Mutex
-	listeners                    map[string]*ListenerInterface
+	listeners                    map[string]*ListenerWrapper
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
 	monitoring                   map[string][]*Client
@@ -219,7 +207,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 				Rest: config.Limits.LineLen.Rest,
 			},
 		},
-		listeners:          make(map[string]*ListenerInterface),
+		listeners:          make(map[string]*ListenerWrapper),
 		logger:             logger,
 		MaxSendQBytes:      config.Server.MaxSendQBytes,
 		monitoring:         make(map[string][]*Client),
@@ -315,7 +303,7 @@ func NewServer(configFilename string, config *Config, logger *logger.Manager) (*
 
 	tlsListeners := config.TLSListeners()
 	for _, addr := range config.Server.Listen {
-		server.listeners[addr] = server.createListener(addr, tlsListeners)
+		server.listeners[addr] = server.createListener(addr, tlsListeners[addr])
 	}
 
 	if len(tlsListeners) == 0 {
@@ -510,90 +498,63 @@ func (server *Server) Run() {
 //
 
 // createListener starts the given listeners.
-func (server *Server) createListener(addr string, tlsMap map[string]*tls.Config) *ListenerInterface {
-	config, listenTLS := tlsMap[addr]
-
-	// make listener event channel
-	listenerEventChannel := make(chan ListenerEvent, 1)
-
+func (server *Server) createListener(addr string, tlsConfig *tls.Config) *ListenerWrapper {
 	// make listener
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(server, "listen error: ", err)
 	}
 
+	// throw our details to the server so we can be modified/killed later
+	wrapper := ListenerWrapper{
+		listener:   listener,
+		tlsConfig:  tlsConfig,
+		shouldStop: false,
+		stopEvent:  make(chan bool, 1),
+	}
+
+	// TODO(slingamn) move all logging of listener status to rehash()
 	tlsString := "plaintext"
-	if listenTLS {
-		config.ClientAuth = tls.RequestClientCert
-		listener = tls.NewListener(listener, config)
+	if tlsConfig != nil {
 		tlsString = "TLS"
 	}
-
-	// throw our details to the server so we can be modified/killed later
-	li := ListenerInterface{
-		Events:   listenerEventChannel,
-		Listener: listener,
-	}
-
-	// start listening
 	server.logger.Info("listeners", fmt.Sprintf("listening on %s using %s.", addr, tlsString))
+
+	var shouldStop bool
 
 	// setup accept goroutine
 	go func() {
 		for {
 			conn, err := listener.Accept()
 
+			// synchronously access config data:
+			// whether TLS is enabled and whether we should stop listening
+			wrapper.configMutex.Lock()
+			shouldStop = wrapper.shouldStop
+			tlsConfig = wrapper.tlsConfig
+			wrapper.configMutex.Unlock()
+
 			if err == nil {
+				if tlsConfig != nil {
+					conn = tls.Server(conn, tlsConfig)
+				}
 				newConn := clientConn{
 					Conn:  conn,
-					IsTLS: listenTLS,
+					IsTLS: tlsConfig != nil,
 				}
-
+				// hand off the connection
 				server.newConns <- newConn
 			}
 
-			select {
-			case event := <-li.Events:
-				// this is used to confirm that whoever passed us this event has closed the existing listener correctly (in an attempt to get us to notice the event).
-				// this is required to keep REHASH from having a very small race possibility of killing the primary listener
-				server.listenerEventActMutex.Lock()
-				server.listenerEventActMutex.Unlock()
-
-				if event.Type == DestroyListener {
-					// listener should already be closed, this is just for safety
-					listener.Close()
-					return
-				} else if event.Type == UpdateListener {
-					// close old listener
-					listener.Close()
-
-					// make new listener
-					listener, err = net.Listen("tcp", addr)
-					if err != nil {
-						log.Fatal(server, "listen error: ", err)
-					}
-
-					tlsString := "plaintext"
-					if event.NewConfig != nil {
-						config = event.NewConfig
-						config.ClientAuth = tls.RequestClientCert
-						listener = tls.NewListener(listener, config)
-						tlsString = "TLS"
-					}
-
-					// update server ListenerInterface
-					li.Listener = listener
-
-					// print notice
-					server.logger.Info("listeners", fmt.Sprintf("updated listener %s using %s.", addr, tlsString))
-				}
-			default:
-				// no events waiting for us, fall-through and continue
+			if shouldStop {
+				listener.Close()
+				wrapper.stopEvent <- true
+				return
 			}
 		}
 	}()
 
-	return &li
+	return &wrapper
 }
 
 //
@@ -1649,32 +1610,37 @@ func (server *Server) rehash() error {
 	tlsListeners := config.TLSListeners()
 	for addr := range server.listeners {
 		currentListener := server.listeners[addr]
-		var exists bool
+		var stillConfigured bool
 		for _, newaddr := range config.Server.Listen {
 			if newaddr == addr {
-				exists = true
+				stillConfigured = true
 				break
 			}
 		}
 
-		server.listenerEventActMutex.Lock()
-		if exists {
-			// update old listener
-			currentListener.Events <- ListenerEvent{
-				Type:      UpdateListener,
-				NewConfig: tlsListeners[addr],
-			}
+		// pass new config information to the listener, to be picked up after
+		// its next Accept(). this is like sending over a buffered channel of
+		// size 1, but where sending a second item overwrites the buffered item
+		// instead of blocking.
+		currentListener.configMutex.Lock()
+		currentListener.shouldStop = !stillConfigured
+		currentListener.tlsConfig = tlsListeners[addr]
+		currentListener.configMutex.Unlock()
+
+		if stillConfigured {
+			server.logger.Info("rehash",
+				fmt.Sprintf("now listening on %s, tls=%t.", addr, (currentListener.tlsConfig != nil)),
+			)
 		} else {
-			// destroy this listener, since it is no longer in the config
-			currentListener.Events <- ListenerEvent{
-				Type: DestroyListener,
-			}
+			// tell the listener it should stop by interrupting its Accept() call:
+			currentListener.listener.Close()
+			// XXX there is no guarantee from the API when the address will actually
+			// free for bind(2) again; this solution "seems to work". See here:
+			// https://github.com/golang/go/issues/21833
+			<-currentListener.stopEvent
 			delete(server.listeners, addr)
+			server.logger.Info("rehash", fmt.Sprintf("stopped listening on %s.", addr))
 		}
-		// force listener to apply the event right away
-		// (this causes its Accept() call to return immediately with an error)
-		currentListener.Listener.Close()
-		server.listenerEventActMutex.Unlock()
 	}
 
 	// create new listeners that were not previously configured
@@ -1682,7 +1648,7 @@ func (server *Server) rehash() error {
 		_, exists := server.listeners[newaddr]
 		if !exists {
 			// make new listener
-			server.listeners[newaddr] = server.createListener(newaddr, tlsListeners)
+			server.listeners[newaddr] = server.createListener(newaddr, tlsListeners[newaddr])
 		}
 	}
 

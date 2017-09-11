@@ -368,6 +368,7 @@ func (conf *Config) TLSListeners() map[string]*tls.Config {
 	tlsListeners := make(map[string]*tls.Config)
 	for s, tlsListenersConf := range conf.Server.TLSListeners {
 		config, err := tlsListenersConf.Config()
+		config.ClientAuth = tls.RequestClientCert
 		if err != nil {
 			log.Fatal(err)
 		}
