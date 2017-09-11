@@ -52,6 +52,15 @@ type IPBanInfo struct {
 	Time *IPRestrictTime `json:"time"`
 }
 
+// BanMessage returns the ban message.
+func (info IPBanInfo) BanMessage(message string) string {
+	message = fmt.Sprintf(message, info.Reason)
+	if info.Time != nil {
+		message += fmt.Sprintf(" [%s]", info.Time.Duration.String())
+	}
+	return message
+}
+
 // dLineAddr contains the address itself and expiration time for a given network.
 type dLineAddr struct {
 	// Address is the address that is blocked.

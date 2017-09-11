@@ -445,11 +445,7 @@ func (server *Server) Run() {
 			// check DLINEs
 			isBanned, info := server.dlines.CheckIP(ipaddr)
 			if isBanned {
-				banMessage := fmt.Sprintf(bannedFromServerMsg, info.Reason)
-				if info.Time != nil {
-					banMessage += fmt.Sprintf(" [%s]", info.Time.Duration.String())
-				}
-				conn.Conn.Write([]byte(banMessage))
+				conn.Conn.Write([]byte(info.BanMessage(bannedFromServerMsg)))
 				conn.Conn.Close()
 				continue
 			}
@@ -2248,12 +2244,46 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				return true
 			}
 
-			//TODO(dan): check DLINEs and connection throttling/limits
+			// check DLINEs
+			isBanned, info := server.dlines.CheckIP(parsedProxiedIP)
+			if isBanned {
+				client.Quit(info.BanMessage("You are banned from this server (%s)"))
+				return true
+			}
+
+			// check connection limits
+			server.connectionLimitsMutex.Lock()
+			err := server.connectionLimits.AddClient(parsedProxiedIP, false)
+			server.connectionLimitsMutex.Unlock()
+			if err != nil {
+				client.Quit("Too many clients from your network")
+				return true
+			}
+
+			// check connection throttle
+			server.connectionThrottleMutex.Lock()
+			err = server.connectionThrottle.AddClient(parsedProxiedIP)
+			server.connectionThrottleMutex.Unlock()
+			if err != nil {
+				// too many connections too quickly from client, tell them and close the connection
+				length := &IPRestrictTime{
+					Duration: server.connectionThrottle.BanDuration,
+					Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
+				}
+				server.dlines.AddIP(parsedProxiedIP, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
+
+				// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
+				// and once their temporary DLINE is finished they can fill up the throttler again
+				server.connectionThrottle.ResetFor(parsedProxiedIP)
+
+				client.Quit(server.connectionThrottle.BanMessage)
+				return true
+			}
 
 			// override the client's regular IP
 			client.proxiedIP = msg.Params[1]
-			client.hostname = LookupHostname(msg.Params[1])
 			client.rawHostname = LookupHostname(msg.Params[1])
+			client.hostname = client.rawHostname
 			return false
 		}
 	}
