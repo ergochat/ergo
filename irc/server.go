@@ -432,13 +432,14 @@ func (server *Server) Run() {
 			}()
 
 		case conn := <-server.newConns:
-			// check connection limits
+			// check IP address
 			ipaddr := net.ParseIP(IPString(conn.Conn.RemoteAddr()))
 			if ipaddr == nil {
 				conn.Conn.Write([]byte(couldNotParseIPMsg))
 				conn.Conn.Close()
 				continue
 			}
+
 			// check DLINEs
 			isBanned, info := server.dlines.CheckIP(ipaddr)
 			if isBanned {
@@ -475,7 +476,8 @@ func (server *Server) Run() {
 				}
 				server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
 
-				// reset ban on connectionThrottle
+				// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
+				// and once their temporary DLINE is finished they can fill up the throttler again
 				server.connectionThrottle.ResetFor(ipaddr)
 
 				// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
