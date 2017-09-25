@@ -272,6 +272,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.members.Add(client)
 
 	// give channel mode if necessary
+	var newChannel bool
 	var givenMode *Mode
 	client.server.registeredChannelsMutex.Lock()
 	defer client.server.registeredChannelsMutex.Unlock()
@@ -283,6 +284,7 @@ func (channel *Channel) Join(client *Client, key string) {
 				channel.createdTime = time.Now()
 				channel.members[client][ChannelOperator] = true
 				givenMode = &ChannelOperator
+				newChannel = true
 			}
 		} else {
 			// we should only do this on registered channels
@@ -316,7 +318,10 @@ func (channel *Channel) Join(client *Client, key string) {
 	} else {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name)
 	}
-	channel.getTopicNoMutex(client) // we already have Lock
+	// don't sent topic when it's an entirely new channel
+	if !newChannel {
+		channel.getTopicNoMutex(client) // we already have Lock
+	}
 	channel.namesNoMutex(client)
 	if givenMode != nil {
 		for member := range channel.members {
