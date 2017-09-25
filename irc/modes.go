@@ -224,16 +224,10 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	changes := make(ModeChanges, 0)
 	unknown := make(map[rune]bool)
 
+	op := List
+
 	if 0 < len(params) {
 		modeArg := params[0]
-		op := ModeOp(modeArg[0])
-		if (op == Add) || (op == Remove) {
-			modeArg = modeArg[1:]
-		} else {
-			unknown[rune(modeArg[0])] = true
-			return changes, unknown
-		}
-
 		skipArgs := 1
 
 		for _, mode := range modeArg {
@@ -408,19 +402,10 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	changes := make(ModeChanges, 0)
 	unknown := make(map[rune]bool)
 
+	op := List
+
 	if 0 < len(params) {
 		modeArg := params[0]
-		if len(modeArg) == 0 {
-			return changes, unknown
-		}
-		op := ModeOp(modeArg[0])
-		if (op == Add) || (op == Remove) {
-			modeArg = modeArg[1:]
-		} else {
-			unknown[rune(modeArg[0])] = true
-			return changes, unknown
-		}
-
 		skipArgs := 1
 
 		for _, mode := range modeArg {
