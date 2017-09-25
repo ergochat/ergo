@@ -12,8 +12,13 @@ import (
 
 // alertMonitors alerts everyone monitoring us that we're online.
 func (client *Client) alertMonitors() {
+	// get monitors
+	client.server.monitoringMutex.RLock()
+	monitors := client.server.monitoring[client.nickCasefolded]
+	client.server.monitoringMutex.RUnlock()
+
 	// alert monitors
-	for _, mClient := range client.server.monitoring[client.nickCasefolded] {
+	for _, mClient := range monitors {
 		// don't have to notify ourselves
 		if mClient != client {
 			mClient.SendFromClient("", client, nil, RPL_MONONLINE, mClient.nick, client.nickMaskString)
@@ -23,6 +28,12 @@ func (client *Client) alertMonitors() {
 
 // clearMonitorList clears our MONITOR list.
 func (client *Client) clearMonitorList() {
+	// lockin' everything
+	client.monitoringMutex.Lock()
+	defer client.monitoringMutex.Unlock()
+	client.server.monitoringMutex.Lock()
+	defer client.server.monitoringMutex.Unlock()
+
 	for name := range client.monitoring {
 		// just removes current client from the list
 		orig := client.server.monitoring[name]
@@ -82,6 +93,9 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 			continue
 		}
 
+		client.monitoringMutex.Lock()
+		client.server.monitoringMutex.Lock()
+
 		if client.monitoring[casefoldedTarget] {
 			// just removes current client from the list
 			orig := server.monitoring[casefoldedTarget]
@@ -96,6 +110,9 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 
 			delete(client.monitoring, casefoldedTarget)
 		}
+
+		client.monitoringMutex.Unlock()
+		client.server.monitoringMutex.Unlock()
 
 		// remove first element of targets list
 		targets = targets[1:]
@@ -135,12 +152,18 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 			continue
 		}
 
+		client.monitoringMutex.Lock()
+		client.server.monitoringMutex.Lock()
+
 		if !client.monitoring[casefoldedTarget] {
 			client.monitoring[casefoldedTarget] = true
 
 			orig := server.monitoring[casefoldedTarget]
 			server.monitoring[casefoldedTarget] = append(orig, client)
 		}
+
+		client.monitoringMutex.Unlock()
+		client.server.monitoringMutex.Unlock()
 
 		// add to online / offline lists
 		target := server.clients.Get(casefoldedTarget)
@@ -172,9 +195,11 @@ func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var monitorList []string
+	client.monitoringMutex.RLock()
 	for name := range client.monitoring {
 		monitorList = append(monitorList, name)
 	}
+	client.monitoringMutex.RUnlock()
 
 	for _, line := range argsToStrings(maxLastArgLength, monitorList, ",") {
 		client.Send(nil, server.name, RPL_MONLIST, client.nick, line)
@@ -187,7 +212,11 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	var online []string
 	var offline []string
 
-	for name := range client.monitoring {
+	client.monitoringMutex.RLock()
+	monitoring := client.monitoring
+	client.monitoringMutex.RUnlock()
+
+	for name := range monitoring {
 		target := server.clients.Get(name)
 		if target == nil {
 			offline = append(offline, name)

@@ -61,6 +61,7 @@ type Client struct {
 	isDestroyed        bool
 	isQuitting         bool
 	monitoring         map[string]bool
+	monitoringMutex    sync.RWMutex
 	nick               string
 	nickCasefolded     string
 	nickMaskCasefolded string
@@ -523,9 +524,11 @@ func (client *Client) destroy() {
 	}
 
 	// alert monitors
+	client.server.monitoringMutex.RLock()
 	for _, mClient := range client.server.monitoring[client.nickCasefolded] {
 		mClient.Send(nil, client.server.name, RPL_MONOFFLINE, mClient.nick, client.nick)
 	}
+	client.server.monitoringMutex.RUnlock()
 
 	// remove my monitors
 	client.clearMonitorList()

@@ -59,11 +59,11 @@ type LineLenLimits struct {
 
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
 type ListenerWrapper struct {
-	listener    net.Listener
-	tlsConfig   *tls.Config
-	shouldStop  bool
+	listener   net.Listener
+	tlsConfig  *tls.Config
+	shouldStop bool
 	// lets the ListenerWrapper inform the server that it has stopped:
-	stopEvent   chan bool
+	stopEvent chan bool
 	// protects atomic update of tlsConfig and shouldStop:
 	configMutex sync.Mutex
 }
@@ -95,6 +95,7 @@ type Server struct {
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
 	monitoring                   map[string][]*Client
+	monitoringMutex              sync.RWMutex
 	motdLines                    []string
 	name                         string
 	nameCasefolded               string
