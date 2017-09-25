@@ -21,13 +21,13 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "ac112f7d75a0714af1bd86ab17749b31f7809640"
+  revision = "3f19343c7d9ce75569b952758bd236af94956061"
 
 [[projects]]
   branch = "master"
   name = "github.com/gorilla/websocket"
   packages = ["."]
-  revision = "462d5c5828f6203e4047c47be2920315937be380"
+  revision = "6f34763140ed8887aed6a044912009832b4733d7"
 
 [[projects]]
   branch = "master"
@@ -39,13 +39,13 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/goshuirc/irc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "28a5d8eed10129308122f66754e83b7a7fd4ab5d"
+  revision = "a5eafb7ec8061edf1ee666c8eb3b39bba3fe072f"
 
 [[projects]]
   branch = "master"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "3fa8c76f9daed4067e4a806fb7e4dc86455c6d6a"
+  revision = "ad5389df28cdac544c99bd7b9161a0b5b6ca9d1b"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -81,13 +81,13 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/tidwall/buntdb"
   packages = ["."]
-  revision = "83418750ee775aa24194606fffe7fec391975a65"
+  revision = "b67b1b8c1658cb01502801c14e33c61e6c4cbb95"
 
 [[projects]]
-  branch = "master"
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  revision = "c784c417818f59d6597274642d8ac1d09efc9b01"
+  revision = "be96719f990978a867f52c48f29d43f6b591da28"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -111,22 +111,22 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "dd85ac7e6a88fc6ca420478e934de5f1a42dd3c6"
+  revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "abf9c25f54453410d0c6668e519582a9e1115027"
+  packages = ["unix","windows"]
+  revision = "429f518978ab01db8bb6f44b66785088e7fba58b"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["cases","internal","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "cfdf022e86b4ecfb646e1efbd7db175dd623a8fa"
+  packages = ["cases","collate","collate/build","internal","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
+  revision = "1cbadb444a806fd9430d14ad08967ed91da4fa0a"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "3b4ad1db5b2a649883ff3782f5f9f6fb52be71af"
+  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
