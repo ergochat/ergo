@@ -569,7 +569,7 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
 	casefoldedName, err := CasefoldName(nick)
 	target := channel.server.clients.Get(casefoldedName)
 	if err != nil || target == nil {
-		client.Send(nil, client.server.name, ERR_NOSUCHNICK, nick, "No such nick")
+		client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nick, "No such nick")
 		return nil
 	}
 

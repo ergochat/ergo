@@ -1083,7 +1083,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
 				if len(target) > 0 {
-					client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+					client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "No such nick")
 				}
 				continue
 			}
@@ -1150,7 +1150,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
 				if len(target) > 0 {
-					client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+					client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "No such nick")
 				}
 				continue
 			}
@@ -1214,12 +1214,12 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		for _, mask := range masks {
 			casefoldedMask, err := Casefold(mask)
 			if err != nil {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, mask, "No such nick")
+				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
 				continue
 			}
 			matches := server.clients.FindAll(casefoldedMask)
 			if len(matches) == 0 {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, mask, "No such nick")
+				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
 				continue
 			}
 			for mclient := range matches {
@@ -1231,7 +1231,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
 		mclient := server.clients.Get(casefoldedMask)
 		if err != nil || mclient == nil {
-			client.Send(nil, client.server.name, ERR_NOSUCHNICK, masksString, "No such nick")
+			client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, "No such nick")
 			// fall through, ENDOFWHOIS is always sent
 		} else {
 			client.getWhoisOf(mclient)
@@ -1849,7 +1849,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedNickname, err := CasefoldName(nickname)
 		target := server.clients.Get(casefoldedNickname)
 		if err != nil || target == nil {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, nickname, "No such nick")
+			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, "No such nick")
 			continue
 		}
 
@@ -2118,7 +2118,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	casefoldedNickname, err := CasefoldName(nickname)
 	target := server.clients.Get(casefoldedNickname)
 	if err != nil || target == nil {
-		client.Send(nil, client.server.name, ERR_NOSUCHNICK, nickname, "No such nick")
+		client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, "No such nick")
 		return false
 	}
 
@@ -2198,7 +2198,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 		casefoldedNickname, err := CasefoldName(nickname)
 		target := server.clients.Get(casefoldedNickname)
 		if err != nil || target == nil {
-			client.Send(nil, client.server.name, ERR_NOSUCHNICK, nickname, "No such nick")
+			client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, "No such nick")
 			return false
 		}
 		if returnedNicks[casefoldedNickname] {

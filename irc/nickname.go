@@ -89,7 +89,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	target := server.clients.Get(oldnick)
 	if target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, msg.Params[0], "No such nick")
+		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
 		return false
 	}
 

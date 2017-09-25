@@ -99,7 +99,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)
 		if err != nil || user == nil {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, target, "No such nick")
+			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "No such nick")
 			return
 		}
 
