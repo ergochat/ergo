@@ -4,8 +4,10 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.9.0] - 2017-09-25
+So many fixes! You can now set the default modes for new channels, use HAProxy again, use the umode `+R` to protect yourself against unwanted PMs, and we now warn on configurations/setups that look incorrect!
+
+In addition, this release makes testing easier, makes sure we better adhere to the SASL specification and also removes some memory leaks around the place. All in all, just a solid upgrade and less bugs across the board.
 
 ### Config Changes
 * Added `allow-multiple-per-connection` flag under `accounts/registration`, which can be used for account setup by testing software. **Never enable it in production.**
@@ -13,6 +15,7 @@ New release of Oragono!
 * Added `proxy-allowed-from` key under `server`, which is a list of hostnames/IPs that the HAProxy `PROXY` command can be used from.
 
 ### Security
+* Clients could use a nickname that isn't sane. This has the possibility of allowing clients to subvert our admin commands and monitoring features.
 
 ### Added
 * Added a warning if the server's not listening on a TLS port or if it's not listening for TLS connections on port 6697.
@@ -22,12 +25,9 @@ New release of Oragono!
 * Added user modes, including:
     * `R`: Only receive private messages and notices from other registered users.
 
-### Changed
-
-### Removed
-
 ### Fixed
 * Fixed a bug where certain clients couldn't connect as we were incorrectly rejecting their valid PTR record (thanks @slingamn!).
+* Fixed a crash around monitoring clients.
 * Fixed a memory leak in our socket code when clients disconnect.
 * Fixed a SASL bug that resulted in certains clients getting caught in a cycle of trying (and failing) to abort authentication.
 * Fixed an instance where clients could use a nickname that isn't sane (thanks @euank!).
