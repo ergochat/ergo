@@ -374,12 +374,16 @@ func (client *Client) Friends(Capabilities ...Capability) ClientSet {
 		channel.membersMutex.RLock()
 		for member := range channel.members {
 			// make sure they have all the required caps
+			hasCaps = true
 			for _, Cap := range Capabilities {
 				if !member.capabilities[Cap] {
-					continue
+					hasCaps = false
+					break
 				}
 			}
-			friends.Add(member)
+			if hasCaps {
+				friends.Add(member)
+			}
 		}
 		channel.membersMutex.RUnlock()
 	}
