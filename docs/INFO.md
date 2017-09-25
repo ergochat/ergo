@@ -25,6 +25,21 @@ legacy interfaces to access these functions. However, it's gonna be a while befo
 this is specified by someone like the IRCv3 WG.
 
 
+## PROXY
+
+The PROXY command, specified by [HAProxy's PROXY v1 specifications](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt),
+allows someone to setup HAProxy in front of Oragono. This allows them to use HAProxy for
+TLS negotiation (allowing older versions of SSL/TLS than Go's inbuilt TLS support does).
+However, it also allows them to update TLS certificates by updating them with HAProxy,
+rather than relying on our `REHASH` command (which is less-well-tested than I'd like
+right now).
+
+This is a toss-up of course – allowing older versions of TLS might be seen as undesired,
+and I wouldn't use the feature myself, but it's useful for real-world installations which
+is why it exists. The command is only allowed from specific hosts which should restrict it
+appropriately.
+
+
 ## Server-to-Server Linking (or Federation)
 
 Right now Oragono doesn't support linking multiple servers together. It's certainly planned,

@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* Added `allow-multiple-per-connection` flag under `accounts/registration`, which can be used for account setup by testing software. **Never enable it in production.**
+* Added `default-modes` key under `channels`, which is a standard modestring that's applied to new channels.
+* Added `proxy-allowed-from` key under `server`, which is a list of hostnames/IPs that the HAProxy `PROXY` command can be used from.
 
 ### Security
 
@@ -15,6 +18,7 @@ New release of Oragono!
 * Added a warning if the server's not listening on a TLS port or if it's not listening for TLS connections on port 6697.
 * Added a warning if you're trying to run from source or an otherwise unreleased version.
 * Added INFO.md document to better explain the design decisions behind Oragono, exactly how to rehash, etc.
+* Added support for HAProxy's PROXY v1 command, useful for certain installations.
 * Added user modes, including:
     * `R`: Only receive private messages and notices from other registered users.
 
@@ -28,7 +32,8 @@ New release of Oragono!
 * Fixed a SASL bug that resulted in certains clients getting caught in a cycle of trying (and failing) to abort authentication.
 * Fixed an instance where clients could use a nickname that isn't sane (thanks @euank!).
 * Fixed an issue where certain clients who connect incorrectly would stay connected (thanks @euank!).
-* Fixed how we handle particularly unique Unicode strings.
+* Fixed how we handle particularly unique Unicode strings (we now ensure they stabilize while casefolding).
+* Fixed some issues around rehashing, where listeners wouldn't rehash in time and could crash (thanks @slingamn!).
 
 
 ## [0.8.2] - 2017-06-30
