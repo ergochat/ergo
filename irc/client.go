@@ -68,6 +68,7 @@ type Client struct {
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	operName           string
 	proxiedIP          string // actual remote IP if using the PROXY protocol
+	quitMessage        string
 	quitMessageSent    bool
 	quitMutex          sync.Mutex
 	quitTimer          *time.Timer
@@ -491,6 +492,7 @@ func (client *Client) Quit(message string) {
 
 		client.socket.SetFinalData(quitLine + errorLine)
 		client.quitMessageSent = true
+		client.quitMessage = message
 	}
 }
 
@@ -559,8 +561,10 @@ func (client *Client) destroy() {
 
 	// send quit messages to friends
 	for friend := range friends {
-		//TODO(dan): store quit message in user, if exists use that instead here
-		friend.Send(nil, client.nickMaskString, "QUIT", "Exited")
+		if client.quitMessage == "" {
+			client.quitMessage = "Exited"
+		}
+		friend.Send(nil, client.nickMaskString, "QUIT", client.quitMessage)
 	}
 	if !client.exitedSnomaskSent {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), client.nick))
