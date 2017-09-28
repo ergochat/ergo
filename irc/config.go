@@ -196,7 +196,6 @@ type Config struct {
 		Password           string
 		Name               string
 		Listen             []string
-		Wslisten           string                      `yaml:"ws-listen"`
 		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		STS                STSConfig
 		RestAPI            RestAPIConfig `yaml:"rest-api"`

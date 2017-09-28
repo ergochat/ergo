@@ -38,8 +38,8 @@ var (
 )
 
 const (
-	// when shutting down the REST and websocket servers, wait this long
-	// before killing active non-WS connections. TODO: this might not be
+	// when shutting down the REST server, wait this long
+	// before killing active connections. TODO: this might not be
 	// necessary at all? but it seems prudent to avoid potential resource
 	// leaks
 	httpShutdownTimeout = time.Second
@@ -124,7 +124,6 @@ type Server struct {
 	store                        *buntdb.DB
 	stsEnabled                   bool
 	whoWas                       *WhoWasList
-	wsServer                     *http.Server
 }
 
 var (
@@ -380,75 +379,6 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 	}()
 
 	return &wrapper
-}
-
-//
-// websocket listen goroutine
-//
-
-func (server *Server) setupWSListener(config *Config) {
-	// unconditionally shut down the old listener because we can't tell
-	// whether we need to reload the TLS certificate
-	if server.wsServer != nil {
-		ctx, _ := context.WithTimeout(context.Background(), httpShutdownTimeout)
-		server.wsServer.Shutdown(ctx)
-		server.wsServer.Close()
-	}
-
-	if config.Server.Wslisten == "" {
-		server.wsServer = nil
-		return
-	}
-
-	addr := config.Server.Wslisten
-	tlsConfig := config.Server.TLSListeners[addr]
-	handler := http.NewServeMux()
-	wsServer := http.Server{
-		Addr:    addr,
-		Handler: handler,
-	}
-
-	handler.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			server.logger.Error("ws", addr, fmt.Sprintf("%s method not allowed", r.Method))
-			return
-		}
-
-		// We don't have any subprotocols, so if someone attempts to `new
-		// WebSocket(server, "subprotocol")` they'll break here, instead of
-		// getting the default, ambiguous, response from gorilla.
-		if v, ok := r.Header["Sec-Websocket-Protocol"]; ok {
-			http.Error(w, fmt.Sprintf("WebSocket subprocotols (e.g. %s) not supported", v), 400)
-		}
-
-		ws, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			server.logger.Error("ws", addr, fmt.Sprintf("%s websocket upgrade error: %s", server.name, err))
-			return
-		}
-
-		newConn := clientConn{
-			Conn:  WSContainer{ws},
-			IsTLS: tlsConfig != nil,
-		}
-		server.newConns <- newConn
-	})
-
-	go func() {
-		var err error
-		server.logger.Info("listeners", fmt.Sprintf("websocket listening on %s, tls=%t.", addr, tlsConfig != nil))
-
-		if tlsConfig != nil {
-			err = wsServer.ListenAndServeTLS(tlsConfig.Cert, tlsConfig.Key)
-		} else {
-			err = wsServer.ListenAndServe()
-		}
-		if err != nil {
-			server.logger.Error("listeners", fmt.Sprintf("websocket ListenAndServe error: %s", err))
-		}
-	}()
-
-	server.wsServer = &wsServer
 }
 
 // generateMessageID returns a network-unique message ID.
@@ -1497,7 +1427,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	// we are now open for business
 	server.setupListeners(config)
-	server.setupWSListener(config)
 	server.setupRestAPI(config)
 
 	return nil
