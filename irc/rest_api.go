@@ -19,9 +19,9 @@ import (
 
 const restErr = "{\"error\":\"An unknown error occurred\"}"
 
-// restAPIServer is used to keep a link to the current running server since this is the best
+// ircServer is used to keep a link to the current running server since this is the best
 // way to do it, given how HTTP handlers dispatch and work.
-var restAPIServer *Server
+var ircServer *Server
 
 type restInfoResp struct {
 	ServerName  string `json:"server-name"`
@@ -60,8 +60,8 @@ type restRehashResp struct {
 func restInfo(w http.ResponseWriter, r *http.Request) {
 	rs := restInfoResp{
 		Version:     SemVer,
-		ServerName:  restAPIServer.name,
-		NetworkName: restAPIServer.networkName,
+		ServerName:  ircServer.name,
+		NetworkName: ircServer.networkName,
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -73,9 +73,9 @@ func restInfo(w http.ResponseWriter, r *http.Request) {
 
 func restStatus(w http.ResponseWriter, r *http.Request) {
 	rs := restStatusResp{
-		Clients:  restAPIServer.clients.Count(),
-		Opers:    len(restAPIServer.operators),
-		Channels: restAPIServer.channels.Len(),
+		Clients:  ircServer.clients.Count(),
+		Opers:    len(ircServer.operators),
+		Channels: ircServer.channels.Len(),
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -87,8 +87,8 @@ func restStatus(w http.ResponseWriter, r *http.Request) {
 
 func restGetXLines(w http.ResponseWriter, r *http.Request) {
 	rs := restXLinesResp{
-		DLines: restAPIServer.dlines.AllBans(),
-		KLines: restAPIServer.klines.AllBans(),
+		DLines: ircServer.dlines.AllBans(),
+		KLines: ircServer.klines.AllBans(),
 	}
 	b, err := json.Marshal(rs)
 	if err != nil {
@@ -104,7 +104,7 @@ func restGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get accounts
-	err := restAPIServer.store.View(func(tx *buntdb.Tx) error {
+	err := ircServer.store.View(func(tx *buntdb.Tx) error {
 		tx.AscendKeys("account.exists *", func(key, value string) bool {
 			key = key[len("account.exists "):]
 			_, err := tx.Get(fmt.Sprintf(keyAccountVerified, key))
@@ -118,7 +118,7 @@ func restGetAccounts(w http.ResponseWriter, r *http.Request) {
 			regTime := time.Unix(regTimeInt, 0)
 
 			var clients int
-			acct := restAPIServer.accounts[key]
+			acct := ircServer.accounts[key]
 			if acct != nil {
 				clients = len(acct.Clients)
 			}
@@ -148,7 +148,7 @@ func restGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func restRehash(w http.ResponseWriter, r *http.Request) {
-	err := restAPIServer.rehash()
+	err := ircServer.rehash()
 
 	rs := restRehashResp{
 		Successful: err == nil,
@@ -166,9 +166,9 @@ func restRehash(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) startRestAPI() {
+func StartRestAPI(s *Server, listenAddr string) (*http.Server, error) {
 	// so handlers can ref it later
-	restAPIServer = s
+	ircServer = s
 
 	// start router
 	r := mux.NewRouter()
@@ -185,5 +185,16 @@ func (s *Server) startRestAPI() {
 	rp.HandleFunc("/rehash", restRehash)
 
 	// start api
-	go http.ListenAndServe(s.restAPI.Listen, r)
+	httpserver := http.Server{
+		Addr:    listenAddr,
+		Handler: r,
+	}
+
+	go func() {
+		if err := httpserver.ListenAndServe(); err != nil {
+			s.logger.Error("listeners", fmt.Sprintf("Rest API listenAndServe error: %s", err))
+		}
+	}()
+
+	return &httpserver, nil
 }

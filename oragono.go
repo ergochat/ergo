@@ -132,7 +132,7 @@ Options:
 			logger.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
-		server, err := irc.NewServer(configfile, config, logger)
+		server, err := irc.NewServer(config, logger)
 		if err != nil {
 			logger.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return

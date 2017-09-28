@@ -244,6 +244,8 @@ type Config struct {
 		WhowasEntries  uint          `yaml:"whowas-entries"`
 		LineLen        LineLenConfig `yaml:"linelen"`
 	}
+
+	Filename string
 }
 
 // OperClass defines an assembled operator class.
@@ -389,6 +391,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	config.Filename = filename
 
 	// we need this so PasswordBytes returns the correct info
 	if config.Server.Password != "" {
