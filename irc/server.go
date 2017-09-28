@@ -1260,6 +1260,9 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		server.password = nil
 	}
 
+	// apply new PROXY command restrictions
+	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
+
 	// apply new connectionlimits
 	server.connectionLimitsMutex.Lock()
 	server.connectionLimits = connectionLimits
