@@ -1206,18 +1206,18 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	if initial {
 		server.ctime = time.Now()
 		server.configFilename = config.Filename
+	} else {
+		// enforce configs that can't be changed after launch:
+		if server.limits.LineLen.Tags != config.Limits.LineLen.Tags || server.limits.LineLen.Rest != config.Limits.LineLen.Rest {
+			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
+		} else if server.name != config.Server.Name {
+			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
+		}
 	}
 
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
 		return fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
-	}
-
-	if !initial {
-		// line lengths cannot be changed after launching the server
-		if server.limits.LineLen.Tags != config.Limits.LineLen.Tags || server.limits.LineLen.Rest != config.Limits.LineLen.Rest {
-			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
-		}
 	}
 
 	// confirm connectionLimits are fine
