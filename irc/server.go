@@ -31,10 +31,11 @@ import (
 )
 
 var (
+	// common error line to sub values into
+	errorMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "%s ")}[0]).Line()
+
 	// common error responses
-	tooManyClientsMsg, _   = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Too many clients from your network")}[0]).Line()
-	couldNotParseIPMsg, _  = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
-	bannedFromServerMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "You are banned from this server (%s)")}[0]).Line()
+	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
 )
 
 const (
@@ -275,7 +276,8 @@ func (server *Server) Run() {
 
 			isBanned, banMsg := server.checkBans(ipaddr)
 			if isBanned {
-				conn.Conn.Write(banMsg)
+				// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
+				conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
 				conn.Conn.Close()
 				continue
 			}
@@ -289,11 +291,11 @@ func (server *Server) Run() {
 	}
 }
 
-func (server *Server) checkBans(ipaddr net.IP) (banned bool, message []byte) {
+func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
-		return true, []byte(info.BanMessage(bannedFromServerMsg))
+		return true, info.BanMessage("You are banned from this server (%s)")
 	}
 
 	// check connection limits
@@ -302,8 +304,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message []byte) {
 	server.connectionLimitsMutex.Unlock()
 	if err != nil {
 		// too many connections from one client, tell the client and close the connection
-		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-		return true, []byte(tooManyClientsMsg)
+		return true, "Too many clients from your network"
 	}
 
 	// check connection throttle
@@ -323,10 +324,10 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message []byte) {
 		server.connectionThrottle.ResetFor(ipaddr)
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-		return true, []byte(server.connectionThrottle.BanMessageBytes)
+		return true, server.connectionThrottle.BanMessage
 	}
 
-	return false, nil
+	return false, ""
 }
 
 //
@@ -2196,7 +2197,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 			isBanned, banMsg := server.checkBans(parsedProxiedIP)
 			if isBanned {
-				client.Quit(string(banMsg))
+				client.Quit(banMsg)
 				return true
 			}
 

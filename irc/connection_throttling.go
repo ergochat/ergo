@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-
-	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // ThrottleDetails holds the connection-throttling details for a subnet/IP.
@@ -115,12 +113,6 @@ func NewConnectionThrottle(config ConnectionThrottleConfig) (*ConnectionThrottle
 
 	ct.BanDuration = config.BanDuration
 	ct.BanMessage = config.BanMessage
-	ircmsgOutput := ircmsg.MakeMessage(nil, "", "ERROR", ct.BanMessage)
-	msg, err := ircmsgOutput.Line()
-	if err != nil {
-		return nil, fmt.Errorf("Could not make error message: %s", err.Error())
-	}
-	ct.BanMessageBytes = []byte(msg)
 
 	// assemble exempted nets
 	for _, cidr := range config.Exempted {
