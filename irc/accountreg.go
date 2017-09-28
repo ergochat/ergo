@@ -95,7 +95,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	// clients can't reg new accounts if they're already logged in
-	if client.account != nil {
+	if client.LoggedIntoAccount() {
 		if server.accountRegistration.AllowMultiplePerConnection {
 			client.LogoutOfAccount()
 		} else {

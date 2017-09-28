@@ -479,6 +479,11 @@ func (client *Client) ChangeNickname(nickname string) error {
 	return err
 }
 
+// LoggedIntoAccount returns true if this client is logged into an account.
+func (client *Client) LoggedIntoAccount() bool {
+	return client.account != nil && client.account != &NoAccount
+}
+
 // Quit sends the given quit message to the client (but does not destroy them).
 func (client *Client) Quit(message string) {
 	client.quitMutex.Lock()

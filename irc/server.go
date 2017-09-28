@@ -820,7 +820,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var canEdit bool
 	server.store.Update(func(tx *buntdb.Tx) error {
 		chanReg := server.loadChannelNoMutex(tx, casefoldedOldName)
-		if chanReg == nil || client.account == nil || client.account.Name == chanReg.Founder {
+		if chanReg == nil || !client.LoggedIntoAccount() || client.account.Name == chanReg.Founder {
 			canEdit = true
 		}
 

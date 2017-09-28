@@ -248,7 +248,7 @@ func (client *Client) LoginToAccount(account *ClientAccount) {
 	if client.account == account {
 		// already logged into this acct, no changing necessary
 		return
-	} else if client.account != nil {
+	} else if client.LoggedIntoAccount() {
 		// logout of existing acct
 		var newClientAccounts []*Client
 		for _, c := range account.Clients {
@@ -294,7 +294,7 @@ func (client *Client) LogoutOfAccount() {
 // authExternalHandler parses the SASL EXTERNAL mechanism.
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
 	if client.certfp == "" {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed, you are not connecting with a caertificate")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed, you are not connecting with a certificate")
 		return false
 	}
 
