@@ -443,44 +443,9 @@ func (server *Server) Run() {
 				continue
 			}
 
-			// check DLINEs
-			isBanned, info := server.dlines.CheckIP(ipaddr)
+			isBanned, banMsg := server.checkBans(ipaddr)
 			if isBanned {
-				conn.Conn.Write([]byte(info.BanMessage(bannedFromServerMsg)))
-				conn.Conn.Close()
-				continue
-			}
-
-			// check connection limits
-			server.connectionLimitsMutex.Lock()
-			err := server.connectionLimits.AddClient(ipaddr, false)
-			server.connectionLimitsMutex.Unlock()
-			if err != nil {
-				// too many connections from one client, tell the client and close the connection
-				// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-				conn.Conn.Write([]byte(tooManyClientsMsg))
-				conn.Conn.Close()
-				continue
-			}
-
-			// check connection throttle
-			server.connectionThrottleMutex.Lock()
-			err = server.connectionThrottle.AddClient(ipaddr)
-			server.connectionThrottleMutex.Unlock()
-			if err != nil {
-				// too many connections too quickly from client, tell them and close the connection
-				length := &IPRestrictTime{
-					Duration: server.connectionThrottle.BanDuration,
-					Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
-				}
-				server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
-
-				// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
-				// and once their temporary DLINE is finished they can fill up the throttler again
-				server.connectionThrottle.ResetFor(ipaddr)
-
-				// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-				conn.Conn.Write([]byte(server.connectionThrottle.BanMessageBytes))
+				conn.Conn.Write(banMsg)
 				conn.Conn.Close()
 				continue
 			}
@@ -492,6 +457,46 @@ func (server *Server) Run() {
 			continue
 		}
 	}
+}
+
+func (server *Server) checkBans(ipaddr net.IP) (banned bool, message []byte) {
+	// check DLINEs
+	isBanned, info := server.dlines.CheckIP(ipaddr)
+	if isBanned {
+		return true, []byte(info.BanMessage(bannedFromServerMsg))
+	}
+
+	// check connection limits
+	server.connectionLimitsMutex.Lock()
+	err := server.connectionLimits.AddClient(ipaddr, false)
+	server.connectionLimitsMutex.Unlock()
+	if err != nil {
+		// too many connections from one client, tell the client and close the connection
+		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+		return true, []byte(tooManyClientsMsg)
+	}
+
+	// check connection throttle
+	server.connectionThrottleMutex.Lock()
+	err = server.connectionThrottle.AddClient(ipaddr)
+	server.connectionThrottleMutex.Unlock()
+	if err != nil {
+		// too many connections too quickly from client, tell them and close the connection
+		length := &IPRestrictTime{
+			Duration: server.connectionThrottle.BanDuration,
+			Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
+		}
+		server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
+
+		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
+		// and once their temporary DLINE is finished they can fill up the throttler again
+		server.connectionThrottle.ResetFor(ipaddr)
+
+		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+		return true, []byte(server.connectionThrottle.BanMessageBytes)
+	}
+
+	return false, nil
 }
 
 //
@@ -2245,39 +2250,9 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				return true
 			}
 
-			// check DLINEs
-			isBanned, info := server.dlines.CheckIP(parsedProxiedIP)
+			isBanned, banMsg := server.checkBans(parsedProxiedIP)
 			if isBanned {
-				client.Quit(info.BanMessage("You are banned from this server (%s)"))
-				return true
-			}
-
-			// check connection limits
-			server.connectionLimitsMutex.Lock()
-			err := server.connectionLimits.AddClient(parsedProxiedIP, false)
-			server.connectionLimitsMutex.Unlock()
-			if err != nil {
-				client.Quit("Too many clients from your network")
-				return true
-			}
-
-			// check connection throttle
-			server.connectionThrottleMutex.Lock()
-			err = server.connectionThrottle.AddClient(parsedProxiedIP)
-			server.connectionThrottleMutex.Unlock()
-			if err != nil {
-				// too many connections too quickly from client, tell them and close the connection
-				length := &IPRestrictTime{
-					Duration: server.connectionThrottle.BanDuration,
-					Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
-				}
-				server.dlines.AddIP(parsedProxiedIP, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
-
-				// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
-				// and once their temporary DLINE is finished they can fill up the throttler again
-				server.connectionThrottle.ResetFor(parsedProxiedIP)
-
-				client.Quit(server.connectionThrottle.BanMessage)
+				client.Quit(string(banMsg))
 				return true
 			}
 
