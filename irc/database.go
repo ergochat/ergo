@@ -53,6 +53,32 @@ func InitDB(path string) {
 	}
 }
 
+// open an existing database, performing a schema version check
+func OpenDatabase(path string) (*buntdb.DB, error) {
+	// open data store
+	db, err := buntdb.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// check db version
+	err = db.View(func(tx *buntdb.Tx) error {
+		version, _ := tx.Get(keySchemaVersion)
+		if version != latestDbSchema {
+			return fmt.Errorf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version)
+		}
+		return nil
+	})
+
+	if err != nil {
+		// close the db
+		db.Close()
+		return nil, err
+	}
+
+	return db, nil
+}
+
 // UpgradeDB upgrades the datastore to the latest schema.
 func UpgradeDB(path string) {
 	store, err := buntdb.Open(path)

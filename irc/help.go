@@ -530,10 +530,10 @@ Oragono supports the following channel membership prefixes:
 }
 
 // HelpIndex contains the list of all help topics for regular users.
-var HelpIndex = "list of all help topics for regular users"
+var HelpIndex string
 
 // HelpIndexOpers contains the list of all help topics for opers.
-var HelpIndexOpers = "list of all help topics for opers"
+var HelpIndexOpers string
 
 // GenerateHelpIndex is used to generate HelpIndex.
 func GenerateHelpIndex(forOpers bool) string {
@@ -580,6 +580,25 @@ Information:
 	newHelpIndex = fmt.Sprintf(newHelpIndex, strings.Join(commands, "\n"), strings.Join(isupport, "\n"), strings.Join(information, "\n"))
 
 	return newHelpIndex
+}
+
+func GenerateHelpIndices() error {
+	if HelpIndex != "" && HelpIndexOpers != "" {
+		return nil
+	}
+
+	// startup check that we have HELP entries for every command
+	for name := range Commands {
+		_, exists := Help[strings.ToLower(name)]
+		if !exists {
+			return fmt.Errorf("Help entry does not exist for command %s", name)
+		}
+	}
+
+	// generate help indexes
+	HelpIndex = GenerateHelpIndex(false)
+	HelpIndexOpers = GenerateHelpIndex(true)
+	return nil
 }
 
 // sendHelp sends the client help of the given string.

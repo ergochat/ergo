@@ -17,9 +17,6 @@ server:
         - "[::1]:6668"
         - ":6697" # ssl port
 
-    # websocket listening port
-    ws-listen: ":8080"
-
     # tls listeners
     tls-listeners:
         # listener on ":6697"

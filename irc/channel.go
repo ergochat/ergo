@@ -57,7 +57,7 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	}
 
 	if addDefaultModes {
-		for _, mode := range s.defaultChannelModes {
+		for _, mode := range s.GetDefaultChannelModes() {
 			channel.flags[mode] = true
 		}
 	}
