@@ -600,7 +600,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 		}
 	}
 	// attach message-id
-	if len(msgid) > 0 && client.capabilities[MessageIDs] {
+	if len(msgid) > 0 && client.capabilities[MessageTags] {
 		if tags == nil {
 			tags = ircmsg.MakeTags("draft/msgid", msgid)
 		} else {
