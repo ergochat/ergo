@@ -4,20 +4,19 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
-
-### Config Changes
-
-### Security
+## [0.9.1] - 2017-09-28
+This is a patch release to fix compatibility with Irssi and resolve some issues! Thanks very much @dequis, @slingamn and squigz for the help and for bringing up the issues.
 
 ### Added
+* Allow the `MODE b` syntax, which certain clients use to check lists.
 
 ### Changed
-
-### Removed
+* `QUIT`: We now send the actual quit message to other users.
 
 ### Fixed
+* Fix incorrectly forwarding `AWAY` messages to clients without `away-notify`.
+* Fix incorrect login check which prevented account registration.
+* Fix `ERR_NOSUCHNICK` numerics (we weren't sending the nick correctly).
 
 
 ## [0.9.0] - 2017-09-25
