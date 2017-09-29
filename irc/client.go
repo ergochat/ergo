@@ -19,6 +19,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/sno"
 )
 
@@ -177,10 +178,10 @@ func (client *Client) IPString() string {
 func (client *Client) maxlens() (int, int) {
 	maxlenTags := 512
 	maxlenRest := 512
-	if client.capabilities[MessageTags] {
+	if client.capabilities[caps.MessageTags] {
 		maxlenTags = 4096
 	}
-	if client.capabilities[MaxLine] {
+	if client.capabilities[caps.MaxLine] {
 		if client.server.limits.LineLen.Tags > maxlenTags {
 			maxlenTags = client.server.limits.LineLen.Tags
 		}
@@ -356,7 +357,7 @@ func (client *Client) ModeString() (str string) {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends(Capabilities ...Capability) ClientSet {
+func (client *Client) Friends(Capabilities ...caps.Capability) ClientSet {
 	friends := make(ClientSet)
 
 	// make sure that I have the right caps
@@ -579,7 +580,7 @@ func (client *Client) destroy() {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
-	if client.capabilities[MaxLine] {
+	if client.capabilities[caps.MaxLine] {
 		client.SendFromClient(msgid, from, tags, command, target, message.ForMaxLine)
 	} else {
 		for _, str := range message.For512 {
@@ -592,7 +593,7 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 // Adds account-tag to the line as well.
 func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
-	if client.capabilities[AccountTag] && from.account != &NoAccount {
+	if client.capabilities[caps.AccountTag] && from.account != &NoAccount {
 		if tags == nil {
 			tags = ircmsg.MakeTags("account", from.account.Name)
 		} else {
@@ -600,7 +601,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 		}
 	}
 	// attach message-id
-	if len(msgid) > 0 && client.capabilities[MessageTags] {
+	if len(msgid) > 0 && client.capabilities[caps.MessageTags] {
 		if tags == nil {
 			tags = ircmsg.MakeTags("draft/msgid", msgid)
 		} else {
@@ -627,7 +628,7 @@ var (
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
-	if client.capabilities[ServerTime] {
+	if client.capabilities[caps.ServerTime] {
 		t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
 		if tags == nil {
 			tags = ircmsg.MakeTags("time", t)
@@ -677,7 +678,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 // Notice sends the client a notice from the server.
 func (client *Client) Notice(text string) {
 	limit := 400
-	if client.capabilities[MaxLine] {
+	if client.capabilities[caps.MaxLine] {
 		limit = client.server.limits.LineLen.Rest - 110
 	}
 	lines := wordWrap(text, limit)

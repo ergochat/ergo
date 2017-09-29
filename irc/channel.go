@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/tidwall/buntdb"
 )
 
@@ -164,8 +165,8 @@ func (modes ModeSet) Prefixes(isMultiPrefix bool) string {
 }
 
 func (channel *Channel) nicksNoMutex(target *Client) []string {
-	isMultiPrefix := (target != nil) && target.capabilities[MultiPrefix]
-	isUserhostInNames := (target != nil) && target.capabilities[UserhostInNames]
+	isMultiPrefix := (target != nil) && target.capabilities[caps.MultiPrefix]
+	isUserhostInNames := (target != nil) && target.capabilities[caps.UserhostInNames]
 	nicks := make([]string, len(channel.members))
 	i := 0
 	for client, modes := range channel.members {
@@ -261,7 +262,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, channel.name))
 
 	for member := range channel.members {
-		if member.capabilities[ExtendedJoin] {
+		if member.capabilities[caps.ExtendedJoin] {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 		} else {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name)
@@ -313,7 +314,7 @@ func (channel *Channel) Join(client *Client, key string) {
 		return nil
 	})
 
-	if client.capabilities[ExtendedJoin] {
+	if client.capabilities[caps.ExtendedJoin] {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 	} else {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name)
@@ -441,11 +442,11 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 
 // TagMsg sends a tag message to everyone in this channel who can accept them.
 func (channel *Channel) TagMsg(msgid string, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client) {
-	channel.sendMessage(msgid, "TAGMSG", []Capability{MessageTags}, minPrefix, clientOnlyTags, client, nil)
+	channel.sendMessage(msgid, "TAGMSG", []caps.Capability{caps.MessageTags}, minPrefix, clientOnlyTags, client, nil)
 }
 
 // sendMessage sends a given message to everyone on this channel.
-func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
+func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capability, minPrefix *Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string) {
 	if !channel.CanSpeak(client) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
@@ -464,7 +465,7 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities[EchoMessage] {
+		if member == client && !client.capabilities[caps.EchoMessage] {
 			continue
 		}
 
@@ -479,7 +480,7 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []Capability
 		}
 
 		var messageTagsToUse *map[string]ircmsg.TagValue
-		if member.capabilities[MessageTags] {
+		if member.capabilities[caps.MessageTags] {
 			messageTagsToUse = clientOnlyTags
 		}
 
@@ -520,11 +521,11 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *Mode, cli
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities[EchoMessage] {
+		if member == client && !client.capabilities[caps.EchoMessage] {
 			continue
 		}
 		var tagsToUse *map[string]ircmsg.TagValue
-		if member.capabilities[MessageTags] {
+		if member.capabilities[caps.MessageTags] {
 			tagsToUse = clientOnlyTags
 		}
 
@@ -728,7 +729,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	// send invite-notify
 	for member := range channel.members {
-		if member.capabilities[InviteNotify] && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
+		if member.capabilities[caps.InviteNotify] && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
 			member.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
 		}
 	}

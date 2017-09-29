@@ -8,75 +8,34 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircmsg"
-)
-
-// Capability represents an optional feature that a client may request from the server.
-type Capability string
-
-const (
-	// AccountNotify is this IRCv3 capability: http://ircv3.net/specs/extensions/account-notify-3.1.html
-	AccountNotify Capability = "account-notify"
-	// AccountTag is this IRCv3 capability: http://ircv3.net/specs/extensions/account-tag-3.2.html
-	AccountTag Capability = "account-tag"
-	// AwayNotify is this IRCv3 capability: http://ircv3.net/specs/extensions/away-notify-3.1.html
-	AwayNotify Capability = "away-notify"
-	// CapNotify is this IRCv3 capability: http://ircv3.net/specs/extensions/cap-notify-3.2.html
-	CapNotify Capability = "cap-notify"
-	// ChgHost is this IRCv3 capability: http://ircv3.net/specs/extensions/chghost-3.2.html
-	ChgHost Capability = "chghost"
-	// EchoMessage is this IRCv3 capability: http://ircv3.net/specs/extensions/echo-message-3.2.html
-	EchoMessage Capability = "echo-message"
-	// ExtendedJoin is this IRCv3 capability: http://ircv3.net/specs/extensions/extended-join-3.1.html
-	ExtendedJoin Capability = "extended-join"
-	// InviteNotify is this IRCv3 capability: http://ircv3.net/specs/extensions/invite-notify-3.2.html
-	InviteNotify Capability = "invite-notify"
-	// MaxLine is this proposed capability: https://github.com/DanielOaks/ircv3-specifications/blob/master+line-lengths/extensions/line-lengths.md
-	MaxLine Capability = "draft/maxline"
-	// MessageTags is this draft IRCv3 capability: http://ircv3.net/specs/core/message-tags-3.3.html
-	MessageTags Capability = "draft/message-tags-0.2"
-	// MultiPrefix is this IRCv3 capability: http://ircv3.net/specs/extensions/multi-prefix-3.1.html
-	MultiPrefix Capability = "multi-prefix"
-	// Rename is this proposed capability: https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md
-	Rename Capability = "draft/rename"
-	// SASL is this IRCv3 capability: http://ircv3.net/specs/extensions/sasl-3.2.html
-	SASL Capability = "sasl"
-	// ServerTime is this IRCv3 capability: http://ircv3.net/specs/extensions/server-time-3.2.html
-	ServerTime Capability = "server-time"
-	// STS is this draft IRCv3 capability: http://ircv3.net/specs/core/sts-3.3.html
-	STS Capability = "draft/sts"
-	// UserhostInNames is this IRCv3 capability: http://ircv3.net/specs/extensions/userhost-in-names-3.2.html
-	UserhostInNames Capability = "userhost-in-names"
+	"github.com/oragono/oragono/irc/caps"
 )
 
 var (
 	// SupportedCapabilities are the caps we advertise.
 	SupportedCapabilities = CapabilitySet{
-		AccountTag:    true,
-		AccountNotify: true,
-		AwayNotify:    true,
-		CapNotify:     true,
-		ChgHost:       true,
-		EchoMessage:   true,
-		ExtendedJoin:  true,
-		InviteNotify:  true,
+		caps.AccountTag:    true,
+		caps.AccountNotify: true,
+		caps.AwayNotify:    true,
+		caps.CapNotify:     true,
+		caps.ChgHost:       true,
+		caps.EchoMessage:   true,
+		caps.ExtendedJoin:  true,
+		caps.InviteNotify:  true,
 		// MaxLine is set during server startup
-		MessageTags: true,
-		MultiPrefix: true,
-		Rename:      true,
+		caps.MessageTags: true,
+		caps.MultiPrefix: true,
+		caps.Rename:      true,
 		// SASL is set during server startup
-		ServerTime: true,
+		caps.ServerTime: true,
 		// STS is set during server startup
-		UserhostInNames: true,
+		caps.UserhostInNames: true,
 	}
 	// CapValues are the actual values we advertise to v3.2 clients.
-	CapValues = map[Capability]string{
-		SASL: "PLAIN,EXTERNAL",
+	CapValues = map[caps.Capability]string{
+		caps.SASL: "PLAIN,EXTERNAL",
 	}
 )
-
-func (capability Capability) String() string {
-	return string(capability)
-}
 
 // CapState shows whether we're negotiating caps, finished, etc for connection registration.
 type CapState uint
@@ -101,7 +60,7 @@ const (
 )
 
 // CapabilitySet is used to track supported, enabled, and existing caps.
-type CapabilitySet map[Capability]bool
+type CapabilitySet map[caps.Capability]bool
 
 func (set CapabilitySet) String(version CapVersion) string {
 	strs := make([]string, len(set))
@@ -131,7 +90,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		strs := strings.Split(capString, " ")
 		for _, str := range strs {
 			if len(str) > 0 {
-				capabilities[Capability(str)] = true
+				capabilities[caps.Capability(str)] = true
 			}
 		}
 	}

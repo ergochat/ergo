@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircmatch"
+	"github.com/oragono/oragono/irc/caps"
 
 	"sync"
 )
@@ -155,7 +156,7 @@ func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client)
 }
 
 // AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientLookupSet) AllWithCaps(caps ...Capability) (set ClientSet) {
+func (clients *ClientLookupSet) AllWithCaps(caps ...caps.Capability) (set ClientSet) {
 	set = make(ClientSet)
 
 	clients.ByNickMutex.RLock()

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/caps"
 )
 
 const (
@@ -89,7 +90,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 
 		channel.membersMutex.RLock()
 		for member := range channel.members {
-			if member == client && !client.capabilities[EchoMessage] {
+			if member == client && !client.capabilities[caps.EchoMessage] {
 				continue
 			}
 			member.Send(nil, source, "PRIVMSG", channel.name, message)
@@ -109,7 +110,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		}
 
 		user.Send(nil, source, "PRIVMSG", user.nick, message)
-		if client.capabilities[EchoMessage] {
+		if client.capabilities[caps.EchoMessage] {
 			client.Send(nil, source, "PRIVMSG", user.nick, message)
 		}
 		if user.flags[Away] {

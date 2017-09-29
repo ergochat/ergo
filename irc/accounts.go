@@ -15,6 +15,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
@@ -286,7 +287,7 @@ func (client *Client) LogoutOfAccount() {
 	client.account = nil
 
 	// dispatch account-notify
-	for friend := range client.Friends(AccountNotify) {
+	for friend := range client.Friends(caps.AccountNotify) {
 		friend.Send(nil, client.nickMaskString, "ACCOUNT", "*")
 	}
 }
@@ -349,7 +350,7 @@ func (client *Client) successfulSaslAuth() {
 	client.Send(nil, client.server.name, RPL_SASLSUCCESS, client.nick, "SASL authentication successful")
 
 	// dispatch account-notify
-	for friend := range client.Friends(AccountNotify) {
+	for friend := range client.Friends(caps.AccountNotify) {
 		friend.Send(nil, client.nickMaskString, "ACCOUNT", client.account.Name)
 	}
 }

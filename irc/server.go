@@ -25,6 +25,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
@@ -641,11 +642,11 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// send RENAME messages
 	for mcl := range channel.members {
-		if mcl.capabilities[Rename] {
+		if mcl.capabilities[caps.Rename] {
 			mcl.Send(nil, client.nickMaskString, "RENAME", oldName, newName, reason)
 		} else {
 			mcl.Send(nil, mcl.nickMaskString, "PART", oldName, fmt.Sprintf("Channel renamed: %s", reason))
-			if mcl.capabilities[ExtendedJoin] {
+			if mcl.capabilities[caps.ExtendedJoin] {
 				accountName := "*"
 				if mcl.account != nil {
 					accountName = mcl.account.Name
@@ -824,7 +825,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities[MaxLine])
+	splitMsg := server.splitMessage(message, !client.capabilities[caps.MaxLine])
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -868,7 +869,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				}
 				continue
 			}
-			if !user.capabilities[MessageTags] {
+			if !user.capabilities[caps.MessageTags] {
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
@@ -877,7 +878,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			if !user.flags[RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
-			if client.capabilities[EchoMessage] {
+			if client.capabilities[caps.EchoMessage] {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.flags[Away] {
@@ -938,11 +939,11 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			msgid := server.generateMessageID()
 
 			// end user can't receive tagmsgs
-			if !user.capabilities[MessageTags] {
+			if !user.capabilities[caps.MessageTags] {
 				continue
 			}
 			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
-			if client.capabilities[EchoMessage] {
+			if client.capabilities[caps.EchoMessage] {
 				client.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.flags[Away] {
@@ -956,7 +957,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // WhoisChannelsNames returns the common channel names between two users.
 func (client *Client) WhoisChannelsNames(target *Client) []string {
-	isMultiPrefix := target.capabilities[MultiPrefix]
+	isMultiPrefix := target.capabilities[caps.MultiPrefix]
 	var chstrs []string
 	index := 0
 	for channel := range client.channels {
@@ -1061,7 +1062,7 @@ func (target *Client) RplWhoReplyNoMutex(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
-		flags += channel.members[client].Prefixes(target.capabilities[MultiPrefix])
+		flags += channel.members[client].Prefixes(target.capabilities[caps.MultiPrefix])
 		channelName = channel.name
 	}
 	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.username, client.hostname, client.server.name, client.nick, flags, strconv.Itoa(client.hops)+" "+client.realname)
@@ -1151,7 +1152,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// push new vhost if one is set
 	if len(server.operators[name].Vhost) > 0 {
-		for fClient := range client.Friends(ChgHost) {
+		for fClient := range client.Friends(caps.ChgHost) {
 			fClient.SendFromClient("", client, nil, "CHGHOST", client.username, server.operators[name].Vhost)
 		}
 		// CHGHOST requires prefix nickmask to have original hostname, so do that before updating nickmask
@@ -1294,34 +1295,34 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	// SASL
 	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
 		// enabling SASL
-		SupportedCapabilities[SASL] = true
-		addedCaps[SASL] = true
+		SupportedCapabilities[caps.SASL] = true
+		addedCaps[caps.SASL] = true
 	}
 	if !config.Accounts.AuthenticationEnabled && server.accountAuthenticationEnabled {
 		// disabling SASL
-		SupportedCapabilities[SASL] = false
-		removedCaps[SASL] = true
+		SupportedCapabilities[caps.SASL] = false
+		removedCaps[caps.SASL] = true
 	}
 	server.accountAuthenticationEnabled = config.Accounts.AuthenticationEnabled
 
 	// STS
 	stsValue := config.Server.STS.Value()
 	var stsDisabled bool
-	server.logger.Debug("rehash", "STS Vals", CapValues[STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
+	server.logger.Debug("rehash", "STS Vals", CapValues[caps.STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
 	if config.Server.STS.Enabled && !server.stsEnabled {
 		// enabling STS
-		SupportedCapabilities[STS] = true
-		addedCaps[STS] = true
-		CapValues[STS] = stsValue
+		SupportedCapabilities[caps.STS] = true
+		addedCaps[caps.STS] = true
+		CapValues[caps.STS] = stsValue
 	} else if !config.Server.STS.Enabled && server.stsEnabled {
 		// disabling STS
-		SupportedCapabilities[STS] = false
-		removedCaps[STS] = true
+		SupportedCapabilities[caps.STS] = false
+		removedCaps[caps.STS] = true
 		stsDisabled = true
-	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != CapValues[STS] {
+	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != CapValues[caps.STS] {
 		// STS policy updated
-		CapValues[STS] = stsValue
-		updatedCaps[STS] = true
+		CapValues[caps.STS] = stsValue
+		updatedCaps[caps.STS] = true
 	}
 	server.stsEnabled = config.Server.STS.Enabled
 
@@ -1341,7 +1342,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	if len(addedCaps) > 0 || len(removedCaps) > 0 {
-		capBurstClients = server.clients.AllWithCaps(CapNotify)
+		capBurstClients = server.clients.AllWithCaps(caps.CapNotify)
 
 		added[Cap301] = addedCaps.String(Cap301)
 		added[Cap302] = addedCaps.String(Cap302)
@@ -1357,7 +1358,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			if len(addedCaps) > 0 {
 				added[Cap302] = added[Cap302] + " " + stsPolicy
 			} else {
-				addedCaps[STS] = true
+				addedCaps[caps.STS] = true
 				added[Cap302] = stsPolicy
 			}
 		}
@@ -1655,7 +1656,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.Send(nil, server.name, "MODE", client.nick, modech.String())
 
 	// dispatch away-notify
-	for friend := range client.Friends(AwayNotify) {
+	for friend := range client.Friends(caps.AwayNotify) {
 		if client.flags[Away] {
 			friend.SendFromClient("", client, nil, "AWAY", client.awayMessage)
 		} else {
@@ -1706,7 +1707,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities[MaxLine])
+	splitMsg := server.splitMessage(message, !client.capabilities[caps.MaxLine])
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1747,7 +1748,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			if !user.capabilities[MessageTags] {
+			if !user.capabilities[caps.MessageTags] {
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
@@ -1756,7 +1757,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.flags[RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
-			if client.capabilities[EchoMessage] {
+			if client.capabilities[caps.EchoMessage] {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 		}
