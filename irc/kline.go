@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -34,6 +35,7 @@ type KLineInfo struct {
 
 // KLineManager manages and klines.
 type KLineManager struct {
+	sync.RWMutex
 	// kline'd entries
 	entries map[string]*KLineInfo
 }
@@ -49,6 +51,8 @@ func NewKLineManager() *KLineManager {
 func (km *KLineManager) AllBans() map[string]IPBanInfo {
 	allb := make(map[string]IPBanInfo)
 
+	km.RLock()
+	defer km.RUnlock()
 	for name, info := range km.entries {
 		allb[name] = info.Info
 	}
@@ -67,46 +71,56 @@ func (km *KLineManager) AddMask(mask string, length *IPRestrictTime, reason stri
 			OperReason: operReason,
 		},
 	}
+	km.Lock()
 	km.entries[mask] = &kln
+	km.Unlock()
 }
 
 // RemoveMask removes a mask from the blocked list.
 func (km *KLineManager) RemoveMask(mask string) {
+	km.Lock()
 	delete(km.entries, mask)
+	km.Unlock()
 }
 
 // CheckMasks returns whether or not the hostmask(s) are banned, and how long they are banned for.
 func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanInfo) {
-	// check networks
-	var masksToRemove []string
+	doCleanup := false
+	defer func() {
+		// asynchronously remove expired bans
+		if doCleanup {
+			go func() {
+				km.Lock()
+				defer km.Unlock()
+				for key, entry := range km.entries {
+					if entry.Info.Time.IsExpired() {
+						delete(km.entries, key)
+					}
+				}
+			}()
+		}
+	}()
+
+
+	km.RLock()
+	defer km.RUnlock()
 
 	for _, entryInfo := range km.entries {
-		var matches bool
+		if entryInfo.Info.Time != nil && entryInfo.Info.Time.IsExpired() {
+			doCleanup = true
+			continue
+		}
+
+		matches := false
 		for _, mask := range masks {
 			if entryInfo.Matcher.Match(mask) {
 				matches = true
 				break
 			}
 		}
-		if !matches {
-			continue
-		}
-
-		if entryInfo.Info.Time != nil {
-			if entryInfo.Info.Time.IsExpired() {
-				// ban on network has expired, remove it from our blocked list
-				masksToRemove = append(masksToRemove, entryInfo.Mask)
-			} else {
-				return true, &entryInfo.Info
-			}
-		} else {
+		if matches {
 			return true, &entryInfo.Info
 		}
-	}
-
-	// remove expired networks
-	for _, expiredMask := range masksToRemove {
-		km.RemoveMask(expiredMask)
 	}
 
 	// no matches!
