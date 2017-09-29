@@ -29,8 +29,6 @@ const (
 	LabeledResponse Capability = "draft/labeled-response"
 	// MaxLine is this proposed capability: https://github.com/DanielOaks/ircv3-specifications/blob/master+line-lengths/extensions/line-lengths.md
 	MaxLine Capability = "draft/maxline"
-	// MessageIDs is this draft IRCv3 capability: http://ircv3.net/specs/extensions/message-ids.html
-	MessageIDs Capability = "draft/message-ids"
 	// MessageTags is this draft IRCv3 capability: http://ircv3.net/specs/core/message-tags-3.3.html
 	MessageTags Capability = "draft/message-tags-0.2"
 	// MultiPrefix is this IRCv3 capability: http://ircv3.net/specs/extensions/multi-prefix-3.1.html
