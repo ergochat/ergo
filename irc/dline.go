@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"sync"
 	"time"
 
 	"strings"
@@ -79,6 +80,7 @@ type dLineNet struct {
 
 // DLineManager manages and dlines.
 type DLineManager struct {
+	sync.RWMutex
 	// addresses that are dlined
 	addresses map[string]*dLineAddr
 	// networks that are dlined
@@ -96,6 +98,9 @@ func NewDLineManager() *DLineManager {
 // AllBans returns all bans (for use with APIs, etc).
 func (dm *DLineManager) AllBans() map[string]IPBanInfo {
 	allb := make(map[string]IPBanInfo)
+
+	dm.RLock()
+	defer dm.RUnlock()
 
 	for name, info := range dm.addresses {
 		allb[name] = info.Info
@@ -118,13 +123,17 @@ func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, re
 			OperReason: operReason,
 		},
 	}
+	dm.Lock()
 	dm.networks[netString] = &dln
+	dm.Unlock()
 }
 
 // RemoveNetwork removes a network from the blocked list.
 func (dm *DLineManager) RemoveNetwork(network net.IPNet) {
 	netString := network.String()
+	dm.Lock()
 	delete(dm.networks, netString)
+	dm.Unlock()
 }
 
 // AddIP adds an IP address to the blocked list.
@@ -138,21 +147,27 @@ func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason string
 			OperReason: operReason,
 		},
 	}
+	dm.Lock()
 	dm.addresses[addrString] = &dla
+	dm.Unlock()
 }
 
 // RemoveIP removes an IP from the blocked list.
 func (dm *DLineManager) RemoveIP(addr net.IP) {
 	addrString := addr.String()
+	dm.Lock()
 	delete(dm.addresses, addrString)
+	dm.Unlock()
 }
 
 // CheckIP returns whether or not an IP address was banned, and how long it is banned for.
 func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 	// check IP addr
 	addrString := addr.String()
-
+	dm.RLock()
 	addrInfo := dm.addresses[addrString]
+	dm.RUnlock()
+
 	if addrInfo != nil {
 		if addrInfo.Info.Time != nil {
 			if addrInfo.Info.Time.IsExpired() {
@@ -167,30 +182,32 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 	}
 
 	// check networks
-	var netsToRemove []net.IPNet
+	doCleanup := false
+	defer func() {
+		if doCleanup {
+			go func() {
+				dm.Lock()
+				defer dm.Unlock()
+				for key, netInfo := range dm.networks {
+					if netInfo.Info.Time.IsExpired() {
+						delete(dm.networks, key)
+					}
+				}
+			}()
+		}
+	}()
+
+	dm.RLock()
+	defer dm.RUnlock()
 
 	for _, netInfo := range dm.networks {
-		if !netInfo.Network.Contains(addr) {
-			continue
-		}
-
-		if netInfo.Info.Time != nil {
-			if netInfo.Info.Time.IsExpired() {
-				// ban on network has expired, remove it from our blocked list
-				netsToRemove = append(netsToRemove, netInfo.Network)
-			} else {
-				return true, &addrInfo.Info
-			}
-		} else {
-			return true, &addrInfo.Info
+		if netInfo.Info.Time != nil && netInfo.Info.Time.IsExpired() {
+			// expired ban, ignore and clean up later
+			doCleanup = true
+		} else if netInfo.Network.Contains(addr) {
+			return true, &netInfo.Info
 		}
 	}
-
-	// remove expired networks
-	for _, expiredNet := range netsToRemove {
-		dm.RemoveNetwork(expiredNet)
-	}
-
 	// no matches!
 	return false, nil
 }
