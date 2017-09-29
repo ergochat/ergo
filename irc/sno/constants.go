@@ -1,3 +1,6 @@
+// Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
+// released under the MIT license
+
 // Package sno holds Server Notice masks for easy reference.
 package sno
 

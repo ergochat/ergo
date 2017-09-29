@@ -1,3 +1,6 @@
+// Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
+// released under the MIT license
+
 package caps
 
 // Version is used to select which max version of CAP the client supports.

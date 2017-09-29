@@ -1,4 +1,6 @@
-// Package caps holds capabilities.
+// Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
+// released under the MIT license
+
 package caps
 
 // Capability represents an optional feature that a client may request from the server.
