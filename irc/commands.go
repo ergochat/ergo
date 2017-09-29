@@ -28,7 +28,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied - You're not an IRC operator")
 		return false
 	}
-	if len(cmd.capabs) > 0 && !client.HasCapabs(cmd.capabs...) {
+	if len(cmd.capabs) > 0 && !client.HasRoleCapabs(cmd.capabs...) {
 		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied")
 		return false
 	}

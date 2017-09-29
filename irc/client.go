@@ -330,8 +330,8 @@ func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
 
-// HasCapabs returns true if client has the given (role) capabilities.
-func (client *Client) HasCapabs(capabs ...string) bool {
+// HasRoleCapabs returns true if client has the given (role) capabilities.
+func (client *Client) HasRoleCapabs(capabs ...string) bool {
 	if client.class == nil {
 		return false
 	}
