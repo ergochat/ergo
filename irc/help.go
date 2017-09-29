@@ -582,6 +582,7 @@ Information:
 	return newHelpIndex
 }
 
+// GenerateHelpIndices generates our help indexes and confirms we have HELP entries for every command.
 func GenerateHelpIndices() error {
 	if HelpIndex != "" && HelpIndexOpers != "" {
 		return nil
