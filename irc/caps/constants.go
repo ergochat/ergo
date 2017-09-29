@@ -45,6 +45,7 @@ const (
 	UserhostInNames Capability = "userhost-in-names"
 )
 
-func (capability Capability) String() string {
+// Name returns the name of the given capability.
+func (capability Capability) Name() string {
 	return string(capability)
 }

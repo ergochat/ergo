@@ -165,8 +165,8 @@ func (modes ModeSet) Prefixes(isMultiPrefix bool) string {
 }
 
 func (channel *Channel) nicksNoMutex(target *Client) []string {
-	isMultiPrefix := (target != nil) && target.capabilities[caps.MultiPrefix]
-	isUserhostInNames := (target != nil) && target.capabilities[caps.UserhostInNames]
+	isMultiPrefix := (target != nil) && target.capabilities.Has(caps.MultiPrefix)
+	isUserhostInNames := (target != nil) && target.capabilities.Has(caps.UserhostInNames)
 	nicks := make([]string, len(channel.members))
 	i := 0
 	for client, modes := range channel.members {
@@ -262,7 +262,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, channel.name))
 
 	for member := range channel.members {
-		if member.capabilities[caps.ExtendedJoin] {
+		if member.capabilities.Has(caps.ExtendedJoin) {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 		} else {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name)
@@ -314,7 +314,7 @@ func (channel *Channel) Join(client *Client, key string) {
 		return nil
 	})
 
-	if client.capabilities[caps.ExtendedJoin] {
+	if client.capabilities.Has(caps.ExtendedJoin) {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 	} else {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name)
@@ -465,13 +465,13 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities[caps.EchoMessage] {
+		if member == client && !client.capabilities.Has(caps.EchoMessage) {
 			continue
 		}
 
 		canReceive := true
 		for _, capName := range requiredCaps {
-			if !member.capabilities[capName] {
+			if !member.capabilities.Has(capName) {
 				canReceive = false
 			}
 		}
@@ -480,7 +480,7 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 		}
 
 		var messageTagsToUse *map[string]ircmsg.TagValue
-		if member.capabilities[caps.MessageTags] {
+		if member.capabilities.Has(caps.MessageTags) {
 			messageTagsToUse = clientOnlyTags
 		}
 
@@ -521,11 +521,11 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *Mode, cli
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities[caps.EchoMessage] {
+		if member == client && !client.capabilities.Has(caps.EchoMessage) {
 			continue
 		}
 		var tagsToUse *map[string]ircmsg.TagValue
-		if member.capabilities[caps.MessageTags] {
+		if member.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
 		}
 
@@ -729,7 +729,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	// send invite-notify
 	for member := range channel.members {
-		if member.capabilities[caps.InviteNotify] && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
+		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
 			member.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
 		}
 	}

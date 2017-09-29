@@ -13,28 +13,12 @@ import (
 
 var (
 	// SupportedCapabilities are the caps we advertise.
-	SupportedCapabilities = CapabilitySet{
-		caps.AccountTag:    true,
-		caps.AccountNotify: true,
-		caps.AwayNotify:    true,
-		caps.CapNotify:     true,
-		caps.ChgHost:       true,
-		caps.EchoMessage:   true,
-		caps.ExtendedJoin:  true,
-		caps.InviteNotify:  true,
-		// MaxLine is set during server startup
-		caps.MessageTags: true,
-		caps.MultiPrefix: true,
-		caps.Rename:      true,
-		// SASL is set during server startup
-		caps.ServerTime: true,
-		// STS is set during server startup
-		caps.UserhostInNames: true,
-	}
+	// MaxLine, SASL and STS are set during server startup.
+	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.ServerTime, caps.UserhostInNames)
+
 	// CapValues are the actual values we advertise to v3.2 clients.
-	CapValues = map[caps.Capability]string{
-		caps.SASL: "PLAIN,EXTERNAL",
-	}
+	// actual values are set during server startup.
+	CapValues = caps.NewValues()
 )
 
 // CapState shows whether we're negotiating caps, finished, etc for connection registration.
@@ -49,40 +33,10 @@ const (
 	CapNegotiated CapState = iota
 )
 
-// CapVersion is used to select which max version of CAP the client supports.
-type CapVersion uint
-
-const (
-	// Cap301 refers to the base CAP spec.
-	Cap301 CapVersion = 301
-	// Cap302 refers to the IRCv3.2 CAP spec.
-	Cap302 CapVersion = 302
-)
-
-// CapabilitySet is used to track supported, enabled, and existing caps.
-type CapabilitySet map[caps.Capability]bool
-
-func (set CapabilitySet) String(version CapVersion) string {
-	strs := make([]string, len(set))
-	index := 0
-	for capability := range set {
-		capString := string(capability)
-		if version == Cap302 {
-			val, exists := CapValues[capability]
-			if exists {
-				capString += "=" + val
-			}
-		}
-		strs[index] = capString
-		index++
-	}
-	return strings.Join(strs, " ")
-}
-
 // CAP <subcmd> [<caps>]
 func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	subCommand := strings.ToUpper(msg.Params[0])
-	capabilities := make(CapabilitySet)
+	capabilities := caps.NewSet()
 	var capString string
 
 	if len(msg.Params) > 1 {
@@ -90,7 +44,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		strs := strings.Split(capString, " ")
 		for _, str := range strs {
 			if len(str) > 0 {
-				capabilities[caps.Capability(str)] = true
+				capabilities.Enable(caps.Capability(str))
 			}
 		}
 	}
@@ -107,22 +61,20 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// the server.name source... otherwise it doesn't respond to the CAP message with
 		// anything and just hangs on connection.
 		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion))
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion, CapValues))
 
 	case "LIST":
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(Cap301)) // values not sent on LIST so force 3.1
+		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
 
 	case "REQ":
 		// make sure all capabilities actually exist
-		for capability := range capabilities {
-			if !SupportedCapabilities[capability] {
+		for _, capability := range capabilities.List() {
+			if !SupportedCapabilities.Has(capability) {
 				client.Send(nil, server.name, "CAP", client.nick, "NAK", capString)
 				return false
 			}
 		}
-		for capability := range capabilities {
-			client.capabilities[capability] = true
-		}
+		client.capabilities.Enable(capabilities.List()...)
 		client.Send(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 	case "END":

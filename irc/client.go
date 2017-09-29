@@ -45,9 +45,9 @@ type Client struct {
 	atime              time.Time
 	authorized         bool
 	awayMessage        string
-	capabilities       CapabilitySet
+	capabilities       *caps.Set
 	capState           CapState
-	capVersion         CapVersion
+	capVersion         caps.Version
 	certfp             string
 	channels           ChannelSet
 	class              *OperClass
@@ -95,9 +95,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	client := &Client{
 		atime:          now,
 		authorized:     server.password == nil,
-		capabilities:   make(CapabilitySet),
+		capabilities:   caps.NewSet(),
 		capState:       CapNone,
-		capVersion:     Cap301,
+		capVersion:     caps.Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
 		flags:          make(map[Mode]bool),
@@ -178,10 +178,10 @@ func (client *Client) IPString() string {
 func (client *Client) maxlens() (int, int) {
 	maxlenTags := 512
 	maxlenRest := 512
-	if client.capabilities[caps.MessageTags] {
+	if client.capabilities.Has(caps.MessageTags) {
 		maxlenTags = 4096
 	}
-	if client.capabilities[caps.MaxLine] {
+	if client.capabilities.Has(caps.MaxLine) {
 		if client.server.limits.LineLen.Tags > maxlenTags {
 			maxlenTags = client.server.limits.LineLen.Tags
 		}
@@ -357,13 +357,13 @@ func (client *Client) ModeString() (str string) {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends(Capabilities ...caps.Capability) ClientSet {
+func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 	friends := make(ClientSet)
 
 	// make sure that I have the right caps
 	hasCaps := true
-	for _, Cap := range Capabilities {
-		if !client.capabilities[Cap] {
+	for _, capab := range capabs {
+		if !client.capabilities.Has(capab) {
 			hasCaps = false
 			break
 		}
@@ -377,8 +377,8 @@ func (client *Client) Friends(Capabilities ...caps.Capability) ClientSet {
 		for member := range channel.members {
 			// make sure they have all the required caps
 			hasCaps = true
-			for _, Cap := range Capabilities {
-				if !member.capabilities[Cap] {
+			for _, capab := range capabs {
+				if !member.capabilities.Has(capab) {
 					hasCaps = false
 					break
 				}
@@ -580,7 +580,7 @@ func (client *Client) destroy() {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
-	if client.capabilities[caps.MaxLine] {
+	if client.capabilities.Has(caps.MaxLine) {
 		client.SendFromClient(msgid, from, tags, command, target, message.ForMaxLine)
 	} else {
 		for _, str := range message.For512 {
@@ -593,7 +593,7 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 // Adds account-tag to the line as well.
 func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
-	if client.capabilities[caps.AccountTag] && from.account != &NoAccount {
+	if client.capabilities.Has(caps.AccountTag) && from.account != &NoAccount {
 		if tags == nil {
 			tags = ircmsg.MakeTags("account", from.account.Name)
 		} else {
@@ -601,7 +601,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 		}
 	}
 	// attach message-id
-	if len(msgid) > 0 && client.capabilities[caps.MessageTags] {
+	if len(msgid) > 0 && client.capabilities.Has(caps.MessageTags) {
 		if tags == nil {
 			tags = ircmsg.MakeTags("draft/msgid", msgid)
 		} else {
@@ -628,7 +628,7 @@ var (
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
 	// attach server-time
-	if client.capabilities[caps.ServerTime] {
+	if client.capabilities.Has(caps.ServerTime) {
 		t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
 		if tags == nil {
 			tags = ircmsg.MakeTags("time", t)
@@ -678,7 +678,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 // Notice sends the client a notice from the server.
 func (client *Client) Notice(text string) {
 	limit := 400
-	if client.capabilities[caps.MaxLine] {
+	if client.capabilities.Has(caps.MaxLine) {
 		limit = client.server.limits.LineLen.Rest - 110
 	}
 	lines := wordWrap(text, limit)

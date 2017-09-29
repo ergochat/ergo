@@ -642,11 +642,11 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// send RENAME messages
 	for mcl := range channel.members {
-		if mcl.capabilities[caps.Rename] {
+		if mcl.capabilities.Has(caps.Rename) {
 			mcl.Send(nil, client.nickMaskString, "RENAME", oldName, newName, reason)
 		} else {
 			mcl.Send(nil, mcl.nickMaskString, "PART", oldName, fmt.Sprintf("Channel renamed: %s", reason))
-			if mcl.capabilities[caps.ExtendedJoin] {
+			if mcl.capabilities.Has(caps.ExtendedJoin) {
 				accountName := "*"
 				if mcl.account != nil {
 					accountName = mcl.account.Name
@@ -825,7 +825,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities[caps.MaxLine])
+	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -869,7 +869,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 				}
 				continue
 			}
-			if !user.capabilities[caps.MessageTags] {
+			if !user.capabilities.Has(caps.MessageTags) {
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
@@ -878,7 +878,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			if !user.flags[RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
-			if client.capabilities[caps.EchoMessage] {
+			if client.capabilities.Has(caps.EchoMessage) {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.flags[Away] {
@@ -939,11 +939,11 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			msgid := server.generateMessageID()
 
 			// end user can't receive tagmsgs
-			if !user.capabilities[caps.MessageTags] {
+			if !user.capabilities.Has(caps.MessageTags) {
 				continue
 			}
 			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
-			if client.capabilities[caps.EchoMessage] {
+			if client.capabilities.Has(caps.EchoMessage) {
 				client.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.flags[Away] {
@@ -957,7 +957,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // WhoisChannelsNames returns the common channel names between two users.
 func (client *Client) WhoisChannelsNames(target *Client) []string {
-	isMultiPrefix := target.capabilities[caps.MultiPrefix]
+	isMultiPrefix := target.capabilities.Has(caps.MultiPrefix)
 	var chstrs []string
 	index := 0
 	for channel := range client.channels {
@@ -1062,7 +1062,7 @@ func (target *Client) RplWhoReplyNoMutex(channel *Channel, client *Client) {
 	}
 
 	if channel != nil {
-		flags += channel.members[client].Prefixes(target.capabilities[caps.MultiPrefix])
+		flags += channel.members[client].Prefixes(target.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
 	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.username, client.hostname, client.server.name, client.nick, flags, strconv.Itoa(client.hops)+" "+client.realname)
@@ -1288,66 +1288,66 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.connectionLimitsMutex.Unlock()
 
 	// setup new and removed caps
-	addedCaps := make(CapabilitySet)
-	removedCaps := make(CapabilitySet)
-	updatedCaps := make(CapabilitySet)
+	addedCaps := caps.NewSet()
+	removedCaps := caps.NewSet()
+	updatedCaps := caps.NewSet()
 
 	// SASL
 	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
 		// enabling SASL
-		SupportedCapabilities[caps.SASL] = true
-		addedCaps[caps.SASL] = true
+		SupportedCapabilities.Enable(caps.SASL)
+		CapValues.Set(caps.SASL, "PLAIN,EXTERNAL")
+		addedCaps.Add(caps.SASL)
 	}
 	if !config.Accounts.AuthenticationEnabled && server.accountAuthenticationEnabled {
 		// disabling SASL
-		SupportedCapabilities[caps.SASL] = false
-		removedCaps[caps.SASL] = true
+		SupportedCapabilities.Disable(caps.SASL)
+		removedCaps.Add(caps.SASL)
 	}
 	server.accountAuthenticationEnabled = config.Accounts.AuthenticationEnabled
 
 	// STS
 	stsValue := config.Server.STS.Value()
 	var stsDisabled bool
-	server.logger.Debug("rehash", "STS Vals", CapValues[caps.STS], stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
+	stsCurrentCapValue, _ := CapValues.Get(caps.STS)
+	server.logger.Debug("rehash", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
 	if config.Server.STS.Enabled && !server.stsEnabled {
 		// enabling STS
-		SupportedCapabilities[caps.STS] = true
-		addedCaps[caps.STS] = true
-		CapValues[caps.STS] = stsValue
+		SupportedCapabilities.Enable(caps.STS)
+		addedCaps.Add(caps.STS)
+		CapValues.Set(caps.STS, stsValue)
 	} else if !config.Server.STS.Enabled && server.stsEnabled {
 		// disabling STS
-		SupportedCapabilities[caps.STS] = false
-		removedCaps[caps.STS] = true
+		SupportedCapabilities.Disable(caps.STS)
+		removedCaps.Add(caps.STS)
 		stsDisabled = true
-	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != CapValues[caps.STS] {
+	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != stsCurrentCapValue {
 		// STS policy updated
-		CapValues[caps.STS] = stsValue
-		updatedCaps[caps.STS] = true
+		CapValues.Set(caps.STS, stsValue)
+		updatedCaps.Add(caps.STS)
 	}
 	server.stsEnabled = config.Server.STS.Enabled
 
 	// burst new and removed caps
 	var capBurstClients ClientSet
-	added := make(map[CapVersion]string)
+	added := make(map[caps.Version]string)
 	var removed string
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(Cap301), strconv.Itoa(len(updatedCaps)))
-	if len(updatedCaps) > 0 {
-		for capab := range updatedCaps {
-			addedCaps[capab] = true
-			removedCaps[capab] = true
-		}
+	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues), strconv.Itoa(updatedCaps.Count()))
+	for _, capab := range updatedCaps.List() {
+		addedCaps.Enable(capab)
+		removedCaps.Enable(capab)
 	}
 
-	if len(addedCaps) > 0 || len(removedCaps) > 0 {
+	if 0 < addedCaps.Count() || 0 < removedCaps.Count() {
 		capBurstClients = server.clients.AllWithCaps(caps.CapNotify)
 
-		added[Cap301] = addedCaps.String(Cap301)
-		added[Cap302] = addedCaps.String(Cap302)
-		// removed never has values
-		removed = removedCaps.String(Cap301)
+		added[caps.Cap301] = addedCaps.String(caps.Cap301, CapValues)
+		added[caps.Cap302] = addedCaps.String(caps.Cap302, CapValues)
+		// removed never has values, so we leave it as Cap301
+		removed = removedCaps.String(caps.Cap301, CapValues)
 	}
 
 	for sClient := range capBurstClients {
@@ -1355,18 +1355,18 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			// remove STS policy
 			//TODO(dan): this is an ugly hack. we can write this better.
 			stsPolicy := "sts=duration=0"
-			if len(addedCaps) > 0 {
-				added[Cap302] = added[Cap302] + " " + stsPolicy
+			if 0 < addedCaps.Count() {
+				added[caps.Cap302] = added[caps.Cap302] + " " + stsPolicy
 			} else {
-				addedCaps[caps.STS] = true
-				added[Cap302] = stsPolicy
+				addedCaps.Enable(caps.STS)
+				added[caps.Cap302] = stsPolicy
 			}
 		}
 		// DEL caps and then send NEW ones so that updated caps get removed/added correctly
-		if len(removedCaps) > 0 {
+		if 0 < removedCaps.Count() {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
 		}
-		if len(addedCaps) > 0 {
+		if 0 < addedCaps.Count() {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
 		}
 	}
@@ -1707,7 +1707,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities[caps.MaxLine])
+	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1748,7 +1748,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			if !user.capabilities[caps.MessageTags] {
+			if !user.capabilities.Has(caps.MessageTags) {
 				clientOnlyTags = nil
 			}
 			msgid := server.generateMessageID()
@@ -1757,7 +1757,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.flags[RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
-			if client.capabilities[caps.EchoMessage] {
+			if client.capabilities.Has(caps.EchoMessage) {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 		}

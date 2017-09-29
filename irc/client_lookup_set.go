@@ -156,7 +156,7 @@ func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client)
 }
 
 // AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientLookupSet) AllWithCaps(caps ...caps.Capability) (set ClientSet) {
+func (clients *ClientLookupSet) AllWithCaps(capabs ...caps.Capability) (set ClientSet) {
 	set = make(ClientSet)
 
 	clients.ByNickMutex.RLock()
@@ -164,8 +164,8 @@ func (clients *ClientLookupSet) AllWithCaps(caps ...caps.Capability) (set Client
 	var client *Client
 	for _, client = range clients.ByNick {
 		// make sure they have all the required caps
-		for _, Cap := range caps {
-			if !client.capabilities[Cap] {
+		for _, capab := range capabs {
+			if !client.capabilities.Has(capab) {
 				continue
 			}
 		}
