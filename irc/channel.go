@@ -425,6 +425,8 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	channel.membersMutex.RLock()
 	defer channel.membersMutex.RUnlock()
 
+	// server operators override nooutside, reggedonly, moderated etc.
+	// TODO(dan): there should probably instead be a SAPRIVMSG instead that forces this instead of doing it this way...
 	if client.flags[Operator] {
 		return true
 	}

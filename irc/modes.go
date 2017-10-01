@@ -142,8 +142,8 @@ var (
 
 	// SupportedChannelModes are the channel modes that we support.
 	SupportedChannelModes = Modes{
-		BanMask, ExceptMask, InviteMask, InviteOnly, Key, NoOutside,
-		OpOnlyTopic, Secret, UserLimit, ChanRoleplaying,
+		BanMask, ChanRoleplaying, ExceptMask, InviteMask, InviteOnly, Key,
+		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, UserLimit,
 	}
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = SupportedChannelModes.String()
