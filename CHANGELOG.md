@@ -14,10 +14,16 @@ New release of Oragono!
 ### Added
 
 ### Changed
+* D-LINE and K-LINE code is now cleaner under the hood and less likely to crash.
+* Rehashing is now safer.
 
 ### Removed
+* Removed the `draft/message-ids` cap since... it doesn't actually exist. The feature is now enabled by default when clients request the `draft/message-tags-0.2` capability, as written in the [Message IDs spec](http://ircv3.net/specs/extensions/message-ids.html).
+* Removed websocket support (conflicted with existing larger IRCd's implementations and not used by any real clients).
 
 ### Fixed
+* `AWAY` was sending an incorrect mode string, and now sends the correct mode string.
+* The Moderated (`+m`) and RegisteredOnly (`+R`) channel modes could not be set. Now they can be set.
 
 
 ## [0.9.1] - 2017-09-28
