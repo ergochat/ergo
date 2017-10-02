@@ -29,7 +29,7 @@ const (
 	// QuitTimeout is how long without traffic (after they're considered idle) that clients are killed.
 	QuitTimeout = time.Minute
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
-	IdentTimeoutSeconds = 5
+	IdentTimeoutSeconds = 1.5
 )
 
 var (
