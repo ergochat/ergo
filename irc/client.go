@@ -94,7 +94,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
-		authorized:     server.password == nil,
+		authorized:     server.getPassword() == nil,
 		capabilities:   caps.NewSet(),
 		capState:       CapNone,
 		capVersion:     caps.Cap301,
@@ -182,10 +182,11 @@ func (client *Client) maxlens() (int, int) {
 		maxlenTags = 4096
 	}
 	if client.capabilities.Has(caps.MaxLine) {
-		if client.server.limits.LineLen.Tags > maxlenTags {
-			maxlenTags = client.server.limits.LineLen.Tags
+		limits := client.server.getLimits()
+		if limits.LineLen.Tags > maxlenTags {
+			maxlenTags = limits.LineLen.Tags
 		}
-		maxlenRest = client.server.limits.LineLen.Rest
+		maxlenRest = limits.LineLen.Rest
 	}
 	return maxlenTags, maxlenRest
 }
@@ -679,7 +680,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 func (client *Client) Notice(text string) {
 	limit := 400
 	if client.capabilities.Has(caps.MaxLine) {
-		limit = client.server.limits.LineLen.Rest - 110
+		limit = client.server.getLimits().LineLen.Rest - 110
 	}
 	lines := wordWrap(text, limit)
 
