@@ -182,29 +182,31 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 func (server *Server) setISupport() {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
+	server.configurableStateMutex.RLock()
+
 	// add RPL_ISUPPORT tokens
-	server.isupport = NewISupportList()
-	server.isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
-	server.isupport.Add("CASEMAPPING", casemappingName)
-	server.isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
-	server.isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
-	server.isupport.Add("CHANTYPES", "#")
-	server.isupport.Add("ELIST", "U")
-	server.isupport.Add("EXCEPTS", "")
-	server.isupport.Add("INVEX", "")
-	server.isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
-	server.isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
-	server.isupport.Add("MAXTARGETS", maxTargetsString)
-	server.isupport.Add("MODES", "")
-	server.isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
-	server.isupport.Add("NETWORK", server.networkName)
-	server.isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
-	server.isupport.Add("PREFIX", "(qaohv)~&@%+")
-	server.isupport.Add("RPCHAN", "E")
-	server.isupport.Add("RPUSER", "E")
-	server.isupport.Add("STATUSMSG", "~&@%+")
-	server.isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
-	server.isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
+	isupport := NewISupportList()
+	isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
+	isupport.Add("CASEMAPPING", casemappingName)
+	isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
+	isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
+	isupport.Add("CHANTYPES", "#")
+	isupport.Add("ELIST", "U")
+	isupport.Add("EXCEPTS", "")
+	isupport.Add("INVEX", "")
+	isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
+	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
+	isupport.Add("MAXTARGETS", maxTargetsString)
+	isupport.Add("MODES", "")
+	isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
+	isupport.Add("NETWORK", server.networkName)
+	isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
+	isupport.Add("PREFIX", "(qaohv)~&@%+")
+	isupport.Add("RPCHAN", "E")
+	isupport.Add("RPUSER", "E")
+	isupport.Add("STATUSMSG", "~&@%+")
+	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
+	isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
 
 	// account registration
 	if server.accountRegistration.Enabled {
@@ -216,12 +218,18 @@ func (server *Server) setISupport() {
 			}
 		}
 
-		server.isupport.Add("REGCOMMANDS", "CREATE,VERIFY")
-		server.isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
-		server.isupport.Add("REGCREDTYPES", "passphrase,certfp")
+		isupport.Add("REGCOMMANDS", "CREATE,VERIFY")
+		isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
+		isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
 
-	server.isupport.RegenerateCachedReply()
+	server.configurableStateMutex.RUnlock()
+
+	isupport.RegenerateCachedReply()
+
+	server.configurableStateMutex.Lock()
+	server.isupport = isupport
+	server.configurableStateMutex.Unlock()
 }
 
 func loadChannelList(channel *Channel, list string, maskMode Mode) {
@@ -440,15 +448,16 @@ func (server *Server) tryRegister(c *Client) {
 // MOTD serves the Message of the Day.
 func (server *Server) MOTD(client *Client) {
 	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
+	motdLines := server.motdLines
+	server.configurableStateMutex.RUnlock()
 
-	if len(server.motdLines) < 1 {
+	if len(motdLines) < 1 {
 		client.Send(nil, server.name, ERR_NOMOTD, client.nick, "MOTD File is missing")
 		return
 	}
 
 	client.Send(nil, server.name, RPL_MOTDSTART, client.nick, fmt.Sprintf("- %s Message of the day - ", server.name))
-	for _, line := range server.motdLines {
+	for _, line := range motdLines {
 		client.Send(nil, server.name, RPL_MOTD, client.nick, line)
 	}
 	client.Send(nil, server.name, RPL_ENDOFMOTD, client.nick, "End of MOTD command")
@@ -691,7 +700,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		channel := server.channels.Get(casefoldedName)
 		if channel == nil {
-			if len(casefoldedName) > server.limits.ChannelLen {
+			if len(casefoldedName) > server.getLimits().ChannelLen {
 				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
 				continue
 			}
@@ -1257,15 +1266,19 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	// sanity checks complete, start modifying server state
 
-	server.name = config.Server.Name
-	server.nameCasefolded = casefoldedName
+	if initial {
+		server.name = config.Server.Name
+		server.nameCasefolded = casefoldedName
+	}
 	server.networkName = config.Network.Name
 
+	server.configurableStateMutex.Lock()
 	if config.Server.Password != "" {
 		server.password = config.Server.PasswordBytes()
 	} else {
 		server.password = nil
 	}
+	server.configurableStateMutex.Unlock()
 
 	// apply new PROXY command restrictions
 	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
@@ -1372,6 +1385,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	// set server options
+	server.configurableStateMutex.Lock()
 	lineLenConfig := LineLenLimits{
 		Tags: config.Limits.LineLen.Tags,
 		Rest: config.Limits.LineLen.Rest,
@@ -1395,13 +1409,14 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.accountRegistration = &accountReg
 	server.channelRegistrationEnabled = config.Channels.Registration.Enabled
 
-	server.configurableStateMutex.Lock()
 	server.defaultChannelModes = ParseDefaultChannelModes(config)
 	server.configurableStateMutex.Unlock()
 
 	// set new sendqueue size
 	if config.Server.MaxSendQBytes != server.MaxSendQBytes {
+		server.configurableStateMutex.Lock()
 		server.MaxSendQBytes = config.Server.MaxSendQBytes
+		server.configurableStateMutex.Unlock()
 
 		// update on all clients
 		server.clients.ByNickMutex.RLock()
@@ -1469,8 +1484,8 @@ func (server *Server) loadMOTD(motdPath string) error {
 	}
 
 	server.configurableStateMutex.Lock()
-	defer server.configurableStateMutex.Unlock()
 	server.motdLines = motdLines
+	server.configurableStateMutex.Unlock()
 	return nil
 }
 
@@ -1628,8 +1643,9 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 0 {
 		isAway = true
 		text = msg.Params[0]
-		if len(text) > server.limits.AwayLen {
-			text = text[:server.limits.AwayLen]
+		awayLen := server.getLimits().AwayLen
+		if len(text) > awayLen {
+			text = text[:awayLen]
 		}
 	}
 

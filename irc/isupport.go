@@ -142,7 +142,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
 func (client *Client) RplISupport() {
-	for _, tokenline := range client.server.isupport.CachedReply {
+	for _, tokenline := range client.server.getISupport().CachedReply {
 		// ugly trickery ahead
 		client.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
 	}

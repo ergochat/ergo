@@ -34,7 +34,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if err != nil || len(nicknameRaw) > server.limits.NickLen || restrictedNicknames[nickname] {
+	if err != nil || len(nicknameRaw) > server.getLimits().NickLen || restrictedNicknames[nickname] {
 		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nicknameRaw, "Erroneous nickname")
 		return false
 	}
