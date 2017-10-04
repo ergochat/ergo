@@ -61,8 +61,6 @@ type Client struct {
 	idleTimer          *time.Timer
 	isDestroyed        bool
 	isQuitting         bool
-	monitoring         map[string]bool
-	monitoringMutex    sync.RWMutex
 	nick               string
 	nickCasefolded     string
 	nickMaskCasefolded string
@@ -81,6 +79,7 @@ type Client struct {
 	saslValue          string
 	server             *Server
 	socket             *Socket
+	stateMutex         sync.RWMutex // generic protection for mutable state
 	timerMutex         sync.Mutex
 	username           string
 	vhost              string
@@ -101,7 +100,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		channels:       make(ChannelSet),
 		ctime:          now,
 		flags:          make(map[Mode]bool),
-		monitoring:     make(map[string]bool),
 		server:         server,
 		socket:         &socket,
 		account:        &NoAccount,
@@ -302,8 +300,8 @@ func (client *Client) Register() {
 	client.registered = true
 	client.Touch()
 
-	client.updateNickMask()
-	client.alertMonitors()
+	client.updateNickMask("")
+	client.server.monitorManager.alertMonitors(client, true)
 }
 
 // IdleTime returns how long this client's been idle.
@@ -393,19 +391,28 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 	return friends
 }
 
-// updateNick updates the casefolded nickname.
-func (client *Client) updateNick() {
-	casefoldedName, err := CasefoldName(client.nick)
+// updateNick updates `nick` and `nickCasefolded`.
+func (client *Client) updateNick(nick string) {
+	casefoldedName, err := CasefoldName(nick)
 	if err != nil {
 		log.Println(fmt.Sprintf("ERROR: Nick [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nick))
 		debug.PrintStack()
 	}
+	client.stateMutex.Lock()
+	client.nick = nick
 	client.nickCasefolded = casefoldedName
+	client.stateMutex.Unlock()
 }
 
 // updateNickMask updates the casefolded nickname and nickmask.
-func (client *Client) updateNickMask() {
-	client.updateNick()
+func (client *Client) updateNickMask(nick string) {
+	// on "", just regenerate the nickmask etc.
+	// otherwise, update the actual nick
+	if nick != "" {
+		client.updateNick(nick)
+	}
+
+	client.stateMutex.Lock()
 
 	if len(client.vhost) > 0 {
 		client.hostname = client.vhost
@@ -413,14 +420,17 @@ func (client *Client) updateNickMask() {
 		client.hostname = client.rawHostname
 	}
 
-	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
-
-	nickMaskCasefolded, err := Casefold(client.nickMaskString)
+	nickMaskString := fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
+	nickMaskCasefolded, err := Casefold(nickMaskString)
 	if err != nil {
 		log.Println(fmt.Sprintf("ERROR: Nickmask [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nickMaskString))
 		debug.PrintStack()
 	}
+
+	client.nickMaskString = nickMaskString
 	client.nickMaskCasefolded = nickMaskCasefolded
+
+	client.stateMutex.Unlock()
 }
 
 // AllNickmasks returns all the possible nickmasks for the client.
@@ -458,8 +468,7 @@ func (client *Client) SetNickname(nickname string) error {
 
 	err := client.server.clients.Add(client, nickname)
 	if err == nil {
-		client.nick = nickname
-		client.updateNick()
+		client.updateNick(nickname)
 	}
 	return err
 }
@@ -472,8 +481,7 @@ func (client *Client) ChangeNickname(nickname string) error {
 		client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s", client.nick, nickname))
 		client.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), client.nick, nickname))
 		client.server.whoWas.Append(client)
-		client.nick = nickname
-		client.updateNickMask()
+		client.updateNickMask(nickname)
 		for friend := range client.Friends() {
 			friend.Send(nil, origNickMask, "NICK", nickname)
 		}
@@ -530,21 +538,10 @@ func (client *Client) destroy() {
 		client.server.connectionLimitsMutex.Unlock()
 	}
 
-	// remove from opers list
-	_, exists := client.server.currentOpers[client]
-	if exists {
-		delete(client.server.currentOpers, client)
-	}
-
 	// alert monitors
-	client.server.monitoringMutex.RLock()
-	for _, mClient := range client.server.monitoring[client.nickCasefolded] {
-		mClient.Send(nil, client.server.name, RPL_MONOFFLINE, mClient.nick, client.nick)
-	}
-	client.server.monitoringMutex.RUnlock()
-
-	// remove my monitors
-	client.clearMonitorList()
+	client.server.monitorManager.alertMonitors(client, false)
+	// clean up monitor state
+	client.server.monitorManager.clearMonitorList(client)
 
 	// clean up channels
 	client.server.channelJoinPartMutex.Lock()

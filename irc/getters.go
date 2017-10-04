@@ -20,3 +20,21 @@ func (server *Server) getPassword() []byte {
 	defer server.configurableStateMutex.RUnlock()
 	return server.password
 }
+
+func (client *Client) getNick() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nick
+}
+
+func (client *Client) getNickMaskString() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nickMaskString
+}
+
+func (client *Client) getNickCasefolded() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nickCasefolded
+}

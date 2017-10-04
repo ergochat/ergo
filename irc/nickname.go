@@ -57,7 +57,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 	if client.registered {
-		client.alertMonitors()
+		client.server.monitorManager.alertMonitors(client, true)
 	}
 	server.tryRegister(client)
 	return false

@@ -94,7 +94,6 @@ type Server struct {
 	connectionThrottle           *ConnectionThrottle
 	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                        time.Time
-	currentOpers                 map[*Client]bool
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
 	isupport                     *ISupportList
@@ -103,8 +102,7 @@ type Server struct {
 	listeners                    map[string]*ListenerWrapper
 	logger                       *logger.Manager
 	MaxSendQBytes                uint64
-	monitoring                   map[string][]*Client
-	monitoringMutex              sync.RWMutex
+	monitorManager               *MonitorManager
 	motdLines                    []string
 	name                         string
 	nameCasefolded               string
@@ -155,10 +153,9 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		channels:           *NewChannelNameMap(),
 		clients:            NewClientLookupSet(),
 		commands:           make(chan Command),
-		currentOpers:       make(map[*Client]bool),
 		listeners:          make(map[string]*ListenerWrapper),
 		logger:             logger,
-		monitoring:         make(map[string][]*Client),
+		monitorManager:     NewMonitorManager(),
 		newConns:           make(chan clientConn),
 		registeredChannels: make(map[string]*RegisteredChannel),
 		rehashSignal:       make(chan os.Signal, 1),
@@ -1143,36 +1140,36 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, "OPER", "You're already opered-up!")
 		return false
 	}
-	hash := server.operators[name].Pass
+	server.configurableStateMutex.RLock()
+	oper := server.operators[name]
+	server.configurableStateMutex.RUnlock()
+
 	password := []byte(msg.Params[1])
-
-	err = ComparePassword(hash, password)
-
-	if (hash == nil) || (err != nil) {
+	err = ComparePassword(oper.Pass, password)
+	if (oper.Pass == nil) || (err != nil) {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
 	}
 
 	client.flags[Operator] = true
 	client.operName = name
-	client.class = server.operators[name].Class
-	server.currentOpers[client] = true
-	client.whoisLine = server.operators[name].WhoisLine
+	client.class = oper.Class
+	client.whoisLine = oper.WhoisLine
 
 	// push new vhost if one is set
-	if len(server.operators[name].Vhost) > 0 {
+	if len(oper.Vhost) > 0 {
 		for fClient := range client.Friends(caps.ChgHost) {
-			fClient.SendFromClient("", client, nil, "CHGHOST", client.username, server.operators[name].Vhost)
+			fClient.SendFromClient("", client, nil, "CHGHOST", client.username, oper.Vhost)
 		}
 		// CHGHOST requires prefix nickmask to have original hostname, so do that before updating nickmask
-		client.vhost = server.operators[name].Vhost
-		client.updateNickMask()
+		client.vhost = oper.Vhost
+		client.updateNickMask("")
 	}
 
 	// set new modes
 	var applied ModeChanges
-	if 0 < len(server.operators[name].Modes) {
-		modeChanges, unknownChanges := ParseUserModeChanges(strings.Split(server.operators[name].Modes, " ")...)
+	if 0 < len(oper.Modes) {
+		modeChanges, unknownChanges := ParseUserModeChanges(strings.Split(oper.Modes, " ")...)
 		applied = client.applyUserModeChanges(true, modeChanges)
 		if 0 < len(unknownChanges) {
 			var runes string
@@ -1257,12 +1254,8 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	if err != nil {
 		return fmt.Errorf("Error rehashing config file opers: %s", err.Error())
 	}
-	for client := range server.currentOpers {
-		_, exists := opers[client.operName]
-		if !exists {
-			return fmt.Errorf("Oper [%s] no longer exists (used by client [%s])", client.operName, client.nickMaskString)
-		}
-	}
+
+	// TODO: support rehash of existing operator perms?
 
 	// sanity checks complete, start modifying server state
 
