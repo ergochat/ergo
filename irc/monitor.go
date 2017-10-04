@@ -208,7 +208,17 @@ func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	monitorList := server.monitorManager.List(client)
 
-	for _, line := range argsToStrings(maxLastArgLength, monitorList, ",") {
+	var nickList []string
+	for _, cfnick := range(monitorList) {
+		replynick := cfnick
+		// report the uncasefolded nick if it's available, i.e., the client is online
+		if mclient := server.clients.Get(cfnick); mclient != nil {
+			replynick = mclient.getNick()
+		}
+		nickList = append(nickList, replynick)
+	}
+
+	for _, line := range argsToStrings(maxLastArgLength, nickList, ",") {
 		client.Send(nil, server.name, RPL_MONLIST, client.getNick(), line)
 	}
 
