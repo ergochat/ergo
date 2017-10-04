@@ -45,7 +45,7 @@ const (
 	// necessary at all? but it seems prudent to avoid potential resource
 	// leaks
 	httpShutdownTimeout = time.Second
-	rawOutputNotice     = "This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."
+	rawIONotice         = "This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -98,6 +98,7 @@ type Server struct {
 	currentOpers                 map[*Client]bool
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
+	loggingRawIO                 bool
 	isupport                     *ISupportList
 	klines                       *KLineManager
 	limits                       Limits
@@ -433,8 +434,8 @@ func (server *Server) tryRegister(c *Client) {
 	c.RplISupport()
 	server.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
-	if server.logger.DumpingRawInOut() {
-		c.Notice(rawOutputNotice)
+	if server.logger.IsLoggingRawIO() {
+		c.Notice(rawIONotice)
 	}
 }
 
@@ -1427,7 +1428,10 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	if err != nil {
 		return err
 	}
-	dumpingRawInOut := server.logger.DumpingRawInOut()
+	nowLoggingRawIO := server.logger.IsLoggingRawIO()
+	// notify clients if raw i/o logging was enabled by a rehash
+	sendRawOutputNotice := !initial && !server.loggingRawIO && nowLoggingRawIO
+	server.loggingRawIO = nowLoggingRawIO
 
 	if initial {
 		if err := server.loadDatastore(config.Datastore.Path); err != nil {
@@ -1447,8 +1451,8 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 				sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
 			}
 
-			if dumpingRawInOut {
-				sClient.Notice(rawOutputNotice)
+			if sendRawOutputNotice {
+				sClient.Notice(rawIONotice)
 			}
 		}
 		server.clients.ByNickMutex.RUnlock()
