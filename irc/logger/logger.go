@@ -57,7 +57,7 @@ type Manager struct {
 	loggers         []singleLogger
 	stdoutWriteLock sync.Mutex // use one lock for both stdout and stderr
 	fileWriteLock   sync.Mutex
-	dumpingRawInOut bool
+	loggingRawIO    bool
 }
 
 // Config represents the configuration of a single logger.
@@ -94,7 +94,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	}
 
 	logger.loggers = nil
-	logger.dumpingRawInOut = false
+	logger.loggingRawIO = false
 
 	// for safety, this deep-copies all mutable data in `config`
 	// XXX let's keep it that way
@@ -123,7 +123,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 			fileWriteLock:   &logger.fileWriteLock,
 		}
 		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
-			logger.dumpingRawInOut = true
+			logger.loggingRawIO = true
 		}
 		if sLogger.MethodFile.Enabled {
 			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
@@ -140,10 +140,10 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	return lastErr
 }
 
-func (logger *Manager) DumpingRawInOut() bool {
+func (logger *Manager) IsLoggingRawIO() bool {
 	logger.configMutex.RLock()
 	defer logger.configMutex.RUnlock()
-	return logger.dumpingRawInOut
+	return logger.loggingRawIO
 }
 
 // Log logs the given message with the given details.
