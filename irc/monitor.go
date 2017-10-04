@@ -31,8 +31,8 @@ func NewMonitorManager() *MonitorManager {
 
 var MonitorLimitExceeded = errors.New("Monitor limit exceeded")
 
-// alertMonitors alerts everyone monitoring us that we're online.
-func (manager *MonitorManager) alertMonitors(client *Client, online bool) {
+// AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
+func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
 	cfnick := client.getNickCasefolded()
 	nick := client.getNick()
 	var watchers []*Client
@@ -59,18 +59,8 @@ func (manager *MonitorManager) alertMonitors(client *Client, online bool) {
 	}()
 }
 
-// clearMonitorList clears our MONITOR list.
-func (manager *MonitorManager) clearMonitorList(client *Client) {
-	manager.Lock()
-	defer manager.Unlock()
-
-	for nick, _ := range manager.watching[client] {
-		delete(manager.watchedby[nick], client)
-	}
-	delete(manager.watching, client)
-}
-
-func (manager *MonitorManager) addMonitor(client *Client, nick string, limit int) error {
+// Add registers `client` to receive notifications about `nick`.
+func (manager *MonitorManager) Add(client *Client, nick string, limit int) error {
 	manager.Lock()
 	defer manager.Unlock()
 
@@ -90,7 +80,8 @@ func (manager *MonitorManager) addMonitor(client *Client, nick string, limit int
 	return nil
 }
 
-func (manager *MonitorManager) removeMonitor(client *Client, nick string) error {
+// Remove unregisters `client` from receiving notifications about `nick`.
+func (manager *MonitorManager) Remove(client *Client, nick string) error {
 	manager.Lock()
 	defer manager.Unlock()
 	// deleting from nil maps is fine
@@ -99,7 +90,19 @@ func (manager *MonitorManager) removeMonitor(client *Client, nick string) error 
 	return nil
 }
 
-func (manager *MonitorManager) listMonitors(client *Client) (nicks []string) {
+// RemoveAll unregisters `client` from receiving notifications about *all* nicks.
+func (manager *MonitorManager) RemoveAll(client *Client) {
+	manager.Lock()
+	defer manager.Unlock()
+
+	for nick, _ := range manager.watching[client] {
+		delete(manager.watchedby[nick], client)
+	}
+	delete(manager.watching, client)
+}
+
+// List lists all nicks that `client` is registered to receive notifications about.
+func (manager *MonitorManager) List(client *Client) (nicks []string) {
 	manager.RLock()
 	defer manager.RUnlock()
 	for nick := range manager.watching[client] {
@@ -141,7 +144,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 		if err != nil {
 			continue
 		}
-		server.monitorManager.removeMonitor(client, cfnick)
+		server.monitorManager.Remove(client, cfnick)
 	}
 
 	return false
@@ -171,7 +174,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 			continue
 		}
 
-		err = server.monitorManager.addMonitor(client, casefoldedTarget, limit)
+		err = server.monitorManager.Add(client, casefoldedTarget, limit)
 		if err == MonitorLimitExceeded {
 			client.Send(nil, server.name, ERR_MONLISTFULL, client.getNick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
 			break
@@ -198,12 +201,12 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 }
 
 func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.monitorManager.clearMonitorList(client)
+	server.monitorManager.RemoveAll(client)
 	return false
 }
 
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	monitorList := server.monitorManager.listMonitors(client)
+	monitorList := server.monitorManager.List(client)
 
 	for _, line := range argsToStrings(maxLastArgLength, monitorList, ",") {
 		client.Send(nil, server.name, RPL_MONLIST, client.getNick(), line)
@@ -218,7 +221,7 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	var online []string
 	var offline []string
 
-	monitorList := server.monitorManager.listMonitors(client)
+	monitorList := server.monitorManager.List(client)
 
 	for _, name := range monitorList {
 		target := server.clients.Get(name)

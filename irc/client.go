@@ -301,7 +301,7 @@ func (client *Client) Register() {
 	client.Touch()
 
 	client.updateNickMask("")
-	client.server.monitorManager.alertMonitors(client, true)
+	client.server.monitorManager.AlertAbout(client, true)
 }
 
 // IdleTime returns how long this client's been idle.
@@ -539,9 +539,9 @@ func (client *Client) destroy() {
 	}
 
 	// alert monitors
-	client.server.monitorManager.alertMonitors(client, false)
+	client.server.monitorManager.AlertAbout(client, false)
 	// clean up monitor state
-	client.server.monitorManager.clearMonitorList(client)
+	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
 	client.server.channelJoinPartMutex.Lock()
