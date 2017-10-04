@@ -1590,9 +1590,13 @@ func (server *Server) setupRestAPI(config *Config) {
 
 	// stop an existing REST server if it's been disabled or the addr changed
 	if restAPIStarted && (!restAPIEnabled || restAPIListenAddrChanged) {
-		ctx, _ := context.WithTimeout(context.Background(), httpShutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+		// this blocks until successful shutdown, or the timeout is reached:
 		server.restAPIServer.Shutdown(ctx)
+		// forcibly shut down any remaining sockets:
 		server.restAPIServer.Close()
+		// clean up context:
+		defer cancel()
 		server.logger.Info("rehash", "server", fmt.Sprintf("%s rest API stopped on %s.", server.name, server.restAPI.Listen))
 		server.restAPIServer = nil
 	}
