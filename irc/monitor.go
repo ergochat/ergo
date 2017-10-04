@@ -51,10 +51,7 @@ func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
 	// asynchronously send all the notifications
 	go func() {
 		for _, mClient := range watchers {
-			// don't have to notify ourselves
-			if mClient != client {
-				mClient.SendFromClient("", client, nil, command, mClient.getNick(), nick)
-			}
+			mClient.Send(nil, client.server.name, command, mClient.getNick(), nick)
 		}
 	}()
 }
