@@ -166,7 +166,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 		}
 
 		// add target
-		casefoldedTarget, err := CasefoldName(targets[0])
+		casefoldedTarget, err := CasefoldName(target)
 		if err != nil {
 			continue
 		}
@@ -180,10 +180,10 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 		}
 
 		// add to online / offline lists
-		if target := server.clients.Get(casefoldedTarget); target == nil {
-			offline = append(offline, targets[0])
+		if targetClient := server.clients.Get(casefoldedTarget); targetClient == nil {
+			offline = append(offline, target)
 		} else {
-			online = append(online, target.getNick())
+			online = append(online, targetClient.getNick())
 		}
 	}
 
