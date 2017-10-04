@@ -52,3 +52,4 @@ deps:
 
 test:
 	cd irc && go test .
+	cd irc && go vet .
