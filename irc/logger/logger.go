@@ -53,30 +53,52 @@ var (
 
 // Manager is the main interface used to log debug/info/error messages.
 type Manager struct {
+	configMutex     sync.RWMutex
 	loggers         []singleLogger
 	stdoutWriteLock sync.Mutex // use one lock for both stdout and stderr
 	fileWriteLock   sync.Mutex
-	DumpingRawInOut bool
+	loggingRawIO    bool
 }
 
 // Config represents the configuration of a single logger.
-type Config struct {
-	// logging methods
-	MethodStdout bool
-	MethodStderr bool
-	MethodFile   bool
-	Filename     string
-	// logging level
-	Level Level
-	// logging types
-	Types         []string
-	ExcludedTypes []string
+type LoggingConfig struct {
+	Method        string
+	MethodStdout  bool
+	MethodStderr  bool
+	MethodFile    bool
+	Filename      string
+	TypeString    string   `yaml:"type"`
+	Types         []string `yaml:"real-types"`
+	ExcludedTypes []string `yaml:"real-excluded-types"`
+	LevelString   string   `yaml:"level"`
+	Level         Level    `yaml:"level-real"`
 }
 
 // NewManager returns a new log manager.
-func NewManager(config ...Config) (*Manager, error) {
+func NewManager(config []LoggingConfig) (*Manager, error) {
 	var logger Manager
 
+	if err := logger.ApplyConfig(config); err != nil {
+		return nil, err
+	}
+
+	return &logger, nil
+}
+
+func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
+	logger.configMutex.Lock()
+	defer logger.configMutex.Unlock()
+
+	for _, logger := range logger.loggers {
+		logger.Close()
+	}
+
+	logger.loggers = nil
+	logger.loggingRawIO = false
+
+	// for safety, this deep-copies all mutable data in `config`
+	// XXX let's keep it that way
+	var lastErr error
 	for _, logConfig := range config {
 		typeMap := make(map[string]bool)
 		for _, name := range logConfig.Types {
@@ -101,12 +123,12 @@ func NewManager(config ...Config) (*Manager, error) {
 			fileWriteLock:   &logger.fileWriteLock,
 		}
 		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
-			logger.DumpingRawInOut = true
+			logger.loggingRawIO = true
 		}
 		if sLogger.MethodFile.Enabled {
 			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 			if err != nil {
-				return nil, fmt.Errorf("Could not open log file %s [%s]", sLogger.MethodFile.Filename, err.Error())
+				lastErr = fmt.Errorf("Could not open log file %s [%s]", sLogger.MethodFile.Filename, err.Error())
 			}
 			writer := bufio.NewWriter(file)
 			sLogger.MethodFile.File = file
@@ -115,11 +137,20 @@ func NewManager(config ...Config) (*Manager, error) {
 		logger.loggers = append(logger.loggers, sLogger)
 	}
 
-	return &logger, nil
+	return lastErr
+}
+
+func (logger *Manager) IsLoggingRawIO() bool {
+	logger.configMutex.RLock()
+	defer logger.configMutex.RUnlock()
+	return logger.loggingRawIO
 }
 
 // Log logs the given message with the given details.
 func (logger *Manager) Log(level Level, logType string, messageParts ...string) {
+	logger.configMutex.RLock()
+	defer logger.configMutex.RUnlock()
+
 	for _, singleLogger := range logger.loggers {
 		singleLogger.Log(level, logType, messageParts...)
 	}
@@ -127,30 +158,22 @@ func (logger *Manager) Log(level Level, logType string, messageParts ...string) 
 
 // Debug logs the given message as a debug message.
 func (logger *Manager) Debug(logType string, messageParts ...string) {
-	for _, singleLogger := range logger.loggers {
-		singleLogger.Log(LogDebug, logType, messageParts...)
-	}
+	logger.Log(LogDebug, logType, messageParts...)
 }
 
 // Info logs the given message as an info message.
 func (logger *Manager) Info(logType string, messageParts ...string) {
-	for _, singleLogger := range logger.loggers {
-		singleLogger.Log(LogInfo, logType, messageParts...)
-	}
+	logger.Log(LogInfo, logType, messageParts...)
 }
 
 // Warning logs the given message as a warning message.
 func (logger *Manager) Warning(logType string, messageParts ...string) {
-	for _, singleLogger := range logger.loggers {
-		singleLogger.Log(LogWarning, logType, messageParts...)
-	}
+	logger.Log(LogWarning, logType, messageParts...)
 }
 
 // Error logs the given message as an error message.
 func (logger *Manager) Error(logType string, messageParts ...string) {
-	for _, singleLogger := range logger.loggers {
-		singleLogger.Log(LogError, logType, messageParts...)
-	}
+	logger.Log(LogError, logType, messageParts...)
 }
 
 // Fatal logs the given message as an error message, then exits.
@@ -177,6 +200,18 @@ type singleLogger struct {
 	Level           Level
 	Types           map[string]bool
 	ExcludedTypes   map[string]bool
+}
+
+func (logger *singleLogger) Close() error {
+	if logger.MethodFile.Enabled {
+		flushErr := logger.MethodFile.Writer.Flush()
+		closeErr := logger.MethodFile.File.Close()
+		if flushErr != nil {
+			return flushErr
+		}
+		return closeErr
+	}
+	return nil
 }
 
 // Log logs the given message with the given details.

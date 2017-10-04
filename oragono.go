@@ -46,21 +46,7 @@ Options:
 		log.Fatal("Config file did not load successfully:", err.Error())
 	}
 
-	// assemble separate log configs
-	var logConfigs []logger.Config
-	for _, lConfig := range config.Logging {
-		logConfigs = append(logConfigs, logger.Config{
-			MethodStdout:  lConfig.MethodStdout,
-			MethodStderr:  lConfig.MethodStderr,
-			MethodFile:    lConfig.MethodFile,
-			Filename:      lConfig.Filename,
-			Level:         lConfig.Level,
-			Types:         lConfig.Types,
-			ExcludedTypes: lConfig.ExcludedTypes,
-		})
-	}
-
-	logger, err := logger.NewManager(logConfigs...)
+	logger, err := logger.NewManager(config.Logging)
 	if err != nil {
 		log.Fatal("Logger did not load successfully:", err.Error())
 	}

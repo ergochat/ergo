@@ -45,6 +45,7 @@ const (
 	// necessary at all? but it seems prudent to avoid potential resource
 	// leaks
 	httpShutdownTimeout = time.Second
+	rawIONotice         = "This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -96,6 +97,7 @@ type Server struct {
 	ctime                        time.Time
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
+	loggingRawIO                 bool
 	isupport                     *ISupportList
 	klines                       *KLineManager
 	limits                       Limits
@@ -437,8 +439,8 @@ func (server *Server) tryRegister(c *Client) {
 	c.RplISupport()
 	server.MOTD(c)
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
-	if server.logger.DumpingRawInOut {
-		c.Notice("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect.")
+	if server.logger.IsLoggingRawIO() {
+		c.Notice(rawIONotice)
 	}
 }
 
@@ -1420,22 +1422,24 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	// set RPL_ISUPPORT
+	var newISupportReplies [][]string
 	oldISupportList := server.isupport
 	server.setISupport()
 	if oldISupportList != nil {
-		newISupportReplies := oldISupportList.GetDifference(server.isupport)
-		// push new info to all of our clients
-		server.clients.ByNickMutex.RLock()
-		for _, sClient := range server.clients.ByNick {
-			for _, tokenline := range newISupportReplies {
-				// ugly trickery ahead
-				sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
-			}
-		}
-		server.clients.ByNickMutex.RUnlock()
+		newISupportReplies = oldISupportList.GetDifference(server.isupport)
 	}
 
 	server.loadMOTD(config.Server.MOTD)
+
+	// reload logging config
+	err = server.logger.ApplyConfig(config.Logging)
+	if err != nil {
+		return err
+	}
+	nowLoggingRawIO := server.logger.IsLoggingRawIO()
+	// notify clients if raw i/o logging was enabled by a rehash
+	sendRawOutputNotice := !initial && !server.loggingRawIO && nowLoggingRawIO
+	server.loggingRawIO = nowLoggingRawIO
 
 	if initial {
 		if err := server.loadDatastore(config.Datastore.Path); err != nil {
@@ -1446,6 +1450,21 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	// we are now open for business
 	server.setupListeners(config)
 	server.setupRestAPI(config)
+
+	if !initial {
+		// push new info to all of our clients
+		server.clients.ByNickMutex.RLock()
+		for _, sClient := range server.clients.ByNick {
+			for _, tokenline := range newISupportReplies {
+				sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
+			}
+
+			if sendRawOutputNotice {
+				sClient.Notice(rawIONotice)
+			}
+		}
+		server.clients.ByNickMutex.RUnlock()
+	}
 
 	return nil
 }

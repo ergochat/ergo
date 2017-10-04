@@ -137,20 +137,6 @@ type ConnectionThrottleConfig struct {
 	Exempted           []string
 }
 
-// LoggingConfig controls a single logging method.
-type LoggingConfig struct {
-	Method        string
-	MethodStdout  bool
-	MethodStderr  bool
-	MethodFile    bool
-	Filename      string
-	TypeString    string       `yaml:"type"`
-	Types         []string     `yaml:"real-types"`
-	ExcludedTypes []string     `yaml:"real-excluded-types"`
-	LevelString   string       `yaml:"level"`
-	Level         logger.Level `yaml:"level-real"`
-}
-
 // LineLenConfig controls line lengths.
 type LineLenConfig struct {
 	Tags int
@@ -226,7 +212,7 @@ type Config struct {
 
 	Opers map[string]*OperConfig
 
-	Logging []LoggingConfig
+	Logging []logger.LoggingConfig
 
 	Debug struct {
 		StackImpact StackImpactConfig
@@ -438,7 +424,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	}
-	var newLogConfigs []LoggingConfig
+	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
 		methods := make(map[string]bool)
