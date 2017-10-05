@@ -11,11 +11,10 @@ Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomad
 [![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/oragono/oragono/releases/latest)
 [![Freenode #oragono](https://img.shields.io/badge/Freenode-%23oragono-1e72ff.svg?style=flat)](https://www.irccloud.com/invite?channel=%23oragono&hostname=irc.freenode.net&port=6697&ssl=1)
 
+[darwin.network](https://irc.darwin.network/) is running Oragono in production if you want to take a look.
+
 ---
 
-This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
-
-# Oragono
 
 ## Features
 
@@ -31,7 +30,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
 * banning ips/nets and masks with `KLINE` and `DLINE`
 * [IRCv3 support](http://ircv3.net/software/servers.html)
-* a heavy focus on developing with [specifications](http://oragono.io/specs.html)
+* a heavy focus on developing with [specifications](https://oragono.io/specs.html)
 
 ## Installation
 
