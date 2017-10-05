@@ -108,12 +108,6 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
-// RestAPIConfig controls the integrated REST API.
-type RestAPIConfig struct {
-	Enabled bool
-	Listen  string
-}
-
 // ConnectionLimitsConfig controls the automated connection limits.
 type ConnectionLimitsConfig struct {
 	Enabled     bool
@@ -198,8 +192,7 @@ type Config struct {
 		Listen             []string
 		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		STS                STSConfig
-		RestAPI            RestAPIConfig `yaml:"rest-api"`
-		CheckIdent         bool          `yaml:"check-ident"`
+		CheckIdent         bool `yaml:"check-ident"`
 		MOTD               string
 		ProxyAllowedFrom   []string `yaml:"proxy-allowed-from"`
 		MaxSendQString     string   `yaml:"max-sendq"`

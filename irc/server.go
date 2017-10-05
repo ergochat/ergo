@@ -7,14 +7,12 @@ package irc
 
 import (
 	"bufio"
-	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -37,14 +35,6 @@ var (
 
 	// common error responses
 	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
-)
-
-const (
-	// when shutting down the REST server, wait this long
-	// before killing active connections. TODO: this might not be
-	// necessary at all? but it seems prudent to avoid potential resource
-	// leaks
-	httpShutdownTimeout = time.Second
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -116,8 +106,6 @@ type Server struct {
 	registeredChannelsMutex      sync.RWMutex
 	rehashMutex                  sync.Mutex
 	rehashSignal                 chan os.Signal
-	restAPI                      RestAPIConfig
-	restAPIServer                *http.Server
 	proxyAllowedFrom             []string
 	signals                      chan os.Signal
 	snomasks                     *SnoManager
@@ -1445,7 +1433,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	// we are now open for business
 	server.setupListeners(config)
-	server.setupRestAPI(config)
 
 	return nil
 }
@@ -1581,32 +1568,6 @@ func (server *Server) setupListeners(config *Config) {
 	if 0 < len(tlsListeners) && !usesStandardTLSPort {
 		server.logger.Warning("startup", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
-}
-
-func (server *Server) setupRestAPI(config *Config) {
-	restAPIEnabled := config.Server.RestAPI.Enabled
-	restAPIStarted := server.restAPIServer != nil
-	restAPIListenAddrChanged := server.restAPI.Listen != config.Server.RestAPI.Listen
-
-	// stop an existing REST server if it's been disabled or the addr changed
-	if restAPIStarted && (!restAPIEnabled || restAPIListenAddrChanged) {
-		ctx, _ := context.WithTimeout(context.Background(), httpShutdownTimeout)
-		server.restAPIServer.Shutdown(ctx)
-		server.restAPIServer.Close()
-		server.logger.Info("rehash", "server", fmt.Sprintf("%s rest API stopped on %s.", server.name, server.restAPI.Listen))
-		server.restAPIServer = nil
-	}
-
-	// start a new one if it's enabled or the addr changed
-	if restAPIEnabled && (!restAPIStarted || restAPIListenAddrChanged) {
-		server.restAPIServer, _ = StartRestAPI(server, config.Server.RestAPI.Listen)
-		server.logger.Info(
-			"rehash", "server",
-			fmt.Sprintf("%s rest API started on %s.", server.name, config.Server.RestAPI.Listen))
-	}
-
-	// save the config information
-	server.restAPI = config.Server.RestAPI
 }
 
 func (server *Server) GetDefaultChannelModes() Modes {

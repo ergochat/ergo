@@ -19,7 +19,7 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 ## Features
 
-* UTF-8 nick and channel names with rfc7613
+* UTF-8 nick and channel names with rfc7613 (PRECIS)
 * [yaml](http://yaml.org/) configuration
 * native TLS/SSL support
 * server password (`PASS` command)
@@ -32,7 +32,6 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 * banning ips/nets and masks with `KLINE` and `DLINE`
 * [IRCv3 support](http://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](http://oragono.io/specs.html)
-* integrated (alpha) REST API and web interface
 
 ## Installation
 
@@ -130,27 +129,6 @@ After this, your channel will remember the fact that you're the owner, the topic
 
 Make sure to setup [SASL](https://freenode.net/kb/answer/sasl) in your client to automatically login to your account when you next join the server.
 
-
-<!--# Web interface
-
-Oragono also includes a web interface, which works with the REST API to provide a way to manage user accounts and bans.
-
-This interface is an early alpha, is in no way secure and will not be in a final release for a while. Requires the alpha REST API to be enabled (check your server config to enable that if you really want to).
-
-## Installation
-
-```sh
-go build oragono-web.go
-cp oragono-web.yaml web.yaml
-vim web.yaml  # modify the config file to your liking
-oragono-web mkcerts
-```
-
-## Running
-
-```sh
-oragono-web run
-```-->
 
 # Credits
 

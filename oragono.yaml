@@ -43,14 +43,6 @@ server:
         # should clients include this STS policy when they ship their inbuilt preload lists?
         preload: false
 
-    # rest management API, for use with web interface
-    rest-api:
-        # whether the API is enabled or not
-        enabled: false
-
-        # rest API listening port
-        listen: "localhost:8090"
-
     # use ident protocol to get usernames
     check-ident: true
 

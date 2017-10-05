@@ -72,21 +72,6 @@ This will make the server rehash its configuration files and TLS certificates, a
 useful if you're automatically updating your TLS certs!
 
 
-## REST API
-
-Oragono contains a draft, very early REST API implementation. My plans for this is to allow
-external web interfaces or other automated programs to monitor what's going on with the
-server, apply/remove bans, and to essentially allow administration of the server without
-being connected to it and opered-up. This sort of API mimics InspIRCd and Anope, which
-contain similar APIs.
-
-I'm not sure exactly how it's going to continue to be developed, and I'm sure there'll be
-lots of changes around appropriately restricting access to the API, which is why it's
-disabled for now and not exposed in our Docker builds. As well, while it's very unstable,
-the REST API doesn't count for our SemVer versioning. When this feature is more developed
-and I'm happy with where it's at, I'll provide proper support and documentation for the API.
-
-
 ## Rejected Features
 
 'Rejected' sounds harsh, but basically these are features I've decided I'm not gonna
