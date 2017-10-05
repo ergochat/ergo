@@ -1,7 +1,7 @@
 // Copyright (c) 2016 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package passwd
 
 import (
 	"crypto/rand"
@@ -9,8 +9,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const newSaltLen = 30
-const defaultPasswordCost = 14
+const (
+	// newSaltLen is how many bytes long newly-generated salts are.
+	newSaltLen = 30
+	// defaultPasswordCost is the bcrypt cost we use for passwords.
+	defaultPasswordCost = 14
+)
 
 // NewSalt returns a salt for crypto uses.
 func NewSalt() ([]byte, error) {
@@ -25,22 +29,22 @@ func NewSalt() ([]byte, error) {
 	return salt, nil
 }
 
-// PasswordManager supports the hashing and comparing of passwords with the given salt.
-type PasswordManager struct {
+// SaltedManager supports the hashing and comparing of passwords with the given salt.
+type SaltedManager struct {
 	salt []byte
 }
 
-// NewPasswordManager returns a new PasswordManager with the given salt.
-func NewPasswordManager(salt []byte) PasswordManager {
-	var pwm PasswordManager
-	pwm.salt = salt
-	return pwm
+// NewSaltedManager returns a new SaltedManager with the given salt.
+func NewSaltedManager(salt []byte) SaltedManager {
+	var sm SaltedManager
+	sm.salt = salt
+	return sm
 }
 
 // assemblePassword returns an assembled slice of bytes for the given password details.
-func (pwm *PasswordManager) assemblePassword(specialSalt []byte, password string) []byte {
+func (sm *SaltedManager) assemblePassword(specialSalt []byte, password string) []byte {
 	var assembledPasswordBytes []byte
-	assembledPasswordBytes = append(assembledPasswordBytes, pwm.salt...)
+	assembledPasswordBytes = append(assembledPasswordBytes, sm.salt...)
 	assembledPasswordBytes = append(assembledPasswordBytes, '-')
 	assembledPasswordBytes = append(assembledPasswordBytes, specialSalt...)
 	assembledPasswordBytes = append(assembledPasswordBytes, '-')
@@ -49,14 +53,14 @@ func (pwm *PasswordManager) assemblePassword(specialSalt []byte, password string
 }
 
 // GenerateFromPassword encrypts the given password.
-func (pwm *PasswordManager) GenerateFromPassword(specialSalt []byte, password string) ([]byte, error) {
-	assembledPasswordBytes := pwm.assemblePassword(specialSalt, password)
+func (sm *SaltedManager) GenerateFromPassword(specialSalt []byte, password string) ([]byte, error) {
+	assembledPasswordBytes := sm.assemblePassword(specialSalt, password)
 	return bcrypt.GenerateFromPassword(assembledPasswordBytes, defaultPasswordCost)
 }
 
 // CompareHashAndPassword compares a hashed password with its possible plaintext equivalent.
 // Returns nil on success, or an error on failure.
-func (pwm *PasswordManager) CompareHashAndPassword(hashedPassword []byte, specialSalt []byte, password string) error {
-	assembledPasswordBytes := pwm.assemblePassword(specialSalt, password)
+func (sm *SaltedManager) CompareHashAndPassword(hashedPassword []byte, specialSalt []byte, password string) error {
+	assembledPasswordBytes := sm.assemblePassword(specialSalt, password)
 	return bcrypt.CompareHashAndPassword(hashedPassword, assembledPasswordBytes)
 }

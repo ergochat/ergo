@@ -14,6 +14,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
@@ -224,7 +225,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		var creds AccountCredentials
 
 		// always set passphrase salt
-		creds.PassphraseSalt, err = NewSalt()
+		creds.PassphraseSalt, err = passwd.NewSalt()
 		if err != nil {
 			return fmt.Errorf("Could not create passphrase salt: %s", err.Error())
 		}

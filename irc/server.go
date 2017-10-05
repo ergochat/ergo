@@ -26,6 +26,7 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -108,7 +109,7 @@ type Server struct {
 	operators                    map[string]Oper
 	operclasses                  map[string]OperClass
 	password                     []byte
-	passwords                    *PasswordManager
+	passwords                    *passwd.SaltedManager
 	registeredChannels           map[string]*RegisteredChannel
 	registeredChannelsMutex      sync.RWMutex
 	rehashMutex                  sync.Mutex
@@ -474,7 +475,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	if ComparePassword(server.password, password) != nil {
+	if passwd.ComparePassword(server.password, password) != nil {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		client.Send(nil, server.name, "ERROR", "Password incorrect")
 		return true
@@ -1140,7 +1141,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.configurableStateMutex.RUnlock()
 
 	password := []byte(msg.Params[1])
-	err = ComparePassword(oper.Pass, password)
+	err = passwd.ComparePassword(oper.Pass, password)
 	if (oper.Pass == nil) || (err != nil) {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, "Password incorrect")
 		return true
@@ -1523,7 +1524,7 @@ func (server *Server) loadDatastore(datastorePath string) error {
 			return err
 		}
 
-		pwm := NewPasswordManager(salt)
+		pwm := passwd.NewSaltedManager(salt)
 		server.passwords = &pwm
 		return nil
 	})

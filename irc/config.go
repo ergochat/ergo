@@ -14,12 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
-
-	"code.cloudfoundry.org/bytefmt"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -48,7 +47,7 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 
 // PasswordBytes returns the bytes represented by the password hash.
 func (conf *PassConfig) PasswordBytes() []byte {
-	bytes, err := DecodePasswordHash(conf.Password)
+	bytes, err := passwd.DecodePasswordHash(conf.Password)
 	if err != nil {
 		log.Fatal("decode password error: ", err)
 	}
@@ -102,7 +101,7 @@ type OperConfig struct {
 
 // PasswordBytes returns the bytes represented by the password hash.
 func (conf *OperConfig) PasswordBytes() []byte {
-	bytes, err := DecodePasswordHash(conf.Password)
+	bytes, err := passwd.DecodePasswordHash(conf.Password)
 	if err != nil {
 		log.Fatal("decode password error: ", err)
 	}

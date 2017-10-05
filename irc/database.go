@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/oragono/oragono/irc/passwd"
+
 	"github.com/tidwall/buntdb"
 )
 
@@ -36,7 +38,7 @@ func InitDB(path string) {
 
 	err = store.Update(func(tx *buntdb.Tx) error {
 		// set base db salt
-		salt, err := NewSalt()
+		salt, err := passwd.NewSalt()
 		encodedSalt := base64.StdEncoding.EncodeToString(salt)
 		if err != nil {
 			log.Fatal("Could not generate cryptographically-secure salt for the user:", err.Error())
