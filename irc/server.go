@@ -27,6 +27,7 @@ import (
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -267,7 +268,7 @@ func (server *Server) Run() {
 
 		case conn := <-server.newConns:
 			// check IP address
-			ipaddr := net.ParseIP(IPString(conn.Conn.RemoteAddr()))
+			ipaddr := net.ParseIP(utils.IPString(conn.Conn.RemoteAddr()))
 			if ipaddr == nil {
 				conn.Conn.Write([]byte(couldNotParseIPMsg))
 				conn.Conn.Close()
@@ -1034,7 +1035,7 @@ func (client *Client) getWhoisOf(target *Client) {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
 	if client.flags[Operator] || client == target {
-		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, LookupHostname(target.IPString())), target.IPString(), "Actual user@host, Actual IP")
+		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), "Actual user@host, Actual IP")
 	}
 	if target.flags[TLS] {
 		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, "is using a secure connection")
@@ -2177,7 +2178,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	clientAddress := IPString(client.socket.conn.RemoteAddr())
+	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
 	clientHostname := client.hostname
 	for _, address := range server.proxyAllowedFrom {
 		if clientHostname == address || clientAddress == address {
@@ -2198,7 +2199,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 			// override the client's regular IP
 			client.proxiedIP = msg.Params[1]
-			client.rawHostname = LookupHostname(msg.Params[1])
+			client.rawHostname = utils.LookupHostname(msg.Params[1])
 			client.hostname = client.rawHostname
 			return false
 		}

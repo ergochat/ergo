@@ -1,11 +1,11 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package utils
 
-// argsToStrings takes the arguments and splits them into a series of strings,
+// ArgsToStrings takes the arguments and splits them into a series of strings,
 // each argument separated by delim and each string bounded by maxLength.
-func argsToStrings(maxLength int, arguments []string, delim string) []string {
+func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
 	var messages []string
 
 	var buffer string

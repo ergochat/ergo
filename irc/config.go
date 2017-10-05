@@ -16,6 +16,7 @@ import (
 
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/utils"
 
 	"code.cloudfoundry.org/bytefmt"
 
@@ -383,7 +384,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Server.Name == "" {
 		return nil, errors.New("Server name missing")
 	}
-	if !IsHostname(config.Server.Name) {
+	if !utils.IsHostname(config.Server.Name) {
 		return nil, errors.New("Server name must match the format of a hostname")
 	}
 	if config.Datastore.Path == "" {

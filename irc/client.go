@@ -21,6 +21,7 @@ import (
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -153,7 +154,7 @@ func (client *Client) IP() net.IP {
 		return net.ParseIP(client.proxiedIP)
 	}
 
-	return net.ParseIP(IPString(client.socket.conn.RemoteAddr()))
+	return net.ParseIP(utils.IPString(client.socket.conn.RemoteAddr()))
 }
 
 // IPString returns the IP address of this client as a string.
@@ -197,7 +198,7 @@ func (client *Client) run() {
 
 	// Set the hostname for this client
 	// (may be overridden by a later PROXY command from stunnel)
-	client.rawHostname = AddrLookupHostname(client.socket.conn.RemoteAddr())
+	client.rawHostname = utils.AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	for {
 		line, err = client.socket.Read()
@@ -451,7 +452,7 @@ func (client *Client) AllNickmasks() []string {
 		masks = append(masks, mask)
 	}
 
-	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, IPString(client.socket.conn.RemoteAddr())))
+	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, utils.IPString(client.socket.conn.RemoteAddr())))
 	if err == nil && mask2 != mask {
 		masks = append(masks, mask2)
 	}

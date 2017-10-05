@@ -2,7 +2,7 @@
 // Copyright (c) 2016 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package utils
 
 import (
 	"net"

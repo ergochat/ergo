@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // MonitorManager keeps track of who's monitoring which nicks.
@@ -218,7 +219,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		nickList = append(nickList, replynick)
 	}
 
-	for _, line := range argsToStrings(maxLastArgLength, nickList, ",") {
+	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
 		client.Send(nil, server.name, RPL_MONLIST, client.getNick(), line)
 	}
 
@@ -243,12 +244,12 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	}
 
 	if len(online) > 0 {
-		for _, line := range argsToStrings(maxLastArgLength, online, ",") {
+		for _, line := range utils.ArgsToStrings(maxLastArgLength, online, ",") {
 			client.Send(nil, server.name, RPL_MONONLINE, client.getNick(), line)
 		}
 	}
 	if len(offline) > 0 {
-		for _, line := range argsToStrings(maxLastArgLength, offline, ",") {
+		for _, line := range utils.ArgsToStrings(maxLastArgLength, offline, ",") {
 			client.Send(nil, server.name, RPL_MONOFFLINE, client.getNick(), line)
 		}
 	}
