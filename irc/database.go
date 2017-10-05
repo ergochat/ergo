@@ -53,7 +53,7 @@ func InitDB(path string) {
 	}
 }
 
-// open an existing database, performing a schema version check
+// OpenDatabase returns an existing database, performing a schema version check.
 func OpenDatabase(path string) (*buntdb.DB, error) {
 	// open data store
 	db, err := buntdb.Open(path)
@@ -65,7 +65,7 @@ func OpenDatabase(path string) (*buntdb.DB, error) {
 	err = db.View(func(tx *buntdb.Tx) error {
 		version, _ := tx.Get(keySchemaVersion)
 		if version != latestDbSchema {
-			return fmt.Errorf("Database must be updated. Expected schema v%s, got v%s.", latestDbSchema, version)
+			return fmt.Errorf("Database must be updated. Expected schema v%s, got v%s", latestDbSchema, version)
 		}
 		return nil
 	})

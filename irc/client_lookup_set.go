@@ -224,17 +224,21 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 
 //TODO(dan): move this over to generally using glob syntax instead?
 // kinda more expected in normal ban/etc masks, though regex is useful (probably as an extban?)
+
+// UserMaskSet holds a set of client masks and lets you match  hostnames to them.
 type UserMaskSet struct {
 	masks  map[string]bool
 	regexp *regexp.Regexp
 }
 
+// NewUserMaskSet returns a new UserMaskSet.
 func NewUserMaskSet() *UserMaskSet {
 	return &UserMaskSet{
 		masks: make(map[string]bool),
 	}
 }
 
+// Add adds the given mask to this set.
 func (set *UserMaskSet) Add(mask string) bool {
 	casefoldedMask, err := Casefold(mask)
 	if err != nil {
@@ -249,6 +253,7 @@ func (set *UserMaskSet) Add(mask string) bool {
 	return true
 }
 
+// AddAll adds the given masks to this set.
 func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 	for _, mask := range masks {
 		if !added && !set.masks[mask] {
@@ -260,6 +265,7 @@ func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 	return
 }
 
+// Remove removes the given mask from this set.
 func (set *UserMaskSet) Remove(mask string) bool {
 	if !set.masks[mask] {
 		return false
@@ -269,6 +275,7 @@ func (set *UserMaskSet) Remove(mask string) bool {
 	return true
 }
 
+// Match matches the given n!u@h.
 func (set *UserMaskSet) Match(userhost string) bool {
 	if set.regexp == nil {
 		return false
@@ -276,17 +283,18 @@ func (set *UserMaskSet) Match(userhost string) bool {
 	return set.regexp.MatchString(userhost)
 }
 
+// String returns the masks in this set.
 func (set *UserMaskSet) String() string {
 	masks := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
 		masks[index] = mask
-		index += 1
+		index++
 	}
 	return strings.Join(masks, " ")
 }
 
-// Generate a regular expression from the set of user mask
+// setRegexp generates a regular expression from the set of user mask
 // strings. Masks are split at the two types of wildcards, `*` and
 // `?`. All the pieces are meta-escaped. `*` is replaced with `.*`,
 // the regexp equivalent. Likewise, `?` is replaced with `.`. The

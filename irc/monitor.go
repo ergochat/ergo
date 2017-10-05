@@ -12,6 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 )
 
+// MonitorManager keeps track of who's monitoring which nicks.
 type MonitorManager struct {
 	sync.RWMutex
 	// client -> nicks it's watching
@@ -21,6 +22,7 @@ type MonitorManager struct {
 	// (all nicks must be normalized externally by casefolding)
 }
 
+// NewMonitorManager returns a new MonitorManager.
 func NewMonitorManager() *MonitorManager {
 	mm := MonitorManager{
 		watching:  make(map[*Client]map[string]bool),
@@ -29,7 +31,8 @@ func NewMonitorManager() *MonitorManager {
 	return &mm
 }
 
-var MonitorLimitExceeded = errors.New("Monitor limit exceeded")
+// ErrMonitorLimitExceeded is used when the monitor list exceeds our limit.
+var ErrMonitorLimitExceeded = errors.New("Monitor limit exceeded")
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
 func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
@@ -69,7 +72,7 @@ func (manager *MonitorManager) Add(client *Client, nick string, limit int) error
 	}
 
 	if len(manager.watching[client]) >= limit {
-		return MonitorLimitExceeded
+		return ErrMonitorLimitExceeded
 	}
 
 	manager.watching[client][nick] = true
@@ -92,7 +95,7 @@ func (manager *MonitorManager) RemoveAll(client *Client) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	for nick, _ := range manager.watching[client] {
+	for nick := range manager.watching[client] {
 		delete(manager.watchedby[nick], client)
 	}
 	delete(manager.watching, client)
@@ -172,7 +175,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 		}
 
 		err = server.monitorManager.Add(client, casefoldedTarget, limit)
-		if err == MonitorLimitExceeded {
+		if err == ErrMonitorLimitExceeded {
 			client.Send(nil, server.name, ERR_MONLISTFULL, client.getNick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
 			break
 		} else if err != nil {
@@ -206,7 +209,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	monitorList := server.monitorManager.List(client)
 
 	var nickList []string
-	for _, cfnick := range(monitorList) {
+	for _, cfnick := range monitorList {
 		replynick := cfnick
 		// report the uncasefolded nick if it's available, i.e., the client is online
 		if mclient := server.clients.Get(cfnick); mclient != nil {

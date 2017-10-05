@@ -1592,6 +1592,7 @@ func (server *Server) setupListeners(config *Config) {
 	}
 }
 
+// GetDefaultChannelModes returns our default channel modes.
 func (server *Server) GetDefaultChannelModes() Modes {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
