@@ -99,7 +99,7 @@ var Help = map[string]HelpEntry{
 ACC VERIFY <accountname> <auth_code>
 
 Used in account registration. See the relevant specs for more info:
-http://oragono.io/specs.html`,
+https://oragono.io/specs.html`,
 	},
 	"ambiance": {
 		text: `AMBIANCE <target> <text to be sent>
@@ -512,7 +512,7 @@ Returns historical information on the last user with the given nickname.`,
 
 Oragono supports an experimental unicode casemapping designed for extended
 Unicode support. This casemapping is based off RFC 7613 and the draft rfc7613
-casemapping spec here: http://oragono.io/specs.html`,
+casemapping spec here: https://oragono.io/specs.html`,
 		helpType: ISupportHelpEntry,
 	},
 	"prefix": {
