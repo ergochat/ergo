@@ -1,7 +1,7 @@
 // Copyright (c) 2016 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package isupport
 
 import (
 	"reflect"
@@ -10,7 +10,7 @@ import (
 
 func TestISUPPORT(t *testing.T) {
 	// create first list
-	tList1 := NewISupportList()
+	tList1 := NewList()
 	tList1.Add("SASL", "yes")
 	tList1.Add("CASEMAPPING", "rfc1459-strict")
 	tList1.Add("INVEX", "i")
@@ -24,7 +24,7 @@ func TestISUPPORT(t *testing.T) {
 	}
 
 	// create second list
-	tList2 := NewISupportList()
+	tList2 := NewList()
 	tList2.Add("SASL", "yes")
 	tList2.Add("CASEMAPPING", "ascii")
 	tList2.AddNoValue("INVEX")

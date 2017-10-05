@@ -24,6 +24,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
@@ -91,7 +92,7 @@ type Server struct {
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
 	loggingRawIO                 bool
-	isupport                     *ISupportList
+	isupport                     *isupport.List
 	klines                       *KLineManager
 	limits                       Limits
 	listeners                    map[string]*ListenerWrapper
@@ -175,7 +176,7 @@ func (server *Server) setISupport() {
 	server.configurableStateMutex.RLock()
 
 	// add RPL_ISUPPORT tokens
-	isupport := NewISupportList()
+	isupport := isupport.NewList()
 	isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	isupport.Add("CASEMAPPING", casemappingName)
 	isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))

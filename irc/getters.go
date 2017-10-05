@@ -3,7 +3,9 @@
 
 package irc
 
-func (server *Server) getISupport() *ISupportList {
+import "github.com/oragono/oragono/irc/isupport"
+
+func (server *Server) getISupport() *isupport.List {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.isupport

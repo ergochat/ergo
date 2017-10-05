@@ -1,34 +1,37 @@
 // Copyright (c) 2016 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package isupport
 
 import "fmt"
 import "sort"
 
-const isupportSupportedString = "are supported by this server"
+const (
+	maxLastArgLength = 400
+	supportedString  = "are supported by this server"
+)
 
-// ISupportList holds a list of ISUPPORT tokens
-type ISupportList struct {
+// List holds a list of ISUPPORT tokens
+type List struct {
 	Tokens      map[string]*string
 	CachedReply [][]string
 }
 
-// NewISupportList returns a new ISupportList
-func NewISupportList() *ISupportList {
-	var il ISupportList
+// NewList returns a new List
+func NewList() *List {
+	var il List
 	il.Tokens = make(map[string]*string)
 	il.CachedReply = make([][]string, 0)
 	return &il
 }
 
 // Add adds an RPL_ISUPPORT token to our internal list
-func (il *ISupportList) Add(name string, value string) {
+func (il *List) Add(name string, value string) {
 	il.Tokens[name] = &value
 }
 
 // AddNoValue adds an RPL_ISUPPORT token that does not have a value
-func (il *ISupportList) AddNoValue(name string) {
+func (il *List) AddNoValue(name string) {
 	il.Tokens[name] = nil
 }
 
@@ -41,7 +44,7 @@ func getTokenString(name string, value *string) string {
 }
 
 // GetDifference returns the difference between two token lists.
-func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
+func (il *List) GetDifference(newil *List) [][]string {
 	var outTokens sort.StringSlice
 
 	// append removed tokens
@@ -86,7 +89,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 		}
 
 		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
-			cache = append(cache, isupportSupportedString)
+			cache = append(cache, supportedString)
 			replies = append(replies, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -94,7 +97,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 	}
 
 	if len(cache) > 0 {
-		cache = append(cache, isupportSupportedString)
+		cache = append(cache, supportedString)
 		replies = append(replies, cache)
 	}
 
@@ -102,7 +105,7 @@ func (il *ISupportList) GetDifference(newil *ISupportList) [][]string {
 }
 
 // RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
-func (il *ISupportList) RegenerateCachedReply() {
+func (il *List) RegenerateCachedReply() {
 	il.CachedReply = make([][]string, 0)
 	var length int     // Length of the current cache
 	var cache []string // Token list cache
@@ -127,7 +130,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 		}
 
 		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
-			cache = append(cache, isupportSupportedString)
+			cache = append(cache, supportedString)
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -135,15 +138,7 @@ func (il *ISupportList) RegenerateCachedReply() {
 	}
 
 	if len(cache) > 0 {
-		cache = append(cache, isupportSupportedString)
+		cache = append(cache, supportedString)
 		il.CachedReply = append(il.CachedReply, cache)
-	}
-}
-
-// RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
-func (client *Client) RplISupport() {
-	for _, tokenline := range client.server.getISupport().CachedReply {
-		// ugly trickery ahead
-		client.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
 	}
 }
