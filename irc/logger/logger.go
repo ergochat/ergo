@@ -60,7 +60,7 @@ type Manager struct {
 	loggingRawIO    bool
 }
 
-// Config represents the configuration of a single logger.
+// LoggingConfig represents the configuration of a single logger.
 type LoggingConfig struct {
 	Method        string
 	MethodStdout  bool
@@ -85,6 +85,7 @@ func NewManager(config []LoggingConfig) (*Manager, error) {
 	return &logger, nil
 }
 
+// ApplyConfig applies the given config to this logger (rehashes the config, in other words).
 func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	logger.configMutex.Lock()
 	defer logger.configMutex.Unlock()
@@ -140,6 +141,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	return lastErr
 }
 
+// IsLoggingRawIO returns true if raw user input and output is being logged.
 func (logger *Manager) IsLoggingRawIO() bool {
 	logger.configMutex.RLock()
 	defer logger.configMutex.RUnlock()
