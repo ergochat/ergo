@@ -101,7 +101,6 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanI
 		}
 	}()
 
-
 	km.RLock()
 	defer km.RUnlock()
 
