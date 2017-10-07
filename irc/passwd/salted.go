@@ -36,9 +36,9 @@ type SaltedManager struct {
 
 // NewSaltedManager returns a new SaltedManager with the given salt.
 func NewSaltedManager(salt []byte) SaltedManager {
-	var sm SaltedManager
-	sm.salt = salt
-	return sm
+	return SaltedManager{
+		salt: salt,
+	}
 }
 
 // assemblePassword returns an assembled slice of bytes for the given password details.

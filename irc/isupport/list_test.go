@@ -9,6 +9,34 @@ import (
 )
 
 func TestISUPPORT(t *testing.T) {
+	// test multiple output replies
+	tListLong := NewList()
+	tListLong.AddNoValue("1")
+	tListLong.AddNoValue("2")
+	tListLong.AddNoValue("3")
+	tListLong.AddNoValue("4")
+	tListLong.AddNoValue("5")
+	tListLong.AddNoValue("6")
+	tListLong.AddNoValue("7")
+	tListLong.AddNoValue("8")
+	tListLong.AddNoValue("9")
+	tListLong.AddNoValue("A")
+	tListLong.AddNoValue("B")
+	tListLong.AddNoValue("C")
+	tListLong.AddNoValue("D")
+	tListLong.AddNoValue("E")
+	tListLong.AddNoValue("F")
+	tListLong.RegenerateCachedReply()
+
+	longReplies := [][]string{
+		{"1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "are supported by this server"},
+		{"E", "F", "are supported by this server"},
+	}
+
+	if !reflect.DeepEqual(tListLong.CachedReply, longReplies) {
+		t.Errorf("Multiple output replies did not match, got [%v]", longReplies)
+	}
+
 	// create first list
 	tList1 := NewList()
 	tList1.Add("SASL", "yes")
