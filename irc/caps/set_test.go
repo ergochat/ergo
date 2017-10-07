@@ -43,4 +43,28 @@ func TestSets(t *testing.T) {
 	if s1.Count() != 2 {
 		t.Error("Count() did not match expected capability count")
 	}
+
+	// make sure add and remove work fine
+	s1.Add(InviteNotify)
+	s1.Remove(EchoMessage)
+
+	if s1.Count() != 2 {
+		t.Error("Count() did not match expected capability count")
+	}
+
+	// test String()
+	values := NewValues()
+	values.Set(InviteNotify, "invitemepls")
+
+	actualCap301ValuesString := s1.String(Cap301, values)
+	expectedCap301ValuesString := "invite-notify userhost-in-names"
+	if actualCap301ValuesString != expectedCap301ValuesString {
+		t.Errorf("Generated Cap301 values string [%s] did not match expected values string [%s]", actualCap301ValuesString, expectedCap301ValuesString)
+	}
+
+	actualCap302ValuesString := s1.String(Cap302, values)
+	expectedCap302ValuesString := "invite-notify=invitemepls userhost-in-names"
+	if actualCap302ValuesString != expectedCap302ValuesString {
+		t.Errorf("Generated Cap302 values string [%s] did not match expected values string [%s]", actualCap302ValuesString, expectedCap302ValuesString)
+	}
 }
