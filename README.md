@@ -135,4 +135,9 @@ Make sure to setup [SASL](https://freenode.net/kb/answer/sasl) in your client to
 * Edmund Huber, maintainer of Ergonomadic, <https://github.com/edmund-huber>
 * Niels Freier, added WebSocket support to Ergonomadic, <https://github.com/stumpyfr>
 * Daniel Oakley, maintainer of Oragono, <https://github.com/DanielOaks>
+* Euan Kemp, contributor to Oragono and lots of useful fixes, <https://github.com/euank>
+* Shivaram Lingamneni, has contributed a ton of fixes, refactoring, and general improvements, <https://github.com/slingamn>
+* James Mills, contributed Docker support, <https://github.com/prologic>
+* Vegax, implementing some commands and helping when Oragono was just getting started, <https://github.com/vegax87>
+* Sean Enck, transitioned us from using a custom script to a proper Makefile, <https://github.com/enckse>
 * apologies to anyone I forgot.
