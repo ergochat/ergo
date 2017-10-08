@@ -15,6 +15,7 @@ add-files = mkdir -p $1; \
 	cp ./docs/README $1; \
 	mkdir -p $1/docs; \
 	cp ./CHANGELOG.md $1/docs/; \
+	cp ./docs/*.md $1/docs/; \
 	cp ./docs/logo* $1/docs/;
 
 all: clean windows osx linux arm6

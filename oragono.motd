@@ -7,3 +7,16 @@
 
 This is the default Oragono MOTD.
 
+
+If motd-formatting is enabled in the config file, you can use the dollarsign character to
+create special formatting such as bold, italics and color codes.
+
+For example, here are a few formatted lines (enable motd-formatting to see these in action):
+
+- this is $bbold text$r.
+- this is $iitalics text$r.
+- this is $c[red]red$c and $c[blue]blue$c text.
+- this is $c[red,light blue]red text with a light blue background$c.
+- this is a normal escaped dollarsign: $$
+
+For more information on using these, see MOTDFORMATTING.md

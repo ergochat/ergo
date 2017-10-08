@@ -180,6 +180,7 @@ type Config struct {
 		STS                STSConfig
 		CheckIdent         bool `yaml:"check-ident"`
 		MOTD               string
+		MOTDFormatting     bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom   []string `yaml:"proxy-allowed-from"`
 		MaxSendQString     string   `yaml:"max-sendq"`
 		MaxSendQBytes      uint64

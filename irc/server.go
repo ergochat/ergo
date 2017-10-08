@@ -1423,7 +1423,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		newISupportReplies = oldISupportList.GetDifference(server.isupport)
 	}
 
-	server.loadMOTD(config.Server.MOTD)
+	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
 
 	// reload logging config
 	err = server.logger.ApplyConfig(config.Logging)
@@ -1462,7 +1462,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	return nil
 }
 
-func (server *Server) loadMOTD(motdPath string) error {
+func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 	server.logger.Debug("rehash", "Loading MOTD")
 	motdLines := make([]string, 0)
 	if motdPath != "" {
@@ -1477,6 +1477,11 @@ func (server *Server) loadMOTD(motdPath string) error {
 					break
 				}
 				line = strings.TrimRight(line, "\r\n")
+
+				if useFormatting {
+					line = ircfmt.Unescape(line)
+				}
+
 				// "- " is the required prefix for MOTD, we just add it here to make
 				// bursting it out to clients easier
 				line = fmt.Sprintf("- %s", line)

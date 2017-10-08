@@ -54,6 +54,10 @@ server:
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
 
+    # motd formatting codes
+    # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
+    #motd-formatting: true
+
     # addresses/hostnames the PROXY command can be used from
     # this should be restricted to 127.0.0.1 and localhost at most
     # you should also add these addresses to the connection limits and throttling exemption lists
