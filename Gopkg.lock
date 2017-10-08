@@ -1,4 +1,4 @@
-memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
+memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
 
 [[projects]]
   name = "code.cloudfoundry.org/bytefmt"
@@ -10,24 +10,6 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   packages = ["."]
   revision = "784ddc588536785e7299f7272f39101f7faccc3f"
   version = "0.6.2"
-
-[[projects]]
-  name = "github.com/gorilla/context"
-  packages = ["."]
-  revision = "1ea25387ff6f684839d82767c1733ff4d4d15d0a"
-  version = "v1.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/gorilla/mux"
-  packages = ["."]
-  revision = "3f19343c7d9ce75569b952758bd236af94956061"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/gorilla/websocket"
-  packages = ["."]
-  revision = "6f34763140ed8887aed6a044912009832b4733d7"
 
 [[projects]]
   branch = "master"
@@ -50,8 +32,8 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
 [[projects]]
   name = "github.com/mattn/go-isatty"
   packages = ["."]
-  revision = "fc9e8d8ef48496124e79ae0df75490096eccf6fe"
-  version = "v0.0.2"
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
 
 [[projects]]
   branch = "master"
@@ -69,7 +51,7 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/stackimpact/stackimpact-go"
   packages = [".","internal","internal/pprof/profile"]
-  revision = "9cf49ba87a179fe027efa8b0d6b0235cb9cbc7fe"
+  revision = "bb2f2d4183554adda0fefcf114183607f6e5c2f8"
 
 [[projects]]
   branch = "master"
@@ -86,8 +68,8 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
 [[projects]]
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  revision = "be96719f990978a867f52c48f29d43f6b591da28"
-  version = "v1.0.0"
+  revision = "5a69e67cfd8f6f9b0044ed49f5079d0eeed28653"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
@@ -99,7 +81,7 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "github.com/tidwall/match"
   packages = ["."]
-  revision = "173748da739a410c5b0b813b956f89ff94730b4c"
+  revision = "1731857f09b1f38450e2c12409748407822dc6be"
 
 [[projects]]
   branch = "master"
@@ -111,19 +93,19 @@ memo = "2e64ed5ab0c87a6416bd5d57e50cf8391e9e0d581421083a375cc930d1e2fe92"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
+  revision = "9419663f5a44be8b34ca85f08abc5fe1be11f8a3"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "429f518978ab01db8bb6f44b66785088e7fba58b"
+  revision = "ebfc5b4631820b793c9010c87fd8fef0f39eb082"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","collate","collate/build","internal","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "1cbadb444a806fd9430d14ad08967ed91da4fa0a"
+  revision = "825fc78a2fd6fa0a5447e300189e3219e05e1f25"
 
 [[projects]]
   branch = "v2"
