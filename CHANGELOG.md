@@ -8,21 +8,29 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* `motd-formatting` key added under `server`, which supports MOTD formatting characters.
+* `rest-api` section removed from `server` (since we no longer support the Rest API).
+* `ws-listen` key removed from `server` (since we no longer support websocket ports).
 
 ### Security
 
 ### Added
+* We now support the `PROXY` command (letting people use HAProxy to terminate TLS and similar).
+* We now support using escaped formatting codes in the MOTD (tl;dr easy colors, bold and italics).
 
 ### Changed
 * D-LINE and K-LINE code is now cleaner under the hood and less likely to crash.
 * Rehashing is now safer.
+* Server opers could always speak on channels, even when they shouldn't be able to. Now they aren't above the law.
 
 ### Removed
 * Removed the `draft/message-ids` cap since... it doesn't actually exist. The feature is now enabled by default when clients request the `draft/message-tags-0.2` capability, as written in the [Message IDs spec](http://ircv3.net/specs/extensions/message-ids.html).
 * Removed websocket support (conflicted with existing larger IRCd's implementations and not used by any real clients).
+* REST API has been removed, until we can build up the web interface in parallel with it.
 
 ### Fixed
-* `AWAY` was sending an incorrect mode string, and now sends the correct mode string.
+* `AWAY` was sending an incorrect mode string, and now sends the correct mode string (thanks @jwheare for pointing this out).
+* Fixed some bugs with our `MONITOR` implementation which meant we weren't returning the right info to clients.
 * The Moderated (`+m`) and RegisteredOnly (`+R`) channel modes could not be set. Now they can be set.
 
 
