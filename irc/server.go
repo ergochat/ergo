@@ -78,6 +78,7 @@ type Server struct {
 	accountAuthenticationEnabled bool
 	accountRegistration          *AccountRegistration
 	accounts                     map[string]*ClientAccount
+	batches                      *BatchManager
 	channelRegistrationEnabled   bool
 	channels                     ChannelNameMap
 	channelJoinPartMutex         sync.Mutex // used when joining/parting channels to prevent stomping over each others' access and all
@@ -146,6 +147,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
 		accounts:           make(map[string]*ClientAccount),
+		batches:            NewBatchManager(),
 		channels:           *NewChannelNameMap(),
 		clients:            NewClientLookupSet(),
 		commands:           make(chan Command),
@@ -988,8 +990,12 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		masksString = msg.Params[0]
 	}
 
+	rb := NewResponseBuffer(client)
+	rb.Label = GetLabel(msg)
+
 	if len(strings.TrimSpace(masksString)) < 1 {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "No masks given")
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "No masks given")
+		rb.Send()
 		return false
 	}
 
@@ -998,16 +1004,16 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		for _, mask := range masks {
 			casefoldedMask, err := Casefold(mask)
 			if err != nil {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
+				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
 				continue
 			}
 			matches := server.clients.FindAll(casefoldedMask)
 			if len(matches) == 0 {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
+				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, "No such nick")
 				continue
 			}
 			for mclient := range matches {
-				client.getWhoisOf(mclient)
+				client.getWhoisOf(mclient, rb)
 			}
 		}
 	} else {
@@ -1015,36 +1021,37 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
 		mclient := server.clients.Get(casefoldedMask)
 		if err != nil || mclient == nil {
-			client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, "No such nick")
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, "No such nick")
 			// fall through, ENDOFWHOIS is always sent
 		} else {
-			client.getWhoisOf(mclient)
+			client.getWhoisOf(mclient, rb)
 		}
 	}
-	client.Send(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, "End of /WHOIS list")
+	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, "End of /WHOIS list")
+	rb.Send()
 	return false
 }
 
-func (client *Client) getWhoisOf(target *Client) {
-	client.Send(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
+func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
+	rb.Add(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
-		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
+		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
 	}
 	if target.class != nil {
-		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
+		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
 	if client.flags[Operator] || client == target {
-		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), "Actual user@host, Actual IP")
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), "Actual user@host, Actual IP")
 	}
 	if target.flags[TLS] {
-		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, "is using a secure connection")
+		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, "is using a secure connection")
 	}
 	if target.certfp != "" && (client.flags[Operator] || client == target) {
-		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
+		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
 	}
-	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
+	rb.Add(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
 }
 
 // RplWhoReplyNoMutex returns the WHO reply between one user and another channel/user.
