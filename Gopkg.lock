@@ -21,7 +21,7 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
   branch = "master"
   name = "github.com/goshuirc/irc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "a5eafb7ec8061edf1ee666c8eb3b39bba3fe072f"
+  revision = "3a2b80af9bb858b7512f896a5b00804d574e80e0"
 
 [[projects]]
   branch = "master"
