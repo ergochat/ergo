@@ -6,6 +6,7 @@ package irc
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,8 @@ type ThrottleDetails struct {
 
 // ConnectionThrottle manages automated client connection throttling.
 type ConnectionThrottle struct {
+	sync.RWMutex
+
 	enabled     bool
 	ipv4Mask    net.IPMask
 	ipv6Mask    net.IPMask
@@ -25,9 +28,8 @@ type ConnectionThrottle struct {
 	population  map[string]ThrottleDetails
 
 	// used by the server to ban clients that go over this limit
-	BanDuration     time.Duration
-	BanMessage      string
-	BanMessageBytes []byte
+	banDuration time.Duration
+	banMessage  string
 
 	// exemptedIPs holds IPs that are exempt from limits
 	exemptedIPs map[string]bool
@@ -50,6 +52,9 @@ func (ct *ConnectionThrottle) maskAddr(addr net.IP) net.IP {
 
 // ResetFor removes any existing count for the given address.
 func (ct *ConnectionThrottle) ResetFor(addr net.IP) {
+	ct.Lock()
+	defer ct.Unlock()
+
 	if !ct.enabled {
 		return
 	}
@@ -62,6 +67,9 @@ func (ct *ConnectionThrottle) ResetFor(addr net.IP) {
 
 // AddClient introduces a new client connection if possible. If we can't, throws an error instead.
 func (ct *ConnectionThrottle) AddClient(addr net.IP) error {
+	ct.Lock()
+	defer ct.Unlock()
+
 	if !ct.enabled {
 		return nil
 	}
@@ -97,38 +105,63 @@ func (ct *ConnectionThrottle) AddClient(addr net.IP) error {
 	return nil
 }
 
+func (ct *ConnectionThrottle) BanDuration() time.Duration {
+	ct.RLock()
+	defer ct.RUnlock()
+
+	return ct.banDuration
+}
+
+func (ct *ConnectionThrottle) BanMessage() string {
+	ct.RLock()
+	defer ct.RUnlock()
+
+	return ct.banMessage
+}
+
 // NewConnectionThrottle returns a new client connection throttler.
-func NewConnectionThrottle(config ConnectionThrottleConfig) (*ConnectionThrottle, error) {
+// The throttler is functional, but disabled; it can be enabled via `ApplyConfig`.
+func NewConnectionThrottle() *ConnectionThrottle {
 	var ct ConnectionThrottle
-	ct.enabled = config.Enabled
 
+	// initialize empty population; all other state is configurable
 	ct.population = make(map[string]ThrottleDetails)
-	ct.exemptedIPs = make(map[string]bool)
 
-	ct.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)
-	ct.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
-	ct.subnetLimit = config.ConnectionsPerCidr
+	return &ct
+}
 
-	ct.duration = config.Duration
-
-	ct.BanDuration = config.BanDuration
-	ct.BanMessage = config.BanMessage
-
+// ApplyConfig atomically applies a config update to a throttler
+func (ct *ConnectionThrottle) ApplyConfig(config ConnectionThrottleConfig) error {
 	// assemble exempted nets
+	exemptedIPs := make(map[string]bool)
+	var exemptedNets []net.IPNet
 	for _, cidr := range config.Exempted {
 		ipaddr := net.ParseIP(cidr)
 		_, netaddr, err := net.ParseCIDR(cidr)
 
 		if ipaddr == nil && err != nil {
-			return nil, fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
+			return fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
 		}
 
 		if ipaddr != nil {
-			ct.exemptedIPs[ipaddr.String()] = true
+			exemptedIPs[ipaddr.String()] = true
 		} else {
-			ct.exemptedNets = append(ct.exemptedNets, *netaddr)
+			exemptedNets = append(exemptedNets, *netaddr)
 		}
 	}
 
-	return &ct, nil
+	ct.Lock()
+	defer ct.Unlock()
+
+	ct.enabled = config.Enabled
+	ct.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)
+	ct.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
+	ct.subnetLimit = config.ConnectionsPerCidr
+	ct.duration = config.Duration
+	ct.banDuration = config.BanDuration
+	ct.banMessage = config.BanMessage
+	ct.exemptedIPs = exemptedIPs
+	ct.exemptedNets = exemptedNets
+
+	return nil
 }

@@ -87,9 +87,7 @@ type Server struct {
 	configFilename               string
 	configurableStateMutex       sync.RWMutex // generic protection for server state modified by rehash()
 	connectionLimits             *ConnectionLimits
-	connectionLimitsMutex        sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	connectionThrottle           *ConnectionThrottle
-	connectionThrottleMutex      sync.Mutex // used when affecting the connection limiter, to make sure rehashing doesn't make things go out-of-whack
 	ctime                        time.Time
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
@@ -149,6 +147,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		channels:           *NewChannelNameMap(),
 		clients:            NewClientLookupSet(),
 		commands:           make(chan Command),
+		connectionLimits:   connection_limiting.NewConnectionLimits(),
+		connectionThrottle: connection_limiting.NewConnectionThrottle(),
 		listeners:          make(map[string]*ListenerWrapper),
 		logger:             logger,
 		monitorManager:     NewMonitorManager(),
@@ -301,32 +301,29 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	}
 
 	// check connection limits
-	server.connectionLimitsMutex.Lock()
 	err := server.connectionLimits.AddClient(ipaddr, false)
-	server.connectionLimitsMutex.Unlock()
 	if err != nil {
 		// too many connections from one client, tell the client and close the connection
 		return true, "Too many clients from your network"
 	}
 
 	// check connection throttle
-	server.connectionThrottleMutex.Lock()
 	err = server.connectionThrottle.AddClient(ipaddr)
-	server.connectionThrottleMutex.Unlock()
 	if err != nil {
 		// too many connections too quickly from client, tell them and close the connection
+		duration := server.connectionThrottle.BanDuration()
 		length := &IPRestrictTime{
-			Duration: server.connectionThrottle.BanDuration,
-			Expires:  time.Now().Add(server.connectionThrottle.BanDuration),
+			Duration: duration,
+			Expires:  time.Now().Add(duration),
 		}
-		server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage, "Exceeded automated connection throttle")
+		server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage(), "Exceeded automated connection throttle")
 
 		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
 		// and once their temporary DLINE is finished they can fill up the throttler again
 		server.connectionThrottle.ResetFor(ipaddr)
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
-		return true, server.connectionThrottle.BanMessage
+		return true, server.connectionThrottle.BanMessage()
 	}
 
 	return false, ""
@@ -1229,18 +1226,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		return fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
 	}
 
-	// confirm connectionLimits are fine
-	connectionLimits, err := NewConnectionLimits(config.Server.ConnectionLimits)
-	if err != nil {
-		return fmt.Errorf("Error rehashing config file connection-limits: %s", err.Error())
-	}
-
-	// confirm connectionThrottler is fine
-	connectionThrottle, err := NewConnectionThrottle(config.Server.ConnectionThrottle)
-	if err != nil {
-		return fmt.Errorf("Error rehashing config file connection-throttle: %s", err.Error())
-	}
-
 	// confirm operator stuff all exists and is fine
 	operclasses, err := config.OperatorClasses()
 	if err != nil {
@@ -1272,22 +1257,15 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	// apply new PROXY command restrictions
 	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
 
-	// apply new connectionlimits
-	server.connectionLimitsMutex.Lock()
-	server.connectionLimits = connectionLimits
-	server.connectionThrottleMutex.Lock()
-	server.connectionThrottle = connectionThrottle
-
-	server.clients.ByNickMutex.RLock()
-	for _, client := range server.clients.ByNick {
-		ipaddr := client.IP()
-		if ipaddr != nil {
-			server.connectionLimits.AddClient(ipaddr, true)
-		}
+	err = server.connectionLimits.ApplyConfig(config.Server.ConnectionLimits)
+	if err != nil {
+		return err
 	}
-	server.clients.ByNickMutex.RUnlock()
-	server.connectionThrottleMutex.Unlock()
-	server.connectionLimitsMutex.Unlock()
+
+	err = server.connectionThrottle.ApplyConfig(config.Server.ConnectionThrottle)
+	if err != nil {
+		return err
+	}
 
 	// setup new and removed caps
 	addedCaps := caps.NewSet()
