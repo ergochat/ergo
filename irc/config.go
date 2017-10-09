@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
@@ -108,29 +109,6 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
-// ConnectionLimitsConfig controls the automated connection limits.
-type ConnectionLimitsConfig struct {
-	Enabled     bool
-	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
-	IPsPerCidr  int `yaml:"ips-per-subnet"`
-	Exempted    []string
-}
-
-// ConnectionThrottleConfig controls the automated connection throttling.
-type ConnectionThrottleConfig struct {
-	Enabled            bool
-	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6        int           `yaml:"cidr-len-ipv6"`
-	ConnectionsPerCidr int           `yaml:"max-connections"`
-	DurationString     string        `yaml:"duration"`
-	Duration           time.Duration `yaml:"duration-time"`
-	BanDurationString  string        `yaml:"ban-duration"`
-	BanDuration        time.Duration
-	BanMessage         string `yaml:"ban-message"`
-	Exempted           []string
-}
-
 // LineLenConfig controls line lengths.
 type LineLenConfig struct {
 	Tags int
@@ -173,19 +151,19 @@ type Config struct {
 
 	Server struct {
 		PassConfig
-		Password           string
-		Name               string
-		Listen             []string
-		TLSListeners       map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		STS                STSConfig
-		CheckIdent         bool `yaml:"check-ident"`
-		MOTD               string
-		MOTDFormatting     bool     `yaml:"motd-formatting"`
-		ProxyAllowedFrom   []string `yaml:"proxy-allowed-from"`
-		MaxSendQString     string   `yaml:"max-sendq"`
-		MaxSendQBytes      uint64
-		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
-		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
+		Password            string
+		Name                string
+		Listen              []string
+		TLSListeners        map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		STS                 STSConfig
+		CheckIdent          bool `yaml:"check-ident"`
+		MOTD                string
+		MOTDFormatting      bool     `yaml:"motd-formatting"`
+		ProxyAllowedFrom    []string `yaml:"proxy-allowed-from"`
+		MaxSendQString      string   `yaml:"max-sendq"`
+		MaxSendQBytes       uint64
+		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
+		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
 
 	Datastore struct {
@@ -405,12 +383,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}
 	}
-	if config.Server.ConnectionThrottle.Enabled {
-		config.Server.ConnectionThrottle.Duration, err = time.ParseDuration(config.Server.ConnectionThrottle.DurationString)
+	if config.Server.ConnectionThrottler.Enabled {
+		config.Server.ConnectionThrottler.Duration, err = time.ParseDuration(config.Server.ConnectionThrottler.DurationString)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse connection-throttle duration: %s", err.Error())
 		}
-		config.Server.ConnectionThrottle.BanDuration, err = time.ParseDuration(config.Server.ConnectionThrottle.BanDurationString)
+		config.Server.ConnectionThrottler.BanDuration, err = time.ParseDuration(config.Server.ConnectionThrottler.BanDurationString)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
 		}

@@ -542,9 +542,7 @@ func (client *Client) destroy() {
 	ipaddr := client.IP()
 	// this check shouldn't be required but eh
 	if ipaddr != nil {
-		client.server.connectionLimitsMutex.Lock()
-		client.server.connectionLimits.RemoveClient(ipaddr)
-		client.server.connectionLimitsMutex.Unlock()
+		client.server.connectionLimiter.RemoveClient(ipaddr)
 	}
 
 	// alert monitors

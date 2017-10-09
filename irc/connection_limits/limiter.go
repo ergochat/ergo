@@ -1,20 +1,32 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package connection_limits
 
 import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 )
+
+// LimiterConfig controls the automated connection limits.
+type LimiterConfig struct {
+	Enabled     bool
+	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
+	IPsPerCidr  int `yaml:"ips-per-subnet"`
+	Exempted    []string
+}
 
 var (
 	errTooManyClients = errors.New("Too many clients in subnet")
 )
 
-// ConnectionLimits manages the automated client connection limits.
-type ConnectionLimits struct {
+// Limiter manages the automated client connection limits.
+type Limiter struct {
+	sync.Mutex
+
 	enabled  bool
 	ipv4Mask net.IPMask
 	ipv6Mask net.IPMask
@@ -30,7 +42,7 @@ type ConnectionLimits struct {
 }
 
 // maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (cl *ConnectionLimits) maskAddr(addr net.IP) net.IP {
+func (cl *Limiter) maskAddr(addr net.IP) net.IP {
 	if addr.To4() == nil {
 		// IPv6 addr
 		addr = addr.Mask(cl.ipv6Mask)
@@ -44,7 +56,10 @@ func (cl *ConnectionLimits) maskAddr(addr net.IP) net.IP {
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
 // 'force' is used to add already-existing clients (i.e. ones that are already on the network).
-func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
+func (cl *Limiter) AddClient(addr net.IP, force bool) error {
+	cl.Lock()
+	defer cl.Unlock()
+
 	if !cl.enabled {
 		return nil
 	}
@@ -74,7 +89,10 @@ func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
 }
 
 // RemoveClient removes the given address from our population
-func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
+func (cl *Limiter) RemoveClient(addr net.IP) {
+	cl.Lock()
+	defer cl.Unlock()
+
 	if !cl.enabled {
 		return
 	}
@@ -88,35 +106,48 @@ func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
 	}
 }
 
-// NewConnectionLimits returns a new connection limit handler.
-func NewConnectionLimits(config ConnectionLimitsConfig) (*ConnectionLimits, error) {
-	var cl ConnectionLimits
-	cl.enabled = config.Enabled
+// NewLimiter returns a new connection limit handler.
+// The handler is functional, but disabled; it can be enabled via `ApplyConfig`.
+func NewLimiter() *Limiter {
+	var cl Limiter
 
+	// initialize empty population; all other state is configurable
 	cl.population = make(map[string]int)
-	cl.exemptedIPs = make(map[string]bool)
 
-	cl.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)
-	cl.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
-	// subnetLimit is explicitly NOT capped at a minimum of one.
-	// this is so that CL config can be used to allow ONLY clients from exempted IPs/nets
-	cl.subnetLimit = config.IPsPerCidr
+	return &cl
+}
 
+// ApplyConfig atomically applies a config update to a connection limit handler
+func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	// assemble exempted nets
+	exemptedIPs := make(map[string]bool)
+	var exemptedNets []net.IPNet
 	for _, cidr := range config.Exempted {
 		ipaddr := net.ParseIP(cidr)
 		_, netaddr, err := net.ParseCIDR(cidr)
 
 		if ipaddr == nil && err != nil {
-			return nil, fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
+			return fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
 		}
 
 		if ipaddr != nil {
-			cl.exemptedIPs[ipaddr.String()] = true
+			exemptedIPs[ipaddr.String()] = true
 		} else {
-			cl.exemptedNets = append(cl.exemptedNets, *netaddr)
+			exemptedNets = append(exemptedNets, *netaddr)
 		}
 	}
 
-	return &cl, nil
+	cl.Lock()
+	defer cl.Unlock()
+
+	cl.enabled = config.Enabled
+	cl.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)
+	cl.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
+	// subnetLimit is explicitly NOT capped at a minimum of one.
+	// this is so that CL config can be used to allow ONLY clients from exempted IPs/nets
+	cl.subnetLimit = config.IPsPerCidr
+	cl.exemptedIPs = exemptedIPs
+	cl.exemptedNets = exemptedNets
+
+	return nil
 }
