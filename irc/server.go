@@ -298,6 +298,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
+		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected by d-line", ipaddr))
 		return true, info.BanMessage("You are banned from this server (%s)")
 	}
 
@@ -305,6 +306,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	err := server.connectionLimits.AddClient(ipaddr, false)
 	if err != nil {
 		// too many connections from one client, tell the client and close the connection
+		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
 		return true, "Too many clients from your network"
 	}
 
@@ -324,6 +326,9 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 		server.connectionThrottle.ResetFor(ipaddr)
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
+		server.logger.Info(
+			"localconnect-ip",
+			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
 		return true, server.connectionThrottle.BanMessage()
 	}
 
