@@ -1,7 +1,7 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package connection_limiting
+package connection_limits
 
 import (
 	"errors"
@@ -10,8 +10,8 @@ import (
 	"sync"
 )
 
-// ConnectionLimitsConfig controls the automated connection limits.
-type ConnectionLimitsConfig struct {
+// LimiterConfig controls the automated connection limits.
+type LimiterConfig struct {
 	Enabled     bool
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
@@ -23,8 +23,8 @@ var (
 	errTooManyClients = errors.New("Too many clients in subnet")
 )
 
-// ConnectionLimits manages the automated client connection limits.
-type ConnectionLimits struct {
+// Limiter manages the automated client connection limits.
+type Limiter struct {
 	sync.Mutex
 
 	enabled  bool
@@ -42,7 +42,7 @@ type ConnectionLimits struct {
 }
 
 // maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (cl *ConnectionLimits) maskAddr(addr net.IP) net.IP {
+func (cl *Limiter) maskAddr(addr net.IP) net.IP {
 	if addr.To4() == nil {
 		// IPv6 addr
 		addr = addr.Mask(cl.ipv6Mask)
@@ -56,7 +56,7 @@ func (cl *ConnectionLimits) maskAddr(addr net.IP) net.IP {
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
 // 'force' is used to add already-existing clients (i.e. ones that are already on the network).
-func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
+func (cl *Limiter) AddClient(addr net.IP, force bool) error {
 	cl.Lock()
 	defer cl.Unlock()
 
@@ -89,7 +89,7 @@ func (cl *ConnectionLimits) AddClient(addr net.IP, force bool) error {
 }
 
 // RemoveClient removes the given address from our population
-func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
+func (cl *Limiter) RemoveClient(addr net.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
@@ -106,10 +106,10 @@ func (cl *ConnectionLimits) RemoveClient(addr net.IP) {
 	}
 }
 
-// NewConnectionLimits returns a new connection limit handler.
+// NewLimiter returns a new connection limit handler.
 // The handler is functional, but disabled; it can be enabled via `ApplyConfig`.
-func NewConnectionLimits() *ConnectionLimits {
-	var cl ConnectionLimits
+func NewLimiter() *Limiter {
+	var cl Limiter
 
 	// initialize empty population; all other state is configurable
 	cl.population = make(map[string]int)
@@ -118,7 +118,7 @@ func NewConnectionLimits() *ConnectionLimits {
 }
 
 // ApplyConfig atomically applies a config update to a connection limit handler
-func (cl *ConnectionLimits) ApplyConfig(config ConnectionLimitsConfig) error {
+func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	// assemble exempted nets
 	exemptedIPs := make(map[string]bool)
 	var exemptedNets []net.IPNet

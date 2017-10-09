@@ -1,7 +1,7 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package connection_limiting
+package connection_limits
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// ConnectionThrottleConfig controls the automated connection throttling.
-type ConnectionThrottleConfig struct {
+// ThrottlerConfig controls the automated connection throttling.
+type ThrottlerConfig struct {
 	Enabled            bool
 	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6        int           `yaml:"cidr-len-ipv6"`
@@ -30,8 +30,8 @@ type ThrottleDetails struct {
 	ClientCount int
 }
 
-// ConnectionThrottle manages automated client connection throttling.
-type ConnectionThrottle struct {
+// Throttler manages automated client connection throttling.
+type Throttler struct {
 	sync.RWMutex
 
 	enabled     bool
@@ -52,7 +52,7 @@ type ConnectionThrottle struct {
 }
 
 // maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (ct *ConnectionThrottle) maskAddr(addr net.IP) net.IP {
+func (ct *Throttler) maskAddr(addr net.IP) net.IP {
 	if addr.To4() == nil {
 		// IPv6 addr
 		addr = addr.Mask(ct.ipv6Mask)
@@ -65,7 +65,7 @@ func (ct *ConnectionThrottle) maskAddr(addr net.IP) net.IP {
 }
 
 // ResetFor removes any existing count for the given address.
-func (ct *ConnectionThrottle) ResetFor(addr net.IP) {
+func (ct *Throttler) ResetFor(addr net.IP) {
 	ct.Lock()
 	defer ct.Unlock()
 
@@ -80,7 +80,7 @@ func (ct *ConnectionThrottle) ResetFor(addr net.IP) {
 }
 
 // AddClient introduces a new client connection if possible. If we can't, throws an error instead.
-func (ct *ConnectionThrottle) AddClient(addr net.IP) error {
+func (ct *Throttler) AddClient(addr net.IP) error {
 	ct.Lock()
 	defer ct.Unlock()
 
@@ -119,24 +119,24 @@ func (ct *ConnectionThrottle) AddClient(addr net.IP) error {
 	return nil
 }
 
-func (ct *ConnectionThrottle) BanDuration() time.Duration {
+func (ct *Throttler) BanDuration() time.Duration {
 	ct.RLock()
 	defer ct.RUnlock()
 
 	return ct.banDuration
 }
 
-func (ct *ConnectionThrottle) BanMessage() string {
+func (ct *Throttler) BanMessage() string {
 	ct.RLock()
 	defer ct.RUnlock()
 
 	return ct.banMessage
 }
 
-// NewConnectionThrottle returns a new client connection throttler.
+// NewThrottler returns a new client connection throttler.
 // The throttler is functional, but disabled; it can be enabled via `ApplyConfig`.
-func NewConnectionThrottle() *ConnectionThrottle {
-	var ct ConnectionThrottle
+func NewThrottler() *Throttler {
+	var ct Throttler
 
 	// initialize empty population; all other state is configurable
 	ct.population = make(map[string]ThrottleDetails)
@@ -145,7 +145,7 @@ func NewConnectionThrottle() *ConnectionThrottle {
 }
 
 // ApplyConfig atomically applies a config update to a throttler
-func (ct *ConnectionThrottle) ApplyConfig(config ConnectionThrottleConfig) error {
+func (ct *Throttler) ApplyConfig(config ThrottlerConfig) error {
 	// assemble exempted nets
 	exemptedIPs := make(map[string]bool)
 	var exemptedNets []net.IPNet

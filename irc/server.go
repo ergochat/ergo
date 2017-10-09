@@ -24,7 +24,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/connection_limiting"
+	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
@@ -87,8 +87,8 @@ type Server struct {
 	commands                     chan Command
 	configFilename               string
 	configurableStateMutex       sync.RWMutex // generic protection for server state modified by rehash()
-	connectionLimits             *connection_limiting.ConnectionLimits
-	connectionThrottle           *connection_limiting.ConnectionThrottle
+	connectionLimiter            *connection_limits.Limiter
+	connectionThrottler          *connection_limits.Throttler
 	ctime                        time.Time
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
@@ -144,21 +144,21 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 
 	// initialize data structures
 	server := &Server{
-		accounts:           make(map[string]*ClientAccount),
-		channels:           *NewChannelNameMap(),
-		clients:            NewClientLookupSet(),
-		commands:           make(chan Command),
-		connectionLimits:   connection_limiting.NewConnectionLimits(),
-		connectionThrottle: connection_limiting.NewConnectionThrottle(),
-		listeners:          make(map[string]*ListenerWrapper),
-		logger:             logger,
-		monitorManager:     NewMonitorManager(),
-		newConns:           make(chan clientConn),
-		registeredChannels: make(map[string]*RegisteredChannel),
-		rehashSignal:       make(chan os.Signal, 1),
-		signals:            make(chan os.Signal, len(ServerExitSignals)),
-		snomasks:           NewSnoManager(),
-		whoWas:             NewWhoWasList(config.Limits.WhowasEntries),
+		accounts:            make(map[string]*ClientAccount),
+		channels:            *NewChannelNameMap(),
+		clients:             NewClientLookupSet(),
+		commands:            make(chan Command),
+		connectionLimiter:   connection_limits.NewLimiter(),
+		connectionThrottler: connection_limits.NewThrottler(),
+		listeners:           make(map[string]*ListenerWrapper),
+		logger:              logger,
+		monitorManager:      NewMonitorManager(),
+		newConns:            make(chan clientConn),
+		registeredChannels:  make(map[string]*RegisteredChannel),
+		rehashSignal:        make(chan os.Signal, 1),
+		signals:             make(chan os.Signal, len(ServerExitSignals)),
+		snomasks:            NewSnoManager(),
+		whoWas:              NewWhoWasList(config.Limits.WhowasEntries),
 	}
 
 	if err := server.applyConfig(config, true); err != nil {
@@ -303,7 +303,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	}
 
 	// check connection limits
-	err := server.connectionLimits.AddClient(ipaddr, false)
+	err := server.connectionLimiter.AddClient(ipaddr, false)
 	if err != nil {
 		// too many connections from one client, tell the client and close the connection
 		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
@@ -311,25 +311,25 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	}
 
 	// check connection throttle
-	err = server.connectionThrottle.AddClient(ipaddr)
+	err = server.connectionThrottler.AddClient(ipaddr)
 	if err != nil {
 		// too many connections too quickly from client, tell them and close the connection
-		duration := server.connectionThrottle.BanDuration()
+		duration := server.connectionThrottler.BanDuration()
 		length := &IPRestrictTime{
 			Duration: duration,
 			Expires:  time.Now().Add(duration),
 		}
-		server.dlines.AddIP(ipaddr, length, server.connectionThrottle.BanMessage(), "Exceeded automated connection throttle")
+		server.dlines.AddIP(ipaddr, length, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle")
 
 		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
 		// and once their temporary DLINE is finished they can fill up the throttler again
-		server.connectionThrottle.ResetFor(ipaddr)
+		server.connectionThrottler.ResetFor(ipaddr)
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
 		server.logger.Info(
 			"localconnect-ip",
 			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
-		return true, server.connectionThrottle.BanMessage()
+		return true, server.connectionThrottler.BanMessage()
 	}
 
 	return false, ""
@@ -1263,12 +1263,12 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	// apply new PROXY command restrictions
 	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
 
-	err = server.connectionLimits.ApplyConfig(config.Server.ConnectionLimits)
+	err = server.connectionLimiter.ApplyConfig(config.Server.ConnectionLimiter)
 	if err != nil {
 		return err
 	}
 
-	err = server.connectionThrottle.ApplyConfig(config.Server.ConnectionThrottle)
+	err = server.connectionThrottler.ApplyConfig(config.Server.ConnectionThrottler)
 	if err != nil {
 		return err
 	}
