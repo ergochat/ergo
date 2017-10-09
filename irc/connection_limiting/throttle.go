@@ -1,7 +1,7 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package connection_limiting
 
 import (
 	"fmt"
@@ -9,6 +9,20 @@ import (
 	"sync"
 	"time"
 )
+
+// ConnectionThrottleConfig controls the automated connection throttling.
+type ConnectionThrottleConfig struct {
+	Enabled            bool
+	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6        int           `yaml:"cidr-len-ipv6"`
+	ConnectionsPerCidr int           `yaml:"max-connections"`
+	DurationString     string        `yaml:"duration"`
+	Duration           time.Duration `yaml:"duration-time"`
+	BanDurationString  string        `yaml:"ban-duration"`
+	BanDuration        time.Duration
+	BanMessage         string `yaml:"ban-message"`
+	Exempted           []string
+}
 
 // ThrottleDetails holds the connection-throttling details for a subnet/IP.
 type ThrottleDetails struct {

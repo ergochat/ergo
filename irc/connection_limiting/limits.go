@@ -1,7 +1,7 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package connection_limiting
 
 import (
 	"errors"
@@ -9,6 +9,15 @@ import (
 	"net"
 	"sync"
 )
+
+// ConnectionLimitsConfig controls the automated connection limits.
+type ConnectionLimitsConfig struct {
+	Enabled     bool
+	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
+	IPsPerCidr  int `yaml:"ips-per-subnet"`
+	Exempted    []string
+}
 
 var (
 	errTooManyClients = errors.New("Too many clients in subnet")

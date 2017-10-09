@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/oragono/oragono/irc/connection_limiting"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
@@ -108,29 +109,6 @@ func (conf *OperConfig) PasswordBytes() []byte {
 	return bytes
 }
 
-// ConnectionLimitsConfig controls the automated connection limits.
-type ConnectionLimitsConfig struct {
-	Enabled     bool
-	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
-	IPsPerCidr  int `yaml:"ips-per-subnet"`
-	Exempted    []string
-}
-
-// ConnectionThrottleConfig controls the automated connection throttling.
-type ConnectionThrottleConfig struct {
-	Enabled            bool
-	CidrLenIPv4        int           `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6        int           `yaml:"cidr-len-ipv6"`
-	ConnectionsPerCidr int           `yaml:"max-connections"`
-	DurationString     string        `yaml:"duration"`
-	Duration           time.Duration `yaml:"duration-time"`
-	BanDurationString  string        `yaml:"ban-duration"`
-	BanDuration        time.Duration
-	BanMessage         string `yaml:"ban-message"`
-	Exempted           []string
-}
-
 // LineLenConfig controls line lengths.
 type LineLenConfig struct {
 	Tags int
@@ -184,8 +162,8 @@ type Config struct {
 		ProxyAllowedFrom   []string `yaml:"proxy-allowed-from"`
 		MaxSendQString     string   `yaml:"max-sendq"`
 		MaxSendQBytes      uint64
-		ConnectionLimits   ConnectionLimitsConfig   `yaml:"connection-limits"`
-		ConnectionThrottle ConnectionThrottleConfig `yaml:"connection-throttling"`
+		ConnectionLimits   connection_limiting.ConnectionLimitsConfig   `yaml:"connection-limits"`
+		ConnectionThrottle connection_limiting.ConnectionThrottleConfig `yaml:"connection-throttling"`
 	}
 
 	Datastore struct {

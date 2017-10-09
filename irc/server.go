@@ -24,6 +24,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/connection_limiting"
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
@@ -86,8 +87,8 @@ type Server struct {
 	commands                     chan Command
 	configFilename               string
 	configurableStateMutex       sync.RWMutex // generic protection for server state modified by rehash()
-	connectionLimits             *ConnectionLimits
-	connectionThrottle           *ConnectionThrottle
+	connectionLimits             *connection_limiting.ConnectionLimits
+	connectionThrottle           *connection_limiting.ConnectionThrottle
 	ctime                        time.Time
 	defaultChannelModes          Modes
 	dlines                       *DLineManager
