@@ -71,7 +71,7 @@ server:
 
     # maximum number of connections per subnet
     connection-limits:
-        # whether to throttle limits or not
+        # whether to enforce connection limits or not
         enabled: true
 
         # how wide the cidr should be for IPv4
