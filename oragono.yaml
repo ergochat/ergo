@@ -75,10 +75,10 @@ server:
         enabled: true
 
         # how wide the cidr should be for IPv4
-        cidr-len-ipv4: 24
+        cidr-len-ipv4: 32
 
         # how wide the cidr should be for IPv6
-        cidr-len-ipv6: 120
+        cidr-len-ipv6: 64
 
         # maximum number of IPs per subnet (defined above by the cird length)
         ips-per-subnet: 16
@@ -104,7 +104,7 @@ server:
         duration: 10m
 
         # maximum number of connections, per subnet, within the given duration
-        max-connections: 12
+        max-connections: 64
 
         # how long to ban offenders for, and the message to use
         # after banning them, the number of connections is reset (which lets you use UNDLINE to unban people)
