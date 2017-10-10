@@ -98,13 +98,13 @@ server:
         cidr-len-ipv4: 32
 
         # how wide the cidr should be for IPv6
-        cidr-len-ipv6: 128
+        cidr-len-ipv6: 64
 
         # how long to keep track of connections for
         duration: 10m
 
         # maximum number of connections, per subnet, within the given duration
-        max-connections: 64
+        max-connections: 32
 
         # how long to ban offenders for, and the message to use
         # after banning them, the number of connections is reset (which lets you use UNDLINE to unban people)
