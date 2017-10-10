@@ -2019,9 +2019,8 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	casefoldedChannelName, err := CasefoldChannel(channelName)
 	channel := server.channels.Get(casefoldedChannelName)
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, RPL_INVITING, client.nick, target.nick, channelName)
-		target.Send(nil, client.nickMaskString, "INVITE", target.nick, channel.name)
-		return true
+		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, channelName, "No such channel")
+		return false
 	}
 
 	channel.Invite(target, client)
