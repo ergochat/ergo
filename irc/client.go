@@ -70,7 +70,6 @@ type Client struct {
 	proxiedIP          string // actual remote IP if using the PROXY protocol
 	quitMessage        string
 	quitMessageSent    bool
-	quitMutex          sync.Mutex
 	quitTimer          *time.Timer
 	rawHostname        string
 	realname           string
@@ -505,19 +504,25 @@ func (client *Client) RplISupport() {
 
 // Quit sends the given quit message to the client (but does not destroy them).
 func (client *Client) Quit(message string) {
-	client.quitMutex.Lock()
-	defer client.quitMutex.Unlock()
-	if !client.quitMessageSent {
-		quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
-		quitLine, _ := quitMsg.Line()
-
-		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
-		errorLine, _ := errorMsg.Line()
-
-		client.socket.SetFinalData(quitLine + errorLine)
+	client.stateMutex.Lock()
+	alreadyQuit := client.quitMessageSent
+	if !alreadyQuit {
 		client.quitMessageSent = true
 		client.quitMessage = message
 	}
+	client.stateMutex.Unlock()
+
+	if alreadyQuit {
+		return
+	}
+
+	quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
+	quitLine, _ := quitMsg.Line()
+
+	errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
+	errorLine, _ := errorMsg.Line()
+
+	client.socket.SetFinalData(quitLine + errorLine)
 }
 
 // destroy gets rid of a client, removes them from server lists etc.
