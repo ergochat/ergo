@@ -53,7 +53,6 @@ type Client struct {
 	channels           ChannelSet
 	class              *OperClass
 	ctime              time.Time
-	destroyMutex       sync.Mutex
 	exitedSnomaskSent  bool
 	flags              map[Mode]bool
 	hasQuit            bool
@@ -527,9 +526,12 @@ func (client *Client) Quit(message string) {
 
 // destroy gets rid of a client, removes them from server lists etc.
 func (client *Client) destroy() {
-	client.destroyMutex.Lock()
-	defer client.destroyMutex.Unlock()
-	if client.isDestroyed {
+	// allow destroy() to execute at most once
+	client.stateMutex.Lock()
+	isDestroyed := client.isDestroyed
+	client.isDestroyed = true
+	client.stateMutex.Unlock()
+	if isDestroyed {
 		return
 	}
 
@@ -538,7 +540,6 @@ func (client *Client) destroy() {
 	// send quit/error message to client if they haven't been sent already
 	client.Quit("Connection closed")
 
-	client.isDestroyed = true
 	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
