@@ -39,8 +39,8 @@ const (
 	SASL Capability = "sasl"
 	// ServerTime is this IRCv3 capability: http://ircv3.net/specs/extensions/server-time-3.2.html
 	ServerTime Capability = "server-time"
-	// STS is this draft IRCv3 capability: http://ircv3.net/specs/core/sts-3.3.html
-	STS Capability = "draft/sts"
+	// STS is this IRCv3 capability: http://ircv3.net/specs/extensions/sts.html
+	STS Capability = "sts"
 	// UserhostInNames is this IRCv3 capability: http://ircv3.net/specs/extensions/userhost-in-names-3.2.html
 	UserhostInNames Capability = "userhost-in-names"
 )
