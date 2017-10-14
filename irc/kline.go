@@ -127,6 +127,7 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanI
 }
 
 // KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
+// KLINE LIST
 func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
@@ -135,6 +136,21 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	currentArg := 0
+
+	// if they say LIST, we just list the current klines
+	if len(msg.Params) == currentArg+1 && strings.ToLower(msg.Params[currentArg]) == "list" {
+		bans := server.klines.AllBans()
+
+		if len(bans) == 0 {
+			client.Notice("No KLINEs have been set!")
+		}
+
+		for key, info := range bans {
+			client.Notice(fmt.Sprintf("Ban - %s - %s", key, info.BanMessage("%s")))
+		}
+
+		return false
+	}
 
 	// when setting a ban, if they say "ANDKILL" we should also kill all users who match it
 	var andKill bool

@@ -150,6 +150,7 @@ Prints debug information about the IRCd. <option> can be one of:
 	"dline": {
 		oper: true,
 		text: `DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
+DLINE LIST
 
 Bans an IP address or network from connecting to the server. If the duration is
 given then only for that long. The reason is shown to the user themselves, but
@@ -172,7 +173,9 @@ from. If "MYSELF" is not given, trying to DLINE yourself will result in an error
 
 ON <server> specifies that the ban is to be set on that specific server.
 
-[reason] and [oper reason], if they exist, are separated by a vertical bar (|).`,
+[reason] and [oper reason], if they exist, are separated by a vertical bar (|).
+
+If "DLINE LIST" is sent, the server sends back a list of our current DLINEs.`,
 	},
 	"help": {
 		text: `HELP <argument>
@@ -216,6 +219,7 @@ supplied.`,
 	"kline": {
 		oper: true,
 		text: `KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
+KLINE LIST
 
 Bans a mask from connecting to the server. If the duration is given then only for that
 long. The reason is shown to the user themselves, but everyone else will see a standard
@@ -237,7 +241,9 @@ from. If "MYSELF" is not given, trying to KLINE yourself will result in an error
 
 ON <server> specifies that the ban is to be set on that specific server.
 
-[reason] and [oper reason], if they exist, are separated by a vertical bar (|).`,
+[reason] and [oper reason], if they exist, are separated by a vertical bar (|).
+
+If "KLINE LIST" is sent, the server sends back a list of our current KLINEs.`,
 	},
 	"list": {
 		text: `LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
