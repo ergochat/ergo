@@ -39,8 +39,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	if !cmd.leaveClientActive {
 		client.Active()
 	}
-	// only touch client if they're registered so that unregistered clients timeout appropriately
-	if client.registered && !cmd.leaveClientIdle {
+	if !cmd.leaveClientIdle {
 		client.Touch()
 	}
 	exiting := cmd.handler(server, client, msg)

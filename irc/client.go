@@ -25,17 +25,17 @@ import (
 )
 
 const (
-	// IdleTimeout is how long without traffic before a client's considered idle.
+	// RegisterTimeout is how long clients have to register before we disconnect them
+	RegisterTimeout = time.Minute
+	// IdleTimeout is how long without traffic before a registered client is considered idle.
 	IdleTimeout = time.Minute + time.Second*30
-	// QuitTimeout is how long without traffic (after they're considered idle) that clients are killed.
+	// QuitTimeout is how long without traffic before an idle client is disconnected
 	QuitTimeout = time.Minute
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds = 1.5
 )
 
 var (
-	// TimeoutStatedSeconds is how many seconds before clients are timed out (IdleTimeout plus QuitTimeout).
-	TimeoutStatedSeconds = strconv.Itoa(int((IdleTimeout + QuitTimeout).Seconds()))
 	// ErrNickAlreadySet is a weird error that's sent when the server's consistency has been compromised.
 	ErrNickAlreadySet = errors.New("Nickname is already set")
 )
@@ -58,7 +58,7 @@ type Client struct {
 	hasQuit            bool
 	hops               int
 	hostname           string
-	idleTimer          *time.Timer
+	idletimer          *IdleTimer
 	isDestroyed        bool
 	isQuitting         bool
 	nick               string
@@ -68,8 +68,6 @@ type Client struct {
 	operName           string
 	proxiedIP          string // actual remote IP if using the PROXY protocol
 	quitMessage        string
-	quitMessageSent    bool
-	quitTimer          *time.Timer
 	rawHostname        string
 	realname           string
 	registered         bool
@@ -79,7 +77,6 @@ type Client struct {
 	server             *Server
 	socket             *Socket
 	stateMutex         sync.RWMutex // generic protection for mutable state
-	timerMutex         sync.Mutex
 	username           string
 	vhost              string
 	whoisLine          string
@@ -140,7 +137,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 			client.Notice("*** Could not find your username")
 		}
 	}
-	client.Touch()
 	go client.run()
 
 	return client
@@ -193,6 +189,9 @@ func (client *Client) run() {
 	var isExiting bool
 	var line string
 	var msg ircmsg.IrcMessage
+
+	client.idletimer = NewIdleTimer(client)
+	client.idletimer.Start()
 
 	// Set the hostname for this client
 	// (may be overridden by a later PROXY command from stunnel)
@@ -247,44 +246,15 @@ func (client *Client) Active() {
 }
 
 // Touch marks the client as alive (as it it has a connection to us and we
-// can receive messages from it), and resets when we'll send the client a
-// keepalive PING.
+// can receive messages from it).
 func (client *Client) Touch() {
-	client.timerMutex.Lock()
-	defer client.timerMutex.Unlock()
-
-	if client.quitTimer != nil {
-		client.quitTimer.Stop()
-	}
-
-	if client.idleTimer == nil {
-		client.idleTimer = time.AfterFunc(IdleTimeout, client.connectionIdle)
-	} else {
-		client.idleTimer.Reset(IdleTimeout)
-	}
+	client.idletimer.Touch()
 }
 
-// connectionIdle is run when the client has not sent us any data for a while,
-// sends the client a PING and starts the quit timeout.
-func (client *Client) connectionIdle() {
-	client.timerMutex.Lock()
-	defer client.timerMutex.Unlock()
-
+// Ping sends the client a PING message.
+func (client *Client) Ping() {
 	client.Send(nil, "", "PING", client.nick)
 
-	if client.quitTimer == nil {
-		client.quitTimer = time.AfterFunc(QuitTimeout, client.connectionTimeout)
-	} else {
-		client.quitTimer.Reset(QuitTimeout)
-	}
-}
-
-// connectionTimeout runs after connectionIdle has been run, if we do not receive a
-// ping or any other activity back from the client. When this happens we assume the
-// connection has died and remove the client from the network.
-func (client *Client) connectionTimeout() {
-	client.Quit(fmt.Sprintf("Ping timeout: %s seconds", TimeoutStatedSeconds))
-	client.isQuitting = true
 }
 
 //
@@ -293,12 +263,16 @@ func (client *Client) connectionTimeout() {
 
 // Register sets the client details as appropriate when entering the network.
 func (client *Client) Register() {
-	if client.registered {
+	client.stateMutex.Lock()
+	alreadyRegistered := client.registered
+	client.registered = true
+	client.stateMutex.Unlock()
+
+	if alreadyRegistered {
 		return
 	}
-	client.registered = true
-	client.Touch()
 
+	client.Touch()
 	client.updateNickMask("")
 	client.server.monitorManager.AlertAbout(client, true)
 }
@@ -504,9 +478,9 @@ func (client *Client) RplISupport() {
 // Quit sends the given quit message to the client (but does not destroy them).
 func (client *Client) Quit(message string) {
 	client.stateMutex.Lock()
-	alreadyQuit := client.quitMessageSent
+	alreadyQuit := client.isQuitting
 	if !alreadyQuit {
-		client.quitMessageSent = true
+		client.isQuitting = true
 		client.quitMessage = message
 	}
 	client.stateMutex.Unlock()
@@ -567,11 +541,8 @@ func (client *Client) destroy() {
 	client.server.clients.Remove(client)
 
 	// clean up self
-	if client.idleTimer != nil {
-		client.idleTimer.Stop()
-	}
-	if client.quitTimer != nil {
-		client.quitTimer.Stop()
+	if client.idletimer != nil {
+		client.idletimer.Stop()
 	}
 
 	client.socket.Close()

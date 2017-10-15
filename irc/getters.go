@@ -40,3 +40,15 @@ func (client *Client) getNickCasefolded() string {
 	defer client.stateMutex.RUnlock()
 	return client.nickCasefolded
 }
+
+func (client *Client) Registered() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.registered
+}
+
+func (client *Client) Destroyed() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.isDestroyed
+}
