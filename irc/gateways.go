@@ -16,15 +16,15 @@ import (
 )
 
 type webircConfig struct {
-	passwordString string `yaml:"password"`
-	password       []byte `yaml:"password-bytes"`
-	hosts          []string
+	PasswordString string `yaml:"password"`
+	Password       []byte `yaml:"password-bytes"`
+	Hosts          []string
 }
 
 // ProcessPassword populates our password.
 func (wc *webircConfig) ProcessPassword() error {
-	password, error := passwd.DecodePasswordHash(wc.passwordString)
-	wc.password = password
+	password, error := passwd.DecodePasswordHash(wc.PasswordString)
+	wc.Password = password
 	return error
 }
 
@@ -40,11 +40,11 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	for _, info := range server.webirc {
-		for _, address := range info.hosts {
+		for _, address := range info.Hosts {
 			if clientHostname == address || clientAddress == address {
 				// confirm password
 				givenPassword := msg.Params[0]
-				if passwd.ComparePasswordString(info.password, givenPassword) == nil {
+				if passwd.ComparePasswordString(info.Password, givenPassword) == nil {
 					proxiedIP := msg.Params[3]
 
 					return client.ApplyProxiedIP(proxiedIP)

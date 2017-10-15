@@ -398,7 +398,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	var newWebIRC []webircConfig
 	for _, webirc := range config.Server.WebIRC {
 		// skip webirc blocks with no hosts (such as the example one)
-		if len(webirc.hosts) == 0 {
+		if len(webirc.Hosts) == 0 {
 			continue
 		}
 
