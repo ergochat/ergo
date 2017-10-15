@@ -10,6 +10,7 @@ New release of Oragono!
 ### Config Changes
 * `motd-formatting` key added under `server`, which supports MOTD formatting characters.
 * `rest-api` section removed from `server` (since we no longer support the Rest API).
+* `webirc` section added under `server`, which specifies the gateways can use the `WEBIRC` command.
 * `ws-listen` key removed from `server` (since we no longer support websocket ports).
 * Connection limits and connection throttling has become more relaxed by default.
 
@@ -17,6 +18,7 @@ New release of Oragono!
 * `INVITE`: Fixed a server crash when sending an invite for a channel that doesn't exist (thanks @josephbisch for telling me about the bug!).
 
 ### Added
+* Added support for the [`WEBIRC`](ircv3.net/specs/extensions/webirc.html) command, allowing gateways to connect.
 * We now list XLINEs with `DLINE LIST` and `KLINE LIST`.
 * We now support using escaped formatting codes in the MOTD (tl;dr easy colors, bold and italics).
 
