@@ -11,15 +11,19 @@ New release of Oragono!
 * `motd-formatting` key added under `server`, which supports MOTD formatting characters.
 * `rest-api` section removed from `server` (since we no longer support the Rest API).
 * `ws-listen` key removed from `server` (since we no longer support websocket ports).
+* Connection limits and connection throttling has become more relaxed by default.
 
 ### Security
+* `INVITE`: Fixed a server crash when sending an invite for a channel that doesn't exist (thanks @josephbisch for telling me about the bug!).
 
 ### Added
-* We now support the `PROXY` command (letting people use HAProxy to terminate TLS and similar).
+* We now list XLINEs with `DLINE LIST` and `KLINE LIST`.
 * We now support using escaped formatting codes in the MOTD (tl;dr easy colors, bold and italics).
 
 ### Changed
 * D-LINE and K-LINE code is now cleaner under the hood and less likely to crash.
+* Ident (looking up usernames) now times out a whole lot quicker, meaning you connect to the server more quickly.
+* IRCv3 capability `draft/sts` has been renamed to `sts`, since it's now been ratified.
 * Rehashing is now safer.
 * Server opers could always speak on channels, even when they shouldn't be able to. Now they aren't above the law.
 
