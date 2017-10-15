@@ -461,6 +461,14 @@ Shows information about the given users. Takes up to 10 nicknames.`,
 
 Views the version of software and the RPL_ISUPPORT tokens for the given server.`,
 	},
+	"webirc": {
+		oper: true, // not really, but it's restricted anyways
+		text: `WEBIRC <password> <gateway> <hostname> <ip>
+
+Used by web<->IRC gateways and bouncers, the WEBIRC command allows gateways to
+pass-through the real IP addresses of clients:
+ircv3.net/specs/extensions/webirc.html`,
+	},
 	"who": {
 		text: `WHO <name> [o]
 

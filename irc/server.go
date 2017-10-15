@@ -118,6 +118,7 @@ type Server struct {
 	snomasks                     *SnoManager
 	store                        *buntdb.DB
 	stsEnabled                   bool
+	webirc                       []webircConfig
 	whoWas                       *WhoWasList
 }
 
@@ -1260,6 +1261,9 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 	server.configurableStateMutex.Unlock()
 
+	// apply new WebIRC command restrictions
+	server.webirc = config.Server.WebIRC
+
 	// apply new PROXY command restrictions
 	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
 
@@ -2157,42 +2161,4 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	}
 
 	return false
-}
-
-// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
-// http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// only allow unregistered clients to use this command
-	if client.registered {
-		return false
-	}
-
-	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
-	clientHostname := client.hostname
-	for _, address := range server.proxyAllowedFrom {
-		if clientHostname == address || clientAddress == address {
-			proxiedIP := msg.Params[1]
-
-			// ensure IP is sane
-			parsedProxiedIP := net.ParseIP(proxiedIP)
-			if parsedProxiedIP == nil {
-				client.Quit(fmt.Sprintf("Proxied IP address is not valid: [%s]", proxiedIP))
-				return true
-			}
-
-			isBanned, banMsg := server.checkBans(parsedProxiedIP)
-			if isBanned {
-				client.Quit(banMsg)
-				return true
-			}
-
-			// override the client's regular IP
-			client.proxiedIP = msg.Params[1]
-			client.rawHostname = utils.LookupHostname(msg.Params[1])
-			client.hostname = client.rawHostname
-			return false
-		}
-	}
-	client.Quit("PROXY command is not usable from your address")
-	return true
 }

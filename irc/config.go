@@ -158,9 +158,10 @@ type Config struct {
 		STS                 STSConfig
 		CheckIdent          bool `yaml:"check-ident"`
 		MOTD                string
-		MOTDFormatting      bool     `yaml:"motd-formatting"`
-		ProxyAllowedFrom    []string `yaml:"proxy-allowed-from"`
-		MaxSendQString      string   `yaml:"max-sendq"`
+		MOTDFormatting      bool           `yaml:"motd-formatting"`
+		ProxyAllowedFrom    []string       `yaml:"proxy-allowed-from"`
+		WebIRC              []webircConfig `yaml:"webirc"`
+		MaxSendQString      string         `yaml:"max-sendq"`
 		MaxSendQBytes       uint64
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
@@ -393,6 +394,22 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
 		}
 	}
+	// process webirc blocks
+	var newWebIRC []webircConfig
+	for _, webirc := range config.Server.WebIRC {
+		// skip webirc blocks with no hosts (such as the example one)
+		if len(webirc.hosts) == 0 {
+			continue
+		}
+
+		err = webirc.ProcessPassword()
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse WebIRC config: %s", err.Error())
+		}
+		newWebIRC = append(newWebIRC, webirc)
+	}
+	config.Server.WebIRC = newWebIRC
+	// process limits
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	}

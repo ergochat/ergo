@@ -43,3 +43,8 @@ func DecodePasswordHash(encoded string) (decoded []byte, err error) {
 func ComparePassword(hash, password []byte) error {
 	return bcrypt.CompareHashAndPassword(hash, password)
 }
+
+// ComparePasswordString compares a given password string with the given hash.
+func ComparePasswordString(hash []byte, password string) error {
+	return ComparePassword(hash, []byte(password))
+}

@@ -276,6 +276,11 @@ var Commands = map[string]Command{
 		handler:   versionHandler,
 		minParams: 0,
 	},
+	"WEBIRC": {
+		handler:      webircHandler,
+		usablePreReg: true,
+		minParams:    4,
+	},
 	"WHO": {
 		handler:   whoHandler,
 		minParams: 0,
