@@ -43,7 +43,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Notice(fmt.Sprintf("num goroutines: %d", count))
 
 	case "PROFILEHEAP":
-		profFile := "ergonomadic.mprof"
+		profFile := "oragono.mprof"
 		file, err := os.Create(profFile)
 		if err != nil {
 			client.Notice(fmt.Sprintf("error: %s", err))
@@ -54,7 +54,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Notice(fmt.Sprintf("written to %s", profFile))
 
 	case "STARTCPUPROFILE":
-		profFile := "ergonomadic.prof"
+		profFile := "oragono.prof"
 		file, err := os.Create(profFile)
 		if err != nil {
 			client.Notice(fmt.Sprintf("error: %s", err))

@@ -106,3 +106,5 @@ _testmain.go
 /oragono
 /build/*
 _test
+oragono.prof
+oragono.mprof
