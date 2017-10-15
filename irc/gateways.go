@@ -67,9 +67,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
 	clientHostname := client.hostname
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	for _, info := range server.webirc {
+	for _, info := range server.WebIRCConfig() {
 		for _, address := range info.Hosts {
 			if clientHostname == address || clientAddress == address {
 				// confirm password and/or fingerprint
@@ -101,9 +99,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
 	clientHostname := client.hostname
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	for _, address := range server.proxyAllowedFrom {
+	for _, address := range server.ProxyAllowedFrom() {
 		if clientHostname == address || clientAddress == address {
 			proxiedIP := msg.Params[1]
 

@@ -23,6 +23,18 @@ func (server *Server) getPassword() []byte {
 	return server.password
 }
 
+func (server *Server) ProxyAllowedFrom() []string {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.proxyAllowedFrom
+}
+
+func (server *Server) WebIRCConfig() []webircConfig {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.webirc
+}
+
 func (client *Client) getNick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
