@@ -463,11 +463,16 @@ Views the version of software and the RPL_ISUPPORT tokens for the given server.`
 	},
 	"webirc": {
 		oper: true, // not really, but it's restricted anyways
-		text: `WEBIRC <password> <gateway> <hostname> <ip>
+		text: `WEBIRC <password> <gateway> <hostname> <ip> [:<flags>]
 
 Used by web<->IRC gateways and bouncers, the WEBIRC command allows gateways to
 pass-through the real IP addresses of clients:
-ircv3.net/specs/extensions/webirc.html`,
+ircv3.net/specs/extensions/webirc.html
+
+<flags> is a list of space-separated strings indicating various details about
+the connection from the client to the gateway, such as:
+
+- tls: this flag indicates that the client->gateway connection is secure`,
 	},
 	"who": {
 		text: `WHO <name> [o]

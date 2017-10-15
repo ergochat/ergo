@@ -402,7 +402,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			continue
 		}
 
-		err = webirc.ProcessPassword()
+		err = webirc.Populate()
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse WebIRC config: %s", err.Error())
 		}

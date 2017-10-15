@@ -69,6 +69,9 @@ server:
     webirc:
         # one webirc block -- should correspond to one set of gateways
         -
+            # tls fingerprint the gateway must connect with to use this webirc block
+            fingerprint: 938dd33f4b76dcaf7ce5eb25c852369cb4b8fb47ba22fc235aa29c6623a5f182
+
             # password the gateway uses to connect, made with  oragono genpasswd
             password: JDJhJDA0JG9rTTVERlNRa0hpOEZpNkhjZE95SU9Da1BseFdlcWtOTEQxNEFERVlqbEZNTkdhOVlYUkMu
 
