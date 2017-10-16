@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+const (
+	// RegisterTimeout is how long clients have to register before we disconnect them
+	RegisterTimeout = time.Minute
+	// IdleTimeout is how long without traffic before a registered client is considered idle.
+	IdleTimeout = time.Minute + time.Second*30
+	// QuitTimeout is how long without traffic before an idle client is disconnected
+	QuitTimeout = time.Minute
+)
+
 // client idleness state machine
 
 type TimerState uint
@@ -49,6 +58,7 @@ func NewIdleTimer(client *Client) *IdleTimer {
 // it will eventually be stopped.
 func (it *IdleTimer) Start() {
 	it.Lock()
+	it.state = TimerUnregistered
 	it.lastSeen = time.Now()
 	it.Unlock()
 	go it.mainLoop()
@@ -66,49 +76,46 @@ func (it *IdleTimer) mainLoop() {
 			return
 		}
 
-		registered := client.Registered()
-		now := time.Now()
-		idleTime := now.Sub(lastSeen)
-		newState := state
+		idleTime := time.Now().Sub(lastSeen)
+		var nextSleep time.Duration
 
-		switch state {
-		case TimerUnregistered:
-			if registered {
-				// transition to TimerActive state
-				newState = TimerActive
+		if state == TimerUnregistered {
+			if client.Registered() {
+				// transition to active, process new deadlines below
+				state = TimerActive
+			} else {
+				nextSleep = it.registerTimeout - idleTime
 			}
-		case TimerActive:
-			if idleTime >= IdleTimeout {
-				newState = TimerIdle
-				client.Ping()
-			}
-		case TimerIdle:
-			if idleTime < IdleTimeout {
-				// new ping came in after we transitioned to TimerIdle
-				newState = TimerActive
+		} else if state == TimerIdle {
+			if idleTime < it.quitTimeout {
+				// new ping came in after we transitioned to TimerIdle,
+				// transition back to active and process deadlines below
+				state = TimerActive
+			} else {
+				nextSleep = 0
 			}
 		}
 
-		it.Lock()
-		it.state = newState
-		it.Unlock()
-
-		var nextSleep time.Duration
-		switch newState {
-		case TimerUnregistered:
-			nextSleep = it.registerTimeout - idleTime
-		case TimerActive:
+		if state == TimerActive {
 			nextSleep = it.idleTimeout - idleTime
-		case TimerIdle:
-			nextSleep = (it.idleTimeout + it.quitTimeout) - idleTime
+			if nextSleep <= 0 {
+				state = TimerIdle
+				client.Ping()
+				// grant the client at least quitTimeout to respond
+				nextSleep = it.quitTimeout
+			}
 		}
 
 		if nextSleep <= 0 {
 			// ran out of time, hang them up
-			client.Quit(it.quitMessage(newState))
+			client.Quit(it.quitMessage(state))
 			client.destroy()
 			return
 		}
+
+		it.Lock()
+		it.state = state
+		it.Unlock()
 
 		time.Sleep(nextSleep)
 	}

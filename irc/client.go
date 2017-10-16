@@ -25,12 +25,6 @@ import (
 )
 
 const (
-	// RegisterTimeout is how long clients have to register before we disconnect them
-	RegisterTimeout = time.Minute
-	// IdleTimeout is how long without traffic before a registered client is considered idle.
-	IdleTimeout = time.Minute + time.Second*30
-	// QuitTimeout is how long without traffic before an idle client is disconnected
-	QuitTimeout = time.Minute
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds = 1.5
 )
