@@ -475,7 +475,7 @@ func (client *Client) RplISupport() {
 	}
 }
 
-// Quit sends the given quit message to the client (but does not destroy them).
+// Quit sets the given quit message for the client and tells the client to quit out.
 func (client *Client) Quit(message string) {
 	client.stateMutex.Lock()
 	alreadyQuit := client.isQuitting

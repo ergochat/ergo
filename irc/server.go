@@ -415,7 +415,7 @@ func (server *Server) tryRegister(c *Client) {
 		if info.Time != nil {
 			reason += fmt.Sprintf(" [%s]", info.Time.Duration.String())
 		}
-		c.Send(nil, "", "ERROR", fmt.Sprintf("You are banned from this server (%s)", reason))
+		c.Quit(fmt.Sprintf("You are banned from this server (%s)", reason))
 		c.destroy()
 		return
 	}
