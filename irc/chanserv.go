@@ -105,16 +105,13 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 			server.logger.Info("chanserv", fmt.Sprintf("Client %s registered channel %s", client.nick, channelName))
 			server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
 
-			channelInfo.membersMutex.Lock()
-			defer channelInfo.membersMutex.Unlock()
-
 			// give them founder privs
 			change := channelInfo.applyModeMemberNoMutex(client, ChannelFounder, Add, client.nickCasefolded)
 			if change != nil {
 				//TODO(dan): we should change the name of String and make it return a slice here
 				//TODO(dan): unify this code with code in modes.go
 				args := append([]string{channelName}, strings.Split(change.String(), " ")...)
-				for member := range channelInfo.members {
+				for _, member := range channelInfo.Members() {
 					member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
 				}
 			}

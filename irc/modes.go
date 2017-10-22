@@ -475,11 +475,11 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
-func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, changes ModeChanges) ModeChanges {
+func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes ModeChanges) ModeChanges {
 	// so we only output one warning for each list type when full
 	listFullWarned := make(map[Mode]bool)
 
-	clientIsOp := channel.clientIsAtLeastNoMutex(client, ChannelOperator)
+	clientIsOp := channel.ClientIsAtLeast(client, ChannelOperator)
 	var alreadySentPrivError bool
 
 	applied := make(ModeChanges, 0)
@@ -498,12 +498,6 @@ func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, ch
 		switch change.mode {
 		case BanMask, ExceptMask, InviteMask:
 			mask := change.arg
-			list := channel.lists[change.mode]
-			if list == nil {
-				// This should never happen, but better safe than panicky.
-				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, client.nick, "MODE", "Could not complete MODE command")
-				return changes
-			}
 
 			if (change.op == List) || (mask == "") {
 				channel.ShowMaskList(client, change.mode)
@@ -518,19 +512,19 @@ func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, ch
 
 			switch change.op {
 			case Add:
-				if len(list.masks) >= client.server.limits.ChanListModes {
+				if channel.lists[change.mode].Length() >= client.server.getLimits().ChanListModes {
 					if !listFullWarned[change.mode] {
-						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.nick, channel.name, change.mode.String(), "Channel list is full")
+						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.getNick(), channel.Name(), change.mode.String(), "Channel list is full")
 						listFullWarned[change.mode] = true
 					}
 					continue
 				}
 
-				list.Add(mask)
+				channel.lists[change.mode].Add(mask)
 				applied = append(applied, change)
 
 			case Remove:
-				list.Remove(mask)
+				channel.lists[change.mode].Remove(mask)
 				applied = append(applied, change)
 			}
 
@@ -539,62 +533,46 @@ func ApplyChannelModeChanges(channel *Channel, client *Client, isSamode bool, ch
 			case Add:
 				val, err := strconv.ParseUint(change.arg, 10, 64)
 				if err == nil {
-					channel.userLimit = val
+					channel.setUserLimit(val)
 					applied = append(applied, change)
 				}
 
 			case Remove:
-				channel.userLimit = 0
+				channel.setUserLimit(0)
 				applied = append(applied, change)
 			}
 
 		case Key:
 			switch change.op {
 			case Add:
-				channel.key = change.arg
+				channel.setKey(change.arg)
 
 			case Remove:
-				channel.key = ""
+				channel.setKey("")
 			}
 			applied = append(applied, change)
 
 		case InviteOnly, Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, ChanRoleplaying:
-			switch change.op {
-			case Add:
-				if channel.flags[change.mode] {
-					continue
-				}
-				channel.flags[change.mode] = true
-				applied = append(applied, change)
+			if change.op == List {
+				continue
+			}
 
-			case Remove:
-				if !channel.flags[change.mode] {
-					continue
-				}
-				delete(channel.flags, change.mode)
+			already := channel.setMode(change.mode, change.op == Add)
+			if !already {
 				applied = append(applied, change)
 			}
 
 		case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+			if change.op == List {
+				continue
+			}
 			// make sure client has privs to edit the given prefix
 			hasPrivs := isSamode
 
-			if !hasPrivs {
-				for _, mode := range ChannelPrivModes {
-					if channel.members[client][mode] {
-						hasPrivs = true
-
-						// Admins can't give other people Admin or remove it from others,
-						// standard for that channel mode, we worry about this later
-						if mode == ChannelAdmin && change.mode == ChannelAdmin {
-							hasPrivs = false
-						}
-
-						break
-					} else if mode == change.mode {
-						break
-					}
-				}
+			// Admins can't give other people Admin or remove it from others,
+			// standard for that channel mode, we worry about this later
+			if !hasPrivs && change.mode != ChannelAdmin {
+				hasPrivs = channel.ClientIsAtLeast(client, change.mode)
 			}
 
 			casefoldedName, err := CasefoldName(change.arg)
@@ -634,9 +612,6 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
-
 	// applied mode changes
 	applied := make(ModeChanges, 0)
 
@@ -654,7 +629,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		// apply mode changes
-		applied = ApplyChannelModeChanges(channel, client, msg.Command == "SAMODE", changes)
+		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes)
 	}
 
 	// save changes to banlist/exceptlist/invexlist
@@ -707,12 +682,11 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(applied) > 0 {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
-		for member := range channel.members {
+		for _, member := range channel.Members() {
 			member.Send(nil, client.nickMaskString, "MODE", args...)
 		}
 	} else {
-		//TODO(dan): we should just make ModeString return a slice here
-		args := append([]string{client.nick, channel.name}, strings.Split(channel.modeStringNoLock(client), " ")...)
+		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
 		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
