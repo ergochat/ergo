@@ -4,8 +4,12 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.10.0] - 2017-10-23
+There has been a bunch of new changes in this release! From [`sts`](http://ircv3.net/specs/extensions/sts.html) being ratified to supporting [`WEBIRC`](ircv3.net/specs/extensions/webirc.html) to rewriting a whole lot of our internals, 0.10.0 represents a real step forward in terms of where Oragono's going.
+
+In addition to the new features, this issue fixes a bunch of fairly large bugs (such as an errant `INVITE` being able to crash the server, the `+mR`channel modes not working at all, and making rehashing safer).
+
+I'd like to thank @slingamn for really contributing a lot in this release! He's done a whole bunch of the internal work, cleaned up the code, and in general just been a great help while developing. Running Oragono on an actual network has really helped find and track down some serious bugs, and lead us to some much-needed improvements.
 
 ### Config Changes
 * `motd-formatting` key added under `server`, which supports MOTD formatting characters.
