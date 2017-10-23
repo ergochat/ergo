@@ -184,6 +184,15 @@ func (client *Client) run() {
 	var line string
 	var msg ircmsg.IrcMessage
 
+	defer func() {
+		if r := recover(); r != nil {
+			client.server.logger.Error("internal", fmt.Sprintf("Client caused panic, disconnecting: %v", r))
+			debug.PrintStack()
+		}
+		// ensure client connection gets closed
+		client.destroy()
+	}()
+
 	client.idletimer = NewIdleTimer(client)
 	client.idletimer.Start()
 
@@ -225,9 +234,6 @@ func (client *Client) run() {
 			break
 		}
 	}
-
-	// ensure client connection gets closed
-	client.destroy()
 }
 
 //
