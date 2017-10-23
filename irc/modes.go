@@ -327,17 +327,16 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 // MODE <target> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname, err := CasefoldName(msg.Params[0])
-
 	target := server.clients.Get(nickname)
-	targetNick := target.getNick()
-	hasPrivs := client == target || msg.Command == "SAMODE"
-
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
 			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
 		}
 		return false
 	}
+
+	targetNick := target.getNick()
+	hasPrivs := client == target || msg.Command == "SAMODE"
 
 	if !hasPrivs {
 		if len(msg.Params) > 1 {
