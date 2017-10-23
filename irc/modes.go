@@ -329,6 +329,8 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname, err := CasefoldName(msg.Params[0])
 
 	target := server.clients.Get(nickname)
+	targetNick := target.getNick()
+	hasPrivs := client == target || msg.Command == "SAMODE"
 
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
@@ -337,7 +339,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if client != target && msg.Command != "SAMODE" {
+	if !hasPrivs {
 		if len(msg.Params) > 1 {
 			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't change modes for other users")
 		} else {
@@ -367,13 +369,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(applied) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", target.nick, applied.String())
-	} else if client == target {
-		client.Send(nil, target.nickMaskString, RPL_UMODEIS, target.nick, target.ModeString())
+		client.Send(nil, client.nickMaskString, "MODE", targetNick, applied.String())
+	} else if hasPrivs {
+		client.Send(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
 		if client.flags[LocalOperator] || client.flags[Operator] {
 			masks := server.snomasks.String(client)
 			if 0 < len(masks) {
-				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, target.nick, masks, "Server notice masks")
+				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, "Server notice masks")
 			}
 		}
 	}
