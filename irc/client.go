@@ -186,8 +186,8 @@ func (client *Client) run() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			client.server.logger.Error("internal", fmt.Sprintf("Client caused panic, disconnecting: %v", r))
-			debug.PrintStack()
+			client.server.logger.Error("internal",
+				fmt.Sprintf("Client caused panic, disconnecting: %v\n%s", r, debug.Stack()))
 		}
 		// ensure client connection gets closed
 		client.destroy()
