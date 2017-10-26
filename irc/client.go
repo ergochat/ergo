@@ -185,10 +185,13 @@ func (client *Client) run() {
 	var msg ircmsg.IrcMessage
 
 	defer func() {
-		if client.server.RecoverFromErrors() {
-			if r := recover(); r != nil {
-				client.server.logger.Error("internal",
-					fmt.Sprintf("Client caused panic, disconnecting: %v\n%s", r, debug.Stack()))
+		if r := recover(); r != nil {
+			client.server.logger.Error("internal",
+				fmt.Sprintf("Client caused panic: %v\n%s", r, debug.Stack()))
+			if client.server.RecoverFromErrors() {
+				client.server.logger.Error("internal", "Disconnecting client and attempting to recover")
+			} else {
+				panic(r)
 			}
 		}
 		// ensure client connection gets closed
