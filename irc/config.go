@@ -188,7 +188,8 @@ type Config struct {
 	Logging []logger.LoggingConfig
 
 	Debug struct {
-		StackImpact StackImpactConfig
+		RecoverFromErrors *bool `yaml:"recover-from-errors"`
+		StackImpact       StackImpactConfig
 	}
 
 	Limits struct {

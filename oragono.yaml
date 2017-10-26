@@ -267,6 +267,14 @@ logging:
 
 # debug options
 debug:
+    # when enabled, oragono will attempt to recover from certain kinds of
+    # client-triggered runtime errors that would normally crash the server.
+    # this makes the server more resilient to DoS, but could result in incorrect
+    # behavior. deployments that would prefer to "start from scratch", e.g., by
+    # letting the process crash and auto-restarting it with systemd, can set
+    # this to false.
+    recover-from-errors: true
+
     # enabling StackImpact profiling
     stackimpact:
         # whether to use StackImpact
