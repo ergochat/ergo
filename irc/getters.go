@@ -23,6 +23,12 @@ func (server *Server) getPassword() []byte {
 	return server.password
 }
 
+func (server *Server) RecoverFromErrors() bool {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.recoverFromErrors
+}
+
 func (server *Server) ProxyAllowedFrom() []string {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()

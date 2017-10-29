@@ -109,6 +109,7 @@ type Server struct {
 	operclasses                  map[string]OperClass
 	password                     []byte
 	passwords                    *passwd.SaltedManager
+	recoverFromErrors            bool
 	registeredChannels           map[string]*RegisteredChannel
 	registeredChannelsMutex      sync.RWMutex
 	rehashMutex                  sync.Mutex
@@ -1239,21 +1240,23 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		server.name = config.Server.Name
 		server.nameCasefolded = casefoldedName
 	}
-	server.networkName = config.Network.Name
 
 	server.configurableStateMutex.Lock()
+	server.networkName = config.Network.Name
 	if config.Server.Password != "" {
 		server.password = config.Server.PasswordBytes()
 	} else {
 		server.password = nil
 	}
-	server.configurableStateMutex.Unlock()
-
 	// apply new WebIRC command restrictions
 	server.webirc = config.Server.WebIRC
-
 	// apply new PROXY command restrictions
 	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
+	server.recoverFromErrors = true
+	if config.Debug.RecoverFromErrors != nil {
+		server.recoverFromErrors = *config.Debug.RecoverFromErrors
+	}
+	server.configurableStateMutex.Unlock()
 
 	err = server.connectionLimiter.ApplyConfig(config.Server.ConnectionLimiter)
 	if err != nil {
