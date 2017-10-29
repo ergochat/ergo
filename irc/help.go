@@ -187,6 +187,11 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 
 Get an explanation of <argument>, or "index" for a list of help topics.`,
 	},
+	"info": {
+		text: `INFO
+
+Sends information about the server, developers, etc.`,
+	},
 	"invite": {
 		text: `INVITE <nickname> <channel>
 

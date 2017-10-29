@@ -2120,3 +2120,43 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 
 	return false
 }
+
+var (
+	infoString = strings.Split(`      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
+▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
+ ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
+▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
+ ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
+
+         https://oragono.io/
+   https://github.com/oragono/oragono
+
+Oragono is released under the MIT license.
+
+Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on <3
+
+Core Developers:
+    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
+    Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
+
+Contributors and Former Developers:
+    3onyc
+    Edmund Huber
+    Euan Kemp (euank)
+    Jeremy Latt
+    Martin Lindhe (martinlindhe)
+    Roberto Besser (besser)
+    Robin Burchell (rburchell)
+    Sean Enck (enckse)
+    soul9
+    Vegax
+`, "\n")
+)
+
+func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	for _, line := range infoString {
+		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+	}
+	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, "End of /INFO")
+	return false
+}
