@@ -587,9 +587,6 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
-
 	casefoldedNewName, err := CasefoldChannel(newName)
 	if err != nil {
 		//TODO(dan): Change this to ERR_CANNOTRENAME
@@ -646,7 +643,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	})
 
 	// send RENAME messages
-	for mcl := range channel.members {
+	for _, mcl := range channel.Members() {
 		if mcl.capabilities.Has(caps.Rename) {
 			mcl.Send(nil, client.nickMaskString, "RENAME", oldName, newName, reason)
 		} else {
@@ -755,7 +752,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 1 {
 		channel.SetTopic(client, msg.Params[1])
 	} else {
-		channel.GetTopic(client)
+		channel.SendTopic(client)
 	}
 	return false
 }
@@ -964,17 +961,12 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 func (client *Client) WhoisChannelsNames(target *Client) []string {
 	isMultiPrefix := target.capabilities.Has(caps.MultiPrefix)
 	var chstrs []string
-	index := 0
-	for channel := range client.channels {
-		channel.membersMutex.RLock()
-		defer channel.membersMutex.RUnlock()
-
+	for _, channel := range client.Channels() {
 		// channel is secret and the target can't see it
-		if !target.flags[Operator] && channel.flags[Secret] && !channel.members.Has(target) {
+		if !target.flags[Operator] && channel.HasMode(Secret) && !channel.hasClient(target) {
 			continue
 		}
-		chstrs = append(chstrs, channel.members[client].Prefixes(isMultiPrefix)+channel.name)
-		index++
+		chstrs = append(chstrs, channel.ClientPrefixes(client, isMultiPrefix)+channel.name)
 	}
 	return chstrs
 }
@@ -1050,36 +1042,33 @@ func (client *Client) getWhoisOf(target *Client) {
 	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), "seconds idle, signon time")
 }
 
-// RplWhoReplyNoMutex returns the WHO reply between one user and another channel/user.
+// rplWhoReply returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func (target *Client) RplWhoReplyNoMutex(channel *Channel, client *Client) {
+func (target *Client) rplWhoReply(channel *Channel, client *Client) {
 	channelName := "*"
 	flags := ""
 
-	if client.flags[Away] {
+	if client.HasMode(Away) {
 		flags = "G"
 	} else {
 		flags = "H"
 	}
-	if client.flags[Operator] {
+	if client.HasMode(Operator) {
 		flags += "*"
 	}
 
 	if channel != nil {
-		flags += channel.members[client].Prefixes(target.capabilities.Has(caps.MultiPrefix))
+		flags += channel.ClientPrefixes(client, target.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
-	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.username, client.hostname, client.server.name, client.nick, flags, strconv.Itoa(client.hops)+" "+client.realname)
+	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.getNick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		if !client.flags[Invisible] || friends[client] {
-			client.RplWhoReplyNoMutex(channel, member)
+			client.rplWhoReply(channel, member)
 		}
 	}
 }
@@ -1120,7 +1109,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	} else {
 		for mclient := range server.clients.FindAll(mask) {
-			client.RplWhoReplyNoMutex(nil, mclient)
+			client.rplWhoReply(nil, mclient)
 		}
 	}
 
@@ -1792,37 +1781,10 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			continue
 		}
 
-		// make sure client has privs to kick the given user
-		//TODO(dan): split this into a separate function that checks if users have privs
-		// over other users, useful for things like -aoh as well
-		channel.membersMutex.Lock()
-
-		var hasPrivs bool
-		for _, mode := range ChannelPrivModes {
-			if channel.members[client][mode] {
-				hasPrivs = true
-
-				// admins cannot kick other admins
-				if mode == ChannelAdmin && channel.members[target][ChannelAdmin] {
-					hasPrivs = false
-				}
-
-				break
-			} else if channel.members[target][mode] {
-				break
-			}
+		if comment == "" {
+			comment = nickname
 		}
-
-		if hasPrivs {
-			if comment == "" {
-				comment = nickname
-			}
-			channel.kickNoMutex(client, target, comment)
-		} else {
-			client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, chname, "You're not a channel operator")
-		}
-
-		channel.membersMutex.Unlock()
+		channel.Kick(client, target, comment)
 	}
 	return false
 }
@@ -1837,17 +1799,14 @@ type elistMatcher struct {
 
 // Matches checks whether the given channel matches our matches.
 func (matcher *elistMatcher) Matches(channel *Channel) bool {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
 	if matcher.MinClientsActive {
-		if len(channel.members) < matcher.MinClients {
+		if len(channel.Members()) < matcher.MinClients {
 			return false
 		}
 	}
 
 	if matcher.MaxClientsActive {
-		if matcher.MaxClients < len(channel.members) {
+		if len(channel.Members()) < len(channel.members) {
 			return false
 		}
 	}
@@ -1933,16 +1892,13 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // RplList returns the RPL_LIST numeric for the given channel.
 func (target *Client) RplList(channel *Channel) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
 	// get the correct number of channel members
 	var memberCount int
-	if target.flags[Operator] || channel.members.Has(target) {
-		memberCount = len(channel.members)
+	if target.flags[Operator] || channel.hasClient(target) {
+		memberCount = len(channel.Members())
 	} else {
-		for member := range channel.members {
-			if !member.flags[Invisible] {
+		for _, member := range channel.Members() {
+			if !member.HasMode(Invisible) {
 				memberCount++
 			}
 		}

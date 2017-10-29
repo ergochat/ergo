@@ -227,6 +227,7 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 
 // UserMaskSet holds a set of client masks and lets you match  hostnames to them.
 type UserMaskSet struct {
+	sync.RWMutex
 	masks  map[string]bool
 	regexp *regexp.Regexp
 }
@@ -245,16 +246,25 @@ func (set *UserMaskSet) Add(mask string) bool {
 		log.Println(fmt.Sprintf("ERROR: Could not add mask to usermaskset: [%s]", mask))
 		return false
 	}
-	if set.masks[casefoldedMask] {
-		return false
-	}
+
+	set.Lock()
+	already := set.masks[casefoldedMask]
 	set.masks[casefoldedMask] = true
-	set.setRegexp()
-	return true
+	set.Unlock()
+
+	if already {
+		return false
+	} else {
+		set.setRegexp()
+		return true
+	}
 }
 
 // AddAll adds the given masks to this set.
 func (set *UserMaskSet) AddAll(masks []string) (added bool) {
+	set.Lock()
+	defer set.Unlock()
+
 	for _, mask := range masks {
 		if !added && !set.masks[mask] {
 			added = true
@@ -267,31 +277,48 @@ func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 
 // Remove removes the given mask from this set.
 func (set *UserMaskSet) Remove(mask string) bool {
-	if !set.masks[mask] {
-		return false
-	}
+	set.Lock()
+	already := !set.masks[mask]
 	delete(set.masks, mask)
-	set.setRegexp()
-	return true
+	set.Unlock()
+
+	if !already {
+		return false
+	} else {
+		set.setRegexp()
+		return true
+	}
 }
 
 // Match matches the given n!u@h.
 func (set *UserMaskSet) Match(userhost string) bool {
-	if set.regexp == nil {
+	set.RLock()
+	regexp := set.regexp
+	set.RUnlock()
+
+	if regexp == nil {
 		return false
 	}
-	return set.regexp.MatchString(userhost)
+	return regexp.MatchString(userhost)
 }
 
 // String returns the masks in this set.
 func (set *UserMaskSet) String() string {
+	set.RLock()
 	masks := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
 		masks[index] = mask
 		index++
 	}
+	set.RUnlock()
 	return strings.Join(masks, " ")
+}
+
+func (set *UserMaskSet) Length() int {
+	set.RLock()
+	defer set.RUnlock()
+	return len(set.masks)
 }
 
 // setRegexp generates a regular expression from the set of user mask
@@ -301,11 +328,9 @@ func (set *UserMaskSet) String() string {
 // parts are re-joined and finally all masks are joined into a big
 // or-expression.
 func (set *UserMaskSet) setRegexp() {
-	if len(set.masks) == 0 {
-		set.regexp = nil
-		return
-	}
+	var re *regexp.Regexp
 
+	set.RLock()
 	maskExprs := make([]string, len(set.masks))
 	index := 0
 	for mask := range set.masks {
@@ -320,7 +345,16 @@ func (set *UserMaskSet) setRegexp() {
 			manyExprs[mindex] = strings.Join(oneExprs, ".")
 		}
 		maskExprs[index] = strings.Join(manyExprs, ".*")
+		index++
 	}
-	expr := "^" + strings.Join(maskExprs, "|") + "$"
-	set.regexp, _ = regexp.Compile(expr)
+	set.RUnlock()
+
+	if index > 0 {
+		expr := "^" + strings.Join(maskExprs, "|") + "$"
+		re, _ = regexp.Compile(expr)
+	}
+
+	set.Lock()
+	set.regexp = re
+	set.Unlock()
 }

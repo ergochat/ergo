@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -55,6 +56,8 @@ type Client struct {
 	idletimer          *IdleTimer
 	isDestroyed        bool
 	isQuitting         bool
+	maxlenTags         uint32
+	maxlenRest         uint32
 	nick               string
 	nickCasefolded     string
 	nickMaskCasefolded string
@@ -162,7 +165,7 @@ func (client *Client) IPString() string {
 // command goroutine
 //
 
-func (client *Client) maxlens() (int, int) {
+func (client *Client) recomputeMaxlens() (int, int) {
 	maxlenTags := 512
 	maxlenRest := 512
 	if client.capabilities.Has(caps.MessageTags) {
@@ -175,7 +178,17 @@ func (client *Client) maxlens() (int, int) {
 		}
 		maxlenRest = limits.LineLen.Rest
 	}
+
+	atomic.StoreUint32(&client.maxlenTags, uint32(maxlenTags))
+	atomic.StoreUint32(&client.maxlenRest, uint32(maxlenRest))
+
 	return maxlenTags, maxlenRest
+}
+
+// allow these negotiated length limits to be read without locks; this is a convenience
+// so that Client.Send doesn't have to acquire any Client locks
+func (client *Client) maxlens() (int, int) {
+	return int(atomic.LoadUint32(&client.maxlenTags)), int(atomic.LoadUint32(&client.maxlenRest))
 }
 
 func (client *Client) run() {
@@ -192,13 +205,13 @@ func (client *Client) run() {
 	client.rawHostname = utils.AddrLookupHostname(client.socket.conn.RemoteAddr())
 
 	for {
+		maxlenTags, maxlenRest := client.recomputeMaxlens()
+
 		line, err = client.socket.Read()
 		if err != nil {
 			client.Quit("connection closed")
 			break
 		}
-
-		maxlenTags, maxlenRest := client.maxlens()
 
 		client.server.logger.Debug("userinput ", client.nick, "<- ", line)
 
@@ -338,9 +351,8 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 		friends.Add(client)
 	}
 
-	for channel := range client.channels {
-		channel.membersMutex.RLock()
-		for member := range channel.members {
+	for _, channel := range client.Channels() {
+		for _, member := range channel.Members() {
 			// make sure they have all the required caps
 			hasCaps = true
 			for _, capab := range capabs {
@@ -353,7 +365,6 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 				friends.Add(member)
 			}
 		}
-		channel.membersMutex.RUnlock()
 	}
 	return friends
 }
@@ -527,7 +538,10 @@ func (client *Client) destroy() {
 	// clean up channels
 	client.server.channelJoinPartMutex.Lock()
 	for channel := range client.channels {
-		channel.Quit(client, &friends)
+		channel.Quit(client)
+		for _, member := range channel.Members() {
+			friends.Add(member)
+		}
 	}
 	client.server.channelJoinPartMutex.Unlock()
 
@@ -662,4 +676,16 @@ func (client *Client) Notice(text string) {
 	for _, line := range lines {
 		client.Send(nil, client.server.name, "NOTICE", client.nick, line)
 	}
+}
+
+func (client *Client) addChannel(channel *Channel) {
+	client.stateMutex.Lock()
+	client.channels[channel] = true
+	client.stateMutex.Unlock()
+}
+
+func (client *Client) removeChannel(channel *Channel) {
+	client.stateMutex.Lock()
+	delete(client.channels, channel)
+	client.stateMutex.Unlock()
 }

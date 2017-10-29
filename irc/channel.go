@@ -23,12 +23,13 @@ type Channel struct {
 	flags          ModeSet
 	lists          map[Mode]*UserMaskSet
 	key            string
-	membersMutex   sync.RWMutex
 	members        MemberSet
+	membersCache   []*Client // allow iteration over channel members without holding the lock
 	name           string
 	nameCasefolded string
 	server         *Server
 	createdTime    time.Time
+	stateMutex     sync.RWMutex
 	topic          string
 	topicSetBy     string
 	topicSetTime   time.Time
@@ -68,28 +69,29 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	return channel
 }
 
-// IsEmpty returns true if the channel has no clients.
-func (channel *Channel) IsEmpty() bool {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
+func (channel *Channel) regenerateMembersCache() {
+	// this is eventually consistent even without holding the writable Lock()
+	// throughout the update; all updates to `members` while holding Lock()
+	// have a serial order, so the call to `regenerateMembersCache` that
+	// happens-after the last one will see *all* the updates
+	channel.stateMutex.RLock()
+	result := make([]*Client, len(channel.members))
+	i := 0
+	for client := range channel.members {
+		result[i] = client
+		i++
+	}
+	channel.stateMutex.RUnlock()
+	channel.stateMutex.Lock()
+	channel.membersCache = result
+	channel.stateMutex.Unlock()
+	return
 
-	return channel.isEmptyNoMutex()
-}
-
-func (channel *Channel) isEmptyNoMutex() bool {
-	return len(channel.members) == 0
 }
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	channel.namesNoMutex(client)
-}
-
-func (channel *Channel) namesNoMutex(client *Client) {
-	currentNicks := channel.nicksNoMutex(client)
+	currentNicks := channel.nicks(client)
 	// assemble and send replies
 	maxNamLen := 480 - len(client.server.name) - len(client.nick)
 	var buffer string
@@ -115,14 +117,8 @@ func (channel *Channel) namesNoMutex(client *Client) {
 
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
 func (channel *Channel) ClientIsAtLeast(client *Client, permission Mode) bool {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	return channel.clientIsAtLeastNoMutex(client, permission)
-}
-
-func (channel *Channel) clientIsAtLeastNoMutex(client *Client, permission Mode) bool {
-	// requires RLock()
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
 
 	// get voice, since it's not a part of ChannelPrivModes
 	if channel.members.HasMode(client, permission) {
@@ -164,60 +160,119 @@ func (modes ModeSet) Prefixes(isMultiPrefix bool) string {
 	return prefixes
 }
 
-func (channel *Channel) nicksNoMutex(target *Client) []string {
+func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	modes, present := channel.members[client]
+	if !present {
+		return ""
+	} else {
+		return modes.Prefixes(isMultiPrefix)
+	}
+}
+
+func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	clientModes := channel.members[client]
+	targetModes := channel.members[target]
+	result := false
+	for _, mode := range ChannelPrivModes {
+		if clientModes[mode] {
+			result = true
+			// admins cannot kick other admins
+			if mode == ChannelAdmin && targetModes[ChannelAdmin] {
+				result = false
+			}
+			break
+		} else if channel.members[target][mode] {
+			break
+		}
+	}
+	return result
+}
+
+func (channel *Channel) nicks(target *Client) []string {
 	isMultiPrefix := (target != nil) && target.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := (target != nil) && target.capabilities.Has(caps.UserhostInNames)
-	nicks := make([]string, len(channel.members))
+
+	// slightly cumbersome: get the mutex and copy both the client pointers and
+	// the mode prefixes
+	channel.stateMutex.RLock()
+	length := len(channel.members)
+	clients := make([]*Client, length)
+	result := make([]string, length)
 	i := 0
 	for client, modes := range channel.members {
-		nicks[i] += modes.Prefixes(isMultiPrefix)
+		clients[i] = client
+		result[i] = modes.Prefixes(isMultiPrefix)
+		i++
+	}
+	channel.stateMutex.RUnlock()
+
+	i = 0
+	for i < length {
 		if isUserhostInNames {
-			nicks[i] += client.nickMaskString
+			result[i] += clients[i].getNickMaskString()
 		} else {
-			nicks[i] += client.nick
+			result[i] += clients[i].getNick()
 		}
 		i++
 	}
-	return nicks
+
+	return result
+}
+
+func (channel *Channel) hasClient(client *Client) bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	_, present := channel.members[client]
+	return present
 }
 
 // <mode> <mode params>
-func (channel *Channel) modeStringNoLock(client *Client) (str string) {
-	// RLock()
-	isMember := client.flags[Operator] || channel.members.Has(client)
-	// RUnlock()
+func (channel *Channel) modeStrings(client *Client) (result []string) {
+	isMember := client.HasMode(Operator) || channel.hasClient(client)
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 
+	modes := "+"
+
 	// flags with args
 	if showKey {
-		str += Key.String()
+		modes += Key.String()
 	}
 	if showUserLimit {
-		str += UserLimit.String()
+		modes += UserLimit.String()
 	}
+
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
 
 	// flags
 	for mode := range channel.flags {
-		str += mode.String()
+		modes += mode.String()
 	}
 
-	str = "+" + str
+	result = []string{modes}
 
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
 	if showKey {
-		str += " " + channel.key
+		result = append(result, channel.key)
 	}
 	if showUserLimit {
-		str += " " + strconv.FormatUint(channel.userLimit, 10)
+		result = append(result, strconv.FormatUint(channel.userLimit, 10))
 	}
 
-	return str
+	return
 }
 
 // IsFull returns true if this channel is at its' members limit.
 func (channel *Channel) IsFull() bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
 	return (channel.userLimit > 0) && (uint64(len(channel.members)) >= channel.userLimit)
 }
 
@@ -229,9 +284,7 @@ func (channel *Channel) CheckKey(key string) bool {
 // Join joins the given client to this channel (if they can be joined).
 //TODO(dan): /SAJOIN and maybe a ForceJoin function?
 func (channel *Channel) Join(client *Client, key string) {
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
-	if channel.members.Has(client) {
+	if channel.hasClient(client) {
 		// already joined, no message needs to be sent
 		return
 	}
@@ -261,7 +314,7 @@ func (channel *Channel) Join(client *Client, key string) {
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, channel.name))
 
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		if member.capabilities.Has(caps.ExtendedJoin) {
 			member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 		} else {
@@ -269,8 +322,13 @@ func (channel *Channel) Join(client *Client, key string) {
 		}
 	}
 
-	client.channels.Add(channel)
+	channel.stateMutex.Lock()
 	channel.members.Add(client)
+	firstJoin := len(channel.members) == 1
+	channel.stateMutex.Unlock()
+	channel.regenerateMembersCache()
+
+	client.addChannel(channel)
 
 	// give channel mode if necessary
 	var newChannel bool
@@ -281,20 +339,25 @@ func (channel *Channel) Join(client *Client, key string) {
 		chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
 
 		if chanReg == nil {
-			if len(channel.members) == 1 {
+			if firstJoin {
+				channel.stateMutex.Lock()
 				channel.createdTime = time.Now()
 				channel.members[client][ChannelOperator] = true
+				channel.stateMutex.Unlock()
 				givenMode = &ChannelOperator
 				newChannel = true
 			}
 		} else {
 			// we should only do this on registered channels
 			if client.account != nil && client.account.Name == chanReg.Founder {
+				channel.stateMutex.Lock()
 				channel.members[client][ChannelFounder] = true
+				channel.stateMutex.Unlock()
 				givenMode = &ChannelFounder
 			}
-			if len(channel.members) == 1 {
+			if firstJoin {
 				// apply other details if new channel
+				channel.stateMutex.Lock()
 				channel.topic = chanReg.Topic
 				channel.topicSetBy = chanReg.TopicSetBy
 				channel.topicSetTime = chanReg.TopicSetTime
@@ -309,6 +372,7 @@ func (channel *Channel) Join(client *Client, key string) {
 				for _, mask := range chanReg.Invitelist {
 					channel.lists[InviteMask].Add(mask)
 				}
+				channel.stateMutex.Unlock()
 			}
 		}
 		return nil
@@ -321,11 +385,11 @@ func (channel *Channel) Join(client *Client, key string) {
 	}
 	// don't sent topic when it's an entirely new channel
 	if !newChannel {
-		channel.getTopicNoMutex(client) // we already have Lock
+		channel.SendTopic(client)
 	}
-	channel.namesNoMutex(client)
+	channel.Names(client)
 	if givenMode != nil {
-		for member := range channel.members {
+		for _, member := range channel.Members() {
 			member.Send(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
 		}
 	}
@@ -333,58 +397,50 @@ func (channel *Channel) Join(client *Client, key string) {
 
 // Part parts the given client from this channel, with the given message.
 func (channel *Channel) Part(client *Client, message string) {
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
-
-	if !channel.members.Has(client) {
+	if !channel.hasClient(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
 	}
 
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		member.Send(nil, client.nickMaskString, "PART", channel.name, message)
 	}
-	channel.quitNoMutex(client)
+	channel.Quit(client)
 
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, channel.name))
 }
 
-// GetTopic sends the channel topic to the given client.
-func (channel *Channel) GetTopic(client *Client) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	channel.getTopicNoMutex(client)
-}
-
-// GetTopic sends the channel topic to the given client without getting the membersMutex.
-// This is required because of channel joins.
-func (channel *Channel) getTopicNoMutex(client *Client) {
-	if !channel.members.Has(client) {
+// SendTopic sends the channel topic to the given client.
+func (channel *Channel) SendTopic(client *Client) {
+	if !channel.hasClient(client) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, client.nick, channel.name, "You're not on that channel")
 		return
 	}
 
-	if channel.topic == "" {
-		client.Send(nil, client.server.name, RPL_NOTOPIC, client.nick, channel.name, "No topic is set")
+	channel.stateMutex.RLock()
+	name := channel.name
+	topic := channel.topic
+	topicSetBy := channel.topicSetBy
+	topicSetTime := channel.topicSetTime
+	channel.stateMutex.RUnlock()
+
+	if topic == "" {
+		client.Send(nil, client.server.name, RPL_NOTOPIC, client.nick, name, "No topic is set")
 		return
 	}
 
-	client.Send(nil, client.server.name, RPL_TOPIC, client.nick, channel.name, channel.topic)
-	client.Send(nil, client.server.name, RPL_TOPICTIME, client.nick, channel.name, channel.topicSetBy, strconv.FormatInt(channel.topicSetTime.Unix(), 10))
+	client.Send(nil, client.server.name, RPL_TOPIC, client.nick, name, topic)
+	client.Send(nil, client.server.name, RPL_TOPICTIME, client.nick, name, topicSetBy, strconv.FormatInt(topicSetTime.Unix(), 10))
 }
 
 // SetTopic sets the topic of this channel, if the client is allowed to do so.
 func (channel *Channel) SetTopic(client *Client, topic string) {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	if !(client.flags[Operator] || channel.members.Has(client)) {
+	if !(client.flags[Operator] || channel.hasClient(client)) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
 	}
 
-	if channel.flags[OpOnlyTopic] && !channel.ClientIsAtLeast(client, ChannelOperator) {
+	if channel.HasMode(OpOnlyTopic) && !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
 		return
 	}
@@ -393,12 +449,14 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		topic = topic[:client.server.limits.TopicLen]
 	}
 
+	channel.stateMutex.Lock()
 	channel.topic = topic
 	channel.topicSetBy = client.nickMaskString
 	channel.topicSetTime = time.Now()
+	channel.stateMutex.Unlock()
 
-	for member := range channel.members {
-		member.Send(nil, client.nickMaskString, "TOPIC", channel.name, channel.topic)
+	for _, member := range channel.Members() {
+		member.Send(nil, client.nickMaskString, "TOPIC", channel.name, topic)
 	}
 
 	// update saved channel topic for registered chans
@@ -422,13 +480,14 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 
 // CanSpeak returns true if the client can speak on this channel.
 func (channel *Channel) CanSpeak(client *Client) bool {
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
 
-	if channel.flags[NoOutside] && !channel.members.Has(client) {
+	_, hasClient := channel.members[client]
+	if channel.flags[NoOutside] && !hasClient {
 		return false
 	}
-	if channel.flags[Moderated] && !channel.clientIsAtLeastNoMutex(client, Voice) {
+	if channel.flags[Moderated] && !channel.ClientIsAtLeast(client, Voice) {
 		return false
 	}
 	if channel.flags[RegisteredOnly] && client.account == &NoAccount {
@@ -449,15 +508,12 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 		return
 	}
 
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
 	// for STATUSMSG
 	var minPrefixMode Mode
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
@@ -505,15 +561,12 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *Mode, cli
 		return
 	}
 
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
 	// for STATUSMSG
 	var minPrefixMode Mode
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
@@ -534,35 +587,8 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *Mode, cli
 	}
 }
 
-func (channel *Channel) applyModeFlag(client *Client, mode Mode,
-	op ModeOp) bool {
-	if !channel.ClientIsAtLeast(client, ChannelOperator) {
-		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
-		return false
-	}
-
-	switch op {
-	case Add:
-		if channel.flags[mode] {
-			return false
-		}
-		channel.flags[mode] = true
-		return true
-
-	case Remove:
-		if !channel.flags[mode] {
-			return false
-		}
-		delete(channel.flags, mode)
-		return true
-	}
-	return false
-}
-
 func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
 	op ModeOp, nick string) *ModeChange {
-	// requires Lock()
-
 	if nick == "" {
 		//TODO(dan): shouldn't this be handled before it reaches this function?
 		client.Send(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", "Not enough parameters")
@@ -576,35 +602,28 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode Mode,
 		return nil
 	}
 
-	if !channel.members.Has(target) {
+	channel.stateMutex.Lock()
+	modeset, exists := channel.members[target]
+	var already bool
+	if exists {
+		enable := op == Add
+		already = modeset[mode] == enable
+		modeset[mode] = enable
+	}
+	channel.stateMutex.Unlock()
+
+	if !exists {
 		client.Send(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nick, channel.name, "They aren't on that channel")
 		return nil
-	}
-
-	switch op {
-	case Add:
-		if channel.members[target][mode] {
-			return nil
-		}
-		channel.members[target][mode] = true
+	} else if already {
+		return nil
+	} else {
 		return &ModeChange{
-			op:   Add,
-			mode: mode,
-			arg:  nick,
-		}
-
-	case Remove:
-		if !channel.members[target][mode] {
-			return nil
-		}
-		channel.members[target][mode] = false
-		return &ModeChange{
-			op:   Remove,
+			op:   op,
 			mode: mode,
 			arg:  nick,
 		}
 	}
-	return nil
 }
 
 // ShowMaskList shows the given list to the client.
@@ -622,11 +641,15 @@ func (channel *Channel) ShowMaskList(client *Client, mode Mode) {
 		rplendoflist = RPL_ENDOFINVITELIST
 	}
 
-	// send out responses
+	nick := client.getNick()
+	channel.stateMutex.RLock()
+	// XXX don't acquire any new locks in this section, besides Socket.Write
 	for mask := range channel.lists[mode].masks {
-		client.Send(nil, client.server.name, rpllist, client.nick, channel.name, mask)
+		client.Send(nil, client.server.name, rpllist, nick, channel.name, mask)
 	}
-	client.Send(nil, client.server.name, rplendoflist, client.nick, channel.name, "End of list")
+	channel.stateMutex.RUnlock()
+
+	client.Send(nil, client.server.name, rplendoflist, nick, channel.name, "End of list")
 }
 
 func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask string) bool {
@@ -657,51 +680,52 @@ func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask
 	return false
 }
 
-// Quit removes the given client from the channel, and also updates friends with the latest client list.
-func (channel *Channel) Quit(client *Client, friends *ClientSet) {
-	channel.membersMutex.Lock()
-	defer channel.membersMutex.Unlock()
-
-	channel.quitNoMutex(client)
-
-	for friend := range channel.members {
-		friends.Add(friend)
-	}
-}
-
-func (channel *Channel) quitNoMutex(client *Client) {
+// Quit removes the given client from the channel
+func (channel *Channel) Quit(client *Client) {
+	channel.stateMutex.Lock()
 	channel.members.Remove(client)
-	client.channels.Remove(channel)
+	empty := len(channel.members) == 0
+	channel.stateMutex.Unlock()
+	channel.regenerateMembersCache()
 
-	if channel.isEmptyNoMutex() {
+	client.removeChannel(channel)
+
+	//TODO(slingamn) fold this operation into a channelmanager type
+	if empty {
 		channel.server.channels.Remove(channel)
 	}
 }
 
-func (channel *Channel) kickNoMutex(client *Client, target *Client, comment string) {
-	// needs a Lock()
-
-	if !(client.flags[Operator] || channel.members.Has(client)) {
+func (channel *Channel) Kick(client *Client, target *Client, comment string) {
+	if !(client.flags[Operator] || channel.hasClient(client)) {
 		client.Send(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
 	}
-	if !channel.clientIsAtLeastNoMutex(client, ChannelOperator) {
+	if !channel.ClientIsAtLeast(client, ChannelOperator) {
 		client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
 		return
 	}
-	if !channel.members.Has(target) {
+	if !channel.hasClient(target) {
 		client.Send(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nick, channel.name, "They aren't on that channel")
 		return
 	}
-
-	if len(comment) > client.server.limits.KickLen {
-		comment = comment[:client.server.limits.KickLen]
+	if !channel.ClientHasPrivsOver(client, target) {
+		client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+		return
 	}
 
-	for member := range channel.members {
-		member.Send(nil, client.nickMaskString, "KICK", channel.name, target.nick, comment)
+	kicklimit := client.server.getLimits().KickLen
+	if len(comment) > kicklimit {
+		comment = comment[:kicklimit]
 	}
-	channel.quitNoMutex(target)
+
+	clientMask := client.getNickMaskString()
+	targetNick := target.getNick()
+	for _, member := range channel.Members() {
+		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
+	}
+
+	channel.Quit(target)
 }
 
 // Invite invites the given client to the channel, if the inviter can do so.
@@ -711,23 +735,22 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 		return
 	}
 
-	channel.membersMutex.RLock()
-	defer channel.membersMutex.RUnlock()
-
-	if !channel.members.Has(inviter) {
+	if !channel.hasClient(inviter) {
 		inviter.Send(nil, inviter.server.name, ERR_NOTONCHANNEL, channel.name, "You're not on that channel")
 		return
 	}
 
 	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags[InviteOnly] {
-		channel.lists[InviteMask].Add(invitee.nickMaskCasefolded)
+		nmc := invitee.getNickCasefolded()
+		channel.stateMutex.Lock()
+		channel.lists[InviteMask].Add(nmc)
+		channel.stateMutex.Unlock()
 	}
 
-	// send invite-notify
-	for member := range channel.members {
+	for _, member := range channel.Members() {
 		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
-			member.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
+			member.Send(nil, inviter.getNickMaskString(), "INVITE", invitee.getNick(), channel.name)
 		}
 	}
 

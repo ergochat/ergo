@@ -139,13 +139,3 @@ func (members MemberSet) AnyHasMode(mode Mode) bool {
 
 // ChannelSet is a set of channels.
 type ChannelSet map[*Channel]bool
-
-// Add adds the given channel to this set.
-func (channels ChannelSet) Add(channel *Channel) {
-	channels[channel] = true
-}
-
-// Remove removes the given channel from this set.
-func (channels ChannelSet) Remove(channel *Channel) {
-	delete(channels, channel)
-}

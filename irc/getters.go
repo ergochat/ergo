@@ -53,6 +53,24 @@ func (client *Client) getNickCasefolded() string {
 	return client.nickCasefolded
 }
 
+func (client *Client) Username() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.username
+}
+
+func (client *Client) Hostname() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.hostname
+}
+
+func (client *Client) Realname() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.realname
+}
+
 func (client *Client) Registered() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -63,4 +81,80 @@ func (client *Client) Destroyed() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.isDestroyed
+}
+
+func (client *Client) HasMode(mode Mode) bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.flags[mode]
+}
+
+func (client *Client) Channels() (result []*Channel) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	length := len(client.channels)
+	result = make([]*Channel, length)
+	i := 0
+	for channel := range client.channels {
+		result[i] = channel
+		i++
+	}
+	return
+}
+
+func (channel *Channel) Name() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.name
+}
+
+func (channel *Channel) Members() (result []*Client) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.membersCache
+}
+
+func (channel *Channel) UserLimit() uint64 {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.userLimit
+}
+
+func (channel *Channel) setUserLimit(limit uint64) {
+	channel.stateMutex.Lock()
+	channel.userLimit = limit
+	channel.stateMutex.Unlock()
+}
+
+func (channel *Channel) Key() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.key
+}
+
+func (channel *Channel) setKey(key string) {
+	channel.stateMutex.Lock()
+	channel.key = key
+	channel.stateMutex.Unlock()
+}
+
+func (channel *Channel) HasMode(mode Mode) bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.flags[mode]
+}
+
+// set a channel mode, return whether it was already set
+func (channel *Channel) setMode(mode Mode, enable bool) (already bool) {
+	channel.stateMutex.Lock()
+	already = (channel.flags[mode] == enable)
+	if !already {
+		if enable {
+			channel.flags[mode] = true
+		} else {
+			delete(channel.flags, mode)
+		}
+	}
+	channel.stateMutex.Unlock()
+	return
 }
