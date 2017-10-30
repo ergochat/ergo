@@ -41,6 +41,12 @@ func (server *Server) WebIRCConfig() []webircConfig {
 	return server.webirc
 }
 
+func (server *Server) DefaultChannelModes() Modes {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.defaultChannelModes
+}
+
 func (client *Client) getNick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -112,6 +118,24 @@ func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.name
+}
+
+func (channel *Channel) setName(name string) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	channel.name = name
+}
+
+func (channel *Channel) NameCasefolded() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.nameCasefolded
+}
+
+func (channel *Channel) setNameCasefolded(nameCasefolded string) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	channel.nameCasefolded = nameCasefolded
 }
 
 func (channel *Channel) Members() (result []*Client) {

@@ -548,14 +548,12 @@ func (client *Client) destroy() {
 	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
-	client.server.channelJoinPartMutex.Lock()
-	for channel := range client.channels {
+	for _, channel := range client.Channels() {
 		channel.Quit(client)
 		for _, member := range channel.Members() {
 			friends.Add(member)
 		}
 	}
-	client.server.channelJoinPartMutex.Unlock()
 
 	// clean up server
 	client.server.clients.Remove(client)

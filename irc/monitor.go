@@ -52,12 +52,9 @@ func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
 		command = RPL_MONONLINE
 	}
 
-	// asynchronously send all the notifications
-	go func() {
-		for _, mClient := range watchers {
-			mClient.Send(nil, client.server.name, command, mClient.getNick(), nick)
-		}
-	}()
+	for _, mClient := range watchers {
+		mClient.Send(nil, client.server.name, command, mClient.getNick(), nick)
+	}
 }
 
 // Add registers `client` to receive notifications about `nick`.

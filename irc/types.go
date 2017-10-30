@@ -6,63 +6,8 @@
 package irc
 
 import (
-	"fmt"
 	"strings"
-	"sync"
 )
-
-// ChannelNameMap is a map that converts channel names to actual channel objects.
-type ChannelNameMap struct {
-	ChansLock sync.RWMutex
-	Chans     map[string]*Channel
-}
-
-// NewChannelNameMap returns a new ChannelNameMap.
-func NewChannelNameMap() *ChannelNameMap {
-	var channels ChannelNameMap
-	channels.Chans = make(map[string]*Channel)
-	return &channels
-}
-
-// Get returns the given channel if it exists.
-func (channels *ChannelNameMap) Get(name string) *Channel {
-	name, err := CasefoldChannel(name)
-	if err == nil {
-		channels.ChansLock.RLock()
-		defer channels.ChansLock.RUnlock()
-		return channels.Chans[name]
-	}
-	return nil
-}
-
-// Add adds the given channel to our map.
-func (channels *ChannelNameMap) Add(channel *Channel) error {
-	channels.ChansLock.Lock()
-	defer channels.ChansLock.Unlock()
-	if channels.Chans[channel.nameCasefolded] != nil {
-		return fmt.Errorf("%s: already set", channel.name)
-	}
-	channels.Chans[channel.nameCasefolded] = channel
-	return nil
-}
-
-// Remove removes the given channel from our map.
-func (channels *ChannelNameMap) Remove(channel *Channel) error {
-	channels.ChansLock.Lock()
-	defer channels.ChansLock.Unlock()
-	if channel != channels.Chans[channel.nameCasefolded] {
-		return fmt.Errorf("%s: mismatch", channel.name)
-	}
-	delete(channels.Chans, channel.nameCasefolded)
-	return nil
-}
-
-// Len returns how many channels we have.
-func (channels *ChannelNameMap) Len() int {
-	channels.ChansLock.RLock()
-	defer channels.ChansLock.RUnlock()
-	return len(channels.Chans)
-}
 
 // ModeSet holds a set of modes.
 type ModeSet map[Mode]bool

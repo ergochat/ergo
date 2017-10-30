@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -39,6 +40,8 @@ var (
 
 	// common error responses
 	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
+
+	RenamePrivsNeeded = errors.New("Only chanops can rename channels")
 )
 
 const (
@@ -80,8 +83,7 @@ type Server struct {
 	accountRegistration          *AccountRegistration
 	accounts                     map[string]*ClientAccount
 	channelRegistrationEnabled   bool
-	channels                     ChannelNameMap
-	channelJoinPartMutex         sync.Mutex // used when joining/parting channels to prevent stomping over each others' access and all
+	channels                     *ChannelManager
 	checkIdent                   bool
 	clients                      *ClientLookupSet
 	commands                     chan Command
@@ -147,7 +149,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
 		accounts:            make(map[string]*ClientAccount),
-		channels:            *NewChannelNameMap(),
+		channels:            NewChannelManager(),
 		clients:             NewClientLookupSet(),
 		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
@@ -553,53 +555,62 @@ func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // RENAME <oldchan> <newchan> [<reason>]
-//TODO(dan): Clean up this function so it doesn't look like an eldrich horror... prolly by putting it into a server.renameChannel function.
-func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// get lots of locks... make sure nobody touches anything while we're doing this
+func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (result bool) {
+	result = false
+
+	// TODO(slingamn, #152) clean up locking here
 	server.registeredChannelsMutex.Lock()
 	defer server.registeredChannelsMutex.Unlock()
-	server.channels.ChansLock.Lock()
-	defer server.channels.ChansLock.Unlock()
+
+	errorResponse := func(err error, name string) {
+		// TODO: send correct error codes, e.g., ERR_CANNOTRENAME, ERR_CHANNAMEINUSE
+		var code string
+		switch err {
+		case NoSuchChannel:
+			code = ERR_NOSUCHCHANNEL
+		case RenamePrivsNeeded:
+			code = ERR_CHANOPRIVSNEEDED
+		case InvalidChannelName:
+			code = ERR_UNKNOWNERROR
+		case ChannelNameInUse:
+			code = ERR_UNKNOWNERROR
+		default:
+			code = ERR_UNKNOWNERROR
+		}
+		client.Send(nil, server.name, code, client.getNick(), "RENAME", name, err.Error())
+	}
 
 	oldName := strings.TrimSpace(msg.Params[0])
 	newName := strings.TrimSpace(msg.Params[1])
+	if oldName == "" || newName == "" {
+		errorResponse(InvalidChannelName, "<empty>")
+		return
+	}
+	casefoldedOldName, err := CasefoldChannel(oldName)
+	if err != nil {
+		errorResponse(InvalidChannelName, oldName)
+		return
+	}
+	casefoldedNewName, err := CasefoldChannel(newName)
+	if err != nil {
+		errorResponse(InvalidChannelName, newName)
+		return
+	}
+
 	reason := "No reason"
 	if 2 < len(msg.Params) {
 		reason = msg.Params[2]
 	}
 
-	// check for all the reasons why the rename couldn't happen
-	casefoldedOldName, err := CasefoldChannel(oldName)
-	if err != nil {
-		//TODO(dan): Change this to ERR_CANNOTRENAME
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, "Old channel name is invalid")
-		return false
-	}
-
-	channel := server.channels.Chans[casefoldedOldName]
+	channel := server.channels.Get(oldName)
 	if channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, oldName, "No such channel")
-		return false
+		errorResponse(NoSuchChannel, oldName)
+		return
 	}
-
 	//TODO(dan): allow IRCops to do this?
 	if !channel.ClientIsAtLeast(client, Operator) {
-		client.Send(nil, server.name, ERR_CHANOPRIVSNEEDED, client.nick, oldName, "Only chanops can rename channels")
-		return false
-	}
-
-	casefoldedNewName, err := CasefoldChannel(newName)
-	if err != nil {
-		//TODO(dan): Change this to ERR_CANNOTRENAME
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", newName, "New channel name is invalid")
-		return false
-	}
-
-	newChannel := server.channels.Chans[casefoldedNewName]
-	if newChannel != nil {
-		//TODO(dan): Change this to ERR_CHANNAMEINUSE
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", newName, "New channel name is in use")
-		return false
+		errorResponse(RenamePrivsNeeded, oldName)
+		return
 	}
 
 	var canEdit bool
@@ -622,11 +633,11 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// perform the channel rename
-	server.channels.Chans[casefoldedOldName] = nil
-	server.channels.Chans[casefoldedNewName] = channel
-
-	channel.name = strings.TrimSpace(msg.Params[1])
-	channel.nameCasefolded = casefoldedNewName
+	err = server.channels.Rename(oldName, newName)
+	if err != nil {
+		errorResponse(err, newName)
+		return
+	}
 
 	// rename stored channel info if any exists
 	server.store.Update(func(tx *buntdb.Tx) error {
@@ -679,34 +690,15 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		keys = strings.Split(msg.Params[1], ",")
 	}
 
-	// get lock
-	server.channelJoinPartMutex.Lock()
-	defer server.channelJoinPartMutex.Unlock()
-
 	for i, name := range channels {
-		casefoldedName, err := CasefoldChannel(name)
-		if err != nil {
-			if len(name) > 0 {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
-			}
-			continue
-		}
-
-		channel := server.channels.Get(casefoldedName)
-		if channel == nil {
-			if len(casefoldedName) > server.getLimits().ChannelLen {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, name, "No such channel")
-				continue
-			}
-			channel = NewChannel(server, name, true)
-		}
-
 		var key string
 		if len(keys) > i {
 			key = keys[i]
 		}
-
-		channel.Join(client, key)
+		err := server.channels.Join(client, name, key)
+		if err == NoSuchChannel {
+			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.getNick(), name, "No such channel")
+		}
 	}
 	return false
 }
@@ -719,22 +711,11 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		reason = msg.Params[1]
 	}
 
-	// get lock
-	server.channelJoinPartMutex.Lock()
-	defer server.channelJoinPartMutex.Unlock()
-
 	for _, chname := range channels {
-		casefoldedChannelName, err := CasefoldChannel(chname)
-		channel := server.channels.Get(casefoldedChannelName)
-
-		if err != nil || channel == nil {
-			if len(chname) > 0 {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
-			}
-			continue
+		err := server.channels.Part(client, chname, reason)
+		if err == NoSuchChannel {
+			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, "No such channel")
 		}
-
-		channel.Part(client, reason)
 	}
 	return false
 }
@@ -1096,11 +1077,9 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//}
 
 	if mask == "" {
-		server.channels.ChansLock.RLock()
-		for _, channel := range server.channels.Chans {
+		for _, channel := range server.channels.Channels() {
 			whoChannel(client, channel, friends)
 		}
-		server.channels.ChansLock.RUnlock()
 	} else if mask[0] == '#' {
 		// TODO implement wildcard matching
 		//TODO(dan): ^ only for opers
@@ -1859,8 +1838,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(channels) == 0 {
-		server.channels.ChansLock.RLock()
-		for _, channel := range server.channels.Chans {
+		for _, channel := range server.channels.Channels() {
 			if !client.flags[Operator] && channel.flags[Secret] {
 				continue
 			}
@@ -1868,7 +1846,6 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				client.RplList(channel)
 			}
 		}
-		server.channels.ChansLock.RUnlock()
 	} else {
 		// limit regular users to only listing one channel
 		if !client.flags[Operator] {
@@ -1922,11 +1899,9 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//}
 
 	if len(channels) == 0 {
-		server.channels.ChansLock.RLock()
-		for _, channel := range server.channels.Chans {
+		for _, channel := range server.channels.Channels() {
 			channel.Names(client)
 		}
-		server.channels.ChansLock.RUnlock()
 		return false
 	}
 

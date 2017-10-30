@@ -7,7 +7,6 @@ package irc
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -41,7 +40,7 @@ type Channel struct {
 func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Channel name is bad: [%s]", name), err.Error())
+		s.logger.Error("internal", fmt.Sprintf("Bad channel name %s: %v", name, err))
 		return nil
 	}
 
@@ -59,12 +58,10 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	}
 
 	if addDefaultModes {
-		for _, mode := range s.GetDefaultChannelModes() {
+		for _, mode := range s.DefaultChannelModes() {
 			channel.flags[mode] = true
 		}
 	}
-
-	s.channels.Add(channel)
 
 	return channel
 }
@@ -279,6 +276,12 @@ func (channel *Channel) IsFull() bool {
 // CheckKey returns true if the key is not set or matches the given key.
 func (channel *Channel) CheckKey(key string) bool {
 	return (channel.key == "") || (channel.key == key)
+}
+
+func (channel *Channel) IsEmpty() bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return len(channel.members) == 0
 }
 
 // Join joins the given client to this channel (if they can be joined).
@@ -684,16 +687,10 @@ func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask
 func (channel *Channel) Quit(client *Client) {
 	channel.stateMutex.Lock()
 	channel.members.Remove(client)
-	empty := len(channel.members) == 0
 	channel.stateMutex.Unlock()
 	channel.regenerateMembersCache()
 
 	client.removeChannel(channel)
-
-	//TODO(slingamn) fold this operation into a channelmanager type
-	if empty {
-		channel.server.channels.Remove(channel)
-	}
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string) {
