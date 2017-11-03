@@ -577,7 +577,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		default:
 			code = ERR_UNKNOWNERROR
 		}
-		client.Send(nil, server.name, code, client.getNick(), "RENAME", name, err.Error())
+		client.Send(nil, server.name, code, client.Nick(), "RENAME", name, err.Error())
 	}
 
 	oldName := strings.TrimSpace(msg.Params[0])
@@ -697,7 +697,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 		err := server.channels.Join(client, name, key)
 		if err == NoSuchChannel {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.getNick(), name, "No such channel")
+			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, "No such channel")
 		}
 	}
 	return false
@@ -1044,7 +1044,7 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client) {
 		flags += channel.ClientPrefixes(client, target.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
-	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.getNick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
+	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
 }
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
@@ -1586,7 +1586,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 0 {
 		isAway = true
 		text = msg.Params[0]
-		awayLen := server.getLimits().AwayLen
+		awayLen := server.Limits().AwayLen
 		if len(text) > awayLen {
 			text = text[:awayLen]
 		}

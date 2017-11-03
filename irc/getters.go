@@ -5,19 +5,19 @@ package irc
 
 import "github.com/oragono/oragono/irc/isupport"
 
-func (server *Server) getISupport() *isupport.List {
+func (server *Server) ISupport() *isupport.List {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.isupport
 }
 
-func (server *Server) getLimits() Limits {
+func (server *Server) Limits() Limits {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.limits
 }
 
-func (server *Server) getPassword() []byte {
+func (server *Server) Password() []byte {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.password
@@ -47,19 +47,19 @@ func (server *Server) DefaultChannelModes() Modes {
 	return server.defaultChannelModes
 }
 
-func (client *Client) getNick() string {
+func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.nick
 }
 
-func (client *Client) getNickMaskString() string {
+func (client *Client) NickMaskString() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.nickMaskString
 }
 
-func (client *Client) getNickCasefolded() string {
+func (client *Client) NickCasefolded() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.nickCasefolded

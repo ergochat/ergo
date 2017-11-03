@@ -211,9 +211,9 @@ func (channel *Channel) nicks(target *Client) []string {
 	i = 0
 	for i < length {
 		if isUserhostInNames {
-			result[i] += clients[i].getNickMaskString()
+			result[i] += clients[i].NickMaskString()
 		} else {
-			result[i] += clients[i].getNick()
+			result[i] += clients[i].Nick()
 		}
 		i++
 	}
@@ -644,7 +644,7 @@ func (channel *Channel) ShowMaskList(client *Client, mode Mode) {
 		rplendoflist = RPL_ENDOFINVITELIST
 	}
 
-	nick := client.getNick()
+	nick := client.Nick()
 	channel.stateMutex.RLock()
 	// XXX don't acquire any new locks in this section, besides Socket.Write
 	for mask := range channel.lists[mode].masks {
@@ -711,13 +711,13 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string) {
 		return
 	}
 
-	kicklimit := client.server.getLimits().KickLen
+	kicklimit := client.server.Limits().KickLen
 	if len(comment) > kicklimit {
 		comment = comment[:kicklimit]
 	}
 
-	clientMask := client.getNickMaskString()
-	targetNick := target.getNick()
+	clientMask := client.NickMaskString()
+	targetNick := target.Nick()
 	for _, member := range channel.Members() {
 		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
 	}
@@ -739,7 +739,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags[InviteOnly] {
-		nmc := invitee.getNickCasefolded()
+		nmc := invitee.NickCasefolded()
 		channel.stateMutex.Lock()
 		channel.lists[InviteMask].Add(nmc)
 		channel.stateMutex.Unlock()
@@ -747,7 +747,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client) {
 
 	for _, member := range channel.Members() {
 		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, Halfop) {
-			member.Send(nil, inviter.getNickMaskString(), "INVITE", invitee.getNick(), channel.name)
+			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), channel.name)
 		}
 	}
 
