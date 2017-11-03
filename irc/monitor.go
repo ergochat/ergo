@@ -37,8 +37,8 @@ var ErrMonitorLimitExceeded = errors.New("Monitor limit exceeded")
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
 func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
-	cfnick := client.getNickCasefolded()
-	nick := client.getNick()
+	cfnick := client.NickCasefolded()
+	nick := client.Nick()
 	var watchers []*Client
 	// safely copy the list of clients watching our nick
 	manager.RLock()
@@ -53,7 +53,7 @@ func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
 	}
 
 	for _, mClient := range watchers {
-		mClient.Send(nil, client.server.name, command, mClient.getNick(), nick)
+		mClient.Send(nil, client.server.name, command, mClient.Nick(), nick)
 	}
 }
 
@@ -123,7 +123,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.getNick(), "MONITOR", msg.Params[0], "Unknown subcommand")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], "Unknown subcommand")
 		return false
 	}
 
@@ -132,7 +132,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 
 func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.getNick(), msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, "Not enough parameters")
 		return false
 	}
 
@@ -150,14 +150,14 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 
 func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.getNick(), msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, "Not enough parameters")
 		return false
 	}
 
 	var online []string
 	var offline []string
 
-	limit := server.getLimits().MonitorEntries
+	limit := server.Limits().MonitorEntries
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
@@ -174,7 +174,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 
 		err = server.monitorManager.Add(client, casefoldedTarget, limit)
 		if err == ErrMonitorLimitExceeded {
-			client.Send(nil, server.name, ERR_MONLISTFULL, client.getNick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
+			client.Send(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
 			break
 		} else if err != nil {
 			continue
@@ -184,15 +184,15 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 		if targetClient := server.clients.Get(casefoldedTarget); targetClient == nil {
 			offline = append(offline, target)
 		} else {
-			online = append(online, targetClient.getNick())
+			online = append(online, targetClient.Nick())
 		}
 	}
 
 	if len(online) > 0 {
-		client.Send(nil, server.name, RPL_MONONLINE, client.getNick(), strings.Join(online, ","))
+		client.Send(nil, server.name, RPL_MONONLINE, client.Nick(), strings.Join(online, ","))
 	}
 	if len(offline) > 0 {
-		client.Send(nil, server.name, RPL_MONOFFLINE, client.getNick(), strings.Join(offline, ","))
+		client.Send(nil, server.name, RPL_MONOFFLINE, client.Nick(), strings.Join(offline, ","))
 	}
 
 	return false
@@ -211,13 +211,13 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		replynick := cfnick
 		// report the uncasefolded nick if it's available, i.e., the client is online
 		if mclient := server.clients.Get(cfnick); mclient != nil {
-			replynick = mclient.getNick()
+			replynick = mclient.Nick()
 		}
 		nickList = append(nickList, replynick)
 	}
 
 	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
-		client.Send(nil, server.name, RPL_MONLIST, client.getNick(), line)
+		client.Send(nil, server.name, RPL_MONLIST, client.Nick(), line)
 	}
 
 	client.Send(nil, server.name, RPL_ENDOFMONLIST, "End of MONITOR list")
@@ -236,18 +236,18 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 		if target == nil {
 			offline = append(offline, name)
 		} else {
-			online = append(online, target.getNick())
+			online = append(online, target.Nick())
 		}
 	}
 
 	if len(online) > 0 {
 		for _, line := range utils.ArgsToStrings(maxLastArgLength, online, ",") {
-			client.Send(nil, server.name, RPL_MONONLINE, client.getNick(), line)
+			client.Send(nil, server.name, RPL_MONONLINE, client.Nick(), line)
 		}
 	}
 	if len(offline) > 0 {
 		for _, line := range utils.ArgsToStrings(maxLastArgLength, offline, ",") {
-			client.Send(nil, server.name, RPL_MONOFFLINE, client.getNick(), line)
+			client.Send(nil, server.name, RPL_MONOFFLINE, client.Nick(), line)
 		}
 	}
 

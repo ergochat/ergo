@@ -86,7 +86,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
-		authorized:     server.getPassword() == nil,
+		authorized:     server.Password() == nil,
 		capabilities:   caps.NewSet(),
 		capState:       CapNone,
 		capVersion:     caps.Cap301,
@@ -173,7 +173,7 @@ func (client *Client) recomputeMaxlens() (int, int) {
 		maxlenTags = 4096
 	}
 	if client.capabilities.Has(caps.MaxLine) {
-		limits := client.server.getLimits()
+		limits := client.server.Limits()
 		if limits.LineLen.Tags > maxlenTags {
 			maxlenTags = limits.LineLen.Tags
 		}
@@ -486,7 +486,7 @@ func (client *Client) LoggedIntoAccount() bool {
 
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
 func (client *Client) RplISupport() {
-	for _, tokenline := range client.server.getISupport().CachedReply {
+	for _, tokenline := range client.server.ISupport().CachedReply {
 		// ugly trickery ahead
 		client.Send(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
 	}
@@ -679,7 +679,7 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 func (client *Client) Notice(text string) {
 	limit := 400
 	if client.capabilities.Has(caps.MaxLine) {
-		limit = client.server.getLimits().LineLen.Rest - 110
+		limit = client.server.Limits().LineLen.Rest - 110
 	}
 	lines := wordWrap(text, limit)
 

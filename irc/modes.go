@@ -335,7 +335,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	targetNick := target.getNick()
+	targetNick := target.Nick()
 	hasPrivs := client == target || msg.Command == "SAMODE"
 
 	if !hasPrivs {
@@ -513,9 +513,9 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 			switch change.op {
 			case Add:
-				if channel.lists[change.mode].Length() >= client.server.getLimits().ChanListModes {
+				if channel.lists[change.mode].Length() >= client.server.Limits().ChanListModes {
 					if !listFullWarned[change.mode] {
-						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.getNick(), channel.Name(), change.mode.String(), "Channel list is full")
+						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.mode.String(), "Channel list is full")
 						listFullWarned[change.mode] = true
 					}
 					continue
