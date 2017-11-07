@@ -19,20 +19,21 @@ import (
 
 // Channel represents a channel that clients can join.
 type Channel struct {
-	flags          ModeSet
-	lists          map[Mode]*UserMaskSet
-	key            string
-	members        MemberSet
-	membersCache   []*Client // allow iteration over channel members without holding the lock
-	name           string
-	nameCasefolded string
-	server         *Server
-	createdTime    time.Time
-	stateMutex     sync.RWMutex
-	topic          string
-	topicSetBy     string
-	topicSetTime   time.Time
-	userLimit      uint64
+	flags             ModeSet
+	lists             map[Mode]*UserMaskSet
+	key               string
+	members           MemberSet
+	membersCache      []*Client  // allow iteration over channel members without holding the lock
+	membersCacheMutex sync.Mutex // tier 2; see `regenerateMembersCache`
+	name              string
+	nameCasefolded    string
+	server            *Server
+	createdTime       time.Time
+	stateMutex        sync.RWMutex
+	topic             string
+	topicSetBy        string
+	topicSetTime      time.Time
+	userLimit         uint64
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -67,10 +68,15 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 }
 
 func (channel *Channel) regenerateMembersCache() {
-	// this is eventually consistent even without holding the writable Lock()
+	// this is eventually consistent even without holding stateMutex.Lock()
 	// throughout the update; all updates to `members` while holding Lock()
 	// have a serial order, so the call to `regenerateMembersCache` that
-	// happens-after the last one will see *all* the updates
+	// happens-after the last one will see *all* the updates. then,
+	// `membersCacheMutex` ensures that this final read is correctly paired
+	// with the final write to `membersCache`.
+	channel.membersCacheMutex.Lock()
+	defer channel.membersCacheMutex.Unlock()
+
 	channel.stateMutex.RLock()
 	result := make([]*Client, len(channel.members))
 	i := 0
