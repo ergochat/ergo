@@ -67,23 +67,16 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 }
 
 func (channel *Channel) regenerateMembersCache() {
-	// this is eventually consistent even without holding the writable Lock()
-	// throughout the update; all updates to `members` while holding Lock()
-	// have a serial order, so the call to `regenerateMembersCache` that
-	// happens-after the last one will see *all* the updates
-	channel.stateMutex.RLock()
+	// XXX requires holding stateMutex.Lock()
+	// otherwise, we can't guarantee that the final read of the data
+	// is also the final write to membersCache
 	result := make([]*Client, len(channel.members))
 	i := 0
 	for client := range channel.members {
 		result[i] = client
 		i++
 	}
-	channel.stateMutex.RUnlock()
-	channel.stateMutex.Lock()
 	channel.membersCache = result
-	channel.stateMutex.Unlock()
-	return
-
 }
 
 // Names sends the list of users joined to the channel to the given client.
@@ -328,8 +321,8 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.stateMutex.Lock()
 	channel.members.Add(client)
 	firstJoin := len(channel.members) == 1
-	channel.stateMutex.Unlock()
 	channel.regenerateMembersCache()
+	channel.stateMutex.Unlock()
 
 	client.addChannel(channel)
 
@@ -687,8 +680,8 @@ func (channel *Channel) applyModeMask(client *Client, mode Mode, op ModeOp, mask
 func (channel *Channel) Quit(client *Client) {
 	channel.stateMutex.Lock()
 	channel.members.Remove(client)
-	channel.stateMutex.Unlock()
 	channel.regenerateMembersCache()
+	channel.stateMutex.Unlock()
 
 	client.removeChannel(channel)
 }
