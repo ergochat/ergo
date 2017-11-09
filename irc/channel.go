@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,7 +15,10 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
-	"github.com/tidwall/buntdb"
+)
+
+var (
+	ChannelAlreadyRegistered = errors.New("Channel is already registered")
 )
 
 // Channel represents a channel that clients can join.
@@ -29,6 +33,8 @@ type Channel struct {
 	nameCasefolded    string
 	server            *Server
 	createdTime       time.Time
+	registeredFounder string
+	registeredTime    time.Time
 	stateMutex        sync.RWMutex
 	topic             string
 	topicSetBy        string
@@ -38,7 +44,7 @@ type Channel struct {
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
+func NewChannel(s *Server, name string, addDefaultModes bool, regInfo *RegisteredChannel) *Channel {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
 		s.logger.Error("internal", fmt.Sprintf("Bad channel name %s: %v", name, err))
@@ -46,7 +52,8 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 	}
 
 	channel := &Channel{
-		flags: make(ModeSet),
+		createdTime: time.Now(), // may be overwritten by applyRegInfo
+		flags:       make(ModeSet),
 		lists: map[Mode]*UserMaskSet{
 			BanMask:    NewUserMaskSet(),
 			ExceptMask: NewUserMaskSet(),
@@ -64,7 +71,78 @@ func NewChannel(s *Server, name string, addDefaultModes bool) *Channel {
 		}
 	}
 
+	if regInfo != nil {
+		channel.applyRegInfo(regInfo)
+	}
+
 	return channel
+}
+
+// read in channel state that was persisted in the DB
+func (channel *Channel) applyRegInfo(chanReg *RegisteredChannel) {
+	channel.registeredFounder = chanReg.Founder
+	channel.registeredTime = chanReg.RegisteredAt
+	channel.topic = chanReg.Topic
+	channel.topicSetBy = chanReg.TopicSetBy
+	channel.topicSetTime = chanReg.TopicSetTime
+	channel.name = chanReg.Name
+	channel.createdTime = chanReg.RegisteredAt
+	for _, mask := range chanReg.Banlist {
+		channel.lists[BanMask].Add(mask)
+	}
+	for _, mask := range chanReg.Exceptlist {
+		channel.lists[ExceptMask].Add(mask)
+	}
+	for _, mask := range chanReg.Invitelist {
+		channel.lists[InviteMask].Add(mask)
+	}
+}
+
+// obtain a consistent snapshot of the channel state that can be persisted to the DB
+func (channel *Channel) ExportRegistration(includeLists bool) (info RegisteredChannel) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	info.Name = channel.name
+	info.Topic = channel.topic
+	info.TopicSetBy = channel.topicSetBy
+	info.TopicSetTime = channel.topicSetTime
+	info.Founder = channel.registeredFounder
+	info.RegisteredAt = channel.registeredTime
+
+	if includeLists {
+		for mask := range channel.lists[BanMask].masks {
+			info.Banlist = append(info.Banlist, mask)
+		}
+		for mask := range channel.lists[ExceptMask].masks {
+			info.Exceptlist = append(info.Exceptlist, mask)
+		}
+		for mask := range channel.lists[InviteMask].masks {
+			info.Invitelist = append(info.Invitelist, mask)
+		}
+	}
+
+	return
+}
+
+// SetRegistered registers the channel, returning an error if it was already registered.
+func (channel *Channel) SetRegistered(founder string) error {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	if channel.registeredFounder != "" {
+		return ChannelAlreadyRegistered
+	}
+	channel.registeredFounder = founder
+	channel.registeredTime = time.Now()
+	return nil
+}
+
+// IsRegistered returns whether the channel is registered.
+func (channel *Channel) IsRegistered() bool {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.registeredFounder != ""
 }
 
 func (channel *Channel) regenerateMembersCache() {
@@ -340,59 +418,25 @@ func (channel *Channel) Join(client *Client, key string) {
 	client.addChannel(channel)
 
 	// give channel mode if necessary
-	var newChannel bool
+	newChannel := firstJoin && !channel.IsRegistered()
 	var givenMode *Mode
-	client.server.registeredChannelsMutex.Lock()
-	defer client.server.registeredChannelsMutex.Unlock()
-	client.server.store.Update(func(tx *buntdb.Tx) error {
-		chanReg := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
-
-		if chanReg == nil {
-			if firstJoin {
-				channel.stateMutex.Lock()
-				channel.createdTime = time.Now()
-				channel.members[client][ChannelOperator] = true
-				channel.stateMutex.Unlock()
-				givenMode = &ChannelOperator
-				newChannel = true
-			}
-		} else {
-			// we should only do this on registered channels
-			if client.account != nil && client.account.Name == chanReg.Founder {
-				channel.stateMutex.Lock()
-				channel.members[client][ChannelFounder] = true
-				channel.stateMutex.Unlock()
-				givenMode = &ChannelFounder
-			}
-			if firstJoin {
-				// apply other details if new channel
-				channel.stateMutex.Lock()
-				channel.topic = chanReg.Topic
-				channel.topicSetBy = chanReg.TopicSetBy
-				channel.topicSetTime = chanReg.TopicSetTime
-				channel.name = chanReg.Name
-				channel.createdTime = chanReg.RegisteredAt
-				for _, mask := range chanReg.Banlist {
-					channel.lists[BanMask].Add(mask)
-				}
-				for _, mask := range chanReg.Exceptlist {
-					channel.lists[ExceptMask].Add(mask)
-				}
-				for _, mask := range chanReg.Invitelist {
-					channel.lists[InviteMask].Add(mask)
-				}
-				channel.stateMutex.Unlock()
-			}
-		}
-		return nil
-	})
+	if client.AccountName() == channel.registeredFounder {
+		givenMode = &ChannelFounder
+	} else if newChannel {
+		givenMode = &ChannelOperator
+	}
+	if givenMode != nil {
+		channel.stateMutex.Lock()
+		channel.members[client][*givenMode] = true
+		channel.stateMutex.Unlock()
+	}
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
 	} else {
 		client.Send(nil, client.nickMaskString, "JOIN", channel.name)
 	}
-	// don't sent topic when it's an entirely new channel
+	// don't send topic when it's an entirely new channel
 	if !newChannel {
 		channel.SendTopic(client)
 	}
@@ -468,23 +512,7 @@ func (channel *Channel) SetTopic(client *Client, topic string) {
 		member.Send(nil, client.nickMaskString, "TOPIC", channel.name, topic)
 	}
 
-	// update saved channel topic for registered chans
-	client.server.registeredChannelsMutex.Lock()
-	defer client.server.registeredChannelsMutex.Unlock()
-
-	client.server.store.Update(func(tx *buntdb.Tx) error {
-		chanInfo := client.server.loadChannelNoMutex(tx, channel.nameCasefolded)
-
-		if chanInfo == nil {
-			return nil
-		}
-
-		chanInfo.Topic = topic
-		chanInfo.TopicSetBy = client.nickMaskString
-		chanInfo.TopicSetTime = time.Now()
-		client.server.saveChannelNoMutex(tx, channel.nameCasefolded, *chanInfo)
-		return nil
-	})
+	go channel.server.channelRegistry.StoreChannel(channel, false)
 }
 
 // CanSpeak returns true if the client can speak on this channel.

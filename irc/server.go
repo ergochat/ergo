@@ -84,6 +84,7 @@ type Server struct {
 	accounts                     map[string]*ClientAccount
 	channelRegistrationEnabled   bool
 	channels                     *ChannelManager
+	channelRegistry              *ChannelRegistry
 	checkIdent                   bool
 	clients                      *ClientLookupSet
 	commands                     chan Command
@@ -112,8 +113,6 @@ type Server struct {
 	password                     []byte
 	passwords                    *passwd.SaltedManager
 	recoverFromErrors            bool
-	registeredChannels           map[string]*RegisteredChannel
-	registeredChannelsMutex      sync.RWMutex
 	rehashMutex                  sync.Mutex
 	rehashSignal                 chan os.Signal
 	proxyAllowedFrom             []string
@@ -158,7 +157,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
 		newConns:            make(chan clientConn),
-		registeredChannels:  make(map[string]*RegisteredChannel),
 		rehashSignal:        make(chan os.Signal, 1),
 		signals:             make(chan os.Signal, len(ServerExitSignals)),
 		snomasks:            NewSnoManager(),
@@ -558,10 +556,6 @@ func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (result bool) {
 	result = false
 
-	// TODO(slingamn, #152) clean up locking here
-	server.registeredChannelsMutex.Lock()
-	defer server.registeredChannelsMutex.Unlock()
-
 	errorResponse := func(err error, name string) {
 		// TODO: send correct error codes, e.g., ERR_CANNOTRENAME, ERR_CHANNAMEINUSE
 		var code string
@@ -591,11 +585,6 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		errorResponse(InvalidChannelName, oldName)
 		return
 	}
-	casefoldedNewName, err := CasefoldChannel(newName)
-	if err != nil {
-		errorResponse(InvalidChannelName, newName)
-		return
-	}
 
 	reason := "No reason"
 	if 2 < len(msg.Params) {
@@ -613,20 +602,8 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		return
 	}
 
-	var canEdit bool
-	server.store.Update(func(tx *buntdb.Tx) error {
-		chanReg := server.loadChannelNoMutex(tx, casefoldedOldName)
-		if chanReg == nil || !client.LoggedIntoAccount() || client.account.Name == chanReg.Founder {
-			canEdit = true
-		}
-
-		chanReg = server.loadChannelNoMutex(tx, casefoldedNewName)
-		if chanReg != nil {
-			canEdit = false
-		}
-		return nil
-	})
-	if !canEdit {
+	founder := channel.Founder()
+	if founder != "" && founder != client.AccountName() {
 		//TODO(dan): Change this to ERR_CANNOTRENAME
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, "Only channel founders can change registered channels")
 		return false
@@ -639,20 +616,8 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		return
 	}
 
-	// rename stored channel info if any exists
-	server.store.Update(func(tx *buntdb.Tx) error {
-		chanReg := server.loadChannelNoMutex(tx, casefoldedOldName)
-		if chanReg == nil {
-			return nil
-		}
-
-		server.deleteChannelNoMutex(tx, casefoldedOldName)
-
-		chanReg.Name = newName
-
-		server.saveChannelNoMutex(tx, casefoldedNewName, *chanReg)
-		return nil
-	})
+	// rename succeeded, persist it
+	go server.channelRegistry.Rename(channel, casefoldedOldName)
 
 	// send RENAME messages
 	for _, mcl := range channel.Members() {
@@ -1494,6 +1459,9 @@ func (server *Server) loadDatastore(datastorePath string) error {
 	if err != nil {
 		return fmt.Errorf("Could not load salt: %s", err.Error())
 	}
+
+	server.channelRegistry = NewChannelRegistry(server)
+
 	return nil
 }
 
