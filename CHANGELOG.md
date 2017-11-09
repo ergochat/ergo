@@ -4,20 +4,21 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.10.1] - 2017-11-09
+This patch release of Oragono fixes a fairly big channel mode bug, where users could set channel modes when they weren't actually allowed to.
 
 ### Config Changes
+* `recover-from-errors` key added under `debug`, which enables recovery from client-caused errors (at the cost of possible server instability).
 
 ### Security
+* Clients could set channel modes when they weren't supposed to be able to.
 
 ### Added
-
-### Changed
-
-### Removed
+* We now allow recovering from client-caused panics.
 
 ### Fixed
+* `SAMODE` now lists other users' modes.
+* Removed some possible crashes and races.
 
 
 ## [0.10.0] - 2017-10-23
