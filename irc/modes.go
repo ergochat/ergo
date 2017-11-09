@@ -488,7 +488,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 	for _, change := range changes {
 		// chan priv modes are checked specially so ignore them
 		// means regular users can't view ban/except lists... but I'm not worried about that
-		if isSamode && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
+		if !isSamode && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
 				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
