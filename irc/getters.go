@@ -47,6 +47,12 @@ func (server *Server) DefaultChannelModes() Modes {
 	return server.defaultChannelModes
 }
 
+func (server *Server) ChannelRegistrationEnabled() bool {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.channelRegistrationEnabled
+}
+
 func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -93,6 +99,12 @@ func (client *Client) Destroyed() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.isDestroyed
+}
+
+func (client *Client) AccountName() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.account.Name
 }
 
 func (client *Client) HasMode(mode Mode) bool {
@@ -172,6 +184,12 @@ func (channel *Channel) HasMode(mode Mode) bool {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.flags[mode]
+}
+
+func (channel *Channel) Founder() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.registeredFounder
 }
 
 // set a channel mode, return whether it was already set

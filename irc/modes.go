@@ -11,7 +11,6 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/sno"
-	"github.com/tidwall/buntdb"
 )
 
 // ModeOp is an operation performed with modes
@@ -645,39 +644,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 
-	server.registeredChannelsMutex.Lock()
-	if 0 < len(applied) && server.registeredChannels[channel.nameCasefolded] != nil && (banlistUpdated || exceptlistUpdated || invexlistUpdated) {
-		server.store.Update(func(tx *buntdb.Tx) error {
-			chanInfo := server.loadChannelNoMutex(tx, channel.nameCasefolded)
-
-			if banlistUpdated {
-				var banlist []string
-				for mask := range channel.lists[BanMask].masks {
-					banlist = append(banlist, mask)
-				}
-				chanInfo.Banlist = banlist
-			}
-			if exceptlistUpdated {
-				var exceptlist []string
-				for mask := range channel.lists[ExceptMask].masks {
-					exceptlist = append(exceptlist, mask)
-				}
-				chanInfo.Exceptlist = exceptlist
-			}
-			if invexlistUpdated {
-				var invitelist []string
-				for mask := range channel.lists[InviteMask].masks {
-					invitelist = append(invitelist, mask)
-				}
-				chanInfo.Invitelist = invitelist
-			}
-
-			server.saveChannelNoMutex(tx, channel.nameCasefolded, *chanInfo)
-
-			return nil
-		})
+	if (banlistUpdated || exceptlistUpdated || invexlistUpdated) && channel.IsRegistered() {
+		go server.channelRegistry.StoreChannel(channel, true)
 	}
-	server.registeredChannelsMutex.Unlock()
 
 	// send out changes
 	if len(applied) > 0 {

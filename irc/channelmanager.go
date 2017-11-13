@@ -59,11 +59,21 @@ func (cm *ChannelManager) Join(client *Client, name string, key string) error {
 	cm.Lock()
 	entry := cm.chans[casefoldedName]
 	if entry == nil {
-		entry = &channelManagerEntry{
-			channel:      NewChannel(server, name, true),
-			pendingJoins: 0,
+		// XXX give up the lock to check for a registration, then check again
+		// to see if we need to create the channel. we could solve this by doing LoadChannel
+		// outside the lock initially on every join, so this is best thought of as an
+		// optimization to avoid that.
+		cm.Unlock()
+		info := client.server.channelRegistry.LoadChannel(casefoldedName)
+		cm.Lock()
+		entry = cm.chans[casefoldedName]
+		if entry == nil {
+			entry = &channelManagerEntry{
+				channel:      NewChannel(server, name, true, info),
+				pendingJoins: 0,
+			}
+			cm.chans[casefoldedName] = entry
 		}
-		cm.chans[casefoldedName] = entry
 	}
 	entry.pendingJoins += 1
 	cm.Unlock()
@@ -85,7 +95,12 @@ func (cm *ChannelManager) maybeCleanup(entry *channelManagerEntry, afterJoin boo
 	if afterJoin {
 		entry.pendingJoins -= 1
 	}
-	if entry.channel.IsEmpty() && entry.pendingJoins == 0 {
+	// TODO(slingamn) right now, registered channels cannot be cleaned up.
+	// this is because once ChannelManager becomes the source of truth about a channel,
+	// we can't move the source of truth back to the database unless we do an ACID
+	// store while holding the ChannelManager's Lock(). This is pending more decisions
+	// about where the database transaction lock fits into the overall lock model.
+	if !entry.channel.IsRegistered() && entry.channel.IsEmpty() && entry.pendingJoins == 0 {
 		// reread the name, handling the case where the channel was renamed
 		casefoldedName := entry.channel.NameCasefolded()
 		delete(cm.chans, casefoldedName)
