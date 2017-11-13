@@ -43,7 +43,10 @@ func (cm *ChannelManager) Get(name string) *Channel {
 	if err == nil {
 		cm.RLock()
 		defer cm.RUnlock()
-		return cm.chans[name].channel
+		entry := cm.chans[name]
+		if entry != nil {
+			return entry.channel
+		}
 	}
 	return nil
 }
