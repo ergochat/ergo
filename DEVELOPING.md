@@ -7,6 +7,44 @@ I may also name the branch `develop+feature` if I'm developing multiple, or part
 The intent is to keep `master` relatively stable.
 
 
+## Releasing a new version
+
+1. Ensure dependencies are up-to-date.
+2. Run [`irctest`]() over it to make sure nothing's severely broken.
+3. Remove `-unreleased` from the version number in `irc/constants.go`.
+4. Update the changelog with new changes.
+5. Remove unused sections from the changelog, change the date/version number and write release notes.
+6. Commit the new changelog and constants change.
+7. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
+8. Build binaries using the Makefile, upload release to Github including the changelog and binaries.
+
+Once it's built and released, you need to setup the new development version. To do so:
+
+1. In `irc/constants.go`, update the version number to `0.0.1-unreleased`, where `0.0.1` is the previous release number with the minor field incremented by one (for instance, `0.9.2` -> `0.9.3-unreleased`).
+2. At the top of the changelog, paste a new section with the content below.
+3. Commit the new version number and changelog with the message `"Setup v0.0.1-unreleased devel ver"`.
+
+**Unreleased changelog content**
+
+```md
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+```
+
+
+
 ## Updating `vendor/`
 
 The `vendor/` directory holds our dependencies. When we import new repos, we need to update this folder to contain these new deps. This is something that I'll mostly be handling.
