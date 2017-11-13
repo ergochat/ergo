@@ -484,10 +484,40 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 	applied := make(ModeChanges, 0)
 
+	isListOp := func(change ModeChange) bool {
+		return (change.op == List) || (change.arg == "")
+	}
+
+	hasPrivs := func(change ModeChange) bool {
+		if isSamode {
+			return true
+		}
+		switch change.mode {
+		case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+			// Admins can't give other people Admin or remove it from others
+			if change.mode == ChannelAdmin {
+				return false
+			}
+			if change.op == List {
+				return true
+			}
+			cfarg, _ := CasefoldName(change.arg)
+			if change.op == Remove && cfarg == client.nickCasefolded {
+				// "There is no restriction, however, on anyone `deopping' themselves"
+				// <https://tools.ietf.org/html/rfc2812#section-3.1.5>
+				return true
+			}
+			return channel.ClientIsAtLeast(client, change.mode)
+		case BanMask:
+			// #163: allow unprivileged users to list ban masks
+			return clientIsOp || isListOp(change)
+		default:
+			return clientIsOp
+		}
+	}
+
 	for _, change := range changes {
-		// chan priv modes are checked specially so ignore them
-		// means regular users can't view ban/except lists... but I'm not worried about that
-		if !isSamode && ChannelModePrefixes[change.mode] == "" && !clientIsOp {
+		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
 				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
@@ -497,15 +527,13 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 		switch change.mode {
 		case BanMask, ExceptMask, InviteMask:
-			mask := change.arg
-
-			if (change.op == List) || (mask == "") {
+			if isListOp(change) {
 				channel.ShowMaskList(client, change.mode)
 				continue
 			}
 
 			// confirm mask looks valid
-			mask, err := Casefold(mask)
+			mask, err := Casefold(change.arg)
 			if err != nil {
 				continue
 			}
@@ -565,31 +593,6 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
 			if change.op == List {
 				continue
-			}
-			// make sure client has privs to edit the given prefix
-			hasPrivs := isSamode
-
-			// Admins can't give other people Admin or remove it from others,
-			// standard for that channel mode, we worry about this later
-			if !hasPrivs && change.mode != ChannelAdmin {
-				hasPrivs = channel.ClientIsAtLeast(client, change.mode)
-			}
-
-			casefoldedName, err := CasefoldName(change.arg)
-			if err != nil {
-				continue
-			}
-
-			if !hasPrivs {
-				if change.op == Remove && casefoldedName == client.nickCasefolded {
-					// success!
-				} else {
-					if !alreadySentPrivError {
-						alreadySentPrivError = true
-						client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
-					}
-					continue
-				}
 			}
 
 			change := channel.applyModeMemberNoMutex(client, change.mode, change.op, change.arg)
