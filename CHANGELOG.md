@@ -4,6 +4,22 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.10.2] - 2017-11-13
 This patch release fixes a bunch of crashes that were introduced in the last release, `0.10.1`.
 
