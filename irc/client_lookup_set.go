@@ -240,7 +240,7 @@ func NewUserMaskSet() *UserMaskSet {
 }
 
 // Add adds the given mask to this set.
-func (set *UserMaskSet) Add(mask string) bool {
+func (set *UserMaskSet) Add(mask string) (added bool) {
 	casefoldedMask, err := Casefold(mask)
 	if err != nil {
 		log.Println(fmt.Sprintf("ERROR: Could not add mask to usermaskset: [%s]", mask))
@@ -248,16 +248,16 @@ func (set *UserMaskSet) Add(mask string) bool {
 	}
 
 	set.Lock()
-	already := set.masks[casefoldedMask]
-	set.masks[casefoldedMask] = true
+	added = !set.masks[casefoldedMask]
+	if added {
+		set.masks[casefoldedMask] = true
+	}
 	set.Unlock()
 
-	if already {
-		return false
-	} else {
+	if added {
 		set.setRegexp()
-		return true
 	}
+	return
 }
 
 // AddAll adds the given masks to this set.
@@ -271,23 +271,25 @@ func (set *UserMaskSet) AddAll(masks []string) (added bool) {
 		}
 		set.masks[mask] = true
 	}
-	set.setRegexp()
+	if added {
+		set.setRegexp()
+	}
 	return
 }
 
 // Remove removes the given mask from this set.
-func (set *UserMaskSet) Remove(mask string) bool {
+func (set *UserMaskSet) Remove(mask string) (removed bool) {
 	set.Lock()
-	already := !set.masks[mask]
-	delete(set.masks, mask)
+	removed = set.masks[mask]
+	if removed {
+		delete(set.masks, mask)
+	}
 	set.Unlock()
 
-	if !already {
-		return false
-	} else {
+	if removed {
 		set.setRegexp()
-		return true
 	}
+	return
 }
 
 // Match matches the given n!u@h.
