@@ -61,7 +61,7 @@ func (km *KLineManager) AllBans() map[string]IPBanInfo {
 }
 
 // AddMask adds to the blocked list.
-func (km *KLineManager) AddMask(mask string, length *IPRestrictTime, reason string, operReason string) {
+func (km *KLineManager) AddMask(mask string, length *IPRestrictTime, reason, operReason, operName string) {
 	kln := KLineInfo{
 		Mask:    mask,
 		Matcher: ircmatch.MakeMatch(mask),
@@ -69,6 +69,7 @@ func (km *KLineManager) AddMask(mask string, length *IPRestrictTime, reason stri
 			Time:       length,
 			Reason:     reason,
 			OperReason: operReason,
+			OperName:   operName,
 		},
 	}
 	km.Lock()
@@ -146,7 +147,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf("Ban - %s - %s", key, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf("Ban - %s - added by %s - %s", key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -204,6 +205,12 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
+	// get oper name
+	operName := client.operName
+	if operName == "" {
+		operName = server.name
+	}
+
 	// get comment(s)
 	reason := "No reason given"
 	operReason := "No reason given"
@@ -234,6 +241,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	info := IPBanInfo{
 		Reason:     reason,
 		OperReason: operReason,
+		OperName:   operName,
 		Time:       banTime,
 	}
 
@@ -257,15 +265,15 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	server.klines.AddMask(mask, banTime, reason, operReason)
+	server.klines.AddMask(mask, banTime, reason, operReason, operName)
 
 	var snoDescription string
 	if durationIsUsed {
 		client.Notice(fmt.Sprintf("Added temporary (%s) K-Line for %s", duration.String(), mask))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added temporary (%s) K-Line for %s"), client.nick, duration.String(), mask)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
 	} else {
 		client.Notice(fmt.Sprintf("Added K-Line for %s", mask))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added K-Line for %s"), client.nick, mask)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added K-Line for %s"), client.nick, operName, mask)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
 
@@ -298,7 +306,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// send snomask
 		sort.Strings(killedClientNicks)
-		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s killed %d clients with a KLINE $c[grey][$r%s$c[grey]]"), client.nick, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
+		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s [%s] killed %d clients with a KLINE $c[grey][$r%s$c[grey]]"), client.nick, operName, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
 	}
 
 	return killClient
@@ -363,8 +371,13 @@ func (s *Server) loadKLines() {
 			var info IPBanInfo
 			json.Unmarshal([]byte(value), &info)
 
+			// add oper name if it doesn't exist already
+			if info.OperName == "" {
+				info.OperName = s.name
+			}
+
 			// add to the server
-			s.klines.AddMask(mask, info.Time, info.Reason, info.OperReason)
+			s.klines.AddMask(mask, info.Time, info.Reason, info.OperReason, info.OperName)
 
 			return true // true to continue I guess?
 		})
