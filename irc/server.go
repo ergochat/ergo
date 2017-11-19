@@ -321,7 +321,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 			Duration: duration,
 			Expires:  time.Now().Add(duration),
 		}
-		server.dlines.AddIP(ipaddr, length, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle")
+		server.dlines.AddIP(ipaddr, length, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle", "auto.connection.throttler")
 
 		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
 		// and once their temporary DLINE is finished they can fill up the throttler again

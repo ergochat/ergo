@@ -49,6 +49,8 @@ type IPBanInfo struct {
 	Reason string `json:"reason"`
 	// OperReason is an oper ban reason.
 	OperReason string `json:"oper_reason"`
+	// OperName is the oper who set the ban.
+	OperName string `json:"oper_name"`
 	// Time holds details about the duration, if it exists.
 	Time *IPRestrictTime `json:"time"`
 }
@@ -113,7 +115,7 @@ func (dm *DLineManager) AllBans() map[string]IPBanInfo {
 }
 
 // AddNetwork adds a network to the blocked list.
-func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, reason string, operReason string) {
+func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, reason, operReason, operName string) {
 	netString := network.String()
 	dln := dLineNet{
 		Network: network,
@@ -121,6 +123,7 @@ func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, re
 			Time:       length,
 			Reason:     reason,
 			OperReason: operReason,
+			OperName:   operName,
 		},
 	}
 	dm.Lock()
@@ -137,7 +140,7 @@ func (dm *DLineManager) RemoveNetwork(network net.IPNet) {
 }
 
 // AddIP adds an IP address to the blocked list.
-func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason string, operReason string) {
+func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason, operReason, operName string) {
 	addrString := addr.String()
 	dla := dLineAddr{
 		Address: addr,
@@ -145,6 +148,7 @@ func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason string
 			Time:       length,
 			Reason:     reason,
 			OperReason: operReason,
+			OperName:   operName,
 		},
 	}
 	dm.Lock()
@@ -232,7 +236,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf("Ban - %s - %s", key, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf("Ban - %s - added by %s - %s", key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -319,6 +323,10 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			}
 		}
 	}
+	operName := client.operName
+	if operName == "" {
+		operName = server.name
+	}
 
 	// assemble ban info
 	var banTime *IPRestrictTime
@@ -332,6 +340,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	info := IPBanInfo{
 		Reason:     reason,
 		OperReason: operReason,
+		OperName:   operName,
 		Time:       banTime,
 	}
 
@@ -356,18 +365,18 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if hostNet == nil {
-		server.dlines.AddIP(hostAddr, banTime, reason, operReason)
+		server.dlines.AddIP(hostAddr, banTime, reason, operReason, operName)
 	} else {
-		server.dlines.AddNetwork(*hostNet, banTime, reason, operReason)
+		server.dlines.AddNetwork(*hostNet, banTime, reason, operReason, operName)
 	}
 
 	var snoDescription string
 	if durationIsUsed {
 		client.Notice(fmt.Sprintf("Added temporary (%s) D-Line for %s", duration.String(), hostString))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added temporary (%s) D-Line for %s"), client.nick, duration.String(), hostString)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) D-Line for %s"), client.nick, operName, duration.String(), hostString)
 	} else {
 		client.Notice(fmt.Sprintf("Added D-Line for %s", hostString))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s$r added D-Line for %s"), client.nick, hostString)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added D-Line for %s"), client.nick, operName, hostString)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
 
@@ -405,7 +414,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// send snomask
 		sort.Strings(killedClientNicks)
-		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s killed %d clients with a DLINE $c[grey][$r%s$c[grey]]"), client.nick, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
+		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s [%s] killed %d clients with a DLINE $c[grey][$r%s$c[grey]]"), client.nick, operName, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
 	}
 
 	return killClient
@@ -495,11 +504,16 @@ func (s *Server) loadDLines() {
 			var info IPBanInfo
 			json.Unmarshal([]byte(value), &info)
 
+			// set opername if it isn't already set
+			if info.OperName == "" {
+				info.OperName = s.name
+			}
+
 			// add to the server
 			if hostNet == nil {
-				s.dlines.AddIP(hostAddr, info.Time, info.Reason, info.OperReason)
+				s.dlines.AddIP(hostAddr, info.Time, info.Reason, info.OperReason, info.OperName)
 			} else {
-				s.dlines.AddNetwork(*hostNet, info.Time, info.Reason, info.OperReason)
+				s.dlines.AddNetwork(*hostNet, info.Time, info.Reason, info.OperReason, info.OperName)
 			}
 
 			return true // true to continue I guess?
