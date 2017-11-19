@@ -1022,7 +1022,10 @@ func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 
 // WHO [ <mask> [ "o" ] ]
 func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	friends := client.Friends()
+	if msg.Params[0] == "" {
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", "First param must be a mask or channel")
+		return false
+	}
 
 	var mask string
 	if len(msg.Params) > 0 {
@@ -1034,6 +1037,8 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		mask = casefoldedMask
 	}
 
+	friends := client.Friends()
+
 	//TODO(dan): is this used and would I put this param in the Modern doc?
 	// if not, can we remove it?
 	//var operatorOnly bool
@@ -1041,11 +1046,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//	operatorOnly = true
 	//}
 
-	if mask == "" {
-		for _, channel := range server.channels.Channels() {
-			whoChannel(client, channel, friends)
-		}
-	} else if mask[0] == '#' {
+	if mask[0] == '#' {
 		// TODO implement wildcard matching
 		//TODO(dan): ^ only for opers
 		channel := server.channels.Get(mask)

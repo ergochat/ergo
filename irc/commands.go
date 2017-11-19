@@ -285,7 +285,7 @@ var Commands = map[string]Command{
 	},
 	"WHO": {
 		handler:   whoHandler,
-		minParams: 0,
+		minParams: 1,
 	},
 	"WHOIS": {
 		handler:   whoisHandler,
