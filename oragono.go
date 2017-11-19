@@ -47,7 +47,7 @@ Options:
 		log.Fatal("Config file did not load successfully:", err.Error())
 	}
 
-	logger, err := logger.NewManager(config.Logging)
+	logman, err := logger.NewManager(config.Logging)
 	if err != nil {
 		log.Fatal("Logger did not load successfully:", err.Error())
 	}
@@ -97,13 +97,13 @@ Options:
 	} else if arguments["run"].(bool) {
 		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
-			logger.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 		}
 
 		// profiling
 		if config.Debug.StackImpact.Enabled {
 			if config.Debug.StackImpact.AgentKey == "" || config.Debug.StackImpact.AppName == "" {
-				logger.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
+				logman.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
 				return
 			}
 
@@ -111,22 +111,22 @@ Options:
 			agent.Start(stackimpact.Options{AgentKey: config.Debug.StackImpact.AgentKey, AppName: config.Debug.StackImpact.AppName})
 			defer agent.RecordPanic()
 
-			logger.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
+			logman.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
 		}
 
 		// warning if running a non-final version
 		if strings.Contains(irc.SemVer, "unreleased") {
-			logger.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
+			logman.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
-		server, err := irc.NewServer(config, logger)
+		server, err := irc.NewServer(config, logman)
 		if err != nil {
-			logger.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
+			logman.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			logger.Info("startup", "Server running")
-			defer logger.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			logman.Info("startup", "Server running")
+			defer logman.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}
