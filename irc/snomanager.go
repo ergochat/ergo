@@ -10,7 +10,7 @@ import (
 
 // SnoManager keeps track of which clients to send snomasks to.
 type SnoManager struct {
-	sendListMutex sync.RWMutex
+	sendListMutex sync.RWMutex // tier 2
 	sendLists     map[sno.Mask]map[*Client]bool
 }
 

@@ -35,7 +35,7 @@ type KLineInfo struct {
 
 // KLineManager manages and klines.
 type KLineManager struct {
-	sync.RWMutex
+	sync.RWMutex // tier 1
 	// kline'd entries
 	entries map[string]*KLineInfo
 }
@@ -282,8 +282,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		var clientsToKill []*Client
 		var killedClientNicks []string
 
-		server.clients.ByNickMutex.RLock()
-		for _, mcl := range server.clients.ByNick {
+		for _, mcl := range server.clients.AllClients() {
 			for _, clientMask := range mcl.AllNickmasks() {
 				if matcher.Match(clientMask) {
 					clientsToKill = append(clientsToKill, mcl)
@@ -291,7 +290,6 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				}
 			}
 		}
-		server.clients.ByNickMutex.RUnlock()
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true

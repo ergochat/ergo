@@ -18,9 +18,8 @@ import (
 )
 
 var (
-	ErrNickMissing      = errors.New("nick missing")
-	ErrNicknameInUse    = errors.New("nickname in use")
-	ErrNicknameMismatch = errors.New("nickname mismatch")
+	ErrNickMissing   = errors.New("nick missing")
+	ErrNicknameInUse = errors.New("nickname in use")
 )
 
 // ExpandUserHost takes a userhost, and returns an expanded version.
@@ -37,132 +36,108 @@ func ExpandUserHost(userhost string) (expanded string) {
 	return
 }
 
-// ClientLookupSet represents a way to store, search and lookup clients.
-type ClientLookupSet struct {
-	ByNickMutex sync.RWMutex
-	ByNick      map[string]*Client
+// ClientManager keeps track of clients by nick, enforcing uniqueness of casefolded nicks
+type ClientManager struct {
+	sync.RWMutex // tier 2
+	byNick      map[string]*Client
 }
 
-// NewClientLookupSet returns a new lookup set.
-func NewClientLookupSet() *ClientLookupSet {
-	return &ClientLookupSet{
-		ByNick: make(map[string]*Client),
+// NewClientManager returns a new ClientManager.
+func NewClientManager() *ClientManager {
+	return &ClientManager{
+		byNick: make(map[string]*Client),
 	}
 }
 
-// Count returns how many clients are in the lookup set.
-func (clients *ClientLookupSet) Count() int {
-	clients.ByNickMutex.RLock()
-	defer clients.ByNickMutex.RUnlock()
-	count := len(clients.ByNick)
+// Count returns how many clients are in the manager.
+func (clients *ClientManager) Count() int {
+	clients.RLock()
+	defer clients.RUnlock()
+	count := len(clients.byNick)
 	return count
 }
 
-// Has returns whether or not the given client exists.
-//TODO(dan): This seems like ripe ground for a race, if code does Has then Get, and assumes the Get will return a client.
-func (clients *ClientLookupSet) Has(nick string) bool {
+// Get retrieves a client from the manager, if they exist.
+func (clients *ClientManager) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
-		return false
-	}
-	clients.ByNickMutex.RLock()
-	defer clients.ByNickMutex.RUnlock()
-	_, exists := clients.ByNick[casefoldedName]
-	return exists
-}
-
-// getNoMutex is used internally, for getting clients when no mutex is required (i.e. is already set).
-func (clients *ClientLookupSet) getNoMutex(nick string) *Client {
-	casefoldedName, err := CasefoldName(nick)
-	if err == nil {
-		cli := clients.ByNick[casefoldedName]
+		clients.RLock()
+		defer clients.RUnlock()
+		cli := clients.byNick[casefoldedName]
 		return cli
 	}
 	return nil
 }
 
-// Get retrieves a client from the set, if they exist.
-func (clients *ClientLookupSet) Get(nick string) *Client {
-	casefoldedName, err := CasefoldName(nick)
-	if err == nil {
-		clients.ByNickMutex.RLock()
-		defer clients.ByNickMutex.RUnlock()
-		cli := clients.ByNick[casefoldedName]
-		return cli
+func (clients *ClientManager) removeInternal(client *Client) (removed bool) {
+	// requires holding ByNickMutex
+	oldcfnick := client.NickCasefolded()
+	currentEntry, present := clients.byNick[oldcfnick]
+	if present {
+		if currentEntry == client {
+			delete(clients.byNick, oldcfnick)
+			removed = true
+		} else {
+			// this shouldn't happen, but we can ignore it
+			client.server.logger.Warning("internal", fmt.Sprintf("clients for nick %s out of sync", oldcfnick))
+		}
 	}
-	return nil
-}
-
-// Add adds a client to the lookup set.
-func (clients *ClientLookupSet) Add(client *Client, nick string) error {
-	nick, err := CasefoldName(nick)
-	if err != nil {
-		return err
-	}
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
-	if clients.getNoMutex(nick) != nil {
-		return ErrNicknameInUse
-	}
-	clients.ByNick[nick] = client
-	return nil
+	return
 }
 
 // Remove removes a client from the lookup set.
-func (clients *ClientLookupSet) Remove(client *Client) error {
+func (clients *ClientManager) Remove(client *Client) error {
+	clients.Lock()
+	defer clients.Unlock()
+
 	if !client.HasNick() {
 		return ErrNickMissing
 	}
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
-	if clients.getNoMutex(client.nick) != client {
-		return ErrNicknameMismatch
-	}
-	delete(clients.ByNick, client.nickCasefolded)
+	clients.removeInternal(client)
 	return nil
 }
 
-// Replace renames an existing client in the lookup set.
-func (clients *ClientLookupSet) Replace(oldNick, newNick string, client *Client) error {
-	// get casefolded nicknames
-	oldNick, err := CasefoldName(oldNick)
-	if err != nil {
-		return err
-	}
-	newNick, err = CasefoldName(newNick)
+// SetNick sets a client's nickname, validating it against nicknames in use
+func (clients *ClientManager) SetNick(client *Client, newNick string) error {
+	newcfnick, err := CasefoldName(newNick)
 	if err != nil {
 		return err
 	}
 
-	// remove and replace
-	clients.ByNickMutex.Lock()
-	defer clients.ByNickMutex.Unlock()
+	clients.Lock()
+	defer clients.Unlock()
 
-	oldClient := clients.ByNick[newNick]
-	if oldClient == nil || oldClient == client {
-		// whoo
-	} else {
+	clients.removeInternal(client)
+	currentNewEntry := clients.byNick[newcfnick]
+	// the client may just be changing case
+	if currentNewEntry != nil && currentNewEntry != client {
 		return ErrNicknameInUse
 	}
-
-	if oldNick == newNick {
-		// if they're only changing case, don't need to remove+re-add them
-		return nil
-	}
-
-	delete(clients.ByNick, oldNick)
-	clients.ByNick[newNick] = client
+	clients.byNick[newcfnick] = client
+	client.updateNickMask(newNick)
 	return nil
+}
+
+func (clients *ClientManager) AllClients() (result []*Client) {
+	clients.RLock()
+	defer clients.RUnlock()
+	result = make([]*Client, len(clients.byNick))
+	i := 0
+	for _, client := range(clients.byNick) {
+		result[i] = client
+		i++
+	}
+	return
 }
 
 // AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientLookupSet) AllWithCaps(capabs ...caps.Capability) (set ClientSet) {
+func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (set ClientSet) {
 	set = make(ClientSet)
 
-	clients.ByNickMutex.RLock()
-	defer clients.ByNickMutex.RUnlock()
+	clients.RLock()
+	defer clients.RUnlock()
 	var client *Client
-	for _, client = range clients.ByNick {
+	for _, client = range clients.byNick {
 		// make sure they have all the required caps
 		for _, capab := range capabs {
 			if !client.capabilities.Has(capab) {
@@ -177,7 +152,7 @@ func (clients *ClientLookupSet) AllWithCaps(capabs ...caps.Capability) (set Clie
 }
 
 // FindAll returns all clients that match the given userhost mask.
-func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
+func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 
 	userhost, err := Casefold(ExpandUserHost(userhost))
@@ -186,9 +161,9 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 	}
 	matcher := ircmatch.MakeMatch(userhost)
 
-	clients.ByNickMutex.RLock()
-	defer clients.ByNickMutex.RUnlock()
-	for _, client := range clients.ByNick {
+	clients.RLock()
+	defer clients.RUnlock()
+	for _, client := range clients.byNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			set.Add(client)
 		}
@@ -198,7 +173,7 @@ func (clients *ClientLookupSet) FindAll(userhost string) (set ClientSet) {
 }
 
 // Find returns the first client that matches the given userhost mask.
-func (clients *ClientLookupSet) Find(userhost string) *Client {
+func (clients *ClientManager) Find(userhost string) *Client {
 	userhost, err := Casefold(ExpandUserHost(userhost))
 	if err != nil {
 		return nil
@@ -206,9 +181,9 @@ func (clients *ClientLookupSet) Find(userhost string) *Client {
 	matcher := ircmatch.MakeMatch(userhost)
 	var matchedClient *Client
 
-	clients.ByNickMutex.RLock()
-	defer clients.ByNickMutex.RUnlock()
-	for _, client := range clients.ByNick {
+	clients.RLock()
+	defer clients.RUnlock()
+	for _, client := range clients.byNick {
 		if matcher.Match(client.nickMaskCasefolded) {
 			matchedClient = client
 			break

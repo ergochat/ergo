@@ -74,7 +74,7 @@ type ListenerWrapper struct {
 	// lets the ListenerWrapper inform the server that it has stopped:
 	stopEvent chan bool
 	// protects atomic update of tlsConfig and shouldStop:
-	configMutex sync.Mutex
+	configMutex sync.Mutex // tier 1
 }
 
 // Server is the main Oragono server.
@@ -86,10 +86,10 @@ type Server struct {
 	channels                     *ChannelManager
 	channelRegistry              *ChannelRegistry
 	checkIdent                   bool
-	clients                      *ClientLookupSet
+	clients                      *ClientManager
 	commands                     chan Command
 	configFilename               string
-	configurableStateMutex       sync.RWMutex // generic protection for server state modified by rehash()
+	configurableStateMutex       sync.RWMutex // tier 1; generic protection for server state modified by rehash()
 	connectionLimiter            *connection_limits.Limiter
 	connectionThrottler          *connection_limits.Throttler
 	ctime                        time.Time
@@ -113,7 +113,7 @@ type Server struct {
 	password                     []byte
 	passwords                    *passwd.SaltedManager
 	recoverFromErrors            bool
-	rehashMutex                  sync.Mutex
+	rehashMutex                  sync.Mutex // tier 3
 	rehashSignal                 chan os.Signal
 	proxyAllowedFrom             []string
 	signals                      chan os.Signal
@@ -149,7 +149,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	server := &Server{
 		accounts:            make(map[string]*ClientAccount),
 		channels:            NewChannelManager(),
-		clients:             NewClientLookupSet(),
+		clients:             NewClientManager(),
 		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
@@ -238,11 +238,9 @@ func loadChannelList(channel *Channel, list string, maskMode Mode) {
 // Shutdown shuts down the server.
 func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
-	server.clients.ByNickMutex.RLock()
-	for _, client := range server.clients.ByNick {
+	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
 	}
-	server.clients.ByNickMutex.RUnlock()
 
 	if err := server.store.Close(); err != nil {
 		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
@@ -1332,11 +1330,9 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		server.configurableStateMutex.Unlock()
 
 		// update on all clients
-		server.clients.ByNickMutex.RLock()
-		for _, sClient := range server.clients.ByNick {
+		for _, sClient := range server.clients.AllClients() {
 			sClient.socket.MaxSendQBytes = config.Server.MaxSendQBytes
 		}
-		server.clients.ByNickMutex.RUnlock()
 	}
 
 	// set RPL_ISUPPORT
@@ -1370,8 +1366,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	if !initial {
 		// push new info to all of our clients
-		server.clients.ByNickMutex.RLock()
-		for _, sClient := range server.clients.ByNick {
+		for _, sClient := range server.clients.AllClients() {
 			for _, tokenline := range newISupportReplies {
 				sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
 			}
@@ -1380,7 +1375,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 				sClient.Notice(rawIONotice)
 			}
 		}
-		server.clients.ByNickMutex.RUnlock()
 	}
 
 	return nil
@@ -2008,10 +2002,7 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
 	var totalcount, invisiblecount, opercount int
 
-	server.clients.ByNickMutex.RLock()
-	defer server.clients.ByNickMutex.RUnlock()
-
-	for _, onlineusers := range server.clients.ByNick {
+	for _, onlineusers := range server.clients.AllClients() {
 		totalcount++
 		if onlineusers.flags[Invisible] {
 			invisiblecount++

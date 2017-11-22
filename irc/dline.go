@@ -82,7 +82,7 @@ type dLineNet struct {
 
 // DLineManager manages and dlines.
 type DLineManager struct {
-	sync.RWMutex
+	sync.RWMutex // tier 1
 	// addresses that are dlined
 	addresses map[string]*dLineAddr
 	// networks that are dlined
@@ -386,8 +386,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		var killedClientNicks []string
 		var toKill bool
 
-		server.clients.ByNickMutex.RLock()
-		for _, mcl := range server.clients.ByNick {
+		for _, mcl := range server.clients.AllClients() {
 			if hostNet == nil {
 				toKill = hostAddr.Equal(mcl.IP())
 			} else {
@@ -399,7 +398,6 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				killedClientNicks = append(killedClientNicks, mcl.nick)
 			}
 		}
-		server.clients.ByNickMutex.RUnlock()
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true

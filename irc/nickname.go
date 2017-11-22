@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/sno"
 )
 
 var (
@@ -26,7 +28,11 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return true
 	}
 
-	nicknameRaw := strings.TrimSpace(msg.Params[0])
+	return performNickChange(server, client, client, msg.Params[0])
+}
+
+func performNickChange(server *Server, client *Client, target *Client, newnick string) bool {
+	nicknameRaw := strings.TrimSpace(newnick)
 	nickname, err := CasefoldName(nicknameRaw)
 
 	if len(nicknameRaw) < 1 {
@@ -39,16 +45,14 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if client.nick == nickname {
+	if target.Nick() == nicknameRaw {
 		return false
 	}
 
-	// bleh, this will be replaced and done below
-	if client.registered {
-		err = client.ChangeNickname(nicknameRaw)
-	} else {
-		err = client.SetNickname(nicknameRaw)
-	}
+	hadNick := target.HasNick()
+	origNick := target.Nick()
+	origNickMask := target.NickMaskString()
+	err = client.server.clients.SetNick(target, nickname)
 	if err == ErrNicknameInUse {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
 		return false
@@ -56,49 +60,31 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf("Could not set or change nickname: %s", err.Error()))
 		return false
 	}
-	if client.registered {
-		client.server.monitorManager.AlertAbout(client, true)
+
+	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s", origNickMask, nickname))
+	if hadNick {
+		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), origNick, nicknameRaw))
+		target.server.whoWas.Append(client)
+		for friend := range target.Friends() {
+			friend.Send(nil, origNickMask, "NICK", nicknameRaw)
+		}
 	}
-	server.tryRegister(client)
+
+	if target.registered {
+		client.server.monitorManager.AlertAbout(target, true)
+	} else {
+		server.tryRegister(target)
+	}
 	return false
 }
 
 // SANICK <oldnick> <nickname>
 func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	if !client.authorized {
-		client.Quit("Bad password")
-		return true
-	}
-
-	oldnick, oerr := CasefoldName(msg.Params[0])
-	nickname, err := CasefoldName(msg.Params[1])
-
-	if len(nickname) < 1 {
-		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, "No nickname given")
-		return false
-	}
-
-	if oerr != nil || err != nil || len(strings.TrimSpace(msg.Params[1])) > server.limits.NickLen || restrictedNicknames[nickname] {
-		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, msg.Params[0], "Erroneous nickname")
-		return false
-	}
-
-	if client.nick == msg.Params[1] {
-		return false
-	}
-
-	target := server.clients.Get(oldnick)
+	targetNick := strings.TrimSpace(msg.Params[0])
+	target := server.clients.Get(targetNick)
 	if target == nil {
 		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
 		return false
 	}
-
-	//TODO(dan): There's probably some races here, we should be changing this in the primary server thread
-	if server.clients.Get(nickname) != nil && server.clients.Get(nickname) != target {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, msg.Params[0], "Nickname is already in use")
-		return false
-	}
-
-	target.ChangeNickname(msg.Params[1])
-	return false
+	return performNickChange(server, client, target, msg.Params[1])
 }

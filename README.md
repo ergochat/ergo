@@ -68,7 +68,7 @@ The `stable` branch contains the latest release. You can run this for a producti
 
 [![Build Status](https://travis-ci.org/oragono/oragono.svg?branch=master)](https://travis-ci.org/oragono/oragono)
 
-Clone the appropriate branch. From the root folder, run `make` to generate all release files for all of our target OSes:
+Clone the appropriate branch. If necessary, do `git submodule update --init` to set up vendored dependencies. From the root folder, run `make` to generate all release files for all of our target OSes:
 ```
 make
 ```
