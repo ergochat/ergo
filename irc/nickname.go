@@ -61,7 +61,7 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		return false
 	}
 
-	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s", origNickMask, nickname))
+	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nicknameRaw, nickname))
 	if hadNick {
 		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), origNick, nicknameRaw))
 		target.server.whoWas.Append(client)

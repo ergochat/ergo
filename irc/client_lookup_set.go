@@ -39,7 +39,7 @@ func ExpandUserHost(userhost string) (expanded string) {
 // ClientManager keeps track of clients by nick, enforcing uniqueness of casefolded nicks
 type ClientManager struct {
 	sync.RWMutex // tier 2
-	byNick      map[string]*Client
+	byNick       map[string]*Client
 }
 
 // NewClientManager returns a new ClientManager.
@@ -70,7 +70,7 @@ func (clients *ClientManager) Get(nick string) *Client {
 }
 
 func (clients *ClientManager) removeInternal(client *Client) (removed bool) {
-	// requires holding ByNickMutex
+	// requires holding the writable Lock()
 	oldcfnick := client.NickCasefolded()
 	currentEntry, present := clients.byNick[oldcfnick]
 	if present {
@@ -123,7 +123,7 @@ func (clients *ClientManager) AllClients() (result []*Client) {
 	defer clients.RUnlock()
 	result = make([]*Client, len(clients.byNick))
 	i := 0
-	for _, client := range(clients.byNick) {
+	for _, client := range clients.byNick {
 		result[i] = client
 		i++
 	}
