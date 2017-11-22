@@ -32,20 +32,20 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 func performNickChange(server *Server, client *Client, target *Client, newnick string) bool {
-	nicknameRaw := strings.TrimSpace(newnick)
-	nickname, err := CasefoldName(nicknameRaw)
+	nickname := strings.TrimSpace(newnick)
+	cfnick, err := CasefoldName(nickname)
 
-	if len(nicknameRaw) < 1 {
+	if len(nickname) < 1 {
 		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, "No nickname given")
 		return false
 	}
 
-	if err != nil || len(nicknameRaw) > server.Limits().NickLen || restrictedNicknames[nickname] {
-		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nicknameRaw, "Erroneous nickname")
+	if err != nil || len(nickname) > server.Limits().NickLen || restrictedNicknames[cfnick] {
+		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nickname, "Erroneous nickname")
 		return false
 	}
 
-	if target.Nick() == nicknameRaw {
+	if target.Nick() == nickname {
 		return false
 	}
 
@@ -54,19 +54,19 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	origNickMask := target.NickMaskString()
 	err = client.server.clients.SetNick(target, nickname)
 	if err == ErrNicknameInUse {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nicknameRaw, "Nickname is already in use")
+		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, "Nickname is already in use")
 		return false
 	} else if err != nil {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf("Could not set or change nickname: %s", err.Error()))
 		return false
 	}
 
-	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nicknameRaw, nickname))
+	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {
-		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), origNick, nicknameRaw))
+		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), origNick, nickname))
 		target.server.whoWas.Append(client)
 		for friend := range target.Friends() {
-			friend.Send(nil, origNickMask, "NICK", nicknameRaw)
+			friend.Send(nil, origNickMask, "NICK", nickname)
 		}
 	}
 
