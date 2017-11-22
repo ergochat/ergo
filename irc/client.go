@@ -73,7 +73,7 @@ type Client struct {
 	saslValue          string
 	server             *Server
 	socket             *Socket
-	stateMutex         sync.RWMutex // generic protection for mutable state
+	stateMutex         sync.RWMutex // tier 1
 	username           string
 	vhost              string
 	whoisLine          string
@@ -313,11 +313,15 @@ func (client *Client) IdleSeconds() uint64 {
 
 // HasNick returns true if the client's nickname is set (used in registration).
 func (client *Client) HasNick() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
 	return client.nick != "" && client.nick != "*"
 }
 
 // HasUsername returns true if the client's username is set (used in registration).
 func (client *Client) HasUsername() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
 	return client.username != "" && client.username != "*"
 }
 
@@ -403,6 +407,7 @@ func (client *Client) updateNickMask(nick string) {
 	}
 
 	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 
 	if len(client.vhost) > 0 {
 		client.hostname = client.vhost
@@ -419,8 +424,6 @@ func (client *Client) updateNickMask(nick string) {
 
 	client.nickMaskString = nickMaskString
 	client.nickMaskCasefolded = nickMaskCasefolded
-
-	client.stateMutex.Unlock()
 }
 
 // AllNickmasks returns all the possible nickmasks for the client.
@@ -447,36 +450,6 @@ func (client *Client) AllNickmasks() []string {
 	}
 
 	return masks
-}
-
-// SetNickname sets the very first nickname for the client.
-func (client *Client) SetNickname(nickname string) error {
-	if client.HasNick() {
-		client.server.logger.Error("nick", fmt.Sprintf("%s nickname already set, something is wrong with server consistency", client.nickMaskString))
-		return ErrNickAlreadySet
-	}
-
-	err := client.server.clients.Add(client, nickname)
-	if err == nil {
-		client.updateNick(nickname)
-	}
-	return err
-}
-
-// ChangeNickname changes the existing nickname of the client.
-func (client *Client) ChangeNickname(nickname string) error {
-	origNickMask := client.nickMaskString
-	err := client.server.clients.Replace(client.nick, nickname, client)
-	if err == nil {
-		client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s", client.nick, nickname))
-		client.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), client.nick, nickname))
-		client.server.whoWas.Append(client)
-		client.updateNickMask(nickname)
-		for friend := range client.Friends() {
-			friend.Send(nil, origNickMask, "NICK", nickname)
-		}
-	}
-	return err
 }
 
 // LoggedIntoAccount returns true if this client is logged into an account.

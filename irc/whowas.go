@@ -14,7 +14,7 @@ type WhoWasList struct {
 	start  int
 	end    int
 
-	accessMutex sync.RWMutex
+	accessMutex sync.RWMutex // tier 2
 }
 
 // WhoWas is an entry in the WhoWasList.

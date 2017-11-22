@@ -29,7 +29,7 @@ const (
 )
 
 type IdleTimer struct {
-	sync.Mutex
+	sync.Mutex // tier 1
 
 	// immutable after construction
 	registerTimeout time.Duration

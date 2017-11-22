@@ -35,7 +35,7 @@ type Channel struct {
 	createdTime       time.Time
 	registeredFounder string
 	registeredTime    time.Time
-	stateMutex        sync.RWMutex
+	stateMutex        sync.RWMutex // tier 1
 	topic             string
 	topicSetBy        string
 	topicSetTime      time.Time

@@ -15,7 +15,7 @@ import (
 
 // MonitorManager keeps track of who's monitoring which nicks.
 type MonitorManager struct {
-	sync.RWMutex
+	sync.RWMutex // tier 2
 	// client -> nicks it's watching
 	watching map[*Client]map[string]bool
 	// nick -> clients watching it
