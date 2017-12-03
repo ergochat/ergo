@@ -261,6 +261,8 @@ func (client *Client) run() {
 
 // Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
 func (client *Client) Active() {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 	client.atime = time.Now()
 }
 
@@ -298,6 +300,8 @@ func (client *Client) Register() {
 
 // IdleTime returns how long this client's been idle.
 func (client *Client) IdleTime() time.Duration {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
 	return time.Since(client.atime)
 }
 
