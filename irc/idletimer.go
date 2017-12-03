@@ -38,7 +38,6 @@ type IdleTimer struct {
 
 	// mutable
 	client   *Client
-	state    TimerState
 	lastSeen time.Time
 }
 
@@ -49,7 +48,6 @@ func NewIdleTimer(client *Client) *IdleTimer {
 		idleTimeout:     IdleTimeout,
 		quitTimeout:     QuitTimeout,
 		client:          client,
-		state:           TimerUnregistered,
 	}
 	return &it
 }
@@ -58,17 +56,18 @@ func NewIdleTimer(client *Client) *IdleTimer {
 // it will eventually be stopped.
 func (it *IdleTimer) Start() {
 	it.Lock()
-	it.state = TimerUnregistered
 	it.lastSeen = time.Now()
 	it.Unlock()
 	go it.mainLoop()
 }
 
 func (it *IdleTimer) mainLoop() {
+	state := TimerUnregistered
+	var lastPinged time.Time
+
 	for {
 		it.Lock()
 		client := it.client
-		state := it.state
 		lastSeen := it.lastSeen
 		it.Unlock()
 
@@ -76,7 +75,8 @@ func (it *IdleTimer) mainLoop() {
 			return
 		}
 
-		idleTime := time.Now().Sub(lastSeen)
+		now := time.Now()
+		idleTime := now.Sub(lastSeen)
 		var nextSleep time.Duration
 
 		if state == TimerUnregistered {
@@ -87,8 +87,8 @@ func (it *IdleTimer) mainLoop() {
 				nextSleep = it.registerTimeout - idleTime
 			}
 		} else if state == TimerIdle {
-			if idleTime < it.quitTimeout {
-				// new ping came in after we transitioned to TimerIdle,
+			if lastSeen.After(lastPinged) {
+				// new pong came in after we transitioned to TimerIdle,
 				// transition back to active and process deadlines below
 				state = TimerActive
 			} else {
@@ -100,6 +100,7 @@ func (it *IdleTimer) mainLoop() {
 			nextSleep = it.idleTimeout - idleTime
 			if nextSleep <= 0 {
 				state = TimerIdle
+				lastPinged = now
 				client.Ping()
 				// grant the client at least quitTimeout to respond
 				nextSleep = it.quitTimeout
@@ -112,10 +113,6 @@ func (it *IdleTimer) mainLoop() {
 			client.destroy()
 			return
 		}
-
-		it.Lock()
-		it.state = state
-		it.Unlock()
 
 		time.Sleep(nextSleep)
 	}
