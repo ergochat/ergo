@@ -26,6 +26,7 @@ const (
 	TimerUnregistered TimerState = iota // client is unregistered
 	TimerActive                         // client is actively sending commands
 	TimerIdle                           // client is idle, we sent PING and are waiting for PONG
+	TimerDead                           // client was terminated
 )
 
 type IdleTimer struct {
@@ -35,10 +36,11 @@ type IdleTimer struct {
 	registerTimeout time.Duration
 	idleTimeout     time.Duration
 	quitTimeout     time.Duration
+	client          *Client
 
 	// mutable
-	client   *Client
-	lastSeen time.Time
+	state TimerState
+	timer *time.Timer
 }
 
 // NewIdleTimer sets up a new IdleTimer using constant timeouts.
@@ -56,91 +58,74 @@ func NewIdleTimer(client *Client) *IdleTimer {
 // it will eventually be stopped.
 func (it *IdleTimer) Start() {
 	it.Lock()
-	it.lastSeen = time.Now()
-	it.Unlock()
-	go it.mainLoop()
+	defer it.Unlock()
+	it.state = TimerUnregistered
+	it.resetTimeout()
 }
 
-func (it *IdleTimer) mainLoop() {
-	state := TimerUnregistered
-	var lastPinged time.Time
-
-	for {
-		it.Lock()
-		client := it.client
-		lastSeen := it.lastSeen
-		it.Unlock()
-
-		if client == nil {
-			return
-		}
-
-		now := time.Now()
-		idleTime := now.Sub(lastSeen)
-		var nextSleep time.Duration
-
-		if state == TimerUnregistered {
-			if client.Registered() {
-				// transition to active, process new deadlines below
-				state = TimerActive
-			} else {
-				nextSleep = it.registerTimeout - idleTime
-			}
-		} else if state == TimerIdle {
-			if lastSeen.After(lastPinged) {
-				// new pong came in after we transitioned to TimerIdle,
-				// transition back to active and process deadlines below
-				state = TimerActive
-			} else {
-				nextSleep = 0
-			}
-		}
-
-		if state == TimerActive {
-			nextSleep = it.idleTimeout - idleTime
-			if nextSleep <= 0 {
-				state = TimerIdle
-				lastPinged = now
-				client.Ping()
-				// grant the client at least quitTimeout to respond
-				nextSleep = it.quitTimeout
-			}
-		}
-
-		if nextSleep <= 0 {
-			// ran out of time, hang them up
-			client.Quit(it.quitMessage(state))
-			client.destroy()
-			return
-		}
-
-		time.Sleep(nextSleep)
-	}
-}
-
-// Touch registers activity (e.g., sending a command) from an client.
 func (it *IdleTimer) Touch() {
-	it.Lock()
-	client := it.client
-	it.Unlock()
-
-	// ignore touches for unregistered clients
-	if client != nil && !client.Registered() {
+	// ignore touches from unregistered clients
+	if !it.client.Registered() {
 		return
 	}
 
 	it.Lock()
-	it.lastSeen = time.Now()
-	it.Unlock()
+	defer it.Unlock()
+	// a touch transitions TimerUnregistered or TimerIdle into TimerActive
+	if it.state != TimerDead {
+		it.state = TimerActive
+		it.resetTimeout()
+	}
+}
+
+func (it *IdleTimer) processTimeout() {
+	var previousState TimerState
+	func() {
+		it.Lock()
+		defer it.Unlock()
+		previousState = it.state
+		// TimerActive transitions to TimerIdle, all others to TimerDead
+		if it.state == TimerActive {
+			// send them a ping, give them time to respond
+			it.state = TimerIdle
+			it.resetTimeout()
+		} else {
+			it.state = TimerDead
+		}
+	}()
+
+	if previousState == TimerActive {
+		it.client.Ping()
+	} else {
+		it.client.Quit(it.quitMessage(previousState))
+		it.client.destroy()
+	}
 }
 
 // Stop stops counting idle time.
 func (it *IdleTimer) Stop() {
 	it.Lock()
 	defer it.Unlock()
-	// no need to stop the goroutine, it'll clean itself up in a few minutes;
-	// just ensure the Client object is collectable
-	it.client = nil
+	it.state = TimerDead
+	it.resetTimeout()
+}
+
+func (it *IdleTimer) resetTimeout() {
+	if it.timer != nil {
+		it.timer.Stop()
+	}
+	var nextTimeout time.Duration
+	switch it.state {
+	case TimerUnregistered:
+		nextTimeout = it.registerTimeout
+	case TimerActive:
+		nextTimeout = it.idleTimeout
+	case TimerIdle:
+		nextTimeout = it.quitTimeout
+	case TimerDead:
+		return
+	}
+	it.timer = time.AfterFunc(nextTimeout, it.processTimeout)
 }
 
 func (it *IdleTimer) quitMessage(state TimerState) string {
