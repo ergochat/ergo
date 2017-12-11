@@ -103,7 +103,6 @@ type Server struct {
 	name                         string
 	nameCasefolded               string
 	networkName                  string
-	newConns                     chan clientConn
 	operators                    map[string]Oper
 	operclasses                  map[string]OperClass
 	password                     []byte
@@ -152,7 +151,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
-		newConns:            make(chan clientConn),
 		rehashSignal:        make(chan os.Signal, 1),
 		signals:             make(chan os.Signal, len(ServerExitSignals)),
 		snomasks:            NewSnoManager(),
@@ -249,46 +247,45 @@ func (server *Server) Run() {
 	// defer closing db/store
 	defer server.store.Close()
 
-	done := false
-	for !done {
+	for {
 		select {
 		case <-server.signals:
 			server.Shutdown()
-			done = true
+			return
 
 		case <-server.rehashSignal:
-			server.logger.Info("rehash", "Rehashing due to SIGHUP")
 			go func() {
+				server.logger.Info("rehash", "Rehashing due to SIGHUP")
 				err := server.rehash()
 				if err != nil {
 					server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
 				}
 			}()
-
-		case conn := <-server.newConns:
-			// check IP address
-			ipaddr := net.ParseIP(utils.IPString(conn.Conn.RemoteAddr()))
-			if ipaddr == nil {
-				conn.Conn.Write([]byte(couldNotParseIPMsg))
-				conn.Conn.Close()
-				continue
-			}
-
-			isBanned, banMsg := server.checkBans(ipaddr)
-			if isBanned {
-				// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
-				conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
-				conn.Conn.Close()
-				continue
-			}
-
-			server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
-			// prolly don't need to alert snomasks on this, only on connection reg
-
-			go NewClient(server, conn.Conn, conn.IsTLS)
-			continue
 		}
 	}
+}
+
+func (server *Server) acceptClient(conn clientConn) {
+	// check IP address
+	ipaddr := net.ParseIP(utils.IPString(conn.Conn.RemoteAddr()))
+	if ipaddr == nil {
+		conn.Conn.Write([]byte(couldNotParseIPMsg))
+		conn.Conn.Close()
+		return
+	}
+
+	isBanned, banMsg := server.checkBans(ipaddr)
+	if isBanned {
+		// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
+		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.Conn.Close()
+		return
+	}
+
+	server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+	// prolly don't need to alert snomasks on this, only on connection reg
+
+	NewClient(server, conn.Conn, conn.IsTLS)
 }
 
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
@@ -375,7 +372,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 					IsTLS: tlsConfig != nil,
 				}
 				// hand off the connection
-				server.newConns <- newConn
+				go server.acceptClient(newConn)
 			}
 
 			if shouldStop {
