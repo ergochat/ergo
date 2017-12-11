@@ -83,7 +83,6 @@ type Server struct {
 	channelRegistry              *ChannelRegistry
 	checkIdent                   bool
 	clients                      *ClientManager
-	commands                     chan Command
 	configFilename               string
 	configurableStateMutex       sync.RWMutex // tier 1; generic protection for server state modified by rehash()
 	connectionLimiter            *connection_limits.Limiter
@@ -147,7 +146,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		accounts:            make(map[string]*ClientAccount),
 		channels:            NewChannelManager(),
 		clients:             NewClientManager(),
-		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
 		languages:           NewLanguageManager(config.Languages.Default, config.Languages.Data),
