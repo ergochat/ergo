@@ -75,7 +75,6 @@ type ChannelRegistry struct {
 	// that with all the other modules, so let's not.
 	sync.Mutex // tier 2
 	server     *Server
-	channels   map[string]*RegisteredChannel
 }
 
 func NewChannelRegistry(server *Server) *ChannelRegistry {
