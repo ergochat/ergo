@@ -12,12 +12,19 @@ New release of Oragono!
 ### Security
 
 ### Added
+* `DLINE`/`KLINE`: We now save the name of whichever oper set the ban (and display it later).
 
 ### Changed
+* `draft/maxline` capability is now [`oragono.io/maxline`](https://oragono.io/maxline).
+* `WHO`: First parameter now must be a mask or channel name, cannot be ommitted.
+* Casemapping is now advertised using the `UTF8MAPPING` token, matching the new spec changes.
+* We now allow unprivileged users to list channel bans.
 
 ### Removed
 
 ### Fixed
+* Fixed a bug around removing channel bans.
+* Fixed a client timeout bug.
 
 
 ## [0.10.2] - 2017-11-13
