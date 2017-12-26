@@ -183,7 +183,7 @@ func (server *Server) setISupport() {
 	// add RPL_ISUPPORT tokens
 	isupport := isupport.NewList()
 	isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
-	isupport.Add("CASEMAPPING", casemappingName)
+	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
 	isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
@@ -203,6 +203,7 @@ func (server *Server) setISupport() {
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
+	isupport.Add("UTF8MAPPING", casemappingName)
 
 	// account registration
 	if server.accountRegistration.Enabled {

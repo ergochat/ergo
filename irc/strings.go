@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	casemappingName = "rfc7613"
+	casemappingName = "rfc8265"
 )
 
 var (
