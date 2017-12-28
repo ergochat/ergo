@@ -4,6 +4,22 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.10.3] - 2017-12-26
 This patch fixes a couple bugs, updates cap/isupport token names in response to spec changes, and allows unprivileged users to list channel bans. Ah, DLINE and KLINE also store oper names, so you can see who set those pesky bans later on!
 
