@@ -67,6 +67,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
 
 	case "REQ":
+		if !client.registered {
+			client.capState = CapNegotiating
+		}
+
 		// make sure all capabilities actually exist
 		for _, capability := range capabilities.List() {
 			if !SupportedCapabilities.Has(capability) {
