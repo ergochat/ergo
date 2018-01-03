@@ -395,7 +395,13 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 
 // generateMessageID returns a network-unique message ID.
 func (server *Server) generateMessageID() string {
-	return fmt.Sprintf("%s-%s", strconv.FormatInt(time.Now().UTC().UnixNano(), 10), strconv.FormatInt(rand.Int63(), 10))
+	// we don't need the full like 30 chars since the unixnano below handles
+	// most of our uniqueness requirements, so just truncate at 5
+	lastbit := strconv.FormatInt(rand.Int63(), 16)
+	if 5 < len(lastbit) {
+		lastbit = lastbit[:5]
+	}
+	return fmt.Sprintf("%s%s", strconv.FormatInt(time.Now().UTC().UnixNano(), 16), lastbit)
 }
 
 //
