@@ -14,10 +14,12 @@ New release of Oragono!
 ### Added
 
 ### Changed
+* Message IDs are now much shorter and easier to read – down from 39 characters to 16 while preserving a very similar gaurantee of uniqueness (thanks [@prawnsalad](https://github.com/prawnsalad) for bringing up this issue).
 
 ### Removed
 
 ### Fixed
+* We now correctly suspend registration when receiving a `CAP REQ`, as per [the spec](https://ircv3.net/specs/core/capability-negotiation-3.1.html).
 
 
 ## [0.10.3] - 2017-12-26
