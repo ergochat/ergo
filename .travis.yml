@@ -3,5 +3,6 @@ language: go
 install: make deps
 
 script:
+- go get github.com/goreleaser/goreleaser
 - make
 - make test
