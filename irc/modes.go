@@ -96,6 +96,7 @@ func (modes Modes) String() string {
 // User Modes
 const (
 	Away            Mode = 'a'
+	Bot             Mode = 'B'
 	Invisible       Mode = 'i'
 	LocalOperator   Mode = 'O'
 	Operator        Mode = 'o'
@@ -110,7 +111,7 @@ const (
 var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
-		Away, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
+		Away, Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
 	}
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = SupportedUserModes.String()
@@ -276,7 +277,7 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 
 	for _, change := range changes {
 		switch change.mode {
-		case Invisible, WallOps, UserRoleplaying, Operator, LocalOperator, RegisteredOnly:
+		case Bot, Invisible, WallOps, UserRoleplaying, Operator, LocalOperator, RegisteredOnly:
 			switch change.op {
 			case Add:
 				if !force && (change.mode == Operator || change.mode == LocalOperator) {

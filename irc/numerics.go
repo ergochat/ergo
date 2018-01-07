@@ -72,6 +72,7 @@ const (
 	RPL_NOTOPIC                     = "331"
 	RPL_TOPIC                       = "332"
 	RPL_TOPICTIME                   = "333"
+	RPL_WHOISBOT                    = "335"
 	RPL_WHOISACTUALLY               = "338"
 	RPL_INVITING                    = "341"
 	RPL_SUMMONING                   = "342"
