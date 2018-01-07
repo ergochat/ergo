@@ -1,10 +1,6 @@
-.PHONY: all clean build
+.PHONY: all build
 
-all: clean build
-
-clean:
-	rm -rf $(BUILD)
-	mkdir -p $(BUILD)
+all: build
 
 build:
 	goreleaser --snapshot --rm-dist
