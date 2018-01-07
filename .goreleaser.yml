@@ -1,0 +1,44 @@
+# .goreleaser.yml
+# Build customization
+project_name: oragono
+builds:
+  - main: oragono.go
+    binary: oragono
+    goos:
+      - freebsd
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 6
+      - 7
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: darwin
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+archive:
+  name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}{{ if .Arm }}-{{ .Arch }}v{{ .Arm }}{{ end }}"
+  format: tar.gz
+  replacements:
+    amd64: x64
+    darwin: osx
+  format_overrides:
+    - goos: windows
+      format: zip
+  files:
+    - README
+    - CHANGELOG.md
+    - oragono.motd
+    - oragono.yaml
+    - docs/*
+checksum:
+  name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
