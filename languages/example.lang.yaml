@@ -1,0 +1,18 @@
+# language file for our example language
+# if you're creating a new language file, base it off this one (this one contains all the strings you can replace)
+
+# name - this is the 'nice' or 'full' name of the language
+name: "Example"
+
+# code - this is what the language will be referred to in our list of languages
+code: "example"
+
+# maintainers - these are the maintainer details given
+maintainers: "Daniel Oaks <daniel@danieloaks.net>"
+
+# strings - this holds the actual replacements
+# make sure this is the last part of the file, and that the below string, "strings:", stays as-is
+# the language-update processor uses the next line to designate which part of the file to ignore and
+# which part to actually process.
+strings:
+  "": ""

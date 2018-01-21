@@ -27,6 +27,8 @@ const (
 	InviteNotify Capability = "invite-notify"
 	// LabeledResponse is this draft IRCv3 capability: http://ircv3.net/specs/extensions/labeled-response.html
 	LabeledResponse Capability = "draft/labeled-response"
+	// Languages is this proposed IRCv3 capability: https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
+	Languages Capability = "draft/languages"
 	// MaxLine is this capability: https://oragono.io/maxline
 	MaxLine Capability = "oragono.io/maxline"
 	// MessageTags is this draft IRCv3 capability: http://ircv3.net/specs/core/message-tags-3.3.html

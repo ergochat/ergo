@@ -167,6 +167,11 @@ type Config struct {
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
 
+	Languages struct {
+		Enabled bool
+		Path    string
+	}
+
 	Datastore struct {
 		Path string
 	}
