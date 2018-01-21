@@ -10,9 +10,12 @@ code: "example"
 # maintainers - these are the maintainer details given
 maintainers: "Daniel Oaks <daniel@danieloaks.net>"
 
+# incomplete - whether to mark this language as incomplete
+incomplete: true
+
 # strings - this holds the actual replacements
 # make sure this is the last part of the file, and that the below string, "strings:", stays as-is
 # the language-update processor uses the next line to designate which part of the file to ignore and
 # which part to actually process.
 strings:
-  "": ""
+  "Welcome to the Internet Relay Network %s": "Welcome bro to the IRN broski %s"

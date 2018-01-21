@@ -98,6 +98,7 @@ type Server struct {
 	loggingRawIO                 bool
 	isupport                     *isupport.List
 	klines                       *KLineManager
+	languages                    *LanguageManager
 	limits                       Limits
 	listeners                    map[string]*ListenerWrapper
 	logger                       *logger.Manager
@@ -153,6 +154,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
+		languages:           NewLanguageManager(),
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
@@ -434,7 +436,7 @@ func (server *Server) tryRegister(c *Client) {
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
-	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", c.nick))
+	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), c.nick))
 	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf("Your host is %s, running version %s", server.name, Ver))
 	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf("This server was created %s", server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
@@ -445,6 +447,15 @@ func (server *Server) tryRegister(c *Client) {
 	if server.logger.IsLoggingRawIO() {
 		c.Notice(rawIONotice)
 	}
+}
+
+// t returns the translated version of the given string, based on the languages configured by the client.
+func (client *Client) t(originalString string) string {
+	// grab this mutex to protect client.languages
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	return client.server.languages.Translate(client.languages, originalString)
 }
 
 // MOTD serves the Message of the Day.

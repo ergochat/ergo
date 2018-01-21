@@ -56,6 +56,7 @@ type Client struct {
 	idletimer          *IdleTimer
 	isDestroyed        bool
 	isQuitting         bool
+	languages          []string
 	maxlenTags         uint32
 	maxlenRest         uint32
 	nick               string
