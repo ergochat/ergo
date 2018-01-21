@@ -447,6 +447,24 @@ func (server *Server) tryRegister(c *Client) {
 	if server.logger.IsLoggingRawIO() {
 		c.Notice(rawIONotice)
 	}
+
+	// if resumed, send fake channel joins
+	if c.resumeDetails != nil {
+		for _, name := range c.resumeDetails.SendFakeJoinsFor {
+			channel := server.channels.Get(name)
+			if channel == nil {
+				continue
+			}
+
+			if c.capabilities.Has(caps.ExtendedJoin) {
+				c.Send(nil, c.nickMaskString, "JOIN", channel.name, c.account.Name, c.realname)
+			} else {
+				c.Send(nil, c.nickMaskString, "JOIN", channel.name)
+			}
+			channel.SendTopic(c)
+			channel.Names(c)
+		}
+	}
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.
@@ -2077,8 +2095,9 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // ResumeDetails are the details that we use to resume connections.
 type ResumeDetails struct {
-	OldNick   string
-	Timestamp *time.Time
+	OldNick          string
+	Timestamp        *time.Time
+	SendFakeJoinsFor []string
 }
 
 // RESUME <oldnick> [timestamp]

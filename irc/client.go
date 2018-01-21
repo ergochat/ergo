@@ -380,10 +380,12 @@ func (client *Client) TryResume() {
 	for channel := range oldClient.channels {
 		channel.stateMutex.Lock()
 
+		client.resumeDetails.SendFakeJoinsFor = append(client.resumeDetails.SendFakeJoinsFor, channel.name)
+
 		oldModeSet := channel.members[oldClient]
 		channel.members.Remove(oldClient)
 		channel.members[client] = oldModeSet
-		channel.regenerateMembersCache()
+		channel.regenerateMembersCache(true)
 
 		// send join for old clients
 		for member := range channel.members {
@@ -397,7 +399,7 @@ func (client *Client) TryResume() {
 				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
 			}
 
-			//TODO(dan): send priv modes
+			//TODO(dan): send priv modes for fake new join
 		}
 
 		channel.stateMutex.Unlock()
@@ -652,25 +654,17 @@ func (client *Client) destroy(beingResumed bool) {
 		}
 	}
 
-	fmt.Println("2")
-
 	// clean up server
 	if !beingResumed {
 		client.server.clients.Remove(client)
 	}
-
-	fmt.Println("3")
 
 	// clean up self
 	if client.idletimer != nil {
 		client.idletimer.Stop()
 	}
 
-	fmt.Println("4")
-
 	client.socket.Close()
-
-	fmt.Println("5")
 
 	// send quit messages to friends
 	if !beingResumed {

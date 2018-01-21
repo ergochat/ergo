@@ -145,29 +145,33 @@ func (channel *Channel) IsRegistered() bool {
 	return channel.registeredFounder != ""
 }
 
-func (channel *Channel) regenerateMembersCache() {
+func (channel *Channel) regenerateMembersCache(noLocksNeeded bool) {
 	// this is eventually consistent even without holding stateMutex.Lock()
 	// throughout the update; all updates to `members` while holding Lock()
 	// have a serial order, so the call to `regenerateMembersCache` that
 	// happens-after the last one will see *all* the updates. then,
 	// `membersCacheMutex` ensures that this final read is correctly paired
 	// with the final write to `membersCache`.
-	channel.membersCacheMutex.Lock()
-	defer channel.membersCacheMutex.Unlock()
+	if !noLocksNeeded {
+		channel.membersCacheMutex.Lock()
+		defer channel.membersCacheMutex.Unlock()
+		channel.stateMutex.RLock()
+	}
 
-	channel.stateMutex.RLock()
 	result := make([]*Client, len(channel.members))
 	i := 0
 	for client := range channel.members {
 		result[i] = client
 		i++
 	}
-	channel.stateMutex.RUnlock()
-	channel.stateMutex.Lock()
+	if !noLocksNeeded {
+		channel.stateMutex.RUnlock()
+		channel.stateMutex.Lock()
+	}
 	channel.membersCache = result
-	channel.stateMutex.Unlock()
-	return
-
+	if !noLocksNeeded {
+		channel.stateMutex.Unlock()
+	}
 }
 
 // Names sends the list of users joined to the channel to the given client.
@@ -413,7 +417,7 @@ func (channel *Channel) Join(client *Client, key string) {
 	channel.members.Add(client)
 	firstJoin := len(channel.members) == 1
 	channel.stateMutex.Unlock()
-	channel.regenerateMembersCache()
+	channel.regenerateMembersCache(false)
 
 	client.addChannel(channel)
 
@@ -722,7 +726,7 @@ func (channel *Channel) Quit(client *Client) {
 	channel.stateMutex.Lock()
 	channel.members.Remove(client)
 	channel.stateMutex.Unlock()
-	channel.regenerateMembersCache()
+	channel.regenerateMembersCache(false)
 
 	client.removeChannel(channel)
 }
