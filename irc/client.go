@@ -322,10 +322,17 @@ func (client *Client) TryResume() {
 	timestamp := client.resumeDetails.Timestamp
 	var timestampString string
 	if timestamp != nil {
-		timestampString := timestamp.UTC().Format("2006-01-02T15:04:05.999Z")
+		timestampString = timestamp.UTC().Format("2006-01-02T15:04:05.999Z")
 	}
 
-	oldClient := server.clients.Get(oldnick)
+	// can't use server.clients.Get since we hold server.clients' tier 1 mutex
+	casefoldedName, err := CasefoldName(oldnick)
+	if err != nil {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old client not found")
+		return
+	}
+
+	oldClient := server.clients.byNick[casefoldedName]
 	if oldClient == nil {
 		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old client not found")
 		return

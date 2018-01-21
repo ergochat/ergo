@@ -1002,6 +1002,10 @@ func (client *Client) getWhoisOf(target *Client) {
 	if target.flags[TLS] {
 		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, "is using a secure connection")
 	}
+	accountName := target.AccountName()
+	if accountName != "" {
+		client.Send(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, accountName, "is logged in as")
+	}
 	if target.flags[Bot] {
 		client.Send(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape("is a $bBot$b on ")+client.server.networkName)
 	}
@@ -2093,8 +2097,10 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var timestamp *time.Time
 	if 1 < len(msg.Params) {
-		timestamp, err = time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
-		if err != nil {
+		ts, err := time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
+		if err == nil {
+			timestamp = &ts
+		} else {
 			client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it")
 		}
 	}
@@ -2104,7 +2110,7 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		Timestamp: timestamp,
 	}
 
-	return true
+	return false
 }
 
 // USERHOST <nickname> [<nickname> <nickname> ...]
