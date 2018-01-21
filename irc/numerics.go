@@ -192,4 +192,7 @@ const (
 	ERR_REG_INVALID_CALLBACK        = "929"
 	ERR_TOOMANYLANGUAGES            = "981"
 	ERR_NOLANGUAGE                  = "982"
+
+	// draft numerics
+	ERR_CANNOT_RESUME = "999"
 )

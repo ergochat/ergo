@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/oragono/oragono/irc/caps"
 )
 
 const (
@@ -14,6 +16,8 @@ const (
 	RegisterTimeout = time.Minute
 	// IdleTimeout is how long without traffic before a registered client is considered idle.
 	IdleTimeout = time.Minute + time.Second*30
+	// IdleTimeoutWithResumeCap is how long without traffic before a registered client is considered idle, when they have the resume capability.
+	IdleTimeoutWithResumeCap = time.Minute*2 + time.Second*30
 	// QuitTimeout is how long without traffic before an idle client is disconnected
 	QuitTimeout = time.Minute
 )
@@ -33,10 +37,11 @@ type IdleTimer struct {
 	sync.Mutex // tier 1
 
 	// immutable after construction
-	registerTimeout time.Duration
-	idleTimeout     time.Duration
-	quitTimeout     time.Duration
-	client          *Client
+	registerTimeout       time.Duration
+	idleTimeout           time.Duration
+	idleTimeoutWithResume time.Duration
+	quitTimeout           time.Duration
+	client                *Client
 
 	// mutable
 	state TimerState
@@ -46,10 +51,11 @@ type IdleTimer struct {
 // NewIdleTimer sets up a new IdleTimer using constant timeouts.
 func NewIdleTimer(client *Client) *IdleTimer {
 	it := IdleTimer{
-		registerTimeout: RegisterTimeout,
-		idleTimeout:     IdleTimeout,
-		quitTimeout:     QuitTimeout,
-		client:          client,
+		registerTimeout:       RegisterTimeout,
+		idleTimeout:           IdleTimeout,
+		idleTimeoutWithResume: IdleTimeoutWithResumeCap,
+		quitTimeout:           QuitTimeout,
+		client:                client,
 	}
 	return &it
 }
@@ -119,7 +125,13 @@ func (it *IdleTimer) resetTimeout() {
 	case TimerUnregistered:
 		nextTimeout = it.registerTimeout
 	case TimerActive:
-		nextTimeout = it.idleTimeout
+		// if they have the resume cap, wait longer before pinging them out
+		// to give them a chance to resume their connection
+		if it.client.capabilities.Has(caps.Resume) {
+			nextTimeout = it.idleTimeoutWithResume
+		} else {
+			nextTimeout = it.idleTimeout
+		}
 	case TimerIdle:
 		nextTimeout = it.quitTimeout
 	case TimerDead:

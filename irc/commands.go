@@ -223,6 +223,11 @@ var Commands = map[string]Command{
 		handler:   renameHandler,
 		minParams: 2,
 	},
+	"RESUME": {
+		handler:      resumeHandler,
+		usablePreReg: true,
+		minParams:    1,
+	},
 	"SANICK": {
 		handler:   sanickHandler,
 		minParams: 2,

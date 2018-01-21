@@ -2071,6 +2071,42 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// ResumeDetails are the details that we use to resume connections.
+type ResumeDetails struct {
+	OldNick   string
+	Timestamp *time.Time
+}
+
+// RESUME <oldnick> [timestamp]
+func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	oldnick := msg.Params[0]
+
+	if strings.Contains(oldnick, " ") {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, "*", "Cannot resume connection, old nickname contains spaces")
+		return false
+	}
+
+	if client.Registered() {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, connection registration has already been completed")
+		return false
+	}
+
+	var timestamp *time.Time
+	if 1 < len(msg.Params) {
+		timestamp, err := time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
+		if err != nil {
+			client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it")
+		}
+	}
+
+	client.resumeDetails = ResumeDetails{
+		OldNick:   oldnick,
+		Timestamp: timestamp,
+	}
+
+	return true
+}
+
 // USERHOST <nickname> [<nickname> <nickname> ...]
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	returnedNicks := make(map[string]bool)

@@ -69,6 +69,7 @@ type Client struct {
 	rawHostname        string
 	realname           string
 	registered         bool
+	resumeDetails      *ResumeDetails
 	saslInProgress     bool
 	saslMechanism      string
 	saslValue          string
@@ -294,9 +295,107 @@ func (client *Client) Register() {
 		return
 	}
 
+	// apply resume details if we're able to.
+	client.TryResume()
+
+	// finish registration
 	client.Touch()
 	client.updateNickMask("")
 	client.server.monitorManager.AlertAbout(client, true)
+}
+
+// TryResume tries to resume if the client asked us to.
+func (client *Client) TryResume() {
+	if client.resumeDetails == nil {
+		return
+	}
+
+	server := client.server
+
+	// just grab these mutexes for safety. later we can work out whether we can grab+release them earlier
+	server.clients.Lock()
+	defer server.clients.Unlock()
+	server.channels.Lock()
+	defer server.channels.Unlock()
+
+	oldnick := client.resumeDetails.OldNick
+	timestamp := client.resumeDetails.Timestamp
+	var timestampString string
+	if timestamp != nil {
+		timestampString := timestamp.UTC().Format("2006-01-02T15:04:05.999Z")
+	}
+
+	oldClient := server.clients.Get(oldnick)
+	if oldClient == nil {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old client not found")
+		return
+	}
+
+	oldAccountName := oldClient.AccountName()
+	newAccountName := client.AccountName()
+
+	if oldAccountName == "" || newAccountName == "" || oldAccountName != newAccountName {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old and new clients must be logged into the same account")
+		return
+	}
+
+	if !oldClient.HasMode(TLS) || !client.HasMode(TLS) {
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old and new clients must have TLS")
+		return
+	}
+
+	// send RESUMED to the reconnecting client
+	if timestamp == nil {
+		client.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname())
+	} else {
+		client.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname(), timestampString)
+	}
+
+	// send QUIT/RESUMED to friends
+	for friend := range oldClient.Friends() {
+		if friend.capabilities.Has(caps.Resume) {
+			if timestamp == nil {
+				friend.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname())
+			} else {
+				friend.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname(), timestampString)
+			}
+		} else {
+			friend.Send(nil, oldClient.NickMaskString(), "QUIT", "Client reconnected")
+		}
+	}
+
+	// apply old client's details to new client
+	client.nick = oldClient.nick
+
+	for channel := range oldClient.channels {
+		channel.stateMutex.Lock()
+
+		oldModeSet := channel.members[oldClient]
+		channel.members.Remove(oldClient)
+		channel.members[client] = oldModeSet
+		channel.regenerateMembersCache()
+
+		// send join for old clients
+		for member := range channel.members {
+			if member.capabilities.Has(caps.Resume) {
+				continue
+			}
+
+			if member.capabilities.Has(caps.ExtendedJoin) {
+				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
+			} else {
+				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
+			}
+
+			//TODO(dan): send priv modes
+		}
+
+		channel.stateMutex.Unlock()
+	}
+
+	server.clients.byNick[oldnick] = client
+
+	oldClient.destroy()
 }
 
 // IdleTime returns how long this client's been idle.
@@ -494,7 +593,7 @@ func (client *Client) Quit(message string) {
 }
 
 // destroy gets rid of a client, removes them from server lists etc.
-func (client *Client) destroy() {
+func (client *Client) destroy(beingResumed bool) {
 	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
 	isDestroyed := client.isDestroyed
@@ -504,14 +603,20 @@ func (client *Client) destroy() {
 		return
 	}
 
-	client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", client.nick))
+	if beingResumed {
+		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", client.nick))
+	} else {
+		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", client.nick))
+	}
 
 	// send quit/error message to client if they haven't been sent already
 	client.Quit("Connection closed")
 
-	client.server.whoWas.Append(client)
 	friends := client.Friends()
 	friends.Remove(client)
+	if !beingResumed {
+		client.server.whoWas.Append(client)
+	}
 
 	// remove from connection limits
 	ipaddr := client.IP()
@@ -527,14 +632,18 @@ func (client *Client) destroy() {
 
 	// clean up channels
 	for _, channel := range client.Channels() {
-		channel.Quit(client)
+		if !beingResumed {
+			channel.Quit(client)
+		}
 		for _, member := range channel.Members() {
 			friends.Add(member)
 		}
 	}
 
 	// clean up server
-	client.server.clients.Remove(client)
+	if !beingResumed {
+		client.server.clients.Remove(client)
+	}
 
 	// clean up self
 	if client.idletimer != nil {
@@ -544,14 +653,20 @@ func (client *Client) destroy() {
 	client.socket.Close()
 
 	// send quit messages to friends
-	for friend := range friends {
-		if client.quitMessage == "" {
-			client.quitMessage = "Exited"
+	if !beingResumed {
+		for friend := range friends {
+			if client.quitMessage == "" {
+				client.quitMessage = "Exited"
+			}
+			friend.Send(nil, client.nickMaskString, "QUIT", client.quitMessage)
 		}
-		friend.Send(nil, client.nickMaskString, "QUIT", client.quitMessage)
 	}
 	if !client.exitedSnomaskSent {
-		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), client.nick))
+		if beingResumed {
+			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r is resuming their connection, old client has been destroyed"), client.nick))
+		} else {
+			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), client.nick))
+		}
 	}
 }
 

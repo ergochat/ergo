@@ -424,6 +424,12 @@ Indicates that you're leaving the server, and shows everyone the given reason.`,
 
 Reloads the config file and updates TLS certificates on listeners`,
 	},
+	"resume": {
+		text: `RESUME <oldnick> [timestamp]
+
+Sent before registration has completed, this indicates that the client wants to
+resume their old connection <oldnick>.`,
+	},
 	"time": {
 		text: `TIME [server]
 

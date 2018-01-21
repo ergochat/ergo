@@ -37,6 +37,8 @@ const (
 	MultiPrefix Capability = "multi-prefix"
 	// Rename is this proposed capability: https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md
 	Rename Capability = "draft/rename"
+	// Resume is this proposed capability: https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md
+	Resume Capability = "draft/resume"
 	// SASL is this IRCv3 capability: http://ircv3.net/specs/extensions/sasl-3.2.html
 	SASL Capability = "sasl"
 	// ServerTime is this IRCv3 capability: http://ircv3.net/specs/extensions/server-time-3.2.html
