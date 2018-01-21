@@ -351,6 +351,9 @@ func (client *Client) TryResume() {
 		return
 	}
 
+	// unmark the new client's nick as being occupied
+	server.clients.removeInternal(client)
+
 	// send RESUMED to the reconnecting client
 	if timestamp == nil {
 		client.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname())
@@ -402,7 +405,7 @@ func (client *Client) TryResume() {
 
 	server.clients.byNick[oldnick] = client
 
-	oldClient.destroy(false)
+	oldClient.destroy(true)
 }
 
 // IdleTime returns how long this client's been idle.
@@ -602,12 +605,14 @@ func (client *Client) Quit(message string) {
 // destroy gets rid of a client, removes them from server lists etc.
 func (client *Client) destroy(beingResumed bool) {
 	// allow destroy() to execute at most once
-	client.stateMutex.Lock()
-	isDestroyed := client.isDestroyed
-	client.isDestroyed = true
-	client.stateMutex.Unlock()
-	if isDestroyed {
-		return
+	if !beingResumed {
+		client.stateMutex.Lock()
+		isDestroyed := client.isDestroyed
+		client.isDestroyed = true
+		client.stateMutex.Unlock()
+		if isDestroyed {
+			return
+		}
 	}
 
 	if beingResumed {
@@ -647,17 +652,25 @@ func (client *Client) destroy(beingResumed bool) {
 		}
 	}
 
+	fmt.Println("2")
+
 	// clean up server
 	if !beingResumed {
 		client.server.clients.Remove(client)
 	}
+
+	fmt.Println("3")
 
 	// clean up self
 	if client.idletimer != nil {
 		client.idletimer.Stop()
 	}
 
+	fmt.Println("4")
+
 	client.socket.Close()
+
+	fmt.Println("5")
 
 	// send quit messages to friends
 	if !beingResumed {
