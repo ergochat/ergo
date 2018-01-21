@@ -211,7 +211,7 @@ func (client *Client) run() {
 			}
 		}
 		// ensure client connection gets closed
-		client.destroy()
+		client.destroy(false)
 	}()
 
 	client.idletimer = NewIdleTimer(client)
@@ -395,7 +395,7 @@ func (client *Client) TryResume() {
 
 	server.clients.byNick[oldnick] = client
 
-	oldClient.destroy()
+	oldClient.destroy(false)
 }
 
 // IdleTime returns how long this client's been idle.

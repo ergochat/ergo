@@ -104,7 +104,7 @@ func (it *IdleTimer) processTimeout() {
 		it.client.Ping()
 	} else {
 		it.client.Quit(it.quitMessage(previousState))
-		it.client.destroy()
+		it.client.destroy(false)
 	}
 }
 

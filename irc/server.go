@@ -424,7 +424,7 @@ func (server *Server) tryRegister(c *Client) {
 			reason += fmt.Sprintf(" [%s]", info.Time.Duration.String())
 		}
 		c.Quit(fmt.Sprintf("You are banned from this server (%s)", reason))
-		c.destroy()
+		c.destroy(false)
 		return
 	}
 
@@ -2016,7 +2016,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target.exitedSnomaskSent = true
 
 	target.Quit(quitMsg)
-	target.destroy()
+	target.destroy(false)
 	return false
 }
 
@@ -2093,13 +2093,13 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var timestamp *time.Time
 	if 1 < len(msg.Params) {
-		timestamp, err := time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
+		timestamp, err = time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
 		if err != nil {
 			client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it")
 		}
 	}
 
-	client.resumeDetails = ResumeDetails{
+	client.resumeDetails = &ResumeDetails{
 		OldNick:   oldnick,
 		Timestamp: timestamp,
 	}

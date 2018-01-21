@@ -298,7 +298,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy()
+				mcl.destroy(false)
 			}
 		}
 
