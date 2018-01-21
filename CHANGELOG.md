@@ -13,6 +13,9 @@ New release of Oragono!
 
 ### Added
 * Added proposed IRCv3 capability [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6).
+* Added proposed IRCv3 capability [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
+* Added user modes, including:
+    * `B`: Mark yourself as a bot, and display that you're a bot in WHOIS.
 
 ### Changed
 * Message IDs are now much shorter and easier to read – down from 39 characters to 16 while preserving a very similar gaurantee of uniqueness (thanks [@prawnsalad](https://github.com/prawnsalad) for bringing up this issue).
