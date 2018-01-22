@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -143,6 +144,15 @@ type StackImpactConfig struct {
 	AppName  string `yaml:"app-name"`
 }
 
+// LangData is the data contained in a language file.
+type LangData struct {
+	Name         string
+	Code         string
+	Maintainers  string
+	Incomplete   bool
+	Translations map[string]string
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -170,6 +180,8 @@ type Config struct {
 	Languages struct {
 		Enabled bool
 		Path    string
+		Default string
+		Data    map[string]LangData
 	}
 
 	Datastore struct {
@@ -468,6 +480,73 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.MaxSendQBytes, err = bytefmt.ToBytes(config.Server.MaxSendQString)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse maximum SendQ size (make sure it only contains whole numbers): %s", err.Error())
+	}
+
+	// get language files
+	config.Languages.Data = make(map[string]LangData)
+	if config.Languages.Enabled {
+		files, err := ioutil.ReadDir(config.Languages.Path)
+		if err != nil {
+			return nil, fmt.Errorf("Could not load language files: %s", err.Error())
+		}
+
+		for _, f := range files {
+			// skip dirs
+			if f.IsDir() {
+				continue
+			}
+
+			// only load .lang.yaml files
+			name := f.Name()
+			if !strings.HasSuffix(strings.ToLower(name), ".lang.yaml") {
+				continue
+			}
+
+			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, name))
+			if err != nil {
+				return nil, fmt.Errorf("Could not load language file [%s]: %s", name, err.Error())
+			}
+
+			var langInfo LangData
+			err = yaml.Unmarshal(data, &langInfo)
+			if err != nil {
+				return nil, fmt.Errorf("Could not parse language file [%s]: %s", name, err.Error())
+			}
+
+			// confirm that values are correct
+			if langInfo.Code == "en" {
+				return nil, fmt.Errorf("Cannot have language file with code 'en' (this is the default language using strings inside the server code). If you're making an English variant, name it with a more specific code")
+			}
+
+			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Maintainers == "" {
+				return nil, fmt.Errorf("Code, name or maintainers is empty in language file [%s]", name)
+			}
+
+			if len(langInfo.Translations) == 0 {
+				return nil, fmt.Errorf("Language file [%s] contains no translations", name)
+			}
+
+			// check for duplicate languages
+			_, exists := config.Languages.Data[strings.ToLower(langInfo.Code)]
+			if exists {
+				return nil, fmt.Errorf("Language code [%s] defined twice", langInfo.Code)
+			}
+
+			// and insert into lang info
+			config.Languages.Data[strings.ToLower(langInfo.Code)] = langInfo
+		}
+
+		// confirm that default language exists
+		if config.Languages.Default == "" {
+			config.Languages.Default = "en"
+		} else {
+			config.Languages.Default = strings.ToLower(config.Languages.Default)
+		}
+
+		_, exists := config.Languages.Data[config.Languages.Default]
+		if config.Languages.Default != "en" && !exists {
+			return nil, fmt.Errorf("Cannot find default language [%s]", config.Languages.Default)
+		}
 	}
 
 	return config, nil

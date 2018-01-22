@@ -131,6 +131,11 @@ var Commands = map[string]Command{
 		minParams: 1,
 		oper:      true,
 	},
+	"LANGUAGE": {
+		handler:      languageHandler,
+		usablePreReg: true,
+		minParams:    1,
+	},
 	"LIST": {
 		handler:   listHandler,
 		minParams: 0,

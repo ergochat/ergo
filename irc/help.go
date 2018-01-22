@@ -250,6 +250,11 @@ ON <server> specifies that the ban is to be set on that specific server.
 
 If "KLINE LIST" is sent, the server sends back a list of our current KLINEs.`,
 	},
+	"language": {
+		text: `LANGUAGE <code>{ <code>}
+
+Sets your preferred languages to the given ones.`,
+	},
 	"list": {
 		text: `LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
 

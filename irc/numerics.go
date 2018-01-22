@@ -161,6 +161,8 @@ const (
 	ERR_HELPNOTFOUND                = "524"
 	ERR_CANNOTSENDRP                = "573"
 	RPL_WHOISSECURE                 = "671"
+	RPL_YOURLANGUAGESARE            = "687"
+	RPL_WHOISLANGUAGE               = "690"
 	RPL_HELPSTART                   = "704"
 	RPL_HELPTXT                     = "705"
 	RPL_ENDOFHELP                   = "706"
@@ -188,4 +190,6 @@ const (
 	RPL_REG_VERIFICATION_REQUIRED   = "927"
 	ERR_REG_INVALID_CRED_TYPE       = "928"
 	ERR_REG_INVALID_CALLBACK        = "929"
+	ERR_TOOMANYLANGUAGES            = "981"
+	ERR_NOLANGUAGE                  = "982"
 )

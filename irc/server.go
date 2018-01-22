@@ -154,7 +154,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
-		languages:           NewLanguageManager(),
+		languages:           NewLanguageManager(config.Languages.Data),
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
@@ -984,6 +984,9 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 func (client *Client) getWhoisOf(target *Client) {
+	target.stateMutex.RLock()
+	defer target.stateMutex.RUnlock()
+
 	client.Send(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
 
 	whoischannels := client.WhoisChannelsNames(target)
@@ -1002,6 +1005,16 @@ func (client *Client) getWhoisOf(target *Client) {
 	if target.flags[Bot] {
 		client.Send(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape("is a $bBot$b on ")+client.server.networkName)
 	}
+
+	if 0 < len(target.languages) {
+		params := []string{client.nick, target.nick}
+		for _, str := range client.server.languages.Codes(target.languages) {
+			params = append(params, str)
+		}
+		params = append(params, "can speak these languages")
+		client.Send(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
+	}
+
 	if target.certfp != "" && (client.flags[Operator] || client == target) {
 		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf("has client certificate fingerprint %s", target.certfp))
 	}
@@ -1236,6 +1249,25 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	addedCaps := caps.NewSet()
 	removedCaps := caps.NewSet()
 	updatedCaps := caps.NewSet()
+
+	// Translations
+	currentLanguageValue, _ := CapValues.Get(caps.Languages)
+
+	langCodes := []string{strconv.Itoa(len(config.Languages.Data) + 1), "en"}
+	for _, info := range config.Languages.Data {
+		if info.Incomplete {
+			langCodes = append(langCodes, "~"+info.Code)
+		} else {
+			langCodes = append(langCodes, info.Code)
+		}
+	}
+	newLanguageValue := strings.Join(langCodes, ",")
+	server.logger.Debug("rehash", "Languages:", newLanguageValue)
+
+	if currentLanguageValue != newLanguageValue {
+		updatedCaps.Add(caps.Languages)
+		CapValues.Set(caps.Languages, newLanguageValue)
+	}
 
 	// SASL
 	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
@@ -2073,6 +2105,62 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 		}
 		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s%s=%s%s@%s", target.nick, isOper, isAway, target.username, target.hostname))
 	}
+
+	return false
+}
+
+// LANGUAGE <code>{ <code>}
+func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	alreadyDoneLanguages := make(map[string]bool)
+	var appliedLanguages []string
+
+	supportedLanguagesCount := server.languages.Count()
+	if supportedLanguagesCount < len(msg.Params) {
+		client.Send(nil, client.server.name, ERR_TOOMANYLANGUAGES, client.nick, strconv.Itoa(supportedLanguagesCount), "You specified too many languages")
+		return false
+	}
+
+	for _, value := range msg.Params {
+		value = strings.ToLower(value)
+		// strip ~ from the language if it has it
+		value = strings.TrimPrefix(value, "~")
+
+		// silently ignore empty languages or those with spaces in them
+		if len(value) == 0 || strings.Contains(value, " ") {
+			continue
+		}
+
+		_, exists := server.languages.Info[value]
+		if !exists {
+			client.Send(nil, client.server.name, ERR_NOLANGUAGE, client.nick, "Languages are not supported by this server")
+			return false
+		}
+
+		// if we've already applied the given language, skip it
+		_, exists = alreadyDoneLanguages[value]
+		if exists {
+			continue
+		}
+
+		appliedLanguages = append(appliedLanguages, value)
+	}
+
+	client.stateMutex.Lock()
+	if len(appliedLanguages) == 1 && appliedLanguages[0] == "en" {
+		// premature optimisation ahoy!
+		client.languages = []string{}
+	} else {
+		client.languages = appliedLanguages
+	}
+	client.stateMutex.Unlock()
+
+	params := []string{client.nick}
+	for _, lang := range appliedLanguages {
+		params = append(params, lang)
+	}
+	params = append(params, client.t("Language preferences have been set"))
+
+	client.Send(nil, client.server.name, RPL_YOURLANGUAGESARE, params...)
 
 	return false
 }
