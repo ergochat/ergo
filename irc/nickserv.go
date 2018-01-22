@@ -20,5 +20,5 @@ func (server *Server) nickservReceiveNotice(client *Client, message string) {
 }
 
 func (server *Server) nickservReceivePrivmsg(client *Client, message string) {
-	client.Notice("NickServ is not yet implemented, sorry! To register an account, check /HELPOP REG")
+	client.Notice(client.t("NickServ is not yet implemented, sorry! To register an account, check /HELPOP REG"))
 }

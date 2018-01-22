@@ -85,7 +85,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 
-	client.Quit("WEBIRC command is not usable from your address or incorrect password given")
+	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"))
 	return true
 }
 
@@ -107,7 +107,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			return client.ApplyProxiedIP(proxiedIP, true)
 		}
 	}
-	client.Quit("PROXY command is not usable from your address")
+	client.Quit(client.t("PROXY command is not usable from your address"))
 	return true
 }
 
@@ -116,7 +116,7 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (exiting bool) 
 	// ensure IP is sane
 	parsedProxiedIP := net.ParseIP(proxiedIP)
 	if parsedProxiedIP == nil {
-		client.Quit(fmt.Sprintf("Proxied IP address is not valid: [%s]", proxiedIP))
+		client.Quit(fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP))
 		return true
 	}
 

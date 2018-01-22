@@ -123,7 +123,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], "Unknown subcommand")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], client.t("Unknown subcommand"))
 		return false
 	}
 
@@ -132,7 +132,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 
 func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 
@@ -150,7 +150,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 
 func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 

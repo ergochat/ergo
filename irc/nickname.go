@@ -36,12 +36,12 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	cfnick, err := CasefoldName(nickname)
 
 	if len(nickname) < 1 {
-		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, "No nickname given")
+		client.Send(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, client.t("No nickname given"))
 		return false
 	}
 
 	if err != nil || len(nickname) > server.Limits().NickLen || restrictedNicknames[cfnick] {
-		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nickname, "Erroneous nickname")
+		client.Send(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nickname, client.t("Erroneous nickname"))
 		return false
 	}
 
@@ -54,10 +54,10 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	origNickMask := target.NickMaskString()
 	err = client.server.clients.SetNick(target, nickname)
 	if err == ErrNicknameInUse {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, "Nickname is already in use")
+		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
 		return false
 	} else if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf("Could not set or change nickname: %s", err.Error()))
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 		return false
 	}
 
@@ -83,7 +83,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	targetNick := strings.TrimSpace(msg.Params[0])
 	target := server.clients.Get(targetNick)
 	if target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
+		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		return false
 	}
 	return performNickChange(server, client, target, msg.Params[1])

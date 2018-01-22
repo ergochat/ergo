@@ -34,7 +34,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	_, err := CasefoldName(fakeSource)
 	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, "Fake source must be a valid nickname")
+		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
 		return false
 	}
 
@@ -54,7 +54,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	_, err := CasefoldName(fakeSource)
 	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, "Fake source must be a valid nickname")
+		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
 		return false
 	}
 
@@ -74,17 +74,17 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 	if cerr == nil {
 		channel := server.channels.Get(target)
 		if channel == nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, "No such channel")
+			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
 			return
 		}
 
 		if !channel.CanSpeak(client) {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, "Cannot send to channel")
+			client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 			return
 		}
 
 		if !channel.flags[ChanRoleplaying] {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, "Channel doesn't have roleplaying mode available")
+			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
 			return
 		}
 
@@ -98,12 +98,12 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)
 		if err != nil || user == nil {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "No such nick")
+			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, client.t("No such nick"))
 			return
 		}
 
 		if !user.flags[UserRoleplaying] {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, "User doesn't have roleplaying mode enabled")
+			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, client.t("User doesn't have roleplaying mode enabled"))
 			return
 		}
 

@@ -330,7 +330,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := server.clients.Get(nickname)
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], "No such nick")
+			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		}
 		return false
 	}
@@ -340,9 +340,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if !hasPrivs {
 		if len(msg.Params) > 1 {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't change modes for other users")
+			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
 		} else {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, "Can't view modes for other users")
+			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
 		}
 		return false
 	}
@@ -357,7 +357,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), "is an unknown mode character to me")
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
@@ -374,7 +374,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if client.flags[LocalOperator] || client.flags[Operator] {
 			masks := server.snomasks.String(client)
 			if 0 < len(masks) {
-				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, "Server notice masks")
+				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
 			}
 		}
 	}
@@ -521,7 +521,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
-				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, "You're not a channel operator")
+				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
 			}
 			continue
 		}
@@ -543,7 +543,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case Add:
 				if channel.lists[change.mode].Length() >= client.server.Limits().ChanListModes {
 					if !listFullWarned[change.mode] {
-						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.mode.String(), "Channel list is full")
+						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.mode.String(), client.t("Channel list is full"))
 						listFullWarned[change.mode] = true
 					}
 					continue
@@ -612,7 +612,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	channel := server.channels.Get(channelName)
 
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], "No such channel")
+		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
 		return false
 	}
 
@@ -626,7 +626,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), "is an unknown mode character to me")
+			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false

@@ -221,7 +221,7 @@ func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -232,11 +232,11 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		bans := server.dlines.AllBans()
 
 		if len(bans) == 0 {
-			client.Notice("No DLINEs have been set!")
+			client.Notice(client.t("No DLINEs have been set!"))
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf("Ban - %s - added by %s - %s", key, info.OperName, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf(client.t("Ban - %s - added by %s - %s"), key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -266,7 +266,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// get host
 	if len(msg.Params) < currentArg+1 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 	hostString := msg.Params[currentArg]
@@ -282,27 +282,27 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if hostAddr == nil && hostNet == nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Could not parse IP address or CIDR network")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
 	if hostNet == nil {
 		hostString = hostAddr.String()
 		if !dlineMyself && hostAddr.Equal(client.IP()) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 			return false
 		}
 	} else {
 		hostString = hostNet.String()
 		if !dlineMyself && hostNet.Contains(client.IP()) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 			return false
 		}
 	}
 
 	// check remote
 	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Remote servers not yet supported")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
 		return false
 	}
 
@@ -360,7 +360,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	})
 
 	if err != nil {
-		client.Notice(fmt.Sprintf("Could not successfully save new D-LINE: %s", err.Error()))
+		client.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))
 		return false
 	}
 
@@ -401,7 +401,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true
-			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason))
 			if mcl == client {
 				killClient = true
 			} else {
@@ -421,7 +421,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -438,7 +438,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	}
 
 	if hostAddr == nil && hostNet == nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Could not parse IP address or CIDR network")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
@@ -465,7 +465,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf("Could not remove ban [%s]", err.Error()))
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
@@ -475,7 +475,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		server.dlines.RemoveNetwork(*hostNet)
 	}
 
-	client.Notice(fmt.Sprintf("Removed D-Line for %s", hostString))
+	client.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
 	return false
 }

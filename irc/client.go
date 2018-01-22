@@ -102,6 +102,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
+
 	client.recomputeMaxlens()
 	if isTLS {
 		client.flags[TLS] = true
@@ -121,20 +122,20 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 			log.Fatal(err)
 		}
 
-		client.Notice("*** Looking up your username")
+		client.Notice(client.t("*** Looking up your username"))
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
 			username := resp.Identifier
 			_, err := CasefoldName(username) // ensure it's a valid username
 			if err == nil {
-				client.Notice("*** Found your username")
+				client.Notice(client.t("*** Found your username"))
 				client.username = username
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
-				client.Notice("*** Got a malformed username, ignoring")
+				client.Notice(client.t("*** Got a malformed username, ignoring"))
 			}
 		} else {
-			client.Notice("*** Could not find your username")
+			client.Notice(client.t("*** Could not find your username"))
 		}
 	}
 	go client.run()
@@ -236,16 +237,16 @@ func (client *Client) run() {
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err != nil {
-			client.Quit("received malformed line")
+			client.Quit(client.t("Received malformed line"))
 			break
 		}
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
 			if len(msg.Command) > 0 {
-				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, "Unknown command")
+				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, msg.Command, client.t("Unknown command"))
 			} else {
-				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, "lastcmd", "No command given")
+				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.nick, "lastcmd", client.t("No command given"))
 			}
 			continue
 		}
@@ -328,13 +329,13 @@ func (client *Client) TryResume() {
 	// can't use server.clients.Get since we hold server.clients' tier 1 mutex
 	casefoldedName, err := CasefoldName(oldnick)
 	if err != nil {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old client not found")
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old client not found"))
 		return
 	}
 
 	oldClient := server.clients.byNick[casefoldedName]
 	if oldClient == nil {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old client not found")
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old client not found"))
 		return
 	}
 
@@ -342,12 +343,12 @@ func (client *Client) TryResume() {
 	newAccountName := client.AccountName()
 
 	if oldAccountName == "" || newAccountName == "" || oldAccountName != newAccountName {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old and new clients must be logged into the same account")
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must be logged into the same account"))
 		return
 	}
 
 	if !oldClient.HasMode(TLS) || !client.HasMode(TLS) {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, "Cannot resume connection, old and new clients must have TLS")
+		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
 		return
 	}
 
@@ -370,7 +371,7 @@ func (client *Client) TryResume() {
 				friend.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname(), timestampString)
 			}
 		} else {
-			friend.Send(nil, oldClient.NickMaskString(), "QUIT", "Client reconnected")
+			friend.Send(nil, oldClient.NickMaskString(), "QUIT", friend.t("Client reconnected"))
 		}
 	}
 

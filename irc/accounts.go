@@ -91,7 +91,7 @@ func loadAccount(server *Server, tx *buntdb.Tx, accountKey string) *ClientAccoun
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// sasl abort
 	if !server.accountAuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
-		client.Send(nil, server.name, ERR_SASLABORTED, client.nick, "SASL authentication aborted")
+		client.Send(nil, server.name, ERR_SASLABORTED, client.nick, client.t("SASL authentication aborted"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -108,7 +108,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 			client.saslMechanism = mechanism
 			client.Send(nil, server.name, "AUTHENTICATE", "+")
 		} else {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed")
+			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		}
 
 		return false
@@ -118,7 +118,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	rawData := msg.Params[0]
 
 	if len(rawData) > 400 {
-		client.Send(nil, server.name, ERR_SASLTOOLONG, client.nick, "SASL message too long")
+		client.Send(nil, server.name, ERR_SASLTOOLONG, client.nick, client.t("SASL message too long"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -127,7 +127,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 		client.saslValue += rawData
 		// allow 4 'continuation' lines before rejecting for length
 		if len(client.saslValue) > 400*4 {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed: Passphrase too long")
+			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Passphrase too long"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -144,7 +144,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	if client.saslValue != "+" {
 		data, err = base64.StdEncoding.DecodeString(client.saslValue)
 		if err != nil {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed: Invalid b64 encoding")
+			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -157,7 +157,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 
 	// like 100% not required, but it's good to be safe I guess
 	if !handlerExists {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -188,18 +188,18 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		if accountKey == "" {
 			accountKey = authzid
 		} else if accountKey != authzid {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed: authcid and authzid should be the same")
+			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
 			return false
 		}
 	} else {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed: Invalid auth blob")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid auth blob"))
 		return false
 	}
 
 	// keep it the same as in the REG CREATE stage
 	accountKey, err := CasefoldName(accountKey)
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed: Bad account name")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Bad account name"))
 		return false
 	}
 
@@ -236,7 +236,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		return false
 	}
 
@@ -295,7 +295,7 @@ func (client *Client) LogoutOfAccount() {
 // authExternalHandler parses the SASL EXTERNAL mechanism.
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
 	if client.certfp == "" {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed, you are not connecting with a certificate")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
 		return false
 	}
 
@@ -336,7 +336,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, "SASL authentication failed")
+		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		return false
 	}
 
@@ -347,7 +347,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 // successfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
 func (client *Client) successfulSaslAuth() {
 	client.Send(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
-	client.Send(nil, client.server.name, RPL_SASLSUCCESS, client.nick, "SASL authentication successful")
+	client.Send(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
 
 	// dispatch account-notify
 	for friend := range client.Friends(caps.AccountNotify) {

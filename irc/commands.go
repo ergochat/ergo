@@ -21,19 +21,19 @@ type Command struct {
 // Run runs this command with the given client/message.
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
-		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, "You need to register before you can use that command")
+		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, client.t("You need to register before you can use that command"))
 		return false
 	}
 	if cmd.oper && !client.flags[Operator] {
-		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied - You're not an IRC operator")
+		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied - You're not an IRC operator"))
 		return false
 	}
 	if len(cmd.capabs) > 0 && !client.HasRoleCapabs(cmd.capabs...) {
-		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, "Permission Denied")
+		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied"))
 		return false
 	}
 	if len(msg.Params) < cmd.minParams {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 	if !cmd.leaveClientActive {

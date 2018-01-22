@@ -67,9 +67,9 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if subcommand == "register" {
 		return accRegisterHandler(server, client, msg)
 	} else if subcommand == "verify" {
-		client.Notice("VERIFY is not yet implemented")
+		client.Notice(client.t("VERIFY is not yet implemented"))
 	} else {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], "Unknown subcommand")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
 	}
 
 	return false
@@ -91,7 +91,7 @@ func removeFailedAccRegisterData(store *buntdb.DB, account string) {
 func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// make sure reg is enabled
 	if !server.accountRegistration.Enabled {
-		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "Account registration is disabled")
+		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("Account registration is disabled"))
 		return false
 	}
 
@@ -100,7 +100,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		if server.accountRegistration.AllowMultiplePerConnection {
 			client.LogoutOfAccount()
 		} else {
-			client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", "You're already logged into an account")
+			client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
 			return false
 		}
 	}
@@ -110,7 +110,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	casefoldedAccount, err := CasefoldName(account)
 	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
 	if err != nil || msg.Params[1] == "*" {
-		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, "Account name is not valid")
+		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, client.t("Account name is not valid"))
 		return false
 	}
 
@@ -122,7 +122,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		_, err := tx.Get(accountKey)
 		if err != buntdb.ErrNotFound {
 			//TODO(dan): if account verified key doesn't exist account is not verified, calc the maximum time without verification and expire and continue if need be
-			client.Send(nil, server.name, ERR_ACCOUNT_ALREADY_EXISTS, client.nick, account, "Account already exists")
+			client.Send(nil, server.name, ERR_ACCOUNT_ALREADY_EXISTS, client.nick, account, client.t("Account already exists"))
 			return errAccountCreation
 		}
 
@@ -137,7 +137,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
 		if err != errAccountCreation {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", "Could not register")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
 			log.Println("Could not save registration initial data:", err.Error())
 		}
 		return false
@@ -167,7 +167,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	if !callbackValid {
-		client.Send(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, "Callback namespace is not supported")
+		client.Send(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, client.t("Callback namespace is not supported"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -182,7 +182,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		credentialType = "passphrase" // default from the spec
 		credentialValue = msg.Params[3]
 	} else {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -195,13 +195,13 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "You are not using a TLS certificate")
+		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("You are not using a TLS certificate"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
 
 	if !credentialValid {
-		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, "Credential type is not supported")
+		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("Credential type is not supported"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -274,14 +274,14 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 			server.accounts[casefoldedAccount] = &account
 			client.account = &account
 
-			client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, "Account created")
-			client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf("You are now logged in as %s", account.Name))
-			client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, "Authentication successful")
+			client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, client.t("Account created"))
+			client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
+			client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
 			server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), account.Name, client.nickMaskString))
 			return nil
 		})
 		if err != nil {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", "Could not register")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
 			log.Println("Could not save verification confirmation (*):", err.Error())
 			removeFailedAccRegisterData(server.store, casefoldedAccount)
 			return false

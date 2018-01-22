@@ -35,7 +35,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 		}
 	}
 	if len(params) < 1 {
-		client.ChanServNotice("You need to run a command")
+		client.ChanServNotice(client.t("You need to run a command"))
 		//TODO(dan): dump CS help here
 		return
 	}
@@ -45,30 +45,30 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 
 	if command == "register" {
 		if len(params) < 2 {
-			client.ChanServNotice("Syntax: REGISTER <channel>")
+			client.ChanServNotice(client.t("Syntax: REGISTER <channel>"))
 			return
 		}
 
 		if !server.channelRegistrationEnabled {
-			client.ChanServNotice("Channel registration is not enabled")
+			client.ChanServNotice(client.t("Channel registration is not enabled"))
 			return
 		}
 
 		channelName := params[1]
 		channelKey, err := CasefoldChannel(channelName)
 		if err != nil {
-			client.ChanServNotice("Channel name is not valid")
+			client.ChanServNotice(client.t("Channel name is not valid"))
 			return
 		}
 
 		channelInfo := server.channels.Get(channelKey)
 		if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, ChannelOperator) {
-			client.ChanServNotice("You must be an oper on the channel to register it")
+			client.ChanServNotice(client.t("You must be an oper on the channel to register it"))
 			return
 		}
 
 		if client.account == &NoAccount {
-			client.ChanServNotice("You must be logged in to register a channel")
+			client.ChanServNotice(client.t("You must be logged in to register a channel"))
 			return
 		}
 
@@ -82,7 +82,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 		// registration was successful: make the database reflect it
 		go server.channelRegistry.StoreChannel(channelInfo, true)
 
-		client.ChanServNotice(fmt.Sprintf("Channel %s successfully registered", channelName))
+		client.ChanServNotice(fmt.Sprintf(client.t("Channel %s successfully registered"), channelName))
 
 		server.logger.Info("chanserv", fmt.Sprintf("Client %s registered channel %s", client.nick, channelName))
 		server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
@@ -98,6 +98,6 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 			}
 		}
 	} else {
-		client.ChanServNotice("Sorry, I don't know that command")
+		client.ChanServNotice(client.t("Sorry, I don't know that command"))
 	}
 }

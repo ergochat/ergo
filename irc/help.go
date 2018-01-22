@@ -652,7 +652,7 @@ func (client *Client) sendHelp(name string, text string) {
 		}
 	}
 	args := splitName
-	args = append(args, "End of /HELPOP")
+	args = append(args, client.t("End of /HELPOP"))
 	client.Send(nil, client.server.name, RPL_ENDOFHELP, args...)
 }
 
@@ -661,9 +661,9 @@ func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
 
 	if len(argument) < 1 {
-		client.sendHelp("HELPOP", `HELPOP <argument>
+		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
 
-Get an explanation of <argument>, or "index" for a list of help topics.`)
+Get an explanation of <argument>, or "index" for a list of help topics.`))
 		return false
 	}
 
@@ -683,7 +683,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`)
 		client.sendHelp(strings.ToUpper(argument), helpHandler.text)
 	} else {
 		args := msg.Params
-		args = append(args, "Help not found")
+		args = append(args, client.t("Help not found"))
 		client.Send(nil, server.name, ERR_HELPNOTFOUND, args...)
 	}
 

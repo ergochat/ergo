@@ -88,7 +88,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 	default:
-		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, "Invalid CAP subcommand")
+		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, client.t("Invalid CAP subcommand"))
 	}
 	return false
 }

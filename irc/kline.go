@@ -132,7 +132,7 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanI
 func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -147,7 +147,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf("Ban - %s - added by %s - %s", key, info.OperName, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf(client.t("Ban - %s - added by %s - %s"), key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -177,7 +177,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// get mask
 	if len(msg.Params) < currentArg+1 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, "Not enough parameters")
+		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 	mask := strings.ToLower(msg.Params[currentArg])
@@ -194,14 +194,14 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	for _, clientMask := range client.AllNickmasks() {
 		if !klineMyself && matcher.Match(clientMask) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>")
+			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
 			return false
 		}
 	}
 
 	// check remote
 	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, "Remote servers not yet supported")
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
 		return false
 	}
 
@@ -261,7 +261,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	})
 
 	if err != nil {
-		client.Notice(fmt.Sprintf("Could not successfully save new K-LINE: %s", err.Error()))
+		client.Notice(fmt.Sprintf(client.t("Could not successfully save new K-LINE: %s"), err.Error()))
 		return false
 	}
 
@@ -269,10 +269,10 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf("Added temporary (%s) K-Line for %s", duration.String(), mask))
+		client.Notice(fmt.Sprintf(client.t("Added temporary (%s) K-Line for %s"), duration.String(), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
 	} else {
-		client.Notice(fmt.Sprintf("Added K-Line for %s", mask))
+		client.Notice(fmt.Sprintf(client.t("Added K-Line for %s"), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added K-Line for %s"), client.nick, operName, mask)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
@@ -293,7 +293,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true
-			mcl.Quit(fmt.Sprintf("You have been banned from this server (%s)", reason))
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason))
 			if mcl == client {
 				killClient = true
 			} else {
@@ -313,7 +313,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, "Insufficient oper privs")
+		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -343,13 +343,13 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf("Could not remove ban [%s]", err.Error()))
+		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
 	server.klines.RemoveMask(mask)
 
-	client.Notice(fmt.Sprintf("Removed K-Line for %s", mask))
+	client.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), client.nick, mask))
 	return false
 }
