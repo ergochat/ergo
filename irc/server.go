@@ -463,6 +463,23 @@ func (server *Server) tryRegister(c *Client) {
 			}
 			channel.SendTopic(c)
 			channel.Names(c)
+
+			// construct and send fake modestring if necessary
+			c.stateMutex.RLock()
+			myModes := channel.members[c]
+			c.stateMutex.RUnlock()
+			if myModes == nil {
+				continue
+			}
+			oldModes := myModes.String()
+			if 0 < len(oldModes) {
+				params := []string{channel.name, "+" + oldModes}
+				for _ = range oldModes {
+					params = append(params, c.nick)
+				}
+
+				c.Send(nil, server.name, "MODE", params...)
+			}
 		}
 	}
 }

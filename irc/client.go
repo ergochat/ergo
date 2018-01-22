@@ -376,16 +376,28 @@ func (client *Client) TryResume() {
 
 	// apply old client's details to new client
 	client.nick = oldClient.nick
+	client.updateNickMaskNoMutex()
 
 	for channel := range oldClient.channels {
 		channel.stateMutex.Lock()
 
+		client.channels[channel] = true
 		client.resumeDetails.SendFakeJoinsFor = append(client.resumeDetails.SendFakeJoinsFor, channel.name)
 
 		oldModeSet := channel.members[oldClient]
 		channel.members.Remove(oldClient)
 		channel.members[client] = oldModeSet
 		channel.regenerateMembersCache(true)
+
+		// construct fake modestring if necessary
+		oldModes := oldModeSet.String()
+		var params []string
+		if 0 < len(oldModes) {
+			params = []string{channel.name, "+" + oldModes}
+			for _ = range oldModes {
+				params = append(params, client.nick)
+			}
+		}
 
 		// send join for old clients
 		for member := range channel.members {
@@ -399,7 +411,10 @@ func (client *Client) TryResume() {
 				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
 			}
 
-			//TODO(dan): send priv modes for fake new join
+			// send fake modestring if necessary
+			if 0 < len(oldModes) {
+				member.Send(nil, server.name, "MODE", params...)
+			}
 		}
 
 		channel.stateMutex.Unlock()
@@ -524,7 +539,11 @@ func (client *Client) updateNickMask(nick string) {
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+	client.updateNickMaskNoMutex()
+}
 
+// updateNickMask updates the casefolded nickname and nickmask, not holding any mutexes.
+func (client *Client) updateNickMaskNoMutex() {
 	if len(client.vhost) > 0 {
 		client.hostname = client.vhost
 	} else {
@@ -609,12 +628,14 @@ func (client *Client) destroy(beingResumed bool) {
 	// allow destroy() to execute at most once
 	if !beingResumed {
 		client.stateMutex.Lock()
-		isDestroyed := client.isDestroyed
-		client.isDestroyed = true
+	}
+	isDestroyed := client.isDestroyed
+	client.isDestroyed = true
+	if !beingResumed {
 		client.stateMutex.Unlock()
-		if isDestroyed {
-			return
-		}
+	}
+	if isDestroyed {
+		return
 	}
 
 	if beingResumed {
