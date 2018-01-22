@@ -150,7 +150,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		commands:            make(chan Command),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
-		languages:           NewLanguageManager(config.Languages.Data),
+		languages:           NewLanguageManager(config.Languages.Default, config.Languages.Data),
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),

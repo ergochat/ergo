@@ -13,13 +13,15 @@ type LanguageManager struct {
 	sync.RWMutex
 	Info         map[string]LangData
 	translations map[string]map[string]string
+	defaultLang  string
 }
 
 // NewLanguageManager returns a new LanguageManager.
-func NewLanguageManager(languageData map[string]LangData) *LanguageManager {
+func NewLanguageManager(defaultLang string, languageData map[string]LangData) *LanguageManager {
 	lm := LanguageManager{
 		Info:         make(map[string]LangData),
 		translations: make(map[string]map[string]string),
+		defaultLang:  defaultLang,
 	}
 
 	// make fake "en" info
@@ -36,6 +38,17 @@ func NewLanguageManager(languageData map[string]LangData) *LanguageManager {
 	}
 
 	return &lm
+}
+
+// Default returns the default languages.
+func (lm *LanguageManager) Default() []string {
+	lm.RLock()
+	defer lm.RUnlock()
+
+	if lm.defaultLang == "" {
+		return []string{}
+	}
+	return []string{lm.defaultLang}
 }
 
 // Count returns how many languages we have.

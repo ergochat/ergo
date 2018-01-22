@@ -102,6 +102,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
+	client.languages = server.languages.Default()
 
 	client.recomputeMaxlens()
 	if isTLS {
