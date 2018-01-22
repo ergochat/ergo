@@ -501,6 +501,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 			if !strings.HasSuffix(strings.ToLower(name), ".lang.yaml") {
 				continue
 			}
+			// don't load our example file in practice
+			if strings.ToLower(name) == "example.lang.yaml" {
+				continue
+			}
 
 			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, name))
 			if err != nil {
