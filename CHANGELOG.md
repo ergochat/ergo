@@ -12,7 +12,7 @@ New release of Oragono!
 ### Security
 
 ### Added
-* Added rough language support.
+* Added proposed IRCv3 capability [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6).
 
 ### Changed
 * Message IDs are now much shorter and easier to read – down from 39 characters to 16 while preserving a very similar gaurantee of uniqueness (thanks [@prawnsalad](https://github.com/prawnsalad) for bringing up this issue).
