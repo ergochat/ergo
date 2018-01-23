@@ -2243,6 +2243,7 @@ var (
 
          https://oragono.io/
    https://github.com/oragono/oragono
+   https://crowdin.com/project/oragono
 `, "\n")
 	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
     Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
@@ -2267,7 +2268,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
 	client.Send(nil, server.name, RPL_INFO, client.nick, "")
-	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on <3"))
+	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on")+" <3")
 	client.Send(nil, server.name, RPL_INFO, client.nick, "")
 	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
 	for _, line := range infoString2 {
@@ -2278,6 +2279,6 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for _, line := range infoString3 {
 		client.Send(nil, server.name, RPL_INFO, client.nick, line)
 	}
-	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, "End of /INFO")
+	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, client.t("End of /INFO"))
 	return false
 }
