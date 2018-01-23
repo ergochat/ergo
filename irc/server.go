@@ -1299,6 +1299,13 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		CapValues.Set(caps.Languages, newLanguageValue)
 	}
 
+	lm := NewLanguageManager(config.Languages.Default, config.Languages.Data)
+
+	server.logger.Debug("rehash", "Regenerating HELP indexes for new languages")
+	GenerateHelpIndices(lm)
+
+	server.languages = lm
+
 	// SASL
 	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
 		// enabling SASL
