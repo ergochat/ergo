@@ -539,7 +539,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 			for key, value := range tlList {
 				// because of how crowdin works, this is how we skip untranslated lines
-				if key == value {
+				if key == value || value == "" {
 					continue
 				}
 				langInfo.Translations[key] = value
@@ -560,7 +560,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 			for key, value := range tlList {
 				// because of how crowdin works, this is how we skip untranslated lines
-				if key == value {
+				if key == value || value == "" {
 					continue
 				}
 				langInfo.Translations[key] = value
