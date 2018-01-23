@@ -16,19 +16,20 @@ type HelpEntryType int
 
 const (
 	// CommandHelpEntry is a help entry explaining a client command.
-	CommandHelpEntry HelpEntryType = 0
+	CommandHelpEntry HelpEntryType = iota
 	// InformationHelpEntry is a help entry explaining general server info.
-	InformationHelpEntry HelpEntryType = 1
+	InformationHelpEntry
 	// ISupportHelpEntry is a help entry explaining a specific RPL_ISUPPORT token.
-	ISupportHelpEntry HelpEntryType = 2
+	ISupportHelpEntry
 )
 
 // HelpEntry represents an entry in the Help map.
 type HelpEntry struct {
-	oper      bool
-	text      string
-	helpType  HelpEntryType
-	duplicate bool
+	oper          bool
+	text          string
+	textGenerator func(*Client) string
+	helpType      HelpEntryType
+	duplicate     bool
 }
 
 // used for duplicates
@@ -508,8 +509,8 @@ Returns historical information on the last user with the given nickname.`,
 
 	// Informational
 	"modes": {
-		text:     cmodeHelpText + "\n\n" + umodeHelpText,
-		helpType: InformationHelpEntry,
+		textGenerator: modesTextGenerator,
+		helpType:      InformationHelpEntry,
 	},
 	"cmode": {
 		text:     cmodeHelpText,
@@ -564,26 +565,21 @@ Oragono supports the following channel membership prefixes:
 	},
 }
 
+// modesTextGenerator generates the text for the 'modes' help entry.
+// it exists only so we can translate this entry appropriately.
+func modesTextGenerator(client *Client) string {
+	return client.t(cmodeHelpText) + "\n\n" + client.t(umodeHelpText)
+}
+
 // HelpIndex contains the list of all help topics for regular users.
-var HelpIndex string
+var HelpIndex map[string]string
 
 // HelpIndexOpers contains the list of all help topics for opers.
-var HelpIndexOpers string
+var HelpIndexOpers map[string]string
 
 // GenerateHelpIndex is used to generate HelpIndex.
-func GenerateHelpIndex(forOpers bool) string {
-	newHelpIndex := `= Help Topics =
-
-Commands:
-%s
-
-RPL_ISUPPORT Tokens:
-%s
-
-Information:
-%s`
-
-	// generate them
+func GenerateHelpIndex(lm *LanguageManager, forOpers bool) map[string]string {
+	// generate the help entry lists
 	var commands, isupport, information []string
 
 	var line string
@@ -606,34 +602,58 @@ Information:
 		}
 	}
 
-	// sort the lines
+	// create the strings
 	sort.Strings(commands)
+	commandsString := strings.Join(commands, "\n")
 	sort.Strings(isupport)
+	isupportString := strings.Join(isupport, "\n")
 	sort.Strings(information)
+	informationString := strings.Join(information, "\n")
 
 	// sub them in
-	newHelpIndex = fmt.Sprintf(newHelpIndex, strings.Join(commands, "\n"), strings.Join(isupport, "\n"), strings.Join(information, "\n"))
+	defaultHelpIndex := `= Help Topics =
+
+Commands:
+%s
+
+RPL_ISUPPORT Tokens:
+%s
+
+Information:
+%s`
+
+	newHelpIndex := make(map[string]string)
+
+	newHelpIndex["en"] = fmt.Sprintf(defaultHelpIndex, commandsString, isupportString, informationString)
+
+	lm.RLock()
+	defer lm.RUnlock()
+
+	for langCode := range lm.Info {
+		translatedHelpIndex := lm.Translate([]string{langCode}, defaultHelpIndex)
+		if translatedHelpIndex != defaultHelpIndex {
+			newHelpIndex[langCode] = fmt.Sprintf(translatedHelpIndex, commandsString, isupportString, informationString)
+		}
+	}
 
 	return newHelpIndex
 }
 
 // GenerateHelpIndices generates our help indexes and confirms we have HELP entries for every command.
-func GenerateHelpIndices() error {
-	if HelpIndex != "" && HelpIndexOpers != "" {
-		return nil
-	}
-
+func GenerateHelpIndices(lm *LanguageManager) error {
 	// startup check that we have HELP entries for every command
-	for name := range Commands {
-		_, exists := Help[strings.ToLower(name)]
-		if !exists {
-			return fmt.Errorf("Help entry does not exist for command %s", name)
+	if len(HelpIndex) == 0 && len(HelpIndexOpers) == 0 {
+		for name := range Commands {
+			_, exists := Help[strings.ToLower(name)]
+			if !exists {
+				return fmt.Errorf("Help entry does not exist for command %s", name)
+			}
 		}
 	}
 
 	// generate help indexes
-	HelpIndex = GenerateHelpIndex(false)
-	HelpIndexOpers = GenerateHelpIndex(true)
+	HelpIndex = GenerateHelpIndex(lm, false)
+	HelpIndexOpers = GenerateHelpIndex(lm, true)
 	return nil
 }
 
@@ -656,6 +676,18 @@ func (client *Client) sendHelp(name string, text string) {
 	client.Send(nil, client.server.name, RPL_ENDOFHELP, args...)
 }
 
+// GetHelpIndex returns the help index for the given language.
+func GetHelpIndex(languages []string, helpIndex map[string]string) string {
+	for _, lang := range languages {
+		index, exists := helpIndex[lang]
+		if exists {
+			return index
+		}
+	}
+	// 'en' always exists
+	return helpIndex["en"]
+}
+
 // helpHandler returns the appropriate help for the given query.
 func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
@@ -670,9 +702,9 @@ Get an explanation of <argument>, or "index" for a list of help topics.`))
 	// handle index
 	if argument == "index" {
 		if client.flags[Operator] {
-			client.sendHelp("HELP", HelpIndexOpers)
+			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers))
 		} else {
-			client.sendHelp("HELP", HelpIndex)
+			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex))
 		}
 		return false
 	}
@@ -680,7 +712,11 @@ Get an explanation of <argument>, or "index" for a list of help topics.`))
 	helpHandler, exists := Help[argument]
 
 	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[Operator])) {
-		client.sendHelp(strings.ToUpper(argument), helpHandler.text)
+		if helpHandler.textGenerator != nil {
+			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)))
+		} else {
+			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text))
+		}
 	} else {
 		args := msg.Params
 		args = append(args, client.t("Help not found"))

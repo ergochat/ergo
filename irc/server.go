@@ -135,11 +135,6 @@ type clientConn struct {
 
 // NewServer returns a new Oragono server.
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
-	// TODO move this to main?
-	if err := GenerateHelpIndices(); err != nil {
-		return nil, err
-	}
-
 	// initialize data structures
 	server := &Server{
 		accounts:            make(map[string]*ClientAccount),
@@ -158,6 +153,11 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	}
 
 	if err := server.applyConfig(config, true); err != nil {
+		return nil, err
+	}
+
+	// generate help info
+	if err := GenerateHelpIndices(server.languages); err != nil {
 		return nil, err
 	}
 
