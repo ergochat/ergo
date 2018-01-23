@@ -8,7 +8,6 @@ import "sort"
 
 const (
 	maxLastArgLength = 400
-	supportedString  = "are supported by this server"
 )
 
 // List holds a list of ISUPPORT tokens
@@ -89,7 +88,6 @@ func (il *List) GetDifference(newil *List) [][]string {
 		}
 
 		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
-			cache = append(cache, supportedString)
 			replies = append(replies, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -97,7 +95,6 @@ func (il *List) GetDifference(newil *List) [][]string {
 	}
 
 	if len(cache) > 0 {
-		cache = append(cache, supportedString)
 		replies = append(replies, cache)
 	}
 
@@ -130,7 +127,6 @@ func (il *List) RegenerateCachedReply() {
 		}
 
 		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
-			cache = append(cache, supportedString)
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -138,7 +134,6 @@ func (il *List) RegenerateCachedReply() {
 	}
 
 	if len(cache) > 0 {
-		cache = append(cache, supportedString)
 		il.CachedReply = append(il.CachedReply, cache)
 	}
 }

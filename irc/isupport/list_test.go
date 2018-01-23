@@ -29,8 +29,8 @@ func TestISUPPORT(t *testing.T) {
 	tListLong.RegenerateCachedReply()
 
 	longReplies := [][]string{
-		{"1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "are supported by this server"},
-		{"E", "F", "are supported by this server"},
+		{"1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"},
+		{"E", "F"},
 	}
 
 	if !reflect.DeepEqual(tListLong.CachedReply, longReplies) {
@@ -46,7 +46,7 @@ func TestISUPPORT(t *testing.T) {
 	tList1.Add("RANDKILL", "whenever")
 	tList1.RegenerateCachedReply()
 
-	expected := [][]string{{"CASEMAPPING=rfc1459-strict", "EXTBAN", "INVEX=i", "RANDKILL=whenever", "SASL=yes", "are supported by this server"}}
+	expected := [][]string{{"CASEMAPPING=rfc1459-strict", "EXTBAN", "INVEX=i", "RANDKILL=whenever", "SASL=yes"}}
 	if !reflect.DeepEqual(tList1.CachedReply, expected) {
 		t.Error("tList1's cached reply does not match expected cached reply")
 	}
@@ -60,14 +60,14 @@ func TestISUPPORT(t *testing.T) {
 	tList2.AddNoValue("STABLEKILL")
 	tList2.RegenerateCachedReply()
 
-	expected = [][]string{{"CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "SASL=yes", "STABLEKILL", "are supported by this server"}}
+	expected = [][]string{{"CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "SASL=yes", "STABLEKILL"}}
 	if !reflect.DeepEqual(tList2.CachedReply, expected) {
 		t.Error("tList2's cached reply does not match expected cached reply")
 	}
 
 	// compare lists
 	actual := tList1.GetDifference(tList2)
-	expected = [][]string{{"-RANDKILL", "CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "STABLEKILL", "are supported by this server"}}
+	expected = [][]string{{"-RANDKILL", "CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "STABLEKILL"}}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Error("difference reply does not match expected difference reply")
 	}
