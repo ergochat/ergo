@@ -44,7 +44,7 @@ Options:
 	configfile := arguments["--conf"].(string)
 	config, err := irc.LoadConfig(configfile)
 	if err != nil {
-		log.Fatal("Config file did not load successfully:", err.Error())
+		log.Fatal("Config file did not load successfully: ", err.Error())
 	}
 
 	logman, err := logger.NewManager(config.Logging)
