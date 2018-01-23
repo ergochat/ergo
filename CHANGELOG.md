@@ -12,6 +12,7 @@ New release of Oragono!
 ### Security
 
 ### Added
+* Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
 * Added new Turkish translation (thanks to [Yaser](https://crowdin.com/profile/Apsimati)!).
 * Added proposed IRCv3 capability [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6).
 * Added proposed IRCv3 capability [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
