@@ -7,6 +7,7 @@ package irc
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -496,16 +497,18 @@ func LoadConfig(filename string) (config *Config, err error) {
 				continue
 			}
 
-			// only load .lang.yaml files
+			// only load core .lang.yaml files, and ignore help/irc files
 			name := f.Name()
-			if !strings.HasSuffix(strings.ToLower(name), ".lang.yaml") {
+			lowerName := strings.ToLower(name)
+			if !strings.HasSuffix(lowerName, ".lang.yaml") {
 				continue
 			}
-			// don't load our example file in practice
-			if strings.ToLower(name) == "example.lang.yaml" {
+			// don't load our example files in practice
+			if strings.HasPrefix(lowerName, "example") {
 				continue
 			}
 
+			// load core info file
 			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, name))
 			if err != nil {
 				return nil, fmt.Errorf("Could not load language file [%s]: %s", name, err.Error())
@@ -515,6 +518,52 @@ func LoadConfig(filename string) (config *Config, err error) {
 			err = yaml.Unmarshal(data, &langInfo)
 			if err != nil {
 				return nil, fmt.Errorf("Could not parse language file [%s]: %s", name, err.Error())
+			}
+			langInfo.Translations = make(map[string]string)
+
+			// load actual translation files
+			var tlList map[string]string
+
+			// load irc strings file
+			ircName := strings.TrimSuffix(name, ".lang.yaml") + "-irc.lang.json"
+
+			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, ircName))
+			if err != nil {
+				return nil, fmt.Errorf("Could not load language's irc file [%s]: %s", ircName, err.Error())
+			}
+
+			err = json.Unmarshal(data, &tlList)
+			if err != nil {
+				return nil, fmt.Errorf("Could not parse language's irc file [%s]: %s", ircName, err.Error())
+			}
+
+			for key, value := range tlList {
+				// because of how crowdin works, this is how we skip untranslated lines
+				if key == value {
+					continue
+				}
+				langInfo.Translations[key] = value
+			}
+
+			// load help strings file
+			helpName := strings.TrimSuffix(name, ".lang.yaml") + "-help.lang.json"
+
+			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, helpName))
+			if err != nil {
+				return nil, fmt.Errorf("Could not load language's help file [%s]: %s", helpName, err.Error())
+			}
+
+			err = json.Unmarshal(data, &tlList)
+			if err != nil {
+				return nil, fmt.Errorf("Could not parse language's help file [%s]: %s", helpName, err.Error())
+			}
+
+			for key, value := range tlList {
+				// because of how crowdin works, this is how we skip untranslated lines
+				if key == value {
+					continue
+				}
+				langInfo.Translations[key] = value
 			}
 
 			// confirm that values are correct
@@ -527,7 +576,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 
 			if len(langInfo.Translations) == 0 {
-				return nil, fmt.Errorf("Language file [%s] contains no translations", name)
+				return nil, fmt.Errorf("Language [%s / %s] contains no translations", langInfo.Code, langInfo.Name)
 			}
 
 			// check for duplicate languages

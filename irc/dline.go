@@ -372,10 +372,10 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf("Added temporary (%s) D-Line for %s", duration.String(), hostString))
+		client.Notice(fmt.Sprintf(client.t("Added temporary (%s) D-Line for %s"), duration.String(), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) D-Line for %s"), client.nick, operName, duration.String(), hostString)
 	} else {
-		client.Notice(fmt.Sprintf("Added D-Line for %s", hostString))
+		client.Notice(fmt.Sprintf(client.t("Added D-Line for %s"), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added D-Line for %s"), client.nick, operName, hostString)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)

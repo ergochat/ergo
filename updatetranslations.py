@@ -26,6 +26,7 @@ Options:
     <languages-dir>  Languages directory."""
 import os
 import re
+import json
 
 from docopt import docopt
 import yaml
@@ -34,7 +35,8 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version="0.1.0")
 
     if arguments['run']:
-        lang_strings = []
+        # general IRC strings
+        irc_strings = []
 
         for subdir, dirs, files in os.walk(arguments['<irc-dir>']):
             for fname in files:
@@ -44,14 +46,32 @@ if __name__ == '__main__':
 
                     matches = re.findall(r'\.t\("((?:[^"]|\\")+)"\)', content)
                     for match in matches:
-                        if match not in lang_strings:
-                            lang_strings.append(match)
+                        if match not in irc_strings:
+                            irc_strings.append(match)
 
                     matches = re.findall(r'\.t\(\`([^\`]+)\`\)', content)
                     for match in matches:
-                        match = match.replace("\n", "\\n").replace("\"", "\\\"")
-                        if match not in lang_strings:
-                            lang_strings.append(match)
+                        if match not in irc_strings:
+                            irc_strings.append(match)
 
-        for match in sorted(lang_strings):
-            print('  "' + match + '": ""')
+        print("irc strings:")
+        print(json.dumps({k:k for k in irc_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+
+        # help entries
+        help_strings = []
+
+        for subdir, dirs, files in os.walk(arguments['<irc-dir>']):
+            for fname in files:
+                filepath = subdir + os.sep + fname
+                if fname == 'help.go':
+                    content = open(filepath, 'r').read()
+
+                    matches = re.findall(r'\`([^\`]+)\`', content)
+                    for match in matches:
+                        if '\n' in match and match not in help_strings:
+                            help_strings.append(match)
+
+        print()
+
+        print("help strings:")
+        print(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))

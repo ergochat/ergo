@@ -2235,7 +2235,7 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 }
 
 var (
-	infoString = strings.Split(`      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
+	infoString1 = strings.Split(`      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄
 ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
  ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
 ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
@@ -2243,17 +2243,11 @@ var (
 
          https://oragono.io/
    https://github.com/oragono/oragono
-
-Oragono is released under the MIT license.
-
-Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on <3
-
-Core Developers:
-    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
+`, "\n")
+	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
     Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
-
-Contributors and Former Developers:
-    3onyc
+`, "\n")
+	infoString3 = strings.Split(`    3onyc
     Edmund Huber
     Euan Kemp (euank)
     Jeremy Latt
@@ -2267,7 +2261,21 @@ Contributors and Former Developers:
 )
 
 func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	for _, line := range infoString {
+	// we do the below so that the human-readable lines in info can be translated.
+	for _, line := range infoString1 {
+		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+	}
+	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
+	client.Send(nil, server.name, RPL_INFO, client.nick, "")
+	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on <3"))
+	client.Send(nil, server.name, RPL_INFO, client.nick, "")
+	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
+	for _, line := range infoString2 {
+		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+	}
+	client.Send(nil, server.name, RPL_INFO, client.nick, "")
+	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Contributors and Former Developers:"))
+	for _, line := range infoString3 {
 		client.Send(nil, server.name, RPL_INFO, client.nick, line)
 	}
 	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, "End of /INFO")

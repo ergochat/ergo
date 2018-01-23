@@ -34,7 +34,15 @@ func NewLanguageManager(defaultLang string, languageData map[string]LangData) *L
 	// load language data
 	for name, data := range languageData {
 		lm.Info[name] = data
-		lm.translations[name] = data.Translations
+
+		// make sure we don't include empty translations
+		lm.translations[name] = make(map[string]string)
+		for key, value := range data.Translations {
+			if strings.TrimSpace(value) == "" {
+				continue
+			}
+			lm.translations[name][key] = value
+		}
 	}
 
 	return &lm
