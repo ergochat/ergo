@@ -149,7 +149,7 @@ type StackImpactConfig struct {
 type LangData struct {
 	Name         string
 	Code         string
-	Maintainers  string
+	Contributors string
 	Incomplete   bool
 	Translations map[string]string
 }
@@ -571,8 +571,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 				return nil, fmt.Errorf("Cannot have language file with code 'en' (this is the default language using strings inside the server code). If you're making an English variant, name it with a more specific code")
 			}
 
-			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Maintainers == "" {
-				return nil, fmt.Errorf("Code, name or maintainers is empty in language file [%s]", name)
+			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Contributors == "" {
+				return nil, fmt.Errorf("Code, name or contributors is empty in language file [%s]", name)
 			}
 
 			if len(langInfo.Translations) == 0 {

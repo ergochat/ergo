@@ -269,7 +269,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf(client.t("Added temporary (%s) K-Line for %s"), duration.String(), mask))
+		client.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) K-Line for %[2]s"), duration.String(), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
 	} else {
 		client.Notice(fmt.Sprintf(client.t("Added K-Line for %s"), mask))

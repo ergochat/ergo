@@ -26,9 +26,9 @@ func NewLanguageManager(defaultLang string, languageData map[string]LangData) *L
 
 	// make fake "en" info
 	lm.Info["en"] = LangData{
-		Code:        "en",
-		Name:        "English",
-		Maintainers: "Oragono contributors and the IRC community",
+		Code:         "en",
+		Name:         "English",
+		Contributors: "Oragono contributors and the IRC community",
 	}
 
 	// load language data

@@ -236,7 +236,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf(client.t("Ban - %s - added by %s - %s"), key, info.OperName, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -372,7 +372,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf(client.t("Added temporary (%s) D-Line for %s"), duration.String(), hostString))
+		client.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) D-Line for %[2]s"), duration.String(), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) D-Line for %s"), client.nick, operName, duration.String(), hostString)
 	} else {
 		client.Notice(fmt.Sprintf(client.t("Added D-Line for %s"), hostString))

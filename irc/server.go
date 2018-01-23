@@ -428,7 +428,7 @@ func (server *Server) tryRegister(c *Client) {
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
 	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), c.nick))
-	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf(c.t("Your host is %s, running version %s"), server.name, Ver))
+	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
 	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
@@ -2094,10 +2094,10 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			opercount++
 		}
 	}
-	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %d users and %d invisible on %d server(s)"), totalcount, invisiblecount, 1))
+	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalcount, invisiblecount, 1))
 	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf(client.t("%d IRC Operators online"), opercount))
 	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf(client.t("%d channels formed"), server.channels.Len()))
-	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %d clients and %d servers"), totalcount, 1))
+	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalcount, 1))
 	return false
 }
 

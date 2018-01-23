@@ -1,4 +1,4 @@
-# language info file for our example language
+# translation info file for our example language
 #
 # languages are made up of a few different files:
 #    <locale>.lang.yaml       - general info about the translation
@@ -8,13 +8,13 @@
 # we split up translations in this way so that they can be displayed more nicely on CrowdIn
 
 # name - this is the 'nice' or 'full' name of the language
-name: "Example"
+name: "English"
 
 # code - this is what the language will be referred to in our list of languages
-code: "example"
+code: "en"
 
-# maintainers - these are the maintainer details given
-maintainers: "Daniel Oaks <daniel@danieloaks.net>"
+# contributors - people who have contributed to this translation
+contributors: "Example Person <example@example.com>"
 
 # incomplete - whether to mark this language as incomplete
 incomplete: true
