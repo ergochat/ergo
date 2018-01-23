@@ -30,6 +30,7 @@ Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomad
 * client accounts and SASL
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto) (client account passwords also salted)
 * banning ips/nets and masks with `KLINE` and `DLINE`
+* supports [multiple languages](https://crowdin.com/project/oragono) (you can also set a default language for your network)
 * [IRCv3 support](http://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](https://oragono.io/specs.html)
 
