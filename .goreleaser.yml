@@ -40,5 +40,8 @@ archive:
     - oragono.motd
     - oragono.yaml
     - docs/*
+    - languages/*.yaml
+    - languages/*.json
+    - languages/*.md
 checksum:
   name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
