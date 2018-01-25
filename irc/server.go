@@ -2281,10 +2281,18 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	for _, line := range infoString2 {
 		client.Send(nil, server.name, RPL_INFO, client.nick, line)
 	}
-	client.Send(nil, server.name, RPL_INFO, client.nick, "")
 	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Contributors and Former Developers:"))
 	for _, line := range infoString3 {
 		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+	}
+	// show translators for languages other than good ole' regular English
+	tlines := server.languages.Translators()
+	if 0 < len(tlines) {
+		client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
+		for _, line := range tlines {
+			client.Send(nil, server.name, RPL_INFO, client.nick, "    "+line)
+		}
+		client.Send(nil, server.name, RPL_INFO, client.nick, "")
 	}
 	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, client.t("End of /INFO"))
 	return false
