@@ -4,6 +4,8 @@
 package irc
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -65,6 +67,24 @@ func (lm *LanguageManager) Count() int {
 	defer lm.RUnlock()
 
 	return len(lm.Info)
+}
+
+// Translators returns the languages we have and the translators.
+func (lm *LanguageManager) Translators() []string {
+	lm.RLock()
+	defer lm.RUnlock()
+
+	var tlist sort.StringSlice
+
+	for _, info := range lm.Info {
+		if info.Code == "en" {
+			continue
+		}
+		tlist = append(tlist, fmt.Sprintf("%s (%s): %s", info.Name, info.Code, info.Contributors))
+	}
+
+	sort.Sort(tlist)
+	return tlist
 }
 
 // Codes returns the proper language codes for the given casefolded language codes.
