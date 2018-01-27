@@ -38,7 +38,7 @@ func (bm *BatchManager) NewID() string {
 		bm.idCounter = 0
 	}
 
-	return strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.FormatUint(bm.idCounter, 10)
+	return strconv.FormatInt(time.Now().UnixNano(), 36) + strconv.FormatUint(bm.idCounter, 36)
 }
 
 // Batch represents an IRCv3 batch.
