@@ -128,7 +128,7 @@ type STSConfig struct {
 
 // Value returns the STS value to advertise in CAP
 func (sts *STSConfig) Value() string {
-	val := fmt.Sprintf("duration=%d,", int(sts.Duration.Seconds()))
+	val := fmt.Sprintf("duration=%d", int(sts.Duration.Seconds()))
 	if sts.Enabled && sts.Port > 0 {
 		val += fmt.Sprintf(",port=%d", sts.Port)
 	}
@@ -348,10 +348,10 @@ func (conf *Config) TLSListeners() map[string]*tls.Config {
 	tlsListeners := make(map[string]*tls.Config)
 	for s, tlsListenersConf := range conf.Server.TLSListeners {
 		config, err := tlsListenersConf.Config()
-		config.ClientAuth = tls.RequestClientCert
 		if err != nil {
 			log.Fatal(err)
 		}
+		config.ClientAuth = tls.RequestClientCert
 		tlsListeners[s] = config
 	}
 	return tlsListeners
