@@ -326,11 +326,15 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	rb := NewResponseBuffer(client)
+	rb.Label = GetLabel(msg)
+	defer rb.Send()
+
 	nickname, err := CasefoldName(msg.Params[0])
 	target := server.clients.Get(nickname)
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		}
 		return false
 	}
@@ -340,9 +344,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if !hasPrivs {
 		if len(msg.Params) > 1 {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
 		} else {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
 		}
 		return false
 	}
@@ -357,7 +361,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
+			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
@@ -368,13 +372,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(applied) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", targetNick, applied.String())
+		rb.Add(nil, client.nickMaskString, "MODE", targetNick, applied.String())
 	} else if hasPrivs {
-		client.Send(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
+		rb.Add(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
 		if client.flags[LocalOperator] || client.flags[Operator] {
 			masks := server.snomasks.String(client)
 			if 0 < len(masks) {
-				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
+				rb.Add(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
 			}
 		}
 	}
@@ -476,7 +480,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
-func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes ModeChanges) ModeChanges {
+func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes ModeChanges, rb *ResponseBuffer) ModeChanges {
 	// so we only output one warning for each list type when full
 	listFullWarned := make(map[Mode]bool)
 
@@ -521,7 +525,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
-				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
 			}
 			continue
 		}
@@ -543,7 +547,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case Add:
 				if channel.lists[change.mode].Length() >= client.server.Limits().ChanListModes {
 					if !listFullWarned[change.mode] {
-						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.mode.String(), client.t("Channel list is full"))
+						rb.Add(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.mode.String(), client.t("Channel list is full"))
 						listFullWarned[change.mode] = true
 					}
 					continue
@@ -608,11 +612,15 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+	rb := NewResponseBuffer(client)
+	rb.Label = GetLabel(msg)
+	defer rb.Send()
+
 	channelName, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(channelName)
 
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
 		return false
 	}
 
@@ -626,14 +634,14 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
+			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
 		}
 
 		// apply mode changes
-		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes)
+		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	}
 
 	// save changes to banlist/exceptlist/invexlist
@@ -661,8 +669,8 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	} else {
 		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
+		rb.Add(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
+		rb.Add(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }
