@@ -37,27 +37,40 @@ type IdleTimer struct {
 	sync.Mutex // tier 1
 
 	// immutable after construction
-	registerTimeout       time.Duration
-	idleTimeout           time.Duration
-	idleTimeoutWithResume time.Duration
-	quitTimeout           time.Duration
-	client                *Client
+	registerTimeout time.Duration
+	quitTimeout     time.Duration
+	client          *Client
 
 	// mutable
-	state TimerState
-	timer *time.Timer
+	idleTimeout time.Duration
+	state       TimerState
+	timer       *time.Timer
 }
 
 // NewIdleTimer sets up a new IdleTimer using constant timeouts.
 func NewIdleTimer(client *Client) *IdleTimer {
 	it := IdleTimer{
-		registerTimeout:       RegisterTimeout,
-		idleTimeout:           IdleTimeout,
-		idleTimeoutWithResume: IdleTimeoutWithResumeCap,
-		quitTimeout:           QuitTimeout,
-		client:                client,
+		registerTimeout: RegisterTimeout,
+		idleTimeout:     IdleTimeout,
+		quitTimeout:     QuitTimeout,
+		client:          client,
 	}
 	return &it
+}
+
+// updateIdleDuration updates the idle duration, given the client's caps.
+func (it *IdleTimer) updateIdleDuration() {
+	newIdleTime := IdleTimeout
+
+	// if they have the resume cap, wait longer before pinging them out
+	// to give them a chance to resume their connection
+	if it.client.capabilities.Has(caps.Resume) {
+		newIdleTime = IdleTimeoutWithResumeCap
+	}
+
+	it.Lock()
+	defer it.Unlock()
+	it.idleTimeout = newIdleTime
 }
 
 // Start starts counting idle time; if there is no activity from the client,
@@ -75,6 +88,8 @@ func (it *IdleTimer) Touch() {
 		return
 	}
 
+	it.updateIdleDuration()
+
 	it.Lock()
 	defer it.Unlock()
 	// a touch transitions TimerUnregistered or TimerIdle into TimerActive
@@ -85,6 +100,8 @@ func (it *IdleTimer) Touch() {
 }
 
 func (it *IdleTimer) processTimeout() {
+	it.updateIdleDuration()
+
 	var previousState TimerState
 	func() {
 		it.Lock()
@@ -125,13 +142,7 @@ func (it *IdleTimer) resetTimeout() {
 	case TimerUnregistered:
 		nextTimeout = it.registerTimeout
 	case TimerActive:
-		// if they have the resume cap, wait longer before pinging them out
-		// to give them a chance to resume their connection
-		if it.client.capabilities.Has(caps.Resume) {
-			nextTimeout = it.idleTimeoutWithResume
-		} else {
-			nextTimeout = it.idleTimeout
-		}
+		nextTimeout = it.idleTimeout
 	case TimerIdle:
 		nextTimeout = it.quitTimeout
 	case TimerDead:
@@ -146,6 +157,8 @@ func (it *IdleTimer) quitMessage(state TimerState) string {
 		return fmt.Sprintf("Registration timeout: %v", it.registerTimeout)
 	case TimerIdle:
 		// how many seconds before registered clients are timed out (IdleTimeout plus QuitTimeout).
+		it.Lock()
+		defer it.Unlock()
 		return fmt.Sprintf("Ping timeout: %v", (it.idleTimeout + it.quitTimeout))
 	default:
 		// shouldn't happen
