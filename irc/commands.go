@@ -9,7 +9,7 @@ import "github.com/goshuirc/irc-go/ircmsg"
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler           func(server *Server, client *Client, msg ircmsg.IrcMessage) bool
+	handler           func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
 	oper              bool
 	usablePreReg      bool
 	leaveClientActive bool // if true, leaves the client active time alone. reversed because we can't default a struct element to True
@@ -42,7 +42,12 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	if !cmd.leaveClientIdle {
 		client.Touch()
 	}
-	exiting := cmd.handler(server, client, msg)
+	rb := NewResponseBuffer(client)
+	rb.Label = GetLabel(msg)
+
+	exiting := cmd.handler(server, client, msg, rb)
+
+	rb.Send()
 
 	// after each command, see if we can send registration to the client
 	if !client.registered {

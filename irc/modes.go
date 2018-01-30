@@ -210,13 +210,13 @@ func GetLowestChannelModePrefix(prefixes string) *Mode {
 //
 
 // MODE <target> [<modestring> [<mode arguments>...]]
-func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	_, errChan := CasefoldChannel(msg.Params[0])
 
 	if errChan == nil {
-		return cmodeHandler(server, client, msg)
+		return cmodeHandler(server, client, msg, rb)
 	}
-	return umodeHandler(server, client, msg)
+	return umodeHandler(server, client, msg, rb)
 }
 
 // ParseUserModeChanges returns the valid changes, and the list of unknown chars.
@@ -325,11 +325,7 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 }
 
 // MODE <target> [<modestring> [<mode arguments>...]]
-func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	rb := NewResponseBuffer(client)
-	rb.Label = GetLabel(msg)
-	defer rb.Send()
-
+func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nickname, err := CasefoldName(msg.Params[0])
 	target := server.clients.Get(nickname)
 	if err != nil || target == nil {
