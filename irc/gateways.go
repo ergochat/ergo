@@ -41,7 +41,7 @@ func (wc *webircConfig) Populate() (err error) {
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
 func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered {
+	if client.registered || client.proxiedIP != "" {
 		return false
 	}
 
@@ -58,9 +58,12 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				key = x
 			}
 
-			// only accept "tls" flag if the gateway's connection to us is secure as well
-			if strings.ToLower(key) == "tls" && client.flags[TLS] {
-				secure = true
+			lkey := strings.ToLower(key)
+			if lkey == "tls" || lkey == "secure" {
+				// only accept "tls" flag if the gateway's connection to us is secure as well
+				if client.flags[TLS] || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
+					secure = true
+				}
 			}
 		}
 	}
@@ -93,7 +96,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered {
+	if client.registered || client.proxiedIP != "" {
 		return false
 	}
 
