@@ -41,7 +41,7 @@ func (wc *webircConfig) Populate() (err error) {
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
 func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered {
+	if client.registered || client.proxiedIP != "" {
 		return false
 	}
 
@@ -93,7 +93,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered {
+	if client.registered || client.proxiedIP != "" {
 		return false
 	}
 
