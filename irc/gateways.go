@@ -38,10 +38,34 @@ func (wc *webircConfig) Populate() (err error) {
 	return err
 }
 
+func isGatewayAllowed(addr net.Addr, gatewaySpec string) bool {
+	// "localhost" includes any loopback IP or unix domain socket
+	if gatewaySpec == "localhost" {
+		return utils.AddrIsLocal(addr)
+	}
+
+	ip := utils.AddrToIP(addr)
+	if ip == nil {
+		return false
+	}
+
+	// exact IP match
+	if ip.String() == gatewaySpec {
+		return true
+	}
+
+	// CIDR match
+	_, gatewayNet, err := net.ParseCIDR(gatewaySpec)
+	if err != nil {
+		return false
+	}
+	return gatewayNet.Contains(ip)
+}
+
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
 func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != "" {
+	if client.registered || client.proxiedIP != nil {
 		return false
 	}
 
@@ -68,11 +92,9 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 
-	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
-	clientHostname := client.hostname
 	for _, info := range server.WebIRCConfig() {
-		for _, address := range info.Hosts {
-			if clientHostname == address || clientAddress == address {
+		for _, gateway := range info.Hosts {
+			if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
 				// confirm password and/or fingerprint
 				givenPassword := msg.Params[0]
 				if 0 < len(info.Password) && passwd.ComparePasswordString(info.Password, givenPassword) != nil {
@@ -96,14 +118,12 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 // http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != "" {
+	if client.registered || client.proxiedIP != nil {
 		return false
 	}
 
-	clientAddress := utils.IPString(client.socket.conn.RemoteAddr())
-	clientHostname := client.hostname
-	for _, address := range server.ProxyAllowedFrom() {
-		if clientHostname == address || clientAddress == address {
+	for _, gateway := range server.ProxyAllowedFrom() {
+		if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
 			proxiedIP := msg.Params[1]
 
 			// assume PROXY connections are always secure
@@ -130,7 +150,7 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (exiting bool) 
 	}
 
 	// given IP is sane! override the client's current IP
-	client.proxiedIP = proxiedIP
+	client.proxiedIP = parsedProxiedIP
 	client.rawHostname = utils.LookupHostname(proxiedIP)
 	client.hostname = client.rawHostname
 

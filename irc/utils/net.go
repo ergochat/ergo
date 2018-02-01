@@ -22,6 +22,9 @@ func IPString(addr net.Addr) string {
 
 // AddrLookupHostname returns the hostname (if possible) or address for the given `net.Addr`.
 func AddrLookupHostname(addr net.Addr) string {
+	if AddrIsUnix(addr) {
+		return "localhost"
+	}
 	return LookupHostname(IPString(addr))
 }
 
@@ -30,10 +33,22 @@ func AddrIsLocal(addr net.Addr) bool {
 	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
 		return tcpaddr.IP.IsLoopback()
 	}
-	if _, ok := addr.(*net.UnixAddr); ok {
-		return true
+	_, ok := addr.(*net.UnixAddr)
+	return ok
+}
+
+// AddrToIP returns the IP address for a net.Addr, or nil if it's a unix domain socket.
+func AddrToIP(addr net.Addr) net.IP {
+	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
+		return tcpaddr.IP
 	}
-	return false
+	return nil
+}
+
+// AddrIsUnix returns whether the address is a unix domain socket.
+func AddrIsUnix(addr net.Addr) bool {
+	_, ok := addr.(*net.UnixAddr)
+	return ok
 }
 
 // LookupHostname returns the hostname for `addr` if it has one. Otherwise, just returns `addr`.
