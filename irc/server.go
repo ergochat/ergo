@@ -1551,6 +1551,12 @@ func (server *Server) loadDatastore(datastorePath string) error {
 }
 
 func (server *Server) setupListeners(config *Config) {
+	logListener := func(addr string, tlsconfig *tls.Config) {
+		server.logger.Info("listeners",
+			fmt.Sprintf("now listening on %s, tls=%t.", addr, (tlsconfig != nil)),
+		)
+	}
+
 	// update or destroy all existing listeners
 	tlsListeners := config.TLSListeners()
 	for addr := range server.listeners {
@@ -1573,9 +1579,7 @@ func (server *Server) setupListeners(config *Config) {
 		currentListener.configMutex.Unlock()
 
 		if stillConfigured {
-			server.logger.Info("listeners",
-				fmt.Sprintf("now listening on %s, tls=%t.", addr, (currentListener.tlsConfig != nil)),
-			)
+			logListener(addr, currentListener.tlsConfig)
 		} else {
 			// tell the listener it should stop by interrupting its Accept() call:
 			currentListener.listener.Close()
@@ -1591,7 +1595,9 @@ func (server *Server) setupListeners(config *Config) {
 		_, exists := server.listeners[newaddr]
 		if !exists {
 			// make new listener
-			server.listeners[newaddr] = server.createListener(newaddr, tlsListeners[newaddr])
+			tlsConfig := tlsListeners[newaddr]
+			server.listeners[newaddr] = server.createListener(newaddr, tlsConfig)
+			logListener(newaddr, tlsConfig)
 		}
 	}
 
