@@ -25,6 +25,17 @@ func AddrLookupHostname(addr net.Addr) string {
 	return LookupHostname(IPString(addr))
 }
 
+// AddrIsLocal returns whether the address is from a trusted local connection (loopback or unix).
+func AddrIsLocal(addr net.Addr) bool {
+	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
+		return tcpaddr.IP.IsLoopback()
+	}
+	if _, ok := addr.(*net.UnixAddr); ok {
+		return true
+	}
+	return false
+}
+
 // LookupHostname returns the hostname for `addr` if it has one. Otherwise, just returns `addr`.
 func LookupHostname(addr string) string {
 	names, err := net.LookupAddr(addr)
