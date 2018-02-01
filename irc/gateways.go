@@ -58,7 +58,8 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				key = x
 			}
 
-			if strings.ToLower(key) == "tls" {
+			lkey := strings.ToLower(key)
+			if lkey == "tls" || lkey == "secure" {
 				// only accept "tls" flag if the gateway's connection to us is secure as well
 				if client.flags[TLS] || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
 					secure = true
