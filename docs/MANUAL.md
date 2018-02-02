@@ -127,7 +127,7 @@ With most IRC servers, you use `/NS REGISTER`, or otherwise contact `NickServ` t
 
     /QUOTE ACC REGISTER <username> * passphrase :<password>
 
-This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively (make sure the leave one `:` before your actual password!).
+This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively (make sure the leave that one `:` before your actual password!).
 
     /QUOTE ACC REGISTER <username> * certfp *
 
