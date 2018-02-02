@@ -14,6 +14,26 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 --------------------------------------------------------------------------------------------
 
 
+# Table of Contents
+
+- Introduction
+    - Project Basics
+- Installing
+    - Windows
+    - macOS / Linux / Raspberry Pi
+- Features
+    - User Accounts
+    - Channel Registration
+- Modes
+    - User Modes
+    - Channel Modes
+    - Channel Prefixes
+- Acknowledgements
+
+
+--------------------------------------------------------------------------------------------
+
+
 # Introduction
 
 This document goes over the Oragono IRC server, how to get it running and how to use it once it is up and running!
