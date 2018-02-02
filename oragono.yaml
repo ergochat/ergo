@@ -16,6 +16,8 @@ server:
         - "127.0.0.1:6668"
         - "[::1]:6668"
         - ":6697" # ssl port
+        # unix domain socket for proxying:
+        # - "/tmp/oragono_sock"
 
     # tls listeners
     tls-listeners:
@@ -59,11 +61,12 @@ server:
     #motd-formatting: true
 
     # addresses/hostnames the PROXY command can be used from
-    # this should be restricted to 127.0.0.1 and localhost at most
+    # this should be restricted to 127.0.0.1/8 and localhost at most
     # you should also add these addresses to the connection limits and throttling exemption lists
     proxy-allowed-from:
         # - localhost
         # - "127.0.0.1"
+        # - "127.0.0.1/8"
 
     # controls the use of the WEBIRC command (by IRC<->web interfaces, bouncers and similar)
     webirc:
@@ -79,6 +82,7 @@ server:
             hosts:
                 # - localhost
                 # - "127.0.0.1"
+                # - "127.0.0.1/8"
                 # - "0::1"
 
     # maximum length of clients' sendQ in bytes

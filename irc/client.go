@@ -33,6 +33,7 @@ const (
 var (
 	// ErrNickAlreadySet is a weird error that's sent when the server's consistency has been compromised.
 	ErrNickAlreadySet = errors.New("Nickname is already set")
+	LoopbackIP        = net.ParseIP("127.0.0.1")
 )
 
 // Client is an IRC client.
@@ -64,7 +65,7 @@ type Client struct {
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	operName           string
-	proxiedIP          string // actual remote IP if using the PROXY protocol
+	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	quitMessage        string
 	rawHostname        string
 	realname           string
@@ -111,7 +112,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
 	}
-	if server.checkIdent {
+	if server.checkIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
 		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
 		serverPort, _ := strconv.Atoi(serverPortString)
 		if err != nil {
@@ -146,19 +147,18 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 
 // IP returns the IP address of this client.
 func (client *Client) IP() net.IP {
-	if client.proxiedIP != "" {
-		return net.ParseIP(client.proxiedIP)
+	if client.proxiedIP != nil {
+		return client.proxiedIP
 	}
-
-	return net.ParseIP(utils.IPString(client.socket.conn.RemoteAddr()))
+	if ip := utils.AddrToIP(client.socket.conn.RemoteAddr()); ip != nil {
+		return ip
+	}
+	// unix domain socket that hasn't issued PROXY/WEBIRC yet. YOLO
+	return LoopbackIP
 }
 
 // IPString returns the IP address of this client as a string.
 func (client *Client) IPString() string {
-	if client.proxiedIP != "" {
-		return client.proxiedIP
-	}
-
 	ip := client.IP().String()
 	if 0 < len(ip) && ip[0] == ':' {
 		ip = "0" + ip
@@ -581,7 +581,7 @@ func (client *Client) AllNickmasks() []string {
 		masks = append(masks, mask)
 	}
 
-	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, utils.IPString(client.socket.conn.RemoteAddr())))
+	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.IPString()))
 	if err == nil && mask2 != mask {
 		masks = append(masks, mask2)
 	}
