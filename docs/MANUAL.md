@@ -133,7 +133,7 @@ This is the way to go if you want to use a regular password. `<username>` and `<
 
 If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), then you can use this method to do so. If you're not sure what this is, don't worry – just use the above password method to register an account.
 
-Once you've registered, you'll need to setup SASL to login (we're going to write `NickServ IDENTIFY` support, but it's not there yet). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your registered username and password!
+Once you've registered, you'll need to setup SASL to login (we're going to write `NickServ IDENTIFY` support, but it's not there yet). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
 
 
 ## Channel Registration
