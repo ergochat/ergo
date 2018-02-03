@@ -305,5 +305,7 @@ func (server *Server) nickservReceivePrivmsg(client *Client, message string) {
 		}
 
 		client.Notice(client.t("Could not login with your TLS certificate or supplied username/password"))
+	} else {
+		client.Notice(client.t("Command not recognised. To see the available commands, run /NS HELP"))
 	}
 }

@@ -815,6 +815,11 @@ func (client *Client) Notice(text string) {
 	}
 	lines := wordWrap(text, limit)
 
+	// force blank lines to be sent if we receive them
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+
 	for _, line := range lines {
 		client.Send(nil, client.server.name, "NOTICE", client.nick, line)
 	}
