@@ -6,6 +6,8 @@ package irc
 import (
 	"reflect"
 	"testing"
+
+	"github.com/oragono/oragono/irc/modes"
 )
 
 func TestParseDefaultChannelModes(t *testing.T) {
@@ -16,13 +18,13 @@ func TestParseDefaultChannelModes(t *testing.T) {
 
 	var parseTests = []struct {
 		raw      *string
-		expected Modes
+		expected modes.Modes
 	}{
-		{&nt, Modes{NoOutside, OpOnlyTopic}},
-		{&n, Modes{NoOutside}},
-		{&empty, Modes{}},
-		{&tminusi, Modes{OpOnlyTopic}},
-		{nil, Modes{NoOutside, OpOnlyTopic}},
+		{&nt, modes.Modes{modes.NoOutside, modes.OpOnlyTopic}},
+		{&n, modes.Modes{modes.NoOutside}},
+		{&empty, modes.Modes{}},
+		{&tminusi, modes.Modes{modes.OpOnlyTopic}},
+		{nil, modes.Modes{modes.NoOutside, modes.OpOnlyTopic}},
 	}
 
 	var config Config
