@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/sno"
 )
 
@@ -20,16 +19,6 @@ var (
 		"nickserv": true,
 	}
 )
-
-// NICK <nickname>
-func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	if !client.authorized {
-		client.Quit("Bad password")
-		return true
-	}
-
-	return performNickChange(server, client, client, msg.Params[0])
-}
 
 func performNickChange(server *Server, client *Client, target *Client, newnick string) bool {
 	nickname := strings.TrimSpace(newnick)
@@ -76,15 +65,4 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		server.tryRegister(target)
 	}
 	return false
-}
-
-// SANICK <oldnick> <nickname>
-func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	targetNick := strings.TrimSpace(msg.Params[0])
-	target := server.clients.Get(targetNick)
-	if target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
-		return false
-	}
-	return performNickChange(server, client, target, msg.Params[1])
 }

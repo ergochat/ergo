@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/sno"
 )
 
@@ -209,16 +208,6 @@ func GetLowestChannelModePrefix(prefixes string) *Mode {
 // commands
 //
 
-// MODE <target> [<modestring> [<mode arguments>...]]
-func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	_, errChan := CasefoldChannel(msg.Params[0])
-
-	if errChan == nil {
-		return cmodeHandler(server, client, msg)
-	}
-	return umodeHandler(server, client, msg)
-}
-
 // ParseUserModeChanges returns the valid changes, and the list of unknown chars.
 func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	changes := make(ModeChanges, 0)
@@ -322,63 +311,6 @@ func (client *Client) applyUserModeChanges(force bool, changes ModeChanges) Mode
 
 	// return the changes we could actually apply
 	return applied
-}
-
-// MODE <target> [<modestring> [<mode arguments>...]]
-func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	nickname, err := CasefoldName(msg.Params[0])
-	target := server.clients.Get(nickname)
-	if err != nil || target == nil {
-		if len(msg.Params[0]) > 0 {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
-		}
-		return false
-	}
-
-	targetNick := target.Nick()
-	hasPrivs := client == target || msg.Command == "SAMODE"
-
-	if !hasPrivs {
-		if len(msg.Params) > 1 {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
-		} else {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
-		}
-		return false
-	}
-
-	// applied mode changes
-	applied := make(ModeChanges, 0)
-
-	if 1 < len(msg.Params) {
-		// parse out real mode changes
-		params := msg.Params[1:]
-		changes, unknown := ParseUserModeChanges(params...)
-
-		// alert for unknown mode changes
-		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
-		}
-		if len(unknown) == 1 && len(changes) == 0 {
-			return false
-		}
-
-		// apply mode changes
-		applied = target.applyUserModeChanges(msg.Command == "SAMODE", changes)
-	}
-
-	if len(applied) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", targetNick, applied.String())
-	} else if hasPrivs {
-		client.Send(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
-		if client.flags[LocalOperator] || client.flags[Operator] {
-			masks := server.snomasks.String(client)
-			if 0 < len(masks) {
-				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
-			}
-		}
-	}
-	return false
 }
 
 // ParseDefaultChannelModes parses the `default-modes` line of the config
@@ -604,65 +536,4 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 	}
 
 	return applied
-}
-
-// MODE <target> [<modestring> [<mode arguments>...]]
-func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	channelName, err := CasefoldChannel(msg.Params[0])
-	channel := server.channels.Get(channelName)
-
-	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
-		return false
-	}
-
-	// applied mode changes
-	applied := make(ModeChanges, 0)
-
-	if 1 < len(msg.Params) {
-		// parse out real mode changes
-		params := msg.Params[1:]
-		changes, unknown := ParseChannelModeChanges(params...)
-
-		// alert for unknown mode changes
-		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
-		}
-		if len(unknown) == 1 && len(changes) == 0 {
-			return false
-		}
-
-		// apply mode changes
-		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes)
-	}
-
-	// save changes to banlist/exceptlist/invexlist
-	var banlistUpdated, exceptlistUpdated, invexlistUpdated bool
-	for _, change := range applied {
-		if change.mode == BanMask {
-			banlistUpdated = true
-		} else if change.mode == ExceptMask {
-			exceptlistUpdated = true
-		} else if change.mode == InviteMask {
-			invexlistUpdated = true
-		}
-	}
-
-	if (banlistUpdated || exceptlistUpdated || invexlistUpdated) && channel.IsRegistered() {
-		go server.channelRegistry.StoreChannel(channel, true)
-	}
-
-	// send out changes
-	if len(applied) > 0 {
-		//TODO(dan): we should change the name of String and make it return a slice here
-		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
-		for _, member := range channel.Members() {
-			member.Send(nil, client.nickMaskString, "MODE", args...)
-		}
-	} else {
-		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
-	}
-	return false
 }

@@ -4,17 +4,13 @@
 package irc
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
@@ -87,163 +83,6 @@ func loadAccount(server *Server, tx *buntdb.Tx, accountKey string) *ClientAccoun
 	return &accountInfo
 }
 
-// authenticateHandler parses the AUTHENTICATE command (for SASL authentication).
-func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// sasl abort
-	if !server.accountAuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
-		client.Send(nil, server.name, ERR_SASLABORTED, client.nick, client.t("SASL authentication aborted"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
-		return false
-	}
-
-	// start new sasl session
-	if !client.saslInProgress {
-		mechanism := strings.ToUpper(msg.Params[0])
-		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
-
-		if mechanismIsEnabled {
-			client.saslInProgress = true
-			client.saslMechanism = mechanism
-			client.Send(nil, server.name, "AUTHENTICATE", "+")
-		} else {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
-		}
-
-		return false
-	}
-
-	// continue existing sasl session
-	rawData := msg.Params[0]
-
-	if len(rawData) > 400 {
-		client.Send(nil, server.name, ERR_SASLTOOLONG, client.nick, client.t("SASL message too long"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
-		return false
-	} else if len(rawData) == 400 {
-		client.saslValue += rawData
-		// allow 4 'continuation' lines before rejecting for length
-		if len(client.saslValue) > 400*4 {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Passphrase too long"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
-			return false
-		}
-		return false
-	}
-	if rawData != "+" {
-		client.saslValue += rawData
-	}
-
-	var data []byte
-	var err error
-	if client.saslValue != "+" {
-		data, err = base64.StdEncoding.DecodeString(client.saslValue)
-		if err != nil {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
-			return false
-		}
-	}
-
-	// call actual handler
-	handler, handlerExists := EnabledSaslMechanisms[client.saslMechanism]
-
-	// like 100% not required, but it's good to be safe I guess
-	if !handlerExists {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
-		return false
-	}
-
-	// let the SASL handler do its thing
-	exiting := handler(server, client, client.saslMechanism, data)
-
-	// wait 'til SASL is done before emptying the sasl vars
-	client.saslInProgress = false
-	client.saslMechanism = ""
-	client.saslValue = ""
-
-	return exiting
-}
-
-// authPlainHandler parses the SASL PLAIN mechanism.
-func authPlainHandler(server *Server, client *Client, mechanism string, value []byte) bool {
-	splitValue := bytes.Split(value, []byte{'\000'})
-
-	var accountKey, authzid string
-
-	if len(splitValue) == 3 {
-		accountKey = string(splitValue[0])
-		authzid = string(splitValue[1])
-
-		if accountKey == "" {
-			accountKey = authzid
-		} else if accountKey != authzid {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
-			return false
-		}
-	} else {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid auth blob"))
-		return false
-	}
-
-	// keep it the same as in the REG CREATE stage
-	accountKey, err := CasefoldName(accountKey)
-	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Bad account name"))
-		return false
-	}
-
-	// load and check acct data all in one update to prevent races.
-	// as noted elsewhere, change to proper locking for Account type later probably
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		// confirm account is verified
-		_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
-		if err != nil {
-			return errSaslFail
-		}
-
-		creds, err := loadAccountCredentials(tx, accountKey)
-		if err != nil {
-			return err
-		}
-
-		// ensure creds are valid
-		password := string(splitValue[2])
-		if len(creds.PassphraseHash) < 1 || len(creds.PassphraseSalt) < 1 || len(password) < 1 {
-			return errSaslFail
-		}
-		err = server.passwords.CompareHashAndPassword(creds.PassphraseHash, creds.PassphraseSalt, password)
-
-		// succeeded, load account info if necessary
-		account, exists := server.accounts[accountKey]
-		if !exists {
-			account = loadAccount(server, tx, accountKey)
-		}
-
-		client.LoginToAccount(account)
-
-		return err
-	})
-
-	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
-		return false
-	}
-
-	client.successfulSaslAuth()
-	return false
-}
-
 // LoginToAccount logs the client into the given account.
 func (client *Client) LoginToAccount(account *ClientAccount) {
 	if client.account == account {
@@ -290,58 +129,6 @@ func (client *Client) LogoutOfAccount() {
 	for friend := range client.Friends(caps.AccountNotify) {
 		friend.Send(nil, client.nickMaskString, "ACCOUNT", "*")
 	}
-}
-
-// authExternalHandler parses the SASL EXTERNAL mechanism.
-func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
-	if client.certfp == "" {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
-		return false
-	}
-
-	err := server.store.Update(func(tx *buntdb.Tx) error {
-		// certfp lookup key
-		accountKey, err := tx.Get(fmt.Sprintf(keyCertToAccount, client.certfp))
-		if err != nil {
-			return errSaslFail
-		}
-
-		// confirm account exists
-		_, err = tx.Get(fmt.Sprintf(keyAccountExists, accountKey))
-		if err != nil {
-			return errSaslFail
-		}
-
-		// confirm account is verified
-		_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
-		if err != nil {
-			return errSaslFail
-		}
-
-		// confirm the certfp in that account's credentials
-		creds, err := loadAccountCredentials(tx, accountKey)
-		if err != nil || creds.Certificate != client.certfp {
-			return errSaslFail
-		}
-
-		// succeeded, load account info if necessary
-		account, exists := server.accounts[accountKey]
-		if !exists {
-			account = loadAccount(server, tx, accountKey)
-		}
-
-		client.LoginToAccount(account)
-
-		return nil
-	})
-
-	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
-		return false
-	}
-
-	client.successfulSaslAuth()
-	return false
 }
 
 // successfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.

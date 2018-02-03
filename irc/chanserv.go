@@ -8,15 +8,8 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/sno"
 )
-
-// csHandler handles the /CS and /CHANSERV commands
-func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.chanservReceivePrivmsg(client, strings.Join(msg.Params, " "))
-	return false
-}
 
 func (server *Server) chanservReceiveNotice(client *Client, message string) {
 	// do nothing

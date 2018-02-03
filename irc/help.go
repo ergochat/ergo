@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 // HelpEntryType represents the different sorts of help entries that can exist.
@@ -686,42 +684,4 @@ func GetHelpIndex(languages []string, helpIndex map[string]string) string {
 	}
 	// 'en' always exists
 	return helpIndex["en"]
-}
-
-// helpHandler returns the appropriate help for the given query.
-func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
-
-	if len(argument) < 1 {
-		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
-
-Get an explanation of <argument>, or "index" for a list of help topics.`))
-		return false
-	}
-
-	// handle index
-	if argument == "index" {
-		if client.flags[Operator] {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers))
-		} else {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex))
-		}
-		return false
-	}
-
-	helpHandler, exists := Help[argument]
-
-	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[Operator])) {
-		if helpHandler.textGenerator != nil {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)))
-		} else {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text))
-		}
-	} else {
-		args := msg.Params
-		args = append(args, client.t("Help not found"))
-		client.Send(nil, server.name, ERR_HELPNOTFOUND, args...)
-	}
-
-	return false
 }

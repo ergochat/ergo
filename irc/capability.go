@@ -5,9 +5,6 @@
 package irc
 
 import (
-	"strings"
-
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 )
 
@@ -32,63 +29,3 @@ const (
 	// CapNegotiated means CAP negotiation has been successfully ended and reg should complete.
 	CapNegotiated CapState = iota
 )
-
-// CAP <subcmd> [<caps>]
-func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	subCommand := strings.ToUpper(msg.Params[0])
-	capabilities := caps.NewSet()
-	var capString string
-
-	if len(msg.Params) > 1 {
-		capString = msg.Params[1]
-		strs := strings.Split(capString, " ")
-		for _, str := range strs {
-			if len(str) > 0 {
-				capabilities.Enable(caps.Capability(str))
-			}
-		}
-	}
-
-	switch subCommand {
-	case "LS":
-		if !client.registered {
-			client.capState = CapNegotiating
-		}
-		if len(msg.Params) > 1 && msg.Params[1] == "302" {
-			client.capVersion = 302
-		}
-		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
-		// the server.name source... otherwise it doesn't respond to the CAP message with
-		// anything and just hangs on connection.
-		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion, CapValues))
-
-	case "LIST":
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
-
-	case "REQ":
-		if !client.registered {
-			client.capState = CapNegotiating
-		}
-
-		// make sure all capabilities actually exist
-		for _, capability := range capabilities.List() {
-			if !SupportedCapabilities.Has(capability) {
-				client.Send(nil, server.name, "CAP", client.nick, "NAK", capString)
-				return false
-			}
-		}
-		client.capabilities.Enable(capabilities.List()...)
-		client.Send(nil, server.name, "CAP", client.nick, "ACK", capString)
-
-	case "END":
-		if !client.registered {
-			client.capState = CapNegotiated
-			server.tryRegister(client)
-		}
-
-	default:
-		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, client.t("Invalid CAP subcommand"))
-	}
-	return false
-}

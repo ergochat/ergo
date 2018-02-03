@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
@@ -27,12 +26,6 @@ To login to an account:
 	/NS IDENTIFY [username password]
 Leave out [username password] to use your client certificate fingerprint. Otherwise,
 the given username and password will be used.`
-
-// nsHandler handles the /NS and /NICKSERV commands
-func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.nickservReceivePrivmsg(client, strings.Join(msg.Params, " "))
-	return false
-}
 
 func (server *Server) nickservReceiveNotice(client *Client, message string) {
 	// do nothing

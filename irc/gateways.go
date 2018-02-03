@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/oragono/oragono/irc/passwd"
 
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -60,78 +58,6 @@ func isGatewayAllowed(addr net.Addr, gatewaySpec string) bool {
 		return false
 	}
 	return gatewayNet.Contains(ip)
-}
-
-// WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
-func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != nil {
-		return false
-	}
-
-	// process flags
-	var secure bool
-	if 4 < len(msg.Params) {
-		for _, x := range strings.Split(msg.Params[4], " ") {
-			// split into key=value
-			var key string
-			if strings.Contains(x, "=") {
-				y := strings.SplitN(x, "=", 2)
-				key, _ = y[0], y[1]
-			} else {
-				key = x
-			}
-
-			lkey := strings.ToLower(key)
-			if lkey == "tls" || lkey == "secure" {
-				// only accept "tls" flag if the gateway's connection to us is secure as well
-				if client.flags[TLS] || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
-					secure = true
-				}
-			}
-		}
-	}
-
-	for _, info := range server.WebIRCConfig() {
-		for _, gateway := range info.Hosts {
-			if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
-				// confirm password and/or fingerprint
-				givenPassword := msg.Params[0]
-				if 0 < len(info.Password) && passwd.ComparePasswordString(info.Password, givenPassword) != nil {
-					continue
-				}
-				if 0 < len(info.Fingerprint) && client.certfp != info.Fingerprint {
-					continue
-				}
-
-				proxiedIP := msg.Params[3]
-				return client.ApplyProxiedIP(proxiedIP, secure)
-			}
-		}
-	}
-
-	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"))
-	return true
-}
-
-// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
-// http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != nil {
-		return false
-	}
-
-	for _, gateway := range server.ProxyAllowedFrom() {
-		if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
-			proxiedIP := msg.Params[1]
-
-			// assume PROXY connections are always secure
-			return client.ApplyProxiedIP(proxiedIP, true)
-		}
-	}
-	client.Quit(client.t("PROXY command is not usable from your address"))
-	return true
 }
 
 // ApplyProxiedIP applies the given IP to the client.

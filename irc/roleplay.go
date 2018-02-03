@@ -6,7 +6,6 @@ package irc
 import (
 	"fmt"
 
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 )
 
@@ -14,54 +13,6 @@ const (
 	npcNickMask   = "*%s*!%s@npc.fakeuser.invalid"
 	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
-
-// SCENE <target> <text to be sent>
-func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	target := msg.Params[0]
-	message := msg.Params[1]
-	sourceString := fmt.Sprintf(sceneNickMask, client.nick)
-
-	sendRoleplayMessage(server, client, sourceString, target, false, message)
-
-	return false
-}
-
-// NPC <target> <sourcenick> <text to be sent>
-func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	target := msg.Params[0]
-	fakeSource := msg.Params[1]
-	message := msg.Params[2]
-
-	_, err := CasefoldName(fakeSource)
-	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
-		return false
-	}
-
-	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
-
-	sendRoleplayMessage(server, client, sourceString, target, false, message)
-
-	return false
-}
-
-// NPCA <target> <sourcenick> <text to be sent>
-func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	target := msg.Params[0]
-	fakeSource := msg.Params[1]
-	message := msg.Params[2]
-	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
-
-	_, err := CasefoldName(fakeSource)
-	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
-		return false
-	}
-
-	sendRoleplayMessage(server, client, sourceString, target, true, message)
-
-	return false
-}
 
 func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, message string) {
 	if isAction {
