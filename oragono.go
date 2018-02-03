@@ -16,8 +16,8 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/mkcerts"
 	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/mkcerts"
 	stackimpact "github.com/stackimpact/stackimpact-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
