@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -32,9 +31,7 @@ const (
 )
 
 var (
-	// ErrNickAlreadySet is a weird error that's sent when the server's consistency has been compromised.
-	ErrNickAlreadySet = errors.New("Nickname is already set")
-	LoopbackIP        = net.ParseIP("127.0.0.1")
+	LoopbackIP = net.ParseIP("127.0.0.1")
 )
 
 // Client is an IRC client.
@@ -397,7 +394,7 @@ func (client *Client) TryResume() {
 		var params []string
 		if 0 < len(oldModes) {
 			params = []string{channel.name, "+" + oldModes}
-			for _ = range oldModes {
+			for range oldModes {
 				params = append(params, client.nick)
 			}
 		}

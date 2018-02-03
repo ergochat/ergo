@@ -976,7 +976,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			key = keys[i]
 		}
 		err := server.channels.Join(client, name, key)
-		if err == NoSuchChannel {
+		if err == errNoSuchChannel {
 			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
 		}
 	}
@@ -1571,7 +1571,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 		}
 
 		err = server.monitorManager.Add(client, casefoldedTarget, limit)
-		if err == ErrMonitorLimitExceeded {
+		if err == errMonitorLimitExceeded {
 			client.Send(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
 			break
 		} else if err != nil {
@@ -1855,7 +1855,7 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	for _, chname := range channels {
 		err := server.channels.Part(client, chname, reason)
-		if err == NoSuchChannel {
+		if err == errNoSuchChannel {
 			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
 		}
 	}
@@ -2023,13 +2023,13 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		// TODO: send correct error codes, e.g., ERR_CANNOTRENAME, ERR_CHANNAMEINUSE
 		var code string
 		switch err {
-		case NoSuchChannel:
+		case errNoSuchChannel:
 			code = ERR_NOSUCHCHANNEL
-		case RenamePrivsNeeded:
+		case errRenamePrivsNeeded:
 			code = ERR_CHANOPRIVSNEEDED
-		case InvalidChannelName:
+		case errInvalidChannelName:
 			code = ERR_UNKNOWNERROR
-		case ChannelNameInUse:
+		case errChannelNameInUse:
 			code = ERR_UNKNOWNERROR
 		default:
 			code = ERR_UNKNOWNERROR
@@ -2040,12 +2040,12 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 	oldName := strings.TrimSpace(msg.Params[0])
 	newName := strings.TrimSpace(msg.Params[1])
 	if oldName == "" || newName == "" {
-		errorResponse(InvalidChannelName, "<empty>")
+		errorResponse(errInvalidChannelName, "<empty>")
 		return
 	}
 	casefoldedOldName, err := CasefoldChannel(oldName)
 	if err != nil {
-		errorResponse(InvalidChannelName, oldName)
+		errorResponse(errInvalidChannelName, oldName)
 		return
 	}
 
@@ -2056,12 +2056,12 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 
 	channel := server.channels.Get(oldName)
 	if channel == nil {
-		errorResponse(NoSuchChannel, oldName)
+		errorResponse(errNoSuchChannel, oldName)
 		return
 	}
 	//TODO(dan): allow IRCops to do this?
 	if !channel.ClientIsAtLeast(client, modes.Operator) {
-		errorResponse(RenamePrivsNeeded, oldName)
+		errorResponse(errRenamePrivsNeeded, oldName)
 		return
 	}
 

@@ -42,7 +42,7 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	origNick := target.Nick()
 	origNickMask := target.NickMaskString()
 	err = client.server.clients.SetNick(target, nickname)
-	if err == ErrNicknameInUse {
+	if err == errNicknameInUse {
 		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
 		return false
 	} else if err != nil {

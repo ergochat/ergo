@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"errors"
 	"strings"
 
 	"golang.org/x/text/secure/precis"
@@ -14,12 +13,6 @@ import (
 
 const (
 	casemappingName = "rfc8265"
-)
-
-var (
-	errCouldNotStabilize = errors.New("Could not stabilize string while casefolding")
-	errInvalidCharacter  = errors.New("Invalid character")
-	errEmpty             = errors.New("String is empty")
 )
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
@@ -51,7 +44,7 @@ func CasefoldChannel(name string) (string, error) {
 	if err != nil {
 		return "", err
 	} else if len(lowered) == 0 {
-		return "", errEmpty
+		return "", errStringIsEmpty
 	}
 
 	if lowered[0] != '#' {
@@ -76,7 +69,7 @@ func CasefoldName(name string) (string, error) {
 	if err != nil {
 		return "", err
 	} else if len(lowered) == 0 {
-		return "", errEmpty
+		return "", errStringIsEmpty
 	}
 
 	// space can't be used

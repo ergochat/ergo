@@ -4,14 +4,7 @@
 package irc
 
 import (
-	"errors"
 	"sync"
-)
-
-var (
-	InvalidChannelName = errors.New("Invalid channel name")
-	NoSuchChannel      = errors.New("No such channel")
-	ChannelNameInUse   = errors.New("Channel name in use")
 )
 
 type channelManagerEntry struct {
@@ -56,7 +49,7 @@ func (cm *ChannelManager) Join(client *Client, name string, key string) error {
 	server := client.server
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil || len(casefoldedName) > server.Limits().ChannelLen {
-		return NoSuchChannel
+		return errNoSuchChannel
 	}
 
 	cm.Lock()
@@ -117,7 +110,7 @@ func (cm *ChannelManager) maybeCleanup(entry *channelManagerEntry, afterJoin boo
 func (cm *ChannelManager) Part(client *Client, name string, message string) error {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
-		return NoSuchChannel
+		return errNoSuchChannel
 	}
 
 	cm.RLock()
@@ -125,7 +118,7 @@ func (cm *ChannelManager) Part(client *Client, name string, message string) erro
 	cm.RUnlock()
 
 	if entry == nil {
-		return NoSuchChannel
+		return errNoSuchChannel
 	}
 	entry.channel.Part(client, message)
 	cm.maybeCleanup(entry, false)
@@ -136,23 +129,23 @@ func (cm *ChannelManager) Part(client *Client, name string, message string) erro
 func (cm *ChannelManager) Rename(name string, newname string) error {
 	cfname, err := CasefoldChannel(name)
 	if err != nil {
-		return NoSuchChannel
+		return errNoSuchChannel
 	}
 
 	cfnewname, err := CasefoldChannel(newname)
 	if err != nil {
-		return InvalidChannelName
+		return errInvalidChannelName
 	}
 
 	cm.Lock()
 	defer cm.Unlock()
 
 	if cm.chans[cfnewname] != nil {
-		return ChannelNameInUse
+		return errChannelNameInUse
 	}
 	entry := cm.chans[cfname]
 	if entry == nil {
-		return NoSuchChannel
+		return errNoSuchChannel
 	}
 	delete(cm.chans, cfname)
 	cm.chans[cfnewname] = entry

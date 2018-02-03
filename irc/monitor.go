@@ -4,7 +4,6 @@
 package irc
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/goshuirc/irc-go/ircmsg"
@@ -28,9 +27,6 @@ func NewMonitorManager() *MonitorManager {
 	}
 	return &mm
 }
-
-// ErrMonitorLimitExceeded is used when the monitor list exceeds our limit.
-var ErrMonitorLimitExceeded = errors.New("Monitor limit exceeded")
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
 func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
@@ -67,7 +63,7 @@ func (manager *MonitorManager) Add(client *Client, nick string, limit int) error
 	}
 
 	if len(manager.watching[client]) >= limit {
-		return ErrMonitorLimitExceeded
+		return errMonitorLimitExceeded
 	}
 
 	manager.watching[client][nick] = true

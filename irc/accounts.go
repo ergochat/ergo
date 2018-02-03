@@ -5,7 +5,6 @@ package irc
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -37,9 +36,6 @@ var (
 	NoAccount = ClientAccount{
 		Name: "*", // * is used until actual account name is set
 	}
-
-	// generic sasl fail error
-	errSaslFail = errors.New("SASL failed")
 )
 
 // ClientAccount represents a user account.

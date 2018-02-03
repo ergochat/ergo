@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"errors"
 	"io"
 	"net"
 	"strings"
@@ -18,8 +17,6 @@ import (
 )
 
 var (
-	errNotTLS           = errors.New("Not a TLS connection")
-	errNoPeerCerts      = errors.New("Client did not provide a certificate")
 	handshakeTimeout, _ = time.ParseDuration("5s")
 )
 

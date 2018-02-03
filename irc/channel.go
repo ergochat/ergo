@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -16,10 +15,6 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/modes"
-)
-
-var (
-	ChannelAlreadyRegistered = errors.New("Channel is already registered")
 )
 
 // Channel represents a channel that clients can join.
@@ -132,7 +127,7 @@ func (channel *Channel) SetRegistered(founder string) error {
 	defer channel.stateMutex.Unlock()
 
 	if channel.registeredFounder != "" {
-		return ChannelAlreadyRegistered
+		return errChannelAlreadyRegistered
 	}
 	channel.registeredFounder = founder
 	channel.registeredTime = time.Now()

@@ -4,15 +4,9 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/tidwall/buntdb"
-)
-
-var (
-	errAccountCreation     = errors.New("Account could not be created")
-	errCertfpAlreadyExists = errors.New("An account already exists with your certificate")
 )
 
 // AccountRegistration manages the registration of accounts.

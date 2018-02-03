@@ -195,5 +195,6 @@ const (
 	ERR_NOLANGUAGE                  = "982"
 
 	// draft numerics
+
 	ERR_CANNOT_RESUME = "999"
 )

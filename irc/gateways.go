@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"net"
 
@@ -25,7 +24,7 @@ type webircConfig struct {
 // Populate fills out our password or fingerprint.
 func (wc *webircConfig) Populate() (err error) {
 	if wc.Fingerprint == "" && wc.PasswordString == "" {
-		return errors.New("Fingerprint or password needs to be specified")
+		return ErrNoFingerprintOrPassword
 	}
 
 	if wc.PasswordString != "" {

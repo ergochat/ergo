@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -42,8 +41,6 @@ var (
 
 	// common error responses
 	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
-
-	RenamePrivsNeeded = errors.New("Only chanops can rename channels")
 
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = modes.SupportedUserModes.String()
@@ -349,10 +346,10 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 	// make listener
 	var listener net.Listener
 	var err error
-	optional_unix_prefix := "unix:"
-	optional_prefix_len := len(optional_unix_prefix)
-	if len(addr) >= optional_prefix_len && strings.ToLower(addr[0:optional_prefix_len]) == optional_unix_prefix {
-		addr = addr[optional_prefix_len:]
+	optionalUnixPrefix := "unix:"
+	optionalPrefixLen := len(optionalUnixPrefix)
+	if len(addr) >= optionalPrefixLen && strings.ToLower(addr[0:optionalPrefixLen]) == optionalUnixPrefix {
+		addr = addr[optionalPrefixLen:]
 		if len(addr) == 0 || addr[0] != '/' {
 			log.Fatal("Bad unix socket address", addr)
 		}
@@ -492,7 +489,7 @@ func (server *Server) tryRegister(c *Client) {
 			oldModes := myModes.String()
 			if 0 < len(oldModes) {
 				params := []string{channel.name, "+" + oldModes}
-				for _ = range oldModes {
+				for range oldModes {
 					params = append(params, c.nick)
 				}
 

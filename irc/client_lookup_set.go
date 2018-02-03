@@ -5,7 +5,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -15,11 +14,6 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 
 	"sync"
-)
-
-var (
-	ErrNickMissing   = errors.New("nick missing")
-	ErrNicknameInUse = errors.New("nickname in use")
 )
 
 // ExpandUserHost takes a userhost, and returns an expanded version.
@@ -91,7 +85,7 @@ func (clients *ClientManager) Remove(client *Client) error {
 	defer clients.Unlock()
 
 	if !client.HasNick() {
-		return ErrNickMissing
+		return errNickMissing
 	}
 	clients.removeInternal(client)
 	return nil
@@ -111,7 +105,7 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	currentNewEntry := clients.byNick[newcfnick]
 	// the client may just be changing case
 	if currentNewEntry != nil && currentNewEntry != client {
-		return ErrNicknameInUse
+		return errNicknameInUse
 	}
 	clients.byNick[newcfnick] = client
 	client.updateNickMask(newNick)

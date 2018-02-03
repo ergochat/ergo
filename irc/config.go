@@ -8,7 +8,6 @@ package irc
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -41,7 +40,7 @@ type TLSListenConfig struct {
 func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
-		return nil, errors.New("tls cert+key: invalid pair")
+		return nil, ErrInvalidCertKeyPair
 	}
 
 	return &tls.Config{
@@ -232,7 +231,7 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 	lenOfLastOcs := -1
 	for {
 		if lenOfLastOcs == len(ocs) {
-			return nil, errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
+			return nil, ErrOperClassDependencies
 		}
 		lenOfLastOcs = len(ocs)
 
@@ -369,22 +368,22 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if config.Network.Name == "" {
-		return nil, errors.New("Network name missing")
+		return nil, ErrNetworkNameMissing
 	}
 	if config.Server.Name == "" {
-		return nil, errors.New("Server name missing")
+		return nil, ErrServerNameMissing
 	}
 	if !utils.IsHostname(config.Server.Name) {
-		return nil, errors.New("Server name must match the format of a hostname")
+		return nil, ErrServerNameNotHostname
 	}
 	if config.Datastore.Path == "" {
-		return nil, errors.New("Datastore path missing")
+		return nil, ErrDatastorePathMissing
 	}
 	if len(config.Server.Listen) == 0 {
-		return nil, errors.New("Server listening addresses missing")
+		return nil, ErrNoListenersDefined
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
-		return nil, errors.New("Limits aren't setup properly, check them and make them sane")
+		return nil, ErrLimitsAreInsane
 	}
 	if config.Server.STS.Enabled {
 		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
@@ -422,7 +421,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.WebIRC = newWebIRC
 	// process limits
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
-		return nil, errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
+		return nil, ErrLineLengthsTooSmall
 	}
 	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {
@@ -434,7 +433,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if methods["file"] && logConfig.Filename == "" {
-			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
+			return nil, ErrLoggerFilenameMissing
 		}
 		logConfig.MethodFile = methods["file"]
 		logConfig.MethodStdout = methods["stdout"]
@@ -453,7 +452,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				continue
 			}
 			if typeStr == "-" {
-				return nil, errors.New("Encountered logging type '-' with no type to exclude")
+				return nil, ErrLoggerExcludeEmpty
 			}
 			if typeStr[0] == '-' {
 				typeStr = typeStr[1:]
@@ -463,7 +462,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if len(logConfig.Types) < 1 {
-			return nil, errors.New("Logger has no types to log")
+			return nil, ErrLoggerHasNoTypes
 		}
 
 		newLogConfigs = append(newLogConfigs, logConfig)

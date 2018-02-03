@@ -4,7 +4,6 @@
 package irc
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -17,10 +16,6 @@ import (
 
 const (
 	keyDlineEntry = "bans.dline %s"
-)
-
-var (
-	errNoExistingBan = errors.New("Ban does not exist")
 )
 
 // IPRestrictTime contains the expiration info about the given IP.
