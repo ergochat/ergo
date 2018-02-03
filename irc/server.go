@@ -49,6 +49,14 @@ var (
 	supportedUserModesString = modes.SupportedUserModes.String()
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = modes.SupportedChannelModes.String()
+
+	// SupportedCapabilities are the caps we advertise.
+	// MaxLine, SASL and STS are set during server startup.
+	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.UserhostInNames)
+
+	// CapValues are the actual values we advertise to v3.2 clients.
+	// actual values are set during server startup.
+	CapValues = caps.NewValues()
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -422,7 +430,7 @@ func (server *Server) generateMessageID() string {
 
 func (server *Server) tryRegister(c *Client) {
 	if c.registered || !c.HasNick() || !c.HasUsername() ||
-		(c.capState == CapNegotiating) {
+		(c.capState == caps.NegotiatingState) {
 		return
 	}
 

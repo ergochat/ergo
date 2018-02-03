@@ -27,10 +27,6 @@ To login to an account:
 Leave out [username password] to use your client certificate fingerprint. Otherwise,
 the given username and password will be used.`
 
-func (server *Server) nickservReceiveNotice(client *Client, message string) {
-	// do nothing
-}
-
 // extractParam extracts a parameter from the given string, returning the param and the rest of the string.
 func extractParam(line string) (string, string) {
 	rawParams := strings.SplitN(strings.TrimSpace(line), " ", 2)
@@ -42,7 +38,13 @@ func extractParam(line string) (string, string) {
 	return param0, param1
 }
 
-func (server *Server) nickservReceivePrivmsg(client *Client, message string) {
+// nickservNoticeHandler handles NOTICEs that NickServ receives.
+func (server *Server) nickservNoticeHandler(client *Client, message string) {
+	// do nothing
+}
+
+// nickservPrivmsgHandler handles PRIVMSGs that NickServ receives.
+func (server *Server) nickservPrivmsgHandler(client *Client, message string) {
 	command, params := extractParam(message)
 	command = strings.ToLower(command)
 

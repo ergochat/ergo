@@ -1,7 +1,7 @@
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package utils
 
 import "github.com/goshuirc/irc-go/ircmsg"
 

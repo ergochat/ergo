@@ -12,16 +12,18 @@ import (
 	"github.com/oragono/oragono/irc/sno"
 )
 
-func (server *Server) chanservReceiveNotice(client *Client, message string) {
-	// do nothing
-}
-
 // ChanServNotice sends the client a notice from ChanServ.
 func (client *Client) ChanServNotice(text string) {
 	client.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "NOTICE", client.nick, text)
 }
 
-func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
+// chanservReceiveNotice handles NOTICEs that ChanServ receives.
+func (server *Server) chanservNoticeHandler(client *Client, message string) {
+	// do nothing
+}
+
+// chanservReceiveNotice handles NOTICEs that ChanServ receives.
+func (server *Server) chanservPrivmsgHandler(client *Client, message string) {
 	var params []string
 	for _, p := range strings.Split(message, " ") {
 		if len(p) > 0 {

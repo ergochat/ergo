@@ -63,3 +63,15 @@ const (
 	// Cap302 refers to the IRCv3.2 CAP spec.
 	Cap302 Version = 302
 )
+
+// State shows whether we're negotiating caps, finished, etc for connection registration.
+type State uint
+
+const (
+	// NoneState means CAP hasn't been negotiated at all.
+	NoneState State = iota
+	// NegotiatingState means CAP is being negotiated and registration should be paused.
+	NegotiatingState State = iota
+	// NegotiatedState means CAP negotiation has been successfully ended and reg should complete.
+	NegotiatedState State = iota
+)

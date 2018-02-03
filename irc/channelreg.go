@@ -67,16 +67,19 @@ type RegisteredChannel struct {
 	Invitelist []string
 }
 
+// ChannelRegistry manages registered channels.
 type ChannelRegistry struct {
-	// this serializes operations of the form (read channel state, synchronously persist it);
+	// This serializes operations of the form (read channel state, synchronously persist it);
 	// this is enough to guarantee eventual consistency of the database with the
 	// ChannelManager and Channel objects, which are the source of truth.
-	// Wwe could use the buntdb RW transaction lock for this purpose but we share
+	//
+	// We could use the buntdb RW transaction lock for this purpose but we share
 	// that with all the other modules, so let's not.
 	sync.Mutex // tier 2
 	server     *Server
 }
 
+// NewChannelRegistry returns a new ChannelRegistry.
 func NewChannelRegistry(server *Server) *ChannelRegistry {
 	return &ChannelRegistry{
 		server: server,

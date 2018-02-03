@@ -533,7 +533,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	switch subCommand {
 	case "LS":
 		if !client.registered {
-			client.capState = CapNegotiating
+			client.capState = caps.NegotiatingState
 		}
 		if len(msg.Params) > 1 && msg.Params[1] == "302" {
 			client.capVersion = 302
@@ -549,7 +549,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	case "REQ":
 		if !client.registered {
-			client.capState = CapNegotiating
+			client.capState = caps.NegotiatingState
 		}
 
 		// make sure all capabilities actually exist
@@ -564,7 +564,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	case "END":
 		if !client.registered {
-			client.capState = CapNegotiated
+			client.capState = caps.NegotiatedState
 			server.tryRegister(client)
 		}
 
@@ -576,7 +576,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // csHandler handles the /CS and /CHANSERV commands
 func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.chanservReceivePrivmsg(client, strings.Join(msg.Params, " "))
+	server.chanservPrivmsgHandler(client, strings.Join(msg.Params, " "))
 	return false
 }
 
@@ -1676,7 +1676,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // NOTICE <target>{,<target>} <message>
 func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	clientOnlyTags := GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -1710,10 +1710,10 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				continue
 			}
 			if target == "chanserv" {
-				server.chanservReceiveNotice(client, message)
+				server.chanservNoticeHandler(client, message)
 				continue
 			} else if target == "nickserv" {
-				server.nickservReceiveNotice(client, message)
+				server.nickservNoticeHandler(client, message)
 				continue
 			}
 
@@ -1778,7 +1778,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // nsHandler handles the /NS and /NICKSERV commands
 func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.nickservReceivePrivmsg(client, strings.Join(msg.Params, " "))
+	server.nickservPrivmsgHandler(client, strings.Join(msg.Params, " "))
 	return false
 }
 
@@ -1901,7 +1901,7 @@ func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // PRIVMSG <target>{,<target>} <message>
 func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	clientOnlyTags := GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -1937,10 +1937,10 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		} else {
 			target, err = CasefoldName(targetString)
 			if target == "chanserv" {
-				server.chanservReceivePrivmsg(client, message)
+				server.chanservPrivmsgHandler(client, message)
 				continue
 			} else if target == "nickserv" {
-				server.nickservReceivePrivmsg(client, message)
+				server.nickservPrivmsgHandler(client, message)
 				continue
 			}
 			user := server.clients.Get(target)
@@ -2159,7 +2159,7 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // TAGMSG <target>{,<target>}
 func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	clientOnlyTags := GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	// no client-only tags, so we can drop it
 	if clientOnlyTags == nil {
 		return false

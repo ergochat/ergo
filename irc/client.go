@@ -44,7 +44,7 @@ type Client struct {
 	authorized         bool
 	awayMessage        string
 	capabilities       *caps.Set
-	capState           CapState
+	capState           caps.State
 	capVersion         caps.Version
 	certfp             string
 	channels           ChannelSet
@@ -92,7 +92,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		atime:          now,
 		authorized:     server.Password() == nil,
 		capabilities:   caps.NewSet(),
-		capState:       CapNone,
+		capState:       caps.NoneState,
 		capVersion:     caps.Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
