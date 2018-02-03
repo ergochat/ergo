@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/oragono/oragono/irc/languages"
 )
 
 // HelpEntryType represents the different sorts of help entries that can exist.
@@ -576,7 +578,7 @@ var HelpIndex map[string]string
 var HelpIndexOpers map[string]string
 
 // GenerateHelpIndex is used to generate HelpIndex.
-func GenerateHelpIndex(lm *LanguageManager, forOpers bool) map[string]string {
+func GenerateHelpIndex(lm *languages.Manager, forOpers bool) map[string]string {
 	// generate the help entry lists
 	var commands, isupport, information []string
 
@@ -638,7 +640,7 @@ Information:
 }
 
 // GenerateHelpIndices generates our help indexes and confirms we have HELP entries for every command.
-func GenerateHelpIndices(lm *LanguageManager) error {
+func GenerateHelpIndices(lm *languages.Manager) error {
 	// startup check that we have HELP entries for every command
 	if len(HelpIndex) == 0 && len(HelpIndexOpers) == 0 {
 		for name := range Commands {

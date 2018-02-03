@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -145,15 +146,6 @@ type StackImpactConfig struct {
 	AppName  string `yaml:"app-name"`
 }
 
-// LangData is the data contained in a language file.
-type LangData struct {
-	Name         string
-	Code         string
-	Contributors string
-	Incomplete   bool
-	Translations map[string]string
-}
-
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -182,7 +174,7 @@ type Config struct {
 		Enabled bool
 		Path    string
 		Default string
-		Data    map[string]LangData
+		Data    map[string]languages.LangData
 	}
 
 	Datastore struct {
@@ -484,7 +476,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	// get language files
-	config.Languages.Data = make(map[string]LangData)
+	config.Languages.Data = make(map[string]languages.LangData)
 	if config.Languages.Enabled {
 		files, err := ioutil.ReadDir(config.Languages.Path)
 		if err != nil {
@@ -514,7 +506,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				return nil, fmt.Errorf("Could not load language file [%s]: %s", name, err.Error())
 			}
 
-			var langInfo LangData
+			var langInfo languages.LangData
 			err = yaml.Unmarshal(data, &langInfo)
 			if err != nil {
 				return nil, fmt.Errorf("Could not parse language file [%s]: %s", name, err.Error())

@@ -1,7 +1,7 @@
 // Copyright (c) 2018 Daniel Oaks <daniel@danieloaks.net>
 // released under the MIT license
 
-package irc
+package languages
 
 import (
 	"fmt"
@@ -10,17 +10,26 @@ import (
 	"sync"
 )
 
-// LanguageManager manages our languages and provides translation abilities.
-type LanguageManager struct {
+// LangData is the data contained in a language file.
+type LangData struct {
+	Name         string
+	Code         string
+	Contributors string
+	Incomplete   bool
+	Translations map[string]string
+}
+
+// Manager manages our languages and provides translation abilities.
+type Manager struct {
 	sync.RWMutex
 	Info         map[string]LangData
 	translations map[string]map[string]string
 	defaultLang  string
 }
 
-// NewLanguageManager returns a new LanguageManager.
-func NewLanguageManager(defaultLang string, languageData map[string]LangData) *LanguageManager {
-	lm := LanguageManager{
+// NewManager returns a new Manager.
+func NewManager(defaultLang string, languageData map[string]LangData) *Manager {
+	lm := Manager{
 		Info:         make(map[string]LangData),
 		translations: make(map[string]map[string]string),
 		defaultLang:  defaultLang,
@@ -51,7 +60,7 @@ func NewLanguageManager(defaultLang string, languageData map[string]LangData) *L
 }
 
 // Default returns the default languages.
-func (lm *LanguageManager) Default() []string {
+func (lm *Manager) Default() []string {
 	lm.RLock()
 	defer lm.RUnlock()
 
@@ -62,7 +71,7 @@ func (lm *LanguageManager) Default() []string {
 }
 
 // Count returns how many languages we have.
-func (lm *LanguageManager) Count() int {
+func (lm *Manager) Count() int {
 	lm.RLock()
 	defer lm.RUnlock()
 
@@ -70,7 +79,7 @@ func (lm *LanguageManager) Count() int {
 }
 
 // Translators returns the languages we have and the translators.
-func (lm *LanguageManager) Translators() []string {
+func (lm *Manager) Translators() []string {
 	lm.RLock()
 	defer lm.RUnlock()
 
@@ -88,7 +97,7 @@ func (lm *LanguageManager) Translators() []string {
 }
 
 // Codes returns the proper language codes for the given casefolded language codes.
-func (lm *LanguageManager) Codes(codes []string) []string {
+func (lm *Manager) Codes(codes []string) []string {
 	lm.RLock()
 	defer lm.RUnlock()
 
@@ -108,7 +117,7 @@ func (lm *LanguageManager) Codes(codes []string) []string {
 }
 
 // Translate returns the given string, translated into the given language.
-func (lm *LanguageManager) Translate(languages []string, originalString string) string {
+func (lm *Manager) Translate(languages []string, originalString string) string {
 	// not using any special languages
 	if len(languages) == 0 || languages[0] == "en" || len(lm.translations) == 0 {
 		return originalString

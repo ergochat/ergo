@@ -11,7 +11,6 @@ import (
 	"net"
 
 	"github.com/oragono/oragono/irc/passwd"
-
 	"github.com/oragono/oragono/irc/utils"
 )
 

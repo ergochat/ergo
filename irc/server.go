@@ -27,6 +27,7 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
@@ -93,7 +94,7 @@ type Server struct {
 	loggingRawIO                 bool
 	isupport                     *isupport.List
 	klines                       *KLineManager
-	languages                    *LanguageManager
+	languages                    *languages.Manager
 	limits                       Limits
 	listeners                    map[string]*ListenerWrapper
 	logger                       *logger.Manager
@@ -142,7 +143,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
-		languages:           NewLanguageManager(config.Languages.Default, config.Languages.Data),
+		languages:           languages.NewManager(config.Languages.Default, config.Languages.Data),
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
@@ -775,7 +776,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		CapValues.Set(caps.Languages, newLanguageValue)
 	}
 
-	lm := NewLanguageManager(config.Languages.Default, config.Languages.Data)
+	lm := languages.NewManager(config.Languages.Default, config.Languages.Data)
 
 	server.logger.Debug("rehash", "Regenerating HELP indexes for new languages")
 	GenerateHelpIndices(lm)
