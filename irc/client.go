@@ -21,6 +21,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -50,7 +51,7 @@ type Client struct {
 	class              *OperClass
 	ctime              time.Time
 	exitedSnomaskSent  bool
-	flags              map[Mode]bool
+	flags              map[modes.Mode]bool
 	hasQuit            bool
 	hops               int
 	hostname           string
@@ -95,7 +96,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		capVersion:     caps.Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
-		flags:          make(map[Mode]bool),
+		flags:          make(map[modes.Mode]bool),
 		server:         server,
 		socket:         &socket,
 		account:        &NoAccount,
@@ -107,7 +108,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 
 	client.recomputeMaxlens()
 	if isTLS {
-		client.flags[TLS] = true
+		client.flags[modes.TLS] = true
 
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
@@ -348,7 +349,7 @@ func (client *Client) TryResume() {
 		return
 	}
 
-	if !oldClient.HasMode(TLS) || !client.HasMode(TLS) {
+	if !oldClient.HasMode(modes.TLS) || !client.HasMode(modes.TLS) {
 		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
 		return
 	}

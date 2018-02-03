@@ -3,7 +3,10 @@
 
 package irc
 
-import "github.com/oragono/oragono/irc/isupport"
+import (
+	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/modes"
+)
 
 func (server *Server) ISupport() *isupport.List {
 	server.configurableStateMutex.RLock()
@@ -41,7 +44,7 @@ func (server *Server) WebIRCConfig() []webircConfig {
 	return server.webirc
 }
 
-func (server *Server) DefaultChannelModes() Modes {
+func (server *Server) DefaultChannelModes() modes.Modes {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.defaultChannelModes
@@ -107,7 +110,7 @@ func (client *Client) AccountName() string {
 	return client.account.Name
 }
 
-func (client *Client) HasMode(mode Mode) bool {
+func (client *Client) HasMode(mode modes.Mode) bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.flags[mode]
@@ -180,7 +183,7 @@ func (channel *Channel) setKey(key string) {
 	channel.stateMutex.Unlock()
 }
 
-func (channel *Channel) HasMode(mode Mode) bool {
+func (channel *Channel) HasMode(mode modes.Mode) bool {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.flags[mode]
@@ -193,7 +196,7 @@ func (channel *Channel) Founder() string {
 }
 
 // set a channel mode, return whether it was already set
-func (channel *Channel) setMode(mode Mode, enable bool) (already bool) {
+func (channel *Channel) setMode(mode modes.Mode, enable bool) (already bool) {
 	channel.stateMutex.Lock()
 	already = (channel.flags[mode] == enable)
 	if !already {

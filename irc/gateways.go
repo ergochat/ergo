@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -82,9 +83,9 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (exiting bool) 
 	// set tls info
 	client.certfp = ""
 	if tls {
-		client.flags[TLS] = true
+		client.flags[modes.TLS] = true
 	} else {
-		delete(client.flags, TLS)
+		delete(client.flags, modes.TLS)
 	}
 
 	return false

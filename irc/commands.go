@@ -5,7 +5,10 @@
 
 package irc
 
-import "github.com/goshuirc/irc-go/ircmsg"
+import (
+	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/modes"
+)
 
 // Command represents a command accepted from a client.
 type Command struct {
@@ -24,7 +27,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, client.t("You need to register before you can use that command"))
 		return false
 	}
-	if cmd.oper && !client.flags[Operator] {
+	if cmd.oper && !client.flags[modes.Operator] {
 		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied - You're not an IRC operator"))
 		return false
 	}

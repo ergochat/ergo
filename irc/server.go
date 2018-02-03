@@ -29,6 +29,7 @@ import (
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -43,6 +44,11 @@ var (
 	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
 
 	RenamePrivsNeeded = errors.New("Only chanops can rename channels")
+
+	// supportedUserModesString acts as a cache for when we introduce users
+	supportedUserModesString = modes.SupportedUserModes.String()
+	// supportedChannelModesString acts as a cache for when we introduce users
+	supportedChannelModesString = modes.SupportedChannelModes.String()
 )
 
 // Limits holds the maximum limits for various things such as topic lengths.
@@ -89,7 +95,7 @@ type Server struct {
 	connectionLimiter            *connection_limits.Limiter
 	connectionThrottler          *connection_limits.Throttler
 	ctime                        time.Time
-	defaultChannelModes          Modes
+	defaultChannelModes          modes.Modes
 	dlines                       *DLineManager
 	loggingRawIO                 bool
 	isupport                     *isupport.List
@@ -179,7 +185,7 @@ func (server *Server) setISupport() {
 	isupport := isupport.NewList()
 	isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
-	isupport.Add("CHANMODES", strings.Join([]string{Modes{BanMask, ExceptMask, InviteMask}.String(), "", Modes{UserLimit, Key}.String(), Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret}.String()}, ","))
+	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
 	isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
 	isupport.Add("ELIST", "U")
@@ -224,7 +230,7 @@ func (server *Server) setISupport() {
 	server.configurableStateMutex.Unlock()
 }
 
-func loadChannelList(channel *Channel, list string, maskMode Mode) {
+func loadChannelList(channel *Channel, list string, maskMode modes.Mode) {
 	if list == "" {
 		return
 	}
@@ -584,7 +590,7 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	var chstrs []string
 	for _, channel := range client.Channels() {
 		// channel is secret and the target can't see it
-		if !target.flags[Operator] && channel.HasMode(Secret) && !channel.hasClient(target) {
+		if !target.flags[modes.Operator] && channel.HasMode(modes.Secret) && !channel.hasClient(target) {
 			continue
 		}
 		chstrs = append(chstrs, channel.ClientPrefixes(client, isMultiPrefix)+channel.name)
@@ -605,17 +611,17 @@ func (client *Client) getWhoisOf(target *Client) {
 	if target.class != nil {
 		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
-	if client.flags[Operator] || client == target {
+	if client.flags[modes.Operator] || client == target {
 		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
-	if target.flags[TLS] {
+	if target.flags[modes.TLS] {
 		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
 	accountName := target.AccountName()
 	if accountName != "" {
 		client.Send(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, accountName, client.t("is logged in as"))
 	}
-	if target.flags[Bot] {
+	if target.flags[modes.Bot] {
 		client.Send(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
 	}
 
@@ -628,7 +634,7 @@ func (client *Client) getWhoisOf(target *Client) {
 		client.Send(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
 
-	if target.certfp != "" && (client.flags[Operator] || client == target) {
+	if target.certfp != "" && (client.flags[modes.Operator] || client == target) {
 		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
 	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
@@ -641,12 +647,12 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client) {
 	channelName := "*"
 	flags := ""
 
-	if client.HasMode(Away) {
+	if client.HasMode(modes.Away) {
 		flags = "G"
 	} else {
 		flags = "H"
 	}
-	if client.HasMode(Operator) {
+	if client.HasMode(modes.Operator) {
 		flags += "*"
 	}
 
@@ -659,7 +665,7 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client) {
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet) {
 	for _, member := range channel.Members() {
-		if !client.flags[Invisible] || friends[client] {
+		if !client.flags[modes.Invisible] || friends[client] {
 			client.rplWhoReply(channel, member)
 		}
 	}
@@ -1095,7 +1101,7 @@ func (server *Server) setupListeners(config *Config) {
 }
 
 // GetDefaultChannelModes returns our default channel modes.
-func (server *Server) GetDefaultChannelModes() Modes {
+func (server *Server) GetDefaultChannelModes() modes.Modes {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.defaultChannelModes
@@ -1130,11 +1136,11 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 func (target *Client) RplList(channel *Channel) {
 	// get the correct number of channel members
 	var memberCount int
-	if target.flags[Operator] || channel.hasClient(target) {
+	if target.flags[modes.Operator] || channel.hasClient(target) {
 		memberCount = len(channel.Members())
 	} else {
 		for _, member := range channel.Members() {
-			if !member.HasMode(Invisible) {
+			if !member.HasMode(modes.Invisible) {
 				memberCount++
 			}
 		}
@@ -1162,7 +1168,7 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// limit regular users to only listing one channel
-	if !client.flags[Operator] {
+	if !client.flags[modes.Operator] {
 		channels = channels[:1]
 	}
 

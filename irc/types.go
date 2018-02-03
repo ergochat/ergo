@@ -5,26 +5,7 @@
 
 package irc
 
-import (
-	"strings"
-)
-
-// ModeSet holds a set of modes.
-type ModeSet map[Mode]bool
-
-// String returns the modes in this set.
-func (set ModeSet) String() string {
-	if len(set) == 0 {
-		return ""
-	}
-	strs := make([]string, len(set))
-	index := 0
-	for mode := range set {
-		strs[index] = mode.String()
-		index++
-	}
-	return strings.Join(strs, "")
-}
+import "github.com/oragono/oragono/irc/modes"
 
 // ClientSet is a set of clients.
 type ClientSet map[*Client]bool
@@ -45,11 +26,11 @@ func (clients ClientSet) Has(client *Client) bool {
 }
 
 // MemberSet is a set of members with modes.
-type MemberSet map[*Client]ModeSet
+type MemberSet map[*Client]modes.ModeSet
 
 // Add adds the given client to this set.
 func (members MemberSet) Add(member *Client) {
-	members[member] = make(ModeSet)
+	members[member] = make(modes.ModeSet)
 }
 
 // Remove removes the given client from this set.
@@ -64,7 +45,7 @@ func (members MemberSet) Has(member *Client) bool {
 }
 
 // HasMode returns true if the given client is in this set with the given mode.
-func (members MemberSet) HasMode(member *Client, mode Mode) bool {
+func (members MemberSet) HasMode(member *Client, mode modes.Mode) bool {
 	modes, ok := members[member]
 	if !ok {
 		return false
@@ -73,7 +54,7 @@ func (members MemberSet) HasMode(member *Client, mode Mode) bool {
 }
 
 // AnyHasMode returns true if any of our clients has the given mode.
-func (members MemberSet) AnyHasMode(mode Mode) bool {
+func (members MemberSet) AnyHasMode(mode modes.Mode) bool {
 	for _, modes := range members {
 		if modes[mode] {
 			return true

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/modes"
 )
 
 const (
@@ -34,7 +35,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
-		if !channel.flags[ChanRoleplaying] {
+		if !channel.flags[modes.ChanRoleplaying] {
 			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
 			return
 		}
@@ -53,7 +54,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
-		if !user.flags[UserRoleplaying] {
+		if !user.flags[modes.UserRoleplaying] {
 			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, client.t("User doesn't have roleplaying mode enabled"))
 			return
 		}
@@ -62,7 +63,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		if client.capabilities.Has(caps.EchoMessage) {
 			client.Send(nil, source, "PRIVMSG", user.nick, message)
 		}
-		if user.flags[Away] {
+		if user.flags[modes.Away] {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 		}

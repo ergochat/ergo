@@ -27,6 +27,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -480,30 +481,30 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if isAway {
-		client.flags[Away] = true
+		client.flags[modes.Away] = true
 	} else {
-		delete(client.flags, Away)
+		delete(client.flags, modes.Away)
 	}
 	client.awayMessage = text
 
-	var op ModeOp
-	if client.flags[Away] {
-		op = Add
+	var op modes.ModeOp
+	if client.flags[modes.Away] {
+		op = modes.Add
 		client.Send(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
 	} else {
-		op = Remove
+		op = modes.Remove
 		client.Send(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
-	modech := ModeChanges{ModeChange{
-		mode: Away,
-		op:   op,
+	modech := modes.ModeChanges{modes.ModeChange{
+		Mode: modes.Away,
+		Op:   op,
 	}}
 	client.Send(nil, server.name, "MODE", client.nick, modech.String())
 
 	// dispatch away-notify
 	for friend := range client.Friends(caps.AwayNotify) {
-		if client.flags[Away] {
+		if client.flags[modes.Away] {
 			friend.SendFromClient("", client, nil, "AWAY", client.awayMessage)
 		} else {
 			friend.SendFromClient("", client, nil, "AWAY")
@@ -581,7 +582,7 @@ func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // DEBUG GCSTATS/NUMGOROUTINE/etc
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	if !client.flags[Operator] {
+	if !client.flags[modes.Operator] {
 		return false
 	}
 
@@ -854,7 +855,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`))
 
 	// handle index
 	if argument == "index" {
-		if client.flags[Operator] {
+		if client.flags[modes.Operator] {
 			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers))
 		} else {
 			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex))
@@ -864,7 +865,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`))
 
 	helpHandler, exists := Help[argument]
 
-	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[Operator])) {
+	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[modes.Operator])) {
 		if helpHandler.textGenerator != nil {
 			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)))
 		} else {
@@ -1336,7 +1337,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
-			if !client.flags[Operator] && channel.flags[Secret] {
+			if !client.flags[modes.Operator] && channel.flags[modes.Secret] {
 				continue
 			}
 			if matcher.Matches(channel) {
@@ -1345,14 +1346,14 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	} else {
 		// limit regular users to only listing one channel
-		if !client.flags[Operator] {
+		if !client.flags[modes.Operator] {
 			channels = channels[:1]
 		}
 
 		for _, chname := range channels {
 			casefoldedChname, err := CasefoldChannel(chname)
 			channel := server.channels.Get(casefoldedChname)
-			if err != nil || channel == nil || (!client.flags[Operator] && channel.flags[Secret]) {
+			if err != nil || channel == nil || (!client.flags[modes.Operator] && channel.flags[modes.Secret]) {
 				if len(chname) > 0 {
 					client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
 				}
@@ -1374,10 +1375,10 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	for _, onlineusers := range server.clients.AllClients() {
 		totalcount++
-		if onlineusers.flags[Invisible] {
+		if onlineusers.flags[modes.Invisible] {
 			invisiblecount++
 		}
-		if onlineusers.flags[Operator] {
+		if onlineusers.flags[modes.Operator] {
 			opercount++
 		}
 	}
@@ -1409,7 +1410,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// applied mode changes
-	applied := make(ModeChanges, 0)
+	applied := make(modes.ModeChanges, 0)
 
 	if 1 < len(msg.Params) {
 		// parse out real mode changes
@@ -1431,11 +1432,11 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// save changes to banlist/exceptlist/invexlist
 	var banlistUpdated, exceptlistUpdated, invexlistUpdated bool
 	for _, change := range applied {
-		if change.mode == BanMask {
+		if change.Mode == modes.BanMask {
 			banlistUpdated = true
-		} else if change.mode == ExceptMask {
+		} else if change.Mode == modes.ExceptMask {
 			exceptlistUpdated = true
-		} else if change.mode == InviteMask {
+		} else if change.Mode == modes.InviteMask {
 			invexlistUpdated = true
 		}
 	}
@@ -1483,12 +1484,12 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// applied mode changes
-	applied := make(ModeChanges, 0)
+	applied := make(modes.ModeChanges, 0)
 
 	if 1 < len(msg.Params) {
 		// parse out real mode changes
 		params := msg.Params[1:]
-		changes, unknown := ParseUserModeChanges(params...)
+		changes, unknown := modes.ParseUserModeChanges(params...)
 
 		// alert for unknown mode changes
 		for char := range unknown {
@@ -1506,7 +1507,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, client.nickMaskString, "MODE", targetNick, applied.String())
 	} else if hasPrivs {
 		client.Send(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
-		if client.flags[LocalOperator] || client.flags[Operator] {
+		if client.flags[modes.LocalOperator] || client.flags[modes.Operator] {
 			masks := server.snomasks.String(client)
 			if 0 < len(masks) {
 				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
@@ -1687,8 +1688,8 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if i > maxTargets-1 {
 			break
 		}
-		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
-		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+		prefixes, targetString := modes.SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
 
 		target, cerr := CasefoldChannel(targetString)
 		if cerr == nil {
@@ -1727,7 +1728,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
-			if !user.flags[RegisteredOnly] || client.registered {
+			if !user.flags[modes.RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
@@ -1788,7 +1789,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		return true
 	}
-	if client.flags[Operator] == true {
+	if client.flags[modes.Operator] == true {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, "OPER", client.t("You're already opered-up!"))
 		return false
 	}
@@ -1803,7 +1804,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return true
 	}
 
-	client.flags[Operator] = true
+	client.flags[modes.Operator] = true
 	client.operName = name
 	client.class = oper.Class
 	client.whoisLine = oper.WhoisLine
@@ -1819,9 +1820,9 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	// set new modes
-	var applied ModeChanges
+	var applied modes.ModeChanges
 	if 0 < len(oper.Modes) {
-		modeChanges, unknownChanges := ParseUserModeChanges(strings.Split(oper.Modes, " ")...)
+		modeChanges, unknownChanges := modes.ParseUserModeChanges(strings.Split(oper.Modes, " ")...)
 		applied = client.applyUserModeChanges(true, modeChanges)
 		if 0 < len(unknownChanges) {
 			var runes string
@@ -1834,9 +1835,9 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, client.t("You are now an IRC operator"))
 
-	applied = append(applied, ModeChange{
-		mode: Operator,
-		op:   Add,
+	applied = append(applied, modes.ModeChange{
+		Mode: modes.Operator,
+		Op:   modes.Add,
 	})
 	client.Send(nil, server.name, "MODE", client.nick, applied.String())
 
@@ -1912,8 +1913,8 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		if i > maxTargets-1 {
 			break
 		}
-		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
-		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+		prefixes, targetString := modes.SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
 
 		// eh, no need to notify them
 		if len(targetString) < 1 {
@@ -1955,13 +1956,13 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
-			if !user.flags[RegisteredOnly] || client.registered {
+			if !user.flags[modes.RegisteredOnly] || client.registered {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
 				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
-			if user.flags[Away] {
+			if user.flags[modes.Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 			}
@@ -2059,7 +2060,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		return
 	}
 	//TODO(dan): allow IRCops to do this?
-	if !channel.ClientIsAtLeast(client, Operator) {
+	if !channel.ClientIsAtLeast(client, modes.Operator) {
 		errorResponse(RenamePrivsNeeded, oldName)
 		return
 	}
@@ -2171,8 +2172,8 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if i > maxTargets-1 {
 			break
 		}
-		prefixes, targetString := SplitChannelMembershipPrefixes(targetString)
-		lowestPrefix := GetLowestChannelModePrefix(prefixes)
+		prefixes, targetString := modes.SplitChannelMembershipPrefixes(targetString)
+		lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
 
 		// eh, no need to notify them
 		if len(targetString) < 1 {
@@ -2212,7 +2213,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if client.capabilities.Has(caps.EchoMessage) {
 				client.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}
-			if user.flags[Away] {
+			if user.flags[modes.Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 			}
@@ -2424,10 +2425,10 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 
 		var isOper, isAway string
 
-		if target.flags[Operator] {
+		if target.flags[modes.Operator] {
 			isOper = "*"
 		}
-		if target.flags[Away] {
+		if target.flags[modes.Away] {
 			isAway = "-"
 		} else {
 			isAway = "+"
@@ -2478,7 +2479,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			lkey := strings.ToLower(key)
 			if lkey == "tls" || lkey == "secure" {
 				// only accept "tls" flag if the gateway's connection to us is secure as well
-				if client.flags[TLS] || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
+				if client.flags[modes.TLS] || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
 					secure = true
 				}
 			}
@@ -2567,7 +2568,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	if client.flags[Operator] {
+	if client.flags[modes.Operator] {
 		masks := strings.Split(masksString, ",")
 		for _, mask := range masks {
 			casefoldedMask, err := Casefold(mask)

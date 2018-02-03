@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 )
 
@@ -55,7 +56,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 		}
 
 		channelInfo := server.channels.Get(channelKey)
-		if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, ChannelOperator) {
+		if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, modes.ChannelOperator) {
 			client.ChanServNotice(client.t("You must be an oper on the channel to register it"))
 			return
 		}
@@ -81,7 +82,7 @@ func (server *Server) chanservReceivePrivmsg(client *Client, message string) {
 		server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
 
 		// give them founder privs
-		change := channelInfo.applyModeMemberNoMutex(client, ChannelFounder, Add, client.NickCasefolded())
+		change := channelInfo.applyModeMemberNoMutex(client, modes.ChannelFounder, modes.Add, client.NickCasefolded())
 		if change != nil {
 			//TODO(dan): we should change the name of String and make it return a slice here
 			//TODO(dan): unify this code with code in modes.go
