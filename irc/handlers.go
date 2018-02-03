@@ -34,7 +34,7 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
-// accHandler parses the ACC command.
+// ACC [REGISTER|VERIFY] ...
 func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	subcommand := strings.ToLower(msg.Params[0])
 
@@ -49,7 +49,7 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// accRegisterHandler parses the ACC REGISTER command.
+// ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
 func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// make sure reg is enabled
 	if !server.accountRegistration.Enabled {
@@ -258,7 +258,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	return false
 }
 
-// authenticateHandler parses the AUTHENTICATE command (for SASL authentication).
+// AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// sasl abort
 	if !server.accountAuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
@@ -346,7 +346,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	return exiting
 }
 
-// authPlainHandler parses the SASL PLAIN mechanism.
+// AUTHENTICATE PLAIN
 func authPlainHandler(server *Server, client *Client, mechanism string, value []byte) bool {
 	splitValue := bytes.Split(value, []byte{'\000'})
 
@@ -415,7 +415,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	return false
 }
 
-// authExternalHandler parses the SASL EXTERNAL mechanism.
+// AUTHENTICATE EXTERNAL
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
 	if client.certfp == "" {
 		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
@@ -574,13 +574,13 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// csHandler handles the /CS and /CHANSERV commands
+// CHANSERV [...]
 func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.chanservPrivmsgHandler(client, strings.Join(msg.Params, " "))
 	return false
 }
 
-// DEBUG GCSTATS/NUMGOROUTINE/etc
+// DEBUG <subcmd>
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.flags[modes.Operator] {
 		return false
@@ -842,7 +842,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return killClient
 }
 
-// helpHandler returns the appropriate help for the given query.
+// HELP [<query>]
 func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
 
@@ -1399,7 +1399,7 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return umodeHandler(server, client, msg)
 }
 
-// MODE <target> [<modestring> [<mode arguments>...]]
+// MODE <channel> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	channelName, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(channelName)
@@ -1460,7 +1460,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// MODE <target> [<modestring> [<mode arguments>...]]
+// MODE <client> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	nickname, err := CasefoldName(msg.Params[0])
 	target := server.clients.Get(nickname)
@@ -1517,6 +1517,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
+// MONITOR <subcmd> [params...]
 func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[0])]
 
@@ -1528,6 +1529,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	return handler(server, client, msg)
 }
 
+// MONITOR - <target>{,<target>}
 func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
 		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
@@ -1546,6 +1548,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	return false
 }
 
+// MONITOR + <target>{,<target>}
 func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) < 2 {
 		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
@@ -1596,11 +1599,13 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 	return false
 }
 
+// MONITOR C
 func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.monitorManager.RemoveAll(client)
 	return false
 }
 
+// MONITOR L
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	monitorList := server.monitorManager.List(client)
 
@@ -1623,6 +1628,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	return false
 }
 
+// MONITOR S
 func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var online []string
 	var offline []string
@@ -1652,14 +1658,8 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 	return false
 }
 
-// MOTD [<target>]
+// MOTD
 func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	//TODO(dan): hook this up when we have multiple servers I guess???
-	//var target string
-	//if len(msg.Params) > 0 {
-	//	target = msg.Params[0]
-	//}
-
 	server.MOTD(client)
 	return false
 }
@@ -1739,7 +1739,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// NPC <target> <sourcenick> <text to be sent>
+// NPC <target> <sourcenick> <message>
 func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
@@ -1758,7 +1758,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// NPCA <target> <sourcenick> <text to be sent>
+// NPCA <target> <sourcenick> <message>
 func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
@@ -1776,7 +1776,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// nsHandler handles the /NS and /NICKSERV commands
+// NICKSERV [params...]
 func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	server.nickservPrivmsgHandler(client, strings.Join(msg.Params, " "))
 	return false
@@ -1887,13 +1887,13 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// PING <server1> [<server2>]
+// PING [params...]
 func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	client.Send(nil, server.name, "PONG", msg.Params...)
 	return false
 }
 
-// PONG <server> [ <server2> ]
+// PONG [params...]
 func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// client gets touched when they send this command, so we don't need to do anything
 	return false
@@ -2146,7 +2146,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return performNickChange(server, client, target, msg.Params[1])
 }
 
-// SCENE <target> <text to be sent>
+// SCENE <target> <message>
 func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	target := msg.Params[0]
 	message := msg.Params[1]
@@ -2222,17 +2222,8 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// TIME [<server>]
+// TIME
 func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	var target string
-	if len(msg.Params) > 0 {
-		target = msg.Params[0]
-	}
-	casefoldedTarget, err := Casefold(target)
-	if (target != "") && err != nil || (casefoldedTarget != server.nameCasefolded) {
-		client.Send(nil, server.name, ERR_NOSUCHSERVER, client.nick, target, client.t("No such server"))
-		return false
-	}
 	client.Send(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().Format(time.RFC1123))
 	return false
 }
@@ -2256,7 +2247,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// UNDLINE
+// UNDLINE <ip>|<net>
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
@@ -2319,7 +2310,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	return false
 }
 
-// UNKLINE
+// UNKLINE <mask>
 func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
@@ -2401,7 +2392,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// USERHOST <nickname> [<nickname> <nickname> ...]
+// USERHOST <nickname>{ <nickname>}
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	returnedNicks := make(map[string]bool)
 
@@ -2439,18 +2430,8 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	return false
 }
 
-// VERSION [<server>]
+// VERSION
 func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	var target string
-	if len(msg.Params) > 0 {
-		target = msg.Params[0]
-	}
-	casefoldedTarget, err := Casefold(target)
-	if target != "" && (err != nil || casefoldedTarget != server.nameCasefolded) {
-		client.Send(nil, server.name, ERR_NOSUCHSERVER, client.nick, target, client.t("No such server"))
-		return false
-	}
-
 	client.Send(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
 	client.RplISupport()
 	return false
@@ -2508,7 +2489,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return true
 }
 
-// WHO [ <mask> [ "o" ] ]
+// WHO [<mask> [o]]
 func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if msg.Params[0] == "" {
 		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
@@ -2551,7 +2532,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	return false
 }
 
-// WHOIS [ <target> ] <mask> *( "," <mask> )
+// WHOIS [<target>] <mask>{,<mask>}
 func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var masksString string
 	//var target string
