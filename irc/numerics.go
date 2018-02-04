@@ -195,6 +195,8 @@ const (
 	ERR_NOLANGUAGE                  = "982"
 
 	// draft numerics
+	// these haven't been assigned actual codes, so we use RPL_NONE's code (300),
+	// since RPL_NONE is intended to be used when testing / debugging / etc features.
 
-	ERR_CANNOT_RESUME = "999"
+	ERR_CANNOT_RESUME = "300"
 )
