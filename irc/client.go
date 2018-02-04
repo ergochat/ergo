@@ -744,7 +744,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 
 var (
 	// these are all the output commands that MUST have their last param be a trailing.
-	// this is needed because silly clients like to treat trailing as separate from the
+	// this is needed because dumb clients like to treat trailing params separately from the
 	// other params in messages.
 	commandsThatMustUseTrailing = map[string]bool{
 		"PRIVMSG": true,
@@ -754,6 +754,47 @@ var (
 		RPL_USERHOST:      true,
 	}
 )
+
+// SendRawMessage sends a raw message to the client.
+func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
+	// use dumb hack to force the last param to be a trailing param if required
+	var usedTrailingHack bool
+	if commandsThatMustUseTrailing[strings.ToUpper(message.Command)] && len(message.Params) > 0 {
+		lastParam := message.Params[len(message.Params)-1]
+		// to force trailing, we ensure the final param contains a space
+		if !strings.Contains(lastParam, " ") {
+			message.Params[len(message.Params)-1] = lastParam + " "
+			usedTrailingHack = true
+		}
+	}
+
+	// assemble message
+	maxlenTags, maxlenRest := client.maxlens()
+	line, err := message.LineMaxLen(maxlenTags, maxlenRest)
+	if err != nil {
+		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
+		// log.Println("Error assembling message:")
+		// spew.Dump(message)
+		// debug.PrintStack()
+
+		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
+		line, _ := message.Line()
+
+		// if we used the trailing hack, we need to strip the final space we appended earlier on
+		if usedTrailingHack {
+			line = line[:len(line)-3] + "\r\n"
+		}
+
+		client.socket.Write(line)
+		return err
+	}
+
+	client.server.logger.Debug("useroutput", client.nick, " ->", strings.TrimRight(line, "\r\n"))
+
+	client.socket.Write(line)
+
+	return nil
+}
 
 // Send sends an IRC line to the client.
 func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
@@ -767,41 +808,9 @@ func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, comm
 		}
 	}
 
-	// force trailing, if message requires it
-	var usedTrailingHack bool
-	if commandsThatMustUseTrailing[strings.ToUpper(command)] && len(params) > 0 {
-		lastParam := params[len(params)-1]
-		// to force trailing, we ensure the final param contains a space
-		if !strings.Contains(lastParam, " ") {
-			params[len(params)-1] = lastParam + " "
-			usedTrailingHack = true
-		}
-	}
-
 	// send out the message
 	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	maxlenTags, maxlenRest := client.maxlens()
-	line, err := message.LineMaxLen(maxlenTags, maxlenRest)
-	if err != nil {
-		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
-		// log.Println("Error assembling message:")
-		// spew.Dump(message)
-		// debug.PrintStack()
-
-		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
-		line, _ := message.Line()
-		client.socket.Write(line)
-		return err
-	}
-
-	// is we used the trailing hack, we need to strip the final space we appended earlier
-	if usedTrailingHack {
-		line = line[:len(line)-3] + "\r\n"
-	}
-
-	client.server.logger.Debug("useroutput", client.nick, " ->", strings.TrimRight(line, "\r\n"))
-
-	client.socket.Write(line)
+	client.SendRawMessage(message)
 	return nil
 }
 

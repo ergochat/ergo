@@ -2544,8 +2544,12 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		masksString = msg.Params[0]
 	}
 
+	rb := NewResponseBuffer(client)
+	rb.Label = GetLabel(msg)
+
 	if len(strings.TrimSpace(masksString)) < 1 {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("No masks given"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("No masks given"))
+		rb.Send()
 		return false
 	}
 
@@ -2554,16 +2558,16 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		for _, mask := range masks {
 			casefoldedMask, err := Casefold(mask)
 			if err != nil {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
+				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
 				continue
 			}
 			matches := server.clients.FindAll(casefoldedMask)
 			if len(matches) == 0 {
-				client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
+				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
 				continue
 			}
 			for mclient := range matches {
-				client.getWhoisOf(mclient)
+				client.getWhoisOf(mclient, rb)
 			}
 		}
 	} else {
@@ -2571,13 +2575,14 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
 		mclient := server.clients.Get(casefoldedMask)
 		if err != nil || mclient == nil {
-			client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
 			// fall through, ENDOFWHOIS is always sent
 		} else {
-			client.getWhoisOf(mclient)
+			client.getWhoisOf(mclient, rb)
 		}
 	}
-	client.Send(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
+	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
+	rb.Send()
 	return false
 }
 

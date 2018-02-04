@@ -214,7 +214,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
-				client.Send(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
 			}
 			continue
 		}

@@ -49,7 +49,7 @@ var (
 
 	// SupportedCapabilities are the caps we advertise.
 	// MaxLine, SASL and STS are set during server startup.
-	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.UserhostInNames)
+	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.UserhostInNames)
 
 	// CapValues are the actual values we advertise to v3.2 clients.
 	// actual values are set during server startup.
@@ -90,6 +90,7 @@ type Server struct {
 	accountAuthenticationEnabled bool
 	accountRegistration          *AccountRegistration
 	accounts                     map[string]*ClientAccount
+	batches                      *BatchManager
 	channelRegistrationEnabled   bool
 	channels                     *ChannelManager
 	channelRegistry              *ChannelRegistry
@@ -150,6 +151,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
 		accounts:            make(map[string]*ClientAccount),
+		batches:             NewBatchManager(),
 		channels:            NewChannelManager(),
 		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
@@ -603,31 +605,31 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	return chstrs
 }
 
-func (client *Client) getWhoisOf(target *Client) {
+func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	target.stateMutex.RLock()
 	defer target.stateMutex.RUnlock()
 
-	client.Send(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
+	rb.Add(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
-		client.Send(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
+		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
 	}
 	if target.class != nil {
-		client.Send(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
+		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
 	if client.flags[modes.Operator] || client == target {
-		client.Send(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
 	if target.flags[modes.TLS] {
-		client.Send(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
+		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
 	accountName := target.AccountName()
 	if accountName != "" {
-		client.Send(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, accountName, client.t("is logged in as"))
+		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, accountName, client.t("is logged in as"))
 	}
 	if target.flags[modes.Bot] {
-		client.Send(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
+		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
 	}
 
 	if 0 < len(target.languages) {
@@ -636,13 +638,13 @@ func (client *Client) getWhoisOf(target *Client) {
 			params = append(params, str)
 		}
 		params = append(params, client.t("can speak these languages"))
-		client.Send(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
+		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
 
 	if target.certfp != "" && (client.flags[modes.Operator] || client == target) {
-		client.Send(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
+		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
-	client.Send(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
+	rb.Add(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 }
 
 // rplWhoReply returns the WHO reply between one user and another channel/user.
