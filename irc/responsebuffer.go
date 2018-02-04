@@ -75,6 +75,11 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, from *Client, 
 
 // Send sends the message to our target client.
 func (rb *ResponseBuffer) Send() error {
+	// fall out if no messages to send
+	if len(rb.messages) == 0 {
+		return
+	}
+
 	// make batch and all if required
 	var batch *Batch
 	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
@@ -115,6 +120,9 @@ func (rb *ResponseBuffer) Send() error {
 	if batch != nil {
 		batch.End(rb.target)
 	}
+
+	// clear out any existing messages
+	rb.messages = []ircmsg.IrcMessage{}
 
 	return nil
 }
