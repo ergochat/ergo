@@ -458,8 +458,12 @@ func (server *Server) tryRegister(c *Client) {
 	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
-	c.RplISupport()
-	server.MOTD(c)
+
+	rb := NewResponseBuffer(c)
+	c.RplISupport(rb)
+	server.MOTD(c, rb)
+	rb.Send()
+
 	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
 	if server.logger.IsLoggingRawIO() {
 		c.Notice(c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
@@ -478,8 +482,10 @@ func (server *Server) tryRegister(c *Client) {
 			} else {
 				c.Send(nil, c.nickMaskString, "JOIN", channel.name)
 			}
-			channel.SendTopic(c)
-			channel.Names(c)
+			// reuse the last rb
+			channel.SendTopic(c, rb)
+			channel.Names(c, rb)
+			rb.Send()
 
 			// construct and send fake modestring if necessary
 			c.stateMutex.RLock()
@@ -511,21 +517,21 @@ func (client *Client) t(originalString string) string {
 }
 
 // MOTD serves the Message of the Day.
-func (server *Server) MOTD(client *Client) {
+func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
 	server.configurableStateMutex.RLock()
 	motdLines := server.motdLines
 	server.configurableStateMutex.RUnlock()
 
 	if len(motdLines) < 1 {
-		client.Send(nil, server.name, ERR_NOMOTD, client.nick, client.t("MOTD File is missing"))
+		rb.Add(nil, server.name, ERR_NOMOTD, client.nick, client.t("MOTD File is missing"))
 		return
 	}
 
-	client.Send(nil, server.name, RPL_MOTDSTART, client.nick, fmt.Sprintf(client.t("- %s Message of the day - "), server.name))
+	rb.Add(nil, server.name, RPL_MOTDSTART, client.nick, fmt.Sprintf(client.t("- %s Message of the day - "), server.name))
 	for _, line := range motdLines {
-		client.Send(nil, server.name, RPL_MOTD, client.nick, line)
+		rb.Add(nil, server.name, RPL_MOTD, client.nick, line)
 	}
-	client.Send(nil, server.name, RPL_ENDOFMOTD, client.nick, client.t("End of MOTD command"))
+	rb.Add(nil, server.name, RPL_ENDOFMOTD, client.nick, client.t("End of MOTD command"))
 }
 
 // wordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
@@ -650,7 +656,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 // rplWhoReply returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func (target *Client) rplWhoReply(channel *Channel, client *Client) {
+func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *ResponseBuffer) {
 	channelName := "*"
 	flags := ""
 
@@ -667,13 +673,13 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client) {
 		flags += channel.ClientPrefixes(client, target.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
-	target.Send(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
+	rb.Add(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
 }
 
-func whoChannel(client *Client, channel *Channel, friends ClientSet) {
+func whoChannel(client *Client, channel *Channel, friends ClientSet, rb *ResponseBuffer) {
 	for _, member := range channel.Members() {
 		if !client.flags[modes.Invisible] || friends[client] {
-			client.rplWhoReply(channel, member)
+			client.rplWhoReply(channel, member, rb)
 		}
 	}
 }
@@ -1140,7 +1146,7 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 }
 
 // RplList returns the RPL_LIST numeric for the given channel.
-func (target *Client) RplList(channel *Channel) {
+func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 	// get the correct number of channel members
 	var memberCount int
 	if target.flags[modes.Operator] || channel.hasClient(target) {
@@ -1153,44 +1159,7 @@ func (target *Client) RplList(channel *Channel) {
 		}
 	}
 
-	target.Send(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
-}
-
-// NAMES [<channel>{,<channel>}]
-func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	var channels []string
-	if len(msg.Params) > 0 {
-		channels = strings.Split(msg.Params[0], ",")
-	}
-	//var target string
-	//if len(msg.Params) > 1 {
-	//	target = msg.Params[1]
-	//}
-
-	if len(channels) == 0 {
-		for _, channel := range server.channels.Channels() {
-			channel.Names(client)
-		}
-		return false
-	}
-
-	// limit regular users to only listing one channel
-	if !client.flags[modes.Operator] {
-		channels = channels[:1]
-	}
-
-	for _, chname := range channels {
-		casefoldedChname, err := CasefoldChannel(chname)
-		channel := server.channels.Get(casefoldedChname)
-		if err != nil || channel == nil {
-			if len(chname) > 0 {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
-			}
-			continue
-		}
-		channel.Names(client)
-	}
-	return false
+	rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
 }
 
 // ResumeDetails are the details that we use to resume connections.

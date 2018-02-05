@@ -15,7 +15,7 @@ const (
 	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
 
-func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, message string) {
+func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, message string, rb *ResponseBuffer) {
 	if isAction {
 		message = fmt.Sprintf("\x01ACTION %s (%s)\x01", message, client.nick)
 	} else {
@@ -26,17 +26,17 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 	if cerr == nil {
 		channel := server.channels.Get(target)
 		if channel == nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
 			return
 		}
 
 		if !channel.CanSpeak(client) {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 			return
 		}
 
 		if !channel.flags[modes.ChanRoleplaying] {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
 			return
 		}
 
@@ -44,28 +44,32 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			if member == client && !client.capabilities.Has(caps.EchoMessage) {
 				continue
 			}
-			member.Send(nil, source, "PRIVMSG", channel.name, message)
+			if member == client {
+				rb.Add(nil, source, "PRIVMSG", channel.name, message)
+			} else {
+				member.Send(nil, source, "PRIVMSG", channel.name, message)
+			}
 		}
 	} else {
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)
 		if err != nil || user == nil {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, client.t("No such nick"))
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, target, client.t("No such nick"))
 			return
 		}
 
 		if !user.flags[modes.UserRoleplaying] {
-			client.Send(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, client.t("User doesn't have roleplaying mode enabled"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, client.t("User doesn't have roleplaying mode enabled"))
 			return
 		}
 
 		user.Send(nil, source, "PRIVMSG", user.nick, message)
 		if client.capabilities.Has(caps.EchoMessage) {
-			client.Send(nil, source, "PRIVMSG", user.nick, message)
+			rb.Add(nil, source, "PRIVMSG", user.nick, message)
 		}
 		if user.flags[modes.Away] {
 			//TODO(dan): possibly implement cooldown of away notifications to users
-			client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+			rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 		}
 	}
 }

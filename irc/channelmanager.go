@@ -45,7 +45,7 @@ func (cm *ChannelManager) Get(name string) *Channel {
 }
 
 // Join causes `client` to join the channel named `name`, creating it if necessary.
-func (cm *ChannelManager) Join(client *Client, name string, key string) error {
+func (cm *ChannelManager) Join(client *Client, name string, key string, rb *ResponseBuffer) error {
 	server := client.server
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil || len(casefoldedName) > server.Limits().ChannelLen {
@@ -74,7 +74,7 @@ func (cm *ChannelManager) Join(client *Client, name string, key string) error {
 	entry.pendingJoins += 1
 	cm.Unlock()
 
-	entry.channel.Join(client, key)
+	entry.channel.Join(client, key, rb)
 
 	cm.maybeCleanup(entry, true)
 
@@ -107,7 +107,7 @@ func (cm *ChannelManager) maybeCleanup(entry *channelManagerEntry, afterJoin boo
 }
 
 // Part parts `client` from the channel named `name`, deleting it if it's empty.
-func (cm *ChannelManager) Part(client *Client, name string, message string) error {
+func (cm *ChannelManager) Part(client *Client, name string, message string, rb *ResponseBuffer) error {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
 		return errNoSuchChannel
@@ -120,7 +120,7 @@ func (cm *ChannelManager) Part(client *Client, name string, message string) erro
 	if entry == nil {
 		return errNoSuchChannel
 	}
-	entry.channel.Part(client, message)
+	entry.channel.Part(client, message, rb)
 	cm.maybeCleanup(entry, false)
 	return nil
 }

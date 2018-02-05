@@ -169,7 +169,7 @@ func ParseChannelModeChanges(params ...string) (modes.ModeChanges, map[rune]bool
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
-func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes modes.ModeChanges) modes.ModeChanges {
+func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes modes.ModeChanges, rb *ResponseBuffer) modes.ModeChanges {
 	// so we only output one warning for each list type when full
 	listFullWarned := make(map[modes.Mode]bool)
 
@@ -222,7 +222,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		switch change.Mode {
 		case modes.BanMask, modes.ExceptMask, modes.InviteMask:
 			if isListOp(change) {
-				channel.ShowMaskList(client, change.Mode)
+				channel.ShowMaskList(client, change.Mode, rb)
 				continue
 			}
 
@@ -236,7 +236,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case modes.Add:
 				if channel.lists[change.Mode].Length() >= client.server.Limits().ChanListModes {
 					if !listFullWarned[change.Mode] {
-						client.Send(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.Mode.String(), client.t("Channel list is full"))
+						rb.Add(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.Mode.String(), client.t("Channel list is full"))
 						listFullWarned[change.Mode] = true
 					}
 					continue
@@ -289,7 +289,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			change := channel.applyModeMemberNoMutex(client, change.Mode, change.Op, change.Arg)
+			change := channel.applyModeMemberNoMutex(client, change.Mode, change.Op, change.Arg, rb)
 			if change != nil {
 				applied = append(applied, *change)
 			}

@@ -35,25 +35,25 @@ import (
 )
 
 // ACC [REGISTER|VERIFY] ...
-func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	subcommand := strings.ToLower(msg.Params[0])
 
 	if subcommand == "register" {
-		return accRegisterHandler(server, client, msg)
+		return accRegisterHandler(server, client, msg, rb)
 	} else if subcommand == "verify" {
-		client.Notice(client.t("VERIFY is not yet implemented"))
+		rb.Notice(client.t("VERIFY is not yet implemented"))
 	} else {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
 	}
 
 	return false
 }
 
 // ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
-func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// make sure reg is enabled
 	if !server.accountRegistration.Enabled {
-		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("Account registration is disabled"))
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("Account registration is disabled"))
 		return false
 	}
 
@@ -62,7 +62,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		if server.accountRegistration.AllowMultiplePerConnection {
 			client.LogoutOfAccount()
 		} else {
-			client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
+			rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
 			return false
 		}
 	}
@@ -72,7 +72,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	casefoldedAccount, err := CasefoldName(account)
 	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
 	if err != nil || msg.Params[1] == "*" {
-		client.Send(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, client.t("Account name is not valid"))
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, client.t("Account name is not valid"))
 		return false
 	}
 
@@ -84,7 +84,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		_, err := tx.Get(accountKey)
 		if err != buntdb.ErrNotFound {
 			//TODO(dan): if account verified key doesn't exist account is not verified, calc the maximum time without verification and expire and continue if need be
-			client.Send(nil, server.name, ERR_ACCOUNT_ALREADY_EXISTS, client.nick, account, client.t("Account already exists"))
+			rb.Add(nil, server.name, ERR_ACCOUNT_ALREADY_EXISTS, client.nick, account, client.t("Account already exists"))
 			return errAccountCreation
 		}
 
@@ -99,7 +99,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
 		if err != errAccountCreation {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
 			log.Println("Could not save registration initial data:", err.Error())
 		}
 		return false
@@ -129,7 +129,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	if !callbackValid {
-		client.Send(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, client.t("Callback namespace is not supported"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, client.t("Callback namespace is not supported"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -144,7 +144,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		credentialType = "passphrase" // default from the spec
 		credentialValue = msg.Params[3]
 	} else {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -157,13 +157,13 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("You are not using a TLS certificate"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("You are not using a TLS certificate"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
 
 	if !credentialValid {
-		client.Send(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("Credential type is not supported"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("Credential type is not supported"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
 	}
@@ -215,7 +215,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		if err == errCertfpAlreadyExists {
 			errMsg = "An account already exists for your certificate fingerprint"
 		}
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", errMsg)
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", errMsg)
 		log.Println("Could not save registration creds:", err.Error())
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return false
@@ -236,14 +236,14 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 			server.accounts[casefoldedAccount] = &account
 			client.account = &account
 
-			client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, client.t("Account created"))
-			client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
-			client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
+			rb.Add(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, account.Name, client.t("Account created"))
+			rb.Add(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
+			rb.Add(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
 			server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), account.Name, client.nickMaskString))
 			return nil
 		})
 		if err != nil {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", "REGISTER", client.t("Could not register"))
 			log.Println("Could not save verification confirmation (*):", err.Error())
 			removeFailedAccRegisterData(server.store, casefoldedAccount)
 			return false
@@ -253,16 +253,16 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	// dispatch callback
-	client.Notice(fmt.Sprintf("We should dispatch a real callback here to %s:%s", callbackNamespace, callbackValue))
+	rb.Notice(fmt.Sprintf("We should dispatch a real callback here to %s:%s", callbackNamespace, callbackValue))
 
 	return false
 }
 
 // AUTHENTICATE [<mechanism>|<data>|*]
-func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// sasl abort
 	if !server.accountAuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
-		client.Send(nil, server.name, ERR_SASLABORTED, client.nick, client.t("SASL authentication aborted"))
+		rb.Add(nil, server.name, ERR_SASLABORTED, client.nick, client.t("SASL authentication aborted"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -277,9 +277,9 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 		if mechanismIsEnabled {
 			client.saslInProgress = true
 			client.saslMechanism = mechanism
-			client.Send(nil, server.name, "AUTHENTICATE", "+")
+			rb.Add(nil, server.name, "AUTHENTICATE", "+")
 		} else {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		}
 
 		return false
@@ -289,7 +289,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	rawData := msg.Params[0]
 
 	if len(rawData) > 400 {
-		client.Send(nil, server.name, ERR_SASLTOOLONG, client.nick, client.t("SASL message too long"))
+		rb.Add(nil, server.name, ERR_SASLTOOLONG, client.nick, client.t("SASL message too long"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -298,7 +298,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 		client.saslValue += rawData
 		// allow 4 'continuation' lines before rejecting for length
 		if len(client.saslValue) > 400*4 {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Passphrase too long"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Passphrase too long"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -315,7 +315,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	if client.saslValue != "+" {
 		data, err = base64.StdEncoding.DecodeString(client.saslValue)
 		if err != nil {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -328,7 +328,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 
 	// like 100% not required, but it's good to be safe I guess
 	if !handlerExists {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -336,7 +336,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 	}
 
 	// let the SASL handler do its thing
-	exiting := handler(server, client, client.saslMechanism, data)
+	exiting := handler(server, client, client.saslMechanism, data, rb)
 
 	// wait 'til SASL is done before emptying the sasl vars
 	client.saslInProgress = false
@@ -347,7 +347,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage) 
 }
 
 // AUTHENTICATE PLAIN
-func authPlainHandler(server *Server, client *Client, mechanism string, value []byte) bool {
+func authPlainHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
 	splitValue := bytes.Split(value, []byte{'\000'})
 
 	var accountKey, authzid string
@@ -359,18 +359,18 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		if accountKey == "" {
 			accountKey = authzid
 		} else if accountKey != authzid {
-			client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
 			return false
 		}
 	} else {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid auth blob"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid auth blob"))
 		return false
 	}
 
 	// keep it the same as in the REG CREATE stage
 	accountKey, err := CasefoldName(accountKey)
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Bad account name"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Bad account name"))
 		return false
 	}
 
@@ -407,18 +407,18 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		return false
 	}
 
-	client.successfulSaslAuth()
+	client.successfulSaslAuth(rb)
 	return false
 }
 
 // AUTHENTICATE EXTERNAL
-func authExternalHandler(server *Server, client *Client, mechanism string, value []byte) bool {
+func authExternalHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
 	if client.certfp == "" {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
 		return false
 	}
 
@@ -459,16 +459,16 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 		return false
 	}
 
-	client.successfulSaslAuth()
+	client.successfulSaslAuth(rb)
 	return false
 }
 
 // AWAY [<message>]
-func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var isAway bool
 	var text string
 	if len(msg.Params) > 0 {
@@ -490,17 +490,17 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	var op modes.ModeOp
 	if client.flags[modes.Away] {
 		op = modes.Add
-		client.Send(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
+		rb.Add(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
 	} else {
 		op = modes.Remove
-		client.Send(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
+		rb.Add(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
 	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
 	modech := modes.ModeChanges{modes.ModeChange{
 		Mode: modes.Away,
 		Op:   op,
 	}}
-	client.Send(nil, server.name, "MODE", client.nick, modech.String())
+	rb.Add(nil, server.name, "MODE", client.nick, modech.String())
 
 	// dispatch away-notify
 	for friend := range client.Friends(caps.AwayNotify) {
@@ -515,7 +515,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // CAP <subcmd> [<caps>]
-func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	subCommand := strings.ToUpper(msg.Params[0])
 	capabilities := caps.NewSet()
 	var capString string
@@ -542,10 +542,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// the server.name source... otherwise it doesn't respond to the CAP message with
 		// anything and just hangs on connection.
 		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion, CapValues))
+		rb.Add(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion, CapValues))
 
 	case "LIST":
-		client.Send(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
+		rb.Add(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
 
 	case "REQ":
 		if !client.registered {
@@ -555,12 +555,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		// make sure all capabilities actually exist
 		for _, capability := range capabilities.List() {
 			if !SupportedCapabilities.Has(capability) {
-				client.Send(nil, server.name, "CAP", client.nick, "NAK", capString)
+				rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
 				return false
 			}
 		}
 		client.capabilities.Enable(capabilities.List()...)
-		client.Send(nil, server.name, "CAP", client.nick, "ACK", capString)
+		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 	case "END":
 		if !client.registered {
@@ -569,19 +569,19 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 
 	default:
-		client.Send(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, client.t("Invalid CAP subcommand"))
+		rb.Add(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, client.t("Invalid CAP subcommand"))
 	}
 	return false
 }
 
 // CHANSERV [...]
-func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.chanservPrivmsgHandler(client, strings.Join(msg.Params, " "))
+func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	server.chanservPrivmsgHandler(client, strings.Join(msg.Params, " "), rb)
 	return false
 }
 
 // DEBUG <subcmd>
-func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if !client.flags[modes.Operator] {
 		return false
 	}
@@ -594,58 +594,58 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 		debug.ReadGCStats(&stats)
 
-		client.Notice(fmt.Sprintf("last GC:     %s", stats.LastGC.Format(time.RFC1123)))
-		client.Notice(fmt.Sprintf("num GC:      %d", stats.NumGC))
-		client.Notice(fmt.Sprintf("pause total: %s", stats.PauseTotal))
-		client.Notice(fmt.Sprintf("pause quantiles min%%: %s", stats.PauseQuantiles[0]))
-		client.Notice(fmt.Sprintf("pause quantiles 25%%:  %s", stats.PauseQuantiles[1]))
-		client.Notice(fmt.Sprintf("pause quantiles 50%%:  %s", stats.PauseQuantiles[2]))
-		client.Notice(fmt.Sprintf("pause quantiles 75%%:  %s", stats.PauseQuantiles[3]))
-		client.Notice(fmt.Sprintf("pause quantiles max%%: %s", stats.PauseQuantiles[4]))
+		rb.Notice(fmt.Sprintf("last GC:     %s", stats.LastGC.Format(time.RFC1123)))
+		rb.Notice(fmt.Sprintf("num GC:      %d", stats.NumGC))
+		rb.Notice(fmt.Sprintf("pause total: %s", stats.PauseTotal))
+		rb.Notice(fmt.Sprintf("pause quantiles min%%: %s", stats.PauseQuantiles[0]))
+		rb.Notice(fmt.Sprintf("pause quantiles 25%%:  %s", stats.PauseQuantiles[1]))
+		rb.Notice(fmt.Sprintf("pause quantiles 50%%:  %s", stats.PauseQuantiles[2]))
+		rb.Notice(fmt.Sprintf("pause quantiles 75%%:  %s", stats.PauseQuantiles[3]))
+		rb.Notice(fmt.Sprintf("pause quantiles max%%: %s", stats.PauseQuantiles[4]))
 
 	case "NUMGOROUTINE":
 		count := runtime.NumGoroutine()
-		client.Notice(fmt.Sprintf("num goroutines: %d", count))
+		rb.Notice(fmt.Sprintf("num goroutines: %d", count))
 
 	case "PROFILEHEAP":
 		profFile := "oragono.mprof"
 		file, err := os.Create(profFile)
 		if err != nil {
-			client.Notice(fmt.Sprintf("error: %s", err))
+			rb.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 		defer file.Close()
 		pprof.Lookup("heap").WriteTo(file, 0)
-		client.Notice(fmt.Sprintf("written to %s", profFile))
+		rb.Notice(fmt.Sprintf("written to %s", profFile))
 
 	case "STARTCPUPROFILE":
 		profFile := "oragono.prof"
 		file, err := os.Create(profFile)
 		if err != nil {
-			client.Notice(fmt.Sprintf("error: %s", err))
+			rb.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 		if err := pprof.StartCPUProfile(file); err != nil {
 			defer file.Close()
-			client.Notice(fmt.Sprintf("error: %s", err))
+			rb.Notice(fmt.Sprintf("error: %s", err))
 			break
 		}
 
-		client.Notice(fmt.Sprintf("CPU profile writing to %s", profFile))
+		rb.Notice(fmt.Sprintf("CPU profile writing to %s", profFile))
 
 	case "STOPCPUPROFILE":
 		pprof.StopCPUProfile()
-		client.Notice(fmt.Sprintf("CPU profiling stopped"))
+		rb.Notice(fmt.Sprintf("CPU profiling stopped"))
 	}
 	return false
 }
 
 // DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 // DLINE LIST
-func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -656,11 +656,11 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		bans := server.dlines.AllBans()
 
 		if len(bans) == 0 {
-			client.Notice(client.t("No DLINEs have been set!"))
+			rb.Notice(client.t("No DLINEs have been set!"))
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
+			rb.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false
@@ -690,7 +690,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// get host
 	if len(msg.Params) < currentArg+1 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 	hostString := msg.Params[currentArg]
@@ -706,27 +706,27 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if hostAddr == nil && hostNet == nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
 	if hostNet == nil {
 		hostString = hostAddr.String()
 		if !dlineMyself && hostAddr.Equal(client.IP()) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 			return false
 		}
 	} else {
 		hostString = hostNet.String()
 		if !dlineMyself && hostNet.Contains(client.IP()) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 			return false
 		}
 	}
 
 	// check remote
 	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
 		return false
 	}
 
@@ -784,7 +784,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	})
 
 	if err != nil {
-		client.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))
+		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))
 		return false
 	}
 
@@ -796,10 +796,10 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) D-Line for %[2]s"), duration.String(), hostString))
+		rb.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) D-Line for %[2]s"), duration.String(), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) D-Line for %s"), client.nick, operName, duration.String(), hostString)
 	} else {
-		client.Notice(fmt.Sprintf(client.t("Added D-Line for %s"), hostString))
+		rb.Notice(fmt.Sprintf(client.t("Added D-Line for %s"), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added D-Line for %s"), client.nick, operName, hostString)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
@@ -843,22 +843,22 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // HELP [<query>]
-func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
 
 	if len(argument) < 1 {
 		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
 
-Get an explanation of <argument>, or "index" for a list of help topics.`))
+Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 		return false
 	}
 
 	// handle index
 	if argument == "index" {
 		if client.flags[modes.Operator] {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers))
+			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers), rb)
 		} else {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex))
+			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex), rb)
 		}
 		return false
 	}
@@ -867,75 +867,75 @@ Get an explanation of <argument>, or "index" for a list of help topics.`))
 
 	if exists && (!helpHandler.oper || (helpHandler.oper && client.flags[modes.Operator])) {
 		if helpHandler.textGenerator != nil {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)))
+			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)), rb)
 		} else {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text))
+			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text), rb)
 		}
 	} else {
 		args := msg.Params
 		args = append(args, client.t("Help not found"))
-		client.Send(nil, server.name, ERR_HELPNOTFOUND, args...)
+		rb.Add(nil, server.name, ERR_HELPNOTFOUND, args...)
 	}
 
 	return false
 }
 
 // INFO
-func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// we do the below so that the human-readable lines in info can be translated.
 	for _, line := range infoString1 {
-		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
-	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
-	client.Send(nil, server.name, RPL_INFO, client.nick, "")
-	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on")+" <3")
-	client.Send(nil, server.name, RPL_INFO, client.nick, "")
-	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
+	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on")+" <3")
+	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
 	for _, line := range infoString2 {
-		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
-	client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Contributors and Former Developers:"))
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Contributors and Former Developers:"))
 	for _, line := range infoString3 {
-		client.Send(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
 	// show translators for languages other than good ole' regular English
 	tlines := server.languages.Translators()
 	if 0 < len(tlines) {
-		client.Send(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
+		rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
 		for _, line := range tlines {
-			client.Send(nil, server.name, RPL_INFO, client.nick, "    "+line)
+			rb.Add(nil, server.name, RPL_INFO, client.nick, "    "+line)
 		}
-		client.Send(nil, server.name, RPL_INFO, client.nick, "")
+		rb.Add(nil, server.name, RPL_INFO, client.nick, "")
 	}
-	client.Send(nil, server.name, RPL_ENDOFINFO, client.nick, client.t("End of /INFO"))
+	rb.Add(nil, server.name, RPL_ENDOFINFO, client.nick, client.t("End of /INFO"))
 	return false
 }
 
 // INVITE <nickname> <channel>
-func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nickname := msg.Params[0]
 	channelName := msg.Params[1]
 
 	casefoldedNickname, err := CasefoldName(nickname)
 	target := server.clients.Get(casefoldedNickname)
 	if err != nil || target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
 		return false
 	}
 
 	casefoldedChannelName, err := CasefoldChannel(channelName)
 	channel := server.channels.Get(casefoldedChannelName)
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, channelName, client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, channelName, client.t("No such channel"))
 		return false
 	}
 
-	channel.Invite(target, client)
+	channel.Invite(target, client, rb)
 	return false
 }
 
 // ISON <nick>{ <nick>}
-func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var nicks = msg.Params
 
 	var err error
@@ -951,15 +951,15 @@ func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 
-	client.Send(nil, server.name, RPL_ISON, client.nick, strings.Join(nicks, " "))
+	rb.Add(nil, server.name, RPL_ISON, client.nick, strings.Join(nicks, " "))
 	return false
 }
 
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
-func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// kill JOIN 0 requests
 	if msg.Params[0] == "0" {
-		client.Notice(client.t("JOIN 0 is not allowed"))
+		rb.Notice(client.t("JOIN 0 is not allowed"))
 		return false
 	}
 
@@ -975,20 +975,20 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if len(keys) > i {
 			key = keys[i]
 		}
-		err := server.channels.Join(client, name, key)
+		err := server.channels.Join(client, name, key, rb)
 		if err == errNoSuchChannel {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
 		}
 	}
 	return false
 }
 
 // KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
-func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	channels := strings.Split(msg.Params[0], ",")
 	users := strings.Split(msg.Params[1], ",")
 	if (len(channels) != len(users)) && (len(users) != 1) {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, "KICK", client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, "KICK", client.t("Not enough parameters"))
 		return false
 	}
 
@@ -1011,27 +1011,27 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		casefoldedChname, err := CasefoldChannel(chname)
 		channel := server.channels.Get(casefoldedChname)
 		if err != nil || channel == nil {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
 			continue
 		}
 
 		casefoldedNickname, err := CasefoldName(nickname)
 		target := server.clients.Get(casefoldedNickname)
 		if err != nil || target == nil {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
 			continue
 		}
 
 		if comment == "" {
 			comment = nickname
 		}
-		channel.Kick(client, target, comment)
+		channel.Kick(client, target, comment, rb)
 	}
 	return false
 }
 
 // KILL <nickname> <comment>
-func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nickname := msg.Params[0]
 	comment := "<no reason supplied>"
 	if len(msg.Params) > 1 {
@@ -1041,7 +1041,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	casefoldedNickname, err := CasefoldName(nickname)
 	target := server.clients.Get(casefoldedNickname)
 	if err != nil || target == nil {
-		client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
 		return false
 	}
 
@@ -1057,10 +1057,10 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 // KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
 // KLINE LIST
-func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_ban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -1105,7 +1105,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	// get mask
 	if len(msg.Params) < currentArg+1 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 	mask := strings.ToLower(msg.Params[currentArg])
@@ -1122,14 +1122,14 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	for _, clientMask := range client.AllNickmasks() {
 		if !klineMyself && matcher.Match(clientMask) {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
 			return false
 		}
 	}
 
 	// check remote
 	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
 		return false
 	}
 
@@ -1189,7 +1189,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	})
 
 	if err != nil {
-		client.Notice(fmt.Sprintf(client.t("Could not successfully save new K-LINE: %s"), err.Error()))
+		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new K-LINE: %s"), err.Error()))
 		return false
 	}
 
@@ -1197,10 +1197,10 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	var snoDescription string
 	if durationIsUsed {
-		client.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) K-Line for %[2]s"), duration.String(), mask))
+		rb.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) K-Line for %[2]s"), duration.String(), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
 	} else {
-		client.Notice(fmt.Sprintf(client.t("Added K-Line for %s"), mask))
+		rb.Notice(fmt.Sprintf(client.t("Added K-Line for %s"), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added K-Line for %s"), client.nick, operName, mask)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
@@ -1239,13 +1239,13 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // LANGUAGE <code>{ <code>}
-func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	alreadyDoneLanguages := make(map[string]bool)
 	var appliedLanguages []string
 
 	supportedLanguagesCount := server.languages.Count()
 	if supportedLanguagesCount < len(msg.Params) {
-		client.Send(nil, client.server.name, ERR_TOOMANYLANGUAGES, client.nick, strconv.Itoa(supportedLanguagesCount), client.t("You specified too many languages"))
+		rb.Add(nil, client.server.name, ERR_TOOMANYLANGUAGES, client.nick, strconv.Itoa(supportedLanguagesCount), client.t("You specified too many languages"))
 		return false
 	}
 
@@ -1261,7 +1261,7 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 
 		_, exists := server.languages.Info[value]
 		if !exists {
-			client.Send(nil, client.server.name, ERR_NOLANGUAGE, client.nick, client.t("Languages are not supported by this server"))
+			rb.Add(nil, client.server.name, ERR_NOLANGUAGE, client.nick, client.t("Languages are not supported by this server"))
 			return false
 		}
 
@@ -1289,13 +1289,13 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 	}
 	params = append(params, client.t("Language preferences have been set"))
 
-	client.Send(nil, client.server.name, RPL_YOURLANGUAGESARE, params...)
+	rb.Add(nil, client.server.name, RPL_YOURLANGUAGESARE, params...)
 
 	return false
 }
 
 // LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
-func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// get channels
 	var channels []string
 	for _, param := range msg.Params {
@@ -1341,7 +1341,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel)
+				client.RplList(channel, rb)
 			}
 		}
 	} else {
@@ -1355,21 +1355,21 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			channel := server.channels.Get(casefoldedChname)
 			if err != nil || channel == nil || (!client.flags[modes.Operator] && channel.flags[modes.Secret]) {
 				if len(chname) > 0 {
-					client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
 				}
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel)
+				client.RplList(channel, rb)
 			}
 		}
 	}
-	client.Send(nil, server.name, RPL_LISTEND, client.nick, client.t("End of LIST"))
+	rb.Add(nil, server.name, RPL_LISTEND, client.nick, client.t("End of LIST"))
 	return false
 }
 
 // LUSERS [<mask> [<server>]]
-func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
 	var totalcount, invisiblecount, opercount int
 
@@ -1382,30 +1382,30 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			opercount++
 		}
 	}
-	client.Send(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalcount, invisiblecount, 1))
-	client.Send(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf(client.t("%d IRC Operators online"), opercount))
-	client.Send(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf(client.t("%d channels formed"), server.channels.Len()))
-	client.Send(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalcount, 1))
+	rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalcount, invisiblecount, 1))
+	rb.Add(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf(client.t("%d IRC Operators online"), opercount))
+	rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf(client.t("%d channels formed"), server.channels.Len()))
+	rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalcount, 1))
 	return false
 }
 
 // MODE <target> [<modestring> [<mode arguments>...]]
-func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	_, errChan := CasefoldChannel(msg.Params[0])
 
 	if errChan == nil {
-		return cmodeHandler(server, client, msg)
+		return cmodeHandler(server, client, msg, rb)
 	}
-	return umodeHandler(server, client, msg)
+	return umodeHandler(server, client, msg, rb)
 }
 
 // MODE <channel> [<modestring> [<mode arguments>...]]
-func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	channelName, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(channelName)
 
 	if err != nil || channel == nil {
-		client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
 		return false
 	}
 
@@ -1419,14 +1419,14 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
+			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
 		}
 
 		// apply mode changes
-		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes)
+		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	}
 
 	// save changes to banlist/exceptlist/invexlist
@@ -1450,23 +1450,27 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
 		for _, member := range channel.Members() {
-			member.Send(nil, client.nickMaskString, "MODE", args...)
+			if member == client {
+				rb.Add(nil, client.nickMaskString, "MODE", args...)
+			} else {
+				member.Send(nil, client.nickMaskString, "MODE", args...)
+			}
 		}
 	} else {
 		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
-		client.Send(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
+		rb.Add(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
+		rb.Add(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }
 
 // MODE <client> [<modestring> [<mode arguments>...]]
-func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nickname, err := CasefoldName(msg.Params[0])
 	target := server.clients.Get(nickname)
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
-			client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		}
 		return false
 	}
@@ -1476,9 +1480,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	if !hasPrivs {
 		if len(msg.Params) > 1 {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
 		} else {
-			client.Send(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
 		}
 		return false
 	}
@@ -1493,7 +1497,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			client.Send(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
+			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
@@ -1504,13 +1508,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	if len(applied) > 0 {
-		client.Send(nil, client.nickMaskString, "MODE", targetNick, applied.String())
+		rb.Add(nil, client.nickMaskString, "MODE", targetNick, applied.String())
 	} else if hasPrivs {
-		client.Send(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
+		rb.Add(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
 		if client.flags[modes.LocalOperator] || client.flags[modes.Operator] {
 			masks := server.snomasks.String(client)
 			if 0 < len(masks) {
-				client.Send(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
+				rb.Add(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
 			}
 		}
 	}
@@ -1518,21 +1522,21 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // MONITOR <subcmd> [params...]
-func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], client.t("Unknown subcommand"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], client.t("Unknown subcommand"))
 		return false
 	}
 
-	return handler(server, client, msg)
+	return handler(server, client, msg, rb)
 }
 
 // MONITOR - <target>{,<target>}
-func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 
@@ -1549,9 +1553,9 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 }
 
 // MONITOR + <target>{,<target>}
-func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if len(msg.Params) < 2 {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 
@@ -1575,7 +1579,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 
 		err = server.monitorManager.Add(client, casefoldedTarget, limit)
 		if err == errMonitorLimitExceeded {
-			client.Send(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
+			rb.Add(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
 			break
 		} else if err != nil {
 			continue
@@ -1590,23 +1594,23 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bo
 	}
 
 	if len(online) > 0 {
-		client.Send(nil, server.name, RPL_MONONLINE, client.Nick(), strings.Join(online, ","))
+		rb.Add(nil, server.name, RPL_MONONLINE, client.Nick(), strings.Join(online, ","))
 	}
 	if len(offline) > 0 {
-		client.Send(nil, server.name, RPL_MONOFFLINE, client.Nick(), strings.Join(offline, ","))
+		rb.Add(nil, server.name, RPL_MONOFFLINE, client.Nick(), strings.Join(offline, ","))
 	}
 
 	return false
 }
 
 // MONITOR C
-func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	server.monitorManager.RemoveAll(client)
 	return false
 }
 
 // MONITOR L
-func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	monitorList := server.monitorManager.List(client)
 
 	var nickList []string
@@ -1620,16 +1624,16 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
-		client.Send(nil, server.name, RPL_MONLIST, client.Nick(), line)
+		rb.Add(nil, server.name, RPL_MONLIST, client.Nick(), line)
 	}
 
-	client.Send(nil, server.name, RPL_ENDOFMONLIST, "End of MONITOR list")
+	rb.Add(nil, server.name, RPL_ENDOFMONLIST, "End of MONITOR list")
 
 	return false
 }
 
 // MONITOR S
-func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var online []string
 	var offline []string
 
@@ -1646,12 +1650,12 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 
 	if len(online) > 0 {
 		for _, line := range utils.ArgsToStrings(maxLastArgLength, online, ",") {
-			client.Send(nil, server.name, RPL_MONONLINE, client.Nick(), line)
+			rb.Add(nil, server.name, RPL_MONONLINE, client.Nick(), line)
 		}
 	}
 	if len(offline) > 0 {
 		for _, line := range utils.ArgsToStrings(maxLastArgLength, offline, ",") {
-			client.Send(nil, server.name, RPL_MONOFFLINE, client.Nick(), line)
+			rb.Add(nil, server.name, RPL_MONOFFLINE, client.Nick(), line)
 		}
 	}
 
@@ -1659,23 +1663,60 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage)
 }
 
 // MOTD
-func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.MOTD(client)
+func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	server.MOTD(client, rb)
+	return false
+}
+
+// NAMES [<channel>{,<channel>}]
+func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	var channels []string
+	if len(msg.Params) > 0 {
+		channels = strings.Split(msg.Params[0], ",")
+	}
+	//var target string
+	//if len(msg.Params) > 1 {
+	//	target = msg.Params[1]
+	//}
+
+	if len(channels) == 0 {
+		for _, channel := range server.channels.Channels() {
+			channel.Names(client, rb)
+		}
+		return false
+	}
+
+	// limit regular users to only listing one channel
+	if !client.flags[modes.Operator] {
+		channels = channels[:1]
+	}
+
+	for _, chname := range channels {
+		casefoldedChname, err := CasefoldChannel(chname)
+		channel := server.channels.Get(casefoldedChname)
+		if err != nil || channel == nil {
+			if len(chname) > 0 {
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+			}
+			continue
+		}
+		channel.Names(client, rb)
+	}
 	return false
 }
 
 // NICK <nickname>
-func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if !client.authorized {
 		client.Quit("Bad password")
 		return true
 	}
 
-	return performNickChange(server, client, client, msg.Params[0])
+	return performNickChange(server, client, client, msg.Params[0], rb)
 }
 
 // NOTICE <target>{,<target>} <message>
-func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
@@ -1703,17 +1744,17 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 				continue
 			}
 			msgid := server.generateMessageID()
-			channel.SplitNotice(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
+			channel.SplitNotice(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
 				continue
 			}
 			if target == "chanserv" {
-				server.chanservNoticeHandler(client, message)
+				server.chanservNoticeHandler(client, message, rb)
 				continue
 			} else if target == "nickserv" {
-				server.nickservNoticeHandler(client, message)
+				server.nickservNoticeHandler(client, message, rb)
 				continue
 			}
 
@@ -1729,10 +1770,14 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			if !user.flags[modes.RegisteredOnly] || client.registered {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				if user == client {
+					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				} else {
+					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				}
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
-				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 		}
 	}
@@ -1740,7 +1785,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // NPC <target> <sourcenick> <message>
-func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2]
@@ -1753,13 +1798,13 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 
 	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
 
-	sendRoleplayMessage(server, client, sourceString, target, false, message)
+	sendRoleplayMessage(server, client, sourceString, target, false, message, rb)
 
 	return false
 }
 
 // NPCA <target> <sourcenick> <message>
-func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2]
@@ -1771,26 +1816,26 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		return false
 	}
 
-	sendRoleplayMessage(server, client, sourceString, target, true, message)
+	sendRoleplayMessage(server, client, sourceString, target, true, message, rb)
 
 	return false
 }
 
 // NICKSERV [params...]
-func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	server.nickservPrivmsgHandler(client, strings.Join(msg.Params, " "))
+func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	server.nickservPrivmsgHandler(client, strings.Join(msg.Params, " "), rb)
 	return false
 }
 
 // OPER <name> <password>
-func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	name, err := CasefoldName(msg.Params[0])
 	if err != nil {
-		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
+		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		return true
 	}
 	if client.flags[modes.Operator] == true {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, "OPER", client.t("You're already opered-up!"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, "OPER", client.t("You're already opered-up!"))
 		return false
 	}
 	server.configurableStateMutex.RLock()
@@ -1800,7 +1845,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	password := []byte(msg.Params[1])
 	err = passwd.ComparePassword(oper.Pass, password)
 	if (oper.Pass == nil) || (err != nil) {
-		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
+		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		return true
 	}
 
@@ -1829,24 +1874,24 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			for r := range unknownChanges {
 				runes += string(r)
 			}
-			client.Notice(fmt.Sprintf(client.t("Could not apply mode changes: +%s"), runes))
+			rb.Notice(fmt.Sprintf(client.t("Could not apply mode changes: +%s"), runes))
 		}
 	}
 
-	client.Send(nil, server.name, RPL_YOUREOPER, client.nick, client.t("You are now an IRC operator"))
+	rb.Add(nil, server.name, RPL_YOUREOPER, client.nick, client.t("You are now an IRC operator"))
 
 	applied = append(applied, modes.ModeChange{
 		Mode: modes.Operator,
 		Op:   modes.Add,
 	})
-	client.Send(nil, server.name, "MODE", client.nick, applied.String())
+	rb.Add(nil, server.name, "MODE", client.nick, applied.String())
 
 	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
 	return false
 }
 
 // PART <channel>{,<channel>} [<reason>]
-func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	channels := strings.Split(msg.Params[0], ",")
 	var reason string //TODO(dan): if this isn't supplied here, make sure the param doesn't exist in the PART message sent to other users
 	if len(msg.Params) > 1 {
@@ -1854,18 +1899,18 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	}
 
 	for _, chname := range channels {
-		err := server.channels.Part(client, chname, reason)
+		err := server.channels.Part(client, chname, reason, rb)
 		if err == errNoSuchChannel {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
 		}
 	}
 	return false
 }
 
 // PASS <password>
-func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if client.registered {
-		client.Send(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
+		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
 
@@ -1878,8 +1923,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	// check the provided password
 	password := []byte(msg.Params[0])
 	if passwd.ComparePassword(server.password, password) != nil {
-		client.Send(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
-		client.Send(nil, server.name, "ERROR", client.t("Password incorrect"))
+		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
+		rb.Add(nil, server.name, "ERROR", client.t("Password incorrect"))
 		return true
 	}
 
@@ -1888,19 +1933,19 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // PING [params...]
-func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	client.Send(nil, server.name, "PONG", msg.Params...)
+func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, "PONG", msg.Params...)
 	return false
 }
 
 // PONG [params...]
-func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// client gets touched when they send this command, so we don't need to do anything
 	return false
 }
 
 // PRIVMSG <target>{,<target>} <message>
-func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
@@ -1925,22 +1970,22 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		if err == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
 				continue
 			}
 			if !channel.CanSpeak(client) {
-				client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
+				rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 				continue
 			}
 			msgid := server.generateMessageID()
-			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg)
+			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
 			target, err = CasefoldName(targetString)
 			if target == "chanserv" {
-				server.chanservPrivmsgHandler(client, message)
+				server.chanservPrivmsgHandler(client, message, rb)
 				continue
 			} else if target == "nickserv" {
-				server.nickservPrivmsgHandler(client, message)
+				server.nickservPrivmsgHandler(client, message, rb)
 				continue
 			}
 			user := server.clients.Get(target)
@@ -1957,14 +2002,18 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			if !user.flags[modes.RegisteredOnly] || client.registered {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				if user == client {
+					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				} else {
+					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				}
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
-				client.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.flags[modes.Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
-				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 			}
 		}
 	}
@@ -1973,7 +2022,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 
 // PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
 // http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
 	if client.registered || client.proxiedIP != nil {
 		return false
@@ -1992,7 +2041,7 @@ func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // QUIT [<reason>]
-func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	reason := "Quit"
 	if len(msg.Params) > 0 {
 		reason += ": " + msg.Params[0]
@@ -2002,21 +2051,21 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // REHASH
-func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	server.logger.Info("rehash", fmt.Sprintf("REHASH command used by %s", client.nick))
 	err := server.rehash()
 
 	if err == nil {
-		client.Send(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", client.t("Rehashing"))
+		rb.Add(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", client.t("Rehashing"))
 	} else {
 		server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
 	}
 	return false
 }
 
 // RENAME <oldchan> <newchan> [<reason>]
-func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (result bool) {
+func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
 	result = false
 
 	errorResponse := func(err error, name string) {
@@ -2034,7 +2083,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 		default:
 			code = ERR_UNKNOWNERROR
 		}
-		client.Send(nil, server.name, code, client.Nick(), "RENAME", name, err.Error())
+		rb.Add(nil, server.name, code, client.Nick(), "RENAME", name, err.Error())
 	}
 
 	oldName := strings.TrimSpace(msg.Params[0])
@@ -2068,7 +2117,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 	founder := channel.Founder()
 	if founder != "" && founder != client.AccountName() {
 		//TODO(dan): Change this to ERR_CANNOTRENAME
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, client.t("Only channel founders can change registered channels"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, client.t("Only channel founders can change registered channels"))
 		return false
 	}
 
@@ -2104,16 +2153,16 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage) (resul
 }
 
 // RESUME <oldnick> [timestamp]
-func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	oldnick := msg.Params[0]
 
 	if strings.Contains(oldnick, " ") {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, "*", client.t("Cannot resume connection, old nickname contains spaces"))
+		rb.Add(nil, server.name, ERR_CANNOT_RESUME, "*", client.t("Cannot resume connection, old nickname contains spaces"))
 		return false
 	}
 
 	if client.Registered() {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
+		rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
@@ -2123,7 +2172,7 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if err == nil {
 			timestamp = &ts
 		} else {
-			client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+			rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
@@ -2136,29 +2185,29 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // SANICK <oldnick> <nickname>
-func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	targetNick := strings.TrimSpace(msg.Params[0])
 	target := server.clients.Get(targetNick)
 	if target == nil {
-		client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
+		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		return false
 	}
-	return performNickChange(server, client, target, msg.Params[1])
+	return performNickChange(server, client, target, msg.Params[1], rb)
 }
 
 // SCENE <target> <message>
-func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	message := msg.Params[1]
 	sourceString := fmt.Sprintf(sceneNickMask, client.nick)
 
-	sendRoleplayMessage(server, client, sourceString, target, false, message)
+	sendRoleplayMessage(server, client, sourceString, target, false, message, rb)
 
 	return false
 }
 
 // TAGMSG <target>{,<target>}
-func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	// no client-only tags, so we can drop it
 	if clientOnlyTags == nil {
@@ -2184,16 +2233,16 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		if err == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
-				client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
 				continue
 			}
 			if !channel.CanSpeak(client) {
-				client.Send(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
+				rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 				continue
 			}
 			msgid := server.generateMessageID()
 
-			channel.TagMsg(msgid, lowestPrefix, clientOnlyTags, client)
+			channel.TagMsg(msgid, lowestPrefix, clientOnlyTags, client, rb)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -2209,13 +2258,17 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 			if !user.capabilities.Has(caps.MessageTags) {
 				continue
 			}
-			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+			if user == client {
+				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+			} else {
+				user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+			}
 			if client.capabilities.Has(caps.EchoMessage) {
-				client.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.flags[modes.Away] {
 				//TODO(dan): possibly implement cooldown of away notifications to users
-				client.Send(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 			}
 		}
 	}
@@ -2223,35 +2276,35 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // TIME
-func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	client.Send(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().Format(time.RFC1123))
+func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().Format(time.RFC1123))
 	return false
 }
 
 // TOPIC <channel> [<topic>]
-func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	name, err := CasefoldChannel(msg.Params[0])
 	channel := server.channels.Get(name)
 	if err != nil || channel == nil {
 		if len(msg.Params[0]) > 0 {
-			client.Send(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
 		}
 		return false
 	}
 
 	if len(msg.Params) > 1 {
-		channel.SetTopic(client, msg.Params[1])
+		channel.SetTopic(client, msg.Params[1], rb)
 	} else {
-		channel.SendTopic(client)
+		channel.SendTopic(client, rb)
 	}
 	return false
 }
 
 // UNDLINE <ip>|<net>
-func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -2268,7 +2321,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	}
 
 	if hostAddr == nil && hostNet == nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
@@ -2295,7 +2348,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
@@ -2305,16 +2358,16 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 		server.dlines.RemoveNetwork(*hostNet)
 	}
 
-	client.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
+	rb.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
 	return false
 }
 
 // UNKLINE <mask>
-func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	if !client.class.Capabilities["oper:local_unban"] {
-		client.Send(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -2344,21 +2397,21 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool 
 	})
 
 	if err != nil {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
 	server.klines.RemoveMask(mask)
 
-	client.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
+	rb.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), client.nick, mask))
 	return false
 }
 
 // USER <username> * 0 <realname>
-func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if client.registered {
-		client.Send(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
+		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
 
@@ -2375,7 +2428,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	//
 	_, err := CasefoldName(msg.Params[0])
 	if err != nil {
-		client.Send(nil, "", "ERROR", client.t("Malformed username"))
+		rb.Add(nil, "", "ERROR", client.t("Malformed username"))
 		return true
 	}
 
@@ -2393,7 +2446,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // USERHOST <nickname>{ <nickname>}
-func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	returnedNicks := make(map[string]bool)
 
 	for i, nickname := range msg.Params {
@@ -2404,7 +2457,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 		casefoldedNickname, err := CasefoldName(nickname)
 		target := server.clients.Get(casefoldedNickname)
 		if err != nil || target == nil {
-			client.Send(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
 			return false
 		}
 		if returnedNicks[casefoldedNickname] {
@@ -2424,21 +2477,21 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool
 		} else {
 			isAway = "+"
 		}
-		client.Send(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s%s=%s%s@%s", target.nick, isOper, isAway, target.username, target.hostname))
+		rb.Add(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s%s=%s%s@%s", target.nick, isOper, isAway, target.username, target.hostname))
 	}
 
 	return false
 }
 
 // VERSION
-func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
-	client.Send(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
-	client.RplISupport()
+func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
+	client.RplISupport(rb)
 	return false
 }
 
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
-func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
 	if client.registered || client.proxiedIP != nil {
 		return false
@@ -2490,9 +2543,9 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 }
 
 // WHO [<mask> [o]]
-func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if msg.Params[0] == "" {
-		client.Send(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
 		return false
 	}
 
@@ -2500,7 +2553,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if len(msg.Params) > 0 {
 		casefoldedMask, err := Casefold(msg.Params[0])
 		if err != nil {
-			client.Send(nil, server.name, ERR_UNKNOWNERROR, "WHO", client.t("Mask isn't valid"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, "WHO", client.t("Mask isn't valid"))
 			return false
 		}
 		mask = casefoldedMask
@@ -2520,20 +2573,20 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		//TODO(dan): ^ only for opers
 		channel := server.channels.Get(mask)
 		if channel != nil {
-			whoChannel(client, channel, friends)
+			whoChannel(client, channel, friends, rb)
 		}
 	} else {
 		for mclient := range server.clients.FindAll(mask) {
-			client.rplWhoReply(nil, mclient)
+			client.rplWhoReply(nil, mclient, rb)
 		}
 	}
 
-	client.Send(nil, server.name, RPL_ENDOFWHO, client.nick, mask, client.t("End of WHO list"))
+	rb.Add(nil, server.name, RPL_ENDOFWHO, client.nick, mask, client.t("End of WHO list"))
 	return false
 }
 
 // WHOIS [<target>] <mask>{,<mask>}
-func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var masksString string
 	//var target string
 
@@ -2544,12 +2597,8 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		masksString = msg.Params[0]
 	}
 
-	rb := NewResponseBuffer(client)
-	rb.Label = GetLabel(msg)
-
 	if len(strings.TrimSpace(masksString)) < 1 {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("No masks given"))
-		rb.Send()
 		return false
 	}
 
@@ -2582,12 +2631,11 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		}
 	}
 	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
-	rb.Send()
 	return false
 }
 
 // WHOWAS <nickname> [<count> [<server>]]
-func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nicknames := strings.Split(msg.Params[0], ",")
 
 	var count int64
@@ -2602,15 +2650,15 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 		results := server.whoWas.Find(nickname, count)
 		if len(results) == 0 {
 			if len(nickname) > 0 {
-				client.Send(nil, server.name, ERR_WASNOSUCHNICK, client.nick, nickname, client.t("There was no such nickname"))
+				rb.Add(nil, server.name, ERR_WASNOSUCHNICK, client.nick, nickname, client.t("There was no such nickname"))
 			}
 		} else {
 			for _, whoWas := range results {
-				client.Send(nil, server.name, RPL_WHOWASUSER, client.nick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
+				rb.Add(nil, server.name, RPL_WHOWASUSER, client.nick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 			}
 		}
 		if len(nickname) > 0 {
-			client.Send(nil, server.name, RPL_ENDOFWHOWAS, client.nick, nickname, client.t("End of WHOWAS"))
+			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, client.nick, nickname, client.t("End of WHOWAS"))
 		}
 	}
 	return false

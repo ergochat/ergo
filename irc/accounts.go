@@ -27,7 +27,7 @@ const (
 var (
 	// EnabledSaslMechanisms contains the SASL mechanisms that exist and that we support.
 	// This can be moved to some other data structure/place if we need to load/unload mechs later.
-	EnabledSaslMechanisms = map[string]func(*Server, *Client, string, []byte) bool{
+	EnabledSaslMechanisms = map[string]func(*Server, *Client, string, []byte, *ResponseBuffer) bool{
 		"PLAIN":    authPlainHandler,
 		"EXTERNAL": authExternalHandler,
 	}
@@ -128,9 +128,9 @@ func (client *Client) LogoutOfAccount() {
 }
 
 // successfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
-func (client *Client) successfulSaslAuth() {
-	client.Send(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
-	client.Send(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
+func (client *Client) successfulSaslAuth(rb *ResponseBuffer) {
+	rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, client.account.Name, fmt.Sprintf("You are now logged in as %s", client.account.Name))
+	rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
 
 	// dispatch account-notify
 	for friend := range client.Friends(caps.AccountNotify) {

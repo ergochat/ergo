@@ -39,18 +39,18 @@ func extractParam(line string) (string, string) {
 }
 
 // nickservNoticeHandler handles NOTICEs that NickServ receives.
-func (server *Server) nickservNoticeHandler(client *Client, message string) {
+func (server *Server) nickservNoticeHandler(client *Client, message string, rb *ResponseBuffer) {
 	// do nothing
 }
 
 // nickservPrivmsgHandler handles PRIVMSGs that NickServ receives.
-func (server *Server) nickservPrivmsgHandler(client *Client, message string) {
+func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb *ResponseBuffer) {
 	command, params := extractParam(message)
 	command = strings.ToLower(command)
 
 	if command == "help" {
 		for _, line := range strings.Split(nickservHelp, "\n") {
-			client.Notice(line)
+			rb.Notice(line)
 		}
 	} else if command == "register" {
 		// get params
@@ -58,30 +58,30 @@ func (server *Server) nickservPrivmsgHandler(client *Client, message string) {
 
 		// fail out if we need to
 		if username == "" {
-			client.Notice(client.t("No username supplied"))
+			rb.Notice(client.t("No username supplied"))
 			return
 		}
 
-		server.nickservRegisterHandler(client, username, passphrase)
+		server.nickservRegisterHandler(client, username, passphrase, rb)
 	} else if command == "identify" {
 		// get params
 		username, passphrase := extractParam(params)
 
-		server.nickservIdentifyHandler(client, username, passphrase)
+		server.nickservIdentifyHandler(client, username, passphrase, rb)
 	} else {
-		client.Notice(client.t("Command not recognised. To see the available commands, run /NS HELP"))
+		rb.Notice(client.t("Command not recognised. To see the available commands, run /NS HELP"))
 	}
 }
 
-func (server *Server) nickservRegisterHandler(client *Client, username, passphrase string) {
+func (server *Server) nickservRegisterHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
 	certfp := client.certfp
 	if passphrase == "" && certfp == "" {
-		client.Notice(client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
+		rb.Notice(client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
 		return
 	}
 
 	if !server.accountRegistration.Enabled {
-		client.Notice(client.t("Account registration has been disabled"))
+		rb.Notice(client.t("Account registration has been disabled"))
 		return
 	}
 
@@ -89,7 +89,7 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		if server.accountRegistration.AllowMultiplePerConnection {
 			client.LogoutOfAccount()
 		} else {
-			client.Notice(client.t("You're already logged into an account"))
+			rb.Notice(client.t("You're already logged into an account"))
 			return
 		}
 	}
@@ -99,7 +99,7 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 	casefoldedAccount, err := CasefoldName(account)
 	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
 	if err != nil || username == "*" {
-		client.Notice(client.t("Account name is not valid"))
+		rb.Notice(client.t("Account name is not valid"))
 		return
 	}
 
@@ -111,7 +111,7 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		_, err := tx.Get(accountKey)
 		if err != buntdb.ErrNotFound {
 			//TODO(dan): if account verified key doesn't exist account is not verified, calc the maximum time without verification and expire and continue if need be
-			client.Notice(client.t("Account already exists"))
+			rb.Notice(client.t("Account already exists"))
 			return errAccountCreation
 		}
 
@@ -126,7 +126,7 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
 		if err != errAccountCreation {
-			client.Notice(client.t("Account registration failed"))
+			rb.Notice(client.t("Account registration failed"))
 		}
 		return
 	}
@@ -178,7 +178,7 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		if err == errCertfpAlreadyExists {
 			errMsg = "An account already exists for your certificate fingerprint"
 		}
-		client.Notice(errMsg)
+		rb.Notice(errMsg)
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return
 	}
@@ -196,23 +196,23 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		server.accounts[casefoldedAccount] = &account
 		client.account = &account
 
-		client.Notice(client.t("Account created"))
-		client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
-		client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
+		rb.Notice(client.t("Account created"))
+		rb.Add(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
+		rb.Add(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
 		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), account.Name, client.nickMaskString))
 		return nil
 	})
 	if err != nil {
-		client.Notice(client.t("Account registration failed"))
+		rb.Notice(client.t("Account registration failed"))
 		removeFailedAccRegisterData(server.store, casefoldedAccount)
 		return
 	}
 }
 
-func (server *Server) nickservIdentifyHandler(client *Client, username, passphrase string) {
+func (server *Server) nickservIdentifyHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
 	// fail out if we need to
 	if !server.accountAuthenticationEnabled {
-		client.Notice(client.t("Login has been disabled"))
+		rb.Notice(client.t("Login has been disabled"))
 		return
 	}
 
@@ -221,7 +221,7 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 		// keep it the same as in the ACC CREATE stage
 		accountKey, err := CasefoldName(username)
 		if err != nil {
-			client.Notice(client.t("Could not login with your username/password"))
+			rb.Notice(client.t("Could not login with your username/password"))
 			return
 		}
 
@@ -259,7 +259,7 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 		})
 
 		if err == nil {
-			client.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
+			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
 			return
 		}
 	}
@@ -306,10 +306,10 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 		})
 
 		if err == nil {
-			client.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
+			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
 			return
 		}
 	}
 
-	client.Notice(client.t("Could not login with your TLS certificate or supplied username/password"))
+	rb.Notice(client.t("Could not login with your TLS certificate or supplied username/password"))
 }

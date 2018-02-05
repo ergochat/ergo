@@ -77,7 +77,7 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, from *Client, 
 func (rb *ResponseBuffer) Send() error {
 	// fall out if no messages to send
 	if len(rb.messages) == 0 {
-		return
+		return nil
 	}
 
 	// make batch and all if required
@@ -125,4 +125,9 @@ func (rb *ResponseBuffer) Send() error {
 	rb.messages = []ircmsg.IrcMessage{}
 
 	return nil
+}
+
+// Notice sends the client the given notice from the server.
+func (rb *ResponseBuffer) Notice(text string) {
+	rb.Add(nil, rb.target.server.name, "NOTICE", rb.target.nick, text)
 }

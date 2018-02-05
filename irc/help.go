@@ -658,7 +658,7 @@ func GenerateHelpIndices(lm *languages.Manager) error {
 }
 
 // sendHelp sends the client help of the given string.
-func (client *Client) sendHelp(name string, text string) {
+func (client *Client) sendHelp(name string, text string, rb *ResponseBuffer) {
 	splitName := strings.Split(name, " ")
 	textLines := strings.Split(text, "\n")
 
@@ -666,14 +666,14 @@ func (client *Client) sendHelp(name string, text string) {
 		args := splitName
 		args = append(args, line)
 		if i == 0 {
-			client.Send(nil, client.server.name, RPL_HELPSTART, args...)
+			rb.Add(nil, client.server.name, RPL_HELPSTART, args...)
 		} else {
-			client.Send(nil, client.server.name, RPL_HELPTXT, args...)
+			rb.Add(nil, client.server.name, RPL_HELPTXT, args...)
 		}
 	}
 	args := splitName
 	args = append(args, client.t("End of /HELPOP"))
-	client.Send(nil, client.server.name, RPL_ENDOFHELP, args...)
+	rb.Add(nil, client.server.name, RPL_ENDOFHELP, args...)
 }
 
 // GetHelpIndex returns the help index for the given language.
