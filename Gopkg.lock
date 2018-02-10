@@ -6,10 +6,10 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
   revision = "cbe033486cf0620d3bb77d8ef7f22ab346ad3628"
 
 [[projects]]
+  branch = "master"
   name = "github.com/docopt/docopt-go"
   packages = ["."]
-  revision = "784ddc588536785e7299f7272f39101f7faccc3f"
-  version = "0.6.2"
+  revision = "ee0de3bc6815ee19d4a46c7eb90f829db0e014b1"
 
 [[projects]]
   branch = "master"
@@ -21,13 +21,13 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
   branch = "master"
   name = "github.com/goshuirc/irc-go"
   packages = ["ircfmt","ircmatch","ircmsg"]
-  revision = "e028586483b7875e1173e3b80281a9b0a79fc00a"
+  revision = "1cb16094f055aa5f5b49a1609aeada54d963433c"
 
 [[projects]]
   branch = "master"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "6fcc0c1fd9b620311d821b106a400b35dc95c497"
+  revision = "7dc3415be66d7cc68bf0182f35c8d31f8d2ad8a7"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -48,10 +48,10 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
   revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
+  branch = "master"
   name = "github.com/stackimpact/stackimpact-go"
   packages = [".","internal","internal/pprof/profile"]
-  revision = "d1744617919cfa2fd8b9dad9a37ae10b269854c9"
-  version = "v2.3.2"
+  revision = "8b5b02c181e477dafcf505342d8a79b5c8241da7"
 
 [[projects]]
   branch = "master"
@@ -60,16 +60,16 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
   revision = "9876f1454cf0993a53d74c27196993e345f50dd1"
 
 [[projects]]
-  branch = "master"
   name = "github.com/tidwall/buntdb"
   packages = ["."]
-  revision = "b67b1b8c1658cb01502801c14e33c61e6c4cbb95"
+  revision = "2da7c106683f522198cdf55ed8db42b374de50d7"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  revision = "e62d62a3e1e9f324346170bbc04333341f803dfb"
-  version = "v1.0.5"
+  revision = "87033efcaec6215741137e8ca61952c53ef2685d"
+  version = "v1.0.6"
 
 [[projects]]
   branch = "master"
@@ -86,29 +86,35 @@ memo = "d665cbc0144a6e4c06ed8fcfbee8594a7203e47e654eeca63e11d651ae62a3a7"
 [[projects]]
   branch = "master"
   name = "github.com/tidwall/rtree"
+  packages = [".","base"]
+  revision = "6cd427091e0e662cb4f8e2c9eb1a41e1c46ff0d3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/tidwall/tinyqueue"
   packages = ["."]
-  revision = "d4a8a3d30d5729f85edfba1745241f3a621d0359"
+  revision = "1feaf062ef04a231c9126f99a68eaa579fd0e390"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish","ssh/terminal"]
-  revision = "d585fd2cc9195196078f516b69daff6744ef5e84"
+  revision = "5119cf507ed5294cc409c092980c7497ee5d6fd2"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "83801418e1b59fb1880e363299581ee543af32ca"
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["cases","collate","collate/build","internal","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","runes","secure/bidirule","secure/precis","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "eb22672bea55af56d225d4e35405f4d2e9f062a0"
+  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
