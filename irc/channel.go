@@ -549,12 +549,26 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
+	// send echo-message
+	if client.capabilities.Has(caps.EchoMessage) {
+		var messageTagsToUse *map[string]ircmsg.TagValue
+		if client.capabilities.Has(caps.MessageTags) {
+			messageTagsToUse = clientOnlyTags
+		}
+
+		if message == nil {
+			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
+		} else {
+			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
+		}
+	}
 	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities.Has(caps.EchoMessage) {
+		// echo-message is handled above, so skip sending the msg to the user themselves as well
+		if member == client {
 			continue
 		}
 
@@ -574,9 +588,9 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 		}
 
 		if message == nil {
-			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
+			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
 		} else {
-			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
+			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
 		}
 	}
 }
@@ -602,12 +616,25 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mod
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
+	// send echo-message
+	if client.capabilities.Has(caps.EchoMessage) {
+		var tagsToUse *map[string]ircmsg.TagValue
+		if client.capabilities.Has(caps.MessageTags) {
+			tagsToUse = clientOnlyTags
+		}
+		if message == nil {
+			rb.AddFromClient(msgid, client, tagsToUse, cmd, channel.name)
+		} else {
+			rb.AddSplitMessageFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
+		}
+	}
 	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
 		}
-		if member == client && !client.capabilities.Has(caps.EchoMessage) {
+		// echo-message is handled above, so skip sending the msg to the user themselves as well
+		if member == client {
 			continue
 		}
 		var tagsToUse *map[string]ircmsg.TagValue
@@ -615,18 +642,10 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 
-		if member == client {
-			if message == nil {
-				rb.AddFromClient(msgid, client, tagsToUse, cmd, channel.name)
-			} else {
-				rb.AddSplitMessageFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
-			}
+		if message == nil {
+			member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
 		} else {
-			if message == nil {
-				member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
-			} else {
-				member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
-			}
+			member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
 		}
 	}
 }

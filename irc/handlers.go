@@ -1770,11 +1770,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			if !user.flags[modes.RegisteredOnly] || client.registered {
-				if user == client {
-					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
-				} else {
-					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
-				}
+				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
 				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
@@ -2002,11 +1998,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			if !user.flags[modes.RegisteredOnly] || client.registered {
-				if user == client {
-					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-				} else {
-					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-				}
+				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if client.capabilities.Has(caps.EchoMessage) {
 				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
@@ -2258,11 +2250,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if !user.capabilities.Has(caps.MessageTags) {
 				continue
 			}
-			if user == client {
-				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
-			} else {
-				user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
-			}
+			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			if client.capabilities.Has(caps.EchoMessage) {
 				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			}

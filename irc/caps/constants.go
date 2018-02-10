@@ -7,6 +7,9 @@ package caps
 type Capability string
 
 const (
+	// LabelTagName is the tag name used for the labeled-response spec.
+	LabelTagName = "draft/label"
+
 	// AccountNotify is this IRCv3 capability: http://ircv3.net/specs/extensions/account-notify-3.1.html
 	AccountNotify Capability = "account-notify"
 	// AccountTag is this IRCv3 capability: http://ircv3.net/specs/extensions/account-tag-3.2.html
