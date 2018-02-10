@@ -12,11 +12,13 @@ New release of Oragono!
 ### Security
 
 ### Added
-* Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
+* Added a manual to our documentation! This is primarily where we'll be adding user-facing information and instructions from now on.
+* Added IRCv3 capability [`batch`](https://ircv3.net/specs/extensions/batch-3.2.html) and draft capability [`draft/labeled-response`](https://ircv3.net/specs/extensions/labeled-response.html).
+* Added listening support for unix sockets.
 * Added new Brazilian Portuguese translation (thanks to [Alexandre Oliveira](https://github.com/RockyTV)!)).
+* Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
 * Added new Turkish translation (thanks to [Yaser](https://crowdin.com/profile/Apsimati)!).
-* Added proposed IRCv3 capability [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6).
-* Added proposed IRCv3 capability [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
+* Added proposed IRCv3 capabilities [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6) and [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
 * Added user modes, including:
     * `B`: Mark yourself as a bot, and display that you're a bot in WHOIS.
 
