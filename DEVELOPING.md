@@ -99,3 +99,23 @@ In consequence, there is a lot of state (in particular, server and channel state
 There are some mutexes that are "tier 0": anything in a subpackage of `irc` (e.g., `irc/logger` or `irc/connection_limits`) shouldn't acquire mutexes defined in `irc`.
 
 We are using `buntdb` for persistence; a `buntdb.DB` has an `RWMutex` inside it, with read-write transactions getting the `Lock()` and read-only transactions getting the `RLock()`. We haven't completely decided where this lock fits into the overall lock model. For now, it's probably better to err on the side of caution: if possible, don't acquire new locks inside the `buntdb` transaction, and be careful about what locks are held around the transaction as well.
+
+## Command handlers and ResponseBuffer
+
+We support a lot of IRCv3 specs. Pretty much all of them, in fact. And a lot of proposed/draft ones. One of the draft specifications that we support is called ["labeled responses"](https://ircv3.net/specs/extensions/labeled-response.html).
+
+With labeled responses, when a client sends a label along with their command, they are assured that they will receive the response messages with that same label.
+
+For example, if the client sends this to the server:
+
+    @label=pQraCjj82e PRIVMSG #channel :hi!
+
+They will expect to receive this (with echo-message also enabled):
+
+    @label=pQraCjj82e :nick!user@host PRIVMSG #channel :hi!
+
+They receive the response with the same label, so they can match the sent command to the received response. They can also do the same with any other command.
+
+In order to allow this, in command handlers we don't send responses directly back to the user. Instead, we buffer the responses in an object called a ResponseBuffer. When the command handler returns, the contents of the ResponseBuffer is sent to the user with the appropriate label (and batches, if they're required).
+
+Basically, if you're in a command handler and you're sending a response back to the requesting client, use `rb.Add*` instead of `client.Send*`. Doing this makes sure the labeled responses feature above works as expected. The handling around `PRIVMSG`/`NOTICE`/`TAGMSG` is strange, so simply defer to [irctest](https://github.com/DanielOaks/irctest)'s judgement about whether that's correct for the most part.
