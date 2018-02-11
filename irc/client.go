@@ -727,7 +727,7 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 // Adds account-tag to the line as well.
 func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
-	if client.capabilities.Has(caps.AccountTag) && client.LoggedIntoAccount() {
+	if client.capabilities.Has(caps.AccountTag) && from.LoggedIntoAccount() {
 		if tags == nil {
 			tags = ircmsg.MakeTags("account", from.AccountName())
 		} else {
