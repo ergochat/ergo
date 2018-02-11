@@ -4,16 +4,11 @@
 package irc
 
 import (
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
-	"github.com/tidwall/buntdb"
 )
 
 const nickservHelp = `NickServ lets you register and log into a user account.
@@ -80,14 +75,14 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		return
 	}
 
-	if !server.accountRegistration.Enabled {
+	if !server.AccountConfig().Registration.Enabled {
 		rb.Notice(client.t("Account registration has been disabled"))
 		return
 	}
 
 	if client.LoggedIntoAccount() {
-		if server.accountRegistration.AllowMultiplePerConnection {
-			client.LogoutOfAccount()
+		if server.AccountConfig().Registration.AllowMultiplePerConnection {
+			server.accounts.Logout(client)
 		} else {
 			rb.Notice(client.t("You're already logged into an account"))
 			return
@@ -103,26 +98,6 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		return
 	}
 
-	// check whether account exists
-	// do it all in one write tx to prevent races
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
-
-		_, err := tx.Get(accountKey)
-		if err != buntdb.ErrNotFound {
-			//TODO(dan): if account verified key doesn't exist account is not verified, calc the maximum time without verification and expire and continue if need be
-			rb.Notice(client.t("Account already exists"))
-			return errAccountCreation
-		}
-
-		registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
-
-		tx.Set(accountKey, "1", nil)
-		tx.Set(fmt.Sprintf(keyAccountName, casefoldedAccount), account, nil)
-		tx.Set(registeredTimeKey, strconv.FormatInt(time.Now().Unix(), 10), nil)
-		return nil
-	})
-
 	// account could not be created and relevant numerics have been dispatched, abort
 	if err != nil {
 		if err != errAccountCreation {
@@ -131,87 +106,32 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		return
 	}
 
-	// store details
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		// certfp special lookup key
-		if passphrase == "" {
-			assembledKeyCertToAccount := fmt.Sprintf(keyCertToAccount, client.certfp)
-
-			// make sure certfp doesn't already exist because that'd be silly
-			_, err := tx.Get(assembledKeyCertToAccount)
-			if err != buntdb.ErrNotFound {
-				return errCertfpAlreadyExists
-			}
-
-			tx.Set(assembledKeyCertToAccount, casefoldedAccount, nil)
-		}
-
-		// make creds
-		var creds AccountCredentials
-
-		// always set passphrase salt
-		creds.PassphraseSalt, err = passwd.NewSalt()
-		if err != nil {
-			return fmt.Errorf("Could not create passphrase salt: %s", err.Error())
-		}
-
-		if passphrase == "" {
-			creds.Certificate = client.certfp
-		} else {
-			creds.PassphraseHash, err = server.passwords.GenerateFromPassword(creds.PassphraseSalt, passphrase)
-			if err != nil {
-				return fmt.Errorf("Could not hash password: %s", err)
-			}
-		}
-		credText, err := json.Marshal(creds)
-		if err != nil {
-			return fmt.Errorf("Could not marshal creds: %s", err)
-		}
-		tx.Set(fmt.Sprintf(keyAccountCredentials, account), string(credText), nil)
-
-		return nil
-	})
+	err = server.accounts.Register(client, account, "", "", passphrase, client.certfp)
+	if err == nil {
+		err = server.accounts.Verify(client, casefoldedAccount, "")
+	}
 
 	// details could not be stored and relevant numerics have been dispatched, abort
 	if err != nil {
 		errMsg := "Could not register"
 		if err == errCertfpAlreadyExists {
 			errMsg = "An account already exists for your certificate fingerprint"
+		} else if err == errAccountAlreadyRegistered {
+			errMsg = "Account already exists"
 		}
-		rb.Notice(errMsg)
-		removeFailedAccRegisterData(server.store, casefoldedAccount)
+		rb.Notice(client.t(errMsg))
 		return
 	}
 
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		tx.Set(fmt.Sprintf(keyAccountVerified, casefoldedAccount), "1", nil)
-
-		// load acct info inside store tx
-		account := ClientAccount{
-			Name:         username,
-			RegisteredAt: time.Now(),
-			Clients:      []*Client{client},
-		}
-		//TODO(dan): Consider creating ircd-wide account adding/removing/affecting lock for protecting access to these sorts of variables
-		server.accounts[casefoldedAccount] = &account
-		client.account = &account
-
-		rb.Notice(client.t("Account created"))
-		rb.Add(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account.Name, fmt.Sprintf(client.t("You are now logged in as %s"), account.Name))
-		rb.Add(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
-		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), account.Name, client.nickMaskString))
-		return nil
-	})
-	if err != nil {
-		rb.Notice(client.t("Account registration failed"))
-		removeFailedAccRegisterData(server.store, casefoldedAccount)
-		return
-	}
+	rb.Notice(client.t("Account created"))
+	rb.Add(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, casefoldedAccount, fmt.Sprintf(client.t("You are now logged in as %s"), casefoldedAccount))
+	rb.Add(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
+	server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), casefoldedAccount, client.nickMaskString))
 }
 
 func (server *Server) nickservIdentifyHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
 	// fail out if we need to
-	if !server.accountAuthenticationEnabled {
+	if !server.AccountConfig().AuthenticationEnabled {
 		rb.Notice(client.t("Login has been disabled"))
 		return
 	}
@@ -219,45 +139,13 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 	// try passphrase
 	if username != "" && passphrase != "" {
 		// keep it the same as in the ACC CREATE stage
-		accountKey, err := CasefoldName(username)
+		accountName, err := CasefoldName(username)
 		if err != nil {
 			rb.Notice(client.t("Could not login with your username/password"))
 			return
 		}
 
-		// load and check acct data all in one update to prevent races.
-		// as noted elsewhere, change to proper locking for Account type later probably
-		var accountName string
-		err = server.store.Update(func(tx *buntdb.Tx) error {
-			// confirm account is verified
-			_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
-			if err != nil {
-				return errSaslFail
-			}
-
-			creds, err := loadAccountCredentials(tx, accountKey)
-			if err != nil {
-				return err
-			}
-
-			// ensure creds are valid
-			if len(creds.PassphraseHash) < 1 || len(creds.PassphraseSalt) < 1 || len(passphrase) < 1 {
-				return errSaslFail
-			}
-			err = server.passwords.CompareHashAndPassword(creds.PassphraseHash, creds.PassphraseSalt, passphrase)
-
-			// succeeded, load account info if necessary
-			account, exists := server.accounts[accountKey]
-			if !exists {
-				account = loadAccount(server, tx, accountKey)
-			}
-
-			client.LoginToAccount(account)
-			accountName = account.Name
-
-			return err
-		})
-
+		err = server.accounts.AuthenticateByPassphrase(client, accountName, passphrase)
 		if err == nil {
 			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
 			return
@@ -265,48 +153,11 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 	}
 
 	// try certfp
-	certfp := client.certfp
-	if certfp != "" {
-		var accountName string
-		err := server.store.Update(func(tx *buntdb.Tx) error {
-			// certfp lookup key
-			accountKey, err := tx.Get(fmt.Sprintf(keyCertToAccount, certfp))
-			if err != nil {
-				return errSaslFail
-			}
-
-			// confirm account exists
-			_, err = tx.Get(fmt.Sprintf(keyAccountExists, accountKey))
-			if err != nil {
-				return errSaslFail
-			}
-
-			// confirm account is verified
-			_, err = tx.Get(fmt.Sprintf(keyAccountVerified, accountKey))
-			if err != nil {
-				return errSaslFail
-			}
-
-			// confirm the certfp in that account's credentials
-			creds, err := loadAccountCredentials(tx, accountKey)
-			if err != nil || creds.Certificate != client.certfp {
-				return errSaslFail
-			}
-
-			// succeeded, load account info if necessary
-			account, exists := server.accounts[accountKey]
-			if !exists {
-				account = loadAccount(server, tx, accountKey)
-			}
-
-			client.LoginToAccount(account)
-			accountName = account.Name
-
-			return nil
-		})
-
+	if client.certfp != "" {
+		err := server.accounts.AuthenticateByCertFP(client)
 		if err == nil {
-			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
+			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
+			// TODO more notices?
 			return
 		}
 	}

@@ -98,6 +98,12 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 		return err
 	}
 
+	var reservedAccount string
+	reservation := client.server.AccountConfig().NickReservation
+	if reservation != NickReservationDisabled {
+		reservedAccount = client.server.accounts.NickToAccount(newcfnick)
+	}
+
 	clients.Lock()
 	defer clients.Unlock()
 
@@ -106,6 +112,9 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	// the client may just be changing case
 	if currentNewEntry != nil && currentNewEntry != client {
 		return errNicknameInUse
+	}
+	if reservation == NickReservationStrict && reservedAccount != client.Account() {
+		return errNicknameReserved
 	}
 	clients.byNick[newcfnick] = client
 	client.updateNickMask(newNick)

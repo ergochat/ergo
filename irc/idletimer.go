@@ -165,3 +165,80 @@ func (it *IdleTimer) quitMessage(state TimerState) string {
 		return ""
 	}
 }
+
+// NickTimer manages timing out of clients who are squatting reserved nicks
+type NickTimer struct {
+	sync.Mutex // tier 1
+
+	// immutable after construction
+	timeout time.Duration
+	client  *Client
+
+	// mutable
+	nick           string
+	accountForNick string
+	account        string
+	timer          *time.Timer
+}
+
+// NewNickTimer sets up a new nick timer (returning nil if timeout enforcement is not enabled)
+func NewNickTimer(client *Client) *NickTimer {
+	config := client.server.AccountConfig()
+	if config.NickReservation != NickReservationWithTimeout {
+		return nil
+	}
+	nt := NickTimer{
+		client:  client,
+		timeout: config.NickReservationTimeout,
+	}
+	return &nt
+}
+
+// Touch records a nick change and updates the timer as necessary
+func (nt *NickTimer) Touch() {
+	if nt == nil {
+		return
+	}
+
+	nick := nt.client.NickCasefolded()
+	account := nt.client.Account()
+	accountForNick := nt.client.server.accounts.NickToAccount(nick)
+
+	var shouldWarn bool
+
+	func() {
+		nt.Lock()
+		defer nt.Unlock()
+		// the timer will not reset as long as the squatter is targeting the same account
+		accountChanged := accountForNick != nt.accountForNick
+		// change state
+		nt.nick = nick
+		nt.account = account
+		nt.accountForNick = accountForNick
+		delinquent := accountForNick != "" && accountForNick != account
+
+		if nt.timer != nil && (!delinquent || accountChanged) {
+			nt.timer.Stop()
+			nt.timer = nil
+		}
+		if delinquent && accountChanged {
+			nt.timer = time.AfterFunc(nt.timeout, nt.processTimeout)
+			shouldWarn = true
+		}
+	}()
+
+	if shouldWarn {
+		nt.sendWarning()
+	}
+}
+
+func (nt *NickTimer) sendWarning() {
+	baseNotice := "Nickname is reserved; you must change it or authenticate to NickServ within %v"
+	nt.client.Notice(fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
+}
+
+func (nt *NickTimer) processTimeout() {
+	baseMsg := "Nick is reserved and authentication timeout expired: %v"
+	nt.client.Quit(fmt.Sprintf(nt.client.t(baseMsg), nt.timeout))
+	nt.client.destroy(false)
+}

@@ -70,13 +70,13 @@ func (server *Server) chanservRegisterHandler(client *Client, channelName string
 		return
 	}
 
-	if client.account == &NoAccount {
+	if client.Account() == "" {
 		rb.ChanServNotice(client.t("You must be logged in to register a channel"))
 		return
 	}
 
 	// this provides the synchronization that allows exactly one registration of the channel:
-	err = channelInfo.SetRegistered(client.AccountName())
+	err = channelInfo.SetRegistered(client.Account())
 	if err != nil {
 		rb.ChanServNotice(err.Error())
 		return

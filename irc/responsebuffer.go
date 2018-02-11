@@ -43,11 +43,11 @@ func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, c
 // AddFromClient adds a new message from a specific client to our queue.
 func (rb *ResponseBuffer) AddFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) {
 	// attach account-tag
-	if rb.target.capabilities.Has(caps.AccountTag) && from.account != &NoAccount {
+	if rb.target.capabilities.Has(caps.AccountTag) && from.LoggedIntoAccount() {
 		if tags == nil {
-			tags = ircmsg.MakeTags("account", from.account.Name)
+			tags = ircmsg.MakeTags("account", from.AccountName())
 		} else {
-			(*tags)["account"] = ircmsg.MakeTagValue(from.account.Name)
+			(*tags)["account"] = ircmsg.MakeTagValue(from.AccountName())
 		}
 	}
 	// attach message-id

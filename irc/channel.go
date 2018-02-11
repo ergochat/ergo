@@ -383,13 +383,13 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 	for _, member := range channel.Members() {
 		if member == client {
 			if member.capabilities.Has(caps.ExtendedJoin) {
-				rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
+				rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
 			} else {
 				rb.Add(nil, client.nickMaskString, "JOIN", channel.name)
 			}
 		} else {
 			if member.capabilities.Has(caps.ExtendedJoin) {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
+				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
 			} else {
 				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
 			}
@@ -407,7 +407,9 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 	// give channel mode if necessary
 	newChannel := firstJoin && !channel.IsRegistered()
 	var givenMode *modes.Mode
-	if client.AccountName() == channel.registeredFounder {
+	account := client.Account()
+	cffounder, _ := CasefoldName(channel.registeredFounder)
+	if account != "" && account == cffounder {
 		givenMode = &modes.ChannelFounder
 	} else if newChannel {
 		givenMode = &modes.ChannelOperator
@@ -419,7 +421,7 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 	}
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
+		rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
 	} else {
 		rb.Add(nil, client.nickMaskString, "JOIN", channel.name)
 	}
@@ -526,7 +528,7 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	if channel.flags[modes.Moderated] && !channel.ClientIsAtLeast(client, modes.Voice) {
 		return false
 	}
-	if channel.flags[modes.RegisteredOnly] && client.account == &NoAccount {
+	if channel.flags[modes.RegisteredOnly] && client.Account() == "" {
 		return false
 	}
 	return true

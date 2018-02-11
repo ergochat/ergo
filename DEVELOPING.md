@@ -98,7 +98,7 @@ In consequence, there is a lot of state (in particular, server and channel state
 
 There are some mutexes that are "tier 0": anything in a subpackage of `irc` (e.g., `irc/logger` or `irc/connection_limits`) shouldn't acquire mutexes defined in `irc`.
 
-We are using `buntdb` for persistence; a `buntdb.DB` has an `RWMutex` inside it, with read-write transactions getting the `Lock()` and read-only transactions getting the `RLock()`. We haven't completely decided where this lock fits into the overall lock model. For now, it's probably better to err on the side of caution: if possible, don't acquire new locks inside the `buntdb` transaction, and be careful about what locks are held around the transaction as well.
+We are using `buntdb` for persistence; a `buntdb.DB` has an `RWMutex` inside it, with read-write transactions getting the `Lock()` and read-only transactions getting the `RLock()`. This mutex is considered tier 1. However, it's shared globally across all consumers, so if possible you should avoid acquiring it while holding ordinary application-level mutexes.
 
 ## Command handlers and ResponseBuffer
 

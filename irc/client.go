@@ -36,7 +36,8 @@ var (
 
 // Client is an IRC client.
 type Client struct {
-	account            *ClientAccount
+	account            string
+	accountName        string
 	atime              time.Time
 	authorized         bool
 	awayMessage        string
@@ -62,6 +63,7 @@ type Client struct {
 	nickCasefolded     string
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
+	nickTimer          *NickTimer
 	operName           string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	quitMessage        string
@@ -96,7 +98,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		flags:          make(map[modes.Mode]bool),
 		server:         server,
 		socket:         &socket,
-		account:        &NoAccount,
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
@@ -217,6 +218,8 @@ func (client *Client) run() {
 	client.idletimer = NewIdleTimer(client)
 	client.idletimer.Start()
 
+	client.nickTimer = NewNickTimer(client)
+
 	// Set the hostname for this client
 	// (may be overridden by a later PROXY command from stunnel)
 	client.rawHostname = utils.AddrLookupHostname(client.socket.conn.RemoteAddr())
@@ -299,7 +302,6 @@ func (client *Client) Register() {
 	client.TryResume()
 
 	// finish registration
-	client.Touch()
 	client.updateNickMask("")
 	client.server.monitorManager.AlertAbout(client, true)
 }
@@ -338,8 +340,8 @@ func (client *Client) TryResume() {
 		return
 	}
 
-	oldAccountName := oldClient.AccountName()
-	newAccountName := client.AccountName()
+	oldAccountName := oldClient.Account()
+	newAccountName := client.Account()
 
 	if oldAccountName == "" || newAccountName == "" || oldAccountName != newAccountName {
 		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must be logged into the same account"))
@@ -406,7 +408,7 @@ func (client *Client) TryResume() {
 			}
 
 			if member.capabilities.Has(caps.ExtendedJoin) {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.account.Name, client.realname)
+				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
 			} else {
 				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
 			}
@@ -589,7 +591,7 @@ func (client *Client) AllNickmasks() []string {
 
 // LoggedIntoAccount returns true if this client is logged into an account.
 func (client *Client) LoggedIntoAccount() bool {
-	return client.account != nil && client.account != &NoAccount
+	return client.Account() != ""
 }
 
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
@@ -687,6 +689,8 @@ func (client *Client) destroy(beingResumed bool) {
 		client.idletimer.Stop()
 	}
 
+	client.server.accounts.Logout(client)
+
 	client.socket.Close()
 
 	// send quit messages to friends
@@ -723,11 +727,11 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 // Adds account-tag to the line as well.
 func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
-	if client.capabilities.Has(caps.AccountTag) && from.account != &NoAccount {
+	if client.capabilities.Has(caps.AccountTag) && client.LoggedIntoAccount() {
 		if tags == nil {
-			tags = ircmsg.MakeTags("account", from.account.Name)
+			tags = ircmsg.MakeTags("account", from.AccountName())
 		} else {
-			(*tags)["account"] = ircmsg.MakeTagValue(from.account.Name)
+			(*tags)["account"] = ircmsg.MakeTagValue(from.AccountName())
 		}
 	}
 	// attach message-id
@@ -772,10 +776,8 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 	maxlenTags, maxlenRest := client.maxlens()
 	line, err := message.LineMaxLen(maxlenTags, maxlenRest)
 	if err != nil {
-		// try not to fail quietly - especially useful when running tests, as a note to dig deeper
-		// log.Println("Error assembling message:")
-		// spew.Dump(message)
-		// debug.PrintStack()
+		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
+		client.server.logger.Error("internal", logline)
 
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.Line()

@@ -87,49 +87,48 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accountAuthenticationEnabled bool
-	accountRegistration          *AccountRegistration
-	accounts                     map[string]*ClientAccount
-	batches                      *BatchManager
-	channelRegistrationEnabled   bool
-	channels                     *ChannelManager
-	channelRegistry              *ChannelRegistry
-	checkIdent                   bool
-	clients                      *ClientManager
-	configFilename               string
-	configurableStateMutex       sync.RWMutex // tier 1; generic protection for server state modified by rehash()
-	connectionLimiter            *connection_limits.Limiter
-	connectionThrottler          *connection_limits.Throttler
-	ctime                        time.Time
-	defaultChannelModes          modes.Modes
-	dlines                       *DLineManager
-	loggingRawIO                 bool
-	isupport                     *isupport.List
-	klines                       *KLineManager
-	languages                    *languages.Manager
-	limits                       Limits
-	listeners                    map[string]*ListenerWrapper
-	logger                       *logger.Manager
-	MaxSendQBytes                uint64
-	monitorManager               *MonitorManager
-	motdLines                    []string
-	name                         string
-	nameCasefolded               string
-	networkName                  string
-	operators                    map[string]Oper
-	operclasses                  map[string]OperClass
-	password                     []byte
-	passwords                    *passwd.SaltedManager
-	recoverFromErrors            bool
-	rehashMutex                  sync.Mutex // tier 3
-	rehashSignal                 chan os.Signal
-	proxyAllowedFrom             []string
-	signals                      chan os.Signal
-	snomasks                     *SnoManager
-	store                        *buntdb.DB
-	stsEnabled                   bool
-	webirc                       []webircConfig
-	whoWas                       *WhoWasList
+	accountConfig              *AccountConfig
+	accounts                   *AccountManager
+	batches                    *BatchManager
+	channelRegistrationEnabled bool
+	channels                   *ChannelManager
+	channelRegistry            *ChannelRegistry
+	checkIdent                 bool
+	clients                    *ClientManager
+	configFilename             string
+	configurableStateMutex     sync.RWMutex // tier 1; generic protection for server state modified by rehash()
+	connectionLimiter          *connection_limits.Limiter
+	connectionThrottler        *connection_limits.Throttler
+	ctime                      time.Time
+	defaultChannelModes        modes.Modes
+	dlines                     *DLineManager
+	loggingRawIO               bool
+	isupport                   *isupport.List
+	klines                     *KLineManager
+	languages                  *languages.Manager
+	limits                     Limits
+	listeners                  map[string]*ListenerWrapper
+	logger                     *logger.Manager
+	MaxSendQBytes              uint64
+	monitorManager             *MonitorManager
+	motdLines                  []string
+	name                       string
+	nameCasefolded             string
+	networkName                string
+	operators                  map[string]Oper
+	operclasses                map[string]OperClass
+	password                   []byte
+	passwords                  *passwd.SaltedManager
+	recoverFromErrors          bool
+	rehashMutex                sync.Mutex // tier 4
+	rehashSignal               chan os.Signal
+	proxyAllowedFrom           []string
+	signals                    chan os.Signal
+	snomasks                   *SnoManager
+	store                      *buntdb.DB
+	stsEnabled                 bool
+	webirc                     []webircConfig
+	whoWas                     *WhoWasList
 }
 
 var (
@@ -150,7 +149,6 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		accounts:            make(map[string]*ClientAccount),
 		batches:             NewBatchManager(),
 		channels:            NewChannelManager(),
 		clients:             NewClientManager(),
@@ -214,10 +212,10 @@ func (server *Server) setISupport() {
 	isupport.Add("UTF8MAPPING", casemappingName)
 
 	// account registration
-	if server.accountRegistration.Enabled {
+	if server.accountConfig.Registration.Enabled {
 		// 'none' isn't shown in the REGCALLBACKS vars
 		var enabledCallbacks []string
-		for _, name := range server.accountRegistration.EnabledCallbacks {
+		for _, name := range server.accountConfig.Registration.EnabledCallbacks {
 			if name != "*" {
 				enabledCallbacks = append(enabledCallbacks, name)
 			}
@@ -348,15 +346,8 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 	// make listener
 	var listener net.Listener
 	var err error
-	optionalUnixPrefix := "unix:"
-	optionalPrefixLen := len(optionalUnixPrefix)
-	if len(addr) >= optionalPrefixLen && strings.ToLower(addr[0:optionalPrefixLen]) == optionalUnixPrefix {
-		addr = addr[optionalPrefixLen:]
-		if len(addr) == 0 || addr[0] != '/' {
-			log.Fatal("Bad unix socket address", addr)
-		}
-	}
-	if len(addr) > 0 && addr[0] == '/' {
+	addr = strings.TrimPrefix(addr, "unix:")
+	if strings.HasPrefix(addr, "/") {
 		// https://stackoverflow.com/a/34881585
 		os.Remove(addr)
 		listener, err = net.Listen("unix", addr)
@@ -478,7 +469,7 @@ func (server *Server) tryRegister(c *Client) {
 			}
 
 			if c.capabilities.Has(caps.ExtendedJoin) {
-				c.Send(nil, c.nickMaskString, "JOIN", channel.name, c.account.Name, c.realname)
+				c.Send(nil, c.nickMaskString, "JOIN", channel.name, c.AccountName(), c.realname)
 			} else {
 				c.Send(nil, c.nickMaskString, "JOIN", channel.name)
 			}
@@ -630,9 +621,8 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if target.flags[modes.TLS] {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
-	accountName := target.AccountName()
-	if accountName != "" {
-		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, accountName, client.t("is logged in as"))
+	if target.LoggedIntoAccount() {
+		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, client.AccountName(), client.t("is logged in as"))
 	}
 	if target.flags[modes.Bot] {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
@@ -803,18 +793,28 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.languages = lm
 
 	// SASL
-	if config.Accounts.AuthenticationEnabled && !server.accountAuthenticationEnabled {
+	oldAccountConfig := server.AccountConfig()
+	authPreviouslyEnabled := oldAccountConfig != nil && !oldAccountConfig.AuthenticationEnabled
+	if config.Accounts.AuthenticationEnabled && !authPreviouslyEnabled {
 		// enabling SASL
 		SupportedCapabilities.Enable(caps.SASL)
 		CapValues.Set(caps.SASL, "PLAIN,EXTERNAL")
 		addedCaps.Add(caps.SASL)
-	}
-	if !config.Accounts.AuthenticationEnabled && server.accountAuthenticationEnabled {
+	} else if !config.Accounts.AuthenticationEnabled && authPreviouslyEnabled {
 		// disabling SASL
 		SupportedCapabilities.Disable(caps.SASL)
 		removedCaps.Add(caps.SASL)
 	}
-	server.accountAuthenticationEnabled = config.Accounts.AuthenticationEnabled
+
+	server.configurableStateMutex.Lock()
+	server.accountConfig = &config.Accounts
+	server.configurableStateMutex.Unlock()
+
+	nickReservationPreviouslyDisabled := oldAccountConfig != nil && oldAccountConfig.NickReservation == NickReservationDisabled
+	nickReservationNowEnabled := config.Accounts.NickReservation != NickReservationDisabled
+	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
+		server.accounts.buildNickToAccountIndex()
+	}
 
 	// STS
 	stsValue := config.Server.STS.Value()
@@ -902,8 +902,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.checkIdent = config.Server.CheckIdent
 
 	// registration
-	accountReg := NewAccountRegistration(config.Accounts.Registration)
-	server.accountRegistration = &accountReg
 	server.channelRegistrationEnabled = config.Channels.Registration.Enabled
 
 	server.defaultChannelModes = ParseDefaultChannelModes(config)
@@ -1042,6 +1040,8 @@ func (server *Server) loadDatastore(datastorePath string) error {
 	}
 
 	server.channelRegistry = NewChannelRegistry(server)
+
+	server.accounts = NewAccountManager(server)
 
 	return nil
 }

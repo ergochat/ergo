@@ -159,6 +159,14 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
+    # will the server enforce that only the account holder can use the account name as a nick?
+    # options:
+    # `disabled`: no enforcement
+    # `timeout` (auth to nickserv within some period of time or you're disconnected)
+    # `strict`: must authenticate up front with SASL
+    nick-reservation: disabled
+    nick-reservation-timeout: 30s
+
 # channel options
 channels:
     # modes that are set when new channels are created
@@ -210,6 +218,7 @@ oper-classes:
         capabilities:
             - "oper:rehash"
             - "oper:die"
+            - "unregister"
             - "samode"
 
 # ircd operators

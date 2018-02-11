@@ -8,6 +8,7 @@ package irc
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -57,11 +58,49 @@ func (conf *PassConfig) PasswordBytes() []byte {
 	return bytes
 }
 
+type NickReservation int
+
+const (
+	NickReservationDisabled NickReservation = iota
+	NickReservationWithTimeout
+	NickReservationStrict
+)
+
+func (nr *NickReservation) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig, raw string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	if raw, err = Casefold(orig); err != nil {
+		return err
+	}
+	if raw == "disabled" || raw == "false" || raw == "" {
+		*nr = NickReservationDisabled
+	} else if raw == "timeout" {
+		*nr = NickReservationWithTimeout
+	} else if raw == "strict" {
+		*nr = NickReservationStrict
+	} else {
+		return errors.New(fmt.Sprintf("invalid nick-reservation value: %s", orig))
+	}
+	return nil
+}
+
+type AccountConfig struct {
+	Registration           AccountRegistrationConfig
+	AuthenticationEnabled  bool            `yaml:"authentication-enabled"`
+	NickReservation        NickReservation `yaml:"nick-reservation"`
+	NickReservationTimeout time.Duration   `yaml:"nick-reservation-timeout"`
+}
+
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
-	Enabled          bool
-	EnabledCallbacks []string `yaml:"enabled-callbacks"`
-	Callbacks        struct {
+	Enabled                bool
+	EnabledCallbacks       []string      `yaml:"enabled-callbacks"`
+	EnabledCredentialTypes []string      `yaml:"-"`
+	VerifyTimeout          time.Duration `yaml:"verify-timeout"`
+	Callbacks              struct {
 		Mailto struct {
 			Server string
 			Port   int
@@ -180,10 +219,7 @@ type Config struct {
 		Path string
 	}
 
-	Accounts struct {
-		Registration          AccountRegistrationConfig
-		AuthenticationEnabled bool `yaml:"authentication-enabled"`
-	}
+	Accounts AccountConfig
 
 	Channels struct {
 		DefaultModes *string `yaml:"default-modes"`
@@ -468,6 +504,15 @@ func LoadConfig(filename string) (config *Config, err error) {
 		newLogConfigs = append(newLogConfigs, logConfig)
 	}
 	config.Logging = newLogConfigs
+
+	// hardcode this for now
+	config.Accounts.Registration.EnabledCredentialTypes = []string{"passphrase", "certfp"}
+	for i, name := range config.Accounts.Registration.EnabledCallbacks {
+		if name == "none" {
+			// we store "none" as "*" internally
+			config.Accounts.Registration.EnabledCallbacks[i] = "*"
+		}
+	}
 
 	config.Server.MaxSendQBytes, err = bytefmt.ToBytes(config.Server.MaxSendQString)
 	if err != nil {

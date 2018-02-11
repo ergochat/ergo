@@ -17,6 +17,7 @@ var (
 		"=scene=":  true, // used for rp commands
 		"chanserv": true,
 		"nickserv": true,
+		"hostserv": true,
 	}
 )
 
@@ -45,10 +46,15 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
 		return false
+	} else if err == errNicknameReserved {
+		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is reserved by a different account"))
+		return false
 	} else if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 		return false
 	}
+
+	client.nickTimer.Touch()
 
 	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {

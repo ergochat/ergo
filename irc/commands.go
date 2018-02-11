@@ -39,12 +39,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
-	if !cmd.leaveClientActive {
-		client.Active()
-	}
-	if !cmd.leaveClientIdle {
-		client.Touch()
-	}
+
 	rb := NewResponseBuffer(client)
 	rb.Label = GetLabel(msg)
 
@@ -57,6 +52,14 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		server.tryRegister(client)
 	}
 
+	if !cmd.leaveClientIdle {
+		client.Touch()
+	}
+
+	if !cmd.leaveClientActive {
+		client.Active()
+	}
+
 	return exiting
 }
 
@@ -67,7 +70,7 @@ func init() {
 	Commands = map[string]Command{
 		"ACC": {
 			handler:   accHandler,
-			minParams: 3,
+			minParams: 2,
 		},
 		"AMBIANCE": {
 			handler:   sceneHandler,
@@ -98,6 +101,7 @@ func init() {
 		"DEBUG": {
 			handler:   debugHandler,
 			minParams: 1,
+			oper:      true,
 		},
 		"DLINE": {
 			handler:   dlineHandler,

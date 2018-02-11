@@ -56,6 +56,12 @@ func (server *Server) ChannelRegistrationEnabled() bool {
 	return server.channelRegistrationEnabled
 }
 
+func (server *Server) AccountConfig() *AccountConfig {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.accountConfig
+}
+
 func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -104,10 +110,30 @@ func (client *Client) Destroyed() bool {
 	return client.isDestroyed
 }
 
+func (client *Client) Account() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.account
+}
+
 func (client *Client) AccountName() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	return client.account.Name
+	if client.accountName == "" {
+		return "*"
+	}
+	return client.accountName
+}
+
+func (client *Client) SetAccountName(account string) {
+	var casefoldedAccount string
+	if account != "" {
+		casefoldedAccount, _ = CasefoldName(account)
+	}
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.account = casefoldedAccount
+	client.accountName = account
 }
 
 func (client *Client) HasMode(mode modes.Mode) bool {
