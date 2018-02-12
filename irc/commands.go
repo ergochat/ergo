@@ -27,7 +27,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, client.t("You need to register before you can use that command"))
 		return false
 	}
-	if cmd.oper && !client.flags[modes.Operator] {
+	if cmd.oper && !client.HasMode(modes.Operator) {
 		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied - You're not an IRC operator"))
 		return false
 	}

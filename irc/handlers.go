@@ -477,14 +477,7 @@ func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respon
 
 // DEBUG <subcmd>
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	param, err := Casefold(msg.Params[0])
-	if err != nil {
-		return false
-	}
-
-	if !client.HasMode(modes.Operator) {
-		return false
-	}
+	param := strings.ToUpper(msg.Params[0])
 
 	switch param {
 	case "GCSTATS":
