@@ -41,39 +41,10 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		return accRegisterHandler(server, client, msg, rb)
 	} else if subcommand == "verify" {
 		rb.Notice(client.t("VERIFY is not yet implemented"))
-	} else if subcommand == "unregister" {
-		return accUnregisterHandler(server, client, msg, rb)
 	} else {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
 	}
 
-	return false
-}
-
-// ACC UNREGISTER <accountname>
-func accUnregisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	// get and sanitise account name
-	account := strings.TrimSpace(msg.Params[1])
-	casefoldedAccount, err := CasefoldName(account)
-	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
-	if err != nil || msg.Params[1] == "*" {
-		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, client.t("Account name is not valid"))
-		return false
-	}
-
-	if !(account == client.Account() || client.HasRoleCapabs("unregister")) {
-		rb.Add(nil, server.name, ERR_NOPRIVS, client.Nick(), account, client.t("Insufficient oper privs"))
-		return false
-	}
-
-	err = server.accounts.Unregister(account)
-	// TODO better responses all around here
-	if err != nil {
-		errorMsg := fmt.Sprintf("Unknown error while unregistering account %s", casefoldedAccount)
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), msg.Command, errorMsg)
-		return false
-	}
-	rb.Notice(fmt.Sprintf("Successfully unregistered account %s", casefoldedAccount))
 	return false
 }
 

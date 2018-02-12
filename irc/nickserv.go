@@ -17,6 +17,10 @@ To register an account:
 	/NS REGISTER username [password]
 Leave out [password] if you're registering using your client certificate fingerprint.
 
+To unregister an account:
+	/NS UNREGISTER [username]
+Leave out [username] if you're unregistering the user you're currently logged in as.
+
 To login to an account:
 	/NS IDENTIFY [username password]
 Leave out [username password] to use your client certificate fingerprint. Otherwise,
@@ -63,8 +67,44 @@ func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb 
 		username, passphrase := extractParam(params)
 
 		server.nickservIdentifyHandler(client, username, passphrase, rb)
+	} else if command == "unregister" {
+		username, _ := extractParam(params)
+		server.nickservUnregisterHandler(client, username, rb)
 	} else {
 		rb.Notice(client.t("Command not recognised. To see the available commands, run /NS HELP"))
+	}
+}
+
+func (server *Server) nickservUnregisterHandler(client *Client, username string, rb *ResponseBuffer) {
+	if !server.AccountConfig().Registration.Enabled {
+		rb.Notice(client.t("Account registration has been disabled"))
+		return
+	}
+
+	if username == "" {
+		username = client.Account()
+	}
+	if username == "" {
+		rb.Notice(client.t("You're not logged into an account"))
+		return
+	}
+	cfname, err := CasefoldName(username)
+	if err != nil {
+		rb.Notice(client.t("Invalid username"))
+		return
+	}
+	if !(cfname == client.Account() || client.HasRoleCapabs("unregister")) {
+		rb.Notice(client.t("Insufficient oper privs"))
+		return
+	}
+
+	err = server.accounts.Unregister(cfname)
+	if err == errAccountDoesNotExist {
+		rb.Notice(client.t(err.Error()))
+	} else if err != nil {
+		rb.Notice(client.t("Error while unregistering account"))
+	} else {
+		rb.Notice(fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
 	}
 }
 

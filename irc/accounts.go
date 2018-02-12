@@ -368,6 +368,9 @@ func (am *AccountManager) Unregister(account string) error {
 		client.LogoutOfAccount()
 	}
 
+	if err != nil {
+		return errAccountDoesNotExist
+	}
 	return nil
 }
 
