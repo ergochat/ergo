@@ -810,8 +810,8 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.accountConfig = &config.Accounts
 	server.configurableStateMutex.Unlock()
 
-	nickReservationPreviouslyDisabled := oldAccountConfig != nil && oldAccountConfig.NickReservation == NickReservationDisabled
-	nickReservationNowEnabled := config.Accounts.NickReservation != NickReservationDisabled
+	nickReservationPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.NickReservation.Enabled
+	nickReservationNowEnabled := config.Accounts.NickReservation.Enabled
 	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
 		server.accounts.buildNickToAccountIndex()
 	}
@@ -1111,13 +1111,6 @@ func (server *Server) setupListeners(config *Config) {
 	if 0 < len(tlsListeners) && !usesStandardTLSPort {
 		server.logger.Warning("startup", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
-}
-
-// GetDefaultChannelModes returns our default channel modes.
-func (server *Server) GetDefaultChannelModes() modes.Modes {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.defaultChannelModes
 }
 
 // elistMatcher takes and matches ELIST conditions

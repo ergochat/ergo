@@ -58,40 +58,10 @@ func (conf *PassConfig) PasswordBytes() []byte {
 	return bytes
 }
 
-type NickReservation int
-
-const (
-	NickReservationDisabled NickReservation = iota
-	NickReservationWithTimeout
-	NickReservationStrict
-)
-
-func (nr *NickReservation) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var orig, raw string
-	var err error
-	if err = unmarshal(&orig); err != nil {
-		return err
-	}
-	if raw, err = Casefold(orig); err != nil {
-		return err
-	}
-	if raw == "disabled" || raw == "false" || raw == "" {
-		*nr = NickReservationDisabled
-	} else if raw == "timeout" {
-		*nr = NickReservationWithTimeout
-	} else if raw == "strict" {
-		*nr = NickReservationStrict
-	} else {
-		return errors.New(fmt.Sprintf("invalid nick-reservation value: %s", orig))
-	}
-	return nil
-}
-
 type AccountConfig struct {
-	Registration           AccountRegistrationConfig
-	AuthenticationEnabled  bool            `yaml:"authentication-enabled"`
-	NickReservation        NickReservation `yaml:"nick-reservation"`
-	NickReservationTimeout time.Duration   `yaml:"nick-reservation-timeout"`
+	Registration          AccountRegistrationConfig
+	AuthenticationEnabled bool                  `yaml:"authentication-enabled"`
+	NickReservation       NickReservationConfig `yaml:"nick-reservation"`
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -117,6 +87,39 @@ type AccountRegistrationConfig struct {
 		}
 	}
 	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
+}
+
+type NickReservationMethod int
+
+const (
+	NickReservationWithTimeout NickReservationMethod = iota
+	NickReservationStrict
+)
+
+func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig, raw string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	if raw, err = Casefold(orig); err != nil {
+		return err
+	}
+	if raw == "timeout" {
+		*nr = NickReservationWithTimeout
+	} else if raw == "strict" {
+		*nr = NickReservationStrict
+	} else {
+		return errors.New(fmt.Sprintf("invalid nick-reservation.method value: %s", orig))
+	}
+	return nil
+}
+
+type NickReservationConfig struct {
+	Enabled       bool
+	Method        NickReservationMethod
+	RenameTimeout time.Duration `yaml:"rename-timeout"`
+	RenamePrefix  string        `yaml:"rename-prefix"`
 }
 
 // ChannelRegistrationConfig controls channel registration.

@@ -99,9 +99,10 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	}
 
 	var reservedAccount string
-	reservation := client.server.AccountConfig().NickReservation
-	if reservation != NickReservationDisabled {
+	var method NickReservationMethod
+	if client.server.AccountConfig().NickReservation.Enabled {
 		reservedAccount = client.server.accounts.NickToAccount(newcfnick)
+		method = client.server.AccountConfig().NickReservation.Method
 	}
 
 	clients.Lock()
@@ -113,7 +114,7 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	if currentNewEntry != nil && currentNewEntry != client {
 		return errNicknameInUse
 	}
-	if reservation == NickReservationStrict && reservedAccount != client.Account() {
+	if method == NickReservationStrict && reservedAccount != client.Account() {
 		return errNicknameReserved
 	}
 	clients.byNick[newcfnick] = client

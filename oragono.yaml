@@ -159,13 +159,23 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
-    # will the server enforce that only the account holder can use the account name as a nick?
-    # options:
-    # `disabled`: no enforcement
-    # `timeout` (auth to nickserv within some period of time or you're disconnected)
-    # `strict`: must authenticate up front with SASL
-    nick-reservation: disabled
-    nick-reservation-timeout: 30s
+    # nick-reservation controls how, and whether, nicknames are linked to accounts
+    nick-reservation:
+        # is there any enforcement of reserved nicknames?
+        enabled: false
+
+        # method describes how nickname reservation is handled
+        #   timeout: let the user change to the registered nickname, give them X seconds
+        #            to login and then rename them if they haven't done so
+        #   strict:  don't let the user change to the registered nickname unless they're
+        #            already logged-in using SASL or NickServ
+        method: timeout
+
+        # rename-timeout - this is how long users have 'til they're renamed
+        rename-timeout: 30s
+
+        # rename-prefix - this is the prefix to use when renaming clients (e.g. Guest-AB54U31)
+        rename-prefix: Guest-
 
 # channel options
 channels:

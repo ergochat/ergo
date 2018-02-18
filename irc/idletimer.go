@@ -183,13 +183,13 @@ type NickTimer struct {
 
 // NewNickTimer sets up a new nick timer (returning nil if timeout enforcement is not enabled)
 func NewNickTimer(client *Client) *NickTimer {
-	config := client.server.AccountConfig()
-	if config.NickReservation != NickReservationWithTimeout {
+	config := client.server.AccountConfig().NickReservation
+	if !(config.Enabled && config.Method == NickReservationWithTimeout) {
 		return nil
 	}
 	nt := NickTimer{
 		client:  client,
-		timeout: config.NickReservationTimeout,
+		timeout: config.RenameTimeout,
 	}
 	return &nt
 }
@@ -239,6 +239,6 @@ func (nt *NickTimer) sendWarning() {
 
 func (nt *NickTimer) processTimeout() {
 	baseMsg := "Nick is reserved and authentication timeout expired: %v"
-	nt.client.Quit(fmt.Sprintf(nt.client.t(baseMsg), nt.timeout))
-	nt.client.destroy(false)
+	nt.client.Notice(fmt.Sprintf(nt.client.t(baseMsg), nt.timeout))
+	nt.client.server.RandomlyRename(nt.client)
 }

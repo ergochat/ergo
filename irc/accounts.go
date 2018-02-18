@@ -51,7 +51,7 @@ func NewAccountManager(server *Server) *AccountManager {
 }
 
 func (am *AccountManager) buildNickToAccountIndex() {
-	if am.server.AccountConfig().NickReservation == NickReservationDisabled {
+	if am.server.AccountConfig().NickReservation.Enabled {
 		return
 	}
 
@@ -96,6 +96,12 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	casefoldedAccount, err := CasefoldName(account)
 	if err != nil || account == "" || account == "*" {
 		return errAccountCreation
+	}
+
+	// can't register a guest nickname
+	renamePrefix := strings.ToLower(am.server.AccountConfig().NickReservation.RenamePrefix)
+	if renamePrefix != "" && strings.HasPrefix(casefoldedAccount, renamePrefix) {
+		return errAccountAlreadyRegistered
 	}
 
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
