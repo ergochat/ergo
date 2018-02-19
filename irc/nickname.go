@@ -5,6 +5,8 @@
 package irc
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -71,4 +73,19 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		server.tryRegister(target)
 	}
 	return false
+}
+
+func (server *Server) RandomlyRename(client *Client) {
+	prefix := server.AccountConfig().NickReservation.RenamePrefix
+	if prefix == "" {
+		prefix = "Guest-"
+	}
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	nick := fmt.Sprintf("%s%s", prefix, hex.EncodeToString(buf))
+	rb := NewResponseBuffer(client)
+	performNickChange(server, client, client, nick, rb)
+	rb.Send()
+	// technically performNickChange can fail to change the nick,
+	// but if they're still delinquent, the timer will get them later
 }
