@@ -126,6 +126,7 @@ type Server struct {
 	signals                    chan os.Signal
 	snomasks                   *SnoManager
 	store                      *buntdb.DB
+	storeFilename              string
 	stsEnabled                 bool
 	webirc                     []webircConfig
 	whoWas                     *WhoWasList
@@ -707,8 +708,12 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
+		} else if server.storeFilename != config.Datastore.Path {
+			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		}
 	}
+
+	server.logger.Info("rehash", "Using config file", server.configFilename)
 
 	casefoldedName, err := Casefold(config.Server.Name)
 	if err != nil {
@@ -939,8 +944,10 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	sendRawOutputNotice := !initial && !server.loggingRawIO && nowLoggingRawIO
 	server.loggingRawIO = nowLoggingRawIO
 
+	server.storeFilename = config.Datastore.Path
+	server.logger.Info("rehash", "Using datastore", server.storeFilename)
 	if initial {
-		if err := server.loadDatastore(config.Datastore.Path); err != nil {
+		if err := server.loadDatastore(server.storeFilename); err != nil {
 			return err
 		}
 	}
@@ -965,7 +972,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 }
 
 func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
-	server.logger.Debug("rehash", "Loading MOTD")
+	server.logger.Info("rehash", "Using MOTD", motdPath)
 	motdLines := make([]string, 0)
 	if motdPath != "" {
 		file, err := os.Open(motdPath)
@@ -1005,7 +1012,6 @@ func (server *Server) loadDatastore(datastorePath string) error {
 	// open the datastore and load server state for which it (rather than config)
 	// is the source of truth
 
-	server.logger.Debug("startup", "Opening datastore")
 	db, err := OpenDatabase(datastorePath)
 	if err == nil {
 		server.store = db
