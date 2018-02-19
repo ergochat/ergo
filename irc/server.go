@@ -794,7 +794,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	// SASL
 	oldAccountConfig := server.AccountConfig()
-	authPreviouslyEnabled := oldAccountConfig != nil && !oldAccountConfig.AuthenticationEnabled
+	authPreviouslyEnabled := oldAccountConfig != nil && oldAccountConfig.AuthenticationEnabled
 	if config.Accounts.AuthenticationEnabled && !authPreviouslyEnabled {
 		// enabling SASL
 		SupportedCapabilities.Enable(caps.SASL)
