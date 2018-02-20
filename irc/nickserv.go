@@ -6,16 +6,20 @@ package irc
 import (
 	"fmt"
 	"strings"
-
-	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/sno"
 )
 
+// TODO: "email" is an oversimplification here; it's actually any callback, e.g.,
+// person@example.com, mailto:person@example.com, tel:16505551234.
 const nickservHelp = `NickServ lets you register and log into a user account.
 
 To register an account:
-	/NS REGISTER username [password]
+	/NS REGISTER username email [password]
 Leave out [password] if you're registering using your client certificate fingerprint.
+The server may or may not allow you to register anonymously (by sending * as your
+email address).
+
+To verify an account (if you were sent a verification code):
+	/NS VERIFY username code
 
 To unregister an account:
 	/NS UNREGISTER [username]
@@ -53,19 +57,14 @@ func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb 
 		}
 	} else if command == "register" {
 		// get params
-		username, passphrase := extractParam(params)
-
-		// fail out if we need to
-		if username == "" {
-			rb.Notice(client.t("No username supplied"))
-			return
-		}
-
-		server.nickservRegisterHandler(client, username, passphrase, rb)
+		username, afterUsername := extractParam(params)
+		email, passphrase := extractParam(afterUsername)
+		server.nickservRegisterHandler(client, username, email, passphrase, rb)
+	} else if command == "verify" {
+		username, code := extractParam(params)
+		server.nickservVerifyHandler(client, username, code, rb)
 	} else if command == "identify" {
-		// get params
 		username, passphrase := extractParam(params)
-
 		server.nickservIdentifyHandler(client, username, passphrase, rb)
 	} else if command == "unregister" {
 		username, _ := extractParam(params)
@@ -98,6 +97,10 @@ func (server *Server) nickservUnregisterHandler(client *Client, username string,
 		return
 	}
 
+	if cfname == client.Account() {
+		client.server.accounts.Logout(client)
+	}
+
 	err = server.accounts.Unregister(cfname)
 	if err == errAccountDoesNotExist {
 		rb.Notice(client.t(err.Error()))
@@ -108,15 +111,38 @@ func (server *Server) nickservUnregisterHandler(client *Client, username string,
 	}
 }
 
-func (server *Server) nickservRegisterHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
-	certfp := client.certfp
-	if passphrase == "" && certfp == "" {
-		rb.Notice(client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
+func (server *Server) nickservVerifyHandler(client *Client, username string, code string, rb *ResponseBuffer) {
+	err := server.accounts.Verify(client, username, code)
+
+	var errorMessage string
+	if err == errAccountVerificationInvalidCode || err == errAccountAlreadyVerified {
+		errorMessage = err.Error()
+	} else if err != nil {
+		errorMessage = errAccountVerificationFailed.Error()
+	}
+
+	if errorMessage != "" {
+		rb.Notice(client.t(errorMessage))
 		return
 	}
 
+	sendSuccessfulRegResponse(client, rb, true)
+}
+
+func (server *Server) nickservRegisterHandler(client *Client, username, email, passphrase string, rb *ResponseBuffer) {
 	if !server.AccountConfig().Registration.Enabled {
 		rb.Notice(client.t("Account registration has been disabled"))
+		return
+	}
+
+	if username == "" {
+		rb.Notice(client.t("No username supplied"))
+		return
+	}
+
+	certfp := client.certfp
+	if passphrase == "" && certfp == "" {
+		rb.Notice(client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
 		return
 	}
 
@@ -129,26 +155,42 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		}
 	}
 
+	config := server.AccountConfig()
+	var callbackNamespace, callbackValue string
+	noneCallbackAllowed := false
+	for _, callback := range(config.Registration.EnabledCallbacks) {
+		if callback == "*" {
+			noneCallbackAllowed = true
+		}
+	}
+	// XXX if ACC REGISTER allows registration with the `none` callback, then ignore
+	// any callback that was passed here (to avoid confusion in the case where the ircd
+	// has no mail server configured). otherwise, register using the provided callback:
+	if noneCallbackAllowed {
+		callbackNamespace = "*"
+	} else {
+		callbackNamespace, callbackValue = parseCallback(email, config)
+		if callbackNamespace == "" {
+			rb.Notice(client.t("Registration requires a valid e-mail address"))
+			return
+		}
+	}
+
 	// get and sanitise account name
 	account := strings.TrimSpace(username)
-	casefoldedAccount, err := CasefoldName(account)
-	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
-	if err != nil || username == "*" {
-		rb.Notice(client.t("Account name is not valid"))
-		return
-	}
 
-	// account could not be created and relevant numerics have been dispatched, abort
-	if err != nil {
-		if err != errAccountCreation {
-			rb.Notice(client.t("Account registration failed"))
-		}
-		return
-	}
-
-	err = server.accounts.Register(client, account, "", "", passphrase, client.certfp)
+	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, client.certfp)
 	if err == nil {
-		err = server.accounts.Verify(client, casefoldedAccount, "")
+		if callbackNamespace == "*" {
+			err = server.accounts.Verify(client, account, "")
+			if err == nil {
+				sendSuccessfulRegResponse(client, rb, true)
+			}
+		} else {
+			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s:%s")
+			message := fmt.Sprintf(messageTemplate, callbackNamespace, callbackValue)
+			rb.Notice(message)
+		}
 	}
 
 	// details could not be stored and relevant numerics have been dispatched, abort
@@ -162,11 +204,6 @@ func (server *Server) nickservRegisterHandler(client *Client, username, passphra
 		rb.Notice(client.t(errMsg))
 		return
 	}
-
-	rb.Notice(client.t("Account created"))
-	rb.Add(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, casefoldedAccount, fmt.Sprintf(client.t("You are now logged in as %s"), casefoldedAccount))
-	rb.Add(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
-	server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), casefoldedAccount, client.nickMaskString))
 }
 
 func (server *Server) nickservIdentifyHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
@@ -176,31 +213,23 @@ func (server *Server) nickservIdentifyHandler(client *Client, username, passphra
 		return
 	}
 
+	loginSuccessful := false
+
 	// try passphrase
 	if username != "" && passphrase != "" {
-		// keep it the same as in the ACC CREATE stage
-		accountName, err := CasefoldName(username)
-		if err != nil {
-			rb.Notice(client.t("Could not login with your username/password"))
-			return
-		}
-
-		err = server.accounts.AuthenticateByPassphrase(client, accountName, passphrase)
-		if err == nil {
-			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), accountName))
-			return
-		}
+		err := server.accounts.AuthenticateByPassphrase(client, username, passphrase)
+		loginSuccessful = (err == nil)
 	}
 
 	// try certfp
-	if client.certfp != "" {
+	if !loginSuccessful && client.certfp != "" {
 		err := server.accounts.AuthenticateByCertFP(client)
-		if err == nil {
-			rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
-			// TODO more notices?
-			return
-		}
+		loginSuccessful = (err == nil)
 	}
 
-	rb.Notice(client.t("Could not login with your TLS certificate or supplied username/password"))
+	if loginSuccessful {
+		sendSuccessfulSaslAuth(client, rb, true)
+	} else {
+		rb.Notice(client.t("Could not login with your TLS certificate or supplied username/password"))
+	}
 }
