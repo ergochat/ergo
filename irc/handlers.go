@@ -54,6 +54,7 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	return false
 }
 
+// helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
 func parseCallback(spec string, config *AccountConfig) (callbackNamespace string, callbackValue string) {
 	callback := strings.ToLower(spec)
 	if callback == "*" {
@@ -181,22 +182,25 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	return false
 }
 
+// helper function to dispatch messages when a client successfully registers
 func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
 	if forNS {
 		rb.Notice(client.t("Account created"))
+	} else {
+		rb.Add(nil, client.server.name, RPL_REGISTRATION_SUCCESS, client.nick, client.AccountName(), client.t("Account created"))
 	}
-	rb.Add(nil, client.server.name, RPL_REGISTRATION_SUCCESS, client.nick, client.AccountName(), client.t("Account created"))
 	sendSuccessfulSaslAuth(client, rb, forNS)
 }
 
 // sendSuccessfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
 func sendSuccessfulSaslAuth(client *Client, rb *ResponseBuffer, forNS bool) {
 	account := client.AccountName()
-	rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf("You are now logged in as %s", account))
-	rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
 
 	if forNS {
 		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
+	} else {
+		rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf("You are now logged in as %s", account))
+		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
 	}
 
 	// dispatch account-notify
