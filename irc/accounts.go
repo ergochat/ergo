@@ -578,18 +578,10 @@ type rawClientAccount struct {
 
 // LoginToAccount logs the client into the given account.
 func (client *Client) LoginToAccount(account string) {
-	casefoldedAccount, err := CasefoldName(account)
-	if err != nil {
-		return
+	changed := client.SetAccountName(account)
+	if changed {
+		client.nickTimer.Touch()
 	}
-
-	if client.Account() == casefoldedAccount {
-		// already logged into this acct, no changing necessary
-		return
-	}
-
-	client.SetAccountName(casefoldedAccount)
-	client.nickTimer.Touch()
 }
 
 // LogoutOfAccount logs the client out of their current account.

@@ -125,15 +125,21 @@ func (client *Client) AccountName() string {
 	return client.accountName
 }
 
-func (client *Client) SetAccountName(account string) {
+func (client *Client) SetAccountName(account string) (changed bool) {
 	var casefoldedAccount string
+	var err error
 	if account != "" {
-		casefoldedAccount, _ = CasefoldName(account)
+		if casefoldedAccount, err = CasefoldName(account); err != nil {
+			return
+		}
 	}
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+	changed = client.account != casefoldedAccount
 	client.account = casefoldedAccount
 	client.accountName = account
+	return
 }
 
 func (client *Client) HasMode(mode modes.Mode) bool {
