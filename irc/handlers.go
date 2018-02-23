@@ -35,12 +35,18 @@ import (
 
 // ACC [REGISTER|VERIFY] ...
 func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	// make sure reg is enabled
+	if !server.AccountConfig().Registration.Enabled {
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("Account registration is disabled"))
+		return false
+	}
+
 	subcommand := strings.ToLower(msg.Params[0])
 
 	if subcommand == "register" {
 		return accRegisterHandler(server, client, msg, rb)
 	} else if subcommand == "verify" {
-		rb.Notice(client.t("VERIFY is not yet implemented"))
+		return accVerifyHandler(server, client, msg, rb)
 	} else {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
 	}
@@ -48,14 +54,34 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	return false
 }
 
-// ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
-func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	// make sure reg is enabled
-	if !server.AccountConfig().Registration.Enabled {
-		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("Account registration is disabled"))
-		return false
+// helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
+func parseCallback(spec string, config *AccountConfig) (callbackNamespace string, callbackValue string) {
+	callback := strings.ToLower(spec)
+	if callback == "*" {
+		callbackNamespace = "*"
+	} else if strings.Contains(callback, ":") {
+		callbackValues := strings.SplitN(callback, ":", 2)
+		callbackNamespace, callbackValue = callbackValues[0], callbackValues[1]
+	} else {
+		// "the IRC server MAY choose to use mailto as a default"
+		callbackNamespace = "mailto"
+		callbackValue = callback
 	}
 
+	// ensure the callback namespace is valid
+	// need to search callback list, maybe look at using a map later?
+	for _, name := range config.Registration.EnabledCallbacks {
+		if callbackNamespace == name {
+			return
+		}
+	}
+	// error value
+	callbackNamespace = ""
+	return
+}
+
+// ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
+func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// clients can't reg new accounts if they're already logged in
 	if client.LoggedIntoAccount() {
 		if server.AccountConfig().Registration.AllowMultiplePerConnection {
@@ -80,30 +106,11 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return false
 	}
 
-	callback := strings.ToLower(msg.Params[2])
-	var callbackNamespace, callbackValue string
+	callbackSpec := msg.Params[2]
+	callbackNamespace, callbackValue := parseCallback(callbackSpec, server.AccountConfig())
 
-	if callback == "*" {
-		callbackNamespace = "*"
-	} else if strings.Contains(callback, ":") {
-		callbackValues := strings.SplitN(callback, ":", 2)
-		callbackNamespace, callbackValue = callbackValues[0], callbackValues[1]
-	} else {
-		callbackNamespace = server.AccountConfig().Registration.EnabledCallbacks[0]
-		callbackValue = callback
-	}
-
-	// ensure the callback namespace is valid
-	// need to search callback list, maybe look at using a map later?
-	var callbackValid bool
-	for _, name := range server.AccountConfig().Registration.EnabledCallbacks {
-		if callbackNamespace == name {
-			callbackValid = true
-		}
-	}
-
-	if !callbackValid {
-		rb.Add(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackNamespace, client.t("Callback namespace is not supported"))
+	if callbackNamespace == "" {
+		rb.Add(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackSpec, client.t("Callback namespace is not supported"))
 		return false
 	}
 
@@ -165,14 +172,69 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		if err != nil {
 			return false
 		}
-		client.Send(nil, server.name, RPL_REGISTRATION_SUCCESS, client.nick, casefoldedAccount, client.t("Account created"))
-		client.Send(nil, server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, casefoldedAccount, fmt.Sprintf(client.t("You are now logged in as %s"), casefoldedAccount))
-		client.Send(nil, server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
-		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Account registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), casefoldedAccount, client.nickMaskString))
+		sendSuccessfulRegResponse(client, rb, false)
+	} else {
+		messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s:%s")
+		message := fmt.Sprintf(messageTemplate, callbackNamespace, callbackValue)
+		rb.Add(nil, server.name, RPL_REG_VERIFICATION_REQUIRED, client.nick, casefoldedAccount, message)
 	}
 
-	// dispatch callback
-	rb.Notice(fmt.Sprintf("We should dispatch a real callback here to %s:%s", callbackNamespace, callbackValue))
+	return false
+}
+
+// helper function to dispatch messages when a client successfully registers
+func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
+	if forNS {
+		rb.Notice(client.t("Account created"))
+	} else {
+		rb.Add(nil, client.server.name, RPL_REGISTRATION_SUCCESS, client.nick, client.AccountName(), client.t("Account created"))
+	}
+	sendSuccessfulSaslAuth(client, rb, forNS)
+}
+
+// sendSuccessfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
+func sendSuccessfulSaslAuth(client *Client, rb *ResponseBuffer, forNS bool) {
+	account := client.AccountName()
+
+	if forNS {
+		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
+	} else {
+		rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf("You are now logged in as %s", account))
+		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
+	}
+
+	// dispatch account-notify
+	for friend := range client.Friends(caps.AccountNotify) {
+		friend.Send(nil, client.nickMaskString, "ACCOUNT", account)
+	}
+
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), client.nickMaskString, account))
+}
+
+// ACC VERIFY <accountname> <auth_code>
+func accVerifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	account := strings.TrimSpace(msg.Params[1])
+	err := server.accounts.Verify(client, account, msg.Params[2])
+
+	var code string
+	var message string
+
+	if err == errAccountVerificationInvalidCode {
+		code = ERR_ACCOUNT_INVALID_VERIFY_CODE
+		message = err.Error()
+	} else if err == errAccountAlreadyVerified {
+		code = ERR_ACCOUNT_ALREADY_VERIFIED
+		message = err.Error()
+	} else if err != nil {
+		code = ERR_UNKNOWNERROR
+		message = errAccountVerificationFailed.Error()
+	}
+
+	if err == nil {
+		sendSuccessfulRegResponse(client, rb, false)
+	} else {
+		rb.Add(nil, server.name, code, client.nick, account, client.t(message))
+	}
 
 	return false
 }
@@ -301,7 +363,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		return false
 	}
 
-	client.successfulSaslAuth(rb)
+	sendSuccessfulSaslAuth(client, rb, false)
 	return false
 }
 
@@ -329,7 +391,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 		return false
 	}
 
-	client.successfulSaslAuth(rb)
+	sendSuccessfulSaslAuth(client, rb, false)
 	return false
 }
 

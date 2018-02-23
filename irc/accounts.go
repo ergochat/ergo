@@ -4,27 +4,32 @@
 package irc
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/smtp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
 const (
-	keyAccountExists      = "account.exists %s"
-	keyAccountVerified    = "account.verified %s"
-	keyAccountName        = "account.name %s" // stores the 'preferred name' of the account, not casemapped
-	keyAccountRegTime     = "account.registered.time %s"
-	keyAccountCredentials = "account.credentials %s"
-	keyCertToAccount      = "account.creds.certfp %s"
+	keyAccountExists           = "account.exists %s"
+	keyAccountVerified         = "account.verified %s"
+	keyAccountCallback         = "account.callback %s"
+	keyAccountVerificationCode = "account.verificationcode %s"
+	keyAccountName             = "account.name %s" // stores the 'preferred name' of the account, not casemapped
+	keyAccountRegTime          = "account.registered.time %s"
+	keyAccountCredentials      = "account.credentials %s"
+	keyCertToAccount           = "account.creds.certfp %s"
 )
 
 // everything about accounts is persistent; therefore, the database is the authoritative
@@ -51,7 +56,7 @@ func NewAccountManager(server *Server) *AccountManager {
 }
 
 func (am *AccountManager) buildNickToAccountIndex() {
-	if am.server.AccountConfig().NickReservation.Enabled {
+	if !am.server.AccountConfig().NickReservation.Enabled {
 		return
 	}
 
@@ -106,8 +111,10 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
+	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
+	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
 	var creds AccountCredentials
@@ -134,6 +141,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	credStr := string(credText)
 
 	registeredTimeStr := strconv.FormatInt(time.Now().Unix(), 10)
+	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
 	ttl := am.server.AccountConfig().Registration.VerifyTimeout
@@ -159,6 +167,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		tx.Set(accountNameKey, account, setOptions)
 		tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
 		tx.Set(credentialsKey, credStr, setOptions)
+		tx.Set(callbackKey, callbackSpec, setOptions)
 		if certfp != "" {
 			tx.Set(certFPKey, casefoldedAccount, setOptions)
 		}
@@ -169,7 +178,69 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return err
 	}
 
-	return nil
+	code, err := am.dispatchCallback(client, casefoldedAccount, callbackNamespace, callbackValue)
+	if err != nil {
+		am.Unregister(casefoldedAccount)
+		return errCallbackFailed
+	} else {
+		return am.server.store.Update(func(tx *buntdb.Tx) error {
+			_, _, err = tx.Set(verificationCodeKey, code, setOptions)
+			return err
+		})
+	}
+}
+
+func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount string, callbackNamespace string, callbackValue string) (string, error) {
+	if callbackNamespace == "*" || callbackNamespace == "none" {
+		return "", nil
+	} else if callbackNamespace == "mailto" {
+		return am.dispatchMailtoCallback(client, casefoldedAccount, callbackValue)
+	} else {
+		return "", errors.New(fmt.Sprintf("Callback not implemented: %s", callbackNamespace))
+	}
+}
+
+func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccount string, callbackValue string) (code string, err error) {
+	config := am.server.AccountConfig().Registration.Callbacks.Mailto
+	buf := make([]byte, 16)
+	rand.Read(buf)
+	code = hex.EncodeToString(buf)
+
+	subject := config.VerifyMessageSubject
+	if subject == "" {
+		subject = fmt.Sprintf(client.t("Verify your account on %s"), am.server.name)
+	}
+	messageStrings := []string{
+		fmt.Sprintf("From: %s\r\n", config.Sender),
+		fmt.Sprintf("To: %s\r\n", callbackValue),
+		fmt.Sprintf("Subject: %s\r\n", subject),
+		"\r\n", // end headers, begin message body
+		fmt.Sprintf(client.t("Account: %s"), casefoldedAccount) + "\r\n",
+		fmt.Sprintf(client.t("Verification code: %s"), code) + "\r\n",
+		"\r\n",
+		client.t("To verify your account, issue one of these commands:") + "\r\n",
+		fmt.Sprintf("/ACC VERIFY %s %s", casefoldedAccount, code) + "\r\n",
+		fmt.Sprintf("/MSG NickServ VERIFY %s %s", casefoldedAccount, code) + "\r\n",
+	}
+
+	var message []byte
+	for i := 0; i < len(messageStrings); i++ {
+		message = append(message, []byte(messageStrings[i])...)
+	}
+	addr := fmt.Sprintf("%s:%d", config.Server, config.Port)
+	var auth smtp.Auth
+	if config.Username != "" && config.Password != "" {
+		auth = smtp.PlainAuth("", config.Username, config.Password, config.Server)
+	}
+
+	// TODO: this will never send the password in plaintext over a nonlocal link,
+	// but it might send the email in plaintext, regardless of the value of
+	// config.TLS.InsecureSkipVerify
+	err = smtp.SendMail(addr, auth, config.Sender, []string{callbackValue}, message)
+	if err != nil {
+		am.server.logger.Error("internal", fmt.Sprintf("Failed to dispatch e-mail: %v", err))
+	}
+	return
 }
 
 func (am *AccountManager) Verify(client *Client, account string, code string) error {
@@ -182,6 +253,8 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
+	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
+	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
 
 	var raw rawClientAccount
@@ -190,7 +263,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		am.serialCacheUpdateMutex.Lock()
 		defer am.serialCacheUpdateMutex.Unlock()
 
-		am.server.store.Update(func(tx *buntdb.Tx) error {
+		err = am.server.store.Update(func(tx *buntdb.Tx) error {
 			raw, err = am.loadRawAccount(tx, casefoldedAccount)
 			if err == errAccountDoesNotExist {
 				return errAccountDoesNotExist
@@ -200,15 +273,29 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 				return errAccountAlreadyVerified
 			}
 
-			// TODO add code verification here
-			// return errAccountVerificationFailed if it fails
+			// actually verify the code
+			// a stored code of "" means a none callback / no code required
+			success := false
+			storedCode, err := tx.Get(verificationCodeKey)
+			if err == nil {
+				// this is probably unnecessary
+				if storedCode == "" || subtle.ConstantTimeCompare([]byte(code), []byte(storedCode)) == 1 {
+					success = true
+				}
+			}
+			if !success {
+				return errAccountVerificationInvalidCode
+			}
 
 			// verify the account
 			tx.Set(verifiedKey, "1", nil)
+			// don't need the code anymore
+			tx.Delete(verificationCodeKey)
 			// re-set all other keys, removing the TTL
 			tx.Set(accountKey, "1", nil)
 			tx.Set(accountNameKey, raw.Name, nil)
 			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
+			tx.Set(callbackKey, raw.Callback, nil)
 			tx.Set(credentialsKey, raw.Credentials, nil)
 
 			var creds AccountCredentials
@@ -295,6 +382,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
+	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 
 	_, e := tx.Get(accountKey)
 	if e == buntdb.ErrNotFound {
@@ -302,15 +390,11 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 		return
 	}
 
-	if result.Name, err = tx.Get(accountNameKey); err != nil {
-		return
-	}
-	if result.RegisteredAt, err = tx.Get(registeredTimeKey); err != nil {
-		return
-	}
-	if result.Credentials, err = tx.Get(credentialsKey); err != nil {
-		return
-	}
+	result.Name, _ = tx.Get(accountNameKey)
+	result.RegisteredAt, _ = tx.Get(registeredTimeKey)
+	result.Credentials, _ = tx.Get(credentialsKey)
+	result.Callback, _ = tx.Get(callbackKey)
+
 	if _, e = tx.Get(verifiedKey); e == nil {
 		result.Verified = true
 	}
@@ -328,6 +412,8 @@ func (am *AccountManager) Unregister(account string) error {
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
+	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
+	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
 
 	var clients []*Client
@@ -343,6 +429,8 @@ func (am *AccountManager) Unregister(account string) error {
 			tx.Delete(accountNameKey)
 			tx.Delete(verifiedKey)
 			tx.Delete(registeredTimeKey)
+			tx.Delete(callbackKey)
+			tx.Delete(verificationCodeKey)
 			credText, err = tx.Get(credentialsKey)
 			tx.Delete(credentialsKey)
 			return nil
@@ -484,27 +572,16 @@ type rawClientAccount struct {
 	Name         string
 	RegisteredAt string
 	Credentials  string
+	Callback     string
 	Verified     bool
 }
 
 // LoginToAccount logs the client into the given account.
 func (client *Client) LoginToAccount(account string) {
-	casefoldedAccount, err := CasefoldName(account)
-	if err != nil {
-		return
+	changed := client.SetAccountName(account)
+	if changed {
+		client.nickTimer.Touch()
 	}
-
-	if client.Account() == casefoldedAccount {
-		// already logged into this acct, no changing necessary
-		return
-	}
-
-	client.SetAccountName(casefoldedAccount)
-	client.nickTimer.Touch()
-
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), client.nickMaskString, casefoldedAccount))
-
-	//TODO(dan): This should output the AccountNotify message instead of the sasl accepted function below.
 }
 
 // LogoutOfAccount logs the client out of their current account.
@@ -518,18 +595,9 @@ func (client *Client) LogoutOfAccount() {
 	client.nickTimer.Touch()
 
 	// dispatch account-notify
+	// TODO: doing the I/O here is kind of a kludge, let's move this somewhere else
 	for friend := range client.Friends(caps.AccountNotify) {
 		friend.Send(nil, client.nickMaskString, "ACCOUNT", "*")
 	}
 }
 
-// successfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
-func (client *Client) successfulSaslAuth(rb *ResponseBuffer) {
-	rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, client.AccountName(), fmt.Sprintf("You are now logged in as %s", client.AccountName()))
-	rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
-
-	// dispatch account-notify
-	for friend := range client.Friends(caps.AccountNotify) {
-		friend.Send(nil, client.nickMaskString, "ACCOUNT", client.AccountName())
-	}
-}

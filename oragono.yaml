@@ -151,7 +151,18 @@ accounts:
         # callbacks to allow
         enabled-callbacks:
             - none # no verification needed, will instantly register successfully
-        
+
+        # example configuration for sending verification emails via a local mail relay
+        # callbacks:
+        #     mailto:
+        #         server: localhost
+        #         port: 25
+        #         tls:
+        #             enabled: false
+        #         username: ""
+        #         password: ""
+        #         sender: "admin@my.network"
+
         # allow multiple account registrations per connection
         # this is for testing purposes and shouldn't be allowed on real networks
         allow-multiple-per-connection: false
