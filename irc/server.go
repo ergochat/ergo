@@ -79,8 +79,6 @@ type ListenerWrapper struct {
 	listener   net.Listener
 	tlsConfig  *tls.Config
 	shouldStop bool
-	// lets the ListenerWrapper inform the server that it has stopped:
-	stopEvent chan bool
 	// protects atomic update of tlsConfig and shouldStop:
 	configMutex sync.Mutex // tier 1
 }
@@ -364,7 +362,6 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 		listener:   listener,
 		tlsConfig:  tlsConfig,
 		shouldStop: false,
-		stopEvent:  make(chan bool, 1),
 	}
 
 	var shouldStop bool
@@ -395,7 +392,6 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 
 			if shouldStop {
 				listener.Close()
-				wrapper.stopEvent <- true
 				return
 			}
 		}
@@ -1085,8 +1081,6 @@ func (server *Server) setupListeners(config *Config) {
 		} else {
 			// tell the listener it should stop by interrupting its Accept() call:
 			currentListener.listener.Close()
-			// TODO(golang1.10) delete stopEvent once issue #21856 is released
-			<-currentListener.stopEvent
 			delete(server.listeners, addr)
 			server.logger.Info("listeners", fmt.Sprintf("stopped listening on %s.", addr))
 		}
