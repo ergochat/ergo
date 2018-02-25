@@ -79,6 +79,7 @@ server:
             password: JDJhJDA0JG9rTTVERlNRa0hpOEZpNkhjZE95SU9Da1BseFdlcWtOTEQxNEFERVlqbEZNTkdhOVlYUkMu
 
             # hosts that can use this webirc command
+            # you should also add these addresses to the connection limits and throttling exemption lists
             hosts:
                 # - localhost
                 # - "127.0.0.1"
