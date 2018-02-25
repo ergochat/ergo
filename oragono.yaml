@@ -100,8 +100,8 @@ server:
         # how wide the cidr should be for IPv6
         cidr-len-ipv6: 64
 
-        # maximum number of IPs per subnet (defined above by the cird length)
-        ips-per-subnet: 16
+        # maximum concurrent connections per subnet (defined above by the cidr length)
+        connections-per-subnet: 16
 
         # IPs/networks which are exempted from connection limits
         exempted:
