@@ -416,8 +416,27 @@ func (server *Server) generateMessageID() string {
 //
 
 func (server *Server) tryRegister(c *Client) {
-	if c.registered || !c.HasNick() || !c.HasUsername() ||
-		(c.capState == caps.NegotiatingState) {
+	if c.Registered() {
+		return
+	}
+
+	preregNick := c.PreregNick()
+	if preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
+		return
+	}
+
+	// client MUST send PASS (or AUTHENTICATE, if skip-server-password is set)
+	// before completing the other registration commands
+	if !c.Authorized() {
+		c.Quit(c.t("Bad password"))
+		c.destroy(false)
+		return
+	}
+
+	rb := NewResponseBuffer(c)
+	nickAssigned := performNickChange(server, c, c, preregNick, rb)
+	rb.Send()
+	if !nickAssigned {
 		return
 	}
 
@@ -447,7 +466,7 @@ func (server *Server) tryRegister(c *Client) {
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 
-	rb := NewResponseBuffer(c)
+	rb = NewResponseBuffer(c)
 	c.RplISupport(rb)
 	server.MOTD(c, rb)
 	rb.Send()

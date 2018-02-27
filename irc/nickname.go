@@ -23,6 +23,7 @@ var (
 	}
 )
 
+// returns whether the change succeeded or failed
 func performNickChange(server *Server, client *Client, target *Client, newnick string, rb *ResponseBuffer) bool {
 	nickname := strings.TrimSpace(newnick)
 	cfnick, err := CasefoldName(nickname)
@@ -38,7 +39,7 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	}
 
 	if target.Nick() == nickname {
-		return false
+		return true
 	}
 
 	hadNick := target.HasNick()
@@ -49,7 +50,7 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
 		return false
 	} else if err == errNicknameReserved {
-		client.Send(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is reserved by a different account"))
+		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is reserved by a different account"))
 		return false
 	} else if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
@@ -67,12 +68,11 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		}
 	}
 
-	if target.registered {
+	if target.Registered() {
 		client.server.monitorManager.AlertAbout(target, true)
-	} else {
-		server.tryRegister(target)
 	}
-	return false
+	// else: Run() will attempt registration immediately after this
+	return true
 }
 
 func (server *Server) RandomlyRename(client *Client) {

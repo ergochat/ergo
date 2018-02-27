@@ -170,6 +170,13 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
+    # some clients (notably Pidgin and Hexchat) offer only a single password field,
+    # which makes it impossible to specify a separate server password (for the PASS
+    # command) and SASL password. if this option is set to true, a client that
+    # successfully authenticates with SASL will not be required to send
+    # PASS as well, so it can be configured to authenticate with SASL only.
+    skip-server-password: false
+
     # nick-reservation controls how, and whether, nicknames are linked to accounts
     nick-reservation:
         # is there any enforcement of reserved nicknames?

@@ -61,6 +61,7 @@ func (conf *PassConfig) PasswordBytes() []byte {
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool                  `yaml:"authentication-enabled"`
+	SkipServerPassword    bool                  `yaml:"skip-server-password"`
 	NickReservation       NickReservationConfig `yaml:"nick-reservation"`
 }
 
