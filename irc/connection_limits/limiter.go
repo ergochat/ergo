@@ -12,11 +12,12 @@ import (
 
 // LimiterConfig controls the automated connection limits.
 type LimiterConfig struct {
-	Enabled     bool
-	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
-	IPsPerCidr  int `yaml:"ips-per-subnet"`
-	Exempted    []string
+	Enabled        bool
+	CidrLenIPv4    int `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6    int `yaml:"cidr-len-ipv6"`
+	ConnsPerSubnet int `yaml:"connections-per-subnet"`
+	IPsPerSubnet   int `yaml:"ips-per-subnet"` // legacy name for ConnsPerSubnet
+	Exempted       []string
 }
 
 var (
@@ -145,7 +146,11 @@ func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	cl.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
 	// subnetLimit is explicitly NOT capped at a minimum of one.
 	// this is so that CL config can be used to allow ONLY clients from exempted IPs/nets
-	cl.subnetLimit = config.IPsPerCidr
+	cl.subnetLimit = config.ConnsPerSubnet
+	// but: check if the current key was left unset, but the legacy was set:
+	if cl.subnetLimit == 0 && config.IPsPerSubnet != 0 {
+		cl.subnetLimit = config.IPsPerSubnet
+	}
 	cl.exemptedIPs = exemptedIPs
 	cl.exemptedNets = exemptedNets
 

@@ -1594,16 +1594,14 @@ func motdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
-// NAMES [<channel>{,<channel>}]
+// NAMES [<channel>{,<channel>} [target]]
 func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var channels []string
 	if len(msg.Params) > 0 {
 		channels = strings.Split(msg.Params[0], ",")
 	}
-	//var target string
-	//if len(msg.Params) > 1 {
-	//	target = msg.Params[1]
-	//}
+
+	// TODO: in a post-federation world, process `target` (server to forward request to)
 
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
@@ -1612,21 +1610,13 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
-	// limit regular users to only listing one channel
-	if !client.flags[modes.Operator] {
-		channels = channels[:1]
-	}
-
 	for _, chname := range channels {
-		casefoldedChname, err := CasefoldChannel(chname)
-		channel := server.channels.Get(casefoldedChname)
-		if err != nil || channel == nil {
-			if len(chname) > 0 {
-				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
-			}
-			continue
+		channel := server.channels.Get(chname)
+		if channel != nil {
+			channel.Names(client, rb)
+		} else if chname != "" {
+			rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
 		}
-		channel.Names(client, rb)
 	}
 	return false
 }
