@@ -437,6 +437,7 @@ func (server *Server) tryRegister(c *Client) {
 	nickAssigned := performNickChange(server, c, c, preregNick, rb)
 	rb.Send()
 	if !nickAssigned {
+		c.SetPreregNick("")
 		return
 	}
 
