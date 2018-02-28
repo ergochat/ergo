@@ -127,6 +127,10 @@ func (it *IdleTimer) processTimeout() {
 
 // Stop stops counting idle time.
 func (it *IdleTimer) Stop() {
+	if it == nil {
+		return
+	}
+
 	it.Lock()
 	defer it.Unlock()
 	it.state = TimerDead
@@ -229,6 +233,20 @@ func (nt *NickTimer) Touch() {
 
 	if shouldWarn {
 		nt.sendWarning()
+	}
+}
+
+// Stop stops counting time and cleans up the timer
+func (nt *NickTimer) Stop() {
+	if nt == nil {
+		return
+	}
+
+	nt.Lock()
+	defer nt.Unlock()
+	if nt.timer != nil {
+		nt.timer.Stop()
+		nt.timer = nil
 	}
 }
 

@@ -354,9 +354,6 @@ func (am *AccountManager) LoadAccount(casefoldedAccount string) (result ClientAc
 	var raw rawClientAccount
 	am.server.store.View(func(tx *buntdb.Tx) error {
 		raw, err = am.loadRawAccount(tx, casefoldedAccount)
-		if err == buntdb.ErrNotFound {
-			err = errAccountDoesNotExist
-		}
 		return nil
 	})
 	if err != nil {

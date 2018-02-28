@@ -146,8 +146,7 @@ accounts:
         enabled: true
 
         # length of time a user has to verify their account before it can be re-registered
-        # default is 120 hours, or 5 days
-        verify-timeout: "120h"
+        verify-timeout: "32h"
 
         # callbacks to allow
         enabled-callbacks:

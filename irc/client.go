@@ -686,9 +686,8 @@ func (client *Client) destroy(beingResumed bool) {
 	}
 
 	// clean up self
-	if client.idletimer != nil {
-		client.idletimer.Stop()
-	}
+	client.idletimer.Stop()
+	client.nickTimer.Stop()
 
 	client.server.accounts.Logout(client)
 
