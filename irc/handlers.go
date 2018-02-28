@@ -319,6 +319,10 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	// let the SASL handler do its thing
 	exiting := handler(server, client, client.saslMechanism, data, rb)
 
+	if client.LoggedIntoAccount() && server.AccountConfig().SkipServerPassword {
+		client.SetAuthorized(true)
+	}
+
 	// wait 'til SASL is done before emptying the sasl vars
 	client.saslInProgress = false
 	client.saslMechanism = ""
@@ -491,9 +495,8 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 	case "END":
-		if !client.registered {
+		if !client.Registered() {
 			client.capState = caps.NegotiatedState
-			server.tryRegister(client)
 		}
 
 	default:
@@ -1623,12 +1626,12 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if !client.authorized {
-		client.Quit("Bad password")
-		return true
+	if client.Registered() {
+		performNickChange(server, client, client, msg.Params[0], rb)
+	} else {
+		client.SetPreregNick(msg.Params[0])
 	}
-
-	return performNickChange(server, client, client, msg.Params[0], rb)
+	return false
 }
 
 // NOTICE <target>{,<target>} <message>
@@ -1821,14 +1824,14 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // PASS <password>
 func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.registered {
+	if client.Registered() {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
 
 	// if no password exists, skip checking
 	if len(server.password) == 0 {
-		client.authorized = true
+		client.SetAuthorized(true)
 		return false
 	}
 
@@ -1840,7 +1843,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return true
 	}
 
-	client.authorized = true
+	client.SetAuthorized(true)
 	return false
 }
 
@@ -1932,7 +1935,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 // http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != nil {
+	if client.Registered() || client.proxiedIP != nil {
 		return false
 	}
 
@@ -2096,7 +2099,8 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		return false
 	}
-	return performNickChange(server, client, target, msg.Params[1], rb)
+	performNickChange(server, client, target, msg.Params[1], rb)
+	return false
 }
 
 // SCENE <target> <message>
@@ -2310,14 +2314,9 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // USER <username> * 0 <realname>
 func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.registered {
+	if client.Registered() {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
-	}
-
-	if !client.authorized {
-		client.Quit("Bad password")
-		return true
 	}
 
 	if client.username != "" && client.realname != "" {
@@ -2339,8 +2338,6 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if client.realname == "" {
 		client.realname = msg.Params[3]
 	}
-
-	server.tryRegister(client)
 
 	return false
 }
@@ -2393,7 +2390,7 @@ func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
 func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
-	if client.registered || client.proxiedIP != nil {
+	if client.Registered() || client.proxiedIP != nil {
 		return false
 	}
 

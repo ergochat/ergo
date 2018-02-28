@@ -65,6 +65,7 @@ type Client struct {
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	nickTimer          *NickTimer
 	operName           string
+	preregNick         string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	quitMessage        string
 	rawHostname        string

@@ -142,6 +142,30 @@ func (client *Client) SetAccountName(account string) (changed bool) {
 	return
 }
 
+func (client *Client) Authorized() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.authorized
+}
+
+func (client *Client) SetAuthorized(authorized bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.authorized = authorized
+}
+
+func (client *Client) PreregNick() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.preregNick
+}
+
+func (client *Client) SetPreregNick(preregNick string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.preregNick = preregNick
+}
+
 func (client *Client) HasMode(mode modes.Mode) bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
