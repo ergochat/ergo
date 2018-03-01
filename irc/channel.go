@@ -748,10 +748,15 @@ func (channel *Channel) applyModeMask(client *Client, mode modes.Mode, op modes.
 func (channel *Channel) Quit(client *Client) {
 	channel.stateMutex.Lock()
 	channel.members.Remove(client)
+	empty := len(channel.members) == 0
 	channel.stateMutex.Unlock()
 	channel.regenerateMembersCache(false)
 
 	client.removeChannel(channel)
+
+	if empty {
+		client.server.channels.Cleanup(channel)
+	}
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {

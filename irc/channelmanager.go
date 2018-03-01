@@ -76,18 +76,20 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, rb *Resp
 
 	entry.channel.Join(client, key, rb)
 
-	cm.maybeCleanup(entry, true)
+	cm.maybeCleanup(entry.channel, true)
 
 	return nil
 }
 
-func (cm *ChannelManager) maybeCleanup(entry *channelManagerEntry, afterJoin bool) {
+func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {
 	cm.Lock()
 	defer cm.Unlock()
 
-	if entry.channel == nil {
+	entry := cm.chans[channel.NameCasefolded()]
+	if entry == nil || entry.channel != channel {
 		return
 	}
+
 	if afterJoin {
 		entry.pendingJoins -= 1
 	}
@@ -121,8 +123,11 @@ func (cm *ChannelManager) Part(client *Client, name string, message string, rb *
 		return errNoSuchChannel
 	}
 	entry.channel.Part(client, message, rb)
-	cm.maybeCleanup(entry, false)
 	return nil
+}
+
+func (cm *ChannelManager) Cleanup(channel *Channel) {
+	cm.maybeCleanup(channel, false)
 }
 
 // Rename renames a channel (but does not notify the members)
