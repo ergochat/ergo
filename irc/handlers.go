@@ -352,15 +352,8 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		return false
 	}
 
-	// keep it the same as in the REG CREATE stage
-	accountKey, err := CasefoldName(accountKey)
-	if err != nil {
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Bad account name"))
-		return false
-	}
-
 	password := string(splitValue[2])
-	err = server.accounts.AuthenticateByPassphrase(client, accountKey, password)
+	err := server.accounts.AuthenticateByPassphrase(client, accountKey, password)
 	if err != nil {
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))

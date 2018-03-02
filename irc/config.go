@@ -117,10 +117,11 @@ func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error
 }
 
 type NickReservationConfig struct {
-	Enabled       bool
-	Method        NickReservationMethod
-	RenameTimeout time.Duration `yaml:"rename-timeout"`
-	RenamePrefix  string        `yaml:"rename-prefix"`
+	Enabled             bool
+	AdditionalNickLimit int `yaml:"additional-nick-limit"`
+	Method              NickReservationMethod
+	RenameTimeout       time.Duration `yaml:"rename-timeout"`
+	RenamePrefix        string        `yaml:"rename-prefix"`
 }
 
 // ChannelRegistrationConfig controls channel registration.
