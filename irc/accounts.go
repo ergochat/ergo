@@ -386,7 +386,17 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, reserve b
 	}
 
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, account)
+	unverifiedAccountKey := fmt.Sprintf(keyAccountExists, cfnick)
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		if reserve {
+			// unverified accounts don't show up in NickToAccount yet (which is intentional),
+			// however you shouldn't be able to reserve a nick out from under them
+			_, err := tx.Get(unverifiedAccountKey)
+			if err == nil {
+				return errNicknameReserved
+			}
+		}
+
 		rawNicks, err := tx.Get(nicksKey)
 		if err != nil && err != buntdb.ErrNotFound {
 			return err
@@ -414,7 +424,7 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, reserve b
 		return err
 	})
 
-	if err == errAccountTooManyNicks {
+	if err == errAccountTooManyNicks || err == errNicknameReserved {
 		return err
 	} else if err != nil {
 		return errAccountNickReservationFailed
