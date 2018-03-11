@@ -161,30 +161,40 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}
 
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
-		_, err := am.loadRawAccount(tx, casefoldedAccount)
-		if err != errAccountDoesNotExist {
+	err = func() error {
+		am.serialCacheUpdateMutex.Lock()
+		defer am.serialCacheUpdateMutex.Unlock()
+
+		// can't register an account with the same name as a registered nick
+		if am.NickToAccount(casefoldedAccount) != "" {
 			return errAccountAlreadyRegistered
 		}
 
-		if certfp != "" {
-			// make sure certfp doesn't already exist because that'd be silly
-			_, err := tx.Get(certFPKey)
-			if err != buntdb.ErrNotFound {
-				return errCertfpAlreadyExists
+		return am.server.store.Update(func(tx *buntdb.Tx) error {
+			_, err := am.loadRawAccount(tx, casefoldedAccount)
+			if err != errAccountDoesNotExist {
+				return errAccountAlreadyRegistered
 			}
-		}
 
-		tx.Set(accountKey, "1", setOptions)
-		tx.Set(accountNameKey, account, setOptions)
-		tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
-		tx.Set(credentialsKey, credStr, setOptions)
-		tx.Set(callbackKey, callbackSpec, setOptions)
-		if certfp != "" {
-			tx.Set(certFPKey, casefoldedAccount, setOptions)
-		}
-		return nil
-	})
+			if certfp != "" {
+				// make sure certfp doesn't already exist because that'd be silly
+				_, err := tx.Get(certFPKey)
+				if err != buntdb.ErrNotFound {
+					return errCertfpAlreadyExists
+				}
+			}
+
+			tx.Set(accountKey, "1", setOptions)
+			tx.Set(accountNameKey, account, setOptions)
+			tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
+			tx.Set(credentialsKey, credStr, setOptions)
+			tx.Set(callbackKey, callbackSpec, setOptions)
+			if certfp != "" {
+				tx.Set(certFPKey, casefoldedAccount, setOptions)
+			}
+			return nil
+		})
+	}()
 
 	if err != nil {
 		return err
