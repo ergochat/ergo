@@ -320,7 +320,7 @@ debug:
     # it is strongly recommended that you don't expose this on a public interface;
     # if you need to access it remotely, you can use an SSH tunnel.
     # set to `null`, "", leave blank, or omit to disable
-    pprof-listener: "localhost:6060"
+    # pprof-listener: "localhost:6060"
 
     # enabling StackImpact profiling
     stackimpact:
