@@ -316,6 +316,12 @@ debug:
     # this to false.
     recover-from-errors: true
 
+    # optionally expose a pprof http endpoint: https://golang.org/pkg/net/http/pprof/
+    # it is strongly recommended that you don't expose this on a public interface;
+    # if you need to access it remotely, you can use an SSH tunnel.
+    # set to `null`, "", leave blank, or omit to disable
+    # pprof-listener: "localhost:6060"
+
     # enabling StackImpact profiling
     stackimpact:
         # whether to use StackImpact
