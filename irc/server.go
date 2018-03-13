@@ -13,6 +13,8 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"strconv"
@@ -120,6 +122,7 @@ type Server struct {
 	recoverFromErrors          bool
 	rehashMutex                sync.Mutex // tier 4
 	rehashSignal               chan os.Signal
+	pprofServer                *http.Server
 	proxyAllowedFrom           []string
 	signals                    chan os.Signal
 	snomasks                   *SnoManager
@@ -968,6 +971,8 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		}
 	}
 
+	server.setupPprofListener(config)
+
 	// we are now open for business
 	server.setupListeners(config)
 
@@ -985,6 +990,32 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	return nil
+}
+
+func (server *Server) setupPprofListener(config *Config) {
+	pprofListener := ""
+	if config.Debug.PprofListener != nil {
+		pprofListener = *config.Debug.PprofListener
+	}
+	if server.pprofServer != nil {
+		if pprofListener == "" || (pprofListener != server.pprofServer.Addr) {
+			server.logger.Info("rehash", "Stopping pprof listener", server.pprofServer.Addr)
+			server.pprofServer.Close()
+			server.pprofServer = nil
+		}
+	}
+	if pprofListener != "" && server.pprofServer == nil {
+		ps := http.Server{
+			Addr: pprofListener,
+		}
+		go func() {
+			if err := ps.ListenAndServe(); err != nil {
+				server.logger.Error("rehash", fmt.Sprintf("pprof listener failed: %v", err))
+			}
+		}()
+		server.pprofServer = &ps
+		server.logger.Info("rehash", "Started pprof listener", server.pprofServer.Addr)
+	}
 }
 
 func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {

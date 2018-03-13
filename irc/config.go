@@ -237,7 +237,8 @@ type Config struct {
 	Logging []logger.LoggingConfig
 
 	Debug struct {
-		RecoverFromErrors *bool `yaml:"recover-from-errors"`
+		RecoverFromErrors *bool   `yaml:"recover-from-errors"`
+		PprofListener     *string `yaml:"pprof-listener"`
 		StackImpact       StackImpactConfig
 	}
 
