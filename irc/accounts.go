@@ -358,29 +358,37 @@ func unmarshalReservedNicks(nicks string) (result []string) {
 	return strings.Split(nicks, ",")
 }
 
-func (am *AccountManager) SetNickReserved(client *Client, nick string, reserve bool) error {
+func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreserve bool, reserve bool) error {
 	cfnick, err := CasefoldName(nick)
-	if err != nil {
+	// garbage nick, or garbage options, or disabled
+	nrconfig := am.server.AccountConfig().NickReservation
+	if err != nil || cfnick == "" || (reserve && saUnreserve) || !nrconfig.Enabled {
 		return errAccountNickReservationFailed
 	}
 
-	// sanity check so we don't persist bad data
-	account := client.Account()
-	if account == "" || cfnick == "" || !am.server.AccountConfig().NickReservation.Enabled {
-		return errAccountNickReservationFailed
-	}
-
-	limit := am.server.AccountConfig().NickReservation.AdditionalNickLimit
-
+	// the cache is in sync with the DB while we hold serialCacheUpdateMutex
 	am.serialCacheUpdateMutex.Lock()
 	defer am.serialCacheUpdateMutex.Unlock()
 
-	// the cache is in sync with the DB while we hold serialCacheUpdateMutex
+	// find the affected account, which is usually the client's:
+	account := client.Account()
+	if saUnreserve {
+		// unless this is a sadrop:
+		account = am.NickToAccount(cfnick)
+		if account == "" {
+			// nothing to do
+			return nil
+		}
+	}
+	if account == "" {
+		return errAccountNotLoggedIn
+	}
+
 	accountForNick := am.NickToAccount(cfnick)
 	if reserve && accountForNick != "" {
 		return errNicknameReserved
-	} else if !reserve && accountForNick != account {
-		return errAccountNickReservationFailed
+	} else if !reserve && !saUnreserve && accountForNick != account {
+		return errNicknameReserved
 	} else if !reserve && cfnick == account {
 		return errAccountCantDropPrimaryNick
 	}
@@ -405,7 +413,7 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, reserve b
 		nicks := unmarshalReservedNicks(rawNicks)
 
 		if reserve {
-			if len(nicks) >= limit {
+			if len(nicks) >= nrconfig.AdditionalNickLimit {
 				return errAccountTooManyNicks
 			}
 			nicks = append(nicks, cfnick)

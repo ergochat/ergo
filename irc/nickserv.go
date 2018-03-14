@@ -90,7 +90,10 @@ func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb 
 		server.nickservGroupHandler(client, rb)
 	} else if command == "drop" {
 		nick, _ := extractParam(params)
-		server.nickservDropHandler(client, nick, rb)
+		server.nickservDropHandler(client, nick, false, rb)
+	} else if command == "sadrop" {
+		nick, _ := extractParam(params)
+		server.nickservDropHandler(client, nick, true, rb)
 	} else {
 		rb.Notice(client.t("Command not recognised. To see the available commands, run /NS HELP"))
 	}
@@ -294,13 +297,13 @@ func (server *Server) nickservGroupHandler(client *Client, rb *ResponseBuffer) {
 	}
 
 	nick := client.NickCasefolded()
-	err := server.accounts.SetNickReserved(client, nick, true)
+	err := server.accounts.SetNickReserved(client, nick, false, true)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
 	} else if err == errAccountTooManyNicks {
 		rb.Notice(client.t("You have too many nicks reserved already (you can remove some with /NS DROP)"))
 	} else if err == errNicknameReserved {
-		rb.Notice(client.t("That nickname is already reserved"))
+		rb.Notice(client.t("That nickname is already reserved by someone else"))
 	} else {
 		rb.Notice(client.t("Error reserving nickname"))
 	}
@@ -334,20 +337,23 @@ func (server *Server) nickservInfoHandler(client *Client, nick string, rb *Respo
 	}
 }
 
-func (server *Server) nickservDropHandler(client *Client, nick string, rb *ResponseBuffer) {
-	account := client.Account()
-	if account == "" {
-		rb.Notice(client.t("You're not logged into an account"))
-		return
+func (server *Server) nickservDropHandler(client *Client, nick string, sadrop bool, rb *ResponseBuffer) {
+	if sadrop {
+		if !client.HasRoleCapabs("unregister") {
+			rb.Notice(client.t("Insufficient oper privs"))
+			return
+		}
 	}
 
-	err := server.accounts.SetNickReserved(client, nick, false)
+	err := server.accounts.SetNickReserved(client, nick, sadrop, false)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully ungrouped nick %s with your account"), nick))
+	} else if err == errAccountNotLoggedIn {
+		rb.Notice(fmt.Sprintf(client.t("You're not logged into an account")))
 	} else if err == errAccountCantDropPrimaryNick {
 		rb.Notice(fmt.Sprintf(client.t("You can't ungroup your primary nickname (try unregistering your account instead)")))
-	} else if err == errAccountNickReservationFailed {
-		rb.Notice(fmt.Sprintf(client.t("You don't own that nick")))
+	} else if err == errNicknameReserved {
+		rb.Notice(fmt.Sprintf(client.t("That nickname is already reserved by someone else")))
 	} else {
 		rb.Notice(client.t("Error ungrouping nick"))
 	}
