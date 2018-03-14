@@ -179,6 +179,7 @@ type NickTimer struct {
 	client  *Client
 
 	// mutable
+	stopped        bool
 	nick           string
 	accountForNick string
 	account        string
@@ -213,6 +214,11 @@ func (nt *NickTimer) Touch() {
 	func() {
 		nt.Lock()
 		defer nt.Unlock()
+
+		if nt.stopped {
+			return
+		}
+
 		// the timer will not reset as long as the squatter is targeting the same account
 		accountChanged := accountForNick != nt.accountForNick
 		// change state
@@ -248,6 +254,7 @@ func (nt *NickTimer) Stop() {
 		nt.timer.Stop()
 		nt.timer = nil
 	}
+	nt.stopped = true
 }
 
 func (nt *NickTimer) sendWarning() {
