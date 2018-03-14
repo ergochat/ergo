@@ -182,6 +182,9 @@ accounts:
         # is there any enforcement of reserved nicknames?
         enabled: false
 
+        # how many nicknames, in addition to the account name, can be reserved?
+        additional-nick-limit: 2
+
         # method describes how nickname reservation is handled
         #   timeout: let the user change to the registered nickname, give them X seconds
         #            to login and then rename them if they haven't done so

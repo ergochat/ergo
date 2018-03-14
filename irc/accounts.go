@@ -29,6 +29,7 @@ const (
 	keyAccountName             = "account.name %s" // stores the 'preferred name' of the account, not casemapped
 	keyAccountRegTime          = "account.registered.time %s"
 	keyAccountCredentials      = "account.credentials %s"
+	keyAccountAdditionalNicks  = "account.additionalnicks %s"
 	keyCertToAccount           = "account.creds.certfp %s"
 )
 
@@ -75,6 +76,12 @@ func (am *AccountManager) buildNickToAccountIndex() {
 			if _, err := tx.Get(fmt.Sprintf(keyAccountVerified, accountName)); err == nil {
 				result[accountName] = accountName
 			}
+			if rawNicks, err := tx.Get(fmt.Sprintf(keyAccountAdditionalNicks, accountName)); err == nil {
+				additionalNicks := unmarshalReservedNicks(rawNicks)
+				for _, nick := range additionalNicks {
+					result[nick] = accountName
+				}
+			}
 			return true
 		})
 		return err
@@ -91,7 +98,12 @@ func (am *AccountManager) buildNickToAccountIndex() {
 	return
 }
 
-func (am *AccountManager) NickToAccount(cfnick string) string {
+func (am *AccountManager) NickToAccount(nick string) string {
+	cfnick, err := CasefoldName(nick)
+	if err != nil {
+		return ""
+	}
+
 	am.RLock()
 	defer am.RUnlock()
 	return am.nickToAccount[cfnick]
@@ -149,30 +161,40 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}
 
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
-		_, err := am.loadRawAccount(tx, casefoldedAccount)
-		if err != errAccountDoesNotExist {
+	err = func() error {
+		am.serialCacheUpdateMutex.Lock()
+		defer am.serialCacheUpdateMutex.Unlock()
+
+		// can't register an account with the same name as a registered nick
+		if am.NickToAccount(casefoldedAccount) != "" {
 			return errAccountAlreadyRegistered
 		}
 
-		if certfp != "" {
-			// make sure certfp doesn't already exist because that'd be silly
-			_, err := tx.Get(certFPKey)
-			if err != buntdb.ErrNotFound {
-				return errCertfpAlreadyExists
+		return am.server.store.Update(func(tx *buntdb.Tx) error {
+			_, err := am.loadRawAccount(tx, casefoldedAccount)
+			if err != errAccountDoesNotExist {
+				return errAccountAlreadyRegistered
 			}
-		}
 
-		tx.Set(accountKey, "1", setOptions)
-		tx.Set(accountNameKey, account, setOptions)
-		tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
-		tx.Set(credentialsKey, credStr, setOptions)
-		tx.Set(callbackKey, callbackSpec, setOptions)
-		if certfp != "" {
-			tx.Set(certFPKey, casefoldedAccount, setOptions)
-		}
-		return nil
-	})
+			if certfp != "" {
+				// make sure certfp doesn't already exist because that'd be silly
+				_, err := tx.Get(certFPKey)
+				if err != buntdb.ErrNotFound {
+					return errCertfpAlreadyExists
+				}
+			}
+
+			tx.Set(accountKey, "1", setOptions)
+			tx.Set(accountNameKey, account, setOptions)
+			tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
+			tx.Set(credentialsKey, credStr, setOptions)
+			tx.Set(callbackKey, callbackSpec, setOptions)
+			if certfp != "" {
+				tx.Set(certFPKey, casefoldedAccount, setOptions)
+			}
+			return nil
+		})
+	}()
 
 	if err != nil {
 		return err
@@ -325,13 +347,110 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	return nil
 }
 
-func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
-	casefoldedAccount, err := CasefoldName(accountName)
-	if err != nil {
-		return errAccountDoesNotExist
+func marshalReservedNicks(nicks []string) string {
+	return strings.Join(nicks, ",")
+}
+
+func unmarshalReservedNicks(nicks string) (result []string) {
+	if nicks == "" {
+		return
+	}
+	return strings.Split(nicks, ",")
+}
+
+func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreserve bool, reserve bool) error {
+	cfnick, err := CasefoldName(nick)
+	// garbage nick, or garbage options, or disabled
+	nrconfig := am.server.AccountConfig().NickReservation
+	if err != nil || cfnick == "" || (reserve && saUnreserve) || !nrconfig.Enabled {
+		return errAccountNickReservationFailed
 	}
 
-	account, err := am.LoadAccount(casefoldedAccount)
+	// the cache is in sync with the DB while we hold serialCacheUpdateMutex
+	am.serialCacheUpdateMutex.Lock()
+	defer am.serialCacheUpdateMutex.Unlock()
+
+	// find the affected account, which is usually the client's:
+	account := client.Account()
+	if saUnreserve {
+		// unless this is a sadrop:
+		account = am.NickToAccount(cfnick)
+		if account == "" {
+			// nothing to do
+			return nil
+		}
+	}
+	if account == "" {
+		return errAccountNotLoggedIn
+	}
+
+	accountForNick := am.NickToAccount(cfnick)
+	if reserve && accountForNick != "" {
+		return errNicknameReserved
+	} else if !reserve && !saUnreserve && accountForNick != account {
+		return errNicknameReserved
+	} else if !reserve && cfnick == account {
+		return errAccountCantDropPrimaryNick
+	}
+
+	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, account)
+	unverifiedAccountKey := fmt.Sprintf(keyAccountExists, cfnick)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		if reserve {
+			// unverified accounts don't show up in NickToAccount yet (which is intentional),
+			// however you shouldn't be able to reserve a nick out from under them
+			_, err := tx.Get(unverifiedAccountKey)
+			if err == nil {
+				return errNicknameReserved
+			}
+		}
+
+		rawNicks, err := tx.Get(nicksKey)
+		if err != nil && err != buntdb.ErrNotFound {
+			return err
+		}
+
+		nicks := unmarshalReservedNicks(rawNicks)
+
+		if reserve {
+			if len(nicks) >= nrconfig.AdditionalNickLimit {
+				return errAccountTooManyNicks
+			}
+			nicks = append(nicks, cfnick)
+		} else {
+			var newNicks []string
+			for _, reservedNick := range nicks {
+				if reservedNick != cfnick {
+					newNicks = append(newNicks, reservedNick)
+				}
+			}
+			nicks = newNicks
+		}
+
+		marshaledNicks := marshalReservedNicks(nicks)
+		_, _, err = tx.Set(nicksKey, string(marshaledNicks), nil)
+		return err
+	})
+
+	if err == errAccountTooManyNicks || err == errNicknameReserved {
+		return err
+	} else if err != nil {
+		return errAccountNickReservationFailed
+	}
+
+	// success
+	am.Lock()
+	defer am.Unlock()
+	if reserve {
+		am.nickToAccount[cfnick] = account
+	} else {
+		delete(am.nickToAccount, cfnick)
+	}
+	return nil
+}
+
+func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
+	account, err := am.LoadAccount(accountName)
 	if err != nil {
 		return err
 	}
@@ -350,7 +469,13 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	return nil
 }
 
-func (am *AccountManager) LoadAccount(casefoldedAccount string) (result ClientAccount, err error) {
+func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount, err error) {
+	casefoldedAccount, err := CasefoldName(accountName)
+	if err != nil {
+		err = errAccountDoesNotExist
+		return
+	}
+
 	var raw rawClientAccount
 	am.server.store.View(func(tx *buntdb.Tx) error {
 		raw, err = am.loadRawAccount(tx, casefoldedAccount)
@@ -369,6 +494,7 @@ func (am *AccountManager) LoadAccount(casefoldedAccount string) (result ClientAc
 		err = errAccountDoesNotExist
 		return
 	}
+	result.AdditionalNicks = unmarshalReservedNicks(raw.AdditionalNicks)
 	result.Verified = raw.Verified
 	return
 }
@@ -380,6 +506,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
 	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
+	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 
 	_, e := tx.Get(accountKey)
 	if e == buntdb.ErrNotFound {
@@ -391,6 +518,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	result.RegisteredAt, _ = tx.Get(registeredTimeKey)
 	result.Credentials, _ = tx.Get(credentialsKey)
 	result.Callback, _ = tx.Get(callbackKey)
+	result.AdditionalNicks, _ = tx.Get(nicksKey)
 
 	if _, e = tx.Get(verifiedKey); e == nil {
 		result.Verified = true
@@ -412,51 +540,56 @@ func (am *AccountManager) Unregister(account string) error {
 	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
+	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 
 	var clients []*Client
 
-	func() {
-		var credText string
+	var credText string
+	var rawNicks string
 
-		am.serialCacheUpdateMutex.Lock()
-		defer am.serialCacheUpdateMutex.Unlock()
+	am.serialCacheUpdateMutex.Lock()
+	defer am.serialCacheUpdateMutex.Unlock()
 
-		am.server.store.Update(func(tx *buntdb.Tx) error {
-			tx.Delete(accountKey)
-			tx.Delete(accountNameKey)
-			tx.Delete(verifiedKey)
-			tx.Delete(registeredTimeKey)
-			tx.Delete(callbackKey)
-			tx.Delete(verificationCodeKey)
-			credText, err = tx.Get(credentialsKey)
-			tx.Delete(credentialsKey)
-			return nil
-		})
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Delete(accountKey)
+		tx.Delete(accountNameKey)
+		tx.Delete(verifiedKey)
+		tx.Delete(registeredTimeKey)
+		tx.Delete(callbackKey)
+		tx.Delete(verificationCodeKey)
+		rawNicks, _ = tx.Get(nicksKey)
+		tx.Delete(nicksKey)
+		credText, err = tx.Get(credentialsKey)
+		tx.Delete(credentialsKey)
+		return nil
+	})
 
-		if err == nil {
-			var creds AccountCredentials
-			if err = json.Unmarshal([]byte(credText), &creds); err == nil && creds.Certificate != "" {
-				certFPKey := fmt.Sprintf(keyCertToAccount, creds.Certificate)
-				am.server.store.Update(func(tx *buntdb.Tx) error {
-					if account, err := tx.Get(certFPKey); err == nil && account == casefoldedAccount {
-						tx.Delete(certFPKey)
-					}
-					return nil
-				})
-			}
+	if err == nil {
+		var creds AccountCredentials
+		if err = json.Unmarshal([]byte(credText), &creds); err == nil && creds.Certificate != "" {
+			certFPKey := fmt.Sprintf(keyCertToAccount, creds.Certificate)
+			am.server.store.Update(func(tx *buntdb.Tx) error {
+				if account, err := tx.Get(certFPKey); err == nil && account == casefoldedAccount {
+					tx.Delete(certFPKey)
+				}
+				return nil
+			})
 		}
+	}
 
-		am.Lock()
-		defer am.Unlock()
-		clients = am.accountToClients[casefoldedAccount]
-		delete(am.accountToClients, casefoldedAccount)
-		// TODO when registration of multiple nicks is fully implemented,
-		// save the nicks that were deleted from the store and delete them here:
-		delete(am.nickToAccount, casefoldedAccount)
-	}()
+	additionalNicks := unmarshalReservedNicks(rawNicks)
 
+	am.Lock()
+	defer am.Unlock()
+
+	clients = am.accountToClients[casefoldedAccount]
+	delete(am.accountToClients, casefoldedAccount)
+	delete(am.nickToAccount, casefoldedAccount)
+	for _, nick := range additionalNicks {
+		delete(am.nickToAccount, nick)
+	}
 	for _, client := range clients {
-		client.LogoutOfAccount()
+		am.logoutOfAccount(client)
 	}
 
 	if err != nil {
@@ -498,28 +631,24 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
 }
 
 func (am *AccountManager) Login(client *Client, account string) {
-	client.LoginToAccount(account)
-
-	casefoldedAccount, _ := CasefoldName(account)
 	am.Lock()
 	defer am.Unlock()
+
+	am.loginToAccount(client, account)
+	casefoldedAccount := client.Account()
 	am.accountToClients[casefoldedAccount] = append(am.accountToClients[casefoldedAccount], client)
 }
 
 func (am *AccountManager) Logout(client *Client) {
-	casefoldedAccount := client.Account()
-	if casefoldedAccount == "" || casefoldedAccount == "*" {
-		return
-	}
-
-	client.LogoutOfAccount()
-
 	am.Lock()
 	defer am.Unlock()
 
-	if client.LoggedIntoAccount() {
+	casefoldedAccount := client.Account()
+	if casefoldedAccount == "" {
 		return
 	}
+
+	am.logoutOfAccount(client)
 
 	clients := am.accountToClients[casefoldedAccount]
 	if len(clients) <= 1 {
@@ -559,42 +688,45 @@ type ClientAccount struct {
 	// Name of the account.
 	Name string
 	// RegisteredAt represents the time that the account was registered.
-	RegisteredAt time.Time
-	Credentials  AccountCredentials
-	Verified     bool
+	RegisteredAt    time.Time
+	Credentials     AccountCredentials
+	Verified        bool
+	AdditionalNicks []string
 }
 
 // convenience for passing around raw serialized account data
 type rawClientAccount struct {
-	Name         string
-	RegisteredAt string
-	Credentials  string
-	Callback     string
-	Verified     bool
+	Name            string
+	RegisteredAt    string
+	Credentials     string
+	Callback        string
+	Verified        bool
+	AdditionalNicks string
 }
 
-// LoginToAccount logs the client into the given account.
-func (client *Client) LoginToAccount(account string) {
+// loginToAccount logs the client into the given account.
+func (am *AccountManager) loginToAccount(client *Client, account string) {
 	changed := client.SetAccountName(account)
 	if changed {
-		client.nickTimer.Touch()
+		go client.nickTimer.Touch()
 	}
 }
 
-// LogoutOfAccount logs the client out of their current account.
-func (client *Client) LogoutOfAccount() {
+// logoutOfAccount logs the client out of their current account.
+func (am *AccountManager) logoutOfAccount(client *Client) {
 	if client.Account() == "" {
 		// already logged out
 		return
 	}
 
 	client.SetAccountName("")
-	client.nickTimer.Touch()
+	go client.nickTimer.Touch()
 
 	// dispatch account-notify
 	// TODO: doing the I/O here is kind of a kludge, let's move this somewhere else
-	for friend := range client.Friends(caps.AccountNotify) {
-		friend.Send(nil, client.nickMaskString, "ACCOUNT", "*")
-	}
+	go func() {
+		for friend := range client.Friends(caps.AccountNotify) {
+			friend.Send(nil, client.NickMaskString(), "ACCOUNT", "*")
+		}
+	}()
 }
-
