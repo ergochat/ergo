@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -18,24 +19,25 @@ import (
 
 var (
 	handshakeTimeout, _ = time.ParseDuration("5s")
+	errSendQExceeded    = errors.New("SendQ exceeded")
 )
 
 // Socket represents an IRC socket.
 type Socket struct {
+	sync.Mutex
+
 	conn   net.Conn
 	reader *bufio.Reader
 
 	MaxSendQBytes uint64
 
-	closed      bool
-	closedMutex sync.Mutex
-
-	finalData      string // what to send when we die
-	finalDataMutex sync.Mutex
-
+	// coordination system for asynchronous writes
+	buffer           []byte
 	lineToSendExists chan bool
-	linesToSend      []string
-	linesToSendMutex sync.Mutex
+
+	closed        bool
+	sendQExceeded bool
+	finalData     string // what to send when we die
 }
 
 // NewSocket returns a new Socket.
@@ -44,21 +46,24 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 		conn:             conn,
 		reader:           bufio.NewReader(conn),
 		MaxSendQBytes:    maxSendQBytes,
-		lineToSendExists: make(chan bool),
+		lineToSendExists: make(chan bool, 1),
 	}
 }
 
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
-	socket.closedMutex.Lock()
-	defer socket.closedMutex.Unlock()
-	if socket.closed {
-		return
-	}
-	socket.closed = true
+	alreadyClosed := func() bool {
+		socket.Lock()
+		defer socket.Unlock()
+		result := socket.closed
+		socket.closed = true
+		return result
+	}()
 
-	// force close loop to happen if it hasn't already
-	go socket.timedFillLineToSendExists(200 * time.Millisecond)
+	if !alreadyClosed {
+		// force close loop to happen if it hasn't already
+		socket.Write("")
+	}
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -114,124 +119,78 @@ func (socket *Socket) Read() (string, error) {
 }
 
 // Write sends the given string out of Socket.
-func (socket *Socket) Write(data string) error {
-	if socket.IsClosed() {
-		return io.EOF
+func (socket *Socket) Write(data string) (err error) {
+	socket.Lock()
+	defer socket.Unlock()
+
+	if socket.closed {
+		err = io.EOF
+	} else if uint64(len(data)+len(socket.buffer)) > socket.MaxSendQBytes {
+		socket.sendQExceeded = true
+		err = errSendQExceeded
+	} else {
+		socket.buffer = append(socket.buffer, data...)
 	}
 
-	socket.linesToSendMutex.Lock()
-	socket.linesToSend = append(socket.linesToSend, data)
-	socket.linesToSendMutex.Unlock()
-
-	go socket.timedFillLineToSendExists(15 * time.Second)
-
-	return nil
-}
-
-// timedFillLineToSendExists either sends the note or times out.
-func (socket *Socket) timedFillLineToSendExists(duration time.Duration) {
-	lineToSendTimeout := time.NewTimer(duration)
-	defer lineToSendTimeout.Stop()
-	select {
-	case socket.lineToSendExists <- true:
-		// passed data successfully
-	case <-lineToSendTimeout.C:
-		// timed out send
+	// this can generate a spurious wakeup, since we are racing against the channel read,
+	// but since we are holding the mutex, we are not racing against the other writes
+	// and therefore we cannot miss a wakeup or block
+	if len(socket.lineToSendExists) == 0 {
+		socket.lineToSendExists <- true
 	}
+
+	return
 }
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
 func (socket *Socket) SetFinalData(data string) {
-	socket.finalDataMutex.Lock()
+	socket.Lock()
+	defer socket.Unlock()
 	socket.finalData = data
-	socket.finalDataMutex.Unlock()
 }
 
 // IsClosed returns whether the socket is closed.
 func (socket *Socket) IsClosed() bool {
-	socket.closedMutex.Lock()
-	defer socket.closedMutex.Unlock()
+	socket.Lock()
+	defer socket.Unlock()
 	return socket.closed
 }
 
 // RunSocketWriter starts writing messages to the outgoing socket.
 func (socket *Socket) RunSocketWriter() {
-	for {
+	localBuffer := make([]byte, 0)
+	shouldStop := false
+	for !shouldStop {
 		// wait for new lines
 		select {
 		case <-socket.lineToSendExists:
-			socket.linesToSendMutex.Lock()
+			// retrieve the buffered data, clear the buffer
+			socket.Lock()
+			localBuffer = append(localBuffer, socket.buffer...)
+			socket.buffer = socket.buffer[:0]
+			socket.Unlock()
 
-			// check if we're closed
-			if socket.IsClosed() {
-				socket.linesToSendMutex.Unlock()
-				break
-			}
+			_, err := socket.conn.Write(localBuffer)
+			localBuffer = localBuffer[:0]
 
-			// check whether new lines actually exist or not
-			if len(socket.linesToSend) < 1 {
-				socket.linesToSendMutex.Unlock()
-				continue
-			}
-
-			// check sendq
-			var sendQBytes uint64
-			for _, line := range socket.linesToSend {
-				sendQBytes += uint64(len(line))
-				if socket.MaxSendQBytes < sendQBytes {
-					// don't unlock mutex because this break is just to escape this for loop
-					break
-				}
-			}
-			if socket.MaxSendQBytes < sendQBytes {
-				socket.SetFinalData("\r\nERROR :SendQ Exceeded\r\n")
-				socket.linesToSendMutex.Unlock()
-				break
-			}
-
-			// get all existing data
-			data := strings.Join(socket.linesToSend, "")
-			socket.linesToSend = []string{}
-
-			socket.linesToSendMutex.Unlock()
-
-			// write data
-			if 0 < len(data) {
-				_, err := socket.conn.Write([]byte(data))
-				if err != nil {
-					break
-				}
-			}
-		}
-		if socket.IsClosed() {
-			// error out or we've been closed
-			break
+			socket.Lock()
+			shouldStop = (err != nil) || socket.closed || socket.sendQExceeded
+			socket.Unlock()
 		}
 	}
-	// force closure of socket
-	socket.closedMutex.Lock()
-	if !socket.closed {
-		socket.closed = true
-	}
-	socket.closedMutex.Unlock()
 
-	// write error lines
-	socket.finalDataMutex.Lock()
-	if 0 < len(socket.finalData) {
-		socket.conn.Write([]byte(socket.finalData))
+	// mark the socket closed (if someone hasn't already), then write error lines
+	socket.Lock()
+	socket.closed = true
+	finalData := socket.finalData
+	if socket.sendQExceeded {
+		finalData = "\r\nERROR :SendQ Exceeded\r\n"
 	}
-	socket.finalDataMutex.Unlock()
+	socket.Unlock()
+	if finalData != "" {
+		socket.conn.Write([]byte(finalData))
+	}
 
 	// close the connection
 	socket.conn.Close()
-
-	// empty the lineToSendExists channel
-	for 0 < len(socket.lineToSendExists) {
-		<-socket.lineToSendExists
-	}
-}
-
-// WriteLine writes the given line out of Socket.
-func (socket *Socket) WriteLine(line string) error {
-	return socket.Write(line + "\r\n")
 }
