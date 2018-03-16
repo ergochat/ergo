@@ -121,8 +121,6 @@ func (socket *Socket) Read() (string, error) {
 // Write sends the given string out of Socket.
 func (socket *Socket) Write(data string) (err error) {
 	socket.Lock()
-	defer socket.Unlock()
-
 	if socket.closed {
 		err = io.EOF
 	} else if uint64(len(data)+len(socket.buffer)) > socket.MaxSendQBytes {
@@ -131,12 +129,13 @@ func (socket *Socket) Write(data string) (err error) {
 	} else {
 		socket.buffer = append(socket.buffer, data...)
 	}
+	socket.Unlock()
 
-	// this can generate a spurious wakeup, since we are racing against the channel read,
-	// but since we are holding the mutex, we are not racing against the other writes
-	// and therefore we cannot miss a wakeup or block
-	if len(socket.lineToSendExists) == 0 {
-		socket.lineToSendExists <- true
+	// notify the consumer that data is available
+	select {
+	case socket.lineToSendExists <- true:
+	default:
+		// a notification is already in the queue, this is fine
 	}
 
 	return
