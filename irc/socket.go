@@ -52,18 +52,11 @@ func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
 
 // Close stops a Socket from being able to send/receive any more data.
 func (socket *Socket) Close() {
-	alreadyClosed := func() bool {
-		socket.Lock()
-		defer socket.Unlock()
-		result := socket.closed
-		socket.closed = true
-		return result
-	}()
+	socket.Lock()
+	socket.closed = true
+	socket.Unlock()
 
-	if !alreadyClosed {
-		// force close loop to happen if it hasn't already
-		socket.Write("")
-	}
+	socket.wakeWriter()
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -131,14 +124,17 @@ func (socket *Socket) Write(data string) (err error) {
 	}
 	socket.Unlock()
 
-	// notify the consumer that data is available
+	socket.wakeWriter()
+	return
+}
+
+// wakeWriter wakes up the goroutine that actually performs the write, without blocking
+func (socket *Socket) wakeWriter() {
+	// nonblocking send to the channel, no-op if it's full
 	select {
 	case socket.lineToSendExists <- true:
 	default:
-		// a notification is already in the queue, this is fine
 	}
-
-	return
 }
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
