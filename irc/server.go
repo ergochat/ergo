@@ -642,7 +642,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
 	if target.LoggedIntoAccount() {
-		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, client.AccountName(), client.t("is logged in as"))
+		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, target.AccountName(), client.t("is logged in as"))
 	}
 	if target.flags[modes.Bot] {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
