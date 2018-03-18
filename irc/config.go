@@ -208,7 +208,7 @@ type Config struct {
 		ProxyAllowedFrom    []string       `yaml:"proxy-allowed-from"`
 		WebIRC              []webircConfig `yaml:"webirc"`
 		MaxSendQString      string         `yaml:"max-sendq"`
-		MaxSendQBytes       uint64
+		MaxSendQBytes       int
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
@@ -520,10 +520,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
-	config.Server.MaxSendQBytes, err = bytefmt.ToBytes(config.Server.MaxSendQString)
+	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse maximum SendQ size (make sure it only contains whole numbers): %s", err.Error())
 	}
+	config.Server.MaxSendQBytes = int(maxSendQBytes)
 
 	// get language files
 	config.Languages.Data = make(map[string]languages.LangData)

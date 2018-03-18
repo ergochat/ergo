@@ -6,7 +6,16 @@ package irc
 import (
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/modes"
+	"sync/atomic"
 )
+
+func (server *Server) MaxSendQBytes() int {
+	return int(atomic.LoadUint64(&server.maxSendQBytes))
+}
+
+func (server *Server) SetMaxSendQBytes(m int) {
+	atomic.StoreUint64(&server.maxSendQBytes, uint64(m))
+}
 
 func (server *Server) ISupport() *isupport.List {
 	server.configurableStateMutex.RLock()
