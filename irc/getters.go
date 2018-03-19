@@ -10,11 +10,11 @@ import (
 )
 
 func (server *Server) MaxSendQBytes() int {
-	return int(atomic.LoadUint64(&server.maxSendQBytes))
+	return int(atomic.LoadUint32(&server.maxSendQBytes))
 }
 
 func (server *Server) SetMaxSendQBytes(m int) {
-	atomic.StoreUint64(&server.maxSendQBytes, uint64(m))
+	atomic.StoreUint32(&server.maxSendQBytes, uint32(m))
 }
 
 func (server *Server) ISupport() *isupport.List {

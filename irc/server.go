@@ -109,7 +109,7 @@ type Server struct {
 	limits                     Limits
 	listeners                  map[string]*ListenerWrapper
 	logger                     *logger.Manager
-	maxSendQBytes              uint64
+	maxSendQBytes              uint32
 	monitorManager             *MonitorManager
 	motdLines                  []string
 	name                       string
