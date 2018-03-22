@@ -87,7 +87,6 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accountConfig              *AccountConfig
 	accounts                   *AccountManager
 	batches                    *BatchManager
 	channelRegistrationEnabled bool
@@ -95,6 +94,7 @@ type Server struct {
 	channelRegistry            *ChannelRegistry
 	checkIdent                 bool
 	clients                    *ClientManager
+	config                     *Config
 	configFilename             string
 	configurableStateMutex     sync.RWMutex // tier 1; generic protection for server state modified by rehash()
 	connectionLimiter          *connection_limits.Limiter
@@ -214,10 +214,10 @@ func (server *Server) setISupport() {
 	isupport.Add("UTF8MAPPING", casemappingName)
 
 	// account registration
-	if server.accountConfig.Registration.Enabled {
+	if server.config.Accounts.Registration.Enabled {
 		// 'none' isn't shown in the REGCALLBACKS vars
 		var enabledCallbacks []string
-		for _, name := range server.accountConfig.Registration.EnabledCallbacks {
+		for _, name := range server.config.Accounts.Registration.EnabledCallbacks {
 			if name != "*" {
 				enabledCallbacks = append(enabledCallbacks, name)
 			}
@@ -830,10 +830,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		removedCaps.Add(caps.SASL)
 	}
 
-	server.configurableStateMutex.Lock()
-	server.accountConfig = &config.Accounts
-	server.configurableStateMutex.Unlock()
-
 	nickReservationPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.NickReservation.Enabled
 	nickReservationNowEnabled := config.Accounts.NickReservation.Enabled
 	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
@@ -943,14 +939,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		}
 	}
 
-	// set RPL_ISUPPORT
-	var newISupportReplies [][]string
-	oldISupportList := server.isupport
-	server.setISupport()
-	if oldISupportList != nil {
-		newISupportReplies = oldISupportList.GetDifference(server.isupport)
-	}
-
 	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
 
 	// reload logging config
@@ -963,6 +951,11 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	sendRawOutputNotice := !initial && !server.loggingRawIO && nowLoggingRawIO
 	server.loggingRawIO = nowLoggingRawIO
 
+	// save a pointer to the new config
+	server.configurableStateMutex.Lock()
+	server.config = config
+	server.configurableStateMutex.Unlock()
+
 	server.storeFilename = config.Datastore.Path
 	server.logger.Info("rehash", "Using datastore", server.storeFilename)
 	if initial {
@@ -972,6 +965,14 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	server.setupPprofListener(config)
+
+	// set RPL_ISUPPORT
+	var newISupportReplies [][]string
+	oldISupportList := server.ISupport()
+	server.setISupport()
+	if oldISupportList != nil {
+		newISupportReplies = oldISupportList.GetDifference(server.ISupport())
+	}
 
 	// we are now open for business
 	server.setupListeners(config)

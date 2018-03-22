@@ -1757,7 +1757,6 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return true
 	}
 
-	client.flags[modes.Operator] = true
 	client.operName = name
 	client.class = oper.Class
 	client.whoisLine = oper.WhoisLine
@@ -1795,6 +1794,11 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	rb.Add(nil, server.name, "MODE", client.nick, applied.String())
 
 	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
+
+	// client may now be unthrottled by the fakelag system
+	client.resetFakelag()
+
+	client.flags[modes.Operator] = true
 	return false
 }
 
