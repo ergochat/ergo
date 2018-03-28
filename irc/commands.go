@@ -40,11 +40,13 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		return false
 	}
 
+	if client.registered {
+		client.fakelag.Touch()
+	}
+
 	rb := NewResponseBuffer(client)
 	rb.Label = GetLabel(msg)
-
 	exiting := cmd.handler(server, client, msg, rb)
-
 	rb.Send()
 
 	// after each command, see if we can send registration to the client

@@ -222,6 +222,7 @@ oper-classes:
             - "oper:local_kill"
             - "oper:local_ban"
             - "oper:local_unban"
+            - "nofakelag"
 
     # network operator
     "network-oper":
@@ -387,3 +388,22 @@ limits:
 
         # rest of the message
         rest: 2048
+
+# fakelag: prevents clients from spamming commands too rapidly
+fakelag:
+    # whether to enforce fakelag
+    enabled: false
+
+    # time unit for counting command rates
+    window: 1s
+
+    # clients can send this many commands without fakelag being imposed
+    burst-limit: 5
+
+    # once clients have exceeded their burst allowance, they can send only
+    # this many commands per `window`:
+    messages-per-window: 2
+
+    # client status resets to the default state if they go this long without
+    # sending any commands:
+    cooldown: 1s

@@ -59,7 +59,19 @@ func (server *Server) ChannelRegistrationEnabled() bool {
 func (server *Server) AccountConfig() *AccountConfig {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
-	return server.accountConfig
+	if server.config == nil {
+		return nil
+	}
+	return &server.config.Accounts
+}
+
+func (server *Server) FakelagConfig() *FakelagConfig {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	if server.config == nil {
+		return nil
+	}
+	return &server.config.Fakelag
 }
 
 func (client *Client) Nick() string {

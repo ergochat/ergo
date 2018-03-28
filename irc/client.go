@@ -49,6 +49,7 @@ type Client struct {
 	class              *OperClass
 	ctime              time.Time
 	exitedSnomaskSent  bool
+	fakelag            *Fakelag
 	flags              map[modes.Mode]bool
 	hasQuit            bool
 	hops               int
@@ -145,6 +146,26 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	return client
 }
 
+func (client *Client) resetFakelag() {
+	fakelag := func() *Fakelag {
+		if client.HasRoleCapabs("nofakelag") {
+			return nil
+		}
+
+		flc := client.server.FakelagConfig()
+
+		if !flc.Enabled {
+			return nil
+		}
+
+		return NewFakelag(flc.Window, flc.BurstLimit, flc.MessagesPerWindow, flc.Cooldown)
+	}()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.fakelag = fakelag
+}
+
 // IP returns the IP address of this client.
 func (client *Client) IP() net.IP {
 	if client.proxiedIP != nil {
@@ -220,6 +241,8 @@ func (client *Client) run() {
 	client.idletimer.Start()
 
 	client.nickTimer = NewNickTimer(client)
+
+	client.resetFakelag()
 
 	// Set the hostname for this client
 	// (may be overridden by a later PROXY command from stunnel)

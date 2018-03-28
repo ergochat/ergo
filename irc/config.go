@@ -189,6 +189,14 @@ type StackImpactConfig struct {
 	AppName  string `yaml:"app-name"`
 }
 
+type FakelagConfig struct {
+	Enabled           bool
+	Window            time.Duration
+	BurstLimit        uint `yaml:"burst-limit"`
+	MessagesPerWindow uint `yaml:"messages-per-window"`
+	Cooldown          time.Duration
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -254,6 +262,8 @@ type Config struct {
 		WhowasEntries  uint          `yaml:"whowas-entries"`
 		LineLen        LineLenConfig `yaml:"linelen"`
 	}
+
+	Fakelag FakelagConfig
 
 	Filename string
 }
