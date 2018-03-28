@@ -194,6 +194,7 @@ type FakelagConfig struct {
 	Window            time.Duration
 	BurstLimit        uint `yaml:"burst-limit"`
 	MessagesPerWindow uint `yaml:"messages-per-window"`
+	Cooldown          time.Duration
 }
 
 // Config defines the overall configuration.

@@ -158,7 +158,7 @@ func (client *Client) resetFakelag() {
 			return nil
 		}
 
-		return NewFakelag(flc.Window, flc.BurstLimit, flc.MessagesPerWindow)
+		return NewFakelag(flc.Window, flc.BurstLimit, flc.MessagesPerWindow, flc.Cooldown)
 	}()
 
 	client.stateMutex.Lock()

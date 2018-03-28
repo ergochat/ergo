@@ -27,6 +27,7 @@ type Fakelag struct {
 	window                    time.Duration
 	burstLimit                uint
 	throttleMessagesPerWindow uint
+	cooldown                  time.Duration
 	nowFunc                   func() time.Time
 	sleepFunc                 func(time.Duration)
 
@@ -35,11 +36,12 @@ type Fakelag struct {
 	lastTouch  time.Time
 }
 
-func NewFakelag(window time.Duration, burstLimit uint, throttleMessagesPerWindow uint) *Fakelag {
+func NewFakelag(window time.Duration, burstLimit uint, throttleMessagesPerWindow uint, cooldown time.Duration) *Fakelag {
 	return &Fakelag{
 		window:                    window,
 		burstLimit:                burstLimit,
 		throttleMessagesPerWindow: throttleMessagesPerWindow,
+		cooldown:                  cooldown,
 		nowFunc:                   time.Now,
 		sleepFunc:                 time.Sleep,
 		state:                     FakelagBursting,
@@ -59,8 +61,7 @@ func (fl *Fakelag) Touch() {
 
 	if fl.state == FakelagBursting {
 		// determine if the previous burst is over
-		// (we could use 2*window instead)
-		if elapsed > fl.window {
+		if elapsed > fl.cooldown {
 			fl.burstCount = 0
 		}
 
@@ -77,8 +78,8 @@ func (fl *Fakelag) Touch() {
 	}
 
 	if fl.state == FakelagThrottled {
-		if elapsed > fl.window {
-			// let them burst again (as above, we could use 2*window instead)
+		if elapsed > fl.cooldown {
+			// let them burst again
 			fl.state = FakelagBursting
 			return
 		}

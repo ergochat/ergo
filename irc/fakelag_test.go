@@ -39,8 +39,8 @@ func (mt *mockTime) lastSleep() (slept bool, duration time.Duration) {
 	return
 }
 
-func newFakelagForTesting(window time.Duration, burstLimit uint, throttleMessagesPerWindow uint) (*Fakelag, *mockTime) {
-	fl := NewFakelag(window, burstLimit, throttleMessagesPerWindow)
+func newFakelagForTesting(window time.Duration, burstLimit uint, throttleMessagesPerWindow uint, cooldown time.Duration) (*Fakelag, *mockTime) {
+	fl := NewFakelag(window, burstLimit, throttleMessagesPerWindow, cooldown)
 	mt := new(mockTime)
 	mt.now, _ = time.Parse("Mon Jan 2 15:04:05 -0700 MST 2006", "Mon Jan 2 15:04:05 -0700 MST 2006")
 	mt.lastCheckedSleep = -1
@@ -51,7 +51,7 @@ func newFakelagForTesting(window time.Duration, burstLimit uint, throttleMessage
 
 func TestFakelag(t *testing.T) {
 	window, _ := time.ParseDuration("1s")
-	fl, mt := newFakelagForTesting(window, 3, 2)
+	fl, mt := newFakelagForTesting(window, 3, 2, window)
 
 	fl.Touch()
 	slept, _ := mt.lastSleep()
