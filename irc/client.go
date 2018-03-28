@@ -87,7 +87,9 @@ type Client struct {
 // NewClient returns a client with all the appropriate info setup.
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
-	socket := NewSocket(conn, server.MaxSendQBytes)
+	limits := server.Limits()
+	fullLineLenLimit := limits.LineLen.Tags + limits.LineLen.Rest
+	socket := NewSocket(conn, fullLineLenLimit*2, server.MaxSendQBytes())
 	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
@@ -253,7 +255,11 @@ func (client *Client) run() {
 
 		line, err = client.socket.Read()
 		if err != nil {
-			client.Quit("connection closed")
+			quitMessage := "connection closed"
+			if err == errReadQ {
+				quitMessage = "readQ exceeded"
+			}
+			client.Quit(quitMessage)
 			break
 		}
 

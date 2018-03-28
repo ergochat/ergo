@@ -109,7 +109,7 @@ type Server struct {
 	limits                     Limits
 	listeners                  map[string]*ListenerWrapper
 	logger                     *logger.Manager
-	MaxSendQBytes              uint64
+	maxSendQBytes              uint32
 	monitorManager             *MonitorManager
 	motdLines                  []string
 	name                       string
@@ -928,16 +928,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.configurableStateMutex.Unlock()
 
 	// set new sendqueue size
-	if config.Server.MaxSendQBytes != server.MaxSendQBytes {
-		server.configurableStateMutex.Lock()
-		server.MaxSendQBytes = config.Server.MaxSendQBytes
-		server.configurableStateMutex.Unlock()
-
-		// update on all clients
-		for _, sClient := range server.clients.AllClients() {
-			sClient.socket.MaxSendQBytes = config.Server.MaxSendQBytes
-		}
-	}
+	server.SetMaxSendQBytes(config.Server.MaxSendQBytes)
 
 	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
 
