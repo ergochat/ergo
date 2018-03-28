@@ -25,7 +25,12 @@ type Socket struct {
 	conn   net.Conn
 	reader *bufio.Reader
 
+	MaxReadQBytes int
 	MaxSendQBytes uint64
+
+	// this is only touched by the Read function, which is called in a single-
+	// threaded manner, so no mutex needed
+	readBuffer []byte
 
 	closed      bool
 	closedMutex sync.Mutex
@@ -39,10 +44,11 @@ type Socket struct {
 }
 
 // NewSocket returns a new Socket.
-func NewSocket(conn net.Conn, maxSendQBytes uint64) Socket {
+func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes uint64) Socket {
 	return Socket{
 		conn:             conn,
 		reader:           bufio.NewReader(conn),
+		MaxReadQBytes:    maxReadQBytes,
 		MaxSendQBytes:    maxSendQBytes,
 		lineToSendExists: make(chan bool),
 	}
@@ -94,15 +100,40 @@ func (socket *Socket) Read() (string, error) {
 		return "", io.EOF
 	}
 
-	lineBytes, err := socket.reader.ReadBytes('\n')
+	var err error
+
+	for {
+		var newByte byte
+		newByte, err = socket.reader.ReadByte()
+		socket.readBuffer = append(socket.readBuffer, newByte)
+
+		// read last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
+		if err == io.EOF {
+			socket.Close()
+			break
+		} else if err != nil {
+			// just fail out, can't handle random other errors
+			socket.Close()
+			break
+		}
+
+		// we've got a new line!
+		if newByte == '\n' {
+			break
+		}
+
+		// max line len is too large, fail out, just fail out
+		if socket.MaxReadQBytes < len(socket.readBuffer) {
+			socket.SetFinalData("\r\nERROR :ReadQ Exceeded\r\n")
+			socket.Close()
+			err = errReadQ
+			break
+		}
+	}
 
 	// convert bytes to string
-	line := string(lineBytes[:])
-
-	// read last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
-	if err == io.EOF {
-		socket.Close()
-	}
+	line := string(socket.readBuffer[:])
+	socket.readBuffer = []byte{}
 
 	if err == io.EOF && strings.TrimSpace(line) != "" {
 		// don't do anything
@@ -143,7 +174,9 @@ func (socket *Socket) timedFillLineToSendExists(duration time.Duration) {
 // SetFinalData sets the final data to send when the SocketWriter closes.
 func (socket *Socket) SetFinalData(data string) {
 	socket.finalDataMutex.Lock()
-	socket.finalData = data
+	if socket.finalData == "" {
+		socket.finalData = data
+	}
 	socket.finalDataMutex.Unlock()
 }
 

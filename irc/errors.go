@@ -40,6 +40,7 @@ var (
 var (
 	errNoPeerCerts = errors.New("Client did not provide a certificate")
 	errNotTLS      = errors.New("Not a TLS connection")
+	errReadQ       = errors.New("ReadQ Exceeded")
 )
 
 // String Errors
