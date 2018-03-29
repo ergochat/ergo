@@ -47,7 +47,7 @@ oragono initdb
 oragono mkcerts
 ```
 
-**Note:** This installation will give you unsigned certificates suitable for testing purposes.
+**Note:** This installation will give you self-signed certificates suitable for testing purposes.
 For real certs, look into [Let's Encrypt](https://letsencrypt.org/)!
 
 ### Platform Packages
