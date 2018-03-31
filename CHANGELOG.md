@@ -27,6 +27,8 @@ New release of Oragono!
 * Added listening support for unix sockets.
 * Added new Brazilian Portuguese translation (thanks to [Alexandre Oliveira](https://github.com/RockyTV)!)).
 * Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
+* Added new subcommands to `CHANSERV`, including:
+    * `OP` to op yourself or the given user (can only be run by channel founders).
 * Added new subcommands to `NICKSERV`, including:
     * `DROP` to de-associate a nickname from your current account.
     * `GHOST` to remove the given client (if they're logged in with your user account).
@@ -34,6 +36,7 @@ New release of Oragono!
     * `IDENTIFY` to login to an account.
     * `INFO` to see information about the given (or your own) account.
     * `REGISTER` to register an account.
+    * `UNREGISTER` to delete your account.
 * Added new Turkish translation (thanks to [Yaser](https://crowdin.com/profile/Apsimati)!).
 * Added proposed IRCv3 capabilities [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6) and [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
 * Added the ability to associate multiple nicknames with your account, and enforce nickname ownership.
