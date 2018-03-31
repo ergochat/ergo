@@ -72,8 +72,8 @@ func (server *Server) chanservOpHandler(client *Client, channelName, clientToOp 
 	}
 
 	channelInfo := server.channels.Get(channelKey)
-	if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, modes.ChannelOperator) {
-		rb.ChanServNotice(client.t("You must be an oper on the channel to op on it"))
+	if channelInfo == nil {
+		rb.ChanServNotice(client.t("Channel does not exist"))
 		return
 	}
 
