@@ -19,4 +19,17 @@ For example, here are a few formatted lines (enable motd-formatting to see these
 - this is $c[red,light blue]red text with a light blue background$c.
 - this is a normal escaped dollarsign: $$
 
+And now a few fun colour charts!
+
+$c1,0 00 $c0,1 01 $c0,2 02 $c0,3 03 $c1,4 04 $c0,5 05 $c0,6 06 $c1,7 07 
+$c1,8 08 $c1,9 09 $c0,10 10 $c1,11 11 $c0,12 12 $c1,13 13 $c1,14 14 $c1,15 15 
+
+$c0,16 16 $c0,17 17 $c0,18 18 $c0,19 19 $c0,20 20 $c0,21 21 $c0,22 22 $c0,23 23 $c0,24 24 $c0,25 25 $c0,26 26 $c0,27 27 
+$c0,28 28 $c0,29 29 $c0,30 30 $c0,31 31 $c0,32 32 $c0,33 33 $c0,34 34 $c0,35 35 $c0,36 36 $c0,37 37 $c0,38 38 $c0,39 39 
+$c0,40 40 $c0,41 41 $c0,42 42 $c0,43 43 $c0,44 44 $c0,45 45 $c0,46 46 $c0,47 47 $c0,48 48 $c0,49 49 $c0,50 50 $c0,51 51 
+$c0,52 52 $c0,53 53 $c1,54 54 $c1,55 55 $c1,56 56 $c1,57 57 $c1,58 58 $c0,59 59 $c0,60 60 $c0,61 61 $c0,62 62 $c0,63 63 
+$c0,64 64 $c1,65 65 $c1,66 66 $c1,67 67 $c1,68 68 $c1,69 69 $c1,70 70 $c1,71 71 $c0,72 72 $c0,73 73 $c0,74 74 $c0,75 75 
+$c1,76 76 $c1,77 77 $c1,78 78 $c1,79 79 $c1,80 80 $c1,81 81 $c1,82 82 $c1,83 83 $c1,84 84 $c1,85 85 $c1,86 86 $c1,87 87 
+$c0,88 88 $c0,89 89 $c0,90 90 $c0,91 91 $c0,92 92 $c0,93 93 $c0,94 94 $c0,95 95 $c1,96 96 $c1,97 97 $c1,98 98 $c99,99 99 
+
 For more information on using these, see MOTDFORMATTING.md
