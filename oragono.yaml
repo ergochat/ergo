@@ -406,4 +406,4 @@ fakelag:
 
     # client status resets to the default state if they go this long without
     # sending any commands:
-    cooldown: 1s
+    cooldown: 2s
