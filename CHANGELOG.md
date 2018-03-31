@@ -8,17 +8,36 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* `callbacks` section added under `accounts/registration`, configuring our new email verification (disabled by default).
+* `fakelag` section added, configuring our new fakelag implementation.
+* `ips-per-subnet` key renamed to `connections-per-subnet`.
+* `nick-reservation` section added under `accounts`, configuring our new nickname ownership abilities.
+* `nofakelag` and `unregister` oper classes added.
+* `pprof-listener` key added under `debug` (disabled by default).
+* `skip-server-password` key added under `accounts`, to better support certain clients.
+* `verify-timeout` default value changed from 120 hours to 32 hours under `accounts/registration`.
 
 ### Security
 
 ### Added
+* Added a debug pprof endpoint, which is disabled by default and can be exposed in the config.
 * Added a manual to our documentation! This is primarily where we'll be adding user-facing information and instructions from now on.
+* Added fakelag, so that the server can slow down clients hitting it too aggressively. Disabled by default while we work out the kinks and the specific settings (thanks @slingamn!).
 * Added IRCv3 capability [`batch`](https://ircv3.net/specs/extensions/batch-3.2.html) and draft capability [`draft/labeled-response`](https://ircv3.net/specs/extensions/labeled-response.html).
 * Added listening support for unix sockets.
 * Added new Brazilian Portuguese translation (thanks to [Alexandre Oliveira](https://github.com/RockyTV)!)).
 * Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
+* Added new subcommands to `NICKSERV`, including:
+    * `DROP` to de-associate a nickname from your current account.
+    * `GHOST` to remove the given client (if they're logged in with your user account).
+    * `GROUP` to associate a nickname with your current account.
+    * `IDENTIFY` to login to an account.
+    * `INFO` to see information about the given (or your own) account.
+    * `REGISTER` to register an account.
 * Added new Turkish translation (thanks to [Yaser](https://crowdin.com/profile/Apsimati)!).
 * Added proposed IRCv3 capabilities [`draft/languages`](https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6) and [`draft/resume`](https://github.com/ircv3/ircv3-specifications/pull/306).
+* Added the ability to associate multiple nicknames with your account, and enforce nickname ownership.
+* Added the ability to force email verification when users register accounts.
 * Added user modes, including:
     * `B`: Mark yourself as a bot, and display that you're a bot in WHOIS.
 
@@ -29,6 +48,7 @@ New release of Oragono!
 
 ### Fixed
 * We now correctly suspend registration when receiving a `CAP REQ`, as per [the spec](https://ircv3.net/specs/core/capability-negotiation-3.1.html).
+* We now properly cut off clients who try to send us too much data at once.
 
 
 ## [0.10.3] - 2017-12-26
