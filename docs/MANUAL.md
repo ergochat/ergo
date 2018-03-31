@@ -308,11 +308,11 @@ If this mode is set, only users that have logged into an account will be able to
 
 To set this mode:
 
-    /MODE #test +r
+    /MODE #test +R
 
 To unset this mode:
 
-    /MODE #test -r
+    /MODE #test -R
 
 ### +s - Secret
 
