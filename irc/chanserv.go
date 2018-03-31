@@ -46,9 +46,80 @@ func (server *Server) chanservPrivmsgHandler(client *Client, message string, rb 
 		}
 
 		server.chanservRegisterHandler(client, params[1], rb)
+	} else if command == "op" {
+		if len(params) < 2 {
+			rb.ChanServNotice(client.t("Syntax: OP <channel> [<nick>]"))
+			return
+		}
+
+		var clientToOp string
+		if 2 < len(params) {
+			clientToOp = params[2]
+		}
+
+		server.chanservOpHandler(client, params[1], clientToOp, rb)
 	} else {
 		rb.ChanServNotice(client.t("Sorry, I don't know that command"))
 	}
+}
+
+// chanservOpHandler handles the ChanServ OP subcommand.
+func (server *Server) chanservOpHandler(client *Client, channelName, clientToOp string, rb *ResponseBuffer) {
+	channelKey, err := CasefoldChannel(channelName)
+	if err != nil {
+		rb.ChanServNotice(client.t("Channel name is not valid"))
+		return
+	}
+
+	channelInfo := server.channels.Get(channelKey)
+	if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, modes.ChannelOperator) {
+		rb.ChanServNotice(client.t("You must be an oper on the channel to op on it"))
+		return
+	}
+
+	clientAccount := client.Account()
+
+	if clientAccount == "" {
+		rb.ChanServNotice(client.t("You must be logged in to op on a channel"))
+		return
+	}
+
+	if clientAccount != channelInfo.Founder() {
+		rb.ChanServNotice(client.t("You must be the channel founder to op"))
+		return
+	}
+
+	var target *Client
+	if clientToOp != "" {
+		casefoldedNickname, err := CasefoldName(clientToOp)
+		target = server.clients.Get(casefoldedNickname)
+		if err != nil || target == nil {
+			rb.ChanServNotice(client.t("Could not find given client"))
+			return
+		}
+	} else {
+		target = client
+	}
+
+	// give them privs
+	givenMode := modes.ChannelOperator
+	if client == target {
+		givenMode = modes.ChannelFounder
+	}
+	change := channelInfo.applyModeMemberNoMutex(target, givenMode, modes.Add, client.NickCasefolded(), rb)
+	if change != nil {
+		//TODO(dan): we should change the name of String and make it return a slice here
+		//TODO(dan): unify this code with code in modes.go
+		args := append([]string{channelName}, strings.Split(change.String(), " ")...)
+		for _, member := range channelInfo.Members() {
+			member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
+		}
+	}
+
+	rb.ChanServNotice(fmt.Sprintf(client.t("Successfully op'd in channel %s"), channelName))
+
+	server.logger.Info("chanserv", fmt.Sprintf("Client %s op'd [%s] in channel %s", client.nick, clientToOp, channelName))
+	server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] CS OP'd $c[grey][$r%s$c[grey]] in channel $c[grey][$r%s$c[grey]]"), client.nickMaskString, clientToOp, channelName))
 }
 
 // chanservRegisterHandler handles the ChanServ REGISTER subcommand.
