@@ -15,16 +15,19 @@ var (
 	ErrEmptyPassword = errors.New("empty password")
 )
 
-// GenerateEncodedPassword returns an encrypted password, encoded into a string with base64.
-func GenerateEncodedPassword(passwd string) (encoded string, err error) {
+// GenerateEncodedPasswordBytes returns an encrypted password, returning the bytes directly.
+func GenerateEncodedPasswordBytes(passwd string) (encoded []byte, err error) {
 	if passwd == "" {
 		err = ErrEmptyPassword
 		return
 	}
-	bcrypted, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.MinCost)
-	if err != nil {
-		return
-	}
+	encoded, err = bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.MinCost)
+	return
+}
+
+// GenerateEncodedPassword returns an encrypted password, encoded into a string with base64.
+func GenerateEncodedPassword(passwd string) (encoded string, err error) {
+	bcrypted, err := GenerateEncodedPasswordBytes(passwd)
 	encoded = base64.StdEncoding.EncodeToString(bcrypted)
 	return
 }
