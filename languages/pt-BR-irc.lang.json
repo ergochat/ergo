@@ -137,7 +137,7 @@
   "You're not a channel operator": "Você não é um operador de canal",
   "You're not on that channel": "Você não está no canal especificado",
   "Your host is %[1]s, running version %[2]s": "O seu host é %[1]s, rodando a versão %[2]s",
-  "are supported by this server": "",
+  "are supported by this server": "são recursos suportados por este servidor",
   "can speak these languages": "",
   "has client certificate fingerprint %s": "",
   "is a $bBot$b on %s": "é um $bBot$b em %s",
