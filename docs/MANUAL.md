@@ -28,6 +28,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
     - User Modes
     - Channel Modes
     - Channel Prefixes
+- Commands
 - Acknowledgements
 
 
@@ -89,7 +90,7 @@ To start the server, type `oragono.exe run` and hit enter, and the server should
 
 To get started with Oragono on macOS, Linux, or on a Raspberry Pi:
 
-1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) downloaded.
+1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) for your OS/distro downloaded.
 2. Extract the tar.gz file to a folder.
 3. Copy and rename `oragono.yaml` to `ircd.yaml`.
 4. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
@@ -366,6 +367,24 @@ Halfops can do some of what channel operators can do, and can't do other things.
 This prefix means that the given user is 'voiced' on the channel. For example, if `+faust` is on a channel, then **faust** is voiced on that channel.
 
 Voiced users can speak when the channel has `+m - Moderated` mode enabled. They get no other special privs or any moderation abilities.
+
+
+--------------------------------------------------------------------------------------------
+
+
+# Commands
+
+The best place to look for command help is on a running copy or Oragono itself!
+
+To see the integrated command help, simply spin up a copy of Oragono and then run this command:
+
+    /HELPOP <command>
+
+If that doesn't work, you may need to run this instead:
+
+    /QUOTE HELP <command>
+
+We may add some additional notes here for specific commands down the line, but right now the in-server docs are the best ones to consult.
 
 
 --------------------------------------------------------------------------------------------
