@@ -75,3 +75,22 @@ if __name__ == '__main__':
 
         print("help strings:")
         print(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+
+        # nickserv help entries
+        help_strings = []
+
+        for subdir, dirs, files in os.walk(arguments['<irc-dir>']):
+            for fname in files:
+                filepath = subdir + os.sep + fname
+                if fname == 'nickserv.go':
+                    content = open(filepath, 'r').read()
+
+                    matches = re.findall(r'\`([^\`]+)\`', content)
+                    for match in matches:
+                        if '\n' in match and match not in help_strings:
+                            help_strings.append(match)
+
+        print()
+
+        print("nickserv help strings:")
+        print(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
