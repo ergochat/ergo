@@ -5,51 +5,124 @@ package irc
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+
+	"github.com/goshuirc/irc-go/ircfmt"
+
+	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // TODO: "email" is an oversimplification here; it's actually any callback, e.g.,
 // person@example.com, mailto:person@example.com, tel:16505551234.
-const nickservHelp = `NickServ lets you register and log into a user account.
+const nickservHelp = `NickServ lets you register and login to an account.
 
-To register an account:
-	/NS REGISTER username email [password]
-Leave out [password] if you're registering using your client certificate fingerprint.
-The server may or may not allow you to register anonymously (by sending * as your
-email address).
+To see in-depth help for a specific NickServ command, try:
+    $b/NS HELP <command>$b
 
-To verify an account (if you were sent a verification code):
-	/NS VERIFY username code
+Here are the commands you can use:
+%s`
 
-To unregister an account:
-	/NS UNREGISTER [username]
-Leave out [username] if you're unregistering the user you're currently logged in as.
+type nsCommand struct {
+	capabs          []string // oper capabs the given user has to have to access this command
+	handler         func(server *Server, client *Client, command, params string, rb *ResponseBuffer)
+	help            string
+	helpShort       string
+	nickReservation bool // nick reservation must be enabled to use this command
+	oper            bool // true if the user has to be an oper to use this command
+}
 
-To login to an account:
-	/NS IDENTIFY [username password]
-Leave out [username password] to use your client certificate fingerprint. Otherwise,
-the given username and password will be used.
+var (
+	nickservCommands = map[string]*nsCommand{
+		"drop": {
+			handler: nsDropHandler,
+			help: `Syntax: $bDROP [nickname]$b
 
-To see account information:
-	/NS INFO [username]
-Leave out [username] to see your own account information.
+DROP de-links the given (or your current) nickname from your user account.`,
+			helpShort:       `$bDROP$b de-links your current (or the given) nickname from your user account.`,
+			nickReservation: true,
+		},
+		"ghost": {
+			handler: nsGhostHandler,
+			help: `Syntax: $bGHOST <nickname>$b
 
-To associate your current nick with the account you're logged into:
-	/NS GROUP
+GHOST disconnects the given user from the network if they're logged in with the
+same user account, letting you reclaim your nickname.`,
+			helpShort: `$bGHOST$b reclaims your nickname.`,
+		},
+		"group": {
+			handler: nsGroupHandler,
+			help: `Syntax: $bGROUP$b
 
-To disassociate a nick with the account you're logged into:
-	/NS DROP [nickname]
-Leave out [nickname] to drop your association with your current nickname.`
+GROUP links your current nickname with your logged-in account, preventing other
+users from changing to it (or forcing them to rename).`,
+			helpShort:       `$bGROUP$b links your current nickname to your user account.`,
+			nickReservation: true,
+		},
+		"help": {
+			help: `Syntax: $bHELP [command]$b
 
-// extractParam extracts a parameter from the given string, returning the param and the rest of the string.
-func extractParam(line string) (string, string) {
-	rawParams := strings.SplitN(strings.TrimSpace(line), " ", 2)
-	param0 := rawParams[0]
-	var param1 string
-	if 1 < len(rawParams) {
-		param1 = strings.TrimSpace(rawParams[1])
+HELP returns information on the given command.`,
+			helpShort: `$bHELP$b shows in-depth information about commands.`,
+		},
+		"identify": {
+			handler: nsIdentifyHandler,
+			help: `Syntax: $bIDENTIFY <username> [password]$b
+
+IDENTIFY lets you login to the given username using either password auth, or
+certfp (your client certificate) if a password is not given.`,
+			helpShort: `$bIDENTIFY$b lets you login to your account.`,
+		},
+		"info": {
+			handler: nsInfoHandler,
+			help: `Syntax: $bINFO [username]$b
+
+INFO gives you information about the given (or your own) user account.`,
+			helpShort: `$bINFO$b gives you information on a user account.`,
+		},
+		"register": {
+			handler: nsRegisterHandler,
+			help: `Syntax: $bREGISTER <username> <email> [password]$b
+
+REGISTER lets you register a user account. If the server allows anonymous
+registration, you can send an asterisk (*) as the email address.
+
+If the password is left out, your account will be registered to your TLS client
+certificate (and you will need to use that certificate to login in future).`,
+			helpShort: `$bREGISTER$b lets you register a user account.`,
+		},
+		"sadrop": {
+			handler: nsDropHandler,
+			help: `Syntax: $bSADROP <nickname>$b
+
+SADROP foribly de-links the given nickname from the attached user account.`,
+			helpShort:       `$bSADROP$b forcibly de-links the given nickname from its user account.`,
+			nickReservation: true,
+			capabs:          []string{"unregister"},
+		},
+		"unregister": {
+			handler: nsUnregisterHandler,
+			help: `Syntax: $bUNREGISTER [username]$b
+
+UNREGISTER lets you delete your user account (or the given one, if you're an
+IRC operator with the correct permissions).`,
+			helpShort: `$bUNREGISTER$b lets you delete your user account.`,
+		},
+		"verify": {
+			handler: nsVerifyHandler,
+			help: `Syntax: $bVERIFY <username> <code>$b
+
+VERIFY lets you complete an account registration, if the server requires email
+or other verification.`,
+			helpShort: `$bVERIFY$b lets you complete account registration.`,
+		},
 	}
-	return param0, param1
+)
+
+// send a notice from the NickServ "nick"
+func nsNotice(rb *ResponseBuffer, text string) {
+	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
 }
 
 // nickservNoticeHandler handles NOTICEs that NickServ receives.
@@ -57,109 +130,217 @@ func (server *Server) nickservNoticeHandler(client *Client, message string, rb *
 	// do nothing
 }
 
-// send a notice from the NickServ "nick"
-func nsNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
-}
-
 // nickservPrivmsgHandler handles PRIVMSGs that NickServ receives.
 func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb *ResponseBuffer) {
-	command, params := extractParam(message)
-	command = strings.ToLower(command)
+	commandName, params := utils.ExtractParam(message)
+	commandName = strings.ToLower(commandName)
 
-	if command == "help" {
-		for _, line := range strings.Split(nickservHelp, "\n") {
-			nsNotice(rb, line)
-		}
-	} else if command == "register" {
-		// get params
-		username, afterUsername := extractParam(params)
-		email, passphrase := extractParam(afterUsername)
-		server.nickservRegisterHandler(client, username, email, passphrase, rb)
-	} else if command == "verify" {
-		username, code := extractParam(params)
-		server.nickservVerifyHandler(client, username, code, rb)
-	} else if command == "identify" {
-		username, passphrase := extractParam(params)
-		server.nickservIdentifyHandler(client, username, passphrase, rb)
-	} else if command == "unregister" {
-		username, _ := extractParam(params)
-		server.nickservUnregisterHandler(client, username, rb)
-	} else if command == "ghost" {
-		nick, _ := extractParam(params)
-		server.nickservGhostHandler(client, nick, rb)
-	} else if command == "info" {
-		nick, _ := extractParam(params)
-		server.nickservInfoHandler(client, nick, rb)
-	} else if command == "group" {
-		server.nickservGroupHandler(client, rb)
-	} else if command == "drop" {
-		nick, _ := extractParam(params)
-		server.nickservDropHandler(client, nick, false, rb)
-	} else if command == "sadrop" {
-		nick, _ := extractParam(params)
-		server.nickservDropHandler(client, nick, true, rb)
-	} else {
-		nsNotice(rb, client.t("Command not recognised. To see the available commands, run /NS HELP"))
+	commandInfo := nickservCommands[commandName]
+	if commandInfo == nil {
+		nsNotice(rb, client.t("Unknown command. To see available commands, run /NS HELP"))
+		return
 	}
-}
 
-func (server *Server) nickservUnregisterHandler(client *Client, username string, rb *ResponseBuffer) {
-	if !server.AccountConfig().Registration.Enabled {
+	if commandInfo.oper && !client.HasMode(modes.Operator) {
+		nsNotice(rb, client.t("Command restricted"))
+		return
+	}
+
+	if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
+		nsNotice(rb, client.t("Command restricted"))
+		return
+	}
+
+	if commandInfo.nickReservation && !server.AccountConfig().Registration.Enabled {
 		nsNotice(rb, client.t("Account registration has been disabled"))
 		return
 	}
 
-	if username == "" {
-		username = client.Account()
+	// custom help handling here to prevent recursive init loop
+	if commandName == "help" {
+		nsHelpHandler(server, client, commandName, params, rb)
+		return
 	}
-	if username == "" {
+
+	if commandInfo.handler == nil {
+		nsNotice(rb, client.t("Command error. Please report this to the developers"))
+		return
+	}
+
+	commandInfo.handler(server, client, commandName, params, rb)
+}
+
+func nsDropHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	sadrop := command == "sadrop"
+	nick, _ := utils.ExtractParam(params)
+
+	err := server.accounts.SetNickReserved(client, nick, sadrop, false)
+	if err == nil {
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully ungrouped nick %s with your account"), nick))
+	} else if err == errAccountNotLoggedIn {
+		nsNotice(rb, client.t("You're not logged into an account"))
+	} else if err == errAccountCantDropPrimaryNick {
+		nsNotice(rb, client.t("You can't ungroup your primary nickname (try unregistering your account instead)"))
+	} else if err == errNicknameReserved {
+		nsNotice(rb, client.t("That nickname is already reserved by someone else"))
+	} else {
+		nsNotice(rb, client.t("Could not ungroup nick"))
+	}
+}
+
+func nsGhostHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	nick, _ := utils.ExtractParam(params)
+
+	account := client.Account()
+	if account == "" || server.accounts.NickToAccount(nick) != account {
+		nsNotice(rb, client.t("You don't own that nick"))
+		return
+	}
+
+	ghost := server.clients.Get(nick)
+	if ghost == nil {
+		nsNotice(rb, client.t("No such nick"))
+		return
+	} else if ghost == client {
+		nsNotice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
+		return
+	}
+
+	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()))
+	ghost.destroy(false)
+}
+
+func nsGroupHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	account := client.Account()
+	if account == "" {
 		nsNotice(rb, client.t("You're not logged into an account"))
 		return
 	}
-	cfname, err := CasefoldName(username)
-	if err != nil {
-		nsNotice(rb, client.t("Invalid username"))
-		return
-	}
-	if !(cfname == client.Account() || client.HasRoleCapabs("unregister")) {
-		nsNotice(rb, client.t("Insufficient oper privs"))
-		return
-	}
 
-	if cfname == client.Account() {
-		client.server.accounts.Logout(client)
-	}
-
-	err = server.accounts.Unregister(cfname)
-	if err == errAccountDoesNotExist {
-		nsNotice(rb, client.t(err.Error()))
-	} else if err != nil {
-		nsNotice(rb, client.t("Error while unregistering account"))
+	nick := client.NickCasefolded()
+	err := server.accounts.SetNickReserved(client, nick, false, true)
+	if err == nil {
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
+	} else if err == errAccountTooManyNicks {
+		nsNotice(rb, client.t("You have too many nicks reserved already (you can remove some with /NS DROP)"))
+	} else if err == errNicknameReserved {
+		nsNotice(rb, client.t("That nickname is already reserved by someone else"))
 	} else {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
+		nsNotice(rb, client.t("Error reserving nickname"))
 	}
 }
 
-func (server *Server) nickservVerifyHandler(client *Client, username string, code string, rb *ResponseBuffer) {
-	err := server.accounts.Verify(client, username, code)
+func nsHelpHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	nsNotice(rb, ircfmt.Unescape(client.t("*** $bNickServ HELP$b ***")))
 
-	var errorMessage string
-	if err == errAccountVerificationInvalidCode || err == errAccountAlreadyVerified {
-		errorMessage = err.Error()
-	} else if err != nil {
-		errorMessage = errAccountVerificationFailed.Error()
+	if params == "" {
+		// show general help
+		var shownHelpLines sort.StringSlice
+		for _, commandInfo := range nickservCommands {
+			// skip commands user can't access
+			if commandInfo.oper && !client.HasMode(modes.Operator) {
+				continue
+			}
+			if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
+				continue
+			}
+			if commandInfo.nickReservation && !server.AccountConfig().Registration.Enabled {
+				continue
+			}
+
+			shownHelpLines = append(shownHelpLines, "    "+client.t(commandInfo.helpShort))
+		}
+
+		// sort help lines
+		sort.Sort(shownHelpLines)
+
+		// assemble help text
+		assembledHelpLines := strings.Join(shownHelpLines, "\n")
+		fullHelp := ircfmt.Unescape(fmt.Sprintf(client.t(nickservHelp), assembledHelpLines))
+
+		// push out help text
+		for _, line := range strings.Split(fullHelp, "\n") {
+			nsNotice(rb, line)
+		}
+	} else {
+		commandInfo := nickservCommands[strings.ToLower(strings.TrimSpace(params))]
+		if commandInfo == nil {
+			nsNotice(rb, client.t("Unknown command. To see available commands, run /NS HELP"))
+		} else {
+			for _, line := range strings.Split(ircfmt.Unescape(client.t(commandInfo.help)), "\n") {
+				nsNotice(rb, line)
+			}
+		}
 	}
 
-	if errorMessage != "" {
-		nsNotice(rb, client.t(errorMessage))
+	nsNotice(rb, ircfmt.Unescape(client.t("*** $bEnd of NickServ HELP$b ***")))
+}
+
+func nsIdentifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	// fail out if we need to
+	if !server.AccountConfig().AuthenticationEnabled {
+		nsNotice(rb, client.t("Login has been disabled"))
 		return
 	}
 
-	sendSuccessfulRegResponse(client, rb, true)
+	loginSuccessful := false
+
+	username, passphrase := utils.ExtractParam(params)
+
+	// try passphrase
+	if username != "" && passphrase != "" {
+		err := server.accounts.AuthenticateByPassphrase(client, username, passphrase)
+		loginSuccessful = (err == nil)
+	}
+
+	// try certfp
+	if !loginSuccessful && client.certfp != "" {
+		err := server.accounts.AuthenticateByCertFP(client)
+		loginSuccessful = (err == nil)
+	}
+
+	if loginSuccessful {
+		sendSuccessfulSaslAuth(client, rb, true)
+	} else {
+		nsNotice(rb, client.t("Could not login with your TLS certificate or supplied username/password"))
+	}
 }
 
-func (server *Server) nickservRegisterHandler(client *Client, username, email, passphrase string, rb *ResponseBuffer) {
+func nsInfoHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	nick, _ := utils.ExtractParam(params)
+
+	if nick == "" {
+		nick = client.Nick()
+	}
+
+	accountName := nick
+	if server.AccountConfig().NickReservation.Enabled {
+		accountName = server.accounts.NickToAccount(nick)
+		if accountName == "" {
+			nsNotice(rb, client.t("That nickname is not registered"))
+			return
+		}
+	}
+
+	account, err := server.accounts.LoadAccount(accountName)
+	if err != nil || !account.Verified {
+		nsNotice(rb, client.t("Account does not exist"))
+	}
+
+	nsNotice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
+	registeredAt := account.RegisteredAt.Format("Jan 02, 2006 15:04:05Z")
+	nsNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
+	// TODO nicer formatting for this
+	for _, nick := range account.AdditionalNicks {
+		nsNotice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
+	}
+}
+
+func nsRegisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	// get params
+	username, afterUsername := utils.ExtractParam(params)
+	email, passphrase := utils.ExtractParam(afterUsername)
+
 	if !server.AccountConfig().Registration.Enabled {
 		nsNotice(rb, client.t("Account registration has been disabled"))
 		return
@@ -236,130 +417,61 @@ func (server *Server) nickservRegisterHandler(client *Client, username, email, p
 	}
 }
 
-func (server *Server) nickservIdentifyHandler(client *Client, username, passphrase string, rb *ResponseBuffer) {
-	// fail out if we need to
-	if !server.AccountConfig().AuthenticationEnabled {
-		nsNotice(rb, client.t("Login has been disabled"))
+func nsUnregisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	username, _ := utils.ExtractParam(params)
+
+	if !server.AccountConfig().Registration.Enabled {
+		nsNotice(rb, client.t("Account registration has been disabled"))
 		return
 	}
 
-	loginSuccessful := false
-
-	// try passphrase
-	if username != "" && passphrase != "" {
-		err := server.accounts.AuthenticateByPassphrase(client, username, passphrase)
-		loginSuccessful = (err == nil)
+	if username == "" {
+		username = client.Account()
 	}
-
-	// try certfp
-	if !loginSuccessful && client.certfp != "" {
-		err := server.accounts.AuthenticateByCertFP(client)
-		loginSuccessful = (err == nil)
-	}
-
-	if loginSuccessful {
-		sendSuccessfulSaslAuth(client, rb, true)
-	} else {
-		nsNotice(rb, client.t("Could not login with your TLS certificate or supplied username/password"))
-	}
-}
-
-func (server *Server) nickservGhostHandler(client *Client, nick string, rb *ResponseBuffer) {
-	if !server.AccountConfig().NickReservation.Enabled {
-		nsNotice(rb, client.t("Nickname reservation is disabled"))
-		return
-	}
-
-	account := client.Account()
-	if account == "" || server.accounts.NickToAccount(nick) != account {
-		nsNotice(rb, client.t("You don't own that nick"))
-		return
-	}
-
-	ghost := server.clients.Get(nick)
-	if ghost == nil {
-		nsNotice(rb, client.t("No such nick"))
-		return
-	} else if ghost == client {
-		nsNotice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
-		return
-	}
-
-	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()))
-	ghost.destroy(false)
-}
-
-func (server *Server) nickservGroupHandler(client *Client, rb *ResponseBuffer) {
-	if !server.AccountConfig().NickReservation.Enabled {
-		nsNotice(rb, client.t("Nickname reservation is disabled"))
-		return
-	}
-
-	account := client.Account()
-	if account == "" {
+	if username == "" {
 		nsNotice(rb, client.t("You're not logged into an account"))
 		return
 	}
+	cfname, err := CasefoldName(username)
+	if err != nil {
+		nsNotice(rb, client.t("Invalid username"))
+		return
+	}
+	if !(cfname == client.Account() || client.HasRoleCapabs("unregister")) {
+		nsNotice(rb, client.t("Insufficient oper privs"))
+		return
+	}
 
-	nick := client.NickCasefolded()
-	err := server.accounts.SetNickReserved(client, nick, false, true)
-	if err == nil {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
-	} else if err == errAccountTooManyNicks {
-		nsNotice(rb, client.t("You have too many nicks reserved already (you can remove some with /NS DROP)"))
-	} else if err == errNicknameReserved {
-		nsNotice(rb, client.t("That nickname is already reserved by someone else"))
+	if cfname == client.Account() {
+		client.server.accounts.Logout(client)
+	}
+
+	err = server.accounts.Unregister(cfname)
+	if err == errAccountDoesNotExist {
+		nsNotice(rb, client.t(err.Error()))
+	} else if err != nil {
+		nsNotice(rb, client.t("Error while unregistering account"))
 	} else {
-		nsNotice(rb, client.t("Error reserving nickname"))
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
 	}
 }
 
-func (server *Server) nickservInfoHandler(client *Client, nick string, rb *ResponseBuffer) {
-	if nick == "" {
-		nick = client.Nick()
+func nsVerifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	username, code := utils.ExtractParam(params)
+
+	err := server.accounts.Verify(client, username, code)
+
+	var errorMessage string
+	if err == errAccountVerificationInvalidCode || err == errAccountAlreadyVerified {
+		errorMessage = err.Error()
+	} else if err != nil {
+		errorMessage = errAccountVerificationFailed.Error()
 	}
 
-	accountName := nick
-	if server.AccountConfig().NickReservation.Enabled {
-		accountName = server.accounts.NickToAccount(nick)
-		if accountName == "" {
-			nsNotice(rb, client.t("That nickname is not registered"))
-			return
-		}
+	if errorMessage != "" {
+		nsNotice(rb, client.t(errorMessage))
+		return
 	}
 
-	account, err := server.accounts.LoadAccount(accountName)
-	if err != nil || !account.Verified {
-		nsNotice(rb, client.t("Account does not exist"))
-	}
-
-	nsNotice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
-	registeredAt := account.RegisteredAt.Format("Jan 02, 2006 15:04:05Z")
-	nsNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
-	// TODO nicer formatting for this
-	for _, nick := range account.AdditionalNicks {
-		nsNotice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
-	}
-}
-
-func (server *Server) nickservDropHandler(client *Client, nick string, sadrop bool, rb *ResponseBuffer) {
-	if sadrop {
-		if !client.HasRoleCapabs("unregister") {
-			nsNotice(rb, client.t("Insufficient oper privs"))
-			return
-		}
-	}
-
-	err := server.accounts.SetNickReserved(client, nick, sadrop, false)
-	if err == nil {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully ungrouped nick %s with your account"), nick))
-	} else if err == errAccountNotLoggedIn {
-		nsNotice(rb, fmt.Sprintf(client.t("You're not logged into an account")))
-	} else if err == errAccountCantDropPrimaryNick {
-		nsNotice(rb, fmt.Sprintf(client.t("You can't ungroup your primary nickname (try unregistering your account instead)")))
-	} else if err == errNicknameReserved {
-		nsNotice(rb, fmt.Sprintf(client.t("That nickname is already reserved by someone else")))
-	} else {
-		nsNotice(rb, client.t("Error ungrouping nick"))
-	}
+	sendSuccessfulRegResponse(client, rb, true)
 }
