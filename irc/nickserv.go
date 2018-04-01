@@ -408,13 +408,13 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 
 	// details could not be stored and relevant numerics have been dispatched, abort
 	if err != nil {
-		errMsg := "Could not register"
+		errMsg := client.t("Could not register")
 		if err == errCertfpAlreadyExists {
-			errMsg = "An account already exists for your certificate fingerprint"
+			errMsg = client.t("An account already exists for your certificate fingerprint")
 		} else if err == errAccountAlreadyRegistered {
-			errMsg = "Account already exists"
+			errMsg = client.t("Account already exists")
 		}
-		nsNotice(rb, client.t(errMsg))
+		nsNotice(rb, errMsg)
 		return
 	}
 }

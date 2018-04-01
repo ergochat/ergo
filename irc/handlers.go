@@ -199,8 +199,8 @@ func sendSuccessfulSaslAuth(client *Client, rb *ResponseBuffer, forNS bool) {
 	if forNS {
 		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
 	} else {
-		rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf("You are now logged in as %s", account))
-		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("SASL authentication successful"))
+		rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf(client.t("You are now logged in as %s"), account))
+		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
 	}
 
 	// dispatch account-notify
