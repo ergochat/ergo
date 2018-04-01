@@ -5,7 +5,7 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         Oragono IRCd Manual 2018-02-02
+         Oragono IRCd Manual 2018-04-01
               https://oragono.io/
 
 _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
