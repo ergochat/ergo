@@ -14,8 +14,6 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 )
 
-// TODO: "email" is an oversimplification here; it's actually any callback, e.g.,
-// person@example.com, mailto:person@example.com, tel:16505551234.
 const nickservHelp = `NickServ lets you register and login to an account.
 
 To see in-depth help for a specific NickServ command, try:
@@ -83,6 +81,8 @@ INFO gives you information about the given (or your own) user account.`,
 		},
 		"register": {
 			handler: nsRegisterHandler,
+			// TODO: "email" is an oversimplification here; it's actually any callback, e.g.,
+			// person@example.com, mailto:person@example.com, tel:16505551234.
 			help: `Syntax: $bREGISTER <username> <email> [password]$b
 
 REGISTER lets you register a user account. If the server allows anonymous
