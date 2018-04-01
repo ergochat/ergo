@@ -997,7 +997,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf(client.t("Ban - %s - added by %s - %s"), key, info.OperName, info.BanMessage("%s")))
+			client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
 		}
 
 		return false

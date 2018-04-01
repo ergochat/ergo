@@ -137,7 +137,7 @@ func csHelpHandler(server *Server, client *Client, command, params string, rb *R
 	} else {
 		commandInfo := chanservCommands[strings.ToLower(strings.TrimSpace(params))]
 		if commandInfo == nil {
-			csNotice(rb, client.t("Unknown command. To see available commands, run /cs HELP"))
+			csNotice(rb, client.t("Unknown command. To see available commands, run /CS HELP"))
 		} else {
 			for _, line := range strings.Split(ircfmt.Unescape(client.t(commandInfo.help)), "\n") {
 				csNotice(rb, line)
