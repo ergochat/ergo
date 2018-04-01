@@ -120,7 +120,7 @@ or other verification.`,
 	}
 )
 
-// csNotice sends the client a notice from NickServ
+// nsNotice sends the client a notice from NickServ
 func nsNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
 }
