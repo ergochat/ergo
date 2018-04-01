@@ -42,7 +42,7 @@ if __name__ == '__main__':
             for fname in files:
                 filepath = subdir + os.sep + fname
                 if filepath.endswith('.go'):
-                    content = open(filepath, 'r').read()
+                    content = open(filepath, 'r', encoding='UTF-8').read()
 
                     matches = re.findall(r'\.t\("((?:[^"]|\\")+)"\)', content)
                     for match in matches:
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             for fname in files:
                 filepath = subdir + os.sep + fname
                 if fname == 'help.go':
-                    content = open(filepath, 'r').read()
+                    content = open(filepath, 'r', encoding='UTF-8').read()
 
                     matches = re.findall(r'\`([^\`]+)\`', content)
                     for match in matches:
@@ -83,7 +83,7 @@ if __name__ == '__main__':
             for fname in files:
                 filepath = subdir + os.sep + fname
                 if fname == 'nickserv.go':
-                    content = open(filepath, 'r').read()
+                    content = open(filepath, 'r', encoding='UTF-8').read()
 
                     matches = re.findall(r'\`([^\`]+)\`', content)
                     for match in matches:
