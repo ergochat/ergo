@@ -120,7 +120,7 @@ or other verification.`,
 	}
 )
 
-// send a notice from the NickServ "nick"
+// csNotice sends the client a notice from NickServ
 func nsNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
 }
@@ -166,6 +166,8 @@ func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb 
 		nsNotice(rb, client.t("Command error. Please report this to the developers"))
 		return
 	}
+
+	server.logger.Debug("nickserv", fmt.Sprintf("Client %s ran command %s", client.Nick(), commandName))
 
 	commandInfo.handler(server, client, commandName, params, rb)
 }
