@@ -239,7 +239,7 @@ func (server *Server) setISupport() {
 			}
 		}
 
-		isupport.Add("REGCOMMANDS", "CREATE,VERIFY")
+		isupport.Add("ACCCOMMANDS", "CREATE,VERIFY")
 		isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
 		isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
