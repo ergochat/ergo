@@ -122,9 +122,9 @@ oragono run
 
 ### How to register a channel
 
-1. Register your account with `/quote ACC REGISTER <username> * passphrase :<password>`
+1. Register your account with `/NS REGISTER <username> [<password>]`
 2. Join the channel with `/join #channel`
-3. Register the channel with `/msg ChanServ REGISTER #channel`
+3. Register the channel with `/CS REGISTER #channel`
 
 After this, your channel will remember the fact that you're the owner, the topic, and any modes set on it!
 
