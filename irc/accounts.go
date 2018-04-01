@@ -189,15 +189,11 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
 	var creds AccountCredentials
-	// always set passphrase salt
-	creds.PassphraseSalt, err = passwd.NewSalt()
-	if err != nil {
-		return errAccountCreation
-	}
 	// it's fine if this is empty, that just means no certificate is authorized
 	creds.Certificate = certfp
 	if passphrase != "" {
-		creds.PassphraseHash, err = am.server.passwords.GenerateFromPassword(creds.PassphraseSalt, passphrase)
+		creds.PassphraseHash, err = passwd.GenerateEncodedPasswordBytes(passphrase)
+		creds.PassphraseIsV2 = true
 		if err != nil {
 			am.server.logger.Error("internal", fmt.Sprintf("could not hash password: %v", err))
 			return errAccountCreation
@@ -522,8 +518,50 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		return errAccountUnverified
 	}
 
-	err = am.server.passwords.CompareHashAndPassword(
-		account.Credentials.PassphraseHash, account.Credentials.PassphraseSalt, passphrase)
+	if account.Credentials.PassphraseIsV2 {
+		err = passwd.ComparePassword(account.Credentials.PassphraseHash, []byte(passphrase))
+	} else {
+		// compare using legacy method
+		err = am.server.passwords.CompareHashAndPassword(account.Credentials.PassphraseHash, account.Credentials.PassphraseSalt, passphrase)
+		if err == nil {
+			// passphrase worked! silently upgrade them to use v2 hashing going forward.
+			//TODO(dan): in future, replace this with an am.updatePassphrase(blah) function, which we can reuse in /ns update pass?
+			err = am.server.store.Update(func(tx *buntdb.Tx) error {
+				var creds AccountCredentials
+				creds.Certificate = account.Credentials.Certificate
+				creds.PassphraseHash, err = passwd.GenerateEncodedPasswordBytes(passphrase)
+				creds.PassphraseIsV2 = true
+				if err != nil {
+					am.server.logger.Error("internal", fmt.Sprintf("could not hash password (updating existing hash version): %v", err))
+					return errAccountCredUpdate
+				}
+
+				credText, err := json.Marshal(creds)
+				if err != nil {
+					am.server.logger.Error("internal", fmt.Sprintf("could not marshal credentials (updating existing hash version): %v", err))
+					return errAccountCredUpdate
+				}
+				credStr := string(credText)
+
+				// we know the account name is valid if this line is reached, otherwise the
+				// above would have failed. as such, chuck out and ignore err on casefolding
+				casefoldedAccountName, _ := CasefoldName(accountName)
+				credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccountName)
+
+				//TODO(dan): sling, can you please checkout this mutex usage, see if it
+				// makes sense or not? bleh
+				am.serialCacheUpdateMutex.Lock()
+				defer am.serialCacheUpdateMutex.Unlock()
+
+				tx.Set(credentialsKey, credStr, nil)
+
+				return nil
+			})
+		}
+		if err != nil {
+			return err
+		}
+	}
 	if err != nil {
 		return errAccountInvalidCredentials
 	}
@@ -984,6 +1022,7 @@ var (
 type AccountCredentials struct {
 	PassphraseSalt []byte
 	PassphraseHash []byte
+	PassphraseIsV2 bool   `json:"passphrase-is-v2"`
 	Certificate    string // fingerprint
 }
 
