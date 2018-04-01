@@ -241,7 +241,6 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccou
 		fmt.Sprintf(client.t("Verification code: %s"), code) + "\r\n",
 		"\r\n",
 		client.t("To verify your account, issue one of these commands:") + "\r\n",
-		fmt.Sprintf("/ACC VERIFY %s %s", casefoldedAccount, code) + "\r\n",
 		fmt.Sprintf("/MSG NickServ VERIFY %s %s", casefoldedAccount, code) + "\r\n",
 	}
 
