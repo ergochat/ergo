@@ -27,6 +27,7 @@ New release of Oragono!
 * Added listening support for unix sockets.
 * Added new Brazilian Portuguese translation (thanks to [Alexandre Oliveira](https://github.com/RockyTV)!)).
 * Added new French translation (thanks to [Joshua](https://github.com/joshk0)!).
+* Added new Norwegian translation (thanks to Morten!).
 * Added new subcommands to `CHANSERV`, including:
     * `OP` to op yourself or the given user (can only be run by channel founders).
 * Added new subcommands to `NICKSERV`, including:
