@@ -116,24 +116,24 @@ In most IRC servers you can use `NickServ` to register an account. You can do th
 
 However, there are some differences between how Oragono handles accounts and how most other servers do. Some of these differences are that:
 
-- In Oragono, account names are completely unrelated to nicknames (for now).
-- In Oragono, there's no nickname ownership (yet).
-- In Oragono, you can't use `NickServ` to register an account (yet).
-- In Oragono, you can't use `NickServ` to login (yet).
+- In Oragono, account names are completely unrelated to nicknames.
+- In Oragono, there's no nickname ownership unless you configure a config section.
 
-With nickname ownership and account names, on most IRC servers your nickname and your account name are one and the same thing. This isn't the case with Oragono. When using Oragono, your nickname and account name are totally unrelated, and there's no way to actually own a nickname (so no `NickServ GHOST` and similar). However, we do want to make this configurable in the future, so you'll be able to own nicknames if it's enabled in the server config.
+With nickname ownership and account names, on most IRC servers your nickname and your account name are one and the same thing. This isn't the case with Oragono. When using Oragono, your nickname and account name are totally unrelated. However, you can enable nickname ownership with the `nick-reservation` section in the config.
 
-With most IRC servers, you use `/NS REGISTER`, or otherwise contact `NickServ` to register an account. On Oragono, you can't register an account through `NickServ` (yet). These are the two ways you can register an account:
+These are the two ways you can register an account:
 
     /QUOTE ACC REGISTER <username> * passphrase :<password>
+    /NS REGISTER <username> <password>
 
 This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively (make sure the leave that one `:` before your actual password!).
 
     /QUOTE ACC REGISTER <username> * certfp *
+    /NS REGISTER <username>
 
-If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), then you can use this method to do so. If you're not sure what this is, don't worry – just use the above password method to register an account.
+If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), then you can use the above method to do so. If you're not sure what this is, don't worry – just use the above password method to register an account.
 
-Once you've registered, you'll need to setup SASL to login (we're going to write `NickServ IDENTIFY` support, but it's not there yet). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
 
 
 ## Channel Registration
@@ -144,7 +144,7 @@ To register a channel, make sure you're joined to it and logged into your accoun
 
     /CS REGISTER #channelname
 
-For example, `/CS REGISTER #test` will register the channel `#test` to my account. Right now, the options for a registered channel are pretty sparse, but we'll add more as we go along.
+For example, `/CS REGISTER #channel` will register the channel `#test` to my account. If you have a registered channel, you can use `/CS OP #channel` to regain ops in it. Right now, the options for a registered channel are pretty sparse, but we'll add more as we go along.
 
 
 --------------------------------------------------------------------------------------------
