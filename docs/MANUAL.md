@@ -24,6 +24,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 - Features
     - User Accounts
     - Channel Registration
+    - Language
 - Modes
     - User Modes
     - Channel Modes
@@ -146,6 +147,35 @@ To register a channel, make sure you're joined to it and logged into your accoun
     /CS REGISTER #channelname
 
 For example, `/CS REGISTER #channel` will register the channel `#test` to my account. If you have a registered channel, you can use `/CS OP #channel` to regain ops in it. Right now, the options for a registered channel are pretty sparse, but we'll add more as we go along.
+
+
+## Language
+
+Oragono supports multiple languages! Specifically, once you connect you're able to get server messages in other languages (messages from other users will still be in their original languages, though).
+
+To see which languages are supported, run this command:
+
+    /QUOTE CAP LS 302
+
+In the resulting text, you should see a token that looks something like this:
+
+    draft/languages=5,en,~fr-FR,no,~pt-BR,tr-TR
+
+That's the list of languages we support. For the token above, the supported languages are:
+
+- `en`: English
+- `fr-FR`: French (incomplete)
+- `no`: Norwegian
+- `pt-BR`: Brazilian Portugese (incomplete)
+- `tr-TR`: Turkish
+
+To change to a specific language, you can use the `LANGUAGE` command like this:
+
+    /LANGUAGE tr-TR
+
+The above will change the server language to Turkish. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
+
+Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
 
 
 --------------------------------------------------------------------------------------------
