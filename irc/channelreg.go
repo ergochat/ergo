@@ -6,11 +6,13 @@ package irc
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"encoding/json"
 
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/tidwall/buntdb"
 )
 
@@ -18,16 +20,19 @@ import (
 // channel creation/tracking/destruction is in channelmanager.go
 
 const (
-	keyChannelExists       = "channel.exists %s"
-	keyChannelName         = "channel.name %s" // stores the 'preferred name' of the channel, not casemapped
-	keyChannelRegTime      = "channel.registered.time %s"
-	keyChannelFounder      = "channel.founder %s"
-	keyChannelTopic        = "channel.topic %s"
-	keyChannelTopicSetBy   = "channel.topic.setby %s"
-	keyChannelTopicSetTime = "channel.topic.settime %s"
-	keyChannelBanlist      = "channel.banlist %s"
-	keyChannelExceptlist   = "channel.exceptlist %s"
-	keyChannelInvitelist   = "channel.invitelist %s"
+	keyChannelExists         = "channel.exists %s"
+	keyChannelName           = "channel.name %s" // stores the 'preferred name' of the channel, not casemapped
+	keyChannelRegTime        = "channel.registered.time %s"
+	keyChannelFounder        = "channel.founder %s"
+	keyChannelTopic          = "channel.topic %s"
+	keyChannelTopicSetBy     = "channel.topic.setby %s"
+	keyChannelTopicSetTime   = "channel.topic.settime %s"
+	keyChannelBanlist        = "channel.banlist %s"
+	keyChannelExceptlist     = "channel.exceptlist %s"
+	keyChannelInvitelist     = "channel.invitelist %s"
+	keyChannelPassword       = "channel.key %s"
+	keyChannelModes          = "channel.modes %s"
+	keyChannelAccountToUMode = "channel.accounttoumode %s"
 )
 
 var (
@@ -42,7 +47,24 @@ var (
 		keyChannelBanlist,
 		keyChannelExceptlist,
 		keyChannelInvitelist,
+		keyChannelPassword,
+		keyChannelModes,
+		keyChannelAccountToUMode,
 	}
+)
+
+// these are bit flags indicating what part of the channel status is "dirty"
+// and needs to be read from memory and written to the db
+const (
+	IncludeInitial uint = 1 << iota
+	IncludeTopic
+	IncludeModes
+	IncludeLists
+)
+
+// this is an OR of all possible flags
+const (
+	IncludeAllChannelAttrs = ^uint(0)
 )
 
 // RegisteredChannel holds details about a given registered channel.
@@ -59,6 +81,12 @@ type RegisteredChannel struct {
 	TopicSetBy string
 	// TopicSetTime represents the time the topic was set.
 	TopicSetTime time.Time
+	// Modes represents the channel modes
+	Modes []modes.Mode
+	// Key represents the channel key / password
+	Key string
+	// AccountToUMode maps user accounts to their persistent channel modes (e.g., +q, +h)
+	AccountToUMode map[string]modes.Mode
 	// Banlist represents the bans set on the channel.
 	Banlist []string
 	// Exceptlist represents the exceptions set on the channel.
@@ -87,7 +115,7 @@ func NewChannelRegistry(server *Server) *ChannelRegistry {
 }
 
 // StoreChannel obtains a consistent view of a channel, then persists it to the store.
-func (reg *ChannelRegistry) StoreChannel(channel *Channel, includeLists bool) {
+func (reg *ChannelRegistry) StoreChannel(channel *Channel, includeFlags uint) {
 	if !reg.server.ChannelRegistrationEnabled() {
 		return
 	}
@@ -96,14 +124,14 @@ func (reg *ChannelRegistry) StoreChannel(channel *Channel, includeLists bool) {
 	defer reg.Unlock()
 
 	key := channel.NameCasefolded()
-	info := channel.ExportRegistration(includeLists)
+	info := channel.ExportRegistration(includeFlags)
 	if info.Founder == "" {
 		// sanity check, don't try to store an unregistered channel
 		return
 	}
 
 	reg.server.store.Update(func(tx *buntdb.Tx) error {
-		reg.saveChannel(tx, key, info, includeLists)
+		reg.saveChannel(tx, key, info, includeFlags)
 		return nil
 	})
 }
@@ -132,9 +160,17 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 		topicSetBy, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetBy, channelKey))
 		topicSetTime, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetTime, channelKey))
 		topicSetTimeInt, _ := strconv.ParseInt(topicSetTime, 10, 64)
+		password, _ := tx.Get(fmt.Sprintf(keyChannelPassword, channelKey))
+		modeString, _ := tx.Get(fmt.Sprintf(keyChannelModes, channelKey))
 		banlistString, _ := tx.Get(fmt.Sprintf(keyChannelBanlist, channelKey))
 		exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
 		invitelistString, _ := tx.Get(fmt.Sprintf(keyChannelInvitelist, channelKey))
+		accountToUModeString, _ := tx.Get(fmt.Sprintf(keyChannelAccountToUMode, channelKey))
+
+		modeSlice := make([]modes.Mode, len(modeString))
+		for i, mode := range modeString {
+			modeSlice[i] = modes.Mode(mode)
+		}
 
 		var banlist []string
 		_ = json.Unmarshal([]byte(banlistString), &banlist)
@@ -142,17 +178,22 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 		_ = json.Unmarshal([]byte(exceptlistString), &exceptlist)
 		var invitelist []string
 		_ = json.Unmarshal([]byte(invitelistString), &invitelist)
+		accountToUMode := make(map[string]modes.Mode)
+		_ = json.Unmarshal([]byte(accountToUModeString), &accountToUMode)
 
 		info = &RegisteredChannel{
-			Name:         name,
-			RegisteredAt: time.Unix(regTimeInt, 0),
-			Founder:      founder,
-			Topic:        topic,
-			TopicSetBy:   topicSetBy,
-			TopicSetTime: time.Unix(topicSetTimeInt, 0),
-			Banlist:      banlist,
-			Exceptlist:   exceptlist,
-			Invitelist:   invitelist,
+			Name:           name,
+			RegisteredAt:   time.Unix(regTimeInt, 0),
+			Founder:        founder,
+			Topic:          topic,
+			TopicSetBy:     topicSetBy,
+			TopicSetTime:   time.Unix(topicSetTimeInt, 0),
+			Key:            password,
+			Modes:          modeSlice,
+			Banlist:        banlist,
+			Exceptlist:     exceptlist,
+			Invitelist:     invitelist,
+			AccountToUMode: accountToUMode,
 		}
 		return nil
 	})
@@ -170,17 +211,17 @@ func (reg *ChannelRegistry) Rename(channel *Channel, casefoldedOldName string) {
 	reg.Lock()
 	defer reg.Unlock()
 
-	includeLists := true
+	includeFlags := IncludeAllChannelAttrs
 	oldKey := casefoldedOldName
 	key := channel.NameCasefolded()
-	info := channel.ExportRegistration(includeLists)
+	info := channel.ExportRegistration(includeFlags)
 	if info.Founder == "" {
 		return
 	}
 
 	reg.server.store.Update(func(tx *buntdb.Tx) error {
 		reg.deleteChannel(tx, oldKey, info)
-		reg.saveChannel(tx, key, info, includeLists)
+		reg.saveChannel(tx, key, info, includeFlags)
 		return nil
 	})
 }
@@ -204,21 +245,37 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 }
 
 // saveChannel saves a channel to the store.
-func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelKey string, channelInfo RegisteredChannel, includeLists bool) {
-	tx.Set(fmt.Sprintf(keyChannelExists, channelKey), "1", nil)
-	tx.Set(fmt.Sprintf(keyChannelName, channelKey), channelInfo.Name, nil)
-	tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.Unix(), 10), nil)
-	tx.Set(fmt.Sprintf(keyChannelFounder, channelKey), channelInfo.Founder, nil)
-	tx.Set(fmt.Sprintf(keyChannelTopic, channelKey), channelInfo.Topic, nil)
-	tx.Set(fmt.Sprintf(keyChannelTopicSetBy, channelKey), channelInfo.TopicSetBy, nil)
-	tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.Unix(), 10), nil)
+func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelKey string, channelInfo RegisteredChannel, includeFlags uint) {
+	if includeFlags&IncludeInitial != 0 {
+		tx.Set(fmt.Sprintf(keyChannelExists, channelKey), "1", nil)
+		tx.Set(fmt.Sprintf(keyChannelName, channelKey), channelInfo.Name, nil)
+		tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.Unix(), 10), nil)
+		tx.Set(fmt.Sprintf(keyChannelFounder, channelKey), channelInfo.Founder, nil)
+	}
 
-	if includeLists {
+	if includeFlags&IncludeTopic != 0 {
+		tx.Set(fmt.Sprintf(keyChannelTopic, channelKey), channelInfo.Topic, nil)
+		tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.Unix(), 10), nil)
+		tx.Set(fmt.Sprintf(keyChannelTopicSetBy, channelKey), channelInfo.TopicSetBy, nil)
+	}
+
+	if includeFlags&IncludeModes != 0 {
+		tx.Set(fmt.Sprintf(keyChannelPassword, channelKey), channelInfo.Key, nil)
+		modeStrings := make([]string, len(channelInfo.Modes))
+		for i, mode := range channelInfo.Modes {
+			modeStrings[i] = string(mode)
+		}
+		tx.Set(fmt.Sprintf(keyChannelModes, channelKey), strings.Join(modeStrings, ""), nil)
+	}
+
+	if includeFlags&IncludeLists != 0 {
 		banlistString, _ := json.Marshal(channelInfo.Banlist)
 		tx.Set(fmt.Sprintf(keyChannelBanlist, channelKey), string(banlistString), nil)
 		exceptlistString, _ := json.Marshal(channelInfo.Exceptlist)
 		tx.Set(fmt.Sprintf(keyChannelExceptlist, channelKey), string(exceptlistString), nil)
 		invitelistString, _ := json.Marshal(channelInfo.Invitelist)
 		tx.Set(fmt.Sprintf(keyChannelInvitelist, channelKey), string(invitelistString), nil)
+		accountToUModeString, _ := json.Marshal(channelInfo.AccountToUMode)
+		tx.Set(fmt.Sprintf(keyChannelAccountToUMode, channelKey), string(accountToUModeString), nil)
 	}
 }
