@@ -22,6 +22,8 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+var commit = ""
+
 func main() {
 	version := irc.SemVer
 	usage := `oragono.
@@ -98,6 +100,17 @@ Options:
 		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
 			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+			if commit == "" {
+				logman.Debug("startup", fmt.Sprintf("Could not get current commit"))
+			} else {
+				logman.Info("startup", fmt.Sprintf("Running commit %s", commit))
+			}
+		}
+
+		// set current git commit
+		irc.Commit = commit
+		if commit != "" {
+			irc.Ver = fmt.Sprintf("%s-%s", irc.Ver, commit)
 		}
 
 		// profiling

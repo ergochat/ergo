@@ -13,6 +13,9 @@ const (
 )
 
 var (
+	// Commit is the current git commit.
+	Commit = ""
+
 	// Ver is the full version of Oragono, used in responses to clients.
 	Ver = fmt.Sprintf("oragono-%s", SemVer)
 

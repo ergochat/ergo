@@ -45,3 +45,5 @@ archive:
     - languages/*.md
 checksum:
   name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
+git:
+  short_hash: true
