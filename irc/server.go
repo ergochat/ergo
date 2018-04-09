@@ -491,7 +491,10 @@ func (server *Server) tryRegister(c *Client) {
 	server.MOTD(c, rb)
 	rb.Send()
 
-	c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
+	modestring := c.ModeString()
+	if modestring != "+" {
+		c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
+	}
 	if server.logger.IsLoggingRawIO() {
 		c.Notice(c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}
