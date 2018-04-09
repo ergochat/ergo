@@ -193,18 +193,23 @@ func nsDropHandler(server *Server, client *Client, command, params string, rb *R
 func nsGhostHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
 	nick, _ := utils.ExtractParam(params)
 
-	account := client.Account()
-	if account == "" || server.accounts.NickToAccount(nick) != account {
-		nsNotice(rb, client.t("You don't own that nick"))
-		return
-	}
-
 	ghost := server.clients.Get(nick)
 	if ghost == nil {
 		nsNotice(rb, client.t("No such nick"))
 		return
 	} else if ghost == client {
 		nsNotice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
+		return
+	}
+
+	authorized := false
+	account := client.Account()
+	if account != "" {
+		// the user must either own the nick, or the target client
+		authorized = (server.accounts.NickToAccount(nick) == account) || (ghost.Account() == account)
+	}
+	if !authorized {
+		nsNotice(rb, client.t("You don't own that nick"))
 		return
 	}
 
