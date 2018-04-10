@@ -24,6 +24,15 @@ import (
 
 var commit = ""
 
+// get a password from stdin from the user
+func getPassword() string {
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		log.Fatal("Error reading password:", err.Error())
+	}
+	return string(bytePassword)
+}
+
 func main() {
 	version := irc.SemVer
 	usage := `oragono.
@@ -56,16 +65,18 @@ Options:
 
 	if arguments["genpasswd"].(bool) {
 		fmt.Print("Enter Password: ")
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			log.Fatal("Error reading password:", err.Error())
+		password := getPassword()
+		fmt.Print("\n")
+		fmt.Print("Reenter Password: ")
+		confirm := getPassword()
+		fmt.Print("\n")
+		if confirm != password {
+			log.Fatal("passwords do not match")
 		}
-		password := string(bytePassword)
 		encoded, err := passwd.GenerateEncodedPassword(password)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
-		fmt.Print("\n")
 		fmt.Println(encoded)
 	} else if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
