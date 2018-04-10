@@ -58,7 +58,7 @@ server:
 
     # motd formatting codes
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
-    #motd-formatting: true
+    motd-formatting: true
 
     # addresses/hostnames the PROXY command can be used from
     # this should be restricted to 127.0.0.1/8 and localhost at most
@@ -345,7 +345,7 @@ datastore:
 # languages config
 languages:
     # whether to load languages
-    enabled: false
+    enabled: true
 
     # default language to use for new clients
     # 'en' is the default English language in the code
