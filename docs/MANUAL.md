@@ -25,6 +25,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
     - User Accounts
     - Channel Registration
     - Language
+- Frequently Asked Questions
 - Modes
     - User Modes
     - Channel Modes
@@ -176,6 +177,43 @@ To change to a specific language, you can use the `LANGUAGE` command like this:
 The above will change the server language to Turkish. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
 
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
+
+
+-------------------------------------------------------------------------------------------
+
+
+# Frequently Asked Questions
+
+Some troubleshooting, some general questions about the project! This should help answer any sorta queries you have.
+
+
+## I have a suggestion
+
+Awesome! We love getting new suggestions for features, ways to improve the server and the tooling around it, everything.
+
+There are two ways to make suggestions, either:
+
+- Submit an issue on our [bug tracker](https://github.com/oragono/oragono/issues).
+- Talk to us in the `#oragono` channel on Freenode.
+
+
+## Why can't I oper?
+
+If you try to oper unsuccessfully, Oragono will disconnect you from the network. Here's some important things to try if you find yourself unable to oper:
+
+1. Have you generated the config-file password blob with `oragono genpasswd`?
+2. Have you restarted Oragono to make sure the new password has taken effect?
+3. If all else fails, can you get raw protocol output from Oragono for evaluation?
+
+So, first off you'll want to make sure you've stored the password correctly. In the config file, all passwords are bcrypted. Basically, you run `oragono genpasswd`, type your actual password in, and then receive a config file blob back. Put that blob into the config file, and then use the actual password in your IRC client.
+
+After that, try restarting Oragono to see if that improves things. Even if you've already done so or already rehashed, a proper restart can sometimes help things. Make sure your config file is saved before restarting the server.
+
+If both of those have failed, it might be worth getting us to look at the raw lines and see what's up.
+
+If you're familiar with getting this output through your client (e.g. in weechat it's `/server raw`) then you can do so that way, or use [ircdog](https://github.com/goshuirc/ircdog).
+
+Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
 
 --------------------------------------------------------------------------------------------
