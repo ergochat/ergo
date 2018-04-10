@@ -4,24 +4,28 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.11.0-beta] - 2018-04-11
+This is a beta preview of the v0.11.0 release, which is _actually_ likely to come this weekend. There's a whole lot of useful, important changes in this release including better debugging features, languages, nick reservation, email verification for new accounts, and a `CAP REQ` fix!
+
+If you have any trouble with this release, please let us know with an issue on our [tracker](https://github.com/oragono/oragono/issues), or by talking to us in `#oragono` on Freenode.
+
+Thanks a bunch for all the help with this release – especially to our translators and to Slingamn for being an awesome co-maintainer!
 
 ### Config Changes
 * `callbacks` section added under `accounts/registration`, configuring our new email verification (disabled by default).
 * `fakelag` section added, configuring our new fakelag implementation.
 * `ips-per-subnet` key renamed to `connections-per-subnet`.
+* `motd-formatting` is now enabled by default.
 * `nick-reservation` section added under `accounts`, configuring our new nickname ownership abilities.
 * `nofakelag` and `unregister` oper classes added.
 * `pprof-listener` key added under `debug` (disabled by default).
 * `skip-server-password` key added under `accounts`, to better support certain clients.
 * `verify-timeout` default value changed from 120 hours to 32 hours under `accounts/registration`.
 
-### Security
-
 ### Added
 * Added a debug pprof endpoint, which is disabled by default and can be exposed in the config.
 * Added a manual to our documentation! This is primarily where we'll be adding user-facing information and instructions from now on.
+* Added current running git commit to the sent version string.
 * Added fakelag, so that the server can slow down clients hitting it too aggressively. Disabled by default while we work out the kinks and the specific settings (thanks @slingamn!).
 * Added IRCv3 capability [`batch`](https://ircv3.net/specs/extensions/batch-3.2.html) and draft capability [`draft/labeled-response`](https://ircv3.net/specs/extensions/labeled-response.html).
 * Added listening support for unix sockets.
@@ -46,9 +50,8 @@ New release of Oragono!
     * `B`: Mark yourself as a bot, and display that you're a bot in WHOIS.
 
 ### Changed
+* `genpasswd` now requires that you confirm the input passphrase.
 * Message IDs are now much shorter and easier to read – down from 39 characters to 16 while preserving a very similar gaurantee of uniqueness (thanks [@prawnsalad](https://github.com/prawnsalad) for bringing up this issue).
-
-### Removed
 
 ### Fixed
 * We now correctly suspend registration when receiving a `CAP REQ`, as per [the spec](https://ircv3.net/specs/core/capability-negotiation-3.1.html).
