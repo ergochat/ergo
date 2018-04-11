@@ -104,6 +104,8 @@ To start the server, type `./oragono run` and hit enter, and the server should b
 
 If you're using Arch Linux, you can also install the [`oragono` package](https://aur.archlinux.org/packages/oragono/) from the AUR. This lets you bypass the above process and bundles a systemd service file for easily starting the server.
 
+If you're rolling your own deployment, here's another [example](https://github.com/darwin-network/slash/blob/master/etc/systemd/system/ircd.service) of a systemd unit file that can be used to run Oragono as an unprivileged role user.
+
 
 --------------------------------------------------------------------------------------------
 
@@ -225,8 +227,12 @@ Every deployment's gonna be different, but you can use certificates from [Let's 
     - `cert: tls.crt` is `live/<site>/fullchain.pem`
     - ` key: tls.key` is `live/<site>/privkey.pem`
 4. You may need to copy the `pem` files to another directory so Oragono can read them, or similarly use a script like [this one](https://github.com/darwin-network/slash/blob/master/etc/bin/install-lecerts) to automagically do something similar.
-5. If you're using an auto-renew script, you may want it to send a `SIGHUP` to Oragono to have it rehashing the configuration and certificates. For example:
-    - You could edit `certbot.service` and add `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
+5. By default, `certbot` will automatically renew your certificates. Oragono will only reread certificates when it is restarted, or during a rehash (e.g., on receiving the `/rehash` command or the `SIGHUP` signal). You can add an executable script to `/etc/letsencrypt/renewal-hooks/post` that can perform the rehash. Here's one example of such a script:
+
+```bash
+#/bin/bash
+pkill -HUP oragono
+```
 
 The main issues you'll run into are going to be permissions issues. This is because by default, certbot will generate certificates that non-root users can't (and probably shouldn't) read. If you run into trouble, look over the script in step **4** and/or make sure you're copying the files to somewhere else, as well as giving them correct permissions with `chown`, `chgrp` and `chmod`.
 
