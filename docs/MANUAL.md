@@ -226,7 +226,8 @@ Otherwise, in the Oragono config file, you'll want to enable raw line logging by
     1. e.g. you could edit the `certbot.service` and add the following `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
 
 Caveats:
-* Depending on how and who you run oragono as, you may run into permissions issues with the certificates as, by default, Let's Encrypt will generate certificates non-root users cannot read
+* Depending on how and who you run oragono as, you may run into permissions issues with the certificates as, by default, Let's Encrypt will generate certificates non-root users cannot read. To help alleviate this, there's an example bash script [linked here](https://github.com/darwin-network/slash/blob/master/etc/bin/install-lecerts) that may be useful.
+
 
 This was originally discussed [here](https://github.com/oragono/oragono/issues/118)
 
