@@ -217,19 +217,21 @@ Otherwise, in the Oragono config file, you'll want to enable raw line logging by
 
 ## How do I use Let's Encrypt certificates?
 
-1. Follow the [guidance](https://letsencrypt.org/getting-started/) from Let's Encrypt to create your certificates
-2. You should now have a set of `pem` files (in Linux you will), mainly we're interested in your `live/` Let's Encrypt directory (e.g. `/etc/letsencrypt/live/<site>/`)
-3. Edit your configuration yaml file
-    1. Change the `cert: tls.crt` to point to your `/etc/letsencrypt/live/<site>/fullchain.pem`
-    2. Change the `key: tls.key` to point to your `/etc/letsencrypt/live/<site>/privkey.pem`
-4. If you are using auto-renew via Let's Encrypt you may want to have a service or timer send a SIGHUP to the oragono process to reload the configuration and certs
-    1. e.g. you could edit the `certbot.service` and add the following `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
+Every deployment's gonna be different, but you can use certificates from [Let's Encrypt](https://letsencrypt.org) without too much trouble. Here's some steps that should help get you on the right track:
 
-Caveats:
-* Depending on how and who you run oragono as, you may run into permissions issues with the certificates as, by default, Let's Encrypt will generate certificates non-root users cannot read. To help alleviate this, there's an example bash script [linked here](https://github.com/darwin-network/slash/blob/master/etc/bin/install-lecerts) that may be useful.
+1. Follow this [guidance](https://letsencrypt.org/getting-started/) from Let's Encrypt to create your certificates.
+2. You should now have a set of `pem` files, Mainly, we're interested in your `live/` Let's Encrypt directory (e.g. `/etc/letsencrypt/live/<site>/`).
+3. Here are how the config file keys map to LE files:
+    - `cert: tls.crt` is `live/<site>/fullchain.pem`
+    - ` key: tls.key` is `live/<site>/privkey.pem`
+4. You may need to copy the `pem` files to another directory so Oragono can read them, or similarly use a script like [this one](https://github.com/darwin-network/slash/blob/master/etc/bin/install-lecerts) to automagically do something similar.
+5. If you're using an auto-renew script, you may want it to send a `SIGHUP` to Oragono to have it rehashing the configuration and certificates. For example:
+    - You could edit `certbot.service` and add `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
 
+The main issues you'll run into are going to be permissions issues. This is because by default, certbot will generate certificates that non-root users can't (and probably shouldn't) read. If you run into trouble, look over the script in step **4** and/or make sure you're copying the files to somewhere else, as well as giving them correct permissions with `chown`, `chgrp` and `chmod`.
 
-This was originally discussed [here](https://github.com/oragono/oragono/issues/118)
+On other platforms or with alternative ACME tools, you may need to use other steps or the specific files may be named differently.
+
 
 --------------------------------------------------------------------------------------------
 
