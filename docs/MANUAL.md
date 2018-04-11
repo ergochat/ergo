@@ -225,6 +225,9 @@ Otherwise, in the Oragono config file, you'll want to enable raw line logging by
 4. If you are using auto-renew via Let's Encrypt you may want to have a service or timer send a SIGHUP to the oragono process to reload the configuration and certs
     1. e.g. you could edit the `certbot.service` and add the following `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
 
+Caveats:
+* Depending on how and who you run oragono as, you may run into permissions issues with the certificates as, by default, Let's Encrypt will generate certificates non-root users cannot read
+
 This was originally discussed [here](https://github.com/oragono/oragono/issues/118)
 
 --------------------------------------------------------------------------------------------
