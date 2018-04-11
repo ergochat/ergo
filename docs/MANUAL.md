@@ -215,6 +215,17 @@ If you're familiar with getting this output through your client (e.g. in weechat
 
 Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
+## How do I use Let's Encrypt certificates?
+
+1. Follow the [guidance](https://letsencrypt.org/getting-started/) from Let's Encrypt to create your certificates
+2. You should now have a set of `pem` files (in Linux you will), mainly we're interested in your `live/` Let's Encrypt directory (e.g. `/etc/letsencrypt/live/<site>/`)
+3. Edit your configuration yaml file
+    1. Change the `cert: tls.crt` to point to your `/etc/letsencrypt/live/<site>/fullchain.pem`
+    2. Change the `key: tls.key` to point to your `/etc/letsencrypt/live/<site>/privkey.pem`
+4. If you are using auto-renew via Let's Encrypt you may want to have a service or timer send a SIGHUP to the oragono process to reload the configuration and certs
+    1. e.g. you could edit the `certbot.service` and add the following `ExecStartPost=/usr/bin/kill -HUP $(/usr/bin/pidof oragono)`
+
+This was originally discussed [here](https://github.com/oragono/oragono/issues/118)
 
 --------------------------------------------------------------------------------------------
 
