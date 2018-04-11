@@ -47,8 +47,7 @@ oragono initdb
 oragono mkcerts
 ```
 
-**Note:** This installation will give you self-signed certificates suitable for testing purposes.
-For real certs, look into [Let's Encrypt](https://letsencrypt.org/)!
+**Note:** For setting up proper Let's Encrypt certificates, we've got [this manual entry](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#how-do-i-use-lets-encrypt-certificates).
 
 ### Platform Packages
 
@@ -70,27 +69,17 @@ The `stable` branch contains the latest release. You can run this for a producti
 
 [![Build Status](https://travis-ci.org/oragono/oragono.svg?branch=master)](https://travis-ci.org/oragono/oragono)
 
-Clone the appropriate branch. If necessary, do `git submodule update --init` to set up vendored dependencies. From the root folder, run `make` to generate all release files for all of our target OSes:
+Clone the appropriate branch. You should also run `git submodule update --init` to set up vendored dependencies.
+
+From the root folder, run `make` to generate all release files in `/dist` for all of our target OSes:
 ```
 make
 ```
 
-You can also only build the release files for a specific system:
-```
-# for windows
-make windows
+Otherwise, if you'd like to manually build a very specific executable, you can run the typical `go build oragono.go` command.
 
-# for linux
-make linux
+However, when just developing I usually execute `go run oragono.go`. That rebuilds Oragono on the fly with the latest changes.
 
-# for osx
-make osx
-
-# for arm6
-make arm6
-```
-
-Once you have made the release files, you can find them in the `build` directory. Uncompress these to an empty directory and continue as usual.
 
 ## Configuration
 
