@@ -5,6 +5,9 @@ all: build
 build:
 	goreleaser --snapshot --rm-dist
 
+buildrelease:
+	goreleaser --skip-publish --rm-dist
+
 deps:
 	git submodule update --init
 
