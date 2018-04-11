@@ -1,10 +1,15 @@
 # Developing Oragono
 
-Most development happens on the `develop` branch, which is occasionally rebased + merged into `master` when it's not incredibly broken. When this happens, the `develop` branch is usually pruned until I feel like making 'unsafe' changes again.
+This is just a bunch of tips and tricks we keep in mind while developing Oragono. If you wanna help develop as well, they might also be worth keeping in mind!
 
-I may also name the branch `develop+feature` if I'm developing multiple, or particularly unstable, features.
 
-The intent is to keep `master` relatively stable.
+## Branches
+
+The `master` branch should be kept relatively runnable. It might be a bit broken or contain some bad commits now and then, but the pre-release checks should weed those out before users see them.
+
+For either particularly broken or particularly WiP changes, we work on them in a `develop` branch. The normal branch naming is `develop+feature[.version]`. For example, when first developing 'cloaking', you may use the branch `develop+cloaks`. If you need to create a new branch to work on it (a second version of the implementation, for example), you could use `develop+cloaks.2`, and so on.
+
+Develop branches are either used to work out implementation details in preperation for a cleaned-up version, for half-written ideas we want to continue persuing, or for stuff that we just don't want on `master` yet for whatever reason.
 
 
 ## Releasing a new version
@@ -17,6 +22,7 @@ The intent is to keep `master` relatively stable.
 6. Commit the new changelog and constants change.
 7. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 8. Build binaries using the Makefile, upload release to Github including the changelog and binaries.
+9. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
 
 Once it's built and released, you need to setup the new development version. To do so:
 
@@ -81,6 +87,7 @@ To debug a hang, the best thing to do is to get a stack trace. Go's nice, and yo
 
 This will kill Oragono and print out a stack trace for you to take a look at.
 
+
 ## Concurrency design
 
 Oragono involves a fair amount of shared state. Here are some of the main points:
@@ -99,6 +106,7 @@ In consequence, there is a lot of state (in particular, server and channel state
 There are some mutexes that are "tier 0": anything in a subpackage of `irc` (e.g., `irc/logger` or `irc/connection_limits`) shouldn't acquire mutexes defined in `irc`.
 
 We are using `buntdb` for persistence; a `buntdb.DB` has an `RWMutex` inside it, with read-write transactions getting the `Lock()` and read-only transactions getting the `RLock()`. This mutex is considered tier 1. However, it's shared globally across all consumers, so if possible you should avoid acquiring it while holding ordinary application-level mutexes.
+
 
 ## Command handlers and ResponseBuffer
 
