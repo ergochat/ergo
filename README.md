@@ -67,18 +67,20 @@ The `stable` branch contains the latest release. You can run this for a producti
 
 #### Building
 
-[![Build Status](https://travis-ci.org/oragono/oragono.svg?branch=master)](https://travis-ci.org/oragono/oragono)
+Clone the appropriate branch. You should also run this command to set up vendored dependencies:
+```
+git submodule update --init
+```
 
-Clone the appropriate branch. You should also run `git submodule update --init` to set up vendored dependencies.
-
-From the root folder, run `make` to generate all release files in `/dist` for all of our target OSes:
+From the root folder, you can run `make`, using [GoReleaser](https://goreleaser.com/) to generate all of our release binaries in `/dist`:
 ```
 make
 ```
 
-Otherwise, if you'd like to manually build a very specific executable, you can run the typical `go build oragono.go` command.
-
-However, when just developing I usually execute `go run oragono.go`. That rebuilds Oragono on the fly with the latest changes.
+However, when just developing I instead just use this command to rebuild and run Oragono on the fly with the latest changes:
+```
+go run oragono.go
+```
 
 
 ## Configuration
