@@ -103,7 +103,7 @@ func (manager *MonitorManager) List(client *Client) (nicks []string) {
 }
 
 var (
-	metadataSubcommands = map[string]func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool{
+	monitorSubcommands = map[string]func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool{
 		"-": monitorRemoveHandler,
 		"+": monitorAddHandler,
 		"c": monitorClearHandler,

@@ -1445,7 +1445,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // MONITOR <subcmd> [params...]
 func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[0])]
+	handler, exists := monitorSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], client.t("Unknown subcommand"))
