@@ -10,6 +10,7 @@ builds:
       - darwin
       - linux
     goarch:
+      - "386"
       - amd64
       - arm
       - arm64
@@ -21,6 +22,8 @@ builds:
         goarch: arm
       - goos: darwin
         goarch: arm
+      - goos: darwin
+        goarch: 386
       - goos: freebsd
         goarch: arm
       - goos: freebsd
@@ -29,6 +32,7 @@ archive:
   name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
   format: tar.gz
   replacements:
+    386: i386
     amd64: x64
     darwin: osx
   format_overrides:
