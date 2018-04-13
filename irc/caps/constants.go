@@ -36,6 +36,8 @@ const (
 	MaxLine Capability = "oragono.io/maxline"
 	// MessageTags is this draft IRCv3 capability: http://ircv3.net/specs/core/message-tags-3.3.html
 	MessageTags Capability = "draft/message-tags-0.2"
+	// Metadata is this draft IRCv3 capability: https://github.com/jwheare/ircv3-specifications/blob/metadata/core/metadata-3.2.md
+	Metadata Capability = "draft/metadata"
 	// MultiPrefix is this IRCv3 capability: http://ircv3.net/specs/extensions/multi-prefix-3.1.html
 	MultiPrefix Capability = "multi-prefix"
 	// Rename is this proposed capability: https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md

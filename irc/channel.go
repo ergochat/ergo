@@ -25,6 +25,7 @@ type Channel struct {
 	members           MemberSet
 	membersCache      []*Client  // allow iteration over channel members without holding the lock
 	membersCacheMutex sync.Mutex // tier 2; see `regenerateMembersCache`
+	metadata          *MetadataManager
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -56,6 +57,7 @@ func NewChannel(s *Server, name string, addDefaultModes bool, regInfo *Registere
 			modes.InviteMask: NewUserMaskSet(),
 		},
 		members:        make(MemberSet),
+		metadata:       NewMetadataManager(),
 		name:           name,
 		nameCasefolded: casefoldedName,
 		server:         s,

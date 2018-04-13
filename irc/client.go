@@ -60,6 +60,7 @@ type Client struct {
 	languages          []string
 	maxlenTags         uint32
 	maxlenRest         uint32
+	metadata           *MetadataManager
 	nick               string
 	nickCasefolded     string
 	nickMaskCasefolded string
@@ -100,6 +101,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		channels:       make(ChannelSet),
 		ctime:          now,
 		flags:          make(map[modes.Mode]bool),
+		metadata:       NewMetadataManager(),
 		server:         server,
 		socket:         &socket,
 		nick:           "*", // * is used until actual nick is given

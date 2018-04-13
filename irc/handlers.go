@@ -1311,6 +1311,300 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return false
 }
 
+// METADATA * SUB <key>{ <key>}
+// METADATA * SUBS
+// METADATA * UNSUB <key>{ <key>}
+// METADATA <target> CLEAR
+// METADATA <target> GET <key>{ <key>}
+// METADATA <target> LIST
+// METADATA <target> SET <key> [<value>]
+// METADATA <target> SYNC
+func metadataHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	handler, exists := metadataSubcommands[strings.ToLower(msg.Params[1])]
+
+	if !exists {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown subcommand"))
+		return false
+	}
+
+	return handler(server, client, msg, rb)
+}
+
+// METADATA <target> CLEAR
+func metadataClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	var mm *MetadataManager
+
+	targetString := msg.Params[0]
+	target, err := CasefoldChannel(targetString)
+	if err == nil {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			return false
+		}
+		if !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
+			rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.nick, targetString, client.t("You're not a channel operator"))
+			return false
+		}
+		mm = channel.metadata
+	} else {
+		target, err = CasefoldName(targetString)
+		user := server.clients.Get(target)
+		if err != nil || user == nil {
+			if len(target) > 0 {
+				rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			} else {
+				rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown error"))
+			}
+			return false
+		}
+		if user != client {
+			rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, target, "*", client.t("Permission denied"))
+			return false
+		}
+		mm = user.metadata
+	}
+
+	for _, key := range mm.Clear() {
+		rb.Add(nil, server.name, RPL_KEYVALUE, client.nick, target, key, "*")
+	}
+	rb.Add(nil, server.name, RPL_METADATAEND, client.nick, client.t("End of metadata"))
+
+	return false
+}
+
+// METADATA <target> GET <key>{ <key>}
+func metadataGetHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	if len(msg.Params) < 3 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		return false
+	}
+
+	var mm *MetadataManager
+
+	targetString := msg.Params[0]
+	target, err := CasefoldChannel(targetString)
+	if err == nil {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			return false
+		}
+		if !channel.hasClient(client) {
+			rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, target, client.t("You're not on that channel!"))
+			return false
+		}
+		mm = channel.metadata
+	} else {
+		target, err = CasefoldName(targetString)
+		user := server.clients.Get(target)
+		if err != nil || user == nil {
+			if len(target) > 0 {
+				rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			} else {
+				rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown error"))
+			}
+			return false
+		}
+		mm = user.metadata
+	}
+
+	for i, key := range msg.Params {
+		// only process actual keys, skip target and (sub)command name
+		if 1 < i {
+			key = strings.TrimSpace(strings.ToLower(key))
+			if !metadataKeyValid(key) {
+				rb.Add(nil, server.name, ERR_KEYINVALID, client.nick, key)
+				continue
+			}
+			value, exists := mm.Get(key)
+			if !exists {
+				rb.Add(nil, server.name, ERR_NOMATCHINGKEY, client.nick, target, key, client.t("No matching key"))
+				continue
+			}
+
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.nick, target, key, "*", value)
+		}
+	}
+	return false
+}
+
+// METADATA <target> LIST
+func metadataListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	var mm *MetadataManager
+
+	targetString := msg.Params[0]
+	target, err := CasefoldChannel(targetString)
+	if err == nil {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			return false
+		}
+		if !channel.hasClient(client) {
+			rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, target, client.t("You're not on that channel!"))
+			return false
+		}
+		mm = channel.metadata
+	} else {
+		target, err = CasefoldName(targetString)
+		user := server.clients.Get(target)
+		if err != nil || user == nil {
+			if len(target) > 0 {
+				rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			} else {
+				rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown error"))
+			}
+			return false
+		}
+		mm = user.metadata
+	}
+
+	for key, value := range mm.List() {
+		rb.Add(nil, server.name, RPL_KEYVALUE, client.nick, target, key, "*", value)
+	}
+	rb.Add(nil, server.name, RPL_METADATAEND, client.nick, client.t("End of metadata"))
+
+	return false
+}
+
+// METADATA <target> SET <key> [<value>]
+func metadataSetHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	if len(msg.Params) < 3 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		return false
+	}
+
+	// retrieve key/value
+	key := strings.TrimSpace(strings.ToLower(msg.Params[2]))
+	if !metadataKeyValid(key) {
+		rb.Add(nil, server.name, ERR_KEYINVALID, client.nick, key)
+		return false
+	}
+
+	var settingValue bool
+	var value string
+	if 3 < len(msg.Params) {
+		settingValue = true
+		value = msg.Params[3]
+	}
+
+	// work on target
+	targetString := msg.Params[0]
+	target, err := CasefoldChannel(targetString)
+	if err == nil {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			return false
+		}
+		if !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
+			rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.nick, targetString, client.t("You're not a channel operator"))
+			return false
+		}
+		if settingValue {
+			err := channel.metadata.Set(key, value, server.MetadataKeysLimit())
+			if err == errTooManyKeys {
+				rb.Add(nil, server.name, ERR_METADATALIMIT, client.nick, target, client.t("Metadata limit reached"))
+				return false
+			}
+		} else {
+			channel.metadata.Delete(key)
+		}
+	} else {
+		target, err = CasefoldName(targetString)
+		user := server.clients.Get(target)
+		if err != nil || user == nil {
+			if len(target) > 0 {
+				rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			} else {
+				rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown error"))
+			}
+			return false
+		}
+		if user != client {
+			rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, target, "*", client.t("Permission denied"))
+			return false
+		}
+		if settingValue {
+			err := user.metadata.Set(key, value, server.MetadataKeysLimit())
+			if err == errTooManyKeys {
+				rb.Add(nil, server.name, ERR_METADATALIMIT, client.nick, target, client.t("Metadata limit reached"))
+				return false
+			}
+		} else {
+			user.metadata.Delete(key)
+		}
+	}
+
+	if settingValue {
+		rb.Add(nil, server.name, RPL_KEYVALUE, client.nick, target, key, "*", value)
+	} else {
+		rb.Add(nil, server.name, RPL_KEYVALUE, client.nick, target, key, "*")
+	}
+	rb.Add(nil, server.name, RPL_METADATAEND, client.nick, client.t("End of metadata"))
+
+	return false
+}
+
+func metadataSubHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	client.Notice("METADATA SUB not yet implemented")
+	return false
+}
+
+func metadataSubsHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	client.Notice("METADATA SUBS not yet implemented")
+	return false
+}
+
+// METADATA <target> SYNC
+//TODO(dan): SYNC also returns e.g. metadata keys of friends in the given channel, etc.
+//Note:
+// One difference with list is that you can’t get a whole channel full of members metadata with it.
+// With sync you can, you get targets you didn’t explicitly request. It’s more of a trigger than a request.
+// And it’s mainly only useful for the delayed synchronisation function.
+func metadataSyncHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	var mm *MetadataManager
+
+	targetString := msg.Params[0]
+	target, err := CasefoldChannel(targetString)
+	if err == nil {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			return false
+		}
+		if !channel.hasClient(client) {
+			rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, target, client.t("You're not on that channel!"))
+			return false
+		}
+		mm = channel.metadata
+	} else {
+		target, err = CasefoldName(targetString)
+		user := server.clients.Get(target)
+		if err != nil || user == nil {
+			if len(target) > 0 {
+				rb.Add(nil, server.name, ERR_TARGETINVALID, client.nick, target, client.t("Invalid metadata target"))
+			} else {
+				rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "METADATA", client.t("Unknown error"))
+			}
+			return false
+		}
+		mm = user.metadata
+	}
+
+	for key, value := range mm.List() {
+		rb.Add(nil, server.name, "METADATA", target, key, "*", value)
+	}
+
+	return false
+}
+
+func metadataUnsubHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	client.Notice("METADATA UNSUB not yet implemented")
+	return false
+}
+
 // MODE <target> [<modestring> [<mode arguments>...]]
 func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	_, errChan := CasefoldChannel(msg.Params[0])
@@ -1448,7 +1742,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	handler, exists := monitorSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", msg.Params[0], client.t("Unknown subcommand"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "MONITOR", client.t("Unknown subcommand"))
 		return false
 	}
 

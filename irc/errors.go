@@ -34,6 +34,7 @@ var (
 	errNoSuchChannel                  = errors.New("No such channel")
 	errRenamePrivsNeeded              = errors.New("Only chanops can rename channels")
 	errSaslFail                       = errors.New("SASL failed")
+	errTooManyKeys                    = errors.New("Too many metadata keys")
 )
 
 // Socket Errors

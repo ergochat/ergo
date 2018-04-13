@@ -270,6 +270,13 @@ Shows statistics about the size of the network. If <mask> is given, only
 returns stats for servers matching the given mask.  If <server> is given, the
 command is processed by that server.`,
 	},
+	"metadata": {
+		text: `METADATA <target> <subcommand> [<param>...]
+
+Sets, removes and displays metadata about clients and channels. For more
+specific information, see the spec here:
+https://github.com/jwheare/ircv3-specifications/blob/metadata/core/metadata-3.2.md`,
+	},
 	"mode": {
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
 
