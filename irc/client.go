@@ -90,7 +90,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	limits := server.Limits()
 	fullLineLenLimit := limits.LineLen.Tags + limits.LineLen.Rest
 	socket := NewSocket(conn, fullLineLenLimit*2, server.MaxSendQBytes())
-	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
 		authorized:     server.Password() == nil,
