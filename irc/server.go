@@ -836,7 +836,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.languages = lm
 
 	// Metadata
-	CapValues.Set(caps.Metadata, "maxsub=10")
+	CapValues.Set(caps.Metadata, fmt.Sprintf("maxkey=%d,maxsub=%d", server.MetadataKeysLimit(), server.MetadataSubsLimit()))
 
 	// SASL
 	oldAccountConfig := server.AccountConfig()
