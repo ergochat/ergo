@@ -59,7 +59,7 @@ func (socket *Socket) Close() {
 	socket.closed = true
 	socket.Unlock()
 
-	go socket.send()
+	socket.wakeWriter()
 }
 
 // CertFP returns the fingerprint of the certificate provided by the client.
@@ -134,8 +134,20 @@ func (socket *Socket) Write(data string) (err error) {
 	}
 	socket.Unlock()
 
-	go socket.send()
+	socket.wakeWriter()
 	return
+}
+
+// wakeWriter starts the goroutine that actually performs the write, without blocking
+func (socket *Socket) wakeWriter() {
+	// attempt to acquire the trylock
+	select {
+	case <-socket.writerSlotOpen:
+		// acquired the trylock; send() will release it
+		go socket.send()
+	default:
+		// failed to acquire; the holder will check for more data after releasing it
+	}
 }
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
@@ -163,19 +175,21 @@ func (socket *Socket) readyToWrite() bool {
 // send actually writes messages to socket.Conn; it may block
 func (socket *Socket) send() {
 	for {
+		// we are holding the trylock: actually do the write
+		socket.performWrite()
+		// surrender the trylock, avoiding a race where a write comes in after we've
+		// checked readyToWrite() and it returned false, but while we still hold the trylock:
+		socket.writerSlotOpen <- true
+		// check if more data came in while we held the trylock:
+		if !socket.readyToWrite() {
+			return
+		}
 		select {
 		case <-socket.writerSlotOpen:
-			// got the trylock: actually do the write
-			socket.performWrite()
-			// surrender the trylock:
-			socket.writerSlotOpen <- true
-			// check if more data came in while we held the trylock:
-			if !socket.readyToWrite() {
-				return
-			}
+			// got the trylock, loop back around and write
 		default:
-			// someone else has the trylock; if there's more data to write,
-			// they'll see if after they release it
+			// failed to acquire; exit and wait for the holder to observe readyToWrite()
+			// after releasing it
 			return
 		}
 	}
