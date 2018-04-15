@@ -4,8 +4,14 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.11.0] - 2018-04-15
+And v0.11.0 finally comes along! This release has been in the works for almost four months now, with an alpha and beta helping square away the issues.
+
+We're adding a lot of features to improve debugging, better support international users, and make things better for network administrators. Among the new features, you can use the `LANGUAGE` command to set a custom server language (see our [CrowdIn](https://crowdin.com/project/oragono) to contribute), expose a debugging `pprof` endpoint, reserve nicknames with `NickServ`, and force email verification for new user accounts. On the improvements side we have a `CAP REQ` fix, and we now have a manual that contains a nice overview of Oragono's documentation.
+
+If you have any trouble with this release, please let us know with an issue on our tracker, or by talking to us in `#oragono` on Freenode.
+
+Thanks a bunch to everyone for the help with this release – especially to our translators and to Slingamn for being an awesome co-maintainer!
 
 ### Config Changes
 * `callbacks` section added under `accounts/registration`, configuring our new email verification (disabled by default).
@@ -18,9 +24,8 @@ New release of Oragono!
 * `skip-server-password` key added under `accounts`, to better support certain clients.
 * `verify-timeout` default value changed from 120 hours to 32 hours under `accounts/registration`.
 
-### Security
-
 ### Added
+* Added 32-bit builds.
 * Added a debug pprof endpoint, which is disabled by default and can be exposed in the config.
 * Added a manual to our documentation! This is primarily where we'll be adding user-facing information and instructions from now on.
 * Added current running git commit to the sent version string.
@@ -50,8 +55,6 @@ New release of Oragono!
 ### Changed
 * `genpasswd` now requires that you confirm the input passphrase.
 * Message IDs are now much shorter and easier to read – down from 39 characters to 16 while preserving a very similar gaurantee of uniqueness (thanks [@prawnsalad](https://github.com/prawnsalad) for bringing up this issue).
-
-### Removed
 
 ### Fixed
 * We now correctly suspend registration when receiving a `CAP REQ`, as per [the spec](https://ircv3.net/specs/core/capability-negotiation-3.1.html).
