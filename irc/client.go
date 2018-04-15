@@ -811,13 +811,13 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.Line()
 
-		// if we used the trailing hack, we need to strip the final space we appended earlier on
-		if usedTrailingHack {
-			line = line[:len(line)-3] + "\r\n"
-		}
-
 		client.socket.Write(line)
 		return err
+	}
+
+	// if we used the trailing hack, we need to strip the final space we appended earlier on
+	if usedTrailingHack {
+		line = line[:len(line)-3] + "\r\n"
 	}
 
 	client.server.logger.Debug("useroutput", client.nick, " ->", strings.TrimRight(line, "\r\n"))
