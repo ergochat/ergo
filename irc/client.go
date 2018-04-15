@@ -100,7 +100,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		ctime:          now,
 		flags:          make(map[modes.Mode]bool),
 		server:         server,
-		socket:         &socket,
+		socket:         socket,
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given

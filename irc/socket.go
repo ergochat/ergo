@@ -42,7 +42,7 @@ type Socket struct {
 }
 
 // NewSocket returns a new Socket.
-func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes int) Socket {
+func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes int) *Socket {
 	result := Socket{
 		conn:           conn,
 		reader:         bufio.NewReaderSize(conn, maxReadQBytes),
@@ -50,7 +50,7 @@ func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes int) Socket {
 		writerSlotOpen: make(chan bool, 1),
 	}
 	result.writerSlotOpen <- true
-	return result
+	return &result
 }
 
 // Close stops a Socket from being able to send/receive any more data.
@@ -162,16 +162,20 @@ func (socket *Socket) readyToWrite() bool {
 
 // send actually writes messages to socket.Conn; it may block
 func (socket *Socket) send() {
-	// one of these checks happens-after every call to Write(), so we can't miss writes
-	for socket.readyToWrite() {
+	for {
 		select {
 		case <-socket.writerSlotOpen:
 			// got the trylock: actually do the write
 			socket.performWrite()
+			// surrender the trylock:
 			socket.writerSlotOpen <- true
+			// check if more data came in while we held the trylock:
+			if !socket.readyToWrite() {
+				return
+			}
 		default:
-			// another goroutine is in progress; exit and wait for them to loop back around
-			// and observe readyToWrite() again
+			// someone else has the trylock; if there's more data to write,
+			// they'll see if after they release it
 			return
 		}
 	}
