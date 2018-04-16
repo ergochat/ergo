@@ -8,9 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
@@ -37,6 +39,22 @@ type SchemaChange struct {
 
 // maps an initial version to a schema change capable of upgrading it
 var schemaChanges map[string]SchemaChange
+
+type incompatibleSchemaError struct {
+	currentVersion  string
+	requiredVersion string
+}
+
+func IncompatibleSchemaError(currentVersion string) (result *incompatibleSchemaError) {
+	return &incompatibleSchemaError{
+		currentVersion:  currentVersion,
+		requiredVersion: latestDbSchema,
+	}
+}
+
+func (err *incompatibleSchemaError) Error() string {
+	return fmt.Sprintf("Database requires update. Expected schema v%s, got v%s", err.requiredVersion, err.currentVersion)
+}
 
 // InitDB creates the database.
 func InitDB(path string) {
@@ -69,36 +87,107 @@ func InitDB(path string) {
 }
 
 // OpenDatabase returns an existing database, performing a schema version check.
-func OpenDatabase(path string) (*buntdb.DB, error) {
-	// open data store
-	db, err := buntdb.Open(path)
+func OpenDatabase(config *Config) (*buntdb.DB, error) {
+	allowAutoupgrade := true
+	if config.Datastore.AutoUpgrade != nil {
+		allowAutoupgrade = *config.Datastore.AutoUpgrade
+	}
+	return openDatabaseInternal(config, allowAutoupgrade)
+}
+
+// open the database, giving it at most one chance to auto-upgrade the schema
+func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB, err error) {
+	db, err = buntdb.Open(config.Datastore.Path)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	// check db version
-	err = db.View(func(tx *buntdb.Tx) error {
-		version, _ := tx.Get(keySchemaVersion)
-		if version != latestDbSchema {
-			return fmt.Errorf("Database must be updated. Expected schema v%s, got v%s", latestDbSchema, version)
+	defer func() {
+		if err != nil && db != nil {
+			db.Close()
+			db = nil
 		}
-		return nil
-	})
+	}()
 
+	// read the current version string
+	var version string
+	err = db.View(func(tx *buntdb.Tx) error {
+		version, err = tx.Get(keySchemaVersion)
+		return err
+	})
 	if err != nil {
-		// close the db
-		db.Close()
-		return nil, err
+		return
 	}
 
-	return db, nil
+	if version == latestDbSchema {
+		// success
+		return
+	}
+
+	// XXX quiesce the DB so we can be sure it's safe to make a backup copy
+	db.Close()
+	db = nil
+	if allowAutoupgrade {
+		err = performAutoUpgrade(version, config)
+		if err != nil {
+			return
+		}
+		// successful autoupgrade, let's try this again:
+		return openDatabaseInternal(config, false)
+	} else {
+		err = IncompatibleSchemaError(version)
+		return
+	}
+}
+
+// implementation of `cp` (go should really provide this...)
+func cpFile(src string, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		closeError := out.Close()
+		if err == nil {
+			err = closeError
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	return
+}
+
+func performAutoUpgrade(currentVersion string, config *Config) (err error) {
+	path := config.Datastore.Path
+	log.Printf("attempting to auto-upgrade schema from version %s to %s\n", currentVersion, latestDbSchema)
+	timestamp := time.Now().UTC().Format("2006-01-02-15:04:05.000Z")
+	backupPath := fmt.Sprintf("%s.v%s.%s.bak", path, currentVersion, timestamp)
+	log.Printf("making a backup of current database at %s\n", backupPath)
+	err = cpFile(path, backupPath)
+	if err != nil {
+		return err
+	}
+
+	err = UpgradeDB(config)
+	if err != nil {
+		// database upgrade is a single transaction, so we don't need to restore the backup;
+		// we can just delete it
+		os.Remove(backupPath)
+	}
+	return err
 }
 
 // UpgradeDB upgrades the datastore to the latest schema.
-func UpgradeDB(config *Config) {
+func UpgradeDB(config *Config) (err error) {
 	store, err := buntdb.Open(config.Datastore.Path)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+		return err
 	}
 	defer store.Close()
 
@@ -108,9 +197,14 @@ func UpgradeDB(config *Config) {
 			version, _ = tx.Get(keySchemaVersion)
 			change, schemaNeedsChange := schemaChanges[version]
 			if !schemaNeedsChange {
-				break
+				if version == latestDbSchema {
+					// success!
+					break
+				}
+				// unable to upgrade to the desired version, roll back
+				return IncompatibleSchemaError(version)
 			}
-			log.Println("attempting to update store from version " + version)
+			log.Println("attempting to update schema from version " + version)
 			err := change.Changer(config, tx)
 			if err != nil {
 				return err
@@ -119,16 +213,15 @@ func UpgradeDB(config *Config) {
 			if err != nil {
 				return err
 			}
-			log.Println("successfully updated store to version " + change.TargetVersion)
+			log.Println("successfully updated schema to version " + change.TargetVersion)
 		}
 		return nil
 	})
 
 	if err != nil {
-		log.Fatal("Could not update datastore:", err.Error())
+		log.Println("database upgrade failed and was rolled back")
 	}
-
-	return
+	return err
 }
 
 func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {

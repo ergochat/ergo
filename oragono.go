@@ -84,7 +84,10 @@ Options:
 			log.Println("database initialized: ", config.Datastore.Path)
 		}
 	} else if arguments["upgradedb"].(bool) {
-		irc.UpgradeDB(config)
+		err = irc.UpgradeDB(config)
+		if err != nil {
+			log.Fatal("Error while upgrading db:", err.Error())
+		}
 		if !arguments["--quiet"].(bool) {
 			log.Println("database upgraded: ", config.Datastore.Path)
 		}
