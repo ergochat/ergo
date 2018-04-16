@@ -83,13 +83,15 @@ func TestFakelag(t *testing.T) {
 		t.Fatalf("incorrect sleep time: %v != %v", expected, duration)
 	}
 
+	// send another message without a pause; we should have to sleep for 500 msec
 	fl.Touch()
 	if fl.state != FakelagThrottled {
 		t.Fatalf("should be throttled")
 	}
 	slept, duration = mt.lastSleep()
-	if duration != interval {
-		t.Fatalf("incorrect sleep time: %v != %v", interval, duration)
+	expected, _ = time.ParseDuration("500ms")
+	if duration != expected {
+		t.Fatalf("incorrect sleep time: %v != %v", duration, expected)
 	}
 
 	mt.pause(interval * 6)
