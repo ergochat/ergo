@@ -256,8 +256,8 @@ func (channel *Channel) Key() string {
 
 func (channel *Channel) setKey(key string) {
 	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
 	channel.key = key
-	channel.stateMutex.Unlock()
 }
 
 func (channel *Channel) HasMode(mode modes.Mode) bool {

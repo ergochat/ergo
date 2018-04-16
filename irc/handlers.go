@@ -1351,20 +1351,17 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	}
 
-	// save changes to banlist/exceptlist/invexlist
-	var banlistUpdated, exceptlistUpdated, invexlistUpdated bool
+	// save changes
+	var includeFlags uint
 	for _, change := range applied {
-		if change.Mode == modes.BanMask {
-			banlistUpdated = true
-		} else if change.Mode == modes.ExceptMask {
-			exceptlistUpdated = true
-		} else if change.Mode == modes.InviteMask {
-			invexlistUpdated = true
+		includeFlags |= IncludeModes
+		if change.Mode == modes.BanMask || change.Mode == modes.ExceptMask || change.Mode == modes.InviteMask {
+			includeFlags |= IncludeLists
 		}
 	}
 
-	if (banlistUpdated || exceptlistUpdated || invexlistUpdated) && channel.IsRegistered() {
-		go server.channelRegistry.StoreChannel(channel, true)
+	if channel.IsRegistered() && includeFlags != 0 {
+		go server.channelRegistry.StoreChannel(channel, includeFlags)
 	}
 
 	// send out changes

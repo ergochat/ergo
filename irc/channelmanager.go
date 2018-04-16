@@ -65,7 +65,7 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, rb *Resp
 		entry = cm.chans[casefoldedName]
 		if entry == nil {
 			entry = &channelManagerEntry{
-				channel:      NewChannel(server, name, true, info),
+				channel:      NewChannel(server, name, info),
 				pendingJoins: 0,
 			}
 			cm.chans[casefoldedName] = entry

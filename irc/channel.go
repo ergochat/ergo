@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"strconv"
 	"time"
@@ -36,11 +37,12 @@ type Channel struct {
 	topicSetBy        string
 	topicSetTime      time.Time
 	userLimit         uint64
+	accountToUMode    map[string]modes.Mode
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string, addDefaultModes bool, regInfo *RegisteredChannel) *Channel {
+func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
 		s.logger.Error("internal", fmt.Sprintf("Bad channel name %s: %v", name, err))
@@ -59,16 +61,15 @@ func NewChannel(s *Server, name string, addDefaultModes bool, regInfo *Registere
 		name:           name,
 		nameCasefolded: casefoldedName,
 		server:         s,
-	}
-
-	if addDefaultModes {
-		for _, mode := range s.DefaultChannelModes() {
-			channel.flags[mode] = true
-		}
+		accountToUMode: make(map[string]modes.Mode),
 	}
 
 	if regInfo != nil {
 		channel.applyRegInfo(regInfo)
+	} else {
+		for _, mode := range s.DefaultChannelModes() {
+			channel.flags[mode] = true
+		}
 	}
 
 	return channel
@@ -83,6 +84,11 @@ func (channel *Channel) applyRegInfo(chanReg *RegisteredChannel) {
 	channel.topicSetTime = chanReg.TopicSetTime
 	channel.name = chanReg.Name
 	channel.createdTime = chanReg.RegisteredAt
+	channel.key = chanReg.Key
+
+	for _, mode := range chanReg.Modes {
+		channel.flags[mode] = true
+	}
 	for _, mask := range chanReg.Banlist {
 		channel.lists[modes.BanMask].Add(mask)
 	}
@@ -92,21 +98,34 @@ func (channel *Channel) applyRegInfo(chanReg *RegisteredChannel) {
 	for _, mask := range chanReg.Invitelist {
 		channel.lists[modes.InviteMask].Add(mask)
 	}
+	for account, mode := range chanReg.AccountToUMode {
+		channel.accountToUMode[account] = mode
+	}
 }
 
 // obtain a consistent snapshot of the channel state that can be persisted to the DB
-func (channel *Channel) ExportRegistration(includeLists bool) (info RegisteredChannel) {
+func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredChannel) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
 	info.Name = channel.name
-	info.Topic = channel.topic
-	info.TopicSetBy = channel.topicSetBy
-	info.TopicSetTime = channel.topicSetTime
 	info.Founder = channel.registeredFounder
 	info.RegisteredAt = channel.registeredTime
 
-	if includeLists {
+	if includeFlags&IncludeTopic != 0 {
+		info.Topic = channel.topic
+		info.TopicSetBy = channel.topicSetBy
+		info.TopicSetTime = channel.topicSetTime
+	}
+
+	if includeFlags&IncludeModes != 0 {
+		info.Key = channel.key
+		for mode := range channel.flags {
+			info.Modes = append(info.Modes, mode)
+		}
+	}
+
+	if includeFlags&IncludeLists != 0 {
 		for mask := range channel.lists[modes.BanMask].masks {
 			info.Banlist = append(info.Banlist, mask)
 		}
@@ -115,6 +134,10 @@ func (channel *Channel) ExportRegistration(includeLists bool) (info RegisteredCh
 		}
 		for mask := range channel.lists[modes.InviteMask].masks {
 			info.Invitelist = append(info.Invitelist, mask)
+		}
+		info.AccountToUMode = make(map[string]modes.Mode)
+		for account, mode := range channel.accountToUMode {
+			info.AccountToUMode[account] = mode
 		}
 	}
 
@@ -131,6 +154,7 @@ func (channel *Channel) SetRegistered(founder string) error {
 	}
 	channel.registeredFounder = founder
 	channel.registeredTime = time.Now()
+	channel.accountToUMode[founder] = modes.ChannelFounder
 	return nil
 }
 
@@ -338,7 +362,12 @@ func (channel *Channel) IsFull() bool {
 
 // CheckKey returns true if the key is not set or matches the given key.
 func (channel *Channel) CheckKey(key string) bool {
-	return (channel.key == "") || (channel.key == key)
+	chkey := channel.Key()
+	if chkey == "" {
+		return true
+	}
+
+	return subtle.ConstantTimeCompare([]byte(key), []byte(chkey)) == 1
 }
 
 func (channel *Channel) IsEmpty() bool {
@@ -404,21 +433,22 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 
 	client.addChannel(channel)
 
-	// give channel mode if necessary
-	newChannel := firstJoin && !channel.IsRegistered()
-	var givenMode *modes.Mode
 	account := client.Account()
-	cffounder, _ := CasefoldName(channel.registeredFounder)
-	if account != "" && account == cffounder {
-		givenMode = &modes.ChannelFounder
+
+	// give channel mode if necessary
+	channel.stateMutex.Lock()
+	newChannel := firstJoin && channel.registeredFounder == ""
+	mode, persistentModeExists := channel.accountToUMode[account]
+	var givenMode *modes.Mode
+	if persistentModeExists {
+		givenMode = &mode
 	} else if newChannel {
 		givenMode = &modes.ChannelOperator
 	}
 	if givenMode != nil {
-		channel.stateMutex.Lock()
 		channel.members[client][*givenMode] = true
-		channel.stateMutex.Unlock()
 	}
+	channel.stateMutex.Unlock()
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
 		rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
@@ -513,7 +543,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		}
 	}
 
-	go channel.server.channelRegistry.StoreChannel(channel, false)
+	go channel.server.channelRegistry.StoreChannel(channel, IncludeTopic)
 }
 
 // CanSpeak returns true if the client can speak on this channel.

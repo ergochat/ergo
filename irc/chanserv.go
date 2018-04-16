@@ -252,7 +252,7 @@ func csRegisterHandler(server *Server, client *Client, command, params string, r
 	}
 
 	// registration was successful: make the database reflect it
-	go server.channelRegistry.StoreChannel(channelInfo, true)
+	go server.channelRegistry.StoreChannel(channelInfo, IncludeAllChannelAttrs)
 
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s successfully registered"), channelName))
 
