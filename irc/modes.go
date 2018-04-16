@@ -54,9 +54,15 @@ func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges
 			}
 			var masks []sno.Mask
 			if change.Op == modes.Add || change.Op == modes.Remove {
+				var newArg string
 				for _, char := range change.Arg {
-					masks = append(masks, sno.Mask(char))
+					mask := sno.Mask(char)
+					if sno.ValidMasks[mask] {
+						masks = append(masks, mask)
+						newArg += string(char)
+					}
 				}
+				change.Arg = newArg
 			}
 			if change.Op == modes.Add {
 				client.server.snomasks.AddMasks(client, masks...)

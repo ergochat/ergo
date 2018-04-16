@@ -35,4 +35,18 @@ var (
 		LocalAccounts:      "ACCOUNT",
 		LocalXline:         "XLINE",
 	}
+
+	// ValidMasks contains the snomasks that we support.
+	ValidMasks = map[Mask]bool{
+		LocalAccouncements: true,
+		LocalConnects:      true,
+		LocalChannels:      true,
+		LocalKills:         true,
+		LocalNicks:         true,
+		LocalOpers:         true,
+		LocalQuits:         true,
+		Stats:              true,
+		LocalAccounts:      true,
+		LocalXline:         true,
+	}
 )
