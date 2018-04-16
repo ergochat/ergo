@@ -85,9 +85,10 @@ func (fl *Fakelag) Touch() {
 		}
 		// space them out by at least window/messagesperwindow
 		sleepDuration := time.Duration((int64(fl.window) / int64(fl.throttleMessagesPerWindow)) - int64(elapsed))
-		if sleepDuration < 0 {
-			sleepDuration = 0
+		if sleepDuration > 0 {
+			fl.sleepFunc(sleepDuration)
+			// the touch time should take into account the time we slept
+			fl.lastTouch = fl.nowFunc()
 		}
-		fl.sleepFunc(sleepDuration)
 	}
 }
