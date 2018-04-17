@@ -629,14 +629,16 @@ func (server *Server) splitMessage(original string, origIs512 bool) SplitMessage
 
 // WhoisChannelsNames returns the common channel names between two users.
 func (client *Client) WhoisChannelsNames(target *Client) []string {
-	isMultiPrefix := target.capabilities.Has(caps.MultiPrefix)
+	isMultiPrefix := client.capabilities.Has(caps.MultiPrefix)
 	var chstrs []string
-	for _, channel := range client.Channels() {
+	for _, channel := range target.Channels() {
 		// channel is secret and the target can't see it
-		if !target.flags[modes.Operator] && channel.HasMode(modes.Secret) && !channel.hasClient(target) {
-			continue
+		if !client.flags[modes.Operator] {
+			if (target.HasMode(modes.Invisible) || channel.HasMode(modes.Secret)) && !channel.hasClient(client) {
+				continue
+			}
 		}
-		chstrs = append(chstrs, channel.ClientPrefixes(client, isMultiPrefix)+channel.name)
+		chstrs = append(chstrs, channel.ClientPrefixes(target, isMultiPrefix)+channel.name)
 	}
 	return chstrs
 }
