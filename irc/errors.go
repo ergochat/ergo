@@ -21,6 +21,7 @@ var (
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")
 	errAccountNickReservationFailed   = errors.New("Could not (un)reserve nick")
 	errAccountCantDropPrimaryNick     = errors.New("Can't unreserve primary nickname")
+	errAccountUpdateFailed            = errors.New("Error while updating your account information")
 	errCallbackFailed                 = errors.New("Account verification could not be sent")
 	errCertfpAlreadyExists            = errors.New("An account already exists with your certificate")
 	errChannelAlreadyRegistered       = errors.New("Channel is already registered")

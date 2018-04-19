@@ -46,7 +46,6 @@ type Client struct {
 	capVersion         caps.Version
 	certfp             string
 	channels           ChannelSet
-	class              *OperClass
 	ctime              time.Time
 	exitedSnomaskSent  bool
 	fakelag            *Fakelag
@@ -65,7 +64,7 @@ type Client struct {
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	nickTimer          *NickTimer
-	operName           string
+	oper               *Oper
 	preregNick         string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	quitMessage        string
@@ -81,7 +80,6 @@ type Client struct {
 	stateMutex         sync.RWMutex // tier 1
 	username           string
 	vhost              string
-	whoisLine          string
 }
 
 // NewClient returns a client with all the appropriate info setup.
@@ -490,12 +488,13 @@ func (client *Client) HasUsername() bool {
 
 // HasRoleCapabs returns true if client has the given (role) capabilities.
 func (client *Client) HasRoleCapabs(capabs ...string) bool {
-	if client.class == nil {
+	oper := client.Oper()
+	if oper == nil {
 		return false
 	}
 
 	for _, capab := range capabs {
-		if !client.class.Capabilities[capab] {
+		if !oper.Class.Capabilities[capab] {
 			return false
 		}
 	}
@@ -548,6 +547,39 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 	return friends
 }
 
+// XXX: CHGHOST requires prefix nickmask to have original hostname,
+// this is annoying to do correctly
+func (client *Client) sendChghost(oldNickMask string, vhost string) {
+	username := client.Username()
+	for fClient := range client.Friends(caps.ChgHost) {
+		fClient.sendFromClientInternal("", client, oldNickMask, nil, "CHGHOST", username, vhost)
+	}
+}
+
+// choose the correct vhost to display
+func (client *Client) getVHostNoMutex() string {
+	// hostserv vhost OR operclass vhost OR nothing (i.e., normal rdns hostmask)
+	if client.vhost != "" {
+		return client.vhost
+	} else if client.oper != nil {
+		return client.oper.Vhost
+	} else {
+		return ""
+	}
+}
+
+// SetVHost updates the client's hostserv-based vhost
+func (client *Client) SetVHost(vhost string) (updated bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	updated = (client.vhost != vhost)
+	client.vhost = vhost
+	if updated {
+		client.updateNickMaskNoMutex()
+	}
+	return
+}
+
 // updateNick updates `nick` and `nickCasefolded`.
 func (client *Client) updateNick(nick string) {
 	casefoldedName, err := CasefoldName(nick)
@@ -574,11 +606,10 @@ func (client *Client) updateNickMask(nick string) {
 	client.updateNickMaskNoMutex()
 }
 
-// updateNickMask updates the casefolded nickname and nickmask, not holding any mutexes.
+// updateNickMask updates the casefolded nickname and nickmask, not acquiring any mutexes.
 func (client *Client) updateNickMaskNoMutex() {
-	if len(client.vhost) > 0 {
-		client.hostname = client.vhost
-	} else {
+	client.hostname = client.getVHostNoMutex()
+	if client.hostname == "" {
 		client.hostname = client.rawHostname
 	}
 
@@ -599,19 +630,26 @@ func (client *Client) AllNickmasks() []string {
 	var mask string
 	var err error
 
-	if len(client.vhost) > 0 {
-		mask, err = Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.vhost))
+	client.stateMutex.RLock()
+	nick := client.nick
+	username := client.username
+	rawHostname := client.rawHostname
+	vhost := client.getVHostNoMutex()
+	client.stateMutex.RUnlock()
+
+	if len(vhost) > 0 {
+		mask, err = Casefold(fmt.Sprintf("%s!%s@%s", nick, username, vhost))
 		if err == nil {
 			masks = append(masks, mask)
 		}
 	}
 
-	mask, err = Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.rawHostname))
+	mask, err = Casefold(fmt.Sprintf("%s!%s@%s", nick, username, rawHostname))
 	if err == nil {
 		masks = append(masks, mask)
 	}
 
-	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.IPString()))
+	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", nick, username, client.IPString()))
 	if err == nil && mask2 != mask {
 		masks = append(masks, mask2)
 	}
@@ -755,6 +793,12 @@ func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *m
 // SendFromClient sends an IRC line coming from a specific client.
 // Adds account-tag to the line as well.
 func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
+	return client.sendFromClientInternal(msgid, from, from.NickMaskString(), tags, command, params...)
+}
+
+// XXX this is a hack where we allow overriding the client's nickmask
+// this is to support CHGHOST, which requires that we send the *original* nickmask with the response
+func (client *Client) sendFromClientInternal(msgid string, from *Client, nickmask string, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
 	// attach account-tag
 	if client.capabilities.Has(caps.AccountTag) && from.LoggedIntoAccount() {
 		if tags == nil {
@@ -772,7 +816,7 @@ func (client *Client) SendFromClient(msgid string, from *Client, tags *map[strin
 		}
 	}
 
-	return client.Send(tags, from.nickMaskString, command, params...)
+	return client.Send(tags, nickmask, command, params...)
 }
 
 var (

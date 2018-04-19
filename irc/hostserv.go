@@ -1,0 +1,295 @@
+// Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
+// released under the MIT license
+
+package irc
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/oragono/oragono/irc/utils"
+)
+
+const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
+in place of your client's hostname/IP).
+
+To see in-depth help for a specific HostServ command, try:
+    $b/HS HELP <command>$b
+
+Here are the commands you can use:
+%s`
+
+var (
+	errVHostBadCharacters = errors.New("Vhost contains prohibited characters")
+	errVHostTooLong       = errors.New("Vhost is too long")
+	// ascii only for now
+	validVhostRegex = regexp.MustCompile(`^[0-9A-Za-z.\-_/]+$`)
+)
+
+func hostservEnabled(server *Server) bool {
+	return server.AccountConfig().HostServ.Enabled
+}
+
+func hostservRequestsEnabled(server *Server) bool {
+	ac := server.AccountConfig()
+	return ac.HostServ.Enabled && ac.HostServ.UserRequestsEnabled
+}
+
+var (
+	hostservCommands = map[string]*serviceCommand{
+		"on": {
+			handler: hsOnOffHandler,
+			help: `Syntax: $bON$b
+
+ON enables your vhost, if you have one approved.`,
+			helpShort:    `$bON$b enables your vhost, if you have one approved.`,
+			authRequired: true,
+			enabled:      hostservEnabled,
+		},
+		"off": {
+			handler: hsOnOffHandler,
+			help: `Syntax: $bOFF$b
+
+OFF disables your vhost, if you have one approved.`,
+			helpShort:    `$bOFF$b disables your vhost, if you have one approved.`,
+			authRequired: true,
+			enabled:      hostservEnabled,
+		},
+		"request": {
+			handler: hsRequestHandler,
+			help: `Syntax: $bREQUEST <vhost>$b
+
+REQUEST requests that a new vhost by assigned to your account. The request must
+then be approved by a server operator.`,
+			helpShort:    `$bREQUEST$b requests a new vhost, pending operator approval.`,
+			authRequired: true,
+			enabled:      hostservRequestsEnabled,
+		},
+		"status": {
+			handler: hsStatusHandler,
+			help: `Syntax: $bSTATUS$b
+
+STATUS displays your current vhost, if any, and the status of your most recent
+request for a new one.`,
+			helpShort:    `$bSTATUS$b shows your vhost and request status.`,
+			authRequired: true,
+			enabled:      hostservEnabled,
+		},
+		"set": {
+			handler: hsSetHandler,
+			help: `Syntax: $bSET <user> <vhost>$b
+
+SET sets a user's vhost, bypassing the request system.`,
+			helpShort: `$bSET$b sets a user's vhost.`,
+			capabs:    []string{"hostserv"},
+			enabled:   hostservEnabled,
+		},
+		"del": {
+			handler: hsSetHandler,
+			help: `Syntax: $bDEL <user>$b
+
+DEL sets a user's vhost, bypassing the request system.`,
+			helpShort: `$bDEL$b deletes a user's vhost.`,
+			capabs:    []string{"hostserv"},
+			enabled:   hostservEnabled,
+		},
+		"waiting": {
+			handler: hsWaitingHandler,
+			help: `Syntax: $bWAITING$b
+
+WAITING shows a list of pending vhost requests, which can then be approved
+or rejected.`,
+			helpShort: `$bWAITING$b shows a list of pending vhost requests.`,
+			capabs:    []string{"hostserv"},
+			enabled:   hostservEnabled,
+		},
+		"approve": {
+			handler: hsApproveHandler,
+			help: `Syntax: $bAPPROVE <user>$b
+
+APPROVE approves a user's vhost request.`,
+			helpShort: `$bAPPROVE$b approves a user's vhost request.`,
+			capabs:    []string{"hostserv"},
+			enabled:   hostservEnabled,
+		},
+		"reject": {
+			handler: hsRejectHandler,
+			help: `Syntax: $bREJECT <user> [<reason>]$b
+
+REJECT rejects a user's vhost request, optionally giving them a reason
+for the rejection.`,
+			helpShort: `$bREJECT$b rejects a user's vhost request.`,
+			capabs:    []string{"hostserv"},
+			enabled:   hostservEnabled,
+		},
+	}
+)
+
+// hsNotice sends the client a notice from HostServ
+func hsNotice(rb *ResponseBuffer, text string) {
+	rb.Add(nil, "HostServ", "NOTICE", rb.target.Nick(), text)
+}
+
+func hsOnOffHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	enable := false
+	if command == "on" {
+		enable = true
+	}
+
+	err := server.accounts.VHostSetEnabled(client, enable)
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+	} else if enable {
+		hsNotice(rb, client.t("Successfully enabled your vhost"))
+	} else {
+		hsNotice(rb, client.t("Successfully disabled your vhost"))
+	}
+}
+
+func hsRequestHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	vhost, _ := utils.ExtractParam(params)
+	if validateVhost(server, vhost, false) != nil {
+		hsNotice(rb, client.t("Invalid vhost"))
+		return
+	}
+
+	accountName := client.Account()
+	account, err := server.accounts.LoadAccount(client.Account())
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+		return
+	}
+	elapsed := time.Now().Sub(account.VHost.LastRequestTime)
+	remainingTime := server.AccountConfig().HostServ.Cooldown - elapsed
+	// you can update your existing request, but if you were rejected,
+	// you can't spam a replacement request
+	if account.VHost.RequestedVHost == "" && remainingTime > 0 {
+		hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), remainingTime))
+		return
+	}
+
+	err = server.accounts.VHostRequest(accountName, vhost)
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+	} else {
+		hsNotice(rb, fmt.Sprintf(client.t("Your vhost request will be reviewed by an administrator")))
+		// TODO send admins a snomask of some kind
+	}
+}
+
+func hsStatusHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	accountName := client.Account()
+	account, err := server.accounts.LoadAccount(accountName)
+	if err != nil {
+		server.logger.Warning("internal", "error loading account info", accountName, err.Error())
+		hsNotice(rb, client.t("An error occurred"))
+		return
+	}
+
+	if account.VHost.ApprovedVHost != "" {
+		hsNotice(rb, fmt.Sprintf(client.t("Account %s has vhost: %s"), accountName, account.VHost.ApprovedVHost))
+		if !account.VHost.Enabled {
+			hsNotice(rb, fmt.Sprintf(client.t("This vhost is currently disabled, but can be enabled with /HS ON")))
+		}
+	} else {
+		hsNotice(rb, fmt.Sprintf(client.t("Account %s has no vhost"), accountName))
+	}
+	if account.VHost.RequestedVHost != "" {
+		hsNotice(rb, fmt.Sprintf(client.t("A request is pending for vhost: %s"), account.VHost.RequestedVHost))
+	}
+	if account.VHost.RejectedVHost != "" {
+		hsNotice(rb, fmt.Sprintf(client.t("A request was previously made for vhost: %s"), account.VHost.RejectedVHost))
+		hsNotice(rb, fmt.Sprintf(client.t("It was rejected for reason: %s"), account.VHost.RejectionReason))
+	}
+}
+
+func validateVhost(server *Server, vhost string, oper bool) error {
+	ac := server.AccountConfig()
+	if len(vhost) > ac.HostServ.MaxVHostLen {
+		return errVHostTooLong
+	}
+	if !ac.HostServ.ValidRegexp.MatchString(vhost) {
+		return errVHostBadCharacters
+	}
+	return nil
+}
+
+func hsSetHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	var user, vhost string
+	user, params = utils.ExtractParam(params)
+	if user == "" {
+		hsNotice(rb, client.t("A user is required"))
+		return
+	}
+	if command == "set" {
+		vhost, _ = utils.ExtractParam(params)
+		if validateVhost(server, vhost, true) != nil {
+			hsNotice(rb, client.t("Invalid vhost"))
+			return
+		}
+	} else if command != "del" {
+		server.logger.Warning("internal", "invalid hostserv set command", command)
+		return
+	}
+
+	err := server.accounts.VHostSet(user, vhost)
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+	} else if vhost != "" {
+		hsNotice(rb, client.t("Successfully set vhost"))
+	} else {
+		hsNotice(rb, client.t("Successfully cleared vhost"))
+	}
+}
+
+func hsWaitingHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	requests, total := server.accounts.VHostListRequests(10)
+	hsNotice(rb, fmt.Sprintf(client.t("There are %d pending requests for vhosts (%d displayed)"), total, len(requests)))
+	for i, request := range requests {
+		hsNotice(rb, fmt.Sprintf(client.t("%d. User %s requests vhost: %s"), i+1, request.Account, request.RequestedVHost))
+	}
+}
+
+func hsApproveHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	user, _ := utils.ExtractParam(params)
+	if user == "" {
+		hsNotice(rb, client.t("A user is required"))
+		return
+	}
+
+	err := server.accounts.VHostApprove(user)
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+	} else {
+		hsNotice(rb, fmt.Sprintf(client.t("Successfully approved vhost request for %s"), user))
+		for _, client := range server.accounts.AccountToClients(user) {
+			client.Notice(client.t("Your vhost request was approved by an administrator"))
+		}
+	}
+}
+
+func hsRejectHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	user, params := utils.ExtractParam(params)
+	if user == "" {
+		hsNotice(rb, client.t("A user is required"))
+		return
+	}
+	reason := strings.TrimSpace(params)
+
+	err := server.accounts.VHostReject(user, reason)
+	if err != nil {
+		hsNotice(rb, client.t("An error occurred"))
+	} else {
+		hsNotice(rb, fmt.Sprintf(client.t("Successfully rejected vhost request for %s"), user))
+		for _, client := range server.accounts.AccountToClients(user) {
+			if reason == "" {
+				client.Notice("Your vhost request was rejected by an administrator")
+			} else {
+				client.Notice(fmt.Sprintf(client.t("Your vhost request was rejected by an administrator. The reason given was: %s"), reason))
+			}
+		}
+	}
+}

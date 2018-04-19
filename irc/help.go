@@ -188,6 +188,18 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 
 Get an explanation of <argument>, or "index" for a list of help topics.`,
 	},
+	"hostserv": {
+		text: `HOSTSERV <command> [params]
+
+HostServ lets you manage your vhost (a string displayed in place of your
+real hostname).`,
+	},
+	"hs": {
+		text: `HS <command> [params]
+
+HostServ lets you manage your vhost (a string displayed in place of your
+real hostname).`,
+	},
 	"info": {
 		text: `INFO
 

@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -63,6 +64,7 @@ type AccountConfig struct {
 	AuthenticationEnabled bool                  `yaml:"authentication-enabled"`
 	SkipServerPassword    bool                  `yaml:"skip-server-password"`
 	NickReservation       NickReservationConfig `yaml:"nick-reservation"`
+	HostServ              HostServConfig
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -88,6 +90,15 @@ type AccountRegistrationConfig struct {
 		}
 	}
 	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
+}
+
+type HostServConfig struct {
+	Enabled             bool
+	UserRequestsEnabled bool `yaml:"user-requests-enabled"`
+	Cooldown            time.Duration
+	MaxVHostLen         int    `yaml:"max-vhost-len"`
+	ValidRegexpRaw      string `yaml:"valid-regexp"`
+	ValidRegexp         *regexp.Regexp
 }
 
 type NickReservationMethod int
@@ -276,8 +287,8 @@ type OperClass struct {
 }
 
 // OperatorClasses returns a map of assembled operator classes from the given config.
-func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
-	ocs := make(map[string]OperClass)
+func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
+	ocs := make(map[string]*OperClass)
 
 	// loop from no extends to most extended, breaking if we can't add any more
 	lenOfLastOcs := -1
@@ -333,7 +344,7 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 				oc.WhoisLine += oc.Title
 			}
 
-			ocs[name] = oc
+			ocs[name] = &oc
 		}
 
 		if !anyMissing {
@@ -342,11 +353,12 @@ func (conf *Config) OperatorClasses() (*map[string]OperClass, error) {
 		}
 	}
 
-	return &ocs, nil
+	return ocs, nil
 }
 
 // Oper represents a single assembled operator's config.
 type Oper struct {
+	Name      string
 	Class     *OperClass
 	WhoisLine string
 	Vhost     string
@@ -355,8 +367,8 @@ type Oper struct {
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
-func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error) {
-	operators := make(map[string]Oper)
+func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error) {
+	operators := make(map[string]*Oper)
 	for name, opConf := range conf.Opers {
 		var oper Oper
 
@@ -365,14 +377,15 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 		if err != nil {
 			return nil, fmt.Errorf("Could not casefold oper name: %s", err.Error())
 		}
+		oper.Name = name
 
 		oper.Pass = opConf.PasswordBytes()
 		oper.Vhost = opConf.Vhost
-		class, exists := (*oc)[opConf.Class]
+		class, exists := oc[opConf.Class]
 		if !exists {
 			return nil, fmt.Errorf("Could not load operator [%s] - they use operclass [%s] which does not exist", name, opConf.Class)
 		}
-		oper.Class = &class
+		oper.Class = class
 		if len(opConf.WhoisLine) > 0 {
 			oper.WhoisLine = opConf.WhoisLine
 		} else {
@@ -381,7 +394,7 @@ func (conf *Config) Operators(oc *map[string]OperClass) (map[string]Oper, error)
 		oper.Modes = strings.TrimSpace(opConf.Modes)
 
 		// successful, attach to list of opers
-		operators[name] = oper
+		operators[name] = &oper
 	}
 	return operators, nil
 }
@@ -528,6 +541,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 			// we store "none" as "*" internally
 			config.Accounts.Registration.EnabledCallbacks[i] = "*"
 		}
+	}
+
+	rawRegexp := config.Accounts.HostServ.ValidRegexpRaw
+	if rawRegexp != "" {
+		regexp, err := regexp.Compile(rawRegexp)
+		if err == nil {
+			config.Accounts.HostServ.ValidRegexp = regexp
+		} else {
+			log.Printf("invalid vhost regexp: %s\n", err.Error())
+		}
+	}
+	if config.Accounts.HostServ.ValidRegexp == nil {
+		config.Accounts.HostServ.ValidRegexp = validVhostRegex
 	}
 
 	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)

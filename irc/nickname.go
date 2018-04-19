@@ -16,10 +16,7 @@ import (
 
 var (
 	restrictedNicknames = map[string]bool{
-		"=scene=":  true, // used for rp commands
-		"chanserv": true,
-		"nickserv": true,
-		"hostserv": true,
+		"=scene=": true, // used for rp commands
 	}
 )
 

@@ -198,6 +198,21 @@ accounts:
         # rename-prefix - this is the prefix to use when renaming clients (e.g. Guest-AB54U31)
         rename-prefix: Guest-
 
+    hostserv:
+        # is hostserv enabled at all?
+        enabled: true
+        # can users request vhosts from operators? if this is false, operators with the
+        # "hostserv" capability can still assign vhosts manually:
+        user-requests-enabled: false
+        # to prevent users from spamming requests, they must wait at least this long between
+        # distinct requests:
+        cooldown: 1h
+        # maximum length of a vhost
+        max-vhost-len: 64
+        # regexp for testing the validity of a vhost
+        # (make sure any changes you make here are RFC-compliant)
+        valid-regexp: '^[0-9A-Za-z.\-_/]+$'
+
 # channel options
 channels:
     # modes that are set when new channels are created
@@ -252,6 +267,7 @@ oper-classes:
             - "oper:die"
             - "unregister"
             - "samode"
+            - "hostserv"
 
 # ircd operators
 opers:
