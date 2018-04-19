@@ -79,9 +79,19 @@ As well, there's a decent set of 'tests' here, which I like to run Oragono throu
 https://github.com/DanielOaks/irctest
 
 
-## Debugging Hangs
+## Debugging
 
-To debug a hang, the best thing to do is to get a stack trace. Go's nice, and you can do so by running this:
+It's helpful to enable all loglines while developing. Here's how to configure this:
+
+```yaml
+logging:
+    -
+        method: stderr
+        type: "*"
+        level: debug
+```
+
+To debug a hang, the best thing to do is to get a stack trace. The easiest way to get stack traces is with the [pprof listener](https://golang.org/pkg/net/http/pprof/), which can be enabled in the `debug` section of the config. Once it's enabled, you can navigate to `http://localhost:6060/debug/pprof/` in your browser and go from there. If that doesn't work, try:
 
     $ kill -ABRT <procid>
 
