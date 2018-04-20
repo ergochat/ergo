@@ -230,7 +230,7 @@ type Config struct {
 
 	Datastore struct {
 		Path        string
-		AutoUpgrade *bool
+		AutoUpgrade bool
 	}
 
 	Accounts AccountConfig

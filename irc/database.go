@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
+	"github.com/oragono/oragono/irc/utils"
 
 	"github.com/tidwall/buntdb"
 )
@@ -88,11 +88,7 @@ func InitDB(path string) {
 
 // OpenDatabase returns an existing database, performing a schema version check.
 func OpenDatabase(config *Config) (*buntdb.DB, error) {
-	allowAutoupgrade := true
-	if config.Datastore.AutoUpgrade != nil {
-		allowAutoupgrade = *config.Datastore.AutoUpgrade
-	}
-	return openDatabaseInternal(config, allowAutoupgrade)
+	return openDatabaseInternal(config, config.Datastore.AutoUpgrade)
 }
 
 // open the database, giving it at most one chance to auto-upgrade the schema
@@ -140,36 +136,13 @@ func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB,
 	}
 }
 
-// implementation of `cp` (go should really provide this...)
-func cpFile(src string, dst string) (err error) {
-	in, err := os.Open(src)
-	if err != nil {
-		return
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return
-	}
-	defer func() {
-		closeError := out.Close()
-		if err == nil {
-			err = closeError
-		}
-	}()
-	if _, err = io.Copy(out, in); err != nil {
-		return
-	}
-	return
-}
-
 func performAutoUpgrade(currentVersion string, config *Config) (err error) {
 	path := config.Datastore.Path
 	log.Printf("attempting to auto-upgrade schema from version %s to %s\n", currentVersion, latestDbSchema)
 	timestamp := time.Now().UTC().Format("2006-01-02-15:04:05.000Z")
 	backupPath := fmt.Sprintf("%s.v%s.%s.bak", path, currentVersion, timestamp)
 	log.Printf("making a backup of current database at %s\n", backupPath)
-	err = cpFile(path, backupPath)
+	err = utils.CopyFile(path, backupPath)
 	if err != nil {
 		return err
 	}
