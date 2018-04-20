@@ -724,6 +724,15 @@ func (client *Client) destroy(beingResumed bool) {
 
 	// send quit messages to friends
 	if !beingResumed {
+		client.server.stats.ChangeTotal(-1)
+		if client.HasMode(modes.Invisible) {
+			client.server.stats.ChangeInvisible(-1)
+		}
+
+		if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
+			client.server.stats.ChangeOperators(-1)
+		}
+
 		for friend := range friends {
 			if client.quitMessage == "" {
 				client.quitMessage = "Exited"

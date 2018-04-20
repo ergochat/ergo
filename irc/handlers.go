@@ -1293,21 +1293,13 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
-	var totalcount, invisiblecount, opercount int
+	totalCount, invisibleCount, operCount := server.stats.GetStats()
 
-	for _, onlineusers := range server.clients.AllClients() {
-		totalcount++
-		if onlineusers.flags[modes.Invisible] {
-			invisiblecount++
-		}
-		if onlineusers.flags[modes.Operator] {
-			opercount++
-		}
-	}
-	rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalcount - invisiblecount, invisiblecount, 1))
-	rb.Add(nil, server.name, RPL_LUSEROP, client.nick, fmt.Sprintf(client.t("%d IRC Operators online"), opercount))
-	rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, fmt.Sprintf(client.t("%d channels formed"), server.channels.Len()))
-	rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalcount, 1))
+	rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalCount-invisibleCount, invisibleCount, 1))
+	rb.Add(nil, server.name, RPL_LUSEROP, client.nick, strconv.Itoa(operCount), client.t("IRC Operators online"))
+	rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
+	rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalCount, 1))
+
 	return false
 }
 
@@ -1791,6 +1783,9 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	rb.Add(nil, server.name, "MODE", client.nick, applied.String())
 
 	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
+
+	// increase oper count
+	server.stats.ChangeOperators(1)
 
 	// client may now be unthrottled by the fakelag system
 	client.resetFakelag()

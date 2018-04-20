@@ -37,6 +37,11 @@ func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges
 				if client.flags[change.Mode] {
 					continue
 				}
+
+				if change.Mode == modes.Invisible {
+					client.server.stats.ChangeInvisible(1)
+				}
+
 				client.flags[change.Mode] = true
 				applied = append(applied, change)
 
@@ -44,6 +49,15 @@ func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges
 				if !client.flags[change.Mode] {
 					continue
 				}
+
+				if change.Mode == modes.Invisible {
+					client.server.stats.ChangeInvisible(-1)
+				}
+
+				if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
+					client.server.stats.ChangeOperators(-1)
+				}
+
 				delete(client.flags, change.Mode)
 				applied = append(applied, change)
 			}

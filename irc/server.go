@@ -131,6 +131,7 @@ type Server struct {
 	stsEnabled                 bool
 	webirc                     []webircConfig
 	whoWas                     *WhoWasList
+	stats                      *Stats
 }
 
 var (
@@ -164,6 +165,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		signals:             make(chan os.Signal, len(ServerExitSignals)),
 		snomasks:            NewSnoManager(),
 		whoWas:              NewWhoWasList(config.Limits.WhowasEntries),
+		stats:               NewStats(),
 	}
 
 	if err := server.applyConfig(config, true); err != nil {
@@ -471,6 +473,9 @@ func (server *Server) tryRegister(c *Client) {
 		c.destroy(false)
 		return
 	}
+
+	// count new user in statistics
+	server.stats.ChangeTotal(1)
 
 	// continue registration
 	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
