@@ -188,9 +188,12 @@ func (client *Client) SetPreregNick(preregNick string) {
 }
 
 func (client *Client) HasMode(mode modes.Mode) bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.flags[mode]
+	// client.flags has its own synch
+	return client.flags.HasMode(mode)
+}
+
+func (client *Client) SetMode(mode modes.Mode, on bool) bool {
+	return client.flags.SetMode(mode, on)
 }
 
 func (client *Client) Channels() (result []*Channel) {
@@ -260,29 +263,8 @@ func (channel *Channel) setKey(key string) {
 	channel.key = key
 }
 
-func (channel *Channel) HasMode(mode modes.Mode) bool {
-	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-	return channel.flags[mode]
-}
-
 func (channel *Channel) Founder() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.registeredFounder
-}
-
-// set a channel mode, return whether it was already set
-func (channel *Channel) setMode(mode modes.Mode, enable bool) (already bool) {
-	channel.stateMutex.Lock()
-	already = (channel.flags[mode] == enable)
-	if !already {
-		if enable {
-			channel.flags[mode] = true
-		} else {
-			delete(channel.flags, mode)
-		}
-	}
-	channel.stateMutex.Unlock()
-	return
 }

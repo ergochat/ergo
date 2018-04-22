@@ -20,7 +20,7 @@ import (
 
 // Channel represents a channel that clients can join.
 type Channel struct {
-	flags             modes.ModeSet
+	flags             *modes.ModeSet
 	lists             map[modes.Mode]*UserMaskSet
 	key               string
 	members           MemberSet
@@ -51,7 +51,7 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 
 	channel := &Channel{
 		createdTime: time.Now(), // may be overwritten by applyRegInfo
-		flags:       make(modes.ModeSet),
+		flags:       modes.NewModeSet(),
 		lists: map[modes.Mode]*UserMaskSet{
 			modes.BanMask:    NewUserMaskSet(),
 			modes.ExceptMask: NewUserMaskSet(),
@@ -68,7 +68,7 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 		channel.applyRegInfo(regInfo)
 	} else {
 		for _, mode := range s.DefaultChannelModes() {
-			channel.flags[mode] = true
+			channel.flags.SetMode(mode, true)
 		}
 	}
 
@@ -87,7 +87,7 @@ func (channel *Channel) applyRegInfo(chanReg *RegisteredChannel) {
 	channel.key = chanReg.Key
 
 	for _, mode := range chanReg.Modes {
-		channel.flags[mode] = true
+		channel.flags.SetMode(mode, true)
 	}
 	for _, mask := range chanReg.Banlist {
 		channel.lists[modes.BanMask].Add(mask)
@@ -120,9 +120,7 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 
 	if includeFlags&IncludeModes != 0 {
 		info.Key = channel.key
-		for mode := range channel.flags {
-			info.Modes = append(info.Modes, mode)
-		}
+		info.Modes = channel.flags.AllModes()
 	}
 
 	if includeFlags&IncludeLists != 0 {
@@ -225,14 +223,16 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
+	clientModes := channel.members[client]
+
 	// get voice, since it's not a part of ChannelPrivModes
-	if channel.members.HasMode(client, permission) {
+	if clientModes.HasMode(permission) {
 		return true
 	}
 
 	// check regular modes
 	for _, mode := range modes.ChannelPrivModes {
-		if channel.members.HasMode(client, mode) {
+		if clientModes.HasMode(mode) {
 			return true
 		}
 
@@ -263,14 +263,14 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 	targetModes := channel.members[target]
 	result := false
 	for _, mode := range modes.ChannelPrivModes {
-		if clientModes[mode] {
+		if clientModes.HasMode(mode) {
 			result = true
 			// admins cannot kick other admins
-			if mode == modes.ChannelAdmin && targetModes[modes.ChannelAdmin] {
+			if mode == modes.ChannelAdmin && targetModes.HasMode(modes.ChannelAdmin) {
 				result = false
 			}
 			break
-		} else if channel.members[target][mode] {
+		} else if targetModes.HasMode(mode) {
 			break
 		}
 	}
@@ -331,13 +331,10 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 		mods += modes.UserLimit.String()
 	}
 
+	mods += channel.flags.String()
+
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
-
-	// flags
-	for mode := range channel.flags {
-		mods += mode.String()
-	}
 
 	result = []string{mods}
 
@@ -395,7 +392,7 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 	}
 
 	isInvited := channel.lists[modes.InviteMask].Match(client.nickMaskCasefolded)
-	if channel.flags[modes.InviteOnly] && !isInvited {
+	if channel.flags.HasMode(modes.InviteOnly) && !isInvited {
 		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, channel.name, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
@@ -446,7 +443,7 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 		givenMode = &modes.ChannelOperator
 	}
 	if givenMode != nil {
-		channel.members[client][*givenMode] = true
+		channel.members[client].SetMode(*givenMode, true)
 	}
 	channel.stateMutex.Unlock()
 
@@ -515,12 +512,12 @@ func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer) {
 
 // SetTopic sets the topic of this channel, if the client is allowed to do so.
 func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffer) {
-	if !(client.flags[modes.Operator] || channel.hasClient(client)) {
+	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
 		return
 	}
 
-	if channel.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
+	if channel.flags.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
 		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
 		return
 	}
@@ -552,13 +549,13 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	defer channel.stateMutex.RUnlock()
 
 	_, hasClient := channel.members[client]
-	if channel.flags[modes.NoOutside] && !hasClient {
+	if channel.flags.HasMode(modes.NoOutside) && !hasClient {
 		return false
 	}
-	if channel.flags[modes.Moderated] && !channel.ClientIsAtLeast(client, modes.Voice) {
+	if channel.flags.HasMode(modes.Moderated) && !channel.ClientIsAtLeast(client, modes.Voice) {
 		return false
 	}
-	if channel.flags[modes.RegisteredOnly] && client.Account() == "" {
+	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" {
 		return false
 	}
 	return true
@@ -682,13 +679,7 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mod
 	}
 }
 
-func (channel *Channel) applyModeMemberNoMutex(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) *modes.ModeChange {
-	if nick == "" {
-		//TODO(dan): shouldn't this be handled before it reaches this function?
-		rb.Add(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", client.t("Not enough parameters"))
-		return nil
-	}
-
+func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) (result *modes.ModeChange) {
 	casefoldedName, err := CasefoldName(nick)
 	target := channel.server.clients.Get(casefoldedName)
 	if err != nil || target == nil {
@@ -698,26 +689,21 @@ func (channel *Channel) applyModeMemberNoMutex(client *Client, mode modes.Mode, 
 
 	channel.stateMutex.Lock()
 	modeset, exists := channel.members[target]
-	var already bool
 	if exists {
-		enable := op == modes.Add
-		already = modeset[mode] == enable
-		modeset[mode] = enable
+		if applied := modeset.SetMode(mode, op == modes.Add); applied {
+			result = &modes.ModeChange{
+				Op:   op,
+				Mode: mode,
+				Arg:  nick,
+			}
+		}
 	}
 	channel.stateMutex.Unlock()
 
 	if !exists {
 		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nick, channel.name, client.t("They aren't on that channel"))
-		return nil
-	} else if already {
-		return nil
-	} else {
-		return &modes.ModeChange{
-			Op:   op,
-			Mode: mode,
-			Arg:  nick,
-		}
 	}
+	return
 }
 
 // ShowMaskList shows the given list to the client.
@@ -790,7 +776,7 @@ func (channel *Channel) Quit(client *Client) {
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {
-	if !(client.flags[modes.Operator] || channel.hasClient(client)) {
+	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
 		return
 	}
@@ -823,7 +809,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 // Invite invites the given client to the channel, if the inviter can do so.
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
-	if channel.flags[modes.InviteOnly] && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
+	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
 		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, inviter.t("You're not a channel operator"))
 		return
 	}
@@ -834,7 +820,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	}
 
 	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
-	if channel.flags[modes.InviteOnly] {
+	if channel.flags.HasMode(modes.InviteOnly) {
 		nmc := invitee.NickCasefolded()
 		channel.stateMutex.Lock()
 		channel.lists[modes.InviteMask].Add(nmc)
@@ -850,7 +836,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?
 	rb.Add(nil, inviter.server.name, RPL_INVITING, invitee.nick, channel.name)
 	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
-	if invitee.flags[modes.Away] {
+	if invitee.HasMode(modes.Away) {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, invitee.nick, invitee.awayMessage)
 	}
 }

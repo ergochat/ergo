@@ -50,7 +50,7 @@ type Client struct {
 	ctime              time.Time
 	exitedSnomaskSent  bool
 	fakelag            *Fakelag
-	flags              map[modes.Mode]bool
+	flags              *modes.ModeSet
 	hasQuit            bool
 	hops               int
 	hostname           string
@@ -98,7 +98,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		capVersion:     caps.Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
-		flags:          make(map[modes.Mode]bool),
+		flags:          modes.NewModeSet(),
 		server:         server,
 		socket:         socket,
 		nick:           "*", // * is used until actual nick is given
@@ -109,7 +109,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 
 	client.recomputeMaxlens()
 	if isTLS {
-		client.flags[modes.TLS] = true
+		client.SetMode(modes.TLS, true)
 
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
@@ -504,13 +504,7 @@ func (client *Client) HasRoleCapabs(capabs ...string) bool {
 
 // ModeString returns the mode string for this client.
 func (client *Client) ModeString() (str string) {
-	str = "+"
-
-	for flag := range client.flags {
-		str += flag.String()
-	}
-
-	return
+	return "+" + client.flags.String()
 }
 
 // Friends refers to clients that share a channel with this client.
