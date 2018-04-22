@@ -627,10 +627,14 @@ func (client *Client) LoggedIntoAccount() bool {
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
 func (client *Client) RplISupport(rb *ResponseBuffer) {
 	translatedISupport := client.t("are supported by this server")
-	for _, tokenline := range client.server.ISupport().CachedReply {
-		// ugly trickery ahead
-		tokenline = append(tokenline, translatedISupport)
-		rb.Add(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
+	nick := client.Nick()
+	for _, cachedTokenLine := range client.server.ISupport().CachedReply {
+		length := len(cachedTokenLine) + 2
+		tokenline := make([]string, length)
+		tokenline[0] = nick
+		copy(tokenline[1:], cachedTokenLine)
+		tokenline[length-1] = translatedISupport
+		rb.Add(nil, client.server.name, RPL_ISUPPORT, tokenline...)
 	}
 }
 
