@@ -127,7 +127,6 @@ type Server struct {
 	signals                    chan os.Signal
 	snomasks                   *SnoManager
 	store                      *buntdb.DB
-	storeFilename              string
 	stsEnabled                 bool
 	webirc                     []webircConfig
 	whoWas                     *WhoWasList
@@ -753,7 +752,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
-		} else if server.storeFilename != config.Datastore.Path {
+		} else if server.config.Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		}
 	}
@@ -973,10 +972,9 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.config = config
 	server.configurableStateMutex.Unlock()
 
-	server.storeFilename = config.Datastore.Path
-	server.logger.Info("rehash", "Using datastore", server.storeFilename)
+	server.logger.Info("rehash", "Using datastore", config.Datastore.Path)
 	if initial {
-		if err := server.loadDatastore(server.storeFilename); err != nil {
+		if err := server.loadDatastore(config); err != nil {
 			return err
 		}
 	}
@@ -1073,11 +1071,11 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 	return nil
 }
 
-func (server *Server) loadDatastore(datastorePath string) error {
+func (server *Server) loadDatastore(config *Config) error {
 	// open the datastore and load server state for which it (rather than config)
 	// is the source of truth
 
-	db, err := OpenDatabase(datastorePath)
+	db, err := OpenDatabase(config)
 	if err == nil {
 		server.store = db
 	} else {

@@ -342,6 +342,11 @@ datastore:
     # path to the datastore
     path: ircd.db
 
+    # if the database schema requires an upgrade, `autoupgrade` will attempt to
+    # perform it automatically on startup. the database will be backed
+    # up, and if the upgrade fails, the original database will be restored.
+    autoupgrade: true
+
 # languages config
 languages:
     # whether to load languages
