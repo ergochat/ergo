@@ -82,6 +82,8 @@ type Client struct {
 	username           string
 	vhost              string
 	whoisLine          string
+	requireSasl        bool
+	requireSaslReason  string
 }
 
 // NewClient returns a client with all the appropriate info setup.
@@ -107,6 +109,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		nickMaskString: "*", // * is used until actual nick is given
 	}
 	client.languages = server.languages.Default()
+
+	// Check IP towards speified DNSBLs
+	server.ProcessBlacklist(client)
 
 	client.recomputeMaxlens()
 	if isTLS {

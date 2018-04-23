@@ -30,6 +30,10 @@ func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges
 		case modes.Bot, modes.Invisible, modes.WallOps, modes.UserRoleplaying, modes.Operator, modes.LocalOperator, modes.RegisteredOnly:
 			switch change.Op {
 			case modes.Add:
+				if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
+					client.server.stats.ChangeOperators(1)
+				}
+
 				if !force && (change.Mode == modes.Operator || change.Mode == modes.LocalOperator) {
 					continue
 				}

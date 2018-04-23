@@ -19,6 +19,7 @@ const (
 	Stats              Mask = 't'
 	LocalAccounts      Mask = 'u'
 	LocalXline         Mask = 'x'
+	Dnsbl              Mask = 'S'
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 		Stats:              "STATS",
 		LocalAccounts:      "ACCOUNT",
 		LocalXline:         "XLINE",
+		Dnsbl:              "DNSBL",
 	}
 
 	// ValidMasks contains the snomasks that we support.
@@ -48,5 +50,6 @@ var (
 		Stats:              true,
 		LocalAccounts:      true,
 		LocalXline:         true,
+		Dnsbl:              true,
 	}
 )

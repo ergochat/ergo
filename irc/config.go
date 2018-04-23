@@ -90,6 +90,25 @@ type AccountRegistrationConfig struct {
 	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
 }
 
+type DnsblConfig struct {
+	Enabled bool
+	Channel string
+	Lists   []DnsblListEntry `yaml:"lists"`
+}
+
+type DnsblListEntry struct {
+	Host   string
+	Types  []string
+	Reply  map[string]DnsblListReply
+	Action string
+	Reason string
+}
+
+type DnsblListReply struct {
+	Action string
+	Reason string
+}
+
 type NickReservationMethod int
 
 const (
@@ -263,6 +282,7 @@ type Config struct {
 		LineLen        LineLenConfig `yaml:"linelen"`
 	}
 
+	Dnsbl   DnsblConfig
 	Fakelag FakelagConfig
 
 	Filename string
@@ -471,6 +491,26 @@ func LoadConfig(filename string) (config *Config, err error) {
 		newWebIRC = append(newWebIRC, webirc)
 	}
 	config.Server.WebIRC = newWebIRC
+
+	for id, list := range config.Dnsbl.Lists {
+		var action, reason = list.Action, list.Reason
+
+		var newDnsblListReply = make(map[string]DnsblListReply)
+		for key, reply := range list.Reply {
+			if reply.Action == "" {
+				reply.Action = action
+			}
+			if reply.Reason == "" {
+				reply.Reason = reason
+			}
+
+			for _, newKey := range strings.Split(key, ",") {
+				newDnsblListReply[newKey] = reply
+			}
+		}
+		config.Dnsbl.Lists[id].Reply = newDnsblListReply
+	}
+
 	// process limits
 	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
 		return nil, ErrLineLengthsTooSmall

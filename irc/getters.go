@@ -4,9 +4,10 @@
 package irc
 
 import (
+	"sync/atomic"
+
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/modes"
-	"sync/atomic"
 )
 
 func (server *Server) MaxSendQBytes() int {
@@ -72,6 +73,15 @@ func (server *Server) AccountConfig() *AccountConfig {
 		return nil
 	}
 	return &server.config.Accounts
+}
+
+func (server *Server) DnsblConfig() *DnsblConfig {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	if server.config == nil {
+		return nil
+	}
+	return &server.config.Dnsbl
 }
 
 func (server *Server) FakelagConfig() *FakelagConfig {
@@ -173,6 +183,19 @@ func (client *Client) SetAuthorized(authorized bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	client.authorized = authorized
+}
+
+func (client *Client) RequireSasl() (bool, string) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.requireSasl, client.requireSaslReason
+}
+
+func (client *Client) SetRequireSasl(required bool, reason string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.requireSasl = required
+	client.requireSaslReason = reason
 }
 
 func (client *Client) PreregNick() string {
