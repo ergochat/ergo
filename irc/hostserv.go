@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Daniel Oaks <daniel@danieloaks.net>
+// Copyright (c) 2018 Shivaram Lingamneni <slingamn@cs.stanford.edu>
 // released under the MIT license
 
 package irc
@@ -26,16 +26,16 @@ var (
 	errVHostBadCharacters = errors.New("Vhost contains prohibited characters")
 	errVHostTooLong       = errors.New("Vhost is too long")
 	// ascii only for now
-	validVhostRegex = regexp.MustCompile(`^[0-9A-Za-z.\-_/]+$`)
+	defaultValidVhostRegex = regexp.MustCompile(`^[0-9A-Za-z.\-_/]+$`)
 )
 
 func hostservEnabled(server *Server) bool {
-	return server.AccountConfig().HostServ.Enabled
+	return server.AccountConfig().VHosts.Enabled
 }
 
 func hostservRequestsEnabled(server *Server) bool {
 	ac := server.AccountConfig()
-	return ac.HostServ.Enabled && ac.HostServ.UserRequestsEnabled
+	return ac.VHosts.Enabled && ac.VHosts.UserRequests.Enabled
 }
 
 var (
@@ -84,7 +84,7 @@ request for a new one.`,
 
 SET sets a user's vhost, bypassing the request system.`,
 			helpShort: `$bSET$b sets a user's vhost.`,
-			capabs:    []string{"hostserv"},
+			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 		},
 		"del": {
@@ -93,7 +93,7 @@ SET sets a user's vhost, bypassing the request system.`,
 
 DEL sets a user's vhost, bypassing the request system.`,
 			helpShort: `$bDEL$b deletes a user's vhost.`,
-			capabs:    []string{"hostserv"},
+			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 		},
 		"waiting": {
@@ -103,7 +103,7 @@ DEL sets a user's vhost, bypassing the request system.`,
 WAITING shows a list of pending vhost requests, which can then be approved
 or rejected.`,
 			helpShort: `$bWAITING$b shows a list of pending vhost requests.`,
-			capabs:    []string{"hostserv"},
+			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 		},
 		"approve": {
@@ -112,7 +112,7 @@ or rejected.`,
 
 APPROVE approves a user's vhost request.`,
 			helpShort: `$bAPPROVE$b approves a user's vhost request.`,
-			capabs:    []string{"hostserv"},
+			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 		},
 		"reject": {
@@ -122,7 +122,7 @@ APPROVE approves a user's vhost request.`,
 REJECT rejects a user's vhost request, optionally giving them a reason
 for the rejection.`,
 			helpShort: `$bREJECT$b rejects a user's vhost request.`,
-			capabs:    []string{"hostserv"},
+			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 		},
 	}
@@ -133,13 +133,26 @@ func hsNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "HostServ", "NOTICE", rb.target.Nick(), text)
 }
 
+// hsNotifyChannel notifies the designated channel of new vhost activity
+func hsNotifyChannel(server *Server, message string) {
+	chname := server.AccountConfig().VHosts.UserRequests.Channel
+	channel := server.channels.Get(chname)
+	if channel == nil {
+		return
+	}
+	chname = channel.Name()
+	for _, client := range channel.Members() {
+		client.Send(nil, "HostServ", "PRIVMSG", chname, message)
+	}
+}
+
 func hsOnOffHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
 	enable := false
 	if command == "on" {
 		enable = true
 	}
 
-	err := server.accounts.VHostSetEnabled(client, enable)
+	_, err := server.accounts.VHostSetEnabled(client, enable)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else if enable {
@@ -163,7 +176,7 @@ func hsRequestHandler(server *Server, client *Client, command, params string, rb
 		return
 	}
 	elapsed := time.Now().Sub(account.VHost.LastRequestTime)
-	remainingTime := server.AccountConfig().HostServ.Cooldown - elapsed
+	remainingTime := server.AccountConfig().VHosts.UserRequests.Cooldown - elapsed
 	// you can update your existing request, but if you were rejected,
 	// you can't spam a replacement request
 	if account.VHost.RequestedVHost == "" && remainingTime > 0 {
@@ -171,11 +184,13 @@ func hsRequestHandler(server *Server, client *Client, command, params string, rb
 		return
 	}
 
-	err = server.accounts.VHostRequest(accountName, vhost)
+	_, err = server.accounts.VHostRequest(accountName, vhost)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
 		hsNotice(rb, fmt.Sprintf(client.t("Your vhost request will be reviewed by an administrator")))
+		chanMsg := fmt.Sprintf("Account %s requests vhost %s", accountName, vhost)
+		hsNotifyChannel(server, chanMsg)
 		// TODO send admins a snomask of some kind
 	}
 }
@@ -208,10 +223,10 @@ func hsStatusHandler(server *Server, client *Client, command, params string, rb 
 
 func validateVhost(server *Server, vhost string, oper bool) error {
 	ac := server.AccountConfig()
-	if len(vhost) > ac.HostServ.MaxVHostLen {
+	if len(vhost) > ac.VHosts.MaxLength {
 		return errVHostTooLong
 	}
-	if !ac.HostServ.ValidRegexp.MatchString(vhost) {
+	if !ac.VHosts.ValidRegexp.MatchString(vhost) {
 		return errVHostBadCharacters
 	}
 	return nil
@@ -235,7 +250,7 @@ func hsSetHandler(server *Server, client *Client, command, params string, rb *Re
 		return
 	}
 
-	err := server.accounts.VHostSet(user, vhost)
+	_, err := server.accounts.VHostSet(user, vhost)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
@@ -260,11 +275,13 @@ func hsApproveHandler(server *Server, client *Client, command, params string, rb
 		return
 	}
 
-	err := server.accounts.VHostApprove(user)
+	vhostInfo, err := server.accounts.VHostApprove(user)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
 		hsNotice(rb, fmt.Sprintf(client.t("Successfully approved vhost request for %s"), user))
+		chanMsg := fmt.Sprintf("Oper %s approved vhost %s for account %s", client.Nick(), vhostInfo.ApprovedVHost, user)
+		hsNotifyChannel(server, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			client.Notice(client.t("Your vhost request was approved by an administrator"))
 		}
@@ -279,11 +296,13 @@ func hsRejectHandler(server *Server, client *Client, command, params string, rb 
 	}
 	reason := strings.TrimSpace(params)
 
-	err := server.accounts.VHostReject(user, reason)
+	vhostInfo, err := server.accounts.VHostReject(user, reason)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
 		hsNotice(rb, fmt.Sprintf(client.t("Successfully rejected vhost request for %s"), user))
+		chanMsg := fmt.Sprintf("Oper %s rejected vhost %s for account %s, with the reason: %v", client.Nick(), vhostInfo.RejectedVHost, user, reason)
+		hsNotifyChannel(server, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			if reason == "" {
 				client.Notice("Your vhost request was rejected by an administrator")

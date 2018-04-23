@@ -311,10 +311,6 @@ func (client *Client) Ping() {
 
 }
 
-//
-// server goroutine
-//
-
 // Register sets the client details as appropriate when entering the network.
 func (client *Client) Register() {
 	client.stateMutex.Lock()
@@ -584,8 +580,8 @@ func (client *Client) SetVHost(vhost string) (updated bool) {
 func (client *Client) updateNick(nick string) {
 	casefoldedName, err := CasefoldName(nick)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Nick [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nick))
-		debug.PrintStack()
+		client.server.logger.Error("internal", "nick couldn't be casefolded", nick, err.Error())
+		return
 	}
 	client.stateMutex.Lock()
 	client.nick = nick
@@ -616,8 +612,8 @@ func (client *Client) updateNickMaskNoMutex() {
 	nickMaskString := fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
 	nickMaskCasefolded, err := Casefold(nickMaskString)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Nickmask [%s] couldn't be casefolded... this should never happen. Printing stacktrace.", client.nickMaskString))
-		debug.PrintStack()
+		client.server.logger.Error("internal", "nickmask couldn't be casefolded", nickMaskString, err.Error())
+		return
 	}
 
 	client.nickMaskString = nickMaskString

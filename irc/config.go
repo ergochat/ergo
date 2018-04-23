@@ -64,7 +64,7 @@ type AccountConfig struct {
 	AuthenticationEnabled bool                  `yaml:"authentication-enabled"`
 	SkipServerPassword    bool                  `yaml:"skip-server-password"`
 	NickReservation       NickReservationConfig `yaml:"nick-reservation"`
-	HostServ              HostServConfig
+	VHosts                VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -92,13 +92,16 @@ type AccountRegistrationConfig struct {
 	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
 }
 
-type HostServConfig struct {
-	Enabled             bool
-	UserRequestsEnabled bool `yaml:"user-requests-enabled"`
-	Cooldown            time.Duration
-	MaxVHostLen         int    `yaml:"max-vhost-len"`
-	ValidRegexpRaw      string `yaml:"valid-regexp"`
-	ValidRegexp         *regexp.Regexp
+type VHostConfig struct {
+	Enabled        bool
+	MaxLength      int    `yaml:"max-length"`
+	ValidRegexpRaw string `yaml:"valid-regexp"`
+	ValidRegexp    *regexp.Regexp
+	UserRequests   struct {
+		Enabled  bool
+		Channel  string
+		Cooldown time.Duration
+	} `yaml:"user-requests"`
 }
 
 type NickReservationMethod int
@@ -543,17 +546,17 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
-	rawRegexp := config.Accounts.HostServ.ValidRegexpRaw
+	rawRegexp := config.Accounts.VHosts.ValidRegexpRaw
 	if rawRegexp != "" {
 		regexp, err := regexp.Compile(rawRegexp)
 		if err == nil {
-			config.Accounts.HostServ.ValidRegexp = regexp
+			config.Accounts.VHosts.ValidRegexp = regexp
 		} else {
 			log.Printf("invalid vhost regexp: %s\n", err.Error())
 		}
 	}
-	if config.Accounts.HostServ.ValidRegexp == nil {
-		config.Accounts.HostServ.ValidRegexp = validVhostRegex
+	if config.Accounts.VHosts.ValidRegexp == nil {
+		config.Accounts.VHosts.ValidRegexp = defaultValidVhostRegex
 	}
 
 	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)

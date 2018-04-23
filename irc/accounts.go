@@ -109,7 +109,7 @@ func (am *AccountManager) buildNickToAccountIndex() {
 }
 
 func (am *AccountManager) initVHostRequestQueue() {
-	if !am.server.AccountConfig().HostServ.Enabled {
+	if !am.server.AccountConfig().VHosts.Enabled {
 		return
 	}
 
@@ -642,10 +642,7 @@ func (am *AccountManager) Unregister(account string) error {
 		tx.Delete(credentialsKey)
 		tx.Delete(vhostKey)
 		_, err := tx.Delete(vhostQueueKey)
-		if err != nil {
-			// 2's complement decrement
-			atomic.AddUint64(&am.vhostRequestPendingCount, ^uint64(0))
-		}
+		am.decrementVHostQueueCount(casefoldedAccount, err)
 		return nil
 	})
 
@@ -737,7 +734,7 @@ type PendingVHostRequest struct {
 // callback type implementing the actual business logic of vhost operations
 type vhostMunger func(input VHostInfo) (output VHostInfo, err error)
 
-func (am *AccountManager) VHostSet(account string, vhost string) (err error) {
+func (am *AccountManager) VHostSet(account string, vhost string) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
 		output.Enabled = true
@@ -748,7 +745,7 @@ func (am *AccountManager) VHostSet(account string, vhost string) (err error) {
 	return am.performVHostChange(account, munger)
 }
 
-func (am *AccountManager) VHostRequest(account string, vhost string) (err error) {
+func (am *AccountManager) VHostRequest(account string, vhost string) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
 		output.RequestedVHost = vhost
@@ -761,7 +758,7 @@ func (am *AccountManager) VHostRequest(account string, vhost string) (err error)
 	return am.performVHostChange(account, munger)
 }
 
-func (am *AccountManager) VHostApprove(account string) (err error) {
+func (am *AccountManager) VHostApprove(account string) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
 		output.Enabled = true
@@ -774,7 +771,7 @@ func (am *AccountManager) VHostApprove(account string) (err error) {
 	return am.performVHostChange(account, munger)
 }
 
-func (am *AccountManager) VHostReject(account string, reason string) (err error) {
+func (am *AccountManager) VHostReject(account string, reason string) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
 		output.RejectedVHost = output.RequestedVHost
@@ -786,7 +783,7 @@ func (am *AccountManager) VHostReject(account string, reason string) (err error)
 	return am.performVHostChange(account, munger)
 }
 
-func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (err error) {
+func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
 		output.Enabled = enabled
@@ -796,10 +793,11 @@ func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (err err
 	return am.performVHostChange(client.Account(), munger)
 }
 
-func (am *AccountManager) performVHostChange(account string, munger vhostMunger) (err error) {
+func (am *AccountManager) performVHostChange(account string, munger vhostMunger) (result VHostInfo, err error) {
 	account, err = CasefoldName(account)
 	if err != nil || account == "" {
-		return errAccountDoesNotExist
+		err = errAccountDoesNotExist
+		return
 	}
 
 	am.vHostUpdateMutex.Lock()
@@ -807,19 +805,22 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 
 	clientAccount, err := am.LoadAccount(account)
 	if err != nil {
-		return errAccountDoesNotExist
+		err = errAccountDoesNotExist
+		return
 	} else if !clientAccount.Verified {
-		return errAccountUnverified
+		err = errAccountUnverified
+		return
 	}
 
-	result, err := munger(clientAccount.VHost)
+	result, err = munger(clientAccount.VHost)
 	if err != nil {
-		return err
+		return
 	}
 
 	vhtext, err := json.Marshal(result)
 	if err != nil {
-		return errAccountUpdateFailed
+		err = errAccountUpdateFailed
+		return
 	}
 	vhstr := string(vhtext)
 
@@ -839,21 +840,30 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 			atomic.AddUint64(&am.vhostRequestPendingCount, 1)
 		} else if clientAccount.VHost.RequestedVHost != "" && result.RequestedVHost == "" {
 			_, err = tx.Delete(queueKey)
-			if err != nil {
-				// XXX this is the decrement operation for two's complement
-				atomic.AddUint64(&am.vhostRequestPendingCount, ^uint64(0))
-			}
+			am.decrementVHostQueueCount(account, err)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return errAccountUpdateFailed
+		err = errAccountUpdateFailed
+		return
 	}
 
 	am.applyVhostToClients(account, result)
-	return nil
+	return result, nil
+}
+
+// XXX annoying helper method for keeping the queue count in sync with the DB
+// `err` is the buntdb error returned from deleting the queue key
+func (am *AccountManager) decrementVHostQueueCount(account string, err error) {
+	if err == nil {
+		// successfully deleted a queue entry, do a 2's complement decrement:
+		atomic.AddUint64(&am.vhostRequestPendingCount, ^uint64(0))
+	} else if err != buntdb.ErrNotFound {
+		am.server.logger.Error("internal", "buntdb dequeue error", account, err.Error())
+	}
 }
 
 func (am *AccountManager) VHostListRequests(limit int) (requests []PendingVHostRequest, total int) {
@@ -893,7 +903,7 @@ func (am *AccountManager) VHostListRequests(limit int) (requests []PendingVHostR
 func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	// if hostserv is disabled in config, then don't grant vhosts
 	// that were previously approved while it was enabled
-	if !am.server.AccountConfig().HostServ.Enabled {
+	if !am.server.AccountConfig().VHosts.Enabled {
 		return
 	}
 

@@ -858,8 +858,8 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		server.accounts.buildNickToAccountIndex()
 	}
 
-	hsPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.HostServ.Enabled
-	hsNowEnabled := config.Accounts.HostServ.Enabled
+	hsPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.VHosts.Enabled
+	hsNowEnabled := config.Accounts.VHosts.Enabled
 	if hsPreviouslyDisabled && hsNowEnabled {
 		server.accounts.initVHostRequestQueue()
 	}
