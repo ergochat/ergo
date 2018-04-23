@@ -282,12 +282,12 @@ func schemaChangeV2ToV3(config *Config, tx *buntdb.Tx) error {
 
 func init() {
 	allChanges := []SchemaChange{
-		SchemaChange{
+		{
 			InitialVersion: "1",
 			TargetVersion:  "2",
 			Changer:        schemaChangeV1toV2,
 		},
-		SchemaChange{
+		{
 			InitialVersion: "2",
 			TargetVersion:  "3",
 			Changer:        schemaChangeV2ToV3,
