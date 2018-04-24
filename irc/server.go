@@ -446,11 +446,6 @@ func (server *Server) tryRegister(c *Client) {
 		return
 	}
 
-	if connectionRequiresSasl(c) {
-		c.destroy(false)
-		return
-	}
-
 	// client MUST send PASS (or AUTHENTICATE, if skip-server-password is set)
 	// before completing the other registration commands
 	if !c.Authorized() {
@@ -464,6 +459,12 @@ func (server *Server) tryRegister(c *Client) {
 	rb.Send()
 	if !nickAssigned {
 		c.SetPreregNick("")
+		return
+	}
+
+	// Check if connection requires SASL
+	if connectionRequiresSasl(c) {
+		c.destroy(false)
 		return
 	}
 

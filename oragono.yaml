@@ -407,3 +407,62 @@ fakelag:
     # client status resets to the default state if they go this long without
     # sending any commands:
     cooldown: 2s
+# dnsbls are DNS block lists. they're used to automatically deny or restrict clients who
+# have been deemed bad
+dnsbl:
+    # whether to check DNS block lists
+    enabled: false
+
+    # optional channel to send rejections to if the 'notify' action is specified in any lists
+    #channel: "#dnsbl"
+
+    # the specific dnsbls to check for every client entering the network
+    lists:
+        -
+            # host - specific hostname to use
+            host: "dnsbl.dronebl.org"
+
+            # which types of hosts to look up on this dnsbl. we support:
+            # - ipv4: D.C.B.A.hostname
+            # - ipv6: n.i.b.b.l.e.s.hostname (see explanation here: https://www.dan.me.uk/dnsbl )
+            types:
+                - ipv4
+                - ipv6
+
+            # action to take if the client matches this dnsbl:
+            # - allow - let the client access the network
+            # - block - block the client from accessing the network, with the given message
+            # - notify - send a notification to opers in-channel (if configured) and via the 'S' snomask
+            # - require-sasl - require the client to login with SASL, kill them if they don't
+            action: block
+
+            # reason that's shown if they're unable to access the network because of this rbl.
+            # we support the following variables:
+            # - "{ip}" - their IP address
+            reason: "Your IP ({ip}) is listed in DroneBL. For assistance, see http://dronebl.org/lookup?ip={ip}"
+
+            # specific replies to take action on. these are based on the last octet of the return IP.
+            # for example, "24" or "13,54,24" would both match a result of "127.0.0.24" from the rbl.
+            reply:
+                # 8/9/10/11 are all proxies
+                "8,9,10,11":
+                    action: require-sasl
+                    reason: "You need to enable SASL to access this network. For assistance, see http://dronebl.org/lookup?ip={ip}"
+                # 98 is an example reply type that's not real
+                98:
+                    action: allow
+
+        -
+            host: "rbl.efnetrbl.org"
+            types:
+                - ipv4
+            action: block
+            reason: "Your IP ({ip}) is listed in the EFnet RBL. For assistance, see http://efnetrbl.org/?i={ip}"
+
+        -
+            host: "torexit.dan.me.uk"
+            types:
+                - ipv4
+                - ipv6
+            action: require-sasl
+            reason: "You need to enable SASL to access this network while using TOR"

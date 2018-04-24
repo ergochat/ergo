@@ -1784,9 +1784,6 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
 
-	// increase oper count
-	//server.stats.ChangeOperators(1)
-
 	// client may now be unthrottled by the fakelag system
 	client.resetFakelag()
 

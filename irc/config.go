@@ -97,16 +97,33 @@ type DnsblConfig struct {
 }
 
 type DnsblListEntry struct {
-	Host   string
-	Types  []string
-	Reply  map[string]DnsblListReply
-	Action string
-	Reason string
+	Host       string
+	Types      []string
+	Reply      map[string]DnsblListReply
+	Action     string
+	ActionType uint
+	Reason     string
 }
 
 type DnsblListReply struct {
-	Action string
-	Reason string
+	Action     string
+	ActionType uint
+	Reason     string
+}
+
+func (conf *Config) DnsblTypes(action string) (uint, error) {
+	actions := map[string]uint{
+		"require-sasl": DnsblRequireSaslReply,
+		"allow":        DnsblAllowReply,
+		"block":        DnsblBlockReply,
+		"notify":       DnsblNotifyReply,
+	}
+
+	if value, exists := actions[action]; exists {
+		return value, nil
+	}
+
+	return DnsblUnknownReply, errors.New(fmt.Sprintf("Unknown DNSBL action type: %s", action))
 }
 
 type NickReservationMethod int
@@ -493,12 +510,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.WebIRC = newWebIRC
 
 	for id, list := range config.Dnsbl.Lists {
-		var action, reason = list.Action, list.Reason
+		actionType, err := config.DnsblTypes(list.Action)
+		if err != nil {
+			return nil, err
+		}
+		reason := list.Reason
 
 		var newDnsblListReply = make(map[string]DnsblListReply)
 		for key, reply := range list.Reply {
 			if reply.Action == "" {
-				reply.Action = action
+				reply.ActionType = actionType
 			}
 			if reply.Reason == "" {
 				reply.Reason = reason
@@ -508,6 +529,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				newDnsblListReply[newKey] = reply
 			}
 		}
+		config.Dnsbl.Lists[id].ActionType = actionType
 		config.Dnsbl.Lists[id].Reply = newDnsblListReply
 	}
 
