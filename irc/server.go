@@ -463,7 +463,7 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	// Check if connection requires SASL
-	if connectionRequiresSasl(c) {
+	if ConnectionRequiresSasl(c) {
 		c.destroy(false)
 		return
 	}
@@ -1228,6 +1228,18 @@ func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 	}
 
 	rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
+}
+
+// serviceNotifyChannel sends messages to a channel as a pseudo client
+func (server *Server) serviceNotifyChannel(pseudoClient string, channelName string, message string) {
+	channel := server.channels.Get(channelName)
+	if channel == nil {
+		return
+	}
+	channelName = channel.Name()
+	for _, client := range channel.Members() {
+		client.Send(nil, pseudoClient, "PRIVMSG", channelName, message)
+	}
 }
 
 // ResumeDetails are the details that we use to resume connections.

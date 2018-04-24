@@ -101,18 +101,18 @@ type DnsblListEntry struct {
 	Types      []string
 	Reply      map[string]DnsblListReply
 	Action     string
-	ActionType uint
+	ActionType DnsblActionType
 	Reason     string
 }
 
 type DnsblListReply struct {
 	Action     string
-	ActionType uint
+	ActionType DnsblActionType
 	Reason     string
 }
 
-func (conf *Config) DnsblTypes(action string) (uint, error) {
-	actions := map[string]uint{
+func (conf *Config) DnsblTypes(action string) (DnsblActionType, error) {
+	actions := map[string]DnsblActionType{
 		"require-sasl": DnsblRequireSaslReply,
 		"allow":        DnsblAllowReply,
 		"block":        DnsblBlockReply,

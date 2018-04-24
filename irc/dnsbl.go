@@ -7,41 +7,27 @@ import (
 	"strings"
 
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // Constants
+type DnsblActionType uint
+
 const (
-	DnsblRequireSaslReply uint = iota
+	DnsblRequireSaslReply DnsblActionType = iota
 	DnsblAllowReply
 	DnsblBlockReply
 	DnsblNotifyReply
 	DnsblUnknownReply
 )
 
-// ReverseAddress returns IPv4 addresses reversed
-func ReverseAddress(ip net.IP) string {
-	// This is a IPv4 address
-	if ip.To4() != nil {
-		address := strings.Split(ip.String(), ".")
-
-		for i, j := 0, len(address)-1; i < j; i, j = i+1, j-1 {
-			address[i], address[j] = address[j], address[i]
-		}
-
-		return strings.Join(address, ".")
-	}
-
-	// fallback to returning the String of IP if it is not an IPv4 address
-	return ip.String()
-}
-
 // LookupBlacklistEntry performs a lookup on the dnsbl on the client IP
 func (server *Server) LookupBlacklistEntry(list *DnsblListEntry, client *Client) []string {
-	res, err := net.LookupHost(fmt.Sprintf("%s.%s", ReverseAddress(client.IP()), list.Host))
+	res, err := net.LookupHost(fmt.Sprintf("%s.%s", utils.ReverseAddress(client.IP()), list.Host))
 
 	var entries []string
 	if err != nil {
-		server.logger.Info("dnsbl-lookup", fmt.Sprintf("DNSBL loopup failed: %s", err))
+		// An error may indicate that the A record was not found
 		return entries
 	}
 
@@ -65,12 +51,11 @@ func (server *Server) ProcessBlacklist(client *Client) {
 		return
 	}
 
-	channel := server.DnsblConfig().Channel
 	lists := server.DnsblConfig().Lists
 
 	type DnsblTypeResponse struct {
 		Host       string
-		ActionType uint
+		ActionType DnsblActionType
 		Reason     string
 	}
 	var items = []DnsblTypeResponse{}
@@ -98,54 +83,46 @@ func (server *Server) ProcessBlacklist(client *Client) {
 		item := items[0]
 		switch item.ActionType {
 		case DnsblRequireSaslReply:
-			client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Connecting client %s matched %s, requiring SASL to proceed", client.IP(), item.Host))
+			dnsblSendServiceMessage(server, fmt.Sprintf("Connecting client %s matched %s, requiring SASL to proceed", client.IP(), item.Host))
 			client.SetRequireSasl(true, item.Reason)
 
 		case DnsblBlockReply:
-			client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Connecting client %s matched %s - killing", client.IP(), item.Host))
+			dnsblSendServiceMessage(server, fmt.Sprintf("Connecting client %s matched %s - killing", client.IP(), item.Host))
 			client.Quit(strings.Replace(item.Reason, "{ip}", client.IPString(), -1))
 
 		case DnsblNotifyReply:
-			client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Connecting client %s matched %s", client.IP(), item.Host))
+			dnsblSendServiceMessage(server, fmt.Sprintf("Connecting client %s matched %s", client.IP(), item.Host))
 
 		case DnsblAllowReply:
-			client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Allowing host %s [%s]", client.IP(), item.Host))
+			dnsblSendServiceMessage(server, fmt.Sprintf("Allowing host %s [%s]", client.IP(), item.Host))
 		}
 	}
 
 	return
 }
 
-func connectionRequiresSasl(client *Client) bool {
+func ConnectionRequiresSasl(client *Client) bool {
 	sasl, reason := client.RequireSasl()
 
 	if !sasl {
 		return false
 	}
 
-	channel := client.server.DnsblConfig().Channel
-
 	if client.Account() == "" {
-		//client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Connecting client %s and did not authenticate through SASL - blocking connection", client.IP()))
+		dnsblSendServiceMessage(client.server, fmt.Sprintf("Connecting client %s and did not authenticate through SASL - blocking connection", client.IP()))
 		client.Quit(strings.Replace(reason, "{ip}", client.IPString(), -1))
 		return true
 	}
 
-	client.sendServerMessage("", channel, sno.Dnsbl, fmt.Sprintf("Connecting client %s authenticated through SASL - allowing", client.IP()))
+	dnsblSendServiceMessage(client.server, fmt.Sprintf("Connecting client %s authenticated through SASL - allowing", client.IP()))
 
 	return false
 }
 
-func (client *Client) sendServerMessage(pseudo string, channel string, mask sno.Mask, message string) {
-	/*
-	   This causes an out of bounds error - possibly in client.Send() - investigate further
-	   	if pseudo == "" {
-	   		pseudo = client.server.name
-	   	}
-
-	   	if channel != "" {
-	   		client.Send(nil, pseudo, "PRIVMSG", channel, message)
-	   	}
-	*/
-	client.server.snomasks.Send(mask, message)
+func dnsblSendServiceMessage(server *Server, message string) {
+	channel := server.DnsblConfig().Channel
+	if channel != "" {
+		server.serviceNotifyChannel(server.name, channel, message)
+	}
+	server.snomasks.Send(sno.Dnsbl, message)
 }

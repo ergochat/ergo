@@ -94,3 +94,20 @@ func IsHostname(name string) bool {
 
 	return true
 }
+
+// ReverseAddress returns IPv4 addresses reversed
+func ReverseAddress(ip net.IP) string {
+	// This is a IPv4 address
+	if ip.To4() != nil {
+		address := strings.Split(ip.String(), ".")
+
+		for i, j := 0, len(address)-1; i < j; i, j = i+1, j-1 {
+			address[i], address[j] = address[j], address[i]
+		}
+
+		return strings.Join(address, ".")
+	}
+
+	// fallback to returning the String of IP if it is not an IPv4 address
+	return ip.String()
+}
