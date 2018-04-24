@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"fmt"
 	"strconv"
@@ -24,7 +25,7 @@ type Channel struct {
 	lists             map[modes.Mode]*UserMaskSet
 	key               string
 	members           MemberSet
-	membersCache      []*Client  // allow iteration over channel members without holding the lock
+	membersCache      []*Client // allow iteration over channel members without holding the lock
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -180,27 +181,47 @@ func (channel *Channel) regenerateMembersCache() {
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
-	currentNicks := channel.nicks(client)
-	// assemble and send replies
-	maxNamLen := 480 - len(client.server.name) - len(client.nick)
-	var buffer string
-	for _, nick := range currentNicks {
-		if buffer == "" {
-			buffer += nick
+	isMultiPrefix := client.capabilities.Has(caps.MultiPrefix)
+	isUserhostInNames := client.capabilities.Has(caps.UserhostInNames)
+
+	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
+	var namesLines []string
+	var buffer bytes.Buffer
+	for _, target := range channel.Members() {
+		var nick string
+		if isUserhostInNames {
+			nick = target.NickMaskString()
+		} else {
+			nick = target.Nick()
+		}
+		channel.stateMutex.RLock()
+		modes := channel.members[target]
+		channel.stateMutex.RUnlock()
+		if modes == nil {
 			continue
 		}
-
-		if len(buffer)+1+len(nick) > maxNamLen {
-			rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", channel.name, buffer)
-			buffer = nick
-			continue
+		prefix := modes.Prefixes(isMultiPrefix)
+		if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
+			namesLines = append(namesLines, buffer.String())
+			// memset(&buffer, 0, sizeof(bytes.Buffer));
+			var newBuffer bytes.Buffer
+			buffer = newBuffer
 		}
-
-		buffer += " "
-		buffer += nick
+		if buffer.Len() > 0 {
+			buffer.WriteString(" ")
+		}
+		buffer.WriteString(prefix)
+		buffer.WriteString(nick)
+	}
+	if buffer.Len() > 0 {
+		namesLines = append(namesLines, buffer.String())
 	}
 
-	rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", channel.name, buffer)
+	for _, line := range namesLines {
+		if buffer.Len() > 0 {
+			rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", channel.name, line)
+		}
+	}
 	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, client.t("End of NAMES list"))
 }
 
@@ -260,37 +281,6 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 			break
 		}
 	}
-	return result
-}
-
-func (channel *Channel) nicks(target *Client) []string {
-	isMultiPrefix := (target != nil) && target.capabilities.Has(caps.MultiPrefix)
-	isUserhostInNames := (target != nil) && target.capabilities.Has(caps.UserhostInNames)
-
-	// slightly cumbersome: get the mutex and copy both the client pointers and
-	// the mode prefixes
-	channel.stateMutex.RLock()
-	length := len(channel.members)
-	clients := make([]*Client, length)
-	result := make([]string, length)
-	i := 0
-	for client, modes := range channel.members {
-		clients[i] = client
-		result[i] = modes.Prefixes(isMultiPrefix)
-		i++
-	}
-	channel.stateMutex.RUnlock()
-
-	i = 0
-	for i < length {
-		if isUserhostInNames {
-			result[i] += clients[i].NickMaskString()
-		} else {
-			result[i] += clients[i].Nick()
-		}
-		i++
-	}
-
 	return result
 }
 
