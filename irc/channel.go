@@ -690,7 +690,7 @@ func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op mo
 	channel.stateMutex.Lock()
 	modeset, exists := channel.members[target]
 	if exists {
-		if applied := modeset.SetMode(mode, op == modes.Add); applied {
+		if modeset.SetMode(mode, op == modes.Add) {
 			result = &modes.ModeChange{
 				Op:   op,
 				Mode: mode,

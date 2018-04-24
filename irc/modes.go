@@ -34,7 +34,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool)
 					continue
 				}
 
-				if changed := client.SetMode(change.Mode, true); changed {
+				if client.SetMode(change.Mode, true) {
 					if change.Mode == modes.Invisible {
 						client.server.stats.ChangeInvisible(1)
 					} else if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
@@ -44,7 +44,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool)
 				}
 
 			case modes.Remove:
-				if changed := client.SetMode(change.Mode, false); changed {
+				if client.SetMode(change.Mode, false) {
 					if change.Mode == modes.Invisible {
 						client.server.stats.ChangeInvisible(-1)
 					} else if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
@@ -216,7 +216,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			if changed := channel.flags.SetMode(change.Mode, change.Op == modes.Add); changed {
+			if channel.flags.SetMode(change.Mode, change.Op == modes.Add) {
 				applied = append(applied, change)
 			}
 
