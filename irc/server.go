@@ -127,10 +127,10 @@ type Server struct {
 	signals                    chan os.Signal
 	snomasks                   *SnoManager
 	store                      *buntdb.DB
-	storeFilename              string
 	stsEnabled                 bool
 	webirc                     []webircConfig
 	whoWas                     *WhoWasList
+	stats                      *Stats
 }
 
 var (
@@ -164,6 +164,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		signals:             make(chan os.Signal, len(ServerExitSignals)),
 		snomasks:            NewSnoManager(),
 		whoWas:              NewWhoWasList(config.Limits.WhowasEntries),
+		stats:               NewStats(),
 	}
 
 	if err := server.applyConfig(config, true); err != nil {
@@ -472,6 +473,9 @@ func (server *Server) tryRegister(c *Client) {
 		return
 	}
 
+	// count new user in statistics
+	server.stats.ChangeTotal(1)
+
 	// continue registration
 	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf(ircfmt.Unescape("Client registered $c[grey][$r%s$c[grey]] [u:$r%s$c[grey]] [h:$r%s$c[grey]] [r:$r%s$c[grey]]"), c.nick, c.username, c.rawHostname, c.realname))
@@ -633,8 +637,8 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	var chstrs []string
 	for _, channel := range target.Channels() {
 		// channel is secret and the target can't see it
-		if !client.flags[modes.Operator] {
-			if (target.HasMode(modes.Invisible) || channel.HasMode(modes.Secret)) && !channel.hasClient(client) {
+		if !client.HasMode(modes.Operator) {
+			if (target.HasMode(modes.Invisible) || channel.flags.HasMode(modes.Secret)) && !channel.hasClient(client) {
 				continue
 			}
 		}
@@ -657,16 +661,16 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if tOper != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, tOper.WhoisLine)
 	}
-	if client.flags[modes.Operator] || client == target {
+	if client.HasMode(modes.Operator) || client == target {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
-	if target.flags[modes.TLS] {
+	if target.HasMode(modes.TLS) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
 	if target.LoggedIntoAccount() {
 		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, target.AccountName(), client.t("is logged in as"))
 	}
-	if target.flags[modes.Bot] {
+	if target.HasMode(modes.Bot) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
 	}
 
@@ -679,7 +683,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
 
-	if target.certfp != "" && (client.flags[modes.Operator] || client == target) {
+	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
 		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
@@ -710,7 +714,7 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *Response
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet, rb *ResponseBuffer) {
 	for _, member := range channel.Members() {
-		if !client.flags[modes.Invisible] || friends[client] {
+		if !client.HasMode(modes.Invisible) || friends[client] {
 			client.rplWhoReply(channel, member, rb)
 		}
 	}
@@ -749,7 +753,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
-		} else if server.storeFilename != config.Datastore.Path {
+		} else if server.config.Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		}
 	}
@@ -975,10 +979,9 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.config = config
 	server.configurableStateMutex.Unlock()
 
-	server.storeFilename = config.Datastore.Path
-	server.logger.Info("rehash", "Using datastore", server.storeFilename)
+	server.logger.Info("rehash", "Using datastore", config.Datastore.Path)
 	if initial {
-		if err := server.loadDatastore(server.storeFilename); err != nil {
+		if err := server.loadDatastore(config); err != nil {
 			return err
 		}
 	}
@@ -1075,11 +1078,11 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 	return nil
 }
 
-func (server *Server) loadDatastore(datastorePath string) error {
+func (server *Server) loadDatastore(config *Config) error {
 	// open the datastore and load server state for which it (rather than config)
 	// is the source of truth
 
-	db, err := OpenDatabase(datastorePath)
+	db, err := OpenDatabase(config)
 	if err == nil {
 		server.store = db
 	} else {
@@ -1213,7 +1216,7 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 	// get the correct number of channel members
 	var memberCount int
-	if target.flags[modes.Operator] || channel.hasClient(target) {
+	if target.HasMode(modes.Operator) || channel.hasClient(target) {
 		memberCount = len(channel.Members())
 	} else {
 		for _, member := range channel.Members() {

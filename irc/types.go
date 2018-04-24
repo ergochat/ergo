@@ -26,11 +26,11 @@ func (clients ClientSet) Has(client *Client) bool {
 }
 
 // MemberSet is a set of members with modes.
-type MemberSet map[*Client]modes.ModeSet
+type MemberSet map[*Client]*modes.ModeSet
 
 // Add adds the given client to this set.
 func (members MemberSet) Add(member *Client) {
-	members[member] = make(modes.ModeSet)
+	members[member] = modes.NewModeSet()
 }
 
 // Remove removes the given client from this set.
@@ -44,19 +44,10 @@ func (members MemberSet) Has(member *Client) bool {
 	return ok
 }
 
-// HasMode returns true if the given client is in this set with the given mode.
-func (members MemberSet) HasMode(member *Client, mode modes.Mode) bool {
-	modes, ok := members[member]
-	if !ok {
-		return false
-	}
-	return modes[mode]
-}
-
 // AnyHasMode returns true if any of our clients has the given mode.
 func (members MemberSet) AnyHasMode(mode modes.Mode) bool {
 	for _, modes := range members {
-		if modes[mode] {
+		if modes.HasMode(mode) {
 			return true
 		}
 	}

@@ -84,11 +84,7 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (exiting bool) 
 
 	// set tls info
 	client.certfp = ""
-	if tls {
-		client.flags[modes.TLS] = true
-	} else {
-		delete(client.flags, modes.TLS)
-	}
+	client.SetMode(modes.TLS, tls)
 
 	return false
 }

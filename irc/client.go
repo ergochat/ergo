@@ -49,7 +49,7 @@ type Client struct {
 	ctime              time.Time
 	exitedSnomaskSent  bool
 	fakelag            *Fakelag
-	flags              map[modes.Mode]bool
+	flags              *modes.ModeSet
 	hasQuit            bool
 	hops               int
 	hostname           string
@@ -88,7 +88,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	limits := server.Limits()
 	fullLineLenLimit := limits.LineLen.Tags + limits.LineLen.Rest
 	socket := NewSocket(conn, fullLineLenLimit*2, server.MaxSendQBytes())
-	go socket.RunSocketWriter()
 	client := &Client{
 		atime:          now,
 		authorized:     server.Password() == nil,
@@ -97,9 +96,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		capVersion:     caps.Cap301,
 		channels:       make(ChannelSet),
 		ctime:          now,
-		flags:          make(map[modes.Mode]bool),
+		flags:          modes.NewModeSet(),
 		server:         server,
-		socket:         &socket,
+		socket:         socket,
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
@@ -108,7 +107,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 
 	client.recomputeMaxlens()
 	if isTLS {
-		client.flags[modes.TLS] = true
+		client.SetMode(modes.TLS, true)
 
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
@@ -500,13 +499,7 @@ func (client *Client) HasRoleCapabs(capabs ...string) bool {
 
 // ModeString returns the mode string for this client.
 func (client *Client) ModeString() (str string) {
-	str = "+"
-
-	for flag := range client.flags {
-		str += flag.String()
-	}
-
-	return
+	return "+" + client.flags.String()
 }
 
 // Friends refers to clients that share a channel with this client.
@@ -661,10 +654,14 @@ func (client *Client) LoggedIntoAccount() bool {
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
 func (client *Client) RplISupport(rb *ResponseBuffer) {
 	translatedISupport := client.t("are supported by this server")
-	for _, tokenline := range client.server.ISupport().CachedReply {
-		// ugly trickery ahead
-		tokenline = append(tokenline, translatedISupport)
-		rb.Add(nil, client.server.name, RPL_ISUPPORT, append([]string{client.nick}, tokenline...)...)
+	nick := client.Nick()
+	for _, cachedTokenLine := range client.server.ISupport().CachedReply {
+		length := len(cachedTokenLine) + 2
+		tokenline := make([]string, length)
+		tokenline[0] = nick
+		copy(tokenline[1:], cachedTokenLine)
+		tokenline[length-1] = translatedISupport
+		rb.Add(nil, client.server.name, RPL_ISUPPORT, tokenline...)
 	}
 }
 
@@ -758,6 +755,15 @@ func (client *Client) destroy(beingResumed bool) {
 
 	// send quit messages to friends
 	if !beingResumed {
+		client.server.stats.ChangeTotal(-1)
+		if client.HasMode(modes.Invisible) {
+			client.server.stats.ChangeInvisible(-1)
+		}
+
+		if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
+			client.server.stats.ChangeOperators(-1)
+		}
+
 		for friend := range friends {
 			if client.quitMessage == "" {
 				client.quitMessage = "Exited"

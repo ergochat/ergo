@@ -7,6 +7,7 @@ package modes
 
 import (
 	"strings"
+	"sync"
 )
 
 var (
@@ -247,34 +248,156 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 	return changes, unknown
 }
 
+// ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
+func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
+	changes := make(ModeChanges, 0)
+	unknown := make(map[rune]bool)
+
+	op := List
+
+	if 0 < len(params) {
+		modeArg := params[0]
+		skipArgs := 1
+
+		for _, mode := range modeArg {
+			if mode == '-' || mode == '+' {
+				op = ModeOp(mode)
+				continue
+			}
+			change := ModeChange{
+				Mode: Mode(mode),
+				Op:   op,
+			}
+
+			// put arg into modechange if needed
+			switch Mode(mode) {
+			case BanMask, ExceptMask, InviteMask:
+				if len(params) > skipArgs {
+					change.Arg = params[skipArgs]
+					skipArgs++
+				} else {
+					change.Op = List
+				}
+			case ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice:
+				if len(params) > skipArgs {
+					change.Arg = params[skipArgs]
+					skipArgs++
+				} else {
+					continue
+				}
+			case Key, UserLimit:
+				// don't require value when removing
+				if change.Op == Add {
+					if len(params) > skipArgs {
+						change.Arg = params[skipArgs]
+						skipArgs++
+					} else {
+						continue
+					}
+				}
+			}
+
+			var isKnown bool
+			for _, supportedMode := range SupportedChannelModes {
+				if rune(supportedMode) == mode {
+					isKnown = true
+					break
+				}
+			}
+			for _, supportedMode := range ChannelPrivModes {
+				if rune(supportedMode) == mode {
+					isKnown = true
+					break
+				}
+			}
+			if mode == rune(Voice) {
+				isKnown = true
+			}
+			if !isKnown {
+				unknown[mode] = true
+				continue
+			}
+
+			changes = append(changes, change)
+		}
+	}
+
+	return changes, unknown
+}
+
 // ModeSet holds a set of modes.
-type ModeSet map[Mode]bool
+type ModeSet struct {
+	sync.RWMutex // tier 0
+	modes        map[Mode]bool
+}
+
+// returns a pointer to a new ModeSet
+func NewModeSet() *ModeSet {
+	return &ModeSet{
+		modes: make(map[Mode]bool),
+	}
+}
+
+// test whether `mode` is set
+func (set *ModeSet) HasMode(mode Mode) bool {
+	set.RLock()
+	defer set.RUnlock()
+	return set.modes[mode]
+}
+
+// set `mode` to be on or off, return whether the value actually changed
+func (set *ModeSet) SetMode(mode Mode, on bool) (applied bool) {
+	set.Lock()
+	defer set.Unlock()
+
+	previouslyOn := set.modes[mode]
+	needsApply := (on != previouslyOn)
+	if on && needsApply {
+		set.modes[mode] = true
+	} else if !on && needsApply {
+		delete(set.modes, mode)
+	}
+	return needsApply
+}
+
+// return the modes in the set as a slice
+func (set *ModeSet) AllModes() (result []Mode) {
+	set.RLock()
+	defer set.RUnlock()
+
+	for mode := range set.modes {
+		result = append(result, mode)
+	}
+	return
+}
 
 // String returns the modes in this set.
-func (set ModeSet) String() string {
-	if len(set) == 0 {
+func (set *ModeSet) String() string {
+	set.RLock()
+	defer set.RUnlock()
+
+	if len(set.modes) == 0 {
 		return ""
 	}
-	strs := make([]string, len(set))
-	index := 0
-	for mode := range set {
-		strs[index] = mode.String()
-		index++
+	var result []byte
+	for mode := range set.modes {
+		result = append(result, mode.String()...)
 	}
-	return strings.Join(strs, "")
+	return string(result)
 }
 
 // Prefixes returns a list of prefixes for the given set of channel modes.
-func (set ModeSet) Prefixes(isMultiPrefix bool) string {
-	var prefixes string
+func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
+	set.RLock()
+	defer set.RUnlock()
 
 	// add prefixes in order from highest to lowest privs
 	for _, mode := range ChannelPrivModes {
-		if set[mode] {
+		if set.modes[mode] {
 			prefixes += ChannelModePrefixes[mode]
 		}
 	}
-	if set[Voice] {
+	if set.modes[Voice] {
 		prefixes += ChannelModePrefixes[Voice]
 	}
 

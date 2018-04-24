@@ -35,7 +35,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
-		if !channel.flags[modes.ChanRoleplaying] {
+		if !channel.flags.HasMode(modes.ChanRoleplaying) {
 			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
 			return
 		}
@@ -58,7 +58,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
-		if !user.flags[modes.UserRoleplaying] {
+		if !user.HasMode(modes.UserRoleplaying) {
 			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, user.nick, client.t("User doesn't have roleplaying mode enabled"))
 			return
 		}
@@ -67,7 +67,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		if client.capabilities.Has(caps.EchoMessage) {
 			rb.Add(nil, source, "PRIVMSG", user.nick, message)
 		}
-		if user.flags[modes.Away] {
+		if user.HasMode(modes.Away) {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 		}

@@ -22,6 +22,7 @@ import (
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"gopkg.in/yaml.v2"
@@ -243,7 +244,8 @@ type Config struct {
 	}
 
 	Datastore struct {
-		Path string
+		Path        string
+		AutoUpgrade bool
 	}
 
 	Accounts AccountConfig
@@ -366,7 +368,7 @@ type Oper struct {
 	WhoisLine string
 	Vhost     string
 	Pass      []byte
-	Modes     string
+	Modes     []modes.ModeChange
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -394,7 +396,12 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		} else {
 			oper.WhoisLine = class.WhoisLine
 		}
-		oper.Modes = strings.TrimSpace(opConf.Modes)
+		modeStr := strings.TrimSpace(opConf.Modes)
+		modeChanges, unknownChanges := modes.ParseUserModeChanges(strings.Split(modeStr, " ")...)
+		if len(unknownChanges) > 0 {
+			return nil, fmt.Errorf("Could not load operator [%s] due to unknown modes %v", name, unknownChanges)
+		}
+		oper.Modes = modeChanges
 
 		// successful, attach to list of opers
 		operators[name] = &oper
