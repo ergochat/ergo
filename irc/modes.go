@@ -21,8 +21,8 @@ var (
 	}
 )
 
-// applyUserModeChanges applies the given changes, and returns the applied changes.
-func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges) modes.ModeChanges {
+// ApplyUserModeChanges applies the given changes, and returns the applied changes.
+func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool) modes.ModeChanges {
 	applied := make(modes.ModeChanges, 0)
 
 	for _, change := range changes {
@@ -34,36 +34,28 @@ func (client *Client) applyUserModeChanges(force bool, changes modes.ModeChanges
 					continue
 				}
 
-				if client.flags[change.Mode] {
-					continue
+				if client.SetMode(change.Mode, true) {
+					if change.Mode == modes.Invisible {
+						client.server.stats.ChangeInvisible(1)
+					} else if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
+						client.server.stats.ChangeOperators(1)
+					}
+					applied = append(applied, change)
 				}
-
-				if change.Mode == modes.Invisible {
-					client.server.stats.ChangeInvisible(1)
-				}
-
-				client.flags[change.Mode] = true
-				applied = append(applied, change)
 
 			case modes.Remove:
-				if !client.flags[change.Mode] {
-					continue
+				if client.SetMode(change.Mode, false) {
+					if change.Mode == modes.Invisible {
+						client.server.stats.ChangeInvisible(-1)
+					} else if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
+						client.server.stats.ChangeOperators(-1)
+					}
+					applied = append(applied, change)
 				}
-
-				if change.Mode == modes.Invisible {
-					client.server.stats.ChangeInvisible(-1)
-				}
-
-				if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
-					client.server.stats.ChangeOperators(-1)
-				}
-
-				delete(client.flags, change.Mode)
-				applied = append(applied, change)
 			}
 
 		case modes.ServerNotice:
-			if !client.flags[modes.Operator] {
+			if !client.HasMode(modes.Operator) {
 				continue
 			}
 			var masks []sno.Mask
@@ -101,7 +93,7 @@ func ParseDefaultChannelModes(config *Config) modes.Modes {
 		return DefaultChannelModes
 	}
 	modeChangeStrings := strings.Split(strings.TrimSpace(*config.Channels.DefaultModes), " ")
-	modeChanges, _ := ParseChannelModeChanges(modeChangeStrings...)
+	modeChanges, _ := modes.ParseChannelModeChanges(modeChangeStrings...)
 	defaultChannelModes := make(modes.Modes, 0)
 	for _, modeChange := range modeChanges {
 		if modeChange.Op == modes.Add {
@@ -109,83 +101,6 @@ func ParseDefaultChannelModes(config *Config) modes.Modes {
 		}
 	}
 	return defaultChannelModes
-}
-
-// ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
-func ParseChannelModeChanges(params ...string) (modes.ModeChanges, map[rune]bool) {
-	changes := make(modes.ModeChanges, 0)
-	unknown := make(map[rune]bool)
-
-	op := modes.List
-
-	if 0 < len(params) {
-		modeArg := params[0]
-		skipArgs := 1
-
-		for _, mode := range modeArg {
-			if mode == '-' || mode == '+' {
-				op = modes.ModeOp(mode)
-				continue
-			}
-			change := modes.ModeChange{
-				Mode: modes.Mode(mode),
-				Op:   op,
-			}
-
-			// put arg into modechange if needed
-			switch modes.Mode(mode) {
-			case modes.BanMask, modes.ExceptMask, modes.InviteMask:
-				if len(params) > skipArgs {
-					change.Arg = params[skipArgs]
-					skipArgs++
-				} else {
-					change.Op = modes.List
-				}
-			case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
-				if len(params) > skipArgs {
-					change.Arg = params[skipArgs]
-					skipArgs++
-				} else {
-					continue
-				}
-			case modes.Key, modes.UserLimit:
-				// don't require value when removing
-				if change.Op == modes.Add {
-					if len(params) > skipArgs {
-						change.Arg = params[skipArgs]
-						skipArgs++
-					} else {
-						continue
-					}
-				}
-			}
-
-			var isKnown bool
-			for _, supportedMode := range modes.SupportedChannelModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			for _, supportedMode := range modes.ChannelPrivModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			if mode == rune(modes.Voice) {
-				isKnown = true
-			}
-			if !isKnown {
-				unknown[mode] = true
-				continue
-			}
-
-			changes = append(changes, change)
-		}
-	}
-
-	return changes, unknown
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
@@ -208,15 +123,17 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		}
 		switch change.Mode {
 		case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
-			// Admins can't give other people Admin or remove it from others
-			if change.Mode == modes.ChannelAdmin {
-				return false
-			}
+			// List on these modes is a no-op anyway
 			if change.Op == modes.List {
 				return true
 			}
 			cfarg, _ := CasefoldName(change.Arg)
-			if change.Op == modes.Remove && cfarg == client.nickCasefolded {
+			isSelfChange := cfarg == client.NickCasefolded()
+			// Admins can't give other people Admin or remove it from others
+			if change.Mode == modes.ChannelAdmin && !isSelfChange {
+				return false
+			}
+			if change.Op == modes.Remove && isSelfChange {
 				// "There is no restriction, however, on anyone `deopping' themselves"
 				// <https://tools.ietf.org/html/rfc2812#section-3.1.5>
 				return true
@@ -299,8 +216,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			already := channel.setMode(change.Mode, change.Op == modes.Add)
-			if !already {
+			if channel.flags.SetMode(change.Mode, change.Op == modes.Add) {
 				applied = append(applied, change)
 			}
 
@@ -309,7 +225,13 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			change := channel.applyModeMemberNoMutex(client, change.Mode, change.Op, change.Arg, rb)
+			nick := change.Arg
+			if nick == "" {
+				rb.Add(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", client.t("Not enough parameters"))
+				return nil
+			}
+
+			change := channel.applyModeToMember(client, change.Mode, change.Op, nick, rb)
 			if change != nil {
 				applied = append(applied, *change)
 			}

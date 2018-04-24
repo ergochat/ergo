@@ -637,8 +637,8 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 	var chstrs []string
 	for _, channel := range target.Channels() {
 		// channel is secret and the target can't see it
-		if !client.flags[modes.Operator] {
-			if (target.HasMode(modes.Invisible) || channel.HasMode(modes.Secret)) && !channel.hasClient(client) {
+		if !client.HasMode(modes.Operator) {
+			if (target.HasMode(modes.Invisible) || channel.flags.HasMode(modes.Secret)) && !channel.hasClient(client) {
 				continue
 			}
 		}
@@ -660,16 +660,16 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if target.class != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
 	}
-	if client.flags[modes.Operator] || client == target {
+	if client.HasMode(modes.Operator) || client == target {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
-	if target.flags[modes.TLS] {
+	if target.HasMode(modes.TLS) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
 	}
 	if target.LoggedIntoAccount() {
 		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, target.AccountName(), client.t("is logged in as"))
 	}
-	if target.flags[modes.Bot] {
+	if target.HasMode(modes.Bot) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
 	}
 
@@ -682,7 +682,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
 
-	if target.certfp != "" && (client.flags[modes.Operator] || client == target) {
+	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
 		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
@@ -713,7 +713,7 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *Response
 
 func whoChannel(client *Client, channel *Channel, friends ClientSet, rb *ResponseBuffer) {
 	for _, member := range channel.Members() {
-		if !client.flags[modes.Invisible] || friends[client] {
+		if !client.HasMode(modes.Invisible) || friends[client] {
 			client.rplWhoReply(channel, member, rb)
 		}
 	}
@@ -1209,7 +1209,7 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 	// get the correct number of channel members
 	var memberCount int
-	if target.flags[modes.Operator] || channel.hasClient(target) {
+	if target.HasMode(modes.Operator) || channel.hasClient(target) {
 		memberCount = len(channel.Members())
 	} else {
 		for _, member := range channel.Members() {

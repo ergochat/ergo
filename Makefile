@@ -12,5 +12,7 @@ deps:
 	git submodule update --init
 
 test:
-	cd irc && go test .
-	cd irc && go vet .
+	cd irc && go test . && go vet .
+	cd irc/isupport && go test . && go vet .
+	cd irc/modes && go test . && go vet .
+	cd irc/utils && go test . && go vet .
