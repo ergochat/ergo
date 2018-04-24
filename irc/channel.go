@@ -25,7 +25,6 @@ type Channel struct {
 	key               string
 	members           MemberSet
 	membersCache      []*Client  // allow iteration over channel members without holding the lock
-	membersCacheMutex sync.Mutex // tier 2; see `regenerateMembersCache`
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -33,6 +32,7 @@ type Channel struct {
 	registeredFounder string
 	registeredTime    time.Time
 	stateMutex        sync.RWMutex // tier 1
+	joinPartMutex     sync.Mutex   // tier 3
 	topic             string
 	topicSetBy        string
 	topicSetTime      time.Time
@@ -163,33 +163,19 @@ func (channel *Channel) IsRegistered() bool {
 	return channel.registeredFounder != ""
 }
 
-func (channel *Channel) regenerateMembersCache(noLocksNeeded bool) {
-	// this is eventually consistent even without holding stateMutex.Lock()
-	// throughout the update; all updates to `members` while holding Lock()
-	// have a serial order, so the call to `regenerateMembersCache` that
-	// happens-after the last one will see *all* the updates. then,
-	// `membersCacheMutex` ensures that this final read is correctly paired
-	// with the final write to `membersCache`.
-	if !noLocksNeeded {
-		channel.membersCacheMutex.Lock()
-		defer channel.membersCacheMutex.Unlock()
-		channel.stateMutex.RLock()
-	}
-
+func (channel *Channel) regenerateMembersCache() {
+	channel.stateMutex.RLock()
 	result := make([]*Client, len(channel.members))
 	i := 0
 	for client := range channel.members {
 		result[i] = client
 		i++
 	}
-	if !noLocksNeeded {
-		channel.stateMutex.RUnlock()
-		channel.stateMutex.Lock()
-	}
+	channel.stateMutex.RUnlock()
+
+	channel.stateMutex.Lock()
 	channel.membersCache = result
-	if !noLocksNeeded {
-		channel.stateMutex.Unlock()
-	}
+	channel.stateMutex.Unlock()
 }
 
 // Names sends the list of users joined to the channel to the given client.
@@ -381,110 +367,119 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 		return
 	}
 
+	chname := channel.Name()
+
 	if channel.IsFull() {
-		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, channel.name, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
+		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
 		return
 	}
 
 	if !channel.CheckKey(key) {
-		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, channel.name, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
+		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
 		return
 	}
 
 	isInvited := channel.lists[modes.InviteMask].Match(client.nickMaskCasefolded)
 	if channel.flags.HasMode(modes.InviteOnly) && !isInvited {
-		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, channel.name, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
+		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
 	if channel.lists[modes.BanMask].Match(client.nickMaskCasefolded) &&
 		!isInvited &&
 		!channel.lists[modes.ExceptMask].Match(client.nickMaskCasefolded) {
-		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, channel.name, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
+		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
 		return
 	}
 
-	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, channel.name))
+	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, chname))
 
-	for _, member := range channel.Members() {
-		if member == client {
-			if member.capabilities.Has(caps.ExtendedJoin) {
-				rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
-			} else {
-				rb.Add(nil, client.nickMaskString, "JOIN", channel.name)
-			}
-		} else {
-			if member.capabilities.Has(caps.ExtendedJoin) {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
-			} else {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
-			}
-		}
-	}
+	newChannel, givenMode := func() (newChannel bool, givenMode modes.Mode) {
+		channel.joinPartMutex.Lock()
+		defer channel.joinPartMutex.Unlock()
 
-	channel.stateMutex.Lock()
-	channel.members.Add(client)
-	firstJoin := len(channel.members) == 1
-	channel.stateMutex.Unlock()
-	channel.regenerateMembersCache(false)
+		func() {
+			account := client.Account()
+			channel.stateMutex.Lock()
+			defer channel.stateMutex.Unlock()
+
+			channel.members.Add(client)
+			firstJoin := len(channel.members) == 1
+			newChannel = firstJoin && channel.registeredFounder == ""
+			if newChannel {
+				givenMode = modes.ChannelOperator
+			} else {
+				givenMode = channel.accountToUMode[account]
+			}
+			if givenMode != 0 {
+				channel.members[client].SetMode(givenMode, true)
+			}
+		}()
+
+		channel.regenerateMembersCache()
+		return
+	}()
 
 	client.addChannel(channel)
 
-	account := client.Account()
+	nick := client.Nick()
+	nickmask := client.NickMaskString()
+	realname := client.Realname()
+	accountName := client.AccountName()
+	var modestr string
+	if givenMode != 0 {
+		modestr = fmt.Sprintf("+%v", givenMode)
+	}
 
-	// give channel mode if necessary
-	channel.stateMutex.Lock()
-	newChannel := firstJoin && channel.registeredFounder == ""
-	mode, persistentModeExists := channel.accountToUMode[account]
-	var givenMode *modes.Mode
-	if persistentModeExists {
-		givenMode = &mode
-	} else if newChannel {
-		givenMode = &modes.ChannelOperator
+	for _, member := range channel.Members() {
+		if member == client {
+			continue
+		}
+		if member.capabilities.Has(caps.ExtendedJoin) {
+			member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
+		} else {
+			member.Send(nil, nickmask, "JOIN", chname)
+		}
+		if givenMode != 0 {
+			member.Send(nil, client.server.name, "MODE", chname, modestr, nick)
+		}
 	}
-	if givenMode != nil {
-		channel.members[client].SetMode(*givenMode, true)
-	}
-	channel.stateMutex.Unlock()
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
+		rb.Add(nil, nickmask, "JOIN", chname, accountName, realname)
 	} else {
-		rb.Add(nil, client.nickMaskString, "JOIN", channel.name)
+		rb.Add(nil, nickmask, "JOIN", chname)
 	}
+
 	// don't send topic when it's an entirely new channel
 	if !newChannel {
 		channel.SendTopic(client, rb)
 	}
+
 	channel.Names(client, rb)
-	if givenMode != nil {
-		for _, member := range channel.Members() {
-			if member == client {
-				rb.Add(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
-			} else {
-				member.Send(nil, client.server.name, "MODE", channel.name, fmt.Sprintf("+%v", *givenMode), client.nick)
-			}
-		}
+
+	if givenMode != 0 {
+		rb.Add(nil, client.server.name, "MODE", chname, modestr, nick)
 	}
 }
 
 // Part parts the given client from this channel, with the given message.
 func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer) {
+	chname := channel.Name()
 	if !channel.hasClient(client) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, chname, client.t("You're not on that channel"))
 		return
 	}
 
-	for _, member := range channel.Members() {
-		if member == client {
-			rb.Add(nil, client.nickMaskString, "PART", channel.name, message)
-		} else {
-			member.Send(nil, client.nickMaskString, "PART", channel.name, message)
-		}
-	}
 	channel.Quit(client)
 
-	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, channel.name))
+	nickmask := client.NickMaskString()
+	for _, member := range channel.Members() {
+		member.Send(nil, nickmask, "PART", chname, message)
+	}
+	rb.Add(nil, nickmask, "PART", chname, message)
+
+	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, chname))
 }
 
 // SendTopic sends the channel topic to the given client.
@@ -762,17 +757,22 @@ func (channel *Channel) applyModeMask(client *Client, mode modes.Mode, op modes.
 
 // Quit removes the given client from the channel
 func (channel *Channel) Quit(client *Client) {
-	channel.stateMutex.Lock()
-	channel.members.Remove(client)
-	empty := len(channel.members) == 0
-	channel.stateMutex.Unlock()
-	channel.regenerateMembersCache(false)
+	channelEmpty := func() bool {
+		channel.joinPartMutex.Lock()
+		defer channel.joinPartMutex.Unlock()
 
-	client.removeChannel(channel)
+		channel.stateMutex.Lock()
+		channel.members.Remove(client)
+		channelEmpty := len(channel.members) == 0
+		channel.stateMutex.Unlock()
+		channel.regenerateMembersCache()
+		return channelEmpty
+	}()
 
-	if empty {
+	if channelEmpty {
 		client.server.channels.Cleanup(channel)
 	}
+	client.removeChannel(channel)
 }
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {

@@ -409,16 +409,20 @@ func (client *Client) TryResume() {
 	client.nick = oldClient.nick
 	client.updateNickMaskNoMutex()
 
-	for channel := range oldClient.channels {
-		channel.stateMutex.Lock()
+	rejoinChannel := func(channel *Channel) {
+		channel.joinPartMutex.Lock()
+		defer channel.joinPartMutex.Unlock()
 
+		channel.stateMutex.Lock()
 		client.channels[channel] = true
 		client.resumeDetails.SendFakeJoinsFor = append(client.resumeDetails.SendFakeJoinsFor, channel.name)
 
 		oldModeSet := channel.members[oldClient]
 		channel.members.Remove(oldClient)
 		channel.members[client] = oldModeSet
-		channel.regenerateMembersCache(true)
+		channel.stateMutex.Unlock()
+
+		channel.regenerateMembersCache()
 
 		// construct fake modestring if necessary
 		oldModes := oldModeSet.String()
@@ -447,8 +451,10 @@ func (client *Client) TryResume() {
 				member.Send(nil, server.name, "MODE", params...)
 			}
 		}
+	}
 
-		channel.stateMutex.Unlock()
+	for channel := range oldClient.channels {
+		rejoinChannel(channel)
 	}
 
 	server.clients.byNick[oldnick] = client
