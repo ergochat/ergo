@@ -684,8 +684,6 @@ func (client *Client) destroy(beingResumed bool) {
 	// send quit/error message to client if they haven't been sent already
 	client.Quit("Connection closed")
 
-	friends := client.Friends()
-	friends.Remove(client)
 	if !beingResumed {
 		client.server.whoWas.Append(client)
 	}
@@ -703,6 +701,7 @@ func (client *Client) destroy(beingResumed bool) {
 	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
+	friends := make(ClientSet)
 	for _, channel := range client.Channels() {
 		if !beingResumed {
 			channel.Quit(client)
@@ -711,6 +710,7 @@ func (client *Client) destroy(beingResumed bool) {
 			friends.Add(member)
 		}
 	}
+	friends.Remove(client)
 
 	// clean up server
 	if !beingResumed {
