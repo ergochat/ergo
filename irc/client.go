@@ -675,6 +675,11 @@ func (client *Client) destroy(beingResumed bool) {
 		return
 	}
 
+	// see #235: deduplicating the list of PART recipients uses (comparatively speaking)
+	// a lot of RAM, so limit concurrency to avoid thrashing
+	client.server.semaphores.ClientDestroy.Acquire()
+	defer client.server.semaphores.ClientDestroy.Release()
+
 	if beingResumed {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", client.nick))
 	} else {

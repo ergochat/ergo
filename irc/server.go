@@ -131,6 +131,7 @@ type Server struct {
 	webirc                     []webircConfig
 	whoWas                     *WhoWasList
 	stats                      *Stats
+	semaphores                 *ServerSemaphores
 }
 
 var (
@@ -165,6 +166,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		snomasks:            NewSnoManager(),
 		whoWas:              NewWhoWasList(config.Limits.WhowasEntries),
 		stats:               NewStats(),
+		semaphores:          NewServerSemaphores(),
 	}
 
 	if err := server.applyConfig(config, true); err != nil {
