@@ -409,16 +409,20 @@ func (client *Client) TryResume() {
 	client.nick = oldClient.nick
 	client.updateNickMaskNoMutex()
 
-	for channel := range oldClient.channels {
-		channel.stateMutex.Lock()
+	rejoinChannel := func(channel *Channel) {
+		channel.joinPartMutex.Lock()
+		defer channel.joinPartMutex.Unlock()
 
+		channel.stateMutex.Lock()
 		client.channels[channel] = true
 		client.resumeDetails.SendFakeJoinsFor = append(client.resumeDetails.SendFakeJoinsFor, channel.name)
 
 		oldModeSet := channel.members[oldClient]
 		channel.members.Remove(oldClient)
 		channel.members[client] = oldModeSet
-		channel.regenerateMembersCache(true)
+		channel.stateMutex.Unlock()
+
+		channel.regenerateMembersCache()
 
 		// construct fake modestring if necessary
 		oldModes := oldModeSet.String()
@@ -447,8 +451,10 @@ func (client *Client) TryResume() {
 				member.Send(nil, server.name, "MODE", params...)
 			}
 		}
+	}
 
-		channel.stateMutex.Unlock()
+	for channel := range oldClient.channels {
+		rejoinChannel(channel)
 	}
 
 	server.clients.byNick[oldnick] = client
@@ -669,6 +675,11 @@ func (client *Client) destroy(beingResumed bool) {
 		return
 	}
 
+	// see #235: deduplicating the list of PART recipients uses (comparatively speaking)
+	// a lot of RAM, so limit concurrency to avoid thrashing
+	client.server.semaphores.ClientDestroy.Acquire()
+	defer client.server.semaphores.ClientDestroy.Release()
+
 	if beingResumed {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", client.nick))
 	} else {
@@ -678,8 +689,6 @@ func (client *Client) destroy(beingResumed bool) {
 	// send quit/error message to client if they haven't been sent already
 	client.Quit("Connection closed")
 
-	friends := client.Friends()
-	friends.Remove(client)
 	if !beingResumed {
 		client.server.whoWas.Append(client)
 	}
@@ -697,6 +706,7 @@ func (client *Client) destroy(beingResumed bool) {
 	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
+	friends := make(ClientSet)
 	for _, channel := range client.Channels() {
 		if !beingResumed {
 			channel.Quit(client)
@@ -705,6 +715,7 @@ func (client *Client) destroy(beingResumed bool) {
 			friends.Add(member)
 		}
 	}
+	friends.Remove(client)
 
 	// clean up server
 	if !beingResumed {

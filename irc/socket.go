@@ -32,7 +32,7 @@ type Socket struct {
 	maxSendQBytes int
 
 	// this is a trylock enforcing that only one goroutine can write to `conn` at a time
-	writerSlotOpen chan bool
+	writerSemaphore Semaphore
 
 	buffer        []byte
 	closed        bool
@@ -44,12 +44,11 @@ type Socket struct {
 // NewSocket returns a new Socket.
 func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes int) *Socket {
 	result := Socket{
-		conn:           conn,
-		reader:         bufio.NewReaderSize(conn, maxReadQBytes),
-		maxSendQBytes:  maxSendQBytes,
-		writerSlotOpen: make(chan bool, 1),
+		conn:          conn,
+		reader:        bufio.NewReaderSize(conn, maxReadQBytes),
+		maxSendQBytes: maxSendQBytes,
 	}
-	result.writerSlotOpen <- true
+	result.writerSemaphore.Initialize(1)
 	return &result
 }
 
@@ -140,14 +139,11 @@ func (socket *Socket) Write(data string) (err error) {
 
 // wakeWriter starts the goroutine that actually performs the write, without blocking
 func (socket *Socket) wakeWriter() {
-	// attempt to acquire the trylock
-	select {
-	case <-socket.writerSlotOpen:
+	if socket.writerSemaphore.TryAcquire() {
 		// acquired the trylock; send() will release it
 		go socket.send()
-	default:
-		// failed to acquire; the holder will check for more data after releasing it
 	}
+	// else: do nothing, the holder will check for more data after releasing it
 }
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
@@ -179,19 +175,17 @@ func (socket *Socket) send() {
 		socket.performWrite()
 		// surrender the trylock, avoiding a race where a write comes in after we've
 		// checked readyToWrite() and it returned false, but while we still hold the trylock:
-		socket.writerSlotOpen <- true
+		socket.writerSemaphore.Release()
 		// check if more data came in while we held the trylock:
 		if !socket.readyToWrite() {
 			return
 		}
-		select {
-		case <-socket.writerSlotOpen:
-			// got the trylock, loop back around and write
-		default:
+		if !socket.writerSemaphore.TryAcquire() {
 			// failed to acquire; exit and wait for the holder to observe readyToWrite()
 			// after releasing it
 			return
 		}
+		// got the lock again, loop back around and write
 	}
 }
 
