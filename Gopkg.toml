@@ -57,11 +57,11 @@
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/DanielOaks/irc-go"
+  name = "github.com/goshuirc/irc-go"
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/DanielOaks/go-ident"
+  name = "github.com/oragono/go-ident"
 
 [[dependencies]]
   branch = "master"
