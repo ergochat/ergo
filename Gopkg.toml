@@ -57,23 +57,15 @@
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/DanielOaks/girc-go"
+  name = "github.com/goshuirc/irc-go"
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/DanielOaks/go-ident"
+  name = "github.com/oragono/go-ident"
 
 [[dependencies]]
   branch = "master"
   name = "github.com/docopt/docopt-go"
-
-[[dependencies]]
-  branch = "master"
-  name = "github.com/gorilla/mux"
-
-[[dependencies]]
-  branch = "master"
-  name = "github.com/gorilla/websocket"
 
 [[dependencies]]
   branch = "master"

@@ -34,7 +34,8 @@ type Socket struct {
 	// this is a trylock enforcing that only one goroutine can write to `conn` at a time
 	writerSemaphore Semaphore
 
-	buffer        []byte
+	buffers       [][]byte
+	totalLength   int
 	closed        bool
 	sendQExceeded bool
 	finalData     string // what to send when we die
@@ -121,15 +122,23 @@ func (socket *Socket) Read() (string, error) {
 // 2. MUST NOT reorder messages
 // 3. MUST provide mutual exclusion for socket.conn.Write
 // 4. SHOULD NOT tie up additional goroutines, beyond the one blocked on socket.conn.Write
-func (socket *Socket) Write(data string) (err error) {
+func (socket *Socket) Write(data []byte) (err error) {
+	if len(data) == 0 {
+		return
+	}
+
 	socket.Lock()
 	if socket.closed {
 		err = io.EOF
-	} else if len(data)+len(socket.buffer) > socket.maxSendQBytes {
-		socket.sendQExceeded = true
-		err = errSendQExceeded
 	} else {
-		socket.buffer = append(socket.buffer, data...)
+		prospectiveLen := socket.totalLength + len(data)
+		if prospectiveLen > socket.maxSendQBytes {
+			socket.sendQExceeded = true
+			err = errSendQExceeded
+		} else {
+			socket.buffers = append(socket.buffers, data)
+			socket.totalLength = prospectiveLen
+		}
 	}
 	socket.Unlock()
 
@@ -165,7 +174,7 @@ func (socket *Socket) readyToWrite() bool {
 	socket.Lock()
 	defer socket.Unlock()
 	// on the first time observing socket.closed, we still have to write socket.finalData
-	return !socket.finalized && (len(socket.buffer) > 0 || socket.closed || socket.sendQExceeded)
+	return !socket.finalized && (socket.totalLength > 0 || socket.closed || socket.sendQExceeded)
 }
 
 // send actually writes messages to socket.Conn; it may block
@@ -193,11 +202,13 @@ func (socket *Socket) send() {
 func (socket *Socket) performWrite() {
 	// retrieve the buffered data, clear the buffer
 	socket.Lock()
-	buffer := socket.buffer
-	socket.buffer = nil
+	buffers := socket.buffers
+	socket.buffers = nil
+	socket.totalLength = 0
 	socket.Unlock()
 
-	_, err := socket.conn.Write(buffer)
+	// on Linux, the runtime will optimize this into a single writev(2) call:
+	_, err := (*net.Buffers)(&buffers).WriteTo(socket.conn)
 
 	socket.Lock()
 	shouldClose := (err != nil) || socket.closed || socket.sendQExceeded

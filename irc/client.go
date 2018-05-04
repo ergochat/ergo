@@ -820,13 +820,13 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 
 	// assemble message
 	maxlenTags, maxlenRest := client.maxlens()
-	line, err := message.LineMaxLen(maxlenTags, maxlenRest)
+	line, err := message.LineMaxLenBytes(maxlenTags, maxlenRest)
 	if err != nil {
 		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
 		client.server.logger.Error("internal", logline)
 
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
-		line, _ := message.Line()
+		line, _ := message.LineBytes()
 
 		client.socket.Write(line)
 		return err
@@ -834,10 +834,14 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 
 	// if we used the trailing hack, we need to strip the final space we appended earlier on
 	if usedTrailingHack {
-		line = line[:len(line)-3] + "\r\n"
+		copy(line[len(line)-3:], []byte{'\r', '\n'})
+		line = line[:len(line)-1]
 	}
 
-	client.server.logger.Debug("useroutput", client.nick, " ->", strings.TrimRight(line, "\r\n"))
+	if client.server.logger.IsLoggingRawIO() {
+		logline := string(line[:len(line)-2]) // strip "\r\n"
+		client.server.logger.Debug("useroutput", client.nick, " ->", logline)
+	}
 
 	client.socket.Write(line)
 
