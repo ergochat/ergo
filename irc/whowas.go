@@ -10,11 +10,16 @@ import (
 
 // WhoWasList holds our list of prior clients (for use with the WHOWAS command).
 type WhoWasList struct {
-	buffer []*WhoWas
-	start  int
-	end    int
+	buffer []WhoWas
+	// three possible states:
+	// empty: start == end == -1
+	// partially full: start != end
+	// full: start == end > 0
+	// if entries exist, they go from `start` to `(end - 1) % length`
+	start int
+	end   int
 
-	accessMutex sync.RWMutex // tier 2
+	accessMutex sync.RWMutex // tier 1
 }
 
 // WhoWas is an entry in the WhoWasList.
@@ -29,77 +34,71 @@ type WhoWas struct {
 // NewWhoWasList returns a new WhoWasList
 func NewWhoWasList(size uint) *WhoWasList {
 	return &WhoWasList{
-		buffer: make([]*WhoWas, size+1),
+		buffer: make([]WhoWas, size),
+		start:  -1,
+		end:    -1,
 	}
 }
 
 // Append adds an entry to the WhoWasList.
-func (list *WhoWasList) Append(client *Client) {
+func (list *WhoWasList) Append(whowas WhoWas) {
 	list.accessMutex.Lock()
 	defer list.accessMutex.Unlock()
 
-	list.buffer[list.end] = &WhoWas{
-		nicknameCasefolded: client.nickCasefolded,
-		nickname:           client.nick,
-		username:           client.username,
-		hostname:           client.hostname,
-		realname:           client.realname,
+	if len(list.buffer) == 0 {
+		return
 	}
-	list.end = (list.end + 1) % len(list.buffer)
-	if list.end == list.start {
-		list.start = (list.end + 1) % len(list.buffer)
+
+	var pos int
+	if list.start == -1 { // empty
+		pos = 0
+		list.start = 0
+		list.end = 1
+	} else if list.start != list.end { // partially full
+		pos = list.end
+		list.end = (list.end + 1) % len(list.buffer)
+	} else if list.start == list.end { // full
+		pos = list.end
+		list.end = (list.end + 1) % len(list.buffer)
+		list.start = list.end // advance start as well, overwriting first entry
 	}
+
+	list.buffer[pos] = whowas
 }
 
 // Find tries to find an entry in our WhoWasList with the given details.
-func (list *WhoWasList) Find(nickname string, limit int64) []*WhoWas {
+func (list *WhoWasList) Find(nickname string, limit int) (results []WhoWas) {
+	casefoldedNickname, err := CasefoldName(nickname)
+	if err != nil {
+		return
+	}
+
 	list.accessMutex.RLock()
 	defer list.accessMutex.RUnlock()
 
-	results := make([]*WhoWas, 0)
-
-	casefoldedNickname, err := CasefoldName(nickname)
-	if err != nil {
-		return results
+	if list.start == -1 {
+		return
 	}
-
-	for whoWas := range list.Each() {
-		if casefoldedNickname != whoWas.nicknameCasefolded {
-			continue
+	// iterate backwards through the ring buffer
+	pos := list.prev(list.end)
+	for limit == 0 || len(results) < limit {
+		if casefoldedNickname == list.buffer[pos].nicknameCasefolded {
+			results = append(results, list.buffer[pos])
 		}
-		results = append(results, whoWas)
-		if int64(len(results)) >= limit {
+		if pos == list.start {
 			break
 		}
+		pos = list.prev(pos)
 	}
-	return results
+
+	return
 }
 
 func (list *WhoWasList) prev(index int) int {
-	list.accessMutex.RLock()
-	defer list.accessMutex.RUnlock()
-
-	index--
-	if index < 0 {
-		index += len(list.buffer)
+	switch index {
+	case 0:
+		return len(list.buffer) - 1
+	default:
+		return index - 1
 	}
-	return index
-}
-
-// Each iterates the WhoWasList in reverse.
-func (list *WhoWasList) Each() <-chan *WhoWas {
-	ch := make(chan *WhoWas)
-	go func() {
-		defer close(ch)
-		if list.start == list.end {
-			return
-		}
-		start := list.prev(list.end)
-		end := list.prev(list.start)
-		for start != end {
-			ch <- list.buffer[start]
-			start = list.prev(start)
-		}
-	}()
-	return ch
 }
