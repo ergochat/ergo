@@ -86,7 +86,6 @@ func TestWhoWas(t *testing.T) {
 	}
 }
 
-
 func TestEmptyWhoWas(t *testing.T) {
 	// stupid edge case; setting an empty whowas buffer should not panic
 	wwl := NewWhoWasList(0)
