@@ -7,4 +7,4 @@ script:
 - tar -xzf goreleaser_Linux_x86_64.tar.gz -C $GOPATH/bin
 - make
 - make test
-- bash ./.travis.gofmt.sh
+- ./.check-gofmt.sh

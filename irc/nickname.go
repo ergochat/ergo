@@ -43,8 +43,8 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	}
 
 	hadNick := target.HasNick()
-	origNick := target.Nick()
 	origNickMask := target.NickMaskString()
+	whowas := client.WhoWas()
 	err = client.server.clients.SetNick(target, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
@@ -61,8 +61,8 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 
 	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {
-		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), origNick, nickname))
-		target.server.whoWas.Append(client)
+		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), whowas.nickname, nickname))
+		target.server.whoWas.Append(whowas)
 		for friend := range target.Friends() {
 			friend.Send(nil, origNickMask, "NICK", nickname)
 		}

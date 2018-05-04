@@ -209,6 +209,19 @@ func (client *Client) Channels() (result []*Channel) {
 	return
 }
 
+func (client *Client) WhoWas() (result WhoWas) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	result.nicknameCasefolded = client.nickCasefolded
+	result.nickname = client.nick
+	result.username = client.username
+	result.hostname = client.hostname
+	result.realname = client.realname
+
+	return
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()

@@ -2507,27 +2507,29 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nicknames := strings.Split(msg.Params[0], ",")
 
-	var count int64
+	// 0 means "all the entries", as does a negative number
+	var count uint64
 	if len(msg.Params) > 1 {
-		count, _ = strconv.ParseInt(msg.Params[1], 10, 64)
+		count, _ = strconv.ParseUint(msg.Params[1], 10, 64)
 	}
 	//var target string
 	//if len(msg.Params) > 2 {
 	//	target = msg.Params[2]
 	//}
+	cnick := client.Nick()
 	for _, nickname := range nicknames {
-		results := server.whoWas.Find(nickname, count)
+		results := server.whoWas.Find(nickname, int(count))
 		if len(results) == 0 {
 			if len(nickname) > 0 {
-				rb.Add(nil, server.name, ERR_WASNOSUCHNICK, client.nick, nickname, client.t("There was no such nickname"))
+				rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, nickname, client.t("There was no such nickname"))
 			}
 		} else {
 			for _, whoWas := range results {
-				rb.Add(nil, server.name, RPL_WHOWASUSER, client.nick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
+				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 			}
 		}
 		if len(nickname) > 0 {
-			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, client.nick, nickname, client.t("End of WHOWAS"))
+			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, nickname, client.t("End of WHOWAS"))
 		}
 	}
 	return false

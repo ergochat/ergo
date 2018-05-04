@@ -16,3 +16,4 @@ test:
 	cd irc/isupport && go test . && go vet .
 	cd irc/modes && go test . && go vet .
 	cd irc/utils && go test . && go vet .
+	./.check-gofmt.sh

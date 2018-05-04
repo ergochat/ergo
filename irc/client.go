@@ -690,7 +690,7 @@ func (client *Client) destroy(beingResumed bool) {
 	client.Quit("Connection closed")
 
 	if !beingResumed {
-		client.server.whoWas.Append(client)
+		client.server.whoWas.Append(client.WhoWas())
 	}
 
 	// remove from connection limits
