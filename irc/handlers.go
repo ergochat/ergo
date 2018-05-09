@@ -893,7 +893,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		if len(keys) > i {
 			key = keys[i]
 		}
-		err := server.channels.Join(client, name, key, rb)
+		err := server.channels.Join(client, name, key, msg.Command == "SAJOIN", rb)
 		if err == errNoSuchChannel {
 			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
 		}

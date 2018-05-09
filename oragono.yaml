@@ -251,6 +251,7 @@ oper-classes:
             - "oper:rehash"
             - "oper:die"
             - "unregister"
+            - "sajoin"
             - "samode"
 
 # ircd operators
