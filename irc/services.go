@@ -134,16 +134,22 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 	if params == "" {
 		// show general help
 		var shownHelpLines sort.StringSlice
+		var disabledCommands bool
 		for _, commandInfo := range service.Commands {
 			// skip commands user can't access
 			if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
 				continue
 			}
 			if commandInfo.enabled != nil && !commandInfo.enabled(server) {
+				disabledCommands = true
 				continue
 			}
 
 			shownHelpLines = append(shownHelpLines, "    "+client.t(commandInfo.helpShort))
+		}
+
+		if disabledCommands {
+			shownHelpLines = append(shownHelpLines, "    "+client.t("... and other commands which have been disabled"))
 		}
 
 		// sort help lines
