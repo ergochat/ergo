@@ -5,14 +5,19 @@ package irc
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/goshuirc/irc-go/ircfmt"
-
-	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
 )
+
+// "enabled" callbacks for specific nickserv commands
+func servCmdRequiresAccreg(server *Server) bool {
+	return server.AccountConfig().Registration.Enabled
+}
+
+func servCmdRequiresAuthEnabled(server *Server) bool {
+	return server.AccountConfig().AuthenticationEnabled
+}
 
 const nickservHelp = `NickServ lets you register and login to an account.
 
@@ -22,24 +27,16 @@ To see in-depth help for a specific NickServ command, try:
 Here are the commands you can use:
 %s`
 
-type nsCommand struct {
-	capabs          []string // oper capabs the given user has to have to access this command
-	handler         func(server *Server, client *Client, command, params string, rb *ResponseBuffer)
-	help            string
-	helpShort       string
-	nickReservation bool // nick reservation must be enabled to use this command
-	oper            bool // true if the user has to be an oper to use this command
-}
-
 var (
-	nickservCommands = map[string]*nsCommand{
+	nickservCommands = map[string]*serviceCommand{
 		"drop": {
 			handler: nsDropHandler,
 			help: `Syntax: $bDROP [nickname]$b
 
 DROP de-links the given (or your current) nickname from your user account.`,
-			helpShort:       `$bDROP$b de-links your current (or the given) nickname from your user account.`,
-			nickReservation: true,
+			helpShort:    `$bDROP$b de-links your current (or the given) nickname from your user account.`,
+			enabled:      servCmdRequiresAccreg,
+			authRequired: true,
 		},
 		"ghost": {
 			handler: nsGhostHandler,
@@ -47,7 +44,8 @@ DROP de-links the given (or your current) nickname from your user account.`,
 
 GHOST disconnects the given user from the network if they're logged in with the
 same user account, letting you reclaim your nickname.`,
-			helpShort: `$bGHOST$b reclaims your nickname.`,
+			helpShort:    `$bGHOST$b reclaims your nickname.`,
+			authRequired: true,
 		},
 		"group": {
 			handler: nsGroupHandler,
@@ -55,15 +53,11 @@ same user account, letting you reclaim your nickname.`,
 
 GROUP links your current nickname with your logged-in account, preventing other
 users from changing to it (or forcing them to rename).`,
-			helpShort:       `$bGROUP$b links your current nickname to your user account.`,
-			nickReservation: true,
+			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
+			enabled:      servCmdRequiresAccreg,
+			authRequired: true,
 		},
-		"help": {
-			help: `Syntax: $bHELP [command]$b
 
-HELP returns information on the given command.`,
-			helpShort: `$bHELP$b shows in-depth information about commands.`,
-		},
 		"identify": {
 			handler: nsIdentifyHandler,
 			help: `Syntax: $bIDENTIFY <username> [password]$b
@@ -91,15 +85,16 @@ registration, you can send an asterisk (*) as the email address.
 If the password is left out, your account will be registered to your TLS client
 certificate (and you will need to use that certificate to login in future).`,
 			helpShort: `$bREGISTER$b lets you register a user account.`,
+			enabled:   servCmdRequiresAccreg,
 		},
 		"sadrop": {
 			handler: nsDropHandler,
 			help: `Syntax: $bSADROP <nickname>$b
 
-SADROP foribly de-links the given nickname from the attached user account.`,
-			helpShort:       `$bSADROP$b forcibly de-links the given nickname from its user account.`,
-			nickReservation: true,
-			capabs:          []string{"unregister"},
+SADROP forcibly de-links the given nickname from the attached user account.`,
+			helpShort: `$bSADROP$b forcibly de-links the given nickname from its user account.`,
+			capabs:    []string{"unregister"},
+			enabled:   servCmdRequiresAccreg,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
@@ -116,6 +111,7 @@ IRC operator with the correct permissions).`,
 VERIFY lets you complete an account registration, if the server requires email
 or other verification.`,
 			helpShort: `$bVERIFY$b lets you complete account registration.`,
+			enabled:   servCmdRequiresAccreg,
 		},
 	}
 )
@@ -123,53 +119,6 @@ or other verification.`,
 // nsNotice sends the client a notice from NickServ
 func nsNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
-}
-
-// nickservNoticeHandler handles NOTICEs that NickServ receives.
-func (server *Server) nickservNoticeHandler(client *Client, message string, rb *ResponseBuffer) {
-	// do nothing
-}
-
-// nickservPrivmsgHandler handles PRIVMSGs that NickServ receives.
-func (server *Server) nickservPrivmsgHandler(client *Client, message string, rb *ResponseBuffer) {
-	commandName, params := utils.ExtractParam(message)
-	commandName = strings.ToLower(commandName)
-
-	commandInfo := nickservCommands[commandName]
-	if commandInfo == nil {
-		nsNotice(rb, client.t("Unknown command. To see available commands, run /NS HELP"))
-		return
-	}
-
-	if commandInfo.oper && !client.HasMode(modes.Operator) {
-		nsNotice(rb, client.t("Command restricted"))
-		return
-	}
-
-	if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
-		nsNotice(rb, client.t("Command restricted"))
-		return
-	}
-
-	if commandInfo.nickReservation && !server.AccountConfig().Registration.Enabled {
-		nsNotice(rb, client.t("Account registration has been disabled"))
-		return
-	}
-
-	// custom help handling here to prevent recursive init loop
-	if commandName == "help" {
-		nsHelpHandler(server, client, commandName, params, rb)
-		return
-	}
-
-	if commandInfo.handler == nil {
-		nsNotice(rb, client.t("Command error. Please report this to the developers"))
-		return
-	}
-
-	server.logger.Debug("nickserv", fmt.Sprintf("Client %s ran command %s", client.Nick(), commandName))
-
-	commandInfo.handler(server, client, commandName, params, rb)
 }
 
 func nsDropHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
@@ -218,12 +167,6 @@ func nsGhostHandler(server *Server, client *Client, command, params string, rb *
 }
 
 func nsGroupHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	account := client.Account()
-	if account == "" {
-		nsNotice(rb, client.t("You're not logged into an account"))
-		return
-	}
-
 	nick := client.NickCasefolded()
 	err := server.accounts.SetNickReserved(client, nick, false, true)
 	if err == nil {
@@ -237,59 +180,7 @@ func nsGroupHandler(server *Server, client *Client, command, params string, rb *
 	}
 }
 
-func nsHelpHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	nsNotice(rb, ircfmt.Unescape(client.t("*** $bNickServ HELP$b ***")))
-
-	if params == "" {
-		// show general help
-		var shownHelpLines sort.StringSlice
-		for _, commandInfo := range nickservCommands {
-			// skip commands user can't access
-			if commandInfo.oper && !client.HasMode(modes.Operator) {
-				continue
-			}
-			if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
-				continue
-			}
-			if commandInfo.nickReservation && !server.AccountConfig().Registration.Enabled {
-				continue
-			}
-
-			shownHelpLines = append(shownHelpLines, "    "+client.t(commandInfo.helpShort))
-		}
-
-		// sort help lines
-		sort.Sort(shownHelpLines)
-
-		// assemble help text
-		assembledHelpLines := strings.Join(shownHelpLines, "\n")
-		fullHelp := ircfmt.Unescape(fmt.Sprintf(client.t(nickservHelp), assembledHelpLines))
-
-		// push out help text
-		for _, line := range strings.Split(fullHelp, "\n") {
-			nsNotice(rb, line)
-		}
-	} else {
-		commandInfo := nickservCommands[strings.ToLower(strings.TrimSpace(params))]
-		if commandInfo == nil {
-			nsNotice(rb, client.t("Unknown command. To see available commands, run /NS HELP"))
-		} else {
-			for _, line := range strings.Split(ircfmt.Unescape(client.t(commandInfo.help)), "\n") {
-				nsNotice(rb, line)
-			}
-		}
-	}
-
-	nsNotice(rb, ircfmt.Unescape(client.t("*** $bEnd of NickServ HELP$b ***")))
-}
-
 func nsIdentifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	// fail out if we need to
-	if !server.AccountConfig().AuthenticationEnabled {
-		nsNotice(rb, client.t("Login has been disabled"))
-		return
-	}
-
 	loginSuccessful := false
 
 	username, passphrase := utils.ExtractParam(params)

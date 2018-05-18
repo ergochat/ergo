@@ -75,9 +75,12 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (exiting bool) 
 	}
 
 	// given IP is sane! override the client's current IP
+	rawHostname := utils.LookupHostname(proxiedIP)
+	client.stateMutex.Lock()
 	client.proxiedIP = parsedProxiedIP
-	client.rawHostname = utils.LookupHostname(proxiedIP)
-	client.hostname = client.rawHostname
+	client.rawHostname = rawHostname
+	client.stateMutex.Unlock()
+	// nickmask will be updated when the client completes registration
 
 	// set tls info
 	client.certfp = ""

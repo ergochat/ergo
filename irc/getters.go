@@ -83,6 +83,16 @@ func (server *Server) FakelagConfig() *FakelagConfig {
 	return &server.config.Fakelag
 }
 
+func (server *Server) GetOperator(name string) (oper *Oper) {
+	name, err := CasefoldName(name)
+	if err != nil {
+		return
+	}
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.operators[name]
+}
+
 func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -117,6 +127,18 @@ func (client *Client) Realname() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.realname
+}
+
+func (client *Client) Oper() *Oper {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.oper
+}
+
+func (client *Client) SetOper(oper *Oper) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.oper = oper
 }
 
 func (client *Client) Registered() bool {

@@ -115,8 +115,8 @@ type Server struct {
 	name                       string
 	nameCasefolded             string
 	networkName                string
-	operators                  map[string]Oper
-	operclasses                map[string]OperClass
+	operators                  map[string]*Oper
+	operclasses                map[string]*OperClass
 	password                   []byte
 	passwords                  *passwd.SaltedManager
 	recoverFromErrors          bool
@@ -659,8 +659,9 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if whoischannels != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
 	}
-	if target.class != nil {
-		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, target.whoisLine)
+	tOper := target.Oper()
+	if tOper != nil {
+		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, tOper.WhoisLine)
 	}
 	if client.HasMode(modes.Operator) || client == target {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
@@ -863,6 +864,12 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		server.accounts.buildNickToAccountIndex()
 	}
 
+	hsPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.VHosts.Enabled
+	hsNowEnabled := config.Accounts.VHosts.Enabled
+	if hsPreviouslyDisabled && hsNowEnabled {
+		server.accounts.initVHostRequestQueue()
+	}
+
 	// STS
 	stsValue := config.Server.STS.Value()
 	var stsDisabled bool
@@ -944,7 +951,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		ChanListModes:  int(config.Limits.ChanListModes),
 		LineLen:        lineLenConfig,
 	}
-	server.operclasses = *operclasses
+	server.operclasses = operclasses
 	server.operators = opers
 	server.checkIdent = config.Server.CheckIdent
 

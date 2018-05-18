@@ -31,6 +31,7 @@ import (
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ACC [REGISTER|VERIFY] ...
@@ -494,12 +495,6 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	return false
 }
 
-// CHANSERV [...]
-func csHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.chanservPrivmsgHandler(client, strings.Join(msg.Params, " "), rb)
-	return false
-}
-
 // DEBUG <subcmd>
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	param := strings.ToUpper(msg.Params[0])
@@ -562,7 +557,8 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // DLINE LIST
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
-	if !client.class.Capabilities["oper:local_ban"] {
+	oper := client.Oper()
+	if oper == nil || !oper.Class.Capabilities["oper:local_ban"] {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -665,7 +661,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			}
 		}
 	}
-	operName := client.operName
+	operName := oper.Name
 	if operName == "" {
 		operName = server.name
 	}
@@ -977,7 +973,8 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // KLINE LIST
 func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
-	if !client.class.Capabilities["oper:local_ban"] {
+	oper := client.Oper()
+	if oper == nil || !oper.Class.Capabilities["oper:local_ban"] {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -1052,7 +1049,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	// get oper name
-	operName := client.operName
+	operName := oper.Name
 	if operName == "" {
 		operName = server.name
 	}
@@ -1648,11 +1645,9 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if err != nil {
 				continue
 			}
-			if target == "chanserv" {
-				server.chanservNoticeHandler(client, message, rb)
-				continue
-			} else if target == "nickserv" {
-				server.nickservNoticeHandler(client, message, rb)
+
+			// NOTICEs sent to services are ignored
+			if _, isService := OragonoServices[target]; isService {
 				continue
 			}
 
@@ -1715,46 +1710,29 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
-// NICKSERV [params...]
-func nsHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.nickservPrivmsgHandler(client, strings.Join(msg.Params, " "), rb)
-	return false
-}
-
 // OPER <name> <password>
 func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	name, err := CasefoldName(msg.Params[0])
-	if err != nil {
-		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
-		return true
-	}
 	if client.HasMode(modes.Operator) == true {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, "OPER", client.t("You're already opered-up!"))
 		return false
 	}
-	server.configurableStateMutex.RLock()
-	oper := server.operators[name]
-	server.configurableStateMutex.RUnlock()
 
-	password := []byte(msg.Params[1])
-	err = passwd.ComparePassword(oper.Pass, password)
-	if (oper.Pass == nil) || (err != nil) {
+	authorized := false
+	oper := server.GetOperator(msg.Params[0])
+	if oper != nil {
+		password := []byte(msg.Params[1])
+		authorized = (bcrypt.CompareHashAndPassword(oper.Pass, password) == nil)
+	}
+	if !authorized {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		return true
 	}
 
-	client.operName = name
-	client.class = oper.Class
-	client.whoisLine = oper.WhoisLine
-
-	// push new vhost if one is set
-	if len(oper.Vhost) > 0 {
-		for fClient := range client.Friends(caps.ChgHost) {
-			fClient.SendFromClient("", client, nil, "CHGHOST", client.username, oper.Vhost)
-		}
-		// CHGHOST requires prefix nickmask to have original hostname, so do that before updating nickmask
-		client.vhost = oper.Vhost
-		client.updateNickMask("")
+	oldNickmask := client.NickMaskString()
+	client.SetOper(oper)
+	client.updateNickMask("")
+	if client.NickMaskString() != oldNickmask {
+		client.sendChghost(oldNickmask, oper.Vhost)
 	}
 
 	// set new modes: modes.Operator, plus anything specified in the config
@@ -1769,7 +1747,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	rb.Add(nil, server.name, RPL_YOUREOPER, client.nick, client.t("You are now an IRC operator"))
 	rb.Add(nil, server.name, "MODE", client.nick, applied.String())
 
-	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, client.operName))
+	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, oper.Name))
 
 	// client may now be unthrottled by the fakelag system
 	client.resetFakelag()
@@ -1868,11 +1846,8 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
 			target, err = CasefoldName(targetString)
-			if target == "chanserv" {
-				server.chanservPrivmsgHandler(client, message, rb)
-				continue
-			} else if target == "nickserv" {
-				server.nickservPrivmsgHandler(client, message, rb)
+			if service, isService := OragonoServices[target]; isService {
+				servicePrivmsgHandler(service, server, client, message, rb)
 				continue
 			}
 			user := server.clients.Get(target)
@@ -2179,7 +2154,8 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // UNDLINE <ip>|<net>
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
-	if !client.class.Capabilities["oper:local_unban"] {
+	oper := client.Oper()
+	if oper == nil || !oper.Class.Capabilities["oper:local_unban"] {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -2242,7 +2218,8 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 // UNKLINE <mask>
 func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
-	if !client.class.Capabilities["oper:local_unban"] {
+	oper := client.Oper()
+	if oper == nil || !oper.Class.Capabilities["oper:local_unban"] {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
