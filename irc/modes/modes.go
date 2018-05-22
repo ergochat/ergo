@@ -340,6 +340,10 @@ func NewModeSet() *ModeSet {
 
 // test whether `mode` is set
 func (set *ModeSet) HasMode(mode Mode) bool {
+	if set == nil {
+		return false
+	}
+
 	set.RLock()
 	defer set.RUnlock()
 	return set.modes[mode]
