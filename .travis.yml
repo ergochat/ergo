@@ -1,5 +1,8 @@
 language: go
 
+go:
+    - "1.10.x"
+
 install: make deps
 
 script:
@@ -7,4 +10,3 @@ script:
 - tar -xzf goreleaser_Linux_x86_64.tar.gz -C $GOPATH/bin
 - make
 - make test
-- ./.check-gofmt.sh
