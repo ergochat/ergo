@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -42,12 +43,89 @@ remembered.`,
 			helpShort:    `$bREGISTER$b lets you own a given channel.`,
 			authRequired: true,
 		},
+		"amode": {
+			handler: csAmodeHandler,
+			help: `Syntax: $bAMODE #channel [mode change] [account]$b
+
+AMODE lists or modifies persistent mode settings that affect channel members.
+For example, $bAMODE #channel +o dan$b grants the the holder of the "dan"
+account the +o operator mode every time they join #channel. To list current
+accounts and modes, use $bAMODE #channel$b. Note that users are always
+referenced by their registered account names, not their nicknames.`,
+			helpShort:    `$bAMODE$b modifies persistent mode settings for channel members.`,
+			authRequired: true,
+		},
 	}
 )
 
 // csNotice sends the client a notice from ChanServ
 func csNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "ChanServ", "NOTICE", rb.target.Nick(), text)
+}
+
+func csAmodeHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	channelName, modeChange := utils.ExtractParam(params)
+
+	channel := server.channels.Get(channelName)
+	if channel == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	}
+
+	clientAccount := client.Account()
+	if clientAccount == "" || clientAccount != channel.Founder() {
+		csNotice(rb, client.t("You must be the channel founder to use AMODE"))
+		return
+	}
+
+	modeChanges, unknown := modes.ParseChannelModeChanges(strings.Fields(modeChange)...)
+
+	if len(modeChanges) > 1 || len(unknown) > 0 {
+		csNotice(rb, client.t("Invalid mode change"))
+		return
+	}
+
+	if len(modeChanges) == 0 || modeChanges[0].Op == modes.List {
+		persistentModes := channel.AccountToUmode()
+		// sort the persistent modes in descending order of priority, i.e.,
+		// ascending order of their index in the ChannelUserModes list
+		sort.Slice(persistentModes, func(i, j int) bool {
+			index := func(modeChange modes.ModeChange) int {
+				for idx, mode := range modes.ChannelUserModes {
+					if modeChange.Mode == mode {
+						return idx
+					}
+				}
+				return len(modes.ChannelUserModes)
+			}
+			return index(persistentModes[i]) < index(persistentModes[j])
+		})
+		csNotice(rb, fmt.Sprintf(client.t("Channel %s has %d persistent modes set"), channelName, len(persistentModes)))
+		for _, modeChange := range persistentModes {
+			csNotice(rb, fmt.Sprintf(client.t("Account %s receives mode +%s"), modeChange.Arg, string(modeChange.Mode)))
+		}
+		return
+	}
+
+	accountIsValid := false
+	change := modeChanges[0]
+	// Arg is the account name, casefold it here
+	change.Arg, _ = CasefoldName(change.Arg)
+	if change.Arg != "" {
+		_, err := server.accounts.LoadAccount(change.Arg)
+		accountIsValid = (err == nil)
+	}
+	if !accountIsValid {
+		csNotice(rb, client.t("Account does not exist"))
+		return
+	}
+	applied := channel.ApplyAccountToUmodeChange(change)
+	if applied {
+		csNotice(rb, fmt.Sprintf(client.t("Successfully set mode %s"), change.String()))
+		go server.channelRegistry.StoreChannel(channel, IncludeLists)
+	} else {
+		csNotice(rb, client.t("Change was a no-op"))
+	}
 }
 
 func csOpHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {

@@ -303,3 +303,37 @@ func (channel *Channel) Founder() string {
 	defer channel.stateMutex.RUnlock()
 	return channel.registeredFounder
 }
+
+func (channel *Channel) AccountToUmode() (result []modes.ModeChange) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	for account, mode := range channel.accountToUMode {
+		result = append(result, modes.ModeChange{
+			Mode: mode,
+			Arg:  account,
+			Op:   modes.Add,
+		})
+	}
+
+	return
+}
+
+func (channel *Channel) ApplyAccountToUmodeChange(change modes.ModeChange) (applied bool) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	current := channel.accountToUMode[change.Arg]
+	switch change.Op {
+	case modes.Add:
+		applied = (current != change.Mode)
+		if applied {
+			channel.accountToUMode[change.Arg] = change.Mode
+		}
+	case modes.Remove:
+		applied = (current == change.Mode)
+		if applied {
+			delete(channel.accountToUMode, change.Arg)
+		}
+	}
+	return
+}
