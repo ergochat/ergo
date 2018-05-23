@@ -35,3 +35,16 @@ func TestSetMode(t *testing.T) {
 		t.Errorf("unexpected modestring: %s", modeString)
 	}
 }
+
+func TestNilReceivers(t *testing.T) {
+	var set ModeSet
+
+	if set.HasMode(Invisible) {
+		t.Errorf("nil ModeSet should not have any modes")
+	}
+
+	str := set.String()
+	if str != "" {
+		t.Errorf("nil Modeset should have empty String(), got %v instead", str)
+	}
+}

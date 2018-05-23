@@ -366,6 +366,10 @@ func (set *ModeSet) SetMode(mode Mode, on bool) (applied bool) {
 
 // return the modes in the set as a slice
 func (set *ModeSet) AllModes() (result []Mode) {
+	if set == nil {
+		return
+	}
+
 	set.RLock()
 	defer set.RUnlock()
 
@@ -376,22 +380,27 @@ func (set *ModeSet) AllModes() (result []Mode) {
 }
 
 // String returns the modes in this set.
-func (set *ModeSet) String() string {
+func (set *ModeSet) String() (result string) {
+	if set == nil {
+		return
+	}
+
 	set.RLock()
 	defer set.RUnlock()
 
-	if len(set.modes) == 0 {
-		return ""
-	}
-	var result []byte
+	var buf strings.Builder
 	for mode := range set.modes {
-		result = append(result, mode.String()...)
+		buf.WriteRune(rune(mode))
 	}
-	return string(result)
+	return buf.String()
 }
 
 // Prefixes returns a list of prefixes for the given set of channel modes.
 func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
+	if set == nil {
+		return
+	}
+
 	set.RLock()
 	defer set.RUnlock()
 
