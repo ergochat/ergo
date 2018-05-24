@@ -401,6 +401,13 @@ Renames the given channel with the given reason, if possible.
 For example:
 	RENAME #ircv2 #ircv3 :Protocol upgrades!`,
 	},
+	"sajoin": {
+		oper: true,
+		text: `SAJOIN <channel>{,<channel>}
+
+Forcibly joins a channel, ignoring restrictions like bans, user limits and
+channel keys. A user who joins a channel with SAJOIN cannot be kicked.`,
+	},
 	"sanick": {
 		oper: true,
 		text: `SANICK <currentnick> <newnick>

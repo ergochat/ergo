@@ -26,6 +26,7 @@ type Channel struct {
 	key               string
 	members           MemberSet
 	membersCache      []*Client // allow iteration over channel members without holding the lock
+	sajoinedMembers   ClientSet
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -58,11 +59,12 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 			modes.ExceptMask: NewUserMaskSet(),
 			modes.InviteMask: NewUserMaskSet(),
 		},
-		members:        make(MemberSet),
-		name:           name,
-		nameCasefolded: casefoldedName,
-		server:         s,
-		accountToUMode: make(map[string]modes.Mode),
+		members:         make(MemberSet),
+		sajoinedMembers: make(ClientSet),
+		name:            name,
+		nameCasefolded:  casefoldedName,
+		server:          s,
+		accountToUMode:  make(map[string]modes.Mode),
 	}
 
 	if regInfo != nil {
@@ -266,6 +268,12 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
+	// members who joined with SAJOIN cannot be kicked by members with
+	// non-operator permissions, even +q:
+	if channel.sajoinedMembers[target] && !channel.sajoinedMembers[client] {
+		return false
+	}
+
 	clientModes := channel.members[client]
 	targetModes := channel.members[target]
 	result := false
@@ -350,32 +358,36 @@ func (channel *Channel) IsEmpty() bool {
 }
 
 // Join joins the given client to this channel (if they can be joined).
-//TODO(dan): /SAJOIN and maybe a ForceJoin function?
-func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
+func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
 	if channel.hasClient(client) {
 		// already joined, no message needs to be sent
 		return
 	}
 
-	chname := channel.Name()
+	channel.stateMutex.RLock()
+	chname := channel.name
+	founder := channel.registeredFounder
+	channel.stateMutex.RUnlock()
+	account := client.Account()
+	hasPrivs := isSajoin || (founder != "" && founder == account)
 
-	if channel.IsFull() {
+	if !hasPrivs && channel.IsFull() {
 		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
 		return
 	}
 
-	if !channel.CheckKey(key) {
+	if !hasPrivs && !channel.CheckKey(key) {
 		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
 		return
 	}
 
 	isInvited := channel.lists[modes.InviteMask].Match(client.nickMaskCasefolded)
-	if channel.flags.HasMode(modes.InviteOnly) && !isInvited {
+	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
 		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
-	if channel.lists[modes.BanMask].Match(client.nickMaskCasefolded) &&
+	if !hasPrivs && channel.lists[modes.BanMask].Match(client.nickMaskCasefolded) &&
 		!isInvited &&
 		!channel.lists[modes.ExceptMask].Match(client.nickMaskCasefolded) {
 		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
@@ -389,7 +401,6 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 		defer channel.joinPartMutex.Unlock()
 
 		func() {
-			account := client.Account()
 			channel.stateMutex.Lock()
 			defer channel.stateMutex.Unlock()
 
@@ -403,6 +414,9 @@ func (channel *Channel) Join(client *Client, key string, rb *ResponseBuffer) {
 			}
 			if givenMode != 0 {
 				channel.members[client].SetMode(givenMode, true)
+			}
+			if isSajoin {
+				channel.sajoinedMembers.Add(client)
 			}
 		}()
 
@@ -754,6 +768,7 @@ func (channel *Channel) Quit(client *Client) {
 		channel.stateMutex.Lock()
 		channel.members.Remove(client)
 		channelEmpty := len(channel.members) == 0
+		channel.sajoinedMembers.Remove(client)
 		channel.stateMutex.Unlock()
 		channel.regenerateMembersCache()
 		return channelEmpty
@@ -779,7 +794,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		return
 	}
 	if !channel.ClientHasPrivsOver(client, target) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You don't have enough channel privileges"))
 		return
 	}
 
