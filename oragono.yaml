@@ -283,6 +283,7 @@ oper-classes:
             - "unregister"
             - "samode"
             - "vhosts"
+            - "chanreg"
 
 # ircd operators
 opers:

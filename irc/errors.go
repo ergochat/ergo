@@ -34,6 +34,7 @@ var (
 	errNoExistingBan                  = errors.New("Ban does not exist")
 	errNoSuchChannel                  = errors.New("No such channel")
 	errRenamePrivsNeeded              = errors.New("Only chanops can rename channels")
+	errInsufficientPrivs              = errors.New("Insufficient privileges")
 	errSaslFail                       = errors.New("SASL failed")
 )
 
