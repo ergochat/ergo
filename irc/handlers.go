@@ -889,10 +889,42 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		if len(keys) > i {
 			key = keys[i]
 		}
-		err := server.channels.Join(client, name, key, rb)
+		err := server.channels.Join(client, name, key, false, rb)
 		if err == errNoSuchChannel {
 			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
 		}
+	}
+	return false
+}
+
+// SAJOIN [nick] #channel{,#channel}
+func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	var target *Client
+	var channelString string
+	if strings.HasPrefix(msg.Params[0], "#") {
+		target = client
+		channelString = msg.Params[0]
+	} else {
+		if len(msg.Params) == 1 {
+			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "KICK", client.t("Not enough parameters"))
+			return false
+		} else {
+			target = server.clients.Get(msg.Params[0])
+			if target == nil {
+				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), msg.Params[0], "No such nick")
+				return false
+			}
+			channelString = msg.Params[1]
+			rb = NewResponseBuffer(target)
+		}
+	}
+
+	channels := strings.Split(channelString, ",")
+	for _, chname := range channels {
+		server.channels.Join(target, chname, "", true, rb)
+	}
+	if client != target {
+		rb.Send()
 	}
 	return false
 }
