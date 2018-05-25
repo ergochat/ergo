@@ -229,6 +229,11 @@ func init() {
 			usablePreReg: true,
 			minParams:    1,
 		},
+		"SAJOIN": {
+			handler:   sajoinHandler,
+			minParams: 1,
+			capabs:    []string{"sajoin"},
+		},
 		"SANICK": {
 			handler:   sanickHandler,
 			minParams: 2,
