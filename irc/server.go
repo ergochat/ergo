@@ -479,8 +479,8 @@ func (server *Server) tryRegister(c *Client) {
 	server.stats.ChangeTotal(1)
 
 	// continue registration
-	server.logger.Debug("localconnect", fmt.Sprintf("Client registered [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
-	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf(ircfmt.Unescape("Client registered $c[grey][$r%s$c[grey]] [u:$r%s$c[grey]] [h:$r%s$c[grey]] [r:$r%s$c[grey]]"), c.nick, c.username, c.rawHostname, c.realname))
+	server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
+	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
 	c.Register()
 
 	// send welcome text
