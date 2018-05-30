@@ -240,3 +240,79 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 	return applied
 }
+
+// tests whether l > r, in the channel-user mode ordering (e.g., Halfop > Voice)
+func umodeGreaterThan(l modes.Mode, r modes.Mode) bool {
+	for _, mode := range modes.ChannelUserModes {
+		if l == mode && r != mode {
+			return true
+		} else if r == mode {
+			return false
+		}
+	}
+	return false
+}
+
+// ProcessAccountToUmodeChange processes Add/Remove/List operations for channel persistent usermodes.
+func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes.ModeChange) (results []modes.ModeChange, err error) {
+	umodeGEQ := func(l modes.Mode, r modes.Mode) bool {
+		return l == r || umodeGreaterThan(l, r)
+	}
+
+	account := client.Account()
+	isOperChange := client.HasRoleCapabs("chanreg")
+
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	clientMode := channel.accountToUMode[account]
+	targetModeNow := channel.accountToUMode[change.Arg]
+	var targetModeAfter modes.Mode
+	if change.Op == modes.Add {
+		targetModeAfter = change.Mode
+	}
+
+	// operators and founders can do anything
+	hasPrivs := isOperChange || (account != "" && account == channel.registeredFounder)
+	// halfop and up can list, and do add/removes at levels <= their own
+	if change.Op == modes.List && umodeGEQ(clientMode, modes.Halfop) {
+		hasPrivs = true
+	} else if umodeGEQ(clientMode, modes.Halfop) && umodeGEQ(clientMode, targetModeNow) && umodeGEQ(clientMode, targetModeAfter) {
+		hasPrivs = true
+	}
+	if !hasPrivs {
+		return nil, errInsufficientPrivs
+	}
+
+	switch change.Op {
+	case modes.Add:
+		if targetModeNow != targetModeAfter {
+			channel.accountToUMode[change.Arg] = change.Mode
+			go client.server.channelRegistry.StoreChannel(channel, IncludeLists)
+			return []modes.ModeChange{change}, nil
+		}
+		return nil, nil
+	case modes.Remove:
+		if targetModeNow == change.Mode {
+			delete(channel.accountToUMode, change.Arg)
+			go client.server.channelRegistry.StoreChannel(channel, IncludeLists)
+			return []modes.ModeChange{change}, nil
+		}
+		return nil, nil
+	case modes.List:
+		result := make([]modes.ModeChange, len(channel.accountToUMode))
+		pos := 0
+		for account, mode := range channel.accountToUMode {
+			result[pos] = modes.ModeChange{
+				Mode: mode,
+				Arg:  account,
+				Op:   modes.Add,
+			}
+			pos++
+		}
+		return result, nil
+	default:
+		// shouldn't happen
+		return nil, errInvalidCharacter
+	}
+}

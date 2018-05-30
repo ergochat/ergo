@@ -147,6 +147,12 @@ var (
 		ChannelFounder, ChannelAdmin, ChannelOperator, Halfop,
 	}
 
+	// ChannelUserModes holds the list of all modes that can be applied to a user in a channel,
+	// including Voice, in descending order of precedence
+	ChannelUserModes = Modes{
+		ChannelFounder, ChannelAdmin, ChannelOperator, Halfop, Voice,
+	}
+
 	ChannelModePrefixes = map[Mode]string{
 		ChannelFounder:  "~",
 		ChannelAdmin:    "&",
@@ -176,20 +182,13 @@ func SplitChannelMembershipPrefixes(target string) (prefixes string, name string
 }
 
 // GetLowestChannelModePrefix returns the lowest channel prefix mode out of the given prefixes.
-func GetLowestChannelModePrefix(prefixes string) *Mode {
-	var lowest *Mode
-
-	if strings.Contains(prefixes, "+") {
-		lowest = &Voice
-	} else {
-		for i, mode := range ChannelPrivModes {
-			if strings.Contains(prefixes, ChannelModePrefixes[mode]) {
-				lowest = &ChannelPrivModes[i]
-			}
+func GetLowestChannelModePrefix(prefixes string) (lowest *Mode) {
+	for i, mode := range ChannelUserModes {
+		if strings.Contains(prefixes, ChannelModePrefixes[mode]) {
+			lowest = &ChannelPrivModes[i]
 		}
 	}
-
-	return lowest
+	return
 }
 
 //
@@ -304,14 +303,11 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 					break
 				}
 			}
-			for _, supportedMode := range ChannelPrivModes {
+			for _, supportedMode := range ChannelUserModes {
 				if rune(supportedMode) == mode {
 					isKnown = true
 					break
 				}
-			}
-			if mode == rune(Voice) {
-				isKnown = true
 			}
 			if !isKnown {
 				unknown[mode] = true
@@ -405,13 +401,10 @@ func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
 	defer set.RUnlock()
 
 	// add prefixes in order from highest to lowest privs
-	for _, mode := range ChannelPrivModes {
+	for _, mode := range ChannelUserModes {
 		if set.modes[mode] {
 			prefixes += ChannelModePrefixes[mode]
 		}
-	}
-	if set.modes[Voice] {
-		prefixes += ChannelModePrefixes[Voice]
 	}
 
 	if !isMultiPrefix && len(prefixes) > 1 {

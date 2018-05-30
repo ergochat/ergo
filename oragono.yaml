@@ -284,6 +284,7 @@ oper-classes:
             - "sajoin"
             - "samode"
             - "vhosts"
+            - "chanreg"
 
 # ircd operators
 opers:

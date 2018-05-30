@@ -232,13 +232,7 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 
 	clientModes := channel.members[client]
 
-	// get voice, since it's not a part of ChannelPrivModes
-	if clientModes.HasMode(permission) {
-		return true
-	}
-
-	// check regular modes
-	for _, mode := range modes.ChannelPrivModes {
+	for _, mode := range modes.ChannelUserModes {
 		if clientModes.HasMode(mode) {
 			return true
 		}

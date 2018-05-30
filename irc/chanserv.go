@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -42,12 +43,96 @@ remembered.`,
 			helpShort:    `$bREGISTER$b lets you own a given channel.`,
 			authRequired: true,
 		},
+		"amode": {
+			handler: csAmodeHandler,
+			help: `Syntax: $bAMODE #channel [mode change] [account]$b
+
+AMODE lists or modifies persistent mode settings that affect channel members.
+For example, $bAMODE #channel +o dan$b grants the the holder of the "dan"
+account the +o operator mode every time they join #channel. To list current
+accounts and modes, use $bAMODE #channel$b. Note that users are always
+referenced by their registered account names, not their nicknames.`,
+			helpShort: `$bAMODE$b modifies persistent mode settings for channel members.`,
+		},
 	}
 )
 
 // csNotice sends the client a notice from ChanServ
 func csNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "ChanServ", "NOTICE", rb.target.Nick(), text)
+}
+
+func csAmodeHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	channelName, modeChange := utils.ExtractParam(params)
+
+	channel := server.channels.Get(channelName)
+	if channel == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	} else if channel.Founder() == "" {
+		csNotice(rb, client.t("Channel is not registered"))
+		return
+	}
+
+	modeChanges, unknown := modes.ParseChannelModeChanges(strings.Fields(modeChange)...)
+	var change modes.ModeChange
+	if len(modeChanges) > 1 || len(unknown) > 0 {
+		csNotice(rb, client.t("Invalid mode change"))
+		return
+	} else if len(modeChanges) == 1 {
+		change = modeChanges[0]
+	} else {
+		change = modes.ModeChange{Op: modes.List}
+	}
+
+	// normalize and validate the account argument
+	accountIsValid := false
+	change.Arg, _ = CasefoldName(change.Arg)
+	switch change.Op {
+	case modes.List:
+		accountIsValid = true
+	case modes.Add:
+		// if we're adding a mode, the account must exist
+		if change.Arg != "" {
+			_, err := server.accounts.LoadAccount(change.Arg)
+			accountIsValid = (err == nil)
+		}
+	case modes.Remove:
+		// allow removal of accounts that may have been deleted
+		accountIsValid = (change.Arg != "")
+	}
+	if !accountIsValid {
+		csNotice(rb, client.t("Account does not exist"))
+		return
+	}
+
+	affectedModes, err := channel.ProcessAccountToUmodeChange(client, change)
+
+	if err == errInsufficientPrivs {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return
+	} else if err != nil {
+		csNotice(rb, client.t("Internal error"))
+		return
+	}
+
+	switch change.Op {
+	case modes.List:
+		// sort the persistent modes in descending order of priority
+		sort.Slice(affectedModes, func(i, j int) bool {
+			return umodeGreaterThan(affectedModes[i].Mode, affectedModes[j].Mode)
+		})
+		csNotice(rb, fmt.Sprintf(client.t("Channel %s has %d persistent modes set"), channelName, len(affectedModes)))
+		for _, modeChange := range affectedModes {
+			csNotice(rb, fmt.Sprintf(client.t("Account %s receives mode +%s"), modeChange.Arg, string(modeChange.Mode)))
+		}
+	case modes.Add, modes.Remove:
+		if len(affectedModes) > 0 {
+			csNotice(rb, fmt.Sprintf(client.t("Successfully set mode %s"), change.String()))
+		} else {
+			csNotice(rb, client.t("Change was a no-op"))
+		}
+	}
 }
 
 func csOpHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {

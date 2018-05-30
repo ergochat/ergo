@@ -36,3 +36,17 @@ func TestParseDefaultChannelModes(t *testing.T) {
 		}
 	}
 }
+
+func TestUmodeGreaterThan(t *testing.T) {
+	if !umodeGreaterThan(modes.Halfop, modes.Voice) {
+		t.Errorf("expected Halfop > Voice")
+	}
+
+	if !umodeGreaterThan(modes.Voice, modes.Mode(0)) {
+		t.Errorf("expected Voice > 0 (the zero value of modes.Mode)")
+	}
+
+	if umodeGreaterThan(modes.ChannelAdmin, modes.ChannelAdmin) {
+		t.Errorf("modes should not be greater than themselves")
+	}
+}
