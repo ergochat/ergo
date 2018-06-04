@@ -87,51 +87,50 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts                   *AccountManager
-	batches                    *BatchManager
-	channelRegistrationEnabled bool
-	channels                   *ChannelManager
-	channelRegistry            *ChannelRegistry
-	checkIdent                 bool
-	clients                    *ClientManager
-	config                     *Config
-	configFilename             string
-	configurableStateMutex     sync.RWMutex // tier 1; generic protection for server state modified by rehash()
-	connectionLimiter          *connection_limits.Limiter
-	connectionThrottler        *connection_limits.Throttler
-	ctime                      time.Time
-	defaultChannelModes        modes.Modes
-	dlines                     *DLineManager
-	loggingRawIO               bool
-	isupport                   *isupport.List
-	klines                     *KLineManager
-	languages                  *languages.Manager
-	limits                     Limits
-	listeners                  map[string]*ListenerWrapper
-	logger                     *logger.Manager
-	maxSendQBytes              uint32
-	monitorManager             *MonitorManager
-	motdLines                  []string
-	name                       string
-	nameCasefolded             string
-	networkName                string
-	operators                  map[string]*Oper
-	operclasses                map[string]*OperClass
-	password                   []byte
-	passwords                  *passwd.SaltedManager
-	recoverFromErrors          bool
-	rehashMutex                sync.Mutex // tier 4
-	rehashSignal               chan os.Signal
-	pprofServer                *http.Server
-	proxyAllowedFrom           []string
-	signals                    chan os.Signal
-	snomasks                   *SnoManager
-	store                      *buntdb.DB
-	stsEnabled                 bool
-	webirc                     []webircConfig
-	whoWas                     *WhoWasList
-	stats                      *Stats
-	semaphores                 *ServerSemaphores
+	accounts               *AccountManager
+	batches                *BatchManager
+	channels               *ChannelManager
+	channelRegistry        *ChannelRegistry
+	checkIdent             bool
+	clients                *ClientManager
+	config                 *Config
+	configFilename         string
+	configurableStateMutex sync.RWMutex // tier 1; generic protection for server state modified by rehash()
+	connectionLimiter      *connection_limits.Limiter
+	connectionThrottler    *connection_limits.Throttler
+	ctime                  time.Time
+	defaultChannelModes    modes.Modes
+	dlines                 *DLineManager
+	loggingRawIO           bool
+	isupport               *isupport.List
+	klines                 *KLineManager
+	languages              *languages.Manager
+	limits                 Limits
+	listeners              map[string]*ListenerWrapper
+	logger                 *logger.Manager
+	maxSendQBytes          uint32
+	monitorManager         *MonitorManager
+	motdLines              []string
+	name                   string
+	nameCasefolded         string
+	networkName            string
+	operators              map[string]*Oper
+	operclasses            map[string]*OperClass
+	password               []byte
+	passwords              *passwd.SaltedManager
+	recoverFromErrors      bool
+	rehashMutex            sync.Mutex // tier 4
+	rehashSignal           chan os.Signal
+	pprofServer            *http.Server
+	proxyAllowedFrom       []string
+	signals                chan os.Signal
+	snomasks               *SnoManager
+	store                  *buntdb.DB
+	stsEnabled             bool
+	webirc                 []webircConfig
+	whoWas                 *WhoWasList
+	stats                  *Stats
+	semaphores             *ServerSemaphores
 }
 
 var (
@@ -954,9 +953,6 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.operclasses = operclasses
 	server.operators = opers
 	server.checkIdent = config.Server.CheckIdent
-
-	// registration
-	server.channelRegistrationEnabled = config.Channels.Registration.Enabled
 
 	server.defaultChannelModes = ParseDefaultChannelModes(config)
 	server.configurableStateMutex.Unlock()
