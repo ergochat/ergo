@@ -4,8 +4,11 @@
 package irc
 
 import (
+	"bytes"
 	"fmt"
+	"hash/crc32"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -51,9 +54,11 @@ remembered.`,
 		},
 		"unregister": {
 			handler: csUnregisterHandler,
-			help: `Syntax: $bUNREGISTER #channel$b
+			help: `Syntax: $bUNREGISTER #channel [code]$b
 
-UNREGISTER deletes a channel registration, allowing someone else to claim it.`,
+UNREGISTER deletes a channel registration, allowing someone else to claim it.
+To prevent accidental unregistrations, a verification code is required;
+invoking the command without a code will display the necessary code.`,
 			helpShort: `$bUNREGISTER$b deletes a channel registration.`,
 			enabled:   chanregEnabled,
 		},
@@ -258,7 +263,7 @@ func csRegisterHandler(server *Server, client *Client, command, params string, r
 }
 
 func csUnregisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	channelName := strings.TrimSpace(params)
+	channelName, verificationCode := utils.ExtractParam(params)
 	channelKey, err := CasefoldChannel(channelName)
 	if channelKey == "" || err != nil {
 		csNotice(rb, client.t("Channel name is not valid"))
@@ -282,6 +287,18 @@ func csUnregisterHandler(server *Server, client *Client, command, params string,
 	}
 
 	info := channel.ExportRegistration(0)
+	// verification code is the crc32 of the name, plus the registration time
+	var codeInput bytes.Buffer
+	codeInput.WriteString(info.Name)
+	codeInput.WriteString(strconv.FormatInt(info.RegisteredAt.Unix(), 16))
+	expectedCode := int(crc32.ChecksumIEEE(codeInput.Bytes()))
+	receivedCode, err := strconv.Atoi(verificationCode)
+	if err != nil || expectedCode != receivedCode {
+		csNotice(rb, client.t("$bWarning:$b Unregistering this channel will remove all stored channel attributes."))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %s %d"), channelKey, expectedCode))
+		return
+	}
+
 	channel.SetUnregistered()
 	go server.channelRegistry.Delete(channelKey, info)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
