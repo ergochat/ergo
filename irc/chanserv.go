@@ -4,8 +4,11 @@
 package irc
 
 import (
+	"bytes"
 	"fmt"
+	"hash/crc32"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -22,6 +25,10 @@ To see in-depth help for a specific ChanServ command, try:
 Here are the commands you can use:
 %s`
 
+func chanregEnabled(server *Server) bool {
+	return server.ChannelRegistrationEnabled()
+}
+
 var (
 	chanservCommands = map[string]*serviceCommand{
 		"op": {
@@ -32,6 +39,7 @@ OP makes the given nickname, or yourself, a channel admin. You can only use
 this command if you're the founder of the channel.`,
 			helpShort:    `$bOP$b makes the given user (or yourself) a channel admin.`,
 			authRequired: true,
+			enabled:      chanregEnabled,
 		},
 		"register": {
 			handler: csRegisterHandler,
@@ -42,6 +50,17 @@ given admin privs on it. Modes set on the channel and the topic will also be
 remembered.`,
 			helpShort:    `$bREGISTER$b lets you own a given channel.`,
 			authRequired: true,
+			enabled:      chanregEnabled,
+		},
+		"unregister": {
+			handler: csUnregisterHandler,
+			help: `Syntax: $bUNREGISTER #channel [code]$b
+
+UNREGISTER deletes a channel registration, allowing someone else to claim it.
+To prevent accidental unregistrations, a verification code is required;
+invoking the command without a code will display the necessary code.`,
+			helpShort: `$bUNREGISTER$b deletes a channel registration.`,
+			enabled:   chanregEnabled,
 		},
 		"amode": {
 			handler: csAmodeHandler,
@@ -53,6 +72,7 @@ account the +o operator mode every time they join #channel. To list current
 accounts and modes, use $bAMODE #channel$b. Note that users are always
 referenced by their registered account names, not their nicknames.`,
 			helpShort: `$bAMODE$b modifies persistent mode settings for channel members.`,
+			enabled:   chanregEnabled,
 		},
 	}
 )
@@ -197,11 +217,6 @@ func csOpHandler(server *Server, client *Client, command, params string, rb *Res
 }
 
 func csRegisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	if !server.channelRegistrationEnabled {
-		csNotice(rb, client.t("Channel registration is not enabled"))
-		return
-	}
-
 	channelName := strings.TrimSpace(params)
 	if channelName == "" {
 		csNotice(rb, ircfmt.Unescape(client.t("Syntax: $bREGISTER #channel$b")))
@@ -245,4 +260,46 @@ func csRegisterHandler(server *Server, client *Client, command, params string, r
 			member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
 		}
 	}
+}
+
+func csUnregisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	channelName, verificationCode := utils.ExtractParam(params)
+	channelKey, err := CasefoldChannel(channelName)
+	if channelKey == "" || err != nil {
+		csNotice(rb, client.t("Channel name is not valid"))
+		return
+	}
+
+	channel := server.channels.Get(channelKey)
+	if channel == nil {
+		csNotice(rb, client.t("No such channel"))
+		return
+	}
+
+	hasPrivs := client.HasRoleCapabs("chanreg")
+	if !hasPrivs {
+		founder := channel.Founder()
+		hasPrivs = founder != "" && founder == client.Account()
+	}
+	if !hasPrivs {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return
+	}
+
+	info := channel.ExportRegistration(0)
+	// verification code is the crc32 of the name, plus the registration time
+	var codeInput bytes.Buffer
+	codeInput.WriteString(info.Name)
+	codeInput.WriteString(strconv.FormatInt(info.RegisteredAt.Unix(), 16))
+	expectedCode := int(crc32.ChecksumIEEE(codeInput.Bytes()))
+	receivedCode, err := strconv.Atoi(verificationCode)
+	if err != nil || expectedCode != receivedCode {
+		csNotice(rb, client.t("$bWarning:$b Unregistering this channel will remove all stored channel attributes."))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %s %d"), channelKey, expectedCode))
+		return
+	}
+
+	channel.SetUnregistered()
+	go server.channelRegistry.Delete(channelKey, info)
+	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
 }

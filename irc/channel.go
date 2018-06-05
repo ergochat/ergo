@@ -157,6 +157,17 @@ func (channel *Channel) SetRegistered(founder string) error {
 	return nil
 }
 
+// SetUnregistered deletes the channel's registration information.
+func (channel *Channel) SetUnregistered() {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	channel.registeredFounder = ""
+	var zeroTime time.Time
+	channel.registeredTime = zeroTime
+	channel.accountToUMode = make(map[string]modes.Mode)
+}
+
 // IsRegistered returns whether the channel is registered.
 func (channel *Channel) IsRegistered() bool {
 	channel.stateMutex.RLock()

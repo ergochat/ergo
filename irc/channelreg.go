@@ -201,6 +201,20 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 	return info
 }
 
+func (reg *ChannelRegistry) Delete(casefoldedName string, info RegisteredChannel) {
+	if !reg.server.ChannelRegistrationEnabled() {
+		return
+	}
+
+	reg.Lock()
+	defer reg.Unlock()
+
+	reg.server.store.Update(func(tx *buntdb.Tx) error {
+		reg.deleteChannel(tx, casefoldedName, info)
+		return nil
+	})
+}
+
 // Rename handles the persistence part of a channel rename: the channel is
 // persisted under its new name, and the old name is cleaned up if necessary.
 func (reg *ChannelRegistry) Rename(channel *Channel, casefoldedOldName string) {

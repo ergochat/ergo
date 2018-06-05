@@ -62,7 +62,7 @@ func (server *Server) DefaultChannelModes() modes.Modes {
 func (server *Server) ChannelRegistrationEnabled() bool {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
-	return server.channelRegistrationEnabled
+	return server.config.Channels.Registration.Enabled
 }
 
 func (server *Server) AccountConfig() *AccountConfig {
