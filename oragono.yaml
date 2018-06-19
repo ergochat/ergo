@@ -280,7 +280,7 @@ oper-classes:
         capabilities:
             - "oper:rehash"
             - "oper:die"
-            - "unregister"
+            - "accreg"
             - "sajoin"
             - "samode"
             - "vhosts"
