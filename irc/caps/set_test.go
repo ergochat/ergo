@@ -68,3 +68,24 @@ func TestSets(t *testing.T) {
 		t.Errorf("Generated Cap302 values string [%s] did not match expected values string [%s]", actualCap302ValuesString, expectedCap302ValuesString)
 	}
 }
+
+func BenchmarkSetReads(b *testing.B) {
+	set := NewSet(UserhostInNames, EchoMessage)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		set.Has(UserhostInNames)
+		set.Has(LabeledResponse)
+		set.Has(EchoMessage)
+		set.Has(Rename)
+	}
+}
+
+func BenchmarkSetWrites(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		set := NewSet(UserhostInNames, EchoMessage)
+		set.Add(Rename)
+		set.Add(ExtendedJoin)
+		set.Remove(UserhostInNames)
+		set.Remove(LabeledResponse)
+	}
+}
