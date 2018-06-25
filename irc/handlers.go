@@ -442,12 +442,16 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	capabilities := caps.NewSet()
 	var capString string
 
+	var badCaps []string
 	if len(msg.Params) > 1 {
 		capString = msg.Params[1]
-		strs := strings.Split(capString, " ")
+		strs := strings.Fields(capString)
 		for _, str := range strs {
-			if len(str) > 0 {
-				capabilities.Enable(caps.Capability(str))
+			capab, err := caps.NameToCapability(str)
+			if err != nil || !SupportedCapabilities.Has(capab) {
+				badCaps = append(badCaps, str)
+			} else {
+				capabilities.Enable(capab)
 			}
 		}
 	}
@@ -475,13 +479,11 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 		// make sure all capabilities actually exist
-		for _, capability := range capabilities.List() {
-			if !SupportedCapabilities.Has(capability) {
-				rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
-				return false
-			}
+		if len(badCaps) > 0 {
+			rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
+			return false
 		}
-		client.capabilities.Enable(capabilities.List()...)
+		client.capabilities.Union(capabilities)
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 	case "END":

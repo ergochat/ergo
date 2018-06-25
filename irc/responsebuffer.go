@@ -23,7 +23,7 @@ type ResponseBuffer struct {
 
 // GetLabel returns the label from the given message.
 func GetLabel(msg ircmsg.IrcMessage) string {
-	return msg.Tags[caps.LabelTagName].Value
+	return msg.Tags[caps.LabelTagName.Name()].Value
 }
 
 // NewResponseBuffer returns a new ResponseBuffer.
@@ -90,13 +90,13 @@ func (rb *ResponseBuffer) Send() error {
 	// if label but no batch, add label to first message
 	if useLabel && batch == nil {
 		message := rb.messages[0]
-		message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+		message.Tags[caps.LabelTagName.Name()] = ircmsg.MakeTagValue(rb.Label)
 		rb.messages[0] = message
 	}
 
 	// start batch if required
 	if batch != nil {
-		batch.Start(rb.target, ircmsg.MakeTags(caps.LabelTagName, rb.Label))
+		batch.Start(rb.target, ircmsg.MakeTags(caps.LabelTagName.Name(), rb.Label))
 	}
 
 	// send each message out

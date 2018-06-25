@@ -11,12 +11,12 @@ func TestSets(t *testing.T) {
 
 	s1.Enable(AccountTag, EchoMessage, UserhostInNames)
 
-	if !s1.Has(AccountTag, EchoMessage, UserhostInNames) {
+	if !(s1.Has(AccountTag) && s1.Has(EchoMessage) && s1.Has(UserhostInNames)) {
 		t.Error("Did not have the tags we expected")
 	}
 
-	if s1.Has(AccountTag, EchoMessage, STS, UserhostInNames) {
-		t.Error("Has() returned true when we don't have all the given capabilities")
+	if s1.Has(STS) {
+		t.Error("Has() returned true when we don't have the given capability")
 	}
 
 	s1.Disable(AccountTag)
@@ -25,14 +25,9 @@ func TestSets(t *testing.T) {
 		t.Error("Disable() did not correctly disable the given capability")
 	}
 
-	enabledCaps := make(map[Capability]bool)
-	for _, capab := range s1.List() {
-		enabledCaps[capab] = true
-	}
-	expectedCaps := map[Capability]bool{
-		EchoMessage:     true,
-		UserhostInNames: true,
-	}
+	enabledCaps := NewSet()
+	enabledCaps.Union(s1)
+	expectedCaps := NewSet(EchoMessage, UserhostInNames)
 	if !reflect.DeepEqual(enabledCaps, expectedCaps) {
 		t.Errorf("Enabled and expected capability lists do not match: %v, %v", enabledCaps, expectedCaps)
 	}
@@ -40,16 +35,12 @@ func TestSets(t *testing.T) {
 	// make sure re-enabling doesn't add to the count or something weird like that
 	s1.Enable(EchoMessage)
 
-	if s1.Count() != 2 {
-		t.Error("Count() did not match expected capability count")
-	}
-
 	// make sure add and remove work fine
 	s1.Add(InviteNotify)
 	s1.Remove(EchoMessage)
 
-	if s1.Count() != 2 {
-		t.Error("Count() did not match expected capability count")
+	if !s1.Has(InviteNotify) || s1.Has(EchoMessage) {
+		t.Error("Add/Remove don't work")
 	}
 
 	// test String()
