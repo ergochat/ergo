@@ -7,16 +7,12 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 21
+	numCapabs = 20
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
 
 const (
-	// LabelTagName is the draft IRCv3 tag name capability named "draft/label":
-	// https://ircv3.net/specs/extensions/labeled-response.html
-	LabelTagName Capability = iota
-
 	// AccountNotify is the IRCv3 capability named "account-notify":
 	// https://ircv3.net/specs/extensions/account-notify-3.1.html
 	AccountNotify Capability = iota
@@ -98,9 +94,9 @@ const (
 	UserhostInNames Capability = iota
 )
 
+// `capabilityNames[capab]` is the string name of the capability `capab`
 var (
 	capabilityNames = [numCapabs]string{
-		"draft/label",
 		"account-notify",
 		"account-tag",
 		"away-notify",

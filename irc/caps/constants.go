@@ -51,6 +51,12 @@ const (
 	NegotiatedState State = iota
 )
 
+const (
+	// LabelTagName is the tag name used for the labeled-response spec.
+	// https://ircv3.net/specs/extensions/labeled-response.html
+	LabelTagName = "draft/label"
+)
+
 func init() {
 	nameToCapability = make(map[string]Capability)
 	for capab, name := range capabilityNames {

@@ -16,12 +16,6 @@ CapDef = namedtuple("CapDef", ['identifier', 'name', 'url', 'standard'])
 
 CAPDEFS = [
     CapDef(
-        identifier="LabelTagName",
-        name="draft/label",
-        url="https://ircv3.net/specs/extensions/labeled-response.html",
-        standard="draft IRCv3 tag name",
-    ),
-    CapDef(
         identifier="AccountNotify",
         name="account-notify",
         url="https://ircv3.net/specs/extensions/account-notify-3.1.html",
@@ -188,11 +182,13 @@ const (
         print(file=output)
     print(")", file=output)
 
+    print("// `capabilityNames[capab]` is the string name of the capability `capab`", file=output)
     print("""var ( capabilityNames = [numCapabs]string{""", file=output)
     for capdef in CAPDEFS:
         print("\"%s\"," % (capdef.name,), file=output)
     print("})", file=output)
 
+    # run the generated code through `gofmt -s`, which will print it to stdout
     gofmt = subprocess.Popen(['gofmt', '-s'], stdin=subprocess.PIPE)
     gofmt.communicate(input=output.getvalue().encode('utf-8'))
     if gofmt.poll() != 0:
