@@ -19,17 +19,30 @@ func TestSets(t *testing.T) {
 	var i uint
 	for i = 0; i < 128; i++ {
 		if i%2 == 0 {
-			BitsetSet(t1s, i, true)
+			if !BitsetSet(t1s, i, true) {
+				t.Error("setting an uninitialized bit should return true")
+			}
 		}
+	}
+
+	if BitsetSet(t1s, 24, true) {
+		t.Error("setting an already-set bit should return false")
 	}
 
 	if !(BitsetGet(t1s, 0) && !BitsetGet(t1s, 1) && BitsetGet(t1s, 64) && BitsetGet(t1s, 72) && !BitsetGet(t1s, 127)) {
 		t.Error("exactly the even-numbered bits should be set")
 	}
 
-	BitsetSet(t1s, 72, false)
+	if !BitsetSet(t1s, 72, false) {
+		t.Error("removing a set bit should return true")
+	}
+
 	if BitsetGet(t1s, 72) {
 		t.Error("remove doesn't work")
+	}
+
+	if BitsetSet(t1s, 72, false) {
+		t.Error("removing an unset bit should return false")
 	}
 
 	var t2 testBitset
