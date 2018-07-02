@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -98,10 +99,12 @@ SADROP forcibly de-links the given nickname from the attached user account.`,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
-			help: `Syntax: $bUNREGISTER [username]$b
+			help: `Syntax: $bUNREGISTER <username> [code]$b
 
-UNREGISTER lets you delete your user account (or the given one, if you're an
-IRC operator with the correct permissions).`,
+UNREGISTER lets you delete your user account (or someone else's, if you're an
+IRC operator with the correct permissions). To prevent accidental
+unregistrations, a verification code is required; invoking the command without
+a code will display the necessary code.`,
 			helpShort: `$bUNREGISTER$b lets you delete your user account.`,
 		},
 		"verify": {
@@ -316,7 +319,7 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 }
 
 func nsUnregisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	username, _ := utils.ExtractParam(params)
+	username, verificationCode := utils.ExtractParam(params)
 
 	if !server.AccountConfig().Registration.Enabled {
 		nsNotice(rb, client.t("Account registration has been disabled"))
@@ -324,19 +327,29 @@ func nsUnregisterHandler(server *Server, client *Client, command, params string,
 	}
 
 	if username == "" {
-		username = client.Account()
-	}
-	if username == "" {
-		nsNotice(rb, client.t("You're not logged into an account"))
+		nsNotice(rb, client.t("You must specify an account"))
 		return
 	}
-	cfname, err := CasefoldName(username)
-	if err != nil {
-		nsNotice(rb, client.t("Invalid username"))
+
+	account, err := server.accounts.LoadAccount(username)
+	if err == errAccountDoesNotExist {
+		nsNotice(rb, client.t("Invalid account name"))
+		return
+	} else if err != nil {
+		nsNotice(rb, client.t("Internal error"))
 		return
 	}
-	if !(cfname == client.Account() || client.HasRoleCapabs("unregister")) {
+
+	cfname, _ := CasefoldName(username)
+	if !(cfname == client.Account() || client.HasRoleCapabs("accreg")) {
 		nsNotice(rb, client.t("Insufficient oper privs"))
+		return
+	}
+
+	expectedCode := unregisterConfirmationCode(account.Name, account.RegisteredAt)
+	if expectedCode != verificationCode {
+		nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
+		nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %s %s"), cfname, expectedCode))
 		return
 	}
 

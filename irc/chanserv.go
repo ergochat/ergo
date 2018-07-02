@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/modes"
@@ -287,19 +288,22 @@ func csUnregisterHandler(server *Server, client *Client, command, params string,
 	}
 
 	info := channel.ExportRegistration(0)
-	// verification code is the crc32 of the name, plus the registration time
-	var codeInput bytes.Buffer
-	codeInput.WriteString(info.Name)
-	codeInput.WriteString(strconv.FormatInt(info.RegisteredAt.Unix(), 16))
-	expectedCode := int(crc32.ChecksumIEEE(codeInput.Bytes()))
-	receivedCode, err := strconv.Atoi(verificationCode)
-	if err != nil || expectedCode != receivedCode {
-		csNotice(rb, client.t("$bWarning:$b Unregistering this channel will remove all stored channel attributes."))
-		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %s %d"), channelKey, expectedCode))
+	expectedCode := unregisterConfirmationCode(info.Name, info.RegisteredAt)
+	if expectedCode != verificationCode {
+		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this channel will remove all stored channel attributes.$b")))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %s %s"), channelKey, expectedCode))
 		return
 	}
 
 	channel.SetUnregistered()
 	go server.channelRegistry.Delete(channelKey, info)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
+}
+
+// deterministically generates a confirmation code for unregistering a channel / account
+func unregisterConfirmationCode(name string, registeredAt time.Time) (code string) {
+	var codeInput bytes.Buffer
+	codeInput.WriteString(name)
+	codeInput.WriteString(strconv.FormatInt(registeredAt.Unix(), 16))
+	return strconv.Itoa(int(crc32.ChecksumIEEE(codeInput.Bytes())))
 }

@@ -255,7 +255,10 @@ func umodeGreaterThan(l modes.Mode, r modes.Mode) bool {
 
 // ProcessAccountToUmodeChange processes Add/Remove/List operations for channel persistent usermodes.
 func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes.ModeChange) (results []modes.ModeChange, err error) {
-	umodeGEQ := func(l modes.Mode, r modes.Mode) bool {
+	hasPrivsOver := func(l modes.Mode, r modes.Mode) bool {
+		if l == modes.ChannelAdmin {
+			return umodeGreaterThan(l, r)
+		}
 		return l == r || umodeGreaterThan(l, r)
 	}
 
@@ -275,9 +278,9 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 	// operators and founders can do anything
 	hasPrivs := isOperChange || (account != "" && account == channel.registeredFounder)
 	// halfop and up can list, and do add/removes at levels <= their own
-	if change.Op == modes.List && umodeGEQ(clientMode, modes.Halfop) {
+	if change.Op == modes.List && hasPrivsOver(clientMode, modes.Halfop) {
 		hasPrivs = true
-	} else if umodeGEQ(clientMode, modes.Halfop) && umodeGEQ(clientMode, targetModeNow) && umodeGEQ(clientMode, targetModeAfter) {
+	} else if hasPrivsOver(clientMode, modes.Halfop) && hasPrivsOver(clientMode, targetModeNow) && hasPrivsOver(clientMode, targetModeAfter) {
 		hasPrivs = true
 	}
 	if !hasPrivs {
