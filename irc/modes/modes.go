@@ -7,7 +7,9 @@ package modes
 
 import (
 	"strings"
-	"sync"
+	"sync/atomic"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 var (
@@ -322,42 +324,29 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ModeSet holds a set of modes.
-type ModeSet struct {
-	sync.RWMutex // tier 0
-	modes        map[Mode]bool
-}
+type ModeSet [1]uint64
+
+// valid modes go from 65 ('A') to 122 ('z'), making at most 58 possible values;
+// subtract 65 from the mode value and use that bit of the uint64 to represent it
+const (
+	minMode = 65 // 'A'
+)
 
 // returns a pointer to a new ModeSet
 func NewModeSet() *ModeSet {
-	return &ModeSet{
-		modes: make(map[Mode]bool),
-	}
+	var set ModeSet
+	utils.BitsetInitialize(set[:])
+	return &set
 }
 
 // test whether `mode` is set
 func (set *ModeSet) HasMode(mode Mode) bool {
-	if set == nil {
-		return false
-	}
-
-	set.RLock()
-	defer set.RUnlock()
-	return set.modes[mode]
+	return utils.BitsetGet(set[:], uint(mode)-minMode)
 }
 
 // set `mode` to be on or off, return whether the value actually changed
 func (set *ModeSet) SetMode(mode Mode, on bool) (applied bool) {
-	set.Lock()
-	defer set.Unlock()
-
-	previouslyOn := set.modes[mode]
-	needsApply := (on != previouslyOn)
-	if on && needsApply {
-		set.modes[mode] = true
-	} else if !on && needsApply {
-		delete(set.modes, mode)
-	}
-	return needsApply
+	return utils.BitsetSet(set[:], uint(mode)-minMode, on)
 }
 
 // return the modes in the set as a slice
@@ -366,11 +355,12 @@ func (set *ModeSet) AllModes() (result []Mode) {
 		return
 	}
 
-	set.RLock()
-	defer set.RUnlock()
-
-	for mode := range set.modes {
-		result = append(result, mode)
+	block := atomic.LoadUint64(&set[0])
+	var i uint
+	for i = 0; i < 64; i++ {
+		if block&(1<<i) != 0 {
+			result = append(result, Mode(minMode+i))
+		}
 	}
 	return
 }
@@ -381,11 +371,8 @@ func (set *ModeSet) String() (result string) {
 		return
 	}
 
-	set.RLock()
-	defer set.RUnlock()
-
 	var buf strings.Builder
-	for mode := range set.modes {
+	for _, mode := range set.AllModes() {
 		buf.WriteRune(rune(mode))
 	}
 	return buf.String()
@@ -397,12 +384,9 @@ func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
 		return
 	}
 
-	set.RLock()
-	defer set.RUnlock()
-
 	// add prefixes in order from highest to lowest privs
 	for _, mode := range ChannelUserModes {
-		if set.modes[mode] {
+		if set.HasMode(mode) {
 			prefixes += ChannelModePrefixes[mode]
 		}
 	}

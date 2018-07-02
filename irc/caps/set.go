@@ -6,43 +6,34 @@ package caps
 import (
 	"sort"
 	"strings"
-	"sync"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // Set holds a set of enabled capabilities.
-type Set struct {
-	sync.RWMutex
-	// capabilities holds the capabilities this manager has.
-	capabilities map[Capability]bool
-}
+type Set [bitsetLen]uint64
 
 // NewSet returns a new Set, with the given capabilities enabled.
 func NewSet(capabs ...Capability) *Set {
-	newSet := Set{
-		capabilities: make(map[Capability]bool),
-	}
+	var newSet Set
+	utils.BitsetInitialize(newSet[:])
 	newSet.Enable(capabs...)
-
 	return &newSet
 }
 
 // Enable enables the given capabilities.
 func (s *Set) Enable(capabs ...Capability) {
-	s.Lock()
-	defer s.Unlock()
-
+	asSlice := s[:]
 	for _, capab := range capabs {
-		s.capabilities[capab] = true
+		utils.BitsetSet(asSlice, uint(capab), true)
 	}
 }
 
 // Disable disables the given capabilities.
 func (s *Set) Disable(capabs ...Capability) {
-	s.Lock()
-	defer s.Unlock()
-
+	asSlice := s[:]
 	for _, capab := range capabs {
-		delete(s.capabilities, capab)
+		utils.BitsetSet(asSlice, uint(capab), false)
 	}
 }
 
@@ -58,51 +49,35 @@ func (s *Set) Remove(capabs ...Capability) {
 	s.Disable(capabs...)
 }
 
-// Has returns true if this set has the given capabilities.
-func (s *Set) Has(caps ...Capability) bool {
-	s.RLock()
-	defer s.RUnlock()
-
-	for _, cap := range caps {
-		if !s.capabilities[cap] {
-			return false
-		}
-	}
-	return true
+// Has returns true if this set has the given capability.
+func (s *Set) Has(capab Capability) bool {
+	return utils.BitsetGet(s[:], uint(capab))
 }
 
-// List return a list of our enabled capabilities.
-func (s *Set) List() []Capability {
-	s.RLock()
-	defer s.RUnlock()
-
-	var allCaps []Capability
-	for capab := range s.capabilities {
-		allCaps = append(allCaps, capab)
-	}
-
-	return allCaps
+// Union adds all the capabilities of another set to this set.
+func (s *Set) Union(other *Set) {
+	utils.BitsetUnion(s[:], other[:])
 }
 
-// Count returns how many enabled caps this set has.
-func (s *Set) Count() int {
-	s.RLock()
-	defer s.RUnlock()
-
-	return len(s.capabilities)
+// Empty returns whether the set is empty.
+func (s *Set) Empty() bool {
+	return utils.BitsetEmpty(s[:])
 }
 
 // String returns all of our enabled capabilities as a string.
 func (s *Set) String(version Version, values *Values) string {
-	s.RLock()
-	defer s.RUnlock()
-
 	var strs sort.StringSlice
 
-	for capability := range s.capabilities {
-		capString := capability.Name()
+	var capab Capability
+	asSlice := s[:]
+	for capab = 0; capab < numCapabs; capab++ {
+		// skip any capabilities that are not enabled
+		if !utils.BitsetGet(asSlice, uint(capab)) {
+			continue
+		}
+		capString := capab.Name()
 		if version == Cap302 {
-			val, exists := values.Get(capability)
+			val, exists := values.Get(capab)
 			if exists {
 				capString += "=" + val
 			}

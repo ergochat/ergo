@@ -898,13 +898,11 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues), strconv.Itoa(updatedCaps.Count()))
-	for _, capab := range updatedCaps.List() {
-		addedCaps.Enable(capab)
-		removedCaps.Enable(capab)
-	}
+	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues))
+	addedCaps.Union(updatedCaps)
+	removedCaps.Union(updatedCaps)
 
-	if 0 < addedCaps.Count() || 0 < removedCaps.Count() {
+	if !addedCaps.Empty() || !removedCaps.Empty() {
 		capBurstClients = server.clients.AllWithCaps(caps.CapNotify)
 
 		added[caps.Cap301] = addedCaps.String(caps.Cap301, CapValues)
@@ -918,7 +916,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			// remove STS policy
 			//TODO(dan): this is an ugly hack. we can write this better.
 			stsPolicy := "sts=duration=0"
-			if 0 < addedCaps.Count() {
+			if !addedCaps.Empty() {
 				added[caps.Cap302] = added[caps.Cap302] + " " + stsPolicy
 			} else {
 				addedCaps.Enable(caps.STS)
@@ -926,10 +924,10 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 			}
 		}
 		// DEL caps and then send NEW ones so that updated caps get removed/added correctly
-		if 0 < removedCaps.Count() {
+		if !removedCaps.Empty() {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
 		}
-		if 0 < addedCaps.Count() {
+		if !addedCaps.Empty() {
 			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
 		}
 	}
