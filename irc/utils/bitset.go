@@ -37,17 +37,15 @@ func BitsetSet(set []uint64, position uint, on bool) (changed bool) {
 	mask = 1 << bit
 	for {
 		current := atomic.LoadUint64(addr)
-		previouslyOn := (current & mask) != 0
-		if on == previouslyOn {
-			return false
-		}
 		var desired uint64
 		if on {
 			desired = current | mask
 		} else {
 			desired = current & (^mask)
 		}
-		if atomic.CompareAndSwapUint64(addr, current, desired) {
+		if current == desired {
+			return false
+		} else if atomic.CompareAndSwapUint64(addr, current, desired) {
 			return true
 		}
 	}
