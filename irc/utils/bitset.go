@@ -52,11 +52,9 @@ func BitsetSet(set []uint64, position uint, on bool) (changed bool) {
 }
 
 // BitsetEmpty returns whether the bitset is empty.
-// Right now, this is technically free of race conditions because we don't
-// have a method that can simultaneously modify two bits separated by a word boundary
-// such that one of those modifications is an unset. If we did, there would be a race
-// that could produce false positives. It's probably better to assume that they are
-// already possible under concurrent modification (which is not how we're using this).
+// This has false positives under concurrent modification (i.e., it can return true
+// even though w.r.t. the sequence of atomic modifications, there was no point at
+// which the bitset was completely empty), but that's not how we're using this method.
 func BitsetEmpty(set []uint64) (empty bool) {
 	for i := 0; i < len(set); i++ {
 		if atomic.LoadUint64(&set[i]) != 0 {

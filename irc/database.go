@@ -267,7 +267,7 @@ func schemaChangeV2ToV3(config *Config, tx *buntdb.Tx) error {
 	}
 
 	// explicitly store the channel modes
-	defaultModes := ParseDefaultChannelModes(config)
+	defaultModes := ParseDefaultChannelModes(config.Channels.RawDefaultModes)
 	modeStrings := make([]string, len(defaultModes))
 	for i, mode := range defaultModes {
 		modeStrings[i] = string(mode)

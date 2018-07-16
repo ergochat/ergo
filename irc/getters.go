@@ -6,15 +6,12 @@ package irc
 import (
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/modes"
-	"sync/atomic"
 )
 
-func (server *Server) MaxSendQBytes() int {
-	return int(atomic.LoadUint32(&server.maxSendQBytes))
-}
-
-func (server *Server) SetMaxSendQBytes(m int) {
-	atomic.StoreUint32(&server.maxSendQBytes, uint32(m))
+func (server *Server) Config() *Config {
+	server.configurableStateMutex.RLock()
+	defer server.configurableStateMutex.RUnlock()
+	return server.config
 }
 
 func (server *Server) ISupport() *isupport.List {
@@ -24,63 +21,41 @@ func (server *Server) ISupport() *isupport.List {
 }
 
 func (server *Server) Limits() Limits {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.limits
+	return server.Config().Limits
 }
 
 func (server *Server) Password() []byte {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.password
+	return server.Config().Server.passwordBytes
 }
 
 func (server *Server) RecoverFromErrors() bool {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.recoverFromErrors
+	// default to true if unset
+	rfe := server.Config().Debug.RecoverFromErrors
+	return rfe == nil || *rfe
 }
 
 func (server *Server) ProxyAllowedFrom() []string {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.proxyAllowedFrom
+	return server.Config().Server.ProxyAllowedFrom
 }
 
 func (server *Server) WebIRCConfig() []webircConfig {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.webirc
+	return server.Config().Server.WebIRC
 }
 
 func (server *Server) DefaultChannelModes() modes.Modes {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.defaultChannelModes
+	return server.Config().Channels.defaultModes
 }
 
 func (server *Server) ChannelRegistrationEnabled() bool {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.config.Channels.Registration.Enabled
+	return server.Config().Channels.Registration.Enabled
 }
 
 func (server *Server) AccountConfig() *AccountConfig {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	if server.config == nil {
-		return nil
-	}
-	return &server.config.Accounts
+	return &server.Config().Accounts
 }
 
 func (server *Server) FakelagConfig() *FakelagConfig {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	if server.config == nil {
-		return nil
-	}
-	return &server.config.Fakelag
+	return &server.Config().Fakelag
 }
 
 func (server *Server) GetOperator(name string) (oper *Oper) {
@@ -90,7 +65,7 @@ func (server *Server) GetOperator(name string) (oper *Oper) {
 	}
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
-	return server.operators[name]
+	return server.config.operators[name]
 }
 
 func (client *Client) Nick() string {

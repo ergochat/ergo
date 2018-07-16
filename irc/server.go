@@ -58,24 +58,6 @@ var (
 	CapValues = caps.NewValues()
 )
 
-// Limits holds the maximum limits for various things such as topic lengths.
-type Limits struct {
-	AwayLen        int
-	ChannelLen     int
-	KickLen        int
-	MonitorEntries int
-	NickLen        int
-	TopicLen       int
-	ChanListModes  int
-	LineLen        LineLenLimits
-}
-
-// LineLenLimits holds the maximum limits for IRC lines.
-type LineLenLimits struct {
-	Tags int
-	Rest int
-}
-
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
 type ListenerWrapper struct {
 	listener   net.Listener
@@ -91,7 +73,6 @@ type Server struct {
 	batches                *BatchManager
 	channels               *ChannelManager
 	channelRegistry        *ChannelRegistry
-	checkIdent             bool
 	clients                *ClientManager
 	config                 *Config
 	configFilename         string
@@ -99,35 +80,23 @@ type Server struct {
 	connectionLimiter      *connection_limits.Limiter
 	connectionThrottler    *connection_limits.Throttler
 	ctime                  time.Time
-	defaultChannelModes    modes.Modes
 	dlines                 *DLineManager
-	loggingRawIO           bool
 	isupport               *isupport.List
 	klines                 *KLineManager
 	languages              *languages.Manager
-	limits                 Limits
 	listeners              map[string]*ListenerWrapper
 	logger                 *logger.Manager
-	maxSendQBytes          uint32
 	monitorManager         *MonitorManager
 	motdLines              []string
 	name                   string
 	nameCasefolded         string
-	networkName            string
-	operators              map[string]*Oper
-	operclasses            map[string]*OperClass
-	password               []byte
 	passwords              *passwd.SaltedManager
-	recoverFromErrors      bool
 	rehashMutex            sync.Mutex // tier 4
 	rehashSignal           chan os.Signal
 	pprofServer            *http.Server
-	proxyAllowedFrom       []string
 	signals                chan os.Signal
 	snomasks               *SnoManager
 	store                  *buntdb.DB
-	stsEnabled             bool
-	webirc                 []webircConfig
 	whoWas                 *WhoWasList
 	stats                  *Stats
 	semaphores             *ServerSemaphores
@@ -204,35 +173,35 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 func (server *Server) setISupport() {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
-	server.configurableStateMutex.RLock()
+	config := server.Config()
 
 	// add RPL_ISUPPORT tokens
 	isupport := isupport.NewList()
-	isupport.Add("AWAYLEN", strconv.Itoa(server.limits.AwayLen))
+	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
-	isupport.Add("CHANNELLEN", strconv.Itoa(server.limits.ChannelLen))
+	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
 	isupport.Add("INVEX", "")
-	isupport.Add("KICKLEN", strconv.Itoa(server.limits.KickLen))
-	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(server.limits.ChanListModes)))
+	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
+	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
 	isupport.Add("MAXTARGETS", maxTargetsString)
 	isupport.Add("MODES", "")
-	isupport.Add("MONITOR", strconv.Itoa(server.limits.MonitorEntries))
-	isupport.Add("NETWORK", server.networkName)
-	isupport.Add("NICKLEN", strconv.Itoa(server.limits.NickLen))
+	isupport.Add("MONITOR", strconv.Itoa(config.Limits.MonitorEntries))
+	isupport.Add("NETWORK", config.Network.Name)
+	isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
 	isupport.Add("PREFIX", "(qaohv)~&@%+")
 	isupport.Add("RPCHAN", "E")
 	isupport.Add("RPUSER", "E")
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
-	isupport.Add("TOPICLEN", strconv.Itoa(server.limits.TopicLen))
+	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
 	isupport.Add("UTF8MAPPING", casemappingName)
 
 	// account registration
-	if server.config.Accounts.Registration.Enabled {
+	if config.Accounts.Registration.Enabled {
 		// 'none' isn't shown in the REGCALLBACKS vars
 		var enabledCallbacks []string
 		for _, name := range server.config.Accounts.Registration.EnabledCallbacks {
@@ -245,8 +214,6 @@ func (server *Server) setISupport() {
 		isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
 		isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
-
-	server.configurableStateMutex.RUnlock()
 
 	isupport.RegenerateCachedReply()
 
@@ -672,7 +639,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, target.AccountName(), client.t("is logged in as"))
 	}
 	if target.HasMode(modes.Bot) {
-		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.networkName)))
+		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
 	if 0 < len(target.languages) {
@@ -744,13 +711,16 @@ func (server *Server) rehash() error {
 	return nil
 }
 
-func (server *Server) applyConfig(config *Config, initial bool) error {
+func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	if initial {
 		server.ctime = time.Now()
 		server.configFilename = config.Filename
+		server.name = config.Server.Name
+		server.nameCasefolded = config.Server.nameCasefolded
 	} else {
 		// enforce configs that can't be changed after launch:
-		if server.limits.LineLen.Tags != config.Limits.LineLen.Tags || server.limits.LineLen.Rest != config.Limits.LineLen.Rest {
+		currentLimits := server.Limits()
+		if currentLimits.LineLen.Tags != config.Limits.LineLen.Tags || currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
@@ -759,48 +729,11 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		}
 	}
 
-	server.logger.Info("rehash", "Using config file", server.configFilename)
-
-	casefoldedName, err := Casefold(config.Server.Name)
-	if err != nil {
-		return fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
-	}
-
-	// confirm operator stuff all exists and is fine
-	operclasses, err := config.OperatorClasses()
-	if err != nil {
-		return fmt.Errorf("Error rehashing config file operclasses: %s", err.Error())
-	}
-	opers, err := config.Operators(operclasses)
-	if err != nil {
-		return fmt.Errorf("Error rehashing config file opers: %s", err.Error())
-	}
-
-	// TODO: support rehash of existing operator perms?
-
 	// sanity checks complete, start modifying server state
+	server.logger.Info("rehash", "Using config file", server.configFilename)
+	oldConfig := server.Config()
 
-	if initial {
-		server.name = config.Server.Name
-		server.nameCasefolded = casefoldedName
-	}
-
-	server.configurableStateMutex.Lock()
-	server.networkName = config.Network.Name
-	if config.Server.Password != "" {
-		server.password = config.Server.PasswordBytes()
-	} else {
-		server.password = nil
-	}
-	// apply new WebIRC command restrictions
-	server.webirc = config.Server.WebIRC
-	// apply new PROXY command restrictions
-	server.proxyAllowedFrom = config.Server.ProxyAllowedFrom
-	server.recoverFromErrors = true
-	if config.Debug.RecoverFromErrors != nil {
-		server.recoverFromErrors = *config.Debug.RecoverFromErrors
-	}
-	server.configurableStateMutex.Unlock()
+	// first, reload config sections for functionality implemented in subpackages:
 
 	err = server.connectionLimiter.ApplyConfig(config.Server.ConnectionLimiter)
 	if err != nil {
@@ -811,6 +744,16 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	if err != nil {
 		return err
 	}
+
+	// reload logging config
+	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()
+	err = server.logger.ApplyConfig(config.Logging)
+	if err != nil {
+		return err
+	}
+	nowLoggingRawIO := server.logger.IsLoggingRawIO()
+	// notify existing clients if raw i/o logging was enabled by a rehash
+	sendRawOutputNotice := !wasLoggingRawIO && nowLoggingRawIO
 
 	// setup new and removed caps
 	addedCaps := caps.NewSet()
@@ -844,8 +787,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	server.languages = lm
 
 	// SASL
-	oldAccountConfig := server.AccountConfig()
-	authPreviouslyEnabled := oldAccountConfig != nil && oldAccountConfig.AuthenticationEnabled
+	authPreviouslyEnabled := oldConfig != nil && oldConfig.Accounts.AuthenticationEnabled
 	if config.Accounts.AuthenticationEnabled && !authPreviouslyEnabled {
 		// enabling SASL
 		SupportedCapabilities.Enable(caps.SASL)
@@ -857,39 +799,39 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		removedCaps.Add(caps.SASL)
 	}
 
-	nickReservationPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.NickReservation.Enabled
+	nickReservationPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.NickReservation.Enabled
 	nickReservationNowEnabled := config.Accounts.NickReservation.Enabled
 	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
 		server.accounts.buildNickToAccountIndex()
 	}
 
-	hsPreviouslyDisabled := oldAccountConfig != nil && !oldAccountConfig.VHosts.Enabled
+	hsPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.VHosts.Enabled
 	hsNowEnabled := config.Accounts.VHosts.Enabled
 	if hsPreviouslyDisabled && hsNowEnabled {
 		server.accounts.initVHostRequestQueue()
 	}
 
 	// STS
+	stsPreviouslyEnabled := oldConfig != nil && oldConfig.Server.STS.Enabled
 	stsValue := config.Server.STS.Value()
-	var stsDisabled bool
+	stsDisabledByRehash := false
 	stsCurrentCapValue, _ := CapValues.Get(caps.STS)
-	server.logger.Debug("rehash", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", server.stsEnabled, config.Server.STS.Enabled))
-	if config.Server.STS.Enabled && !server.stsEnabled {
+	server.logger.Debug("rehash", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
+	if config.Server.STS.Enabled && !stsPreviouslyEnabled {
 		// enabling STS
 		SupportedCapabilities.Enable(caps.STS)
 		addedCaps.Add(caps.STS)
 		CapValues.Set(caps.STS, stsValue)
-	} else if !config.Server.STS.Enabled && server.stsEnabled {
+	} else if !config.Server.STS.Enabled && stsPreviouslyEnabled {
 		// disabling STS
 		SupportedCapabilities.Disable(caps.STS)
 		removedCaps.Add(caps.STS)
-		stsDisabled = true
-	} else if config.Server.STS.Enabled && server.stsEnabled && stsValue != stsCurrentCapValue {
+		stsDisabledByRehash = true
+	} else if config.Server.STS.Enabled && stsPreviouslyEnabled && stsValue != stsCurrentCapValue {
 		// STS policy updated
 		CapValues.Set(caps.STS, stsValue)
 		updatedCaps.Add(caps.STS)
 	}
-	server.stsEnabled = config.Server.STS.Enabled
 
 	// burst new and removed caps
 	var capBurstClients ClientSet
@@ -912,7 +854,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 	}
 
 	for sClient := range capBurstClients {
-		if stsDisabled {
+		if stsDisabledByRehash {
 			// remove STS policy
 			//TODO(dan): this is an ugly hack. we can write this better.
 			stsPolicy := "sts=duration=0"
@@ -932,43 +874,7 @@ func (server *Server) applyConfig(config *Config, initial bool) error {
 		}
 	}
 
-	// set server options
-	server.configurableStateMutex.Lock()
-	lineLenConfig := LineLenLimits{
-		Tags: config.Limits.LineLen.Tags,
-		Rest: config.Limits.LineLen.Rest,
-	}
-	server.limits = Limits{
-		AwayLen:        int(config.Limits.AwayLen),
-		ChannelLen:     int(config.Limits.ChannelLen),
-		KickLen:        int(config.Limits.KickLen),
-		MonitorEntries: int(config.Limits.MonitorEntries),
-		NickLen:        int(config.Limits.NickLen),
-		TopicLen:       int(config.Limits.TopicLen),
-		ChanListModes:  int(config.Limits.ChanListModes),
-		LineLen:        lineLenConfig,
-	}
-	server.operclasses = operclasses
-	server.operators = opers
-	server.checkIdent = config.Server.CheckIdent
-
-	server.defaultChannelModes = ParseDefaultChannelModes(config)
-	server.configurableStateMutex.Unlock()
-
-	// set new sendqueue size
-	server.SetMaxSendQBytes(config.Server.MaxSendQBytes)
-
 	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
-
-	// reload logging config
-	err = server.logger.ApplyConfig(config.Logging)
-	if err != nil {
-		return err
-	}
-	nowLoggingRawIO := server.logger.IsLoggingRawIO()
-	// notify clients if raw i/o logging was enabled by a rehash
-	sendRawOutputNotice := !initial && !server.loggingRawIO && nowLoggingRawIO
-	server.loggingRawIO = nowLoggingRawIO
 
 	// save a pointer to the new config
 	server.configurableStateMutex.Lock()

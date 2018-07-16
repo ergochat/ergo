@@ -27,10 +27,8 @@ func TestParseDefaultChannelModes(t *testing.T) {
 		{nil, modes.Modes{modes.NoOutside, modes.OpOnlyTopic}},
 	}
 
-	var config Config
 	for _, testcase := range parseTests {
-		config.Channels.DefaultModes = testcase.raw
-		result := ParseDefaultChannelModes(&config)
+		result := ParseDefaultChannelModes(testcase.raw)
 		if !reflect.DeepEqual(result, testcase.expected) {
 			t.Errorf("expected modes %s, got %s", testcase.expected, result)
 		}

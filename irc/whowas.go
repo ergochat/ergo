@@ -32,7 +32,7 @@ type WhoWas struct {
 }
 
 // NewWhoWasList returns a new WhoWasList
-func NewWhoWasList(size uint) *WhoWasList {
+func NewWhoWasList(size int) *WhoWasList {
 	return &WhoWasList{
 		buffer: make([]WhoWas, size),
 		start:  -1,
