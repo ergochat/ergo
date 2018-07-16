@@ -686,6 +686,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
+	// RecoverFromErrors defaults to true
+	if config.Debug.RecoverFromErrors == nil {
+		config.Debug.RecoverFromErrors = new(bool)
+		*config.Debug.RecoverFromErrors = true
+	}
+
 	// casefold/validate server name
 	config.Server.nameCasefolded, err = Casefold(config.Server.Name)
 	if err != nil {

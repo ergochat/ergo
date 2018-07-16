@@ -29,9 +29,7 @@ func (server *Server) Password() []byte {
 }
 
 func (server *Server) RecoverFromErrors() bool {
-	// default to true if unset
-	rfe := server.Config().Debug.RecoverFromErrors
-	return rfe == nil || *rfe
+	return *server.Config().Debug.RecoverFromErrors
 }
 
 func (server *Server) ProxyAllowedFrom() []string {
