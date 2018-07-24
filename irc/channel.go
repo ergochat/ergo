@@ -515,8 +515,9 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		return
 	}
 
-	if len(topic) > client.server.limits.TopicLen {
-		topic = topic[:client.server.limits.TopicLen]
+	topicLimit := client.server.Limits().TopicLen
+	if len(topic) > topicLimit {
+		topic = topic[:topicLimit]
 	}
 
 	channel.stateMutex.Lock()

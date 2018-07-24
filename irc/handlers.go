@@ -1501,12 +1501,12 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 	var online []string
 	var offline []string
 
-	limit := server.Limits().MonitorEntries
+	limits := server.Limits()
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
 		// check name length
-		if len(target) < 1 || len(targets) > server.limits.NickLen {
+		if len(target) < 1 || len(targets) > limits.NickLen {
 			continue
 		}
 
@@ -1516,9 +1516,9 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 			continue
 		}
 
-		err = server.monitorManager.Add(client, casefoldedTarget, limit)
+		err = server.monitorManager.Add(client, casefoldedTarget, limits.MonitorEntries)
 		if err == errMonitorLimitExceeded {
-			rb.Add(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(server.limits.MonitorEntries), strings.Join(targets, ","))
+			rb.Add(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(limits.MonitorEntries), strings.Join(targets, ","))
 			break
 		} else if err != nil {
 			continue
@@ -1814,14 +1814,15 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// if no password exists, skip checking
-	if len(server.password) == 0 {
+	serverPassword := server.Password()
+	if serverPassword == nil {
 		client.SetAuthorized(true)
 		return false
 	}
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	if passwd.ComparePassword(server.password, password) != nil {
+	if passwd.ComparePassword(serverPassword, password) != nil {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		rb.Add(nil, server.name, "ERROR", client.t("Password incorrect"))
 		return true

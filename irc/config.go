@@ -28,10 +28,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// PassConfig holds the connection password.
-type PassConfig struct {
-	Password string
-}
+// here's how this works: exported (capitalized) members of the config structs
+// are defined in the YAML file and deserialized directly from there. They may
+// be postprocessed and overwritten by LoadConfig. Unexported (lowercase) members
+// are derived from the exported members in LoadConfig.
 
 // TLSListenConfig defines configuration options for listening on TLS.
 type TLSListenConfig struct {
@@ -49,15 +49,6 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 	}, err
-}
-
-// PasswordBytes returns the bytes represented by the password hash.
-func (conf *PassConfig) PasswordBytes() []byte {
-	bytes, err := passwd.DecodePasswordHash(conf.Password)
-	if err != nil {
-		log.Fatal("decode password error: ", err)
-	}
-	return bytes
 }
 
 type AccountConfig struct {
@@ -171,9 +162,22 @@ func (conf *OperConfig) PasswordBytes() []byte {
 }
 
 // LineLenConfig controls line lengths.
-type LineLenConfig struct {
+type LineLenLimits struct {
 	Tags int
 	Rest int
+}
+
+// Various server-enforced limits on data size.
+type Limits struct {
+	AwayLen        int           `yaml:"awaylen"`
+	ChanListModes  int           `yaml:"chan-list-modes"`
+	ChannelLen     int           `yaml:"channellen"`
+	KickLen        int           `yaml:"kicklen"`
+	MonitorEntries int           `yaml:"monitor-entries"`
+	NickLen        int           `yaml:"nicklen"`
+	TopicLen       int           `yaml:"topiclen"`
+	WhowasEntries  int           `yaml:"whowas-entries"`
+	LineLen        LineLenLimits `yaml:"linelen"`
 }
 
 // STSConfig controls the STS configuration/
@@ -219,9 +223,10 @@ type Config struct {
 	}
 
 	Server struct {
-		PassConfig
 		Password            string
+		passwordBytes       []byte
 		Name                string
+		nameCasefolded      string
 		Listen              []string
 		TLSListeners        map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		STS                 STSConfig
@@ -251,13 +256,18 @@ type Config struct {
 	Accounts AccountConfig
 
 	Channels struct {
-		DefaultModes *string `yaml:"default-modes"`
-		Registration ChannelRegistrationConfig
+		RawDefaultModes *string `yaml:"default-modes"`
+		defaultModes    modes.Modes
+		Registration    ChannelRegistrationConfig
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
 
 	Opers map[string]*OperConfig
+
+	// parsed operator definitions, unexported so they can't be defined
+	// directly in YAML:
+	operators map[string]*Oper
 
 	Logging []logger.LoggingConfig
 
@@ -267,17 +277,7 @@ type Config struct {
 		StackImpact       StackImpactConfig
 	}
 
-	Limits struct {
-		AwayLen        uint          `yaml:"awaylen"`
-		ChanListModes  uint          `yaml:"chan-list-modes"`
-		ChannelLen     uint          `yaml:"channellen"`
-		KickLen        uint          `yaml:"kicklen"`
-		MonitorEntries uint          `yaml:"monitor-entries"`
-		NickLen        uint          `yaml:"nicklen"`
-		TopicLen       uint          `yaml:"topiclen"`
-		WhowasEntries  uint          `yaml:"whowas-entries"`
-		LineLen        LineLenConfig `yaml:"linelen"`
-	}
+	Limits Limits
 
 	Fakelag FakelagConfig
 
@@ -436,11 +436,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	config.Filename = filename
-
-	// we need this so PasswordBytes returns the correct info
-	if config.Server.Password != "" {
-		config.Server.PassConfig.Password = config.Server.Password
-	}
 
 	if config.Network.Name == "" {
 		return nil, ErrNetworkNameMissing
@@ -689,6 +684,40 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Languages.Default != "en" && !exists {
 			return nil, fmt.Errorf("Cannot find default language [%s]", config.Languages.Default)
 		}
+	}
+
+	// RecoverFromErrors defaults to true
+	if config.Debug.RecoverFromErrors == nil {
+		config.Debug.RecoverFromErrors = new(bool)
+		*config.Debug.RecoverFromErrors = true
+	}
+
+	// casefold/validate server name
+	config.Server.nameCasefolded, err = Casefold(config.Server.Name)
+	if err != nil {
+		return nil, fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
+	}
+
+	// process operator definitions, store them to config.operators
+	operclasses, err := config.OperatorClasses()
+	if err != nil {
+		return nil, err
+	}
+	opers, err := config.Operators(operclasses)
+	if err != nil {
+		return nil, err
+	}
+	config.operators = opers
+
+	// parse default channel modes
+	config.Channels.defaultModes = ParseDefaultChannelModes(config.Channels.RawDefaultModes)
+
+	if config.Server.Password != "" {
+		bytes, err := passwd.DecodePasswordHash(config.Server.Password)
+		if err != nil {
+			return nil, err
+		}
+		config.Server.passwordBytes = bytes
 	}
 
 	return config, nil

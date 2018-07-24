@@ -87,12 +87,12 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool)
 }
 
 // ParseDefaultChannelModes parses the `default-modes` line of the config
-func ParseDefaultChannelModes(config *Config) modes.Modes {
-	if config.Channels.DefaultModes == nil {
+func ParseDefaultChannelModes(rawModes *string) modes.Modes {
+	if rawModes == nil {
 		// not present in config, fall back to compile-time default
 		return DefaultChannelModes
 	}
-	modeChangeStrings := strings.Split(strings.TrimSpace(*config.Channels.DefaultModes), " ")
+	modeChangeStrings := strings.Fields(*rawModes)
 	modeChanges, _ := modes.ParseChannelModeChanges(modeChangeStrings...)
 	defaultChannelModes := make(modes.Modes, 0)
 	for _, modeChange := range modeChanges {

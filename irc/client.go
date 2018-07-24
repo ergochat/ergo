@@ -85,9 +85,9 @@ type Client struct {
 // NewClient returns a client with all the appropriate info setup.
 func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	now := time.Now()
-	limits := server.Limits()
-	fullLineLenLimit := limits.LineLen.Tags + limits.LineLen.Rest
-	socket := NewSocket(conn, fullLineLenLimit*2, server.MaxSendQBytes())
+	config := server.Config()
+	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
+	socket := NewSocket(conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
 	client := &Client{
 		atime:          now,
 		authorized:     server.Password() == nil,
@@ -112,7 +112,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
 	}
-	if server.checkIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
+	if config.Server.CheckIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
 		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
 		serverPort, _ := strconv.Atoi(serverPortString)
 		if err != nil {
