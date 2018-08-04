@@ -8,16 +8,31 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* `autoupgrade` key added under `datastore`, specifying whether to upgrade to new database versions automatically.
+* `vhosts` section added under `accounts`, configuring our new vhost support.
+* new oper capabilities `accreg`, `sajoin`, `vhosts` and `chanreg` added.
 
 ### Security
 
 ### Added
+* Added database auto-upgrades.
+* Added new subcommands to `ChanServ` including:
+    * `AMODE` to allow setting persistent channel modes for users.
+    * `DROP` to unregister a channel.
+* Added vhosts (virtual/vanity hosts), controlled via `HostServ`.
 
 ### Changed
+* `ChanServ` and `NickServ` now show in their help output when commands have been disabled.
+* Many under-the-hood optimisations (thanks @slingamn!).
+* Passwords are now being hashed in a better way.
+* Rehashing is now more consistent and safe.
 
 ### Removed
 
 ### Fixed
+* Fixed issue where incoming and outgoing private messages were being incorrectly modified due to a bug with our protocol handling.
+* Fixed fakelag timing to be expected.
+* `LUSERS` now displays correct client count and outputs correct params (thanks [@moortens](https://github.com/moortens)!.
 
 
 ## [0.11.0] - 2018-04-15
