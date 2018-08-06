@@ -27,7 +27,6 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -159,6 +158,8 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		} else if err == errAccountAlreadyRegistered {
 			msg = "Account already exists"
 			code = ERR_ACCOUNT_ALREADY_EXISTS
+		} else if err == errAccountBadPassphrase {
+			msg = "Passphrase contains forbidden characters or is otherwise invalid"
 		}
 		if err == errAccountAlreadyRegistered || err == errAccountCreation || err == errCertfpAlreadyExists {
 			msg = err.Error()
@@ -1822,7 +1823,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	if passwd.ComparePassword(serverPassword, password) != nil {
+	if bcrypt.CompareHashAndPassword(serverPassword, password) != nil {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		rb.Add(nil, server.name, "ERROR", client.t("Password incorrect"))
 		return true
@@ -2406,7 +2407,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
 				// confirm password and/or fingerprint
 				givenPassword := msg.Params[0]
-				if 0 < len(info.Password) && passwd.ComparePasswordString(info.Password, givenPassword) != nil {
+				if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, []byte(givenPassword)) != nil {
 					continue
 				}
 				if 0 < len(info.Fingerprint) && client.certfp != info.Fingerprint {

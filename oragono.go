@@ -17,8 +17,8 @@ import (
 	"github.com/oragono/oragono/irc"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/mkcerts"
-	"github.com/oragono/oragono/irc/passwd"
 	stackimpact "github.com/stackimpact/stackimpact-go"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -73,11 +73,11 @@ Options:
 		if confirm != password {
 			log.Fatal("passwords do not match")
 		}
-		encoded, err := passwd.GenerateEncodedPassword(password)
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
-		fmt.Println(encoded)
+		fmt.Println(string(hash))
 	} else if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
 		if !arguments["--quiet"].(bool) {

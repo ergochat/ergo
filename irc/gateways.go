@@ -10,7 +10,6 @@ import (
 	"net"
 
 	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -29,7 +28,7 @@ func (wc *webircConfig) Populate() (err error) {
 
 	if wc.PasswordString != "" {
 		var password []byte
-		password, err = passwd.DecodePasswordHash(wc.PasswordString)
+		wc.Password, err = decodeLegacyPasswordHash(wc.PasswordString)
 		wc.Password = password
 	}
 	return err

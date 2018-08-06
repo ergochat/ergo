@@ -16,6 +16,7 @@ var (
 	errAccountCredUpdate              = errors.New("Could not update password hash to new method")
 	errAccountDoesNotExist            = errors.New("Account does not exist")
 	errAccountInvalidCredentials      = errors.New("Invalid account credentials")
+	errAccountBadPassphrase           = errors.New("Passphrase contains forbidden characters or is otherwise invalid")
 	errAccountNickReservationFailed   = errors.New("Could not (un)reserve nick")
 	errAccountNotLoggedIn             = errors.New("You're not logged into an account")
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")

@@ -76,7 +76,7 @@ server:
             fingerprint: 938dd33f4b76dcaf7ce5eb25c852369cb4b8fb47ba22fc235aa29c6623a5f182
 
             # password the gateway uses to connect, made with  oragono genpasswd
-            password: JDJhJDA0JG9rTTVERlNRa0hpOEZpNkhjZE95SU9Da1BseFdlcWtOTEQxNEFERVlqbEZNTkdhOVlYUkMu
+            password: "$2a$04$sLEFDpIOyUp55e6gTMKbOeroT6tMXTjPFvA0eGvwvImVR9pkwv7ee"
 
             # hosts that can use this webirc command
             # you should also add these addresses to the connection limits and throttling exemption lists
@@ -144,6 +144,9 @@ accounts:
     registration:
         # can users register new accounts?
         enabled: true
+
+        # this is the bcrypt cost we'll use for account passwords
+        bcrypt-cost: 12
 
         # length of time a user has to verify their account before it can be re-registered
         verify-timeout: "32h"
@@ -304,7 +307,7 @@ opers:
 
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
-        password: JDJhJDA0JE1vZmwxZC9YTXBhZ3RWT2xBbkNwZnV3R2N6VFUwQUI0RUJRVXRBRHliZVVoa0VYMnlIaGsu
+        password: "$2a$04$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu"
 
 # logging, takes inspiration from Insp
 logging:

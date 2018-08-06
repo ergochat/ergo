@@ -312,6 +312,8 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 			errMsg = client.t("An account already exists for your certificate fingerprint")
 		} else if err == errAccountAlreadyRegistered {
 			errMsg = client.t("Account already exists")
+		} else if err == errAccountBadPassphrase {
+			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
 		}
 		nsNotice(rb, errMsg)
 		return
