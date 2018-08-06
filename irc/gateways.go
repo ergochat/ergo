@@ -27,9 +27,7 @@ func (wc *webircConfig) Populate() (err error) {
 	}
 
 	if wc.PasswordString != "" {
-		var password []byte
 		wc.Password, err = decodeLegacyPasswordHash(wc.PasswordString)
-		wc.Password = password
 	}
 	return err
 }
