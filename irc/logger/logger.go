@@ -124,7 +124,9 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 			stdoutWriteLock: &logger.stdoutWriteLock,
 			fileWriteLock:   &logger.fileWriteLock,
 		}
-		if typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"])) {
+		ioEnabled := typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"]))
+		// raw I/O is only logged at level debug;
+		if ioEnabled && logConfig.Level == LogDebug {
 			atomic.StoreUint32(&logger.loggingRawIO, 1)
 		}
 		if sLogger.MethodFile.Enabled {
@@ -175,13 +177,6 @@ func (logger *Manager) Warning(logType string, messageParts ...string) {
 // Error logs the given message as an error message.
 func (logger *Manager) Error(logType string, messageParts ...string) {
 	logger.Log(LogError, logType, messageParts...)
-}
-
-// Fatal logs the given message as an error message, then exits.
-func (logger *Manager) Fatal(logType string, messageParts ...string) {
-	logger.Error(logType, messageParts...)
-	logger.Error("FATAL", "Fatal error encountered, application exiting")
-	os.Exit(1)
 }
 
 type fileMethod struct {

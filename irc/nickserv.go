@@ -20,6 +20,11 @@ func servCmdRequiresAuthEnabled(server *Server) bool {
 	return server.AccountConfig().AuthenticationEnabled
 }
 
+func nsGroupEnabled(server *Server) bool {
+	conf := server.Config()
+	return conf.Accounts.AuthenticationEnabled && conf.Accounts.NickReservation.Enabled
+}
+
 const nickservHelp = `NickServ lets you register and login to an account.
 
 To see in-depth help for a specific NickServ command, try:
@@ -55,7 +60,7 @@ same user account, letting you reclaim your nickname.`,
 GROUP links your current nickname with your logged-in account, preventing other
 users from changing to it (or forcing them to rename).`,
 			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      nsGroupEnabled,
 			authRequired: true,
 		},
 

@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -144,22 +143,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// generate help info
 	if err := GenerateHelpIndices(server.languages); err != nil {
 		return nil, err
-	}
-
-	// confirm help entries for ChanServ exist.
-	// this forces people to write help entries for every single CS command.
-	for commandName, commandInfo := range chanservCommands {
-		if commandInfo.help == "" || commandInfo.helpShort == "" {
-			return nil, fmt.Errorf("Help entry does not exist for ChanServ command %s", commandName)
-		}
-	}
-
-	// confirm help entries for NickServ exist.
-	// this forces people to write help entries for every single NS command.
-	for commandName, commandInfo := range nickservCommands {
-		if commandInfo.help == "" || commandInfo.helpShort == "" {
-			return nil, fmt.Errorf("Help entry does not exist for NickServ command %s", commandName)
-		}
 	}
 
 	// Attempt to clean up when receiving these signals.
@@ -328,8 +311,8 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 // IRC protocol listeners
 //
 
-// createListener starts the given listeners.
-func (server *Server) createListener(addr string, tlsConfig *tls.Config) *ListenerWrapper {
+// createListener starts a given listener.
+func (server *Server) createListener(addr string, tlsConfig *tls.Config) (*ListenerWrapper, error) {
 	// make listener
 	var listener net.Listener
 	var err error
@@ -342,7 +325,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 		listener, err = net.Listen("tcp", addr)
 	}
 	if err != nil {
-		log.Fatal(server, "listen error: ", err)
+		return nil, err
 	}
 
 	// throw our details to the server so we can be modified/killed later
@@ -385,7 +368,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) *Listen
 		}
 	}()
 
-	return &wrapper
+	return &wrapper, nil
 }
 
 // generateMessageID returns a network-unique message ID.
@@ -899,7 +882,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	// we are now open for business
-	server.setupListeners(config)
+	err = server.setupListeners(config)
 
 	if !initial {
 		// push new info to all of our clients
@@ -914,7 +897,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 	}
 
-	return nil
+	return err
 }
 
 func (server *Server) setupPprofListener(config *Config) {
@@ -1024,15 +1007,20 @@ func (server *Server) loadDatastore(config *Config) error {
 	return nil
 }
 
-func (server *Server) setupListeners(config *Config) {
+func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, tlsconfig *tls.Config) {
 		server.logger.Info("listeners",
 			fmt.Sprintf("now listening on %s, tls=%t.", addr, (tlsconfig != nil)),
 		)
 	}
 
+	tlsListeners, err := config.TLSListeners()
+	if err != nil {
+		server.logger.Error("rehash", "failed to reload TLS certificates, aborting rehash", err.Error())
+		return
+	}
+
 	// update or destroy all existing listeners
-	tlsListeners := config.TLSListeners()
 	for addr := range server.listeners {
 		currentListener := server.listeners[addr]
 		var stillConfigured bool
@@ -1068,7 +1056,13 @@ func (server *Server) setupListeners(config *Config) {
 		if !exists {
 			// make new listener
 			tlsConfig := tlsListeners[newaddr]
-			server.listeners[newaddr] = server.createListener(newaddr, tlsConfig)
+			listener, listenerErr := server.createListener(newaddr, tlsConfig)
+			if listenerErr != nil {
+				server.logger.Error("rehash", "couldn't listen on", newaddr, listenerErr.Error())
+				err = listenerErr
+				continue
+			}
+			server.listeners[newaddr] = listener
 			logListener(newaddr, tlsConfig)
 		}
 	}
@@ -1078,8 +1072,8 @@ func (server *Server) setupListeners(config *Config) {
 	}
 
 	var usesStandardTLSPort bool
-	for addr := range config.TLSListeners() {
-		if strings.Contains(addr, "6697") {
+	for addr := range tlsListeners {
+		if strings.HasSuffix(addr, ":6697") {
 			usesStandardTLSPort = true
 			break
 		}
@@ -1087,6 +1081,8 @@ func (server *Server) setupListeners(config *Config) {
 	if 0 < len(tlsListeners) && !usesStandardTLSPort {
 		server.logger.Warning("startup", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
+
+	return
 }
 
 // elistMatcher takes and matches ELIST conditions

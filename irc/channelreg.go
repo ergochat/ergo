@@ -250,7 +250,7 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, key))
 
 		// to see if we're deleting the right channel, confirm the founder and the registration time
-		if founder == info.Founder && registeredAt == info.RegisteredAt {
+		if founder == info.Founder && registeredAt.Unix() == info.RegisteredAt.Unix() {
 			for _, keyFmt := range channelKeyStrings {
 				tx.Delete(fmt.Sprintf(keyFmt, key))
 			}
