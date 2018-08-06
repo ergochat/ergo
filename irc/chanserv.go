@@ -63,6 +63,9 @@ invoking the command without a code will display the necessary code.`,
 			helpShort: `$bUNREGISTER$b deletes a channel registration.`,
 			enabled:   chanregEnabled,
 		},
+		"drop": {
+			aliasOf: "unregister",
+		},
 		"amode": {
 			handler: csAmodeHandler,
 			help: `Syntax: $bAMODE #channel [mode change] [account]$b

@@ -145,22 +145,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		return nil, err
 	}
 
-	// confirm help entries for ChanServ exist.
-	// this forces people to write help entries for every single CS command.
-	for commandName, commandInfo := range chanservCommands {
-		if commandInfo.help == "" || commandInfo.helpShort == "" {
-			return nil, fmt.Errorf("Help entry does not exist for ChanServ command %s", commandName)
-		}
-	}
-
-	// confirm help entries for NickServ exist.
-	// this forces people to write help entries for every single NS command.
-	for commandName, commandInfo := range nickservCommands {
-		if commandInfo.help == "" || commandInfo.helpShort == "" {
-			return nil, fmt.Errorf("Help entry does not exist for NickServ command %s", commandName)
-		}
-	}
-
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
