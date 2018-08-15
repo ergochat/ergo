@@ -355,17 +355,6 @@ debug:
     # set to `null`, "", leave blank, or omit to disable
     # pprof-listener: "localhost:6060"
 
-    # enabling StackImpact profiling
-    stackimpact:
-        # whether to use StackImpact
-        enabled: false
-
-        # the AgentKey to use
-        agent-key: examplekeyhere
-
-        # the app name to report
-        app-name: Oragono
-
 # datastore configuration
 datastore:
     # path to the datastore

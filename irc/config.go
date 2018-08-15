@@ -200,13 +200,6 @@ func (sts *STSConfig) Value() string {
 	return val
 }
 
-// StackImpactConfig is the config used for StackImpact's profiling.
-type StackImpactConfig struct {
-	Enabled  bool
-	AgentKey string `yaml:"agent-key"`
-	AppName  string `yaml:"app-name"`
-}
-
 type FakelagConfig struct {
 	Enabled           bool
 	Window            time.Duration
@@ -273,7 +266,6 @@ type Config struct {
 	Debug struct {
 		RecoverFromErrors *bool   `yaml:"recover-from-errors"`
 		PprofListener     *string `yaml:"pprof-listener"`
-		StackImpact       StackImpactConfig
 	}
 
 	Limits Limits

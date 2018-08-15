@@ -18,7 +18,6 @@ import (
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/mkcerts"
 	"github.com/oragono/oragono/irc/passwd"
-	stackimpact "github.com/stackimpact/stackimpact-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -125,20 +124,6 @@ Options:
 		irc.Commit = commit
 		if commit != "" {
 			irc.Ver = fmt.Sprintf("%s-%s", irc.Ver, commit)
-		}
-
-		// profiling
-		if config.Debug.StackImpact.Enabled {
-			if config.Debug.StackImpact.AgentKey == "" || config.Debug.StackImpact.AppName == "" {
-				logman.Error("startup", "Could not start StackImpact - agent-key or app-name are undefined")
-				return
-			}
-
-			agent := stackimpact.NewAgent()
-			agent.Start(stackimpact.Options{AgentKey: config.Debug.StackImpact.AgentKey, AppName: config.Debug.StackImpact.AppName})
-			defer agent.RecordPanic()
-
-			logman.Info("startup", fmt.Sprintf("StackImpact profiling started as %s", config.Debug.StackImpact.AppName))
 		}
 
 		// warning if running a non-final version
