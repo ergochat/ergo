@@ -99,7 +99,7 @@ certificate (and you will need to use that certificate to login in future).`,
 
 SADROP forcibly de-links the given nickname from the attached user account.`,
 			helpShort: `$bSADROP$b forcibly de-links the given nickname from its user account.`,
-			capabs:    []string{"unregister"},
+			capabs:    []string{"accreg"},
 			enabled:   servCmdRequiresAccreg,
 		},
 		"unregister": {
