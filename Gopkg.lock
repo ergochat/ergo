@@ -134,6 +134,7 @@
   packages = [
     "bcrypt",
     "blowfish",
+    "sha3",
     "ssh/terminal",
   ]
   pruneopts = ""
@@ -200,6 +201,7 @@
     "github.com/oragono/go-ident",
     "github.com/tidwall/buntdb",
     "golang.org/x/crypto/bcrypt",
+    "golang.org/x/crypto/sha3",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/text/secure/precis",
     "gopkg.in/yaml.v2",
