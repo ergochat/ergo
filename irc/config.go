@@ -81,8 +81,7 @@ type AccountRegistrationConfig struct {
 			VerifyMessage        string `yaml:"verify-message"`
 		}
 	}
-	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
-	BcryptCost                 uint `yaml:"bcrypt-cost"`
+	BcryptCost uint `yaml:"bcrypt-cost"`
 }
 
 type VHostConfig struct {
@@ -193,13 +192,6 @@ func (sts *STSConfig) Value() string {
 	return val
 }
 
-// StackImpactConfig is the config used for StackImpact's profiling.
-type StackImpactConfig struct {
-	Enabled  bool
-	AgentKey string `yaml:"agent-key"`
-	AppName  string `yaml:"app-name"`
-}
-
 type FakelagConfig struct {
 	Enabled           bool
 	Window            time.Duration
@@ -266,7 +258,6 @@ type Config struct {
 	Debug struct {
 		RecoverFromErrors *bool   `yaml:"recover-from-errors"`
 		PprofListener     *string `yaml:"pprof-listener"`
-		StackImpact       StackImpactConfig
 	}
 
 	Limits Limits
@@ -406,17 +397,17 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 }
 
 // TLSListeners returns a list of TLS listeners and their configs.
-func (conf *Config) TLSListeners() map[string]*tls.Config {
+func (conf *Config) TLSListeners() (map[string]*tls.Config, error) {
 	tlsListeners := make(map[string]*tls.Config)
 	for s, tlsListenersConf := range conf.Server.TLSListeners {
 		config, err := tlsListenersConf.Config()
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		config.ClientAuth = tls.RequestClientCert
 		tlsListeners[s] = config
 	}
-	return tlsListeners
+	return tlsListeners, nil
 }
 
 // LoadConfig loads the given YAML configuration file.

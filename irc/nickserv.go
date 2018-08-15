@@ -20,6 +20,11 @@ func servCmdRequiresAuthEnabled(server *Server) bool {
 	return server.AccountConfig().AuthenticationEnabled
 }
 
+func nsGroupEnabled(server *Server) bool {
+	conf := server.Config()
+	return conf.Accounts.AuthenticationEnabled && conf.Accounts.NickReservation.Enabled
+}
+
 const nickservHelp = `NickServ lets you register and login to an account.
 
 To see in-depth help for a specific NickServ command, try:
@@ -55,7 +60,7 @@ same user account, letting you reclaim your nickname.`,
 GROUP links your current nickname with your logged-in account, preventing other
 users from changing to it (or forcing them to rename).`,
 			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      nsGroupEnabled,
 			authRequired: true,
 		},
 
@@ -94,7 +99,7 @@ certificate (and you will need to use that certificate to login in future).`,
 
 SADROP forcibly de-links the given nickname from the attached user account.`,
 			helpShort: `$bSADROP$b forcibly de-links the given nickname from its user account.`,
-			capabs:    []string{"unregister"},
+			capabs:    []string{"accreg"},
 			enabled:   servCmdRequiresAccreg,
 		},
 		"unregister": {
@@ -259,12 +264,8 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 	}
 
 	if client.LoggedIntoAccount() {
-		if server.AccountConfig().Registration.AllowMultiplePerConnection {
-			server.accounts.Logout(client)
-		} else {
-			nsNotice(rb, client.t("You're already logged into an account"))
-			return
-		}
+		nsNotice(rb, client.t("You're already logged into an account"))
+		return
 	}
 
 	config := server.AccountConfig()

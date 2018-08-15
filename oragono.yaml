@@ -166,10 +166,6 @@ accounts:
         #         password: ""
         #         sender: "admin@my.network"
 
-        # allow multiple account registrations per connection
-        # this is for testing purposes and shouldn't be allowed on real networks
-        allow-multiple-per-connection: false
-
     # is account authentication enabled?
     authentication-enabled: true
 
@@ -361,17 +357,6 @@ debug:
     # if you need to access it remotely, you can use an SSH tunnel.
     # set to `null`, "", leave blank, or omit to disable
     # pprof-listener: "localhost:6060"
-
-    # enabling StackImpact profiling
-    stackimpact:
-        # whether to use StackImpact
-        enabled: false
-
-        # the AgentKey to use
-        agent-key: examplekeyhere
-
-        # the app name to report
-        app-name: Oragono
 
 # datastore configuration
 datastore:

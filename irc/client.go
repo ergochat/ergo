@@ -7,7 +7,6 @@ package irc
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -82,8 +81,8 @@ type Client struct {
 	vhost              string
 }
 
-// NewClient returns a client with all the appropriate info setup.
-func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
+// NewClient sets up a new client and starts its goroutine.
+func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	now := time.Now()
 	config := server.Config()
 	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
@@ -114,15 +113,17 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 	}
 	if config.Server.CheckIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
 		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
+		if err != nil {
+			server.logger.Error("internal", "bad server address", err.Error())
+			return
+		}
 		serverPort, _ := strconv.Atoi(serverPortString)
-		if err != nil {
-			log.Fatal(err)
-		}
 		clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
-		clientPort, _ := strconv.Atoi(clientPortString)
 		if err != nil {
-			log.Fatal(err)
+			server.logger.Error("internal", "bad client address", err.Error())
+			return
 		}
+		clientPort, _ := strconv.Atoi(clientPortString)
 
 		client.Notice(client.t("*** Looking up your username"))
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
@@ -141,8 +142,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) *Client {
 		}
 	}
 	go client.run()
-
-	return client
 }
 
 func (client *Client) resetFakelag() {
@@ -766,11 +765,12 @@ func (client *Client) destroy(beingResumed bool) {
 
 	// send quit messages to friends
 	if !beingResumed {
-		client.server.stats.ChangeTotal(-1)
+		if client.Registered() {
+			client.server.stats.ChangeTotal(-1)
+		}
 		if client.HasMode(modes.Invisible) {
 			client.server.stats.ChangeInvisible(-1)
 		}
-
 		if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
 			client.server.stats.ChangeOperators(-1)
 		}

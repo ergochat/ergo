@@ -84,12 +84,8 @@ func parseCallback(spec string, config *AccountConfig) (callbackNamespace string
 func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// clients can't reg new accounts if they're already logged in
 	if client.LoggedIntoAccount() {
-		if server.AccountConfig().Registration.AllowMultiplePerConnection {
-			server.accounts.Logout(client)
-		} else {
-			rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
-			return false
-		}
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
+		return false
 	}
 
 	// get and sanitise account name

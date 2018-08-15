@@ -77,10 +77,6 @@
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/stackimpact/stackimpact-go"
-
-[[dependencies]]
-  branch = "master"
   name = "github.com/tidwall/buntdb"
 
 [[dependencies]]
