@@ -264,12 +264,8 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 	}
 
 	if client.LoggedIntoAccount() {
-		if server.AccountConfig().Registration.AllowMultiplePerConnection {
-			server.accounts.Logout(client)
-		} else {
-			nsNotice(rb, client.t("You're already logged into an account"))
-			return
-		}
+		nsNotice(rb, client.t("You're already logged into an account"))
+		return
 	}
 
 	config := server.AccountConfig()

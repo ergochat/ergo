@@ -81,7 +81,6 @@ type AccountRegistrationConfig struct {
 			VerifyMessage        string `yaml:"verify-message"`
 		}
 	}
-	AllowMultiplePerConnection bool `yaml:"allow-multiple-per-connection"`
 }
 
 type VHostConfig struct {

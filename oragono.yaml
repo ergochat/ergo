@@ -163,10 +163,6 @@ accounts:
         #         password: ""
         #         sender: "admin@my.network"
 
-        # allow multiple account registrations per connection
-        # this is for testing purposes and shouldn't be allowed on real networks
-        allow-multiple-per-connection: false
-
     # is account authentication enabled?
     authentication-enabled: true
 
