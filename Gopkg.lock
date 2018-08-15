@@ -2,132 +2,157 @@
 
 
 [[projects]]
+  digest = "1:1bd4d273de93fce29ca3636145ccfcb932754f56e4c099297319e677e89f658d"
   name = "code.cloudfoundry.org/bytefmt"
   packages = ["."]
+  pruneopts = ""
   revision = "cbe033486cf0620d3bb77d8ef7f22ab346ad3628"
 
 [[projects]]
   branch = "master"
+  digest = "1:20da7140359cab99772431cbeb195bd8cbe76312fcf6509fd8125cf91ab2847b"
   name = "github.com/docopt/docopt-go"
   packages = ["."]
+  pruneopts = ""
   revision = "ee0de3bc6815ee19d4a46c7eb90f829db0e014b1"
 
 [[projects]]
   branch = "master"
+  digest = "1:5d1f0cdebbc2a5237b572fa539bdb0aefea36780cdc1dbeda3b2f5d39f8f375d"
   name = "github.com/goshuirc/e-nfa"
   packages = ["."]
+  pruneopts = ""
   revision = "7071788e394065e6456458a5e9cb503cad545154"
 
 [[projects]]
   branch = "master"
+  digest = "1:d7ff716c49f33735c9e25e11b67e70f9eac7eb6c21b9806b0552b52541a568f5"
   name = "github.com/goshuirc/irc-go"
   packages = [
     "ircfmt",
     "ircmatch",
-    "ircmsg"
+    "ircmsg",
   ]
+  pruneopts = ""
   revision = "8d136c4f92871c1c132bf702022363add479291b"
 
 [[projects]]
   branch = "master"
+  digest = "1:5be6259a2ab7350284d8c25b8df78153dcca360247be48ea7c55be37689802f4"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
+  pruneopts = ""
   revision = "7dc3415be66d7cc68bf0182f35c8d31f8d2ad8a7"
 
 [[projects]]
+  digest = "1:78229b46ddb7434f881390029bd1af7661294af31f6802e0e1bedaad4ab0af3c"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
+  pruneopts = ""
   revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
   version = "v0.0.3"
 
 [[projects]]
   branch = "master"
+  digest = "1:50416da10e189bc201e122e20078fb8e680a439cbdd24aaece06c434b4415b60"
   name = "github.com/mgutz/ansi"
   packages = ["."]
+  pruneopts = ""
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
   branch = "master"
+  digest = "1:2251e6a17ea4a6eaa708882a1cda837aae3e425edbb190ef39b761ecf15a5c3d"
   name = "github.com/oragono/go-ident"
   packages = ["."]
+  pruneopts = ""
   revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
   branch = "master"
-  name = "github.com/stackimpact/stackimpact-go"
-  packages = [
-    ".",
-    "internal",
-    "internal/pprof/profile"
-  ]
-  revision = "8b5b02c181e477dafcf505342d8a79b5c8241da7"
-
-[[projects]]
-  branch = "master"
+  digest = "1:b28f2f9253cbb1bf2bcb3c0ab7421d2f88a245386199a6668b0a66eb09ce3e1f"
   name = "github.com/tidwall/btree"
   packages = ["."]
+  pruneopts = ""
   revision = "9876f1454cf0993a53d74c27196993e345f50dd1"
 
 [[projects]]
+  digest = "1:18342f164260096848ceff7c53cf797dbc1556d8161ad51cfc22281916209a5a"
   name = "github.com/tidwall/buntdb"
   packages = ["."]
+  pruneopts = ""
   revision = "2da7c106683f522198cdf55ed8db42b374de50d7"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:82fa3d995465f05e4c5e7f44a94d084b84a547ad77e41458fe9ec0877d04dced"
   name = "github.com/tidwall/gjson"
   packages = ["."]
+  pruneopts = ""
   revision = "87033efcaec6215741137e8ca61952c53ef2685d"
   version = "v1.0.6"
 
 [[projects]]
   branch = "master"
+  digest = "1:bf59f997bab72b8ecd044aed35d706edb6abd6128afe0502c94398b2374f1f3f"
   name = "github.com/tidwall/grect"
   packages = ["."]
+  pruneopts = ""
   revision = "ba9a043346eba55344e40d66a5e74cfda3a9d293"
 
 [[projects]]
   branch = "master"
+  digest = "1:4db4f92bb9cb04cfc4fccb36aba2598b02a988008c4cc0692b241214ad8ac96e"
   name = "github.com/tidwall/match"
   packages = ["."]
+  pruneopts = ""
   revision = "1731857f09b1f38450e2c12409748407822dc6be"
 
 [[projects]]
   branch = "master"
+  digest = "1:5d9d865e55b95f001e52a7f5d1f812e8a80f0f05d5b04ede006f24206ebba33c"
   name = "github.com/tidwall/rtree"
   packages = [
     ".",
-    "base"
+    "base",
   ]
+  pruneopts = ""
   revision = "6cd427091e0e662cb4f8e2c9eb1a41e1c46ff0d3"
 
 [[projects]]
   branch = "master"
+  digest = "1:261a5770e68d10884a6d334396842d69ddb57ac5ecef60057eb5bce6f4bc7512"
   name = "github.com/tidwall/tinyqueue"
   packages = ["."]
+  pruneopts = ""
   revision = "1feaf062ef04a231c9126f99a68eaa579fd0e390"
 
 [[projects]]
   branch = "master"
+  digest = "1:295363031beef7eb063d53138806b43f26c38d8a3e2543324ce2af3c766069de"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
     "blowfish",
-    "ssh/terminal"
+    "ssh/terminal",
   ]
+  pruneopts = ""
   revision = "5119cf507ed5294cc409c092980c7497ee5d6fd2"
 
 [[projects]]
   branch = "master"
+  digest = "1:407b5f905024dd94ee08c1777fabb380fb3d380f92a7f7df2592be005337eeb3"
   name = "golang.org/x/sys"
   packages = [
     "unix",
-    "windows"
+    "windows",
   ]
+  pruneopts = ""
   revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
   branch = "master"
+  digest = "1:31985a0ed491dba5ba7fe92e18be008acd92ca9435ed9b35b06f3e6c00fd82cb"
   name = "golang.org/x/text"
   packages = [
     "cases",
@@ -148,19 +173,36 @@
     "unicode/cldr",
     "unicode/norm",
     "unicode/rangetable",
-    "width"
+    "width",
   ]
+  pruneopts = ""
   revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
   branch = "v2"
+  digest = "1:4b4e5848dfe7f316f95f754df071bebfb40cf4482da62e17e7e1aebdf11f4918"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
+  pruneopts = ""
   revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1f6e6db999e9e75b04aee6f0018be1557848f8248a28cf21783188fdeb866718"
+  input-imports = [
+    "code.cloudfoundry.org/bytefmt",
+    "github.com/docopt/docopt-go",
+    "github.com/goshuirc/irc-go/ircfmt",
+    "github.com/goshuirc/irc-go/ircmatch",
+    "github.com/goshuirc/irc-go/ircmsg",
+    "github.com/mattn/go-colorable",
+    "github.com/mgutz/ansi",
+    "github.com/oragono/go-ident",
+    "github.com/tidwall/buntdb",
+    "golang.org/x/crypto/bcrypt",
+    "golang.org/x/crypto/ssh/terminal",
+    "golang.org/x/text/secure/precis",
+    "gopkg.in/yaml.v2",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
