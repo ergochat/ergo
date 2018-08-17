@@ -239,9 +239,12 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
 func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
 	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-
 	clientModes := channel.members[client]
+	channel.stateMutex.RUnlock()
+
+	if clientModes == nil {
+		return false
+	}
 
 	for _, mode := range modes.ChannelUserModes {
 		if clientModes.HasMode(mode) {
