@@ -108,7 +108,6 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 	// so we only output one warning for each list type when full
 	listFullWarned := make(map[modes.Mode]bool)
 
-	clientIsOp := channel.ClientIsAtLeast(client, modes.ChannelOperator)
 	var alreadySentPrivError bool
 
 	applied := make(modes.ModeChanges, 0)
@@ -141,9 +140,9 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			return channel.ClientIsAtLeast(client, change.Mode)
 		case modes.BanMask:
 			// #163: allow unprivileged users to list ban masks
-			return clientIsOp || isListOp(change)
+			return isListOp(change) || channel.ClientIsAtLeast(client, modes.ChannelOperator)
 		default:
-			return clientIsOp
+			return channel.ClientIsAtLeast(client, modes.ChannelOperator)
 		}
 	}
 
