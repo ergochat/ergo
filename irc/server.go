@@ -599,34 +599,35 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 }
 
 func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
-	target.stateMutex.RLock()
-	defer target.stateMutex.RUnlock()
-
-	rb.Add(nil, client.server.name, RPL_WHOISUSER, client.nick, target.nick, target.username, target.hostname, "*", target.realname)
+	cnick := client.Nick()
+	targetInfo := target.WhoWas()
+	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nickname, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
+	tnick := targetInfo.nickname
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
-		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, client.nick, target.nick, strings.Join(whoischannels, " "))
+		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
 	tOper := target.Oper()
 	if tOper != nil {
-		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, client.nick, target.nick, tOper.WhoisLine)
+		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 	}
 	if client.HasMode(modes.Operator) || client == target {
-		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, client.nick, target.nick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
 	if target.HasMode(modes.TLS) {
-		rb.Add(nil, client.server.name, RPL_WHOISSECURE, client.nick, target.nick, client.t("is using a secure connection"))
+		rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
 	}
-	if target.LoggedIntoAccount() {
-		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, client.nick, target.AccountName(), client.t("is logged in as"))
+	taccount := target.AccountName()
+	if taccount != "*" {
+		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, taccount, client.t("is logged in as"))
 	}
 	if target.HasMode(modes.Bot) {
-		rb.Add(nil, client.server.name, RPL_WHOISBOT, client.nick, target.nick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
+		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
 	if 0 < len(target.languages) {
-		params := []string{client.nick, target.nick}
+		params := []string{cnick, tnick}
 		for _, str := range client.server.languages.Codes(target.languages) {
 			params = append(params, str)
 		}
@@ -635,9 +636,9 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	}
 
 	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
-		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, client.nick, target.nick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
+		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
-	rb.Add(nil, client.server.name, RPL_WHOISIDLE, client.nick, target.nick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
+	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 }
 
 // rplWhoReply returns the WHO reply between one user and another channel/user.
