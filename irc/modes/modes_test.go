@@ -78,7 +78,8 @@ func TestSetMode(t *testing.T) {
 }
 
 func TestNilReceivers(t *testing.T) {
-	var set ModeSet
+	set := NewModeSet()
+	set = nil
 
 	if set.HasMode(Invisible) {
 		t.Errorf("nil ModeSet should not have any modes")
