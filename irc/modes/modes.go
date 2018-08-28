@@ -341,6 +341,10 @@ func NewModeSet() *ModeSet {
 
 // test whether `mode` is set
 func (set *ModeSet) HasMode(mode Mode) bool {
+	if set == nil {
+		return false
+	}
+
 	return utils.BitsetGet(set[:], uint(mode)-minMode)
 }
 
