@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -212,6 +213,7 @@ type Config struct {
 		Name                string
 		nameCasefolded      string
 		Listen              []string
+		UnixBindMode        os.FileMode                 `yaml:"unix-bind-mode"`
 		TLSListeners        map[string]*TLSListenConfig `yaml:"tls-listeners"`
 		STS                 STSConfig
 		CheckIdent          bool `yaml:"check-ident"`
@@ -240,9 +242,9 @@ type Config struct {
 	Accounts AccountConfig
 
 	Channels struct {
-		RawDefaultModes *string `yaml:"default-modes"`
-		defaultModes    modes.Modes
-		Registration    ChannelRegistrationConfig
+		DefaultModes *string `yaml:"default-modes"`
+		defaultModes modes.Modes
+		Registration ChannelRegistrationConfig
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
@@ -697,7 +699,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.operators = opers
 
 	// parse default channel modes
-	config.Channels.defaultModes = ParseDefaultChannelModes(config.Channels.RawDefaultModes)
+	config.Channels.defaultModes = ParseDefaultChannelModes(config.Channels.DefaultModes)
 
 	if config.Server.Password != "" {
 		config.Server.passwordBytes, err = decodeLegacyPasswordHash(config.Server.Password)

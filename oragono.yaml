@@ -16,8 +16,13 @@ server:
         - "127.0.0.1:6668"
         - "[::1]:6668"
         - ":6697" # ssl port
-        # unix domain socket for proxying:
+        # Unix domain socket for proxying:
         # - "/tmp/oragono_sock"
+
+    # permissions for Unix listen sockets. the default of 0755 is only accessible
+    # by the user that owns the oragono process. change to 0777 for behavior like
+    # a regular TCP socket (processes owned by any user can connect to oragono):
+    # unix-bind-mode: 0755
 
     # tls listeners
     tls-listeners:
