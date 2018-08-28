@@ -5,7 +5,6 @@
 package irc
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 
 	"github.com/tidwall/buntdb"
@@ -25,8 +23,6 @@ const (
 	keySchemaVersion = "db.version"
 	// latest schema of the db
 	latestDbSchema = "3"
-	// key for the primary salt used by the ircd
-	keySalt = "crypto.salt"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -68,14 +64,6 @@ func InitDB(path string) {
 	defer store.Close()
 
 	err = store.Update(func(tx *buntdb.Tx) error {
-		// set base db salt
-		salt, err := passwd.NewSalt()
-		encodedSalt := base64.StdEncoding.EncodeToString(salt)
-		if err != nil {
-			log.Fatal("Could not generate cryptographically-secure salt for the user:", err.Error())
-		}
-		tx.Set(keySalt, encodedSalt, nil)
-
 		// set schema version
 		tx.Set(keySchemaVersion, latestDbSchema, nil)
 		return nil

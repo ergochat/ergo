@@ -81,6 +81,7 @@ type AccountRegistrationConfig struct {
 			VerifyMessage        string `yaml:"verify-message"`
 		}
 	}
+	BcryptCost uint `yaml:"bcrypt-cost"`
 }
 
 type VHostConfig struct {
@@ -149,15 +150,6 @@ type OperConfig struct {
 	WhoisLine string `yaml:"whois-line"`
 	Password  string
 	Modes     string
-}
-
-// PasswordBytes returns the bytes represented by the password hash.
-func (conf *OperConfig) PasswordBytes() []byte {
-	bytes, err := passwd.DecodePasswordHash(conf.Password)
-	if err != nil {
-		log.Fatal("decode password error: ", err)
-	}
-	return bytes
 }
 
 // LineLenConfig controls line lengths.
@@ -375,7 +367,11 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		}
 		oper.Name = name
 
-		oper.Pass = opConf.PasswordBytes()
+		oper.Pass, err = decodeLegacyPasswordHash(opConf.Password)
+		if err != nil {
+			return nil, err
+		}
+
 		oper.Vhost = opConf.Vhost
 		class, exists := oc[opConf.Class]
 		if !exists {
@@ -704,11 +700,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Channels.defaultModes = ParseDefaultChannelModes(config.Channels.RawDefaultModes)
 
 	if config.Server.Password != "" {
-		bytes, err := passwd.DecodePasswordHash(config.Server.Password)
+		config.Server.passwordBytes, err = decodeLegacyPasswordHash(config.Server.Password)
 		if err != nil {
 			return nil, err
 		}
-		config.Server.passwordBytes = bytes
+	}
+
+	if config.Accounts.Registration.BcryptCost == 0 {
+		config.Accounts.Registration.BcryptCost = passwd.DefaultCost
 	}
 
 	return config, nil

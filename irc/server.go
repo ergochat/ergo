@@ -8,7 +8,6 @@ package irc
 import (
 	"bufio"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"net"
@@ -30,7 +29,6 @@ import (
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -89,7 +87,6 @@ type Server struct {
 	motdLines              []string
 	name                   string
 	nameCasefolded         string
-	passwords              *passwd.SaltedManager
 	rehashMutex            sync.Mutex // tier 4
 	rehashSignal           chan os.Signal
 	pprofServer            *http.Server
@@ -979,27 +976,6 @@ func (server *Server) loadDatastore(config *Config) error {
 	server.logger.Debug("startup", "Loading D/Klines")
 	server.loadDLines()
 	server.loadKLines()
-
-	// load password manager
-	server.logger.Debug("startup", "Loading passwords")
-	err = server.store.View(func(tx *buntdb.Tx) error {
-		saltString, err := tx.Get(keySalt)
-		if err != nil {
-			return fmt.Errorf("Could not retrieve salt string: %s", err.Error())
-		}
-
-		salt, err := base64.StdEncoding.DecodeString(saltString)
-		if err != nil {
-			return err
-		}
-
-		pwm := passwd.NewSaltedManager(salt)
-		server.passwords = &pwm
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("Could not load salt: %s", err.Error())
-	}
 
 	server.channelRegistry = NewChannelRegistry(server)
 

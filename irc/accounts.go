@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/passwd"
@@ -175,7 +176,8 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	}
 
 	// can't register a guest nickname
-	renamePrefix := strings.ToLower(am.server.AccountConfig().NickReservation.RenamePrefix)
+	config := am.server.AccountConfig()
+	renamePrefix := strings.ToLower(config.NickReservation.RenamePrefix)
 	if renamePrefix != "" && strings.HasPrefix(casefoldedAccount, renamePrefix) {
 		return errAccountAlreadyRegistered
 	}
@@ -188,34 +190,16 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
-	var creds AccountCredentials
-	// always set passphrase salt
-	creds.PassphraseSalt, err = passwd.NewSalt()
+	credStr, err := am.serializeCredentials(passphrase, certfp)
 	if err != nil {
-		return errAccountCreation
+		return err
 	}
-	// it's fine if this is empty, that just means no certificate is authorized
-	creds.Certificate = certfp
-	if passphrase != "" {
-		creds.PassphraseHash, err = am.server.passwords.GenerateFromPassword(creds.PassphraseSalt, passphrase)
-		if err != nil {
-			am.server.logger.Error("internal", fmt.Sprintf("could not hash password: %v", err))
-			return errAccountCreation
-		}
-	}
-
-	credText, err := json.Marshal(creds)
-	if err != nil {
-		am.server.logger.Error("internal", fmt.Sprintf("could not marshal credentials: %v", err))
-		return errAccountCreation
-	}
-	credStr := string(credText)
 
 	registeredTimeStr := strconv.FormatInt(time.Now().Unix(), 10)
 	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
-	ttl := am.server.AccountConfig().Registration.VerifyTimeout
+	ttl := config.Registration.VerifyTimeout
 	if ttl != 0 {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}
@@ -269,6 +253,75 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			return err
 		})
 	}
+}
+
+// validatePassphrase checks whether a passphrase is allowed by our rules
+func validatePassphrase(passphrase string) error {
+	// sanity check the length
+	if len(passphrase) == 0 || len(passphrase) > 600 {
+		return errAccountBadPassphrase
+	}
+	// for now, just enforce that spaces are not allowed
+	for _, r := range passphrase {
+		if unicode.IsSpace(r) {
+			return errAccountBadPassphrase
+		}
+	}
+	return nil
+}
+
+// helper to assemble the serialized JSON for an account's credentials
+func (am *AccountManager) serializeCredentials(passphrase string, certfp string) (result string, err error) {
+	var creds AccountCredentials
+	creds.Version = 1
+	// we need at least one of passphrase and certfp:
+	if passphrase == "" && certfp == "" {
+		return "", errAccountBadPassphrase
+	}
+	// but if we have one, it's fine if the other is missing, it just means no
+	// credential of that type will be accepted.
+	creds.Certificate = certfp
+	if passphrase != "" {
+		if validatePassphrase(passphrase) != nil {
+			return "", errAccountBadPassphrase
+		}
+		bcryptCost := int(am.server.Config().Accounts.Registration.BcryptCost)
+		creds.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), bcryptCost)
+		if err != nil {
+			am.server.logger.Error("internal", fmt.Sprintf("could not hash password: %v", err))
+			return "", errAccountCreation
+		}
+	}
+
+	credText, err := json.Marshal(creds)
+	if err != nil {
+		am.server.logger.Error("internal", fmt.Sprintf("could not marshal credentials: %v", err))
+		return "", errAccountCreation
+	}
+	return string(credText), nil
+}
+
+// changes the password for an account
+func (am *AccountManager) setPassword(account string, password string) (err error) {
+	casefoldedAccount, err := CasefoldName(account)
+	if err != nil {
+		return err
+	}
+	act, err := am.LoadAccount(casefoldedAccount)
+	if err != nil {
+		return err
+	}
+
+	credStr, err := am.serializeCredentials(password, act.Credentials.Certificate)
+	if err != nil {
+		return err
+	}
+
+	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
+	return am.server.store.Update(func(tx *buntdb.Tx) error {
+		_, _, err := tx.Set(credentialsKey, credStr, nil)
+		return err
+	})
 }
 
 func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount string, callbackNamespace string, callbackValue string) (string, error) {
@@ -522,8 +575,15 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		return errAccountUnverified
 	}
 
-	err = am.server.passwords.CompareHashAndPassword(
-		account.Credentials.PassphraseHash, account.Credentials.PassphraseSalt, passphrase)
+	switch account.Credentials.Version {
+	case 0:
+		err = handleLegacyPasswordV0(am.server, accountName, account.Credentials, passphrase)
+	case 1:
+		err = passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase))
+	default:
+		err = errAccountInvalidCredentials
+	}
+
 	if err != nil {
 		return errAccountInvalidCredentials
 	}
@@ -982,7 +1042,8 @@ var (
 
 // AccountCredentials stores the various methods for verifying accounts.
 type AccountCredentials struct {
-	PassphraseSalt []byte
+	Version        uint
+	PassphraseSalt []byte // legacy field, not used by v1 and later
 	PassphraseHash []byte
 	Certificate    string // fingerprint
 }
