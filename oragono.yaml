@@ -19,10 +19,11 @@ server:
         # Unix domain socket for proxying:
         # - "/tmp/oragono_sock"
 
-    # permissions for Unix listen sockets. the default of 0755 is only accessible
-    # by the user that owns the oragono process. change to 0777 for behavior like
-    # a regular TCP socket (processes owned by any user can connect to oragono):
-    # unix-bind-mode: 0755
+    # sets the permissions for Unix listen sockets. on a typical Linux system,
+    # the default is 0775 or 0755, which prevents other users/groups from connecting
+    # to the socket. With 0777, it behaves like a normal TCP socket
+    # where anyone can connect.
+    unix-bind-mode: 0777
 
     # tls listeners
     tls-listeners:
