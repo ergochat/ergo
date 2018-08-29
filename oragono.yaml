@@ -16,8 +16,14 @@ server:
         - "127.0.0.1:6668"
         - "[::1]:6668"
         - ":6697" # ssl port
-        # unix domain socket for proxying:
+        # Unix domain socket for proxying:
         # - "/tmp/oragono_sock"
+
+    # sets the permissions for Unix listen sockets. on a typical Linux system,
+    # the default is 0775 or 0755, which prevents other users/groups from connecting
+    # to the socket. With 0777, it behaves like a normal TCP socket
+    # where anyone can connect.
+    unix-bind-mode: 0777
 
     # tls listeners
     tls-listeners:

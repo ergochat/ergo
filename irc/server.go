@@ -309,7 +309,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 //
 
 // createListener starts a given listener.
-func (server *Server) createListener(addr string, tlsConfig *tls.Config) (*ListenerWrapper, error) {
+func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMode os.FileMode) (*ListenerWrapper, error) {
 	// make listener
 	var listener net.Listener
 	var err error
@@ -318,6 +318,9 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config) (*Liste
 		// https://stackoverflow.com/a/34881585
 		os.Remove(addr)
 		listener, err = net.Listen("unix", addr)
+		if err == nil && bindMode != 0 {
+			os.Chmod(addr, bindMode)
+		}
 	} else {
 		listener, err = net.Listen("tcp", addr)
 	}
@@ -1033,7 +1036,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		if !exists {
 			// make new listener
 			tlsConfig := tlsListeners[newaddr]
-			listener, listenerErr := server.createListener(newaddr, tlsConfig)
+			listener, listenerErr := server.createListener(newaddr, tlsConfig, config.Server.UnixBindMode)
 			if listenerErr != nil {
 				server.logger.Error("rehash", "couldn't listen on", newaddr, listenerErr.Error())
 				err = listenerErr
