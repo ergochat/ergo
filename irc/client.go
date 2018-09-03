@@ -246,6 +246,8 @@ func (client *Client) run() {
 	// (may be overridden by a later PROXY command from stunnel)
 	client.rawHostname = utils.AddrLookupHostname(client.socket.conn.RemoteAddr())
 
+	firstLine := true
+
 	for {
 		maxlenTags, maxlenRest := client.recomputeMaxlens()
 
@@ -259,7 +261,20 @@ func (client *Client) run() {
 			break
 		}
 
-		client.server.logger.Debug("userinput ", client.nick, "<- ", line)
+		client.server.logger.Debug("userinput", client.nick, "<- ", line)
+
+		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
+		if firstLine {
+			firstLine = false
+			if strings.HasPrefix(line, "PROXY") {
+				err = handleProxyCommand(client.server, client, line)
+				if err != nil {
+					break
+				} else {
+					continue
+				}
+			}
+		}
 
 		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
 		if err == ircmsg.ErrorLineIsEmpty {
