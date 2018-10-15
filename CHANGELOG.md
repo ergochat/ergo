@@ -10,6 +10,7 @@ New release of Oragono!
 ### Config Changes
 * `allow-multiple-per-connection` key removed from `accounts`.
 * `autoupgrade` key added under `datastore`, specifying whether to upgrade to new database versions automatically.
+* `bcrypt-cost` key added under `accounts`, to control how strongly account passwords are hashed.
 * `stackimpact` section removed from `debug`.
 * `unix-bind-mode` key added under `server`, controlling the bind mode used for unix listening sockets.
 * `vhosts` section added under `accounts`, configuring our new vhost support.
