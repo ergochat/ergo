@@ -2,62 +2,63 @@
 
 
 [[projects]]
-  digest = "1:1bd4d273de93fce29ca3636145ccfcb932754f56e4c099297319e677e89f658d"
+  branch = "master"
+  digest = "1:d1a104572273cfb58e801812704dca4fe2eab80f3b0144592a722a76c280c598"
   name = "code.cloudfoundry.org/bytefmt"
   packages = ["."]
-  pruneopts = ""
-  revision = "cbe033486cf0620d3bb77d8ef7f22ab346ad3628"
+  pruneopts = "UT"
+  revision = "2aa6f33b730c79971cfc3c742f279195b0abc627"
 
 [[projects]]
-  branch = "master"
-  digest = "1:20da7140359cab99772431cbeb195bd8cbe76312fcf6509fd8125cf91ab2847b"
+  digest = "1:abaaa7489a2f0f3afb2adc8ea1a282a5bd52350b87b26da220c94fc778d6d63b"
   name = "github.com/docopt/docopt-go"
   packages = ["."]
-  pruneopts = ""
-  revision = "ee0de3bc6815ee19d4a46c7eb90f829db0e014b1"
+  pruneopts = "UT"
+  revision = "784ddc588536785e7299f7272f39101f7faccc3f"
+  version = "0.6.2"
 
 [[projects]]
   branch = "master"
-  digest = "1:5d1f0cdebbc2a5237b572fa539bdb0aefea36780cdc1dbeda3b2f5d39f8f375d"
+  digest = "1:148948635cfd8724af31d43ed024dac11c2b87c27a2a3eeb6c04e7360ab56366"
   name = "github.com/goshuirc/e-nfa"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "7071788e394065e6456458a5e9cb503cad545154"
 
 [[projects]]
   branch = "master"
-  digest = "1:d7ff716c49f33735c9e25e11b67e70f9eac7eb6c21b9806b0552b52541a568f5"
+  digest = "1:36bb9ad6dfc5cf44265b463d53dd048e5da196b0f626e4805d6e327a8cbe9abd"
   name = "github.com/goshuirc/irc-go"
   packages = [
     "ircfmt",
     "ircmatch",
     "ircmsg",
   ]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "8d136c4f92871c1c132bf702022363add479291b"
 
 [[projects]]
-  branch = "master"
-  digest = "1:5be6259a2ab7350284d8c25b8df78153dcca360247be48ea7c55be37689802f4"
+  digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  pruneopts = ""
-  revision = "7dc3415be66d7cc68bf0182f35c8d31f8d2ad8a7"
+  pruneopts = "UT"
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
 
 [[projects]]
-  digest = "1:78229b46ddb7434f881390029bd1af7661294af31f6802e0e1bedaad4ab0af3c"
+  digest = "1:0981502f9816113c9c8c4ac301583841855c8cf4da8c72f696b3ebedf6d0e4e5"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
-  pruneopts = ""
-  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
-  version = "v0.0.3"
+  pruneopts = "UT"
+  revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
+  version = "v0.0.4"
 
 [[projects]]
   branch = "master"
-  digest = "1:50416da10e189bc201e122e20078fb8e680a439cbdd24aaece06c434b4415b60"
+  digest = "1:2b32af4d2a529083275afc192d1067d8126b578c7a9613b26600e4df9c735155"
   name = "github.com/mgutz/ansi"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
@@ -65,71 +66,71 @@
   digest = "1:2251e6a17ea4a6eaa708882a1cda837aae3e425edbb190ef39b761ecf15a5c3d"
   name = "github.com/oragono/go-ident"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "337fed0fd21ad538725cfcb55053ea4cf8056abc"
 
 [[projects]]
   branch = "master"
-  digest = "1:b28f2f9253cbb1bf2bcb3c0ab7421d2f88a245386199a6668b0a66eb09ce3e1f"
+  digest = "1:3297205be37afe3f25875b99ad48babe2aebb6e0cf61631d6d9851ecb266370e"
   name = "github.com/tidwall/btree"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "9876f1454cf0993a53d74c27196993e345f50dd1"
 
 [[projects]]
-  digest = "1:18342f164260096848ceff7c53cf797dbc1556d8161ad51cfc22281916209a5a"
+  digest = "1:0d52ec71bbf60ef362ba12db486a7639acdc09e703c93c36c43a7844d071b1ce"
   name = "github.com/tidwall/buntdb"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "2da7c106683f522198cdf55ed8db42b374de50d7"
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:82fa3d995465f05e4c5e7f44a94d084b84a547ad77e41458fe9ec0877d04dced"
+  digest = "1:2cab41f59638fdb77dda96ab4f9b5860ef30f48967557254eba127e43c756f2e"
   name = "github.com/tidwall/gjson"
   packages = ["."]
-  pruneopts = ""
-  revision = "87033efcaec6215741137e8ca61952c53ef2685d"
-  version = "v1.0.6"
+  pruneopts = "UT"
+  revision = "1e3f6aeaa5bad08d777ea7807b279a07885dd8b2"
+  version = "v1.1.3"
 
 [[projects]]
   branch = "master"
-  digest = "1:bf59f997bab72b8ecd044aed35d706edb6abd6128afe0502c94398b2374f1f3f"
+  digest = "1:403222dac436240f4a747c4ced09c1d5884082d920f151ea6c19abf7a75d4e7c"
   name = "github.com/tidwall/grect"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "ba9a043346eba55344e40d66a5e74cfda3a9d293"
 
 [[projects]]
   branch = "master"
-  digest = "1:4db4f92bb9cb04cfc4fccb36aba2598b02a988008c4cc0692b241214ad8ac96e"
+  digest = "1:d3f968e2a2c9f8506ed44b01b605ade0176ba6cf73ff679073e77cfdef2c0d55"
   name = "github.com/tidwall/match"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "1731857f09b1f38450e2c12409748407822dc6be"
 
 [[projects]]
   branch = "master"
-  digest = "1:5d9d865e55b95f001e52a7f5d1f812e8a80f0f05d5b04ede006f24206ebba33c"
+  digest = "1:54fec16397c72e6ecb5e61309e369517d4ea7aaee4d97454c36075539039ad85"
   name = "github.com/tidwall/rtree"
   packages = [
     ".",
     "base",
   ]
-  pruneopts = ""
+  pruneopts = "UT"
   revision = "6cd427091e0e662cb4f8e2c9eb1a41e1c46ff0d3"
 
 [[projects]]
   branch = "master"
-  digest = "1:261a5770e68d10884a6d334396842d69ddb57ac5ecef60057eb5bce6f4bc7512"
+  digest = "1:1b885e925ee7c05565b3178a4fa818bf33885878344d8629ac433a5db99d58e4"
   name = "github.com/tidwall/tinyqueue"
   packages = ["."]
-  pruneopts = ""
-  revision = "1feaf062ef04a231c9126f99a68eaa579fd0e390"
+  pruneopts = "UT"
+  revision = "1e39f55115634cad2c504631c8bfcc292f2c9c55"
 
 [[projects]]
   branch = "master"
-  digest = "1:295363031beef7eb063d53138806b43f26c38d8a3e2543324ce2af3c766069de"
+  digest = "1:1947d22ddfa0770abd34e49ba2ebc5d3e74de2c61dd5db8c3db750888715fe42"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -137,23 +138,22 @@
     "sha3",
     "ssh/terminal",
   ]
-  pruneopts = ""
-  revision = "5119cf507ed5294cc409c092980c7497ee5d6fd2"
+  pruneopts = "UT"
+  revision = "a92615f3c49003920a58dedcf32cf55022cefb8d"
 
 [[projects]]
   branch = "master"
-  digest = "1:407b5f905024dd94ee08c1777fabb380fb3d380f92a7f7df2592be005337eeb3"
+  digest = "1:f5aa274a0377f85735edc7fedfb0811d3cbc20af91633797cb359e29c3272271"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
-  pruneopts = ""
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  pruneopts = "UT"
+  revision = "fa43e7bc11baaae89f3f902b2b4d832b68234844"
 
 [[projects]]
-  branch = "master"
-  digest = "1:31985a0ed491dba5ba7fe92e18be008acd92ca9435ed9b35b06f3e6c00fd82cb"
+  digest = "1:2b43038ba580394ec711455c92dc9c89f3c29ad758136afe6aef01685ef3b557"
   name = "golang.org/x/text"
   packages = [
     "cases",
@@ -176,16 +176,17 @@
     "unicode/rangetable",
     "width",
   ]
-  pruneopts = ""
-  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
+  pruneopts = "UT"
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
-  branch = "v2"
-  digest = "1:4b4e5848dfe7f316f95f754df071bebfb40cf4482da62e17e7e1aebdf11f4918"
+  digest = "1:342378ac4dcb378a5448dd723f0784ae519383532f5e70ade24132c4c8693202"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  pruneopts = ""
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+  pruneopts = "UT"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
