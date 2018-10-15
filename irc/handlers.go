@@ -1910,26 +1910,6 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	return false
 }
 
-// PROXY TCP4/6 SOURCEIP DESTIP SOURCEPORT DESTPORT
-// http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-func proxyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	// only allow unregistered clients to use this command
-	if client.Registered() || client.proxiedIP != nil {
-		return false
-	}
-
-	for _, gateway := range server.ProxyAllowedFrom() {
-		if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
-			proxiedIP := msg.Params[1]
-
-			// assume PROXY connections are always secure
-			return client.ApplyProxiedIP(proxiedIP, true)
-		}
-	}
-	client.Quit(client.t("PROXY command is not usable from your address"))
-	return true
-}
-
 // QUIT [<reason>]
 func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	reason := "Quit"
@@ -2416,7 +2396,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
 					proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
 				}
-				return client.ApplyProxiedIP(proxiedIP, secure)
+				return !client.ApplyProxiedIP(proxiedIP, secure)
 			}
 		}
 	}

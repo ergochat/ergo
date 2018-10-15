@@ -386,13 +386,6 @@ Replies to a PING. Used to check link connectivity.`,
 
 Sends the text to the given targets as a PRIVMSG.`,
 	},
-	"proxy": {
-		oper: true, // not really, but it's restricted anyways
-		text: `PROXY TCP4/6 <sourceip> <destip> <sourceport> <destport>
-
-Used by haproxy's PROXY v1 protocol, to allow for alternate TLS support:
-http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt`,
-	},
 	"rename": {
 		text: `RENAME <channel> <newname> [<reason>]
 

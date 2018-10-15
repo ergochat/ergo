@@ -215,11 +215,6 @@ func init() {
 			handler:   privmsgHandler,
 			minParams: 2,
 		},
-		"PROXY": {
-			handler:      proxyHandler,
-			usablePreReg: true,
-			minParams:    5,
-		},
 		"RENAME": {
 			handler:   renameHandler,
 			minParams: 2,
