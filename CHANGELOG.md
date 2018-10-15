@@ -8,7 +8,10 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 New release of Oragono!
 
 ### Config Changes
+* `allow-multiple-per-connection` key removed from `accounts`.
 * `autoupgrade` key added under `datastore`, specifying whether to upgrade to new database versions automatically.
+* `stackimpact` section removed from `debug`.
+* `unix-bind-mode` key added under `server`, controlling the bind mode used for unix listening sockets.
 * `vhosts` section added under `accounts`, configuring our new vhost support.
 * new oper capabilities `accreg`, `sajoin`, `vhosts` and `chanreg` added.
 
@@ -23,16 +26,23 @@ New release of Oragono!
 
 ### Changed
 * `ChanServ` and `NickServ` now show in their help output when commands have been disabled.
+* Channel keys and modes are now stored for registered channels.
+* Client capability handling rewritten under-the-hood.
+* Disabled services commands now show as disabled (rather than being completely hidden).
 * Many under-the-hood optimisations (thanks @slingamn!).
-* Passwords are now being hashed in a better way.
 * Rehashing is now more consistent and safe.
 
 ### Removed
+* Removed StackImpact debug support, as we don't find it useful these days.
 
 ### Fixed
-* Fixed issue where incoming and outgoing private messages were being incorrectly modified due to a bug with our protocol handling.
-* Fixed fakelag timing to be expected.
-* `LUSERS` now displays correct client count and outputs correct params (thanks [@moortens](https://github.com/moortens)!.
+* Fixed `LUSERS` to make it display correct client count and output correct params (thanks [@moortens](https://github.com/moortens)!.
+* Fixed `PROXY` support for IPv6 clients.
+* Fixed `SAMODE` crash when using it on a channel you're not joined to.
+* Fixed `WHOIS` so that `RPL_WHOISACCOUNT` is now sent correctly.
+* Fixed fakelag timing to better match expected values.
+* Fixed issue where incoming and outgoing private messages were being incorrectly modified (a space was being added to the end) due to a bug with our protocol handling.
+* Fixed password hashing method, with existing passwords being auto-upgraded to use the new method.
 
 
 ## [0.11.0] - 2018-04-15
