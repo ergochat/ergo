@@ -4,8 +4,14 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono!
+## [0.12.0] - 2018-10-15
+There's been a host of changes in the past six months, and this Halloween release has a number of very useful improvements.
+
+For example, passwords are now hashed in a _much_ better way than we did it before (jlatt's original method back from [Ergonomadic](https://github.com/edmund-huber/ergonomadic) was the right way to do things), the database now auto-upgrades for you when it detects a new version, thanks to Slingamn we now have vhosts, and there's been a ton of rewrites under-the-hood to improve stability and performance.
+
+If you have any trouble with this release, please let us know with an issue on our tracker, or by talking to us in `#oragono` on Freenode.
+
+Thanks to [slingamn](https://github.com/slingamn) for a lot of heavy lifting this release and to [vilmibm](https://github.com/vilmibm) for contributing a documentation fix!
 
 ### Config Changes
 * `allow-multiple-per-connection` key removed from `accounts`.
@@ -17,6 +23,8 @@ New release of Oragono!
 * new oper capabilities `accreg`, `sajoin`, `vhosts` and `chanreg` added.
 
 ### Security
+* Password hashing has been improved (with current passwords being automatically upgraded to use the new method).
+* Various crashes have been resolved.
 
 ### Added
 * Added database auto-upgrades.
