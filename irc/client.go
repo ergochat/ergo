@@ -315,7 +315,9 @@ func (client *Client) run() {
 			break
 		}
 
-		client.server.logger.Debug("userinput", client.nick, "<- ", line)
+		if client.server.logger.IsLoggingRawIO() {
+			client.server.logger.Debug("userinput", client.nick, "<- ", line)
+		}
 
 		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
 		if firstLine {
