@@ -81,6 +81,10 @@ func OpenDatabase(config *Config) (*buntdb.DB, error) {
 
 // open the database, giving it at most one chance to auto-upgrade the schema
 func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB, err error) {
+	_, err = os.Stat(config.Datastore.Path)
+	if os.IsNotExist(err) {
+		return
+	}
 	db, err = buntdb.Open(config.Datastore.Path)
 	if err != nil {
 		return
