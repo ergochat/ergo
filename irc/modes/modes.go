@@ -353,6 +353,11 @@ func (set *ModeSet) SetMode(mode Mode, on bool) (applied bool) {
 	return utils.BitsetSet(set[:], uint(mode)-minMode, on)
 }
 
+// copy the contents of another modeset on top of this one
+func (set *ModeSet) Copy(other *ModeSet) {
+	utils.BitsetCopy(set[:], other[:])
+}
+
 // return the modes in the set as a slice
 func (set *ModeSet) AllModes() (result []Mode) {
 	if set == nil {

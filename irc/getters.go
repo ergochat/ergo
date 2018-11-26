@@ -102,6 +102,12 @@ func (client *Client) Realname() string {
 	return client.realname
 }
 
+func (client *Client) ResumeToken() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.resumeToken
+}
+
 func (client *Client) Oper() *Oper {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()

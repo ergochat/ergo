@@ -16,7 +16,8 @@ import (
 
 var (
 	restrictedNicknames = map[string]bool{
-		"=scene=": true, // used for rp commands
+		"=scene=":  true, // used for rp commands
+		"HistServ": true, // TODO(slingamn) this should become a real service
 	}
 )
 

@@ -222,7 +222,7 @@ func init() {
 		"RESUME": {
 			handler:      resumeHandler,
 			usablePreReg: true,
-			minParams:    1,
+			minParams:    2,
 		},
 		"SAJOIN": {
 			handler:   sajoinHandler,

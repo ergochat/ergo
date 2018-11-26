@@ -80,3 +80,12 @@ func BitsetUnion(set []uint64, other []uint64) {
 		}
 	}
 }
+
+// BitsetCopy copies the contents of `other` over `set`.
+// Similar caveats about race conditions as with `BitsetUnion` apply.
+func BitsetCopy(set []uint64, other []uint64) {
+	for i := 0; i < len(set); i++ {
+		data := atomic.LoadUint64(&other[i])
+		atomic.StoreUint64(&set[i], data)
+	}
+}

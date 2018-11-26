@@ -8,6 +8,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // ResponseBuffer - put simply - buffers messages and then outputs them to a given client.
@@ -19,6 +20,7 @@ type ResponseBuffer struct {
 	Label    string
 	target   *Client
 	messages []ircmsg.IrcMessage
+	blocking bool
 }
 
 // GetLabel returns the label from the given message.
@@ -31,6 +33,10 @@ func NewResponseBuffer(target *Client) *ResponseBuffer {
 	return &ResponseBuffer{
 		target: target,
 	}
+}
+
+func (rb *ResponseBuffer) SetBlocking(blocking bool) {
+	rb.blocking = blocking
 }
 
 // Add adds a standard new message to our queue.
@@ -63,11 +69,11 @@ func (rb *ResponseBuffer) AddFromClient(msgid string, from *Client, tags *map[st
 }
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
-func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, target string, message SplitMessage) {
-	if rb.target.capabilities.Has(caps.MaxLine) {
-		rb.AddFromClient(msgid, from, tags, command, target, message.ForMaxLine)
+func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, target string, message utils.SplitMessage) {
+	if rb.target.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+		rb.AddFromClient(msgid, from, tags, command, target, message.Original)
 	} else {
-		for _, str := range message.For512 {
+		for _, str := range message.Wrapped {
 			rb.AddFromClient(msgid, from, tags, command, target, str)
 		}
 	}
@@ -103,7 +109,7 @@ func (rb *ResponseBuffer) Send() error {
 	for _, message := range rb.messages {
 		// attach server-time if needed
 		if rb.target.capabilities.Has(caps.ServerTime) {
-			t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
+			t := time.Now().UTC().Format(IRCv3TimestampFormat)
 			message.Tags["time"] = ircmsg.MakeTagValue(t)
 		}
 
@@ -113,7 +119,7 @@ func (rb *ResponseBuffer) Send() error {
 		}
 
 		// send message out
-		rb.target.SendRawMessage(message)
+		rb.target.SendRawMessage(message, rb.blocking)
 	}
 
 	// end batch if required
@@ -122,7 +128,7 @@ func (rb *ResponseBuffer) Send() error {
 	}
 
 	// clear out any existing messages
-	rb.messages = []ircmsg.IrcMessage{}
+	rb.messages = rb.messages[:0]
 
 	return nil
 }
