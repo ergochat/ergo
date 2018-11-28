@@ -134,6 +134,7 @@ func (socket *Socket) Write(data []byte) (err error) {
 		prospectiveLen := socket.totalLength + len(data)
 		if prospectiveLen > socket.maxSendQBytes {
 			socket.sendQExceeded = true
+			socket.closed = true
 			err = errSendQExceeded
 		} else {
 			socket.buffers = append(socket.buffers, data)
@@ -160,6 +161,13 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 	if len(data) == 0 {
 		return
 	}
+
+	// after releasing the semaphore, we must check for fresh data, same as `send`
+	defer func() {
+		if socket.readyToWrite() {
+			socket.wakeWriter()
+		}
+	}()
 
 	// blocking acquire of the trylock
 	socket.writerSemaphore.Acquire()
@@ -206,7 +214,7 @@ func (socket *Socket) readyToWrite() bool {
 	socket.Lock()
 	defer socket.Unlock()
 	// on the first time observing socket.closed, we still have to write socket.finalData
-	return !socket.finalized && (socket.totalLength > 0 || socket.closed || socket.sendQExceeded)
+	return !socket.finalized && (socket.totalLength > 0 || socket.closed)
 }
 
 // send actually writes messages to socket.Conn; it may block
@@ -238,19 +246,20 @@ func (socket *Socket) performWrite() (closed bool) {
 	buffers := socket.buffers
 	socket.buffers = nil
 	socket.totalLength = 0
+	closed = socket.closed
 	socket.Unlock()
 
-	// on Linux, the runtime will optimize this into a single writev(2) call:
-	_, err := (*net.Buffers)(&buffers).WriteTo(socket.conn)
+	var err error
+	if !closed && len(buffers) > 0 {
+		// on Linux, the runtime will optimize this into a single writev(2) call:
+		_, err = (*net.Buffers)(&buffers).WriteTo(socket.conn)
+	}
 
-	socket.Lock()
-	shouldClose := (err != nil) || socket.closed || socket.sendQExceeded
-	socket.Unlock()
-
-	if shouldClose {
+	closed = closed || err != nil
+	if closed {
 		socket.finalize()
 	}
-	return shouldClose
+	return
 }
 
 // mark closed and send final data. you must be holding the semaphore to call this:
@@ -258,12 +267,18 @@ func (socket *Socket) finalize() {
 	// mark the socket closed (if someone hasn't already), then write error lines
 	socket.Lock()
 	socket.closed = true
+	finalized := socket.finalized
 	socket.finalized = true
 	finalData := socket.finalData
 	if socket.sendQExceeded {
 		finalData = "\r\nERROR :SendQ Exceeded\r\n"
 	}
 	socket.Unlock()
+
+	if finalized {
+		return
+	}
+
 	if finalData != "" {
 		socket.conn.Write([]byte(finalData))
 	}
