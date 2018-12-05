@@ -2289,10 +2289,6 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 
 	// the tripcode thing
-	client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
-	client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
-	client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
-
 	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
 	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
 	re2 := regexp.MustCompile(`\##(.*)`)
@@ -2318,6 +2314,10 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 					client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
 				}
 		}
+	}else{
+		client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
+		client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
+		client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
 	}
 
 	// _, err := CasefoldName(msg.Params[0])
