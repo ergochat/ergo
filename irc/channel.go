@@ -436,14 +436,20 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		if member == client {
 			continue
 		}
-		if member.capabilities.Has(caps.ExtendedJoin) {
-			member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
-		} else {
-			member.Send(nil, nickmask, "JOIN", chname)
+
+		// check if channel is an auditorium (no joins/parts)
+		if !channel.flags.HasMode(modes.Auditorium) {
+			if member.capabilities.Has(caps.ExtendedJoin) {
+				member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
+			} else {
+				member.Send(nil, nickmask, "JOIN", chname)
+			}
 		}
+
 		if givenMode != 0 {
 			member.Send(nil, client.server.name, "MODE", chname, modestr, nick)
 		}
+
 	}
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
@@ -457,7 +463,10 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.SendTopic(client, rb)
 	}
 
-	channel.Names(client, rb)
+	// check if channel is an auditorium (no joins/parts)
+	if !channel.flags.HasMode(modes.Auditorium) {
+		channel.Names(client, rb)
+	}
 
 	if givenMode != 0 {
 		rb.Add(nil, client.server.name, "MODE", chname, modestr, nick)
@@ -475,8 +484,10 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	channel.Quit(client)
 
 	nickmask := client.NickMaskString()
-	for _, member := range channel.Members() {
-		member.Send(nil, nickmask, "PART", chname, message)
+	if !channel.flags.HasMode(modes.Auditorium) {
+		for _, member := range channel.Members() {
+			member.Send(nil, nickmask, "PART", chname, message)
+		}
 	}
 	rb.Add(nil, nickmask, "PART", chname, message)
 
@@ -802,8 +813,11 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 	clientMask := client.NickMaskString()
 	targetNick := target.Nick()
-	for _, member := range channel.Members() {
-		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
+	// check if channel is an auditorium (no joins/parts)
+	if !channel.flags.HasMode(modes.Auditorium) {
+		for _, member := range channel.Members() {
+			member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
+		}
 	}
 
 	channel.Quit(target)

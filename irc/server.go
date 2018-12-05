@@ -159,7 +159,7 @@ func (server *Server) setISupport() {
 	isupport := isupport.NewList()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
-	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
+	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Auditorium, modes.Secret}.String()}, ","))
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
 	isupport.Add("ELIST", "U")
@@ -490,6 +490,28 @@ func (server *Server) tryRegister(c *Client) {
 			}
 		}
 	}
+
+	//tripcode system
+	if c.tripcode != "" {
+		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a tripcode: !%s"), c.nick, c.tripcode))
+
+		// var tripname = fmt.Sprintf(c.t("%s|%s"), c.nick, c.tripcode)
+		// server.logger.Debug("localconnect", fmt.Sprintf(c.t("!ATTEMPTING NICK CHANGE! %s > %s"), c.nickMaskString, tripname))
+		// c.SetPreregNick(tripname)
+		// c.updateTripNick(tripname)
+		// c.updateTripNickMask(tripname)
+		// c.updateTripNickMaskNoMutex()
+
+		// server.logger.Debug("localconnect", fmt.Sprintf(c.t("!NICK CHANGE! %s"), c.nickMaskString))
+
+
+	}
+	if (c.tripcode != "") && (c.secureTripcode != "") {
+		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a tripcode: !%s and a secure tripcode: !!%s"), c.nick, c.tripcode, c.secureTripcode))
+	}else if c.secureTripcode != "" {
+		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a secure tripcode: !!%s"), c.nick, c.secureTripcode))
+	}
+
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.
@@ -602,43 +624,47 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	cnick := client.Nick()
 	targetInfo := target.WhoWas()
 	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nickname, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
+	// rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, targetInfo.nickname, fmt.Sprintf("%s %s - %s", targetInfo.nickname, target.username, target.hostname))
 	tnick := targetInfo.nickname
 
-	whoischannels := client.WhoisChannelsNames(target)
-	if whoischannels != nil {
-		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
-	}
-	tOper := target.Oper()
-	if tOper != nil {
-		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
-	}
 	if client.HasMode(modes.Operator) || client == target {
-		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
-	}
-	if target.HasMode(modes.TLS) {
-		rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
-	}
-	taccount := target.AccountName()
-	if taccount != "*" {
-		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, taccount, client.t("is logged in as"))
-	}
-	if target.HasMode(modes.Bot) {
-		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
-	}
-
-	if 0 < len(target.languages) {
-		params := []string{cnick, tnick}
-		for _, str := range client.server.languages.Codes(target.languages) {
-			params = append(params, str)
+		whoischannels := client.WhoisChannelsNames(target)
+		if whoischannels != nil {
+			rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 		}
-		params = append(params, client.t("can speak these languages"))
-		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
-	}
+		tOper := target.Oper()
+		if tOper != nil {
+			rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
+		}
 
-	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
-		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
+		
+		if target.HasMode(modes.TLS) {
+			rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
+		}
+		taccount := target.AccountName()
+		if taccount != "*" {
+			rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, taccount, client.t("is logged in as"))
+		}
+		if target.HasMode(modes.Bot) {
+			rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
+		}
+
+		// if 0 < len(target.languages) {
+		// 	params := []string{cnick, tnick}
+		// 	for _, str := range client.server.languages.Codes(target.languages) {
+		// 		params = append(params, str)
+		// 	}
+		// 	params = append(params, client.t("can speak these languages"))
+		// 	rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
+		// }
+
+		if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
+			rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
+		}
+
+		rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 	}
-	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 }
 
 // rplWhoReply returns the WHO reply between one user and another channel/user.

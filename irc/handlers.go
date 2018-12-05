@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmatch"
@@ -31,6 +32,8 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 	"golang.org/x/crypto/bcrypt"
+
+	trip "github.com/aquilax/tripcode"
 )
 
 // ACC [REGISTER|VERIFY] ...
@@ -2284,21 +2287,52 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	// confirm that username is valid
-	//
-	_, err := CasefoldName(msg.Params[0])
-	if err != nil {
-		rb.Add(nil, "", "ERROR", client.t("Malformed username"))
-		return true
+
+	// the tripcode thing
+	client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
+	client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
+	client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
+
+	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
+	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
+	re2 := regexp.MustCompile(`\##(.*)`)
+	if re2.MatchString(msg.Params[0]) {
+		client.secureTripcode = trip.SecureTripcode(msg.Params[0][1:], "randomsalt")
+
+		client.username = fmt.Sprintf("!%s", client.secureTripcode)
+		client.realname = fmt.Sprintf("%s", client.username)
+	} else if re.MatchString(msg.Params[0]) {
+		client.tripcode = trip.Tripcode(msg.Params[0][1:])
+
+		client.username = fmt.Sprintf("!%s", client.tripcode)
+		client.realname = fmt.Sprintf("%s", client.username)
+
+		tripcodes := re.FindAllStringSubmatch(msg.Params[0], -1)
+		for _, tripcode := range tripcodes {
+				if tripcode[2] != "" {
+					client.tripcode = trip.Tripcode(tripcode[1])
+					client.secureTripcode = trip.SecureTripcode(tripcode[2], "randomsalt")
+					
+					client.username = fmt.Sprintf("!%s", client.tripcode)
+					client.rawHostname = fmt.Sprintf("!!%s", client.secureTripcode)
+					client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
+				}
+		}
 	}
 
-	if !client.HasUsername() {
-		client.username = "~" + msg.Params[0]
-		// don't bother updating nickmask here, it's not valid anyway
-	}
-	if client.realname == "" {
-		client.realname = msg.Params[3]
-	}
+	// _, err := CasefoldName(msg.Params[0])
+	// if err != nil {
+	// 	rb.Add(nil, "", "ERROR", client.t("Malformed username"))
+	// 	return true
+	// }
+
+	// if !client.HasUsername() {
+	// 	client.username = "~" + msg.Params[0]
+	// 	// don't bother updating nickmask here, it's not valid anyway
+	// }
+	// if client.realname == "" {
+	// 	client.realname = "Anonymous User"
+	// }
 
 	return false
 }
@@ -2499,32 +2533,32 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // WHOWAS <nickname> [<count> [<server>]]
 func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	nicknames := strings.Split(msg.Params[0], ",")
+	// nicknames := strings.Split(msg.Params[0], ",")
 
-	// 0 means "all the entries", as does a negative number
-	var count uint64
-	if len(msg.Params) > 1 {
-		count, _ = strconv.ParseUint(msg.Params[1], 10, 64)
-	}
-	//var target string
-	//if len(msg.Params) > 2 {
-	//	target = msg.Params[2]
-	//}
-	cnick := client.Nick()
-	for _, nickname := range nicknames {
-		results := server.whoWas.Find(nickname, int(count))
-		if len(results) == 0 {
-			if len(nickname) > 0 {
-				rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, nickname, client.t("There was no such nickname"))
-			}
-		} else {
-			for _, whoWas := range results {
-				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
-			}
-		}
-		if len(nickname) > 0 {
-			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, nickname, client.t("End of WHOWAS"))
-		}
-	}
+	// // 0 means "all the entries", as does a negative number
+	// var count uint64
+	// if len(msg.Params) > 1 {
+	// 	count, _ = strconv.ParseUint(msg.Params[1], 10, 64)
+	// }
+	// //var target string
+	// //if len(msg.Params) > 2 {
+	// //	target = msg.Params[2]
+	// //}
+	// cnick := client.Nick()
+	// for _, nickname := range nicknames {
+	// 	results := server.whoWas.Find(nickname, int(count))
+	// 	if len(results) == 0 {
+	// 		if len(nickname) > 0 {
+	// 			rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, nickname, client.t("There was no such nickname"))
+	// 		}
+	// 	} else {
+	// 		for _, whoWas := range results {
+	// 			rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
+	// 		}
+	// 	}
+	// 	if len(nickname) > 0 {
+	// 		rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, nickname, client.t("End of WHOWAS"))
+	// 	}
+	// }
 	return false
 }

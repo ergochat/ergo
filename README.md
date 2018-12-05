@@ -1,23 +1,20 @@
-![Oragono logo](docs/logo.png)
+*This is a fork of the [Oragono](https://github.com/oragono/oragono) IRC daemon.*
 
-Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup and use, and it includes features such as UTF-8 nicks / channel names, client accounts with SASL, and other assorted IRCv3 support.
-
-Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon <3
-
----
-
-[![Go Report Card](https://goreportcard.com/badge/github.com/oragono/oragono)](https://goreportcard.com/report/github.com/oragono/oragono)
-[![Build Status](https://travis-ci.org/oragono/oragono.svg?branch=master)](https://travis-ci.org/oragono/oragono)
-[![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/oragono/oragono/releases/latest)
-[![Freenode #oragono](https://img.shields.io/badge/Freenode-%23oragono-1e72ff.svg?style=flat)](https://www.irccloud.com/invite?channel=%23oragono&hostname=irc.freenode.net&port=6697&ssl=1)
-[![Crowdin](https://d322cqt584bo4o.cloudfront.net/oragono/localized.svg)](https://crowdin.com/project/oragono)
-
-[darwin.network](https://irc.darwin.network/) and [testnet.oragono.io](ircs://testnet.oragono.io:6697/#chat) are running Oragono in production if you want to take a look.
-
----
+# Warning: Highly experimental!
 
 
-## Features
+## Features and ideas of this fork
+
+* Tripcode and secure tripcode system (80%)
+* Auditorium mode (inspircd style) (80%)
+* Automatically generated and randomized join/quit messages (0%)
+* Server statistics (join/quit/kick/ban counter, lines/words spoken) (0%)
+* Web front-end for chat with trip authentication (10%)
+* Simple federation (0%)
+* Anonymity changes (reduced whois info, removed whowas info, completely hide or obfuscate ips/hostmasks, make users without tripcode completely anon and unidentifiable) (40%)
+
+
+## Features of oragono
 
 * UTF-8 nick and channel names with rfc7613 (PRECIS)
 * [yaml](http://yaml.org/) configuration
@@ -123,6 +120,8 @@ Make sure to setup [SASL](https://freenode.net/kb/answer/sasl) in your client to
 
 
 # Credits
+
+## Oragono IRC Daemon
 
 * Jeremy Latt, creator of Ergonomadic, <https://github.com/jlatt>
 * Edmund Huber, maintainer of Ergonomadic, <https://github.com/edmund-huber>

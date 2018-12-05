@@ -79,6 +79,8 @@ type Client struct {
 	stateMutex         sync.RWMutex // tier 1
 	username           string
 	vhost              string
+	tripcode		   string
+	secureTripcode	   string
 }
 
 // NewClient sets up a new client and starts its goroutine.
@@ -588,6 +590,38 @@ func (client *Client) SetVHost(vhost string) (updated bool) {
 	}
 	return
 }
+
+
+// updateTripNick updates the nick without validation (how awful)
+// func (client *Client) updateTripNick(nick string) {
+// 	client.stateMutex.Lock()
+// 	client.nick = nick
+// 	client.nickCasefolded = nick
+// 	client.stateMutex.Unlock()
+// }
+
+// func (client *Client) updateTripNickMask(nick string) {
+// 	if nick != "" {
+// 		client.updateTripNick(nick)
+// 	}
+
+// 	client.stateMutex.Lock()
+// 	defer client.stateMutex.Unlock()
+// 	client.updateTripNickMaskNoMutex()
+// }
+
+// func (client *Client) updateTripNickMaskNoMutex() {
+// 	client.hostname = client.getVHostNoMutex()
+// 	if client.hostname == "" {
+// 		client.hostname = client.rawHostname
+// 	}
+
+// 	nickMaskString := fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
+
+// 	client.nickMaskString = nickMaskString
+// 	client.nickMaskCasefolded = nickMaskString
+// }
+
 
 // updateNick updates `nick` and `nickCasefolded`.
 func (client *Client) updateNick(nick string) {
