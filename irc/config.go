@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
-	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/custime"
-	"github.com/oragono/oragono/irc/languages"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/connection_limits"
+	"github.com/unendingPattern/oragono/irc/custime"
+	"github.com/unendingPattern/oragono/irc/languages"
+	"github.com/unendingPattern/oragono/irc/logger"
+	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/passwd"
+	"github.com/unendingPattern/oragono/irc/utils"
 	"gopkg.in/yaml.v2"
 )
 

@@ -18,10 +18,10 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/sno"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 const (

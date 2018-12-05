@@ -7,7 +7,7 @@ package irc
 
 import (
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/modes"
 )
 
 // Command represents a command accepted from a client.

@@ -4,8 +4,8 @@
 package irc
 
 import (
-	"github.com/oragono/oragono/irc/isupport"
-	"github.com/oragono/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/isupport"
+	"github.com/unendingPattern/oragono/irc/modes"
 )
 
 func (server *Server) Config() *Config {

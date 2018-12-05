@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/modes"
 )
 
 // Channel represents a channel that clients can join.

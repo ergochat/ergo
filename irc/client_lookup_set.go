@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircmatch"
-	"github.com/oragono/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/caps"
 
 	"sync"
 )

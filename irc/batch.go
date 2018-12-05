@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/caps"
 )
 
 const (

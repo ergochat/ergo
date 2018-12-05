@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/caps"
 )
 
 // ResponseBuffer - put simply - buffers messages and then outputs them to a given client.

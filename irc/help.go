@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/oragono/oragono/irc/languages"
+	"github.com/unendingPattern/oragono/irc/languages"
 )
 
 // HelpEntryType represents the different sorts of help entries that can exist.

@@ -18,8 +18,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/passwd"
+	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/passwd"
 	"github.com/tidwall/buntdb"
 )
 

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 // Set holds a set of enabled capabilities.

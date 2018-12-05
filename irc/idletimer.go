@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oragono/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/caps"
 )
 
 const (

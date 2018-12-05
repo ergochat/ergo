@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 var (

@@ -5,7 +5,7 @@
 
 package irc
 
-import "github.com/oragono/oragono/irc/modes"
+import "github.com/unendingPattern/oragono/irc/modes"
 
 // ClientSet is a set of clients.
 type ClientSet map[*Client]bool

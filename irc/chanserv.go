@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/sno"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 const chanservHelp = `ChanServ lets you register and manage channels.

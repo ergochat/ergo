@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 // "enabled" callbacks for specific nickserv commands

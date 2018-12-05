@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
-	"github.com/oragono/oragono/irc"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/mkcerts"
+	"github.com/unendingPattern/oragono/irc"
+	"github.com/unendingPattern/oragono/irc/logger"
+	"github.com/unendingPattern/oragono/irc/mkcerts"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 )

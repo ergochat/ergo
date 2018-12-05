@@ -11,8 +11,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono/irc/utils"
 )
 
 var (
