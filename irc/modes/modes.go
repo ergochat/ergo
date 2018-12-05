@@ -20,7 +20,7 @@ var (
 
 	// SupportedChannelModes are the channel modes that we support.
 	SupportedChannelModes = Modes{
-		BanMask, ChanRoleplaying, ExceptMask, InviteMask, InviteOnly, Key,
+		BanMask, ChanRoleplaying, Auditorium, ExceptMask, InviteMask, InviteOnly, Key,
 		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, UserLimit,
 	}
 )
@@ -134,6 +134,7 @@ const (
 	// RegisteredOnly mode is reused here from umode definition
 	Secret    Mode = 's' // flag
 	UserLimit Mode = 'l' // flag arg
+	Auditorium     Mode = 'u' // flag
 )
 
 var (
