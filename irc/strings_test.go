@@ -41,6 +41,14 @@ func TestCasefoldChannel(t *testing.T) {
 			folded:  "#",
 		},
 		{
+			channel: "##",
+			folded:  "##",
+		},
+		{
+			channel: "##Ubuntu",
+			folded:  "##ubuntu",
+		},
+		{
 			channel: "#中文频道",
 			folded:  "#中文频道",
 		},
