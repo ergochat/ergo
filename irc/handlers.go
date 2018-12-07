@@ -34,7 +34,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	trip "github.com/aquilax/tripcode"
-	"github.com/badoux/goscraper"
+	"github.com/unendingPattern/goscraper"
 )
 
 // ACC [REGISTER|VERIFY] ...
@@ -1888,21 +1888,26 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				if xurls.Relaxed().FindString(message) != "" {
 					submatchall := xurls.Relaxed().FindAllString(message, -1)
 					for _, element := range submatchall {
-						s, err := goscraper.Scrape(element, 2)
+						s, err := goscraper.Scrape(element, 3, 2000, "Mozilla/5.0 (X11; Linux i686; rv:64.0) Gecko/20100101 Firefox/64.0") // TODO: randomise this later
 						if err != nil {
 							fmt.Println(err)
-						}
-						for _, member := range channel.Members() {
-							if s.Preview.Title != "" {
-								member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Title))
+							// Notify the channel of the error?
+							//for _, member := range channel.Members() {
+							//	member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", err))
+							//}
+						}else{
+							for _, member := range channel.Members() {
+								if s.Preview.Title != "" {
+									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Title))
+								}
+								if s.Preview.Description != "" {
+									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Description))
+								}
+								// probably don't want this?  TOFIX: index out of range error/crash when an image is linked
+								// if s.Preview.Images[0] != "" {
+								// 	member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Images[0]))
+								// }
 							}
-							if s.Preview.Description != "" {
-								member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Description))
-							}
-							// probably don't want this?  TO FIX: index out of range error/crash when an image is linked
-							// if s.Preview.Images[0] != "" {
-							// 	member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Images[0]))
-							// }
 						}
 					}
 				}
@@ -1915,7 +1920,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 						channelMembers = append(channelMembers, member.nick)
 					}
 					for _, member := range channel.Members() {
-						member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+						member.Send(nil, fmt.Sprintf("%s!url@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
 					}
 				}
 			}
