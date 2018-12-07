@@ -121,6 +121,18 @@ or other verification.`,
 			helpShort: `$bVERIFY$b lets you complete account registration.`,
 			enabled:   servCmdRequiresAccreg,
 		},
+		"passwd": {
+			handler: nsPasswdHandler,
+			help: `Syntax: $bPASSWD <current> <new> <new_again>$b
+Or:     $bPASSWD <username> <new>$b
+
+PASSWD lets you change your account password. You must supply your current
+password and confirm the new one by typing it twice. If you're an IRC operator
+with the correct permissions, you can use PASSWD to reset someone else's
+password by supplying their username and then the desired password.`,
+			helpShort: `$bPASSWD$b lets you change your password.`,
+			enabled:   servCmdRequiresAuthEnabled,
+		},
 	}
 )
 
@@ -388,4 +400,50 @@ func nsVerifyHandler(server *Server, client *Client, command, params string, rb 
 	}
 
 	sendSuccessfulRegResponse(client, rb, true)
+}
+
+func nsPasswdHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	var target string
+	var newPassword string
+	var errorMessage string
+
+	fields := strings.Fields(params)
+	switch len(fields) {
+	case 2:
+		if !client.HasRoleCapabs("accreg") {
+			errorMessage = "Insufficient privileges"
+		} else {
+			target, newPassword = fields[0], fields[1]
+		}
+	case 3:
+		target = client.Account()
+		if target == "" {
+			errorMessage = "You're not logged into an account"
+		} else if fields[1] != fields[2] {
+			errorMessage = "Passwords do not match"
+		} else {
+			// check that they correctly supplied the preexisting password
+			_, err := server.accounts.checkPassphrase(target, fields[0])
+			if err != nil {
+				errorMessage = "Password incorrect"
+			} else {
+				newPassword = fields[1]
+			}
+		}
+	default:
+		errorMessage = "Invalid parameters"
+	}
+
+	if errorMessage != "" {
+		nsNotice(rb, client.t(errorMessage))
+		return
+	}
+
+	err := server.accounts.setPassword(target, newPassword)
+	if err == nil {
+		nsNotice(rb, client.t("Password changed"))
+	} else {
+		server.logger.Error("internal", fmt.Sprintf("could not upgrade user password: %v", err))
+		nsNotice(rb, client.t("Password could not be changed due to server error"))
+	}
 }

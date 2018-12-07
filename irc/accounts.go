@@ -565,14 +565,15 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 	return nil
 }
 
-func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
-	account, err := am.LoadAccount(accountName)
+func (am *AccountManager) checkPassphrase(accountName, passphrase string) (account ClientAccount, err error) {
+	account, err = am.LoadAccount(accountName)
 	if err != nil {
-		return err
+		return
 	}
 
 	if !account.Verified {
-		return errAccountUnverified
+		err = errAccountUnverified
+		return
 	}
 
 	switch account.Credentials.Version {
@@ -583,9 +584,13 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	default:
 		err = errAccountInvalidCredentials
 	}
+	return
+}
 
+func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
+	account, err := am.checkPassphrase(accountName, passphrase)
 	if err != nil {
-		return errAccountInvalidCredentials
+		return err
 	}
 
 	am.Login(client, account)
