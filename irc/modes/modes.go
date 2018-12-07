@@ -20,7 +20,7 @@ var (
 
 	// SupportedChannelModes are the channel modes that we support.
 	SupportedChannelModes = Modes{
-		BanMask, ChanRoleplaying, Auditorium, ExceptMask, InviteMask, InviteOnly, Key,
+		BanMask, ChanRoleplaying, Auditorium, HighLight, LinkInfo, ExceptMask, InviteMask, InviteOnly, Key,
 		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, UserLimit,
 	}
 )
@@ -132,9 +132,11 @@ const (
 	NoOutside       Mode = 'n' // flag
 	OpOnlyTopic     Mode = 't' // flag
 	// RegisteredOnly mode is reused here from umode definition
-	Secret    Mode = 's' // flag
-	UserLimit Mode = 'l' // flag arg
-	Auditorium     Mode = 'u' // flag
+	Secret    		Mode = 's' // flag
+	UserLimit 		Mode = 'l' // flag arg
+	Auditorium     	Mode = 'u' // flag
+	LinkInfo     	Mode = 'U' // flag
+	HighLight		Mode = 'H' // flag arg
 )
 
 var (
@@ -287,7 +289,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				} else {
 					continue
 				}
-			case Key, UserLimit:
+			case Key, UserLimit, HighLight:
 				// don't require value when removing
 				if change.Op == Add {
 					if len(params) > skipArgs {

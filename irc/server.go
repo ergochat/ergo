@@ -159,7 +159,7 @@ func (server *Server) setISupport() {
 	isupport := isupport.NewList()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
-	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Auditorium, modes.Secret}.String()}, ","))
+	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key, modes.HighLight}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Auditorium, modes.LinkInfo, modes.Secret}.String()}, ","))
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
 	isupport.Add("ELIST", "U")

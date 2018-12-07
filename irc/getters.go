@@ -271,6 +271,18 @@ func (channel *Channel) setKey(key string) {
 	channel.key = key
 }
 
+func (channel *Channel) HighLights() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.highlights
+}
+
+func (channel *Channel) setHighLights(highlights string) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	channel.highlights = highlights
+}
+
 func (channel *Channel) Founder() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()

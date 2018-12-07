@@ -31,6 +31,7 @@ const (
 	keyChannelExceptlist     = "channel.exceptlist %s"
 	keyChannelInvitelist     = "channel.invitelist %s"
 	keyChannelPassword       = "channel.key %s"
+	keyChannelHighLights     = "channel.highlights %s"
 	keyChannelModes          = "channel.modes %s"
 	keyChannelAccountToUMode = "channel.accounttoumode %s"
 )
@@ -48,6 +49,7 @@ var (
 		keyChannelExceptlist,
 		keyChannelInvitelist,
 		keyChannelPassword,
+		keyChannelHighLights,
 		keyChannelModes,
 		keyChannelAccountToUMode,
 	}
@@ -85,6 +87,8 @@ type RegisteredChannel struct {
 	Modes []modes.Mode
 	// Key represents the channel key / password
 	Key string
+	// Group for highlighting all users
+	HighLight string
 	// AccountToUMode maps user accounts to their persistent channel modes (e.g., +q, +h)
 	AccountToUMode map[string]modes.Mode
 	// Banlist represents the bans set on the channel.
@@ -161,6 +165,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 		topicSetTime, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetTime, channelKey))
 		topicSetTimeInt, _ := strconv.ParseInt(topicSetTime, 10, 64)
 		password, _ := tx.Get(fmt.Sprintf(keyChannelPassword, channelKey))
+		highlights, _ := tx.Get(fmt.Sprintf(keyChannelHighLights, channelKey))
 		modeString, _ := tx.Get(fmt.Sprintf(keyChannelModes, channelKey))
 		banlistString, _ := tx.Get(fmt.Sprintf(keyChannelBanlist, channelKey))
 		exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
@@ -189,6 +194,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 			TopicSetBy:     topicSetBy,
 			TopicSetTime:   time.Unix(topicSetTimeInt, 0),
 			Key:            password,
+			HighLight:      highlights,
 			Modes:          modeSlice,
 			Banlist:        banlist,
 			Exceptlist:     exceptlist,

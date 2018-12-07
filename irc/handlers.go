@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 	"regexp"
-
+	"mvdan.cc/xurls"
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/goshuirc/irc-go/ircmsg"
@@ -34,6 +34,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	trip "github.com/aquilax/tripcode"
+	"github.com/badoux/goscraper"
 )
 
 // ACC [REGISTER|VERIFY] ...
@@ -1321,12 +1322,12 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	//TODO(vegax87) Fix network statistics and additional parameters
-	totalCount, invisibleCount, operCount := server.stats.GetStats()
+	// totalCount, invisibleCount, operCount := server.stats.GetStats()
 
-	rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalCount-invisibleCount, invisibleCount, 1))
-	rb.Add(nil, server.name, RPL_LUSEROP, client.nick, strconv.Itoa(operCount), client.t("IRC Operators online"))
-	rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
-	rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalCount, 1))
+	// rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalCount-invisibleCount, invisibleCount, 1))
+	// rb.Add(nil, server.name, RPL_LUSEROP, client.nick, strconv.Itoa(operCount), client.t("IRC Operators online"))
+	// rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
+	// rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalCount, 1))
 
 	return false
 }
@@ -1618,17 +1619,21 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
-			channel.Names(client, rb)
+			if !channel.flags.HasMode(modes.Auditorium) {
+				channel.Names(client, rb)
+			}
 		}
 		return false
 	}
 
 	for _, chname := range channels {
 		channel := server.channels.Get(chname)
-		if channel != nil {
-			channel.Names(client, rb)
-		} else if chname != "" {
-			rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
+		if !channel.flags.HasMode(modes.Auditorium) {
+			if channel != nil {
+				channel.Names(client, rb)
+			} else if chname != "" {
+				rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
+			}
 		}
 	}
 	return false
@@ -1878,7 +1883,45 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				continue
 			}
 			msgid := server.generateMessageID()
-			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+
+			if channel.flags.HasMode(modes.LinkInfo) {
+				if xurls.Relaxed().FindString(message) != "" {
+					submatchall := xurls.Relaxed().FindAllString(message, -1)
+					for _, element := range submatchall {
+						s, err := goscraper.Scrape(element, 2)
+						if err != nil {
+							fmt.Println(err)
+						}
+						for _, member := range channel.Members() {
+							if s.Preview.Title != "" {
+								member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Title))
+							}
+							if s.Preview.Description != "" {
+								member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Description))
+							}
+							// probably don't want this?  TO FIX: index out of range error/crash when an image is linked
+							// if s.Preview.Images[0] != "" {
+							// 	member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Images[0]))
+							// }
+						}
+					}
+				}
+			}
+
+			if channel.HighLights() != ""{
+				if strings.Contains(message, fmt.Sprintf("@%s", channel.highlights)) {
+					var channelMembers []string
+					for _, member := range channel.Members() {
+						channelMembers = append(channelMembers, member.nick)
+					}
+					for _, member := range channel.Members() {
+						member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+					}
+				}
+			}
+
+		channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+
 		} else {
 			target, err = CasefoldName(targetString)
 			if service, isService := OragonoServices[target]; isService {

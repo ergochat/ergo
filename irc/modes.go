@@ -200,6 +200,16 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				applied = append(applied, change)
 			}
 
+		case modes.HighLight:
+			switch change.Op {
+			case modes.Add:
+				channel.setHighLights(change.Arg)
+
+			case modes.Remove:
+				channel.setHighLights("")
+			}
+			applied = append(applied, change)
+
 		case modes.Key:
 			switch change.Op {
 			case modes.Add:
@@ -210,7 +220,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			}
 			applied = append(applied, change)
 
-		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying, modes.Auditorium:
+		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying, modes.Auditorium, modes.LinkInfo:
 			if change.Op == modes.List {
 				continue
 			}

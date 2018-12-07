@@ -24,6 +24,7 @@ type Channel struct {
 	flags             *modes.ModeSet
 	lists             map[modes.Mode]*UserMaskSet
 	key               string
+	highlights        string
 	members           MemberSet
 	membersCache      []*Client // allow iteration over channel members without holding the lock
 	name              string
@@ -303,11 +304,15 @@ func (channel *Channel) hasClient(client *Client) bool {
 func (channel *Channel) modeStrings(client *Client) (result []string) {
 	isMember := client.HasMode(modes.Operator) || channel.hasClient(client)
 	showKey := isMember && (channel.key != "")
+	showHighLight := isMember && (channel.highlights != "")
 	showUserLimit := channel.userLimit > 0
 
 	mods := "+"
 
 	// flags with args
+	if showHighLight {
+		mods += modes.HighLight.String()
+	}
 	if showKey {
 		mods += modes.Key.String()
 	}
@@ -324,6 +329,9 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
+	if showHighLight {
+		result = append(result, channel.highlights)
+	}
 	if showKey {
 		result = append(result, channel.key)
 	}
