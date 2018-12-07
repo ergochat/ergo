@@ -14,7 +14,7 @@ capdefs:
 	python3 ./gencapdefs.py > ${capdef_file}
 
 deps:
-	git submodule update --init
+	go get
 
 test:
 	python3 ./gencapdefs.py | diff - ${capdef_file}
