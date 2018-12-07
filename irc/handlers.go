@@ -1883,7 +1883,8 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				continue
 			}
 			msgid := server.generateMessageID()
-
+			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+			
 			if channel.flags.HasMode(modes.LinkInfo) {
 				if xurls.Relaxed().FindString(message) != "" {
 					submatchall := xurls.Relaxed().FindAllString(message, -1)
@@ -1925,7 +1926,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				}
 			}
 
-		channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+		
 
 		} else {
 			target, err = CasefoldName(targetString)
