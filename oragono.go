@@ -49,7 +49,7 @@ Options:
 	-h --help          Show this screen.
 	--version          Show version.`
 
-	arguments, _ := docopt.Parse(usage, nil, true, version, false)
+	arguments, _ := docopt.ParseArgs(usage, nil, version)
 
 	configfile := arguments["--conf"].(string)
 	config, err := irc.LoadConfig(configfile)
