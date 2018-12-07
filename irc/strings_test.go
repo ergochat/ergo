@@ -40,10 +40,29 @@ func TestCasefoldChannel(t *testing.T) {
 			channel: "#",
 			folded:  "#",
 		},
+		{
+			channel: "##",
+			folded:  "##",
+		},
+		{
+			channel: "##Ubuntu",
+			folded:  "##ubuntu",
+		},
+		{
+			channel: "#中文频道",
+			folded:  "#中文频道",
+		},
+		{
+			// Hebrew; it's up to the client to display this right-to-left, including the #
+			channel: "#שלום",
+			folded:  "#שלום",
+		},
 	}
 
 	for _, errCase := range []string{
 		"", "#*starpower", "# NASA", "#interro?", "OOF#", "foo",
+		// bidi violation mixing latin and hebrew characters:
+		"#shalomעליכם",
 	} {
 		testCases = append(testCases, channelTest{channel: errCase, err: true})
 	}
