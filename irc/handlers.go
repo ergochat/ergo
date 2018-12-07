@@ -1884,12 +1884,12 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			msgid := server.generateMessageID()
 			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
-			
+
 			if channel.flags.HasMode(modes.LinkInfo) {
 				if xurls.Relaxed().FindString(message) != "" {
 					submatchall := xurls.Relaxed().FindAllString(message, -1)
 					for _, element := range submatchall {
-						s, err := goscraper.Scrape(element, 3, 2000, "Mozilla/5.0 (X11; Linux i686; rv:64.0) Gecko/20100101 Firefox/64.0") // TODO: randomise this later
+						s, err := goscraper.Scrape(element, 3, 3000, "Lynx/2.8.7dev.9 libwww-FM/2.14") // TODO: randomise this later
 						if err != nil {
 							fmt.Println(err)
 							// Notify the channel of the error?
