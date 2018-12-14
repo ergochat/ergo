@@ -4,9 +4,6 @@
 package irc
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +17,7 @@ import (
 
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/passwd"
+	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -336,9 +334,7 @@ func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount str
 
 func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccount string, callbackValue string) (code string, err error) {
 	config := am.server.AccountConfig().Registration.Callbacks.Mailto
-	buf := make([]byte, 16)
-	rand.Read(buf)
-	code = hex.EncodeToString(buf)
+	code = utils.GenerateSecretToken()
 
 	subject := config.VerifyMessageSubject
 	if subject == "" {
@@ -412,7 +408,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			storedCode, err := tx.Get(verificationCodeKey)
 			if err == nil {
 				// this is probably unnecessary
-				if storedCode == "" || subtle.ConstantTimeCompare([]byte(code), []byte(storedCode)) == 1 {
+				if storedCode == "" || utils.SecretTokensMatch(storedCode, code) {
 					success = true
 				}
 			}

@@ -7,7 +7,6 @@ package irc
 
 import (
 	"bytes"
-	"crypto/subtle"
 	"fmt"
 	"strconv"
 	"time"
@@ -16,7 +15,9 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // Channel represents a channel that clients can join.
@@ -39,6 +40,7 @@ type Channel struct {
 	topicSetTime      time.Time
 	userLimit         uint64
 	accountToUMode    map[string]modes.Mode
+	history           history.Buffer
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -65,13 +67,17 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 		accountToUMode: make(map[string]modes.Mode),
 	}
 
+	config := s.Config()
+
 	if regInfo != nil {
 		channel.applyRegInfo(regInfo)
 	} else {
-		for _, mode := range s.DefaultChannelModes() {
+		for _, mode := range config.Channels.defaultModes {
 			channel.flags.SetMode(mode, true)
 		}
 	}
+
+	channel.history.Initialize(config.History.ChannelLength)
 
 	return channel
 }
@@ -214,9 +220,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 		prefix := modes.Prefixes(isMultiPrefix)
 		if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
 			namesLines = append(namesLines, buffer.String())
-			// memset(&buffer, 0, sizeof(bytes.Buffer));
-			var newBuffer bytes.Buffer
-			buffer = newBuffer
+			buffer.Reset()
 		}
 		if buffer.Len() > 0 {
 			buffer.WriteString(" ")
@@ -344,11 +348,7 @@ func (channel *Channel) IsFull() bool {
 // CheckKey returns true if the key is not set or matches the given key.
 func (channel *Channel) CheckKey(key string) bool {
 	chkey := channel.Key()
-	if chkey == "" {
-		return true
-	}
-
-	return subtle.ConstantTimeCompare([]byte(key), []byte(chkey)) == 1
+	return chkey == "" || utils.SecretTokensMatch(chkey, key)
 }
 
 func (channel *Channel) IsEmpty() bool {
@@ -462,6 +462,12 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	if givenMode != 0 {
 		rb.Add(nil, client.server.name, "MODE", chname, modestr, nick)
 	}
+
+	channel.history.Add(history.Item{
+		Type:        history.Join,
+		Nick:        nickmask,
+		AccountName: accountName,
+	})
 }
 
 // Part parts the given client from this channel, with the given message.
@@ -480,7 +486,124 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	}
 	rb.Add(nil, nickmask, "PART", chname, message)
 
+	channel.history.Add(history.Item{
+		Type:        history.Part,
+		Nick:        nickmask,
+		AccountName: client.AccountName(),
+		Message:     utils.MakeSplitMessage(message, true),
+	})
+
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, chname))
+}
+
+// Resume is called after a successful global resume to:
+// 1. Replace the old client with the new in the channel's data structures
+// 2. Send JOIN and MODE lines to channel participants (including the new client)
+// 3. Replay missed message history to the client
+func (channel *Channel) Resume(newClient, oldClient *Client, timestamp time.Time) {
+	now := time.Now()
+	channel.resumeAndAnnounce(newClient, oldClient)
+	if !timestamp.IsZero() {
+		channel.replayHistory(newClient, timestamp, now)
+	}
+}
+
+func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
+	var oldModeSet *modes.ModeSet
+
+	func() {
+		channel.joinPartMutex.Lock()
+		defer channel.joinPartMutex.Unlock()
+
+		defer channel.regenerateMembersCache()
+
+		channel.stateMutex.Lock()
+		defer channel.stateMutex.Unlock()
+
+		newClient.channels[channel] = true
+		oldModeSet = channel.members[oldClient]
+		if oldModeSet == nil {
+			oldModeSet = modes.NewModeSet()
+		}
+		channel.members.Remove(oldClient)
+		channel.members[newClient] = oldModeSet
+	}()
+
+	// construct fake modestring if necessary
+	oldModes := oldModeSet.String()
+	if 0 < len(oldModes) {
+		oldModes = "+" + oldModes
+	}
+
+	// send join for old clients
+	nick := newClient.Nick()
+	nickMask := newClient.NickMaskString()
+	accountName := newClient.AccountName()
+	realName := newClient.Realname()
+	for _, member := range channel.Members() {
+		if member.capabilities.Has(caps.Resume) {
+			continue
+		}
+
+		if member.capabilities.Has(caps.ExtendedJoin) {
+			member.Send(nil, nickMask, "JOIN", channel.name, accountName, realName)
+		} else {
+			member.Send(nil, nickMask, "JOIN", channel.name)
+		}
+
+		if 0 < len(oldModes) {
+			member.Send(nil, channel.server.name, "MODE", channel.name, oldModes, nick)
+		}
+	}
+
+	rb := NewResponseBuffer(newClient)
+	// use blocking i/o to synchronize with the later history replay
+	rb.SetBlocking(true)
+	if newClient.capabilities.Has(caps.ExtendedJoin) {
+		rb.Add(nil, nickMask, "JOIN", channel.name, accountName, realName)
+	} else {
+		rb.Add(nil, nickMask, "JOIN", channel.name)
+	}
+	channel.SendTopic(newClient, rb)
+	channel.Names(newClient, rb)
+	if 0 < len(oldModes) {
+		rb.Add(nil, newClient.server.name, "MODE", channel.name, oldModes, nick)
+	}
+	rb.Send()
+}
+
+func (channel *Channel) replayHistory(newClient *Client, after time.Time, before time.Time) {
+	chname := channel.Name()
+	extendedJoin := newClient.capabilities.Has(caps.ExtendedJoin)
+
+	items, complete := channel.history.Between(after, before)
+	for _, item := range items {
+		switch item.Type {
+		case history.Privmsg:
+			newClient.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, "PRIVMSG", chname, item.Message)
+		case history.Notice:
+			newClient.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, "NOTICE", chname, item.Message)
+		case history.Join:
+			if extendedJoin {
+				newClient.sendInternal(true, item.Time, nil, item.Nick, "JOIN", chname, item.AccountName, "")
+			} else {
+				newClient.sendInternal(true, item.Time, nil, item.Nick, "JOIN", chname)
+			}
+		case history.Quit:
+			// XXX: send QUIT as PART to avoid having to correctly deduplicate and synchronize
+			// QUIT messages across channels
+			fallthrough
+		case history.Part:
+			newClient.sendInternal(true, item.Time, nil, item.Nick, "PART", chname, item.Message.Original)
+		case history.Kick:
+			newClient.sendInternal(true, item.Time, nil, item.Nick, "KICK", chname, item.Msgid, item.Message.Original)
+		}
+	}
+
+	if !complete && !newClient.resumeDetails.HistoryIncomplete {
+		// warn here if we didn't warn already
+		newClient.sendInternal(true, time.Time{}, nil, "HistServ", "NOTICE", chname, newClient.t("Some additional message history may have been lost"))
+	}
 }
 
 // SendTopic sends the channel topic to the given client.
@@ -622,16 +745,16 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 }
 
 // SplitPrivMsg sends a private message to everyone in this channel.
-func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage, rb *ResponseBuffer) {
-	channel.sendSplitMessage(msgid, "PRIVMSG", minPrefix, clientOnlyTags, client, &message, rb)
+func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
+	channel.sendSplitMessage(msgid, "PRIVMSG", history.Privmsg, minPrefix, clientOnlyTags, client, &message, rb)
 }
 
 // SplitNotice sends a private message to everyone in this channel.
-func (channel *Channel) SplitNotice(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message SplitMessage, rb *ResponseBuffer) {
-	channel.sendSplitMessage(msgid, "NOTICE", minPrefix, clientOnlyTags, client, &message, rb)
+func (channel *Channel) SplitNotice(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
+	channel.sendSplitMessage(msgid, "NOTICE", history.Notice, minPrefix, clientOnlyTags, client, &message, rb)
 }
 
-func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *SplitMessage, rb *ResponseBuffer) {
+func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.ItemType, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *utils.SplitMessage, rb *ResponseBuffer) {
 	if !channel.CanSpeak(client) {
 		rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 		return
@@ -654,6 +777,10 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mod
 			rb.AddSplitMessageFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
 		}
 	}
+
+	nickmask := client.NickMaskString()
+	account := client.AccountName()
+
 	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
@@ -668,12 +795,21 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, minPrefix *modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 
+		// TODO(slingamn) evaluate an optimization where we reuse `nickmask` and `account`
 		if message == nil {
 			member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
 		} else {
 			member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
 		}
 	}
+
+	channel.history.Add(history.Item{
+		Type:        histType,
+		Msgid:       msgid,
+		Message:     *message,
+		Nick:        nickmask,
+		AccountName: account,
+	})
 }
 
 func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) (result *modes.ModeChange) {
@@ -805,6 +941,14 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 	for _, member := range channel.Members() {
 		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
 	}
+
+	channel.history.Add(history.Item{
+		Type:        history.Kick,
+		Nick:        clientMask,
+		Message:     utils.MakeSplitMessage(comment, true),
+		AccountName: target.AccountName(),
+		Msgid:       targetNick, // XXX abuse this field
+	})
 
 	channel.Quit(target)
 }

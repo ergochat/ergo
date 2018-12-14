@@ -26,6 +26,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -482,6 +483,15 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 		client.capabilities.Union(capabilities)
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
+
+		// if this is the first time the client is requesting a resume token,
+		// send it to them
+		if capabilities.Has(caps.Resume) {
+			token, err := client.generateResumeToken()
+			if err == nil {
+				rb.Add(nil, server.name, "RESUME", "TOKEN", token)
+			}
+		}
 
 	case "END":
 		if !client.Registered() {
@@ -1648,7 +1658,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
+	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1699,6 +1709,14 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if client.capabilities.Has(caps.EchoMessage) {
 				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
+
+			user.history.Add(history.Item{
+				Type:        history.Notice,
+				Msgid:       msgid,
+				Message:     splitMsg,
+				Nick:        client.NickMaskString(),
+				AccountName: client.AccountName(),
+			})
 		}
 	}
 	return false
@@ -1848,7 +1866,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
+	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1905,6 +1923,14 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 			}
+
+			user.history.Add(history.Item{
+				Type:        history.Privmsg,
+				Msgid:       msgid,
+				Message:     splitMsg,
+				Nick:        client.NickMaskString(),
+				AccountName: client.AccountName(),
+			})
 		}
 	}
 	return false
@@ -2018,33 +2044,30 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return false
 }
 
-// RESUME <oldnick> [timestamp]
+// RESUME <oldnick> <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	oldnick := msg.Params[0]
-
-	if strings.Contains(oldnick, " ") {
-		rb.Add(nil, server.name, ERR_CANNOT_RESUME, "*", client.t("Cannot resume connection, old nickname contains spaces"))
-		return false
-	}
+	token := msg.Params[1]
 
 	if client.Registered() {
 		rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
-	var timestamp *time.Time
-	if 1 < len(msg.Params) {
-		ts, err := time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
+	var timestamp time.Time
+	if 2 < len(msg.Params) {
+		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[2])
 		if err == nil {
-			timestamp = &ts
+			timestamp = ts
 		} else {
 			rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
 	client.resumeDetails = &ResumeDetails{
-		OldNick:   oldnick,
-		Timestamp: timestamp,
+		OldNick:        oldnick,
+		Timestamp:      timestamp,
+		PresentedToken: token,
 	}
 
 	return false
@@ -2280,24 +2303,10 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	if client.username != "" && client.realname != "" {
-		return false
-	}
-
-	// confirm that username is valid
-	//
-	_, err := CasefoldName(msg.Params[0])
-	if err != nil {
+	err := client.SetNames(msg.Params[0], msg.Params[3])
+	if err == errInvalidUsername {
 		rb.Add(nil, "", "ERROR", client.t("Malformed username"))
 		return true
-	}
-
-	if !client.HasUsername() {
-		client.username = "~" + msg.Params[0]
-		// don't bother updating nickmask here, it's not valid anyway
-	}
-	if client.realname == "" {
-		client.realname = msg.Params[3]
 	}
 
 	return false

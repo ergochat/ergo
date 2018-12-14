@@ -63,17 +63,17 @@ func (clients *ClientManager) Get(nick string) *Client {
 	return nil
 }
 
-func (clients *ClientManager) removeInternal(client *Client) (removed bool) {
+func (clients *ClientManager) removeInternal(client *Client) (err error) {
 	// requires holding the writable Lock()
 	oldcfnick := client.NickCasefolded()
 	currentEntry, present := clients.byNick[oldcfnick]
 	if present {
 		if currentEntry == client {
 			delete(clients.byNick, oldcfnick)
-			removed = true
 		} else {
 			// this shouldn't happen, but we can ignore it
 			client.server.logger.Warning("internal", fmt.Sprintf("clients for nick %s out of sync", oldcfnick))
+			err = errNickMissing
 		}
 	}
 	return
@@ -87,7 +87,28 @@ func (clients *ClientManager) Remove(client *Client) error {
 	if !client.HasNick() {
 		return errNickMissing
 	}
-	clients.removeInternal(client)
+	return clients.removeInternal(client)
+}
+
+// Resume atomically replaces `oldClient` with `newClient`, updating
+// newClient's data to match. It is the caller's responsibility first
+// to verify that the resume is allowed, and then later to call oldClient.destroy().
+func (clients *ClientManager) Resume(newClient, oldClient *Client) (err error) {
+	clients.Lock()
+	defer clients.Unlock()
+
+	// atomically grant the new client the old nick
+	err = clients.removeInternal(oldClient)
+	if err != nil {
+		// oldClient no longer owns its nick, fail out
+		return err
+	}
+	// nick has been reclaimed, grant it to the new client
+	clients.removeInternal(newClient)
+	clients.byNick[oldClient.NickCasefolded()] = newClient
+
+	newClient.copyResumeData(oldClient)
+
 	return nil
 }
 

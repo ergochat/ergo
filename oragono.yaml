@@ -92,6 +92,10 @@ server:
                 # - "127.0.0.1/8"
                 # - "0::1"
 
+    # allow use of the RESUME extension over plaintext connections:
+    # do not enable this unless the ircd is only accessible over internal networks
+    allow-plaintext-resume: false
+
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold /LIST and HELP replies
     max-sendq: 16k
@@ -439,3 +443,14 @@ fakelag:
     # client status resets to the default state if they go this long without
     # sending any commands:
     cooldown: 2s
+
+# message history tracking, for the RESUME extension and possibly other uses in future
+history:
+    # should we store messages for later playback?
+    enabled: true
+
+    # how many channel-specific events (messages, joins, parts) should be tracked per channel?
+    channel-length: 256
+
+    # how many direct messages and notices should be tracked per user?
+    client-length: 64
