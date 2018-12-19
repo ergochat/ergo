@@ -1897,12 +1897,13 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 							//	member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", err))
 							//}
 						}else{
+							var htmlre = regexp.MustCompile(`\r?\n`)
 							for _, member := range channel.Members() {
 								if s.Preview.Title != "" {
-									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Title))
+									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Title, " ")))
 								}
 								if s.Preview.Description != "" {
-									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", s.Preview.Description))
+									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Description, " ")))
 								}
 								// probably don't want this?  TOFIX: index out of range error/crash when an image is linked
 								// if s.Preview.Images[0] != "" {
@@ -1921,7 +1922,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 						channelMembers = append(channelMembers, member.nick)
 					}
 					for _, member := range channel.Members() {
-						member.Send(nil, fmt.Sprintf("%s!url@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+						member.Send(nil, fmt.Sprintf("%s!notify@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
 					}
 				}
 			}
