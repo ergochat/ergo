@@ -9,6 +9,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	// "crypto/rand"
+	// "encoding/hex"
 
 	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/unendingPattern/oragono/irc/caps"
@@ -112,6 +114,11 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	currentNewEntry := clients.byNick[newcfnick]
 	// the client may just be changing case
 	if currentNewEntry != nil && currentNewEntry != client {
+
+		//buf := make([]byte, 4)
+		//rand.Read(buf)
+		//newNick = fmt.Sprintf("%s-%s", newNick, hex.EncodeToString(buf))
+
 		return errNicknameInUse
 	}
 	if method == NickReservationStrict && reservedAccount != client.Account() {

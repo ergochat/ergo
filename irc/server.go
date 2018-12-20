@@ -512,6 +512,10 @@ func (server *Server) tryRegister(c *Client) {
 		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a secure tripcode: !!%s"), c.nick, c.secureTripcode))
 	}
 
+	// if (c.tripcode == "") || (c.secureTripcode == ""){
+	// 	server.ForceNick(c.nick, c)
+	// }
+
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.
@@ -627,7 +631,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	// rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, targetInfo.nickname, fmt.Sprintf("%s %s - %s", targetInfo.nickname, target.username, target.hostname))
 	tnick := targetInfo.nickname
 
-	if client.HasMode(modes.Operator) || client == target {
+	if client.HasMode(modes.Operator) {
 		whoischannels := client.WhoisChannelsNames(target)
 		if whoischannels != nil {
 			rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
@@ -637,7 +641,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 			rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 		}
 
-		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
+		//rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
 		
 		if target.HasMode(modes.TLS) {
 			rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
@@ -659,11 +663,11 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		// 	rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 		// }
 
-		if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
-			rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
-		}
-
 		rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
+	}
+
+	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
+		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
 }
 

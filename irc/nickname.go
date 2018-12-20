@@ -17,6 +17,7 @@ import (
 var (
 	restrictedNicknames = map[string]bool{
 		"=scene=": true, // used for rp commands
+		"--": true, //used for notifications
 	}
 )
 
@@ -45,10 +46,12 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	err = client.server.clients.SetNick(target, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
-		return false
+		server.forceNick(nickname, client)
+		//return false
 	} else if err == errNicknameReserved {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is reserved by a different account"))
-		return false
+		server.forceNick(nickname, client)
+		//return false
 	} else if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 		return false
@@ -80,6 +83,20 @@ func (server *Server) RandomlyRename(client *Client) {
 	buf := make([]byte, 8)
 	rand.Read(buf)
 	nick := fmt.Sprintf("%s%s", prefix, hex.EncodeToString(buf))
+	rb := NewResponseBuffer(client)
+	performNickChange(server, client, client, nick, rb)
+	rb.Send()
+	// technically performNickChange can fail to change the nick,
+	// but if they're still delinquent, the timer will get them later
+}
+
+func (server *Server) forceNick(currentNick string, client *Client) {
+	if currentNick == "" || currentNick == "*" {
+		currentNick = client.preregNick
+	}
+	buf := make([]byte, 4)
+	rand.Read(buf)
+	nick := fmt.Sprintf("%s-%s", currentNick, hex.EncodeToString(buf))
 	rb := NewResponseBuffer(client)
 	performNickChange(server, client, client, nick, rb)
 	rb.Send()

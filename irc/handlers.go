@@ -22,6 +22,9 @@ import (
 	"time"
 	"regexp"
 	"mvdan.cc/xurls"
+	// "crypto/rand"
+	// "encoding/hex"
+
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/goshuirc/irc-go/ircmsg"
@@ -1643,6 +1646,9 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if client.Registered() {
 		performNickChange(server, client, client, msg.Params[0], rb)
+		// if (performNickChange(server, client, client, msg.Params[0], rb) == false){
+		// 	server.forceNick(client.nick, client)
+		// }
 	} else {
 		client.SetPreregNick(msg.Params[0])
 	}
@@ -2365,9 +2371,19 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 				}
 		}
 	}else{
-		client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
-		client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
-		client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
+		//client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
+		//client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
+		//client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
+
+		// buf := make([]byte, 8)
+
+		// rand.Read(buf)
+		client.username = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix) // fmt.Sprintf("%s-%s", strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix), hex.EncodeToString(buf))
+
+		//rand.Read(buf)
+		client.rawHostname = strings.ToLower(server.name) // fmt.Sprintf("%s", hex.EncodeToString(buf))
+
+		client.realname = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix)
 	}
 
 	// _, err := CasefoldName(msg.Params[0])
