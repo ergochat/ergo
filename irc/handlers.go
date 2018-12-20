@@ -1889,7 +1889,22 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				continue
 			}
 			msgid := server.generateMessageID()
-			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+
+			// greentext formatting
+			//if channel.flags.HasMode(modes.GreenText) {
+			greentext := regexp.MustCompile(`\>(.*)`)
+			if greentext.MatchString(message) {
+				for _, member := range channel.Members() {
+					if member != client {
+						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("\x0303%s\x03", message))
+					}//else{
+					//	rb.Add(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("\x0303%s\x03", message))
+					//}
+				}
+			}else{
+				channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+			}
+			//}
 
 			if channel.flags.HasMode(modes.LinkInfo) {
 				if xurls.Relaxed().FindString(message) != "" {
@@ -1906,10 +1921,18 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 							var htmlre = regexp.MustCompile(`\r?\n`)
 							for _, member := range channel.Members() {
 								if s.Preview.Title != "" {
-									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Title, " ")))
+									if member != client {
+										member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Title, " ")))
+									}else{
+										rb.Add(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Title, " ")))
+									}
 								}
 								if s.Preview.Description != "" {
-									member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Description, " ")))
+									if member != client {
+										member.Send(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Description, " ")))
+									}else{
+										rb.Add(nil, fmt.Sprintf("--!url@%s", server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", htmlre.ReplaceAllString(s.Preview.Description, " ")))
+									}
 								}
 								// probably don't want this?  TOFIX: index out of range error/crash when an image is linked
 								// if s.Preview.Images[0] != "" {
@@ -1928,7 +1951,11 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 						channelMembers = append(channelMembers, member.nick)
 					}
 					for _, member := range channel.Members() {
-						member.Send(nil, fmt.Sprintf("%s!notify@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+						if member != client {
+							member.Send(nil, fmt.Sprintf("%s!notify@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+						}else{
+							rb.Add(nil, fmt.Sprintf("%s!notify@%s", channel.HighLights(), server.name), "PRIVMSG", channel.name, fmt.Sprintf("\x01ACTION %s\x01", channelMembers))
+						}
 					}
 				}
 			}
