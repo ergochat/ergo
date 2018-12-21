@@ -1892,11 +1892,16 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 			// greentext formatting
 			//if channel.flags.HasMode(modes.GreenText) {
-			greentext := regexp.MustCompile(`\>(.*)`)
+			greentext := regexp.MustCompile(`>[A-z].*`)
 			if greentext.MatchString(message) {
+				greentextmsgs := greentext.FindAllStringSubmatch(message, -1)
+				for _, greentextmsg := range greentextmsgs {
+					//fmt.Println(greentextmsg[0])
+					message = strings.Replace(message, greentextmsg[0], fmt.Sprintf("\x0303%s\x03", greentextmsg[0]), -1)
+				}
 				for _, member := range channel.Members() {
 					if member != client {
-						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("\x0303%s\x03", message))
+						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
 					}//else{
 					//	rb.Add(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("\x0303%s\x03", message))
 					//}
