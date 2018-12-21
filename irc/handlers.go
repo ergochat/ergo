@@ -1890,21 +1890,52 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			msgid := server.generateMessageID()
 
-			// greentext formatting
+			// text formatting (HIGHLY EXPERIMENTAL)
+			// TO DO: MAKE THIS INTO A FUNCTION !!!
 			//if channel.flags.HasMode(modes.GreenText) {
 			greentext := regexp.MustCompile(`>[A-z].*`)
+			boldtext := regexp.MustCompile(`\*\*(.*?)\*\*`)
+			italictext := regexp.MustCompile(`\*(.*?)\*`)
+			undertext := regexp.MustCompile(`_(.*?)_`)
 			if greentext.MatchString(message) {
 				greentextmsgs := greentext.FindAllStringSubmatch(message, -1)
 				for _, greentextmsg := range greentextmsgs {
-					//fmt.Println(greentextmsg[0])
 					message = strings.Replace(message, greentextmsg[0], fmt.Sprintf("\x0303%s\x03", greentextmsg[0]), -1)
 				}
 				for _, member := range channel.Members() {
 					if member != client {
 						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
-					}//else{
-					//	rb.Add(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("\x0303%s\x03", message))
-					//}
+					}
+				}
+			}else if boldtext.MatchString(message) {
+				boldtextmsgs := boldtext.FindAllStringSubmatch(message, -1)
+				for _, boldtextmsg := range boldtextmsgs {
+					message = strings.Replace(message, boldtextmsg[0], fmt.Sprintf("\x02%s\x02", boldtextmsg[0]), -1)
+				}
+				for _, member := range channel.Members() {
+					if member != client {
+						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+					}
+				}
+			}else if italictext.MatchString(message) {
+				italictextmsgs := italictext.FindAllStringSubmatch(message, -1)
+				for _, italictextmsg := range italictextmsgs {
+					message = strings.Replace(message, italictextmsg[0], fmt.Sprintf("\x1D%s\x1D", italictextmsg[0]), -1)
+				}
+				for _, member := range channel.Members() {
+					if member != client {
+						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+					}
+				}
+			}else if undertext.MatchString(message) {
+				undertextmsgs := undertext.FindAllStringSubmatch(message, -1)
+				for _, undertextmsg := range undertextmsgs {
+					message = strings.Replace(message, undertextmsg[0], fmt.Sprintf("\x1F%s\x1F", undertextmsg[0]), -1)
+				}
+				for _, member := range channel.Members() {
+					if member != client {
+						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+					}
 				}
 			}else{
 				channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
