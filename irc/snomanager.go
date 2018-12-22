@@ -82,7 +82,6 @@ func (m *SnoManager) RemoveClient(client *Client) {
 
 // Send sends the given snomask to all users signed up for it.
 func (m *SnoManager) Send(mask sno.Mask, content string) {
-	return
 	m.sendListMutex.RLock()
 	defer m.sendListMutex.RUnlock()
 

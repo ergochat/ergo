@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
-	//"strconv"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,7 +17,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
-	//ident "github.com/oragono/go-ident"
+	ident "github.com/oragono/go-ident"
 	"github.com/unendingPattern/oragono/irc/caps"
 	"github.com/unendingPattern/oragono/irc/modes"
 	"github.com/unendingPattern/oragono/irc/sno"
@@ -113,36 +113,36 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
 	}
-	// if config.Server.CheckIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
-	// 	_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
-	// 	if err != nil {
-	// 		server.logger.Error("internal", "bad server address", err.Error())
-	// 		return
-	// 	}
-	// 	serverPort, _ := strconv.Atoi(serverPortString)
-	// 	clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
-	// 	if err != nil {
-	// 		server.logger.Error("internal", "bad client address", err.Error())
-	// 		return
-	// 	}
-	// 	clientPort, _ := strconv.Atoi(clientPortString)
+	if config.Server.CheckIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
+		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
+		if err != nil {
+			server.logger.Error("internal", "bad server address", err.Error())
+			return
+		}
+		serverPort, _ := strconv.Atoi(serverPortString)
+		clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
+		if err != nil {
+			server.logger.Error("internal", "bad client address", err.Error())
+			return
+		}
+		clientPort, _ := strconv.Atoi(clientPortString)
 
-	// 	client.Notice(client.t("*** Looking up your username"))
-	// 	resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
-	// 	if err == nil {
-	// 		username := resp.Identifier
-	// 		_, err := CasefoldName(username) // ensure it's a valid username
-	// 		if err == nil {
-	// 			client.Notice(client.t("*** Found your username"))
-	// 			client.username = username
-	// 			// we don't need to updateNickMask here since nickMask is not used for anything yet
-	// 		} else {
-	// 			client.Notice(client.t("*** Got a malformed username, ignoring"))
-	// 		}
-	// 	} else {
-	// 		client.Notice(client.t("*** Could not find your username"))
-	// 	}
-	// }
+		client.Notice(client.t("*** Looking up your username"))
+		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
+		if err == nil {
+			username := resp.Identifier
+			_, err := CasefoldName(username) // ensure it's a valid username
+			if err == nil {
+				client.Notice(client.t("*** Found your username"))
+				client.username = username
+				// we don't need to updateNickMask here since nickMask is not used for anything yet
+			} else {
+				client.Notice(client.t("*** Got a malformed username, ignoring"))
+			}
+		} else {
+			client.Notice(client.t("*** Could not find your username"))
+		}
+	}
 	go client.run()
 }
 

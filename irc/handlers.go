@@ -1020,19 +1020,19 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	currentArg := 0
 
 	// if they say LIST, we just list the current klines
-	// if len(msg.Params) == currentArg+1 && strings.ToLower(msg.Params[currentArg]) == "list" {
-	// 	bans := server.klines.AllBans()
+	if len(msg.Params) == currentArg+1 && strings.ToLower(msg.Params[currentArg]) == "list" {
+		bans := server.klines.AllBans()
 
-	// 	if len(bans) == 0 {
-	// 		client.Notice("No KLINEs have been set!")
-	// 	}
+		if len(bans) == 0 {
+			client.Notice("No KLINEs have been set!")
+		}
 
-	// 	for key, info := range bans {
-	// 		client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
-	// 	}
+		for key, info := range bans {
+			client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
+		}
 
-	// 	return false
-	// }
+		return false
+	}
 
 	// when setting a ban, if they say "ANDKILL" we should also kill all users who match it
 	var andKill bool
