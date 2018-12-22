@@ -2408,18 +2408,23 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 
 	// the tripcode thing
+	//set defaults
+	client.username = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix) // fmt.Sprintf("%s-%s", strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix), hex.EncodeToString(buf))
+	client.rawHostname = strings.ToLower(server.name) // fmt.Sprintf("%s", hex.EncodeToString(buf))
+	client.realname = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix)
+	
 	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
 	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
 	re2 := regexp.MustCompile(`\##(.*)`)
 	if re2.MatchString(msg.Params[0]) {
 		client.secureTripcode = trip.SecureTripcode(msg.Params[0][1:], "randomsalt")
 
-		client.username = fmt.Sprintf("!%s", client.secureTripcode)
+		client.username = fmt.Sprintf("%s", client.secureTripcode)
 		client.realname = fmt.Sprintf("%s", client.username)
 	} else if re.MatchString(msg.Params[0]) {
 		client.tripcode = trip.Tripcode(msg.Params[0][1:])
 
-		client.username = fmt.Sprintf("!%s", client.tripcode)
+		client.username = fmt.Sprintf("%s", client.tripcode)
 		client.realname = fmt.Sprintf("%s", client.username)
 
 		tripcodes := re.FindAllStringSubmatch(msg.Params[0], -1)
@@ -2428,12 +2433,12 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 					client.tripcode = trip.Tripcode(tripcode[1])
 					client.secureTripcode = trip.SecureTripcode(tripcode[2], "randomsalt")
 					
-					client.username = fmt.Sprintf("!%s", client.tripcode)
-					client.rawHostname = fmt.Sprintf("!!%s", client.secureTripcode)
+					client.username = fmt.Sprintf("%s", client.tripcode)
+					client.rawHostname = fmt.Sprintf("%s.%s", client.secureTripcode, server.name)
 					client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
 				}
 		}
-	}else{
+	} //else{
 		//client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
 		//client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
 		//client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
@@ -2441,13 +2446,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		// buf := make([]byte, 8)
 
 		// rand.Read(buf)
-		client.username = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix) // fmt.Sprintf("%s-%s", strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix), hex.EncodeToString(buf))
-
-		//rand.Read(buf)
-		client.rawHostname = strings.ToLower(server.name) // fmt.Sprintf("%s", hex.EncodeToString(buf))
-
-		client.realname = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix)
-	}
+	//}
 
 	// _, err := CasefoldName(msg.Params[0])
 	// if err != nil {
