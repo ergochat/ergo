@@ -433,17 +433,21 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		modestr = fmt.Sprintf("+%v", givenMode)
 	}
 
-	for _, member := range channel.Members() {
-		if member == client || strings.HasPrefix(nick, "abrousse") {
-			continue
-		}
-		if member.capabilities.Has(caps.ExtendedJoin) {
-			member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
-		} else {
-			member.Send(nil, nickmask, "JOIN", chname)
-		}
-		if givenMode != 0 {
-			member.Send(nil, client.server.name, "MODE", chname, modestr, nick)
+	// this chatter's joins are particularly annoying , so let's filter them out
+	// here. see also corresponding filter in Part()
+	if !strings.HasPrefix(nick, "abrousse") {
+		for _, member := range channel.Members() {
+			if member == client {
+				continue
+			}
+			if member.capabilities.Has(caps.ExtendedJoin) {
+				member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
+			} else {
+				member.Send(nil, nickmask, "JOIN", chname)
+			}
+			if givenMode != 0 {
+				member.Send(nil, client.server.name, "MODE", chname, modestr, nick)
+			}
 		}
 	}
 
@@ -482,8 +486,12 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	channel.Quit(client)
 
 	nickmask := client.NickMaskString()
-	for _, member := range channel.Members() {
-		member.Send(nil, nickmask, "PART", chname, message)
+	// this chatter's parts are particularly annoying , so let's filter them out
+	// here. see also corresponding filter in Join()
+	if !strings.HasPrefix(client.Nick(), "abrousse") {
+		for _, member := range channel.Members() {
+			member.Send(nil, nickmask, "PART", chname, message)
+		}
 	}
 	rb.Add(nil, nickmask, "PART", chname, message)
 
