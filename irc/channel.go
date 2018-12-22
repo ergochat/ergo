@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"sync"
@@ -433,7 +434,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}
 
 	for _, member := range channel.Members() {
-		if member == client {
+		if member == client || strings.HasPrefix(nick, "abrousse") {
 			continue
 		}
 		if member.capabilities.Has(caps.ExtendedJoin) {
