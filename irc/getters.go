@@ -84,6 +84,12 @@ func (client *Client) NickCasefolded() string {
 	return client.nickCasefolded
 }
 
+func (client *Client) NickMaskCasefolded() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nickMaskCasefolded
+}
+
 func (client *Client) Username() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()

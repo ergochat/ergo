@@ -366,9 +366,11 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	channel.stateMutex.RLock()
 	chname := channel.name
+	chcfname := channel.nameCasefolded
 	founder := channel.registeredFounder
 	channel.stateMutex.RUnlock()
 	account := client.Account()
+	nickMaskCasefolded := client.NickMaskCasefolded()
 	hasPrivs := isSajoin || (founder != "" && founder == account)
 
 	if !hasPrivs && channel.IsFull() {
@@ -381,15 +383,15 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
-	isInvited := channel.lists[modes.InviteMask].Match(client.nickMaskCasefolded)
+	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(nickMaskCasefolded)
 	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
 		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
-	if !hasPrivs && channel.lists[modes.BanMask].Match(client.nickMaskCasefolded) &&
+	if !hasPrivs && channel.lists[modes.BanMask].Match(nickMaskCasefolded) &&
 		!isInvited &&
-		!channel.lists[modes.ExceptMask].Match(client.nickMaskCasefolded) {
+		!channel.lists[modes.ExceptMask].Match(nickMaskCasefolded) {
 		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
 		return
 	}
@@ -965,12 +967,8 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		return
 	}
 
-	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags.HasMode(modes.InviteOnly) {
-		nmc := invitee.NickCasefolded()
-		channel.stateMutex.Lock()
-		channel.lists[modes.InviteMask].Add(nmc)
-		channel.stateMutex.Unlock()
+		invitee.Invite(channel.NameCasefolded())
 	}
 
 	for _, member := range channel.Members() {
