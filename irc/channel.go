@@ -366,9 +366,11 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	channel.stateMutex.RLock()
 	chname := channel.name
+	chcfname := channel.nameCasefolded
 	founder := channel.registeredFounder
 	channel.stateMutex.RUnlock()
 	account := client.Account()
+	nickMaskCasefolded := client.NickMaskCasefolded()
 	hasPrivs := isSajoin || (founder != "" && founder == account)
 
 	if !hasPrivs && channel.IsFull() {
@@ -381,15 +383,15 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
-	isInvited := channel.lists[modes.InviteMask].Match(client.nickMaskCasefolded)
+	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(nickMaskCasefolded)
 	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
 		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
-	if !hasPrivs && channel.lists[modes.BanMask].Match(client.nickMaskCasefolded) &&
+	if !hasPrivs && channel.lists[modes.BanMask].Match(nickMaskCasefolded) &&
 		!isInvited &&
-		!channel.lists[modes.ExceptMask].Match(client.nickMaskCasefolded) {
+		!channel.lists[modes.ExceptMask].Match(nickMaskCasefolded) {
 		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
 		return
 	}
@@ -955,33 +957,29 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 // Invite invites the given client to the channel, if the inviter can do so.
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
+	chname := channel.Name()
 	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, inviter.t("You're not a channel operator"))
+		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, chname, inviter.t("You're not a channel operator"))
 		return
 	}
 
 	if !channel.hasClient(inviter) {
-		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, channel.name, inviter.t("You're not on that channel"))
+		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, chname, inviter.t("You're not on that channel"))
 		return
 	}
 
-	//TODO(dan): handle this more nicely, keep a list of last X invited channels on invitee rather than explicitly modifying the invite list?
 	if channel.flags.HasMode(modes.InviteOnly) {
-		nmc := invitee.NickCasefolded()
-		channel.stateMutex.Lock()
-		channel.lists[modes.InviteMask].Add(nmc)
-		channel.stateMutex.Unlock()
+		invitee.Invite(channel.NameCasefolded())
 	}
 
 	for _, member := range channel.Members() {
 		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, modes.Halfop) {
-			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), channel.name)
+			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), chname)
 		}
 	}
 
-	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?
-	rb.Add(nil, inviter.server.name, RPL_INVITING, invitee.nick, channel.name)
-	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
+	rb.Add(nil, inviter.server.name, RPL_INVITING, inviter.Nick(), invitee.Nick(), chname)
+	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, chname)
 	if invitee.HasMode(modes.Away) {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, invitee.nick, invitee.awayMessage)
 	}
