@@ -957,13 +957,14 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 // Invite invites the given client to the channel, if the inviter can do so.
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
+	chname := channel.Name()
 	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, channel.name, inviter.t("You're not a channel operator"))
+		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, chname, inviter.t("You're not a channel operator"))
 		return
 	}
 
 	if !channel.hasClient(inviter) {
-		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, channel.name, inviter.t("You're not on that channel"))
+		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, chname, inviter.t("You're not on that channel"))
 		return
 	}
 
@@ -973,13 +974,12 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 
 	for _, member := range channel.Members() {
 		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, modes.Halfop) {
-			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), channel.name)
+			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), chname)
 		}
 	}
 
-	//TODO(dan): should inviter.server.name here be inviter.nickMaskString ?
-	rb.Add(nil, inviter.server.name, RPL_INVITING, invitee.nick, channel.name)
-	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, channel.name)
+	rb.Add(nil, inviter.server.name, RPL_INVITING, inviter.Nick(), invitee.Nick(), chname)
+	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, chname)
 	if invitee.HasMode(modes.Away) {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, invitee.nick, invitee.awayMessage)
 	}
