@@ -15,7 +15,7 @@ import (
 var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
-		Away, Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
+		Away, Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying, PrivateQueries,
 	}
 
 	// SupportedChannelModes are the channel modes that we support.
@@ -118,6 +118,7 @@ const (
 	TLS             Mode = 'Z'
 	UserRoleplaying Mode = 'E'
 	WallOps         Mode = 'w'
+	PrivateQueries  Mode = 'P'
 )
 
 // Channel Modes

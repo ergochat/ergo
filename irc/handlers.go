@@ -1890,13 +1890,13 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			msgid := server.generateMessageID()
 
-			// text formatting (HIGHLY EXPERIMENTAL)
+			// text formatting (HIGHLY EXPERIMENTAL (BREAKS STUFF))
 			// TO DO: MAKE THIS INTO A FUNCTION !!!
 			//if channel.flags.HasMode(modes.GreenText) {
 			greentext := regexp.MustCompile(`>[A-z].*`)
-			boldtext := regexp.MustCompile(`\*\*(.*?)\*\*`)
-			italictext := regexp.MustCompile(`\*(.*?)\*`)
-			undertext := regexp.MustCompile(`_(.*?)_`)
+			// boldtext := regexp.MustCompile(`\*\*(.*?)\*\*`)
+			// italictext := regexp.MustCompile(`\*(.*?)\*`)
+			// undertext := regexp.MustCompile(`_(.*?)_`)
 			if greentext.MatchString(message) {
 				greentextmsgs := greentext.FindAllStringSubmatch(message, -1)
 				for _, greentextmsg := range greentextmsgs {
@@ -1907,36 +1907,36 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
 					}
 				}
-			}else if boldtext.MatchString(message) {
-				boldtextmsgs := boldtext.FindAllStringSubmatch(message, -1)
-				for _, boldtextmsg := range boldtextmsgs {
-					message = strings.Replace(message, boldtextmsg[0], fmt.Sprintf("\x02%s\x02", boldtextmsg[0]), -1)
-				}
-				for _, member := range channel.Members() {
-					if member != client {
-						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
-					}
-				}
-			}else if italictext.MatchString(message) {
-				italictextmsgs := italictext.FindAllStringSubmatch(message, -1)
-				for _, italictextmsg := range italictextmsgs {
-					message = strings.Replace(message, italictextmsg[0], fmt.Sprintf("\x1D%s\x1D", italictextmsg[0]), -1)
-				}
-				for _, member := range channel.Members() {
-					if member != client {
-						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
-					}
-				}
-			}else if undertext.MatchString(message) {
-				undertextmsgs := undertext.FindAllStringSubmatch(message, -1)
-				for _, undertextmsg := range undertextmsgs {
-					message = strings.Replace(message, undertextmsg[0], fmt.Sprintf("\x1F%s\x1F", undertextmsg[0]), -1)
-				}
-				for _, member := range channel.Members() {
-					if member != client {
-						member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
-					}
-				}
+			// }else if boldtext.MatchString(message) {
+			// 	boldtextmsgs := boldtext.FindAllStringSubmatch(message, -1)
+			// 	for _, boldtextmsg := range boldtextmsgs {
+			// 		message = strings.Replace(message, boldtextmsg[0], fmt.Sprintf("\x02%s\x02", boldtextmsg[0]), -1)
+			// 	}
+			// 	for _, member := range channel.Members() {
+			// 		if member != client {
+			// 			member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+			// 		}
+			// 	}
+			// }else if italictext.MatchString(message) {
+			// 	italictextmsgs := italictext.FindAllStringSubmatch(message, -1)
+			// 	for _, italictextmsg := range italictextmsgs {
+			// 		message = strings.Replace(message, italictextmsg[0], fmt.Sprintf("\x1D%s\x1D", italictextmsg[0]), -1)
+			// 	}
+			// 	for _, member := range channel.Members() {
+			// 		if member != client {
+			// 			member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+			// 		}
+			// 	}
+			// }else if undertext.MatchString(message) {
+			// 	undertextmsgs := undertext.FindAllStringSubmatch(message, -1)
+			// 	for _, undertextmsg := range undertextmsgs {
+			// 		message = strings.Replace(message, undertextmsg[0], fmt.Sprintf("\x1F%s\x1F", undertextmsg[0]), -1)
+			// 	}
+			// 	for _, member := range channel.Members() {
+			// 		if member != client {
+			// 			member.Send(nil, fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname), "PRIVMSG", channel.name, fmt.Sprintf("%s", message))
+			// 		}
+			// 	}
 			}else{
 				channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 			}
@@ -2014,18 +2014,44 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			if !user.capabilities.Has(caps.MessageTags) {
 				clientOnlyTags = nil
 			}
-			msgid := server.generateMessageID()
-			// restrict messages appropriately when +R is set
-			// intentionally make the sending user think the message went through fine
-			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+
+			casefoldedTarget, err := CasefoldName(target)
+			if err != nil {
+				continue
 			}
-			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-			}
-			if user.HasMode(modes.Away) {
-				//TODO(dan): possibly implement cooldown of away notifications to users
-				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+
+			if user.HasMode(modes.PrivateQueries) {
+				server.monitorManager.Add(client, casefoldedTarget, server.Limits().MonitorEntries)
+				if server.monitorManager.CheckMutual(client, user) == true {
+					msgid := server.generateMessageID()
+					// restrict messages appropriately when +R is set
+					// intentionally make the sending user think the message went through fine
+					if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+						user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+					}
+					if client.capabilities.Has(caps.EchoMessage) {
+						rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+					}
+					if user.HasMode(modes.Away) {
+						//TODO(dan): possibly implement cooldown of away notifications to users
+						rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+					}
+				}else{
+					client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "PRIVMSG: User has private queries (+P) enabled. Chat request sent!")
+					user.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, fmt.Sprintf("PRIVMSG: %s wants to talk to you! Reply to them ('/query %s <message>') to start the conversation.", client.nick, client.nick))
+				}
+			}else{
+				msgid := server.generateMessageID()
+				if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				}
+				if client.capabilities.Has(caps.EchoMessage) {
+					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				}
+				if user.HasMode(modes.Away) {
+					//TODO(dan): possibly implement cooldown of away notifications to users
+					rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+				}
 			}
 		}
 	}
@@ -2420,12 +2446,12 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		client.secureTripcode = trip.SecureTripcode(msg.Params[0][1:], "randomsalt")
 
 		client.username = fmt.Sprintf("%s", client.secureTripcode)
-		client.realname = fmt.Sprintf("%s", client.username)
+		client.realname = fmt.Sprintf("!!%s", client.username)
 	} else if re.MatchString(msg.Params[0]) {
 		client.tripcode = trip.Tripcode(msg.Params[0][1:])
 
 		client.username = fmt.Sprintf("%s", client.tripcode)
-		client.realname = fmt.Sprintf("%s", client.username)
+		client.realname = fmt.Sprintf("!%s", client.username)
 
 		tripcodes := re.FindAllStringSubmatch(msg.Params[0], -1)
 		for _, tripcode := range tripcodes {
@@ -2434,8 +2460,8 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 					client.secureTripcode = trip.SecureTripcode(tripcode[2], "randomsalt")
 					
 					client.username = fmt.Sprintf("%s", client.tripcode)
-					client.rawHostname = fmt.Sprintf("%s", client.secureTripcode)
-					client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
+					client.rawHostname = fmt.Sprintf("%s%s", client.secureTripcode, server.name)
+					client.realname = fmt.Sprintf("!%s!!%s", client.tripcode, client.secureTripcode)
 				}
 		}
 	} //else{

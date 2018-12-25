@@ -157,6 +157,10 @@ func init() {
 			handler:   modeHandler,
 			minParams: 1,
 		},
+		"CONTACT": {
+			handler:   monitorHandler,
+			minParams: 1,
+		},
 		"MONITOR": {
 			handler:   monitorHandler,
 			minParams: 1,

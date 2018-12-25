@@ -5,13 +5,19 @@
 
 ## Features and ideas of this fork
 
-* Tripcode and secure tripcode system (80%)
-* Auditorium mode (inspircd style) (80%)
-* Automatically generated and randomized join/quit messages (0%)
+* Tripcode and secure tripcode system (set client username to #tripcode, #tripcode#securetripcode or ##securetripcode to use) (90%)
+* Auditorium mode (+u) (inspircd style) (90%)
+* Greentext and basic markdown-to-irc formatting support (20%)
+* Channel mode for displaying link titles and description (+U) (90%)
+* Channel mode for group highlights per word basis (+H <string>) (i.e. /mode #channel +H everyone; /msg hey @everyone) (90%)
+* Private queries/whitelist mode (+P) which requires both users to be mutual contacts to use private messaging. (10%)
+* Automatically generated and randomized join/quit (quake kill/death style?) messages (0%)
 * Server statistics (join/quit/kick/ban counter, lines/words spoken) (0%)
-* Web front-end for chat with trip authentication (10%)
-* Simple federation (0%)
-* Anonymity changes (reduced whois info, removed whowas info, completely hide or obfuscate ips/hostmasks, make users without tripcode completely anon and unidentifiable) (40%)
+* Simple federation (the irc will work over DHT or a similar system to be provided worldwide for anyone to be able to use, anyone should be able to host a server that connects to it with little to no knowledge required) (0%)
+* Build in a webrtc voice/video chat server and make (or modify an open source) webclient to support voice and video chatting (0%)
+* Web front-end for chat with trip authentication with discord-style themes, avatar support, automatically hosted for every server/client (0%)
+* Anonymity changes (reduced whois info, removed whowas info, completely hide or obfuscate ips/hostmasks, make users without tripcode completely anon and unidentifiable) (60%)
+
 
 
 ## Features of oragono

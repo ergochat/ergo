@@ -53,6 +53,7 @@ type Client struct {
 	hops               int
 	hostname           string
 	idletimer          *IdleTimer
+	invitedTo          map[string]bool
 	isDestroyed        bool
 	isQuitting         bool
 	languages          []string
@@ -983,4 +984,27 @@ func (client *Client) removeChannel(channel *Channel) {
 	client.stateMutex.Lock()
 	delete(client.channels, channel)
 	client.stateMutex.Unlock()
+}
+
+// Records that the client has been invited to join an invite-only channel
+func (client *Client) Invite(casefoldedChannel string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.invitedTo == nil {
+		client.invitedTo = make(map[string]bool)
+	}
+
+	client.invitedTo[casefoldedChannel] = true
+}
+
+// Checks that the client was invited to join a given channel
+func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	invited = client.invitedTo[casefoldedChannel]
+	// joining an invited channel "uses up" your invite, so you can't rejoin on kick
+	delete(client.invitedTo, casefoldedChannel)
+	return
 }

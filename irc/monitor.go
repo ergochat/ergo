@@ -92,6 +92,28 @@ func (manager *MonitorManager) RemoveAll(client *Client) {
 	delete(manager.watching, client)
 }
 
+// check if both users are mutually monitoring eachother
+func (manager *MonitorManager) CheckMutual(inviter *Client, invitee *Client) (status bool) {
+	myList := inviter.server.monitorManager.List(inviter)
+	for _, name := range myList {
+		contact := inviter.server.clients.Get(name)
+		if contact != nil {
+			if contact.NickCasefolded() == invitee.NickCasefolded() {
+				theirList := invitee.server.monitorManager.List(invitee)
+				for _, name := range theirList {
+					contact := invitee.server.clients.Get(name)
+					if contact != nil {
+						if contact.NickCasefolded() == inviter.NickCasefolded() {
+							status = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return status
+}
+
 // List lists all nicks that `client` is registered to receive notifications about.
 func (manager *MonitorManager) List(client *Client) (nicks []string) {
 	manager.RLock()

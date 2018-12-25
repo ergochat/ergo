@@ -309,6 +309,27 @@ Lists all the nicknames you are currently monitoring.
     MONITOR S
 Lists whether each nick in your MONITOR list is online or offline.`,
 	},
+	"contact": {
+		text: `CONTACT <subcmd>
+
+Allows the monitoring of nicknames, for alerts when they are online and
+offline. The subcommands are:
+
+    CONTACT ADD target{,target}
+Adds the given names to your list of monitored nicknames.
+
+    CONTACT REMOVE target{,target}
+Removes the given names from your list of monitored nicknames.
+
+    CONTACT CLEAR
+Clears your list of monitored nicknames.
+
+    CONTACT LIST
+Lists all the nicknames you are currently monitoring.
+
+    CONTACT STATUS
+Lists whether each nick in your CONTACT list is online or offline.`,
+	},
 	"motd": {
 		text: `MOTD [server]
 
