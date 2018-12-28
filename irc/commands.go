@@ -47,7 +47,7 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	rb := NewResponseBuffer(client)
 	rb.Label = GetLabel(msg)
 	exiting := cmd.handler(server, client, msg, rb)
-	rb.Send()
+	rb.Send(true)
 
 	// after each command, see if we can send registration to the client
 	if !client.registered {

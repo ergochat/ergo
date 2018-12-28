@@ -38,7 +38,7 @@ type Channel struct {
 	topic             string
 	topicSetBy        string
 	topicSetTime      time.Time
-	userLimit         uint64
+	userLimit         int
 	accountToUMode    map[string]modes.Mode
 	history           history.Buffer
 }
@@ -332,23 +332,10 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 		result = append(result, channel.key)
 	}
 	if showUserLimit {
-		result = append(result, strconv.FormatUint(channel.userLimit, 10))
+		result = append(result, strconv.Itoa(channel.userLimit))
 	}
 
 	return
-}
-
-// IsFull returns true if this channel is at its' members limit.
-func (channel *Channel) IsFull() bool {
-	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-	return (channel.userLimit > 0) && (uint64(len(channel.members)) >= channel.userLimit)
-}
-
-// CheckKey returns true if the key is not set or matches the given key.
-func (channel *Channel) CheckKey(key string) bool {
-	chkey := channel.Key()
-	return chkey == "" || utils.SecretTokensMatch(chkey, key)
 }
 
 func (channel *Channel) IsEmpty() bool {
@@ -359,26 +346,31 @@ func (channel *Channel) IsEmpty() bool {
 
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
-	if channel.hasClient(client) {
-		// already joined, no message needs to be sent
-		return
-	}
-
 	channel.stateMutex.RLock()
 	chname := channel.name
 	chcfname := channel.nameCasefolded
 	founder := channel.registeredFounder
+	chkey := channel.key
+	limit := channel.userLimit
+	chcount := len(channel.members)
+	_, alreadyJoined := channel.members[client]
 	channel.stateMutex.RUnlock()
+
+	if alreadyJoined {
+		// no message needs to be sent
+		return
+	}
+
 	account := client.Account()
 	nickMaskCasefolded := client.NickMaskCasefolded()
 	hasPrivs := isSajoin || (founder != "" && founder == account)
 
-	if !hasPrivs && channel.IsFull() {
+	if !hasPrivs && limit != 0 && chcount >= limit {
 		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
 		return
 	}
 
-	if !hasPrivs && !channel.CheckKey(key) {
+	if !hasPrivs && chkey != "" && !utils.SecretTokensMatch(chkey, key) {
 		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
 		return
 	}
@@ -469,7 +461,18 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		Type:        history.Join,
 		Nick:        nickmask,
 		AccountName: accountName,
+		Msgid:       realname,
 	})
+
+	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
+	rb.Flush(true)
+
+	replayLimit := channel.server.Config().History.AutoreplayOnJoin
+	if replayLimit > 0 {
+		items := channel.history.Latest(replayLimit)
+		channel.replayHistoryItems(rb, items)
+		rb.Flush(true)
+	}
 }
 
 // Part parts the given client from this channel, with the given message.
@@ -506,7 +509,7 @@ func (channel *Channel) Resume(newClient, oldClient *Client, timestamp time.Time
 	now := time.Now()
 	channel.resumeAndAnnounce(newClient, oldClient)
 	if !timestamp.IsZero() {
-		channel.replayHistory(newClient, timestamp, now)
+		channel.replayHistoryForResume(newClient, timestamp, now)
 	}
 }
 
@@ -560,7 +563,6 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 
 	rb := NewResponseBuffer(newClient)
 	// use blocking i/o to synchronize with the later history replay
-	rb.SetBlocking(true)
 	if newClient.capabilities.Has(caps.ExtendedJoin) {
 		rb.Add(nil, nickMask, "JOIN", channel.name, accountName, realName)
 	} else {
@@ -571,40 +573,54 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 	if 0 < len(oldModes) {
 		rb.Add(nil, newClient.server.name, "MODE", channel.name, oldModes, nick)
 	}
-	rb.Send()
+	rb.Send(true)
 }
 
-func (channel *Channel) replayHistory(newClient *Client, after time.Time, before time.Time) {
-	chname := channel.Name()
-	extendedJoin := newClient.capabilities.Has(caps.ExtendedJoin)
-
+func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Time, before time.Time) {
 	items, complete := channel.history.Between(after, before)
+	rb := NewResponseBuffer(newClient)
+	channel.replayHistoryItems(rb, items)
+	if !complete && !newClient.resumeDetails.HistoryIncomplete {
+		// warn here if we didn't warn already
+		rb.Add(nil, "HistServ", "NOTICE", channel.Name(), newClient.t("Some additional message history may have been lost"))
+	}
+	rb.Send(true)
+}
+
+func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item) {
+	chname := channel.Name()
+	client := rb.target
+	extendedJoin := client.capabilities.Has(caps.ExtendedJoin)
+	serverTime := client.capabilities.Has(caps.ServerTime)
+
 	for _, item := range items {
+		var tags Tags
+		if serverTime {
+			tags = ensureTag(tags, "time", item.Time.Format(IRCv3TimestampFormat))
+		}
+
 		switch item.Type {
 		case history.Privmsg:
-			newClient.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, "PRIVMSG", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, "PRIVMSG", chname, item.Message)
 		case history.Notice:
-			newClient.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, "NOTICE", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, "NOTICE", chname, item.Message)
 		case history.Join:
 			if extendedJoin {
-				newClient.sendInternal(true, item.Time, nil, item.Nick, "JOIN", chname, item.AccountName, "")
+				// XXX Msgid is the realname in this case
+				rb.Add(tags, item.Nick, "JOIN", chname, item.AccountName, item.Msgid)
 			} else {
-				newClient.sendInternal(true, item.Time, nil, item.Nick, "JOIN", chname)
+				rb.Add(tags, item.Nick, "JOIN", chname)
 			}
 		case history.Quit:
 			// XXX: send QUIT as PART to avoid having to correctly deduplicate and synchronize
 			// QUIT messages across channels
 			fallthrough
 		case history.Part:
-			newClient.sendInternal(true, item.Time, nil, item.Nick, "PART", chname, item.Message.Original)
+			rb.Add(tags, item.Nick, "PART", chname, item.Message.Original)
 		case history.Kick:
-			newClient.sendInternal(true, item.Time, nil, item.Nick, "KICK", chname, item.Msgid, item.Message.Original)
+			// XXX Msgid is the kick target
+			rb.Add(tags, item.Nick, "KICK", chname, item.Msgid, item.Message.Original)
 		}
-	}
-
-	if !complete && !newClient.resumeDetails.HistoryIncomplete {
-		// warn here if we didn't warn already
-		newClient.sendInternal(true, time.Time{}, nil, "HistServ", "NOTICE", chname, newClient.t("Some additional message history may have been lost"))
 	}
 }
 
@@ -707,10 +723,12 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 			messageTagsToUse = clientOnlyTags
 		}
 
+		nickMaskString := client.NickMaskString()
+		accountName := client.AccountName()
 		if message == nil {
-			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
+			rb.AddFromClient(msgid, nickMaskString, accountName, messageTagsToUse, cmd, channel.name)
 		} else {
-			rb.AddFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
+			rb.AddFromClient(msgid, nickMaskString, accountName, messageTagsToUse, cmd, channel.name, *message)
 		}
 	}
 	for _, member := range channel.Members() {
@@ -773,10 +791,12 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 		if client.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
 		}
+		nickMaskString := client.NickMaskString()
+		accountName := client.AccountName()
 		if message == nil {
-			rb.AddFromClient(msgid, client, tagsToUse, cmd, channel.name)
+			rb.AddFromClient(msgid, nickMaskString, accountName, tagsToUse, cmd, channel.name)
 		} else {
-			rb.AddSplitMessageFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
+			rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, tagsToUse, cmd, channel.name, *message)
 		}
 	}
 

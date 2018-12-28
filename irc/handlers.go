@@ -933,7 +933,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		server.channels.Join(target, chname, "", true, rb)
 	}
 	if client != target {
-		rb.Send()
+		rb.Send(false)
 	}
 	return false
 }
@@ -1706,16 +1706,18 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
+			nickMaskString := client.NickMaskString()
+			accountName := client.AccountName()
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 
 			user.history.Add(history.Item{
 				Type:        history.Notice,
 				Msgid:       msgid,
 				Message:     splitMsg,
-				Nick:        client.NickMaskString(),
-				AccountName: client.AccountName(),
+				Nick:        nickMaskString,
+				AccountName: accountName,
 			})
 		}
 	}
@@ -1916,8 +1918,10 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
+			nickMaskString := client.NickMaskString()
+			accountName := client.AccountName()
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
@@ -1928,8 +1932,8 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				Type:        history.Privmsg,
 				Msgid:       msgid,
 				Message:     splitMsg,
-				Nick:        client.NickMaskString(),
-				AccountName: client.AccountName(),
+				Nick:        nickMaskString,
+				AccountName: accountName,
 			})
 		}
 	}
@@ -2150,7 +2154,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			}
 			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+				rb.AddFromClient(msgid, client.NickMaskString(), client.AccountName(), clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users

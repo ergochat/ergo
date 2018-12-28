@@ -6,7 +6,12 @@ package utils
 import (
 	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
+	"encoding/base32"
+)
+
+var (
+	// standard b32 alphabet, but in lowercase for silly aesthetic reasons
+	b32encoder = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 )
 
 // generate a secret token that cannot be brute-forced via online attacks
@@ -14,8 +19,8 @@ func GenerateSecretToken() string {
 	// 128 bits of entropy are enough to resist any online attack:
 	var buf [16]byte
 	rand.Read(buf[:])
-	// 32 ASCII characters, should be fine for most purposes
-	return hex.EncodeToString(buf[:])
+	// 26 ASCII characters, should be fine for most purposes
+	return b32encoder.EncodeToString(buf[:])
 }
 
 // securely check if a supplied token matches a stored token

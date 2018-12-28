@@ -67,7 +67,8 @@ func TestEmptyBuffer(t *testing.T) {
 	if since[0].Nick != "testnick2" {
 		t.Error("retrieved junk data")
 	}
-	assertEqual(toNicks(buf.All()), []string{"testnick2"}, t)
+	matchAll := func(item Item) bool { return true }
+	assertEqual(toNicks(buf.Match(matchAll, 0)), []string{"testnick2"}, t)
 }
 
 func toNicks(items []Item) (result []string) {

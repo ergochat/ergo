@@ -259,13 +259,7 @@ func (channel *Channel) Members() (result []*Client) {
 	return channel.membersCache
 }
 
-func (channel *Channel) UserLimit() uint64 {
-	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-	return channel.userLimit
-}
-
-func (channel *Channel) setUserLimit(limit uint64) {
+func (channel *Channel) setUserLimit(limit int) {
 	channel.stateMutex.Lock()
 	channel.userLimit = limit
 	channel.stateMutex.Unlock()

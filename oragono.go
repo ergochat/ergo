@@ -51,17 +51,7 @@ Options:
 
 	arguments, _ := docopt.ParseArgs(usage, nil, version)
 
-	configfile := arguments["--conf"].(string)
-	config, err := irc.LoadConfig(configfile)
-	if err != nil {
-		log.Fatal("Config file did not load successfully: ", err.Error())
-	}
-
-	logman, err := logger.NewManager(config.Logging)
-	if err != nil {
-		log.Fatal("Logger did not load successfully:", err.Error())
-	}
-
+	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
 		fmt.Print("Enter Password: ")
 		password := getPassword()
@@ -77,7 +67,21 @@ Options:
 			log.Fatal("encoding error:", err.Error())
 		}
 		fmt.Println(string(hash))
-	} else if arguments["initdb"].(bool) {
+		return
+	}
+
+	configfile := arguments["--conf"].(string)
+	config, err := irc.LoadConfig(configfile)
+	if err != nil {
+		log.Fatal("Config file did not load successfully: ", err.Error())
+	}
+
+	logman, err := logger.NewManager(config.Logging)
+	if err != nil {
+		log.Fatal("Logger did not load successfully:", err.Error())
+	}
+
+	if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
 		if !arguments["--quiet"].(bool) {
 			log.Println("database initialized: ", config.Datastore.Path)
