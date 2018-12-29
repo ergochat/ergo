@@ -257,7 +257,8 @@ func (server *Server) acceptClient(conn clientConn) {
 		}
 	}
 
-	server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+	//server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+	server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting"))
 	// prolly don't need to alert snomasks on this, only on connection reg
 
 	NewClient(server, conn.Conn, conn.IsTLS)
@@ -428,18 +429,20 @@ func (server *Server) tryRegister(c *Client) {
 	server.stats.ChangeTotal(1)
 
 	// continue registration
-	server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
-	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
+	//server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
+	//server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
+	server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s]", c.nick))
+	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s]", c.nick))
 	c.Register()
 
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
-	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), c.nick))
-	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
-	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
+	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf(c.t("Welcome, %s"), c.nick))
+	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf(c.t("Node: %s"), server.name))
+	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf(c.t("This node was created %s"), server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
+	c.Send(nil, server.name, RPL_MYINFO, c.nick, c.server.Config().Network.Name, server.name, supportedUserModesString, supportedChannelModesString)
 
 	rb = NewResponseBuffer(c)
 	c.RplISupport(rb)

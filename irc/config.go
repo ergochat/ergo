@@ -208,6 +208,7 @@ type Config struct {
 	}
 
 	Server struct {
+		TripSalt			string
 		Password            string
 		passwordBytes       []byte
 		Name                string

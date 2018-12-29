@@ -1824,15 +1824,50 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	// if no password exists, skip checking
+	password := []byte(msg.Params[0])
 	serverPassword := server.Password()
+
+	// do the tripcode thing
+	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
+	tripSalt := server.Config().Server.TripSalt
+	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
+	re2 := regexp.MustCompile(`\##(.*)`)
+
+	if tripSalt == "" {
+		tripSalt = "none-provided"
+	}
+
+	if re2.MatchString(msg.Params[0]) {
+		client.secureTripcode = trip.SecureTripcode(msg.Params[0][1:], tripSalt)
+
+		client.username = fmt.Sprintf("%s", client.secureTripcode)
+		client.realname = fmt.Sprintf("!!%s", client.username)
+	} else if re.MatchString(msg.Params[0]) {
+		client.tripcode = trip.Tripcode(msg.Params[0][1:])
+
+		client.username = fmt.Sprintf("%s", client.tripcode)
+		client.realname = fmt.Sprintf("!%s", client.username)
+
+		tripcodes := re.FindAllStringSubmatch(msg.Params[0], -1)
+		for _, tripcode := range tripcodes {
+				if tripcode[2] != "" {
+					client.tripcode = trip.Tripcode(tripcode[1])
+					client.secureTripcode = trip.SecureTripcode(tripcode[2], tripSalt)
+					
+					client.username = fmt.Sprintf("%s", client.tripcode)
+					client.rawHostname = fmt.Sprintf("%s", client.secureTripcode)
+					client.realname = fmt.Sprintf("!%s!!%s", client.tripcode, client.secureTripcode)
+				}
+		}
+	}
+
+	// if no password exists, skip checking
 	if serverPassword == nil {
 		client.SetAuthorized(true)
 		return false
 	}
 
 	// check the provided password
-	password := []byte(msg.Params[0])
 	if bcrypt.CompareHashAndPassword(serverPassword, password) != nil {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
 		rb.Add(nil, server.name, "ERROR", client.t("Password incorrect"))
@@ -2433,60 +2468,10 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 
-	// the tripcode thing
 	//set defaults
 	client.username = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix) // fmt.Sprintf("%s-%s", strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix), hex.EncodeToString(buf))
 	client.rawHostname = strings.ToLower(server.name) // fmt.Sprintf("%s", hex.EncodeToString(buf))
 	client.realname = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix)
-
-	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
-	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
-	re2 := regexp.MustCompile(`\##(.*)`)
-	if re2.MatchString(msg.Params[0]) {
-		client.secureTripcode = trip.SecureTripcode(msg.Params[0][1:], "randomsalt")
-
-		client.username = fmt.Sprintf("%s", client.secureTripcode)
-		client.realname = fmt.Sprintf("!!%s", client.username)
-	} else if re.MatchString(msg.Params[0]) {
-		client.tripcode = trip.Tripcode(msg.Params[0][1:])
-
-		client.username = fmt.Sprintf("%s", client.tripcode)
-		client.realname = fmt.Sprintf("!%s", client.username)
-
-		tripcodes := re.FindAllStringSubmatch(msg.Params[0], -1)
-		for _, tripcode := range tripcodes {
-				if tripcode[2] != "" {
-					client.tripcode = trip.Tripcode(tripcode[1])
-					client.secureTripcode = trip.SecureTripcode(tripcode[2], "randomsalt")
-					
-					client.username = fmt.Sprintf("%s", client.tripcode)
-					client.rawHostname = fmt.Sprintf("%s%s", client.secureTripcode, server.name)
-					client.realname = fmt.Sprintf("!%s!!%s", client.tripcode, client.secureTripcode)
-				}
-		}
-	} //else{
-		//client.username = fmt.Sprintf("!%s", trip.Tripcode(client.rawHostname))
-		//client.rawHostname = fmt.Sprintf("!!%s", trip.SecureTripcode(client.rawHostname, "randomsalt"))
-		//client.realname = fmt.Sprintf("%s%s", client.username, client.rawHostname)
-
-		// buf := make([]byte, 8)
-
-		// rand.Read(buf)
-	//}
-
-	// _, err := CasefoldName(msg.Params[0])
-	// if err != nil {
-	// 	rb.Add(nil, "", "ERROR", client.t("Malformed username"))
-	// 	return true
-	// }
-
-	// if !client.HasUsername() {
-	// 	client.username = "~" + msg.Params[0]
-	// 	// don't bother updating nickmask here, it's not valid anyway
-	// }
-	// if client.realname == "" {
-	// 	client.realname = "Anonymous User"
-	// }
 
 	return false
 }
