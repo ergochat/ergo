@@ -226,6 +226,8 @@ type Config struct {
 		MaxSendQBytes       int
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
+		ProxyURL			string
+		URLTimeout			int
 	}
 
 	Languages struct {

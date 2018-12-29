@@ -5,11 +5,11 @@
 
 ## Features and ideas of this fork
 
-* Tripcode and secure tripcode system (set client username to #tripcode, #tripcode#securetripcode or ##securetripcode to use) (90%)
+* Tripcode and secure tripcode system (set password (/pass) to #tripcode, #tripcode#securetripcode or ##securetripcode to use) (90%)
 * Auditorium mode (+u) (inspircd style) (90%)
-* Greentext and basic markdown-to-irc formatting support (20%)
-* Channel mode for displaying link titles and description (+U) (90%)
-* Channel mode for group highlights per word basis (+H <string>) (i.e. /mode #channel +H everyone; /msg hey @everyone) (90%)
+* Greentext and basic ~markdown-to-irc~ formatting support (20%)
+* Channel mode for displaying link titles and description (+U) (99%)
+* Channel mode for group highlights per word basis (+H <string>) (i.e. /mode #channel +H everyone; /msg hey @everyone) (90%) (Add cooldown system (0%))
 * Private queries/whitelist mode (+P) which requires both users to be mutual contacts to use private messaging. (10%)
 * Automatically generated and randomized join/quit (quake kill/death style?) messages (0%)
 * Server statistics (join/quit/kick/ban counter, lines/words spoken) (0%)

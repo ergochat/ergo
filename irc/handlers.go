@@ -40,6 +40,7 @@ import (
 	"github.com/unendingPattern/goscraper"
 )
 
+
 // ACC [REGISTER|VERIFY] ...
 func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// make sure reg is enabled
@@ -1828,10 +1829,10 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	serverPassword := server.Password()
 
 	// do the tripcode thing
-	// check if they're trying to use a #tripcode, a ##securetripcode or a #secure#tripcode
+	// check if they're trying to use a #tripcode, a ##securetripcode or a #tripcode#securetripcode
 	tripSalt := server.Config().Server.TripSalt
-	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`)
-	re2 := regexp.MustCompile(`\##(.*)`)
+	re := regexp.MustCompile(`\#(.*)#(.*)|#(.*)`) // #tripcode or #tripcode#securetripcode
+	re2 := regexp.MustCompile(`\##(.*)`) // ##securetripcode
 
 	if tripSalt == "" {
 		tripSalt = "none-provided"
@@ -1981,7 +1982,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				if xurls.Relaxed().FindString(message) != "" {
 					submatchall := xurls.Relaxed().FindAllString(message, -1)
 					for _, element := range submatchall {
-						s, err := goscraper.Scrape(element, 3, 3000, "Lynx/2.8.7dev.9 libwww-FM/2.14") // TODO: randomise this later
+						s, err := goscraper.Scrape(element, 3, server.Config().Server.URLTimeout, server.RandomUserAgent(), server.Config().Server.ProxyURL)
 						if err != nil {
 							fmt.Println(err)
 							// Notify the channel of the error?
