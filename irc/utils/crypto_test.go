@@ -16,7 +16,7 @@ const (
 
 func TestGenerateSecretToken(t *testing.T) {
 	token := GenerateSecretToken()
-	if len(token) != 32 {
+	if len(token) < 22 {
 		t.Errorf("bad token: %v", token)
 	}
 }
@@ -44,5 +44,11 @@ func TestTokenCompare(t *testing.T) {
 
 	if SecretTokensMatch("", storedToken) {
 		t.Error("the empty token should not match anything")
+	}
+}
+
+func BenchmarkGenerateSecretToken(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenerateSecretToken()
 	}
 }

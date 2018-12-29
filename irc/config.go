@@ -268,9 +268,10 @@ type Config struct {
 	Fakelag FakelagConfig
 
 	History struct {
-		Enabled       bool
-		ChannelLength int `yaml:"channel-length"`
-		ClientLength  int `yaml:"client-length"`
+		Enabled          bool
+		ChannelLength    int `yaml:"channel-length"`
+		ClientLength     int `yaml:"client-length"`
+		AutoreplayOnJoin int `yaml:"autoreplay-on-join"`
 	}
 
 	Filename string

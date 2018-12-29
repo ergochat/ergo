@@ -67,7 +67,6 @@ type ListenerWrapper struct {
 // Server is the main Oragono server.
 type Server struct {
 	accounts               *AccountManager
-	batches                *BatchManager
 	channels               *ChannelManager
 	channelRegistry        *ChannelRegistry
 	clients                *ClientManager
@@ -116,7 +115,6 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		batches:             NewBatchManager(),
 		channels:            NewChannelManager(),
 		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
@@ -406,7 +404,7 @@ func (server *Server) tryRegister(c *Client) {
 
 	rb := NewResponseBuffer(c)
 	nickAssigned := performNickChange(server, c, c, preregNick, rb)
-	rb.Send()
+	rb.Send(true)
 	if !nickAssigned {
 		c.SetPreregNick("")
 		return
@@ -446,7 +444,7 @@ func (server *Server) tryRegister(c *Client) {
 	rb = NewResponseBuffer(c)
 	c.RplISupport(rb)
 	server.MOTD(c, rb)
-	rb.Send()
+	rb.Send(true)
 
 	modestring := c.ModeString()
 	if modestring != "+" {

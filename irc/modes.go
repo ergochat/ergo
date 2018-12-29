@@ -189,7 +189,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		case modes.UserLimit:
 			switch change.Op {
 			case modes.Add:
-				val, err := strconv.ParseUint(change.Arg, 10, 64)
+				val, err := strconv.Atoi(change.Arg)
 				if err == nil {
 					channel.setUserLimit(val)
 					applied = append(applied, change)

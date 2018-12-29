@@ -446,17 +446,19 @@ func (client *Client) TryResume() {
 			}
 		}
 	}
-	personalHistory := oldClient.history.All()
+	privmsgMatcher := func(item history.Item) bool {
+		return item.Type == history.Privmsg || item.Type == history.Notice
+	}
+	privmsgHistory := oldClient.history.Match(privmsgMatcher, 0)
 	lastDiscarded := oldClient.history.LastDiscarded()
 	if lastDiscarded.Before(oldestLostMessage) {
 		oldestLostMessage = lastDiscarded
 	}
-	for _, item := range personalHistory {
-		if item.Type == history.Privmsg || item.Type == history.Notice {
-			sender := server.clients.Get(item.Nick)
-			if sender != nil {
-				friends.Add(sender)
-			}
+	for _, item := range privmsgHistory {
+		// TODO this is the nickmask, fix that
+		sender := server.clients.Get(item.Nick)
+		if sender != nil {
+			friends.Add(sender)
 		}
 	}
 
@@ -482,10 +484,10 @@ func (client *Client) TryResume() {
 	}
 
 	if client.resumeDetails.HistoryIncomplete {
-		client.Send(nil, "RESUME", "WARN", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+		client.Send(nil, client.server.name, "RESUME", "WARN", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
 	}
 
-	client.Send(nil, "RESUME", "SUCCESS", oldNick)
+	client.Send(nil, client.server.name, "RESUME", "SUCCESS", oldNick)
 
 	// after we send the rest of the registration burst, we'll try rejoining channels
 }

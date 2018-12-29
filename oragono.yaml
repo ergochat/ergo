@@ -454,3 +454,6 @@ history:
 
     # how many direct messages and notices should be tracked per user?
     client-length: 64
+
+    # number of messages to automatically play back on channel join (0 to disable):
+    autoreplay-on-join: 0
