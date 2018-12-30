@@ -2478,16 +2478,25 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
+	handleService := func(nick string) bool {
+		cfnick, _ := CasefoldName(nick)
+		service, ok := OragonoServices[cfnick]
+		if !ok {
+			return false
+		}
+		clientNick := client.Nick()
+		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, "localhost", "*", fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name))
+		// hehe
+		if client.HasMode(modes.TLS) {
+			rb.Add(nil, client.server.name, RPL_WHOISSECURE, clientNick, service.Name, client.t("is using a secure connection"))
+		}
+		return true
+	}
+
 	if client.HasMode(modes.Operator) {
-		masks := strings.Split(masksString, ",")
-		for _, mask := range masks {
-			casefoldedMask, err := Casefold(mask)
-			if err != nil {
-				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
-				continue
-			}
-			matches := server.clients.FindAll(casefoldedMask)
-			if len(matches) == 0 {
+		for _, mask := range strings.Split(masksString, ",") {
+			matches := server.clients.FindAll(mask)
+			if len(matches) == 0 && !handleService(mask) {
 				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
 				continue
 			}
@@ -2496,15 +2505,15 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			}
 		}
 	} else {
-		// only get the first request
-		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
-		mclient := server.clients.Get(casefoldedMask)
-		if err != nil || mclient == nil {
-			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
-			// fall through, ENDOFWHOIS is always sent
-		} else {
+		// only get the first request; also require a nick, not a mask
+		nick := strings.Split(masksString, ",")[0]
+		mclient := server.clients.Get(nick)
+		if mclient != nil {
 			client.getWhoisOf(mclient, rb)
+		} else if !handleService(nick) {
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
 		}
+		// fall through, ENDOFWHOIS is always sent
 	}
 	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
 	return false
