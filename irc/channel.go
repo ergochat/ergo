@@ -346,6 +346,9 @@ func (channel *Channel) IsEmpty() bool {
 
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
+	account := client.Account()
+	nickMaskCasefolded := client.NickMaskCasefolded()
+
 	channel.stateMutex.RLock()
 	chname := channel.name
 	chcfname := channel.nameCasefolded
@@ -354,6 +357,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	limit := channel.userLimit
 	chcount := len(channel.members)
 	_, alreadyJoined := channel.members[client]
+	persistentMode := channel.accountToUMode[account]
 	channel.stateMutex.RUnlock()
 
 	if alreadyJoined {
@@ -361,9 +365,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
-	account := client.Account()
-	nickMaskCasefolded := client.NickMaskCasefolded()
-	hasPrivs := isSajoin || (founder != "" && founder == account)
+	// the founder can always join (even if they disabled auto +q on join);
+	// anyone who automatically receives halfop or higher can always join
+	hasPrivs := isSajoin || (founder != "" && founder == account) || (persistentMode != 0 && persistentMode != modes.Voice)
 
 	if !hasPrivs && limit != 0 && chcount >= limit {
 		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
@@ -404,7 +408,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			if newChannel {
 				givenMode = modes.ChannelOperator
 			} else {
-				givenMode = channel.accountToUMode[account]
+				givenMode = persistentMode
 			}
 			if givenMode != 0 {
 				channel.members[client].SetMode(givenMode, true)
