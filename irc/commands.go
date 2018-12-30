@@ -12,13 +12,12 @@ import (
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler           func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
-	oper              bool
-	usablePreReg      bool
-	leaveClientActive bool // if true, leaves the client active time alone. reversed because we can't default a struct element to True
-	leaveClientIdle   bool
-	minParams         int
-	capabs            []string
+	handler         func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
+	oper            bool
+	usablePreReg    bool
+	leaveClientIdle bool // if true, leaves the client active time alone
+	minParams       int
+	capabs          []string
 }
 
 // Run runs this command with the given client/message.
@@ -54,11 +53,10 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 		server.tryRegister(client)
 	}
 
-	if !cmd.leaveClientIdle {
-		client.Touch()
-	}
+	// most servers do this only for PING/PONG, but we'll do it for any command:
+	client.idletimer.Touch()
 
-	if !cmd.leaveClientActive {
+	if !cmd.leaveClientIdle {
 		client.Active()
 	}
 
@@ -118,8 +116,9 @@ func init() {
 			minParams: 2,
 		},
 		"ISON": {
-			handler:   isonHandler,
-			minParams: 1,
+			handler:         isonHandler,
+			minParams:       1,
+			leaveClientIdle: true,
 		},
 		"JOIN": {
 			handler:   joinHandler,
@@ -200,16 +199,16 @@ func init() {
 			minParams:    1,
 		},
 		"PING": {
-			handler:           pingHandler,
-			usablePreReg:      true,
-			minParams:         1,
-			leaveClientActive: true,
+			handler:         pingHandler,
+			usablePreReg:    true,
+			minParams:       1,
+			leaveClientIdle: true,
 		},
 		"PONG": {
-			handler:           pongHandler,
-			usablePreReg:      true,
-			minParams:         1,
-			leaveClientActive: true,
+			handler:         pongHandler,
+			usablePreReg:    true,
+			minParams:       1,
+			leaveClientIdle: true,
 		},
 		"PRIVMSG": {
 			handler:   privmsgHandler,

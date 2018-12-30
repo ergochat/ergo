@@ -332,12 +332,6 @@ func (client *Client) Active() {
 	client.atime = time.Now()
 }
 
-// Touch marks the client as alive (as it it has a connection to us and we
-// can receive messages from it).
-func (client *Client) Touch() {
-	client.idletimer.Touch()
-}
-
 // Ping sends the client a PING message.
 func (client *Client) Ping() {
 	client.Send(nil, "", "PING", client.nick)
