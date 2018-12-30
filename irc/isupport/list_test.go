@@ -26,7 +26,10 @@ func TestISUPPORT(t *testing.T) {
 	tListLong.AddNoValue("D")
 	tListLong.AddNoValue("E")
 	tListLong.AddNoValue("F")
-	tListLong.RegenerateCachedReply()
+	err := tListLong.RegenerateCachedReply()
+	if err != nil {
+		t.Error(err)
+	}
 
 	longReplies := [][]string{
 		{"1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"},
@@ -44,7 +47,10 @@ func TestISUPPORT(t *testing.T) {
 	tList1.Add("INVEX", "i")
 	tList1.AddNoValue("EXTBAN")
 	tList1.Add("RANDKILL", "whenever")
-	tList1.RegenerateCachedReply()
+	err = tList1.RegenerateCachedReply()
+	if err != nil {
+		t.Error(err)
+	}
 
 	expected := [][]string{{"CASEMAPPING=rfc1459-strict", "EXTBAN", "INVEX=i", "RANDKILL=whenever", "SASL=yes"}}
 	if !reflect.DeepEqual(tList1.CachedReply, expected) {
@@ -58,7 +64,10 @@ func TestISUPPORT(t *testing.T) {
 	tList2.AddNoValue("INVEX")
 	tList2.Add("EXTBAN", "TestBah")
 	tList2.AddNoValue("STABLEKILL")
-	tList2.RegenerateCachedReply()
+	err = tList2.RegenerateCachedReply()
+	if err != nil {
+		t.Error(err)
+	}
 
 	expected = [][]string{{"CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "SASL=yes", "STABLEKILL"}}
 	if !reflect.DeepEqual(tList2.CachedReply, expected) {
@@ -70,5 +79,28 @@ func TestISUPPORT(t *testing.T) {
 	expected = [][]string{{"-RANDKILL", "CASEMAPPING=ascii", "EXTBAN=TestBah", "INVEX", "STABLEKILL"}}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Error("difference reply does not match expected difference reply")
+	}
+}
+
+func TestBadToken(t *testing.T) {
+	list := NewList()
+	list.Add("NETWORK", "Bad Network Name")
+	list.Add("SASL", "yes")
+	list.Add("CASEMAPPING", "rfc1459-strict")
+	list.Add("INVEX", "i")
+	list.AddNoValue("EXTBAN")
+
+	err := list.RegenerateCachedReply()
+	if err == nil {
+		t.Error("isupport token generation should fail due to space in network name")
+	}
+
+	// should produce a list containing the other, valid params
+	numParams := 0
+	for _, tokenLine := range list.CachedReply {
+		numParams += len(tokenLine)
+	}
+	if numParams != 4 {
+		t.Errorf("expected the other 4 params to be generated, got %v", list.CachedReply)
 	}
 }

@@ -3,8 +3,11 @@
 
 package isupport
 
-import "fmt"
-import "sort"
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
 
 const (
 	maxLastArgLength = 400
@@ -102,7 +105,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 }
 
 // RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
-func (il *List) RegenerateCachedReply() {
+func (il *List) RegenerateCachedReply() (err error) {
 	il.CachedReply = make([][]string, 0)
 	var length int     // Length of the current cache
 	var cache []string // Token list cache
@@ -116,6 +119,10 @@ func (il *List) RegenerateCachedReply() {
 
 	for _, name := range tokens {
 		token := getTokenString(name, il.Tokens[name])
+		if token[0] == ':' || strings.Contains(token, " ") {
+			err = fmt.Errorf("bad isupport token (cannot contain spaces or start with :): %s", token)
+			continue
+		}
 
 		if len(token)+length <= maxLastArgLength {
 			// account for the space separating tokens
@@ -136,4 +143,6 @@ func (il *List) RegenerateCachedReply() {
 	if len(cache) > 0 {
 		il.CachedReply = append(il.CachedReply, cache)
 	}
+
+	return
 }

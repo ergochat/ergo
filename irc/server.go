@@ -147,7 +147,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
-func (server *Server) setISupport() {
+func (server *Server) setISupport() (err error) {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
 	config := server.Config()
@@ -192,11 +192,15 @@ func (server *Server) setISupport() {
 		isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
 
-	isupport.RegenerateCachedReply()
+	err = isupport.RegenerateCachedReply()
+	if err != nil {
+		return
+	}
 
 	server.configurableStateMutex.Lock()
 	server.isupport = isupport
 	server.configurableStateMutex.Unlock()
+	return
 }
 
 func loadChannelList(channel *Channel, list string, maskMode modes.Mode) {
@@ -787,7 +791,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
 	oldISupportList := server.ISupport()
-	server.setISupport()
+	err = server.setISupport()
+	if err != nil {
+		return err
+	}
 	if oldISupportList != nil {
 		newISupportReplies = oldISupportList.GetDifference(server.ISupport())
 	}
