@@ -28,7 +28,7 @@ import (
 const (
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds  = 1.5
-	IRCv3TimestampFormat = "2006-01-02T15:04:05.999Z"
+	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 )
 
 var (
