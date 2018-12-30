@@ -8,10 +8,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
@@ -114,7 +112,6 @@ Options:
 			}
 		}
 	} else if arguments["run"].(bool) {
-		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
 			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 			if commit == "" {

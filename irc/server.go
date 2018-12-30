@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -371,13 +370,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMod
 
 // generateMessageID returns a network-unique message ID.
 func (server *Server) generateMessageID() string {
-	// we don't need the full like 30 chars since the unixnano below handles
-	// most of our uniqueness requirements, so just truncate at 5
-	lastbit := strconv.FormatInt(rand.Int63(), 36)
-	if 5 < len(lastbit) {
-		lastbit = lastbit[:4]
-	}
-	return fmt.Sprintf("%s%s", strconv.FormatInt(time.Now().UTC().UnixNano(), 36), lastbit)
+	return utils.GenerateSecretToken()
 }
 
 //
