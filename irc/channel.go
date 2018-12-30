@@ -803,6 +803,8 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 	nickmask := client.NickMaskString()
 	account := client.AccountName()
 
+	now := time.Now().UTC()
+
 	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
@@ -817,11 +819,10 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 			tagsToUse = clientOnlyTags
 		}
 
-		// TODO(slingamn) evaluate an optimization where we reuse `nickmask` and `account`
 		if message == nil {
-			member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
+			member.sendFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name)
 		} else {
-			member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
+			member.sendSplitMsgFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name, *message)
 		}
 	}
 
@@ -831,6 +832,7 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 		Message:     *message,
 		Nick:        nickmask,
 		AccountName: account,
+		Time:        now,
 	})
 }
 
