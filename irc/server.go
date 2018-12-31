@@ -887,7 +887,7 @@ func (server *Server) loadDatastore(config *Config) error {
 
 	_, err := os.Stat(config.Datastore.Path)
 	if os.IsNotExist(err) {
-		server.logger.Warning("startup", "database does not exist, creating it", config.Datastore.Path)
+		server.logger.Warning("rehash", "database does not exist, creating it", config.Datastore.Path)
 		err = initializeDB(config.Datastore.Path)
 		if err != nil {
 			return err
@@ -902,7 +902,7 @@ func (server *Server) loadDatastore(config *Config) error {
 	}
 
 	// load *lines (from the datastores)
-	server.logger.Debug("startup", "Loading D/Klines")
+	server.logger.Debug("rehash", "Loading D/Klines")
 	server.loadDLines()
 	server.loadKLines()
 
@@ -974,7 +974,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	if len(tlsListeners) == 0 {
-		server.logger.Warning("startup", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
+		server.logger.Warning("rehash", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
 	}
 
 	var usesStandardTLSPort bool
@@ -985,7 +985,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 	}
 	if 0 < len(tlsListeners) && !usesStandardTLSPort {
-		server.logger.Warning("startup", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
+		server.logger.Warning("rehash", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
 
 	return
