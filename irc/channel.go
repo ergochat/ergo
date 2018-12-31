@@ -48,7 +48,7 @@ type Channel struct {
 func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
-		s.logger.Error("internal", fmt.Sprintf("Bad channel name %s: %v", name, err))
+		s.logger.Error("internal", "Bad channel name", name, err.Error())
 		return nil
 	}
 

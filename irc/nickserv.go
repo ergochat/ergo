@@ -443,7 +443,7 @@ func nsPasswdHandler(server *Server, client *Client, command, params string, rb 
 	if err == nil {
 		nsNotice(rb, client.t("Password changed"))
 	} else {
-		server.logger.Error("internal", fmt.Sprintf("could not upgrade user password: %v", err))
+		server.logger.Error("internal", "could not upgrade user password:", err.Error())
 		nsNotice(rb, client.t("Password could not be changed due to server error"))
 	}
 }

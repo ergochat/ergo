@@ -836,7 +836,7 @@ func (server *Server) setupPprofListener(config *Config) {
 		}
 		go func() {
 			if err := ps.ListenAndServe(); err != nil {
-				server.logger.Error("rehash", fmt.Sprintf("pprof listener failed: %v", err))
+				server.logger.Error("rehash", "pprof listener failed", err.Error())
 			}
 		}()
 		server.pprofServer = &ps

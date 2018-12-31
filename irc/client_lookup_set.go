@@ -72,7 +72,7 @@ func (clients *ClientManager) removeInternal(client *Client) (err error) {
 			delete(clients.byNick, oldcfnick)
 		} else {
 			// this shouldn't happen, but we can ignore it
-			client.server.logger.Warning("internal", fmt.Sprintf("clients for nick %s out of sync", oldcfnick))
+			client.server.logger.Warning("internal", "clients for nick out of sync", oldcfnick)
 			err = errNickMissing
 		}
 	}

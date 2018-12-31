@@ -367,7 +367,7 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 	if err == errAccountDoesNotExist || err == errAccountUnverified || err == errAccountInvalidCredentials {
 		msg = err.Error()
 	} else {
-		server.logger.Error("internal", fmt.Sprintf("sasl authentication failure: %v", err))
+		server.logger.Error("internal", "sasl authentication failure", err.Error())
 		msg = "Unknown"
 	}
 	return
