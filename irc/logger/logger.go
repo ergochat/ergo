@@ -250,7 +250,7 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	}
 
 	sep := grey(":")
-	fullStringFormatted := fmt.Sprintf("%s %s %s %s %s %s ", timeGrey(time.Now().UTC().Format("2006-01-02T15:04:05Z")), sep, levelDisplay, sep, section(logType), sep)
+	fullStringFormatted := fmt.Sprintf("%s %s %s %s %s %s ", timeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), sep, levelDisplay, sep, section(logType), sep)
 	fullStringRaw := fmt.Sprintf("%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
 	for i, p := range messageParts {
 		fullStringFormatted += p

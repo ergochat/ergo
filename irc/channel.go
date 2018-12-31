@@ -346,6 +346,9 @@ func (channel *Channel) IsEmpty() bool {
 
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
+	account := client.Account()
+	nickMaskCasefolded := client.NickMaskCasefolded()
+
 	channel.stateMutex.RLock()
 	chname := channel.name
 	chcfname := channel.nameCasefolded
@@ -354,6 +357,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	limit := channel.userLimit
 	chcount := len(channel.members)
 	_, alreadyJoined := channel.members[client]
+	persistentMode := channel.accountToUMode[account]
 	channel.stateMutex.RUnlock()
 
 	if alreadyJoined {
@@ -361,9 +365,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
-	account := client.Account()
-	nickMaskCasefolded := client.NickMaskCasefolded()
-	hasPrivs := isSajoin || (founder != "" && founder == account)
+	// the founder can always join (even if they disabled auto +q on join);
+	// anyone who automatically receives halfop or higher can always join
+	hasPrivs := isSajoin || (founder != "" && founder == account) || (persistentMode != 0 && persistentMode != modes.Voice)
 
 	if !hasPrivs && limit != 0 && chcount >= limit {
 		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
@@ -404,7 +408,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			if newChannel {
 				givenMode = modes.ChannelOperator
 			} else {
-				givenMode = channel.accountToUMode[account]
+				givenMode = persistentMode
 			}
 			if givenMode != 0 {
 				channel.members[client].SetMode(givenMode, true)
@@ -803,6 +807,8 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 	nickmask := client.NickMaskString()
 	account := client.AccountName()
 
+	now := time.Now().UTC()
+
 	for _, member := range channel.Members() {
 		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
@@ -817,11 +823,10 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 			tagsToUse = clientOnlyTags
 		}
 
-		// TODO(slingamn) evaluate an optimization where we reuse `nickmask` and `account`
 		if message == nil {
-			member.SendFromClient(msgid, client, tagsToUse, cmd, channel.name)
+			member.sendFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name)
 		} else {
-			member.SendSplitMsgFromClient(msgid, client, tagsToUse, cmd, channel.name, *message)
+			member.sendSplitMsgFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name, *message)
 		}
 	}
 
@@ -831,6 +836,7 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 		Message:     *message,
 		Nick:        nickmask,
 		AccountName: account,
+		Time:        now,
 	})
 }
 

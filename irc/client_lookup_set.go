@@ -189,7 +189,7 @@ func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	clients.RLock()
 	defer clients.RUnlock()
 	for _, client := range clients.byNick {
-		if matcher.Match(client.nickMaskCasefolded) {
+		if matcher.Match(client.NickMaskCasefolded()) {
 			set.Add(client)
 		}
 	}
@@ -209,7 +209,7 @@ func (clients *ClientManager) Find(userhost string) *Client {
 	clients.RLock()
 	defer clients.RUnlock()
 	for _, client := range clients.byNick {
-		if matcher.Match(client.nickMaskCasefolded) {
+		if matcher.Match(client.NickMaskCasefolded()) {
 			matchedClient = client
 			break
 		}

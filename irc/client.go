@@ -28,7 +28,7 @@ import (
 const (
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds  = 1.5
-	IRCv3TimestampFormat = "2006-01-02T15:04:05.999Z"
+	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 )
 
 var (
@@ -330,12 +330,6 @@ func (client *Client) Active() {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	client.atime = time.Now()
-}
-
-// Touch marks the client as alive (as it it has a connection to us and we
-// can receive messages from it).
-func (client *Client) Touch() {
-	client.idletimer.Touch()
 }
 
 // Ping sends the client a PING message.
