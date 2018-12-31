@@ -5,6 +5,7 @@ package logger
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"time"
@@ -30,6 +31,20 @@ const (
 	LogWarning
 	// LogError represents errors.
 	LogError
+)
+
+var (
+	colorTimeGrey = ansi.ColorFunc("243")
+	colorGrey     = ansi.ColorFunc("8")
+	colorAlert    = ansi.ColorFunc("232+b:red")
+	colorWarn     = ansi.ColorFunc("black:214")
+	colorInfo     = ansi.ColorFunc("117")
+	colorDebug    = ansi.ColorFunc("78")
+	colorSection  = ansi.ColorFunc("229")
+	separator     = colorGrey(":")
+
+	colorableStdout = colorable.NewColorableStdout()
+	colorableStderr = colorable.NewColorableStderr()
 )
 
 var (
@@ -230,51 +245,56 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	}
 
 	// assemble full line
-	timeGrey := ansi.ColorFunc("243")
-	grey := ansi.ColorFunc("8")
-	alert := ansi.ColorFunc("232+b:red")
-	warn := ansi.ColorFunc("black:214")
-	info := ansi.ColorFunc("117")
-	debug := ansi.ColorFunc("78")
-	section := ansi.ColorFunc("229")
 
 	levelDisplay := LogLevelDisplayNames[level]
 	if level == LogError {
-		levelDisplay = alert(levelDisplay)
+		levelDisplay = colorAlert(levelDisplay)
 	} else if level == LogWarning {
-		levelDisplay = warn(levelDisplay)
+		levelDisplay = colorWarn(levelDisplay)
 	} else if level == LogInfo {
-		levelDisplay = info(levelDisplay)
+		levelDisplay = colorInfo(levelDisplay)
 	} else if level == LogDebug {
-		levelDisplay = debug(levelDisplay)
+		levelDisplay = colorDebug(levelDisplay)
 	}
 
-	sep := grey(":")
-	fullStringFormatted := fmt.Sprintf("%s %s %s %s %s %s ", timeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), sep, levelDisplay, sep, section(logType), sep)
-	fullStringRaw := fmt.Sprintf("%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
+	var formattedBuf, rawBuf bytes.Buffer
+	fmt.Fprintf(&formattedBuf, "%s %s %s %s %s %s ", colorTimeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), separator, levelDisplay, separator, colorSection(logType), separator)
+	if logger.MethodFile.Enabled {
+		fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
+	}
 	for i, p := range messageParts {
-		fullStringFormatted += p
-		fullStringRaw += p
-		if i != len(messageParts)-1 {
-			fullStringFormatted += " " + sep + " "
-			fullStringRaw += " : "
+		formattedBuf.WriteString(p)
+		if logger.MethodFile.Enabled {
+			rawBuf.WriteString(p)
 		}
+		if i != len(messageParts)-1 {
+			formattedBuf.WriteRune(' ')
+			formattedBuf.WriteString(separator)
+			formattedBuf.WriteRune(' ')
+			if logger.MethodFile.Enabled {
+				rawBuf.WriteString(" : ")
+			}
+		}
+	}
+	formattedBuf.WriteRune('\n')
+	if logger.MethodFile.Enabled {
+		rawBuf.WriteRune('\n')
 	}
 
 	// output
 	if logger.MethodSTDOUT {
 		logger.stdoutWriteLock.Lock()
-		fmt.Fprintln(colorable.NewColorableStdout(), fullStringFormatted)
+		colorableStdout.Write(formattedBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodSTDERR {
 		logger.stdoutWriteLock.Lock()
-		fmt.Fprintln(colorable.NewColorableStderr(), fullStringFormatted)
+		colorableStderr.Write(formattedBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
 		logger.fileWriteLock.Lock()
-		logger.MethodFile.Writer.WriteString(fullStringRaw + "\n")
+		logger.MethodFile.Writer.Write(rawBuf.Bytes())
 		logger.MethodFile.Writer.Flush()
 		logger.fileWriteLock.Unlock()
 	}
