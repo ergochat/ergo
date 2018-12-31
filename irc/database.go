@@ -52,14 +52,26 @@ func (err *incompatibleSchemaError) Error() string {
 	return fmt.Sprintf("Database requires update. Expected schema v%s, got v%s", err.requiredVersion, err.currentVersion)
 }
 
-// InitDB creates the database.
+// InitDB creates the database, implementing the `oragono initdb` command.
 func InitDB(path string) {
-	// prepare kvstore db
-	//TODO(dan): fail if already exists instead? don't want to overwrite good data
-	os.Remove(path)
+	_, err := os.Stat(path)
+	if err == nil {
+		log.Fatal("Datastore already exists (delete it manually to continue): ", path)
+	} else if !os.IsNotExist(err) {
+		log.Fatal("Datastore path is inaccessible: ", err.Error())
+	}
+
+	err = initializeDB(path)
+	if err != nil {
+		log.Fatal("Could not save datastore: ", err.Error())
+	}
+}
+
+// internal database initialization code
+func initializeDB(path string) error {
 	store, err := buntdb.Open(path)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to open datastore: %s", err.Error()))
+		return err
 	}
 	defer store.Close()
 
@@ -69,9 +81,7 @@ func InitDB(path string) {
 		return nil
 	})
 
-	if err != nil {
-		log.Fatal("Could not save datastore:", err.Error())
-	}
+	return err
 }
 
 // OpenDatabase returns an existing database, performing a schema version check.
@@ -81,10 +91,6 @@ func OpenDatabase(config *Config) (*buntdb.DB, error) {
 
 // open the database, giving it at most one chance to auto-upgrade the schema
 func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB, err error) {
-	_, err = os.Stat(config.Datastore.Path)
-	if os.IsNotExist(err) {
-		return
-	}
 	db, err = buntdb.Open(config.Datastore.Path)
 	if err != nil {
 		return

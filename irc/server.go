@@ -885,6 +885,15 @@ func (server *Server) loadDatastore(config *Config) error {
 	// open the datastore and load server state for which it (rather than config)
 	// is the source of truth
 
+	_, err := os.Stat(config.Datastore.Path)
+	if os.IsNotExist(err) {
+		server.logger.Warning("startup", "database does not exist, creating it", config.Datastore.Path)
+		err = initializeDB(config.Datastore.Path)
+		if err != nil {
+			return err
+		}
+	}
+
 	db, err := OpenDatabase(config)
 	if err == nil {
 		server.store = db
