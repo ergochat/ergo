@@ -43,7 +43,6 @@ Extract it into a folder, then run the following commands:
 ```sh
 cp oragono.yaml ircd.yaml
 vim ircd.yaml  # modify the config file to your liking
-oragono initdb
 oragono mkcerts
 ```
 

@@ -34,7 +34,6 @@ To generate passwords for opers and connect passwords, you can use this command:
 
 Run these commands in order -- these will setup each section of the server:
 
-    $ oragono initdb
     $ oragono mkcerts
     $ oragono run
 
