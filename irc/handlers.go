@@ -2076,27 +2076,21 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				continue
 			}
 
-			msgid := server.generateMessageID()
-			// restrict messages appropriately when +R is set
-			// intentionally make the sending user think the message went through fine
-			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-			}
 			nickMaskString := client.NickMaskString()
 			accountName := client.AccountName()
-			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-			}
+
+			msgid := server.generateMessageID()
 
 			if user.HasMode(modes.PrivateQueries) {
 				server.monitorManager.Add(client, casefoldedTarget, server.Limits().MonitorEntries)
 				if server.monitorManager.CheckMutual(client, user) == true {
-					msgid := server.generateMessageID()
 					// restrict messages appropriately when +R is set
 					// intentionally make the sending user think the message went through fine
 					if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
 						user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 					}
+					nickMaskString := client.NickMaskString()
+					accountName := client.AccountName()
 					if client.capabilities.Has(caps.EchoMessage) {
 						rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 					}
@@ -2110,16 +2104,20 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				}
 			}else{
 				msgid := server.generateMessageID()
-				if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
-					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-				}
-				if client.capabilities.Has(caps.EchoMessage) {
-					rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
-				}
-				if user.HasMode(modes.Away) {
-					//TODO(dan): possibly implement cooldown of away notifications to users
-					rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
-				}
+					// restrict messages appropriately when +R is set
+					// intentionally make the sending user think the message went through fine
+					if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+						user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+					}
+					nickMaskString := client.NickMaskString()
+					accountName := client.AccountName()
+					if client.capabilities.Has(caps.EchoMessage) {
+						rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+					}
+					if user.HasMode(modes.Away) {
+						//TODO(dan): possibly implement cooldown of away notifications to users
+						rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+					}
 			}
 
 			user.history.Add(history.Item{
