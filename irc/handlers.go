@@ -2541,7 +2541,7 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			}
 		} else {
 			for _, whoWas := range results {
-				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nickname, whoWas.username, whoWas.hostname, "*", whoWas.realname)
+				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nick, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 			}
 		}
 		if len(nickname) > 0 {

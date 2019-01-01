@@ -52,7 +52,7 @@ type ResumeDetails struct {
 // Client is an IRC client.
 type Client struct {
 	account            string
-	accountName        string
+	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	atime              time.Time
 	authorized         bool
 	awayMessage        string
@@ -100,6 +100,25 @@ type Client struct {
 	history            *history.Buffer
 }
 
+// WhoWas is the subset of client details needed to answer a WHOWAS query
+type WhoWas struct {
+	nick           string
+	nickCasefolded string
+	username       string
+	hostname       string
+	realname       string
+}
+
+// ClientDetails is a standard set of details about a client
+type ClientDetails struct {
+	WhoWas
+
+	nickMask           string
+	nickMaskCasefolded string
+	account            string
+	accountName        string
+}
+
 // NewClient sets up a new client and starts its goroutine.
 func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	now := time.Now()
@@ -117,6 +136,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		flags:          modes.NewModeSet(),
 		server:         server,
 		socket:         socket,
+		accountName:    "*",
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given

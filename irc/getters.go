@@ -147,9 +147,6 @@ func (client *Client) Account() string {
 func (client *Client) AccountName() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	if client.accountName == "" {
-		return "*"
-	}
 	return client.accountName
 }
 
@@ -217,15 +214,22 @@ func (client *Client) Channels() (result []*Channel) {
 }
 
 func (client *Client) WhoWas() (result WhoWas) {
+	return client.Details().WhoWas
+}
+
+func (client *Client) Details() (result ClientDetails) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
-	result.nicknameCasefolded = client.nickCasefolded
-	result.nickname = client.nick
+	result.nick = client.nick
+	result.nickCasefolded = client.nickCasefolded
 	result.username = client.username
-	result.hostname = client.hostname
+	result.hostname = client.username
 	result.realname = client.realname
-
+	result.nickMask = client.nickMaskString
+	result.nickMaskCasefolded = client.nickMaskCasefolded
+	result.account = client.account
+	result.accountName = client.accountName
 	return
 }
 
