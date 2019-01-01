@@ -54,10 +54,15 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
-	AuthenticationEnabled bool                  `yaml:"authentication-enabled"`
-	SkipServerPassword    bool                  `yaml:"skip-server-password"`
-	NickReservation       NickReservationConfig `yaml:"nick-reservation"`
-	VHosts                VHostConfig
+	AuthenticationEnabled bool `yaml:"authentication-enabled"`
+	LoginThrottling       struct {
+		Enabled     bool
+		Duration    time.Duration
+		MaxAttempts int `yaml:"max-attempts"`
+	} `yaml:"login-throttling"`
+	SkipServerPassword bool                  `yaml:"skip-server-password"`
+	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
+	VHosts             VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -556,6 +561,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Accounts.VHosts.ValidRegexp == nil {
 		config.Accounts.VHosts.ValidRegexp = defaultValidVhostRegex
+	}
+
+	if !config.Accounts.LoginThrottling.Enabled {
+		config.Accounts.LoginThrottling.MaxAttempts = 0 // limit of 0 means disabled
 	}
 
 	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)

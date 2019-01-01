@@ -19,6 +19,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -73,6 +74,7 @@ type Client struct {
 	isDestroyed        bool
 	isQuitting         bool
 	languages          []string
+	loginThrottle      connection_limits.GenericThrottle
 	maxlenTags         uint32
 	maxlenRest         uint32
 	nick               string
@@ -126,14 +128,18 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
 	socket := NewSocket(conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
 	client := &Client{
-		atime:          now,
-		authorized:     server.Password() == nil,
-		capabilities:   caps.NewSet(),
-		capState:       caps.NoneState,
-		capVersion:     caps.Cap301,
-		channels:       make(ChannelSet),
-		ctime:          now,
-		flags:          modes.NewModeSet(),
+		atime:        now,
+		authorized:   server.Password() == nil,
+		capabilities: caps.NewSet(),
+		capState:     caps.NoneState,
+		capVersion:   caps.Cap301,
+		channels:     make(ChannelSet),
+		ctime:        now,
+		flags:        modes.NewModeSet(),
+		loginThrottle: connection_limits.GenericThrottle{
+			Duration: config.Accounts.LoginThrottling.Duration,
+			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
+		},
 		server:         server,
 		socket:         socket,
 		accountName:    "*",

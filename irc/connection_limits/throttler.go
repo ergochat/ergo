@@ -26,8 +26,45 @@ type ThrottlerConfig struct {
 
 // ThrottleDetails holds the connection-throttling details for a subnet/IP.
 type ThrottleDetails struct {
-	Start       time.Time
-	ClientCount int
+	Start time.Time
+	Count int
+}
+
+// GenericThrottle allows enforcing limits of the form
+// "at most X events per time window of duration Y"
+type GenericThrottle struct {
+	ThrottleDetails // variable state: what events have been seen
+	// these are constant after creation:
+	Duration time.Duration // window length to consider
+	Limit    int           // number of events allowed per window
+}
+
+// Touch checks whether an additional event is allowed:
+// it either denies it (by returning false) or allows it (by returning true)
+// and records it
+func (g *GenericThrottle) Touch() (throttled bool, remainingTime time.Duration) {
+	return g.touch(time.Now())
+}
+
+func (g *GenericThrottle) touch(now time.Time) (throttled bool, remainingTime time.Duration) {
+	if g.Limit == 0 {
+		return // limit of 0 disables throttling
+	}
+
+	elapsed := now.Sub(g.Start)
+	if elapsed > g.Duration {
+		// reset window, record the operation
+		g.Start = now
+		g.Count = 1
+		return false, 0
+	} else if g.Count >= g.Limit {
+		// we are throttled
+		return true, g.Start.Add(g.Duration).Sub(now)
+	} else {
+		// we are not throttled, record the operation
+		g.Count += 1
+		return false, 0
+	}
 }
 
 // Throttler manages automated client connection throttling.
@@ -102,21 +139,21 @@ func (ct *Throttler) AddClient(addr net.IP) error {
 	ct.maskAddr(addr)
 	addrString := addr.String()
 
-	details, exists := ct.population[addrString]
-	if !exists || details.Start.Add(ct.duration).Before(time.Now()) {
-		details = ThrottleDetails{
-			Start: time.Now(),
-		}
+	details := ct.population[addrString] // retrieve mutable throttle state from the map
+	// add in constant state to process the limiting operation
+	g := GenericThrottle{
+		ThrottleDetails: details,
+		Duration:        ct.duration,
+		Limit:           ct.subnetLimit,
 	}
+	throttled, _ := g.Touch()                     // actually check the limit
+	ct.population[addrString] = g.ThrottleDetails // store modified mutable state
 
-	if details.ClientCount+1 > ct.subnetLimit {
+	if throttled {
 		return errTooManyClients
+	} else {
+		return nil
 	}
-
-	details.ClientCount++
-	ct.population[addrString] = details
-
-	return nil
 }
 
 func (ct *Throttler) BanDuration() time.Duration {

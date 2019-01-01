@@ -20,6 +20,7 @@ test:
 	python3 ./gencapdefs.py | diff - ${capdef_file}
 	cd irc && go test . && go vet .
 	cd irc/caps && go test . && go vet .
+	cd irc/connection_limits && go test . && go vet .
 	cd irc/history && go test . && go vet .
 	cd irc/isupport && go test . && go vet .
 	cd irc/modes && go test . && go vet .

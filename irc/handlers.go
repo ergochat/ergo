@@ -83,9 +83,10 @@ func parseCallback(spec string, config *AccountConfig) (callbackNamespace string
 
 // ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
 func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	nick := client.Nick()
 	// clients can't reg new accounts if they're already logged in
 	if client.LoggedIntoAccount() {
-		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, "*", client.t("You're already logged into an account"))
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, nick, "*", client.t("You're already logged into an account"))
 		return false
 	}
 
@@ -94,12 +95,12 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	casefoldedAccount, err := CasefoldName(account)
 	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
 	if err != nil || msg.Params[1] == "*" {
-		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, client.nick, account, client.t("Account name is not valid"))
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, nick, account, client.t("Account name is not valid"))
 		return false
 	}
 
 	if len(msg.Params) < 4 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
 
@@ -107,7 +108,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	callbackNamespace, callbackValue := parseCallback(callbackSpec, server.AccountConfig())
 
 	if callbackNamespace == "" {
-		rb.Add(nil, server.name, ERR_REG_INVALID_CALLBACK, client.nick, account, callbackSpec, client.t("Callback namespace is not supported"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CALLBACK, nick, account, callbackSpec, client.t("Callback namespace is not supported"))
 		return false
 	}
 
@@ -131,12 +132,12 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("You are not using a TLS certificate"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, nick, credentialType, callbackNamespace, client.t("You are not using a TLS certificate"))
 		return false
 	}
 
 	if !credentialValid {
-		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, client.nick, credentialType, callbackNamespace, client.t("Credential type is not supported"))
+		rb.Add(nil, server.name, ERR_REG_INVALID_CRED_TYPE, nick, credentialType, callbackNamespace, client.t("Credential type is not supported"))
 		return false
 	}
 
@@ -146,6 +147,13 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	} else if credentialType == "passphrase" {
 		passphrase = credentialValue
 	}
+
+	throttled, remainingTime := client.loginThrottle.Touch()
+	if throttled {
+		rb.Add(nil, server.name, ERR_REG_UNSPECIFIED_ERROR, nick, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+		return false
+	}
+
 	err = server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, certfp)
 	if err != nil {
 		msg := "Unknown"
@@ -161,7 +169,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		if err == errAccountAlreadyRegistered || err == errAccountCreation || err == errCertfpAlreadyExists {
 			msg = err.Error()
 		}
-		rb.Add(nil, server.name, code, client.nick, "ACC", "REGISTER", client.t(msg))
+		rb.Add(nil, server.name, code, nick, "ACC", "REGISTER", client.t(msg))
 		return false
 	}
 
@@ -175,7 +183,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	} else {
 		messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s:%s")
 		message := fmt.Sprintf(messageTemplate, callbackNamespace, callbackValue)
-		rb.Add(nil, server.name, RPL_REG_VERIFICATION_REQUIRED, client.nick, casefoldedAccount, message)
+		rb.Add(nil, server.name, RPL_REG_VERIFICATION_REQUIRED, nick, casefoldedAccount, message)
 	}
 
 	return false
@@ -336,6 +344,8 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 
 	var accountKey, authzid string
 
+	nick := client.Nick()
+
 	if len(splitValue) == 3 {
 		accountKey = string(splitValue[0])
 		authzid = string(splitValue[1])
@@ -343,11 +353,17 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		if accountKey == "" {
 			accountKey = authzid
 		} else if accountKey != authzid {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
 			return false
 		}
 	} else {
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid auth blob"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, nick, client.t("SASL authentication failed: Invalid auth blob"))
+		return false
+	}
+
+	throttled, remainingTime := client.loginThrottle.Touch()
+	if throttled {
+		rb.Add(nil, server.name, ERR_SASLFAIL, nick, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
 		return false
 	}
 
@@ -355,7 +371,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	err := server.accounts.AuthenticateByPassphrase(client, accountKey, password)
 	if err != nil {
 		msg := authErrorToMessage(server, err)
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
+		rb.Add(nil, server.name, ERR_SASLFAIL, nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
 	}
 

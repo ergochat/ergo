@@ -179,6 +179,17 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
+    # throttle account login attempts (to prevent either password guessing, or DoS
+    # attacks on the server aimed at forcing repeated expensive bcrypt computations)
+    login-throttling:
+        enabled: true
+
+        # window
+        duration:  1m
+
+        # number of attempts allowed within the window
+        max-attempts: 3
+
     # some clients (notably Pidgin and Hexchat) offer only a single password field,
     # which makes it impossible to specify a separate server password (for the PASS
     # command) and SASL password. if this option is set to true, a client that

@@ -200,6 +200,15 @@ func nsGroupHandler(server *Server, client *Client, command, params string, rb *
 	}
 }
 
+func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
+	throttled, remainingTime := client.loginThrottle.Touch()
+	if throttled {
+		nsNotice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+		return false
+	}
+	return true
+}
+
 func nsIdentifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
 	loginSuccessful := false
 
@@ -207,6 +216,9 @@ func nsIdentifyHandler(server *Server, client *Client, command, params string, r
 
 	// try passphrase
 	if username != "" && passphrase != "" {
+		if !nsLoginThrottleCheck(client, rb) {
+			return
+		}
 		err := server.accounts.AuthenticateByPassphrase(client, username, passphrase)
 		loginSuccessful = (err == nil)
 	}
@@ -407,10 +419,15 @@ func nsPasswdHandler(server *Server, client *Client, command, params string, rb 
 	var newPassword string
 	var errorMessage string
 
+	hasPrivs := client.HasRoleCapabs("accreg")
+	if !hasPrivs && !nsLoginThrottleCheck(client, rb) {
+		return
+	}
+
 	fields := strings.Fields(params)
 	switch len(fields) {
 	case 2:
-		if !client.HasRoleCapabs("accreg") {
+		if !hasPrivs {
 			errorMessage = "Insufficient privileges"
 		} else {
 			target, newPassword = fields[0], fields[1]
