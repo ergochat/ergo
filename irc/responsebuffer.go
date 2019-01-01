@@ -4,10 +4,17 @@
 package irc
 
 import (
+	"runtime/debug"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/utils"
+)
+
+const (
+	// https://ircv3.net/specs/extensions/labeled-response.html
+	batchType = "draft/labeled-response"
 )
 
 // ResponseBuffer - put simply - buffers messages and then outputs them to a given client.
@@ -16,9 +23,11 @@ import (
 // buffer will silently create a batch if required and label the outgoing messages as
 // necessary (or leave it off and simply tag the outgoing message).
 type ResponseBuffer struct {
-	Label    string
-	target   *Client
-	messages []ircmsg.IrcMessage
+	Label     string
+	batchID   string
+	target    *Client
+	messages  []ircmsg.IrcMessage
+	finalized bool
 }
 
 // GetLabel returns the label from the given message.
@@ -35,94 +44,127 @@ func NewResponseBuffer(target *Client) *ResponseBuffer {
 
 // Add adds a standard new message to our queue.
 func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) {
-	message := ircmsg.MakeMessage(tags, prefix, command, params...)
+	if rb.finalized {
+		rb.target.server.logger.Error("message added to finalized ResponseBuffer, undefined behavior")
+		debug.PrintStack()
+		return
+	}
 
+	message := ircmsg.MakeMessage(tags, prefix, command, params...)
 	rb.messages = append(rb.messages, message)
 }
 
 // AddFromClient adds a new message from a specific client to our queue.
-func (rb *ResponseBuffer) AddFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) {
+func (rb *ResponseBuffer) AddFromClient(msgid string, fromNickMask string, fromAccount string, tags *map[string]ircmsg.TagValue, command string, params ...string) {
 	// attach account-tag
-	if rb.target.capabilities.Has(caps.AccountTag) && from.LoggedIntoAccount() {
-		if tags == nil {
-			tags = ircmsg.MakeTags("account", from.AccountName())
-		} else {
-			(*tags)["account"] = ircmsg.MakeTagValue(from.AccountName())
+	if rb.target.capabilities.Has(caps.AccountTag) {
+		if fromAccount != "*" {
+			tags = ensureTag(tags, "account", fromAccount)
 		}
 	}
 	// attach message-id
 	if len(msgid) > 0 && rb.target.capabilities.Has(caps.MessageTags) {
-		if tags == nil {
-			tags = ircmsg.MakeTags("draft/msgid", msgid)
-		} else {
-			(*tags)["draft/msgid"] = ircmsg.MakeTagValue(msgid)
-		}
+		tags = ensureTag(tags, "draft/msgid", msgid)
 	}
 
-	rb.Add(tags, from.nickMaskString, command, params...)
+	rb.Add(tags, fromNickMask, command, params...)
 }
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
-func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, target string, message SplitMessage) {
-	if rb.target.capabilities.Has(caps.MaxLine) {
-		rb.AddFromClient(msgid, from, tags, command, target, message.ForMaxLine)
+func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, fromNickMask string, fromAccount string, tags *map[string]ircmsg.TagValue, command string, target string, message utils.SplitMessage) {
+	if rb.target.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+		rb.AddFromClient(msgid, fromNickMask, fromAccount, tags, command, target, message.Original)
 	} else {
-		for _, str := range message.For512 {
-			rb.AddFromClient(msgid, from, tags, command, target, str)
+		for _, str := range message.Wrapped {
+			rb.AddFromClient(msgid, fromNickMask, fromAccount, tags, command, target, str)
 		}
 	}
 }
 
-// Send sends the message to our target client.
-func (rb *ResponseBuffer) Send() error {
-	// fall out if no messages to send
-	if len(rb.messages) == 0 {
-		return nil
+func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
+	if rb.batchID != "" {
+		// batch already initialized
+		return
 	}
 
-	// make batch and all if required
-	var batch *Batch
-	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
-	if useLabel && 1 < len(rb.messages) && rb.target.capabilities.Has(caps.Batch) {
-		batch = rb.target.server.batches.New("draft/labeled-response")
+	// formerly this combined time.Now.UnixNano() in base 36 with an incrementing counter,
+	// also in base 36. but let's just use a uuidv4-alike (26 base32 characters):
+	rb.batchID = utils.GenerateSecretToken()
+
+	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "+"+rb.batchID, batchType)
+	message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+	rb.target.SendRawMessage(message, blocking)
+}
+
+func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
+	if rb.batchID == "" {
+		// we are not sending a batch, skip this
+		return
 	}
+
+	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "-"+rb.batchID)
+	rb.target.SendRawMessage(message, blocking)
+}
+
+// Send sends all messages in the buffer to the client.
+// Afterwards, the buffer is in an undefined state and MUST NOT be used further.
+// If `blocking` is true you MUST be sending to the client from its own goroutine.
+func (rb *ResponseBuffer) Send(blocking bool) error {
+	return rb.flushInternal(true, blocking)
+}
+
+// Flush sends all messages in the buffer to the client.
+// Afterwards, the buffer can still be used. Client code MUST subsequently call Send()
+// to ensure that the final `BATCH -` message is sent.
+// If `blocking` is true you MUST be sending to the client from its own goroutine.
+func (rb *ResponseBuffer) Flush(blocking bool) error {
+	return rb.flushInternal(false, blocking)
+}
+
+// flushInternal sends the contents of the buffer, either blocking or nonblocking
+// It sends the `BATCH +` message if the client supports it and it hasn't been sent already.
+// If `final` is true, it also sends `BATCH -` (if necessary).
+func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
+	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
+	// use a batch if we have a label, and we either currently have multiple messages,
+	// or we are doing a Flush() and we have to assume that there will be more messages
+	// in the future.
+	useBatch := useLabel && (len(rb.messages) > 1 || !final)
 
 	// if label but no batch, add label to first message
-	if useLabel && batch == nil {
-		message := rb.messages[0]
-		message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
-		rb.messages[0] = message
-	}
-
-	// start batch if required
-	if batch != nil {
-		batch.Start(rb.target, ircmsg.MakeTags(caps.LabelTagName, rb.Label))
+	if useLabel && !useBatch && len(rb.messages) == 1 {
+		rb.messages[0].Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+	} else if useBatch {
+		rb.sendBatchStart(blocking)
 	}
 
 	// send each message out
 	for _, message := range rb.messages {
 		// attach server-time if needed
 		if rb.target.capabilities.Has(caps.ServerTime) {
-			t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
-			message.Tags["time"] = ircmsg.MakeTagValue(t)
+			if !message.Tags["time"].HasValue {
+				t := time.Now().UTC().Format(IRCv3TimestampFormat)
+				message.Tags["time"] = ircmsg.MakeTagValue(t)
+			}
 		}
 
 		// attach batch ID
-		if batch != nil {
-			message.Tags["batch"] = ircmsg.MakeTagValue(batch.ID)
+		if rb.batchID != "" {
+			message.Tags["batch"] = ircmsg.MakeTagValue(rb.batchID)
 		}
 
 		// send message out
-		rb.target.SendRawMessage(message)
+		rb.target.SendRawMessage(message, blocking)
 	}
 
 	// end batch if required
-	if batch != nil {
-		batch.End(rb.target)
+	if final {
+		rb.sendBatchEnd(blocking)
+		rb.finalized = true
 	}
 
 	// clear out any existing messages
-	rb.messages = []ircmsg.IrcMessage{}
+	rb.messages = rb.messages[:0]
 
 	return nil
 }

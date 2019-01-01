@@ -6,6 +6,7 @@
 package irc
 
 import "github.com/unendingPattern/oragono/irc/modes"
+import "github.com/goshuirc/irc-go/ircmsg"
 
 // ClientSet is a set of clients.
 type ClientSet map[*Client]bool
@@ -56,3 +57,5 @@ func (members MemberSet) AnyHasMode(mode modes.Mode) bool {
 
 // ChannelSet is a set of channels.
 type ChannelSet map[*Channel]bool
+
+type Tags *map[string]ircmsg.TagValue

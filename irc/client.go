@@ -18,7 +18,9 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
+
 	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono/irc/history"
 	"github.com/unendingPattern/oragono/irc/modes"
 	"github.com/unendingPattern/oragono/irc/sno"
 	"github.com/unendingPattern/oragono/irc/utils"
@@ -26,12 +28,27 @@ import (
 
 const (
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
-	IdentTimeoutSeconds = 1.5
+	IdentTimeoutSeconds  = 1.5
+	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 )
 
 var (
 	LoopbackIP = net.ParseIP("127.0.0.1")
 )
+
+// ResumeDetails is a place to stash data at various stages of
+// the resume process: when handling the RESUME command itself,
+// when completing the registration, and when rejoining channels.
+type ResumeDetails struct {
+	OldClient         *Client
+	OldNick           string
+	OldNickMask       string
+	PresentedToken    string
+	Timestamp         time.Time
+	ResumedAt         time.Time
+	Channels          []string
+	HistoryIncomplete bool
+}
 
 // Client is an IRC client.
 type Client struct {
@@ -72,6 +89,7 @@ type Client struct {
 	realname           string
 	registered         bool
 	resumeDetails      *ResumeDetails
+	resumeToken        string
 	saslInProgress     bool
 	saslMechanism      string
 	saslValue          string
@@ -82,6 +100,7 @@ type Client struct {
 	vhost              string
 	tripcode		   string
 	secureTripcode	   string
+	history            *history.Buffer
 }
 
 // NewClient sets up a new client and starts its goroutine.
@@ -104,6 +123,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
+		history:        history.NewHistoryBuffer(config.History.ClientLength),
 	}
 	client.languages = server.languages.Default()
 
@@ -315,12 +335,6 @@ func (client *Client) Active() {
 	client.atime = time.Now()
 }
 
-// Touch marks the client as alive (as it it has a connection to us and we
-// can receive messages from it).
-func (client *Client) Touch() {
-	client.idletimer.Touch()
-}
-
 // Ping sends the client a PING message.
 func (client *Client) Ping() {
 	client.Send(nil, "", "PING", client.nick)
@@ -353,124 +367,201 @@ func (client *Client) TryResume() {
 	}
 
 	server := client.server
-
-	// just grab these mutexes for safety. later we can work out whether we can grab+release them earlier
-	server.clients.Lock()
-	defer server.clients.Unlock()
-	server.channels.Lock()
-	defer server.channels.Unlock()
+	config := server.Config()
 
 	oldnick := client.resumeDetails.OldNick
 	timestamp := client.resumeDetails.Timestamp
 	var timestampString string
-	if timestamp != nil {
-		timestampString = timestamp.UTC().Format("2006-01-02T15:04:05.999Z")
+	if !timestamp.IsZero() {
+		timestampString = timestamp.UTC().Format(IRCv3TimestampFormat)
 	}
 
-	// can't use server.clients.Get since we hold server.clients' tier 1 mutex
-	casefoldedName, err := CasefoldName(oldnick)
-	if err != nil {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old client not found"))
-		return
-	}
-
-	oldClient := server.clients.byNick[casefoldedName]
+	oldClient := server.clients.Get(oldnick)
 	if oldClient == nil {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old client not found"))
+		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old client not found"))
+		client.resumeDetails = nil
+		return
+	}
+	oldNick := oldClient.Nick()
+	oldNickmask := oldClient.NickMaskString()
+
+	resumeAllowed := config.Server.AllowPlaintextResume || (oldClient.HasMode(modes.TLS) && client.HasMode(modes.TLS))
+	if !resumeAllowed {
+		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
+		client.resumeDetails = nil
 		return
 	}
 
-	oldAccountName := oldClient.Account()
-	newAccountName := client.Account()
-
-	if oldAccountName == "" || newAccountName == "" || oldAccountName != newAccountName {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must be logged into the same account"))
+	oldResumeToken := oldClient.ResumeToken()
+	if oldResumeToken == "" || !utils.SecretTokensMatch(oldResumeToken, client.resumeDetails.PresentedToken) {
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, invalid resume token"))
+		client.resumeDetails = nil
 		return
 	}
 
-	if !oldClient.HasMode(modes.TLS) || !client.HasMode(modes.TLS) {
-		client.Send(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
+	err := server.clients.Resume(client, oldClient)
+	if err != nil {
+		client.resumeDetails = nil
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection"))
 		return
 	}
 
-	// unmark the new client's nick as being occupied
-	server.clients.removeInternal(client)
+	// this is a bit racey
+	client.resumeDetails.ResumedAt = time.Now()
 
-	// send RESUMED to the reconnecting client
-	if timestamp == nil {
-		client.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname())
-	} else {
-		client.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname(), timestampString)
+	client.nickTimer.Touch()
+
+	// resume successful, proceed to copy client state (nickname, flags, etc.)
+	// after this, the server thinks that `newClient` owns the nickname
+
+	client.resumeDetails.OldClient = oldClient
+
+	// transfer monitor stuff
+	server.monitorManager.Resume(client, oldClient)
+
+	// record the names, not the pointers, of the channels,
+	// to avoid dumb annoying race conditions
+	channels := oldClient.Channels()
+	client.resumeDetails.Channels = make([]string, len(channels))
+	for i, channel := range channels {
+		client.resumeDetails.Channels[i] = channel.Name()
 	}
 
-	// send QUIT/RESUMED to friends
-	for friend := range oldClient.Friends() {
+	username := client.Username()
+	hostname := client.Hostname()
+
+	friends := make(ClientSet)
+	oldestLostMessage := time.Now()
+
+	// work out how much time, if any, is not covered by history buffers
+	for _, channel := range channels {
+		for _, member := range channel.Members() {
+			friends.Add(member)
+			lastDiscarded := channel.history.LastDiscarded()
+			if lastDiscarded.Before(oldestLostMessage) {
+				oldestLostMessage = lastDiscarded
+			}
+		}
+	}
+	privmsgMatcher := func(item history.Item) bool {
+		return item.Type == history.Privmsg || item.Type == history.Notice
+	}
+	privmsgHistory := oldClient.history.Match(privmsgMatcher, 0)
+	lastDiscarded := oldClient.history.LastDiscarded()
+	if lastDiscarded.Before(oldestLostMessage) {
+		oldestLostMessage = lastDiscarded
+	}
+	for _, item := range privmsgHistory {
+		// TODO this is the nickmask, fix that
+		sender := server.clients.Get(item.Nick)
+		if sender != nil {
+			friends.Add(sender)
+		}
+	}
+
+	gap := lastDiscarded.Sub(timestamp)
+	client.resumeDetails.HistoryIncomplete = gap > 0
+	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
+
+	// send quit/resume messages to friends
+	for friend := range friends {
 		if friend.capabilities.Has(caps.Resume) {
-			if timestamp == nil {
-				friend.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname())
+			if timestamp.IsZero() {
+				friend.Send(nil, oldNickmask, "RESUMED", username, hostname)
 			} else {
-				friend.Send(nil, oldClient.NickMaskString(), "RESUMED", oldClient.nick, client.username, client.Hostname(), timestampString)
+				friend.Send(nil, oldNickmask, "RESUMED", username, hostname, timestampString)
 			}
 		} else {
-			friend.Send(nil, oldClient.NickMaskString(), "QUIT", friend.t("Client reconnected"))
+			if client.resumeDetails.HistoryIncomplete {
+				friend.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of history lost)"), gapSeconds))
+			} else {
+				friend.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
+			}
 		}
 	}
 
-	// apply old client's details to new client
-	client.nick = oldClient.nick
-	client.updateNickMaskNoMutex()
+	if client.resumeDetails.HistoryIncomplete {
+		client.Send(nil, client.server.name, "RESUME", "WARN", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+	}
 
-	rejoinChannel := func(channel *Channel) {
-		channel.joinPartMutex.Lock()
-		defer channel.joinPartMutex.Unlock()
+	client.Send(nil, client.server.name, "RESUME", "SUCCESS", oldNick)
 
-		channel.stateMutex.Lock()
-		client.channels[channel] = true
-		client.resumeDetails.SendFakeJoinsFor = append(client.resumeDetails.SendFakeJoinsFor, channel.name)
+	// after we send the rest of the registration burst, we'll try rejoining channels
+}
 
-		oldModeSet := channel.members[oldClient]
-		channel.members.Remove(oldClient)
-		channel.members[client] = oldModeSet
-		channel.stateMutex.Unlock()
+func (client *Client) tryResumeChannels() {
+	details := client.resumeDetails
+	if details == nil {
+		return
+	}
 
-		channel.regenerateMembersCache()
-
-		// construct fake modestring if necessary
-		oldModes := oldModeSet.String()
-		var params []string
-		if 0 < len(oldModes) {
-			params = []string{channel.name, "+" + oldModes}
-			for range oldModes {
-				params = append(params, client.nick)
-			}
+	channels := make([]*Channel, len(details.Channels))
+	for _, name := range details.Channels {
+		channel := client.server.channels.Get(name)
+		if channel == nil {
+			continue
 		}
+		channel.Resume(client, details.OldClient, details.Timestamp)
+		channels = append(channels, channel)
+	}
 
-		// send join for old clients
-		for member := range channel.members {
-			if member.capabilities.Has(caps.Resume) {
+	// replay direct PRIVSMG history
+	if !details.Timestamp.IsZero() {
+		now := time.Now()
+		nick := client.Nick()
+		items, complete := client.history.Between(details.Timestamp, now)
+		for _, item := range items {
+			var command string
+			switch item.Type {
+			case history.Privmsg:
+				command = "PRIVMSG"
+			case history.Notice:
+				command = "NOTICE"
+			default:
 				continue
 			}
-
-			if member.capabilities.Has(caps.ExtendedJoin) {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name, client.AccountName(), client.realname)
-			} else {
-				member.Send(nil, client.nickMaskString, "JOIN", channel.name)
-			}
-
-			// send fake modestring if necessary
-			if 0 < len(oldModes) {
-				member.Send(nil, server.name, "MODE", params...)
-			}
+			client.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, command, nick, item.Message)
+		}
+		if !complete {
+			client.Send(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
 		}
 	}
 
-	for channel := range oldClient.channels {
-		rejoinChannel(channel)
-	}
+	details.OldClient.destroy(true)
+}
 
-	server.clients.byNick[oldnick] = client
+// copy applicable state from oldClient to client as part of a resume
+func (client *Client) copyResumeData(oldClient *Client) {
+	oldClient.stateMutex.RLock()
+	flags := oldClient.flags
+	history := oldClient.history
+	nick := oldClient.nick
+	nickCasefolded := oldClient.nickCasefolded
+	vhost := oldClient.vhost
+	account := oldClient.account
+	accountName := oldClient.accountName
+	oldClient.stateMutex.RUnlock()
 
-	oldClient.destroy(true)
+	// copy all flags, *except* TLS (in the case that the admins enabled
+	// resume over plaintext)
+	hasTLS := client.flags.HasMode(modes.TLS)
+	temp := modes.NewModeSet()
+	temp.Copy(flags)
+	temp.SetMode(modes.TLS, hasTLS)
+	client.flags.Copy(temp)
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	// reuse the old client's history buffer
+	client.history = history
+	// copy other data
+	client.nick = nick
+	client.nickCasefolded = nickCasefolded
+	client.vhost = vhost
+	client.account = account
+	client.accountName = accountName
+	client.updateNickMaskNoMutex()
 }
 
 // IdleTime returns how long this client's been idle.
@@ -502,6 +593,26 @@ func (client *Client) HasUsername() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.username != "" && client.username != "*"
+}
+
+func (client *Client) SetNames(username, realname string) error {
+	_, err := CasefoldName(username)
+	if err != nil {
+		return errInvalidUsername
+	}
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.username == "" {
+		client.username = "~" + username
+	}
+
+	if client.realname == "" {
+		client.realname = realname
+	}
+
+	return nil
 }
 
 // HasRoleCapabs returns true if client has the given (role) capabilities.
@@ -564,7 +675,7 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 func (client *Client) sendChghost(oldNickMask string, vhost string) {
 	username := client.Username()
 	for fClient := range client.Friends(caps.ChgHost) {
-		fClient.sendFromClientInternal("", client, oldNickMask, nil, "CHGHOST", username, vhost)
+		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, client.AccountName(), nil, "CHGHOST", username, vhost)
 	}
 }
 
@@ -746,14 +857,14 @@ func (client *Client) Quit(message string) {
 // destroy gets rid of a client, removes them from server lists etc.
 func (client *Client) destroy(beingResumed bool) {
 	// allow destroy() to execute at most once
-	if !beingResumed {
-		client.stateMutex.Lock()
-	}
+	client.stateMutex.Lock()
 	isDestroyed := client.isDestroyed
 	client.isDestroyed = true
-	if !beingResumed {
-		client.stateMutex.Unlock()
-	}
+	quitMessage := client.quitMessage
+	nickMaskString := client.nickMaskString
+	accountName := client.accountName
+	client.stateMutex.Unlock()
+
 	if isDestroyed {
 		return
 	}
@@ -793,6 +904,12 @@ func (client *Client) destroy(beingResumed bool) {
 	for _, channel := range client.Channels() {
 		if !beingResumed {
 			channel.Quit(client)
+			channel.history.Add(history.Item{
+				Type:        history.Quit,
+				Nick:        nickMaskString,
+				AccountName: accountName,
+				Message:     utils.MakeSplitMessage(quitMessage, true),
+			})
 		}
 		for _, member := range channel.Members() {
 			friends.Add(member)
@@ -826,10 +943,10 @@ func (client *Client) destroy(beingResumed bool) {
 		}
 
 		for friend := range friends {
-			if client.quitMessage == "" {
-				client.quitMessage = "Exited"
+			if quitMessage == "" {
+				quitMessage = "Exited"
 			}
-			friend.Send(nil, client.nickMaskString, "QUIT", client.quitMessage)
+			friend.Send(nil, client.nickMaskString, "QUIT", quitMessage)
 		}
 	}
 	if !client.exitedSnomaskSent {
@@ -843,43 +960,50 @@ func (client *Client) destroy(beingResumed bool) {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command, target string, message SplitMessage) {
-	if client.capabilities.Has(caps.MaxLine) {
-		client.SendFromClient(msgid, from, tags, command, target, message.ForMaxLine)
+func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags Tags, command, target string, message utils.SplitMessage) {
+	client.sendSplitMsgFromClientInternal(false, time.Time{}, msgid, from.NickMaskString(), from.AccountName(), tags, command, target, message)
+}
+
+func (client *Client) sendSplitMsgFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags Tags, command, target string, message utils.SplitMessage) {
+	if client.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+		client.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, target, message.Original)
 	} else {
-		for _, str := range message.For512 {
-			client.SendFromClient(msgid, from, tags, command, target, str)
+		for _, str := range message.Wrapped {
+			client.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, target, str)
 		}
 	}
 }
 
 // SendFromClient sends an IRC line coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendFromClient(msgid string, from *Client, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
-	return client.sendFromClientInternal(msgid, from, from.NickMaskString(), tags, command, params...)
+func (client *Client) SendFromClient(msgid string, from *Client, tags Tags, command string, params ...string) error {
+	return client.sendFromClientInternal(false, time.Time{}, msgid, from.NickMaskString(), from.AccountName(), tags, command, params...)
+}
+
+// helper to add a tag to `tags` (or create a new tag set if the current one is nil)
+func ensureTag(tags Tags, tagName, tagValue string) (result Tags) {
+	if tags == nil {
+		result = ircmsg.MakeTags(tagName, tagValue)
+	} else {
+		result = tags
+		(*tags)[tagName] = ircmsg.MakeTagValue(tagValue)
+	}
+	return
 }
 
 // XXX this is a hack where we allow overriding the client's nickmask
 // this is to support CHGHOST, which requires that we send the *original* nickmask with the response
-func (client *Client) sendFromClientInternal(msgid string, from *Client, nickmask string, tags *map[string]ircmsg.TagValue, command string, params ...string) error {
+func (client *Client) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags Tags, command string, params ...string) error {
 	// attach account-tag
-	if client.capabilities.Has(caps.AccountTag) && from.LoggedIntoAccount() {
-		if tags == nil {
-			tags = ircmsg.MakeTags("account", from.AccountName())
-		} else {
-			(*tags)["account"] = ircmsg.MakeTagValue(from.AccountName())
-		}
+	if client.capabilities.Has(caps.AccountTag) && accountName != "*" {
+		tags = ensureTag(tags, "account", accountName)
 	}
 	// attach message-id
 	if len(msgid) > 0 && client.capabilities.Has(caps.MessageTags) {
-		if tags == nil {
-			tags = ircmsg.MakeTags("draft/msgid", msgid)
-		} else {
-			(*tags)["draft/msgid"] = ircmsg.MakeTagValue(msgid)
-		}
+		tags = ensureTag(tags, "draft/msgid", msgid)
 	}
 
-	return client.Send(tags, nickmask, command, params...)
+	return client.sendInternal(blocking, serverTime, tags, nickmask, command, params...)
 }
 
 var (
@@ -896,7 +1020,7 @@ var (
 )
 
 // SendRawMessage sends a raw message to the client.
-func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
+func (client *Client) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
 	var usedTrailingHack bool
 	if commandsThatMustUseTrailing[strings.ToUpper(message.Command)] && len(message.Params) > 0 {
@@ -918,7 +1042,11 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.LineBytes()
 
-		client.socket.Write(line)
+		if blocking {
+			client.socket.BlockingWrite(line)
+		} else {
+			client.socket.Write(line)
+		}
 		return err
 	}
 
@@ -933,27 +1061,31 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage) error {
 		client.server.logger.Debug("useroutput", client.nick, " ->", logline)
 	}
 
-	client.socket.Write(line)
-
-	return nil
+	if blocking {
+		return client.socket.BlockingWrite(line)
+	} else {
+		return client.socket.Write(line)
+	}
 }
 
-// Send sends an IRC line to the client.
-func (client *Client) Send(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) error {
-	// attach server-time
+func (client *Client) sendInternal(blocking bool, serverTime time.Time, tags Tags, prefix string, command string, params ...string) error {
+	// attach server time
 	if client.capabilities.Has(caps.ServerTime) {
-		t := time.Now().UTC().Format("2006-01-02T15:04:05.999Z")
-		if tags == nil {
-			tags = ircmsg.MakeTags("time", t)
-		} else {
-			(*tags)["time"] = ircmsg.MakeTagValue(t)
+		if serverTime.IsZero() {
+			serverTime = time.Now()
 		}
+		tags = ensureTag(tags, "time", serverTime.UTC().Format(IRCv3TimestampFormat))
 	}
 
 	// send out the message
 	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	client.SendRawMessage(message)
+	client.SendRawMessage(message, blocking)
 	return nil
+}
+
+// Send sends an IRC line to the client.
+func (client *Client) Send(tags Tags, prefix string, command string, params ...string) error {
+	return client.sendInternal(false, time.Time{}, tags, prefix, command, params...)
 }
 
 // Notice sends the client a notice from the server.
@@ -962,7 +1094,7 @@ func (client *Client) Notice(text string) {
 	if client.capabilities.Has(caps.MaxLine) {
 		limit = client.server.Limits().LineLen.Rest - 110
 	}
-	lines := wordWrap(text, limit)
+	lines := utils.WordWrap(text, limit)
 
 	// force blank lines to be sent if we receive them
 	if len(lines) == 0 {
@@ -984,6 +1116,23 @@ func (client *Client) removeChannel(channel *Channel) {
 	client.stateMutex.Lock()
 	delete(client.channels, channel)
 	client.stateMutex.Unlock()
+}
+
+// Ensures the client has a cryptographically secure resume token, and returns
+// its value. An error is returned if a token was previously assigned.
+func (client *Client) generateResumeToken() (token string, err error) {
+	newToken := utils.GenerateSecretToken()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.resumeToken == "" {
+		client.resumeToken = newToken
+	} else {
+		err = errResumeTokenAlreadySet
+	}
+
+	return client.resumeToken, err
 }
 
 // Records that the client has been invited to join an invite-only channel

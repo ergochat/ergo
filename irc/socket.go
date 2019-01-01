@@ -134,6 +134,7 @@ func (socket *Socket) Write(data []byte) (err error) {
 		prospectiveLen := socket.totalLength + len(data)
 		if prospectiveLen > socket.maxSendQBytes {
 			socket.sendQExceeded = true
+			socket.closed = true
 			err = errSendQExceeded
 		} else {
 			socket.buffers = append(socket.buffers, data)
@@ -143,6 +144,45 @@ func (socket *Socket) Write(data []byte) (err error) {
 	socket.Unlock()
 
 	socket.wakeWriter()
+	return
+}
+
+// BlockingWrite sends the given string out of Socket. Requirements:
+// 1. MUST block until the message is sent
+// 2. MUST bypass sendq (calls to BlockingWrite cannot, on their own, cause a sendq overflow)
+// 3. MUST provide mutual exclusion for socket.conn.Write
+// 4. MUST respect the same ordering guarantees as Write (i.e., if a call to Write that sends
+//    message m1 happens-before a call to BlockingWrite that sends message m2,
+//    m1 must be sent on the wire before m2
+// Callers MUST be writing to the client's socket from the client's own goroutine;
+// other callers must use the nonblocking Write call instead. Otherwise, a client
+// with a slow/unreliable connection risks stalling the progress of the system as a whole.
+func (socket *Socket) BlockingWrite(data []byte) (err error) {
+	if len(data) == 0 {
+		return
+	}
+
+	// after releasing the semaphore, we must check for fresh data, same as `send`
+	defer func() {
+		if socket.readyToWrite() {
+			socket.wakeWriter()
+		}
+	}()
+
+	// blocking acquire of the trylock
+	socket.writerSemaphore.Acquire()
+	defer socket.writerSemaphore.Release()
+
+	// first, flush any buffered data, to preserve the ordering guarantees
+	closed := socket.performWrite()
+	if closed {
+		return io.EOF
+	}
+
+	_, err = socket.conn.Write(data)
+	if err != nil {
+		socket.finalize()
+	}
 	return
 }
 
@@ -174,7 +214,7 @@ func (socket *Socket) readyToWrite() bool {
 	socket.Lock()
 	defer socket.Unlock()
 	// on the first time observing socket.closed, we still have to write socket.finalData
-	return !socket.finalized && (socket.totalLength > 0 || socket.closed || socket.sendQExceeded)
+	return !socket.finalized && (socket.totalLength > 0 || socket.closed)
 }
 
 // send actually writes messages to socket.Conn; it may block
@@ -199,34 +239,46 @@ func (socket *Socket) send() {
 }
 
 // write the contents of the buffer, then see if we need to close
-func (socket *Socket) performWrite() {
+// returns whether we closed
+func (socket *Socket) performWrite() (closed bool) {
 	// retrieve the buffered data, clear the buffer
 	socket.Lock()
 	buffers := socket.buffers
 	socket.buffers = nil
 	socket.totalLength = 0
+	closed = socket.closed
 	socket.Unlock()
 
-	// on Linux, the runtime will optimize this into a single writev(2) call:
-	_, err := (*net.Buffers)(&buffers).WriteTo(socket.conn)
-
-	socket.Lock()
-	shouldClose := (err != nil) || socket.closed || socket.sendQExceeded
-	socket.Unlock()
-
-	if !shouldClose {
-		return
+	var err error
+	if !closed && len(buffers) > 0 {
+		// on Linux, the runtime will optimize this into a single writev(2) call:
+		_, err = (*net.Buffers)(&buffers).WriteTo(socket.conn)
 	}
 
+	closed = closed || err != nil
+	if closed {
+		socket.finalize()
+	}
+	return
+}
+
+// mark closed and send final data. you must be holding the semaphore to call this:
+func (socket *Socket) finalize() {
 	// mark the socket closed (if someone hasn't already), then write error lines
 	socket.Lock()
 	socket.closed = true
+	finalized := socket.finalized
 	socket.finalized = true
 	finalData := socket.finalData
 	if socket.sendQExceeded {
 		finalData = "\r\nERROR :SendQ Exceeded\r\n"
 	}
 	socket.Unlock()
+
+	if finalized {
+		return
+	}
+
 	if finalData != "" {
 		socket.conn.Write([]byte(finalData))
 	}

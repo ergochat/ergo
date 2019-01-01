@@ -8,10 +8,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/unendingPattern/oragono/irc"
@@ -49,19 +47,9 @@ Options:
 	-h --help          Show this screen.
 	--version          Show version.`
 
-	arguments, _ := docopt.Parse(usage, nil, true, version, false)
+	arguments, _ := docopt.ParseArgs(usage, nil, version)
 
-	configfile := arguments["--conf"].(string)
-	config, err := irc.LoadConfig(configfile)
-	if err != nil {
-		log.Fatal("Config file did not load successfully: ", err.Error())
-	}
-
-	logman, err := logger.NewManager(config.Logging)
-	if err != nil {
-		log.Fatal("Logger did not load successfully:", err.Error())
-	}
-
+	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
 		fmt.Print("Enter Password: ")
 		password := getPassword()
@@ -77,7 +65,21 @@ Options:
 			log.Fatal("encoding error:", err.Error())
 		}
 		fmt.Println(string(hash))
-	} else if arguments["initdb"].(bool) {
+		return
+	}
+
+	configfile := arguments["--conf"].(string)
+	config, err := irc.LoadConfig(configfile)
+	if err != nil {
+		log.Fatal("Config file did not load successfully: ", err.Error())
+	}
+
+	logman, err := logger.NewManager(config.Logging)
+	if err != nil {
+		log.Fatal("Logger did not load successfully:", err.Error())
+	}
+
+	if arguments["initdb"].(bool) {
 		irc.InitDB(config.Datastore.Path)
 		if !arguments["--quiet"].(bool) {
 			log.Println("database initialized: ", config.Datastore.Path)
@@ -110,7 +112,6 @@ Options:
 			}
 		}
 	} else if arguments["run"].(bool) {
-		rand.Seed(time.Now().UTC().UnixNano())
 		if !arguments["--quiet"].(bool) {
 			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 			if commit == "" {

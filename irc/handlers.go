@@ -30,6 +30,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/unendingPattern/oragono/irc/caps"
 	"github.com/unendingPattern/oragono/irc/custime"
+	"github.com/unendingPattern/oragono/irc/history"
 	"github.com/unendingPattern/oragono/irc/modes"
 	"github.com/unendingPattern/oragono/irc/sno"
 	"github.com/unendingPattern/oragono/irc/utils"
@@ -491,6 +492,15 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		client.capabilities.Union(capabilities)
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
+		// if this is the first time the client is requesting a resume token,
+		// send it to them
+		if capabilities.Has(caps.Resume) {
+			token, err := client.generateResumeToken()
+			if err == nil {
+				rb.Add(nil, server.name, "RESUME", "TOKEN", token)
+			}
+		}
+
 	case "END":
 		if !client.Registered() {
 			client.capState = caps.NegotiatedState
@@ -931,7 +941,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		server.channels.Join(target, chname, "", true, rb)
 	}
 	if client != target {
-		rb.Send()
+		rb.Send(false)
 	}
 	return false
 }
@@ -1663,7 +1673,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
+	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -1711,9 +1721,19 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
+			nickMaskString := client.NickMaskString()
+			accountName := client.AccountName()
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
+
+			user.history.Add(history.Item{
+				Type:        history.Notice,
+				Msgid:       msgid,
+				Message:     splitMsg,
+				Nick:        nickMaskString,
+				AccountName: accountName,
+			})
 		}
 	}
 	return false
@@ -1898,7 +1918,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	message := msg.Params[1]
 
 	// split privmsg
-	splitMsg := server.splitMessage(message, !client.capabilities.Has(caps.MaxLine))
+	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
 		// max of four targets per privmsg
@@ -2056,6 +2076,18 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				continue
 			}
 
+			msgid := server.generateMessageID()
+			// restrict messages appropriately when +R is set
+			// intentionally make the sending user think the message went through fine
+			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+			}
+			nickMaskString := client.NickMaskString()
+			accountName := client.AccountName()
+			if client.capabilities.Has(caps.EchoMessage) {
+				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+			}
+
 			if user.HasMode(modes.PrivateQueries) {
 				server.monitorManager.Add(client, casefoldedTarget, server.Limits().MonitorEntries)
 				if server.monitorManager.CheckMutual(client, user) == true {
@@ -2066,7 +2098,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 						user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 					}
 					if client.capabilities.Has(caps.EchoMessage) {
-						rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+						rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 					}
 					if user.HasMode(modes.Away) {
 						//TODO(dan): possibly implement cooldown of away notifications to users
@@ -2082,13 +2114,21 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 					user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 				}
 				if client.capabilities.Has(caps.EchoMessage) {
-					rb.AddSplitMessageFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+					rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 				}
 				if user.HasMode(modes.Away) {
 					//TODO(dan): possibly implement cooldown of away notifications to users
 					rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
 				}
 			}
+
+			user.history.Add(history.Item{
+				Type:        history.Privmsg,
+				Msgid:       msgid,
+				Message:     splitMsg,
+				Nick:        nickMaskString,
+				AccountName: accountName,
+			})
 		}
 	}
 	return false
@@ -2202,33 +2242,30 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return false
 }
 
-// RESUME <oldnick> [timestamp]
+// RESUME <oldnick> <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	oldnick := msg.Params[0]
-
-	if strings.Contains(oldnick, " ") {
-		rb.Add(nil, server.name, ERR_CANNOT_RESUME, "*", client.t("Cannot resume connection, old nickname contains spaces"))
-		return false
-	}
+	token := msg.Params[1]
 
 	if client.Registered() {
 		rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
-	var timestamp *time.Time
-	if 1 < len(msg.Params) {
-		ts, err := time.Parse("2006-01-02T15:04:05.999Z", msg.Params[1])
+	var timestamp time.Time
+	if 2 < len(msg.Params) {
+		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[2])
 		if err == nil {
-			timestamp = &ts
+			timestamp = ts
 		} else {
 			rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
 	client.resumeDetails = &ResumeDetails{
-		OldNick:   oldnick,
-		Timestamp: timestamp,
+		OldNick:        oldnick,
+		Timestamp:      timestamp,
+		PresentedToken: token,
 	}
 
 	return false
@@ -2311,7 +2348,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			}
 			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+				rb.AddFromClient(msgid, client.NickMaskString(), client.AccountName(), clientOnlyTags, "TAGMSG", user.nick)
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
@@ -2468,11 +2505,16 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-
 	//set defaults
 	client.username = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix) // fmt.Sprintf("%s-%s", strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix), hex.EncodeToString(buf))
 	client.rawHostname = strings.ToLower(server.name) // fmt.Sprintf("%s", hex.EncodeToString(buf))
 	client.realname = strings.ToLower(server.AccountConfig().NickReservation.RenamePrefix)
+
+	err := client.SetNames(msg.Params[0], msg.Params[3])
+	if err == errInvalidUsername {
+		rb.Add(nil, "", "ERROR", client.t("Malformed username"))
+		return true
+	}
 
 	return false
 }
@@ -2639,16 +2681,25 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
+	handleService := func(nick string) bool {
+		cfnick, _ := CasefoldName(nick)
+		service, ok := OragonoServices[cfnick]
+		if !ok {
+			return false
+		}
+		clientNick := client.Nick()
+		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, "localhost", "*", fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name))
+		// hehe
+		if client.HasMode(modes.TLS) {
+			rb.Add(nil, client.server.name, RPL_WHOISSECURE, clientNick, service.Name, client.t("is using a secure connection"))
+		}
+		return true
+	}
+
 	if client.HasMode(modes.Operator) {
-		masks := strings.Split(masksString, ",")
-		for _, mask := range masks {
-			casefoldedMask, err := Casefold(mask)
-			if err != nil {
-				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
-				continue
-			}
-			matches := server.clients.FindAll(casefoldedMask)
-			if len(matches) == 0 {
+		for _, mask := range strings.Split(masksString, ",") {
+			matches := server.clients.FindAll(mask)
+			if len(matches) == 0 && !handleService(mask) {
 				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
 				continue
 			}
@@ -2657,15 +2708,15 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			}
 		}
 	} else {
-		// only get the first request
-		casefoldedMask, err := Casefold(strings.Split(masksString, ",")[0])
-		mclient := server.clients.Get(casefoldedMask)
-		if err != nil || mclient == nil {
-			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
-			// fall through, ENDOFWHOIS is always sent
-		} else {
+		// only get the first request; also require a nick, not a mask
+		nick := strings.Split(masksString, ",")[0]
+		mclient := server.clients.Get(nick)
+		if mclient != nil {
 			client.getWhoisOf(mclient, rb)
+		} else if !handleService(nick) {
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
 		}
+		// fall through, ENDOFWHOIS is always sent
 	}
 	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
 	return false

@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -67,7 +66,6 @@ type ListenerWrapper struct {
 // Server is the main Oragono server.
 type Server struct {
 	accounts               *AccountManager
-	batches                *BatchManager
 	channels               *ChannelManager
 	channelRegistry        *ChannelRegistry
 	clients                *ClientManager
@@ -116,7 +114,6 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		batches:             NewBatchManager(),
 		channels:            NewChannelManager(),
 		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
@@ -150,7 +147,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
-func (server *Server) setISupport() {
+func (server *Server) setISupport() (err error) {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
 	config := server.Config()
@@ -195,11 +192,15 @@ func (server *Server) setISupport() {
 		isupport.Add("REGCREDTYPES", "passphrase,certfp")
 	}
 
-	isupport.RegenerateCachedReply()
+	err = isupport.RegenerateCachedReply()
+	if err != nil {
+		return
+	}
 
 	server.configurableStateMutex.Lock()
 	server.isupport = isupport
 	server.configurableStateMutex.Unlock()
+	return
 }
 
 func loadChannelList(channel *Channel, list string, maskMode modes.Mode) {
@@ -374,13 +375,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMod
 
 // generateMessageID returns a network-unique message ID.
 func (server *Server) generateMessageID() string {
-	// we don't need the full like 30 chars since the unixnano below handles
-	// most of our uniqueness requirements, so just truncate at 5
-	lastbit := strconv.FormatInt(rand.Int63(), 36)
-	if 5 < len(lastbit) {
-		lastbit = lastbit[:4]
-	}
-	return fmt.Sprintf("%s%s", strconv.FormatInt(time.Now().UTC().UnixNano(), 36), lastbit)
+	return utils.GenerateSecretToken()
 }
 
 //
@@ -407,7 +402,7 @@ func (server *Server) tryRegister(c *Client) {
 
 	rb := NewResponseBuffer(c)
 	nickAssigned := performNickChange(server, c, c, preregNick, rb)
-	rb.Send()
+	rb.Send(true)
 	if !nickAssigned {
 		c.SetPreregNick("")
 		return
@@ -429,10 +424,10 @@ func (server *Server) tryRegister(c *Client) {
 	server.stats.ChangeTotal(1)
 
 	// continue registration
-	//server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
-	//server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
 	server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s]", c.nick))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s]", c.nick))
+
+	// "register"; this includes the initial phase of session resumption
 	c.Register()
 
 	// send welcome text
@@ -447,7 +442,7 @@ func (server *Server) tryRegister(c *Client) {
 	rb = NewResponseBuffer(c)
 	c.RplISupport(rb)
 	server.MOTD(c, rb)
-	rb.Send()
+	rb.Send(true)
 
 	modestring := c.ModeString()
 	if modestring != "+" {
@@ -456,69 +451,8 @@ func (server *Server) tryRegister(c *Client) {
 	if server.logger.IsLoggingRawIO() {
 		c.Notice(c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}
-
-	// if resumed, send fake channel joins
-	if c.resumeDetails != nil {
-		for _, name := range c.resumeDetails.SendFakeJoinsFor {
-			channel := server.channels.Get(name)
-			if channel == nil {
-				continue
-			}
-
-			if c.capabilities.Has(caps.ExtendedJoin) {
-				c.Send(nil, c.nickMaskString, "JOIN", channel.name, c.AccountName(), c.realname)
-			} else {
-				c.Send(nil, c.nickMaskString, "JOIN", channel.name)
-			}
-			// reuse the last rb
-			channel.SendTopic(c, rb)
-			channel.Names(c, rb)
-			rb.Send()
-
-			// construct and send fake modestring if necessary
-			c.stateMutex.RLock()
-			myModes := channel.members[c]
-			c.stateMutex.RUnlock()
-			if myModes == nil {
-				continue
-			}
-			oldModes := myModes.String()
-			if 0 < len(oldModes) {
-				params := []string{channel.name, "+" + oldModes}
-				for range oldModes {
-					params = append(params, c.nick)
-				}
-
-				c.Send(nil, server.name, "MODE", params...)
-			}
-		}
-	}
-
-	//tripcode system
-	if c.tripcode != "" {
-		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a tripcode: !%s"), c.nick, c.tripcode))
-
-		// var tripname = fmt.Sprintf(c.t("%s|%s"), c.nick, c.tripcode)
-		// server.logger.Debug("localconnect", fmt.Sprintf(c.t("!ATTEMPTING NICK CHANGE! %s > %s"), c.nickMaskString, tripname))
-		// c.SetPreregNick(tripname)
-		// c.updateTripNick(tripname)
-		// c.updateTripNickMask(tripname)
-		// c.updateTripNickMaskNoMutex()
-
-		// server.logger.Debug("localconnect", fmt.Sprintf(c.t("!NICK CHANGE! %s"), c.nickMaskString))
-
-
-	}
-	if (c.tripcode != "") && (c.secureTripcode != "") {
-		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a tripcode: !%s and a secure tripcode: !!%s"), c.nick, c.tripcode, c.secureTripcode))
-	}else if c.secureTripcode != "" {
-		server.logger.Debug("localconnect", fmt.Sprintf(c.t("%s has a secure tripcode: !!%s"), c.nick, c.secureTripcode))
-	}
-
-	// if (c.tripcode == "") || (c.secureTripcode == ""){
-	// 	server.ForceNick(c.nick, c)
-	// }
-
+	
+	c.tryResumeChannels()
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.
@@ -546,69 +480,6 @@ func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
 		rb.Add(nil, server.name, RPL_MOTD, client.nick, line)
 	}
 	rb.Add(nil, server.name, RPL_ENDOFMOTD, client.nick, client.t("End of MOTD command"))
-}
-
-// wordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
-func wordWrap(text string, lineWidth int) []string {
-	var lines []string
-	var cacheLine, cacheWord string
-
-	for _, char := range text {
-		if char == '\r' {
-			continue
-		} else if char == '\n' {
-			cacheLine += cacheWord
-			lines = append(lines, cacheLine)
-			cacheWord = ""
-			cacheLine = ""
-		} else if (char == ' ' || char == '-') && len(cacheLine)+len(cacheWord)+1 < lineWidth {
-			// natural word boundary
-			cacheLine += cacheWord + string(char)
-			cacheWord = ""
-		} else if lineWidth <= len(cacheLine)+len(cacheWord)+1 {
-			// time to wrap to next line
-			if len(cacheLine) < (lineWidth / 2) {
-				// this word takes up more than half a line... just split in the middle of the word
-				cacheLine += cacheWord + string(char)
-				cacheWord = ""
-			} else {
-				cacheWord += string(char)
-			}
-			lines = append(lines, cacheLine)
-			cacheLine = ""
-		} else {
-			// normal character
-			cacheWord += string(char)
-		}
-	}
-	if 0 < len(cacheWord) {
-		cacheLine += cacheWord
-	}
-	if 0 < len(cacheLine) {
-		lines = append(lines, cacheLine)
-	}
-
-	return lines
-}
-
-// SplitMessage represents a message that's been split for sending.
-type SplitMessage struct {
-	For512     []string
-	ForMaxLine string
-}
-
-func (server *Server) splitMessage(original string, origIs512 bool) SplitMessage {
-	var newSplit SplitMessage
-
-	newSplit.ForMaxLine = original
-
-	if !origIs512 {
-		newSplit.For512 = wordWrap(original, 400)
-	} else {
-		newSplit.For512 = []string{original}
-	}
-
-	return newSplit
 }
 
 // WhoisChannelsNames returns the common channel names between two users.
@@ -850,6 +721,20 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		updatedCaps.Add(caps.STS)
 	}
 
+	// resize history buffers as needed
+	if oldConfig != nil {
+		if oldConfig.History.ChannelLength != config.History.ChannelLength {
+			for _, channel := range server.channels.Channels() {
+				channel.history.Resize(config.History.ChannelLength)
+			}
+		}
+		if oldConfig.History.ClientLength != config.History.ClientLength {
+			for _, client := range server.clients.AllClients() {
+				client.history.Resize(config.History.ClientLength)
+			}
+		}
+	}
+
 	// burst new and removed caps
 	var capBurstClients ClientSet
 	added := make(map[caps.Version]string)
@@ -910,7 +795,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
 	oldISupportList := server.ISupport()
-	server.setISupport()
+	err = server.setISupport()
+	if err != nil {
+		return err
+	}
 	if oldISupportList != nil {
 		newISupportReplies = oldISupportList.GetDifference(server.ISupport())
 	}
@@ -1138,13 +1026,6 @@ func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 	}
 
 	rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
-}
-
-// ResumeDetails are the details that we use to resume connections.
-type ResumeDetails struct {
-	OldNick          string
-	Timestamp        *time.Time
-	SendFakeJoinsFor []string
 }
 
 var (

@@ -91,7 +91,7 @@ SET sets a user's vhost, bypassing the request system.`,
 			handler: hsSetHandler,
 			help: `Syntax: $bDEL <user>$b
 
-DEL sets a user's vhost, bypassing the request system.`,
+DEL deletes a user's vhost.`,
 			helpShort: `$bDEL$b deletes a user's vhost.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,

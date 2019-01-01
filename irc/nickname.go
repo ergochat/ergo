@@ -18,6 +18,7 @@ var (
 	restrictedNicknames = map[string]bool{
 		"=scene=": true, // used for rp commands
 		"--": true, //used for notifications
+		"HistServ": true, // TODO(slingamn) this should become a real service
 	}
 )
 
@@ -85,7 +86,7 @@ func (server *Server) RandomlyRename(client *Client) {
 	nick := fmt.Sprintf("%s%s", prefix, hex.EncodeToString(buf))
 	rb := NewResponseBuffer(client)
 	performNickChange(server, client, client, nick, rb)
-	rb.Send()
+	rb.Send(false)
 	// technically performNickChange can fail to change the nick,
 	// but if they're still delinquent, the timer will get them later
 }
@@ -99,7 +100,7 @@ func (server *Server) forceNick(currentNick string, client *Client) {
 	nick := fmt.Sprintf("%s-%s", currentNick, hex.EncodeToString(buf))
 	rb := NewResponseBuffer(client)
 	performNickChange(server, client, client, nick, rb)
-	rb.Send()
+	rb.Send(false)
 	// technically performNickChange can fail to change the nick,
 	// but if they're still delinquent, the timer will get them later
 }

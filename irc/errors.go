@@ -38,6 +38,8 @@ var (
 	errRenamePrivsNeeded              = errors.New("Only chanops can rename channels")
 	errInsufficientPrivs              = errors.New("Insufficient privileges")
 	errSaslFail                       = errors.New("SASL failed")
+	errResumeTokenAlreadySet          = errors.New("Client was already assigned a resume token")
+	errInvalidUsername                = errors.New("Invalid username")
 )
 
 // Socket Errors

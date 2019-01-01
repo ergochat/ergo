@@ -39,16 +39,23 @@ func Casefold(str string) (string, error) {
 
 // CasefoldChannel returns a casefolded version of a channel name.
 func CasefoldChannel(name string) (string, error) {
-	lowered, err := Casefold(name)
-
-	if err != nil {
-		return "", err
-	} else if len(lowered) == 0 {
+	if len(name) == 0 {
 		return "", errStringIsEmpty
 	}
 
-	if lowered[0] != '#' {
+	// don't casefold the preceding #'s
+	var start int
+	for start = 0; start < len(name) && name[start] == '#'; start += 1 {
+	}
+
+	if start == 0 {
+		// no preceding #'s
 		return "", errInvalidCharacter
+	}
+
+	lowered, err := Casefold(name[start:])
+	if err != nil {
+		return "", err
 	}
 
 	// space can't be used
@@ -59,7 +66,7 @@ func CasefoldChannel(name string) (string, error) {
 		return "", errInvalidCharacter
 	}
 
-	return lowered, err
+	return name[:start] + lowered, err
 }
 
 // CasefoldName returns a casefolded version of a nick/user name.

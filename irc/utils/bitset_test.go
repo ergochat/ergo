@@ -62,4 +62,19 @@ func TestSets(t *testing.T) {
 			t.Error("all bits should be set except 72")
 		}
 	}
+
+	var t3 testBitset
+	t3s := t3[:]
+	BitsetSet(t3s, 72, true)
+	if !BitsetGet(t3s, 72) {
+		t.Error("bit 72 should be set")
+	}
+	// copy t1 on top of t2
+	BitsetCopy(t3s, t1s)
+	for i = 0; i < 128; i++ {
+		expected := (i != 72)
+		if BitsetGet(t1s, i) != expected {
+			t.Error("all bits should be set except 72")
+		}
+	}
 }

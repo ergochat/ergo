@@ -58,6 +58,15 @@ server:
     # generated using  "oragono genpasswd"
     #password: ""
 
+    # Tripcode Salt
+    tripsalt: "tr1ps4lt"
+
+    # Proxy URL for +U urlinfo mode
+    proxyurl: "http://0.0.0.0:8123"
+
+    # How long to try and query an URL for
+    urltimeout: 5000 # 5 seconds
+
     # motd filename
     # if you change the motd, you should move it to ircd.motd
     motd: oragono.motd
@@ -91,6 +100,10 @@ server:
                 # - "127.0.0.1"
                 # - "127.0.0.1/8"
                 # - "0::1"
+
+    # allow use of the RESUME extension over plaintext connections:
+    # do not enable this unless the ircd is only accessible over internal networks
+    allow-plaintext-resume: false
 
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold /LIST and HELP replies
@@ -439,3 +452,17 @@ fakelag:
     # client status resets to the default state if they go this long without
     # sending any commands:
     cooldown: 2s
+
+# message history tracking, for the RESUME extension and possibly other uses in future
+history:
+    # should we store messages for later playback?
+    enabled: true
+
+    # how many channel-specific events (messages, joins, parts) should be tracked per channel?
+    channel-length: 256
+
+    # how many direct messages and notices should be tracked per user?
+    client-length: 64
+
+    # number of messages to automatically play back on channel join (0 to disable):
+    autoreplay-on-join: 0

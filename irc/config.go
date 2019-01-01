@@ -209,23 +209,24 @@ type Config struct {
 
 	Server struct {
 		TripSalt			string
-		Password            string
-		passwordBytes       []byte
-		Name                string
-		nameCasefolded      string
-		Listen              []string
-		UnixBindMode        os.FileMode                 `yaml:"unix-bind-mode"`
-		TLSListeners        map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		STS                 STSConfig
-		CheckIdent          bool `yaml:"check-ident"`
-		MOTD                string
-		MOTDFormatting      bool           `yaml:"motd-formatting"`
-		ProxyAllowedFrom    []string       `yaml:"proxy-allowed-from"`
-		WebIRC              []webircConfig `yaml:"webirc"`
-		MaxSendQString      string         `yaml:"max-sendq"`
-		MaxSendQBytes       int
-		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
-		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
+		Password             string
+		passwordBytes        []byte
+		Name                 string
+		nameCasefolded       string
+		Listen               []string
+		UnixBindMode         os.FileMode                 `yaml:"unix-bind-mode"`
+		TLSListeners         map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		STS                  STSConfig
+		CheckIdent           bool `yaml:"check-ident"`
+		MOTD                 string
+		MOTDFormatting       bool           `yaml:"motd-formatting"`
+		ProxyAllowedFrom     []string       `yaml:"proxy-allowed-from"`
+		WebIRC               []webircConfig `yaml:"webirc"`
+		MaxSendQString       string         `yaml:"max-sendq"`
+		MaxSendQBytes        int
+		AllowPlaintextResume bool                              `yaml:"allow-plaintext-resume"`
+		ConnectionLimiter    connection_limits.LimiterConfig   `yaml:"connection-limits"`
+		ConnectionThrottler  connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 		ProxyURL			string
 		URLTimeout			int
 	}
@@ -268,6 +269,13 @@ type Config struct {
 	Limits Limits
 
 	Fakelag FakelagConfig
+
+	History struct {
+		Enabled          bool
+		ChannelLength    int `yaml:"channel-length"`
+		ClientLength     int `yaml:"client-length"`
+		AutoreplayOnJoin int `yaml:"autoreplay-on-join"`
+	}
 
 	Filename string
 }
@@ -713,6 +721,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.Accounts.Registration.BcryptCost == 0 {
 		config.Accounts.Registration.BcryptCost = passwd.DefaultCost
+	}
+
+	// in the current implementation, we disable history by creating a history buffer
+	// with zero capacity. but the `enabled` config option MUST be respected regardless
+	// of this detail
+	if !config.History.Enabled {
+		config.History.ChannelLength = 0
+		config.History.ClientLength = 0
 	}
 
 	return config, nil
