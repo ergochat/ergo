@@ -346,8 +346,7 @@ func (channel *Channel) IsEmpty() bool {
 
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
-	account := client.Account()
-	nickMaskCasefolded := client.NickMaskCasefolded()
+	details := client.Details()
 
 	channel.stateMutex.RLock()
 	chname := channel.name
@@ -357,7 +356,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	limit := channel.userLimit
 	chcount := len(channel.members)
 	_, alreadyJoined := channel.members[client]
-	persistentMode := channel.accountToUMode[account]
+	persistentMode := channel.accountToUMode[details.account]
 	channel.stateMutex.RUnlock()
 
 	if alreadyJoined {
@@ -367,7 +366,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	// the founder can always join (even if they disabled auto +q on join);
 	// anyone who automatically receives halfop or higher can always join
-	hasPrivs := isSajoin || (founder != "" && founder == account) || (persistentMode != 0 && persistentMode != modes.Voice)
+	hasPrivs := isSajoin || (founder != "" && founder == details.account) || (persistentMode != 0 && persistentMode != modes.Voice)
 
 	if !hasPrivs && limit != 0 && chcount >= limit {
 		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
@@ -379,20 +378,20 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
-	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(nickMaskCasefolded)
+	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded)
 	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
 		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
-	if !hasPrivs && channel.lists[modes.BanMask].Match(nickMaskCasefolded) &&
+	if !hasPrivs && channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
 		!isInvited &&
-		!channel.lists[modes.ExceptMask].Match(nickMaskCasefolded) {
+		!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) {
 		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
 		return
 	}
 
-	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", client.nick, chname))
+	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
 	newChannel, givenMode := func() (newChannel bool, givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
@@ -416,15 +415,19 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}()
 
 		channel.regenerateMembersCache()
+
+		channel.history.Add(history.Item{
+			Type:        history.Join,
+			Nick:        details.nickMask,
+			AccountName: details.accountName,
+			Msgid:       details.realname,
+		})
+
 		return
 	}()
 
 	client.addChannel(channel)
 
-	nick := client.Nick()
-	nickmask := client.NickMaskString()
-	realname := client.Realname()
-	accountName := client.AccountName()
 	var modestr string
 	if givenMode != 0 {
 		modestr = fmt.Sprintf("+%v", givenMode)
@@ -435,19 +438,19 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			continue
 		}
 		if member.capabilities.Has(caps.ExtendedJoin) {
-			member.Send(nil, nickmask, "JOIN", chname, accountName, realname)
+			member.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 		} else {
-			member.Send(nil, nickmask, "JOIN", chname)
+			member.Send(nil, details.nickMask, "JOIN", chname)
 		}
 		if givenMode != 0 {
-			member.Send(nil, client.server.name, "MODE", chname, modestr, nick)
+			member.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
 		}
 	}
 
 	if client.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, nickmask, "JOIN", chname, accountName, realname)
+		rb.Add(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 	} else {
-		rb.Add(nil, nickmask, "JOIN", chname)
+		rb.Add(nil, details.nickMask, "JOIN", chname)
 	}
 
 	// don't send topic when it's an entirely new channel
@@ -458,22 +461,19 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	channel.Names(client, rb)
 
 	if givenMode != 0 {
-		rb.Add(nil, client.server.name, "MODE", chname, modestr, nick)
+		rb.Add(nil, client.server.name, "MODE", chname, modestr, details.nick)
 	}
-
-	channel.history.Add(history.Item{
-		Type:        history.Join,
-		Nick:        nickmask,
-		AccountName: accountName,
-		Msgid:       realname,
-	})
 
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
 	replayLimit := channel.server.Config().History.AutoreplayOnJoin
 	if replayLimit > 0 {
-		items := channel.history.Latest(replayLimit)
+		// don't replay the client's own events
+		matcher := func(item history.Item) bool {
+			return item.Nick != details.nickMask
+		}
+		items := channel.history.Match(matcher, replayLimit)
 		channel.replayHistoryItems(rb, items)
 		rb.Flush(true)
 	}
@@ -489,20 +489,20 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 
 	channel.Quit(client)
 
-	nickmask := client.NickMaskString()
+	details := client.Details()
 	for _, member := range channel.Members() {
-		member.Send(nil, nickmask, "PART", chname, message)
+		member.Send(nil, details.nickMask, "PART", chname, message)
 	}
-	rb.Add(nil, nickmask, "PART", chname, message)
+	rb.Add(nil, details.nickMask, "PART", chname, message)
 
 	channel.history.Add(history.Item{
 		Type:        history.Part,
-		Nick:        nickmask,
-		AccountName: client.AccountName(),
+		Nick:        details.nickMask,
+		AccountName: details.accountName,
 		Message:     utils.MakeSplitMessage(message, true),
 	})
 
-	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", client.nick, chname))
+	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
 
 // Resume is called after a successful global resume to:
