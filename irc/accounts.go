@@ -667,7 +667,9 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	case 0:
 		err = handleLegacyPasswordV0(am.server, accountName, account.Credentials, passphrase)
 	case 1:
-		err = passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase))
+		if passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase)) != nil {
+			err = errAccountInvalidCredentials
+		}
 	default:
 		err = errAccountInvalidCredentials
 	}
