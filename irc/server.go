@@ -386,8 +386,7 @@ func (server *Server) tryRegister(c *Client) {
 		return
 	}
 
-	preregNick := c.PreregNick()
-	if preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
+	if c.preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
 		return
 	}
 
@@ -400,10 +399,10 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	rb := NewResponseBuffer(c)
-	nickAssigned := performNickChange(server, c, c, preregNick, rb)
+	nickAssigned := performNickChange(server, c, c, c.preregNick, rb)
 	rb.Send(true)
 	if !nickAssigned {
-		c.SetPreregNick("")
+		c.preregNick = ""
 		return
 	}
 

@@ -1662,7 +1662,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if client.Registered() {
 		performNickChange(server, client, client, msg.Params[0], rb)
 	} else {
-		client.SetPreregNick(msg.Params[0])
+		client.preregNick = msg.Params[0]
 	}
 	return false
 }
