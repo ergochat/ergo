@@ -25,6 +25,11 @@ func nsGroupEnabled(server *Server) bool {
 	return conf.Accounts.AuthenticationEnabled && conf.Accounts.NickReservation.Enabled
 }
 
+func nsEnforceEnabled(server *Server) bool {
+	config := server.Config()
+	return config.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.AllowCustomEnforcement
+}
+
 const nickservHelp = `NickServ lets you register and login to an account.
 
 To see in-depth help for a specific NickServ command, try:
@@ -43,6 +48,22 @@ DROP de-links the given (or your current) nickname from your user account.`,
 			helpShort:    `$bDROP$b de-links your current (or the given) nickname from your user account.`,
 			enabled:      servCmdRequiresAccreg,
 			authRequired: true,
+		},
+		"enforce": {
+			handler: nsEnforceHandler,
+			help: `Syntax: $bENFORCE [method]$b
+
+ENFORCE lets you specify a custom enforcement mechanism for your registered
+nicknames. Your options are:
+1. 'none'    [no enforcement, overriding the server default]
+2. 'timeout' [anyone using the nick must authenticate before a deadline,
+              or else they will be renamed]
+3. 'strict'  [you must already be authenticated to use the nick]
+4. 'default' [use the server default]
+With no arguments, queries your current enforcement status.`,
+			helpShort:    `$bENFORCE$b lets you change how your nicknames are reserved.`,
+			authRequired: true,
+			enabled:      nsEnforceEnabled,
 		},
 		"ghost": {
 			handler: nsGhostHandler,
@@ -462,5 +483,27 @@ func nsPasswdHandler(server *Server, client *Client, command, params string, rb 
 	} else {
 		server.logger.Error("internal", "could not upgrade user password:", err.Error())
 		nsNotice(rb, client.t("Password could not be changed due to server error"))
+	}
+}
+
+func nsEnforceHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+	arg := strings.TrimSpace(params)
+
+	if arg == "" {
+		status := server.accounts.getStoredEnforcementStatus(client.Account())
+		nsNotice(rb, fmt.Sprintf(client.t("Your current nickname enforcement is: %s"), status))
+	} else {
+		method, err := nickReservationFromString(arg)
+		if err != nil {
+			nsNotice(rb, client.t("Invalid parameters"))
+			return
+		}
+		err = server.accounts.SetEnforcementStatus(client.Account(), method)
+		if err == nil {
+			nsNotice(rb, client.t("Enforcement method set"))
+		} else {
+			server.logger.Error("internal", "couldn't store NS ENFORCE data", err.Error())
+			nsNotice(rb, client.t("An error occurred"))
+		}
 	}
 }

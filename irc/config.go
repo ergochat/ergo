@@ -8,7 +8,6 @@ package irc
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -105,9 +104,49 @@ type VHostConfig struct {
 type NickReservationMethod int
 
 const (
-	NickReservationWithTimeout NickReservationMethod = iota
+	// NickReservationOptional is the zero value; it serializes to
+	// "optional" in the yaml config, and "default" as an arg to `NS ENFORCE`.
+	// in both cases, it means "defer to the other source of truth", i.e.,
+	// in the config, defer to the user's custom setting, and as a custom setting,
+	// defer to the default in the config. if both are NickReservationOptional then
+	// there is no enforcement.
+	NickReservationOptional NickReservationMethod = iota
+	NickReservationNone
+	NickReservationWithTimeout
 	NickReservationStrict
 )
+
+func nickReservationToString(method NickReservationMethod) string {
+	switch method {
+	case NickReservationOptional:
+		return "default"
+	case NickReservationNone:
+		return "none"
+	case NickReservationWithTimeout:
+		return "timeout"
+	case NickReservationStrict:
+		return "strict"
+	default:
+		return ""
+	}
+}
+
+func nickReservationFromString(method string) (NickReservationMethod, error) {
+	switch method {
+	case "default":
+		return NickReservationOptional, nil
+	case "optional":
+		return NickReservationOptional, nil
+	case "none":
+		return NickReservationNone, nil
+	case "timeout":
+		return NickReservationWithTimeout, nil
+	case "strict":
+		return NickReservationStrict, nil
+	default:
+		return NickReservationOptional, fmt.Errorf("invalid nick-reservation.method value: %s", method)
+	}
+}
 
 func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var orig, raw string
@@ -118,22 +157,20 @@ func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error
 	if raw, err = Casefold(orig); err != nil {
 		return err
 	}
-	if raw == "timeout" {
-		*nr = NickReservationWithTimeout
-	} else if raw == "strict" {
-		*nr = NickReservationStrict
-	} else {
-		return errors.New(fmt.Sprintf("invalid nick-reservation.method value: %s", orig))
+	method, err := nickReservationFromString(raw)
+	if err == nil {
+		*nr = method
 	}
-	return nil
+	return err
 }
 
 type NickReservationConfig struct {
-	Enabled             bool
-	AdditionalNickLimit int `yaml:"additional-nick-limit"`
-	Method              NickReservationMethod
-	RenameTimeout       time.Duration `yaml:"rename-timeout"`
-	RenamePrefix        string        `yaml:"rename-prefix"`
+	Enabled                bool
+	AdditionalNickLimit    int `yaml:"additional-nick-limit"`
+	Method                 NickReservationMethod
+	AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
+	RenameTimeout          time.Duration `yaml:"rename-timeout"`
+	RenamePrefix           string        `yaml:"rename-prefix"`
 }
 
 // ChannelRegistrationConfig controls channel registration.

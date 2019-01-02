@@ -119,12 +119,7 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 		return err
 	}
 
-	var reservedAccount string
-	var method NickReservationMethod
-	if client.server.AccountConfig().NickReservation.Enabled {
-		reservedAccount = client.server.accounts.NickToAccount(newcfnick)
-		method = client.server.AccountConfig().NickReservation.Method
-	}
+	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick)
 
 	clients.Lock()
 	defer clients.Unlock()

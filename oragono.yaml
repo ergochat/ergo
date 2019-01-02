@@ -206,11 +206,18 @@ accounts:
         additional-nick-limit: 2
 
         # method describes how nickname reservation is handled
-        #   timeout: let the user change to the registered nickname, give them X seconds
-        #            to login and then rename them if they haven't done so
-        #   strict:  don't let the user change to the registered nickname unless they're
-        #            already logged-in using SASL or NickServ
+        #             already logged-in using SASL or NickServ
+        #   timeout:  let the user change to the registered nickname, give them X seconds
+        #             to login and then rename them if they haven't done so
+        #   strict:   don't let the user change to the registered nickname unless they're
+        #             already logged-in using SASL or NickServ
+        #   optional: no enforcement by default, but allow users to opt in to
+        #             the enforcement level of their choice
         method: timeout
+
+        # allow users to set their own nickname enforcement status, e.g.,
+        # to opt in to strict enforcement
+        allow-custom-enforcement: true
 
         # rename-timeout - this is how long users have 'til they're renamed
         rename-timeout: 30s
