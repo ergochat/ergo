@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"sync"
@@ -469,11 +470,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	replayLimit := channel.server.Config().History.AutoreplayOnJoin
 	if replayLimit > 0 {
-		// don't replay the client's own events
-		matcher := func(item history.Item) bool {
-			return item.Nick != details.nickMask
-		}
-		items := channel.history.Match(matcher, replayLimit)
+		items := channel.history.Latest(replayLimit)
 		channel.replayHistoryItems(rb, items)
 		rb.Flush(true)
 	}
@@ -591,10 +588,17 @@ func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Tim
 	rb.Send(true)
 }
 
+func stripMaskFromNick(nickMask string) (nick string) {
+	index := strings.Index(nickMask, "!")
+	if index == -1 {
+		return
+	}
+	return nickMask[0:index]
+}
+
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item) {
 	chname := channel.Name()
 	client := rb.target
-	extendedJoin := client.capabilities.Has(caps.ExtendedJoin)
 	serverTime := client.capabilities.Has(caps.ServerTime)
 
 	for _, item := range items {
@@ -609,21 +613,27 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		case history.Notice:
 			rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, "NOTICE", chname, item.Message)
 		case history.Join:
-			if extendedJoin {
-				// XXX Msgid is the realname in this case
-				rb.Add(tags, item.Nick, "JOIN", chname, item.AccountName, item.Msgid)
+			nick := stripMaskFromNick(item.Nick)
+			var message string
+			if item.AccountName == "*" {
+				message = fmt.Sprintf(client.t("%s joined the channel"), nick)
 			} else {
-				rb.Add(tags, item.Nick, "JOIN", chname)
+				message = fmt.Sprintf(client.t("%s [account: %s] joined the channel"), nick, item.AccountName)
 			}
-		case history.Quit:
-			// XXX: send QUIT as PART to avoid having to correctly deduplicate and synchronize
-			// QUIT messages across channels
-			fallthrough
+			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Part:
-			rb.Add(tags, item.Nick, "PART", chname, item.Message.Original)
+			nick := stripMaskFromNick(item.Nick)
+			message := fmt.Sprintf(client.t("%s left the channel (%s)"), nick, item.Message.Original)
+			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
+		case history.Quit:
+			nick := stripMaskFromNick(item.Nick)
+			message := fmt.Sprintf(client.t("%s quit (%s)"), nick, item.Message.Original)
+			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Kick:
+			nick := stripMaskFromNick(item.Nick)
 			// XXX Msgid is the kick target
-			rb.Add(tags, item.Nick, "KICK", chname, item.Msgid, item.Message.Original)
+			message := fmt.Sprintf(client.t("%s kicked %s (%s)"), nick, item.Msgid, item.Message.Original)
+			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		}
 	}
 }
