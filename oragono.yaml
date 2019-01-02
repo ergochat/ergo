@@ -358,6 +358,7 @@ logging:
         #   commands        command calling and operations
         #   opers           oper actions, authentication, etc
         #   password        password hashing and comparing
+        #   rehash          server startup and rehash events
         #   userinput       raw lines sent by users
         #   useroutput      raw lines sent to users
         type: "* -userinput -useroutput -localconnect -localconnect-ip"

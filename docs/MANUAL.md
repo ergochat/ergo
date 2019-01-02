@@ -78,12 +78,11 @@ In this section, we'll explain how to install and use the Oragono IRC server.
 To get started with Oragono on Windows:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) downloaded.
-2. Extract the zip file to a folder.
-3. Copy and rename `oragono.yaml` to `ircd.yaml`.
-4. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
-5. Open up a `cmd.exe` window, then `cd` to where you have Oragono extracted.
-6. Run `oragono.exe initdb` (this creates the database).
-7. Run `oragono.exe mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
+1. Extract the zip file to a folder.
+1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
+1. Open up a `cmd.exe` window, then `cd` to where you have Oragono extracted.
+1. Run `oragono.exe mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
 
 To start the server, type `oragono.exe run` and hit enter, and the server should start!
 
@@ -93,12 +92,11 @@ To start the server, type `oragono.exe run` and hit enter, and the server should
 To get started with Oragono on macOS, Linux, or on a Raspberry Pi:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) for your OS/distro downloaded.
-2. Extract the tar.gz file to a folder.
-3. Copy and rename `oragono.yaml` to `ircd.yaml`.
-4. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
-5. Open up a Terminal window, then `cd` to where you have Oragono extracted.
-6. Run `./oragono initdb` (this creates the database).
-7. Run `./oragono mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
+1. Extract the tar.gz file to a folder.
+1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
+1. Open up a Terminal window, then `cd` to where you have Oragono extracted.
+1. Run `./oragono mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
 
 To start the server, type `./oragono run` and hit enter, and the server should be ready to use!
 
