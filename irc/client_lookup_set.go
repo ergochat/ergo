@@ -72,7 +72,7 @@ func (clients *ClientManager) removeInternal(client *Client) (err error) {
 			delete(clients.byNick, oldcfnick)
 		} else {
 			// this shouldn't happen, but we can ignore it
-			client.server.logger.Warning("internal", fmt.Sprintf("clients for nick %s out of sync", oldcfnick))
+			client.server.logger.Warning("internal", "clients for nick out of sync", oldcfnick)
 			err = errNickMissing
 		}
 	}
@@ -119,17 +119,11 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 		return err
 	}
 
-	var reservedAccount string
-	var method NickReservationMethod
-	if client.server.AccountConfig().NickReservation.Enabled {
-		reservedAccount = client.server.accounts.NickToAccount(newcfnick)
-		method = client.server.AccountConfig().NickReservation.Method
-	}
+	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick)
 
 	clients.Lock()
 	defer clients.Unlock()
 
-	clients.removeInternal(client)
 	currentNewEntry := clients.byNick[newcfnick]
 	// the client may just be changing case
 	if currentNewEntry != nil && currentNewEntry != client {
@@ -138,6 +132,7 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	if method == NickReservationStrict && reservedAccount != client.Account() {
 		return errNicknameReserved
 	}
+	clients.removeInternal(client)
 	clients.byNick[newcfnick] = client
 	client.updateNickMask(newNick)
 	return nil

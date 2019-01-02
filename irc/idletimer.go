@@ -189,14 +189,14 @@ type NickTimer struct {
 // NewNickTimer sets up a new nick timer (returning nil if timeout enforcement is not enabled)
 func NewNickTimer(client *Client) *NickTimer {
 	config := client.server.AccountConfig().NickReservation
-	if !(config.Enabled && config.Method == NickReservationWithTimeout) {
+	if !(config.Enabled && (config.Method == NickReservationWithTimeout || config.AllowCustomEnforcement)) {
 		return nil
 	}
-	nt := NickTimer{
+
+	return &NickTimer{
 		client:  client,
 		timeout: config.RenameTimeout,
 	}
-	return &nt
 }
 
 // Touch records a nick change and updates the timer as necessary
@@ -207,7 +207,8 @@ func (nt *NickTimer) Touch() {
 
 	nick := nt.client.NickCasefolded()
 	account := nt.client.Account()
-	accountForNick := nt.client.server.accounts.NickToAccount(nick)
+	accountForNick, method := nt.client.server.accounts.EnforcementStatus(nick)
+	enforceTimeout := method == NickReservationWithTimeout
 
 	var shouldWarn bool
 
@@ -227,11 +228,11 @@ func (nt *NickTimer) Touch() {
 		nt.accountForNick = accountForNick
 		delinquent := accountForNick != "" && accountForNick != account
 
-		if nt.timer != nil && (!delinquent || accountChanged) {
+		if nt.timer != nil && (!enforceTimeout || !delinquent || accountChanged) {
 			nt.timer.Stop()
 			nt.timer = nil
 		}
-		if delinquent && accountChanged {
+		if enforceTimeout && delinquent && accountChanged {
 			nt.timer = time.AfterFunc(nt.timeout, nt.processTimeout)
 			shouldWarn = true
 		}

@@ -22,15 +22,6 @@ type WhoWasList struct {
 	accessMutex sync.RWMutex // tier 1
 }
 
-// WhoWas is an entry in the WhoWasList.
-type WhoWas struct {
-	nicknameCasefolded string
-	nickname           string
-	username           string
-	hostname           string
-	realname           string
-}
-
 // NewWhoWasList returns a new WhoWasList
 func NewWhoWasList(size int) *WhoWasList {
 	return &WhoWasList{
@@ -82,7 +73,7 @@ func (list *WhoWasList) Find(nickname string, limit int) (results []WhoWas) {
 	// iterate backwards through the ring buffer
 	pos := list.prev(list.end)
 	for limit == 0 || len(results) < limit {
-		if casefoldedNickname == list.buffer[pos].nicknameCasefolded {
+		if casefoldedNickname == list.buffer[pos].nickCasefolded {
 			results = append(results, list.buffer[pos])
 		}
 		if pos == list.start {

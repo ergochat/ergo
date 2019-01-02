@@ -386,8 +386,7 @@ func (server *Server) tryRegister(c *Client) {
 		return
 	}
 
-	preregNick := c.PreregNick()
-	if preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
+	if c.preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
 		return
 	}
 
@@ -400,10 +399,10 @@ func (server *Server) tryRegister(c *Client) {
 	}
 
 	rb := NewResponseBuffer(c)
-	nickAssigned := performNickChange(server, c, c, preregNick, rb)
+	nickAssigned := performNickChange(server, c, c, c.preregNick, rb)
 	rb.Send(true)
 	if !nickAssigned {
-		c.SetPreregNick("")
+		c.preregNick = ""
 		return
 	}
 
@@ -500,9 +499,9 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 
 func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	cnick := client.Nick()
-	targetInfo := target.WhoWas()
-	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nickname, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
-	tnick := targetInfo.nickname
+	targetInfo := target.Details()
+	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nick, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
+	tnick := targetInfo.nick
 
 	whoischannels := client.WhoisChannelsNames(target)
 	if whoischannels != nil {
@@ -518,9 +517,8 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if target.HasMode(modes.TLS) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
 	}
-	taccount := target.AccountName()
-	if taccount != "*" {
-		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, taccount, client.t("is logged in as"))
+	if targetInfo.accountName != "*" {
+		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, targetInfo.accountName, client.t("is logged in as"))
 	}
 	if target.HasMode(modes.Bot) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
@@ -836,7 +834,7 @@ func (server *Server) setupPprofListener(config *Config) {
 		}
 		go func() {
 			if err := ps.ListenAndServe(); err != nil {
-				server.logger.Error("rehash", fmt.Sprintf("pprof listener failed: %v", err))
+				server.logger.Error("rehash", "pprof listener failed", err.Error())
 			}
 		}()
 		server.pprofServer = &ps

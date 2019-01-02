@@ -19,6 +19,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -52,7 +53,7 @@ type ResumeDetails struct {
 // Client is an IRC client.
 type Client struct {
 	account            string
-	accountName        string
+	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	atime              time.Time
 	authorized         bool
 	awayMessage        string
@@ -73,6 +74,7 @@ type Client struct {
 	isDestroyed        bool
 	isQuitting         bool
 	languages          []string
+	loginThrottle      connection_limits.GenericThrottle
 	maxlenTags         uint32
 	maxlenRest         uint32
 	nick               string
@@ -100,6 +102,25 @@ type Client struct {
 	history            *history.Buffer
 }
 
+// WhoWas is the subset of client details needed to answer a WHOWAS query
+type WhoWas struct {
+	nick           string
+	nickCasefolded string
+	username       string
+	hostname       string
+	realname       string
+}
+
+// ClientDetails is a standard set of details about a client
+type ClientDetails struct {
+	WhoWas
+
+	nickMask           string
+	nickMaskCasefolded string
+	account            string
+	accountName        string
+}
+
 // NewClient sets up a new client and starts its goroutine.
 func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	now := time.Now()
@@ -107,16 +128,21 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
 	socket := NewSocket(conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
 	client := &Client{
-		atime:          now,
-		authorized:     server.Password() == nil,
-		capabilities:   caps.NewSet(),
-		capState:       caps.NoneState,
-		capVersion:     caps.Cap301,
-		channels:       make(ChannelSet),
-		ctime:          now,
-		flags:          modes.NewModeSet(),
+		atime:        now,
+		authorized:   server.Password() == nil,
+		capabilities: caps.NewSet(),
+		capState:     caps.NoneState,
+		capVersion:   caps.Cap301,
+		channels:     make(ChannelSet),
+		ctime:        now,
+		flags:        modes.NewModeSet(),
+		loginThrottle: connection_limits.GenericThrottle{
+			Duration: config.Accounts.LoginThrottling.Duration,
+			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
+		},
 		server:         server,
 		socket:         socket,
+		accountName:    "*",
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given

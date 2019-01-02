@@ -30,6 +30,7 @@ const (
 	keyAccountRegTime          = "account.registered.time %s"
 	keyAccountCredentials      = "account.credentials %s"
 	keyAccountAdditionalNicks  = "account.additionalnicks %s"
+	keyAccountEnforcement      = "account.customenforcement %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
 
@@ -53,12 +54,14 @@ type AccountManager struct {
 	// track clients logged in to accounts
 	accountToClients map[string][]*Client
 	nickToAccount    map[string]string
+	accountToMethod  map[string]NickReservationMethod
 }
 
 func NewAccountManager(server *Server) *AccountManager {
 	am := AccountManager{
 		accountToClients: make(map[string][]*Client),
 		nickToAccount:    make(map[string]string),
+		accountToMethod:  make(map[string]NickReservationMethod),
 		server:           server,
 	}
 
@@ -72,7 +75,8 @@ func (am *AccountManager) buildNickToAccountIndex() {
 		return
 	}
 
-	result := make(map[string]string)
+	nickToAccount := make(map[string]string)
+	accountToMethod := make(map[string]NickReservationMethod)
 	existsPrefix := fmt.Sprintf(keyAccountExists, "")
 
 	am.serialCacheUpdateMutex.Lock()
@@ -83,14 +87,22 @@ func (am *AccountManager) buildNickToAccountIndex() {
 			if !strings.HasPrefix(key, existsPrefix) {
 				return false
 			}
-			accountName := strings.TrimPrefix(key, existsPrefix)
-			if _, err := tx.Get(fmt.Sprintf(keyAccountVerified, accountName)); err == nil {
-				result[accountName] = accountName
+
+			account := strings.TrimPrefix(key, existsPrefix)
+			if _, err := tx.Get(fmt.Sprintf(keyAccountVerified, account)); err == nil {
+				nickToAccount[account] = account
 			}
-			if rawNicks, err := tx.Get(fmt.Sprintf(keyAccountAdditionalNicks, accountName)); err == nil {
+			if rawNicks, err := tx.Get(fmt.Sprintf(keyAccountAdditionalNicks, account)); err == nil {
 				additionalNicks := unmarshalReservedNicks(rawNicks)
 				for _, nick := range additionalNicks {
-					result[nick] = accountName
+					nickToAccount[nick] = account
+				}
+			}
+
+			if methodStr, err := tx.Get(fmt.Sprintf(keyAccountEnforcement, account)); err == nil {
+				method, err := nickReservationFromString(methodStr)
+				if err == nil {
+					accountToMethod[account] = method
 				}
 			}
 			return true
@@ -99,10 +111,11 @@ func (am *AccountManager) buildNickToAccountIndex() {
 	})
 
 	if err != nil {
-		am.server.logger.Error("internal", fmt.Sprintf("couldn't read reserved nicks: %v", err))
+		am.server.logger.Error("internal", "couldn't read reserved nicks", err.Error())
 	} else {
 		am.Lock()
-		am.nickToAccount = result
+		am.nickToAccount = nickToAccount
+		am.accountToMethod = accountToMethod
 		am.Unlock()
 	}
 }
@@ -154,6 +167,84 @@ func (am *AccountManager) NickToAccount(nick string) string {
 	am.RLock()
 	defer am.RUnlock()
 	return am.nickToAccount[cfnick]
+}
+
+// Given a nick, looks up the account that owns it and the method (none/timeout/strict)
+// used to enforce ownership.
+func (am *AccountManager) EnforcementStatus(nick string) (account string, method NickReservationMethod) {
+	cfnick, err := CasefoldName(nick)
+	if err != nil {
+		return
+	}
+
+	config := am.server.Config()
+	if !config.Accounts.NickReservation.Enabled {
+		method = NickReservationNone
+		return
+	}
+
+	am.RLock()
+	defer am.RUnlock()
+
+	account = am.nickToAccount[cfnick]
+	method = am.accountToMethod[account]
+	// if they don't have a custom setting, or customization is disabled, use the default
+	if method == NickReservationOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
+		method = config.Accounts.NickReservation.Method
+	}
+	if method == NickReservationOptional {
+		// enforcement was explicitly enabled neither in the config or by the user
+		method = NickReservationNone
+	}
+	return
+}
+
+// Looks up the enforcement method stored in the database for an account
+// (typically you want EnforcementStatus instead, which respects the config)
+func (am *AccountManager) getStoredEnforcementStatus(account string) string {
+	am.RLock()
+	defer am.RUnlock()
+	return nickReservationToString(am.accountToMethod[account])
+}
+
+// Sets a custom enforcement method for an account and stores it in the database.
+func (am *AccountManager) SetEnforcementStatus(account string, method NickReservationMethod) (err error) {
+	config := am.server.Config()
+	if !(config.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.AllowCustomEnforcement) {
+		return errFeatureDisabled
+	}
+
+	var serialized string
+	if method == NickReservationOptional {
+		serialized = "" // normally this is "default", but we're going to delete the key
+	} else {
+		serialized = nickReservationToString(method)
+	}
+
+	key := fmt.Sprintf(keyAccountEnforcement, account)
+
+	am.Lock()
+	defer am.Unlock()
+
+	currentMethod := am.accountToMethod[account]
+	if method != currentMethod {
+		if method == NickReservationOptional {
+			delete(am.accountToMethod, account)
+		} else {
+			am.accountToMethod[account] = method
+		}
+
+		return am.server.store.Update(func(tx *buntdb.Tx) (err error) {
+			if serialized != "" {
+				_, _, err = tx.Set(key, nickReservationToString(method), nil)
+			} else {
+				_, err = tx.Delete(key)
+			}
+			return
+		})
+	}
+
+	return nil
 }
 
 func (am *AccountManager) AccountToClients(account string) (result []*Client) {
@@ -286,14 +377,14 @@ func (am *AccountManager) serializeCredentials(passphrase string, certfp string)
 		bcryptCost := int(am.server.Config().Accounts.Registration.BcryptCost)
 		creds.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), bcryptCost)
 		if err != nil {
-			am.server.logger.Error("internal", fmt.Sprintf("could not hash password: %v", err))
+			am.server.logger.Error("internal", "could not hash password", err.Error())
 			return "", errAccountCreation
 		}
 	}
 
 	credText, err := json.Marshal(creds)
 	if err != nil {
-		am.server.logger.Error("internal", fmt.Sprintf("could not marshal credentials: %v", err))
+		am.server.logger.Error("internal", "could not marshal credentials", err.Error())
 		return "", errAccountCreation
 	}
 	return string(credText), nil
@@ -367,7 +458,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccou
 	// config.TLS.InsecureSkipVerify
 	err = smtp.SendMail(addr, auth, config.Sender, []string{callbackValue}, message)
 	if err != nil {
-		am.server.logger.Error("internal", fmt.Sprintf("Failed to dispatch e-mail: %v", err))
+		am.server.logger.Error("internal", "Failed to dispatch e-mail", err.Error())
 	}
 	return
 }
@@ -576,7 +667,9 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	case 0:
 		err = handleLegacyPasswordV0(am.server, accountName, account.Credentials, passphrase)
 	case 1:
-		err = passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase))
+		if passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase)) != nil {
+			err = errAccountInvalidCredentials
+		}
 	default:
 		err = errAccountInvalidCredentials
 	}
@@ -619,7 +712,7 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result Cl
 	result.RegisteredAt = time.Unix(regTimeInt, 0)
 	e := json.Unmarshal([]byte(raw.Credentials), &result.Credentials)
 	if e != nil {
-		am.server.logger.Error("internal", fmt.Sprintf("could not unmarshal credentials: %v", e))
+		am.server.logger.Error("internal", "could not unmarshal credentials", e.Error())
 		err = errAccountDoesNotExist
 		return
 	}
@@ -628,7 +721,7 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result Cl
 	if raw.VHost != "" {
 		e := json.Unmarshal([]byte(raw.VHost), &result.VHost)
 		if e != nil {
-			am.server.logger.Warning("internal", fmt.Sprintf("could not unmarshal vhost for account %s: %v", result.Name, e))
+			am.server.logger.Warning("internal", "could not unmarshal vhost for account", result.Name, e.Error())
 			// pretend they have no vhost and move on
 		}
 	}
@@ -992,9 +1085,11 @@ func (am *AccountManager) applyVhostToClients(account string, result VHostInfo) 
 
 func (am *AccountManager) Login(client *Client, account ClientAccount) {
 	changed := client.SetAccountName(account.Name)
-	if changed {
-		go client.nickTimer.Touch()
+	if !changed {
+		return
 	}
+
+	client.nickTimer.Touch()
 
 	am.applyVHostInfo(client, account.VHost)
 

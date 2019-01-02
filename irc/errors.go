@@ -40,6 +40,7 @@ var (
 	errSaslFail                       = errors.New("SASL failed")
 	errResumeTokenAlreadySet          = errors.New("Client was already assigned a resume token")
 	errInvalidUsername                = errors.New("Invalid username")
+	errFeatureDisabled                = errors.New("That feature is disabled")
 )
 
 // Socket Errors

@@ -179,6 +179,17 @@ accounts:
     # is account authentication enabled?
     authentication-enabled: true
 
+    # throttle account login attempts (to prevent either password guessing, or DoS
+    # attacks on the server aimed at forcing repeated expensive bcrypt computations)
+    login-throttling:
+        enabled: true
+
+        # window
+        duration:  1m
+
+        # number of attempts allowed within the window
+        max-attempts: 3
+
     # some clients (notably Pidgin and Hexchat) offer only a single password field,
     # which makes it impossible to specify a separate server password (for the PASS
     # command) and SASL password. if this option is set to true, a client that
@@ -195,11 +206,18 @@ accounts:
         additional-nick-limit: 2
 
         # method describes how nickname reservation is handled
-        #   timeout: let the user change to the registered nickname, give them X seconds
-        #            to login and then rename them if they haven't done so
-        #   strict:  don't let the user change to the registered nickname unless they're
-        #            already logged-in using SASL or NickServ
+        #             already logged-in using SASL or NickServ
+        #   timeout:  let the user change to the registered nickname, give them X seconds
+        #             to login and then rename them if they haven't done so
+        #   strict:   don't let the user change to the registered nickname unless they're
+        #             already logged-in using SASL or NickServ
+        #   optional: no enforcement by default, but allow users to opt in to
+        #             the enforcement level of their choice
         method: timeout
+
+        # allow users to set their own nickname enforcement status, e.g.,
+        # to opt in to strict enforcement
+        allow-custom-enforcement: true
 
         # rename-timeout - this is how long users have 'til they're renamed
         rename-timeout: 30s
