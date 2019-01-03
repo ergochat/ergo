@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/unendingPattern/oragono/irc/sno"
+	"github.com/unendingPattern/oragono-laced/irc/sno"
 )
 
 var (

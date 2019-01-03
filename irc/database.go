@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/unendingPattern/oragono/irc/modes"
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 
 	"github.com/tidwall/buntdb"
 )

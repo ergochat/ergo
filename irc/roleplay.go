@@ -6,8 +6,8 @@ package irc
 import (
 	"fmt"
 
-	"github.com/unendingPattern/oragono/irc/caps"
-	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/caps"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
 )
 
 const (

@@ -12,7 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 )
 
 // defines an IRC service, e.g., NICKSERV

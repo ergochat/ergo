@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/unendingPattern/oragono/irc/modes"
-	"github.com/unendingPattern/oragono/irc/sno"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/sno"
 )
 
 var (

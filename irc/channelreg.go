@@ -12,7 +12,7 @@ import (
 
 	"encoding/json"
 
-	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
 	"github.com/tidwall/buntdb"
 )
 

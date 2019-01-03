@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
 )
 
 func TestParseDefaultChannelModes(t *testing.T) {

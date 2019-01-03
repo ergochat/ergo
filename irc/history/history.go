@@ -4,7 +4,7 @@
 package history
 
 import (
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 	"sync"
 	"sync/atomic"
 	"time"

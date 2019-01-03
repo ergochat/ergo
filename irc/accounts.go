@@ -15,9 +15,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/unendingPattern/oragono/irc/caps"
-	"github.com/unendingPattern/oragono/irc/passwd"
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/caps"
+	"github.com/unendingPattern/oragono-laced/irc/passwd"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 

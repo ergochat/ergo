@@ -4,8 +4,8 @@
 package irc
 
 import (
-	"github.com/unendingPattern/oragono/irc/isupport"
-	"github.com/unendingPattern/oragono/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/isupport"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
 	"math/rand"
 	"time"
 )

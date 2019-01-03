@@ -13,7 +13,7 @@ import (
 	// "encoding/hex"
 
 	"github.com/goshuirc/irc-go/ircmatch"
-	"github.com/unendingPattern/oragono/irc/caps"
+	"github.com/unendingPattern/oragono-laced/irc/caps"
 
 	"sync"
 )

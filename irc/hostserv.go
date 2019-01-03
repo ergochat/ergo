@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 )
 
 const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed

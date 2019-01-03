@@ -22,14 +22,14 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/unendingPattern/oragono/irc/caps"
-	"github.com/unendingPattern/oragono/irc/connection_limits"
-	"github.com/unendingPattern/oragono/irc/isupport"
-	"github.com/unendingPattern/oragono/irc/languages"
-	"github.com/unendingPattern/oragono/irc/logger"
-	"github.com/unendingPattern/oragono/irc/modes"
-	"github.com/unendingPattern/oragono/irc/sno"
-	"github.com/unendingPattern/oragono/irc/utils"
+	"github.com/unendingPattern/oragono-laced/irc/caps"
+	"github.com/unendingPattern/oragono-laced/irc/connection_limits"
+	"github.com/unendingPattern/oragono-laced/irc/isupport"
+	"github.com/unendingPattern/oragono-laced/irc/languages"
+	"github.com/unendingPattern/oragono-laced/irc/logger"
+	"github.com/unendingPattern/oragono-laced/irc/modes"
+	"github.com/unendingPattern/oragono-laced/irc/sno"
+	"github.com/unendingPattern/oragono-laced/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 

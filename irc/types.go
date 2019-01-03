@@ -5,7 +5,7 @@
 
 package irc
 
-import "github.com/unendingPattern/oragono/irc/modes"
+import "github.com/unendingPattern/oragono-laced/irc/modes"
 import "github.com/goshuirc/irc-go/ircmsg"
 
 // ClientSet is a set of clients.
