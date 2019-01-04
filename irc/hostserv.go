@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -125,6 +124,7 @@ for the rejection.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
 			minParams: 1,
+			maxParams: 2,
 		},
 	}
 )
@@ -296,7 +296,7 @@ func hsRejectHandler(server *Server, client *Client, command string, params []st
 	var reason string
 	user := params[0]
 	if len(params) > 1 {
-		reason = strings.Join(params[1:], " ")
+		reason = params[1]
 	}
 
 	vhostInfo, err := server.accounts.VHostReject(user, reason)

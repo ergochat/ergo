@@ -11,6 +11,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // defines an IRC service, e.g., NICKSERV
@@ -32,6 +33,7 @@ type serviceCommand struct {
 	authRequired bool
 	enabled      func(*Config) bool // is this command enabled in the server config?
 	minParams    int
+	maxParams    int // split into at most n params, with last param containing remaining unsplit text
 }
 
 // looks up a command in the table of command definitions for a service, resolving aliases
@@ -97,29 +99,49 @@ func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 		return false
 	}
 
-	serviceRunCommand(service, server, client, msg.Params, rb)
+	if len(msg.Params) == 0 {
+		return false
+	}
+	commandName := strings.ToLower(msg.Params[0])
+	params := msg.Params[1:]
+	cmd := lookupServiceCommand(service.Commands, commandName)
+	// for a maxParams command, join all final parameters together if necessary
+	if cmd != nil && cmd.maxParams != 0 && cmd.maxParams < len(params) {
+		newParams := make([]string, cmd.maxParams)
+		copy(newParams, params[:cmd.maxParams-1])
+		newParams[cmd.maxParams-1] = strings.Join(params[cmd.maxParams-1:], " ")
+		params = newParams
+	}
+	serviceRunCommand(service, server, client, cmd, commandName, params, rb)
 	return false
 }
 
 // generic handler for service PRIVMSG, like `/msg NickServ INFO`
 func servicePrivmsgHandler(service *ircService, server *Server, client *Client, message string, rb *ResponseBuffer) {
-	serviceRunCommand(service, server, client, strings.Fields(message), rb)
-}
-
-// actually execute a service command
-func serviceRunCommand(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
+	params := strings.Fields(message)
 	if len(params) == 0 {
 		return
 	}
-	commandName := strings.ToLower(params[0])
-	params = params[1:]
 
+	// look up the service command to see how to parse it
+	commandName := strings.ToLower(params[0])
+	cmd := lookupServiceCommand(service.Commands, commandName)
+	// reparse if needed
+	if cmd != nil && cmd.maxParams != 0 {
+		params = utils.FieldsN(message, cmd.maxParams+1)[1:]
+	} else {
+		params = params[1:]
+	}
+	serviceRunCommand(service, server, client, cmd, commandName, params, rb)
+}
+
+// actually execute a service command
+func serviceRunCommand(service *ircService, server *Server, client *Client, cmd *serviceCommand, commandName string, params []string, rb *ResponseBuffer) {
 	nick := rb.target.Nick()
 	sendNotice := func(notice string) {
 		rb.Add(nil, service.Name, "NOTICE", nick, notice)
 	}
 
-	cmd := lookupServiceCommand(service.Commands, commandName)
 	if cmd == nil {
 		sendNotice(fmt.Sprintf("%s /%s HELP", client.t("Unknown command. To see available commands, run"), service.ShortName))
 		return

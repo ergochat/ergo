@@ -91,7 +91,6 @@ func csNotice(rb *ResponseBuffer, text string) {
 
 func csAmodeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	channelName := params[0]
-	modeChange := strings.Join(params[1:], " ")
 
 	channel := server.channels.Get(channelName)
 	if channel == nil {
@@ -102,7 +101,7 @@ func csAmodeHandler(server *Server, client *Client, command string, params []str
 		return
 	}
 
-	modeChanges, unknown := modes.ParseChannelModeChanges(strings.Fields(modeChange)...)
+	modeChanges, unknown := modes.ParseChannelModeChanges(params[1:]...)
 	var change modes.ModeChange
 	if len(modeChanges) > 1 || len(unknown) > 0 {
 		csNotice(rb, client.t("Invalid mode change"))
