@@ -187,6 +187,10 @@ func (am *AccountManager) EnforcementStatus(nick string) (account string, method
 	defer am.RUnlock()
 
 	account = am.nickToAccount[cfnick]
+	if account == "" {
+		method = NickReservationNone
+		return
+	}
 	method = am.accountToMethod[account]
 	// if they don't have a custom setting, or customization is disabled, use the default
 	if method == NickReservationOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
