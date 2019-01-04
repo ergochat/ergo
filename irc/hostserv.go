@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/oragono/oragono/irc/utils"
 )
 
 const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
@@ -29,13 +27,12 @@ var (
 	defaultValidVhostRegex = regexp.MustCompile(`^[0-9A-Za-z.\-_/]+$`)
 )
 
-func hostservEnabled(server *Server) bool {
-	return server.AccountConfig().VHosts.Enabled
+func hostservEnabled(config *Config) bool {
+	return config.Accounts.VHosts.Enabled
 }
 
-func hostservRequestsEnabled(server *Server) bool {
-	ac := server.AccountConfig()
-	return ac.VHosts.Enabled && ac.VHosts.UserRequests.Enabled
+func hostservRequestsEnabled(config *Config) bool {
+	return config.Accounts.VHosts.Enabled && config.Accounts.VHosts.UserRequests.Enabled
 }
 
 var (
@@ -67,16 +64,16 @@ then be approved by a server operator.`,
 			helpShort:    `$bREQUEST$b requests a new vhost, pending operator approval.`,
 			authRequired: true,
 			enabled:      hostservRequestsEnabled,
+			minParams:    1,
 		},
 		"status": {
 			handler: hsStatusHandler,
-			help: `Syntax: $bSTATUS$b
+			help: `Syntax: $bSTATUS [user]$b
 
 STATUS displays your current vhost, if any, and the status of your most recent
-request for a new one.`,
-			helpShort:    `$bSTATUS$b shows your vhost and request status.`,
-			authRequired: true,
-			enabled:      hostservEnabled,
+request for a new one. A server operator can view someone else's status.`,
+			helpShort: `$bSTATUS$b shows your vhost and request status.`,
+			enabled:   hostservEnabled,
 		},
 		"set": {
 			handler: hsSetHandler,
@@ -86,6 +83,7 @@ SET sets a user's vhost, bypassing the request system.`,
 			helpShort: `$bSET$b sets a user's vhost.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
+			minParams: 2,
 		},
 		"del": {
 			handler: hsSetHandler,
@@ -95,6 +93,7 @@ DEL deletes a user's vhost.`,
 			helpShort: `$bDEL$b deletes a user's vhost.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
+			minParams: 1,
 		},
 		"waiting": {
 			handler: hsWaitingHandler,
@@ -114,6 +113,7 @@ APPROVE approves a user's vhost request.`,
 			helpShort: `$bAPPROVE$b approves a user's vhost request.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
+			minParams: 1,
 		},
 		"reject": {
 			handler: hsRejectHandler,
@@ -124,6 +124,7 @@ for the rejection.`,
 			helpShort: `$bREJECT$b rejects a user's vhost request.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
+			minParams: 1,
 		},
 	}
 )
@@ -146,7 +147,7 @@ func hsNotifyChannel(server *Server, message string) {
 	}
 }
 
-func hsOnOffHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func hsOnOffHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	enable := false
 	if command == "on" {
 		enable = true
@@ -162,8 +163,8 @@ func hsOnOffHandler(server *Server, client *Client, command, params string, rb *
 	}
 }
 
-func hsRequestHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	vhost, _ := utils.ExtractParam(params)
+func hsRequestHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	vhost := params[0]
 	if validateVhost(server, vhost, false) != nil {
 		hsNotice(rb, client.t("Invalid vhost"))
 		return
@@ -195,12 +196,24 @@ func hsRequestHandler(server *Server, client *Client, command, params string, rb
 	}
 }
 
-func hsStatusHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	accountName := client.Account()
+func hsStatusHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var accountName string
+	if len(params) > 0 {
+		if !client.HasRoleCapabs("vhosts") {
+			hsNotice(rb, client.t("Command restricted"))
+			return
+		}
+		accountName = params[0]
+	} else {
+		accountName = client.Account()
+	}
+
 	account, err := server.accounts.LoadAccount(accountName)
 	if err != nil {
-		server.logger.Warning("internal", "error loading account info", accountName, err.Error())
-		hsNotice(rb, client.t("An error occurred"))
+		if err != errAccountDoesNotExist {
+			server.logger.Warning("internal", "error loading account info", accountName, err.Error())
+		}
+		hsNotice(rb, client.t("No such account"))
 		return
 	}
 
@@ -232,23 +245,18 @@ func validateVhost(server *Server, vhost string, oper bool) error {
 	return nil
 }
 
-func hsSetHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	var user, vhost string
-	user, params = utils.ExtractParam(params)
-	if user == "" {
-		hsNotice(rb, client.t("A user is required"))
-		return
-	}
+func hsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	user := params[0]
+	var vhost string
+
 	if command == "set" {
-		vhost, _ = utils.ExtractParam(params)
+		vhost = params[1]
 		if validateVhost(server, vhost, true) != nil {
 			hsNotice(rb, client.t("Invalid vhost"))
 			return
 		}
-	} else if command != "del" {
-		server.logger.Warning("internal", "invalid hostserv set command", command)
-		return
 	}
+	// else: command == "del", vhost == ""
 
 	_, err := server.accounts.VHostSet(user, vhost)
 	if err != nil {
@@ -260,7 +268,7 @@ func hsSetHandler(server *Server, client *Client, command, params string, rb *Re
 	}
 }
 
-func hsWaitingHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func hsWaitingHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	requests, total := server.accounts.VHostListRequests(10)
 	hsNotice(rb, fmt.Sprintf(client.t("There are %d pending requests for vhosts (%d displayed)"), total, len(requests)))
 	for i, request := range requests {
@@ -268,12 +276,8 @@ func hsWaitingHandler(server *Server, client *Client, command, params string, rb
 	}
 }
 
-func hsApproveHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	user, _ := utils.ExtractParam(params)
-	if user == "" {
-		hsNotice(rb, client.t("A user is required"))
-		return
-	}
+func hsApproveHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	user := params[0]
 
 	vhostInfo, err := server.accounts.VHostApprove(user)
 	if err != nil {
@@ -288,13 +292,12 @@ func hsApproveHandler(server *Server, client *Client, command, params string, rb
 	}
 }
 
-func hsRejectHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	user, params := utils.ExtractParam(params)
-	if user == "" {
-		hsNotice(rb, client.t("A user is required"))
-		return
+func hsRejectHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var reason string
+	user := params[0]
+	if len(params) > 1 {
+		reason = strings.Join(params[1:], " ")
 	}
-	reason := strings.TrimSpace(params)
 
 	vhostInfo, err := server.accounts.VHostReject(user, reason)
 	if err != nil {

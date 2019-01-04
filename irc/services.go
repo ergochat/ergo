@@ -11,8 +11,6 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
-
-	"github.com/oragono/oragono/irc/utils"
 )
 
 // defines an IRC service, e.g., NICKSERV
@@ -28,11 +26,12 @@ type ircService struct {
 type serviceCommand struct {
 	aliasOf      string   // marks this command as an alias of another
 	capabs       []string // oper capabs the given user has to have to access this command
-	handler      func(server *Server, client *Client, command, params string, rb *ResponseBuffer)
+	handler      func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
 	help         string
 	helpShort    string
 	authRequired bool
-	enabled      func(*Server) bool // is this command enabled in the server config?
+	enabled      func(*Config) bool // is this command enabled in the server config?
+	minParams    int
 }
 
 // looks up a command in the table of command definitions for a service, resolving aliases
@@ -90,7 +89,7 @@ HELP returns information on the given command.`,
 	helpShort: `$bHELP$b shows in-depth information about commands.`,
 }
 
-// this handles IRC commands like `/NICKSERV INFO`, translating into `/MSG NICKSERV INFO`
+// generic handler for IRC commands like `/NICKSERV INFO`
 func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	service, ok := oragonoServicesByCommandAlias[msg.Command]
 	if !ok {
@@ -98,15 +97,22 @@ func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 		return false
 	}
 
-	fakePrivmsg := strings.Join(msg.Params, " ")
-	servicePrivmsgHandler(service, server, client, fakePrivmsg, rb)
+	serviceRunCommand(service, server, client, msg.Params, rb)
 	return false
 }
 
-// generic handler for service PRIVMSG
+// generic handler for service PRIVMSG, like `/msg NickServ INFO`
 func servicePrivmsgHandler(service *ircService, server *Server, client *Client, message string, rb *ResponseBuffer) {
-	commandName, params := utils.ExtractParam(message)
-	commandName = strings.ToLower(commandName)
+	serviceRunCommand(service, server, client, strings.Fields(message), rb)
+}
+
+// actually execute a service command
+func serviceRunCommand(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		return
+	}
+	commandName := strings.ToLower(params[0])
+	params = params[1:]
 
 	nick := rb.target.Nick()
 	sendNotice := func(notice string) {
@@ -119,7 +125,12 @@ func servicePrivmsgHandler(service *ircService, server *Server, client *Client, 
 		return
 	}
 
-	if cmd.enabled != nil && !cmd.enabled(server) {
+	if len(params) < cmd.minParams {
+		sendNotice(fmt.Sprintf(client.t("Invalid parameters. For usage, do /msg %s HELP %s"), service.Name, strings.ToUpper(commandName)))
+		return
+	}
+
+	if cmd.enabled != nil && !cmd.enabled(server.Config()) {
 		sendNotice(client.t("This command has been disabled by the server administrators"))
 		return
 	}
@@ -143,15 +154,16 @@ func servicePrivmsgHandler(service *ircService, server *Server, client *Client, 
 }
 
 // generic handler that displays help for service commands
-func serviceHelpHandler(service *ircService, server *Server, client *Client, params string, rb *ResponseBuffer) {
+func serviceHelpHandler(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	nick := rb.target.Nick()
+	config := server.Config()
 	sendNotice := func(notice string) {
 		rb.Add(nil, service.Name, "NOTICE", nick, notice)
 	}
 
 	sendNotice(ircfmt.Unescape(fmt.Sprintf("*** $b%s HELP$b ***", service.Name)))
 
-	if params == "" {
+	if len(params) == 0 {
 		// show general help
 		var shownHelpLines sort.StringSlice
 		var disabledCommands bool
@@ -163,7 +175,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 			if commandInfo.aliasOf != "" {
 				continue // don't show help lines for aliases
 			}
-			if commandInfo.enabled != nil && !commandInfo.enabled(server) {
+			if commandInfo.enabled != nil && !commandInfo.enabled(config) {
 				disabledCommands = true
 				continue
 			}
@@ -187,7 +199,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 			sendNotice(line)
 		}
 	} else {
-		commandName := strings.ToLower(strings.TrimSpace(params))
+		commandName := strings.ToLower(params[0])
 		commandInfo := lookupServiceCommand(service.Commands, commandName)
 		if commandInfo == nil {
 			sendNotice(client.t(fmt.Sprintf("Unknown command. To see available commands, run /%s HELP", service.ShortName)))

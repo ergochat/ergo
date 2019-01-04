@@ -3,19 +3,6 @@
 
 package utils
 
-import "strings"
-
-// ExtractParam extracts a parameter from the given string, returning the param and the rest of the string.
-func ExtractParam(line string) (string, string) {
-	rawParams := strings.SplitN(strings.TrimSpace(line), " ", 2)
-	param0 := rawParams[0]
-	var param1 string
-	if 1 < len(rawParams) {
-		param1 = strings.TrimSpace(rawParams[1])
-	}
-	return param0, param1
-}
-
 // ArgsToStrings takes the arguments and splits them into a series of strings,
 // each argument separated by delim and each string bounded by maxLength.
 func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
