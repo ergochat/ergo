@@ -15,9 +15,10 @@ import (
 )
 
 var (
+	// anything added here MUST be casefolded:
 	restrictedNicknames = map[string]bool{
 		"=scene=":  true, // used for rp commands
-		"HistServ": true, // TODO(slingamn) this should become a real service
+		"histserv": true, // TODO(slingamn) this should become a real service
 	}
 )
 

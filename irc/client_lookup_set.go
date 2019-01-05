@@ -129,7 +129,7 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	if currentNewEntry != nil && currentNewEntry != client {
 		return errNicknameInUse
 	}
-	if method == NickReservationStrict && reservedAccount != client.Account() {
+	if method == NickReservationStrict && reservedAccount != "" && reservedAccount != client.Account() {
 		return errNicknameReserved
 	}
 	clients.removeInternal(client)

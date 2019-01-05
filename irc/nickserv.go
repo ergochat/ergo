@@ -8,25 +8,22 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/utils"
 )
 
 // "enabled" callbacks for specific nickserv commands
-func servCmdRequiresAccreg(server *Server) bool {
-	return server.AccountConfig().Registration.Enabled
+func servCmdRequiresAccreg(config *Config) bool {
+	return config.Accounts.Registration.Enabled
 }
 
-func servCmdRequiresAuthEnabled(server *Server) bool {
-	return server.AccountConfig().AuthenticationEnabled
+func servCmdRequiresAuthEnabled(config *Config) bool {
+	return config.Accounts.AuthenticationEnabled
 }
 
-func nsGroupEnabled(server *Server) bool {
-	conf := server.Config()
-	return conf.Accounts.AuthenticationEnabled && conf.Accounts.NickReservation.Enabled
+func nsGroupEnabled(config *Config) bool {
+	return config.Accounts.AuthenticationEnabled && config.Accounts.NickReservation.Enabled
 }
 
-func nsEnforceEnabled(server *Server) bool {
-	config := server.Config()
+func nsEnforceEnabled(config *Config) bool {
 	return config.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.AllowCustomEnforcement
 }
 
@@ -73,6 +70,7 @@ GHOST disconnects the given user from the network if they're logged in with the
 same user account, letting you reclaim your nickname.`,
 			helpShort:    `$bGHOST$b reclaims your nickname.`,
 			authRequired: true,
+			minParams:    1,
 		},
 		"group": {
 			handler: nsGroupHandler,
@@ -84,7 +82,6 @@ users from changing to it (or forcing them to rename).`,
 			enabled:      nsGroupEnabled,
 			authRequired: true,
 		},
-
 		"identify": {
 			handler: nsIdentifyHandler,
 			help: `Syntax: $bIDENTIFY <username> [password]$b
@@ -92,6 +89,7 @@ users from changing to it (or forcing them to rename).`,
 IDENTIFY lets you login to the given username using either password auth, or
 certfp (your client certificate) if a password is not given.`,
 			helpShort: `$bIDENTIFY$b lets you login to your account.`,
+			minParams: 1,
 		},
 		"info": {
 			handler: nsInfoHandler,
@@ -113,6 +111,7 @@ If the password is left out, your account will be registered to your TLS client
 certificate (and you will need to use that certificate to login in future).`,
 			helpShort: `$bREGISTER$b lets you register a user account.`,
 			enabled:   servCmdRequiresAccreg,
+			minParams: 2,
 		},
 		"sadrop": {
 			handler: nsDropHandler,
@@ -122,6 +121,7 @@ SADROP forcibly de-links the given nickname from the attached user account.`,
 			helpShort: `$bSADROP$b forcibly de-links the given nickname from its user account.`,
 			capabs:    []string{"accreg"},
 			enabled:   servCmdRequiresAccreg,
+			minParams: 1,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
@@ -132,6 +132,8 @@ IRC operator with the correct permissions). To prevent accidental
 unregistrations, a verification code is required; invoking the command without
 a code will display the necessary code.`,
 			helpShort: `$bUNREGISTER$b lets you delete your user account.`,
+			enabled:   servCmdRequiresAccreg,
+			minParams: 1,
 		},
 		"verify": {
 			handler: nsVerifyHandler,
@@ -141,6 +143,7 @@ VERIFY lets you complete an account registration, if the server requires email
 or other verification.`,
 			helpShort: `$bVERIFY$b lets you complete account registration.`,
 			enabled:   servCmdRequiresAccreg,
+			minParams: 2,
 		},
 		"passwd": {
 			handler: nsPasswdHandler,
@@ -153,6 +156,7 @@ with the correct permissions, you can use PASSWD to reset someone else's
 password by supplying their username and then the desired password.`,
 			helpShort: `$bPASSWD$b lets you change your password.`,
 			enabled:   servCmdRequiresAuthEnabled,
+			minParams: 2,
 		},
 	}
 )
@@ -162,9 +166,14 @@ func nsNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
 }
 
-func nsDropHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func nsDropHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	sadrop := command == "sadrop"
-	nick, _ := utils.ExtractParam(params)
+	var nick string
+	if len(params) > 0 {
+		nick = params[0]
+	} else {
+		nick = client.NickCasefolded()
+	}
 
 	err := server.accounts.SetNickReserved(client, nick, sadrop, false)
 	if err == nil {
@@ -173,15 +182,13 @@ func nsDropHandler(server *Server, client *Client, command, params string, rb *R
 		nsNotice(rb, client.t("You're not logged into an account"))
 	} else if err == errAccountCantDropPrimaryNick {
 		nsNotice(rb, client.t("You can't ungroup your primary nickname (try unregistering your account instead)"))
-	} else if err == errNicknameReserved {
-		nsNotice(rb, client.t("That nickname is already reserved by someone else"))
 	} else {
 		nsNotice(rb, client.t("Could not ungroup nick"))
 	}
 }
 
-func nsGhostHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	nick, _ := utils.ExtractParam(params)
+func nsGhostHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	nick := params[0]
 
 	ghost := server.clients.Get(nick)
 	if ghost == nil {
@@ -207,7 +214,7 @@ func nsGhostHandler(server *Server, client *Client, command, params string, rb *
 	ghost.destroy(false)
 }
 
-func nsGroupHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	nick := client.NickCasefolded()
 	err := server.accounts.SetNickReserved(client, nick, false, true)
 	if err == nil {
@@ -230,13 +237,17 @@ func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
 	return true
 }
 
-func nsIdentifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	loginSuccessful := false
 
-	username, passphrase := utils.ExtractParam(params)
+	username := params[0]
+	var passphrase string
+	if len(params) > 1 {
+		passphrase = params[1]
+	}
 
 	// try passphrase
-	if username != "" && passphrase != "" {
+	if passphrase != "" {
 		if !nsLoginThrottleCheck(client, rb) {
 			return
 		}
@@ -257,18 +268,23 @@ func nsIdentifyHandler(server *Server, client *Client, command, params string, r
 	}
 }
 
-func nsInfoHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	nick, _ := utils.ExtractParam(params)
-
-	if nick == "" {
-		nick = client.Nick()
-	}
-
-	accountName := nick
-	if server.AccountConfig().NickReservation.Enabled {
-		accountName = server.accounts.NickToAccount(nick)
+func nsInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var accountName string
+	if len(params) > 0 {
+		nick := params[0]
+		if server.AccountConfig().NickReservation.Enabled {
+			accountName = server.accounts.NickToAccount(nick)
+			if accountName == "" {
+				nsNotice(rb, client.t("That nickname is not registered"))
+				return
+			}
+		} else {
+			accountName = nick
+		}
+	} else {
+		accountName = client.Account()
 		if accountName == "" {
-			nsNotice(rb, client.t("That nickname is not registered"))
+			nsNotice(rb, client.t("You're not logged into an account"))
 			return
 		}
 	}
@@ -276,6 +292,7 @@ func nsInfoHandler(server *Server, client *Client, command, params string, rb *R
 	account, err := server.accounts.LoadAccount(accountName)
 	if err != nil || !account.Verified {
 		nsNotice(rb, client.t("Account does not exist"))
+		return
 	}
 
 	nsNotice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
@@ -287,10 +304,13 @@ func nsInfoHandler(server *Server, client *Client, command, params string, rb *R
 	}
 }
 
-func nsRegisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	// get params
-	username, afterUsername := utils.ExtractParam(params)
-	email, passphrase := utils.ExtractParam(afterUsername)
+	username, email := params[0], params[1]
+	var passphrase string
+	if len(params) > 0 {
+		passphrase = params[2]
+	}
 
 	if !server.AccountConfig().Registration.Enabled {
 		nsNotice(rb, client.t("Account registration has been disabled"))
@@ -366,12 +386,11 @@ func nsRegisterHandler(server *Server, client *Client, command, params string, r
 	}
 }
 
-func nsUnregisterHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	username, verificationCode := utils.ExtractParam(params)
-
-	if !server.AccountConfig().Registration.Enabled {
-		nsNotice(rb, client.t("Account registration has been disabled"))
-		return
+func nsUnregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	username := params[0]
+	var verificationCode string
+	if len(params) > 1 {
+		verificationCode = params[1]
 	}
 
 	if username == "" {
@@ -415,9 +434,8 @@ func nsUnregisterHandler(server *Server, client *Client, command, params string,
 	}
 }
 
-func nsVerifyHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	username, code := utils.ExtractParam(params)
-
+func nsVerifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	username, code := params[0], params[1]
 	err := server.accounts.Verify(client, username, code)
 
 	var errorMessage string
@@ -435,7 +453,7 @@ func nsVerifyHandler(server *Server, client *Client, command, params string, rb 
 	sendSuccessfulRegResponse(client, rb, true)
 }
 
-func nsPasswdHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
+func nsPasswdHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var target string
 	var newPassword string
 	var errorMessage string
@@ -445,27 +463,26 @@ func nsPasswdHandler(server *Server, client *Client, command, params string, rb 
 		return
 	}
 
-	fields := strings.Fields(params)
-	switch len(fields) {
+	switch len(params) {
 	case 2:
 		if !hasPrivs {
 			errorMessage = "Insufficient privileges"
 		} else {
-			target, newPassword = fields[0], fields[1]
+			target, newPassword = params[0], params[1]
 		}
 	case 3:
 		target = client.Account()
 		if target == "" {
 			errorMessage = "You're not logged into an account"
-		} else if fields[1] != fields[2] {
+		} else if params[1] != params[2] {
 			errorMessage = "Passwords do not match"
 		} else {
 			// check that they correctly supplied the preexisting password
-			_, err := server.accounts.checkPassphrase(target, fields[0])
+			_, err := server.accounts.checkPassphrase(target, params[0])
 			if err != nil {
 				errorMessage = "Password incorrect"
 			} else {
-				newPassword = fields[1]
+				newPassword = params[1]
 			}
 		}
 	default:
@@ -486,14 +503,12 @@ func nsPasswdHandler(server *Server, client *Client, command, params string, rb 
 	}
 }
 
-func nsEnforceHandler(server *Server, client *Client, command, params string, rb *ResponseBuffer) {
-	arg := strings.TrimSpace(params)
-
-	if arg == "" {
+func nsEnforceHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
 		status := server.accounts.getStoredEnforcementStatus(client.Account())
 		nsNotice(rb, fmt.Sprintf(client.t("Your current nickname enforcement is: %s"), status))
 	} else {
-		method, err := nickReservationFromString(arg)
+		method, err := nickReservationFromString(params[0])
 		if err != nil {
 			nsNotice(rb, client.t("Invalid parameters"))
 			return
