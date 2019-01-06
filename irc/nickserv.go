@@ -238,6 +238,11 @@ func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
 }
 
 func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if client.LoggedIntoAccount() {
+		nsNotice(rb, client.t("You're already logged into an account"))
+		return
+	}
+
 	loginSuccessful := false
 
 	username := params[0]
