@@ -313,7 +313,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	// get params
 	username, email := params[0], params[1]
 	var passphrase string
-	if len(params) > 0 {
+	if len(params) > 2 {
 		passphrase = params[2]
 	}
 
