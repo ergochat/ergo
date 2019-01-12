@@ -529,8 +529,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.WebIRC = newWebIRC
 	// process limits
-	if config.Limits.LineLen.Tags < 512 || config.Limits.LineLen.Rest < 512 {
-		return nil, ErrLineLengthsTooSmall
+	if config.Limits.LineLen.Tags < 512 {
+		config.Limits.LineLen.Tags = 512
+	}
+	if config.Limits.LineLen.Rest < 512 {
+		config.Limits.LineLen.Rest = 512
 	}
 	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {

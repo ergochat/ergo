@@ -693,6 +693,13 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.accounts.initVHostRequestQueue()
 	}
 
+	// MaxLine
+	if config.Limits.LineLen.Tags != 512 || config.Limits.LineLen.Rest != 512 {
+		SupportedCapabilities.Enable(caps.MaxLine)
+		value := fmt.Sprintf("%d,%d", config.Limits.LineLen.Tags, config.Limits.LineLen.Rest)
+		CapValues.Set(caps.MaxLine, value)
+	}
+
 	// STS
 	stsPreviouslyEnabled := oldConfig != nil && oldConfig.Server.STS.Enabled
 	stsValue := config.Server.STS.Value()
