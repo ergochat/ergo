@@ -238,6 +238,11 @@ func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
 }
 
 func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if client.LoggedIntoAccount() {
+		nsNotice(rb, client.t("You're already logged into an account"))
+		return
+	}
+
 	loginSuccessful := false
 
 	username := params[0]
@@ -308,7 +313,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	// get params
 	username, email := params[0], params[1]
 	var passphrase string
-	if len(params) > 0 {
+	if len(params) > 2 {
 		passphrase = params[2]
 	}
 
