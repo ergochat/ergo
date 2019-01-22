@@ -190,7 +190,7 @@ func UpgradeDB(config *Config) (err error) {
 	})
 
 	if err != nil {
-		log.Println("database upgrade failed and was rolled back")
+		log.Printf("database upgrade failed and was rolled back: %v\n", err)
 	}
 	return err
 }
