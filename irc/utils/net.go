@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+var (
+	// subnet mask for an ipv6 /128:
+	mask128 = net.CIDRMask(128, 128)
+)
+
 // IPString returns a simple IP string from the given net.Addr.
 func IPString(addr net.Addr) string {
 	addrStr := addr.String()
@@ -93,4 +98,61 @@ func IsHostname(name string) bool {
 	}
 
 	return true
+}
+
+// NormalizeIPToNet represents an address (v4 or v6) as the v6 /128 CIDR
+// containing only it.
+func NormalizeIPToNet(addr net.IP) (network net.IPNet) {
+	// represent ipv4 addresses as ipv6 addresses, using the 4-in-6 prefix
+	// (actually this should be a no-op for any address returned by ParseIP)
+	addr = addr.To16()
+	// the network corresponding to this address is now an ipv6 /128:
+	return net.IPNet{
+		IP:   addr,
+		Mask: mask128,
+	}
+}
+
+// NormalizeNet normalizes an IPNet to a v6 CIDR, using the 4-in-6 prefix.
+// (this is like IP.To16(), but for IPNet instead of IP)
+func NormalizeNet(network net.IPNet) (result net.IPNet) {
+	if len(network.IP) == 16 {
+		return network
+	}
+	ones, _ := network.Mask.Size()
+	return net.IPNet{
+		IP: network.IP.To16(),
+		// include the 96 bits of the 4-in-6 prefix
+		Mask: net.CIDRMask(96+ones, 128),
+	}
+}
+
+// Given a network, produce a human-readable string
+// (i.e., CIDR if it's actually a network, IPv6 address if it's a v6 /128,
+// dotted quad if it's a v4 /32).
+func NetToNormalizedString(network net.IPNet) string {
+	ones, bits := network.Mask.Size()
+	if ones == bits && ones == len(network.IP)*8 {
+		// either a /32 or a /128, output the address:
+		return network.IP.String()
+	}
+	return network.String()
+}
+
+// Parse a human-readable description (an address or CIDR, either v4 or v6)
+// into a normalized v6 net.IPNet.
+func NormalizedNetFromString(str string) (result net.IPNet, err error) {
+	_, network, err := net.ParseCIDR(str)
+	if err == nil {
+		return NormalizeNet(*network), nil
+	}
+	ip := net.ParseIP(str)
+	if ip == nil {
+		err = &net.AddrError{
+			Err:  "Couldn't interpret as either CIDR or address",
+			Addr: str,
+		}
+		return
+	}
+	return NormalizeIPToNet(ip), nil
 }

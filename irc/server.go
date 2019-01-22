@@ -285,11 +285,10 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	if err != nil {
 		// too many connections too quickly from client, tell them and close the connection
 		duration := server.connectionThrottler.BanDuration()
-		length := &IPRestrictTime{
-			Duration: duration,
-			Expires:  time.Now().Add(duration),
+		if duration == 0 {
+			return false, ""
 		}
-		server.dlines.AddIP(ipaddr, length, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle", "auto.connection.throttler")
+		server.dlines.AddIP(ipaddr, duration, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle", "auto.connection.throttler")
 
 		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
 		// and once their temporary DLINE is finished they can fill up the throttler again
@@ -409,11 +408,7 @@ func (server *Server) tryRegister(c *Client) {
 	// check KLINEs
 	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 	if isBanned {
-		reason := info.Reason
-		if info.Time != nil {
-			reason += fmt.Sprintf(" [%s]", info.Time.Duration.String())
-		}
-		c.Quit(fmt.Sprintf(c.t("You are banned from this server (%s)"), reason))
+		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")))
 		c.destroy(false)
 		return
 	}

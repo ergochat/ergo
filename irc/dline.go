@@ -4,32 +4,20 @@
 package irc
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
-	"encoding/json"
-
+	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
 const (
-	keyDlineEntry = "bans.dline %s"
+	keyDlineEntry = "bans.dlinev2 %s"
 )
-
-// IPRestrictTime contains the expiration info about the given IP.
-type IPRestrictTime struct {
-	// Duration is how long this block lasts for.
-	Duration time.Duration `json:"duration"`
-	// Expires is when this block expires.
-	Expires time.Time `json:"expires"`
-}
-
-// IsExpired returns true if the time has expired.
-func (iptime *IPRestrictTime) IsExpired() bool {
-	return iptime.Expires.Before(time.Now())
-}
 
 // IPBanInfo holds info about an IP/net ban.
 type IPBanInfo struct {
@@ -39,30 +27,38 @@ type IPBanInfo struct {
 	OperReason string `json:"oper_reason"`
 	// OperName is the oper who set the ban.
 	OperName string `json:"oper_name"`
-	// Time holds details about the duration, if it exists.
-	Time *IPRestrictTime `json:"time"`
+	// time of ban creation
+	TimeCreated time.Time
+	// duration of the ban; 0 means "permanent"
+	Duration time.Duration
+}
+
+func (info IPBanInfo) timeLeft() time.Duration {
+	return info.TimeCreated.Add(info.Duration).Sub(time.Now())
+}
+
+func (info IPBanInfo) TimeLeft() string {
+	if info.Duration == 0 {
+		return "indefinite"
+	} else {
+		return info.timeLeft().Truncate(time.Second).String()
+	}
 }
 
 // BanMessage returns the ban message.
 func (info IPBanInfo) BanMessage(message string) string {
 	message = fmt.Sprintf(message, info.Reason)
-	if info.Time != nil {
-		message += fmt.Sprintf(" [%s]", info.Time.Duration.String())
+	if info.Duration != 0 {
+		message += fmt.Sprintf(" [%s]", info.TimeLeft())
 	}
 	return message
-}
-
-// dLineAddr contains the address itself and expiration time for a given network.
-type dLineAddr struct {
-	// Address is the address that is blocked.
-	Address net.IP
-	// Info contains information on the ban.
-	Info IPBanInfo
 }
 
 // dLineNet contains the net itself and expiration time for a given network.
 type dLineNet struct {
 	// Network is the network that is blocked.
+	// This is always an IPv6 CIDR; IPv4 CIDRs are translated with the 4-in-6 prefix,
+	// individual IPv4 and IPV6 addresses are translated to the relevant /128.
 	Network net.IPNet
 	// Info contains information on the ban.
 	Info IPBanInfo
@@ -70,18 +66,26 @@ type dLineNet struct {
 
 // DLineManager manages and dlines.
 type DLineManager struct {
-	sync.RWMutex // tier 1
-	// addresses that are dlined
-	addresses map[string]*dLineAddr
-	// networks that are dlined
-	networks map[string]*dLineNet
+	sync.RWMutex                // tier 1
+	persistenceMutex sync.Mutex // tier 2
+	// networks that are dlined:
+	// XXX: the keys of this map (which are also the database persistence keys)
+	// are the human-readable representations returned by NetToNormalizedString
+	networks map[string]dLineNet
+	// this keeps track of expiration timers for temporary bans
+	expirationTimers map[string]*time.Timer
+	server           *Server
 }
 
 // NewDLineManager returns a new DLineManager.
-func NewDLineManager() *DLineManager {
+func NewDLineManager(server *Server) *DLineManager {
 	var dm DLineManager
-	dm.addresses = make(map[string]*dLineAddr)
-	dm.networks = make(map[string]*dLineNet)
+	dm.networks = make(map[string]dLineNet)
+	dm.expirationTimers = make(map[string]*time.Timer)
+	dm.server = server
+
+	dm.loadFromDatastore()
+
 	return &dm
 }
 
@@ -92,154 +96,208 @@ func (dm *DLineManager) AllBans() map[string]IPBanInfo {
 	dm.RLock()
 	defer dm.RUnlock()
 
-	for name, info := range dm.addresses {
-		allb[name] = info.Info
-	}
-	for name, info := range dm.networks {
-		allb[name] = info.Info
+	// map keys are already the human-readable forms, just return a copy of the map
+	for key, info := range dm.networks {
+		allb[key] = info.Info
 	}
 
 	return allb
 }
 
 // AddNetwork adds a network to the blocked list.
-func (dm *DLineManager) AddNetwork(network net.IPNet, length *IPRestrictTime, reason, operReason, operName string) {
-	netString := network.String()
-	dln := dLineNet{
-		Network: network,
-		Info: IPBanInfo{
-			Time:       length,
-			Reason:     reason,
-			OperReason: operReason,
-			OperName:   operName,
-		},
+func (dm *DLineManager) AddNetwork(network net.IPNet, duration time.Duration, reason, operReason, operName string) error {
+	dm.persistenceMutex.Lock()
+	defer dm.persistenceMutex.Unlock()
+
+	// assemble ban info
+	info := IPBanInfo{
+		Reason:      reason,
+		OperReason:  operReason,
+		OperName:    operName,
+		TimeCreated: time.Now(),
+		Duration:    duration,
 	}
+
+	id := dm.addNetworkInternal(network, info)
+	return dm.persistDline(id, info)
+}
+
+func (dm *DLineManager) addNetworkInternal(network net.IPNet, info IPBanInfo) (id string) {
+	network = utils.NormalizeNet(network)
+	id = utils.NetToNormalizedString(network)
+
+	var timeLeft time.Duration
+	if info.Duration != 0 {
+		timeLeft = info.timeLeft()
+		if timeLeft <= 0 {
+			return
+		}
+	}
+
 	dm.Lock()
-	dm.networks[netString] = &dln
-	dm.Unlock()
+	defer dm.Unlock()
+
+	dm.networks[id] = dLineNet{
+		Network: network,
+		Info:    info,
+	}
+
+	dm.cancelTimer(id)
+
+	if info.Duration == 0 {
+		return
+	}
+
+	// set up new expiration timer
+	timeCreated := info.TimeCreated
+	processExpiration := func() {
+		dm.Lock()
+		defer dm.Unlock()
+
+		netBan, ok := dm.networks[id]
+		if ok && netBan.Info.TimeCreated.Equal(timeCreated) {
+			delete(dm.networks, id)
+			// TODO(slingamn) here's where we'd remove it from the radix tree
+		}
+	}
+	dm.expirationTimers[id] = time.AfterFunc(timeLeft, processExpiration)
+
+	return
+}
+
+func (dm *DLineManager) cancelTimer(id string) {
+	oldTimer := dm.expirationTimers[id]
+	if oldTimer != nil {
+		oldTimer.Stop()
+		delete(dm.expirationTimers, id)
+	}
+}
+
+func (dm *DLineManager) persistDline(id string, info IPBanInfo) error {
+	// save in datastore
+	dlineKey := fmt.Sprintf(keyDlineEntry, id)
+	// assemble json from ban info
+	b, err := json.Marshal(info)
+	if err != nil {
+		dm.server.logger.Error("internal", "couldn't marshal d-line", err.Error())
+		return err
+	}
+	bstr := string(b)
+	var setOptions *buntdb.SetOptions
+	if info.Duration != 0 {
+		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
+	}
+
+	err = dm.server.store.Update(func(tx *buntdb.Tx) error {
+		_, _, err := tx.Set(dlineKey, bstr, setOptions)
+		return err
+	})
+	if err != nil {
+		dm.server.logger.Error("internal", "couldn't store d-line", err.Error())
+	}
+	return err
+}
+
+func (dm *DLineManager) unpersistDline(id string) error {
+	dlineKey := fmt.Sprintf(keyDlineEntry, id)
+	return dm.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Delete(dlineKey)
+		return err
+	})
 }
 
 // RemoveNetwork removes a network from the blocked list.
-func (dm *DLineManager) RemoveNetwork(network net.IPNet) {
-	netString := network.String()
-	dm.Lock()
-	delete(dm.networks, netString)
-	dm.Unlock()
+func (dm *DLineManager) RemoveNetwork(network net.IPNet) error {
+	dm.persistenceMutex.Lock()
+	defer dm.persistenceMutex.Unlock()
+
+	id := utils.NetToNormalizedString(utils.NormalizeNet(network))
+
+	present := func() bool {
+		dm.Lock()
+		defer dm.Unlock()
+		_, ok := dm.networks[id]
+		delete(dm.networks, id)
+		dm.cancelTimer(id)
+		return ok
+	}()
+
+	if !present {
+		return errNoExistingBan
+	}
+
+	return dm.unpersistDline(id)
 }
 
 // AddIP adds an IP address to the blocked list.
-func (dm *DLineManager) AddIP(addr net.IP, length *IPRestrictTime, reason, operReason, operName string) {
-	addrString := addr.String()
-	dla := dLineAddr{
-		Address: addr,
-		Info: IPBanInfo{
-			Time:       length,
-			Reason:     reason,
-			OperReason: operReason,
-			OperName:   operName,
-		},
-	}
-	dm.Lock()
-	dm.addresses[addrString] = &dla
-	dm.Unlock()
+func (dm *DLineManager) AddIP(addr net.IP, duration time.Duration, reason, operReason, operName string) error {
+	return dm.AddNetwork(utils.NormalizeIPToNet(addr), duration, reason, operReason, operName)
 }
 
-// RemoveIP removes an IP from the blocked list.
-func (dm *DLineManager) RemoveIP(addr net.IP) {
-	addrString := addr.String()
-	dm.Lock()
-	delete(dm.addresses, addrString)
-	dm.Unlock()
+// RemoveIP removes an IP address from the blocked list.
+func (dm *DLineManager) RemoveIP(addr net.IP) error {
+	return dm.RemoveNetwork(utils.NormalizeIPToNet(addr))
 }
 
 // CheckIP returns whether or not an IP address was banned, and how long it is banned for.
-func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info *IPBanInfo) {
-	// check IP addr
-	addrString := addr.String()
-	dm.RLock()
-	addrInfo := dm.addresses[addrString]
-	dm.RUnlock()
-
-	if addrInfo != nil {
-		if addrInfo.Info.Time != nil {
-			if addrInfo.Info.Time.IsExpired() {
-				// ban on IP has expired, remove it from our blocked list
-				dm.RemoveIP(addr)
-			} else {
-				return true, &addrInfo.Info
-			}
-		} else {
-			return true, &addrInfo.Info
-		}
-	}
-
-	// check networks
-	doCleanup := false
-	defer func() {
-		if doCleanup {
-			go func() {
-				dm.Lock()
-				defer dm.Unlock()
-				for key, netInfo := range dm.networks {
-					if netInfo.Info.Time.IsExpired() {
-						delete(dm.networks, key)
-					}
-				}
-			}()
-		}
-	}()
+func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info IPBanInfo) {
+	addr = addr.To16() // almost certainly unnecessary
 
 	dm.RLock()
 	defer dm.RUnlock()
 
-	for _, netInfo := range dm.networks {
-		if netInfo.Info.Time != nil && netInfo.Info.Time.IsExpired() {
-			// expired ban, ignore and clean up later
-			doCleanup = true
-		} else if netInfo.Network.Contains(addr) {
-			return true, &netInfo.Info
+	// check networks
+	// TODO(slingamn) use a radix tree as the data plane for this
+	for _, netBan := range dm.networks {
+		if netBan.Network.Contains(addr) {
+			return true, netBan.Info
 		}
 	}
 	// no matches!
-	return false, nil
+	isBanned = false
+	return
 }
 
-func (s *Server) loadDLines() {
-	s.dlines = NewDLineManager()
+func (dm *DLineManager) loadFromDatastore() {
+	dlinePrefix := fmt.Sprintf(keyDlineEntry, "")
+	dm.server.store.View(func(tx *buntdb.Tx) error {
+		tx.AscendGreaterOrEqual("", dlinePrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, dlinePrefix) {
+				return false
+			}
 
-	// load from datastore
-	s.store.View(func(tx *buntdb.Tx) error {
-		//TODO(dan): We could make this safer
-		tx.AscendKeys("bans.dline *", func(key, value string) bool {
 			// get address name
-			key = key[len("bans.dline "):]
+			key = strings.TrimPrefix(key, dlinePrefix)
 
 			// load addr/net
-			var hostAddr net.IP
-			var hostNet *net.IPNet
-			_, hostNet, err := net.ParseCIDR(key)
+			hostNet, err := utils.NormalizedNetFromString(key)
 			if err != nil {
-				hostAddr = net.ParseIP(key)
+				dm.server.logger.Error("internal", "bad dline cidr", err.Error())
+				return true
 			}
 
 			// load ban info
 			var info IPBanInfo
-			json.Unmarshal([]byte(value), &info)
+			err = json.Unmarshal([]byte(value), &info)
+			if err != nil {
+				dm.server.logger.Error("internal", "bad dline data", err.Error())
+				return true
+			}
 
 			// set opername if it isn't already set
 			if info.OperName == "" {
-				info.OperName = s.name
+				info.OperName = dm.server.name
 			}
 
 			// add to the server
-			if hostNet == nil {
-				s.dlines.AddIP(hostAddr, info.Time, info.Reason, info.OperReason, info.OperName)
-			} else {
-				s.dlines.AddNetwork(*hostNet, info.Time, info.Reason, info.OperReason, info.OperName)
-			}
+			dm.addNetworkInternal(hostNet, info)
 
-			return true // true to continue I guess?
+			return true
 		})
 		return nil
 	})
+}
+
+func (s *Server) loadDLines() {
+	s.dlines = NewDLineManager(s)
 }

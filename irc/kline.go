@@ -5,14 +5,17 @@ package irc
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/tidwall/buntdb"
 )
 
 const (
-	keyKlineEntry = "bans.kline %s"
+	keyKlineEntry = "bans.klinev2 %s"
 )
 
 // KLineInfo contains the address itself and expiration time for a given network.
@@ -27,15 +30,23 @@ type KLineInfo struct {
 
 // KLineManager manages and klines.
 type KLineManager struct {
-	sync.RWMutex // tier 1
+	sync.RWMutex                // tier 1
+	persistenceMutex sync.Mutex // tier 2
 	// kline'd entries
-	entries map[string]*KLineInfo
+	entries          map[string]KLineInfo
+	expirationTimers map[string]*time.Timer
+	server           *Server
 }
 
 // NewKLineManager returns a new KLineManager.
-func NewKLineManager() *KLineManager {
+func NewKLineManager(s *Server) *KLineManager {
 	var km KLineManager
-	km.entries = make(map[string]*KLineInfo)
+	km.entries = make(map[string]KLineInfo)
+	km.expirationTimers = make(map[string]*time.Timer)
+	km.server = s
+
+	km.loadFromDatastore()
+
 	return &km
 }
 
@@ -53,97 +64,176 @@ func (km *KLineManager) AllBans() map[string]IPBanInfo {
 }
 
 // AddMask adds to the blocked list.
-func (km *KLineManager) AddMask(mask string, length *IPRestrictTime, reason, operReason, operName string) {
+func (km *KLineManager) AddMask(mask string, duration time.Duration, reason, operReason, operName string) error {
+	km.persistenceMutex.Lock()
+	defer km.persistenceMutex.Unlock()
+
+	info := IPBanInfo{
+		Reason:      reason,
+		OperReason:  operReason,
+		OperName:    operName,
+		TimeCreated: time.Now(),
+		Duration:    duration,
+	}
+	km.addMaskInternal(mask, info)
+	return km.persistKLine(mask, info)
+}
+
+func (km *KLineManager) addMaskInternal(mask string, info IPBanInfo) {
 	kln := KLineInfo{
 		Mask:    mask,
 		Matcher: ircmatch.MakeMatch(mask),
-		Info: IPBanInfo{
-			Time:       length,
-			Reason:     reason,
-			OperReason: operReason,
-			OperName:   operName,
-		},
+		Info:    info,
 	}
+
+	var timeLeft time.Duration
+	if info.Duration > 0 {
+		timeLeft = info.timeLeft()
+		if timeLeft <= 0 {
+			return
+		}
+	}
+
 	km.Lock()
-	km.entries[mask] = &kln
-	km.Unlock()
+	defer km.Unlock()
+
+	km.entries[mask] = kln
+	km.cancelTimer(mask)
+
+	if info.Duration == 0 {
+		return
+	}
+
+	// set up new expiration timer
+	timeCreated := info.TimeCreated
+	processExpiration := func() {
+		km.Lock()
+		defer km.Unlock()
+
+		maskBan, ok := km.entries[mask]
+		if ok && maskBan.Info.TimeCreated.Equal(timeCreated) {
+			delete(km.entries, mask)
+		}
+	}
+	km.expirationTimers[mask] = time.AfterFunc(timeLeft, processExpiration)
+}
+
+func (km *KLineManager) cancelTimer(id string) {
+	oldTimer := km.expirationTimers[id]
+	if oldTimer != nil {
+		oldTimer.Stop()
+		delete(km.expirationTimers, id)
+	}
+}
+
+func (km *KLineManager) persistKLine(mask string, info IPBanInfo) error {
+	// save in datastore
+	klineKey := fmt.Sprintf(keyKlineEntry, mask)
+	// assemble json from ban info
+	b, err := json.Marshal(info)
+	if err != nil {
+		return err
+	}
+	bstr := string(b)
+	var setOptions *buntdb.SetOptions
+	if info.Duration != 0 {
+		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
+	}
+
+	err = km.server.store.Update(func(tx *buntdb.Tx) error {
+		_, _, err := tx.Set(klineKey, bstr, setOptions)
+		return err
+	})
+
+	return err
+
+}
+
+func (km *KLineManager) unpersistKLine(mask string) error {
+	// save in datastore
+	klineKey := fmt.Sprintf(keyKlineEntry, mask)
+	return km.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Delete(klineKey)
+		return err
+	})
 }
 
 // RemoveMask removes a mask from the blocked list.
-func (km *KLineManager) RemoveMask(mask string) {
-	km.Lock()
-	delete(km.entries, mask)
-	km.Unlock()
+func (km *KLineManager) RemoveMask(mask string) error {
+	km.persistenceMutex.Lock()
+	defer km.persistenceMutex.Unlock()
+
+	present := func() bool {
+		km.Lock()
+		defer km.Unlock()
+		_, ok := km.entries[mask]
+		if ok {
+			delete(km.entries, mask)
+		}
+		km.cancelTimer(mask)
+		return ok
+	}()
+
+	if !present {
+		return errNoExistingBan
+	}
+
+	return km.unpersistKLine(mask)
 }
 
 // CheckMasks returns whether or not the hostmask(s) are banned, and how long they are banned for.
-func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info *IPBanInfo) {
-	doCleanup := false
-	defer func() {
-		// asynchronously remove expired bans
-		if doCleanup {
-			go func() {
-				km.Lock()
-				defer km.Unlock()
-				for key, entry := range km.entries {
-					if entry.Info.Time.IsExpired() {
-						delete(km.entries, key)
-					}
-				}
-			}()
-		}
-	}()
-
+func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info IPBanInfo) {
 	km.RLock()
 	defer km.RUnlock()
 
 	for _, entryInfo := range km.entries {
-		if entryInfo.Info.Time != nil && entryInfo.Info.Time.IsExpired() {
-			doCleanup = true
-			continue
-		}
-
-		matches := false
 		for _, mask := range masks {
 			if entryInfo.Matcher.Match(mask) {
-				matches = true
-				break
+				return true, entryInfo.Info
 			}
-		}
-		if matches {
-			return true, &entryInfo.Info
 		}
 	}
 
 	// no matches!
-	return false, nil
+	isBanned = false
+	return
 }
 
-func (s *Server) loadKLines() {
-	s.klines = NewKLineManager()
-
+func (km *KLineManager) loadFromDatastore() {
 	// load from datastore
-	s.store.View(func(tx *buntdb.Tx) error {
-		//TODO(dan): We could make this safer
-		tx.AscendKeys("bans.kline *", func(key, value string) bool {
+	klinePrefix := fmt.Sprintf(keyKlineEntry, "")
+	km.server.store.View(func(tx *buntdb.Tx) error {
+		tx.AscendGreaterOrEqual("", klinePrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, klinePrefix) {
+				return false
+			}
+
 			// get address name
-			key = key[len("bans.kline "):]
-			mask := key
+			mask := strings.TrimPrefix(key, klinePrefix)
 
 			// load ban info
 			var info IPBanInfo
-			json.Unmarshal([]byte(value), &info)
+			err := json.Unmarshal([]byte(value), &info)
+			if err != nil {
+				km.server.logger.Error("internal", "couldn't unmarshal kline", err.Error())
+				return true
+			}
 
 			// add oper name if it doesn't exist already
 			if info.OperName == "" {
-				info.OperName = s.name
+				info.OperName = km.server.name
 			}
 
 			// add to the server
-			s.klines.AddMask(mask, info.Time, info.Reason, info.OperReason, info.OperName)
+			km.addMaskInternal(mask, info)
 
-			return true // true to continue I guess?
+			return true
 		})
 		return nil
 	})
+
+}
+
+func (s *Server) loadKLines() {
+	s.klines = NewKLineManager(s)
 }
