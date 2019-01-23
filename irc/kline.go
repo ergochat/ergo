@@ -113,6 +113,7 @@ func (km *KLineManager) addMaskInternal(mask string, info IPBanInfo) {
 		maskBan, ok := km.entries[mask]
 		if ok && maskBan.Info.TimeCreated.Equal(timeCreated) {
 			delete(km.entries, mask)
+			delete(km.expirationTimers, mask)
 		}
 	}
 	km.expirationTimers[mask] = time.AfterFunc(timeLeft, processExpiration)

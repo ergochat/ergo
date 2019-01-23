@@ -158,6 +158,7 @@ func (dm *DLineManager) addNetworkInternal(network net.IPNet, info IPBanInfo) (i
 		if ok && netBan.Info.TimeCreated.Equal(timeCreated) {
 			delete(dm.networks, id)
 			// TODO(slingamn) here's where we'd remove it from the radix tree
+			delete(dm.expirationTimers, id)
 		}
 	}
 	dm.expirationTimers[id] = time.AfterFunc(timeLeft, processExpiration)
