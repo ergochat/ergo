@@ -54,6 +54,10 @@ Some platforms/distros also have Oragono packages maintained for them:
 
 * Arch Linux [AUR](https://aur.archlinux.org/packages/oragono/) - Maintained by [Sean Enck (@enckse)](https://github.com/enckse).
 
+### Using Docker
+
+A Dockerfile and docker-compose recipe are available in the [oragono-docker](https://github.com/oragono/oragono-docker) repository.
+
 ### From Source
 
 You can also install this repo and use that instead! However, keep some things in mind if you go that way:
