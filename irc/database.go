@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "3"
+	latestDbSchema = "4"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -190,7 +190,7 @@ func UpgradeDB(config *Config) (err error) {
 	})
 
 	if err != nil {
-		log.Println("database upgrade failed and was rolled back")
+		log.Printf("database upgrade failed and was rolled back: %v\n", err)
 	}
 	return err
 }
@@ -278,6 +278,118 @@ func schemaChangeV2ToV3(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// 1. ban info format changed (from `legacyBanInfo` below to `IPBanInfo`)
+// 2. dlines against individual IPs are normalized into dlines against the appropriate /128 network
+func schemaChangeV3ToV4(config *Config, tx *buntdb.Tx) error {
+	type ipRestrictTime struct {
+		Duration time.Duration
+		Expires  time.Time
+	}
+	type legacyBanInfo struct {
+		Reason     string          `json:"reason"`
+		OperReason string          `json:"oper_reason"`
+		OperName   string          `json:"oper_name"`
+		Time       *ipRestrictTime `json:"time"`
+	}
+
+	now := time.Now()
+	legacyToNewInfo := func(old legacyBanInfo) (new_ IPBanInfo) {
+		new_.Reason = old.Reason
+		new_.OperReason = old.OperReason
+		new_.OperName = old.OperName
+
+		if old.Time == nil {
+			new_.TimeCreated = now
+			new_.Duration = 0
+		} else {
+			new_.TimeCreated = old.Time.Expires.Add(-1 * old.Time.Duration)
+			new_.Duration = old.Time.Duration
+		}
+		return
+	}
+
+	var keysToDelete []string
+
+	prefix := "bans.dline "
+	dlines := make(map[string]IPBanInfo)
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		keysToDelete = append(keysToDelete, key)
+
+		var lbinfo legacyBanInfo
+		id := strings.TrimPrefix(key, prefix)
+		err := json.Unmarshal([]byte(value), &lbinfo)
+		if err != nil {
+			log.Printf("error unmarshaling legacy dline: %v\n", err)
+			return true
+		}
+		// legacy keys can be either an IP or a CIDR
+		hostNet, err := utils.NormalizedNetFromString(id)
+		if err != nil {
+			log.Printf("error unmarshaling legacy dline network: %v\n", err)
+			return true
+		}
+		dlines[utils.NetToNormalizedString(hostNet)] = legacyToNewInfo(lbinfo)
+
+		return true
+	})
+
+	setOptions := func(info IPBanInfo) *buntdb.SetOptions {
+		if info.Duration == 0 {
+			return nil
+		}
+		ttl := info.TimeCreated.Add(info.Duration).Sub(now)
+		return &buntdb.SetOptions{Expires: true, TTL: ttl}
+	}
+
+	// store the new dlines
+	for id, info := range dlines {
+		b, err := json.Marshal(info)
+		if err != nil {
+			log.Printf("error marshaling migrated dline: %v\n", err)
+			continue
+		}
+		tx.Set(fmt.Sprintf("bans.dlinev2 %s", id), string(b), setOptions(info))
+	}
+
+	// same operations against klines
+	prefix = "bans.kline "
+	klines := make(map[string]IPBanInfo)
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		keysToDelete = append(keysToDelete, key)
+		mask := strings.TrimPrefix(key, prefix)
+		var lbinfo legacyBanInfo
+		err := json.Unmarshal([]byte(value), &lbinfo)
+		if err != nil {
+			log.Printf("error unmarshaling legacy kline: %v\n", err)
+			return true
+		}
+		klines[mask] = legacyToNewInfo(lbinfo)
+		return true
+	})
+
+	for mask, info := range klines {
+		b, err := json.Marshal(info)
+		if err != nil {
+			log.Printf("error marshaling migrated kline: %v\n", err)
+			continue
+		}
+		tx.Set(fmt.Sprintf("bans.klinev2 %s", mask), string(b), setOptions(info))
+	}
+
+	// clean up all the old entries
+	for _, key := range keysToDelete {
+		tx.Delete(key)
+	}
+
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -289,6 +401,11 @@ func init() {
 			InitialVersion: "2",
 			TargetVersion:  "3",
 			Changer:        schemaChangeV2ToV3,
+		},
+		{
+			InitialVersion: "3",
+			TargetVersion:  "4",
+			Changer:        schemaChangeV3ToV4,
 		},
 	}
 

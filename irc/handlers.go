@@ -9,9 +9,7 @@ package irc
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -30,7 +28,6 @@ import (
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
-	"github.com/tidwall/buntdb"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -578,6 +575,33 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	return false
 }
 
+// helper for parsing the reason args to DLINE and KLINE
+func getReasonsFromParams(params []string, currentArg int) (reason, operReason string) {
+	reason = "No reason given"
+	operReason = ""
+	if len(params) > currentArg {
+		reasons := strings.SplitN(strings.Join(params[currentArg:], " "), "|", 2)
+		if len(reasons) == 1 {
+			reason = strings.TrimSpace(reasons[0])
+		} else if len(reasons) == 2 {
+			reason = strings.TrimSpace(reasons[0])
+			operReason = strings.TrimSpace(reasons[1])
+		}
+	}
+	return
+}
+
+func formatBanForListing(client *Client, key string, info IPBanInfo) string {
+	desc := info.Reason
+	if info.OperReason != "" && info.OperReason != info.Reason {
+		desc = fmt.Sprintf("%s | %s", info.Reason, info.OperReason)
+	}
+	if info.Duration != 0 {
+		desc = fmt.Sprintf("%s [%s]", desc, info.TimeLeft())
+	}
+	return fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, desc)
+}
+
 // DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 // DLINE LIST
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
@@ -599,7 +623,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for key, info := range bans {
-			rb.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
+			client.Notice(formatBanForListing(client, key, info))
 		}
 
 		return false
@@ -622,8 +646,9 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	// duration
 	duration, err := custime.ParseDuration(msg.Params[currentArg])
-	durationIsUsed := err == nil
-	if durationIsUsed {
+	if err != nil {
+		duration = 0
+	} else {
 		currentArg++
 	}
 
@@ -636,31 +661,16 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	currentArg++
 
 	// check host
-	var hostAddr net.IP
-	var hostNet *net.IPNet
+	hostNet, err := utils.NormalizedNetFromString(hostString)
 
-	_, hostNet, err = net.ParseCIDR(hostString)
 	if err != nil {
-		hostAddr = net.ParseIP(hostString)
-	}
-
-	if hostAddr == nil && hostNet == nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
-	if hostNet == nil {
-		hostString = hostAddr.String()
-		if !dlineMyself && hostAddr.Equal(client.IP()) {
-			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
-			return false
-		}
-	} else {
-		hostString = hostNet.String()
-		if !dlineMyself && hostNet.Contains(client.IP()) {
-			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
-			return false
-		}
+	if !dlineMyself && hostNet.Contains(client.IP()) {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
+		return false
 	}
 
 	// check remote
@@ -670,71 +680,23 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	// get comment(s)
-	reason := "No reason given"
-	operReason := "No reason given"
-	if len(msg.Params) > currentArg {
-		tempReason := strings.TrimSpace(msg.Params[currentArg])
-		if len(tempReason) > 0 && tempReason != "|" {
-			tempReasons := strings.SplitN(tempReason, "|", 2)
-			if tempReasons[0] != "" {
-				reason = tempReasons[0]
-			}
-			if len(tempReasons) > 1 && tempReasons[1] != "" {
-				operReason = tempReasons[1]
-			} else {
-				operReason = reason
-			}
-		}
-	}
+	reason, operReason := getReasonsFromParams(msg.Params, currentArg)
+
 	operName := oper.Name
 	if operName == "" {
 		operName = server.name
 	}
 
-	// assemble ban info
-	var banTime *IPRestrictTime
-	if durationIsUsed {
-		banTime = &IPRestrictTime{
-			Duration: duration,
-			Expires:  time.Now().Add(duration),
-		}
-	}
-
-	info := IPBanInfo{
-		Reason:     reason,
-		OperReason: operReason,
-		OperName:   operName,
-		Time:       banTime,
-	}
-
-	// save in datastore
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		dlineKey := fmt.Sprintf(keyDlineEntry, hostString)
-
-		// assemble json from ban info
-		b, err := json.Marshal(info)
-		if err != nil {
-			return err
-		}
-
-		tx.Set(dlineKey, string(b), nil)
-
-		return nil
-	})
+	err = server.dlines.AddNetwork(hostNet, duration, reason, operReason, operName)
 
 	if err != nil {
 		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))
 		return false
 	}
 
-	if hostNet == nil {
-		server.dlines.AddIP(hostAddr, banTime, reason, operReason, operName)
-	} else {
-		server.dlines.AddNetwork(*hostNet, banTime, reason, operReason, operName)
-	}
-
 	var snoDescription string
-	if durationIsUsed {
+	hostString = utils.NetToNormalizedString(hostNet)
+	if duration != 0 {
 		rb.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) D-Line for %[2]s"), duration.String(), hostString))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) D-Line for %s"), client.nick, operName, duration.String(), hostString)
 	} else {
@@ -747,16 +709,9 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	if andKill {
 		var clientsToKill []*Client
 		var killedClientNicks []string
-		var toKill bool
 
 		for _, mcl := range server.clients.AllClients() {
-			if hostNet == nil {
-				toKill = hostAddr.Equal(mcl.IP())
-			} else {
-				toKill = hostNet.Contains(mcl.IP())
-			}
-
-			if toKill {
+			if hostNet.Contains(mcl.IP()) {
 				clientsToKill = append(clientsToKill, mcl)
 				killedClientNicks = append(killedClientNicks, mcl.nick)
 			}
@@ -1047,7 +1002,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for key, info := range bans {
-			client.Notice(fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, info.BanMessage("%s")))
+			client.Notice(formatBanForListing(client, key, info))
 		}
 
 		return false
@@ -1070,8 +1025,9 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	// duration
 	duration, err := custime.ParseDuration(msg.Params[currentArg])
-	durationIsUsed := err == nil
-	if durationIsUsed {
+	if err != nil {
+		duration = 0
+	} else {
 		currentArg++
 	}
 
@@ -1112,63 +1068,16 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	// get comment(s)
-	reason := "No reason given"
-	operReason := "No reason given"
-	if len(msg.Params) > currentArg {
-		tempReason := strings.TrimSpace(msg.Params[currentArg])
-		if len(tempReason) > 0 && tempReason != "|" {
-			tempReasons := strings.SplitN(tempReason, "|", 2)
-			if tempReasons[0] != "" {
-				reason = tempReasons[0]
-			}
-			if len(tempReasons) > 1 && tempReasons[1] != "" {
-				operReason = tempReasons[1]
-			} else {
-				operReason = reason
-			}
-		}
-	}
+	reason, operReason := getReasonsFromParams(msg.Params, currentArg)
 
-	// assemble ban info
-	var banTime *IPRestrictTime
-	if durationIsUsed {
-		banTime = &IPRestrictTime{
-			Duration: duration,
-			Expires:  time.Now().Add(duration),
-		}
-	}
-
-	info := IPBanInfo{
-		Reason:     reason,
-		OperReason: operReason,
-		OperName:   operName,
-		Time:       banTime,
-	}
-
-	// save in datastore
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		klineKey := fmt.Sprintf(keyKlineEntry, mask)
-
-		// assemble json from ban info
-		b, err := json.Marshal(info)
-		if err != nil {
-			return err
-		}
-
-		tx.Set(klineKey, string(b), nil)
-
-		return nil
-	})
-
+	err = server.klines.AddMask(mask, duration, reason, operReason, operName)
 	if err != nil {
 		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new K-LINE: %s"), err.Error()))
 		return false
 	}
 
-	server.klines.AddMask(mask, banTime, reason, operReason, operName)
-
 	var snoDescription string
-	if durationIsUsed {
+	if duration != 0 {
 		rb.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) K-Line for %[2]s"), duration.String(), mask))
 		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
 	} else {
@@ -2219,52 +2128,21 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	hostString := msg.Params[0]
 
 	// check host
-	var hostAddr net.IP
-	var hostNet *net.IPNet
+	hostNet, err := utils.NormalizedNetFromString(hostString)
 
-	_, hostNet, err := net.ParseCIDR(hostString)
 	if err != nil {
-		hostAddr = net.ParseIP(hostString)
-	}
-
-	if hostAddr == nil && hostNet == nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
 		return false
 	}
 
-	if hostNet == nil {
-		hostString = hostAddr.String()
-	} else {
-		hostString = hostNet.String()
-	}
-
-	// save in datastore
-	err = server.store.Update(func(tx *buntdb.Tx) error {
-		dlineKey := fmt.Sprintf(keyDlineEntry, hostString)
-
-		// check if it exists or not
-		val, err := tx.Get(dlineKey)
-		if val == "" {
-			return errNoExistingBan
-		} else if err != nil {
-			return err
-		}
-
-		tx.Delete(dlineKey)
-		return nil
-	})
+	err = server.dlines.RemoveNetwork(hostNet)
 
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
-	if hostNet == nil {
-		server.dlines.RemoveIP(hostAddr)
-	} else {
-		server.dlines.RemoveNetwork(*hostNet)
-	}
-
+	hostString = utils.NetToNormalizedString(hostNet)
 	rb.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
 	return false
@@ -2288,28 +2166,12 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		mask = mask + "@*"
 	}
 
-	// save in datastore
-	err := server.store.Update(func(tx *buntdb.Tx) error {
-		klineKey := fmt.Sprintf(keyKlineEntry, mask)
-
-		// check if it exists or not
-		val, err := tx.Get(klineKey)
-		if val == "" {
-			return errNoExistingBan
-		} else if err != nil {
-			return err
-		}
-
-		tx.Delete(klineKey)
-		return nil
-	})
+	err := server.klines.RemoveMask(mask)
 
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
-
-	server.klines.RemoveMask(mask)
 
 	rb.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), client.nick, mask))
