@@ -759,15 +759,15 @@ func (client *Client) updateNickMaskNoMutex() {
 		client.hostname = client.rawHostname
 	}
 
-	nickMaskString := fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
-	nickMaskCasefolded, err := Casefold(nickMaskString)
+	cfusername, _ := Casefold(client.username) // we already checked for errors in SetNames
+	cfhostname, err := Casefold(client.hostname)
 	if err != nil {
-		client.server.logger.Error("internal", "nickmask couldn't be casefolded", nickMaskString, err.Error())
-		return
+		client.server.logger.Error("internal", "hostname couldn't be casefolded", client.hostname, err.Error())
+		cfhostname = client.hostname // YOLO
 	}
 
-	client.nickMaskString = nickMaskString
-	client.nickMaskCasefolded = nickMaskCasefolded
+	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
+	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, cfusername, cfhostname)
 }
 
 // AllNickmasks returns all the possible nickmasks for the client.
