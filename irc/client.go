@@ -98,6 +98,7 @@ type Client struct {
 	socket             *Socket
 	stateMutex         sync.RWMutex // tier 1
 	username           string
+	usernameCasefolded string
 	vhost              string
 	history            *history.Buffer
 }
@@ -175,10 +176,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
 			username := resp.Identifier
-			_, err := CasefoldName(username) // ensure it's a valid username
+			err := client.SetNames(username, "")
 			if err == nil {
 				client.Notice(client.t("*** Found your username"))
-				client.username = username
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice(client.t("*** Got a malformed username, ignoring"))
@@ -619,7 +619,7 @@ func (client *Client) HasUsername() bool {
 }
 
 func (client *Client) SetNames(username, realname string) error {
-	_, err := CasefoldName(username)
+	usernameCasefolded, err := CasefoldName(username)
 	if err != nil {
 		return errInvalidUsername
 	}
@@ -629,6 +629,7 @@ func (client *Client) SetNames(username, realname string) error {
 
 	if client.username == "" {
 		client.username = "~" + username
+		client.usernameCasefolded = "~" + usernameCasefolded
 	}
 
 	if client.realname == "" {
@@ -759,7 +760,6 @@ func (client *Client) updateNickMaskNoMutex() {
 		client.hostname = client.rawHostname
 	}
 
-	cfusername, _ := Casefold(client.username) // we already checked for errors in SetNames
 	cfhostname, err := Casefold(client.hostname)
 	if err != nil {
 		client.server.logger.Error("internal", "hostname couldn't be casefolded", client.hostname, err.Error())
@@ -767,40 +767,38 @@ func (client *Client) updateNickMaskNoMutex() {
 	}
 
 	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
-	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, cfusername, cfhostname)
+	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, client.usernameCasefolded, cfhostname)
 }
 
 // AllNickmasks returns all the possible nickmasks for the client.
-func (client *Client) AllNickmasks() []string {
-	var masks []string
-	var mask string
-	var err error
-
+func (client *Client) AllNickmasks() (masks []string) {
 	client.stateMutex.RLock()
-	nick := client.nick
-	username := client.username
+	nick := client.nickCasefolded
+	username := client.usernameCasefolded
 	rawHostname := client.rawHostname
 	vhost := client.getVHostNoMutex()
 	client.stateMutex.RUnlock()
 
 	if len(vhost) > 0 {
-		mask, err = Casefold(fmt.Sprintf("%s!%s@%s", nick, username, vhost))
+		cfvhost, err := Casefold(vhost)
 		if err == nil {
-			masks = append(masks, mask)
+			masks = append(masks, fmt.Sprintf("%s!%s@%s", nick, username, cfvhost))
 		}
 	}
 
-	mask, err = Casefold(fmt.Sprintf("%s!%s@%s", nick, username, rawHostname))
+	var rawhostmask string
+	cfrawhost, err := Casefold(rawHostname)
 	if err == nil {
-		masks = append(masks, mask)
+		rawhostmask = fmt.Sprintf("%s!%s@%s", nick, username, cfrawhost)
+		masks = append(masks, rawhostmask)
 	}
 
-	mask2, err := Casefold(fmt.Sprintf("%s!%s@%s", nick, username, client.IPString()))
-	if err == nil && mask2 != mask {
-		masks = append(masks, mask2)
+	ipmask := fmt.Sprintf("%s!%s@%s", nick, username, client.IPString())
+	if ipmask != rawhostmask {
+		masks = append(masks, ipmask)
 	}
 
-	return masks
+	return
 }
 
 // LoggedIntoAccount returns true if this client is logged into an account.
