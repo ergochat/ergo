@@ -176,9 +176,11 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
 			username := resp.Identifier
-			err := client.SetNames(username, "")
+			cfusername, err := CasefoldName(username)
 			if err == nil {
 				client.Notice(client.t("*** Found your username"))
+				client.username = username
+				client.usernameCasefolded = cfusername
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice(client.t("*** Got a malformed username, ignoring"))
