@@ -1706,7 +1706,6 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	oldNickmask := client.NickMaskString()
 	client.SetOper(oper)
-	client.updateNickMask("")
 	if client.NickMaskString() != oldNickmask {
 		client.sendChghost(oldNickmask, oper.Vhost)
 	}

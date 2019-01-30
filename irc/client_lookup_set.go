@@ -34,12 +34,14 @@ func ExpandUserHost(userhost string) (expanded string) {
 type ClientManager struct {
 	sync.RWMutex // tier 2
 	byNick       map[string]*Client
+	bySkeleton   map[string]*Client
 }
 
 // NewClientManager returns a new ClientManager.
 func NewClientManager() *ClientManager {
 	return &ClientManager{
-		byNick: make(map[string]*Client),
+		byNick:     make(map[string]*Client),
+		bySkeleton: make(map[string]*Client),
 	}
 }
 
@@ -65,7 +67,11 @@ func (clients *ClientManager) Get(nick string) *Client {
 
 func (clients *ClientManager) removeInternal(client *Client) (err error) {
 	// requires holding the writable Lock()
-	oldcfnick := client.NickCasefolded()
+	oldcfnick, oldskeleton := client.uniqueIdentifiers()
+	if oldcfnick == "*" || oldcfnick == "" {
+		return errNickMissing
+	}
+
 	currentEntry, present := clients.byNick[oldcfnick]
 	if present {
 		if currentEntry == client {
@@ -75,7 +81,22 @@ func (clients *ClientManager) removeInternal(client *Client) (err error) {
 			client.server.logger.Warning("internal", "clients for nick out of sync", oldcfnick)
 			err = errNickMissing
 		}
+	} else {
+		err = errNickMissing
 	}
+
+	currentEntry, present = clients.bySkeleton[oldskeleton]
+	if present {
+		if currentEntry == client {
+			delete(clients.bySkeleton, oldskeleton)
+		} else {
+			client.server.logger.Warning("internal", "clients for skeleton out of sync", oldskeleton)
+			err = errNickMissing
+		}
+	} else {
+		err = errNickMissing
+	}
+
 	return
 }
 
@@ -84,9 +105,6 @@ func (clients *ClientManager) Remove(client *Client) error {
 	clients.Lock()
 	defer clients.Unlock()
 
-	if !client.HasNick() {
-		return errNickMissing
-	}
 	return clients.removeInternal(client)
 }
 
@@ -105,7 +123,9 @@ func (clients *ClientManager) Resume(newClient, oldClient *Client) (err error) {
 	}
 	// nick has been reclaimed, grant it to the new client
 	clients.removeInternal(newClient)
-	clients.byNick[oldClient.NickCasefolded()] = newClient
+	oldcfnick, oldskeleton := oldClient.uniqueIdentifiers()
+	clients.byNick[oldcfnick] = newClient
+	clients.bySkeleton[oldskeleton] = newClient
 
 	newClient.copyResumeData(oldClient)
 
@@ -118,8 +138,12 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	if err != nil {
 		return err
 	}
+	newSkeleton, err := Skeleton(newNick)
+	if err != nil {
+		return err
+	}
 
-	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick)
+	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
 
 	clients.Lock()
 	defer clients.Unlock()
@@ -129,12 +153,18 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	if currentNewEntry != nil && currentNewEntry != client {
 		return errNicknameInUse
 	}
+	// analogous checks for skeletons
+	skeletonHolder := clients.bySkeleton[newSkeleton]
+	if skeletonHolder != nil && skeletonHolder != client {
+		return errNicknameInUse
+	}
 	if method == NickReservationStrict && reservedAccount != "" && reservedAccount != client.Account() {
 		return errNicknameReserved
 	}
 	clients.removeInternal(client)
 	clients.byNick[newcfnick] = client
-	client.updateNickMask(newNick)
+	clients.bySkeleton[newSkeleton] = client
+	client.updateNick(newNick, newcfnick, newSkeleton)
 	return nil
 }
 

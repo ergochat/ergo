@@ -108,6 +108,15 @@ func (client *Client) Realname() string {
 	return client.realname
 }
 
+// uniqueIdentifiers returns the strings for which the server enforces per-client
+// uniqueness/ownership; no two clients can have colliding casefolded nicks or
+// skeletons.
+func (client *Client) uniqueIdentifiers() (nickCasefolded string, skeleton string) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nickCasefolded, client.skeleton
+}
+
 func (client *Client) ResumeToken() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -118,12 +127,6 @@ func (client *Client) Oper() *Oper {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.oper
-}
-
-func (client *Client) SetOper(oper *Oper) {
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.oper = oper
 }
 
 func (client *Client) Registered() bool {

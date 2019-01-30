@@ -215,7 +215,7 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 }
 
 func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	nick := client.NickCasefolded()
+	nick := client.Nick()
 	err := server.accounts.SetNickReserved(client, nick, false, true)
 	if err == nil {
 		nsNotice(rb, fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
