@@ -213,13 +213,18 @@ func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account st
 	skelAccount := am.skeletonToAccount[skeleton]
 	if nickAccount == "" && skelAccount == "" {
 		return "", NickReservationNone
-	} else if nickAccount != "" && skelAccount != "" && nickAccount != skelAccount {
+	} else if nickAccount != "" && (skelAccount == nickAccount || skelAccount == "") {
+		return nickAccount, finalEnforcementMethod(nickAccount)
+	} else if skelAccount != "" && nickAccount == "" {
+		return skelAccount, finalEnforcementMethod(skelAccount)
+	} else {
+		// nickAccount != skelAccount and both are nonempty:
 		// two people have competing claims on (this casefolding of) this nick!
 		nickMethod := finalEnforcementMethod(nickAccount)
 		skelMethod := finalEnforcementMethod(skelAccount)
 		switch {
 		case nickMethod == NickReservationNone && skelMethod == NickReservationNone:
-			return "", NickReservationNone
+			return nickAccount, NickReservationNone
 		case skelMethod == NickReservationNone:
 			return nickAccount, nickMethod
 		case nickMethod == NickReservationNone:
@@ -228,12 +233,7 @@ func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account st
 			// nobody can use this nick
 			return "!", NickReservationStrict
 		}
-	} else if nickAccount == "" && skelAccount != "" {
-		// skeleton owner is the only owner; fall through to normal case
-		nickAccount = skelAccount
 	}
-	// else: nickAccount != "" && skelAccount == "", nickAccount is the only owner
-	return nickAccount, finalEnforcementMethod(nickAccount)
 }
 
 // Looks up the enforcement method stored in the database for an account
