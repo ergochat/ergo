@@ -8,7 +8,7 @@ package irc
 import (
 	"strings"
 
-	"github.com/mtibben/confusables"
+	"github.com/oragono/confusables"
 	"golang.org/x/text/secure/precis"
 	"golang.org/x/text/unicode/norm"
 )

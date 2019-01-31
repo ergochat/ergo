@@ -62,6 +62,13 @@
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
+  digest = "1:7caf3ea977a13cd8b9a2e1ecef1ccaa8e38f831b4f6ffcb8bd0aa909c48afb3a"
+  name = "github.com/oragono/confusables"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "d5dd03409482fae2457f0742be22782890f720c2"
+
+[[projects]]
   branch = "master"
   digest = "1:2251e6a17ea4a6eaa708882a1cda837aae3e425edbb190ef39b761ecf15a5c3d"
   name = "github.com/oragono/go-ident"
@@ -199,12 +206,14 @@
     "github.com/goshuirc/irc-go/ircmsg",
     "github.com/mattn/go-colorable",
     "github.com/mgutz/ansi",
+    "github.com/oragono/confusables",
     "github.com/oragono/go-ident",
     "github.com/tidwall/buntdb",
     "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/sha3",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/text/secure/precis",
+    "golang.org/x/text/unicode/norm",
     "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
