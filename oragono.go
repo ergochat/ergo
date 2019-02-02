@@ -35,7 +35,7 @@ func getPassword() string {
 	}
 	reader := bufio.NewReader(os.Stdin)
 	text, _ := reader.ReadString('\n')
-	return text
+	return strings.TrimSpace(text)
 }
 
 func main() {
