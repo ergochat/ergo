@@ -6,8 +6,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"syscall"
 
@@ -23,11 +25,17 @@ var commit = ""
 
 // get a password from stdin from the user
 func getPassword() string {
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.Fatal("Error reading password:", err.Error())
+	fd := int(os.Stdin.Fd())
+	if terminal.IsTerminal(fd) {
+		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			log.Fatal("Error reading password:", err.Error())
+		}
+		return string(bytePassword)
 	}
-	return string(bytePassword)
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+	return text
 }
 
 func main() {
@@ -51,20 +59,29 @@ Options:
 
 	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
-		fmt.Print("Enter Password: ")
-		password := getPassword()
-		fmt.Print("\n")
-		fmt.Print("Reenter Password: ")
-		confirm := getPassword()
-		fmt.Print("\n")
-		if confirm != password {
-			log.Fatal("passwords do not match")
+		var password string
+		fd := int(os.Stdin.Fd())
+		if terminal.IsTerminal(fd) {
+			fmt.Print("Enter Password: ")
+			password = getPassword()
+			fmt.Print("\n")
+			fmt.Print("Reenter Password: ")
+			confirm := getPassword()
+			fmt.Print("\n")
+			if confirm != password {
+				log.Fatal("passwords do not match")
+			}
+		} else {
+			password = getPassword()
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
-		fmt.Println(string(hash))
+		fmt.Print(string(hash))
+		if terminal.IsTerminal(fd) {
+			fmt.Println()
+		}
 		return
 	}
 
