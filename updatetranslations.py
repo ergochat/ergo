@@ -54,8 +54,10 @@ if __name__ == '__main__':
                         if match not in irc_strings:
                             irc_strings.append(match)
 
-        print("irc strings:")
-        print(json.dumps({k:k for k in irc_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+        print("irc strings:", len(irc_strings))
+        with open(os.path.join(arguments['<languages-dir>'], 'example-irc.lang.json'), 'w') as f:
+            f.write(json.dumps({k:k for k in irc_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write('\n')
 
         # help entries
         help_strings = []
@@ -71,10 +73,10 @@ if __name__ == '__main__':
                         if '\n' in match and match not in help_strings:
                             help_strings.append(match)
 
-        print()
-
-        print("help strings:")
-        print(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+        print("help strings:", len(help_strings))
+        with open(os.path.join(arguments['<languages-dir>'], 'example-help.lang.json'), 'w') as f:
+            f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write('\n')
 
         # nickserv help entries
         help_strings = []
@@ -90,7 +92,45 @@ if __name__ == '__main__':
                         if '\n' in match and match not in help_strings:
                             help_strings.append(match)
 
-        print()
+        print("nickserv help strings:", len(help_strings))
+        with open(os.path.join(arguments['<languages-dir>'], 'example-nickserv.lang.json'), 'w') as f:
+            f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write('\n')
 
-        print("nickserv help strings:")
-        print(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+        # chanserv help entries
+        help_strings = []
+
+        for subdir, dirs, files in os.walk(arguments['<irc-dir>']):
+            for fname in files:
+                filepath = subdir + os.sep + fname
+                if fname == 'chanserv.go':
+                    content = open(filepath, 'r', encoding='UTF-8').read()
+
+                    matches = re.findall(r'\`([^\`]+)\`', content)
+                    for match in matches:
+                        if '\n' in match and match not in help_strings:
+                            help_strings.append(match)
+
+        print("chanserv help strings:", len(help_strings))
+        with open(os.path.join(arguments['<languages-dir>'], 'example-chanserv.lang.json'), 'w') as f:
+            f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write('\n')
+
+        # hostserv help entries
+        help_strings = []
+
+        for subdir, dirs, files in os.walk(arguments['<irc-dir>']):
+            for fname in files:
+                filepath = subdir + os.sep + fname
+                if fname == 'hostserv.go':
+                    content = open(filepath, 'r', encoding='UTF-8').read()
+
+                    matches = re.findall(r'\`([^\`]+)\`', content)
+                    for match in matches:
+                        if '\n' in match and match not in help_strings:
+                            help_strings.append(match)
+
+        print("hostserv help strings:", len(help_strings))
+        with open(os.path.join(arguments['<languages-dir>'], 'example-hostserv.lang.json'), 'w') as f:
+            f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write('\n')
