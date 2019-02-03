@@ -57,6 +57,7 @@ New release of Oragono! Up to 057d00b.
 * Fixed some internal socker logic, to prevent race conditions.
 * Invalid `ISUPPORT` tokens are now explicitly rejected.
 * Made `server-time` timestamp format more consistent and safer.
+* Oragono now exits with status (1) if it fails to start.
 * Prevent logging in multiple times when using `/NS IDENTIFY`.
 * Prevented the db handler from automagically creating the database without initializing it (thanks @enckse!). We also now automatically create the datastore on `run`.
 * Updated internal command line parsing (thanks @iNecas!).
