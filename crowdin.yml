@@ -1,0 +1,53 @@
+#
+# Your crowdin's credentials
+#
+"project_identifier" : "oragono"
+# "api_key" : ""
+# "base_path" : ""
+#"base_url" : ""
+
+#
+# Choose file structure in crowdin
+# e.g. true or false
+#
+"preserve_hierarchy": true
+
+#
+# Files configuration
+#
+files: [
+ {
+  "source" : "languages/example/translation.lang.yaml",
+  "translation" : "languages/%locale%.lang.yaml",
+  "dest" : "translation.lang.yaml"
+ },
+ {
+  "source" : "languages/example/irc.lang.json",
+  "translation" : "languages/%locale%-irc.lang.yaml",
+  "dest" : "irc.lang.json"
+ },
+ {
+  "source" : "languages/example/help.lang.json",
+  "translation" : "languages/%locale%-help.lang.yaml",
+  "dest" : "help.lang.json",
+  "update_option" : "update_as_unapproved",
+ },
+ {
+  "source" : "languages/example/chanserv.lang.json",
+  "translation" : "languages/%locale%-chanserv.lang.yaml",
+  "dest" : "services/chanserv.lang.json",
+  "update_option" : "update_as_unapproved",
+ },
+ {
+  "source" : "languages/example/nickserv.lang.json",
+  "translation" : "languages/%locale%-nickserv.lang.yaml",
+  "dest" : "services/nickserv.lang.json",
+  "update_option" : "update_as_unapproved",
+ },
+ {
+  "source" : "languages/example/hostserv.lang.json",
+  "translation" : "languages/%locale%-hostserv.lang.yaml",
+  "dest" : "services/hostserv.lang.json",
+  "update_option" : "update_as_unapproved",
+ },
+]
