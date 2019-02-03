@@ -15,12 +15,12 @@ New release of Oragono! Up to 057d00b.
 * `login-throttling` section added under `accounts`.
 * `method` key now under `accounts` now allows the value `"optional"`.
 * Logging type `server` has been added, replacing the `startup`, `rehash`, and `shutdown` types.
-* We no longer listen on port `6668` by default (this fixes up Docker).
+s* We no longer listen on port `6668` by default (this fixes Docker installs).
 
 ### Security
 
 ### Added
-* `oragono genpasswd` now works when piping input in (fixes Docker building).
+* `oragono genpasswd` now works when piping input in (fixes Docker installs).
 * Added automagic datastore creation on `oragono run`.
 * Added limited message history for connection resuming (to be extended in future).
 * Added new Español (es) translation (thanks to Mauropek!)).
@@ -62,7 +62,7 @@ New release of Oragono! Up to 057d00b.
 * Prevented the db handler from automagically creating the database without initializing it (thanks @enckse!). We also now automatically create the datastore on `run`.
 * Updated internal command line parsing (thanks @iNecas!).
 
-### Internal Enhancements
+### Internal Notes
 * `DLINE` and `KLINE` refactored, and expired bans are now removed from the database.
 * Logging system optimised.
 * Services handlers refactored.
