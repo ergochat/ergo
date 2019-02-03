@@ -623,11 +623,14 @@ func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
 
+// SetNames sets the client's ident and realname.
 func (client *Client) SetNames(username, realname string) error {
-	usernameCasefolded, err := CasefoldName(username)
-	if err != nil {
+	// do this before casefolding to ensure these are actually ascii
+	if !isIdent(username) {
 		return errInvalidUsername
 	}
+
+	usernameCasefolded := strings.ToLower(username) // only ascii is supported in idents anyway
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()

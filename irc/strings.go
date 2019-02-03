@@ -128,6 +128,32 @@ func isBoring(name string) bool {
 	return true
 }
 
+// returns true if the given name is a valid ident, using a mix of Insp and
+// Chary's ident restrictions.
+func isIdent(name string) bool {
+	if len(name) < 1 {
+		return false
+	}
+
+	for i := 0; i < len(name); i++ {
+		chr := name[i]
+		if (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') {
+			continue // alphanumerics
+		}
+		if i == 0 {
+			return false // first char must be alnum
+		}
+		switch chr {
+		case '[', '\\', ']', '^', '_', '{', '|', '}', '-', '.', '`':
+			continue // allowed chars
+		default:
+			return false // disallowed chars
+		}
+	}
+
+	return true
+}
+
 // Skeleton produces a canonicalized identifier that tries to catch
 // homoglyphic / confusable identifiers. It's a tweaked version of the TR39
 // skeleton algorithm. We apply the skeleton algorithm first and only then casefold,

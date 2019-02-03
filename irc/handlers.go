@@ -2195,8 +2195,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	err := client.SetNames(msg.Params[0], msg.Params[3])
 	if err == errInvalidUsername {
-		rb.Add(nil, "", "ERROR", client.t("Malformed username"))
-		return true
+		rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.t("Malformed username"))
 	}
 
 	return false
