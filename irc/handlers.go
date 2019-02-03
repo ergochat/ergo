@@ -806,7 +806,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if 0 < len(tlines) {
 		rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
 		for _, line := range tlines {
-			rb.Add(nil, server.name, RPL_INFO, client.nick, "    "+line)
+			rb.Add(nil, server.name, RPL_INFO, client.nick, "    "+strings.Replace(line, "\n", ", ", -1))
 		}
 		rb.Add(nil, server.name, RPL_INFO, client.nick, "")
 	}

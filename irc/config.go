@@ -627,7 +627,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				continue
 			}
 
-			// only load core .lang.yaml files, and ignore help/irc files
+			// only load core .lang.yaml file, and ignore help/irc files
 			name := f.Name()
 			lowerName := strings.ToLower(name)
 			if !strings.HasSuffix(lowerName, ".lang.yaml") {
@@ -658,42 +658,38 @@ func LoadConfig(filename string) (config *Config, err error) {
 			ircName := strings.TrimSuffix(name, ".lang.yaml") + "-irc.lang.json"
 
 			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, ircName))
-			if err != nil {
-				return nil, fmt.Errorf("Could not load language's irc file [%s]: %s", ircName, err.Error())
-			}
-
-			err = json.Unmarshal(data, &tlList)
-			if err != nil {
-				return nil, fmt.Errorf("Could not parse language's irc file [%s]: %s", ircName, err.Error())
-			}
-
-			for key, value := range tlList {
-				// because of how crowdin works, this is how we skip untranslated lines
-				if key == value || value == "" {
-					continue
+			if err == nil {
+				err = json.Unmarshal(data, &tlList)
+				if err != nil {
+					return nil, fmt.Errorf("Could not parse language's irc file [%s]: %s", ircName, err.Error())
 				}
-				langInfo.Translations[key] = value
+
+				for key, value := range tlList {
+					// because of how crowdin works, this is how we skip untranslated lines
+					if key == value || value == "" {
+						continue
+					}
+					langInfo.Translations[key] = value
+				}
 			}
 
 			// load help strings file
 			helpName := strings.TrimSuffix(name, ".lang.yaml") + "-help.lang.json"
 
 			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, helpName))
-			if err != nil {
-				return nil, fmt.Errorf("Could not load language's help file [%s]: %s", helpName, err.Error())
-			}
-
-			err = json.Unmarshal(data, &tlList)
-			if err != nil {
-				return nil, fmt.Errorf("Could not parse language's help file [%s]: %s", helpName, err.Error())
-			}
-
-			for key, value := range tlList {
-				// because of how crowdin works, this is how we skip untranslated lines
-				if key == value || value == "" {
-					continue
+			if err == nil {
+				err = json.Unmarshal(data, &tlList)
+				if err != nil {
+					return nil, fmt.Errorf("Could not parse language's help file [%s]: %s", helpName, err.Error())
 				}
-				langInfo.Translations[key] = value
+
+				for key, value := range tlList {
+					// because of how crowdin works, this is how we skip untranslated lines
+					if key == value || value == "" {
+						continue
+					}
+					langInfo.Translations[key] = value
+				}
 			}
 
 			// confirm that values are correct
