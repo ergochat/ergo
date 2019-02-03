@@ -173,4 +173,6 @@ func TestSkeleton(t *testing.T) {
 		t.Errorf("we must protect against cyrillic homoglyph attacks")
 	}
 
+	// should not raise an error:
+	skeleton("けらんぐ")
 }
