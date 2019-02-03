@@ -146,6 +146,19 @@ We support translating server strings using [CrowdIn](https://crowdin.com/projec
 1. `cd` to the base directory (the one this `DEVELOPING` file is in).
 2. Install the `pyyaml` and `docopt` deps using `pip3 install pyyamp docopt`.
 3. Run the `updatetranslations.py` script with: `./updatetranslations.py irc languages`
+4. Commit the changes
+
+CrowdIn's integration should grab the new translation files automagically.
+
+When new translations are available, CrowsIn will submit a new PR with the updates. The `INFO` command should be used to see whether the credits strings has been updated/translated properly, since that can be a bit of a sticking point for our wonderful translators :)
+
+### Updating Translations Manually
+
+You shouldn't need to do this, but to update 'em manually:
+
+1. `cd` to the base directory (the one this `DEVELOPING` file is in).
+2. Install the `pyyaml` and `docopt` deps using `pip3 install pyyamp docopt`.
+3. Run the `updatetranslations.py` script with: `./updatetranslations.py irc languages`
 4. Install the [CrowdIn CLI tool](https://support.crowdin.com/cli-tool/).
 5. Make sure the CrowdIn API key is correct in `~/.crowdin.yaml`
 6. Run `crowdin upload sources`
@@ -157,4 +170,4 @@ We also support grabbing translations directly from CrowdIn. To do this:
 3. Make sure the CrowdIn API key is correct in `~/.crowdin.yaml`
 4. Run `crowdin download`
 
-This will download a bunch of updated files. The `INFO` command should be used to see whether the credits strings has been updated/translated properly, since that can be a bit of a sticking point for our wonderful translators :)
+This will download a bunch of updated files and put them in the right place
