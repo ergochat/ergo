@@ -494,7 +494,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	//dan: automagically fix identlen until a few releases in the future (from now, 0.12.0), being a newly-introduced limit
 	if config.Limits.IdentLen < 1 {
-		config.Limits.IdentLen = 10
+		config.Limits.IdentLen = 20
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, ErrLimitsAreInsane

@@ -416,7 +416,7 @@ limits:
     nicklen: 32
 
     # identlen is the max ident length allowed
-    identlen: 10
+    identlen: 20
 
     # channellen is the max channel length allowed
     channellen: 64
