@@ -65,7 +65,7 @@ New release of Oragono! Up to 057d00b.
 * `DLINE` and `KLINE` refactored, and expired bans are now removed from the database.
 * Logging system optimised.
 * Services handlers refactored.
-* Translations are now sent to/PR'd from CrowdIn automagically
+* Translations are now sent to/PR'd from CrowdIn automagically as we develop the software.
 
 
 ## [0.12.0] - 2018-10-15
