@@ -450,19 +450,27 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // CAP <subcmd> [<caps>]
 func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	subCommand := strings.ToUpper(msg.Params[0])
-	capabilities := caps.NewSet()
+	toAdd := caps.NewSet()
+	toRemove := caps.NewSet()
 	var capString string
 
-	var badCaps []string
+	badCaps := false
 	if len(msg.Params) > 1 {
 		capString = msg.Params[1]
 		strs := strings.Fields(capString)
 		for _, str := range strs {
+			remove := false
+			if str[0] == '-' {
+				str = str[1:]
+				remove = true
+			}
 			capab, err := caps.NameToCapability(str)
-			if err != nil || !SupportedCapabilities.Has(capab) {
-				badCaps = append(badCaps, str)
+			if err != nil || (!remove && !SupportedCapabilities.Has(capab)) {
+				badCaps = true
+			} else if !remove {
+				toAdd.Enable(capab)
 			} else {
-				capabilities.Enable(capab)
+				toRemove.Enable(capab)
 			}
 		}
 	}
@@ -490,16 +498,17 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 		// make sure all capabilities actually exist
-		if len(badCaps) > 0 {
+		if badCaps {
 			rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
 			return false
 		}
-		client.capabilities.Union(capabilities)
+		client.capabilities.Union(toAdd)
+		client.capabilities.Subtract(toRemove)
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 		// if this is the first time the client is requesting a resume token,
 		// send it to them
-		if capabilities.Has(caps.Resume) {
+		if toAdd.Has(caps.Resume) {
 			token, err := client.generateResumeToken()
 			if err == nil {
 				rb.Add(nil, server.name, "RESUME", "TOKEN", token)

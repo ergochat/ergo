@@ -60,6 +60,17 @@ func TestSets(t *testing.T) {
 	}
 }
 
+func TestSubtract(t *testing.T) {
+	s1 := NewSet(AccountTag, EchoMessage, UserhostInNames, ServerTime)
+
+	toRemove := NewSet(UserhostInNames, EchoMessage)
+	s1.Subtract(toRemove)
+
+	if !reflect.DeepEqual(s1, NewSet(AccountTag, ServerTime)) {
+		t.Errorf("subtract doesn't work")
+	}
+}
+
 func BenchmarkSetReads(b *testing.B) {
 	set := NewSet(UserhostInNames, EchoMessage)
 	b.ResetTimer()
