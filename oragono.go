@@ -130,11 +130,11 @@ Options:
 		}
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
-			logman.Info("startup", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
+			logman.Info("server", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
 			if commit == "" {
-				logman.Debug("startup", fmt.Sprintf("Could not get current commit"))
+				logman.Debug("server", fmt.Sprintf("Could not get current commit"))
 			} else {
-				logman.Info("startup", fmt.Sprintf("Running commit %s", commit))
+				logman.Info("server", fmt.Sprintf("Running commit %s", commit))
 			}
 		}
 
@@ -146,17 +146,17 @@ Options:
 
 		// warning if running a non-final version
 		if strings.Contains(irc.SemVer, "unreleased") {
-			logman.Warning("startup", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
+			logman.Warning("server", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
 		server, err := irc.NewServer(config, logman)
 		if err != nil {
-			logman.Error("startup", fmt.Sprintf("Could not load server: %s", err.Error()))
+			logman.Error("server", fmt.Sprintf("Could not load server: %s", err.Error()))
 			return
 		}
 		if !arguments["--quiet"].(bool) {
-			logman.Info("startup", "Server running")
-			defer logman.Info("shutdown", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			logman.Info("server", "Server running")
+			defer logman.Info("server", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
 		server.Run()
 	}
