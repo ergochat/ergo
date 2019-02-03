@@ -152,7 +152,7 @@ Options:
 		server, err := irc.NewServer(config, logman)
 		if err != nil {
 			logman.Error("server", fmt.Sprintf("Could not load server: %s", err.Error()))
-			return
+			os.Exit(1)
 		}
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", "Server running")
