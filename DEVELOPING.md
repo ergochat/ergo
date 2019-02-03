@@ -137,3 +137,24 @@ They receive the response with the same label, so they can match the sent comman
 In order to allow this, in command handlers we don't send responses directly back to the user. Instead, we buffer the responses in an object called a ResponseBuffer. When the command handler returns, the contents of the ResponseBuffer is sent to the user with the appropriate label (and batches, if they're required).
 
 Basically, if you're in a command handler and you're sending a response back to the requesting client, use `rb.Add*` instead of `client.Send*`. Doing this makes sure the labeled responses feature above works as expected. The handling around `PRIVMSG`/`NOTICE`/`TAGMSG` is strange, so simply defer to [irctest](https://github.com/DanielOaks/irctest)'s judgement about whether that's correct for the most part.
+
+
+## Updating Translations
+
+We support translating server strings using [CrowdIn](https://crowdin.com/project/oragono)! To send updated source strings to CrowdIn, you should:
+
+1. `cd` to the base directory (the one this `DEVELOPING` file is in).
+2. Install the `pyyaml` and `docopt` deps using `pip3 install pyyamp docopt`.
+3. Run the `updatetranslations.py` script with: `./updatetranslations.py irc languages`
+4. Install the [CrowdIn CLI tool](https://support.crowdin.com/cli-tool/).
+5. Make sure the CrowdIn API key is correct in `~/.crowdin.yaml`
+6. Run `crowdin upload sources`
+
+We also support grabbing translations directly from CrowdIn. To do this:
+
+1. `cd` to the base directory (the one this `DEVELOPING` file is in).
+2. Install the [CrowdIn CLI tool](https://support.crowdin.com/cli-tool/).
+3. Make sure the CrowdIn API key is correct in `~/.crowdin.yaml`
+4. Run `crowdin download`
+
+This will download a bunch of updated files. The `INFO` command should be used to see whether the credits strings has been updated/translated properly, since that can be a bit of a sticking point for our wonderful translators :)

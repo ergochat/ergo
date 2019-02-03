@@ -697,12 +697,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 				return nil, fmt.Errorf("Cannot have language file with code 'en' (this is the default language using strings inside the server code). If you're making an English variant, name it with a more specific code")
 			}
 
-			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Contributors == "" {
-				return nil, fmt.Errorf("Code, name or contributors is empty in language file [%s]", name)
+			if len(langInfo.Translations) == 0 {
+				// skip empty translations
+				continue
 			}
 
-			if len(langInfo.Translations) == 0 {
-				return nil, fmt.Errorf("Language [%s / %s] contains no translations", langInfo.Code, langInfo.Name)
+			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Contributors == "" {
+				return nil, fmt.Errorf("Code, name or contributors is empty in language file [%s]", name)
 			}
 
 			// check for duplicate languages
