@@ -140,6 +140,22 @@ func TestIsBoring(t *testing.T) {
 	assertBoring("Νικηφόρος", false)
 }
 
+func TestIsIdent(t *testing.T) {
+	assertIdent := func(str string, expected bool) {
+		if isIdent(str) != expected {
+			t.Errorf("expected [%s] to have identness [%t], but got [%t]", str, expected, !expected)
+		}
+	}
+
+	assertIdent("warning", true)
+	assertIdent("sid3225", true)
+	assertIdent("dan.oak25", true)
+	assertIdent("dan.oak[25]", true)
+	assertIdent("phi@#$%ip", false)
+	assertIdent("Νικηφόρος", false)
+	assertIdent("-dan56", false)
+}
+
 func TestSkeleton(t *testing.T) {
 	skeleton := func(str string) string {
 		skel, err := Skeleton(str)

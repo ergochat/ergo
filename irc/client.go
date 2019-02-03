@@ -176,12 +176,15 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		client.Notice(client.t("*** Looking up your username"))
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
-			username := resp.Identifier
-			cfusername, err := CasefoldName(username)
-			if err == nil {
+			ident := resp.Identifier
+			if config.Limits.IdentLen < len(ident) {
+				ident = ident[:config.Limits.IdentLen]
+			}
+			if isIdent(ident) {
+				identLower := strings.ToLower(ident) // idents can only be ASCII chars only
 				client.Notice(client.t("*** Found your username"))
-				client.username = username
-				client.usernameCasefolded = cfusername
+				client.username = ident
+				client.usernameCasefolded = identLower
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice(client.t("*** Got a malformed username, ignoring"))
@@ -623,11 +626,14 @@ func (client *Client) HasUsername() bool {
 	return client.username != "" && client.username != "*"
 }
 
+// SetNames sets the client's ident and realname.
 func (client *Client) SetNames(username, realname string) error {
-	usernameCasefolded, err := CasefoldName(username)
-	if err != nil {
+	// do this before casefolding to ensure these are actually ascii
+	if !isIdent(username) {
 		return errInvalidUsername
 	}
+
+	usernameCasefolded := strings.ToLower(username) // only ascii is supported in idents anyway
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
