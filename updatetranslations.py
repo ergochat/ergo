@@ -55,7 +55,7 @@ if __name__ == '__main__':
                             irc_strings.append(match)
 
         print("irc strings:", len(irc_strings))
-        with open(os.path.join(arguments['<languages-dir>'], 'example-irc.lang.json'), 'w') as f:
+        with open(os.path.join(arguments['<languages-dir>'], 'example', 'irc.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in irc_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
                             help_strings.append(match)
 
         print("help strings:", len(help_strings))
-        with open(os.path.join(arguments['<languages-dir>'], 'example-help.lang.json'), 'w') as f:
+        with open(os.path.join(arguments['<languages-dir>'], 'example', 'help.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
                             help_strings.append(match)
 
         print("nickserv help strings:", len(help_strings))
-        with open(os.path.join(arguments['<languages-dir>'], 'example-nickserv.lang.json'), 'w') as f:
+        with open(os.path.join(arguments['<languages-dir>'], 'example', 'nickserv.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                             help_strings.append(match)
 
         print("chanserv help strings:", len(help_strings))
-        with open(os.path.join(arguments['<languages-dir>'], 'example-chanserv.lang.json'), 'w') as f:
+        with open(os.path.join(arguments['<languages-dir>'], 'example', 'chanserv.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
@@ -131,6 +131,6 @@ if __name__ == '__main__':
                             help_strings.append(match)
 
         print("hostserv help strings:", len(help_strings))
-        with open(os.path.join(arguments['<languages-dir>'], 'example-hostserv.lang.json'), 'w') as f:
+        with open(os.path.join(arguments['<languages-dir>'], 'example', 'hostserv.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
