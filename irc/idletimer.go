@@ -205,9 +205,9 @@ func (nt *NickTimer) Touch() {
 		return
 	}
 
-	nick := nt.client.NickCasefolded()
+	cfnick, skeleton := nt.client.uniqueIdentifiers()
 	account := nt.client.Account()
-	accountForNick, method := nt.client.server.accounts.EnforcementStatus(nick)
+	accountForNick, method := nt.client.server.accounts.EnforcementStatus(cfnick, skeleton)
 	enforceTimeout := method == NickReservationWithTimeout
 
 	var shouldWarn bool
@@ -223,7 +223,7 @@ func (nt *NickTimer) Touch() {
 		// the timer will not reset as long as the squatter is targeting the same account
 		accountChanged := accountForNick != nt.accountForNick
 		// change state
-		nt.nick = nick
+		nt.nick = cfnick
 		nt.account = account
 		nt.accountForNick = accountForNick
 		delinquent := accountForNick != "" && accountForNick != account

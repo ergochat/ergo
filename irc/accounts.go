@@ -52,17 +52,19 @@ type AccountManager struct {
 
 	server *Server
 	// track clients logged in to accounts
-	accountToClients map[string][]*Client
-	nickToAccount    map[string]string
-	accountToMethod  map[string]NickReservationMethod
+	accountToClients  map[string][]*Client
+	nickToAccount     map[string]string
+	skeletonToAccount map[string]string
+	accountToMethod   map[string]NickReservationMethod
 }
 
 func NewAccountManager(server *Server) *AccountManager {
 	am := AccountManager{
-		accountToClients: make(map[string][]*Client),
-		nickToAccount:    make(map[string]string),
-		accountToMethod:  make(map[string]NickReservationMethod),
-		server:           server,
+		accountToClients:  make(map[string][]*Client),
+		nickToAccount:     make(map[string]string),
+		skeletonToAccount: make(map[string]string),
+		accountToMethod:   make(map[string]NickReservationMethod),
+		server:            server,
 	}
 
 	am.buildNickToAccountIndex()
@@ -76,6 +78,7 @@ func (am *AccountManager) buildNickToAccountIndex() {
 	}
 
 	nickToAccount := make(map[string]string)
+	skeletonToAccount := make(map[string]string)
 	accountToMethod := make(map[string]NickReservationMethod)
 	existsPrefix := fmt.Sprintf(keyAccountExists, "")
 
@@ -91,11 +94,21 @@ func (am *AccountManager) buildNickToAccountIndex() {
 			account := strings.TrimPrefix(key, existsPrefix)
 			if _, err := tx.Get(fmt.Sprintf(keyAccountVerified, account)); err == nil {
 				nickToAccount[account] = account
+				accountName, err := tx.Get(fmt.Sprintf(keyAccountName, account))
+				if err != nil {
+					am.server.logger.Error("internal", "missing account name for", account)
+				} else {
+					skeleton, _ := Skeleton(accountName)
+					skeletonToAccount[skeleton] = account
+				}
 			}
 			if rawNicks, err := tx.Get(fmt.Sprintf(keyAccountAdditionalNicks, account)); err == nil {
 				additionalNicks := unmarshalReservedNicks(rawNicks)
 				for _, nick := range additionalNicks {
-					nickToAccount[nick] = account
+					cfnick, _ := CasefoldName(nick)
+					nickToAccount[cfnick] = account
+					skeleton, _ := Skeleton(nick)
+					skeletonToAccount[skeleton] = account
 				}
 			}
 
@@ -115,6 +128,7 @@ func (am *AccountManager) buildNickToAccountIndex() {
 	} else {
 		am.Lock()
 		am.nickToAccount = nickToAccount
+		am.skeletonToAccount = skeletonToAccount
 		am.accountToMethod = accountToMethod
 		am.Unlock()
 	}
@@ -171,36 +185,55 @@ func (am *AccountManager) NickToAccount(nick string) string {
 
 // Given a nick, looks up the account that owns it and the method (none/timeout/strict)
 // used to enforce ownership.
-func (am *AccountManager) EnforcementStatus(nick string) (account string, method NickReservationMethod) {
-	cfnick, err := CasefoldName(nick)
-	if err != nil {
-		return
-	}
-
+func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account string, method NickReservationMethod) {
 	config := am.server.Config()
 	if !config.Accounts.NickReservation.Enabled {
-		method = NickReservationNone
-		return
+		return "", NickReservationNone
 	}
 
 	am.RLock()
 	defer am.RUnlock()
 
-	account = am.nickToAccount[cfnick]
-	if account == "" {
-		method = NickReservationNone
+	// given an account, combine stored enforcement method with the config settings
+	// to compute the actual enforcement method
+	finalEnforcementMethod := func(account_ string) (result NickReservationMethod) {
+		result = am.accountToMethod[account_]
+		// if they don't have a custom setting, or customization is disabled, use the default
+		if result == NickReservationOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
+			result = config.Accounts.NickReservation.Method
+		}
+		if result == NickReservationOptional {
+			// enforcement was explicitly enabled neither in the config or by the user
+			result = NickReservationNone
+		}
 		return
 	}
-	method = am.accountToMethod[account]
-	// if they don't have a custom setting, or customization is disabled, use the default
-	if method == NickReservationOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
-		method = config.Accounts.NickReservation.Method
+
+	nickAccount := am.nickToAccount[cfnick]
+	skelAccount := am.skeletonToAccount[skeleton]
+	if nickAccount == "" && skelAccount == "" {
+		return "", NickReservationNone
+	} else if nickAccount != "" && (skelAccount == nickAccount || skelAccount == "") {
+		return nickAccount, finalEnforcementMethod(nickAccount)
+	} else if skelAccount != "" && nickAccount == "" {
+		return skelAccount, finalEnforcementMethod(skelAccount)
+	} else {
+		// nickAccount != skelAccount and both are nonempty:
+		// two people have competing claims on (this casefolding of) this nick!
+		nickMethod := finalEnforcementMethod(nickAccount)
+		skelMethod := finalEnforcementMethod(skelAccount)
+		switch {
+		case nickMethod == NickReservationNone && skelMethod == NickReservationNone:
+			return nickAccount, NickReservationNone
+		case skelMethod == NickReservationNone:
+			return nickAccount, nickMethod
+		case nickMethod == NickReservationNone:
+			return skelAccount, skelMethod
+		default:
+			// nobody can use this nick
+			return "!", NickReservationStrict
+		}
 	}
-	if method == NickReservationOptional {
-		// enforcement was explicitly enabled neither in the config or by the user
-		method = NickReservationNone
-	}
-	return
 }
 
 // Looks up the enforcement method stored in the database for an account
@@ -264,8 +297,13 @@ func (am *AccountManager) AccountToClients(account string) (result []*Client) {
 
 func (am *AccountManager) Register(client *Client, account string, callbackNamespace string, callbackValue string, passphrase string, certfp string) error {
 	casefoldedAccount, err := CasefoldName(account)
-	if err != nil || account == "" || account == "*" {
+	skeleton, skerr := Skeleton(account)
+	if err != nil || skerr != nil || account == "" || account == "*" {
 		return errAccountCreation
+	}
+
+	if restrictedNicknames[casefoldedAccount] || restrictedNicknames[skeleton] {
+		return errAccountAlreadyRegistered
 	}
 
 	// can't register a guest nickname
@@ -535,8 +573,10 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		})
 
 		if err == nil {
+			skeleton, _ := Skeleton(raw.Name)
 			am.Lock()
 			am.nickToAccount[casefoldedAccount] = casefoldedAccount
+			am.skeletonToAccount[skeleton] = casefoldedAccount
 			am.Unlock()
 		}
 	}()
@@ -567,9 +607,10 @@ func unmarshalReservedNicks(nicks string) (result []string) {
 
 func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreserve bool, reserve bool) error {
 	cfnick, err := CasefoldName(nick)
+	skeleton, skerr := Skeleton(nick)
 	// garbage nick, or garbage options, or disabled
 	nrconfig := am.server.AccountConfig().NickReservation
-	if err != nil || cfnick == "" || (reserve && saUnreserve) || !nrconfig.Enabled {
+	if err != nil || skerr != nil || cfnick == "" || (reserve && saUnreserve) || !nrconfig.Enabled {
 		return errAccountNickReservationFailed
 	}
 
@@ -591,8 +632,15 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 		return errAccountNotLoggedIn
 	}
 
-	accountForNick := am.NickToAccount(cfnick)
-	if reserve && accountForNick != "" {
+	am.Lock()
+	accountForNick := am.nickToAccount[cfnick]
+	var accountForSkeleton string
+	if reserve {
+		accountForSkeleton = am.skeletonToAccount[skeleton]
+	}
+	am.Unlock()
+
+	if reserve && (accountForNick != "" || accountForSkeleton != "") {
 		return errNicknameReserved
 	} else if !reserve && !saUnreserve && accountForNick != account {
 		return errNicknameReserved
@@ -623,12 +671,18 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 			if len(nicks) >= nrconfig.AdditionalNickLimit {
 				return errAccountTooManyNicks
 			}
-			nicks = append(nicks, cfnick)
+			nicks = append(nicks, nick)
 		} else {
+			// compute (original reserved nicks) minus cfnick
 			var newNicks []string
 			for _, reservedNick := range nicks {
-				if reservedNick != cfnick {
+				cfreservednick, _ := CasefoldName(reservedNick)
+				if cfreservednick != cfnick {
 					newNicks = append(newNicks, reservedNick)
+				} else {
+					// found the original, unfolded version of the nick we're dropping;
+					// recompute the true skeleton from it
+					skeleton, _ = Skeleton(reservedNick)
 				}
 			}
 			nicks = newNicks
@@ -650,8 +704,10 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 	defer am.Unlock()
 	if reserve {
 		am.nickToAccount[cfnick] = account
+		am.skeletonToAccount[skeleton] = account
 	} else {
 		delete(am.nickToAccount, cfnick)
+		delete(am.skeletonToAccount, skeleton)
 	}
 	return nil
 }
@@ -787,8 +843,10 @@ func (am *AccountManager) Unregister(account string) error {
 	am.serialCacheUpdateMutex.Lock()
 	defer am.serialCacheUpdateMutex.Unlock()
 
+	var accountName string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		tx.Delete(accountKey)
+		accountName, _ = tx.Get(accountNameKey)
 		tx.Delete(accountNameKey)
 		tx.Delete(verifiedKey)
 		tx.Delete(registeredTimeKey)
@@ -817,6 +875,7 @@ func (am *AccountManager) Unregister(account string) error {
 		}
 	}
 
+	skeleton, _ := Skeleton(accountName)
 	additionalNicks := unmarshalReservedNicks(rawNicks)
 
 	am.Lock()
@@ -825,8 +884,11 @@ func (am *AccountManager) Unregister(account string) error {
 	clients = am.accountToClients[casefoldedAccount]
 	delete(am.accountToClients, casefoldedAccount)
 	delete(am.nickToAccount, casefoldedAccount)
+	delete(am.skeletonToAccount, skeleton)
 	for _, nick := range additionalNicks {
 		delete(am.nickToAccount, nick)
+		additionalSkel, _ := Skeleton(nick)
+		delete(am.skeletonToAccount, additionalSkel)
 	}
 	for _, client := range clients {
 		am.logoutOfAccount(client)

@@ -127,3 +127,50 @@ func TestCasefoldName(t *testing.T) {
 		})
 	}
 }
+
+func TestIsBoring(t *testing.T) {
+	assertBoring := func(str string, expected bool) {
+		if isBoring(str) != expected {
+			t.Errorf("expected [%s] to have boringness [%t], but got [%t]", str, expected, !expected)
+		}
+	}
+
+	assertBoring("warning", true)
+	assertBoring("phi|ip", false)
+	assertBoring("Νικηφόρος", false)
+}
+
+func TestSkeleton(t *testing.T) {
+	skeleton := func(str string) string {
+		skel, err := Skeleton(str)
+		if err != nil {
+			t.Error(err)
+		}
+		return skel
+	}
+
+	if skeleton("warning") == skeleton("waming") {
+		t.Errorf("Oragono shouldn't consider rn confusable with m")
+	}
+
+	if skeleton("Phi|ip") != "philip" {
+		t.Errorf("but we still consider pipe confusable with l")
+	}
+
+	if skeleton("ｓｍｔ") != "smt" {
+		t.Errorf("fullwidth characters should skeletonize to plain old ascii characters")
+	}
+
+	if skeleton("ＳＭＴ") != "smt" {
+		t.Errorf("after skeletonizing, we should casefold")
+	}
+
+	if skeleton("еvan") != "evan" {
+		t.Errorf("we must protect against cyrillic homoglyph attacks")
+	}
+
+	if skeleton("РОТАТО") != "potato" {
+		t.Errorf("we must protect against cyrillic homoglyph attacks")
+	}
+
+}

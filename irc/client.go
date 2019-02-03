@@ -95,6 +95,7 @@ type Client struct {
 	saslMechanism      string
 	saslValue          string
 	server             *Server
+	skeleton           string
 	socket             *Socket
 	stateMutex         sync.RWMutex // tier 1
 	username           string
@@ -381,7 +382,7 @@ func (client *Client) Register() {
 	client.TryResume()
 
 	// finish registration
-	client.updateNickMask("")
+	client.updateNickMask()
 	client.server.monitorManager.AlertAbout(client, true)
 }
 
@@ -565,6 +566,7 @@ func (client *Client) copyResumeData(oldClient *Client) {
 	vhost := oldClient.vhost
 	account := oldClient.account
 	accountName := oldClient.accountName
+	skeleton := oldClient.skeleton
 	oldClient.stateMutex.RUnlock()
 
 	// copy all flags, *except* TLS (in the case that the admins enabled
@@ -586,6 +588,7 @@ func (client *Client) copyResumeData(oldClient *Client) {
 	client.vhost = vhost
 	client.account = account
 	client.accountName = accountName
+	client.skeleton = skeleton
 	client.updateNickMaskNoMutex()
 }
 
@@ -696,6 +699,14 @@ func (client *Client) Friends(capabs ...caps.Capability) ClientSet {
 	return friends
 }
 
+func (client *Client) SetOper(oper *Oper) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.oper = oper
+	// operators typically get a vhost, update the nickmask
+	client.updateNickMaskNoMutex()
+}
+
 // XXX: CHGHOST requires prefix nickmask to have original hostname,
 // this is annoying to do correctly
 func (client *Client) sendChghost(oldNickMask string, vhost string) {
@@ -730,32 +741,23 @@ func (client *Client) SetVHost(vhost string) (updated bool) {
 }
 
 // updateNick updates `nick` and `nickCasefolded`.
-func (client *Client) updateNick(nick string) {
-	casefoldedName, err := CasefoldName(nick)
-	if err != nil {
-		client.server.logger.Error("internal", "nick couldn't be casefolded", nick, err.Error())
-		return
-	}
+func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
 	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 	client.nick = nick
-	client.nickCasefolded = casefoldedName
-	client.stateMutex.Unlock()
+	client.nickCasefolded = nickCasefolded
+	client.skeleton = skeleton
+	client.updateNickMaskNoMutex()
 }
 
-// updateNickMask updates the casefolded nickname and nickmask.
-func (client *Client) updateNickMask(nick string) {
-	// on "", just regenerate the nickmask etc.
-	// otherwise, update the actual nick
-	if nick != "" {
-		client.updateNick(nick)
-	}
-
+// updateNickMask updates the nickmask.
+func (client *Client) updateNickMask() {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	client.updateNickMaskNoMutex()
 }
 
-// updateNickMask updates the casefolded nickname and nickmask, not acquiring any mutexes.
+// updateNickMaskNoMutex updates the casefolded nickname and nickmask, not acquiring any mutexes.
 func (client *Client) updateNickMaskNoMutex() {
 	client.hostname = client.getVHostNoMutex()
 	if client.hostname == "" {
