@@ -235,10 +235,10 @@ func (server *Server) Run() {
 
 		case <-server.rehashSignal:
 			go func() {
-				server.logger.Info("rehash", "Rehashing due to SIGHUP")
+				server.logger.Info("server", "Rehashing due to SIGHUP")
 				err := server.rehash()
 				if err != nil {
-					server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
+					server.logger.Error("server", fmt.Sprintln("Failed to rehash:", err.Error()))
 				}
 			}()
 		}
@@ -567,13 +567,13 @@ func whoChannel(client *Client, channel *Channel, friends ClientSet, rb *Respons
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
-	server.logger.Debug("rehash", "Starting rehash")
+	server.logger.Debug("server", "Starting rehash")
 
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
 	defer server.rehashMutex.Unlock()
 
-	server.logger.Debug("rehash", "Got rehash lock")
+	server.logger.Debug("server", "Got rehash lock")
 
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
@@ -607,7 +607,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	// sanity checks complete, start modifying server state
-	server.logger.Info("rehash", "Using config file", server.configFilename)
+	server.logger.Info("server", "Using config file", server.configFilename)
 	oldConfig := server.Config()
 
 	// first, reload config sections for functionality implemented in subpackages:
@@ -649,7 +649,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 	}
 	newLanguageValue := strings.Join(langCodes, ",")
-	server.logger.Debug("rehash", "Languages:", newLanguageValue)
+	server.logger.Debug("server", "Languages:", newLanguageValue)
 
 	if currentLanguageValue != newLanguageValue {
 		updatedCaps.Add(caps.Languages)
@@ -658,7 +658,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	lm := languages.NewManager(config.Languages.Default, config.Languages.Data)
 
-	server.logger.Debug("rehash", "Regenerating HELP indexes for new languages")
+	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	GenerateHelpIndices(lm)
 
 	server.languages = lm
@@ -700,7 +700,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	stsValue := config.Server.STS.Value()
 	stsDisabledByRehash := false
 	stsCurrentCapValue, _ := CapValues.Get(caps.STS)
-	server.logger.Debug("rehash", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
+	server.logger.Debug("server", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
 	if config.Server.STS.Enabled && !stsPreviouslyEnabled {
 		// enabling STS
 		SupportedCapabilities.Enable(caps.STS)
@@ -738,7 +738,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("rehash", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues))
+	server.logger.Debug("server", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues))
 	addedCaps.Union(updatedCaps)
 	removedCaps.Union(updatedCaps)
 
@@ -779,7 +779,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.config = config
 	server.configurableStateMutex.Unlock()
 
-	server.logger.Info("rehash", "Using datastore", config.Datastore.Path)
+	server.logger.Info("server", "Using datastore", config.Datastore.Path)
 	if initial {
 		if err := server.loadDatastore(config); err != nil {
 			return err
@@ -825,7 +825,7 @@ func (server *Server) setupPprofListener(config *Config) {
 	}
 	if server.pprofServer != nil {
 		if pprofListener == "" || (pprofListener != server.pprofServer.Addr) {
-			server.logger.Info("rehash", "Stopping pprof listener", server.pprofServer.Addr)
+			server.logger.Info("server", "Stopping pprof listener", server.pprofServer.Addr)
 			server.pprofServer.Close()
 			server.pprofServer = nil
 		}
@@ -836,16 +836,16 @@ func (server *Server) setupPprofListener(config *Config) {
 		}
 		go func() {
 			if err := ps.ListenAndServe(); err != nil {
-				server.logger.Error("rehash", "pprof listener failed", err.Error())
+				server.logger.Error("server", "pprof listener failed", err.Error())
 			}
 		}()
 		server.pprofServer = &ps
-		server.logger.Info("rehash", "Started pprof listener", server.pprofServer.Addr)
+		server.logger.Info("server", "Started pprof listener", server.pprofServer.Addr)
 	}
 }
 
 func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
-	server.logger.Info("rehash", "Using MOTD", motdPath)
+	server.logger.Info("server", "Using MOTD", motdPath)
 	motdLines := make([]string, 0)
 	if motdPath != "" {
 		file, err := os.Open(motdPath)
@@ -887,7 +887,7 @@ func (server *Server) loadDatastore(config *Config) error {
 
 	_, err := os.Stat(config.Datastore.Path)
 	if os.IsNotExist(err) {
-		server.logger.Warning("rehash", "database does not exist, creating it", config.Datastore.Path)
+		server.logger.Warning("server", "database does not exist, creating it", config.Datastore.Path)
 		err = initializeDB(config.Datastore.Path)
 		if err != nil {
 			return err
@@ -902,7 +902,7 @@ func (server *Server) loadDatastore(config *Config) error {
 	}
 
 	// load *lines (from the datastores)
-	server.logger.Debug("rehash", "Loading D/Klines")
+	server.logger.Debug("server", "Loading D/Klines")
 	server.loadDLines()
 	server.loadKLines()
 
@@ -922,7 +922,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 
 	tlsListeners, err := config.TLSListeners()
 	if err != nil {
-		server.logger.Error("rehash", "failed to reload TLS certificates, aborting rehash", err.Error())
+		server.logger.Error("server", "failed to reload TLS certificates, aborting rehash", err.Error())
 		return
 	}
 
@@ -964,7 +964,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 			tlsConfig := tlsListeners[newaddr]
 			listener, listenerErr := server.createListener(newaddr, tlsConfig, config.Server.UnixBindMode)
 			if listenerErr != nil {
-				server.logger.Error("rehash", "couldn't listen on", newaddr, listenerErr.Error())
+				server.logger.Error("server", "couldn't listen on", newaddr, listenerErr.Error())
 				err = listenerErr
 				continue
 			}
@@ -974,7 +974,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	if len(tlsListeners) == 0 {
-		server.logger.Warning("rehash", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
+		server.logger.Warning("server", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
 	}
 
 	var usesStandardTLSPort bool
@@ -985,7 +985,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 	}
 	if 0 < len(tlsListeners) && !usesStandardTLSPort {
-		server.logger.Warning("rehash", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
+		server.logger.Warning("server", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
 
 	return

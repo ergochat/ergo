@@ -1885,13 +1885,13 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.logger.Info("rehash", fmt.Sprintf("REHASH command used by %s", client.nick))
+	server.logger.Info("server", fmt.Sprintf("REHASH command used by %s", client.nick))
 	err := server.rehash()
 
 	if err == nil {
 		rb.Add(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", client.t("Rehashing"))
 	} else {
-		server.logger.Error("rehash", fmt.Sprintln("Failed to rehash:", err.Error()))
+		server.logger.Error("server", fmt.Sprintln("Failed to rehash:", err.Error()))
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
 	}
 	return false

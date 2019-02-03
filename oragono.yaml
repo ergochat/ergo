@@ -354,12 +354,12 @@ logging:
         #
         # useful types include:
         #   *               everything (usually used with exclusing some types below)
+        #   server          server startup, rehash, and shutdown events
         #   accounts        account registration and authentication
         #   channels        channel creation and operations
         #   commands        command calling and operations
         #   opers           oper actions, authentication, etc
         #   password        password hashing and comparing
-        #   rehash          server startup and rehash events
         #   userinput       raw lines sent by users
         #   useroutput      raw lines sent to users
         type: "* -userinput -useroutput -localconnect -localconnect-ip"
