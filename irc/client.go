@@ -176,12 +176,12 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		client.Notice(client.t("*** Looking up your username"))
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
-			username := resp.Identifier
-			cfusername, err := CasefoldName(username)
-			if err == nil {
+			ident := resp.Identifier[:config.Limits.IdentLen-1]
+			if isIdent(ident) {
+				identLower := strings.ToLower(ident) // idents can only be ASCII chars only
 				client.Notice(client.t("*** Found your username"))
-				client.username = username
-				client.usernameCasefolded = cfusername
+				client.username = ident
+				client.usernameCasefolded = identLower
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice(client.t("*** Got a malformed username, ignoring"))

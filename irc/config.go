@@ -206,12 +206,13 @@ type Limits struct {
 	AwayLen        int           `yaml:"awaylen"`
 	ChanListModes  int           `yaml:"chan-list-modes"`
 	ChannelLen     int           `yaml:"channellen"`
+	IdentLen       int           `yaml:"identlen"`
 	KickLen        int           `yaml:"kicklen"`
+	LineLen        LineLenLimits `yaml:"linelen"`
 	MonitorEntries int           `yaml:"monitor-entries"`
 	NickLen        int           `yaml:"nicklen"`
 	TopicLen       int           `yaml:"topiclen"`
 	WhowasEntries  int           `yaml:"whowas-entries"`
-	LineLen        LineLenLimits `yaml:"linelen"`
 }
 
 // STSConfig controls the STS configuration/
@@ -490,6 +491,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if len(config.Server.Listen) == 0 {
 		return nil, ErrNoListenersDefined
+	}
+	//dan: automagically fix identlen until a few releases in the future (from now, 0.12.0), being a newly-introduced limit
+	if config.Limits.IdentLen < 1 {
+		config.Limits.IdentLen = 10
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, ErrLimitsAreInsane
