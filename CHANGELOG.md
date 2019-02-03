@@ -4,6 +4,22 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [0.12.0] - 2018-10-15
 There's been a host of changes in the past six months, and this Halloween release has a number of very useful improvements.
 
