@@ -1,0 +1,12 @@
+{
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "",
+  "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "",
+  "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "",
+  "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "",
+  "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "",
+  "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "",
+  "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "",
+  "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "",
+  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "",
+  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": ""
+}
