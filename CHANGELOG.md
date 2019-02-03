@@ -5,19 +5,67 @@ This project adheres to [Semantic Versioning](http://semver.org/). For the purpo
 
 
 ## Unreleased
-New release of Oragono!
+New release of Oragono! Up to 057d00b.
 
 ### Config Changes
+* `allow-custom-enforcement` key added under `accounts`.
+* `allow-plaintext-resume` key added under `server`.
+* `history` section added.
+* `identlen` key added under `limits`.
+* `login-throttling` section added under `accounts`.
+* `method` key now under `accounts` now allows the value `"optional"`.
+* Logging type `server` has been added, replacing the `startup`, `rehash`, and `shutdown` types.
+* We no longer listen on port `6668` by default (this fixes up Docker).
 
 ### Security
 
 ### Added
+* `oragono genpasswd` now works when piping input in (fixes Docker building).
+* Added automagic datastore creation on `oragono run`.
+* Added limited message history for connection resuming (to be extended in future).
+* Added new Español (es) translation (thanks to Mauropek!)).
+* Added new Polski (pl) translation (thanks to Sebastian Korotkiewicz (modinfi)!)).
+* Added new Română (ro) translation (thanks to Bogdan Mințoi!)).
+* Added new Ελληνικά (el) translation (thanks to Nicholas Kyriakides (Shillos)!)).
+* Added new 简体中文 (zh-CN) translation (thanks to Tony Chen and Remini!)).
+* Added new subcommands to `NICKSERV`, including:
+    * `PASSWD` to change account passwords.
+    * `ENFORCE` to set a specific enforcement mechanism on your nick.
+* Added Unicode confusable detection and prevention when changing nicknames and registering accounts.
 
 ### Changed
+* `SASL PLAIN` logins now log more correctly.
+* Database upgrade failures now provide information about the error that occurred.
+* Idents are now restricted in the same way as other servers.
+* In addition to the founder, now auto-ops (halfop and higher) automatically bypass channel join restrictions.
+* Log lines now display time down to milliseconds, instead of just seconds.
+* Logging-in can now be throttled, and is by default.
+* Updated all translation files (thanks to our amazing translators!).
+* Updated proposed IRCv3 capability to version [`draft/resume-0.2`](https://github.com/ircv3/ircv3-specifications/pull/306).
+* When nick ownership is enabled, users can now select which enforcement mechanism to use with their nickname.
 
 ### Removed
 
 ### Fixed
+* [`oragono.io/maxline`](https://oragono.io/maxline) capability was accidentally disabled, now re-enabled.
+* `INVITE`: Fixed bug where invited users could not join the channel they were invited to.
+* `PRIVMSG`: Messages sent to multiple clients (such as channel messages) now share the same timestamp (previously each client got a very slightly different time).
+* `WHOIS`: Now responds properly for NickServ, ChanServ, etc.
+* Channel names with right-to-left characters are now casefolded correctly.
+* Fixed incorrect rejection of nickmasks with Unicode RTL nicknames.
+* Fixed nickname sync issue which could cause clients to fail to see each other.
+* Fixed some internal socker logic, to prevent race conditions.
+* Invalid `ISUPPORT` tokens are now explicitly rejected.
+* Made `server-time` timestamp format more consistent and safer.
+* Prevent logging in multiple times when using `/NS IDENTIFY`.
+* Prevented the db handler from automagically creating the database without initializing it (thanks @enckse!). We also now automatically create the datastore on `run`.
+* Updated internal command line parsing (thanks @iNecas!).
+
+### Internal Enhancements
+* `DLINE` and `KLINE` refactored, and expired bans are now removed from the database.
+* Logging system optimised.
+* Services handlers refactored.
+* Translations are now sent to/PR'd from CrowdIn automagically
 
 
 ## [0.12.0] - 2018-10-15
