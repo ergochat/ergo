@@ -17,36 +17,36 @@
 #
 files: [
  {
-  "source" : "languages/example/translation.lang.yaml",
-  "translation" : "languages/%locale%.lang.yaml",
+  "source" : "/languages/example/translation.lang.yaml",
+  "translation" : "/languages/%locale%.lang.yaml",
   "dest" : "translation.lang.yaml"
  },
  {
-  "source" : "languages/example/irc.lang.json",
-  "translation" : "languages/%locale%-irc.lang.json",
+  "source" : "/languages/example/irc.lang.json",
+  "translation" : "/languages/%locale%-irc.lang.json",
   "dest" : "irc.lang.json"
  },
  {
-  "source" : "languages/example/help.lang.json",
-  "translation" : "languages/%locale%-help.lang.json",
+  "source" : "/languages/example/help.lang.json",
+  "translation" : "/languages/%locale%-help.lang.json",
   "dest" : "help.lang.json",
   "update_option" : "update_as_unapproved",
  },
  {
-  "source" : "languages/example/chanserv.lang.json",
-  "translation" : "languages/%locale%-chanserv.lang.json",
+  "source" : "/languages/example/chanserv.lang.json",
+  "translation" : "/languages/%locale%-chanserv.lang.json",
   "dest" : "services/chanserv.lang.json",
   "update_option" : "update_as_unapproved",
  },
  {
-  "source" : "languages/example/nickserv.lang.json",
-  "translation" : "languages/%locale%-nickserv.lang.json",
+  "source" : "/languages/example/nickserv.lang.json",
+  "translation" : "/languages/%locale%-nickserv.lang.json",
   "dest" : "services/nickserv.lang.json",
   "update_option" : "update_as_unapproved",
  },
  {
-  "source" : "languages/example/hostserv.lang.json",
-  "translation" : "languages/%locale%-hostserv.lang.json",
+  "source" : "/languages/example/hostserv.lang.json",
+  "translation" : "/languages/%locale%-hostserv.lang.json",
   "dest" : "services/hostserv.lang.json",
   "update_option" : "update_as_unapproved",
  },
