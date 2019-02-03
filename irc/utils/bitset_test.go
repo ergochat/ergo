@@ -73,8 +73,13 @@ func TestSets(t *testing.T) {
 	BitsetCopy(t3s, t1s)
 	for i = 0; i < 128; i++ {
 		expected := (i != 72)
-		if BitsetGet(t1s, i) != expected {
+		if BitsetGet(t3s, i) != expected {
 			t.Error("all bits should be set except 72")
 		}
+	}
+
+	BitsetSubtract(t3s, t2s)
+	if !BitsetGet(t3s, 0) || BitsetGet(t3s, 72) || !BitsetGet(t3s, 74) || BitsetGet(t3s, 71) {
+		t.Error("subtract doesn't work")
 	}
 }

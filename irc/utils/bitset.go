@@ -89,3 +89,19 @@ func BitsetCopy(set []uint64, other []uint64) {
 		atomic.StoreUint64(&set[i], data)
 	}
 }
+
+// BitsetSubtract modifies `set` to subtract the contents of `other`.
+// Similar caveats about race conditions as with `BitsetUnion` apply.
+func BitsetSubtract(set []uint64, other []uint64) {
+	for i := 0; i < len(set); i++ {
+		for {
+			ourAddr := &set[i]
+			ourBlock := atomic.LoadUint64(ourAddr)
+			otherBlock := atomic.LoadUint64(&other[i])
+			newBlock := ourBlock & (^otherBlock)
+			if atomic.CompareAndSwapUint64(ourAddr, ourBlock, newBlock) {
+				break
+			}
+		}
+	}
+}

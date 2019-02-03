@@ -59,6 +59,11 @@ func (s *Set) Union(other *Set) {
 	utils.BitsetUnion(s[:], other[:])
 }
 
+// Subtract removes all the capabilities of another set from this set.
+func (s *Set) Subtract(other *Set) {
+	utils.BitsetSubtract(s[:], other[:])
+}
+
 // Empty returns whether the set is empty.
 func (s *Set) Empty() bool {
 	return utils.BitsetEmpty(s[:])
