@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/oragono/confusables"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"golang.org/x/text/secure/precis"
-	"golang.org/x/text/unicode/norm"
+	"golang.org/x/text/width"
 )
 
 const (
@@ -126,14 +128,6 @@ func isBoring(name string) bool {
 	return true
 }
 
-var skeletonCasefolder = precis.NewIdentifier(precis.FoldWidth, precis.LowerCase(), precis.Norm(norm.NFC))
-
-// similar to Casefold, but exempts the bidi rule, because skeletons may
-// mix scripts strangely
-func casefoldSkeleton(str string) (string, error) {
-	return iterateFolding(skeletonCasefolder, str)
-}
-
 // Skeleton produces a canonicalized identifier that tries to catch
 // homoglyphic / confusable identifiers. It's a tweaked version of the TR39
 // skeleton algorithm. We apply the skeleton algorithm first and only then casefold,
@@ -146,5 +140,16 @@ func Skeleton(name string) (string, error) {
 	if !isBoring(name) {
 		name = confusables.Skeleton(name)
 	}
-	return casefoldSkeleton(name)
+
+	// XXX the confusables table includes some, but not all, fullwidth->standard
+	// mappings for latin characters. do a pass of explicit width folding,
+	// same as PRECIS:
+	name = width.Fold.String(name)
+
+	// internationalized lowercasing for skeletons; this is much more lenient than
+	// Casefold. In particular, skeletons are expected to mix scripts (which may
+	// violate the bidi rule). We also don't care if they contain runes
+	// that are disallowed by PRECIS, because every identifier must independently
+	// pass PRECIS --- we are just further canonicalizing the skeleton.
+	return cases.Lower(language.Und).String(name), nil
 }
