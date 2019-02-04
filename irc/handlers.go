@@ -566,15 +566,20 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 
 	target := msg.Params[0]
 	channel = server.channels.Get(target)
-	if channel == nil {
-		cftarget, _ := Casefold(target)
-		if cftarget == "me" || cftarget == "self" || cftarget == client.NickCasefolded() {
-			hist = client.history
-		} else {
-			return
-		}
-	} else {
+	if channel != nil {
 		hist = &channel.history
+	} else {
+		targetClient := server.clients.Get(target)
+		if targetClient != nil {
+			myAccount := client.Account()
+			targetAccount := targetClient.Account()
+			if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
+				hist = targetClient.history
+			}
+		}
+	}
+	if hist == nil {
+		return
 	}
 
 	preposition := strings.ToLower(msg.Params[1])
@@ -1013,16 +1018,25 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	target := msg.Params[0]
 	var hist *history.Buffer
 	channel := server.channels.Get(target)
-	if channel == nil {
-		cftarget, _ := Casefold(target)
-		if cftarget == "me" || cftarget == "self" || cftarget == client.NickCasefolded() {
+	if channel != nil {
+		hist = &channel.history
+	} else {
+		if strings.ToLower(target) == "me" {
 			hist = client.history
 		} else {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
-			return false
+			targetClient := server.clients.Get(target)
+			if targetClient != nil {
+				myAccount, targetAccount := client.Account(), targetClient.Account()
+				if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
+					hist = targetClient.history
+				}
+			}
 		}
-	} else {
-		hist = &channel.history
+	}
+
+	if hist == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
+		return false
 	}
 
 	limit := 10

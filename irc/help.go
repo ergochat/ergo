@@ -196,10 +196,12 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 Get an explanation of <argument>, or "index" for a list of help topics.`,
 	},
 	"history": {
-		text: `HISTSERV <target> [limit]
+		text: `HISTORY <target> [limit]
 
-Replay message history. <target> can be a channel name, or "self" or "me"
-to replay direct message history. At most [limit] messages will be replayed.`,
+Replay message history. <target> can be a channel name, "me" to replay direct
+message history, or a nickname to replay another client's direct message
+history (they must be logged into the same account as you). At most [limit]
+messages will be replayed.`,
 	},
 	"hostserv": {
 		text: `HOSTSERV <command> [params]
