@@ -213,7 +213,6 @@ type Limits struct {
 	NickLen        int           `yaml:"nicklen"`
 	TopicLen       int           `yaml:"topiclen"`
 	WhowasEntries  int           `yaml:"whowas-entries"`
-	ChathistoryMax int           `yaml:"chathistory-maxmessages"`
 }
 
 // STSConfig controls the STS configuration/
@@ -316,6 +315,7 @@ type Config struct {
 		ChannelLength    int `yaml:"channel-length"`
 		ClientLength     int `yaml:"client-length"`
 		AutoreplayOnJoin int `yaml:"autoreplay-on-join"`
+		ChathistoryMax   int `yaml:"chathistory-maxmessages"`
 	}
 
 	Filename string

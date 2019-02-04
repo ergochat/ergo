@@ -531,6 +531,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 // CHATHISTORY <target> BETWEEN <query> <query> <direction> [<limit>]
 // e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
 func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
+	config := server.Config()
 	// batch type is chathistory; send an empty batch if necessary
 	rb.InitializeBatch("chathistory", true)
 
@@ -595,7 +596,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return
 	}
 
-	maxChathistoryLimit := server.Config().Limits.ChathistoryMax
+	maxChathistoryLimit := config.History.ChathistoryMax
 	if maxChathistoryLimit == 0 {
 		return
 	}
@@ -1008,6 +1009,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 // e.g., HISTORY #ubuntu 10
 // HISTORY me 15
 func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	config := server.Config()
 	target := msg.Params[0]
 	var hist *history.Buffer
 	channel := server.channels.Get(target)
@@ -1024,7 +1026,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	}
 
 	limit := 10
-	maxChathistoryLimit := server.Config().Limits.ChathistoryMax
+	maxChathistoryLimit := config.History.ChathistoryMax
 	if len(msg.Params) > 1 {
 		providedLimit, err := strconv.Atoi(msg.Params[1])
 		if providedLimit > maxChathistoryLimit {
