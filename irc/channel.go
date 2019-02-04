@@ -578,7 +578,7 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 }
 
 func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Time, before time.Time) {
-	items, complete := channel.history.Between(after, before)
+	items, complete := channel.history.Between(after, before, false, 0)
 	rb := NewResponseBuffer(newClient)
 	channel.replayHistoryItems(rb, items)
 	if !complete && !newClient.resumeDetails.HistoryIncomplete {

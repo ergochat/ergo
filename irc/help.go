@@ -131,6 +131,13 @@ http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 
 ChanServ controls channel registrations.`,
 	},
+	"chathistory": {
+		text: `CHATHISTORY [params]
+
+CHATHISTORY is an experimental history replay command. See these documents:
+https://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md
+https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80da`,
+	},
 	"cs": {
 		text: `CS <subcommand> [params]
 
@@ -187,6 +194,12 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 		text: `HELPOP <argument>
 
 Get an explanation of <argument>, or "index" for a list of help topics.`,
+	},
+	"history": {
+		text: `HISTSERV <target> [limit]
+
+Replay message history. <target> can be a channel name, or "self" or "me"
+to replay direct message history. At most [limit] messages will be replayed.`,
 	},
 	"hostserv": {
 		text: `HOSTSERV <command> [params]

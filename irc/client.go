@@ -475,7 +475,7 @@ func (client *Client) TryResume() {
 	privmsgMatcher := func(item history.Item) bool {
 		return item.Type == history.Privmsg || item.Type == history.Notice
 	}
-	privmsgHistory := oldClient.history.Match(privmsgMatcher, 0)
+	privmsgHistory := oldClient.history.Match(privmsgMatcher, false, 0)
 	lastDiscarded := oldClient.history.LastDiscarded()
 	if lastDiscarded.Before(oldestLostMessage) {
 		oldestLostMessage = lastDiscarded
@@ -537,26 +537,37 @@ func (client *Client) tryResumeChannels() {
 	// replay direct PRIVSMG history
 	if !details.Timestamp.IsZero() {
 		now := time.Now()
-		nick := client.Nick()
-		items, complete := client.history.Between(details.Timestamp, now)
-		for _, item := range items {
-			var command string
-			switch item.Type {
-			case history.Privmsg:
-				command = "PRIVMSG"
-			case history.Notice:
-				command = "NOTICE"
-			default:
-				continue
-			}
-			client.sendSplitMsgFromClientInternal(true, item.Time, item.Msgid, item.Nick, item.AccountName, nil, command, nick, item.Message)
-		}
-		if !complete {
-			client.Send(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
-		}
+		items, complete := client.history.Between(details.Timestamp, now, false, 0)
+		rb := NewResponseBuffer(client)
+		client.replayPrivmsgHistory(rb, items, complete)
+		rb.Send(true)
 	}
 
 	details.OldClient.destroy(true)
+}
+
+func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, complete bool) {
+	nick := client.Nick()
+	serverTime := client.capabilities.Has(caps.ServerTime)
+	for _, item := range items {
+		var command string
+		switch item.Type {
+		case history.Privmsg:
+			command = "PRIVMSG"
+		case history.Notice:
+			command = "NOTICE"
+		default:
+			continue
+		}
+		var tags Tags
+		if serverTime {
+			tags = ensureTag(tags, "time", item.Time.Format(IRCv3TimestampFormat))
+		}
+		rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, command, nick, item.Message)
+	}
+	if !complete {
+		rb.Add(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
+	}
 }
 
 // copy applicable state from oldClient to client as part of a resume

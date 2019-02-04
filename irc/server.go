@@ -157,6 +157,9 @@ func (server *Server) setISupport() (err error) {
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
+	if config.History.Enabled && config.Limits.ChathistoryMax > 0 {
+		isupport.Add("CHATHISTORY", strconv.Itoa(config.Limits.ChathistoryMax))
+	}
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	isupport.Add("CHANTYPES", "#")
 	isupport.Add("ELIST", "U")

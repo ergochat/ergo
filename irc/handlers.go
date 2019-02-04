@@ -526,6 +526,227 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	return false
 }
 
+// CHATHISTORY <target> <preposition> <query> [<limit>]
+// e.g., CHATHISTORY #ircv3 AFTER id=ytNBbt565yt4r3err3 10
+// CHATHISTORY <target> BETWEEN <query> <query> <direction> [<limit>]
+// e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
+func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
+	// batch type is chathistory; send an empty batch if necessary
+	rb.InitializeBatch("chathistory", true)
+
+	var items []history.Item
+	success := false
+	var hist *history.Buffer
+	var channel *Channel
+	defer func() {
+		if success {
+			if channel == nil {
+				client.replayPrivmsgHistory(rb, items, true)
+			} else {
+				channel.replayHistoryItems(rb, items)
+			}
+		}
+		rb.Send(true) // terminate the chathistory batch
+		if success && len(items) > 0 {
+			return
+		}
+		newRb := NewResponseBuffer(client)
+		newRb.Label = rb.Label // same label, new batch
+		// TODO: send `WARN CHATHISTORY MAX_MESSAGES_EXCEEDED` when appropriate
+		if !success {
+			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
+		} else if hist == nil {
+			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_SUCH_CHANNEL")
+		} else if len(items) == 0 {
+			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_TEXT_TO_SEND")
+		}
+		newRb.Send(true)
+	}()
+
+	target := msg.Params[0]
+	channel = server.channels.Get(target)
+	if channel == nil {
+		cftarget, _ := Casefold(target)
+		if cftarget == "me" || cftarget == "self" || cftarget == client.NickCasefolded() {
+			hist = client.history
+		} else {
+			return
+		}
+	} else {
+		hist = &channel.history
+	}
+
+	preposition := strings.ToLower(msg.Params[1])
+
+	parseQueryParam := func(param string) (msgid string, timestamp time.Time, err error) {
+		err = errInvalidParams
+		pieces := strings.SplitN(param, "=", 2)
+		if len(pieces) < 2 {
+			return
+		}
+		identifier, value := strings.ToLower(pieces[0]), pieces[1]
+		if identifier == "id" {
+			msgid, err = value, nil
+			return
+		} else if identifier == "timestamp" {
+			timestamp, err = time.Parse(IRCv3TimestampFormat, value)
+			return
+		}
+		return
+	}
+
+	maxChathistoryLimit := server.Config().Limits.ChathistoryMax
+	if maxChathistoryLimit == 0 {
+		return
+	}
+	parseHistoryLimit := func(paramIndex int) (limit int) {
+		if len(msg.Params) < (paramIndex + 1) {
+			return maxChathistoryLimit
+		}
+		limit, err := strconv.Atoi(msg.Params[paramIndex])
+		if err != nil || limit == 0 || limit > maxChathistoryLimit {
+			limit = maxChathistoryLimit
+		}
+		return
+	}
+
+	// TODO: as currently implemented, almost all of thes queries are worst-case O(n)
+	// in the number of stored history entries. Every one of them can be made O(1)
+	// if necessary, without too much difficulty. Some ideas:
+	// * Ensure that the ring buffer is sorted by time, enabling binary search for times
+	// * Maintain a map from msgid to position in the ring buffer
+
+	if preposition == "between" {
+		if len(msg.Params) >= 5 {
+			startMsgid, startTimestamp, startErr := parseQueryParam(msg.Params[2])
+			endMsgid, endTimestamp, endErr := parseQueryParam(msg.Params[3])
+			ascending := msg.Params[4] == "+"
+			limit := parseHistoryLimit(5)
+			if startErr != nil || endErr != nil {
+				success = false
+			} else if startMsgid != "" && endMsgid != "" {
+				inInterval := false
+				matches := func(item history.Item) (result bool) {
+					result = inInterval
+					if item.HasMsgid(startMsgid) {
+						if ascending {
+							inInterval = true
+						} else {
+							inInterval = false
+							return false // interval is exclusive
+						}
+					} else if item.HasMsgid(endMsgid) {
+						if ascending {
+							inInterval = false
+							return false
+						} else {
+							inInterval = true
+						}
+					}
+					return
+				}
+				items = hist.Match(matches, ascending, limit)
+				success = true
+			} else if !startTimestamp.IsZero() && !endTimestamp.IsZero() {
+				items, _ = hist.Between(startTimestamp, endTimestamp, ascending, limit)
+				if !ascending {
+					history.Reverse(items)
+				}
+				success = true
+			}
+			// else: mismatched params, success = false, fail
+		}
+		return
+	}
+
+	// before, after, latest, around
+	queryParam := msg.Params[2]
+	msgid, timestamp, err := parseQueryParam(queryParam)
+	limit := parseHistoryLimit(3)
+	before := false
+	switch preposition {
+	case "before":
+		before = true
+		fallthrough
+	case "after":
+		var matches history.Predicate
+		if err != nil {
+			break
+		} else if msgid != "" {
+			inInterval := false
+			matches = func(item history.Item) (result bool) {
+				result = inInterval
+				if item.HasMsgid(msgid) {
+					inInterval = true
+				}
+				return
+			}
+		} else {
+			matches = func(item history.Item) bool {
+				return before == item.Time.Before(timestamp)
+			}
+		}
+		items = hist.Match(matches, !before, limit)
+		success = true
+	case "latest":
+		if queryParam == "*" {
+			items = hist.Latest(limit)
+		} else if err != nil {
+			break
+		} else {
+			var matches history.Predicate
+			if msgid != "" {
+				shouldStop := false
+				matches = func(item history.Item) bool {
+					if shouldStop {
+						return false
+					}
+					shouldStop = item.HasMsgid(msgid)
+					return !shouldStop
+				}
+			} else {
+				matches = func(item history.Item) bool {
+					return item.Time.After(timestamp)
+				}
+			}
+			items = hist.Match(matches, false, limit)
+		}
+		success = true
+	case "around":
+		if err != nil {
+			break
+		}
+		var initialMatcher history.Predicate
+		if msgid != "" {
+			inInterval := false
+			initialMatcher = func(item history.Item) (result bool) {
+				if inInterval {
+					return true
+				} else {
+					inInterval = item.HasMsgid(msgid)
+					return inInterval
+				}
+			}
+		} else {
+			initialMatcher = func(item history.Item) (result bool) {
+				return item.Time.Before(timestamp)
+			}
+		}
+		var halfLimit int
+		halfLimit = (limit + 1) / 2
+		firstPass := hist.Match(initialMatcher, false, halfLimit)
+		if len(firstPass) > 0 {
+			timeWindowStart := firstPass[0].Time
+			items = hist.Match(func(item history.Item) bool {
+				return item.Time.Equal(timeWindowStart) || item.Time.After(timeWindowStart)
+			}, true, limit)
+		}
+		success = true
+	}
+
+	return
+}
+
 // DEBUG <subcmd>
 func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	param := strings.ToUpper(msg.Params[0])
@@ -778,6 +999,48 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 		args := msg.Params
 		args = append(args, client.t("Help not found"))
 		rb.Add(nil, server.name, ERR_HELPNOTFOUND, args...)
+	}
+
+	return false
+}
+
+// HISTORY <target> [<limit>]
+// e.g., HISTORY #ubuntu 10
+// HISTORY me 15
+func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	target := msg.Params[0]
+	var hist *history.Buffer
+	channel := server.channels.Get(target)
+	if channel == nil {
+		cftarget, _ := Casefold(target)
+		if cftarget == "me" || cftarget == "self" || cftarget == client.NickCasefolded() {
+			hist = client.history
+		} else {
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
+			return false
+		}
+	} else {
+		hist = &channel.history
+	}
+
+	limit := 10
+	maxChathistoryLimit := server.Config().Limits.ChathistoryMax
+	if len(msg.Params) > 1 {
+		providedLimit, err := strconv.Atoi(msg.Params[1])
+		if providedLimit > maxChathistoryLimit {
+			providedLimit = maxChathistoryLimit
+		}
+		if err == nil && providedLimit != 0 {
+			limit = providedLimit
+		}
+	}
+
+	items := hist.Latest(limit)
+
+	if channel != nil {
+		channel.replayHistoryItems(rb, items)
+	} else {
+		client.replayPrivmsgHistory(rb, items, true)
 	}
 
 	return false

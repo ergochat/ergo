@@ -213,6 +213,7 @@ type Limits struct {
 	NickLen        int           `yaml:"nicklen"`
 	TopicLen       int           `yaml:"topiclen"`
 	WhowasEntries  int           `yaml:"whowas-entries"`
+	ChathistoryMax int           `yaml:"chathistory-maxmessages"`
 }
 
 // STSConfig controls the STS configuration/

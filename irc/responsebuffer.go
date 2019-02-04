@@ -14,7 +14,7 @@ import (
 
 const (
 	// https://ircv3.net/specs/extensions/labeled-response.html
-	batchType = "draft/labeled-response"
+	defaultBatchType = "draft/labeled-response"
 )
 
 // ResponseBuffer - put simply - buffers messages and then outputs them to a given client.
@@ -45,7 +45,7 @@ func NewResponseBuffer(target *Client) *ResponseBuffer {
 // Add adds a standard new message to our queue.
 func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) {
 	if rb.finalized {
-		rb.target.server.logger.Error("message added to finalized ResponseBuffer, undefined behavior")
+		rb.target.server.logger.Error("internal", "message added to finalized ResponseBuffer, undefined behavior")
 		debug.PrintStack()
 		return
 	}
@@ -81,7 +81,15 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, fromNickMask s
 	}
 }
 
-func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
+// InitializeBatch forcibly starts a batch of batch `batchType`.
+// Normally, Send/Flush will decide automatically whether to start a batch
+// of type draft/labeled-response. This allows changing the batch type
+// and forcing the creation of a possibly empty batch.
+func (rb *ResponseBuffer) InitializeBatch(batchType string, blocking bool) {
+	rb.sendBatchStart(batchType, blocking)
+}
+
+func (rb *ResponseBuffer) sendBatchStart(batchType string, blocking bool) {
 	if rb.batchID != "" {
 		// batch already initialized
 		return
@@ -92,7 +100,9 @@ func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
 	rb.batchID = utils.GenerateSecretToken()
 
 	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "+"+rb.batchID, batchType)
-	message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+	if rb.Label != "" {
+		message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+	}
 	rb.target.SendRawMessage(message, blocking)
 }
 
@@ -125,6 +135,10 @@ func (rb *ResponseBuffer) Flush(blocking bool) error {
 // It sends the `BATCH +` message if the client supports it and it hasn't been sent already.
 // If `final` is true, it also sends `BATCH -` (if necessary).
 func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
+	if rb.finalized {
+		return nil
+	}
+
 	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
 	// use a batch if we have a label, and we either currently have multiple messages,
 	// or we are doing a Flush() and we have to assume that there will be more messages
@@ -132,10 +146,10 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	useBatch := useLabel && (len(rb.messages) > 1 || !final)
 
 	// if label but no batch, add label to first message
-	if useLabel && !useBatch && len(rb.messages) == 1 {
+	if useLabel && !useBatch && len(rb.messages) == 1 && rb.batchID == "" {
 		rb.messages[0].Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
 	} else if useBatch {
-		rb.sendBatchStart(blocking)
+		rb.sendBatchStart(defaultBatchType, blocking)
 	}
 
 	// send each message out

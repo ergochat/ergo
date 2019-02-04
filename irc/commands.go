@@ -90,6 +90,10 @@ func init() {
 			usablePreReg: true,
 			minParams:    1,
 		},
+		"CHATHISTORY": {
+			handler:   chathistoryHandler,
+			minParams: 3,
+		},
 		"DEBUG": {
 			handler:   debugHandler,
 			minParams: 1,
@@ -107,6 +111,10 @@ func init() {
 		"HELPOP": {
 			handler:   helpHandler,
 			minParams: 0,
+		},
+		"HISTORY": {
+			handler:   historyHandler,
+			minParams: 1,
 		},
 		"INFO": {
 			handler: infoHandler,
