@@ -99,7 +99,6 @@ type Client struct {
 	socket             *Socket
 	stateMutex         sync.RWMutex // tier 1
 	username           string
-	usernameCasefolded string
 	vhost              string
 	history            *history.Buffer
 }
@@ -176,15 +175,9 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		client.Notice(client.t("*** Looking up your username"))
 		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
 		if err == nil {
-			ident := resp.Identifier
-			if config.Limits.IdentLen < len(ident) {
-				ident = ident[:config.Limits.IdentLen]
-			}
-			if isIdent(ident) {
-				identLower := strings.ToLower(ident) // idents can only be ASCII chars only
+			err := client.SetNames(resp.Identifier, "", true)
+			if err == nil {
 				client.Notice(client.t("*** Found your username"))
-				client.username = ident
-				client.usernameCasefolded = identLower
 				// we don't need to updateNickMask here since nickMask is not used for anything yet
 			} else {
 				client.Notice(client.t("*** Got a malformed username, ignoring"))
@@ -627,20 +620,28 @@ func (client *Client) HasUsername() bool {
 }
 
 // SetNames sets the client's ident and realname.
-func (client *Client) SetNames(username, realname string) error {
-	// do this before casefolding to ensure these are actually ascii
+func (client *Client) SetNames(username, realname string, fromIdent bool) error {
+	limit := client.server.Config().Limits.IdentLen
+	if !fromIdent {
+		limit -= 1 // leave room for the prepended ~
+	}
+	if len(username) > limit {
+		username = username[:limit]
+	}
+
 	if !isIdent(username) {
 		return errInvalidUsername
 	}
 
-	usernameCasefolded := strings.ToLower(username) // only ascii is supported in idents anyway
+	if !fromIdent {
+		username = "~" + username
+	}
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
 	if client.username == "" {
-		client.username = "~" + username
-		client.usernameCasefolded = "~" + usernameCasefolded
+		client.username = username
 	}
 
 	if client.realname == "" {
@@ -777,17 +778,18 @@ func (client *Client) updateNickMaskNoMutex() {
 	}
 
 	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
-	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, client.usernameCasefolded, cfhostname)
+	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, strings.ToLower(client.username), cfhostname)
 }
 
 // AllNickmasks returns all the possible nickmasks for the client.
 func (client *Client) AllNickmasks() (masks []string) {
 	client.stateMutex.RLock()
 	nick := client.nickCasefolded
-	username := client.usernameCasefolded
+	username := client.username
 	rawHostname := client.rawHostname
 	vhost := client.getVHostNoMutex()
 	client.stateMutex.RUnlock()
+	username = strings.ToLower(client.username)
 
 	if len(vhost) > 0 {
 		cfvhost, err := Casefold(vhost)
