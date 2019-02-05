@@ -32,10 +32,6 @@ const (
 	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 )
 
-var (
-	LoopbackIP = net.ParseIP("127.0.0.1")
-)
-
 // ResumeDetails is a place to stash data at various stages of
 // the resume process: when handling the RESUME command itself,
 // when completing the registration, and when rejoining channels.
@@ -55,7 +51,6 @@ type Client struct {
 	account            string
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	atime              time.Time
-	authorized         bool
 	awayMessage        string
 	capabilities       *caps.Set
 	capState           caps.State
@@ -88,12 +83,14 @@ type Client struct {
 	quitMessage        string
 	rawHostname        string
 	realname           string
+	realIP             net.IP
 	registered         bool
 	resumeDetails      *ResumeDetails
 	resumeToken        string
 	saslInProgress     bool
 	saslMechanism      string
 	saslValue          string
+	sentPassCommand    bool
 	server             *Server
 	skeleton           string
 	socket             *Socket
@@ -130,7 +127,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	socket := NewSocket(conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
 	client := &Client{
 		atime:        now,
-		authorized:   server.Password() == nil,
 		capabilities: caps.NewSet(),
 		capState:     caps.NoneState,
 		capVersion:   caps.Cap301,
@@ -151,6 +147,12 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	}
 	client.languages = server.languages.Default()
 
+	remoteAddr := conn.RemoteAddr()
+	client.realIP = utils.AddrToIP(remoteAddr)
+	if client.realIP == nil {
+		server.logger.Error("internal", "bad remote address", remoteAddr.String())
+		return
+	}
 	client.recomputeMaxlens()
 	if isTLS {
 		client.SetMode(modes.TLS, true)
@@ -158,7 +160,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
 	}
-	if config.Server.CheckIdent && !utils.AddrIsUnix(conn.RemoteAddr()) {
+	if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
 		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
 		if err != nil {
 			server.logger.Error("internal", "bad server address", err.Error())
@@ -189,6 +191,16 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 	go client.run()
 }
 
+func (client *Client) isAuthorized(config *Config) bool {
+	saslSent := client.account != ""
+	passRequirementMet := (config.Server.passwordBytes == nil) || client.sentPassCommand || (config.Accounts.SkipServerPassword && saslSent)
+	if !passRequirementMet {
+		return false
+	}
+	saslRequirementMet := !config.Accounts.RequireSasl.Enabled || saslSent || utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets)
+	return saslRequirementMet
+}
+
 func (client *Client) resetFakelag() {
 	fakelag := func() *Fakelag {
 		if client.HasRoleCapabs("nofakelag") {
@@ -211,14 +223,13 @@ func (client *Client) resetFakelag() {
 
 // IP returns the IP address of this client.
 func (client *Client) IP() net.IP {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
 	if client.proxiedIP != nil {
 		return client.proxiedIP
 	}
-	if ip := utils.AddrToIP(client.socket.conn.RemoteAddr()); ip != nil {
-		return ip
-	}
-	// unix domain socket that hasn't issued PROXY/WEBIRC yet. YOLO
-	return LoopbackIP
+	return client.realIP
 }
 
 // IPString returns the IP address of this client as a string.
@@ -289,7 +300,7 @@ func (client *Client) run() {
 
 	// Set the hostname for this client
 	// (may be overridden by a later PROXY command from stunnel)
-	client.rawHostname = utils.AddrLookupHostname(client.socket.conn.RemoteAddr())
+	client.rawHostname = utils.LookupHostname(client.realIP.String())
 
 	firstLine := true
 

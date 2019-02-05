@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"sync"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // LimiterConfig controls the automated connection limits.
@@ -36,23 +38,18 @@ type Limiter struct {
 	// population holds IP -> count of clients connected from there
 	population map[string]int
 
-	// exemptedIPs holds IPs that are exempt from limits
-	exemptedIPs map[string]bool
 	// exemptedNets holds networks that are exempt from limits
 	exemptedNets []net.IPNet
 }
 
-// maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (cl *Limiter) maskAddr(addr net.IP) net.IP {
-	if addr.To4() == nil {
-		// IPv6 addr
-		addr = addr.Mask(cl.ipv6Mask)
+// addrToKey canonicalizes `addr` to a string key.
+func addrToKey(addr net.IP, v4Mask net.IPMask, v6Mask net.IPMask) string {
+	if addr.To4() != nil {
+		addr = addr.Mask(v4Mask) // IP.Mask() handles the 4-in-6 mapping for us
 	} else {
-		// IPv4 addr
-		addr = addr.Mask(cl.ipv4Mask)
+		addr = addr.Mask(v6Mask)
 	}
-
-	return addr
+	return addr.String()
 }
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
@@ -67,18 +64,12 @@ func (cl *Limiter) AddClient(addr net.IP, force bool) error {
 
 	// check exempted lists
 	// we don't track populations for exempted addresses or nets - this is by design
-	if cl.exemptedIPs[addr.String()] {
+	if utils.IPInNets(addr, cl.exemptedNets) {
 		return nil
-	}
-	for _, ex := range cl.exemptedNets {
-		if ex.Contains(addr) {
-			return nil
-		}
 	}
 
 	// check population
-	cl.maskAddr(addr)
-	addrString := addr.String()
+	addrString := addrToKey(addr, cl.ipv4Mask, cl.ipv6Mask)
 
 	if cl.population[addrString]+1 > cl.subnetLimit && !force {
 		return errTooManyClients
@@ -98,7 +89,7 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 		return
 	}
 
-	addrString := addr.String()
+	addrString := addrToKey(addr, cl.ipv4Mask, cl.ipv6Mask)
 	cl.population[addrString] = cl.population[addrString] - 1
 
 	// safety limiter
@@ -121,21 +112,9 @@ func NewLimiter() *Limiter {
 // ApplyConfig atomically applies a config update to a connection limit handler
 func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	// assemble exempted nets
-	exemptedIPs := make(map[string]bool)
-	var exemptedNets []net.IPNet
-	for _, cidr := range config.Exempted {
-		ipaddr := net.ParseIP(cidr)
-		_, netaddr, err := net.ParseCIDR(cidr)
-
-		if ipaddr == nil && err != nil {
-			return fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
-		}
-
-		if ipaddr != nil {
-			exemptedIPs[ipaddr.String()] = true
-		} else {
-			exemptedNets = append(exemptedNets, *netaddr)
-		}
+	exemptedNets, err := utils.ParseNetList(config.Exempted)
+	if err != nil {
+		return fmt.Errorf("Could not parse limiter exemption list: %v", err.Error())
 	}
 
 	cl.Lock()
@@ -151,7 +130,6 @@ func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	if cl.subnetLimit == 0 && config.IPsPerSubnet != 0 {
 		cl.subnetLimit = config.IPsPerSubnet
 	}
-	cl.exemptedIPs = exemptedIPs
 	cl.exemptedNets = exemptedNets
 
 	return nil

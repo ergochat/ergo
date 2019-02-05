@@ -25,6 +25,7 @@ type webircConfig struct {
 	Password       []byte `yaml:"password-bytes"`
 	Fingerprint    string
 	Hosts          []string
+	allowedNets    []net.IPNet
 }
 
 // Populate fills out our password or fingerprint.
@@ -36,47 +37,21 @@ func (wc *webircConfig) Populate() (err error) {
 	if wc.PasswordString != "" {
 		wc.Password, err = decodeLegacyPasswordHash(wc.PasswordString)
 	}
+
+	if err == nil {
+		wc.allowedNets, err = utils.ParseNetList(wc.Hosts)
+	}
+
 	return err
-}
-
-func isGatewayAllowed(addr net.Addr, gatewaySpec string) bool {
-	// "localhost" includes any loopback IP or unix domain socket
-	if gatewaySpec == "localhost" {
-		return utils.AddrIsLocal(addr)
-	}
-
-	ip := utils.AddrToIP(addr)
-	if ip == nil {
-		return false
-	}
-
-	// exact IP match
-	if ip.String() == gatewaySpec {
-		return true
-	}
-
-	// CIDR match
-	_, gatewayNet, err := net.ParseCIDR(gatewaySpec)
-	if err != nil {
-		return false
-	}
-	return gatewayNet.Contains(ip)
 }
 
 // ApplyProxiedIP applies the given IP to the client.
 func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (success bool) {
 	// ensure IP is sane
-	parsedProxiedIP := net.ParseIP(proxiedIP)
+	parsedProxiedIP := net.ParseIP(proxiedIP).To16()
 	if parsedProxiedIP == nil {
 		client.Quit(fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP))
 		return false
-	}
-
-	// undo any mapping of v4 addresses into the v6 space: https://stackoverflow.com/a/1618259
-	// this is how a typical stunnel4 deployment on Linux will handle dual-stack
-	unmappedIP := parsedProxiedIP.To4()
-	if unmappedIP != nil {
-		parsedProxiedIP = unmappedIP
 	}
 
 	isBanned, banMsg := client.server.checkBans(parsedProxiedIP)
@@ -117,14 +92,12 @@ func handleProxyCommand(server *Server, client *Client, line string) (err error)
 		return errBadProxyLine
 	}
 
-	for _, gateway := range server.ProxyAllowedFrom() {
-		if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
-			// assume PROXY connections are always secure
-			if client.ApplyProxiedIP(params[2], true) {
-				return nil
-			} else {
-				return errBadProxyLine
-			}
+	if utils.IPInNets(client.realIP, server.Config().Server.proxyAllowedFromNets) {
+		// assume PROXY connections are always secure
+		if client.ApplyProxiedIP(params[2], true) {
+			return nil
+		} else {
+			return errBadProxyLine
 		}
 	}
 

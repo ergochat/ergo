@@ -83,11 +83,6 @@ func (it *IdleTimer) Start() {
 }
 
 func (it *IdleTimer) Touch() {
-	// ignore touches from unregistered clients
-	if !it.client.Registered() {
-		return
-	}
-
 	it.updateIdleDuration()
 
 	it.Lock()

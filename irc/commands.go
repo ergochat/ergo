@@ -54,7 +54,9 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	// most servers do this only for PING/PONG, but we'll do it for any command:
-	client.idletimer.Touch()
+	if client.registered {
+		client.idletimer.Touch()
+	}
 
 	if !cmd.leaveClientIdle {
 		client.Active()

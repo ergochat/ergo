@@ -67,8 +67,8 @@ server:
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
     motd-formatting: true
 
-    # addresses/hostnames the PROXY command can be used from
-    # this should be restricted to 127.0.0.1/8 and localhost at most
+    # addresses/CIDRs the PROXY command can be used from
+    # this should be restricted to 127.0.0.1/8 and ::1/128 (unless you have a good reason)
     # you should also add these addresses to the connection limits and throttling exemption lists
     proxy-allowed-from:
         # - localhost
@@ -85,7 +85,7 @@ server:
             # password the gateway uses to connect, made with  oragono genpasswd
             password: "$2a$04$sLEFDpIOyUp55e6gTMKbOeroT6tMXTjPFvA0eGvwvImVR9pkwv7ee"
 
-            # hosts that can use this webirc command
+            # addresses/CIDRs that can use this webirc command
             # you should also add these addresses to the connection limits and throttling exemption lists
             hosts:
                 # - localhost
@@ -117,9 +117,9 @@ server:
 
         # IPs/networks which are exempted from connection limits
         exempted:
-            - "127.0.0.1"
-            - "127.0.0.1/8"
-            - "::1/128"
+            - "localhost"
+            # - "192.168.1.1"
+            # - "2001:0db8::/32"
 
     # automated connection throttling
     connection-throttling:
@@ -145,9 +145,9 @@ server:
 
         # IPs/networks which are exempted from connection limits
         exempted:
-            - "127.0.0.1"
-            - "127.0.0.1/8"
-            - "::1/128"
+            - "localhost"
+            # - "192.168.1.1"
+            # - "2001:0db8::/32"
 
 # account options
 accounts:
@@ -197,6 +197,18 @@ accounts:
     # successfully authenticates with SASL will not be required to send
     # PASS as well, so it can be configured to authenticate with SASL only.
     skip-server-password: false
+
+    # require-sasl controls whether clients are required to have accounts
+    # (and sign into them using SASL) to connect to the server
+    require-sasl:
+        # if this is enabled, all clients must authenticate with SASL while connecting
+        enabled: false
+
+        # IPs/CIDRs which are exempted from the account requirement
+        exempted:
+            - "localhost"
+            # - '127.0.0.2'
+            # - '10.10.0.0/16'
 
     # nick-reservation controls how, and whether, nicknames are linked to accounts
     nick-reservation:

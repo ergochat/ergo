@@ -11,43 +11,27 @@ import (
 
 var (
 	// subnet mask for an ipv6 /128:
-	mask128 = net.CIDRMask(128, 128)
+	mask128             = net.CIDRMask(128, 128)
+	IPv4LoopbackAddress = net.ParseIP("127.0.0.1").To16()
 )
-
-// IPString returns a simple IP string from the given net.Addr.
-func IPString(addr net.Addr) string {
-	addrStr := addr.String()
-	ipaddr, _, err := net.SplitHostPort(addrStr)
-	//TODO(dan): Why is this needed, does this happen?
-	if err != nil {
-		return addrStr
-	}
-	return ipaddr
-}
-
-// AddrLookupHostname returns the hostname (if possible) or address for the given `net.Addr`.
-func AddrLookupHostname(addr net.Addr) string {
-	if AddrIsUnix(addr) {
-		return "localhost"
-	}
-	return LookupHostname(IPString(addr))
-}
 
 // AddrIsLocal returns whether the address is from a trusted local connection (loopback or unix).
 func AddrIsLocal(addr net.Addr) bool {
 	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
 		return tcpaddr.IP.IsLoopback()
 	}
-	_, ok := addr.(*net.UnixAddr)
-	return ok
+	return AddrIsUnix(addr)
 }
 
-// AddrToIP returns the IP address for a net.Addr, or nil if it's a unix domain socket.
+// AddrToIP returns the IP address for a net.Addr; unix domain sockets are treated as IPv4 loopback
 func AddrToIP(addr net.Addr) net.IP {
 	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
-		return tcpaddr.IP
+		return tcpaddr.IP.To16()
+	} else if AddrIsUnix(addr) {
+		return IPv4LoopbackAddress
+	} else {
+		return nil
 	}
-	return nil
 }
 
 // AddrIsUnix returns whether the address is a unix domain socket.
@@ -98,6 +82,16 @@ func IsHostname(name string) bool {
 	}
 
 	return true
+}
+
+// Convenience to test whether `ip` is contained in any of `nets`.
+func IPInNets(ip net.IP, nets []net.IPNet) bool {
+	for _, network := range nets {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // NormalizeIPToNet represents an address (v4 or v6) as the v6 /128 CIDR
@@ -155,4 +149,26 @@ func NormalizedNetFromString(str string) (result net.IPNet, err error) {
 		return
 	}
 	return NormalizeIPToNet(ip), nil
+}
+
+// Parse a list of IPs and nets as they would appear in one of our config
+// files, e.g., proxy-allowed-from or a throttling exemption list.
+func ParseNetList(netList []string) (nets []net.IPNet, err error) {
+	var network net.IPNet
+	for _, netStr := range netList {
+		if netStr == "localhost" {
+			ipv4Loopback, _ := NormalizedNetFromString("127.0.0.0/8")
+			ipv6Loopback, _ := NormalizedNetFromString("::1/128")
+			nets = append(nets, ipv4Loopback)
+			nets = append(nets, ipv6Loopback)
+			continue
+		}
+		network, err = NormalizedNetFromString(netStr)
+		if err != nil {
+			return
+		} else {
+			nets = append(nets, network)
+		}
+	}
+	return
 }
