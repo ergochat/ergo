@@ -47,6 +47,8 @@ func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, c
 	if rb.finalized {
 		rb.target.server.logger.Error("internal", "message added to finalized ResponseBuffer, undefined behavior")
 		debug.PrintStack()
+		// TODO(dan): send a NOTICE to the end user with a string representation of the message,
+		// for debugging purposes
 		return
 	}
 

@@ -470,6 +470,10 @@ fakelag:
 # message history tracking, for the RESUME extension and possibly other uses in future
 history:
     # should we store messages for later playback?
+    # the current implementation stores messages in RAM only; they do not persist
+    # across server restarts. however, you should disable this unless you understand
+    # how it interacts with the GDPR and/or any data privacy laws that apply
+    # in your country and the countries of your users.
     enabled: true
 
     # how many channel-specific events (messages, joins, parts) should be tracked per channel?
