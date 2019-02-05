@@ -625,7 +625,7 @@ func (client *Client) SetNames(username, realname string, fromIdent bool) error 
 	if !fromIdent {
 		limit -= 1 // leave room for the prepended ~
 	}
-	if len(username) > limit {
+	if limit < len(username) {
 		username = username[:limit]
 	}
 
@@ -789,7 +789,7 @@ func (client *Client) AllNickmasks() (masks []string) {
 	rawHostname := client.rawHostname
 	vhost := client.getVHostNoMutex()
 	client.stateMutex.RUnlock()
-	username = strings.ToLower(client.username)
+	username = strings.ToLower(username)
 
 	if len(vhost) > 0 {
 		cfvhost, err := Casefold(vhost)
