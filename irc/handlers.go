@@ -2193,13 +2193,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	ident := msg.Params[0]
-	identLen := server.Limits().IdentLen
-	if identLen-1 < len(ident) {
-		ident = ident[:server.Limits().IdentLen-1] // -1 as SetNames adds the ~ at the start for us
-	}
-
-	err := client.SetNames(ident, msg.Params[3])
+	err := client.SetNames(msg.Params[0], msg.Params[3], false)
 	if err == errInvalidUsername {
 		rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.t("Malformed username"))
 	}
