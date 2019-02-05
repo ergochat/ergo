@@ -456,7 +456,7 @@ func (am *AccountManager) setPassword(account string, password string) (err erro
 }
 
 func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount string, callbackNamespace string, callbackValue string) (string, error) {
-	if callbackNamespace == "*" || callbackNamespace == "none" {
+	if callbackNamespace == "*" || callbackNamespace == "none" || callbackNamespace == "admin" {
 		return "", nil
 	} else if callbackNamespace == "mailto" {
 		return am.dispatchMailtoCallback(client, casefoldedAccount, callbackValue)
@@ -590,7 +590,9 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	if err != nil {
 		return err
 	}
-	am.Login(client, clientAccount)
+	if client != nil {
+		am.Login(client, clientAccount)
+	}
 	return nil
 }
 

@@ -32,14 +32,6 @@ func (server *Server) RecoverFromErrors() bool {
 	return *server.Config().Debug.RecoverFromErrors
 }
 
-func (server *Server) ProxyAllowedFrom() []string {
-	return server.Config().Server.ProxyAllowedFrom
-}
-
-func (server *Server) WebIRCConfig() []webircConfig {
-	return server.Config().Server.WebIRC
-}
-
 func (server *Server) DefaultChannelModes() modes.Modes {
 	return server.Config().Channels.defaultModes
 }
@@ -168,18 +160,6 @@ func (client *Client) SetAccountName(account string) (changed bool) {
 	client.account = casefoldedAccount
 	client.accountName = account
 	return
-}
-
-func (client *Client) Authorized() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.authorized
-}
-
-func (client *Client) SetAuthorized(authorized bool) {
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.authorized = authorized
 }
 
 func (client *Client) HasMode(mode modes.Mode) bool {

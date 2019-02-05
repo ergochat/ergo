@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -54,7 +55,12 @@ func (conf *TLSListenConfig) Config() (*tls.Config, error) {
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
-	LoginThrottling       struct {
+	RequireSasl           struct {
+		Enabled      bool
+		Exempted     []string
+		exemptedNets []net.IPNet
+	} `yaml:"require-sasl"`
+	LoginThrottling struct {
 		Enabled     bool
 		Duration    time.Duration
 		MaxAttempts int `yaml:"max-attempts"`
@@ -261,8 +267,9 @@ type Config struct {
 		STS                  STSConfig
 		CheckIdent           bool `yaml:"check-ident"`
 		MOTD                 string
-		MOTDFormatting       bool           `yaml:"motd-formatting"`
-		ProxyAllowedFrom     []string       `yaml:"proxy-allowed-from"`
+		MOTDFormatting       bool     `yaml:"motd-formatting"`
+		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
+		proxyAllowedFromNets []net.IPNet
 		WebIRC               []webircConfig `yaml:"webirc"`
 		MaxSendQString       string         `yaml:"max-sendq"`
 		MaxSendQBytes        int
@@ -593,6 +600,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 			// we store "none" as "*" internally
 			config.Accounts.Registration.EnabledCallbacks[i] = "*"
 		}
+	}
+
+	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse require-sasl exempted nets: %v", err.Error())
+	}
+
+	config.Server.proxyAllowedFromNets, err = utils.ParseNetList(config.Server.ProxyAllowedFrom)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse proxy-allowed-from nets: %v", err.Error())
 	}
 
 	rawRegexp := config.Accounts.VHosts.ValidRegexpRaw

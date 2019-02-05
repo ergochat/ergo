@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // ThrottlerConfig controls the automated connection throttling.
@@ -82,8 +84,6 @@ type Throttler struct {
 	banDuration time.Duration
 	banMessage  string
 
-	// exemptedIPs holds IPs that are exempt from limits
-	exemptedIPs map[string]bool
 	// exemptedNets holds networks that are exempt from limits
 	exemptedNets []net.IPNet
 }
@@ -126,13 +126,8 @@ func (ct *Throttler) AddClient(addr net.IP) error {
 	}
 
 	// check exempted lists
-	if ct.exemptedIPs[addr.String()] {
+	if utils.IPInNets(addr, ct.exemptedNets) {
 		return nil
-	}
-	for _, ex := range ct.exemptedNets {
-		if ex.Contains(addr) {
-			return nil
-		}
 	}
 
 	// check throttle
@@ -184,21 +179,9 @@ func NewThrottler() *Throttler {
 // ApplyConfig atomically applies a config update to a throttler
 func (ct *Throttler) ApplyConfig(config ThrottlerConfig) error {
 	// assemble exempted nets
-	exemptedIPs := make(map[string]bool)
-	var exemptedNets []net.IPNet
-	for _, cidr := range config.Exempted {
-		ipaddr := net.ParseIP(cidr)
-		_, netaddr, err := net.ParseCIDR(cidr)
-
-		if ipaddr == nil && err != nil {
-			return fmt.Errorf("Could not parse exempted IP/network [%s]", cidr)
-		}
-
-		if ipaddr != nil {
-			exemptedIPs[ipaddr.String()] = true
-		} else {
-			exemptedNets = append(exemptedNets, *netaddr)
-		}
+	exemptedNets, err := utils.ParseNetList(config.Exempted)
+	if err != nil {
+		return fmt.Errorf("Could not parse throttle exemption list: %v", err.Error())
 	}
 
 	ct.Lock()
@@ -211,7 +194,6 @@ func (ct *Throttler) ApplyConfig(config ThrottlerConfig) error {
 	ct.duration = config.Duration
 	ct.banDuration = config.BanDuration
 	ct.banMessage = config.BanMessage
-	ct.exemptedIPs = exemptedIPs
 	ct.exemptedNets = exemptedNets
 
 	return nil

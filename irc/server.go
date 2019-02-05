@@ -381,7 +381,7 @@ func (server *Server) generateMessageID() string {
 //
 
 func (server *Server) tryRegister(c *Client) {
-	if c.Registered() {
+	if c.registered {
 		return
 	}
 
@@ -389,9 +389,10 @@ func (server *Server) tryRegister(c *Client) {
 		return
 	}
 
-	// client MUST send PASS (or AUTHENTICATE, if skip-server-password is set)
+	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	if !c.Authorized() {
+	config := server.Config()
+	if !c.isAuthorized(config) {
 		c.Quit(c.t("Bad password"))
 		c.destroy(false)
 		return

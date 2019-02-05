@@ -5,7 +5,6 @@ package irc
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 )
@@ -122,6 +121,18 @@ SADROP forcibly de-links the given nickname from the attached user account.`,
 			capabs:    []string{"accreg"},
 			enabled:   servCmdRequiresAccreg,
 			minParams: 1,
+		},
+		"saregister": {
+			handler: nsSaregisterHandler,
+			help: `Syntax: $bSAREGISTER <username> <password>$b
+
+SAREGISTER registers an account on someone else's behalf.
+This is for use in configurations that require SASL for all connections;
+an administrator can set use this command to set up user accounts.`,
+			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
+			enabled:   servCmdRequiresAccreg,
+			capabs:    []string{"accreg"},
+			minParams: 2,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
@@ -311,20 +322,10 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 
 func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	// get params
-	username, email := params[0], params[1]
+	account, email := params[0], params[1]
 	var passphrase string
 	if len(params) > 2 {
 		passphrase = params[2]
-	}
-
-	if !server.AccountConfig().Registration.Enabled {
-		nsNotice(rb, client.t("Account registration has been disabled"))
-		return
-	}
-
-	if username == "" {
-		nsNotice(rb, client.t("No username supplied"))
-		return
 	}
 
 	certfp := client.certfp
@@ -359,9 +360,6 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	}
 
-	// get and sanitise account name
-	account := strings.TrimSpace(username)
-
 	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, client.certfp)
 	if err == nil {
 		if callbackNamespace == "*" {
@@ -381,13 +379,36 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		errMsg := client.t("Could not register")
 		if err == errCertfpAlreadyExists {
 			errMsg = client.t("An account already exists for your certificate fingerprint")
-		} else if err == errAccountAlreadyRegistered {
+		} else if err == errAccountAlreadyRegistered || err == errAccountAlreadyVerified {
 			errMsg = client.t("Account already exists")
 		} else if err == errAccountBadPassphrase {
 			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
 		}
 		nsNotice(rb, errMsg)
 		return
+	}
+}
+
+func nsSaregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	account, passphrase := params[0], params[1]
+	err := server.accounts.Register(nil, account, "admin", "", passphrase, "")
+	if err == nil {
+		err = server.accounts.Verify(nil, account, "")
+	}
+
+	if err != nil {
+		var errMsg string
+		if err == errAccountAlreadyRegistered || err == errAccountAlreadyVerified {
+			errMsg = client.t("Account already exists")
+		} else if err == errAccountBadPassphrase {
+			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
+		} else {
+			server.logger.Error("services", "unknown error from saregister", err.Error())
+			errMsg = client.t("Could not register")
+		}
+		nsNotice(rb, errMsg)
+	} else {
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
 	}
 }
 

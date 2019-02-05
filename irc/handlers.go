@@ -323,10 +323,6 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	// let the SASL handler do its thing
 	exiting := handler(server, client, client.saslMechanism, data, rb)
 
-	if client.LoggedIntoAccount() && server.AccountConfig().SkipServerPassword {
-		client.SetAuthorized(true)
-	}
-
 	// wait 'til SASL is done before emptying the sasl vars
 	client.saslInProgress = false
 	client.saslMechanism = ""
@@ -516,7 +512,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 	case "END":
-		if !client.Registered() {
+		if !client.registered {
 			client.capState = caps.NegotiatedState
 		}
 
@@ -1577,7 +1573,7 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.Registered() {
+	if client.registered {
 		performNickChange(server, client, client, msg.Params[0], rb)
 	} else {
 		client.preregNick = msg.Params[0]
@@ -1758,7 +1754,7 @@ func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // PASS <password>
 func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.Registered() {
+	if client.registered {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
@@ -1766,7 +1762,6 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	// if no password exists, skip checking
 	serverPassword := server.Password()
 	if serverPassword == nil {
-		client.SetAuthorized(true)
 		return false
 	}
 
@@ -1778,7 +1773,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return true
 	}
 
-	client.SetAuthorized(true)
+	client.sentPassCommand = true
 	return false
 }
 
@@ -1986,7 +1981,7 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	oldnick := msg.Params[0]
 	token := msg.Params[1]
 
-	if client.Registered() {
+	if client.registered {
 		rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
@@ -2188,7 +2183,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // USER <username> * 0 <realname>
 func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.Registered() {
+	if client.registered {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
@@ -2255,7 +2250,7 @@ func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
 func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
-	if client.Registered() || client.proxiedIP != nil {
+	if client.registered || client.proxiedIP != nil {
 		return false
 	}
 
@@ -2282,26 +2277,24 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		}
 	}
 
-	for _, info := range server.WebIRCConfig() {
-		for _, gateway := range info.Hosts {
-			if isGatewayAllowed(client.socket.conn.RemoteAddr(), gateway) {
-				// confirm password and/or fingerprint
-				givenPassword := msg.Params[0]
-				if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, []byte(givenPassword)) != nil {
-					continue
-				}
-				if 0 < len(info.Fingerprint) && client.certfp != info.Fingerprint {
-					continue
-				}
-
-				proxiedIP := msg.Params[3]
-				// see #211; websocket gateways will wrap ipv6 addresses in square brackets
-				// because IRC parameters can't start with :
-				if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
-					proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
-				}
-				return !client.ApplyProxiedIP(proxiedIP, secure)
+	givenPassword := []byte(msg.Params[0])
+	for _, info := range server.Config().Server.WebIRC {
+		if utils.IPInNets(client.realIP, info.allowedNets) {
+			// confirm password and/or fingerprint
+			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
+				continue
 			}
+			if 0 < len(info.Fingerprint) && client.certfp != info.Fingerprint {
+				continue
+			}
+
+			proxiedIP := msg.Params[3]
+			// see #211; websocket gateways will wrap ipv6 addresses in square brackets
+			// because IRC parameters can't start with :
+			if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
+				proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
+			}
+			return !client.ApplyProxiedIP(proxiedIP, secure)
 		}
 	}
 
