@@ -198,10 +198,13 @@ accounts:
     # PASS as well, so it can be configured to authenticate with SASL only.
     skip-server-password: false
 
+    # require-sasl controls whether clients are required to have accounts
+    # (and sign into them using SASL) to connect to the server
     require-sasl:
-        # if this is enabled, all clients must authenticate with SASL:
+        # if this is enabled, all clients must authenticate with SASL while connecting
         enabled: false
-        # the following IPs/CIDRs are exempted from this requirement:
+
+        # IPs/CIDRs which are exempted from the account requirement
         exempted:
             - "localhost"
             # - '127.0.0.2'
