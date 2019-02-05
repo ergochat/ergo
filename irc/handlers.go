@@ -2469,7 +2469,13 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	err := client.SetNames(msg.Params[0], msg.Params[3], false)
 	if err == errInvalidUsername {
-		rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.t("Malformed username"))
+		// if client's using a unicode nick or something weird, let's just set 'em up with a stock username instead.
+		// fixes clients that just use their nick as a username so they can still use the interesting nick
+		if client.preregNick == msg.Params[0] {
+			client.SetNames("user", msg.Params[3], false)
+		} else {
+			rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.t("Malformed username"))
+		}
 	}
 
 	return false
