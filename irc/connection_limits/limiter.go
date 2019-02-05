@@ -42,17 +42,14 @@ type Limiter struct {
 	exemptedNets []net.IPNet
 }
 
-// maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (cl *Limiter) maskAddr(addr net.IP) net.IP {
-	if addr.To4() == nil {
-		// IPv6 addr
-		addr = addr.Mask(cl.ipv6Mask)
+// addrToKey canonicalizes `addr` to a string key.
+func addrToKey(addr net.IP, v4Mask net.IPMask, v6Mask net.IPMask) string {
+	if addr.To4() != nil {
+		addr = addr.Mask(v4Mask) // IP.Mask() handles the 4-in-6 mapping for us
 	} else {
-		// IPv4 addr
-		addr = addr.Mask(cl.ipv4Mask)
+		addr = addr.Mask(v6Mask)
 	}
-
-	return addr
+	return addr.String()
 }
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
@@ -72,8 +69,7 @@ func (cl *Limiter) AddClient(addr net.IP, force bool) error {
 	}
 
 	// check population
-	cl.maskAddr(addr)
-	addrString := addr.String()
+	addrString := addrToKey(addr, cl.ipv4Mask, cl.ipv6Mask)
 
 	if cl.population[addrString]+1 > cl.subnetLimit && !force {
 		return errTooManyClients
@@ -93,7 +89,7 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 		return
 	}
 
-	addrString := addr.String()
+	addrString := addrToKey(addr, cl.ipv4Mask, cl.ipv6Mask)
 	cl.population[addrString] = cl.population[addrString] - 1
 
 	// safety limiter

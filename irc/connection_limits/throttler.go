@@ -88,19 +88,6 @@ type Throttler struct {
 	exemptedNets []net.IPNet
 }
 
-// maskAddr masks the given IPv4/6 address with our cidr limit masks.
-func (ct *Throttler) maskAddr(addr net.IP) net.IP {
-	if addr.To4() == nil {
-		// IPv6 addr
-		addr = addr.Mask(ct.ipv6Mask)
-	} else {
-		// IPv4 addr
-		addr = addr.Mask(ct.ipv4Mask)
-	}
-
-	return addr
-}
-
 // ResetFor removes any existing count for the given address.
 func (ct *Throttler) ResetFor(addr net.IP) {
 	ct.Lock()
@@ -111,8 +98,7 @@ func (ct *Throttler) ResetFor(addr net.IP) {
 	}
 
 	// remove
-	ct.maskAddr(addr)
-	addrString := addr.String()
+	addrString := addrToKey(addr, ct.ipv4Mask, ct.ipv6Mask)
 	delete(ct.population, addrString)
 }
 
@@ -131,8 +117,7 @@ func (ct *Throttler) AddClient(addr net.IP) error {
 	}
 
 	// check throttle
-	ct.maskAddr(addr)
-	addrString := addr.String()
+	addrString := addrToKey(addr, ct.ipv4Mask, ct.ipv6Mask)
 
 	details := ct.population[addrString] // retrieve mutable throttle state from the map
 	// add in constant state to process the limiting operation
