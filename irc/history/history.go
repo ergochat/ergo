@@ -36,6 +36,13 @@ type Item struct {
 	Msgid string
 }
 
+// HasMsgid tests whether a message has the message id `msgid`.
+func (item *Item) HasMsgid(msgid string) bool {
+	// XXX we stuff other data in the Msgid field sometimes,
+	// don't match it by accident
+	return (item.Type == Privmsg || item.Type == Notice) && item.Msgid == msgid
+}
+
 type Predicate func(item Item) (matches bool)
 
 // Buffer is a ring buffer holding message/event history for a channel or user
@@ -115,7 +122,8 @@ func (list *Buffer) Add(item Item) {
 	list.buffer[pos] = item
 }
 
-func reverse(results []Item) {
+// Reverse reverses an []Item, in-place.
+func Reverse(results []Item) {
 	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 		results[i], results[j] = results[j], results[i]
 	}
@@ -125,7 +133,7 @@ func reverse(results []Item) {
 // with an indication of whether the results are complete or are missing items
 // because some of that period was discarded. A zero value of `before` is considered
 // higher than all other times.
-func (list *Buffer) Between(after, before time.Time) (results []Item, complete bool) {
+func (list *Buffer) Between(after, before time.Time, ascending bool, limit int) (results []Item, complete bool) {
 	if !list.Enabled() {
 		return
 	}
@@ -139,14 +147,17 @@ func (list *Buffer) Between(after, before time.Time) (results []Item, complete b
 		return (after.IsZero() || item.Time.After(after)) && (before.IsZero() || item.Time.Before(before))
 	}
 
-	return list.matchInternal(satisfies, 0), complete
+	return list.matchInternal(satisfies, ascending, limit), complete
 }
 
 // Match returns all history items such that `predicate` returns true for them.
-// Items are considered in reverse insertion order, up to a total of `limit` matches.
+// Items are considered in reverse insertion order if `ascending` is false, or
+// in insertion order if `ascending` is true, up to a total of `limit` matches
+// if `limit` > 0 (unlimited otherwise).
 // `predicate` MAY be a closure that maintains its own state across invocations;
 // it MUST NOT acquire any locks or otherwise do anything weird.
-func (list *Buffer) Match(predicate Predicate, limit int) (results []Item) {
+// Results are always returned in insertion order.
+func (list *Buffer) Match(predicate Predicate, ascending bool, limit int) (results []Item) {
 	if !list.Enabled() {
 		return
 	}
@@ -154,28 +165,42 @@ func (list *Buffer) Match(predicate Predicate, limit int) (results []Item) {
 	list.RLock()
 	defer list.RUnlock()
 
-	return list.matchInternal(predicate, limit)
+	return list.matchInternal(predicate, ascending, limit)
 }
 
 // you must be holding the read lock to call this
-func (list *Buffer) matchInternal(predicate Predicate, limit int) (results []Item) {
+func (list *Buffer) matchInternal(predicate Predicate, ascending bool, limit int) (results []Item) {
 	if list.start == -1 {
 		return
 	}
 
-	pos := list.prev(list.end)
+	var pos, stop int
+	if ascending {
+		pos = list.start
+		stop = list.prev(list.end)
+	} else {
+		pos = list.prev(list.end)
+		stop = list.start
+	}
+
 	for {
 		if predicate(list.buffer[pos]) {
 			results = append(results, list.buffer[pos])
 		}
-		if pos == list.start || (limit != 0 && len(results) == limit) {
+		if pos == stop || (limit != 0 && len(results) == limit) {
 			break
 		}
-		pos = list.prev(pos)
+		if ascending {
+			pos = list.next(pos)
+		} else {
+			pos = list.prev(pos)
+		}
 	}
 
 	// TODO sort by time instead?
-	reverse(results)
+	if !ascending {
+		Reverse(results)
+	}
 	return
 }
 
@@ -183,7 +208,7 @@ func (list *Buffer) matchInternal(predicate Predicate, limit int) (results []Ite
 // it returns all items.
 func (list *Buffer) Latest(limit int) (results []Item) {
 	matchAll := func(item Item) bool { return true }
-	return list.Match(matchAll, limit)
+	return list.Match(matchAll, false, limit)
 }
 
 // LastDiscarded returns the latest time of any entry that was evicted
@@ -201,6 +226,15 @@ func (list *Buffer) prev(index int) int {
 		return len(list.buffer) - 1
 	default:
 		return index - 1
+	}
+}
+
+func (list *Buffer) next(index int) int {
+	switch index {
+	case len(list.buffer) - 1:
+		return 0
+	default:
+		return index + 1
 	}
 }
 
