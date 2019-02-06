@@ -232,7 +232,7 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	// this provides the synchronization that allows exactly one registration of the channel:
-	err = channelInfo.SetRegistered(client.Account())
+	err = channelInfo.SetRegistered(account)
 	if err != nil {
 		csNotice(rb, err.Error())
 		return
