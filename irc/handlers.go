@@ -1152,7 +1152,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	oper := client.Oper()
 	for i, name := range channels {
 		if config.Channels.MaxChannelsPerClient <= client.NumChannels() && oper == nil {
-			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), name, client.t("You have joined too many channels already"))
+			rb.Add(nil, server.name, ERR_TOOMANYCHANNELS, client.Nick(), name, client.t("You have joined too many channels"))
 			return false
 		}
 		var key string

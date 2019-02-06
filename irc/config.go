@@ -795,7 +795,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Channels.MaxChannelsPerClient = 100
 	}
 	if config.Channels.Registration.MaxChannelsPerAccount == 0 {
-		config.Channels.Registration.MaxChannelsPerAccount = 10
+		config.Channels.Registration.MaxChannelsPerAccount = 15
 	}
 
 	// in the current implementation, we disable history by creating a history buffer
