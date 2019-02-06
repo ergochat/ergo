@@ -339,6 +339,10 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
+	if !nsLoginThrottleCheck(client, rb) {
+		return
+	}
+
 	config := server.AccountConfig()
 	var callbackNamespace, callbackValue string
 	noneCallbackAllowed := false
