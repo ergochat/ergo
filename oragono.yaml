@@ -280,6 +280,9 @@ channels:
         # can users register new channels?
         enabled: true
 
+        # how many channels can each account register?
+        max-channels-per-account: 10
+
 # operator classes
 oper-classes:
     # local operator

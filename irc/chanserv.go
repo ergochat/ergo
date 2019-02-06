@@ -224,6 +224,13 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
+	account := client.Account()
+	channelsAlreadyRegistered := server.accounts.ChannelsForAccount(account)
+	if server.Config().Channels.Registration.MaxChannelsPerAccount <= len(channelsAlreadyRegistered) {
+		csNotice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
+		return
+	}
+
 	// this provides the synchronization that allows exactly one registration of the channel:
 	err = channelInfo.SetRegistered(client.Account())
 	if err != nil {

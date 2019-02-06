@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "4"
+	latestDbSchema = "5"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -390,6 +390,25 @@ func schemaChangeV3ToV4(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// create new key tracking channels that belong to an account
+func schemaChangeV4ToV5(config *Config, tx *buntdb.Tx) error {
+	founderToChannels := make(map[string][]string)
+	prefix := "channel.founder "
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		channel := strings.TrimPrefix(key, prefix)
+		founderToChannels[value] = append(founderToChannels[value], channel)
+		return true
+	})
+
+	for founder, channels := range founderToChannels {
+		tx.Set(fmt.Sprintf("account.channels %s", founder), strings.Join(channels, ","), nil)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -406,6 +425,11 @@ func init() {
 			InitialVersion: "3",
 			TargetVersion:  "4",
 			Changer:        schemaChangeV3ToV4,
+		},
+		{
+			InitialVersion: "4",
+			TargetVersion:  "5",
+			Changer:        schemaChangeV4ToV5,
 		},
 	}
 

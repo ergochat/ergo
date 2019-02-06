@@ -215,6 +215,17 @@ func (reg *ChannelRegistry) Delete(casefoldedName string, info RegisteredChannel
 	})
 }
 
+// deleteByAccount is a helper to delete all channel registrations corresponding to a user account.
+func (reg *ChannelRegistry) deleteByAccount(cfaccount string, cfchannels []string) {
+	for _, cfchannel := range cfchannels {
+		info := reg.LoadChannel(cfchannel)
+		if info == nil || info.Founder != cfaccount {
+			continue
+		}
+		reg.Delete(cfchannel, *info)
+	}
+}
+
 // Rename handles the persistence part of a channel rename: the channel is
 // persisted under its new name, and the old name is cleaned up if necessary.
 func (reg *ChannelRegistry) Rename(channel *Channel, casefoldedOldName string) {
@@ -254,14 +265,43 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 			for _, keyFmt := range channelKeyStrings {
 				tx.Delete(fmt.Sprintf(keyFmt, key))
 			}
+
+			// remove this channel from the client's list of registered channels
+			channelsKey := fmt.Sprintf(keyAccountChannels, info.Founder)
+			channelsStr, err := tx.Get(channelsKey)
+			if err == buntdb.ErrNotFound {
+				return
+			}
+			registeredChannels := unmarshalRegisteredChannels(channelsStr)
+			var nowRegisteredChannels []string
+			for _, channel := range registeredChannels {
+				if channel != key {
+					nowRegisteredChannels = append(nowRegisteredChannels, channel)
+				}
+			}
+			tx.Set(channelsKey, strings.Join(nowRegisteredChannels, ","), nil)
 		}
 	}
 }
 
 // saveChannel saves a channel to the store.
 func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelKey string, channelInfo RegisteredChannel, includeFlags uint) {
+	// maintain the mapping of account -> registered channels
+	chanExistsKey := fmt.Sprintf(keyChannelExists, channelKey)
+	_, existsErr := tx.Get(chanExistsKey)
+	if existsErr == buntdb.ErrNotFound {
+		// this is a new registration, need to update account-to-channels
+		accountChannelsKey := fmt.Sprintf(keyAccountChannels, channelInfo.Founder)
+		alreadyChannels, _ := tx.Get(accountChannelsKey)
+		newChannels := channelKey // this is the casefolded channel name
+		if alreadyChannels != "" {
+			newChannels = fmt.Sprintf("%s,%s", alreadyChannels, newChannels)
+		}
+		tx.Set(accountChannelsKey, newChannels, nil)
+	}
+
 	if includeFlags&IncludeInitial != 0 {
-		tx.Set(fmt.Sprintf(keyChannelExists, channelKey), "1", nil)
+		tx.Set(chanExistsKey, "1", nil)
 		tx.Set(fmt.Sprintf(keyChannelName, channelKey), channelInfo.Name, nil)
 		tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.Unix(), 10), nil)
 		tx.Set(fmt.Sprintf(keyChannelFounder, channelKey), channelInfo.Founder, nil)
