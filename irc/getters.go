@@ -195,7 +195,7 @@ func (client *Client) Details() (result ClientDetails) {
 	result.nick = client.nick
 	result.nickCasefolded = client.nickCasefolded
 	result.username = client.username
-	result.hostname = client.username
+	result.hostname = client.hostname
 	result.realname = client.realname
 	result.nickMask = client.nickMaskString
 	result.nickMaskCasefolded = client.nickMaskCasefolded
