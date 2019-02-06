@@ -163,7 +163,7 @@ To enable this mode, set the following configs:
 The following additional configs are recommended:
 
 * `accounts.nick-reservation.method = timeout` ; setting `strict` here effectively forces people to use SASL, and some popular clients either do not support SASL, or have bugs in their SASL implementations.
-* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement, or opt out of enforcement
+* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement, or opt out of enforcement. For details on how to do this, `/msg nickserv help enforce`.
 
 ### SASL-only mode
 
