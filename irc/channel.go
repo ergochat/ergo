@@ -461,10 +461,6 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	channel.Names(client, rb)
 
-	if givenMode != 0 {
-		rb.Add(nil, client.server.name, "MODE", chname, modestr, details.nick)
-	}
-
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
