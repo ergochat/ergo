@@ -184,6 +184,12 @@ func (client *Client) Channels() (result []*Channel) {
 	return
 }
 
+func (client *Client) NumChannels() int {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return len(client.channels)
+}
+
 func (client *Client) WhoWas() (result WhoWas) {
 	return client.Details().WhoWas
 }

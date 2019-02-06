@@ -1148,7 +1148,13 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		keys = strings.Split(msg.Params[1], ",")
 	}
 
+	config := server.Config()
+	oper := client.Oper()
 	for i, name := range channels {
+		if config.Channels.MaxChannelsPerClient <= client.NumChannels() && oper == nil {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), name, client.t("You have joined too many channels already"))
+			return false
+		}
 		var key string
 		if len(keys) > i {
 			key = keys[i]
