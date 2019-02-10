@@ -384,48 +384,57 @@ func (server *Server) generateMessageID() string {
 //
 
 func (server *Server) tryRegister(c *Client) {
-	if c.registered {
-		return
+	resumed := false
+	// try to complete registration, either via RESUME token or normally
+	if c.resumeDetails != nil {
+		if !c.tryResume() {
+			return
+		}
+		resumed = true
+	} else {
+		if c.preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
+			return
+		}
+
+		// client MUST send PASS if necessary, or authenticate with SASL if necessary,
+		// before completing the other registration commands
+		config := server.Config()
+		if !c.isAuthorized(config) {
+			c.Quit(c.t("Bad password"))
+			c.destroy(false)
+			return
+		}
+
+		rb := NewResponseBuffer(c)
+		nickAssigned := performNickChange(server, c, c, c.preregNick, rb)
+		rb.Send(true)
+		if !nickAssigned {
+			c.preregNick = ""
+			return
+		}
+
+		// check KLINEs
+		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+		if isBanned {
+			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")))
+			c.destroy(false)
+			return
+		}
 	}
 
-	if c.preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
-		return
-	}
-
-	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
-	// before completing the other registration commands
-	config := server.Config()
-	if !c.isAuthorized(config) {
-		c.Quit(c.t("Bad password"))
-		c.destroy(false)
-		return
-	}
-
-	rb := NewResponseBuffer(c)
-	nickAssigned := performNickChange(server, c, c, c.preregNick, rb)
-	rb.Send(true)
-	if !nickAssigned {
-		c.preregNick = ""
-		return
-	}
-
-	// check KLINEs
-	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
-	if isBanned {
-		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")))
-		c.destroy(false)
-		return
-	}
+	// registration has succeeded:
+	c.SetRegistered()
 
 	// count new user in statistics
 	server.stats.ChangeTotal(1)
 
+	if !resumed {
+		server.monitorManager.AlertAbout(c, true)
+	}
+
 	// continue registration
 	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
-
-	// "register"; this includes the initial phase of session resumption
-	c.Register()
 
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
@@ -436,7 +445,7 @@ func (server *Server) tryRegister(c *Client) {
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 
-	rb = NewResponseBuffer(c)
+	rb := NewResponseBuffer(c)
 	c.RplISupport(rb)
 	server.MOTD(c, rb)
 	rb.Send(true)
@@ -449,8 +458,9 @@ func (server *Server) tryRegister(c *Client) {
 		c.Notice(c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}
 
-	// if resumed, send fake channel joins
-	c.tryResumeChannels()
+	if resumed {
+		c.tryResumeChannels()
+	}
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.

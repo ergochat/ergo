@@ -127,6 +127,16 @@ func (client *Client) Registered() bool {
 	return client.registered
 }
 
+func (client *Client) SetRegistered() {
+	// `registered` is only written from the client's own goroutine, but may be
+	// read from other goroutines; therefore, the client's own goroutine may read
+	// the value without synchronization, but must write it with synchronization,
+	// and other goroutines must read it with synchronization
+	client.stateMutex.Lock()
+	client.registered = true
+	client.stateMutex.Unlock()
+}
+
 func (client *Client) Destroyed() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
