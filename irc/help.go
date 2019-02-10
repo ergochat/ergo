@@ -136,7 +136,7 @@ ChanServ controls channel registrations.`,
 
 CHATHISTORY is an experimental history replay command. See these documents:
 https://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md
-https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80da`,
+https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d`,
 	},
 	"cs": {
 		text: `CS <subcommand> [params]
