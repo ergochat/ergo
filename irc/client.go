@@ -824,7 +824,9 @@ func (client *Client) RplISupport(rb *ResponseBuffer) {
 	}
 }
 
-// Quit sets the given quit message for the client and tells the client to quit out.
+// Quit sets the given quit message for the client.
+// (You must ensure separately that destroy() is called, e.g., by returning `true` from
+// the command handler or calling it yourself.)
 func (client *Client) Quit(message string) {
 	client.stateMutex.Lock()
 	alreadyQuit := client.isQuitting
@@ -832,14 +834,20 @@ func (client *Client) Quit(message string) {
 		client.isQuitting = true
 		client.quitMessage = message
 	}
+	registered := client.registered
+	prefix := client.nickMaskString
 	client.stateMutex.Unlock()
 
 	if alreadyQuit {
 		return
 	}
 
-	quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
-	quitLine, _ := quitMsg.Line()
+	var quitLine string
+	// #364: don't send QUIT lines to unregistered clients
+	if registered {
+		quitMsg := ircmsg.MakeMessage(nil, prefix, "QUIT", message)
+		quitLine, _ = quitMsg.Line()
+	}
 
 	errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
 	errorLine, _ := errorMsg.Line()

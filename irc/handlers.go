@@ -1996,6 +1996,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 	if !authorized {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
+		client.Quit(client.t("Password incorrect"))
 		return true
 	}
 
@@ -2059,7 +2060,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	password := []byte(msg.Params[0])
 	if bcrypt.CompareHashAndPassword(serverPassword, password) != nil {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
-		rb.Add(nil, server.name, "ERROR", client.t("Password incorrect"))
+		client.Quit(client.t("Password incorrect"))
 		return true
 	}
 
