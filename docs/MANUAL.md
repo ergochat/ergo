@@ -23,6 +23,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
     - macOS / Linux / Raspberry Pi
 - Features
     - User Accounts
+        - Nickname reservation
     - Channel Registration
     - Language
 - Frequently Asked Questions
@@ -31,6 +32,8 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
     - Channel Modes
     - Channel Prefixes
 - Commands
+- Integrating with other software
+    - HOPM
 - Acknowledgements
 
 
@@ -521,6 +524,64 @@ If that doesn't work, you may need to run this instead:
 
 We may add some additional notes here for specific commands down the line, but right now the in-server docs are the best ones to consult.
 
+
+--------------------------------------------------------------------------------------------
+
+
+# Integrating with other software
+
+Oragono should interoperate with most IRC-based software, including bots. If you have problems getting your preferred software to work with Oragono, feel free to report it to us. If the root cause is a bug in Oragono, we'll fix it.
+
+One exception is services frameworks like [Anope](https://github.com/anope/anope) or [Atheme](https://github.com/atheme/atheme); we have our own services implementations built directly into the server, and since we don't support federation, there's no place to plug in an alternative implementation.
+
+If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
+
+## HOPM
+
+[hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with oragono, add operator blocks like this to your oragono config file, which grant hopm the necessary privileges:
+
+````yaml
+# operator classes
+oper-classes:
+    # hopm
+    "hopm":
+        # title shown in WHOIS
+        title: Proxy Monitor
+
+        # capability names
+        capabilities:
+        - "oper:local_kill"
+        - "oper:local_ban"
+        - "oper:local_unban"
+        - "nofakelag"
+
+# ircd operators
+opers:
+    # operator named 'hopm'
+    hopm:
+        # which capabilities this oper has access to
+        class: "hopm"
+
+        # custom hostname
+        vhost: "proxymonitor.hopm"
+
+        # modes are the modes to auto-set upon opering-up
+        modes: +is c
+
+        # password to login with /OPER command
+        # generated using  "oragono genpasswd"
+        password: "$2a$04$JmsYDY6kX3/wwyK3ao0L7.aGJEto0Xm4DyL6/6zOmCpzeweIb8kdO"
+````
+
+Then configure hopm like this:
+
+````
+/* oragono */
+connregex = ".+-.+CONNECT.+-.+ Client Connected \\[([^ ]+)\\] \\[u:([^ ]+)\\] \\[h:([^ ]+)\\] \\[ip:([^ ]+)\\] .+";
+
+/* A DLINE example for oragono */
+kline = "DLINE ANDKILL 2h %i :Open proxy found on your host.";
+````
 
 --------------------------------------------------------------------------------------------
 
