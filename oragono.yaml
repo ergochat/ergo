@@ -485,10 +485,10 @@ fakelag:
 history:
     # should we store messages for later playback?
     # the current implementation stores messages in RAM only; they do not persist
-    # across server restarts. however, you should disable this unless you understand
+    # across server restarts. however, you should not enable this unless you understand
     # how it interacts with the GDPR and/or any data privacy laws that apply
     # in your country and the countries of your users.
-    enabled: true
+    enabled: false
 
     # how many channel-specific events (messages, joins, parts) should be tracked per channel?
     channel-length: 256
