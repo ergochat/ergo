@@ -9,14 +9,14 @@ import "errors"
 
 // Runtime Errors
 var (
-	errAccountAlreadyRegistered       = errors.New("Account already exists")
-	errAccountAlreadyVerified         = errors.New("Account is already verified")
+	errAccountAlreadyRegistered       = errors.New(`Account already exists`)
+	errAccountAlreadyVerified         = errors.New(`Account is already verified`)
 	errAccountCantDropPrimaryNick     = errors.New("Can't unreserve primary nickname")
 	errAccountCreation                = errors.New("Account could not be created")
 	errAccountCredUpdate              = errors.New("Could not update password hash to new method")
 	errAccountDoesNotExist            = errors.New("Account does not exist")
 	errAccountInvalidCredentials      = errors.New("Invalid account credentials")
-	errAccountBadPassphrase           = errors.New("Passphrase contains forbidden characters or is otherwise invalid")
+	errAccountBadPassphrase           = errors.New(`Passphrase contains forbidden characters or is otherwise invalid`)
 	errAccountNickReservationFailed   = errors.New("Could not (un)reserve nick")
 	errAccountNotLoggedIn             = errors.New("You're not logged into an account")
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")
@@ -24,8 +24,9 @@ var (
 	errAccountVerificationFailed      = errors.New("Account verification failed")
 	errAccountVerificationInvalidCode = errors.New("Invalid account verification code")
 	errAccountUpdateFailed            = errors.New("Error while updating your account information")
+	errAccountMustHoldNick            = errors.New(`You must hold that nickname in order to register it`)
 	errCallbackFailed                 = errors.New("Account verification could not be sent")
-	errCertfpAlreadyExists            = errors.New("An account already exists with your certificate")
+	errCertfpAlreadyExists            = errors.New(`An account already exists for your certificate fingerprint`)
 	errChannelAlreadyRegistered       = errors.New("Channel is already registered")
 	errChannelNameInUse               = errors.New("Channel name in use")
 	errInvalidChannelName             = errors.New("Invalid channel name")

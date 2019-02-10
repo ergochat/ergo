@@ -98,7 +98,7 @@ server:
     allow-plaintext-resume: false
 
     # maximum length of clients' sendQ in bytes
-    # this should be big enough to hold /LIST and HELP replies
+    # this should be big enough to hold bursts of channel/direct messages
     max-sendq: 16k
 
     # maximum number of connections per subnet
@@ -354,10 +354,11 @@ logging:
         #   file    log to given target filename
         #   stdout  log to stdout
         #   stderr  log to stderr
-        method: file stderr
+        #   (you can specify multiple methods, e.g., to log to both stderr and a file)
+        method: stderr
 
         # filename to log to, if file method is selected
-        filename: ircd.log
+        # filename: ircd.log
 
         # type(s) of logs to keep here. you can use - to exclude those types
         #
@@ -374,15 +375,16 @@ logging:
         #   password        password hashing and comparing
         #   userinput       raw lines sent by users
         #   useroutput      raw lines sent to users
-        type: "* -userinput -useroutput -localconnect -localconnect-ip"
+        type: "* -userinput -useroutput"
 
         # one of: debug info warn error
         level: info
-    -
-        # avoid logging IP addresses to file
-        method: stderr
-        type: localconnect localconnect-ip
-        level: debug
+    #-
+    #   # example of a file log that avoids logging IP addresses
+    #   method: file
+    #   filename: ircd.log
+    #   type: "* -userinput -useroutput -localconnect -localconnect-ip"
+    #   level: debug
 
 # debug options
 debug:

@@ -4,8 +4,12 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## Unreleased
-New release of Oragono! Up to 057d00b.
+## [0.13.0-rc]
+This release has a wide range of improvements and new features. Highlights include:
+* Support for storing and replaying message history, via various protocol extensions: the `draft/resume-0.2` capability, the `CHATHISTORY` command, and a custom `HISTORY` command
+* Confusables prevention for Unicode nicknames and account names
+* User-customizable nickname protection schemes
+* A SASL-only mode in which all clients must authenticate with SASL
 
 ### Config Changes
 * `allow-custom-enforcement` key added under `accounts`.
@@ -15,9 +19,12 @@ New release of Oragono! Up to 057d00b.
 * `login-throttling` section added under `accounts`.
 * `method` key now under `accounts` now allows the value `"optional"`.
 * Logging type `server` has been added, replacing the `startup`, `rehash`, and `shutdown` types.
-s* We no longer listen on port `6668` by default (this fixes Docker installs).
+* We no longer listen on port `6668` by default (this fixes Docker installs).
+* The default logging configuration now logs to stderr only, rather than to both stderr and a file
 
 ### Security
+* Added a SASL-only mode in which all clients must authenticate with SASL
+* Added login throttling as a hardening measure against password guessing
 
 ### Added
 * `oragono genpasswd` now works when piping input in (fixes Docker installs).
@@ -31,15 +38,15 @@ s* We no longer listen on port `6668` by default (this fixes Docker installs).
 * Added new subcommands to `NICKSERV`, including:
     * `PASSWD` to change account passwords.
     * `ENFORCE` to set a specific enforcement mechanism on your nick.
+    * `SAREGISTER` to allow operators to manually create new user accounts
 * Added Unicode confusable detection and prevention when changing nicknames and registering accounts.
 
 ### Changed
 * `SASL PLAIN` logins now log more correctly.
 * Database upgrade failures now provide information about the error that occurred.
-* Idents are now restricted in the same way as other servers.
+* Idents (sometimes called "usernames") are now restricted to ASCII, similar to other servers.
 * In addition to the founder, now auto-ops (halfop and higher) automatically bypass channel join restrictions.
 * Log lines now display time down to milliseconds, instead of just seconds.
-* Logging-in can now be throttled, and is by default.
 * Updated all translation files (thanks to our amazing translators!).
 * Updated proposed IRCv3 capability to version [`draft/resume-0.2`](https://github.com/ircv3/ircv3-specifications/pull/306).
 * When nick ownership is enabled, users can now select which enforcement mechanism to use with their nickname.
@@ -54,19 +61,20 @@ s* We no longer listen on port `6668` by default (this fixes Docker installs).
 * Channel names with right-to-left characters are now casefolded correctly.
 * Fixed incorrect rejection of nickmasks with Unicode RTL nicknames.
 * Fixed nickname sync issue which could cause clients to fail to see each other.
-* Fixed some internal socker logic, to prevent race conditions.
 * Invalid `ISUPPORT` tokens are now explicitly rejected.
 * Made `server-time` timestamp format more consistent and safer.
 * Oragono now exits with status (1) if it fails to start.
 * Prevent logging in multiple times when using `/NS IDENTIFY`.
 * Prevented the db handler from automagically creating the database without initializing it (thanks @enckse!). We also now automatically create the datastore on `run`.
 * Updated internal command line parsing (thanks @iNecas!).
+* Fixed handling of CIDR width in connection limiting/throttling
 
 ### Internal Notes
 * `DLINE` and `KLINE` refactored, and expired bans are now removed from the database.
 * Logging system optimised.
 * Services handlers refactored.
 * Translations are now sent to/PR'd from CrowdIn automagically as we develop the software.
+* Direct responses to client commands are now sent "synchronously", bypassing the sendq
 
 
 ## [0.12.0] - 2018-10-15

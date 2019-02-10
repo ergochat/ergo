@@ -306,8 +306,16 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errAccountAlreadyRegistered
 	}
 
-	// can't register a guest nickname
 	config := am.server.AccountConfig()
+	// if nick reservation is enabled, you can only register your current nickname
+	// as an account; this prevents "land-grab" situations where someone else
+	// registers your nick out from under you and then NS GHOSTs you
+	// n.b. client is nil during a SAREGISTER:
+	if config.NickReservation.Enabled && client != nil && client.Nick() != account {
+		return errAccountMustHoldNick
+	}
+
+	// can't register a guest nickname
 	renamePrefix := strings.ToLower(config.NickReservation.RenamePrefix)
 	if renamePrefix != "" && strings.HasPrefix(casefoldedAccount, renamePrefix) {
 		return errAccountAlreadyRegistered

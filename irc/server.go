@@ -261,7 +261,7 @@ func (server *Server) acceptClient(conn clientConn) {
 		}
 	}
 
-	server.logger.Debug("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
+	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
 	// prolly don't need to alert snomasks on this, only on connection reg
 
 	NewClient(server, conn.Conn, conn.IsTLS)
@@ -421,7 +421,7 @@ func (server *Server) tryRegister(c *Client) {
 	server.stats.ChangeTotal(1)
 
 	// continue registration
-	server.logger.Debug("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
+	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
 
 	// "register"; this includes the initial phase of session resumption

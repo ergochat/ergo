@@ -117,17 +117,10 @@ In this section, we'll explain and go through using various features of the Orag
 
 In most IRC servers you can use `NickServ` to register an account. You can do the same thing with Oragono, by default, with no other software needed!
 
-However, there are some differences between how Oragono handles accounts and how most other servers do. Some of these differences are that:
-
-- In Oragono, account names are completely unrelated to nicknames.
-- In Oragono, there's no nickname ownership unless you configure a config section.
-
-With nickname ownership and account names, on most IRC servers your nickname and your account name are one and the same thing. This isn't the case with Oragono. When using Oragono, your nickname and account name are totally unrelated. However, you can enable nickname ownership with the `nick-reservation` section in the config.
-
 These are the two ways you can register an account:
 
     /QUOTE ACC REGISTER <username> * passphrase :<password>
-    /NS REGISTER <username> <password>
+    /NS REGISTER <username> * <password>
 
 This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively (make sure the leave that one `:` before your actual password!).
 
@@ -137,6 +130,57 @@ This is the way to go if you want to use a regular password. `<username>` and `<
 If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), then you can use the above method to do so. If you're not sure what this is, don't worry – just use the above password method to register an account.
 
 Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+
+## Nickname reservation
+
+Oragono supports several different modes of operation with respect to accounts and nicknames.
+
+### Traditional / lenient mode
+
+This is the mode that matches the typical pre-modern ircd behavior. In this mode, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
+
+To enable this mode, set the following configs (they are the defaults):
+
+* `accounts.registration.enabled = true`
+* `accounts.authentication-enabled = true`
+* `accounts.nick-reservation.enabled = false`
+
+### Nick reservation
+
+This is the mode corresponding to a typical IRC network with a service system (like Freenode). In this mode, registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s):
+
+* You can proactively prevent anyone from using your nickname, unless they're already logged into your account
+* Alternately, you can give clients a grace period to log into your account, but if they don't and the grace period expires, the server will change their nickname to something else
+* Alternately, you can forego any proactive enforcement --- but if you decide you want to reclaim your nickname from a squatter, you can `/msg Nickserv ghost stolen_nickname` and they'll be disconnected
+* You can associate additional nicknames with your account by changing to it and then issuing `/msg nickserv group`
+
+To enable this mode, set the following configs:
+
+* `accounts.registration.enabled = true`
+* `accounts.authentication-enabled = true`
+* `accounts.nick-reservation.enabled = true`
+
+The following additional configs are recommended:
+
+* `accounts.nick-reservation.method = timeout` ; setting `strict` here effectively forces people to use SASL, and some popular clients either do not support SASL, or have bugs in their SASL implementations.
+* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement, or opt out of enforcement. For details on how to do this, `/msg nickserv help enforce`.
+
+### SASL-only mode
+
+This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Oragono to be deployed facing the public Internet, with fine-grained control over who can log in.
+
+In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg nickserv help saregister`.) To bootstrap this process, the SASL requirement can be disabled initially so that a first account can be created. Alternately, connections from localhost are exempt (by default) from the SASL requirement.
+
+To enable this mode, set the following configs:
+
+* `accounts.registration.enabled = true`
+* `accounts.authentication-enabled = true`
+* `accounts.require-sasl.enabled = true`
+* `accounts.nick-reservation.enabled = true`
+
+Additionally, the following config is recommended:
+
+* `accounts.nick-reservation.method = strict`
 
 
 ## Channel Registration
@@ -148,6 +192,8 @@ To register a channel, make sure you're joined to it and logged into your accoun
     /CS REGISTER #channelname
 
 For example, `/CS REGISTER #channel` will register the channel `#test` to my account. If you have a registered channel, you can use `/CS OP #channel` to regain ops in it. Right now, the options for a registered channel are pretty sparse, but we'll add more as we go along.
+
+If your friends have registered accounts, you can automatically grant them operator permissions when they join the channel. For more details, see `/CS HELP AMODE`.
 
 
 ## Language

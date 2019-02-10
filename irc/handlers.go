@@ -153,19 +153,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 
 	err = server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, certfp)
 	if err != nil {
-		msg := "Unknown"
-		code := ERR_UNKNOWNERROR
-		if err == errCertfpAlreadyExists {
-			msg = "An account already exists for your certificate fingerprint"
-		} else if err == errAccountAlreadyRegistered {
-			msg = "Account already exists"
-			code = ERR_ACCOUNT_ALREADY_EXISTS
-		} else if err == errAccountBadPassphrase {
-			msg = "Passphrase contains forbidden characters or is otherwise invalid"
-		}
-		if err == errAccountAlreadyRegistered || err == errAccountCreation || err == errCertfpAlreadyExists {
-			msg = err.Error()
-		}
+		msg, code := registrationErrorToMessageAndCode(err)
 		rb.Add(nil, server.name, code, nick, "ACC", "REGISTER", client.t(msg))
 		return false
 	}
@@ -184,6 +172,21 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	}
 
 	return false
+}
+
+func registrationErrorToMessageAndCode(err error) (message, numeric string) {
+	// default responses: let's be risk-averse about displaying internal errors
+	// to the clients, especially for something as sensitive as accounts
+	message = `Could not register`
+	numeric = ERR_UNKNOWNERROR
+	switch err {
+	case errAccountAlreadyRegistered, errAccountAlreadyVerified:
+		message = err.Error()
+		numeric = ERR_ACCOUNT_ALREADY_EXISTS
+	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists:
+		message = err.Error()
+	}
+	return
 }
 
 // helper function to dispatch messages when a client successfully registers
