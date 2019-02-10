@@ -374,33 +374,16 @@ func (client *Client) Ping() {
 
 }
 
-// Register sets the client details as appropriate when entering the network.
-func (client *Client) Register() {
-	client.stateMutex.Lock()
-	alreadyRegistered := client.registered
-	client.registered = true
-	client.stateMutex.Unlock()
-
-	if alreadyRegistered {
-		return
-	}
-
-	// apply resume details if we're able to.
-	client.TryResume()
-
-	// finish registration
-	client.updateNickMask()
-	client.server.monitorManager.AlertAbout(client, true)
-}
-
-// TryResume tries to resume if the client asked us to.
-func (client *Client) TryResume() {
-	if client.resumeDetails == nil {
-		return
-	}
-
+// tryResume tries to resume if the client asked us to.
+func (client *Client) tryResume() (success bool) {
 	server := client.server
 	config := server.Config()
+
+	defer func() {
+		if !success {
+			client.resumeDetails = nil
+		}
+	}()
 
 	oldnick := client.resumeDetails.OldNick
 	timestamp := client.resumeDetails.Timestamp
@@ -412,7 +395,6 @@ func (client *Client) TryResume() {
 	oldClient := server.clients.Get(oldnick)
 	if oldClient == nil {
 		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old client not found"))
-		client.resumeDetails = nil
 		return
 	}
 	oldNick := oldClient.Nick()
@@ -421,23 +403,22 @@ func (client *Client) TryResume() {
 	resumeAllowed := config.Server.AllowPlaintextResume || (oldClient.HasMode(modes.TLS) && client.HasMode(modes.TLS))
 	if !resumeAllowed {
 		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
-		client.resumeDetails = nil
 		return
 	}
 
 	oldResumeToken := oldClient.ResumeToken()
 	if oldResumeToken == "" || !utils.SecretTokensMatch(oldResumeToken, client.resumeDetails.PresentedToken) {
 		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, invalid resume token"))
-		client.resumeDetails = nil
 		return
 	}
 
 	err := server.clients.Resume(client, oldClient)
 	if err != nil {
-		client.resumeDetails = nil
 		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection"))
 		return
 	}
+
+	success = true
 
 	// this is a bit racey
 	client.resumeDetails.ResumedAt = time.Now()
@@ -520,13 +501,11 @@ func (client *Client) TryResume() {
 	client.Send(nil, client.server.name, "RESUME", "SUCCESS", oldNick)
 
 	// after we send the rest of the registration burst, we'll try rejoining channels
+	return
 }
 
 func (client *Client) tryResumeChannels() {
 	details := client.resumeDetails
-	if details == nil {
-		return
-	}
 
 	channels := make([]*Channel, len(details.Channels))
 	for _, name := range details.Channels {
