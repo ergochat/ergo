@@ -73,7 +73,7 @@ const (
 	// https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md
 	Rename Capability = iota
 
-	// Resume is the proposed IRCv3 capability named "draft/resume-0.2":
+	// Resume is the proposed IRCv3 capability named "draft/resume-0.3":
 	// https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md
 	Resume Capability = iota
 
@@ -112,7 +112,7 @@ var (
 		"draft/message-tags-0.2",
 		"multi-prefix",
 		"draft/rename",
-		"draft/resume-0.2",
+		"draft/resume-0.3",
 		"sasl",
 		"server-time",
 		"sts",

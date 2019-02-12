@@ -88,6 +88,7 @@ type Server struct {
 	rehashMutex            sync.Mutex // tier 4
 	rehashSignal           chan os.Signal
 	pprofServer            *http.Server
+	resumeManager          ResumeManager
 	signals                chan os.Signal
 	snomasks               *SnoManager
 	store                  *buntdb.DB
@@ -129,6 +130,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		stats:               NewStats(),
 		semaphores:          NewServerSemaphores(),
 	}
+
+	server.resumeManager.Initialize(server)
 
 	if err := server.applyConfig(config, true); err != nil {
 		return nil, err

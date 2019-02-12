@@ -231,7 +231,7 @@ func init() {
 		"RESUME": {
 			handler:      resumeHandler,
 			usablePreReg: true,
-			minParams:    2,
+			minParams:    1,
 		},
 		"SAJOIN": {
 			handler:   sajoinHandler,

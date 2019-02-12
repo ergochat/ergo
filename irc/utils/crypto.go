@@ -14,6 +14,10 @@ var (
 	b32encoder = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 )
 
+const (
+	SecretTokenLength = 26
+)
+
 // generate a secret token that cannot be brute-forced via online attacks
 func GenerateSecretToken() string {
 	// 128 bits of entropy are enough to resist any online attack:

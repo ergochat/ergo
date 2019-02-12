@@ -37,8 +37,6 @@ const (
 // when completing the registration, and when rejoining channels.
 type ResumeDetails struct {
 	OldClient         *Client
-	OldNick           string
-	OldNickMask       string
 	PresentedToken    string
 	Timestamp         time.Time
 	ResumedAt         time.Time
@@ -86,7 +84,7 @@ type Client struct {
 	realIP             net.IP
 	registered         bool
 	resumeDetails      *ResumeDetails
-	resumeToken        string
+	resumeID           string
 	saslInProgress     bool
 	saslMechanism      string
 	saslValue          string
@@ -385,16 +383,15 @@ func (client *Client) tryResume() (success bool) {
 		}
 	}()
 
-	oldnick := client.resumeDetails.OldNick
 	timestamp := client.resumeDetails.Timestamp
 	var timestampString string
 	if !timestamp.IsZero() {
 		timestampString = timestamp.UTC().Format(IRCv3TimestampFormat)
 	}
 
-	oldClient := server.clients.Get(oldnick)
+	oldClient := server.resumeManager.VerifyToken(client.resumeDetails.PresentedToken)
 	if oldClient == nil {
-		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old client not found"))
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, token is not valid"))
 		return
 	}
 	oldNick := oldClient.Nick()
@@ -402,13 +399,7 @@ func (client *Client) tryResume() (success bool) {
 
 	resumeAllowed := config.Server.AllowPlaintextResume || (oldClient.HasMode(modes.TLS) && client.HasMode(modes.TLS))
 	if !resumeAllowed {
-		client.Send(nil, server.name, "RESUME", "ERR", oldnick, client.t("Cannot resume connection, old and new clients must have TLS"))
-		return
-	}
-
-	oldResumeToken := oldClient.ResumeToken()
-	if oldResumeToken == "" || !utils.SecretTokensMatch(oldResumeToken, client.resumeDetails.PresentedToken) {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, invalid resume token"))
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, old and new clients must have TLS"))
 		return
 	}
 
@@ -896,6 +887,8 @@ func (client *Client) destroy(beingResumed bool) {
 		client.server.connectionLimiter.RemoveClient(ipaddr)
 	}
 
+	client.server.resumeManager.Delete(client)
+
 	// alert monitors
 	client.server.monitorManager.AlertAbout(client, false)
 	// clean up monitor state
@@ -1118,23 +1111,6 @@ func (client *Client) removeChannel(channel *Channel) {
 	client.stateMutex.Lock()
 	delete(client.channels, channel)
 	client.stateMutex.Unlock()
-}
-
-// Ensures the client has a cryptographically secure resume token, and returns
-// its value. An error is returned if a token was previously assigned.
-func (client *Client) generateResumeToken() (token string, err error) {
-	newToken := utils.GenerateSecretToken()
-
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-
-	if client.resumeToken == "" {
-		client.resumeToken = newToken
-	} else {
-		err = errResumeTokenAlreadySet
-	}
-
-	return client.resumeToken, err
 }
 
 // Records that the client has been invited to join an invite-only channel
