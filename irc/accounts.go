@@ -842,8 +842,18 @@ func (am *AccountManager) Unregister(account string) error {
 	var clients []*Client
 
 	var registeredChannels []string
+	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
-		am.server.channelRegistry.deleteByAccount(casefoldedAccount, registeredChannels)
+		for _, channelName := range registeredChannels {
+			info := am.server.channelRegistry.LoadChannel(channelName)
+			if info != nil && info.Founder == casefoldedAccount {
+				am.server.channelRegistry.Delete(channelName, *info)
+			}
+			channel := am.server.channels.Get(channelName)
+			if channel != nil {
+				channel.SetUnregistered(casefoldedAccount)
+			}
+		}
 	}()
 
 	var credText string

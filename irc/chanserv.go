@@ -277,11 +277,13 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	hasPrivs := client.HasRoleCapabs("chanreg")
-	if !hasPrivs {
-		founder := channel.Founder()
-		hasPrivs = founder != "" && founder == client.Account()
+	founder := channel.Founder()
+	if founder == "" {
+		csNotice(rb, client.t("That channel is not registered"))
+		return
 	}
+
+	hasPrivs := client.HasRoleCapabs("chanreg") || founder == client.Account()
 	if !hasPrivs {
 		csNotice(rb, client.t("Insufficient privileges"))
 		return
@@ -295,8 +297,8 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	channel.SetUnregistered()
-	go server.channelRegistry.Delete(channelKey, info)
+	channel.SetUnregistered(founder)
+	server.channelRegistry.Delete(channelKey, info)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
 }
 

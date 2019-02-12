@@ -165,10 +165,13 @@ func (channel *Channel) SetRegistered(founder string) error {
 }
 
 // SetUnregistered deletes the channel's registration information.
-func (channel *Channel) SetUnregistered() {
+func (channel *Channel) SetUnregistered(expectedFounder string) {
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
 
+	if channel.registeredFounder != expectedFounder {
+		return
+	}
 	channel.registeredFounder = ""
 	var zeroTime time.Time
 	channel.registeredTime = zeroTime

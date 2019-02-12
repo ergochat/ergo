@@ -215,17 +215,6 @@ func (reg *ChannelRegistry) Delete(casefoldedName string, info RegisteredChannel
 	})
 }
 
-// deleteByAccount is a helper to delete all channel registrations corresponding to a user account.
-func (reg *ChannelRegistry) deleteByAccount(cfaccount string, cfchannels []string) {
-	for _, cfchannel := range cfchannels {
-		info := reg.LoadChannel(cfchannel)
-		if info == nil || info.Founder != cfaccount {
-			continue
-		}
-		reg.Delete(cfchannel, *info)
-	}
-}
-
 // Rename handles the persistence part of a channel rename: the channel is
 // persisted under its new name, and the old name is cleaned up if necessary.
 func (reg *ChannelRegistry) Rename(channel *Channel, casefoldedOldName string) {
