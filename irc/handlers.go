@@ -508,8 +508,8 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// if this is the first time the client is requesting a resume token,
 		// send it to them
 		if toAdd.Has(caps.Resume) {
-			token, err := client.generateResumeToken()
-			if err == nil {
+			token := server.resumeManager.GenerateToken(client)
+			if token != "" {
 				rb.Add(nil, server.name, "RESUME", "TOKEN", token)
 			}
 		}
@@ -2258,28 +2258,26 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return false
 }
 
-// RESUME <oldnick> <token> [timestamp]
+// RESUME <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	oldnick := msg.Params[0]
-	token := msg.Params[1]
+	token := msg.Params[0]
 
 	if client.registered {
-		rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Cannot resume connection, connection registration has already been completed"))
+		rb.Add(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
 	var timestamp time.Time
-	if 2 < len(msg.Params) {
-		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[2])
+	if 1 < len(msg.Params) {
+		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[1])
 		if err == nil {
 			timestamp = ts
 		} else {
-			rb.Add(nil, server.name, ERR_CANNOT_RESUME, oldnick, client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+			rb.Add(nil, server.name, "RESUME", "WARN", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
 	client.resumeDetails = &ResumeDetails{
-		OldNick:        oldnick,
 		Timestamp:      timestamp,
 		PresentedToken: token,
 	}

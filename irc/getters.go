@@ -109,10 +109,16 @@ func (client *Client) uniqueIdentifiers() (nickCasefolded string, skeleton strin
 	return client.nickCasefolded, client.skeleton
 }
 
-func (client *Client) ResumeToken() string {
+func (client *Client) ResumeID() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	return client.resumeToken
+	return client.resumeID
+}
+
+func (client *Client) SetResumeID(id string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.resumeID = id
 }
 
 func (client *Client) Oper() *Oper {

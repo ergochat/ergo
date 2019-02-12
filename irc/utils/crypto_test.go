@@ -16,7 +16,7 @@ const (
 
 func TestGenerateSecretToken(t *testing.T) {
 	token := GenerateSecretToken()
-	if len(token) < 22 {
+	if len(token) != SecretTokenLength {
 		t.Errorf("bad token: %v", token)
 	}
 }
