@@ -2273,7 +2273,7 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		if err == nil {
 			timestamp = ts
 		} else {
-			rb.Add(nil, server.name, "RESUME", "ERR", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+			rb.Add(nil, server.name, "RESUME", "WARN", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
