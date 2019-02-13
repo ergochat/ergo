@@ -256,9 +256,18 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	loginSuccessful := false
 
-	username := params[0]
-	var passphrase string
-	if len(params) > 1 {
+	var username, passphrase string
+	if len(params) == 1 {
+		if client.certfp != "" {
+			username = params[0]
+		} else {
+			// XXX undocumented compatibility mode with other nickservs, allowing
+			// /msg NickServ identify passphrase
+			username = client.NickCasefolded()
+			passphrase = params[0]
+		}
+	} else {
+		username = params[0]
 		passphrase = params[1]
 	}
 
