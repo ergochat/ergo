@@ -463,6 +463,7 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		nsNotice(rb, client.t("Error while unregistering account"))
 	} else {
 		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
+		server.logger.Info("accounts", "client", client.Nick(), "unregistered account", cfname)
 	}
 }
 

@@ -593,6 +593,11 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		return err
 	}
 
+	nick := "[server admin]"
+	if client != nil {
+		nick = client.Nick()
+	}
+	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
 	raw.Verified = true
 	clientAccount, err := am.deserializeRawAccount(raw)
 	if err != nil {
