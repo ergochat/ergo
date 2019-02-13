@@ -124,6 +124,12 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
+        identifier="SetName",
+        name="draft/setname",
+        url="https://github.com/ircv3/ircv3-specifications/pull/361",
+        standard="proposed IRCv3",
+    ),
+    CapDef(
         identifier="STS",
         name="sts",
         url="https://ircv3.net/specs/extensions/sts.html",

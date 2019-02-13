@@ -252,6 +252,10 @@ func init() {
 			handler:   sceneHandler,
 			minParams: 2,
 		},
+		"SETNAME": {
+			handler:   setnameHandler,
+			minParams: 1,
+		},
 		"TAGMSG": {
 			handler:   tagmsgHandler,
 			minParams: 1,
