@@ -2411,7 +2411,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	if len(msg.Params) > 1 {
 		channel.SetTopic(client, msg.Params[1], rb)
 	} else {
-		channel.SendTopic(client, rb)
+		channel.SendTopic(client, rb, true)
 	}
 	return false
 }

@@ -394,7 +394,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
-	newChannel, givenMode := func() (newChannel bool, givenMode modes.Mode) {
+	givenMode := func() (givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
 		defer channel.joinPartMutex.Unlock()
 
@@ -404,7 +404,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 			channel.members.Add(client)
 			firstJoin := len(channel.members) == 1
-			newChannel = firstJoin && channel.registeredFounder == ""
+			newChannel := firstJoin && channel.registeredFounder == ""
 			if newChannel {
 				givenMode = modes.ChannelOperator
 			} else {
@@ -454,10 +454,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		rb.Add(nil, details.nickMask, "JOIN", chname)
 	}
 
-	// don't send topic when it's an entirely new channel
-	if !newChannel {
-		channel.SendTopic(client, rb)
-	}
+	channel.SendTopic(client, rb, false)
 
 	channel.Names(client, rb)
 
@@ -565,7 +562,7 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 	} else {
 		rb.Add(nil, nickMask, "JOIN", channel.name)
 	}
-	channel.SendTopic(newClient, rb)
+	channel.SendTopic(newClient, rb, false)
 	channel.Names(newClient, rb)
 	if 0 < len(oldModes) {
 		rb.Add(nil, newClient.server.name, "MODE", channel.name, oldModes, nick)
@@ -635,7 +632,8 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 }
 
 // SendTopic sends the channel topic to the given client.
-func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer) {
+// `sendNoTopic` controls whether RPL_NOTOPIC is sent when the topic is unset
+func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer, sendNoTopic bool) {
 	if !channel.hasClient(client) {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.nick, channel.name, client.t("You're not on that channel"))
 		return
@@ -649,7 +647,9 @@ func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RUnlock()
 
 	if topic == "" {
-		rb.Add(nil, client.server.name, RPL_NOTOPIC, client.nick, name, client.t("No topic is set"))
+		if sendNoTopic {
+			rb.Add(nil, client.server.name, RPL_NOTOPIC, client.nick, name, client.t("No topic is set"))
+		}
 		return
 	}
 
