@@ -2310,6 +2310,22 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	return false
 }
 
+// SETNAME <realname>
+func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	realname := msg.Params[0]
+
+	client.stateMutex.Lock()
+	client.realname = realname
+	client.stateMutex.Unlock()
+
+	// alert friends
+	for friend := range client.Friends(caps.SetName) {
+		friend.SendFromClient("", client, nil, "SETNAME", realname)
+	}
+
+	return false
+}
+
 // TAGMSG <target>{,<target>}
 func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)

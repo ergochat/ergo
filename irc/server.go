@@ -47,7 +47,7 @@ var (
 
 	// SupportedCapabilities are the caps we advertise.
 	// MaxLine, SASL and STS are set during server startup.
-	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.UserhostInNames)
+	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.SetName, caps.UserhostInNames)
 
 	// CapValues are the actual values we advertise to v3.2 clients.
 	// actual values are set during server startup.

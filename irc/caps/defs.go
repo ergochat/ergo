@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 20
+	numCapabs = 21
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -85,6 +85,10 @@ const (
 	// https://ircv3.net/specs/extensions/server-time-3.2.html
 	ServerTime Capability = iota
 
+	// SetName is the proposed IRCv3 capability named "draft/setname":
+	// https://github.com/ircv3/ircv3-specifications/pull/361
+	SetName Capability = iota
+
 	// STS is the IRCv3 capability named "sts":
 	// https://ircv3.net/specs/extensions/sts.html
 	STS Capability = iota
@@ -115,6 +119,7 @@ var (
 		"draft/resume-0.3",
 		"sasl",
 		"server-time",
+		"draft/setname",
 		"sts",
 		"userhost-in-names",
 	}

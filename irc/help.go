@@ -435,6 +435,11 @@ opers. For more specific information on mode characters, see the help for
 
 The SCENE command is used to send a scene notification to the given target.`,
 	},
+	"setname": {
+		text: `SETNAME <realname>
+
+The SETNAME command updates the realname to be the newly-given one.`,
+	},
 	"tagmsg": {
 		text: `@+client-only-tags TAGMSG <target>{,<target>}
 
