@@ -241,12 +241,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, client.t("End of NAMES list"))
 }
 
-// ClientIsAtLeast returns whether the client has at least the given channel privilege.
-func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
-	channel.stateMutex.RLock()
-	clientModes := channel.members[client]
-	channel.stateMutex.RUnlock()
-
+func channelUserModeIsAtLeast(clientModes *modes.ModeSet, permission modes.Mode) bool {
 	if clientModes == nil {
 		return false
 	}
@@ -264,6 +259,14 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 	return false
 }
 
+// ClientIsAtLeast returns whether the client has at least the given channel privilege.
+func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
+	channel.stateMutex.RLock()
+	clientModes := channel.members[client]
+	channel.stateMutex.RUnlock()
+	return channelUserModeIsAtLeast(clientModes, permission)
+}
+
 func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
@@ -277,24 +280,26 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-
 	clientModes := channel.members[client]
 	targetModes := channel.members[target]
-	result := false
-	for _, mode := range modes.ChannelPrivModes {
-		if clientModes.HasMode(mode) {
-			result = true
-			// admins cannot kick other admins
-			if mode == modes.ChannelAdmin && targetModes.HasMode(modes.ChannelAdmin) {
-				result = false
-			}
-			break
-		} else if targetModes.HasMode(mode) {
-			break
-		}
+	channel.stateMutex.RUnlock()
+
+	if clientModes.HasMode(modes.ChannelFounder) {
+		// founder can kick anyone
+		return true
+	} else if clientModes.HasMode(modes.ChannelAdmin) {
+		// admins cannot kick other admins
+		return !channelUserModeIsAtLeast(targetModes, modes.ChannelAdmin)
+	} else if clientModes.HasMode(modes.ChannelOperator) {
+		// operators *can* kick other operators
+		return !channelUserModeIsAtLeast(targetModes, modes.ChannelAdmin)
+	} else if clientModes.HasMode(modes.Halfop) {
+		// halfops cannot kick other halfops
+		return !channelUserModeIsAtLeast(targetModes, modes.Halfop)
+	} else {
+		// voice and unprivileged cannot kick anyone
+		return false
 	}
-	return result
 }
 
 func (channel *Channel) hasClient(client *Client) bool {
@@ -950,10 +955,6 @@ func (channel *Channel) Quit(client *Client) {
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {
 	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
-		return
-	}
-	if !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
-		rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 		return
 	}
 	if !channel.hasClient(target) {

@@ -555,19 +555,21 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		newRb := NewResponseBuffer(client)
 		newRb.Label = rb.Label // same label, new batch
 		// TODO: send `WARN CHATHISTORY MAX_MESSAGES_EXCEEDED` when appropriate
-		if !success {
-			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
-		} else if hist == nil {
+		if hist == nil {
 			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_SUCH_CHANNEL")
 		} else if len(items) == 0 {
 			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_TEXT_TO_SEND")
+		} else if !success {
+			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
 		}
 		newRb.Send(true)
 	}()
 
 	target := msg.Params[0]
 	channel = server.channels.Get(target)
-	if channel != nil {
+	if channel != nil && channel.hasClient(client) {
+		// "If [...] the user does not have permission to view the requested content, [...]
+		// NO_SUCH_CHANNEL SHOULD be returned"
 		hist = &channel.history
 	} else {
 		targetClient := server.clients.Get(target)
@@ -1019,7 +1021,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	target := msg.Params[0]
 	var hist *history.Buffer
 	channel := server.channels.Get(target)
-	if channel != nil {
+	if channel != nil && channel.hasClient(client) {
 		hist = &channel.history
 	} else {
 		if strings.ToLower(target) == "me" {
@@ -1036,7 +1038,11 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	}
 
 	if hist == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
+		} else {
+			rb.Add(nil, server.name, ERR_NOTONCHANNEL, client.Nick(), target, client.t("You're not on that channel"))
+		}
 		return false
 	}
 
