@@ -94,7 +94,7 @@ You can use the `--conf` parameter when launching Oragono to control where it lo
 
 ### Logs
 
-By default, logs are stored in the file `ircd.log`. The configuration format of logs is designed to be easily pluggable, and is inspired by the logging config provided by InspIRCd.
+By default, logs go to stderr only. They can be configured to go to a file, or you can use systemd to direct the stderr to the system journal (see the manual for details). The configuration format of logs is designed to be easily pluggable, and is inspired by the logging config provided by InspIRCd.
 
 ### Passwords
 

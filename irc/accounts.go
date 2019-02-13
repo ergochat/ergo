@@ -311,7 +311,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	// as an account; this prevents "land-grab" situations where someone else
 	// registers your nick out from under you and then NS GHOSTs you
 	// n.b. client is nil during a SAREGISTER:
-	if config.NickReservation.Enabled && client != nil && client.Nick() != account {
+	if config.NickReservation.Enabled && client != nil && client.NickCasefolded() != casefoldedAccount {
 		return errAccountMustHoldNick
 	}
 
@@ -593,6 +593,11 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		return err
 	}
 
+	nick := "[server admin]"
+	if client != nil {
+		nick = client.Nick()
+	}
+	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
 	raw.Verified = true
 	clientAccount, err := am.deserializeRawAccount(raw)
 	if err != nil {

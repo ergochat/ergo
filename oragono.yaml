@@ -372,7 +372,8 @@ logging:
         #   channels        channel creation and operations
         #   commands        command calling and operations
         #   opers           oper actions, authentication, etc
-        #   password        password hashing and comparing
+        #   services        actions related to NickServ, ChanServ, etc.
+        #   internal        unexpected runtime behavior, including potential bugs
         #   userinput       raw lines sent by users
         #   useroutput      raw lines sent to users
         type: "* -userinput -useroutput"

@@ -201,21 +201,23 @@ func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
 
 // sendSuccessfulSaslAuth means that a SASL auth attempt completed successfully, and is used to dispatch messages.
 func sendSuccessfulSaslAuth(client *Client, rb *ResponseBuffer, forNS bool) {
-	account := client.AccountName()
+	details := client.Details()
 
 	if forNS {
-		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), client.AccountName()))
+		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), details.accountName))
 	} else {
-		rb.Add(nil, client.server.name, RPL_LOGGEDIN, client.nick, client.nickMaskString, account, fmt.Sprintf(client.t("You are now logged in as %s"), account))
-		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, client.nick, client.t("Authentication successful"))
+		rb.Add(nil, client.server.name, RPL_LOGGEDIN, details.nick, details.nickMask, details.accountName, fmt.Sprintf(client.t("You are now logged in as %s"), details.accountName))
+		rb.Add(nil, client.server.name, RPL_SASLSUCCESS, details.nick, client.t("Authentication successful"))
 	}
 
 	// dispatch account-notify
 	for friend := range client.Friends(caps.AccountNotify) {
-		friend.Send(nil, client.nickMaskString, "ACCOUNT", account)
+		friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
 	}
 
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), client.nickMaskString, account))
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
+
+	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
 }
 
 // ACC VERIFY <accountname> <auth_code>
