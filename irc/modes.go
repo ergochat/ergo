@@ -204,11 +204,11 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			switch change.Op {
 			case modes.Add:
 				channel.setKey(change.Arg)
-
+				applied = append(applied, change)
 			case modes.Remove:
 				channel.setKey("")
+				applied = append(applied, change)
 			}
-			applied = append(applied, change)
 
 		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying:
 			if change.Op == modes.List {
