@@ -834,6 +834,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 }
 
 func (am *AccountManager) Unregister(account string) error {
+	config := am.server.Config()
 	casefoldedAccount, err := CasefoldName(account)
 	if err != nil {
 		return errAccountDoesNotExist
@@ -906,7 +907,13 @@ func (am *AccountManager) Unregister(account string) error {
 		delete(am.skeletonToAccount, additionalSkel)
 	}
 	for _, client := range clients {
-		am.logoutOfAccount(client)
+		if config.Accounts.RequireSasl.Enabled {
+			client.Quit(client.t("You are no longer authorized to be on this server"))
+			// destroy acquires a semaphore so we can't call it while holding a lock
+			go client.destroy(false)
+		} else {
+			am.logoutOfAccount(client)
+		}
 	}
 
 	if err != nil {

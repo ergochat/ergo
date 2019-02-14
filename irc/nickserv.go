@@ -452,10 +452,6 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	if cfname == client.Account() {
-		client.server.accounts.Logout(client)
-	}
-
 	err = server.accounts.Unregister(cfname)
 	if err == errAccountDoesNotExist {
 		nsNotice(rb, client.t(err.Error()))
