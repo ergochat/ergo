@@ -206,6 +206,10 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 		accountName = params[0]
 	} else {
 		accountName = client.Account()
+		if accountName == "" {
+			hsNotice(rb, client.t("You're not logged into an account"))
+			return
+		}
 	}
 
 	account, err := server.accounts.LoadAccount(accountName)
