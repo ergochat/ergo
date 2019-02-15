@@ -18,12 +18,12 @@ func servCmdRequiresAuthEnabled(config *Config) bool {
 	return config.Accounts.AuthenticationEnabled
 }
 
-func nsGroupEnabled(config *Config) bool {
+func servCmdRequiresNickRes(config *Config) bool {
 	return config.Accounts.AuthenticationEnabled && config.Accounts.NickReservation.Enabled
 }
 
 func nsEnforceEnabled(config *Config) bool {
-	return config.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.AllowCustomEnforcement
+	return servCmdRequiresNickRes(config) && config.Accounts.NickReservation.AllowCustomEnforcement
 }
 
 const nickservHelp = `NickServ lets you register and login to an account.
@@ -42,7 +42,7 @@ var (
 
 DROP de-links the given (or your current) nickname from your user account.`,
 			helpShort:    `$bDROP$b de-links your current (or the given) nickname from your user account.`,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      servCmdRequiresNickRes,
 			authRequired: true,
 		},
 		"enforce": {
@@ -78,7 +78,7 @@ same user account, letting you reclaim your nickname.`,
 GROUP links your current nickname with your logged-in account, preventing other
 users from changing to it (or forcing them to rename).`,
 			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
-			enabled:      nsGroupEnabled,
+			enabled:      servCmdRequiresNickRes,
 			authRequired: true,
 		},
 		"identify": {
@@ -119,7 +119,7 @@ certificate (and you will need to use that certificate to login in future).`,
 SADROP forcibly de-links the given nickname from the attached user account.`,
 			helpShort: `$bSADROP$b forcibly de-links the given nickname from its user account.`,
 			capabs:    []string{"accreg"},
-			enabled:   servCmdRequiresAccreg,
+			enabled:   servCmdRequiresNickRes,
 			minParams: 1,
 		},
 		"saregister": {
@@ -130,7 +130,7 @@ SAREGISTER registers an account on someone else's behalf.
 This is for use in configurations that require SASL for all connections;
 an administrator can set use this command to set up user accounts.`,
 			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
-			enabled:   servCmdRequiresAccreg,
+			enabled:   servCmdRequiresAuthEnabled,
 			capabs:    []string{"accreg"},
 			minParams: 2,
 		},
@@ -143,7 +143,7 @@ IRC operator with the correct permissions). To prevent accidental
 unregistrations, a verification code is required; invoking the command without
 a code will display the necessary code.`,
 			helpShort: `$bUNREGISTER$b lets you delete your user account.`,
-			enabled:   servCmdRequiresAccreg,
+			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
 		},
 		"verify": {
