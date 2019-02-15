@@ -183,9 +183,9 @@ In this mode, clients must have a valid account to connect, so they cannot regis
 
 To enable this mode, set the following configs:
 
-* `accounts.registration.enabled = false`
+* `accounts.registration.enabled = false` (`true` during remote bootstrapping)
 * `accounts.authentication-enabled = true`
-* `accounts.require-sasl.enabled = true`
+* `accounts.require-sasl.enabled = true` (`false` during remote bootstrapping)
 * `accounts.nick-reservation.enabled = true`
 
 Additionally, the following config is recommended:
