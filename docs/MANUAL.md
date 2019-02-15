@@ -179,13 +179,13 @@ The following additional configs are recommended:
 
 This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Oragono to be deployed facing the public Internet, with fine-grained control over who can log in.
 
-In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg nickserv help saregister`.) To bootstrap this process, the SASL requirement can be disabled initially so that a first account can be created. Alternately, connections from localhost are exempt (by default) from the SASL requirement. You can also exempt your internal network, e.g., `10.0.0.0/8`.
+In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg nickserv help saregister`.) To bootstrap this process, you can make an initial connection from localhost, which is exempt (by default) from the requirement, or temporarily add your own IP to the exemption list. You can also use a more permissive configuration for bootstrapping, then switch to this one once you have your account. Another possibility is permanently exempting an internal network, e.g., `10.0.0.0/8`, that only trusted people can access.
 
 To enable this mode, set the following configs:
 
-* `accounts.registration.enabled = false` (`true` during remote bootstrapping)
+* `accounts.registration.enabled = false`
 * `accounts.authentication-enabled = true`
-* `accounts.require-sasl.enabled = true` (`false` during remote bootstrapping)
+* `accounts.require-sasl.enabled = true`
 * `accounts.nick-reservation.enabled = true`
 
 Additionally, the following config is recommended:
