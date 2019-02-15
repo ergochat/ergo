@@ -749,13 +749,6 @@ func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
 	client.updateNickMaskNoMutex()
 }
 
-// updateNickMask updates the nickmask.
-func (client *Client) updateNickMask() {
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.updateNickMaskNoMutex()
-}
-
 // updateNickMaskNoMutex updates the casefolded nickname and nickmask, not acquiring any mutexes.
 func (client *Client) updateNickMaskNoMutex() {
 	client.hostname = client.getVHostNoMutex()
