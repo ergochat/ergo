@@ -1157,7 +1157,7 @@ func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	updated := client.SetVHost(vhost)
 	if updated {
 		// TODO: doing I/O here is kind of a kludge
-		go client.sendChghost(oldNickmask, vhost)
+		go client.sendChghost(oldNickmask, client.Hostname())
 	}
 }
 
