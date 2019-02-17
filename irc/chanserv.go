@@ -189,10 +189,10 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 
 	// give them privs
 	givenMode := modes.ChannelOperator
-	if client == target {
+	if clientAccount == target.Account() {
 		givenMode = modes.ChannelFounder
 	}
-	change := channelInfo.applyModeToMember(target, givenMode, modes.Add, client.NickCasefolded(), rb)
+	change := channelInfo.applyModeToMember(client, givenMode, modes.Add, target.NickCasefolded(), rb)
 	if change != nil {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		//TODO(dan): unify this code with code in modes.go

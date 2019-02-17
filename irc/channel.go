@@ -855,7 +855,7 @@ func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op mo
 	casefoldedName, err := CasefoldName(nick)
 	target := channel.server.clients.Get(casefoldedName)
 	if err != nil || target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nick, client.t("No such nick"))
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), nick, client.t("No such nick"))
 		return nil
 	}
 
@@ -873,7 +873,7 @@ func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op mo
 	channel.stateMutex.Unlock()
 
 	if !exists {
-		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nick, channel.name, client.t("They aren't on that channel"))
+		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.Nick(), channel.Name(), client.t("They aren't on that channel"))
 	}
 	return
 }
