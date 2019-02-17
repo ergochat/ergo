@@ -143,6 +143,19 @@ func (client *Client) SetRegistered() {
 	client.stateMutex.Unlock()
 }
 
+func (client *Client) AwayMessage() (result string) {
+	client.stateMutex.RLock()
+	result = client.awayMessage
+	client.stateMutex.RUnlock()
+	return
+}
+
+func (client *Client) SetAwayMessage(message string) {
+	client.stateMutex.Lock()
+	client.awayMessage = message
+	client.stateMutex.Unlock()
+}
+
 func (client *Client) Destroyed() bool {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
