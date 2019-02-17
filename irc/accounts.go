@@ -307,6 +307,12 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	}
 
 	config := am.server.AccountConfig()
+
+	// final "is registration allowed" check, probably redundant:
+	if !(config.Registration.Enabled || callbackNamespace == "admin") {
+		return errFeatureDisabled
+	}
+
 	// if nick reservation is enabled, you can only register your current nickname
 	// as an account; this prevents "land-grab" situations where someone else
 	// registers your nick out from under you and then NS GHOSTs you

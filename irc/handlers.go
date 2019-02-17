@@ -183,7 +183,7 @@ func registrationErrorToMessageAndCode(err error) (message, numeric string) {
 	case errAccountAlreadyRegistered, errAccountAlreadyVerified:
 		message = err.Error()
 		numeric = ERR_ACCOUNT_ALREADY_EXISTS
-	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists:
+	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
 		message = err.Error()
 	}
 	return
