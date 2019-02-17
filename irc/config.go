@@ -181,7 +181,8 @@ type NickReservationConfig struct {
 
 // ChannelRegistrationConfig controls channel registration.
 type ChannelRegistrationConfig struct {
-	Enabled bool
+	Enabled               bool
+	MaxChannelsPerAccount int `yaml:"max-channels-per-account"`
 }
 
 // OperClassConfig defines a specific operator class.
@@ -293,9 +294,10 @@ type Config struct {
 	Accounts AccountConfig
 
 	Channels struct {
-		DefaultModes *string `yaml:"default-modes"`
-		defaultModes modes.Modes
-		Registration ChannelRegistrationConfig
+		DefaultModes         *string `yaml:"default-modes"`
+		defaultModes         modes.Modes
+		MaxChannelsPerClient int `yaml:"max-channels-per-client"`
+		Registration         ChannelRegistrationConfig
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
@@ -787,6 +789,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.Accounts.Registration.BcryptCost == 0 {
 		config.Accounts.Registration.BcryptCost = passwd.DefaultCost
+	}
+
+	if config.Channels.MaxChannelsPerClient == 0 {
+		config.Channels.MaxChannelsPerClient = 100
+	}
+	if config.Channels.Registration.MaxChannelsPerAccount == 0 {
+		config.Channels.Registration.MaxChannelsPerAccount = 15
 	}
 
 	// in the current implementation, we disable history by creating a history buffer

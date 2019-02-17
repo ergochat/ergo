@@ -224,8 +224,15 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
+	account := client.Account()
+	channelsAlreadyRegistered := server.accounts.ChannelsForAccount(account)
+	if server.Config().Channels.Registration.MaxChannelsPerAccount <= len(channelsAlreadyRegistered) {
+		csNotice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
+		return
+	}
+
 	// this provides the synchronization that allows exactly one registration of the channel:
-	err = channelInfo.SetRegistered(client.Account())
+	err = channelInfo.SetRegistered(account)
 	if err != nil {
 		csNotice(rb, err.Error())
 		return
@@ -270,11 +277,13 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	hasPrivs := client.HasRoleCapabs("chanreg")
-	if !hasPrivs {
-		founder := channel.Founder()
-		hasPrivs = founder != "" && founder == client.Account()
+	founder := channel.Founder()
+	if founder == "" {
+		csNotice(rb, client.t("That channel is not registered"))
+		return
 	}
+
+	hasPrivs := client.HasRoleCapabs("chanreg") || founder == client.Account()
 	if !hasPrivs {
 		csNotice(rb, client.t("Insufficient privileges"))
 		return
@@ -288,8 +297,8 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	channel.SetUnregistered()
-	go server.channelRegistry.Delete(channelKey, info)
+	channel.SetUnregistered(founder)
+	server.channelRegistry.Delete(channelKey, info)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
 }
 

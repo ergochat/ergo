@@ -327,6 +327,9 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 	for _, nick := range account.AdditionalNicks {
 		nsNotice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
 	}
+	for _, channel := range server.accounts.ChannelsForAccount(accountName) {
+		nsNotice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
+	}
 }
 
 func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

@@ -33,6 +33,7 @@ const (
 	keyAccountEnforcement      = "account.customenforcement %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
+	keyAccountChannels         = "account.channels %s"
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -856,8 +857,24 @@ func (am *AccountManager) Unregister(account string) error {
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
+	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 
 	var clients []*Client
+
+	var registeredChannels []string
+	// on our way out, unregister all the account's channels and delete them from the db
+	defer func() {
+		for _, channelName := range registeredChannels {
+			info := am.server.channelRegistry.LoadChannel(channelName)
+			if info != nil && info.Founder == casefoldedAccount {
+				am.server.channelRegistry.Delete(channelName, *info)
+			}
+			channel := am.server.channels.Get(channelName)
+			if channel != nil {
+				channel.SetUnregistered(casefoldedAccount)
+			}
+		}
+	}()
 
 	var credText string
 	var rawNicks string
@@ -866,6 +883,7 @@ func (am *AccountManager) Unregister(account string) error {
 	defer am.serialCacheUpdateMutex.Unlock()
 
 	var accountName string
+	var channelsStr string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		tx.Delete(accountKey)
 		accountName, _ = tx.Get(accountNameKey)
@@ -879,6 +897,9 @@ func (am *AccountManager) Unregister(account string) error {
 		credText, err = tx.Get(credentialsKey)
 		tx.Delete(credentialsKey)
 		tx.Delete(vhostKey)
+		channelsStr, _ = tx.Get(channelsKey)
+		tx.Delete(channelsKey)
+
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
 		return nil
@@ -899,6 +920,7 @@ func (am *AccountManager) Unregister(account string) error {
 
 	skeleton, _ := Skeleton(accountName)
 	additionalNicks := unmarshalReservedNicks(rawNicks)
+	registeredChannels = unmarshalRegisteredChannels(channelsStr)
 
 	am.Lock()
 	defer am.Unlock()
@@ -925,7 +947,30 @@ func (am *AccountManager) Unregister(account string) error {
 	if err != nil {
 		return errAccountDoesNotExist
 	}
+
 	return nil
+}
+
+func unmarshalRegisteredChannels(channelsStr string) (result []string) {
+	if channelsStr != "" {
+		result = strings.Split(channelsStr, ",")
+	}
+	return
+}
+
+func (am *AccountManager) ChannelsForAccount(account string) (channels []string) {
+	cfaccount, err := CasefoldName(account)
+	if err != nil {
+		return
+	}
+
+	var channelStr string
+	key := fmt.Sprintf(keyAccountChannels, cfaccount)
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		channelStr, _ = tx.Get(key)
+		return nil
+	})
+	return unmarshalRegisteredChannels(channelStr)
 }
 
 func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
