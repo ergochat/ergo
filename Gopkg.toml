@@ -31,7 +31,7 @@
 
 [[constraint]]
   name = "github.com/docopt/docopt-go"
-  version = "0.6.2"
+  branch = "master"
 
 [[constraint]]
   branch = "master"

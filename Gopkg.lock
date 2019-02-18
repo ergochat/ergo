@@ -10,12 +10,12 @@
   revision = "2aa6f33b730c79971cfc3c742f279195b0abc627"
 
 [[projects]]
-  digest = "1:abaaa7489a2f0f3afb2adc8ea1a282a5bd52350b87b26da220c94fc778d6d63b"
+  branch = "master"
+  digest = "1:289fa52f4d9e9c817a003324bc14e9339b996dbe02b9f6cfc57a9383e5365287"
   name = "github.com/docopt/docopt-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "784ddc588536785e7299f7272f39101f7faccc3f"
-  version = "0.6.2"
+  revision = "ee0de3bc6815ee19d4a46c7eb90f829db0e014b1"
 
 [[projects]]
   branch = "master"
@@ -27,7 +27,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:36bb9ad6dfc5cf44265b463d53dd048e5da196b0f626e4805d6e327a8cbe9abd"
+  digest = "1:6bcd7bcd5e14cc9552fbf83b2f77f24935c0c502d009c9825b6c212c3f8eb967"
   name = "github.com/goshuirc/irc-go"
   packages = [
     "ircfmt",
@@ -35,7 +35,7 @@
     "ircmsg",
   ]
   pruneopts = "UT"
-  revision = "8d136c4f92871c1c132bf702022363add479291b"
+  revision = "cf199aea7186fd960d0ed5abbf579bb0f9d890d1"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -93,12 +93,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:2cab41f59638fdb77dda96ab4f9b5860ef30f48967557254eba127e43c756f2e"
+  digest = "1:7df351557a6d5c30804e7d6f7ed87f2fccb0619c08fcc84869a93f22bec96c11"
   name = "github.com/tidwall/gjson"
   packages = ["."]
   pruneopts = "UT"
-  revision = "1e3f6aeaa5bad08d777ea7807b279a07885dd8b2"
-  version = "v1.1.3"
+  revision = "eee0b6226f0d1db2675a176fdfaa8419bcad4ca8"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -109,12 +109,20 @@
   revision = "ba9a043346eba55344e40d66a5e74cfda3a9d293"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d3f968e2a2c9f8506ed44b01b605ade0176ba6cf73ff679073e77cfdef2c0d55"
+  digest = "1:8453ddbed197809ee8ca28b06bd04e127bec9912deb4ba451fea7a1eca578328"
   name = "github.com/tidwall/match"
   packages = ["."]
   pruneopts = "UT"
-  revision = "1731857f09b1f38450e2c12409748407822dc6be"
+  revision = "33827db735fff6510490d69a8622612558a557ed"
+  version = "v1.0.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:88611438dc87bda5862e2d12d8e901bac8ebfd4a9034a896d2f69835360439a7"
+  name = "github.com/tidwall/pretty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "65a9db5fad5105a89e17f38adcc9878685be6d78"
 
 [[projects]]
   branch = "master"
@@ -137,7 +145,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1947d22ddfa0770abd34e49ba2ebc5d3e74de2c61dd5db8c3db750888715fe42"
+  digest = "1:67305bd1b1258ec12fe9dd5b2e19e8278f6a7d2a79cdb058afaee64cec8a1818"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -146,18 +154,18 @@
     "ssh/terminal",
   ]
   pruneopts = "UT"
-  revision = "a92615f3c49003920a58dedcf32cf55022cefb8d"
+  revision = "74369b46fc6756741c016591724fd1cb8e26845f"
 
 [[projects]]
   branch = "master"
-  digest = "1:f5aa274a0377f85735edc7fedfb0811d3cbc20af91633797cb359e29c3272271"
+  digest = "1:0d703f14f9bbbe1070ff0ce86d749dcbc9d68fb0ae554252c09bd4bb37a072e7"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "fa43e7bc11baaae89f3f902b2b4d832b68234844"
+  revision = "d0b11bdaac8adb652bff00e49bcacf992835621a"
 
 [[projects]]
   digest = "1:2b43038ba580394ec711455c92dc9c89f3c29ad758136afe6aef01685ef3b557"
@@ -188,12 +196,12 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:342378ac4dcb378a5448dd723f0784ae519383532f5e70ade24132c4c8693202"
+  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -212,8 +220,10 @@
     "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/sha3",
     "golang.org/x/crypto/ssh/terminal",
+    "golang.org/x/text/cases",
+    "golang.org/x/text/language",
     "golang.org/x/text/secure/precis",
-    "golang.org/x/text/unicode/norm",
+    "golang.org/x/text/width",
     "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
