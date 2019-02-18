@@ -254,8 +254,12 @@ func (nt *NickTimer) Stop() {
 }
 
 func (nt *NickTimer) sendWarning() {
-	baseNotice := "Nickname is reserved; you must change it or authenticate to NickServ within %v"
-	nt.client.Notice(fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
+	// ZNC's nickserv module will not detect this unless it is:
+	// 1. sent with prefix `nickserv`
+	// 2. contains the string "identify"
+	// 3. contains at least one of several other magic strings ("authenticate" works)
+	baseNotice := "Nickname is reserved; you must change it or authenticate (identify) to NickServ within %v"
+	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
 }
 
 func (nt *NickTimer) processTimeout() {
