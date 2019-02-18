@@ -26,7 +26,7 @@ Highlights include:
 * The default logging configuration now logs to stderr only, rather than to both stderr and a file.
 * `max-channels-per-client` key added under `channels` (limiting the number of channels that can be joined).
 * `max-channels-per-account` key added under `channels.registration` (limiting the number of channels that can be registered).
-* Exemption lists now accept `localhost` as a value, meaning any loopback IPV4, loopback IPV6, or unix domain address....
+* Exemption lists now accept `localhost` as a value, meaning any loopback IPV4, loopback IPV6, or unix domain address.
 
 ### Security
 * Added a SASL-only mode in which all clients must authenticate with SASL.
