@@ -1014,9 +1014,11 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		}
 	}
 
-	rb.Add(nil, inviter.server.name, RPL_INVITING, inviter.Nick(), invitee.Nick(), chname)
-	invitee.Send(nil, inviter.nickMaskString, "INVITE", invitee.nick, chname)
+	cnick := inviter.Nick()
+	tnick := invitee.Nick()
+	rb.Add(nil, inviter.server.name, RPL_INVITING, cnick, tnick, chname)
+	invitee.Send(nil, inviter.NickMaskString(), "INVITE", tnick, chname)
 	if invitee.HasMode(modes.Away) {
-		rb.Add(nil, inviter.server.name, RPL_AWAY, invitee.nick, invitee.awayMessage)
+		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, invitee.AwayMessage())
 	}
 }

@@ -408,18 +408,18 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 // AWAY [<message>]
 func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var isAway bool
-	var text string
+	var awayMessage string
 	if len(msg.Params) > 0 {
 		isAway = true
-		text = msg.Params[0]
+		awayMessage = msg.Params[0]
 		awayLen := server.Limits().AwayLen
-		if len(text) > awayLen {
-			text = text[:awayLen]
+		if len(awayMessage) > awayLen {
+			awayMessage = awayMessage[:awayLen]
 		}
 	}
 
 	client.SetMode(modes.Away, isAway)
-	client.awayMessage = text
+	client.SetAwayMessage(awayMessage)
 
 	var op modes.ModeOp
 	if isAway {
@@ -439,7 +439,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	// dispatch away-notify
 	for friend := range client.Friends(caps.AwayNotify) {
 		if isAway {
-			friend.SendFromClient("", client, nil, "AWAY", client.awayMessage)
+			friend.SendFromClient("", client, nil, "AWAY", awayMessage)
 		} else {
 			friend.SendFromClient("", client, nil, "AWAY")
 		}
@@ -1783,6 +1783,7 @@ func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 
 // MONITOR L
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	nick := client.Nick()
 	monitorList := server.monitorManager.List(client)
 
 	var nickList []string
@@ -1796,10 +1797,10 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	}
 
 	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
-		rb.Add(nil, server.name, RPL_MONLIST, client.Nick(), line)
+		rb.Add(nil, server.name, RPL_MONLIST, nick, line)
 	}
 
-	rb.Add(nil, server.name, RPL_ENDOFMONLIST, "End of MONITOR list")
+	rb.Add(nil, server.name, RPL_ENDOFMONLIST, nick, "End of MONITOR list")
 
 	return false
 }
@@ -2095,6 +2096,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	// split privmsg
 	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
+	cnick := client.Nick()
 	for i, targetString := range targets {
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
@@ -2112,7 +2114,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		if err == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
-				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, cnick, targetString, client.t("No such channel"))
 				continue
 			}
 			if !channel.CanSpeak(client) {
@@ -2130,7 +2132,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
 				if len(target) > 0 {
-					client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, "No such nick")
+					client.Send(nil, server.name, ERR_NOSUCHNICK, cnick, target, "No such nick")
 				}
 				continue
 			}
@@ -2150,7 +2152,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
-				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+				rb.Add(nil, server.name, RPL_AWAY, cnick, user.Nick(), user.AwayMessage())
 			}
 
 			user.history.Add(history.Item{
@@ -2349,6 +2351,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	targets := strings.Split(msg.Params[0], ",")
 
+	cnick := client.Nick()
 	for i, targetString := range targets {
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
@@ -2366,7 +2369,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		if err == nil {
 			channel := server.channels.Get(target)
 			if channel == nil {
-				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, targetString, client.t("No such channel"))
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, cnick, targetString, client.t("No such channel"))
 				continue
 			}
 			if !channel.CanSpeak(client) {
@@ -2381,7 +2384,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			user := server.clients.Get(target)
 			if err != nil || user == nil {
 				if len(target) > 0 {
-					client.Send(nil, server.name, ERR_NOSUCHNICK, client.nick, target, client.t("No such nick"))
+					client.Send(nil, server.name, ERR_NOSUCHNICK, cnick, target, client.t("No such nick"))
 				}
 				continue
 			}
@@ -2397,7 +2400,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
-				rb.Add(nil, server.name, RPL_AWAY, user.nick, user.awayMessage)
+				rb.Add(nil, server.name, RPL_AWAY, cnick, user.Nick(), user.AwayMessage())
 			}
 		}
 	}
