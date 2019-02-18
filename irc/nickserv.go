@@ -26,6 +26,14 @@ func nsEnforceEnabled(config *Config) bool {
 	return servCmdRequiresNickRes(config) && config.Accounts.NickReservation.AllowCustomEnforcement
 }
 
+var (
+	// ZNC's nickserv module will not detect this unless it is:
+	// 1. sent with prefix `nickserv`
+	// 2. contains the string "identify"
+	// 3. contains at least one of several other magic strings ("msg" works)
+	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL)`
+)
+
 const nickservHelp = `NickServ lets you register and login to an account.
 
 To see in-depth help for a specific NickServ command, try:

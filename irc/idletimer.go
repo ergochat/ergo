@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 )
 
@@ -254,12 +255,7 @@ func (nt *NickTimer) Stop() {
 }
 
 func (nt *NickTimer) sendWarning() {
-	// ZNC's nickserv module will not detect this unless it is:
-	// 1. sent with prefix `nickserv`
-	// 2. contains the string "identify"
-	// 3. contains at least one of several other magic strings ("authenticate" works)
-	baseNotice := "This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL)"
-	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
+	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.timeout))
 }
 
 func (nt *NickTimer) processTimeout() {
