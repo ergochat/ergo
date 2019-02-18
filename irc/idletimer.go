@@ -258,7 +258,7 @@ func (nt *NickTimer) sendWarning() {
 	// 1. sent with prefix `nickserv`
 	// 2. contains the string "identify"
 	// 3. contains at least one of several other magic strings ("authenticate" works)
-	baseNotice := "Nickname is reserved; you must change it or authenticate (identify) to NickServ within %v"
+	baseNotice := "This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL)"
 	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
 }
 
