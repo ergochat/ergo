@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 )
 
@@ -254,8 +255,7 @@ func (nt *NickTimer) Stop() {
 }
 
 func (nt *NickTimer) sendWarning() {
-	baseNotice := "Nickname is reserved; you must change it or authenticate to NickServ within %v"
-	nt.client.Notice(fmt.Sprintf(nt.client.t(baseNotice), nt.timeout))
+	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.timeout))
 }
 
 func (nt *NickTimer) processTimeout() {
