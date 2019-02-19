@@ -5,13 +5,15 @@ package irc
 
 import (
 	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/modes"
 )
 
-func (server *Server) Config() *Config {
+func (server *Server) Config() (config *Config) {
 	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.config
+	config = server.config
+	server.configurableStateMutex.RUnlock()
+	return
 }
 
 func (server *Server) ISupport() *isupport.List {
@@ -56,6 +58,10 @@ func (server *Server) GetOperator(name string) (oper *Oper) {
 	server.configurableStateMutex.RLock()
 	defer server.configurableStateMutex.RUnlock()
 	return server.config.operators[name]
+}
+
+func (server *Server) Languages() (lm *languages.Manager) {
+	return server.Config().languageManager
 }
 
 func (client *Client) Nick() string {
@@ -189,6 +195,19 @@ func (client *Client) SetAccountName(account string) (changed bool) {
 	client.account = casefoldedAccount
 	client.accountName = account
 	return
+}
+
+func (client *Client) Languages() (languages []string) {
+	client.stateMutex.RLock()
+	languages = client.languages
+	client.stateMutex.RUnlock()
+	return languages
+}
+
+func (client *Client) SetLanguages(languages []string) {
+	client.stateMutex.Lock()
+	client.languages = languages
+	client.stateMutex.Unlock()
 }
 
 func (client *Client) HasMode(mode modes.Mode) bool {

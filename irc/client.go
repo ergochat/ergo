@@ -131,6 +131,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		channels:     make(ChannelSet),
 		ctime:        now,
 		flags:        modes.NewModeSet(),
+		languages:    server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
@@ -143,7 +144,6 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		nickMaskString: "*", // * is used until actual nick is given
 		history:        history.NewHistoryBuffer(config.History.ClientLength),
 	}
-	client.languages = server.languages.Default()
 
 	remoteAddr := conn.RemoteAddr()
 	client.realIP = utils.AddrToIP(remoteAddr)
