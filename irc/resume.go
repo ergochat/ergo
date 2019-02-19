@@ -52,7 +52,8 @@ func (rm *ResumeManager) GenerateToken(client *Client) (token string) {
 }
 
 // VerifyToken looks up the client corresponding to a resume token, returning
-// nil if there is no such client or the token is invalid.
+// nil if there is no such client or the token is invalid. If successful,
+// the token is consumed and cannot be used to resume again.
 func (rm *ResumeManager) VerifyToken(token string) (client *Client) {
 	if len(token) != 2*utils.SecretTokenLength {
 		return
@@ -68,6 +69,8 @@ func (rm *ResumeManager) VerifyToken(token string) (client *Client) {
 			// disallow resume of an unregistered client; this prevents the use of
 			// resume as an auth bypass
 			if pair.client.Registered() {
+				// consume the token, ensuring that at most one resume can succeed
+				delete(rm.resumeIDtoCreds, id)
 				return pair.client
 			}
 		}
