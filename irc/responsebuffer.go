@@ -142,10 +142,10 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	}
 
 	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
-	// use a batch if we have a label, and we either currently have multiple messages,
+	// use a batch if we have a label, and we either currently have 0 or 2+ messages,
 	// or we are doing a Flush() and we have to assume that there will be more messages
 	// in the future.
-	useBatch := useLabel && (len(rb.messages) > 1 || !final)
+	useBatch := useLabel && (len(rb.messages) != 1 || !final)
 
 	// if label but no batch, add label to first message
 	if useLabel && !useBatch && len(rb.messages) == 1 && rb.batchID == "" {
