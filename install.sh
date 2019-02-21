@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ -z "$GOPATH" ]; then
 	echo \$GOPATH is unset: see https://golang.org/doc/code.html for details
 	exit 1
