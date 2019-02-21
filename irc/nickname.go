@@ -62,8 +62,11 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	if hadNick {
 		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), whowas.nick, nickname))
 		target.server.whoWas.Append(whowas)
+		rb.Add(nil, origNickMask, "NICK", nickname)
 		for friend := range target.Friends() {
-			friend.Send(nil, origNickMask, "NICK", nickname)
+			if friend != client {
+				friend.Send(nil, origNickMask, "NICK", nickname)
+			}
 		}
 	}
 
