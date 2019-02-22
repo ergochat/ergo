@@ -59,6 +59,10 @@ if __name__ == '__main__':
             f.write(json.dumps({k:k for k in irc_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
+        for string in irc_strings:
+            if 1 < string.count('%s') + string.count('%d') + string.count('%f'):
+                print('   confirm:', string)
+
         # help entries
         help_strings = []
 
@@ -77,6 +81,10 @@ if __name__ == '__main__':
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'help.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
+
+        for string in help_strings:
+            if 1 < string.count('%s') + string.count('%d') + string.count('%f'):
+                print('   confirm:', string.split('\n')[0])
 
         # nickserv help entries
         help_strings = []
@@ -97,6 +105,10 @@ if __name__ == '__main__':
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
+        for string in help_strings:
+            if 1 < string.count('%s') + string.count('%d') + string.count('%f'):
+                print('   confirm:', string)
+
         # chanserv help entries
         help_strings = []
 
@@ -116,6 +128,10 @@ if __name__ == '__main__':
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
 
+        for string in help_strings:
+            if 1 < string.count('%s') + string.count('%d') + string.count('%f'):
+                print('   confirm:', string)
+
         # hostserv help entries
         help_strings = []
 
@@ -134,3 +150,7 @@ if __name__ == '__main__':
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'hostserv.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
             f.write('\n')
+
+        for string in help_strings:
+            if 1 < string.count('%s') + string.count('%d') + string.count('%f'):
+                print('   confirm:', string)
