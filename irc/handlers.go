@@ -166,8 +166,8 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		}
 		sendSuccessfulRegResponse(client, rb, false)
 	} else {
-		messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s:%s")
-		message := fmt.Sprintf(messageTemplate, callbackNamespace, callbackValue)
+		messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
+		message := fmt.Sprintf(messageTemplate, fmt.Sprintf("%s:%s", callbackNamespace, callbackValue))
 		rb.Add(nil, server.name, RPL_REG_VERIFICATION_REQUIRED, nick, casefoldedAccount, message)
 	}
 

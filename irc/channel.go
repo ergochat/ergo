@@ -619,21 +619,21 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			if item.AccountName == "*" {
 				message = fmt.Sprintf(client.t("%s joined the channel"), nick)
 			} else {
-				message = fmt.Sprintf(client.t("%s [account: %s] joined the channel"), nick, item.AccountName)
+				message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
 			}
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Part:
 			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%s left the channel (%s)"), nick, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Original)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Quit:
 			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%s quit (%s)"), nick, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Original)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Kick:
 			nick := stripMaskFromNick(item.Nick)
 			// XXX Msgid is the kick target
-			message := fmt.Sprintf(client.t("%s kicked %s (%s)"), nick, item.Msgid, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Msgid, item.Message.Original)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		}
 	}

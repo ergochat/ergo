@@ -143,12 +143,12 @@ func serviceRunCommand(service *ircService, server *Server, client *Client, cmd 
 	}
 
 	if cmd == nil {
-		sendNotice(fmt.Sprintf("%s /%s HELP", client.t("Unknown command. To see available commands, run"), service.ShortName))
+		sendNotice(fmt.Sprintf(client.t("Unknown command. To see available commands, run: /%s HELP"), service.ShortName))
 		return
 	}
 
 	if len(params) < cmd.minParams {
-		sendNotice(fmt.Sprintf(client.t("Invalid parameters. For usage, do /msg %s HELP %s"), service.Name, strings.ToUpper(commandName)))
+		sendNotice(fmt.Sprintf(client.t("Invalid parameters. For usage, do /msg %[1]s HELP %[2]s"), service.Name, strings.ToUpper(commandName)))
 		return
 	}
 
