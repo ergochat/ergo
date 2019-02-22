@@ -36,10 +36,10 @@ Highlights include:
 ### Added
 * Added automagic datastore creation on `oragono run`.
 * Added limited message history for connection resuming (to be extended in future).
-* Added new Español (es) translation (thanks to Mauropek!)).
-* Added new Polski (pl) translation (thanks to Sebastian Korotkiewicz (modinfi)!)).
-* Added new Română (ro) translation (thanks to Bogdan Mințoi!)).
-* Added new Ελληνικά (el) translation (thanks to Nicholas Kyriakides (Shillos)!)).
+* Added new Español (es) translation (thanks to Mauropek!).
+* Added new Polski (pl) translation (thanks to Sebastian Korotkiewicz ([@modinfo](https://github.com/modinfo))!).
+* Added new Română (ro) translation (thanks to Bogdan Mințoi ([@bogdomania](https://github.com/bogdomania))!).
+* Added new Ελληνικά (el) translation (thanks to Nicholas Kyriakides ([@Shillos](https://github.com/Shillos))!).
 * Added new 简体中文 (zh-CN) translation (thanks to Tony Chen and Remini!)).
 * Added new subcommands to `NICKSERV`, including:
     * `PASSWD` to change account passwords.
@@ -64,21 +64,20 @@ Highlights include:
 
 ### Fixed
 * [`oragono.io/maxline`](https://oragono.io/maxline) capability was accidentally disabled, now re-enabled.
-* `INVITE`: Fixed bug where invited users could not join the channel they were invited to.
+* `INVITE`: Fixed bug where invited users could not join the channel they were invited to (thanks to [@unendingpattern](https://github.com/unendingpattern)!).
 * `PRIVMSG`: Messages sent to multiple clients (such as channel messages) now share the same timestamp (previously each client got a very slightly different time).
 * `WHOIS`: Now responds properly for NickServ, ChanServ, etc.
-* Channel names with right-to-left characters are now casefolded correctly (thanks to @remini1998 for the bug report)
+* Channel names with right-to-left characters are now casefolded correctly (thanks to [@remini1998](https://github.com/remini1998)!).
 * Fixed incorrect rejection of nickmasks with Unicode RTL nicknames.
 * Fixed nickname sync issue which could cause clients to fail to see each other.
 * Invalid `ISUPPORT` tokens are now explicitly rejected.
 * Made `server-time` timestamp format more consistent and safer.
 * Oragono now exits with status (1) if it fails to start.
 * Prevent logging in multiple times when using `/NS IDENTIFY`.
-* Prevented the db handler from automagically creating the database without initializing it (thanks @enckse!). We also now automatically create the datastore on `run`.
-* Updated internal command line parsing (thanks @iNecas!).
+* Prevented the db handler from automagically creating the database without initializing it (thanks [@enckse](https://github.com/enckse)!). We also now automatically create the datastore on `run`.
 * `oragono genpasswd` now works when piping input in (fixes Docker installs).
 * Fixed handling of CIDR width in connection limiting/throttling.
-* Fixed many responses that violated the specifications (thanks to @Ascrod, @bogdomania, @csmith, @jesopo, @jwheare).
+* Fixed many responses that violated the specifications (thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare)!).
 * Fixed incorrect behavior of `CHANSERV OP` command.
 
 ### Internal Notes
@@ -87,7 +86,7 @@ Highlights include:
 * Services handlers refactored.
 * Translations are now sent to/PR'd from CrowdIn automagically as we develop the software.
 * Direct responses to client commands are now sent "synchronously", bypassing the sendq.
-* Docopt was upgraded to match modern best practices (thanks to @inecas)
+* Command-line parsing was upgraded to match modern best practices (thanks to [@iNecas](https://github.com/iNecas)!).
 
 
 ## [0.12.0] - 2018-10-15
