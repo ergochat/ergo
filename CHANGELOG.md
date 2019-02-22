@@ -37,9 +37,9 @@ Highlights include:
 * Added automagic datastore creation on `oragono run`.
 * Added limited message history for connection resuming (to be extended in future).
 * Added new Español (es) translation (thanks to Mauropek!).
-* Added new Polski (pl) translation (thanks to Sebastian Korotkiewicz ([@modinfo](https://github.com/modinfo))!).
-* Added new Română (ro) translation (thanks to Bogdan Mințoi ([@bogdomania](https://github.com/bogdomania))!).
-* Added new Ελληνικά (el) translation (thanks to Nicholas Kyriakides ([@Shillos](https://github.com/Shillos))!).
+* Added new Polski (pl) translation (thanks to [@modinfo](https://github.com/modinfo)!).
+* Added new Română (ro) translation (thanks to [@bogdomania](https://github.com/bogdomania)!).
+* Added new Ελληνικά (el) translation (thanks to [@Shillos](https://github.com/Shillos)!).
 * Added new 简体中文 (zh-CN) translation (thanks to Tony Chen and Remini!)).
 * Added new subcommands to `NICKSERV`, including:
     * `PASSWD` to change account passwords.
@@ -77,7 +77,7 @@ Highlights include:
 * Prevented the db handler from automagically creating the database without initializing it (thanks [@enckse](https://github.com/enckse)!). We also now automatically create the datastore on `run`.
 * `oragono genpasswd` now works when piping input in (fixes Docker installs).
 * Fixed handling of CIDR width in connection limiting/throttling.
-* Fixed many responses that violated the specifications (thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare)!).
+* Fixed many responses that violated the specifications (thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), and [@jwheare](https://github.com/jwheare)!).
 * Fixed incorrect behavior of `CHANSERV OP` command.
 
 ### Internal Notes
