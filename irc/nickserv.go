@@ -83,8 +83,8 @@ same user account, letting you reclaim your nickname.`,
 			handler: nsGroupHandler,
 			help: `Syntax: $bGROUP$b
 
-GROUP links your current nickname with your logged-in account, preventing other
-users from changing to it (or forcing them to rename).`,
+GROUP links your current nickname with your logged-in account, so other people
+will not be able to use it.`,
 			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
 			enabled:      servCmdRequiresNickRes,
 			authRequired: true,
