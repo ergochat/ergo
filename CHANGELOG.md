@@ -67,7 +67,7 @@ Highlights include:
 * `INVITE`: Fixed bug where invited users could not join the channel they were invited to.
 * `PRIVMSG`: Messages sent to multiple clients (such as channel messages) now share the same timestamp (previously each client got a very slightly different time).
 * `WHOIS`: Now responds properly for NickServ, ChanServ, etc.
-* Channel names with right-to-left characters are now casefolded correctly.
+* Channel names with right-to-left characters are now casefolded correctly (thanks to @remini1998 for the bug report)
 * Fixed incorrect rejection of nickmasks with Unicode RTL nicknames.
 * Fixed nickname sync issue which could cause clients to fail to see each other.
 * Invalid `ISUPPORT` tokens are now explicitly rejected.
@@ -78,7 +78,7 @@ Highlights include:
 * Updated internal command line parsing (thanks @iNecas!).
 * `oragono genpasswd` now works when piping input in (fixes Docker installs).
 * Fixed handling of CIDR width in connection limiting/throttling.
-* Fixed many responses that violated the specifications (thanks to Ascrod, bogdomania, csmith, jesopo, jwheare).
+* Fixed many responses that violated the specifications (thanks to @Ascrod, @bogdomania, @csmith, @jesopo, @jwheare).
 * Fixed incorrect behavior of `CHANSERV OP` command.
 
 ### Internal Notes
@@ -87,6 +87,7 @@ Highlights include:
 * Services handlers refactored.
 * Translations are now sent to/PR'd from CrowdIn automagically as we develop the software.
 * Direct responses to client commands are now sent "synchronously", bypassing the sendq.
+* Docopt was upgraded to match modern best practices (thanks to @inecas)
 
 
 ## [0.12.0] - 2018-10-15
