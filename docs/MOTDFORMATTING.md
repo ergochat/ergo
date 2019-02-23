@@ -54,3 +54,7 @@ Here are the color names we support, and which IRC colors they map to:
       14  | grey
       15  | light grey
     --------------------
+
+In addition, some newer clients can make use of the colour codes 16-98, though they don't
+have any names assigned. Take a look at this table to see which colours these numbers are:
+https://modern.ircdocs.horse/formatting.html#colors-16-98
