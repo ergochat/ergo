@@ -20,13 +20,13 @@ Highlights include:
 * `history` section added.
 * `identlen` key added under `limits`.
 * `login-throttling` section added under `accounts`.
-* `method` key now under `accounts` now allows the value `"optional"`.
-* Logging type `server` has been added, replacing the `startup`, `rehash`, and `shutdown` types.
-* We no longer listen on port `6668` by default (this fixes Docker installs).
-* The default logging configuration now logs to stderr only, rather than to both stderr and a file.
-* `max-channels-per-client` key added under `channels` (limiting the number of channels that can be joined).
 * `max-channels-per-account` key added under `channels.registration` (limiting the number of channels that can be registered).
+* `max-channels-per-client` key added under `channels` (limiting the number of channels that can be joined).
+* `method` key now under `accounts` now allows the value `"optional"`.
 * Exemption lists now accept `localhost` as a value, meaning any loopback IPV4, loopback IPV6, or unix domain address.
+* Logging type `server` has been added, replacing the `startup`, `rehash`, and `shutdown` types.
+* The default logging configuration now logs to stderr only, rather than to both stderr and a file.
+* We no longer listen on port `6668` by default (this fixes Docker installs).
 
 ### Security
 * Added a SASL-only mode in which all clients must authenticate with SASL.
@@ -35,58 +35,56 @@ Highlights include:
 
 ### Added
 * Added automagic datastore creation on `oragono run`.
+* Added detection and prevention of confusing nicknames, account names, and channel names.
 * Added limited message history for connection resuming (to be extended in future).
 * Added new Español (es) translation (thanks to Mauropek!).
 * Added new Polski (pl) translation (thanks to [@modinfo](https://github.com/modinfo)!).
 * Added new Română (ro) translation (thanks to [@bogdomania](https://github.com/bogdomania)!).
 * Added new Ελληνικά (el) translation (thanks to [@Shillos](https://github.com/Shillos)!).
 * Added new 简体中文 (zh-CN) translation (thanks to Tony Chen and Remini!)).
-* Added new subcommands to `NICKSERV`, including:
+* Added proposed IRCv3 capability [`draft/setname`](https://github.com/ircv3/ircv3-specifications/pull/361).
+* Added subcommands to `NICKSERV`, including:
     * `PASSWD` to change account passwords.
     * `ENFORCE` to set a specific enforcement mechanism on your nick.
     * `SAREGISTER` to allow operators to manually create new user accounts.
-* Added Unicode confusable detection and prevention when changing nicknames and registering accounts.
-* Added proposed IRCv3 capability [`draft/setname`](https://github.com/ircv3/ircv3-specifications/pull/361).
 
 ### Changed
 * `SASL PLAIN` logins now log more correctly.
 * Database upgrade failures now provide information about the error that occurred.
+* Halfops can now kick unprivileged users.
 * Idents (sometimes called "usernames") are now restricted to ASCII, similar to other servers.
+* Improved compatibility with ZNC's nickserv module.
 * In addition to the founder, now auto-ops (halfop and higher) automatically bypass channel join restrictions.
 * Log lines now display time down to milliseconds, instead of just seconds.
 * Updated all translation files (thanks to our amazing translators!).
-* Updated proposed IRCv3 capability to version [`draft/resume-0.3`](https://github.com/ircv3/ircv3-specifications/pull/306).
+* Updated proposed IRCv3 capability `draft/resume` to [`draft/resume-0.3`](https://github.com/ircv3/ircv3-specifications/pull/306).
 * When nick ownership is enabled, users can now select which enforcement mechanism to use with their nickname.
-* Improved compatibility with ZNC's nickserv module.
-* Halfops can now kick unprivileged users.
-
-### Removed
 
 ### Fixed
-* [`oragono.io/maxline`](https://oragono.io/maxline) capability was accidentally disabled, now re-enabled.
 * `INVITE`: Fixed bug where invited users could not join the channel they were invited to (thanks to [@unendingpattern](https://github.com/unendingpattern)!).
+* [`oragono.io/maxline`](https://oragono.io/maxline) capability was accidentally disabled, and is now re-enabled.
+* `oragono genpasswd` now works when piping input in (fixes Docker installs).
 * `PRIVMSG`: Messages sent to multiple clients (such as channel messages) now share the same timestamp (previously each client got a very slightly different time).
 * `WHOIS`: Now responds properly for NickServ, ChanServ, etc.
 * Channel names with right-to-left characters are now casefolded correctly (thanks to [@remini1998](https://github.com/remini1998)!).
+* Fixed handling of CIDR width in connection limiting/throttling.
+* Fixed incorrect behavior of `CHANSERV OP` command.
 * Fixed incorrect rejection of nickmasks with Unicode RTL nicknames.
+* Fixed many responses that violated the specifications (thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), and [@jwheare](https://github.com/jwheare)!).
 * Fixed nickname sync issue which could cause clients to fail to see each other.
 * Invalid `ISUPPORT` tokens are now explicitly rejected.
 * Made `server-time` timestamp format more consistent and safer.
 * Oragono now exits with status (1) if it fails to start.
 * Prevent logging in multiple times when using `/NS IDENTIFY`.
 * Prevented the db handler from automagically creating the database without initializing it (thanks [@enckse](https://github.com/enckse)!). We also now automatically create the datastore on `run`.
-* `oragono genpasswd` now works when piping input in (fixes Docker installs).
-* Fixed handling of CIDR width in connection limiting/throttling.
-* Fixed many responses that violated the specifications (thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), and [@jwheare](https://github.com/jwheare)!).
-* Fixed incorrect behavior of `CHANSERV OP` command.
 
 ### Internal Notes
 * `DLINE` and `KLINE` refactored, and expired bans are now removed from the database.
+* Command-line parsing was upgraded to match modern best practices (thanks to [@iNecas](https://github.com/iNecas)!).
+* Direct responses to client commands are now sent "synchronously", bypassing the sendq.
 * Logging system optimised.
 * Services handlers refactored.
 * Translations are now sent to/PR'd from CrowdIn automagically as we develop the software.
-* Direct responses to client commands are now sent "synchronously", bypassing the sendq.
-* Command-line parsing was upgraded to match modern best practices (thanks to [@iNecas](https://github.com/iNecas)!).
 
 
 ## [0.12.0] - 2018-10-15
