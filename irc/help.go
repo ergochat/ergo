@@ -646,13 +646,13 @@ func GenerateHelpIndex(lm *languages.Manager, forOpers bool) map[string]string {
 	defaultHelpIndex := `= Help Topics =
 
 Commands:
-%s
+%[1]s
 
 RPL_ISUPPORT Tokens:
-%s
+%[2]s
 
 Information:
-%s`
+%[3]s`
 
 	newHelpIndex := make(map[string]string)
 

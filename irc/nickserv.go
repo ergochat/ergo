@@ -83,8 +83,8 @@ same user account, letting you reclaim your nickname.`,
 			handler: nsGroupHandler,
 			help: `Syntax: $bGROUP$b
 
-GROUP links your current nickname with your logged-in account, preventing other
-users from changing to it (or forcing them to rename).`,
+GROUP links your current nickname with your logged-in account, so other people
+will not be able to use it.`,
 			helpShort:    `$bGROUP$b links your current nickname to your user account.`,
 			enabled:      servCmdRequiresNickRes,
 			authRequired: true,
@@ -399,8 +399,8 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 				sendSuccessfulRegResponse(client, rb, true)
 			}
 		} else {
-			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s:%s")
-			message := fmt.Sprintf(messageTemplate, callbackNamespace, callbackValue)
+			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
+			message := fmt.Sprintf(messageTemplate, fmt.Sprintf("%s:%s", callbackNamespace, callbackValue))
 			nsNotice(rb, message)
 		}
 	}
@@ -466,7 +466,7 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	expectedCode := unregisterConfirmationCode(account.Name, account.RegisteredAt)
 	if expectedCode != verificationCode {
 		nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
-		nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %s %s"), cfname, expectedCode))
+		nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %[1]s %[2]s"), cfname, expectedCode))
 		return
 	}
 

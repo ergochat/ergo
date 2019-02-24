@@ -149,15 +149,15 @@ func csAmodeHandler(server *Server, client *Client, command string, params []str
 		sort.Slice(affectedModes, func(i, j int) bool {
 			return umodeGreaterThan(affectedModes[i].Mode, affectedModes[j].Mode)
 		})
-		csNotice(rb, fmt.Sprintf(client.t("Channel %s has %d persistent modes set"), channelName, len(affectedModes)))
+		csNotice(rb, fmt.Sprintf(client.t("Channel %[1]s has %[2]d persistent modes set"), channelName, len(affectedModes)))
 		for _, modeChange := range affectedModes {
-			csNotice(rb, fmt.Sprintf(client.t("Account %s receives mode +%s"), modeChange.Arg, string(modeChange.Mode)))
+			csNotice(rb, fmt.Sprintf(client.t("Account %[1]s receives mode +%[2]s"), modeChange.Arg, string(modeChange.Mode)))
 		}
 	case modes.Add, modes.Remove:
 		if len(affectedModes) > 0 {
 			csNotice(rb, fmt.Sprintf(client.t("Successfully set mode %s"), change.String()))
 		} else {
-			csNotice(rb, client.t("Change was a no-op"))
+			csNotice(rb, client.t("No changes were made"))
 		}
 	}
 }
@@ -293,7 +293,7 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 	expectedCode := unregisterConfirmationCode(info.Name, info.RegisteredAt)
 	if expectedCode != verificationCode {
 		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this channel will remove all stored channel attributes.$b")))
-		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %s %s"), channelKey, expectedCode))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %[1]s %[2]s"), channelKey, expectedCode))
 		return
 	}
 

@@ -222,7 +222,7 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 	}
 
 	if account.VHost.ApprovedVHost != "" {
-		hsNotice(rb, fmt.Sprintf(client.t("Account %s has vhost: %s"), accountName, account.VHost.ApprovedVHost))
+		hsNotice(rb, fmt.Sprintf(client.t("Account %[1]s has vhost: %[2]s"), accountName, account.VHost.ApprovedVHost))
 		if !account.VHost.Enabled {
 			hsNotice(rb, fmt.Sprintf(client.t("This vhost is currently disabled, but can be enabled with /HS ON")))
 		}
@@ -274,9 +274,9 @@ func hsSetHandler(server *Server, client *Client, command string, params []strin
 
 func hsWaitingHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	requests, total := server.accounts.VHostListRequests(10)
-	hsNotice(rb, fmt.Sprintf(client.t("There are %d pending requests for vhosts (%d displayed)"), total, len(requests)))
+	hsNotice(rb, fmt.Sprintf(client.t("There are %[1]d pending requests for vhosts (%[2]d displayed)"), total, len(requests)))
 	for i, request := range requests {
-		hsNotice(rb, fmt.Sprintf(client.t("%d. User %s requests vhost: %s"), i+1, request.Account, request.RequestedVHost))
+		hsNotice(rb, fmt.Sprintf(client.t("%[1]d. User %[2]s requests vhost: %[3]s"), i+1, request.Account, request.RequestedVHost))
 	}
 }
 
@@ -288,7 +288,7 @@ func hsApproveHandler(server *Server, client *Client, command string, params []s
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
 		hsNotice(rb, fmt.Sprintf(client.t("Successfully approved vhost request for %s"), user))
-		chanMsg := fmt.Sprintf("Oper %s approved vhost %s for account %s", client.Nick(), vhostInfo.ApprovedVHost, user)
+		chanMsg := fmt.Sprintf("Oper %[1]s approved vhost %[2]s for account %[3]s", client.Nick(), vhostInfo.ApprovedVHost, user)
 		hsNotifyChannel(server, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			client.Notice(client.t("Your vhost request was approved by an administrator"))
