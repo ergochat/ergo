@@ -4,15 +4,17 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 
-## [1.0.0-rc] - 2019-02-18
-Our v1.0.0 is finally here! Well, almost. The final v1.0.0 should be released in a week or two, after our last bits of testing is complete and the documentation has been double and triple-checked. This version rounds out most of our need-to-haves, and leaves us with a bunch of nice-to-haves that we'll be looking at going forward. Thanks to all of our amazing translators and contributors for the work they've done this release (we'll have a proper thanks section when v1.0.0 drops).
+## [1.0.0] - 2019-02-24
+We've finally made it to v1.0.0! With this release, our list of need-to-haves is rounded out, and we reckon the software's ready for production use in smaller networks. slingamn and I have been working with our contributors and translators to prepare a cracker of a release. Thanks to [@csmith](https://github.com/csmith) our [Docker builds](https://hub.docker.com/r/oragono/oragono/) have been updated, with automatic rebuilds as we develop the software. Thanks to [@bogdomania](https://github.com/bogdomania) our translation workflow has been improved a lot.
 
 Highlights include:
 
-* Support for storing and replaying message history with: the [`draft/resume-0.3` capability](https://github.com/ircv3/ircv3-specifications/pull/306), the `CHATHISTORY` command, and a custom `HISTORY` command.
+* Optional support for storing and replaying message history with the [`draft/resume-0.3` capability](https://github.com/ircv3/ircv3-specifications/pull/306), the draft IRCv3 `CHATHISTORY` command, and a custom `HISTORY` command.
 * Better detection of confusing nick/account/channel names.
 * User-customizable nickname protection methods.
 * An account-only mode in which all clients must have an account and login to it (using SASL) before they can join the server.
+
+Thanks to Mauropek, [@modinfo](https://github.com/modinfo), [@bogdomania](https://github.com/bogdomania), [@Shillos](https://github.com/Shillos), Tony Chen, and Remini for adding new translations. Thanks to [@Ascrod](https://github.com/Ascrod), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@remini1998](https://github.com/remini1998), [@enckse](https://github.com/enckse), and [@iNecas](https://github.com/iNecas) for finding bugs and/or writing new features.
 
 ### Config Changes
 * `allow-custom-enforcement` key added under `accounts`.
