@@ -5,7 +5,7 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         Oragono IRCd Manual 2018-04-11
+         Oragono IRCd Manual 2019-02-23
               https://oragono.io/
 
 _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
@@ -49,22 +49,22 @@ If you have any suggestions, issues or questions, feel free to submit an issue o
 
 ## Project Basics
 
-Let's go over some basics, for those new to Oragono. My name's Daniel, and I started the project (it was forked off a server called [Ergonomadic](https://github.com/edmund-huber/ergonomadic) that'd been around for a few years). In addition to Oragono, I also do a lot of IRC specification work with the [various](https://modern.ircdocs.horse) [ircdocs](https://defs.ircdocs.horse) [projects](https://ircdocs.horse/specs/) and with the [IRCv3 WG](https://ircv3.net/).
+Let's go over some basics, for those new to Oragono. My name's Daniel, and I started the project (it was forked off a server called [Ergonomadic](https://github.com/edmund-huber/ergonomadic) that'd been around for a number of years). In addition to Oragono, I also do a lot of IRC specification work with the [various](https://modern.ircdocs.horse) [ircdocs](https://defs.ircdocs.horse) [projects](https://ircdocs.horse/specs/) and with the [IRCv3 Working Group](https://ircv3.net/).
 
 Oragono's a new IRC server, written from scratch. My main goals when starting the project was to write a server that:
 
-- Is fully-functional (most of my attempts in the past which had been 'toy' quality).
-- I could easily prototype new [IRCv3](https://ircv3.net/) proposals and features in.
-- I could consider a reference implementation for the [Modern spec](https://modern.ircdocs.horse).
+- Is fully-functional.
+- I can use to very easily prototype new [IRCv3](https://ircv3.net/) proposals and features.
+- I can consider a reference implementation for the [Modern spec](https://modern.ircdocs.horse).
 
-All in all, these have gone pretty well. The server has relatively extensive command coverage, it prototypes a whole lot of the IRCv3 proposals and accepted/draft specs, and I pretty regularly update it to match new behaviour written into the Modern spec.
+All in all, these have gone pretty well. The server has relatively extensive command coverage, it prototypes a whole lot of the IRCv3 proposals and accepted/draft specs, and we pretty regularly update it to match new behaviour written into the Modern spec.
 
 Some of the features that sets Oragono apart from other servers are:
 
-- Extensive IRCv3 support (more than any other server, currently).
-- Extensive logging and oper privilege levels.
+- Extensive IRCv3 support.
+- Extensive logging and oper privilege levels configuration.
 - Integrated user account and channel registration system (no services required!).
-- Native Unicode support (including casemapping for that Unicode).
+- Native Unicode support (including appropriate casemapping).
 - Support for [multiple languages](https://crowdin.com/project/oragono).
 
 
@@ -141,28 +141,28 @@ If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), the
 
 Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
 
-## Nickname reservation
+## Account/Nick Modes
 
 Oragono supports several different modes of operation with respect to accounts and nicknames.
 
 ### Traditional / lenient mode
 
-This is the mode that matches the typical pre-modern ircd behavior. In this mode, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
+This is the default mode, and makes Oragono's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
 
-To enable this mode, set the following configs (they are the defaults):
+To enable this mode, set the following configs (this is the default mode):
 
 * `accounts.registration.enabled = true`
 * `accounts.authentication-enabled = true`
 * `accounts.nick-reservation.enabled = false`
 
-### Nick reservation
+### Nick ownership
 
-This is the mode corresponding to a typical IRC network with a service system (like Freenode). In this mode, registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s):
+This mode makes Oragono's services act like those of a typical IRC network (like Freenode). In this mode, registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s):
 
 * You can proactively prevent anyone from using your nickname, unless they're already logged into your account
 * Alternately, you can give clients a grace period to log into your account, but if they don't and the grace period expires, the server will change their nickname to something else
-* Alternately, you can forego any proactive enforcement --- but if you decide you want to reclaim your nickname from a squatter, you can `/msg Nickserv ghost stolen_nickname` and they'll be disconnected
-* You can associate additional nicknames with your account by changing to it and then issuing `/msg nickserv group`
+* Alternately, you can forego any proactive enforcement – but if you decide you want to reclaim your nickname from a squatter, you can `/msg Nickserv ghost stolen_nickname` and they'll be disconnected
+* You can associate additional nicknames with your account by changing to it and then issuing `/msg NickServ group`
 
 To enable this mode, set the following configs:
 
@@ -170,16 +170,16 @@ To enable this mode, set the following configs:
 * `accounts.authentication-enabled = true`
 * `accounts.nick-reservation.enabled = true`
 
-The following additional configs are recommended:
+The following additional configs may be of interest:
 
 * `accounts.nick-reservation.method = timeout` ; setting `strict` here effectively forces people to use SASL, and some popular clients either do not support SASL, or have bugs in their SASL implementations.
-* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement, or opt out of enforcement. For details on how to do this, `/msg nickserv help enforce`.
+* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help enforce`.
 
 ### SASL-only mode
 
 This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Oragono to be deployed facing the public Internet, with fine-grained control over who can log in.
 
-In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg nickserv help saregister`.) To bootstrap this process, you can make an initial connection from localhost, which is exempt (by default) from the requirement, or temporarily add your own IP to the exemption list. You can also use a more permissive configuration for bootstrapping, then switch to this one once you have your account. Another possibility is permanently exempting an internal network, e.g., `10.0.0.0/8`, that only trusted people can access.
+In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg NickServ help saregister`.) To bootstrap this process, you can make an initial connection from localhost, which is exempt (by default) from the requirement, or temporarily add your own IP to the exemption list. You can also use a more permissive configuration for bootstrapping, then switch to this one once you have your account. Another possibility is permanently exempting an internal network, e.g., `10.0.0.0/8`, that only trusted people can access.
 
 To enable this mode, set the following configs:
 
@@ -216,21 +216,27 @@ To see which languages are supported, run this command:
 
 In the resulting text, you should see a token that looks something like this:
 
-    draft/languages=5,en,~fr-FR,no,~pt-BR,tr-TR
+    draft/languages=11,en,~ro,~tr-TR,~el,~fr-FR,~pl,~pt-BR,~zh-CN,~en-AU,~es,~no
 
 That's the list of languages we support. For the token above, the supported languages are:
 
 - `en`: English
-- `fr-FR`: French (incomplete)
+- `en-AU`: Australian English
+- `el`: Greek
+- `es`: Spanish
+- `fr-FR`: French
 - `no`: Norwegian
-- `pt-BR`: Brazilian Portugese (incomplete)
+- `pl`: Polish
+- `pt-BR`: Brazilian Portugese
+- `ro`: Romanian
 - `tr-TR`: Turkish
+- `zh-CN`: Chinese
 
 To change to a specific language, you can use the `LANGUAGE` command like this:
 
-    /LANGUAGE tr-TR
+    /LANGUAGE ro zh-CN
 
-The above will change the server language to Turkish. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
+The above will change the server language to Romanian, with a fallback to Chinese. English will always be the final fallback, if there's a line that is not translated. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
 
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
 
@@ -284,7 +290,7 @@ Every deployment's gonna be different, but you can use certificates from [Let's 
 5. By default, `certbot` will automatically renew your certificates. Oragono will only reread certificates when it is restarted, or during a rehash (e.g., on receiving the `/rehash` command or the `SIGHUP` signal). You can add an executable script to `/etc/letsencrypt/renewal-hooks/post` that can perform the rehash. Here's one example of such a script:
 
 ```bash
-#/bin/bash
+#!/bin/bash
 pkill -HUP oragono
 ```
 
@@ -543,7 +549,7 @@ One exception is services frameworks like [Anope](https://github.com/anope/anope
 
 If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
 
-## HOPM
+## Hybrid Open Proxy Monitor (HOPM)
 
 [hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with oragono, add operator blocks like this to your oragono config file, which grant hopm the necessary privileges:
 
@@ -592,7 +598,7 @@ kline = "DLINE ANDKILL 2h %i :Open proxy found on your host.";
 
 ## ZNC
 
-Versions of ZNC prior to 1.7 have a [bug](https://github.com/znc/znc/issues/1212) in their SASL implementation that renders them incompatible with Oragono. However, you should be able to authenticate from ZNC using its [nickserv](https://wiki.znc.in/Nickserv) module.
+Versions of ZNC prior to 1.7 have a [bug](https://github.com/znc/znc/issues/1212) in their SASL implementation that renders them incompatible with Oragono. However, you should be able to authenticate from ZNC using its [NickServ](https://wiki.znc.in/Nickserv) module.
 
 
 --------------------------------------------------------------------------------------------

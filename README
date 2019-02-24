@@ -46,9 +46,11 @@ If you're updating from a previous version of Oragono, checkout the CHANGELOG fo
 of important changes you'll want to take a look at. The change log details config changes,
 fixes, new features and anything else you'll want to be aware of!
 
-If there's been a database update, you'll also need to run this command:
+If there's been a database update, you can run this command to upgrade it manually:
 
     $ oragono upgradedb
+
+Otherwise, just starting the server will run an automagic backup and upgrade.
 
 
 === Credits ===
