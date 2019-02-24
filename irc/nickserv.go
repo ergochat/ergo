@@ -363,6 +363,13 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
+	// band-aid to let users know if they mix up the order of registration params
+	if email == "*" {
+		nsNotice(rb, client.t("Registering your account with no email address"))
+	} else {
+		nsNotice(rb, fmt.Sprintf(client.t("Registering your account with email address %s"), email))
+	}
+
 	config := server.AccountConfig()
 	var callbackNamespace, callbackValue string
 	noneCallbackAllowed := false
