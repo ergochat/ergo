@@ -988,11 +988,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 
 	// handle index
 	if argument == "index" {
-		if client.HasMode(modes.Operator) {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndexOpers), rb)
-		} else {
-			client.sendHelp("HELP", GetHelpIndex(client.languages, HelpIndex), rb)
-		}
+		client.sendHelp("HELP", server.helpIndexManager.GetIndex(client.Languages(), client.HasMode(modes.Operator)), rb)
 		return false
 	}
 
@@ -1088,7 +1084,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
 	// show translators for languages other than good ole' regular English
-	tlines := server.languages.Translators()
+	tlines := server.Languages().Translators()
 	if 0 < len(tlines) {
 		rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
 		for _, line := range tlines {
@@ -1422,12 +1418,14 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // LANGUAGE <code>{ <code>}
 func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	nick := client.Nick()
 	alreadyDoneLanguages := make(map[string]bool)
 	var appliedLanguages []string
 
-	supportedLanguagesCount := server.languages.Count()
+	lm := server.Languages()
+	supportedLanguagesCount := lm.Count()
 	if supportedLanguagesCount < len(msg.Params) {
-		rb.Add(nil, client.server.name, ERR_TOOMANYLANGUAGES, client.nick, strconv.Itoa(supportedLanguagesCount), client.t("You specified too many languages"))
+		rb.Add(nil, client.server.name, ERR_TOOMANYLANGUAGES, nick, strconv.Itoa(supportedLanguagesCount), client.t("You specified too many languages"))
 		return false
 	}
 
@@ -1441,9 +1439,9 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 			continue
 		}
 
-		_, exists := server.languages.Info[value]
+		_, exists := lm.Languages[value]
 		if !exists {
-			rb.Add(nil, client.server.name, ERR_NOLANGUAGE, client.nick, client.t("Languages are not supported by this server"))
+			rb.Add(nil, client.server.name, ERR_NOLANGUAGE, nick, fmt.Sprintf(client.t("Language %s is not supported by this server"), value))
 			return false
 		}
 
@@ -1456,20 +1454,16 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		appliedLanguages = append(appliedLanguages, value)
 	}
 
-	client.stateMutex.Lock()
-	if len(appliedLanguages) == 1 && appliedLanguages[0] == "en" {
-		// premature optimisation ahoy!
-		client.languages = []string{}
-	} else {
-		client.languages = appliedLanguages
+	var langsToSet []string
+	if !(len(appliedLanguages) == 1 && appliedLanguages[0] == "en") {
+		langsToSet = appliedLanguages
 	}
-	client.stateMutex.Unlock()
+	client.SetLanguages(langsToSet)
 
-	params := []string{client.nick}
-	for _, lang := range appliedLanguages {
-		params = append(params, lang)
-	}
-	params = append(params, client.t("Language preferences have been set"))
+	params := make([]string, len(appliedLanguages)+2)
+	params[0] = nick
+	copy(params[1:], appliedLanguages)
+	params[len(params)-1] = client.t("Language preferences have been set")
 
 	rb.Add(nil, client.server.name, RPL_YOURLANGUAGESARE, params...)
 

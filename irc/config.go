@@ -7,13 +7,11 @@ package irc
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -283,8 +281,9 @@ type Config struct {
 		Enabled bool
 		Path    string
 		Default string
-		Data    map[string]languages.LangData
 	}
+
+	languageManager *languages.Manager
 
 	Datastore struct {
 		Path        string
@@ -638,120 +637,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.MaxSendQBytes = int(maxSendQBytes)
 
-	// get language files
-	config.Languages.Data = make(map[string]languages.LangData)
-	if config.Languages.Enabled {
-		files, err := ioutil.ReadDir(config.Languages.Path)
-		if err != nil {
-			return nil, fmt.Errorf("Could not load language files: %s", err.Error())
-		}
-
-		for _, f := range files {
-			// skip dirs
-			if f.IsDir() {
-				continue
-			}
-
-			// only load core .lang.yaml file, and ignore help/irc files
-			name := f.Name()
-			lowerName := strings.ToLower(name)
-			if !strings.HasSuffix(lowerName, ".lang.yaml") {
-				continue
-			}
-			// don't load our example files in practice
-			if strings.HasPrefix(lowerName, "example") {
-				continue
-			}
-
-			// load core info file
-			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, name))
-			if err != nil {
-				return nil, fmt.Errorf("Could not load language file [%s]: %s", name, err.Error())
-			}
-
-			var langInfo languages.LangData
-			err = yaml.Unmarshal(data, &langInfo)
-			if err != nil {
-				return nil, fmt.Errorf("Could not parse language file [%s]: %s", name, err.Error())
-			}
-			langInfo.Translations = make(map[string]string)
-
-			// load actual translation files
-			var tlList map[string]string
-
-			// load irc strings file
-			ircName := strings.TrimSuffix(name, ".lang.yaml") + "-irc.lang.json"
-
-			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, ircName))
-			if err == nil {
-				err = json.Unmarshal(data, &tlList)
-				if err != nil {
-					return nil, fmt.Errorf("Could not parse language's irc file [%s]: %s", ircName, err.Error())
-				}
-
-				for key, value := range tlList {
-					// because of how crowdin works, this is how we skip untranslated lines
-					if key == value || value == "" {
-						continue
-					}
-					langInfo.Translations[key] = value
-				}
-			}
-
-			// load help strings file
-			helpName := strings.TrimSuffix(name, ".lang.yaml") + "-help.lang.json"
-
-			data, err = ioutil.ReadFile(filepath.Join(config.Languages.Path, helpName))
-			if err == nil {
-				err = json.Unmarshal(data, &tlList)
-				if err != nil {
-					return nil, fmt.Errorf("Could not parse language's help file [%s]: %s", helpName, err.Error())
-				}
-
-				for key, value := range tlList {
-					// because of how crowdin works, this is how we skip untranslated lines
-					if key == value || value == "" {
-						continue
-					}
-					langInfo.Translations[key] = value
-				}
-			}
-
-			// confirm that values are correct
-			if langInfo.Code == "en" {
-				return nil, fmt.Errorf("Cannot have language file with code 'en' (this is the default language using strings inside the server code). If you're making an English variant, name it with a more specific code")
-			}
-
-			if len(langInfo.Translations) == 0 {
-				// skip empty translations
-				continue
-			}
-
-			if langInfo.Code == "" || langInfo.Name == "" || langInfo.Contributors == "" {
-				return nil, fmt.Errorf("Code, name or contributors is empty in language file [%s]", name)
-			}
-
-			// check for duplicate languages
-			_, exists := config.Languages.Data[strings.ToLower(langInfo.Code)]
-			if exists {
-				return nil, fmt.Errorf("Language code [%s] defined twice", langInfo.Code)
-			}
-
-			// and insert into lang info
-			config.Languages.Data[strings.ToLower(langInfo.Code)] = langInfo
-		}
-
-		// confirm that default language exists
-		if config.Languages.Default == "" {
-			config.Languages.Default = "en"
-		} else {
-			config.Languages.Default = strings.ToLower(config.Languages.Default)
-		}
-
-		_, exists := config.Languages.Data[config.Languages.Default]
-		if config.Languages.Default != "en" && !exists {
-			return nil, fmt.Errorf("Cannot find default language [%s]", config.Languages.Default)
-		}
+	config.languageManager, err = languages.NewManager(config.Languages.Enabled, config.Languages.Path, config.Languages.Default)
+	if err != nil {
+		return nil, fmt.Errorf("Could not load languages: %s", err.Error())
 	}
 
 	// RecoverFromErrors defaults to true
