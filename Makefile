@@ -1,13 +1,13 @@
-.PHONY: all build
+.PHONY: all install release capdefs deps test
 
 capdef_file = ./irc/caps/defs.go
 
-all: build
+all: install
 
-build:
-	goreleaser --snapshot --rm-dist
+install: deps
+	./install.sh
 
-buildrelease:
+release:
 	goreleaser --skip-publish --rm-dist
 
 capdefs:

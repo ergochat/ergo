@@ -2,6 +2,13 @@
 
 This is just a bunch of tips and tricks we keep in mind while developing Oragono. If you wanna help develop as well, they might also be worth keeping in mind!
 
+## Golang issues
+
+You should use the [latest distribution of the Go language for your OS and architecture](https://golang.org/dl/). (If `uname -m` on your Raspberry Pi reports `armv7l`, use the `armv6l` distribution of Go; if it reports v8, you may be able to use the `arm64` distribution.)
+
+Oragono vendors all its dependencies. The vendored code is tracked via a git submodule: `vendor/` is a submodule pointing to the [oragono-vendor](https://github.com/oragono/oragono-vendor) repository. As long as you're not modifying the vendored dependencies, `make` should take care of everything for you --- but if you are, see the "vendor" section below.
+
+Because of this, Oragono is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies. If you're having trouble building the code, it's very likely because your clone of the repository is in the wrong place: Go is very opinionated about where you should keep your code. Take a look at the [go workspaces documentation](https://golang.org/doc/code.html) if you're having trouble.
 
 ## Branches
 
@@ -21,7 +28,7 @@ Develop branches are either used to work out implementation details in preperati
 5. Remove unused sections from the changelog, change the date/version number and write release notes.
 6. Commit the new changelog and constants change.
 7. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
-8. Build binaries using the Makefile, upload release to Github including the changelog and binaries.
+8. Build binaries using `make release`, upload release to Github including the changelog and binaries.
 9. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
 
 Once it's built and released, you need to setup the new development version. To do so:

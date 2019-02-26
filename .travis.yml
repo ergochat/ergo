@@ -3,10 +3,6 @@ language: go
 go:
     - "1.11.x"
 
-install: make deps
-
 script:
-- wget https://github.com/goreleaser/goreleaser/releases/download/v0.62.2/goreleaser_Linux_x86_64.tar.gz
-- tar -xzf goreleaser_Linux_x86_64.tar.gz -C $GOPATH/bin
 - make
 - make test
