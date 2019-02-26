@@ -32,7 +32,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
     - Channel Modes
     - Channel Prefixes
 - Commands
-- Integrating with other software
+- Working with other software
     - HOPM
     - ZNC
     - Tor
@@ -543,7 +543,7 @@ We may add some additional notes here for specific commands down the line, but r
 --------------------------------------------------------------------------------------------
 
 
-# Integrating with other software
+# Working with other software
 
 Oragono should interoperate with most IRC-based software, including bots. If you have problems getting your preferred software to work with Oragono, feel free to report it to us. If the root cause is a bug in Oragono, we'll fix it.
 
@@ -625,7 +625,7 @@ The second way is to run Oragono as a true hidden service, where the server's ac
 * In this mode, it is especially important that all operator passwords are strong and all operators are trusted (operators have a larger attack surface to deanonymize the server).
 * Tor hidden services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Oragono should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Oragono has not been thoroughly audited against such deanonymization attacks --- therefore, Oragono should be deployed with additional sandboxing to protect against this:
   * Oragono should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Oragono's systemd unit file.
-  * Since the loopback adapters are local to a specific network namespace, Oragono must be configured to listen on a Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which will restrict which sockets it can connect to. Below is a recipe for configuring this with the official Tor packages for Debian:
+  * Since the loopback adapters are local to a specific network namespace, and the Tor daemon will run in the root namespace, Tor will be unable to connect to Oragono over loopback TCP. Instead, Oragono must listen on a named Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which restrict which sockets it can access. Below is a recipe for configuring this with the official Tor packages for Debian:
 
 1. Create a directory with `0777` permissions such as `/hidden_service_sockets`.
 1. Configure Oragono to listen on `/hidden_service_sockets/oragono.sock`, and add this socket to `server.tor-listeners.listeners`.
