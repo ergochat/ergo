@@ -607,7 +607,7 @@ Versions of ZNC prior to 1.7 have a [bug](https://github.com/znc/znc/issues/1212
 
 Oragono has code support for adding an .onion address to an IRC server, or operating an IRC server as a Tor hidden service. This is subtle, so you should be familiar with the [Tor Project](https://www.torproject.org/) and the concept of a [hidden service](https://www.torproject.org/docs/tor-onion-service.html.en).
 
-There are two possible ways to serve Oragono over Tor. One is to add a .onion address to a server that also serves non-Tor clients, and whose IP address is public information. This is relatively straightforward. Add a separate listener, for example `127.0.0.2:6668`, to Oragono's `server.listen`, then add it to `server.tor-listeners.listeners`  Configure Tor like this:
+There are two possible ways to serve Oragono over Tor. One is to add a .onion address to a server that also serves non-Tor clients, and whose IP address is public information. This is relatively straightforward. Add a separate listener, for example `127.0.0.2:6668`, to Oragono's `server.listen`, then add it to `server.tor-listeners.listeners`. Then configure Tor like this:
 
 ````
 HiddenServiceDir /var/lib/tor/oragono_hidden_service
