@@ -251,6 +251,15 @@ type FakelagConfig struct {
 	Cooldown          time.Duration
 }
 
+type TorListenersConfig struct {
+	Listeners                 []string
+	RequireSasl               bool `yaml:"require-sasl"`
+	Vhost                     string
+	MaxConnections            int           `yaml:"max-connections"`
+	ThrottleDuration          time.Duration `yaml:"throttle-duration"`
+	MaxConnectionsPerDuration int           `yaml:"max-connections-per-duration"`
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -265,6 +274,7 @@ type Config struct {
 		Listen               []string
 		UnixBindMode         os.FileMode                 `yaml:"unix-bind-mode"`
 		TLSListeners         map[string]*TLSListenConfig `yaml:"tls-listeners"`
+		TorListeners         TorListenersConfig          `yaml:"tor-listeners"`
 		STS                  STSConfig
 		CheckIdent           bool `yaml:"check-ident"`
 		MOTD                 string
@@ -804,6 +814,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !config.History.Enabled {
 		config.History.ChannelLength = 0
 		config.History.ClientLength = 0
+	}
+
+	for _, listenAddress := range config.Server.TorListeners.Listeners {
+		found := false
+		for _, configuredListener := range config.Server.Listen {
+			if listenAddress == configuredListener {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("%s is configured as a Tor listener, but is not in server.listen", listenAddress)
+		}
 	}
 
 	return config, nil

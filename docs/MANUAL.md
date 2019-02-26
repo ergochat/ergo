@@ -34,6 +34,8 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 - Commands
 - Integrating with other software
     - HOPM
+    - ZNC
+    - Tor
 - Acknowledgements
 
 
@@ -599,6 +601,48 @@ kline = "DLINE ANDKILL 2h %i :Open proxy found on your host.";
 ## ZNC
 
 Versions of ZNC prior to 1.7 have a [bug](https://github.com/znc/znc/issues/1212) in their SASL implementation that renders them incompatible with Oragono. However, you should be able to authenticate from ZNC using its [NickServ](https://wiki.znc.in/Nickserv) module.
+
+
+## Tor
+
+Oragono has code support for adding an .onion address to an IRC server, or operating an IRC server as a Tor hidden service. This is subtle, so you should be familiar with the [Tor Project](https://www.torproject.org/) and the concept of a [hidden service](https://www.torproject.org/docs/tor-onion-service.html.en).
+
+There are two possible ways to serve Oragono over Tor. One is to add a .onion address to a server that also serves non-Tor clients, and whose IP address is public information. This is relatively straightforward. Add a separate listener, for example `127.0.0.2:6668`, to Oragono's `server.listen`, then add it to `server.tor-listeners.listeners`  Configure Tor like this:
+
+````
+HiddenServiceDir /var/lib/tor/oragono_hidden_service
+HiddenServicePort 6667 127.0.0.2:6668
+
+# these are optional, but can be used to speed up the circuits in the case
+# where the server's own IP is public information (clients will remain anonymous):
+HiddenServiceNonAnonymousMode 1
+HiddenServiceSingleHopMode 1
+````
+
+The second way is to run Oragono as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Oragono side:
+
+* Oragono should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/oragono.sock`.
+* In this mode, it is especially important that all operator passwords are strong and all operators are trusted (operators have a larger attack surface to deanonymize the server).
+* Tor hidden services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Oragono should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Oragono has not been thoroughly audited against such deanonymization attacks --- therefore, Oragono should be deployed with additional sandboxing to protect against this:
+  * Oragono should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Oragono's systemd unit file.
+  * Since the loopback adapters are local to a specific network namespace, Oragono must be configured to listen on a Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which will restrict which sockets it can connect to. Below is a recipe for configuring this with the official Tor packages for Debian:
+
+1. Create a directory with `0777` permissions such as `/hidden_service_sockets`.
+1. Configure Oragono to listen on `/hidden_service_sockets/oragono.sock`, and add this socket to `server.tor-listeners.listeners`.
+1. Ensure that Oragono has no direct network access as described above, e.g., with `PrivateNetwork=true`.
+1. Next, modify Tor's apparmor profile so that it can connect to this socket, by adding the line `  /hidden_service_sockets/** rw,` to `/etc/apparmor.d/local/system_tor`.
+1. Finally, configure Tor with:
+
+````
+HiddenServiceDir /var/lib/tor/oragono_hidden_service
+HiddenServicePort 6667 unix:/hidden_service_sockets/oragono.sock
+# DO NOT enable HiddenServiceNonAnonymousMode
+````
+
+Instructions on how client software should connect to an .onion address are outside the scope of this manual. However:
+
+1. [Hexchat](https://hexchat.github.io/) is known to support .onion addresses, once it has been configured to use a local Tor daemon as a SOCKS proxy (Settings -> Preferences -> Network Setup -> Proxy Server).
+1. Pidgin should work with [torsocks](https://trac.torproject.org/projects/tor/wiki/doc/torsocks).
 
 
 --------------------------------------------------------------------------------------------

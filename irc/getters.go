@@ -143,6 +143,13 @@ func (client *Client) SetRegistered() {
 	client.stateMutex.Unlock()
 }
 
+func (client *Client) RawHostname() (result string) {
+	client.stateMutex.Lock()
+	result = client.rawHostname
+	client.stateMutex.Unlock()
+	return
+}
+
 func (client *Client) AwayMessage() (result string) {
 	client.stateMutex.RLock()
 	result = client.awayMessage

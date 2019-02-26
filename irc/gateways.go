@@ -47,6 +47,12 @@ func (wc *webircConfig) Populate() (err error) {
 
 // ApplyProxiedIP applies the given IP to the client.
 func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (success bool) {
+	// PROXY and WEBIRC are never accepted from a Tor listener, even if the address itself
+	// is whitelisted:
+	if client.isTor {
+		return false
+	}
+
 	// ensure IP is sane
 	parsedProxiedIP := net.ParseIP(proxiedIP).To16()
 	if parsedProxiedIP == nil {

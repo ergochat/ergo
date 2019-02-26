@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/isupport"
@@ -35,10 +34,7 @@ import (
 
 var (
 	// common error line to sub values into
-	errorMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "%s ")}[0]).Line()
-
-	// common error responses
-	couldNotParseIPMsg, _ = (&[]ircmsg.IrcMessage{ircmsg.MakeMessage(nil, "", "ERROR", "Unable to parse your IP address")}[0]).Line()
+	errorMsg = "ERROR :%s\r\n"
 
 	// supportedUserModesString acts as a cache for when we introduce users
 	supportedUserModesString = modes.SupportedUserModes.String()
@@ -58,6 +54,7 @@ var (
 type ListenerWrapper struct {
 	listener   net.Listener
 	tlsConfig  *tls.Config
+	isTor      bool
 	shouldStop bool
 	// protects atomic update of tlsConfig and shouldStop:
 	configMutex sync.Mutex // tier 1
@@ -92,6 +89,7 @@ type Server struct {
 	signals                chan os.Signal
 	snomasks               *SnoManager
 	store                  *buntdb.DB
+	torLimiter             connection_limits.TorLimiter
 	whoWas                 *WhoWasList
 	stats                  *Stats
 	semaphores             *ServerSemaphores
@@ -109,6 +107,7 @@ var (
 type clientConn struct {
 	Conn  net.Conn
 	IsTLS bool
+	IsTor bool
 }
 
 // NewServer returns a new Oragono server.
@@ -252,22 +251,27 @@ func (server *Server) Run() {
 }
 
 func (server *Server) acceptClient(conn clientConn) {
-	// check IP address
-	ipaddr := utils.AddrToIP(conn.Conn.RemoteAddr())
-	if ipaddr != nil {
-		isBanned, banMsg := server.checkBans(ipaddr)
-		if isBanned {
-			// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
-			conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
-			conn.Conn.Close()
-			return
-		}
+	var isBanned bool
+	var banMsg string
+	var ipaddr net.IP
+	if conn.IsTor {
+		ipaddr = utils.IPv4LoopbackAddress
+		isBanned, banMsg = server.checkTorLimits()
+	} else {
+		ipaddr = utils.AddrToIP(conn.Conn.RemoteAddr())
+		isBanned, banMsg = server.checkBans(ipaddr)
+	}
+
+	if isBanned {
+		// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
+		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.Conn.Close()
+		return
 	}
 
 	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
-	// prolly don't need to alert snomasks on this, only on connection reg
 
-	NewClient(server, conn.Conn, conn.IsTLS)
+	go RunNewClient(server, conn)
 }
 
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
@@ -310,12 +314,23 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	return false, ""
 }
 
+func (server *Server) checkTorLimits() (banned bool, message string) {
+	switch server.torLimiter.AddClient() {
+	case connection_limits.ErrLimitExceeded:
+		return true, "Too many clients from the Tor network"
+	case connection_limits.ErrThrottleExceeded:
+		return true, "Exceeded connection throttle for the Tor network"
+	default:
+		return false, ""
+	}
+}
+
 //
 // IRC protocol listeners
 //
 
 // createListener starts a given listener.
-func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMode os.FileMode) (*ListenerWrapper, error) {
+func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor bool, bindMode os.FileMode) (*ListenerWrapper, error) {
 	// make listener
 	var listener net.Listener
 	var err error
@@ -338,6 +353,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMod
 	wrapper := ListenerWrapper{
 		listener:   listener,
 		tlsConfig:  tlsConfig,
+		isTor:      isTor,
 		shouldStop: false,
 	}
 
@@ -349,10 +365,10 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMod
 			conn, err := listener.Accept()
 
 			// synchronously access config data:
-			// whether TLS is enabled and whether we should stop listening
 			wrapper.configMutex.Lock()
 			shouldStop = wrapper.shouldStop
 			tlsConfig = wrapper.tlsConfig
+			isTor = wrapper.isTor
 			wrapper.configMutex.Unlock()
 
 			if err == nil {
@@ -362,6 +378,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, bindMod
 				newConn := clientConn{
 					Conn:  conn,
 					IsTLS: tlsConfig != nil,
+					IsTor: isTor,
 				}
 				// hand off the connection
 				go server.acceptClient(newConn)
@@ -524,7 +541,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 	}
 	if client.HasMode(modes.Operator) || client == target {
-		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", target.username, utils.LookupHostname(target.IPString())), target.IPString(), client.t("Actual user@host, Actual IP"))
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
 	if target.HasMode(modes.TLS) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
@@ -638,6 +655,9 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	if err != nil {
 		return err
 	}
+
+	tlConf := &config.Server.TorListeners
+	server.torLimiter.Configure(tlConf.MaxConnections, tlConf.ThrottleDuration, tlConf.MaxConnectionsPerDuration)
 
 	// reload logging config
 	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()
@@ -931,9 +951,9 @@ func (server *Server) loadDatastore(config *Config) error {
 }
 
 func (server *Server) setupListeners(config *Config) (err error) {
-	logListener := func(addr string, tlsconfig *tls.Config) {
+	logListener := func(addr string, tlsconfig *tls.Config, isTor bool) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t.", addr, (tlsconfig != nil)),
+			fmt.Sprintf("now listening on %s, tls=%t, tor=%t.", addr, (tlsconfig != nil), isTor),
 		)
 	}
 
@@ -941,6 +961,15 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	if err != nil {
 		server.logger.Error("server", "failed to reload TLS certificates, aborting rehash", err.Error())
 		return
+	}
+
+	isTorListener := func(listener string) bool {
+		for _, torListener := range config.Server.TorListeners.Listeners {
+			if listener == torListener {
+				return true
+			}
+		}
+		return false
 	}
 
 	// update or destroy all existing listeners
@@ -958,13 +987,16 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		// its next Accept(). this is like sending over a buffered channel of
 		// size 1, but where sending a second item overwrites the buffered item
 		// instead of blocking.
+		tlsConfig := tlsListeners[addr]
+		isTor := isTorListener(addr)
 		currentListener.configMutex.Lock()
 		currentListener.shouldStop = !stillConfigured
-		currentListener.tlsConfig = tlsListeners[addr]
+		currentListener.tlsConfig = tlsConfig
+		currentListener.isTor = isTor
 		currentListener.configMutex.Unlock()
 
 		if stillConfigured {
-			logListener(addr, currentListener.tlsConfig)
+			logListener(addr, tlsConfig, isTor)
 		} else {
 			// tell the listener it should stop by interrupting its Accept() call:
 			currentListener.listener.Close()
@@ -978,15 +1010,16 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		_, exists := server.listeners[newaddr]
 		if !exists {
 			// make new listener
+			isTor := isTorListener(newaddr)
 			tlsConfig := tlsListeners[newaddr]
-			listener, listenerErr := server.createListener(newaddr, tlsConfig, config.Server.UnixBindMode)
+			listener, listenerErr := server.createListener(newaddr, tlsConfig, isTor, config.Server.UnixBindMode)
 			if listenerErr != nil {
 				server.logger.Error("server", "couldn't listen on", newaddr, listenerErr.Error())
 				err = listenerErr
 				continue
 			}
 			server.listeners[newaddr] = listener
-			logListener(newaddr, tlsConfig)
+			logListener(newaddr, tlsConfig, isTor)
 		}
 	}
 
