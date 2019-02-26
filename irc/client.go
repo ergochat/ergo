@@ -418,6 +418,11 @@ func (client *Client) tryResume() (success bool) {
 		return
 	}
 
+	if oldClient.isTor != client.isTor {
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection from Tor to non-Tor or vice versa"))
+		return
+	}
+
 	err := server.clients.Resume(client, oldClient)
 	if err != nil {
 		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection"))
