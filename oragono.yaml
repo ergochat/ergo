@@ -12,11 +12,11 @@ server:
 
     # addresses to listen on
     listen:
-        - ":6667"
-        - ":6697" # ssl port
-        # Binding on specific IPs:
-        # - "127.0.0.1:6668"
-        # - "[::1]:6668"
+        - ":6697" # SSL/TLS port
+        - ":6667" # plaintext port
+        # To disable plaintext over the Internet, comment out :6667 and replace with:
+        # - "127.0.0.1:6667" # (loopback ipv4, localhost-only)
+        # - "[::1]:6667"     # (loopback ipv6, localhost-only)
         # Unix domain socket for proxying:
         # - "/tmp/oragono_sock"
 
@@ -53,7 +53,7 @@ server:
         preload: false
 
     # use ident protocol to get usernames
-    check-ident: true
+    check-ident: false
 
     # password to login to the server
     # generated using  "oragono genpasswd"
