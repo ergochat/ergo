@@ -205,11 +205,11 @@ func (client *Client) doIdentLookup(conn net.Conn) {
 func (client *Client) isAuthorized(config *Config) bool {
 	saslSent := client.account != ""
 	// PASS requirement
-	if !((config.Server.passwordBytes == nil) || client.sentPassCommand || (config.Accounts.SkipServerPassword && saslSent)) {
+	if (config.Server.passwordBytes != nil) && !client.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
 		return false
 	}
 	// Tor connections may be required to authenticate with SASL
-	if config.Server.TorListeners.RequireSasl && !saslSent {
+	if client.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
 		return false
 	}
 	// finally, enforce require-sasl
