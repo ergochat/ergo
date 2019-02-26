@@ -24,7 +24,6 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/isupport"
-	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -73,9 +72,9 @@ type Server struct {
 	connectionThrottler    *connection_limits.Throttler
 	ctime                  time.Time
 	dlines                 *DLineManager
+	helpIndexManager       HelpIndexManager
 	isupport               *isupport.List
 	klines                 *KLineManager
-	languages              *languages.Manager
 	listeners              map[string]*ListenerWrapper
 	logger                 *logger.Manager
 	monitorManager         *MonitorManager
@@ -118,7 +117,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
-		languages:           languages.NewManager(config.Languages.Default, config.Languages.Data),
 		listeners:           make(map[string]*ListenerWrapper),
 		logger:              logger,
 		monitorManager:      NewMonitorManager(),
@@ -133,11 +131,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	server.resumeManager.Initialize(server)
 
 	if err := server.applyConfig(config, true); err != nil {
-		return nil, err
-	}
-
-	// generate help info
-	if err := GenerateHelpIndices(server.languages); err != nil {
 		return nil, err
 	}
 
@@ -485,11 +478,9 @@ func (server *Server) tryRegister(c *Client) {
 
 // t returns the translated version of the given string, based on the languages configured by the client.
 func (client *Client) t(originalString string) string {
-	// grab this mutex to protect client.languages
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-
-	return client.server.languages.Translate(client.languages, originalString)
+	// TODO(slingamn) investigate a fast path for this, using an atomic load to see if translation is disabled
+	languages := client.Languages()
+	return client.server.Languages().Translate(languages, originalString)
 }
 
 // MOTD serves the Message of the Day.
@@ -553,9 +544,10 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
-	if 0 < len(target.languages) {
+	tLanguages := target.Languages()
+	if 0 < len(tLanguages) {
 		params := []string{cnick, tnick}
-		for _, str := range client.server.languages.Codes(target.languages) {
+		for _, str := range client.server.Languages().Codes(tLanguages) {
 			params = append(params, str)
 		}
 		params = append(params, client.t("can speak these languages"))
@@ -675,30 +667,15 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	updatedCaps := caps.NewSet()
 
 	// Translations
+	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
+	server.helpIndexManager.GenerateIndices(config.languageManager)
+
 	currentLanguageValue, _ := CapValues.Get(caps.Languages)
-
-	langCodes := []string{strconv.Itoa(len(config.Languages.Data) + 1), "en"}
-	for _, info := range config.Languages.Data {
-		if info.Incomplete {
-			langCodes = append(langCodes, "~"+info.Code)
-		} else {
-			langCodes = append(langCodes, info.Code)
-		}
-	}
-	newLanguageValue := strings.Join(langCodes, ",")
-	server.logger.Debug("server", "Languages:", newLanguageValue)
-
+	newLanguageValue := config.languageManager.CapValue()
 	if currentLanguageValue != newLanguageValue {
 		updatedCaps.Add(caps.Languages)
 		CapValues.Set(caps.Languages, newLanguageValue)
 	}
-
-	lm := languages.NewManager(config.Languages.Default, config.Languages.Data)
-
-	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
-	GenerateHelpIndices(lm)
-
-	server.languages = lm
 
 	// SASL
 	authPreviouslyEnabled := oldConfig != nil && oldConfig.Accounts.AuthenticationEnabled

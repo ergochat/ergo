@@ -133,6 +133,7 @@ func RunNewClient(server *Server, conn clientConn) {
 		ctime:        now,
 		flags:        modes.NewModeSet(),
 		isTor:        conn.IsTor,
+		languages:    server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
@@ -145,7 +146,6 @@ func RunNewClient(server *Server, conn clientConn) {
 		nickMaskString: "*", // * is used until actual nick is given
 		history:        history.NewHistoryBuffer(config.History.ClientLength),
 	}
-	client.languages = server.languages.Default()
 
 	client.recomputeMaxlens()
 

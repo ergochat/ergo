@@ -70,21 +70,19 @@ The `stable` branch contains the latest release. You can run this for a producti
 
 #### Building
 
-Clone the appropriate branch. You should also run this command to set up vendored dependencies:
-```
-git submodule update --init
-```
+You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). You'll also need to set up a [Go workspace](https://golang.org/doc/code.html). Typically, this is just a directory `~/go`, with the `GOPATH` environment variable exported to its path with `export GOPATH=~/go`.
 
-From the root folder, you can run `make`, using [GoReleaser](https://goreleaser.com/) to generate all of our release binaries in `/dist`:
-```
+Clone the repository where `go` expects it to be and then run `make`, i.e.,
+
+```bash
+mkdir -p ${GOPATH}/src/github.com/oragono
+cd ${GOPATH}/src/github.com/oragono
+git clone https://github.com/oragono/oragono
+cd oragono
+# check out the appropriate branch if necessary
+# now, this will install a development copy of oragono at ${GOPATH}/bin/oragono:
 make
-```
-
-However, when just developing I instead just use this command to rebuild and run Oragono on the fly with the latest changes:
-```
-go run oragono.go
-```
-
+````
 
 ## Configuration
 
