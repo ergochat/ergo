@@ -53,7 +53,7 @@ server:
         preload: false
 
     # use ident protocol to get usernames
-    check-ident: true
+    check-ident: false
 
     # password to login to the server
     # generated using  "oragono genpasswd"
