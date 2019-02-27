@@ -619,6 +619,8 @@ HiddenServiceNonAnonymousMode 1
 HiddenServiceSingleHopMode 1
 ````
 
+Tor provides end-to-end encryption for hidden services, so there's no need to enable TLS in Oragono for the listener (`127.0.0.2:6668` in this example). Doing so is not recommended, given the difficulty in obtaining a TLS certificate valid for an .onion address.
+
 The second way is to run Oragono as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Oragono side:
 
 * Oragono should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/oragono.sock`.
