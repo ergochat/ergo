@@ -5,8 +5,8 @@ set -e
 if [ -z "$GOPATH" ]; then
 	echo Error: \$GOPATH is unset
 	echo See https://golang.org/doc/code.html for details, or try these steps:
-	echo -e "\tmkdir -p ~/go"
-	echo -e "\texport GOPATH=~/go"
+	printf "\tmkdir -p ~/go\n"
+	printf "\texport GOPATH=~/go\n"
 	exit 1
 fi
 
@@ -17,12 +17,12 @@ if [ "$PWD" != "$EXPECTED_DIR" ] ; then
 	echo "Expected: $EXPECTED_DIR"
 	echo "Actual:   $PWD"
 	echo See https://golang.org/doc/code.html for details, or try these steps:
-	echo -e "\tmkdir -p ${GOPATH}/src/github.com/oragono"
-	echo -e "\tcd ${GOPATH}/src/github.com/oragono"
-	echo -e "\tmv $PWD oragono"
-	echo -e "\tcd oragono"
+	printf "\tmkdir -p %s/src/github.com/oragono\n" "$GOPATH"
+	printf "\tcd %s/src/github.com/oragono\n" "$GOPATH"
+	printf "\tmv %s oragono\n" "$PWD"
+	printf "\tcd oragono\n"
 	exit 1
 fi
 
 go install -v
-echo successfully installed as ${GOPATH}/bin/oragono
+echo successfully installed as "${GOPATH}/bin/oragono"
