@@ -1878,6 +1878,11 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
+	if client.isTor && isRestrictedCTCPMessage(message) {
+		rb.Add(nil, server.name, "NOTICE", client.t("CTCP messages are disabled over Tor"))
+		return false
+	}
+
 	// split privmsg
 	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
@@ -1924,7 +1929,9 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
-			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
+			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
+			if allowedPlusR && allowedTor {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 			nickMaskString := client.NickMaskString()
@@ -2081,11 +2088,22 @@ func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
+func isRestrictedCTCPMessage(message string) bool {
+	// block all CTCP privmsgs to Tor clients except for ACTION
+	// DCC can potentially be used for deanonymization, the others for fingerprinting
+	return strings.HasPrefix(message, "\x01") && !strings.HasPrefix(message, "\x01ACTION")
+}
+
 // PRIVMSG <target>{,<target>} <message>
 func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
+
+	if client.isTor && isRestrictedCTCPMessage(message) {
+		rb.Add(nil, server.name, "NOTICE", client.t("CTCP messages are disabled over Tor"))
+		return false
+	}
 
 	// split privmsg
 	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
@@ -2136,7 +2154,9 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
-			if !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount() {
+			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
+			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
+			if allowedPlusR && allowedTor {
 				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			nickMaskString := client.NickMaskString()

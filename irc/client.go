@@ -65,6 +65,7 @@ type Client struct {
 	idletimer          *IdleTimer
 	invitedTo          map[string]bool
 	isDestroyed        bool
+	isTor              bool
 	isQuitting         bool
 	languages          []string
 	loginThrottle      connection_limits.GenericThrottle
@@ -117,12 +118,12 @@ type ClientDetails struct {
 	accountName        string
 }
 
-// NewClient sets up a new client and starts its goroutine.
-func NewClient(server *Server, conn net.Conn, isTLS bool) {
+// NewClient sets up a new client and runs its goroutine.
+func RunNewClient(server *Server, conn clientConn) {
 	now := time.Now()
 	config := server.Config()
 	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
-	socket := NewSocket(conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
+	socket := NewSocket(conn.Conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
 	client := &Client{
 		atime:        now,
 		capabilities: caps.NewSet(),
@@ -131,6 +132,7 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		channels:     make(ChannelSet),
 		ctime:        now,
 		flags:        modes.NewModeSet(),
+		isTor:        conn.IsTor,
 		languages:    server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -145,58 +147,73 @@ func NewClient(server *Server, conn net.Conn, isTLS bool) {
 		history:        history.NewHistoryBuffer(config.History.ClientLength),
 	}
 
-	remoteAddr := conn.RemoteAddr()
-	client.realIP = utils.AddrToIP(remoteAddr)
-	if client.realIP == nil {
-		server.logger.Error("internal", "bad remote address", remoteAddr.String())
-		return
-	}
 	client.recomputeMaxlens()
-	if isTLS {
-		client.SetMode(modes.TLS, true)
 
+	if conn.IsTLS {
+		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = client.socket.CertFP()
 	}
-	if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
-		_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
-		if err != nil {
-			server.logger.Error("internal", "bad server address", err.Error())
-			return
-		}
-		serverPort, _ := strconv.Atoi(serverPortString)
-		clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
-		if err != nil {
-			server.logger.Error("internal", "bad client address", err.Error())
-			return
-		}
-		clientPort, _ := strconv.Atoi(clientPortString)
 
-		client.Notice(client.t("*** Looking up your username"))
-		resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
-		if err == nil {
-			err := client.SetNames(resp.Identifier, "", true)
-			if err == nil {
-				client.Notice(client.t("*** Found your username"))
-				// we don't need to updateNickMask here since nickMask is not used for anything yet
-			} else {
-				client.Notice(client.t("*** Got a malformed username, ignoring"))
-			}
-		} else {
-			client.Notice(client.t("*** Could not find your username"))
+	if conn.IsTor {
+		client.SetMode(modes.TLS, true)
+		client.realIP = utils.IPv4LoopbackAddress
+		client.rawHostname = config.Server.TorListeners.Vhost
+	} else {
+		remoteAddr := conn.Conn.RemoteAddr()
+		client.realIP = utils.AddrToIP(remoteAddr)
+		// Set the hostname for this client
+		// (may be overridden by a later PROXY command from stunnel)
+		client.rawHostname = utils.LookupHostname(client.realIP.String())
+		if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
+			client.doIdentLookup(conn.Conn)
 		}
 	}
-	go client.run()
+
+	client.run()
+}
+
+func (client *Client) doIdentLookup(conn net.Conn) {
+	_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
+	if err != nil {
+		client.server.logger.Error("internal", "bad server address", err.Error())
+		return
+	}
+	serverPort, _ := strconv.Atoi(serverPortString)
+	clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		client.server.logger.Error("internal", "bad client address", err.Error())
+		return
+	}
+	clientPort, _ := strconv.Atoi(clientPortString)
+
+	client.Notice(client.t("*** Looking up your username"))
+	resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
+	if err == nil {
+		err := client.SetNames(resp.Identifier, "", true)
+		if err == nil {
+			client.Notice(client.t("*** Found your username"))
+			// we don't need to updateNickMask here since nickMask is not used for anything yet
+		} else {
+			client.Notice(client.t("*** Got a malformed username, ignoring"))
+		}
+	} else {
+		client.Notice(client.t("*** Could not find your username"))
+	}
 }
 
 func (client *Client) isAuthorized(config *Config) bool {
 	saslSent := client.account != ""
-	passRequirementMet := (config.Server.passwordBytes == nil) || client.sentPassCommand || (config.Accounts.SkipServerPassword && saslSent)
-	if !passRequirementMet {
+	// PASS requirement
+	if (config.Server.passwordBytes != nil) && !client.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
 		return false
 	}
-	saslRequirementMet := !config.Accounts.RequireSasl.Enabled || saslSent || utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets)
-	return saslRequirementMet
+	// Tor connections may be required to authenticate with SASL
+	if client.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
+		return false
+	}
+	// finally, enforce require-sasl
+	return !config.Accounts.RequireSasl.Enabled || saslSent || utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets)
 }
 
 func (client *Client) resetFakelag() {
@@ -296,10 +313,6 @@ func (client *Client) run() {
 
 	client.resetFakelag()
 
-	// Set the hostname for this client
-	// (may be overridden by a later PROXY command from stunnel)
-	client.rawHostname = utils.LookupHostname(client.realIP.String())
-
 	firstLine := true
 
 	for {
@@ -315,7 +328,9 @@ func (client *Client) run() {
 			break
 		}
 
-		client.server.logger.Debug("userinput", client.nick, "<- ", line)
+		if client.server.logger.IsLoggingRawIO() {
+			client.server.logger.Debug("userinput", client.nick, "<- ", line)
+		}
 
 		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
 		if firstLine {
@@ -400,6 +415,11 @@ func (client *Client) tryResume() (success bool) {
 	resumeAllowed := config.Server.AllowPlaintextResume || (oldClient.HasMode(modes.TLS) && client.HasMode(modes.TLS))
 	if !resumeAllowed {
 		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, old and new clients must have TLS"))
+		return
+	}
+
+	if oldClient.isTor != client.isTor {
+		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection from Tor to non-Tor or vice versa"))
 		return
 	}
 
@@ -882,10 +902,10 @@ func (client *Client) destroy(beingResumed bool) {
 	}
 
 	// remove from connection limits
-	ipaddr := client.IP()
-	// this check shouldn't be required but eh
-	if ipaddr != nil {
-		client.server.connectionLimiter.RemoveClient(ipaddr)
+	if client.isTor {
+		client.server.torLimiter.RemoveClient()
+	} else {
+		client.server.connectionLimiter.RemoveClient(client.IP())
 	}
 
 	client.server.resumeManager.Delete(client)

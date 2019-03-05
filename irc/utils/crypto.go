@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	// standard b32 alphabet, but in lowercase for silly aesthetic reasons
-	b32encoder = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+	// slingamn's own private b32 alphabet, removing 1, l, o, and 0
+	b32encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
 )
 
 const (

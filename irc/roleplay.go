@@ -19,6 +19,11 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 	if isAction {
 		message = fmt.Sprintf("\x01ACTION %s (%s)\x01", message, client.nick)
 	} else {
+		// block attempts to send CTCP messages to Tor clients
+		// TODO(#395) clean this up
+		if len(message) != 0 && message[0] == '\x01' {
+			return
+		}
 		message = fmt.Sprintf("%s (%s)", message, client.nick)
 	}
 

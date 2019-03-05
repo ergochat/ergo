@@ -33,6 +33,30 @@ server:
             key: tls.key
             cert: tls.crt
 
+    # tor listeners: designate listeners for use by a tor hidden service / .onion address
+    # WARNING: if you are running oragono as a pure hidden service, see the
+    # anonymization / hardening recommendations in docs/MANUAL.md
+    tor-listeners:
+        # any connections that come in on these listeners will be considered
+        # Tor connections. it is strongly recommended that these listeners *not*
+        # be on public interfaces: they should be on 127.0.0.0/8 or unix domain
+        listeners:
+        #    - "/tmp/oragono_tor_sock"
+
+        # if this is true, connections from Tor must authenticate with SASL
+        require-sasl: false
+
+        # what hostname should be displayed for Tor connections?
+        vhost: "tor-network.onion"
+
+        # allow at most this many connections at once (0 for no limit):
+        max-connections: 64
+
+        # connection throttling (limit how many connection attempts are allowed at once):
+        throttle-duration: 10m
+        # set to 0 to disable throttling:
+        max-connections-per-duration: 64
+
     # strict transport security, to get clients to automagically use TLS
     sts:
         # whether to advertise STS
