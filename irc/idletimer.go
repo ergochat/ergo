@@ -15,12 +15,17 @@ import (
 const (
 	// RegisterTimeout is how long clients have to register before we disconnect them
 	RegisterTimeout = time.Minute
-	// IdleTimeout is how long without traffic before a registered client is considered idle.
-	IdleTimeout = time.Minute + time.Second*30
-	// IdleTimeoutWithResumeCap is how long without traffic before a registered client is considered idle, when they have the resume capability.
-	IdleTimeoutWithResumeCap = time.Minute*2 + time.Second*30
-	// QuitTimeout is how long without traffic before an idle client is disconnected
-	QuitTimeout = time.Minute
+	// DefaultIdleTimeout is how long without traffic before we send the client a PING
+	DefaultIdleTimeout = time.Minute + 30*time.Second
+	// For Tor clients, we send a PING at least every 30 seconds, as a workaround for this bug
+	// (single-onion circuits will close unless the client sends data once every 60 seconds):
+	// https://bugs.torproject.org/29665
+	TorIdleTimeout = time.Second * 30
+	// This is how long a client gets without sending any message, including the PONG to our
+	// PING, before we disconnect them:
+	DefaultTotalTimeout = 2*time.Minute + 30*time.Second
+	// Resumeable clients (clients who have negotiated caps.Resume) get longer:
+	ResumeableTotalTimeout = 3*time.Minute + 30*time.Second
 )
 
 // client idleness state machine
@@ -39,11 +44,11 @@ type IdleTimer struct {
 
 	// immutable after construction
 	registerTimeout time.Duration
-	quitTimeout     time.Duration
 	client          *Client
 
 	// mutable
 	idleTimeout time.Duration
+	quitTimeout time.Duration
 	state       TimerState
 	timer       *time.Timer
 }
@@ -52,26 +57,28 @@ type IdleTimer struct {
 func NewIdleTimer(client *Client) *IdleTimer {
 	it := IdleTimer{
 		registerTimeout: RegisterTimeout,
-		idleTimeout:     IdleTimeout,
-		quitTimeout:     QuitTimeout,
 		client:          client,
 	}
+	it.idleTimeout, it.quitTimeout = it.recomputeDurations()
 	return &it
 }
 
-// updateIdleDuration updates the idle duration, given the client's caps.
-func (it *IdleTimer) updateIdleDuration() {
-	newIdleTime := IdleTimeout
-
+// recomputeDurations recomputes the idle and quit durations, given the client's caps.
+func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duration) {
+	totalTimeout := DefaultTotalTimeout
 	// if they have the resume cap, wait longer before pinging them out
 	// to give them a chance to resume their connection
 	if it.client.capabilities.Has(caps.Resume) {
-		newIdleTime = IdleTimeoutWithResumeCap
+		totalTimeout = ResumeableTotalTimeout
 	}
 
-	it.Lock()
-	defer it.Unlock()
-	it.idleTimeout = newIdleTime
+	idleTimeout = DefaultIdleTimeout
+	if it.client.isTor {
+		idleTimeout = TorIdleTimeout
+	}
+
+	quitTimeout = totalTimeout - idleTimeout
+	return
 }
 
 // Start starts counting idle time; if there is no activity from the client,
@@ -84,10 +91,11 @@ func (it *IdleTimer) Start() {
 }
 
 func (it *IdleTimer) Touch() {
-	it.updateIdleDuration()
+	idleTimeout, quitTimeout := it.recomputeDurations()
 
 	it.Lock()
 	defer it.Unlock()
+	it.idleTimeout, it.quitTimeout = idleTimeout, quitTimeout
 	// a touch transitions TimerUnregistered or TimerIdle into TimerActive
 	if it.state != TimerDead {
 		it.state = TimerActive
@@ -96,12 +104,13 @@ func (it *IdleTimer) Touch() {
 }
 
 func (it *IdleTimer) processTimeout() {
-	it.updateIdleDuration()
+	idleTimeout, quitTimeout := it.recomputeDurations()
 
 	var previousState TimerState
 	func() {
 		it.Lock()
 		defer it.Unlock()
+		it.idleTimeout, it.quitTimeout = idleTimeout, quitTimeout
 		previousState = it.state
 		// TimerActive transitions to TimerIdle, all others to TimerDead
 		if it.state == TimerActive {
