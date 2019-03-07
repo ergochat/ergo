@@ -175,7 +175,7 @@ func (lm *Manager) Translators() []string {
 		tlist = append(tlist, fmt.Sprintf("%s (%s): %s", info.Name, info.Code, info.Contributors))
 	}
 
-	sort.Sort(tlist)
+	tlist.Sort()
 	return tlist
 }
 
@@ -228,7 +228,7 @@ func (lm *Manager) Translate(languages []string, originalString string) string {
 }
 
 func (lm *Manager) CapValue() string {
-	langCodes := make([]string, len(lm.Languages)+1)
+	langCodes := make(sort.StringSlice, len(lm.Languages)+1)
 	langCodes[0] = strconv.Itoa(len(lm.Languages))
 	i := 1
 	for _, info := range lm.Languages {
@@ -239,5 +239,6 @@ func (lm *Manager) CapValue() string {
 		langCodes[i] = codeToken
 		i += 1
 	}
+	langCodes.Sort()
 	return strings.Join(langCodes, ",")
 }

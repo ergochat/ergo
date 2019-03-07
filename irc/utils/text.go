@@ -50,17 +50,32 @@ func WordWrap(text string, lineWidth int) []string {
 	return lines
 }
 
-// SplitMessage represents a message that's been split for sending.
-type SplitMessage struct {
-	Original string
-	Wrapped  []string // if this is nil, Original didn't need wrapping and can be sent to anyone
+type MessagePair struct {
+	Message string
+	Msgid   string
 }
 
-func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
-	result.Original = original
+// SplitMessage represents a message that's been split for sending.
+type SplitMessage struct {
+	MessagePair
+	Wrapped []MessagePair // if this is nil, `Message` didn't need wrapping and can be sent to anyone
+}
 
-	if !origIs512 {
-		result.Wrapped = WordWrap(original, 400)
+const defaultLineWidth = 400
+
+func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
+	result.Message = original
+	result.Msgid = GenerateSecretToken()
+
+	if !origIs512 && defaultLineWidth < len(original) {
+		wrapped := WordWrap(original, defaultLineWidth)
+		result.Wrapped = make([]MessagePair, len(wrapped))
+		for i, wrappedMessage := range wrapped {
+			result.Wrapped[i] = MessagePair{
+				Message: wrappedMessage,
+				Msgid:   GenerateSecretToken(),
+			}
+		}
 	}
 
 	return

@@ -53,14 +53,17 @@ type IdleTimer struct {
 	timer       *time.Timer
 }
 
-// NewIdleTimer sets up a new IdleTimer using constant timeouts.
-func NewIdleTimer(client *Client) *IdleTimer {
-	it := IdleTimer{
-		registerTimeout: RegisterTimeout,
-		client:          client,
-	}
+// Initialize sets up an IdleTimer and starts counting idle time;
+// if there is no activity from the client, it will eventually be stopped.
+func (it *IdleTimer) Initialize(client *Client) {
+	it.client = client
+	it.registerTimeout = RegisterTimeout
 	it.idleTimeout, it.quitTimeout = it.recomputeDurations()
-	return &it
+
+	it.Lock()
+	defer it.Unlock()
+	it.state = TimerUnregistered
+	it.resetTimeout()
 }
 
 // recomputeDurations recomputes the idle and quit durations, given the client's caps.
@@ -79,15 +82,6 @@ func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duratio
 
 	quitTimeout = totalTimeout - idleTimeout
 	return
-}
-
-// Start starts counting idle time; if there is no activity from the client,
-// it will eventually be stopped.
-func (it *IdleTimer) Start() {
-	it.Lock()
-	defer it.Unlock()
-	it.state = TimerUnregistered
-	it.resetTimeout()
 }
 
 func (it *IdleTimer) Touch() {

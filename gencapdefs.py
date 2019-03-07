@@ -83,15 +83,15 @@ CAPDEFS = [
     ),
     CapDef(
         identifier="MaxLine",
-        name="oragono.io/maxline",
-        url="https://oragono.io/maxline",
+        name="oragono.io/maxline-2",
+        url="https://oragono.io/maxline-2",
         standard="Oragono-specific",
     ),
     CapDef(
         identifier="MessageTags",
-        name="draft/message-tags-0.2",
-        url="https://ircv3.net/specs/core/message-tags-3.3.html",
-        standard="draft IRCv3",
+        name="message-tags",
+        url="https://ircv3.net/specs/extensions/message-tags.html",
+        standard="IRCv3",
     ),
     CapDef(
         identifier="MultiPrefix",

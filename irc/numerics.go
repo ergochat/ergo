@@ -119,6 +119,7 @@ const (
 	ERR_NOTOPLEVEL                  = "413"
 	ERR_WILDTOPLEVEL                = "414"
 	ERR_BADMASK                     = "415"
+	ERR_INPUTTOOLONG                = "417"
 	ERR_UNKNOWNCOMMAND              = "421"
 	ERR_NOMOTD                      = "422"
 	ERR_NOADMININFO                 = "423"

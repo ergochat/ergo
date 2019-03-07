@@ -27,7 +27,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6bcd7bcd5e14cc9552fbf83b2f77f24935c0c502d009c9825b6c212c3f8eb967"
+  digest = "1:e6ed6eaa63211bb90847d8c5f11d7412e56c96b5befb7402ee7a7a8ad02700ec"
   name = "github.com/goshuirc/irc-go"
   packages = [
     "ircfmt",
@@ -35,7 +35,7 @@
     "ircmsg",
   ]
   pruneopts = "UT"
-  revision = "cf199aea7186fd960d0ed5abbf579bb0f9d890d1"
+  revision = "ca74bf6a176d2d1dce6f28f99901a2d48d8da2bd"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"

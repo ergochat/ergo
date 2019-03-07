@@ -14,7 +14,6 @@ import (
 
 	"sync"
 
-	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
@@ -425,11 +424,13 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		channel.regenerateMembersCache()
 
+		message := utils.SplitMessage{}
+		message.Msgid = details.realname
 		channel.history.Add(history.Item{
 			Type:        history.Join,
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
-			Msgid:       details.realname,
+			Message:     message,
 		})
 
 		return
@@ -603,16 +604,17 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 	serverTime := client.capabilities.Has(caps.ServerTime)
 
 	for _, item := range items {
-		var tags Tags
+		var tags map[string]string
 		if serverTime {
-			tags = ensureTag(tags, "time", item.Time.Format(IRCv3TimestampFormat))
+			tags = map[string]string{"time": item.Time.Format(IRCv3TimestampFormat)}
 		}
 
+		// TODO(#437) support history.Tagmsg
 		switch item.Type {
 		case history.Privmsg:
-			rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, "PRIVMSG", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, "PRIVMSG", chname, item.Message)
 		case history.Notice:
-			rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, "NOTICE", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, "NOTICE", chname, item.Message)
 		case history.Join:
 			nick := stripMaskFromNick(item.Nick)
 			var message string
@@ -624,16 +626,16 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Part:
 			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Quit:
 			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		case history.Kick:
 			nick := stripMaskFromNick(item.Nick)
 			// XXX Msgid is the kick target
-			message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Msgid, item.Message.Original)
+			message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Message.Msgid, item.Message.Message)
 			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
 		}
 	}
@@ -717,13 +719,20 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-// TagMsg sends a tag message to everyone in this channel who can accept them.
-func (channel *Channel) TagMsg(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, rb *ResponseBuffer) {
-	channel.sendMessage(msgid, "TAGMSG", []caps.Capability{caps.MessageTags}, minPrefix, clientOnlyTags, client, nil, rb)
-}
+func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
+	var histType history.ItemType
+	switch command {
+	case "PRIVMSG":
+		histType = history.Privmsg
+	case "NOTICE":
+		histType = history.Notice
+	case "TAGMSG":
+		histType = history.Tagmsg
+	default:
+		channel.server.logger.Error("internal", "unrecognized Channel.SendSplitMessage command", command)
+		return
+	}
 
-// sendMessage sends a given message to everyone on this channel.
-func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capability, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *string, rb *ResponseBuffer) {
 	if !channel.CanSpeak(client) {
 		rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 		return
@@ -736,85 +745,16 @@ func (channel *Channel) sendMessage(msgid, cmd string, requiredCaps []caps.Capab
 	}
 	// send echo-message
 	if client.capabilities.Has(caps.EchoMessage) {
-		var messageTagsToUse *map[string]ircmsg.TagValue
-		if client.capabilities.Has(caps.MessageTags) {
-			messageTagsToUse = clientOnlyTags
-		}
-
-		nickMaskString := client.NickMaskString()
-		accountName := client.AccountName()
-		if message == nil {
-			rb.AddFromClient(msgid, nickMaskString, accountName, messageTagsToUse, cmd, channel.name)
-		} else {
-			rb.AddFromClient(msgid, nickMaskString, accountName, messageTagsToUse, cmd, channel.name, *message)
-		}
-	}
-	for _, member := range channel.Members() {
-		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
-			// STATUSMSG
-			continue
-		}
-		// echo-message is handled above, so skip sending the msg to the user themselves as well
-		if member == client {
-			continue
-		}
-
-		canReceive := true
-		for _, capName := range requiredCaps {
-			if !member.capabilities.Has(capName) {
-				canReceive = false
-			}
-		}
-		if !canReceive {
-			continue
-		}
-
-		var messageTagsToUse *map[string]ircmsg.TagValue
-		if member.capabilities.Has(caps.MessageTags) {
-			messageTagsToUse = clientOnlyTags
-		}
-
-		if message == nil {
-			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name)
-		} else {
-			member.SendFromClient(msgid, client, messageTagsToUse, cmd, channel.name, *message)
-		}
-	}
-}
-
-// SplitPrivMsg sends a private message to everyone in this channel.
-func (channel *Channel) SplitPrivMsg(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
-	channel.sendSplitMessage(msgid, "PRIVMSG", history.Privmsg, minPrefix, clientOnlyTags, client, &message, rb)
-}
-
-// SplitNotice sends a private message to everyone in this channel.
-func (channel *Channel) SplitNotice(msgid string, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
-	channel.sendSplitMessage(msgid, "NOTICE", history.Notice, minPrefix, clientOnlyTags, client, &message, rb)
-}
-
-func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.ItemType, minPrefix *modes.Mode, clientOnlyTags *map[string]ircmsg.TagValue, client *Client, message *utils.SplitMessage, rb *ResponseBuffer) {
-	if !channel.CanSpeak(client) {
-		rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
-		return
-	}
-
-	// for STATUSMSG
-	var minPrefixMode modes.Mode
-	if minPrefix != nil {
-		minPrefixMode = *minPrefix
-	}
-	// send echo-message
-	if client.capabilities.Has(caps.EchoMessage) {
-		var tagsToUse *map[string]ircmsg.TagValue
+		var tagsToUse map[string]string
 		if client.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
 		}
 		nickMaskString := client.NickMaskString()
 		accountName := client.AccountName()
-		if message == nil {
-			rb.AddFromClient(msgid, nickMaskString, accountName, tagsToUse, cmd, channel.name)
+		if command == "TAGMSG" && client.capabilities.Has(caps.MessageTags) {
+			rb.AddFromClient(message.Msgid, nickMaskString, accountName, tagsToUse, command, channel.name)
 		} else {
-			rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, tagsToUse, cmd, channel.name, *message)
+			rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToUse, command, channel.name, message)
 		}
 	}
 
@@ -832,22 +772,23 @@ func (channel *Channel) sendSplitMessage(msgid, cmd string, histType history.Ite
 		if member == client {
 			continue
 		}
-		var tagsToUse *map[string]ircmsg.TagValue
+		var tagsToUse map[string]string
 		if member.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
+		} else if command == "TAGMSG" {
+			continue
 		}
 
-		if message == nil {
-			member.sendFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name)
+		if command == "TAGMSG" {
+			member.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, channel.name)
 		} else {
-			member.sendSplitMsgFromClientInternal(false, now, msgid, nickmask, account, tagsToUse, cmd, channel.name, *message)
+			member.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, channel.name, message)
 		}
 	}
 
 	channel.history.Add(history.Item{
 		Type:        histType,
-		Msgid:       msgid,
-		Message:     *message,
+		Message:     message,
 		Nick:        nickmask,
 		AccountName: account,
 		Time:        now,
@@ -980,12 +921,14 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
 	}
 
+	message := utils.SplitMessage{}
+	message.Message = comment
+	message.Msgid = targetNick // XXX abuse this field
 	channel.history.Add(history.Item{
 		Type:        history.Kick,
 		Nick:        clientMask,
-		Message:     utils.MakeSplitMessage(comment, true),
 		AccountName: target.AccountName(),
-		Msgid:       targetNick, // XXX abuse this field
+		Message:     message,
 	})
 
 	channel.Quit(target)
