@@ -24,33 +24,25 @@ const (
 // this is intentionally not threadsafe, because it should only be touched
 // from the loop that accepts the client's input and runs commands
 type Fakelag struct {
-	window                    time.Duration
-	burstLimit                uint
-	throttleMessagesPerWindow uint
-	cooldown                  time.Duration
-	nowFunc                   func() time.Time
-	sleepFunc                 func(time.Duration)
+	config    FakelagConfig
+	nowFunc   func() time.Time
+	sleepFunc func(time.Duration)
 
 	state      FakelagState
 	burstCount uint // number of messages sent in the current burst
 	lastTouch  time.Time
 }
 
-func NewFakelag(window time.Duration, burstLimit uint, throttleMessagesPerWindow uint, cooldown time.Duration) *Fakelag {
-	return &Fakelag{
-		window:                    window,
-		burstLimit:                burstLimit,
-		throttleMessagesPerWindow: throttleMessagesPerWindow,
-		cooldown:                  cooldown,
-		nowFunc:                   time.Now,
-		sleepFunc:                 time.Sleep,
-		state:                     FakelagBursting,
-	}
+func (fl *Fakelag) Initialize(config FakelagConfig) {
+	fl.config = config
+	fl.nowFunc = time.Now
+	fl.sleepFunc = time.Sleep
+	fl.state = FakelagBursting
 }
 
 // register a new command, sleep if necessary to delay it
 func (fl *Fakelag) Touch() {
-	if fl == nil {
+	if !fl.config.Enabled {
 		return
 	}
 
@@ -61,12 +53,12 @@ func (fl *Fakelag) Touch() {
 
 	if fl.state == FakelagBursting {
 		// determine if the previous burst is over
-		if elapsed > fl.cooldown {
+		if elapsed > fl.config.Cooldown {
 			fl.burstCount = 0
 		}
 
 		fl.burstCount++
-		if fl.burstCount > fl.burstLimit {
+		if fl.burstCount > fl.config.BurstLimit {
 			// reset burst window for next time
 			fl.burstCount = 0
 			// transition to throttling
@@ -78,13 +70,13 @@ func (fl *Fakelag) Touch() {
 	}
 
 	if fl.state == FakelagThrottled {
-		if elapsed > fl.cooldown {
+		if elapsed > fl.config.Cooldown {
 			// let them burst again
 			fl.state = FakelagBursting
 			return
 		}
 		// space them out by at least window/messagesperwindow
-		sleepDuration := time.Duration((int64(fl.window) / int64(fl.throttleMessagesPerWindow)) - int64(elapsed))
+		sleepDuration := time.Duration((int64(fl.config.Window) / int64(fl.config.MessagesPerWindow)) - int64(elapsed))
 		if sleepDuration > 0 {
 			fl.sleepFunc(sleepDuration)
 			// the touch time should take into account the time we slept

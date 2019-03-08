@@ -6,6 +6,7 @@ package irc
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -180,33 +181,50 @@ type NickTimer struct {
 	sync.Mutex // tier 1
 
 	// immutable after construction
-	timeout time.Duration
-	client  *Client
+	client *Client
 
 	// mutable
-	stopped        bool
 	nick           string
 	accountForNick string
 	account        string
+	timeout        time.Duration
 	timer          *time.Timer
+	enabled        uint32
 }
 
-// NewNickTimer sets up a new nick timer (returning nil if timeout enforcement is not enabled)
-func NewNickTimer(client *Client) *NickTimer {
-	config := client.server.AccountConfig().NickReservation
-	if !(config.Enabled && (config.Method == NickReservationWithTimeout || config.AllowCustomEnforcement)) {
-		return nil
+// Initialize sets up a NickTimer, based on server config settings.
+func (nt *NickTimer) Initialize(client *Client) {
+	if nt.client == nil {
+		nt.client = client // placate the race detector
 	}
 
-	return &NickTimer{
-		client:  client,
-		timeout: config.RenameTimeout,
+	config := &client.server.Config().Accounts.NickReservation
+	enabled := config.Enabled && (config.Method == NickReservationWithTimeout || config.AllowCustomEnforcement)
+
+	nt.Lock()
+	defer nt.Unlock()
+	nt.timeout = config.RenameTimeout
+	if enabled {
+		atomic.StoreUint32(&nt.enabled, 1)
+	} else {
+		nt.stopInternal()
 	}
+}
+
+func (nt *NickTimer) Enabled() bool {
+	return atomic.LoadUint32(&nt.enabled) == 1
+}
+
+func (nt *NickTimer) Timeout() (timeout time.Duration) {
+	nt.Lock()
+	timeout = nt.timeout
+	nt.Unlock()
+	return
 }
 
 // Touch records a nick change and updates the timer as necessary
 func (nt *NickTimer) Touch() {
-	if nt == nil {
+	if !nt.Enabled() {
 		return
 	}
 
@@ -215,15 +233,11 @@ func (nt *NickTimer) Touch() {
 	accountForNick, method := nt.client.server.accounts.EnforcementStatus(cfnick, skeleton)
 	enforceTimeout := method == NickReservationWithTimeout
 
-	var shouldWarn bool
+	var shouldWarn, shouldRename bool
 
 	func() {
 		nt.Lock()
 		defer nt.Unlock()
-
-		if nt.stopped {
-			return
-		}
 
 		// the timer will not reset as long as the squatter is targeting the same account
 		accountChanged := accountForNick != nt.accountForNick
@@ -237,38 +251,39 @@ func (nt *NickTimer) Touch() {
 			nt.timer.Stop()
 			nt.timer = nil
 		}
-		if enforceTimeout && delinquent && accountChanged {
+		if enforceTimeout && delinquent && (accountChanged || nt.timer == nil) {
 			nt.timer = time.AfterFunc(nt.timeout, nt.processTimeout)
 			shouldWarn = true
+		} else if method == NickReservationStrict && delinquent {
+			shouldRename = true // this can happen if reservation was enabled by rehash
 		}
 	}()
 
 	if shouldWarn {
-		nt.sendWarning()
+		nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.Timeout()))
+	} else if shouldRename {
+		nt.client.Notice(nt.client.t("Nickname is reserved by a different account"))
+		nt.client.server.RandomlyRename(nt.client)
 	}
 }
 
 // Stop stops counting time and cleans up the timer
 func (nt *NickTimer) Stop() {
-	if nt == nil {
-		return
-	}
-
 	nt.Lock()
 	defer nt.Unlock()
+	nt.stopInternal()
+}
+
+func (nt *NickTimer) stopInternal() {
 	if nt.timer != nil {
 		nt.timer.Stop()
 		nt.timer = nil
 	}
-	nt.stopped = true
-}
-
-func (nt *NickTimer) sendWarning() {
-	nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.timeout))
+	atomic.StoreUint32(&nt.enabled, 0)
 }
 
 func (nt *NickTimer) processTimeout() {
 	baseMsg := "Nick is reserved and authentication timeout expired: %v"
-	nt.client.Notice(fmt.Sprintf(nt.client.t(baseMsg), nt.timeout))
+	nt.client.Notice(fmt.Sprintf(nt.client.t(baseMsg), nt.Timeout()))
 	nt.client.server.RandomlyRename(nt.client)
 }

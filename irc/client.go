@@ -57,7 +57,7 @@ type Client struct {
 	channels           ChannelSet
 	ctime              time.Time
 	exitedSnomaskSent  bool
-	fakelag            *Fakelag
+	fakelag            Fakelag
 	flags              *modes.ModeSet
 	hasQuit            bool
 	hops               int
@@ -75,7 +75,7 @@ type Client struct {
 	nickCasefolded     string
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
-	nickTimer          *NickTimer
+	nickTimer          NickTimer
 	oper               *Oper
 	preregNick         string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
@@ -217,23 +217,9 @@ func (client *Client) isAuthorized(config *Config) bool {
 }
 
 func (client *Client) resetFakelag() {
-	fakelag := func() *Fakelag {
-		if client.HasRoleCapabs("nofakelag") {
-			return nil
-		}
-
-		flc := client.server.FakelagConfig()
-
-		if !flc.Enabled {
-			return nil
-		}
-
-		return NewFakelag(flc.Window, flc.BurstLimit, flc.MessagesPerWindow, flc.Cooldown)
-	}()
-
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.fakelag = fakelag
+	var flc FakelagConfig = client.server.Config().Fakelag
+	flc.Enabled = flc.Enabled && !client.HasRoleCapabs("nofakelag")
+	client.fakelag.Initialize(flc)
 }
 
 // IP returns the IP address of this client.
@@ -309,7 +295,7 @@ func (client *Client) run() {
 	client.idletimer = NewIdleTimer(client)
 	client.idletimer.Start()
 
-	client.nickTimer = NewNickTimer(client)
+	client.nickTimer.Initialize(client)
 
 	client.resetFakelag()
 
