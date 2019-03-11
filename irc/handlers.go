@@ -2244,28 +2244,30 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	go server.channelRegistry.Rename(channel, casefoldedOldName)
 
 	// send RENAME messages
+	clientPrefix := client.NickMaskString()
 	for _, mcl := range channel.Members() {
 		targetRb := rb
+		targetPrefix := clientPrefix
 		if mcl != client {
 			targetRb = NewResponseBuffer(mcl)
+			targetPrefix = mcl.NickMaskString()
 		}
-		prefix := mcl.NickMaskString()
 		if mcl.capabilities.Has(caps.Rename) {
 			if reason != "" {
-				targetRb.Add(nil, prefix, "RENAME", oldName, newName, reason)
+				targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName, reason)
 			} else {
-				targetRb.Add(nil, prefix, "RENAME", oldName, newName)
+				targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName)
 			}
 		} else {
 			if reason != "" {
-				targetRb.Add(nil, prefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
+				targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
 			} else {
-				targetRb.Add(nil, prefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
+				targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
 			}
 			if mcl.capabilities.Has(caps.ExtendedJoin) {
-				targetRb.Add(nil, prefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
+				targetRb.Add(nil, targetPrefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
 			} else {
-				targetRb.Add(nil, prefix, "JOIN", newName)
+				targetRb.Add(nil, targetPrefix, "JOIN", newName)
 			}
 			channel.SendTopic(mcl, targetRb, false)
 			channel.Names(mcl, targetRb)
