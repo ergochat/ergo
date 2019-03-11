@@ -826,6 +826,13 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			if sendRawOutputNotice {
 				sClient.Notice(sClient.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 			}
+
+			if !oldConfig.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.Enabled {
+				sClient.nickTimer.Initialize(sClient)
+				sClient.nickTimer.Touch()
+			} else if oldConfig.Accounts.NickReservation.Enabled && !config.Accounts.NickReservation.Enabled {
+				sClient.nickTimer.Stop()
+			}
 		}
 	}
 
