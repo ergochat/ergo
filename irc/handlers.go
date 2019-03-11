@@ -1607,8 +1607,8 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 	}
 
-	if channel.IsRegistered() && includeFlags != 0 {
-		go server.channelRegistry.StoreChannel(channel, includeFlags)
+	if includeFlags != 0 {
+		channel.MarkDirty(includeFlags)
 	}
 
 	// send out changes
@@ -2215,7 +2215,6 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), oldName, client.t("No such channel"))
 		return false
 	}
-	casefoldedOldName := channel.NameCasefolded()
 	if !(channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("chanreg")) {
 		rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), oldName, client.t("You're not a channel operator"))
 		return false
@@ -2239,9 +2238,6 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	if err != nil {
 		return false
 	}
-
-	// rename succeeded, persist it
-	go server.channelRegistry.Rename(channel, casefoldedOldName)
 
 	// send RENAME messages
 	clientPrefix := client.NickMaskString()

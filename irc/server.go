@@ -61,10 +61,10 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts               *AccountManager
-	channels               *ChannelManager
-	channelRegistry        *ChannelRegistry
-	clients                *ClientManager
+	accounts               AccountManager
+	channels               ChannelManager
+	channelRegistry        ChannelRegistry
+	clients                ClientManager
 	config                 *Config
 	configFilename         string
 	configurableStateMutex sync.RWMutex // tier 1; generic protection for server state modified by rehash()
@@ -89,9 +89,9 @@ type Server struct {
 	snomasks               *SnoManager
 	store                  *buntdb.DB
 	torLimiter             connection_limits.TorLimiter
-	whoWas                 *WhoWasList
-	stats                  *Stats
-	semaphores             *ServerSemaphores
+	whoWas                 WhoWasList
+	stats                  Stats
+	semaphores             ServerSemaphores
 }
 
 var (
@@ -113,8 +113,6 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		channels:            NewChannelManager(),
-		clients:             NewClientManager(),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
 		listeners:           make(map[string]*ListenerWrapper),
@@ -123,12 +121,12 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		rehashSignal:        make(chan os.Signal, 1),
 		signals:             make(chan os.Signal, len(ServerExitSignals)),
 		snomasks:            NewSnoManager(),
-		whoWas:              NewWhoWasList(config.Limits.WhowasEntries),
-		stats:               NewStats(),
-		semaphores:          NewServerSemaphores(),
 	}
 
+	server.clients.Initialize()
+	server.semaphores.Initialize()
 	server.resumeManager.Initialize(server)
+	server.whoWas.Initialize(config.Limits.WhowasEntries)
 
 	if err := server.applyConfig(config, true); err != nil {
 		return nil, err
@@ -697,6 +695,12 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.accounts.initVHostRequestQueue()
 	}
 
+	chanRegPreviouslyDisabled := oldConfig != nil && !oldConfig.Channels.Registration.Enabled
+	chanRegNowEnabled := config.Channels.Registration.Enabled
+	if chanRegPreviouslyDisabled && chanRegNowEnabled {
+		server.channels.loadRegisteredChannels()
+	}
+
 	// MaxLine
 	if config.Limits.LineLen.Rest != 512 {
 		SupportedCapabilities.Enable(caps.MaxLine)
@@ -922,9 +926,9 @@ func (server *Server) loadDatastore(config *Config) error {
 	server.loadDLines()
 	server.loadKLines()
 
-	server.channelRegistry = NewChannelRegistry(server)
-
-	server.accounts = NewAccountManager(server)
+	server.channelRegistry.Initialize(server)
+	server.channels.Initialize(server)
+	server.accounts.Initialize(server)
 
 	return nil
 }

@@ -32,14 +32,13 @@ type ServerSemaphores struct {
 	ClientDestroy Semaphore
 }
 
-// NewServerSemaphores creates a new ServerSemaphores.
-func NewServerSemaphores() (result *ServerSemaphores) {
+// Initialize initializes a set of server semaphores.
+func (serversem *ServerSemaphores) Initialize() {
 	capacity := runtime.NumCPU()
 	if capacity > MaxServerSemaphoreCapacity {
 		capacity = MaxServerSemaphoreCapacity
 	}
-	result = new(ServerSemaphores)
-	result.ClientDestroy.Initialize(capacity)
+	serversem.ClientDestroy.Initialize(capacity)
 	return
 }
 

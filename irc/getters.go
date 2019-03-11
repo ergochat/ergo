@@ -4,6 +4,8 @@
 package irc
 
 import (
+	"time"
+
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/modes"
@@ -267,22 +269,20 @@ func (channel *Channel) Name() string {
 	return channel.name
 }
 
-func (channel *Channel) setName(name string) {
-	channel.stateMutex.Lock()
-	defer channel.stateMutex.Unlock()
-	channel.name = name
-}
-
 func (channel *Channel) NameCasefolded() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.nameCasefolded
 }
 
-func (channel *Channel) setNameCasefolded(nameCasefolded string) {
+func (channel *Channel) Rename(name, nameCasefolded string) {
 	channel.stateMutex.Lock()
-	defer channel.stateMutex.Unlock()
+	channel.name = name
 	channel.nameCasefolded = nameCasefolded
+	if channel.registeredFounder != "" {
+		channel.registeredTime = time.Now()
+	}
+	channel.stateMutex.Unlock()
 }
 
 func (channel *Channel) Members() (result []*Client) {
@@ -313,4 +313,11 @@ func (channel *Channel) Founder() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.registeredFounder
+}
+
+func (channel *Channel) DirtyBits() (dirtyBits uint) {
+	channel.stateMutex.Lock()
+	dirtyBits = channel.dirtyBits
+	channel.stateMutex.Unlock()
+	return
 }

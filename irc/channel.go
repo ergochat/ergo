@@ -22,7 +22,7 @@ import (
 
 // Channel represents a channel that clients can join.
 type Channel struct {
-	flags             *modes.ModeSet
+	flags             modes.ModeSet
 	lists             map[modes.Mode]*UserMaskSet
 	key               string
 	members           MemberSet
@@ -33,19 +33,22 @@ type Channel struct {
 	createdTime       time.Time
 	registeredFounder string
 	registeredTime    time.Time
-	stateMutex        sync.RWMutex // tier 1
-	joinPartMutex     sync.Mutex   // tier 3
 	topic             string
 	topicSetBy        string
 	topicSetTime      time.Time
 	userLimit         int
 	accountToUMode    map[string]modes.Mode
 	history           history.Buffer
+	stateMutex        sync.RWMutex // tier 1
+	writerSemaphore   Semaphore    // tier 1.5
+	joinPartMutex     sync.Mutex   // tier 3
+	ensureLoaded      utils.Once   // manages loading stored registration info from the database
+	dirtyBits         uint
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
+func NewChannel(s *Server, name string, registered bool) *Channel {
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
 		s.logger.Error("internal", "Bad channel name", name, err.Error())
@@ -54,7 +57,6 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 
 	channel := &Channel{
 		createdTime: time.Now(), // may be overwritten by applyRegInfo
-		flags:       modes.NewModeSet(),
 		lists: map[modes.Mode]*UserMaskSet{
 			modes.BanMask:    NewUserMaskSet(),
 			modes.ExceptMask: NewUserMaskSet(),
@@ -69,21 +71,43 @@ func NewChannel(s *Server, name string, regInfo *RegisteredChannel) *Channel {
 
 	config := s.Config()
 
-	if regInfo != nil {
-		channel.applyRegInfo(regInfo)
-	} else {
+	channel.writerSemaphore.Initialize(1)
+	channel.history.Initialize(config.History.ChannelLength)
+
+	if !registered {
 		for _, mode := range config.Channels.defaultModes {
 			channel.flags.SetMode(mode, true)
 		}
-	}
-
-	channel.history.Initialize(config.History.ChannelLength)
+		// no loading to do, so "mark" the load operation as "done":
+		channel.ensureLoaded.Do(func() {})
+	} // else: modes will be loaded before first join
 
 	return channel
 }
 
+// EnsureLoaded blocks until the channel's registration info has been loaded
+// from the database.
+func (channel *Channel) EnsureLoaded() {
+	channel.ensureLoaded.Do(func() {
+		nmc := channel.NameCasefolded()
+		info, err := channel.server.channelRegistry.LoadChannel(nmc)
+		if err == nil {
+			channel.applyRegInfo(info)
+		} else {
+			channel.server.logger.Error("internal", "couldn't load channel", nmc, err.Error())
+		}
+	})
+}
+
+func (channel *Channel) IsLoaded() bool {
+	return channel.ensureLoaded.Done()
+}
+
 // read in channel state that was persisted in the DB
-func (channel *Channel) applyRegInfo(chanReg *RegisteredChannel) {
+func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
 	channel.registeredFounder = chanReg.Founder
 	channel.registeredTime = chanReg.RegisteredAt
 	channel.topic = chanReg.Topic
@@ -116,6 +140,7 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 	defer channel.stateMutex.RUnlock()
 
 	info.Name = channel.name
+	info.NameCasefolded = channel.nameCasefolded
 	info.Founder = channel.registeredFounder
 	info.RegisteredAt = channel.registeredTime
 
@@ -146,6 +171,115 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 		}
 	}
 
+	return
+}
+
+// begin: asynchronous database writeback implementation, modeled on irc/socket.go
+
+// MarkDirty marks part (or all) of a channel's data as needing to be written back
+// to the database, then starts a writer goroutine if necessary.
+// This is the equivalent of Socket.Write().
+func (channel *Channel) MarkDirty(dirtyBits uint) {
+	channel.stateMutex.Lock()
+	isRegistered := channel.registeredFounder != ""
+	channel.dirtyBits = channel.dirtyBits | dirtyBits
+	channel.stateMutex.Unlock()
+	if !isRegistered {
+		return
+	}
+
+	channel.wakeWriter()
+}
+
+// IsClean returns whether a channel can be safely removed from the server.
+// To avoid the obvious TOCTOU race condition, it must be called while holding
+// ChannelManager's lock (that way, no one can join and make the channel dirty again
+// between this method exiting and the actual deletion).
+func (channel *Channel) IsClean() bool {
+	if !channel.writerSemaphore.TryAcquire() {
+		// a database write (which may fail) is in progress, the channel cannot be cleaned up
+		return false
+	}
+	defer channel.writerSemaphore.Release()
+
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	// the channel must be empty, and either be unregistered or fully written to the DB
+	return len(channel.members) == 0 && (channel.registeredFounder == "" || channel.dirtyBits == 0)
+}
+
+func (channel *Channel) wakeWriter() {
+	if channel.writerSemaphore.TryAcquire() {
+		go channel.writeLoop()
+	}
+}
+
+// equivalent of Socket.send()
+func (channel *Channel) writeLoop() {
+	for {
+		// TODO(#357) check the error value of this and implement timed backoff
+		channel.performWrite(0)
+		channel.writerSemaphore.Release()
+
+		channel.stateMutex.RLock()
+		isDirty := channel.dirtyBits != 0
+		isEmpty := len(channel.members) == 0
+		channel.stateMutex.RUnlock()
+
+		if !isDirty {
+			if isEmpty {
+				channel.server.channels.Cleanup(channel)
+			}
+			return // nothing to do
+		} // else: isDirty, so we need to write again
+
+		if !channel.writerSemaphore.TryAcquire() {
+			return
+		}
+	}
+}
+
+// Store writes part (or all) of the channel's data back to the database,
+// blocking until the write is complete. This is the equivalent of
+// Socket.BlockingWrite.
+func (channel *Channel) Store(dirtyBits uint) (err error) {
+	defer func() {
+		channel.stateMutex.Lock()
+		isDirty := channel.dirtyBits != 0
+		isEmpty := len(channel.members) == 0
+		channel.stateMutex.Unlock()
+
+		if isDirty {
+			channel.wakeWriter()
+		} else if isEmpty {
+			channel.server.channels.Cleanup(channel)
+		}
+	}()
+
+	channel.writerSemaphore.Acquire()
+	defer channel.writerSemaphore.Release()
+	return channel.performWrite(dirtyBits)
+}
+
+// do an individual write; equivalent of Socket.send()
+func (channel *Channel) performWrite(additionalDirtyBits uint) (err error) {
+	channel.stateMutex.Lock()
+	dirtyBits := channel.dirtyBits | additionalDirtyBits
+	channel.dirtyBits = 0
+	isRegistered := channel.registeredFounder != ""
+	channel.stateMutex.Unlock()
+
+	if !isRegistered || dirtyBits == 0 {
+		return
+	}
+
+	info := channel.ExportRegistration(dirtyBits)
+	err = channel.server.channelRegistry.StoreChannel(info, dirtyBits)
+	if err != nil {
+		channel.stateMutex.Lock()
+		channel.dirtyBits = channel.dirtyBits | dirtyBits
+		channel.stateMutex.Unlock()
+	}
 	return
 }
 
@@ -698,7 +832,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		}
 	}
 
-	go channel.server.channelRegistry.StoreChannel(channel, IncludeTopic)
+	channel.MarkDirty(IncludeTopic)
 }
 
 // CanSpeak returns true if the client can speak on this channel.

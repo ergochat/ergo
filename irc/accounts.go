@@ -59,18 +59,15 @@ type AccountManager struct {
 	accountToMethod   map[string]NickReservationMethod
 }
 
-func NewAccountManager(server *Server) *AccountManager {
-	am := AccountManager{
-		accountToClients:  make(map[string][]*Client),
-		nickToAccount:     make(map[string]string),
-		skeletonToAccount: make(map[string]string),
-		accountToMethod:   make(map[string]NickReservationMethod),
-		server:            server,
-	}
+func (am *AccountManager) Initialize(server *Server) {
+	am.accountToClients = make(map[string][]*Client)
+	am.nickToAccount = make(map[string]string)
+	am.skeletonToAccount = make(map[string]string)
+	am.accountToMethod = make(map[string]NickReservationMethod)
+	am.server = server
 
 	am.buildNickToAccountIndex()
 	am.initVHostRequestQueue()
-	return &am
 }
 
 func (am *AccountManager) buildNickToAccountIndex() {
@@ -855,6 +852,7 @@ func (am *AccountManager) Unregister(account string) error {
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
+	enforcementKey := fmt.Sprintf(keyAccountEnforcement, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
@@ -865,14 +863,7 @@ func (am *AccountManager) Unregister(account string) error {
 	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
 		for _, channelName := range registeredChannels {
-			info := am.server.channelRegistry.LoadChannel(channelName)
-			if info != nil && info.Founder == casefoldedAccount {
-				am.server.channelRegistry.Delete(channelName, *info)
-			}
-			channel := am.server.channels.Get(channelName)
-			if channel != nil {
-				channel.SetUnregistered(casefoldedAccount)
-			}
+			am.server.channels.SetUnregistered(channelName, casefoldedAccount)
 		}
 	}()
 
@@ -892,6 +883,7 @@ func (am *AccountManager) Unregister(account string) error {
 		tx.Delete(registeredTimeKey)
 		tx.Delete(callbackKey)
 		tx.Delete(verificationCodeKey)
+		tx.Delete(enforcementKey)
 		rawNicks, _ = tx.Get(nicksKey)
 		tx.Delete(nicksKey)
 		credText, err = tx.Get(credentialsKey)

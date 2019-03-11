@@ -10,7 +10,6 @@ type testBitset [2]uint64
 func TestSets(t *testing.T) {
 	var t1 testBitset
 	t1s := t1[:]
-	BitsetInitialize(t1s)
 
 	if BitsetGet(t1s, 0) || BitsetGet(t1s, 63) || BitsetGet(t1s, 64) || BitsetGet(t1s, 127) {
 		t.Error("no bits should be set in a newly initialized bitset")
@@ -47,7 +46,6 @@ func TestSets(t *testing.T) {
 
 	var t2 testBitset
 	t2s := t2[:]
-	BitsetInitialize(t2s)
 
 	for i = 0; i < 128; i++ {
 		if i%2 == 1 {

@@ -290,14 +290,14 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 	case modes.Add:
 		if targetModeNow != targetModeAfter {
 			channel.accountToUMode[change.Arg] = change.Mode
-			go client.server.channelRegistry.StoreChannel(channel, IncludeLists)
+			channel.MarkDirty(IncludeLists)
 			return []modes.ModeChange{change}, nil
 		}
 		return nil, nil
 	case modes.Remove:
 		if targetModeNow == change.Mode {
 			delete(channel.accountToUMode, change.Arg)
-			go client.server.channelRegistry.StoreChannel(channel, IncludeLists)
+			channel.MarkDirty(IncludeLists)
 			return []modes.ModeChange{change}, nil
 		}
 		return nil, nil

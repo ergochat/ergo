@@ -37,12 +37,10 @@ type ClientManager struct {
 	bySkeleton   map[string]*Client
 }
 
-// NewClientManager returns a new ClientManager.
-func NewClientManager() *ClientManager {
-	return &ClientManager{
-		byNick:     make(map[string]*Client),
-		bySkeleton: make(map[string]*Client),
-	}
+// Initialize initializes a ClientManager.
+func (clients *ClientManager) Initialize() {
+	clients.byNick = make(map[string]*Client)
+	clients.bySkeleton = make(map[string]*Client)
 }
 
 // Count returns how many clients are in the manager.

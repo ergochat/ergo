@@ -16,7 +16,6 @@ type Set [bitsetLen]uint64
 // NewSet returns a new Set, with the given capabilities enabled.
 func NewSet(capabs ...Capability) *Set {
 	var newSet Set
-	utils.BitsetInitialize(newSet[:])
 	newSet.Enable(capabs...)
 	return &newSet
 }
