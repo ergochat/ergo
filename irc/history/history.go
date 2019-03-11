@@ -21,6 +21,7 @@ const (
 	Kick
 	Quit
 	Mode
+	Tagmsg
 )
 
 // Item represents an event (e.g., a PRIVMSG or a JOIN) and its associated data
@@ -33,14 +34,13 @@ type Item struct {
 	AccountName string
 	Message     utils.SplitMessage
 	// for non-privmsg items, we may stuff some other data in here
-	Msgid string
 }
 
 // HasMsgid tests whether a message has the message id `msgid`.
 func (item *Item) HasMsgid(msgid string) bool {
 	// XXX we stuff other data in the Msgid field sometimes,
 	// don't match it by accident
-	return (item.Type == Privmsg || item.Type == Notice) && item.Msgid == msgid
+	return (item.Type == Privmsg || item.Type == Notice) && item.Message.Msgid == msgid
 }
 
 type Predicate func(item Item) (matches bool)

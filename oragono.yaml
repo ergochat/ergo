@@ -487,10 +487,8 @@ limits:
     # maximum length of IRC lines
     # this should generally be 1024-2048, and will only apply when negotiated by clients
     linelen:
-        # tags section
-        tags: 2048
-
-        # rest of the message
+        # ratified version of the message-tags cap fixes the max tag length at 8191 bytes
+        # configurable length for the rest of the message:
         rest: 2048
 
 # fakelag: prevents clients from spamming commands too rapidly

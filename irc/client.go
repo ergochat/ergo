@@ -62,14 +62,13 @@ type Client struct {
 	hasQuit            bool
 	hops               int
 	hostname           string
-	idletimer          *IdleTimer
+	idletimer          IdleTimer
 	invitedTo          map[string]bool
 	isDestroyed        bool
 	isTor              bool
 	isQuitting         bool
 	languages          []string
 	loginThrottle      connection_limits.GenericThrottle
-	maxlenTags         uint32
 	maxlenRest         uint32
 	nick               string
 	nickCasefolded     string
@@ -122,8 +121,9 @@ type ClientDetails struct {
 func RunNewClient(server *Server, conn clientConn) {
 	now := time.Now()
 	config := server.Config()
-	fullLineLenLimit := config.Limits.LineLen.Tags + config.Limits.LineLen.Rest
-	socket := NewSocket(conn.Conn, fullLineLenLimit*2, config.Server.MaxSendQBytes)
+	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
+	// give them 1k of grace over the limit:
+	socket := NewSocket(conn.Conn, fullLineLenLimit+1024, config.Server.MaxSendQBytes)
 	client := &Client{
 		atime:        now,
 		capabilities: caps.NewSet(),
@@ -246,30 +246,21 @@ func (client *Client) IPString() string {
 // command goroutine
 //
 
-func (client *Client) recomputeMaxlens() (int, int) {
-	maxlenTags := 512
+func (client *Client) recomputeMaxlens() int {
 	maxlenRest := 512
-	if client.capabilities.Has(caps.MessageTags) {
-		maxlenTags = 4096
-	}
 	if client.capabilities.Has(caps.MaxLine) {
-		limits := client.server.Limits()
-		if limits.LineLen.Tags > maxlenTags {
-			maxlenTags = limits.LineLen.Tags
-		}
-		maxlenRest = limits.LineLen.Rest
+		maxlenRest = client.server.Limits().LineLen.Rest
 	}
 
-	atomic.StoreUint32(&client.maxlenTags, uint32(maxlenTags))
 	atomic.StoreUint32(&client.maxlenRest, uint32(maxlenRest))
 
-	return maxlenTags, maxlenRest
+	return maxlenRest
 }
 
 // allow these negotiated length limits to be read without locks; this is a convenience
 // so that Client.Send doesn't have to acquire any Client locks
-func (client *Client) maxlens() (int, int) {
-	return int(atomic.LoadUint32(&client.maxlenTags)), int(atomic.LoadUint32(&client.maxlenRest))
+func (client *Client) MaxlenRest() int {
+	return int(atomic.LoadUint32(&client.maxlenRest))
 }
 
 func (client *Client) run() {
@@ -292,8 +283,7 @@ func (client *Client) run() {
 		client.destroy(false)
 	}()
 
-	client.idletimer = NewIdleTimer(client)
-	client.idletimer.Start()
+	client.idletimer.Initialize(client)
 
 	client.nickTimer.Initialize(client)
 
@@ -302,7 +292,7 @@ func (client *Client) run() {
 	firstLine := true
 
 	for {
-		maxlenTags, maxlenRest := client.recomputeMaxlens()
+		maxlenRest := client.recomputeMaxlens()
 
 		line, err = client.socket.Read()
 		if err != nil {
@@ -331,8 +321,11 @@ func (client *Client) run() {
 			}
 		}
 
-		msg, err = ircmsg.ParseLineMaxLen(line, maxlenTags, maxlenRest)
+		msg, err = ircmsg.ParseLineStrict(line, true, maxlenRest)
 		if err == ircmsg.ErrorLineIsEmpty {
+			continue
+		} else if err == ircmsg.ErrorLineTooLong {
+			client.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.nick, client.t("Input line too long"))
 			continue
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"))
@@ -539,11 +532,11 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		default:
 			continue
 		}
-		var tags Tags
+		var tags map[string]string
 		if serverTime {
-			tags = ensureTag(tags, "time", item.Time.Format(IRCv3TimestampFormat))
+			tags = map[string]string{"time": item.Time.Format(IRCv3TimestampFormat)}
 		}
-		rb.AddSplitMessageFromClient(item.Msgid, item.Nick, item.AccountName, tags, command, nick, item.Message)
+		rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
 	}
 	if !complete {
 		rb.Add(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
@@ -841,17 +834,18 @@ func (client *Client) Quit(message string) {
 		return
 	}
 
-	var quitLine string
+	var finalData []byte
 	// #364: don't send QUIT lines to unregistered clients
 	if registered {
 		quitMsg := ircmsg.MakeMessage(nil, prefix, "QUIT", message)
-		quitLine, _ = quitMsg.Line()
+		finalData, _ = quitMsg.LineBytesStrict(false, 512)
 	}
 
 	errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
-	errorLine, _ := errorMsg.Line()
+	errorMsgBytes, _ := errorMsg.LineBytesStrict(false, 512)
+	finalData = append(finalData, errorMsgBytes...)
 
-	client.socket.SetFinalData(quitLine + errorLine)
+	client.socket.SetFinalData(finalData)
 }
 
 // destroy gets rid of a client, removes them from server lists etc.
@@ -962,50 +956,45 @@ func (client *Client) destroy(beingResumed bool) {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendSplitMsgFromClient(msgid string, from *Client, tags Tags, command, target string, message utils.SplitMessage) {
-	client.sendSplitMsgFromClientInternal(false, time.Time{}, msgid, from.NickMaskString(), from.AccountName(), tags, command, target, message)
+func (client *Client) SendSplitMsgFromClient(from *Client, tags map[string]string, command, target string, message utils.SplitMessage) {
+	client.sendSplitMsgFromClientInternal(false, time.Time{}, from.NickMaskString(), from.AccountName(), tags, command, target, message)
 }
 
-func (client *Client) sendSplitMsgFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags Tags, command, target string, message utils.SplitMessage) {
+func (client *Client) sendSplitMsgFromClientInternal(blocking bool, serverTime time.Time, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
 	if client.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
-		client.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, target, message.Original)
+		client.sendFromClientInternal(blocking, serverTime, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
-		for _, str := range message.Wrapped {
-			client.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, target, str)
+		for _, messagePair := range message.Wrapped {
+			client.sendFromClientInternal(blocking, serverTime, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
 		}
 	}
 }
 
 // SendFromClient sends an IRC line coming from a specific client.
 // Adds account-tag to the line as well.
-func (client *Client) SendFromClient(msgid string, from *Client, tags Tags, command string, params ...string) error {
+func (client *Client) SendFromClient(msgid string, from *Client, tags map[string]string, command string, params ...string) error {
 	return client.sendFromClientInternal(false, time.Time{}, msgid, from.NickMaskString(), from.AccountName(), tags, command, params...)
 }
 
-// helper to add a tag to `tags` (or create a new tag set if the current one is nil)
-func ensureTag(tags Tags, tagName, tagValue string) (result Tags) {
-	if tags == nil {
-		result = ircmsg.MakeTags(tagName, tagValue)
-	} else {
-		result = tags
-		(*tags)[tagName] = ircmsg.MakeTagValue(tagValue)
-	}
-	return
-}
-
-// XXX this is a hack where we allow overriding the client's nickmask
-// this is to support CHGHOST, which requires that we send the *original* nickmask with the response
-func (client *Client) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags Tags, command string, params ...string) error {
+// this is SendFromClient, but directly exposing nickmask and accountName,
+// for things like history replay and CHGHOST where they no longer (necessarily)
+// correspond to the current state of a client
+func (client *Client) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags map[string]string, command string, params ...string) error {
+	msg := ircmsg.MakeMessage(tags, nickmask, command, params...)
 	// attach account-tag
 	if client.capabilities.Has(caps.AccountTag) && accountName != "*" {
-		tags = ensureTag(tags, "account", accountName)
+		msg.SetTag("account", accountName)
 	}
 	// attach message-id
-	if len(msgid) > 0 && client.capabilities.Has(caps.MessageTags) {
-		tags = ensureTag(tags, "draft/msgid", msgid)
+	if msgid != "" && client.capabilities.Has(caps.MessageTags) {
+		msg.SetTag("draft/msgid", msgid)
+	}
+	// attach server-time
+	if client.capabilities.Has(caps.ServerTime) {
+		msg.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
 	}
 
-	return client.sendInternal(blocking, serverTime, tags, nickmask, command, params...)
+	return client.SendRawMessage(msg, blocking)
 }
 
 var (
@@ -1025,24 +1014,24 @@ var (
 func (client *Client) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
 	var usedTrailingHack bool
-	if commandsThatMustUseTrailing[strings.ToUpper(message.Command)] && len(message.Params) > 0 {
+	if commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
 		lastParam := message.Params[len(message.Params)-1]
 		// to force trailing, we ensure the final param contains a space
-		if !strings.Contains(lastParam, " ") {
+		if strings.IndexByte(lastParam, ' ') == -1 {
 			message.Params[len(message.Params)-1] = lastParam + " "
 			usedTrailingHack = true
 		}
 	}
 
 	// assemble message
-	maxlenTags, maxlenRest := client.maxlens()
-	line, err := message.LineMaxLenBytes(maxlenTags, maxlenRest)
+	maxlenRest := client.MaxlenRest()
+	line, err := message.LineBytesStrict(false, maxlenRest)
 	if err != nil {
 		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
 		client.server.logger.Error("internal", logline)
 
 		message = ircmsg.MakeMessage(nil, client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
-		line, _ := message.LineBytes()
+		line, _ := message.LineBytesStrict(false, 0)
 
 		if blocking {
 			client.socket.BlockingWrite(line)
@@ -1054,7 +1043,7 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage, blocking bool) e
 
 	// if we used the trailing hack, we need to strip the final space we appended earlier on
 	if usedTrailingHack {
-		copy(line[len(line)-3:], []byte{'\r', '\n'})
+		copy(line[len(line)-3:], "\r\n")
 		line = line[:len(line)-1]
 	}
 
@@ -1070,24 +1059,13 @@ func (client *Client) SendRawMessage(message ircmsg.IrcMessage, blocking bool) e
 	}
 }
 
-func (client *Client) sendInternal(blocking bool, serverTime time.Time, tags Tags, prefix string, command string, params ...string) error {
-	// attach server time
-	if client.capabilities.Has(caps.ServerTime) {
-		if serverTime.IsZero() {
-			serverTime = time.Now()
-		}
-		tags = ensureTag(tags, "time", serverTime.UTC().Format(IRCv3TimestampFormat))
-	}
-
-	// send out the message
-	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	client.SendRawMessage(message, blocking)
-	return nil
-}
-
 // Send sends an IRC line to the client.
-func (client *Client) Send(tags Tags, prefix string, command string, params ...string) error {
-	return client.sendInternal(false, time.Time{}, tags, prefix, command, params...)
+func (client *Client) Send(tags map[string]string, prefix string, command string, params ...string) error {
+	msg := ircmsg.MakeMessage(tags, prefix, command, params...)
+	if client.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
+		msg.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
+	}
+	return client.SendRawMessage(msg, false)
 }
 
 // Notice sends the client a notice from the server.

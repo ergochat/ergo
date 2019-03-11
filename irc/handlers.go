@@ -1874,7 +1874,7 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // NOTICE <target>{,<target>} <message>
 func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := msg.ClientOnlyTags()
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -1883,7 +1883,6 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		return false
 	}
 
-	// split privmsg
 	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
 
 	for i, targetString := range targets {
@@ -1905,8 +1904,7 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				// errors silently ignored with NOTICE as per RFC
 				continue
 			}
-			msgid := server.generateMessageID()
-			channel.SplitNotice(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+			channel.SendSplitMessage("NOTICE", lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
 			target, err := CasefoldName(targetString)
 			if err != nil {
@@ -1926,23 +1924,21 @@ func noticeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if !user.capabilities.Has(caps.MessageTags) {
 				clientOnlyTags = nil
 			}
-			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
 			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
 			if allowedPlusR && allowedTor {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				user.SendSplitMsgFromClient(client, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 			nickMaskString := client.NickMaskString()
 			accountName := client.AccountName()
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "NOTICE", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, clientOnlyTags, "NOTICE", user.nick, splitMsg)
 			}
 
 			user.history.Add(history.Item{
 				Type:        history.Notice,
-				Msgid:       msgid,
 				Message:     splitMsg,
 				Nick:        nickMaskString,
 				AccountName: accountName,
@@ -2096,7 +2092,7 @@ func isRestrictedCTCPMessage(message string) bool {
 
 // PRIVMSG <target>{,<target>} <message>
 func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := msg.ClientOnlyTags()
 	targets := strings.Split(msg.Params[0], ",")
 	message := msg.Params[1]
 
@@ -2133,8 +2129,7 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 				continue
 			}
-			msgid := server.generateMessageID()
-			channel.SplitPrivMsg(msgid, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
+			channel.SendSplitMessage("PRIVMSG", lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
 			target, err = CasefoldName(targetString)
 			if service, isService := OragonoServices[target]; isService {
@@ -2151,18 +2146,17 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			if !user.capabilities.Has(caps.MessageTags) {
 				clientOnlyTags = nil
 			}
-			msgid := server.generateMessageID()
 			// restrict messages appropriately when +R is set
 			// intentionally make the sending user think the message went through fine
 			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
 			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
 			if allowedPlusR && allowedTor {
-				user.SendSplitMsgFromClient(msgid, client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				user.SendSplitMsgFromClient(client, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			nickMaskString := client.NickMaskString()
 			accountName := client.AccountName()
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddSplitMessageFromClient(msgid, nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, clientOnlyTags, "PRIVMSG", user.nick, splitMsg)
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
@@ -2171,7 +2165,6 @@ func privmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 			user.history.Add(history.Item{
 				Type:        history.Privmsg,
-				Msgid:       msgid,
 				Message:     splitMsg,
 				Nick:        nickMaskString,
 				AccountName: accountName,
@@ -2353,7 +2346,7 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // TAGMSG <target>{,<target>}
 func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	clientOnlyTags := utils.GetClientOnlyTags(msg.Tags)
+	clientOnlyTags := msg.ClientOnlyTags()
 	// no client-only tags, so we can drop it
 	if clientOnlyTags == nil {
 		return false
@@ -2362,6 +2355,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	targets := strings.Split(msg.Params[0], ",")
 
 	cnick := client.Nick()
+	message := utils.MakeSplitMessage("", true) // assign consistent message ID
 	for i, targetString := range targets {
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
@@ -2386,9 +2380,7 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
 				continue
 			}
-			msgid := server.generateMessageID()
-
-			channel.TagMsg(msgid, lowestPrefix, clientOnlyTags, client, rb)
+			channel.SendSplitMessage("TAGMSG", lowestPrefix, clientOnlyTags, client, message, rb)
 		} else {
 			target, err = CasefoldName(targetString)
 			user := server.clients.Get(target)
@@ -2398,19 +2390,19 @@ func tagmsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				}
 				continue
 			}
-			msgid := server.generateMessageID()
 
 			// end user can't receive tagmsgs
 			if !user.capabilities.Has(caps.MessageTags) {
 				continue
 			}
-			user.SendFromClient(msgid, client, clientOnlyTags, "TAGMSG", user.nick)
+			unick := user.Nick()
+			user.SendSplitMsgFromClient(client, clientOnlyTags, "TAGMSG", unick, message)
 			if client.capabilities.Has(caps.EchoMessage) {
-				rb.AddFromClient(msgid, client.NickMaskString(), client.AccountName(), clientOnlyTags, "TAGMSG", user.nick)
+				rb.AddSplitMessageFromClient(client.NickMaskString(), client.AccountName(), clientOnlyTags, "TAGMSG", unick, message)
 			}
 			if user.HasMode(modes.Away) {
 				//TODO(dan): possibly implement cooldown of away notifications to users
-				rb.Add(nil, server.name, RPL_AWAY, cnick, user.Nick(), user.AwayMessage())
+				rb.Add(nil, server.name, RPL_AWAY, cnick, unick, user.AwayMessage())
 			}
 		}
 	}

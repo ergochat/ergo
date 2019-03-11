@@ -20,6 +20,8 @@ import (
 var (
 	handshakeTimeout, _ = time.ParseDuration("5s")
 	errSendQExceeded    = errors.New("SendQ exceeded")
+
+	sendQExceededMessage = []byte("\r\nERROR :SendQ Exceeded\r\n")
 )
 
 // Socket represents an IRC socket.
@@ -38,7 +40,7 @@ type Socket struct {
 	totalLength   int
 	closed        bool
 	sendQExceeded bool
-	finalData     string // what to send when we die
+	finalData     []byte // what to send when we die
 	finalized     bool
 }
 
@@ -196,7 +198,7 @@ func (socket *Socket) wakeWriter() {
 }
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
-func (socket *Socket) SetFinalData(data string) {
+func (socket *Socket) SetFinalData(data []byte) {
 	socket.Lock()
 	defer socket.Unlock()
 	socket.finalData = data
@@ -271,7 +273,7 @@ func (socket *Socket) finalize() {
 	socket.finalized = true
 	finalData := socket.finalData
 	if socket.sendQExceeded {
-		finalData = "\r\nERROR :SendQ Exceeded\r\n"
+		finalData = sendQExceededMessage
 	}
 	socket.Unlock()
 
@@ -279,8 +281,8 @@ func (socket *Socket) finalize() {
 		return
 	}
 
-	if finalData != "" {
-		socket.conn.Write([]byte(finalData))
+	if len(finalData) != 0 {
+		socket.conn.Write(finalData)
 	}
 
 	// close the connection

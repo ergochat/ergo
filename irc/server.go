@@ -387,11 +387,6 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 	return &wrapper, nil
 }
 
-// generateMessageID returns a network-unique message ID.
-func (server *Server) generateMessageID() string {
-	return utils.GenerateSecretToken()
-}
-
 //
 // server functionality
 //
@@ -623,7 +618,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	} else {
 		// enforce configs that can't be changed after launch:
 		currentLimits := server.Limits()
-		if currentLimits.LineLen.Tags != config.Limits.LineLen.Tags || currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
+		if currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
@@ -703,9 +698,9 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	// MaxLine
-	if config.Limits.LineLen.Tags != 512 || config.Limits.LineLen.Rest != 512 {
+	if config.Limits.LineLen.Rest != 512 {
 		SupportedCapabilities.Enable(caps.MaxLine)
-		value := fmt.Sprintf("%d,%d", config.Limits.LineLen.Tags, config.Limits.LineLen.Rest)
+		value := fmt.Sprintf("%d", config.Limits.LineLen.Rest)
 		CapValues.Set(caps.MaxLine, value)
 	}
 

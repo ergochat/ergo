@@ -32,7 +32,8 @@ type ResponseBuffer struct {
 
 // GetLabel returns the label from the given message.
 func GetLabel(msg ircmsg.IrcMessage) string {
-	return msg.Tags[caps.LabelTagName].Value
+	_, value := msg.GetTag(caps.LabelTagName)
+	return value
 }
 
 // NewResponseBuffer returns a new ResponseBuffer.
@@ -42,8 +43,7 @@ func NewResponseBuffer(target *Client) *ResponseBuffer {
 	}
 }
 
-// Add adds a standard new message to our queue.
-func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, command string, params ...string) {
+func (rb *ResponseBuffer) AddMessage(msg ircmsg.IrcMessage) {
 	if rb.finalized {
 		rb.target.server.logger.Error("internal", "message added to finalized ResponseBuffer, undefined behavior")
 		debug.PrintStack()
@@ -52,33 +52,38 @@ func (rb *ResponseBuffer) Add(tags *map[string]ircmsg.TagValue, prefix string, c
 		return
 	}
 
-	message := ircmsg.MakeMessage(tags, prefix, command, params...)
-	rb.messages = append(rb.messages, message)
+	rb.messages = append(rb.messages, msg)
+}
+
+// Add adds a standard new message to our queue.
+func (rb *ResponseBuffer) Add(tags map[string]string, prefix string, command string, params ...string) {
+	rb.AddMessage(ircmsg.MakeMessage(tags, prefix, command, params...))
 }
 
 // AddFromClient adds a new message from a specific client to our queue.
-func (rb *ResponseBuffer) AddFromClient(msgid string, fromNickMask string, fromAccount string, tags *map[string]ircmsg.TagValue, command string, params ...string) {
+func (rb *ResponseBuffer) AddFromClient(msgid string, fromNickMask string, fromAccount string, tags map[string]string, command string, params ...string) {
+	msg := ircmsg.MakeMessage(nil, fromNickMask, command, params...)
+	msg.UpdateTags(tags)
+
 	// attach account-tag
-	if rb.target.capabilities.Has(caps.AccountTag) {
-		if fromAccount != "*" {
-			tags = ensureTag(tags, "account", fromAccount)
-		}
+	if rb.target.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
+		msg.SetTag("account", fromAccount)
 	}
 	// attach message-id
 	if len(msgid) > 0 && rb.target.capabilities.Has(caps.MessageTags) {
-		tags = ensureTag(tags, "draft/msgid", msgid)
+		msg.SetTag("draft/msgid", msgid)
 	}
 
-	rb.Add(tags, fromNickMask, command, params...)
+	rb.AddMessage(msg)
 }
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
-func (rb *ResponseBuffer) AddSplitMessageFromClient(msgid string, fromNickMask string, fromAccount string, tags *map[string]ircmsg.TagValue, command string, target string, message utils.SplitMessage) {
+func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
 	if rb.target.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
-		rb.AddFromClient(msgid, fromNickMask, fromAccount, tags, command, target, message.Original)
+		rb.AddFromClient(message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
 	} else {
-		for _, str := range message.Wrapped {
-			rb.AddFromClient(msgid, fromNickMask, fromAccount, tags, command, target, str)
+		for _, messagePair := range message.Wrapped {
+			rb.AddFromClient(messagePair.Msgid, fromNickMask, fromAccount, tags, command, target, messagePair.Message)
 		}
 	}
 }
@@ -103,7 +108,7 @@ func (rb *ResponseBuffer) sendBatchStart(batchType string, blocking bool) {
 
 	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "+"+rb.batchID, batchType)
 	if rb.Label != "" {
-		message.Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+		message.SetTag(caps.LabelTagName, rb.Label)
 	}
 	rb.target.SendRawMessage(message, blocking)
 }
@@ -149,7 +154,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 
 	// if label but no batch, add label to first message
 	if useLabel && !useBatch && len(rb.messages) == 1 && rb.batchID == "" {
-		rb.messages[0].Tags[caps.LabelTagName] = ircmsg.MakeTagValue(rb.Label)
+		rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
 	} else if useBatch {
 		rb.sendBatchStart(defaultBatchType, blocking)
 	}
@@ -157,16 +162,13 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	// send each message out
 	for _, message := range rb.messages {
 		// attach server-time if needed
-		if rb.target.capabilities.Has(caps.ServerTime) {
-			if !message.Tags["time"].HasValue {
-				t := time.Now().UTC().Format(IRCv3TimestampFormat)
-				message.Tags["time"] = ircmsg.MakeTagValue(t)
-			}
+		if rb.target.capabilities.Has(caps.ServerTime) && !message.HasTag("time") {
+			message.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
 		}
 
 		// attach batch ID
 		if rb.batchID != "" {
-			message.Tags["batch"] = ircmsg.MakeTagValue(rb.batchID)
+			message.SetTag("batch", rb.batchID)
 		}
 
 		// send message out

@@ -57,12 +57,12 @@ const (
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
 
-	// MaxLine is the Oragono-specific capability named "oragono.io/maxline":
-	// https://oragono.io/maxline
+	// MaxLine is the Oragono-specific capability named "oragono.io/maxline-2":
+	// https://oragono.io/maxline-2
 	MaxLine Capability = iota
 
-	// MessageTags is the draft IRCv3 capability named "draft/message-tags-0.2":
-	// https://ircv3.net/specs/core/message-tags-3.3.html
+	// MessageTags is the IRCv3 capability named "message-tags":
+	// https://ircv3.net/specs/extensions/message-tags.html
 	MessageTags Capability = iota
 
 	// MultiPrefix is the IRCv3 capability named "multi-prefix":
@@ -112,8 +112,8 @@ var (
 		"invite-notify",
 		"draft/labeled-response",
 		"draft/languages",
-		"oragono.io/maxline",
-		"draft/message-tags-0.2",
+		"oragono.io/maxline-2",
+		"message-tags",
 		"multi-prefix",
 		"draft/rename",
 		"draft/resume-0.3",
