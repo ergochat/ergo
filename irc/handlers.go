@@ -2208,65 +2208,43 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 // RENAME <oldchan> <newchan> [<reason>]
 func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
 	result = false
-
-	errorResponse := func(err error, name string) {
-		// TODO: send correct error codes, e.g., ERR_CANNOTRENAME, ERR_CHANNAMEINUSE
-		var code string
-		switch err {
-		case errNoSuchChannel:
-			code = ERR_NOSUCHCHANNEL
-		case errRenamePrivsNeeded:
-			code = ERR_CHANOPRIVSNEEDED
-		case errInvalidChannelName:
-			code = ERR_UNKNOWNERROR
-		case errChannelNameInUse:
-			code = ERR_UNKNOWNERROR
-		default:
-			code = ERR_UNKNOWNERROR
-		}
-		rb.Add(nil, server.name, code, client.Nick(), "RENAME", name, err.Error())
+	oldName, newName := msg.Params[0], msg.Params[1]
+	if newName == "" {
+		newName = "<empty>" // intentionally invalid channel name, will error as expected
 	}
-
-	oldName := strings.TrimSpace(msg.Params[0])
-	newName := strings.TrimSpace(msg.Params[1])
-	if oldName == "" || newName == "" {
-		errorResponse(errInvalidChannelName, "<empty>")
-		return
-	}
-	casefoldedOldName, err := CasefoldChannel(oldName)
-	if err != nil {
-		errorResponse(errInvalidChannelName, oldName)
-		return
-	}
-
-	reason := "No reason"
+	var reason string
 	if 2 < len(msg.Params) {
 		reason = msg.Params[2]
 	}
 
 	channel := server.channels.Get(oldName)
 	if channel == nil {
-		errorResponse(errNoSuchChannel, oldName)
-		return
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), oldName, client.t("No such channel"))
+		return false
 	}
-	//TODO(dan): allow IRCops to do this?
-	if !channel.ClientIsAtLeast(client, modes.Operator) {
-		errorResponse(errRenamePrivsNeeded, oldName)
-		return
+	casefoldedOldName := channel.NameCasefolded()
+	if !(channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("chanreg")) {
+		rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), oldName, client.t("You're not a channel operator"))
+		return false
 	}
 
 	founder := channel.Founder()
 	if founder != "" && founder != client.Account() {
-		//TODO(dan): Change this to ERR_CANNOTRENAME
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "RENAME", oldName, client.t("Only channel founders can change registered channels"))
+		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Only channel founders can change registered channels"))
 		return false
 	}
 
 	// perform the channel rename
-	err = server.channels.Rename(oldName, newName)
+	err := server.channels.Rename(oldName, newName)
+	if err == errInvalidChannelName {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), newName, client.t(err.Error()))
+	} else if err == errChannelNameInUse {
+		rb.Add(nil, server.name, ERR_CHANNAMEINUSE, client.Nick(), newName, client.t(err.Error()))
+	} else if err != nil {
+		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Cannot rename channel"))
+	}
 	if err != nil {
-		errorResponse(err, newName)
-		return
+		return false
 	}
 
 	// rename succeeded, persist it
@@ -2274,15 +2252,33 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	// send RENAME messages
 	for _, mcl := range channel.Members() {
+		targetRb := rb
+		if mcl != client {
+			targetRb = NewResponseBuffer(mcl)
+		}
+		prefix := mcl.NickMaskString()
 		if mcl.capabilities.Has(caps.Rename) {
-			mcl.Send(nil, client.nickMaskString, "RENAME", oldName, newName, reason)
-		} else {
-			mcl.Send(nil, mcl.nickMaskString, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
-			if mcl.capabilities.Has(caps.ExtendedJoin) {
-				mcl.Send(nil, mcl.nickMaskString, "JOIN", newName, mcl.AccountName(), mcl.realname)
+			if reason != "" {
+				targetRb.Add(nil, prefix, "RENAME", oldName, newName, reason)
 			} else {
-				mcl.Send(nil, mcl.nickMaskString, "JOIN", newName)
+				targetRb.Add(nil, prefix, "RENAME", oldName, newName)
 			}
+		} else {
+			if reason != "" {
+				targetRb.Add(nil, prefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
+			} else {
+				targetRb.Add(nil, prefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
+			}
+			if mcl.capabilities.Has(caps.ExtendedJoin) {
+				targetRb.Add(nil, prefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
+			} else {
+				targetRb.Add(nil, prefix, "JOIN", newName)
+			}
+			channel.SendTopic(mcl, targetRb, false)
+			channel.Names(mcl, targetRb)
+		}
+		if mcl != client {
+			targetRb.Send(false)
 		}
 	}
 
