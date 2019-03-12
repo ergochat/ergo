@@ -218,7 +218,7 @@ func (cm *ChannelManager) Rename(name string, newname string) (err error) {
 	cm.Lock()
 	defer cm.Unlock()
 
-	if cm.chans[cfnewname] != nil {
+	if cm.chans[cfnewname] != nil || cm.registeredChannels[cfnewname] {
 		return errChannelNameInUse
 	}
 	entry := cm.chans[cfname]
