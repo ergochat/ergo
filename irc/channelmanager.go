@@ -229,6 +229,10 @@ func (cm *ChannelManager) Rename(name string, newname string) (err error) {
 	info = channel.ExportRegistration(IncludeInitial)
 	delete(cm.chans, cfname)
 	cm.chans[cfnewname] = entry
+	if cm.registeredChannels[cfname] {
+		delete(cm.registeredChannels, cfname)
+		cm.registeredChannels[cfnewname] = true
+	}
 	entry.channel.Rename(newname, cfnewname)
 	return nil
 }
