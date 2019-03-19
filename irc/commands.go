@@ -23,7 +23,7 @@ type Command struct {
 // Run runs this command with the given client/message.
 func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
-		client.Send(nil, server.name, ERR_NOTREGISTERED, client.nick, client.t("You need to register before you can use that command"))
+		client.Send(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
 		return false
 	}
 	if cmd.oper && !client.HasMode(modes.Operator) {
@@ -184,7 +184,7 @@ func init() {
 			minParams:    1,
 		},
 		"NOTICE": {
-			handler:   noticeHandler,
+			handler:   messageHandler,
 			minParams: 2,
 		},
 		"NPC": {
@@ -221,7 +221,7 @@ func init() {
 			leaveClientIdle: true,
 		},
 		"PRIVMSG": {
-			handler:   privmsgHandler,
+			handler:   messageHandler,
 			minParams: 2,
 		},
 		"RENAME": {
@@ -257,7 +257,7 @@ func init() {
 			minParams: 1,
 		},
 		"TAGMSG": {
-			handler:   tagmsgHandler,
+			handler:   messageHandler,
 			minParams: 1,
 		},
 		"QUIT": {

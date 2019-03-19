@@ -150,7 +150,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
-				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.name, client.t("You're not a channel operator"))
 			}
 			continue
 		}
@@ -226,7 +226,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 			nick := change.Arg
 			if nick == "" {
-				rb.Add(nil, client.server.name, ERR_NEEDMOREPARAMS, "MODE", client.t("Not enough parameters"))
+				rb.Add(nil, client.server.name, ERR_NEEDMOREPARAMS, client.Nick(), "MODE", client.t("Not enough parameters"))
 				return nil
 			}
 
