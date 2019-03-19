@@ -1903,10 +1903,11 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
-	now := time.Now().UTC()
-
 	for i, targetString := range targets {
+		// each target gets distinct msgids
+		splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
+		now := time.Now().UTC()
+
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
 			break
