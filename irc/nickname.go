@@ -26,14 +26,15 @@ var (
 func performNickChange(server *Server, client *Client, target *Client, newnick string, rb *ResponseBuffer) bool {
 	nickname := strings.TrimSpace(newnick)
 	cfnick, err := CasefoldName(nickname)
+	currentNick := client.Nick()
 
 	if len(nickname) < 1 {
-		rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, client.nick, client.t("No nickname given"))
+		rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, currentNick, client.t("No nickname given"))
 		return false
 	}
 
 	if err != nil || len(nickname) > server.Limits().NickLen || restrictedNicknames[cfnick] {
-		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, client.nick, nickname, client.t("Erroneous nickname"))
+		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, currentNick, nickname, client.t("Erroneous nickname"))
 		return false
 	}
 
@@ -46,13 +47,13 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 	whowas := client.WhoWas()
 	err = client.server.clients.SetNick(target, nickname)
 	if err == errNicknameInUse {
-		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is already in use"))
+		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is already in use"))
 		return false
 	} else if err == errNicknameReserved {
-		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, client.nick, nickname, client.t("Nickname is reserved by a different account"))
+		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is reserved by a different account"))
 		return false
 	} else if err != nil {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 		return false
 	}
 

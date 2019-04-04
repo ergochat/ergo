@@ -377,25 +377,25 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	hasPrivs := isSajoin || (founder != "" && founder == details.account) || (persistentMode != 0 && persistentMode != modes.Voice)
 
 	if !hasPrivs && limit != 0 && chcount >= limit {
-		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
+		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
 		return
 	}
 
 	if !hasPrivs && chkey != "" && !utils.SecretTokensMatch(chkey, key) {
-		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
+		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
 		return
 	}
 
 	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded)
 	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
-		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
+		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
 		return
 	}
 
 	if !hasPrivs && channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
 		!isInvited &&
 		!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) {
-		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
+		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
 		return
 	}
 
@@ -482,7 +482,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer) {
 	chname := channel.Name()
 	if !channel.hasClient(client) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, chname, client.t("You're not on that channel"))
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), chname, client.t("You're not on that channel"))
 		return
 	}
 
@@ -645,7 +645,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 // `sendNoTopic` controls whether RPL_NOTOPIC is sent when the topic is unset
 func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer, sendNoTopic bool) {
 	if !channel.hasClient(client) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.nick, channel.name, client.t("You're not on that channel"))
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.name, client.t("You're not on that channel"))
 		return
 	}
 
@@ -670,12 +670,12 @@ func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer, sendNoTopi
 // SetTopic sets the topic of this channel, if the client is allowed to do so.
 func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffer) {
 	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
 		return
 	}
 
 	if channel.flags.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You're not a channel operator"))
 		return
 	}
 
@@ -719,22 +719,30 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
-	var histType history.ItemType
+func msgCommandToHistType(server *Server, command string) (history.ItemType, error) {
 	switch command {
 	case "PRIVMSG":
-		histType = history.Privmsg
+		return history.Privmsg, nil
 	case "NOTICE":
-		histType = history.Notice
+		return history.Notice, nil
 	case "TAGMSG":
-		histType = history.Tagmsg
+		return history.Tagmsg, nil
 	default:
-		channel.server.logger.Error("internal", "unrecognized Channel.SendSplitMessage command", command)
+		server.logger.Error("internal", "unrecognized messaging command", command)
+		return history.ItemType(0), errInvalidParams
+	}
+}
+
+func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
+	histType, err := msgCommandToHistType(channel.server, command)
+	if err != nil {
 		return
 	}
 
 	if !channel.CanSpeak(client) {
-		rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
+		if histType != history.Notice {
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, client.Nick(), channel.Name(), client.t("Cannot send to channel"))
+		}
 		return
 	}
 
@@ -751,7 +759,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, 
 		}
 		nickMaskString := client.NickMaskString()
 		accountName := client.AccountName()
-		if command == "TAGMSG" && client.capabilities.Has(caps.MessageTags) {
+		if histType == history.Tagmsg && client.capabilities.Has(caps.MessageTags) {
 			rb.AddFromClient(message.Msgid, nickMaskString, accountName, tagsToUse, command, channel.name)
 		} else {
 			rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToUse, command, channel.name, message)
@@ -775,11 +783,11 @@ func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, 
 		var tagsToUse map[string]string
 		if member.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
-		} else if command == "TAGMSG" {
+		} else if histType == history.Tagmsg {
 			continue
 		}
 
-		if command == "TAGMSG" {
+		if histType == history.Tagmsg {
 			member.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, channel.name)
 		} else {
 			member.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, channel.name, message)
@@ -861,7 +869,7 @@ func (channel *Channel) applyModeMask(client *Client, mode modes.Mode, op modes.
 	}
 
 	if !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You're not a channel operator"))
+		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You're not a channel operator"))
 		return false
 	}
 
@@ -898,15 +906,15 @@ func (channel *Channel) Quit(client *Client) {
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {
 	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, channel.name, client.t("You're not on that channel"))
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
 		return
 	}
 	if !channel.hasClient(target) {
-		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.nick, channel.name, client.t("They aren't on that channel"))
+		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.Nick(), channel.Name(), client.t("They aren't on that channel"))
 		return
 	}
 	if !channel.ClientHasPrivsOver(client, target) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, channel.name, client.t("You don't have enough channel privileges"))
+		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You don't have enough channel privileges"))
 		return
 	}
 
@@ -938,12 +946,12 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
 	chname := channel.Name()
 	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, chname, inviter.t("You're not a channel operator"))
+		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), channel.Name(), inviter.t("You're not a channel operator"))
 		return
 	}
 
 	if !channel.hasClient(inviter) {
-		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, chname, inviter.t("You're not on that channel"))
+		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, inviter.Nick(), channel.Name(), inviter.t("You're not on that channel"))
 		return
 	}
 
