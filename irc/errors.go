@@ -27,6 +27,8 @@ var (
 	errAccountMustHoldNick            = errors.New(`You must hold that nickname in order to register it`)
 	errCallbackFailed                 = errors.New("Account verification could not be sent")
 	errCertfpAlreadyExists            = errors.New(`An account already exists for your certificate fingerprint`)
+	errChannelNotOwnedByAccount       = errors.New("Channel not owned by the specified account")
+	errChannelDoesNotExist            = errors.New("Channel does not exist")
 	errChannelAlreadyRegistered       = errors.New("Channel is already registered")
 	errChannelNameInUse               = errors.New(`Channel name in use`)
 	errInvalidChannelName             = errors.New(`Invalid channel name`)

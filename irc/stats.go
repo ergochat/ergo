@@ -13,17 +13,6 @@ type Stats struct {
 	Operators int
 }
 
-// NewStats creates a new instance of Stats
-func NewStats() *Stats {
-	serverStats := &Stats{
-		Total:     0,
-		Invisible: 0,
-		Operators: 0,
-	}
-
-	return serverStats
-}
-
 // ChangeTotal increments the total user count on server
 func (s *Stats) ChangeTotal(i int) {
 	s.Lock()

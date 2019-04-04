@@ -335,7 +335,6 @@ const (
 // returns a pointer to a new ModeSet
 func NewModeSet() *ModeSet {
 	var set ModeSet
-	utils.BitsetInitialize(set[:])
 	return &set
 }
 

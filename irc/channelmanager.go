@@ -19,25 +19,38 @@ type channelManagerEntry struct {
 // providing synchronization for creation of new channels on first join,
 // cleanup of empty channels on last part, and renames.
 type ChannelManager struct {
-	sync.RWMutex // tier 2
-	chans        map[string]*channelManagerEntry
+	sync.RWMutex       // tier 2
+	chans              map[string]*channelManagerEntry
+	registeredChannels map[string]bool
+	server             *Server
 }
 
 // NewChannelManager returns a new ChannelManager.
-func NewChannelManager() *ChannelManager {
-	return &ChannelManager{
-		chans: make(map[string]*channelManagerEntry),
+func (cm *ChannelManager) Initialize(server *Server) {
+	cm.chans = make(map[string]*channelManagerEntry)
+	cm.server = server
+
+	if server.Config().Channels.Registration.Enabled {
+		cm.loadRegisteredChannels()
 	}
 }
 
+func (cm *ChannelManager) loadRegisteredChannels() {
+	registeredChannels := cm.server.channelRegistry.AllChannels()
+	cm.Lock()
+	defer cm.Unlock()
+	cm.registeredChannels = registeredChannels
+}
+
 // Get returns an existing channel with name equivalent to `name`, or nil
-func (cm *ChannelManager) Get(name string) *Channel {
+func (cm *ChannelManager) Get(name string) (channel *Channel) {
 	name, err := CasefoldChannel(name)
 	if err == nil {
 		cm.RLock()
 		defer cm.RUnlock()
 		entry := cm.chans[name]
-		if entry != nil {
+		// if the channel is still loading, pretend we don't have it
+		if entry != nil && entry.channel.IsLoaded() {
 			return entry.channel
 		}
 	}
@@ -55,28 +68,21 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 	cm.Lock()
 	entry := cm.chans[casefoldedName]
 	if entry == nil {
-		// XXX give up the lock to check for a registration, then check again
-		// to see if we need to create the channel. we could solve this by doing LoadChannel
-		// outside the lock initially on every join, so this is best thought of as an
-		// optimization to avoid that.
-		cm.Unlock()
-		info := client.server.channelRegistry.LoadChannel(casefoldedName)
-		cm.Lock()
-		entry = cm.chans[casefoldedName]
-		if entry == nil {
-			entry = &channelManagerEntry{
-				channel:      NewChannel(server, name, info),
-				pendingJoins: 0,
-			}
-			cm.chans[casefoldedName] = entry
+		registered := cm.registeredChannels[casefoldedName]
+		entry = &channelManagerEntry{
+			channel:      NewChannel(server, name, registered),
+			pendingJoins: 0,
 		}
+		cm.chans[casefoldedName] = entry
 	}
 	entry.pendingJoins += 1
+	channel := entry.channel
 	cm.Unlock()
 
-	entry.channel.Join(client, key, isSajoin, rb)
+	channel.EnsureLoaded()
+	channel.Join(client, key, isSajoin, rb)
 
-	cm.maybeCleanup(entry.channel, true)
+	cm.maybeCleanup(channel, true)
 
 	return nil
 }
@@ -85,7 +91,8 @@ func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {
 	cm.Lock()
 	defer cm.Unlock()
 
-	entry := cm.chans[channel.NameCasefolded()]
+	nameCasefolded := channel.NameCasefolded()
+	entry := cm.chans[nameCasefolded]
 	if entry == nil || entry.channel != channel {
 		return
 	}
@@ -93,23 +100,15 @@ func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {
 	if afterJoin {
 		entry.pendingJoins -= 1
 	}
-	// TODO(slingamn) right now, registered channels cannot be cleaned up.
-	// this is because once ChannelManager becomes the source of truth about a channel,
-	// we can't move the source of truth back to the database unless we do an ACID
-	// store while holding the ChannelManager's Lock(). This is pending more decisions
-	// about where the database transaction lock fits into the overall lock model.
-	if !entry.channel.IsRegistered() && entry.channel.IsEmpty() && entry.pendingJoins == 0 {
-		// reread the name, handling the case where the channel was renamed
-		casefoldedName := entry.channel.NameCasefolded()
-		delete(cm.chans, casefoldedName)
-		// invalidate the entry (otherwise, a subsequent cleanup attempt could delete
-		// a valid, distinct entry under casefoldedName):
-		entry.channel = nil
+	if entry.pendingJoins == 0 && entry.channel.IsClean() {
+		delete(cm.chans, nameCasefolded)
 	}
 }
 
 // Part parts `client` from the channel named `name`, deleting it if it's empty.
 func (cm *ChannelManager) Part(client *Client, name string, message string, rb *ResponseBuffer) error {
+	var channel *Channel
+
 	casefoldedName, err := CasefoldChannel(name)
 	if err != nil {
 		return errNoSuchChannel
@@ -117,12 +116,15 @@ func (cm *ChannelManager) Part(client *Client, name string, message string, rb *
 
 	cm.RLock()
 	entry := cm.chans[casefoldedName]
+	if entry != nil {
+		channel = entry.channel
+	}
 	cm.RUnlock()
 
-	if entry == nil {
+	if channel == nil {
 		return errNoSuchChannel
 	}
-	entry.channel.Part(client, message, rb)
+	channel.Part(client, message, rb)
 	return nil
 }
 
@@ -130,8 +132,68 @@ func (cm *ChannelManager) Cleanup(channel *Channel) {
 	cm.maybeCleanup(channel, false)
 }
 
+func (cm *ChannelManager) SetRegistered(channelName string, account string) (err error) {
+	var channel *Channel
+	cfname, err := CasefoldChannel(channelName)
+	if err != nil {
+		return err
+	}
+
+	var entry *channelManagerEntry
+
+	defer func() {
+		if err == nil && channel != nil {
+			// registration was successful: make the database reflect it
+			err = channel.Store(IncludeAllChannelAttrs)
+		}
+	}()
+
+	cm.Lock()
+	defer cm.Unlock()
+	entry = cm.chans[cfname]
+	if entry == nil {
+		return errNoSuchChannel
+	}
+	channel = entry.channel
+	err = channel.SetRegistered(account)
+	if err != nil {
+		return err
+	}
+	cm.registeredChannels[cfname] = true
+	return nil
+}
+
+func (cm *ChannelManager) SetUnregistered(channelName string, account string) (err error) {
+	cfname, err := CasefoldChannel(channelName)
+	if err != nil {
+		return err
+	}
+
+	var info RegisteredChannel
+
+	defer func() {
+		if err == nil {
+			err = cm.server.channelRegistry.Delete(info)
+		}
+	}()
+
+	cm.Lock()
+	defer cm.Unlock()
+	entry := cm.chans[cfname]
+	if entry == nil {
+		return errNoSuchChannel
+	}
+	info = entry.channel.ExportRegistration(0)
+	if info.Founder != account {
+		return errChannelNotOwnedByAccount
+	}
+	entry.channel.SetUnregistered(account)
+	delete(cm.registeredChannels, cfname)
+	return nil
+}
+
 // Rename renames a channel (but does not notify the members)
-func (cm *ChannelManager) Rename(name string, newname string) error {
+func (cm *ChannelManager) Rename(name string, newname string) (err error) {
 	cfname, err := CasefoldChannel(name)
 	if err != nil {
 		return errNoSuchChannel
@@ -142,22 +204,37 @@ func (cm *ChannelManager) Rename(name string, newname string) error {
 		return errInvalidChannelName
 	}
 
+	var channel *Channel
+	var info RegisteredChannel
+	defer func() {
+		if channel != nil && info.Founder != "" {
+			channel.Store(IncludeAllChannelAttrs)
+			// we just flushed the channel under its new name, therefore this delete
+			// cannot be overwritten by a write to the old name:
+			cm.server.channelRegistry.Delete(info)
+		}
+	}()
+
 	cm.Lock()
 	defer cm.Unlock()
 
-	if cm.chans[cfnewname] != nil {
+	if cm.chans[cfnewname] != nil || cm.registeredChannels[cfnewname] {
 		return errChannelNameInUse
 	}
 	entry := cm.chans[cfname]
 	if entry == nil {
 		return errNoSuchChannel
 	}
+	channel = entry.channel
+	info = channel.ExportRegistration(IncludeInitial)
 	delete(cm.chans, cfname)
 	cm.chans[cfnewname] = entry
-	entry.channel.setName(newname)
-	entry.channel.setNameCasefolded(cfnewname)
+	if cm.registeredChannels[cfname] {
+		delete(cm.registeredChannels, cfname)
+		cm.registeredChannels[cfnewname] = true
+	}
+	entry.channel.Rename(newname, cfnewname)
 	return nil
-
 }
 
 // Len returns the number of channels
@@ -171,8 +248,11 @@ func (cm *ChannelManager) Len() int {
 func (cm *ChannelManager) Channels() (result []*Channel) {
 	cm.RLock()
 	defer cm.RUnlock()
+	result = make([]*Channel, 0, len(cm.chans))
 	for _, entry := range cm.chans {
-		result = append(result, entry.channel)
+		if entry.channel.IsLoaded() {
+			result = append(result, entry.channel)
+		}
 	}
 	return
 }

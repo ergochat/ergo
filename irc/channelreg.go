@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"encoding/json"
@@ -71,6 +70,8 @@ const (
 type RegisteredChannel struct {
 	// Name of the channel.
 	Name string
+	// Casefolded name of the channel.
+	NameCasefolded string
 	// RegisteredAt represents the time that the channel was registered.
 	RegisteredAt time.Time
 	// Founder indicates the founder of the channel.
@@ -97,58 +98,65 @@ type RegisteredChannel struct {
 
 // ChannelRegistry manages registered channels.
 type ChannelRegistry struct {
-	// This serializes operations of the form (read channel state, synchronously persist it);
-	// this is enough to guarantee eventual consistency of the database with the
-	// ChannelManager and Channel objects, which are the source of truth.
-	//
-	// We could use the buntdb RW transaction lock for this purpose but we share
-	// that with all the other modules, so let's not.
-	sync.Mutex // tier 2
-	server     *Server
+	server *Server
 }
 
 // NewChannelRegistry returns a new ChannelRegistry.
-func NewChannelRegistry(server *Server) *ChannelRegistry {
-	return &ChannelRegistry{
-		server: server,
-	}
+func (reg *ChannelRegistry) Initialize(server *Server) {
+	reg.server = server
+}
+
+func (reg *ChannelRegistry) AllChannels() (result map[string]bool) {
+	result = make(map[string]bool)
+
+	prefix := fmt.Sprintf(keyChannelExists, "")
+	reg.server.store.View(func(tx *buntdb.Tx) error {
+		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, prefix) {
+				return false
+			}
+			channel := strings.TrimPrefix(key, prefix)
+			result[channel] = true
+			return true
+		})
+	})
+
+	return
 }
 
 // StoreChannel obtains a consistent view of a channel, then persists it to the store.
-func (reg *ChannelRegistry) StoreChannel(channel *Channel, includeFlags uint) {
+func (reg *ChannelRegistry) StoreChannel(info RegisteredChannel, includeFlags uint) (err error) {
 	if !reg.server.ChannelRegistrationEnabled() {
 		return
 	}
 
-	reg.Lock()
-	defer reg.Unlock()
-
-	key := channel.NameCasefolded()
-	info := channel.ExportRegistration(includeFlags)
 	if info.Founder == "" {
 		// sanity check, don't try to store an unregistered channel
 		return
 	}
 
 	reg.server.store.Update(func(tx *buntdb.Tx) error {
-		reg.saveChannel(tx, key, info, includeFlags)
+		reg.saveChannel(tx, info, includeFlags)
 		return nil
 	})
+
+	return nil
 }
 
 // LoadChannel loads a channel from the store.
-func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *RegisteredChannel) {
+func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredChannel, err error) {
 	if !reg.server.ChannelRegistrationEnabled() {
-		return nil
+		err = errFeatureDisabled
+		return
 	}
 
 	channelKey := nameCasefolded
 	// nice to have: do all JSON (de)serialization outside of the buntdb transaction
-	reg.server.store.View(func(tx *buntdb.Tx) error {
-		_, err := tx.Get(fmt.Sprintf(keyChannelExists, channelKey))
-		if err == buntdb.ErrNotFound {
+	err = reg.server.store.View(func(tx *buntdb.Tx) error {
+		_, dberr := tx.Get(fmt.Sprintf(keyChannelExists, channelKey))
+		if dberr == buntdb.ErrNotFound {
 			// chan does not already exist, return
-			return nil
+			return errNoSuchChannel
 		}
 
 		// channel exists, load it
@@ -181,7 +189,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 		accountToUMode := make(map[string]modes.Mode)
 		_ = json.Unmarshal([]byte(accountToUModeString), &accountToUMode)
 
-		info = &RegisteredChannel{
+		info = RegisteredChannel{
 			Name:           name,
 			RegisteredAt:   time.Unix(regTimeInt, 0),
 			Founder:        founder,
@@ -198,46 +206,21 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info *Registered
 		return nil
 	})
 
-	return info
+	return
 }
 
-func (reg *ChannelRegistry) Delete(casefoldedName string, info RegisteredChannel) {
+// Delete deletes a channel corresponding to `info`. If no such channel
+// is present in the database, no error is returned.
+func (reg *ChannelRegistry) Delete(info RegisteredChannel) (err error) {
 	if !reg.server.ChannelRegistrationEnabled() {
 		return
 	}
 
-	reg.Lock()
-	defer reg.Unlock()
-
 	reg.server.store.Update(func(tx *buntdb.Tx) error {
-		reg.deleteChannel(tx, casefoldedName, info)
+		reg.deleteChannel(tx, info.NameCasefolded, info)
 		return nil
 	})
-}
-
-// Rename handles the persistence part of a channel rename: the channel is
-// persisted under its new name, and the old name is cleaned up if necessary.
-func (reg *ChannelRegistry) Rename(channel *Channel, casefoldedOldName string) {
-	if !reg.server.ChannelRegistrationEnabled() {
-		return
-	}
-
-	reg.Lock()
-	defer reg.Unlock()
-
-	includeFlags := IncludeAllChannelAttrs
-	oldKey := casefoldedOldName
-	key := channel.NameCasefolded()
-	info := channel.ExportRegistration(includeFlags)
-	if info.Founder == "" {
-		return
-	}
-
-	reg.server.store.Update(func(tx *buntdb.Tx) error {
-		reg.deleteChannel(tx, oldKey, info)
-		reg.saveChannel(tx, key, info, includeFlags)
-		return nil
-	})
+	return nil
 }
 
 // delete a channel, unless it was overwritten by another registration of the same channel
@@ -274,7 +257,8 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 }
 
 // saveChannel saves a channel to the store.
-func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelKey string, channelInfo RegisteredChannel, includeFlags uint) {
+func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredChannel, includeFlags uint) {
+	channelKey := channelInfo.NameCasefolded
 	// maintain the mapping of account -> registered channels
 	chanExistsKey := fmt.Sprintf(keyChannelExists, channelKey)
 	_, existsErr := tx.Get(chanExistsKey)

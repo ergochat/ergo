@@ -50,7 +50,7 @@ type Client struct {
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	atime              time.Time
 	awayMessage        string
-	capabilities       *caps.Set
+	capabilities       caps.Set
 	capState           caps.State
 	capVersion         caps.Version
 	certfp             string
@@ -58,7 +58,7 @@ type Client struct {
 	ctime              time.Time
 	exitedSnomaskSent  bool
 	fakelag            Fakelag
-	flags              *modes.ModeSet
+	flags              modes.ModeSet
 	hasQuit            bool
 	hops               int
 	hostname           string
@@ -125,15 +125,13 @@ func RunNewClient(server *Server, conn clientConn) {
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn.Conn, fullLineLenLimit+1024, config.Server.MaxSendQBytes)
 	client := &Client{
-		atime:        now,
-		capabilities: caps.NewSet(),
-		capState:     caps.NoneState,
-		capVersion:   caps.Cap301,
-		channels:     make(ChannelSet),
-		ctime:        now,
-		flags:        modes.NewModeSet(),
-		isTor:        conn.IsTor,
-		languages:    server.Languages().Default(),
+		atime:      now,
+		capState:   caps.NoneState,
+		capVersion: caps.Cap301,
+		channels:   make(ChannelSet),
+		ctime:      now,
+		isTor:      conn.IsTor,
+		languages:  server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
@@ -546,7 +544,6 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 // copy applicable state from oldClient to client as part of a resume
 func (client *Client) copyResumeData(oldClient *Client) {
 	oldClient.stateMutex.RLock()
-	flags := oldClient.flags
 	history := oldClient.history
 	nick := oldClient.nick
 	nickCasefolded := oldClient.nickCasefolded
@@ -560,7 +557,7 @@ func (client *Client) copyResumeData(oldClient *Client) {
 	// resume over plaintext)
 	hasTLS := client.flags.HasMode(modes.TLS)
 	temp := modes.NewModeSet()
-	temp.Copy(flags)
+	temp.Copy(&oldClient.flags)
 	temp.SetMode(modes.TLS, hasTLS)
 	client.flags.Copy(temp)
 

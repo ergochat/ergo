@@ -23,7 +23,8 @@ func makeTestWhowas(nick string) WhoWas {
 
 func TestWhoWas(t *testing.T) {
 	var results []WhoWas
-	wwl := NewWhoWasList(3)
+	var wwl WhoWasList
+	wwl.Initialize(3)
 	// test Find on empty list
 	results = wwl.Find("nobody", 10)
 	if len(results) != 0 {
@@ -88,7 +89,8 @@ func TestWhoWas(t *testing.T) {
 
 func TestEmptyWhoWas(t *testing.T) {
 	// stupid edge case; setting an empty whowas buffer should not panic
-	wwl := NewWhoWasList(0)
+	var wwl WhoWasList
+	wwl.Initialize(0)
 	results := wwl.Find("slingamn", 10)
 	if len(results) != 0 {
 		t.Fatalf("incorrect whowas results: %v", results)

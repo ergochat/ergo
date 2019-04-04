@@ -232,14 +232,11 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	// this provides the synchronization that allows exactly one registration of the channel:
-	err = channelInfo.SetRegistered(account)
+	err = server.channels.SetRegistered(channelKey, account)
 	if err != nil {
 		csNotice(rb, err.Error())
 		return
 	}
-
-	// registration was successful: make the database reflect it
-	go server.channelRegistry.StoreChannel(channelInfo, IncludeAllChannelAttrs)
 
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s successfully registered"), channelName))
 
@@ -297,8 +294,7 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	channel.SetUnregistered(founder)
-	server.channelRegistry.Delete(channelKey, info)
+	server.channels.SetUnregistered(channelKey, founder)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
 }
 

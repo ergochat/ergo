@@ -9,17 +9,6 @@ import "sync/atomic"
 // For examples of use, see caps.Set and modes.ModeSet; the array has to be converted to a
 // slice to use these functions.
 
-// BitsetInitialize initializes a bitset.
-func BitsetInitialize(set []uint64) {
-	// XXX re-zero the bitset using atomic stores. it's unclear whether this is required,
-	// however, golang issue #5045 suggests that you shouldn't mix atomic operations
-	// with non-atomic operations (such as the runtime's automatic zero-initialization) on
-	// the same word
-	for i := 0; i < len(set); i++ {
-		atomic.StoreUint64(&set[i], 0)
-	}
-}
-
 // BitsetGet returns whether a given bit of the bitset is set.
 func BitsetGet(set []uint64, position uint) bool {
 	idx := position / 64

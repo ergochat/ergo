@@ -23,12 +23,10 @@ type WhoWasList struct {
 }
 
 // NewWhoWasList returns a new WhoWasList
-func NewWhoWasList(size int) *WhoWasList {
-	return &WhoWasList{
-		buffer: make([]WhoWas, size),
-		start:  -1,
-		end:    -1,
-	}
+func (list *WhoWasList) Initialize(size int) {
+	list.buffer = make([]WhoWas, size)
+	list.start = -1
+	list.end = -1
 }
 
 // Append adds an entry to the WhoWasList.
