@@ -261,6 +261,13 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 		return l == r || umodeGreaterThan(l, r)
 	}
 
+	changed := false
+	defer func() {
+		if changed {
+			channel.MarkDirty(IncludeLists)
+		}
+	}()
+
 	account := client.Account()
 	isOperChange := client.HasRoleCapabs("chanreg")
 
@@ -290,14 +297,14 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 	case modes.Add:
 		if targetModeNow != targetModeAfter {
 			channel.accountToUMode[change.Arg] = change.Mode
-			channel.MarkDirty(IncludeLists)
+			changed = true
 			return []modes.ModeChange{change}, nil
 		}
 		return nil, nil
 	case modes.Remove:
 		if targetModeNow == change.Mode {
 			delete(channel.accountToUMode, change.Arg)
-			channel.MarkDirty(IncludeLists)
+			changed = true
 			return []modes.ModeChange{change}, nil
 		}
 		return nil, nil
