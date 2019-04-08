@@ -97,7 +97,8 @@ For instance, this would set the kill, oper, account and xline snomasks on dan:
 var Help = map[string]HelpEntry{
 	// Commands
 	"acc": {
-		text: `ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
+		text: `ACC LS
+ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
 ACC VERIFY <accountname> <auth_code>
 
 Used in account registration. See the relevant specs for more info:

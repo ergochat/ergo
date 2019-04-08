@@ -42,7 +42,7 @@ var (
 
 	// SupportedCapabilities are the caps we advertise.
 	// MaxLine, SASL and STS are set during server startup.
-	SupportedCapabilities = caps.NewSet(caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.SetName, caps.UserhostInNames)
+	SupportedCapabilities = caps.NewSet(caps.Acc, caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.SetName, caps.UserhostInNames)
 
 	// CapValues are the actual values we advertise to v3.2 clients.
 	// actual values are set during server startup.
@@ -172,21 +172,6 @@ func (server *Server) setISupport() (err error) {
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
 	isupport.Add("UTF8MAPPING", casemappingName)
-
-	// account registration
-	if config.Accounts.Registration.Enabled {
-		// 'none' isn't shown in the REGCALLBACKS vars
-		var enabledCallbacks []string
-		for _, name := range server.config.Accounts.Registration.EnabledCallbacks {
-			if name != "*" {
-				enabledCallbacks = append(enabledCallbacks, name)
-			}
-		}
-
-		isupport.Add("ACCCOMMANDS", "CREATE,VERIFY")
-		isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
-		isupport.Add("REGCREDTYPES", "passphrase,certfp")
-	}
 
 	err = isupport.RegenerateCachedReply()
 	if err != nil {

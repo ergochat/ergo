@@ -295,7 +295,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	}
 
 	if loginSuccessful {
-		sendSuccessfulSaslAuth(client, rb, true)
+		sendSuccessfulAccountAuth(client, rb, true, true)
 	} else {
 		nsNotice(rb, client.t("Could not login with your TLS certificate or supplied username/password"))
 	}
@@ -406,9 +406,9 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	// details could not be stored and relevant numerics have been dispatched, abort
+	message, _ := registrationErrorToMessageAndCode(err)
 	if err != nil {
-		errMsg, _ := registrationErrorToMessageAndCode(err)
-		nsNotice(rb, errMsg)
+		nsNotice(rb, client.t(message))
 		return
 	}
 }

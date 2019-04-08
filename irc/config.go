@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -609,6 +610,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			config.Accounts.Registration.EnabledCallbacks[i] = "*"
 		}
 	}
+	sort.Strings(config.Accounts.Registration.EnabledCallbacks)
 
 	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
 	if err != nil {
