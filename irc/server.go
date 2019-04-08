@@ -173,21 +173,6 @@ func (server *Server) setISupport() (err error) {
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
 	isupport.Add("UTF8MAPPING", casemappingName)
 
-	// account registration
-	if config.Accounts.Registration.Enabled {
-		// 'none' isn't shown in the REGCALLBACKS vars
-		var enabledCallbacks []string
-		for _, name := range server.config.Accounts.Registration.EnabledCallbacks {
-			if name != "*" {
-				enabledCallbacks = append(enabledCallbacks, name)
-			}
-		}
-
-		isupport.Add("ACCCOMMANDS", "CREATE,VERIFY")
-		isupport.Add("REGCALLBACKS", strings.Join(enabledCallbacks, ","))
-		isupport.Add("REGCREDTYPES", "passphrase,certfp")
-	}
-
 	err = isupport.RegenerateCachedReply()
 	if err != nil {
 		return

@@ -7,12 +7,16 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 21
+	numCapabs = 22
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
 
 const (
+	// Acc is the proposed IRCv3 capability named "draft/acc":
+	// https://github.com/ircv3/ircv3-specifications/pull/276
+	Acc Capability = iota
+
 	// AccountNotify is the IRCv3 capability named "account-notify":
 	// https://ircv3.net/specs/extensions/account-notify-3.1.html
 	AccountNotify Capability = iota
@@ -101,6 +105,7 @@ const (
 // `capabilityNames[capab]` is the string name of the capability `capab`
 var (
 	capabilityNames = [numCapabs]string{
+		"draft/acc",
 		"account-notify",
 		"account-tag",
 		"away-notify",
