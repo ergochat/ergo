@@ -2,6 +2,7 @@
 
 This is just a bunch of tips and tricks we keep in mind while developing Oragono. If you wanna help develop as well, they might also be worth keeping in mind!
 
+
 ## Golang issues
 
 You should use the [latest distribution of the Go language for your OS and architecture](https://golang.org/dl/). (If `uname -m` on your Raspberry Pi reports `armv7l`, use the `armv6l` distribution of Go; if it reports v8, you may be able to use the `arm64` distribution.)
@@ -9,6 +10,7 @@ You should use the [latest distribution of the Go language for your OS and archi
 Oragono vendors all its dependencies. The vendored code is tracked via a git submodule: `vendor/` is a submodule pointing to the [oragono-vendor](https://github.com/oragono/oragono-vendor) repository. As long as you're not modifying the vendored dependencies, `make` should take care of everything for you --- but if you are, see the "vendor" section below.
 
 Because of this, Oragono is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies. If you're having trouble building the code, it's very likely because your clone of the repository is in the wrong place: Go is very opinionated about where you should keep your code. Take a look at the [go workspaces documentation](https://golang.org/doc/code.html) if you're having trouble.
+
 
 ## Branches
 
@@ -144,6 +146,13 @@ They receive the response with the same label, so they can match the sent comman
 In order to allow this, in command handlers we don't send responses directly back to the user. Instead, we buffer the responses in an object called a ResponseBuffer. When the command handler returns, the contents of the ResponseBuffer is sent to the user with the appropriate label (and batches, if they're required).
 
 Basically, if you're in a command handler and you're sending a response back to the requesting client, use `rb.Add*` instead of `client.Send*`. Doing this makes sure the labeled responses feature above works as expected. The handling around `PRIVMSG`/`NOTICE`/`TAGMSG` is strange, so simply defer to [irctest](https://github.com/DanielOaks/irctest)'s judgement about whether that's correct for the most part.
+
+
+## Translated strings
+
+The function `client.t()` is used fairly widely throughout the codebase. This function translates the given string using the client's negotiated language. If the parameter of the function is a string, the translation update script below will grab that string and mark it for translation.
+
+In addition, throughout most of the codebase, if a string is created using the backtick characters ``(`)``, that string will also be marked for translation. This is really useful in the cases of general errors and other strings that are created far away from the final `client.t` function they are sent through.
 
 
 ## Updating Translations
