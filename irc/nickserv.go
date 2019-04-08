@@ -406,8 +406,9 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	// details could not be stored and relevant numerics have been dispatched, abort
+	message, _ := registrationErrorToMessageAndCode(err)
 	if err != nil {
-		nsNotice(rb, client.t(registrationErrorToMessageAndCode(err)))
+		nsNotice(rb, client.t(message))
 		return
 	}
 }

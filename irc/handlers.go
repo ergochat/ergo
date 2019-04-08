@@ -40,18 +40,17 @@ func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 		rb.Add(nil, server.name, "ACC", "LS", "SUBCOMMANDS", "LS REGISTER VERIFY")
 
-		var enabledCallbacks []string
-		for _, name := range config.Registration.EnabledCallbacks {
-			enabledCallbacks = append(enabledCallbacks, name)
-		}
-		sort.Strings(enabledCallbacks)
-		rb.Add(nil, server.name, "ACC", "LS", "CALLBACKS", strings.Join(enabledCallbacks, " "))
+		// this list is sorted by the config loader, yay
+		rb.Add(nil, server.name, "ACC", "LS", "CALLBACKS", strings.Join(config.Registration.EnabledCallbacks, " "))
 
 		rb.Add(nil, server.name, "ACC", "LS", "CREDTYPES", "passphrase certfp")
 
+		flags := []string{"nospaces"}
 		if config.NickReservation.Enabled {
-			rb.Add(nil, server.name, "ACC", "LS", "FLAGS", "regnick")
+			flags = append(flags, "regnick")
 		}
+		sort.Strings(flags)
+		rb.Add(nil, server.name, "ACC", "LS", "FLAGS", strings.Join(flags, " "))
 		return false
 	}
 
@@ -113,7 +112,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return false
 	}
 
-	account := strings.TrimSpace(msg.Params[1])
+	account := msg.Params[1]
 
 	// check for account name of *
 	if account == "*" {
@@ -166,7 +165,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		}
 	}
 	if credentialType == "certfp" && client.certfp == "" {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_CRED_TYPE", account, credentialType, client.t("You are not using a TLS certificate"))
+		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_CREDENTIAL", account, client.t("You must connect with a TLS client certificate to use certfp"))
 		return false
 	}
 
@@ -190,8 +189,8 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 
 	err = server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, certfp)
 	if err != nil {
-		msg := registrationErrorToMessageAndCode(err)
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_UNSPECIFIED_ERROR", account, client.t(msg))
+		msg, code := registrationErrorToMessageAndCode(err)
+		rb.Add(nil, server.name, "FAIL", "ACC", code, account, client.t(msg))
 		return false
 	}
 
@@ -211,11 +210,15 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	return false
 }
 
-func registrationErrorToMessageAndCode(err error) (message string) {
+func registrationErrorToMessageAndCode(err error) (message, code string) {
 	// default responses: let's be risk-averse about displaying internal errors
 	// to the clients, especially for something as sensitive as accounts
+	code = "REG_UNSPECIFIED_ERROR"
 	message = `Could not register`
 	switch err {
+	case errAccountBadPassphrase:
+		code = "REG_INVALID_CREDENTIAL"
+		message = err.Error()
 	case errAccountAlreadyRegistered, errAccountAlreadyVerified:
 		message = err.Error()
 	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
