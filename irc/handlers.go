@@ -133,8 +133,7 @@ func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 
 	// sanitise account name
 	casefoldedAccount, err := CasefoldName(account)
-	// probably don't need explicit check for "*" here... but let's do it anyway just to make sure
-	if err != nil || msg.Params[1] == "*" {
+	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_ACCOUNT_NAME", account, client.t("Account name is not valid"))
 		return false
 	}
