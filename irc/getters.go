@@ -62,6 +62,43 @@ func (server *Server) Languages() (lm *languages.Manager) {
 	return server.Config().languageManager
 }
 
+func (client *Client) Sessions() (sessions []*Session) {
+	client.stateMutex.RLock()
+	sessions = make([]*Session, len(client.sessions))
+	copy(sessions, client.sessions)
+	client.stateMutex.RUnlock()
+	return
+}
+
+func (client *Client) AddSession(session *Session) (success bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if len(client.sessions) == 0 {
+		return false
+	}
+	session.client = client
+	client.sessions = append(client.sessions, session)
+	return true
+}
+
+func (client *Client) removeSession(session *Session) (success bool, length int) {
+	if len(client.sessions) == 0 {
+		return
+	}
+	sessions := make([]*Session, 0, len(client.sessions)-1)
+	for _, currentSession := range client.sessions {
+		if session == currentSession {
+			success = true
+		} else {
+			sessions = append(sessions, currentSession)
+		}
+	}
+	client.sessions = sessions
+	length = len(sessions)
+	return
+}
+
 func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -165,12 +202,6 @@ func (client *Client) SetAwayMessage(message string) {
 	client.stateMutex.Lock()
 	client.awayMessage = message
 	client.stateMutex.Unlock()
-}
-
-func (client *Client) Destroyed() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.isDestroyed
 }
 
 func (client *Client) Account() string {

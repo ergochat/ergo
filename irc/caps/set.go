@@ -20,6 +20,16 @@ func NewSet(capabs ...Capability) *Set {
 	return &newSet
 }
 
+// NewCompleteSet returns a new Set, with all defined capabilities enabled.
+func NewCompleteSet() *Set {
+	var newSet Set
+	asSlice := newSet[:]
+	for i := 0; i < numCapabs; i += 1 {
+		utils.BitsetSet(asSlice, uint(i), true)
+	}
+	return &newSet
+}
+
 // Enable enables the given capabilities.
 func (s *Set) Enable(capabs ...Capability) {
 	asSlice := s[:]
@@ -51,6 +61,16 @@ func (s *Set) Remove(capabs ...Capability) {
 // Has returns true if this set has the given capability.
 func (s *Set) Has(capab Capability) bool {
 	return utils.BitsetGet(s[:], uint(capab))
+}
+
+// HasAll returns true if the set has all the given capabilities.
+func (s *Set) HasAll(capabs ...Capability) bool {
+	for _, capab := range capabs {
+		if !s.Has(capab) {
+			return false
+		}
+	}
+	return true
 }
 
 // Union adds all the capabilities of another set to this set.
@@ -93,4 +113,10 @@ func (s *Set) String(version Version, values *Values) string {
 	sort.Sort(strs)
 
 	return strings.Join(strs, " ")
+}
+
+// returns whether we should send `znc.in/self-message`-style echo messages
+// to sessions other than that which originated the message
+func (capabs *Set) SelfMessagesEnabled() bool {
+	return capabs.Has(EchoMessage) || capabs.Has(ZNCSelfMessage)
 }

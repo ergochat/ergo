@@ -23,7 +23,7 @@ var (
 )
 
 // returns whether the change succeeded or failed
-func performNickChange(server *Server, client *Client, target *Client, newnick string, rb *ResponseBuffer) bool {
+func performNickChange(server *Server, client *Client, target *Client, session *Session, newnick string, rb *ResponseBuffer) bool {
 	nickname := strings.TrimSpace(newnick)
 	cfnick, err := CasefoldName(nickname)
 	currentNick := client.Nick()
@@ -44,8 +44,8 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 
 	hadNick := target.HasNick()
 	origNickMask := target.NickMaskString()
-	whowas := client.WhoWas()
-	err = client.server.clients.SetNick(target, nickname)
+	whowas := target.WhoWas()
+	err = client.server.clients.SetNick(target, session, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is already in use"))
 		return false
@@ -57,16 +57,16 @@ func performNickChange(server *Server, client *Client, target *Client, newnick s
 		return false
 	}
 
-	client.nickTimer.Touch()
+	target.nickTimer.Touch()
 
 	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {
 		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), whowas.nick, nickname))
 		target.server.whoWas.Append(whowas)
 		rb.Add(nil, origNickMask, "NICK", nickname)
-		for friend := range target.Friends() {
-			if friend != client {
-				friend.Send(nil, origNickMask, "NICK", nickname)
+		for session := range target.Friends() {
+			if session != rb.session {
+				session.Send(nil, origNickMask, "NICK", nickname)
 			}
 		}
 	}
@@ -86,8 +86,14 @@ func (server *Server) RandomlyRename(client *Client) {
 	buf := make([]byte, 8)
 	rand.Read(buf)
 	nick := fmt.Sprintf("%s%s", prefix, hex.EncodeToString(buf))
-	rb := NewResponseBuffer(client)
-	performNickChange(server, client, client, nick, rb)
+	sessions := client.Sessions()
+	if len(sessions) == 0 {
+		return
+	}
+	// XXX arbitrarily pick the first session to receive error messages;
+	// all other sessions receive a `NICK` line same as a friend would
+	rb := NewResponseBuffer(sessions[0])
+	performNickChange(server, client, client, nil, nick, rb)
 	rb.Send(false)
 	// technically performNickChange can fail to change the nick,
 	// but if they're still delinquent, the timer will get them later

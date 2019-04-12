@@ -335,8 +335,8 @@ func (channel *Channel) regenerateMembersCache() {
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
-	isMultiPrefix := client.capabilities.Has(caps.MultiPrefix)
-	isUserhostInNames := client.capabilities.Has(caps.UserhostInNames)
+	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
+	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
@@ -578,28 +578,35 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}
 
 	for _, member := range channel.Members() {
-		if member == client {
-			continue
-		}
-		if member.capabilities.Has(caps.ExtendedJoin) {
-			member.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
-		} else {
-			member.Send(nil, details.nickMask, "JOIN", chname)
-		}
-		if givenMode != 0 {
-			member.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
+		for _, session := range member.Sessions() {
+			if session == rb.session {
+				continue
+			} else if client == session.client {
+				channel.playJoinForSession(session)
+				continue
+			}
+			if session.capabilities.Has(caps.ExtendedJoin) {
+				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+			} else {
+				session.Send(nil, details.nickMask, "JOIN", chname)
+			}
+			if givenMode != 0 {
+				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
+			}
 		}
 	}
 
-	if client.capabilities.Has(caps.ExtendedJoin) {
+	if rb.session.capabilities.Has(caps.ExtendedJoin) {
 		rb.Add(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 	} else {
 		rb.Add(nil, details.nickMask, "JOIN", chname)
 	}
 
-	channel.SendTopic(client, rb, false)
-
-	channel.Names(client, rb)
+	if rb.session.client == client {
+		// don't send topic and names for a SAJOIN of a different client
+		channel.SendTopic(client, rb, false)
+		channel.Names(client, rb)
+	}
 
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
@@ -610,6 +617,23 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.replayHistoryItems(rb, items)
 		rb.Flush(true)
 	}
+}
+
+// plays channel join messages (the JOIN line, topic, and names) to a session.
+// this is used when attaching a new session to an existing client that already has
+// channels, and also when one session of a client initiates a JOIN and the other
+// sessions need to receive the state change
+func (channel *Channel) playJoinForSession(session *Session) {
+	client := session.client
+	sessionRb := NewResponseBuffer(session)
+	if session.capabilities.Has(caps.ExtendedJoin) {
+		sessionRb.Add(nil, client.NickMaskString(), "JOIN", channel.Name(), client.AccountName(), client.Realname())
+	} else {
+		sessionRb.Add(nil, client.NickMaskString(), "JOIN", channel.Name())
+	}
+	channel.SendTopic(client, sessionRb, false)
+	channel.Names(client, sessionRb)
+	sessionRb.Send(false)
 }
 
 // Part parts the given client from this channel, with the given message.
@@ -627,6 +651,11 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		member.Send(nil, details.nickMask, "PART", chname, message)
 	}
 	rb.Add(nil, details.nickMask, "PART", chname, message)
+	for _, session := range client.Sessions() {
+		if session != rb.session {
+			session.Send(nil, details.nickMask, "PART", chname, message)
+		}
+	}
 
 	channel.history.Add(history.Item{
 		Type:        history.Part,
@@ -683,24 +712,26 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 	accountName := newClient.AccountName()
 	realName := newClient.Realname()
 	for _, member := range channel.Members() {
-		if member.capabilities.Has(caps.Resume) {
-			continue
-		}
+		for _, session := range member.Sessions() {
+			if session.capabilities.Has(caps.Resume) {
+				continue
+			}
 
-		if member.capabilities.Has(caps.ExtendedJoin) {
-			member.Send(nil, nickMask, "JOIN", channel.name, accountName, realName)
-		} else {
-			member.Send(nil, nickMask, "JOIN", channel.name)
-		}
+			if session.capabilities.Has(caps.ExtendedJoin) {
+				session.Send(nil, nickMask, "JOIN", channel.name, accountName, realName)
+			} else {
+				session.Send(nil, nickMask, "JOIN", channel.name)
+			}
 
-		if 0 < len(oldModes) {
-			member.Send(nil, channel.server.name, "MODE", channel.name, oldModes, nick)
+			if 0 < len(oldModes) {
+				session.Send(nil, channel.server.name, "MODE", channel.name, oldModes, nick)
+			}
 		}
 	}
 
-	rb := NewResponseBuffer(newClient)
+	rb := NewResponseBuffer(newClient.Sessions()[0])
 	// use blocking i/o to synchronize with the later history replay
-	if newClient.capabilities.Has(caps.ExtendedJoin) {
+	if rb.session.capabilities.Has(caps.ExtendedJoin) {
 		rb.Add(nil, nickMask, "JOIN", channel.name, accountName, realName)
 	} else {
 		rb.Add(nil, nickMask, "JOIN", channel.name)
@@ -715,7 +746,7 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 
 func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Time, before time.Time) {
 	items, complete := channel.history.Between(after, before, false, 0)
-	rb := NewResponseBuffer(newClient)
+	rb := NewResponseBuffer(newClient.Sessions()[0])
 	channel.replayHistoryItems(rb, items)
 	if !complete && !newClient.resumeDetails.HistoryIncomplete {
 		// warn here if we didn't warn already
@@ -735,7 +766,7 @@ func stripMaskFromNick(nickMask string) (nick string) {
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item) {
 	chname := channel.Name()
 	client := rb.target
-	serverTime := client.capabilities.Has(caps.ServerTime)
+	serverTime := rb.session.capabilities.Has(caps.ServerTime)
 
 	for _, item := range items {
 		var tags map[string]string
@@ -778,17 +809,18 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 // SendTopic sends the channel topic to the given client.
 // `sendNoTopic` controls whether RPL_NOTOPIC is sent when the topic is unset
 func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer, sendNoTopic bool) {
-	if !channel.hasClient(client) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.name, client.t("You're not on that channel"))
-		return
-	}
-
 	channel.stateMutex.RLock()
 	name := channel.name
 	topic := channel.topic
 	topicSetBy := channel.topicSetBy
 	topicSetTime := channel.topicSetTime
+	_, hasClient := channel.members[client]
 	channel.stateMutex.RUnlock()
+
+	if !hasClient {
+		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.name, client.t("You're not on that channel"))
+		return
+	}
 
 	if topic == "" {
 		if sendNoTopic {
@@ -824,11 +856,14 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	channel.topicSetTime = time.Now()
 	channel.stateMutex.Unlock()
 
+	prefix := client.NickMaskString()
 	for _, member := range channel.Members() {
-		if member == client {
-			rb.Add(nil, client.nickMaskString, "TOPIC", channel.name, topic)
-		} else {
-			member.Send(nil, client.nickMaskString, "TOPIC", channel.name, topic)
+		for _, session := range member.Sessions() {
+			if session == rb.session {
+				rb.Add(nil, prefix, "TOPIC", channel.name, topic)
+			} else {
+				session.Send(nil, prefix, "TOPIC", channel.name, topic)
+			}
 		}
 	}
 
@@ -880,51 +915,68 @@ func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, 
 		return
 	}
 
+	nickmask := client.NickMaskString()
+	account := client.AccountName()
+	chname := channel.Name()
+	now := time.Now().UTC()
+
 	// for STATUSMSG
 	var minPrefixMode modes.Mode
 	if minPrefix != nil {
 		minPrefixMode = *minPrefix
 	}
 	// send echo-message
-	if client.capabilities.Has(caps.EchoMessage) {
+	// TODO this should use `now` as the time for consistency
+	if rb.session.capabilities.Has(caps.EchoMessage) {
 		var tagsToUse map[string]string
-		if client.capabilities.Has(caps.MessageTags) {
+		if rb.session.capabilities.Has(caps.MessageTags) {
 			tagsToUse = clientOnlyTags
 		}
-		nickMaskString := client.NickMaskString()
-		accountName := client.AccountName()
-		if histType == history.Tagmsg && client.capabilities.Has(caps.MessageTags) {
-			rb.AddFromClient(message.Msgid, nickMaskString, accountName, tagsToUse, command, channel.name)
+		if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+			rb.AddFromClient(message.Msgid, nickmask, account, tagsToUse, command, chname)
 		} else {
-			rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToUse, command, channel.name, message)
+			rb.AddSplitMessageFromClient(nickmask, account, tagsToUse, command, chname, message)
+		}
+	}
+	// send echo-message to other connected sessions
+	for _, session := range client.Sessions() {
+		if session == rb.session || !session.capabilities.SelfMessagesEnabled() {
+			continue
+		}
+		var tagsToUse map[string]string
+		if session.capabilities.Has(caps.MessageTags) {
+			tagsToUse = clientOnlyTags
+		}
+		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
+			session.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, chname)
+		} else {
+			session.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, chname, message)
 		}
 	}
 
-	nickmask := client.NickMaskString()
-	account := client.AccountName()
-
-	now := time.Now().UTC()
-
 	for _, member := range channel.Members() {
-		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
-			// STATUSMSG
-			continue
-		}
 		// echo-message is handled above, so skip sending the msg to the user themselves as well
 		if member == client {
 			continue
 		}
-		var tagsToUse map[string]string
-		if member.capabilities.Has(caps.MessageTags) {
-			tagsToUse = clientOnlyTags
-		} else if histType == history.Tagmsg {
+		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
+			// STATUSMSG
 			continue
 		}
 
-		if histType == history.Tagmsg {
-			member.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, channel.name)
-		} else {
-			member.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, channel.name, message)
+		for _, session := range member.Sessions() {
+			var tagsToUse map[string]string
+			if session.capabilities.Has(caps.MessageTags) {
+				tagsToUse = clientOnlyTags
+			} else if histType == history.Tagmsg {
+				continue
+			}
+
+			if histType == history.Tagmsg {
+				session.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, chname)
+			} else {
+				session.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, chname, message)
+			}
 		}
 	}
 
@@ -1059,9 +1111,15 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 	clientMask := client.NickMaskString()
 	targetNick := target.Nick()
+	chname := channel.Name()
 	for _, member := range channel.Members() {
-		member.Send(nil, clientMask, "KICK", channel.name, targetNick, comment)
+		for _, session := range member.Sessions() {
+			if session != rb.session {
+				session.Send(nil, clientMask, "KICK", chname, targetNick, comment)
+			}
+		}
 	}
+	rb.Add(nil, clientMask, "KICK", chname, targetNick, comment)
 
 	message := utils.SplitMessage{}
 	message.Message = comment
@@ -1094,8 +1152,13 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	}
 
 	for _, member := range channel.Members() {
-		if member.capabilities.Has(caps.InviteNotify) && member != inviter && member != invitee && channel.ClientIsAtLeast(member, modes.Halfop) {
-			member.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), chname)
+		if member == inviter || member == invitee || !channel.ClientIsAtLeast(member, modes.Halfop) {
+			continue
+		}
+		for _, session := range member.Sessions() {
+			if session.capabilities.Has(caps.InviteNotify) {
+				session.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), chname)
+			}
 		}
 	}
 

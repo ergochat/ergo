@@ -229,8 +229,8 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 		return
 	}
 
-	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()))
-	ghost.destroy(false)
+	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()), nil)
+	ghost.destroy(false, nil)
 }
 
 func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

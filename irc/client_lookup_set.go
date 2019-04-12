@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircmatch"
+
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/modes"
 
 	"sync"
 )
@@ -131,7 +133,7 @@ func (clients *ClientManager) Resume(newClient, oldClient *Client) (err error) {
 }
 
 // SetNick sets a client's nickname, validating it against nicknames in use
-func (clients *ClientManager) SetNick(client *Client, newNick string) error {
+func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) error {
 	newcfnick, err := CasefoldName(newNick)
 	if err != nil {
 		return err
@@ -142,21 +144,31 @@ func (clients *ClientManager) SetNick(client *Client, newNick string) error {
 	}
 
 	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
+	account := client.Account()
+	bouncerAllowed := client.server.accounts.BouncerAllowed(account, session)
 
 	clients.Lock()
 	defer clients.Unlock()
 
-	currentNewEntry := clients.byNick[newcfnick]
+	currentClient := clients.byNick[newcfnick]
 	// the client may just be changing case
-	if currentNewEntry != nil && currentNewEntry != client {
-		return errNicknameInUse
+	if currentClient != nil && currentClient != client {
+		// these conditions forbid reattaching to an existing session:
+		if client.Registered() || !bouncerAllowed || account == "" || account != currentClient.Account() || client.isTor != currentClient.isTor || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
+			return errNicknameInUse
+		}
+		if !currentClient.AddSession(session) {
+			return errNicknameInUse
+		}
+		// successful reattach:
+		return nil
 	}
 	// analogous checks for skeletons
 	skeletonHolder := clients.bySkeleton[newSkeleton]
 	if skeletonHolder != nil && skeletonHolder != client {
 		return errNicknameInUse
 	}
-	if method == NickReservationStrict && reservedAccount != "" && reservedAccount != client.Account() {
+	if method == NickReservationStrict && reservedAccount != "" && reservedAccount != account {
 		return errNicknameReserved
 	}
 	clients.removeInternal(client)
@@ -179,24 +191,18 @@ func (clients *ClientManager) AllClients() (result []*Client) {
 }
 
 // AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (set ClientSet) {
-	set = make(ClientSet)
-
+func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (sessions []*Session) {
 	clients.RLock()
 	defer clients.RUnlock()
-	var client *Client
-	for _, client = range clients.byNick {
-		// make sure they have all the required caps
-		for _, capab := range capabs {
-			if !client.capabilities.Has(capab) {
-				continue
+	for _, client := range clients.byNick {
+		for _, session := range client.Sessions() {
+			if session.capabilities.HasAll(capabs...) {
+				sessions = append(sessions, session)
 			}
 		}
-
-		set.Add(client)
 	}
 
-	return set
+	return
 }
 
 // FindAll returns all clients that match the given userhost mask.

@@ -66,7 +66,11 @@ type AccountConfig struct {
 	} `yaml:"login-throttling"`
 	SkipServerPassword bool                  `yaml:"skip-server-password"`
 	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
-	VHosts             VHostConfig
+	Bouncer            struct {
+		Enabled          bool
+		AllowedByDefault bool `yaml:"allowed-by-default"`
+	}
+	VHosts VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.

@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 22
+	numCapabs = 24
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -100,6 +100,14 @@ const (
 	// UserhostInNames is the IRCv3 capability named "userhost-in-names":
 	// https://ircv3.net/specs/extensions/userhost-in-names-3.2.html
 	UserhostInNames Capability = iota
+
+	// Bouncer is the Oragono-specific capability named "oragono.io/bnc":
+	// https://oragono.io/bnc
+	Bouncer Capability = iota
+
+	// ZNCSelfMessage is the ZNC vendor capability named "znc.in/self-message":
+	// https://wiki.znc.in/Query_buffers
+	ZNCSelfMessage Capability = iota
 )
 
 // `capabilityNames[capab]` is the string name of the capability `capab`
@@ -127,5 +135,7 @@ var (
 		"draft/setname",
 		"sts",
 		"userhost-in-names",
+		"oragono.io/bnc",
+		"znc.in/self-message",
 	}
 )

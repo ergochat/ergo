@@ -46,13 +46,14 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		}
 
 		for _, member := range channel.Members() {
-			if member == client && !client.capabilities.Has(caps.EchoMessage) {
-				continue
-			}
-			if member == client {
-				rb.Add(nil, source, "PRIVMSG", channel.name, message)
-			} else {
-				member.Send(nil, source, "PRIVMSG", channel.name, message)
+			for _, session := range member.Sessions() {
+				if member == client && !session.capabilities.Has(caps.EchoMessage) {
+					continue
+				} else if rb.session == session {
+					rb.Add(nil, source, "PRIVMSG", channel.name, message)
+				} else if member == client || session.capabilities.Has(caps.EchoMessage) {
+					session.Send(nil, source, "PRIVMSG", channel.name, message)
+				}
 			}
 		}
 	} else {
@@ -71,7 +72,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		cnick := client.Nick()
 		tnick := user.Nick()
 		user.Send(nil, source, "PRIVMSG", tnick, message)
-		if client.capabilities.Has(caps.EchoMessage) {
+		if rb.session.capabilities.Has(caps.EchoMessage) {
 			rb.Add(nil, source, "PRIVMSG", tnick, message)
 		}
 		if user.HasMode(modes.Away) {

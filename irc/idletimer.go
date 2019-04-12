@@ -45,7 +45,7 @@ type IdleTimer struct {
 
 	// immutable after construction
 	registerTimeout time.Duration
-	client          *Client
+	session         *Session
 
 	// mutable
 	idleTimeout time.Duration
@@ -56,14 +56,19 @@ type IdleTimer struct {
 
 // Initialize sets up an IdleTimer and starts counting idle time;
 // if there is no activity from the client, it will eventually be stopped.
-func (it *IdleTimer) Initialize(client *Client) {
-	it.client = client
+func (it *IdleTimer) Initialize(session *Session) {
+	it.session = session
 	it.registerTimeout = RegisterTimeout
 	it.idleTimeout, it.quitTimeout = it.recomputeDurations()
+	registered := session.client.Registered()
 
 	it.Lock()
 	defer it.Unlock()
-	it.state = TimerUnregistered
+	if registered {
+		it.state = TimerActive
+	} else {
+		it.state = TimerUnregistered
+	}
 	it.resetTimeout()
 }
 
@@ -72,12 +77,12 @@ func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duratio
 	totalTimeout := DefaultTotalTimeout
 	// if they have the resume cap, wait longer before pinging them out
 	// to give them a chance to resume their connection
-	if it.client.capabilities.Has(caps.Resume) {
+	if it.session.capabilities.Has(caps.Resume) {
 		totalTimeout = ResumeableTotalTimeout
 	}
 
 	idleTimeout = DefaultIdleTimeout
-	if it.client.isTor {
+	if it.session.client.isTor {
 		idleTimeout = TorIdleTimeout
 	}
 
@@ -118,10 +123,10 @@ func (it *IdleTimer) processTimeout() {
 	}()
 
 	if previousState == TimerActive {
-		it.client.Ping()
+		it.session.Ping()
 	} else {
-		it.client.Quit(it.quitMessage(previousState))
-		it.client.destroy(false)
+		it.session.client.Quit(it.quitMessage(previousState), it.session)
+		it.session.client.destroy(false, it.session)
 	}
 }
 
