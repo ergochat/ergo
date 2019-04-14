@@ -451,7 +451,7 @@ func (client *Client) tryResume() (success bool) {
 	// this is a bit racey
 	client.resumeDetails.ResumedAt = time.Now()
 
-	client.nickTimer.Touch()
+	client.nickTimer.Touch(nil)
 
 	// resume successful, proceed to copy client state (nickname, flags, etc.)
 	// after this, the server thinks that `newClient` owns the nickname

@@ -1227,7 +1227,7 @@ func (am *AccountManager) Login(client *Client, account ClientAccount) {
 		return
 	}
 
-	client.nickTimer.Touch()
+	client.nickTimer.Touch(nil)
 
 	am.applyVHostInfo(client, account.VHost)
 
@@ -1313,7 +1313,7 @@ func (am *AccountManager) logoutOfAccount(client *Client) {
 	}
 
 	client.SetAccountName("")
-	go client.nickTimer.Touch()
+	go client.nickTimer.Touch(nil)
 
 	// dispatch account-notify
 	// TODO: doing the I/O here is kind of a kludge, let's move this somewhere else

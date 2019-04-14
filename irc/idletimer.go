@@ -222,9 +222,14 @@ func (nt *NickTimer) Timeout() (timeout time.Duration) {
 }
 
 // Touch records a nick change and updates the timer as necessary
-func (nt *NickTimer) Touch() {
+func (nt *NickTimer) Touch(rb *ResponseBuffer) {
 	if !nt.Enabled() {
 		return
+	}
+
+	var session *Session
+	if rb != nil {
+		session = rb.session
 	}
 
 	cfnick, skeleton := nt.client.uniqueIdentifiers()
@@ -259,7 +264,16 @@ func (nt *NickTimer) Touch() {
 	}()
 
 	if shouldWarn {
-		nt.client.Send(nil, "NickServ", "NOTICE", nt.client.Nick(), fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.Timeout()))
+		tnick := nt.client.Nick()
+		message := fmt.Sprintf(ircfmt.Unescape(nt.client.t(nsTimeoutNotice)), nt.Timeout())
+		// #449
+		for _, mSession := range nt.client.Sessions() {
+			if mSession == session {
+				rb.Add(nil, "NickServ", "NOTICE", tnick, message)
+			} else {
+				mSession.Send(nil, "NickServ", "NOTICE", tnick, message)
+			}
+		}
 	} else if shouldRename {
 		nt.client.Notice(nt.client.t("Nickname is reserved by a different account"))
 		nt.client.server.RandomlyRename(nt.client)

@@ -816,7 +816,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 			if !oldConfig.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.Enabled {
 				sClient.nickTimer.Initialize(sClient)
-				sClient.nickTimer.Touch()
+				sClient.nickTimer.Touch(nil)
 			} else if oldConfig.Accounts.NickReservation.Enabled && !config.Accounts.NickReservation.Enabled {
 				sClient.nickTimer.Stop()
 			}

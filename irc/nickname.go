@@ -57,8 +57,6 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return false
 	}
 
-	target.nickTimer.Touch()
-
 	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {
 		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), whowas.nick, nickname))
@@ -70,6 +68,8 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 			}
 		}
 	}
+
+	target.nickTimer.Touch(rb)
 
 	if target.Registered() {
 		client.server.monitorManager.AlertAbout(target, true)
