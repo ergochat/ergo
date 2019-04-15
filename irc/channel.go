@@ -39,10 +39,10 @@ type Channel struct {
 	userLimit         int
 	accountToUMode    map[string]modes.Mode
 	history           history.Buffer
-	stateMutex        sync.RWMutex // tier 1
-	writerSemaphore   Semaphore    // tier 1.5
-	joinPartMutex     sync.Mutex   // tier 3
-	ensureLoaded      utils.Once   // manages loading stored registration info from the database
+	stateMutex        sync.RWMutex    // tier 1
+	writerSemaphore   utils.Semaphore // tier 1.5
+	joinPartMutex     sync.Mutex      // tier 3
+	ensureLoaded      utils.Once      // manages loading stored registration info from the database
 	dirtyBits         uint
 }
 

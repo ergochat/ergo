@@ -3,9 +3,9 @@
 package irc
 
 import (
-	"log"
 	"runtime"
-	"runtime/debug"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // See #237 for context. Operations that might allocate large amounts of temporary
@@ -21,15 +21,12 @@ const (
 	MaxServerSemaphoreCapacity = 32
 )
 
-// Semaphore is a counting semaphore. Note that a capacity of n requires O(n) storage.
-type Semaphore (chan bool)
-
 // ServerSemaphores includes a named Semaphore corresponding to each concurrency-limited
 // sever operation.
 type ServerSemaphores struct {
 	// each distinct operation MUST have its own semaphore;
 	// methods that acquire a semaphore MUST NOT call methods that acquire another
-	ClientDestroy Semaphore
+	ClientDestroy utils.Semaphore
 }
 
 // Initialize initializes a set of server semaphores.
@@ -40,41 +37,4 @@ func (serversem *ServerSemaphores) Initialize() {
 	}
 	serversem.ClientDestroy.Initialize(capacity)
 	return
-}
-
-// Initialize initializes a semaphore to a given capacity.
-func (semaphore *Semaphore) Initialize(capacity int) {
-	*semaphore = make(chan bool, capacity)
-	for i := 0; i < capacity; i++ {
-		(*semaphore) <- true
-	}
-}
-
-// Acquire acquires a semaphore, blocking if necessary.
-func (semaphore *Semaphore) Acquire() {
-	<-(*semaphore)
-}
-
-// TryAcquire tries to acquire a semaphore, returning whether the acquire was
-// successful. It never blocks.
-func (semaphore *Semaphore) TryAcquire() (acquired bool) {
-	select {
-	case <-(*semaphore):
-		return true
-	default:
-		return false
-	}
-}
-
-// Release releases a semaphore. It never blocks. (This is not a license
-// to program spurious releases.)
-func (semaphore *Semaphore) Release() {
-	select {
-	case (*semaphore) <- true:
-		// good
-	default:
-		// spurious release
-		log.Printf("spurious semaphore release (full to capacity %d)", cap(*semaphore))
-		debug.PrintStack()
-	}
 }
