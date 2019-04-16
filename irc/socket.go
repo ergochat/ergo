@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 var (
@@ -34,7 +36,7 @@ type Socket struct {
 	maxSendQBytes int
 
 	// this is a trylock enforcing that only one goroutine can write to `conn` at a time
-	writerSemaphore Semaphore
+	writerSemaphore utils.Semaphore
 
 	buffers       [][]byte
 	totalLength   int
