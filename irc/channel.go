@@ -335,38 +335,44 @@ func (channel *Channel) regenerateMembersCache() {
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
+	isJoined := channel.hasClient(client)
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
 	var buffer bytes.Buffer
-	for _, target := range channel.Members() {
-		var nick string
-		if isUserhostInNames {
-			nick = target.NickMaskString()
-		} else {
-			nick = target.Nick()
-		}
-		channel.stateMutex.RLock()
-		modes := channel.members[target]
-		channel.stateMutex.RUnlock()
-		if modes == nil {
-			continue
-		}
-		prefix := modes.Prefixes(isMultiPrefix)
-		if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
-			namesLines = append(namesLines, buffer.String())
-			buffer.Reset()
+	if isJoined || !channel.flags.HasMode(modes.Secret) {
+		for _, target := range channel.Members() {
+			var nick string
+			if isUserhostInNames {
+				nick = target.NickMaskString()
+			} else {
+				nick = target.Nick()
+			}
+			channel.stateMutex.RLock()
+			modeSet := channel.members[target]
+			channel.stateMutex.RUnlock()
+			if modeSet == nil {
+				continue
+			}
+			if !isJoined && target.flags.HasMode(modes.Invisible) {
+				continue
+			}
+			prefix := modeSet.Prefixes(isMultiPrefix)
+			if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
+				namesLines = append(namesLines, buffer.String())
+				buffer.Reset()
+			}
+			if buffer.Len() > 0 {
+				buffer.WriteString(" ")
+			}
+			buffer.WriteString(prefix)
+			buffer.WriteString(nick)
 		}
 		if buffer.Len() > 0 {
-			buffer.WriteString(" ")
+			namesLines = append(namesLines, buffer.String())
 		}
-		buffer.WriteString(prefix)
-		buffer.WriteString(nick)
-	}
-	if buffer.Len() > 0 {
-		namesLines = append(namesLines, buffer.String())
 	}
 
 	for _, line := range namesLines {
