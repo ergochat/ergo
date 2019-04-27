@@ -207,6 +207,22 @@ func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (sessions [
 	return
 }
 
+// AllWithCapsNotify returns all clients with the given capabilities, and that support cap-notify.
+func (clients *ClientManager) AllWithCapsNotify(capabs ...caps.Capability) (sessions []*Session) {
+	clients.RLock()
+	defer clients.RUnlock()
+	for _, client := range clients.byNick {
+		for _, session := range client.Sessions() {
+			capabs = append(capabs, caps.CapNotify)
+			if session.capabilities.HasAll(capabs...) || 302 <= session.capVersion {
+				sessions = append(sessions, session)
+			}
+		}
+	}
+
+	return
+}
+
 // FindAll returns all clients that match the given userhost mask.
 func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
