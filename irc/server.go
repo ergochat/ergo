@@ -654,12 +654,12 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// SASL
 	authPreviouslyEnabled := oldConfig != nil && oldConfig.Accounts.AuthenticationEnabled
-	if config.Accounts.AuthenticationEnabled && !authPreviouslyEnabled {
+	if config.Accounts.AuthenticationEnabled && (oldConfig == nil || !authPreviouslyEnabled) {
 		// enabling SASL
 		SupportedCapabilities.Enable(caps.SASL)
 		CapValues.Set(caps.SASL, "PLAIN,EXTERNAL")
 		addedCaps.Add(caps.SASL)
-	} else if !config.Accounts.AuthenticationEnabled && authPreviouslyEnabled {
+	} else if !config.Accounts.AuthenticationEnabled && (oldConfig == nil || authPreviouslyEnabled) {
 		// disabling SASL
 		SupportedCapabilities.Disable(caps.SASL)
 		removedCaps.Add(caps.SASL)
