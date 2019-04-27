@@ -46,7 +46,7 @@ func (wc *webircConfig) Populate() (err error) {
 }
 
 // ApplyProxiedIP applies the given IP to the client.
-func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (success bool) {
+func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls bool) (success bool) {
 	// PROXY and WEBIRC are never accepted from a Tor listener, even if the address itself
 	// is whitelisted:
 	if client.isTor {
@@ -56,13 +56,13 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (success bool) 
 	// ensure IP is sane
 	parsedProxiedIP := net.ParseIP(proxiedIP).To16()
 	if parsedProxiedIP == nil {
-		client.Quit(fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP))
+		client.Quit(fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP), session)
 		return false
 	}
 
 	isBanned, banMsg := client.server.checkBans(parsedProxiedIP)
 	if isBanned {
-		client.Quit(banMsg)
+		client.Quit(banMsg, session)
 		return false
 	}
 
@@ -88,10 +88,10 @@ func (client *Client) ApplyProxiedIP(proxiedIP string, tls bool) (success bool) 
 // PROXY TCP[46] SOURCEIP DESTIP SOURCEPORT DESTPORT\r\n
 // unfortunately, an ipv6 SOURCEIP can start with a double colon; in this case,
 // the message is invalid IRC and can't be parsed normally, hence the special handling.
-func handleProxyCommand(server *Server, client *Client, line string) (err error) {
+func handleProxyCommand(server *Server, client *Client, session *Session, line string) (err error) {
 	defer func() {
 		if err != nil {
-			client.Quit(client.t("Bad or unauthorized PROXY command"))
+			client.Quit(client.t("Bad or unauthorized PROXY command"), session)
 		}
 	}()
 
@@ -102,7 +102,7 @@ func handleProxyCommand(server *Server, client *Client, line string) (err error)
 
 	if utils.IPInNets(client.realIP, server.Config().Server.proxyAllowedFromNets) {
 		// assume PROXY connections are always secure
-		if client.ApplyProxiedIP(params[2], true) {
+		if client.ApplyProxiedIP(session, params[2], true) {
 			return nil
 		} else {
 			return errBadProxyLine

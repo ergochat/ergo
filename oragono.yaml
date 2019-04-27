@@ -262,6 +262,19 @@ accounts:
         # rename-prefix - this is the prefix to use when renaming clients (e.g. Guest-AB54U31)
         rename-prefix: Guest-
 
+    # bouncer controls whether oragono can act as a bouncer, i.e., allowing
+    # multiple connections to attach to the same client/nickname identity
+    bouncer:
+        # when disabled, each connection must use a separate nickname (as is the
+        # typical behavior of IRC servers). when enabled, a new connection that
+        # has authenticated with SASL can associate itself with an existing
+        # client
+        enabled: true
+
+        # clients can opt in to bouncer functionality using the cap system, or
+        # via nickserv. if this is enabled, then they have to opt out instead
+        allowed-by-default: false
+
     # vhosts controls the assignment of vhosts (strings displayed in place of the user's
     # hostname/IP) by the HostServ service
     vhosts:

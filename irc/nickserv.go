@@ -31,7 +31,7 @@ var (
 	// 1. sent with prefix `nickserv`
 	// 2. contains the string "identify"
 	// 3. contains at least one of several other magic strings ("msg" works)
-	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL)`
+	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.`
 )
 
 const nickservHelp = `NickServ lets you register and login to an account.
@@ -229,8 +229,8 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 		return
 	}
 
-	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()))
-	ghost.destroy(false)
+	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()), nil)
+	ghost.destroy(false, nil)
 }
 
 func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

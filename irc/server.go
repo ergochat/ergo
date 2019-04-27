@@ -41,8 +41,8 @@ var (
 	supportedChannelModesString = modes.SupportedChannelModes.String()
 
 	// SupportedCapabilities are the caps we advertise.
-	// MaxLine, SASL and STS are set during server startup.
-	SupportedCapabilities = caps.NewSet(caps.Acc, caps.AccountTag, caps.AccountNotify, caps.AwayNotify, caps.Batch, caps.CapNotify, caps.ChgHost, caps.EchoMessage, caps.ExtendedJoin, caps.InviteNotify, caps.LabeledResponse, caps.Languages, caps.MessageTags, caps.MultiPrefix, caps.Rename, caps.Resume, caps.ServerTime, caps.SetName, caps.UserhostInNames)
+	// MaxLine, SASL and STS may be unset during server startup / rehash.
+	SupportedCapabilities = caps.NewCompleteSet()
 
 	// CapValues are the actual values we advertise to v3.2 clients.
 	// actual values are set during server startup.
@@ -374,7 +374,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 // server functionality
 //
 
-func (server *Server) tryRegister(c *Client) {
+func (server *Server) tryRegister(c *Client, session *Session) {
 	resumed := false
 	// try to complete registration, either via RESUME token or normally
 	if c.resumeDetails != nil {
@@ -383,7 +383,7 @@ func (server *Server) tryRegister(c *Client) {
 		}
 		resumed = true
 	} else {
-		if c.preregNick == "" || !c.HasUsername() || c.capState == caps.NegotiatingState {
+		if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
 			return
 		}
 
@@ -391,13 +391,13 @@ func (server *Server) tryRegister(c *Client) {
 		// before completing the other registration commands
 		config := server.Config()
 		if !c.isAuthorized(config) {
-			c.Quit(c.t("Bad password"))
-			c.destroy(false)
+			c.Quit(c.t("Bad password"), nil)
+			c.destroy(false, nil)
 			return
 		}
 
-		rb := NewResponseBuffer(c)
-		nickAssigned := performNickChange(server, c, c, c.preregNick, rb)
+		rb := NewResponseBuffer(session)
+		nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
 		rb.Send(true)
 		if !nickAssigned {
 			c.preregNick = ""
@@ -407,20 +407,24 @@ func (server *Server) tryRegister(c *Client) {
 		// check KLINEs
 		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 		if isBanned {
-			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")))
-			c.destroy(false)
+			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+			c.destroy(false, nil)
 			return
 		}
 	}
 
-	// registration has succeeded:
-	c.SetRegistered()
+	reattached := session.client != c
 
-	// count new user in statistics
-	server.stats.ChangeTotal(1)
+	if !reattached {
+		// registration has succeeded:
+		c.SetRegistered()
 
-	if !resumed {
-		server.monitorManager.AlertAbout(c, true)
+		// count new user in statistics
+		server.stats.ChangeTotal(1)
+
+		if !resumed {
+			server.monitorManager.AlertAbout(c, true)
+		}
 	}
 
 	// continue registration
@@ -436,7 +440,7 @@ func (server *Server) tryRegister(c *Client) {
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 
-	rb := NewResponseBuffer(c)
+	rb := NewResponseBuffer(session)
 	c.RplISupport(rb)
 	server.MOTD(c, rb)
 	rb.Send(true)
@@ -480,8 +484,7 @@ func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
 }
 
 // WhoisChannelsNames returns the common channel names between two users.
-func (client *Client) WhoisChannelsNames(target *Client) []string {
-	isMultiPrefix := client.capabilities.Has(caps.MultiPrefix)
+func (client *Client) WhoisChannelsNames(target *Client, multiPrefix bool) []string {
 	var chstrs []string
 	for _, channel := range target.Channels() {
 		// channel is secret and the target can't see it
@@ -490,7 +493,7 @@ func (client *Client) WhoisChannelsNames(target *Client) []string {
 				continue
 			}
 		}
-		chstrs = append(chstrs, channel.ClientPrefixes(target, isMultiPrefix)+channel.name)
+		chstrs = append(chstrs, channel.ClientPrefixes(target, multiPrefix)+channel.name)
 	}
 	return chstrs
 }
@@ -501,7 +504,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nick, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
 	tnick := targetInfo.nick
 
-	whoischannels := client.WhoisChannelsNames(target)
+	whoischannels := client.WhoisChannelsNames(target, rb.session.capabilities.Has(caps.MultiPrefix))
 	if whoischannels != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
@@ -555,18 +558,12 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *Response
 	}
 
 	if channel != nil {
-		flags += channel.ClientPrefixes(client, target.capabilities.Has(caps.MultiPrefix))
+		// TODO is this right?
+		flags += channel.ClientPrefixes(client, rb.session.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
-	rb.Add(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, strconv.Itoa(client.hops)+" "+client.Realname())
-}
-
-func whoChannel(client *Client, channel *Channel, friends ClientSet, rb *ResponseBuffer) {
-	for _, member := range channel.Members() {
-		if !client.HasMode(modes.Invisible) || friends[client] {
-			client.rplWhoReply(channel, member, rb)
-		}
-	}
+	// hardcode a hopcount of 0 for now
+	rb.Add(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, "0 "+client.Realname())
 }
 
 // rehash reloads the config and applies the changes from the config file.
@@ -691,6 +688,8 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		SupportedCapabilities.Enable(caps.MaxLine)
 		value := fmt.Sprintf("%d", config.Limits.LineLen.Rest)
 		CapValues.Set(caps.MaxLine, value)
+	} else {
+		SupportedCapabilities.Disable(caps.MaxLine)
 	}
 
 	// STS
@@ -699,20 +698,24 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	stsDisabledByRehash := false
 	stsCurrentCapValue, _ := CapValues.Get(caps.STS)
 	server.logger.Debug("server", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
-	if config.Server.STS.Enabled && !stsPreviouslyEnabled {
+	if config.Server.STS.Enabled {
 		// enabling STS
 		SupportedCapabilities.Enable(caps.STS)
-		addedCaps.Add(caps.STS)
-		CapValues.Set(caps.STS, stsValue)
-	} else if !config.Server.STS.Enabled && stsPreviouslyEnabled {
+		if !stsPreviouslyEnabled {
+			addedCaps.Add(caps.STS)
+			CapValues.Set(caps.STS, stsValue)
+		} else if stsValue != stsCurrentCapValue {
+			// STS policy updated
+			CapValues.Set(caps.STS, stsValue)
+			updatedCaps.Add(caps.STS)
+		}
+	} else {
 		// disabling STS
 		SupportedCapabilities.Disable(caps.STS)
-		removedCaps.Add(caps.STS)
-		stsDisabledByRehash = true
-	} else if config.Server.STS.Enabled && stsPreviouslyEnabled && stsValue != stsCurrentCapValue {
-		// STS policy updated
-		CapValues.Set(caps.STS, stsValue)
-		updatedCaps.Add(caps.STS)
+		if stsPreviouslyEnabled {
+			removedCaps.Add(caps.STS)
+			stsDisabledByRehash = true
+		}
 	}
 
 	// resize history buffers as needed
@@ -730,7 +733,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	// burst new and removed caps
-	var capBurstClients ClientSet
+	var capBurstSessions []*Session
 	added := make(map[caps.Version]string)
 	var removed string
 
@@ -741,7 +744,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
-		capBurstClients = server.clients.AllWithCaps(caps.CapNotify)
+		capBurstSessions = server.clients.AllWithCaps(caps.CapNotify)
 
 		added[caps.Cap301] = addedCaps.String(caps.Cap301, CapValues)
 		added[caps.Cap302] = addedCaps.String(caps.Cap302, CapValues)
@@ -749,7 +752,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		removed = removedCaps.String(caps.Cap301, CapValues)
 	}
 
-	for sClient := range capBurstClients {
+	for _, sSession := range capBurstSessions {
 		if stsDisabledByRehash {
 			// remove STS policy
 			//TODO(dan): this is an ugly hack. we can write this better.
@@ -763,10 +766,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 		// DEL caps and then send NEW ones so that updated caps get removed/added correctly
 		if !removedCaps.Empty() {
-			sClient.Send(nil, server.name, "CAP", sClient.nick, "DEL", removed)
+			sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "DEL", removed)
 		}
 		if !addedCaps.Empty() {
-			sClient.Send(nil, server.name, "CAP", sClient.nick, "NEW", added[sClient.capVersion])
+			sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "NEW", added[sSession.capVersion])
 		}
 	}
 
@@ -813,7 +816,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 			if !oldConfig.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.Enabled {
 				sClient.nickTimer.Initialize(sClient)
-				sClient.nickTimer.Touch()
+				sClient.nickTimer.Touch(nil)
 			} else if oldConfig.Accounts.NickReservation.Enabled && !config.Accounts.NickReservation.Enabled {
 				sClient.nickTimer.Stop()
 			}

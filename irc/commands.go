@@ -21,7 +21,7 @@ type Command struct {
 }
 
 // Run runs this command with the given client/message.
-func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) bool {
+func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.IrcMessage) bool {
 	if !client.registered && !cmd.usablePreReg {
 		client.Send(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
 		return false
@@ -40,22 +40,22 @@ func (cmd *Command) Run(server *Server, client *Client, msg ircmsg.IrcMessage) b
 	}
 
 	if client.registered {
-		client.fakelag.Touch()
+		session.fakelag.Touch()
 	}
 
-	rb := NewResponseBuffer(client)
+	rb := NewResponseBuffer(session)
 	rb.Label = GetLabel(msg)
 	exiting := cmd.handler(server, client, msg, rb)
 	rb.Send(true)
 
 	// after each command, see if we can send registration to the client
 	if !client.registered {
-		server.tryRegister(client)
+		server.tryRegister(client, session)
 	}
 
 	// most servers do this only for PING/PONG, but we'll do it for any command:
 	if client.registered {
-		client.idletimer.Touch()
+		session.idletimer.Touch()
 	}
 
 	if !cmd.leaveClientIdle {

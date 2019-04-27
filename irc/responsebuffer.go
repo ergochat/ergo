@@ -25,9 +25,10 @@ const (
 type ResponseBuffer struct {
 	Label     string
 	batchID   string
-	target    *Client
 	messages  []ircmsg.IrcMessage
 	finalized bool
+	target    *Client
+	session   *Session
 }
 
 // GetLabel returns the label from the given message.
@@ -37,9 +38,10 @@ func GetLabel(msg ircmsg.IrcMessage) string {
 }
 
 // NewResponseBuffer returns a new ResponseBuffer.
-func NewResponseBuffer(target *Client) *ResponseBuffer {
+func NewResponseBuffer(session *Session) *ResponseBuffer {
 	return &ResponseBuffer{
-		target: target,
+		session: session,
+		target:  session.client,
 	}
 }
 
@@ -66,11 +68,11 @@ func (rb *ResponseBuffer) AddFromClient(msgid string, fromNickMask string, fromA
 	msg.UpdateTags(tags)
 
 	// attach account-tag
-	if rb.target.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
+	if rb.session.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
 		msg.SetTag("account", fromAccount)
 	}
 	// attach message-id
-	if len(msgid) > 0 && rb.target.capabilities.Has(caps.MessageTags) {
+	if len(msgid) > 0 && rb.session.capabilities.Has(caps.MessageTags) {
 		msg.SetTag("draft/msgid", msgid)
 	}
 
@@ -79,7 +81,7 @@ func (rb *ResponseBuffer) AddFromClient(msgid string, fromNickMask string, fromA
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
 func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
-	if rb.target.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+	if rb.session.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
 		rb.AddFromClient(message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
 	} else {
 		for _, messagePair := range message.Wrapped {
@@ -110,7 +112,7 @@ func (rb *ResponseBuffer) sendBatchStart(batchType string, blocking bool) {
 	if rb.Label != "" {
 		message.SetTag(caps.LabelTagName, rb.Label)
 	}
-	rb.target.SendRawMessage(message, blocking)
+	rb.session.SendRawMessage(message, blocking)
 }
 
 func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
@@ -120,7 +122,7 @@ func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
 	}
 
 	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "-"+rb.batchID)
-	rb.target.SendRawMessage(message, blocking)
+	rb.session.SendRawMessage(message, blocking)
 }
 
 // Send sends all messages in the buffer to the client.
@@ -146,7 +148,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 		return nil
 	}
 
-	useLabel := rb.target.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
+	useLabel := rb.session.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
 	// use a batch if we have a label, and we either currently have 0 or 2+ messages,
 	// or we are doing a Flush() and we have to assume that there will be more messages
 	// in the future.
@@ -162,7 +164,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	// send each message out
 	for _, message := range rb.messages {
 		// attach server-time if needed
-		if rb.target.capabilities.Has(caps.ServerTime) && !message.HasTag("time") {
+		if rb.session.capabilities.Has(caps.ServerTime) && !message.HasTag("time") {
 			message.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
 		}
 
@@ -172,7 +174,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 		}
 
 		// send message out
-		rb.target.SendRawMessage(message, blocking)
+		rb.session.SendRawMessage(message, blocking)
 	}
 
 	// end batch if required

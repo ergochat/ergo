@@ -482,14 +482,20 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		Mode: modes.Away,
 		Op:   op,
 	}}
-	rb.Add(nil, server.name, "MODE", client.nick, modech.String())
+
+	details := client.Details()
+	modeString := modech.String()
+	rb.Add(nil, server.name, "MODE", details.nick, modeString)
 
 	// dispatch away-notify
-	for friend := range client.Friends(caps.AwayNotify) {
+	for session := range client.Friends(caps.AwayNotify) {
+		if session != rb.session && rb.session.client == client {
+			session.Send(nil, server.name, "MODE", details.nick, modeString)
+		}
 		if isAway {
-			friend.SendFromClient("", client, nil, "AWAY", awayMessage)
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
 		} else {
-			friend.SendFromClient("", client, nil, "AWAY")
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY")
 		}
 	}
 
@@ -527,23 +533,23 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	switch subCommand {
 	case "LS":
 		if !client.registered {
-			client.capState = caps.NegotiatingState
+			rb.session.capState = caps.NegotiatingState
 		}
 		if len(msg.Params) > 1 && msg.Params[1] == "302" {
-			client.capVersion = 302
+			rb.session.capVersion = 302
 		}
 		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
 		// the server.name source... otherwise it doesn't respond to the CAP message with
 		// anything and just hangs on connection.
 		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		rb.Add(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(client.capVersion, CapValues))
+		rb.Add(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(rb.session.capVersion, CapValues))
 
 	case "LIST":
-		rb.Add(nil, server.name, "CAP", client.nick, subCommand, client.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
+		rb.Add(nil, server.name, "CAP", client.nick, subCommand, rb.session.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
 
 	case "REQ":
 		if !client.registered {
-			client.capState = caps.NegotiatingState
+			rb.session.capState = caps.NegotiatingState
 		}
 
 		// make sure all capabilities actually exist
@@ -551,8 +557,8 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
 			return false
 		}
-		client.capabilities.Union(toAdd)
-		client.capabilities.Subtract(toRemove)
+		rb.session.capabilities.Union(toAdd)
+		rb.session.capabilities.Subtract(toRemove)
 		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
 
 		// if this is the first time the client is requesting a resume token,
@@ -564,9 +570,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 		}
 
+		// update maxlenrest, just in case they altered the maxline cap
+		rb.session.SetMaxlenRest()
+
 	case "END":
 		if !client.registered {
-			client.capState = caps.NegotiatedState
+			rb.session.capState = caps.NegotiatedState
 		}
 
 	default:
@@ -600,7 +609,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		if success && len(items) > 0 {
 			return
 		}
-		newRb := NewResponseBuffer(client)
+		newRb := NewResponseBuffer(rb.session)
 		newRb.Label = rb.Label // same label, new batch
 		// TODO: send `WARN CHATHISTORY MAX_MESSAGES_EXCEEDED` when appropriate
 		if hist == nil {
@@ -1006,12 +1015,12 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason))
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false)
+				mcl.destroy(false, nil)
 			}
 		}
 
@@ -1240,16 +1249,12 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				return false
 			}
 			channelString = msg.Params[1]
-			rb = NewResponseBuffer(target)
 		}
 	}
 
 	channels := strings.Split(channelString, ",")
 	for _, chname := range channels {
 		server.channels.Join(target, chname, "", true, rb)
-	}
-	if client != target {
-		rb.Send(false)
 	}
 	return false
 }
@@ -1321,8 +1326,8 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
 	target.exitedSnomaskSent = true
 
-	target.Quit(quitMsg)
-	target.destroy(false)
+	target.Quit(quitMsg, nil)
+	target.destroy(false, nil)
 	return false
 }
 
@@ -1447,12 +1452,12 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 		for _, mcl := range clientsToKill {
 			mcl.exitedSnomaskSent = true
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason))
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false)
+				mcl.destroy(false, nil)
 			}
 		}
 
@@ -1660,19 +1665,25 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	// send out changes
+	prefix := client.NickMaskString()
 	if len(applied) > 0 {
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
 		for _, member := range channel.Members() {
 			if member == client {
-				rb.Add(nil, client.nickMaskString, "MODE", args...)
+				rb.Add(nil, prefix, "MODE", args...)
+				for _, session := range client.Sessions() {
+					if session != rb.session {
+						session.Send(nil, prefix, "MODE", args...)
+					}
+				}
 			} else {
-				member.Send(nil, client.nickMaskString, "MODE", args...)
+				member.Send(nil, prefix, "MODE", args...)
 			}
 		}
 	} else {
 		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
-		rb.Add(nil, client.nickMaskString, RPL_CHANNELMODEIS, args...)
+		rb.Add(nil, prefix, RPL_CHANNELMODEIS, args...)
 		rb.Add(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
@@ -1913,7 +1924,7 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if client.registered {
-		performNickChange(server, client, client, msg.Params[0], rb)
+		performNickChange(server, client, client, nil, msg.Params[0], rb)
 	} else {
 		client.preregNick = msg.Params[0]
 	}
@@ -1953,7 +1964,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 	for i, targetString := range targets {
 		// each target gets distinct msgids
-		splitMsg := utils.MakeSplitMessage(message, !client.capabilities.Has(caps.MaxLine))
+		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
 		now := time.Now().UTC()
 
 		// max of four targets per privmsg
@@ -1992,10 +2003,6 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			tnick := user.Nick()
 
-			if histType == history.Tagmsg && !user.capabilities.Has(caps.MessageTags) {
-				continue // nothing to do
-			}
-
 			nickMaskString := client.NickMaskString()
 			accountName := client.AccountName()
 			// restrict messages appropriately when +R is set
@@ -2003,17 +2010,34 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
 			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
 			if allowedPlusR && allowedTor {
-				if histType == history.Tagmsg {
-					user.sendFromClientInternal(false, now, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
-				} else {
-					user.SendSplitMsgFromClient(client, clientOnlyTags, msg.Command, tnick, splitMsg)
+				for _, session := range user.Sessions() {
+					if histType == history.Tagmsg {
+						// don't send TAGMSG at all if they don't have the tags cap
+						if session.capabilities.Has(caps.MessageTags) {
+							session.sendFromClientInternal(false, now, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
+						}
+					} else {
+						session.sendSplitMsgFromClientInternal(false, now, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+					}
 				}
 			}
-			if client.capabilities.Has(caps.EchoMessage) {
-				if histType == history.Tagmsg && client.capabilities.Has(caps.MessageTags) {
+			// an echo-message may need to be included in the response:
+			if rb.session.capabilities.Has(caps.EchoMessage) {
+				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
 					rb.AddFromClient(splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 				} else {
 					rb.AddSplitMessageFromClient(nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+				}
+			}
+			// an echo-message may need to go out to other client sessions:
+			for _, session := range client.Sessions() {
+				if session == rb.session || !rb.session.capabilities.SelfMessagesEnabled() {
+					continue
+				}
+				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+					session.sendFromClientInternal(false, now, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
+				} else {
+					session.sendSplitMsgFromClientInternal(false, now, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
 			if histType != history.Notice && user.HasMode(modes.Away) {
@@ -2084,7 +2108,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 	if !authorized {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))
-		client.Quit(client.t("Password incorrect"))
+		client.Quit(client.t("Password incorrect"), rb.session)
 		return true
 	}
 
@@ -2109,7 +2133,9 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, oper.Name))
 
 	// client may now be unthrottled by the fakelag system
-	client.resetFakelag()
+	for _, session := range client.Sessions() {
+		session.resetFakelag()
+	}
 
 	return false
 }
@@ -2148,7 +2174,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	password := []byte(msg.Params[0])
 	if bcrypt.CompareHashAndPassword(serverPassword, password) != nil {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
-		client.Quit(client.t("Password incorrect"))
+		client.Quit(client.t("Password incorrect"), rb.session)
 		return true
 	}
 
@@ -2180,7 +2206,7 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if len(msg.Params) > 0 {
 		reason += ": " + msg.Params[0]
 	}
-	client.Quit(reason)
+	client.Quit(reason, rb.session)
 	return true
 }
 
@@ -2242,34 +2268,36 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	// send RENAME messages
 	clientPrefix := client.NickMaskString()
 	for _, mcl := range channel.Members() {
-		targetRb := rb
-		targetPrefix := clientPrefix
-		if mcl != client {
-			targetRb = NewResponseBuffer(mcl)
-			targetPrefix = mcl.NickMaskString()
-		}
-		if mcl.capabilities.Has(caps.Rename) {
-			if reason != "" {
-				targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName, reason)
-			} else {
-				targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName)
+		for _, mSession := range mcl.Sessions() {
+			targetRb := rb
+			targetPrefix := clientPrefix
+			if mSession != rb.session {
+				targetRb = NewResponseBuffer(mSession)
+				targetPrefix = mcl.NickMaskString()
 			}
-		} else {
-			if reason != "" {
-				targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
+			if mSession.capabilities.Has(caps.Rename) {
+				if reason != "" {
+					targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName, reason)
+				} else {
+					targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName)
+				}
 			} else {
-				targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
+				if reason != "" {
+					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
+				} else {
+					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
+				}
+				if mSession.capabilities.Has(caps.ExtendedJoin) {
+					targetRb.Add(nil, targetPrefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
+				} else {
+					targetRb.Add(nil, targetPrefix, "JOIN", newName)
+				}
+				channel.SendTopic(mcl, targetRb, false)
+				channel.Names(mcl, targetRb)
 			}
-			if mcl.capabilities.Has(caps.ExtendedJoin) {
-				targetRb.Add(nil, targetPrefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
-			} else {
-				targetRb.Add(nil, targetPrefix, "JOIN", newName)
+			if mcl != client {
+				targetRb.Send(false)
 			}
-			channel.SendTopic(mcl, targetRb, false)
-			channel.Names(mcl, targetRb)
-		}
-		if mcl != client {
-			targetRb.Send(false)
 		}
 	}
 
@@ -2311,7 +2339,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
 		return false
 	}
-	performNickChange(server, client, target, msg.Params[1], rb)
+	performNickChange(server, client, target, nil, msg.Params[1], rb)
 	return false
 }
 
@@ -2334,9 +2362,12 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	client.realname = realname
 	client.stateMutex.Unlock()
 
+	details := client.Details()
+
 	// alert friends
-	for friend := range client.Friends(caps.SetName) {
-		friend.SendFromClient("", client, nil, "SETNAME", realname)
+	now := time.Now().UTC()
+	for session := range client.Friends(caps.SetName) {
+		session.sendFromClientInternal(false, now, "", details.nickMask, details.account, nil, "SETNAME", details.realname)
 	}
 
 	return false
@@ -2519,7 +2550,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			lkey := strings.ToLower(key)
 			if lkey == "tls" || lkey == "secure" {
 				// only accept "tls" flag if the gateway's connection to us is secure as well
-				if client.HasMode(modes.TLS) || utils.AddrIsLocal(client.socket.conn.RemoteAddr()) {
+				if client.HasMode(modes.TLS) || client.realIP.IsLoopback() {
 					secure = true
 				}
 			}
@@ -2543,11 +2574,11 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
 				proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
 			}
-			return !client.ApplyProxiedIP(proxiedIP, secure)
+			return !client.ApplyProxiedIP(rb.session, proxiedIP, secure)
 		}
 	}
 
-	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"))
+	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"), rb.session)
 	return true
 }
 
@@ -2568,8 +2599,6 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		mask = casefoldedMask
 	}
 
-	friends := client.Friends()
-
 	//TODO(dan): is this used and would I put this param in the Modern doc?
 	// if not, can we remove it?
 	//var operatorOnly bool
@@ -2581,8 +2610,12 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// TODO implement wildcard matching
 		//TODO(dan): ^ only for opers
 		channel := server.channels.Get(mask)
-		if channel != nil {
-			whoChannel(client, channel, friends, rb)
+		if channel != nil && channel.hasClient(client) {
+			for _, member := range channel.Members() {
+				if !member.HasMode(modes.Invisible) {
+					client.rplWhoReply(channel, member, rb)
+				}
+			}
 		}
 	} else {
 		for mclient := range server.clients.FindAll(mask) {

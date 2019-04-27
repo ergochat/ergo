@@ -221,8 +221,6 @@ func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account st
 		nickMethod := finalEnforcementMethod(nickAccount)
 		skelMethod := finalEnforcementMethod(skelAccount)
 		switch {
-		case nickMethod == NickReservationNone && skelMethod == NickReservationNone:
-			return nickAccount, NickReservationNone
 		case skelMethod == NickReservationNone:
 			return nickAccount, nickMethod
 		case nickMethod == NickReservationNone:
@@ -232,6 +230,15 @@ func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account st
 			return "!", NickReservationStrict
 		}
 	}
+}
+
+func (am *AccountManager) BouncerAllowed(account string, session *Session) bool {
+	// TODO stub
+	config := am.server.Config()
+	if !config.Accounts.Bouncer.Enabled {
+		return false
+	}
+	return config.Accounts.Bouncer.AllowedByDefault || session.capabilities.Has(caps.Bouncer)
 }
 
 // Looks up the enforcement method stored in the database for an account
@@ -928,9 +935,9 @@ func (am *AccountManager) Unregister(account string) error {
 	}
 	for _, client := range clients {
 		if config.Accounts.RequireSasl.Enabled {
-			client.Quit(client.t("You are no longer authorized to be on this server"))
+			client.Quit(client.t("You are no longer authorized to be on this server"), nil)
 			// destroy acquires a semaphore so we can't call it while holding a lock
-			go client.destroy(false)
+			go client.destroy(false, nil)
 		} else {
 			am.logoutOfAccount(client)
 		}
@@ -1220,7 +1227,7 @@ func (am *AccountManager) Login(client *Client, account ClientAccount) {
 		return
 	}
 
-	client.nickTimer.Touch()
+	client.nickTimer.Touch(nil)
 
 	am.applyVHostInfo(client, account.VHost)
 
@@ -1306,7 +1313,7 @@ func (am *AccountManager) logoutOfAccount(client *Client) {
 	}
 
 	client.SetAccountName("")
-	go client.nickTimer.Touch()
+	go client.nickTimer.Touch(nil)
 
 	// dispatch account-notify
 	// TODO: doing the I/O here is kind of a kludge, let's move this somewhere else
