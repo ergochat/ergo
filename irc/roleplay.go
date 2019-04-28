@@ -75,7 +75,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		if rb.session.capabilities.Has(caps.EchoMessage) {
 			rb.Add(nil, source, "PRIVMSG", tnick, message)
 		}
-		if user.HasMode(modes.Away) {
+		if user.Away() {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
 		}

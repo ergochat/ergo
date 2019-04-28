@@ -466,8 +466,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 	}
 
-	client.SetMode(modes.Away, isAway)
-	client.SetAwayMessage(awayMessage)
+	client.SetAway(isAway, awayMessage)
 
 	if isAway {
 		rb.Add(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
@@ -2030,7 +2029,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 					session.sendSplitMsgFromClientInternal(false, now, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
-			if histType != history.Notice && user.HasMode(modes.Away) {
+			if histType != history.Notice && user.Away() {
 				//TODO(dan): possibly implement cooldown of away notifications to users
 				rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
 			}
@@ -2499,7 +2498,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		if target.HasMode(modes.Operator) {
 			isOper = "*"
 		}
-		if target.HasMode(modes.Away) {
+		if target.Away() {
 			isAway = "-"
 		} else {
 			isAway = "+"

@@ -49,6 +49,7 @@ type Client struct {
 	account            string
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	atime              time.Time
+	away               bool
 	awayMessage        string
 	certfp             string
 	channels           ChannelSet

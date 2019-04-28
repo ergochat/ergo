@@ -141,6 +141,22 @@ func (client *Client) Realname() string {
 	return client.realname
 }
 
+func (client *Client) Away() (result bool) {
+	client.stateMutex.Lock()
+	result = client.away
+	client.stateMutex.Unlock()
+	return
+}
+
+func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
+	client.stateMutex.Lock()
+	changed = away != client.away
+	client.away = away
+	client.awayMessage = awayMessage
+	client.stateMutex.Unlock()
+	return
+}
+
 // uniqueIdentifiers returns the strings for which the server enforces per-client
 // uniqueness/ownership; no two clients can have colliding casefolded nicks or
 // skeletons.
