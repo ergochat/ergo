@@ -90,3 +90,26 @@ func TestNilReceivers(t *testing.T) {
 		t.Errorf("nil Modeset should have empty String(), got %v instead", str)
 	}
 }
+
+func TestHighestChannelUserMode(t *testing.T) {
+	set := NewModeSet()
+
+	if set.HighestChannelUserMode() != Mode(0) {
+		t.Errorf("no channel user modes should be present yet")
+	}
+
+	set.SetMode(Voice, true)
+	if set.HighestChannelUserMode() != Voice {
+		t.Errorf("should see that user is voiced")
+	}
+
+	set.SetMode(ChannelAdmin, true)
+	if set.HighestChannelUserMode() != ChannelAdmin {
+		t.Errorf("should see that user has channel admin")
+	}
+
+	set = nil
+	if set.HighestChannelUserMode() != Mode(0) {
+		t.Errorf("nil modeset should have the zero mode as highest channel-user mode")
+	}
+}

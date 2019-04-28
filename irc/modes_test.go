@@ -48,3 +48,22 @@ func TestUmodeGreaterThan(t *testing.T) {
 		t.Errorf("modes should not be greater than themselves")
 	}
 }
+
+func assertEqual(supplied, expected interface{}, t *testing.T) {
+	if !reflect.DeepEqual(supplied, expected) {
+		t.Errorf("expected %v but got %v", expected, supplied)
+	}
+}
+
+func TestChannelUserModeHasPrivsOver(t *testing.T) {
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Halfop), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Mode(0), modes.Halfop), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Mode(0)), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelAdmin, modes.ChannelAdmin), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Halfop), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Voice), false, t)
+
+	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Voice), true, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelFounder, modes.ChannelAdmin), true, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelOperator, modes.ChannelOperator), true, t)
+}

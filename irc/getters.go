@@ -352,3 +352,10 @@ func (channel *Channel) DirtyBits() (dirtyBits uint) {
 	channel.stateMutex.Unlock()
 	return
 }
+
+func (channel *Channel) HighestUserMode(client *Client) (result modes.Mode) {
+	channel.stateMutex.RLock()
+	clientModes := channel.members[client]
+	channel.stateMutex.RUnlock()
+	return clientModes.HighestChannelUserMode()
+}

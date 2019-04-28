@@ -335,38 +335,44 @@ func (channel *Channel) regenerateMembersCache() {
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
+	isJoined := channel.hasClient(client)
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
 	var buffer bytes.Buffer
-	for _, target := range channel.Members() {
-		var nick string
-		if isUserhostInNames {
-			nick = target.NickMaskString()
-		} else {
-			nick = target.Nick()
-		}
-		channel.stateMutex.RLock()
-		modes := channel.members[target]
-		channel.stateMutex.RUnlock()
-		if modes == nil {
-			continue
-		}
-		prefix := modes.Prefixes(isMultiPrefix)
-		if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
-			namesLines = append(namesLines, buffer.String())
-			buffer.Reset()
+	if isJoined || !channel.flags.HasMode(modes.Secret) {
+		for _, target := range channel.Members() {
+			var nick string
+			if isUserhostInNames {
+				nick = target.NickMaskString()
+			} else {
+				nick = target.Nick()
+			}
+			channel.stateMutex.RLock()
+			modeSet := channel.members[target]
+			channel.stateMutex.RUnlock()
+			if modeSet == nil {
+				continue
+			}
+			if !isJoined && target.flags.HasMode(modes.Invisible) {
+				continue
+			}
+			prefix := modeSet.Prefixes(isMultiPrefix)
+			if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
+				namesLines = append(namesLines, buffer.String())
+				buffer.Reset()
+			}
+			if buffer.Len() > 0 {
+				buffer.WriteString(" ")
+			}
+			buffer.WriteString(prefix)
+			buffer.WriteString(nick)
 		}
 		if buffer.Len() > 0 {
-			buffer.WriteString(" ")
+			namesLines = append(namesLines, buffer.String())
 		}
-		buffer.WriteString(prefix)
-		buffer.WriteString(nick)
-	}
-	if buffer.Len() > 0 {
-		namesLines = append(namesLines, buffer.String())
 	}
 
 	for _, line := range namesLines {
@@ -377,22 +383,22 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, client.t("End of NAMES list"))
 }
 
-func channelUserModeIsAtLeast(clientModes *modes.ModeSet, permission modes.Mode) bool {
-	if clientModes == nil {
+// does `clientMode` give you privileges to grant/remove `targetMode` to/from people,
+// or to kick them?
+func channelUserModeHasPrivsOver(clientMode modes.Mode, targetMode modes.Mode) bool {
+	switch clientMode {
+	case modes.ChannelFounder:
+		return true
+	case modes.ChannelAdmin, modes.ChannelOperator:
+		// admins cannot kick other admins, operators *can* kick other operators
+		return targetMode != modes.ChannelFounder && targetMode != modes.ChannelAdmin
+	case modes.Halfop:
+		// halfops cannot kick other halfops
+		return targetMode != modes.ChannelFounder && targetMode != modes.ChannelAdmin && targetMode != modes.Halfop
+	default:
+		// voice and unprivileged cannot kick anyone
 		return false
 	}
-
-	for _, mode := range modes.ChannelUserModes {
-		if clientModes.HasMode(mode) {
-			return true
-		}
-
-		if mode == permission {
-			break
-		}
-	}
-
-	return false
 }
 
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
@@ -400,7 +406,16 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 	channel.stateMutex.RLock()
 	clientModes := channel.members[client]
 	channel.stateMutex.RUnlock()
-	return channelUserModeIsAtLeast(clientModes, permission)
+
+	for _, mode := range modes.ChannelUserModes {
+		if clientModes.HasMode(mode) {
+			return true
+		}
+		if mode == permission {
+			break
+		}
+	}
+	return false
 }
 
 func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
@@ -420,28 +435,13 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 	targetModes := channel.members[target]
 	channel.stateMutex.RUnlock()
 
-	if clientModes.HasMode(modes.ChannelFounder) {
-		// founder can kick anyone
-		return true
-	} else if clientModes.HasMode(modes.ChannelAdmin) {
-		// admins cannot kick other admins
-		return !channelUserModeIsAtLeast(targetModes, modes.ChannelAdmin)
-	} else if clientModes.HasMode(modes.ChannelOperator) {
-		// operators *can* kick other operators
-		return !channelUserModeIsAtLeast(targetModes, modes.ChannelAdmin)
-	} else if clientModes.HasMode(modes.Halfop) {
-		// halfops cannot kick other halfops
-		return !channelUserModeIsAtLeast(targetModes, modes.Halfop)
-	} else {
-		// voice and unprivileged cannot kick anyone
-		return false
-	}
+	return channelUserModeHasPrivsOver(clientModes.HighestChannelUserMode(), targetModes.HighestChannelUserMode())
 }
 
 func (channel *Channel) hasClient(client *Client) bool {
 	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
 	_, present := channel.members[client]
+	channel.stateMutex.RUnlock()
 	return present
 }
 
@@ -902,7 +902,7 @@ func msgCommandToHistType(server *Server, command string) (history.ItemType, err
 	}
 }
 
-func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
+func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
 	histType, err := msgCommandToHistType(channel.server, command)
 	if err != nil {
 		return
@@ -920,11 +920,11 @@ func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, 
 	chname := channel.Name()
 	now := time.Now().UTC()
 
-	// for STATUSMSG
-	var minPrefixMode modes.Mode
-	if minPrefix != nil {
-		minPrefixMode = *minPrefix
+	// STATUSMSG targets are prefixed with the supplied min-prefix, e.g., @#channel
+	if minPrefixMode != modes.Mode(0) {
+		chname = fmt.Sprintf("%s%s", modes.ChannelModePrefixes[minPrefixMode], chname)
 	}
+
 	// send echo-message
 	// TODO this should use `now` as the time for consistency
 	if rb.session.capabilities.Has(caps.EchoMessage) {
@@ -959,7 +959,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefix *modes.Mode, 
 		if member == client {
 			continue
 		}
-		if minPrefix != nil && !channel.ClientIsAtLeast(member, minPrefixMode) {
+		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
 		}

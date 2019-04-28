@@ -143,12 +143,6 @@ var (
 	Halfop          Mode = 'h' // arg
 	Voice           Mode = 'v' // arg
 
-	// ChannelPrivModes holds the list of modes that are privileged, ie founder/op/halfop, in order.
-	// voice is not in this list because it cannot perform channel operator actions.
-	ChannelPrivModes = Modes{
-		ChannelFounder, ChannelAdmin, ChannelOperator, Halfop,
-	}
-
 	// ChannelUserModes holds the list of all modes that can be applied to a user in a channel,
 	// including Voice, in descending order of precedence
 	ChannelUserModes = Modes{
@@ -171,23 +165,24 @@ var (
 // SplitChannelMembershipPrefixes takes a target and returns the prefixes on it, then the name.
 func SplitChannelMembershipPrefixes(target string) (prefixes string, name string) {
 	name = target
-	for {
-		if len(name) > 0 && strings.Contains("~&@%+", string(name[0])) {
-			prefixes += string(name[0])
-			name = name[1:]
-		} else {
+	for i := 0; i < len(name); i++ {
+		switch name[i] {
+		case '~', '&', '@', '%', '+':
+			prefixes = target[:i+1]
+			name = target[i+1:]
+		default:
 			break
 		}
 	}
 
-	return prefixes, name
+	return
 }
 
 // GetLowestChannelModePrefix returns the lowest channel prefix mode out of the given prefixes.
-func GetLowestChannelModePrefix(prefixes string) (lowest *Mode) {
+func GetLowestChannelModePrefix(prefixes string) (lowest Mode) {
 	for i, mode := range ChannelUserModes {
 		if strings.Contains(prefixes, ChannelModePrefixes[mode]) {
-			lowest = &ChannelPrivModes[i]
+			lowest = ChannelUserModes[i]
 		}
 	}
 	return
@@ -404,4 +399,16 @@ func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
 	}
 
 	return prefixes
+}
+
+// HighestChannelUserMode returns the most privileged channel-user mode
+// (e.g., ChannelFounder, Halfop, Voice) present in the ModeSet.
+// If no such modes are present, or `set` is nil, returns the zero mode.
+func (set *ModeSet) HighestChannelUserMode() (result Mode) {
+	for _, mode := range ChannelUserModes {
+		if set.HasMode(mode) {
+			return mode
+		}
+	}
+	return
 }

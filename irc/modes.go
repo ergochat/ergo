@@ -128,16 +128,12 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			}
 			cfarg, _ := CasefoldName(change.Arg)
 			isSelfChange := cfarg == client.NickCasefolded()
-			// Admins can't give other people Admin or remove it from others
-			if change.Mode == modes.ChannelAdmin && !isSelfChange {
-				return false
-			}
 			if change.Op == modes.Remove && isSelfChange {
 				// "There is no restriction, however, on anyone `deopping' themselves"
 				// <https://tools.ietf.org/html/rfc2812#section-3.1.5>
 				return true
 			}
-			return channel.ClientIsAtLeast(client, change.Mode)
+			return channelUserModeHasPrivsOver(channel.HighestUserMode(client), change.Mode)
 		case modes.BanMask:
 			// #163: allow unprivileged users to list ban masks
 			return isListOp(change) || channel.ClientIsAtLeast(client, modes.ChannelOperator)
@@ -254,13 +250,6 @@ func umodeGreaterThan(l modes.Mode, r modes.Mode) bool {
 
 // ProcessAccountToUmodeChange processes Add/Remove/List operations for channel persistent usermodes.
 func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes.ModeChange) (results []modes.ModeChange, err error) {
-	hasPrivsOver := func(l modes.Mode, r modes.Mode) bool {
-		if l == modes.ChannelAdmin {
-			return umodeGreaterThan(l, r)
-		}
-		return l == r || umodeGreaterThan(l, r)
-	}
-
 	changed := false
 	defer func() {
 		if changed {
@@ -284,9 +273,9 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 	// operators and founders can do anything
 	hasPrivs := isOperChange || (account != "" && account == channel.registeredFounder)
 	// halfop and up can list, and do add/removes at levels <= their own
-	if change.Op == modes.List && hasPrivsOver(clientMode, modes.Halfop) {
+	if change.Op == modes.List && (clientMode == modes.Halfop || umodeGreaterThan(clientMode, modes.Halfop)) {
 		hasPrivs = true
-	} else if hasPrivsOver(clientMode, modes.Halfop) && hasPrivsOver(clientMode, targetModeNow) && hasPrivsOver(clientMode, targetModeAfter) {
+	} else if channelUserModeHasPrivsOver(clientMode, targetModeNow) && channelUserModeHasPrivsOver(clientMode, targetModeAfter) {
 		hasPrivs = true
 	}
 	if !hasPrivs {
