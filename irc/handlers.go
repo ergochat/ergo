@@ -469,29 +469,15 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	client.SetMode(modes.Away, isAway)
 	client.SetAwayMessage(awayMessage)
 
-	var op modes.ModeOp
 	if isAway {
-		op = modes.Add
 		rb.Add(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
 	} else {
-		op = modes.Remove
 		rb.Add(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
-	//TODO(dan): Should this be sent automagically as part of setting the flag/mode?
-	modech := modes.ModeChanges{modes.ModeChange{
-		Mode: modes.Away,
-		Op:   op,
-	}}
-
-	details := client.Details()
-	modeString := modech.String()
-	rb.Add(nil, server.name, "MODE", details.nick, modeString)
 
 	// dispatch away-notify
+	details := client.Details()
 	for session := range client.Friends(caps.AwayNotify) {
-		if session != rb.session && rb.session.client == client {
-			session.Send(nil, server.name, "MODE", details.nick, modeString)
-		}
 		if isAway {
 			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
 		} else {
