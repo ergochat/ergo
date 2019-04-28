@@ -489,7 +489,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	// dispatch away-notify
 	for session := range client.Friends(caps.AwayNotify) {
-		if session != rb.session && rb.session.client == client {
+		if session != rb.session && rb.session.client == session.client {
 			session.Send(nil, server.name, "MODE", details.nick, modeString)
 		}
 		if isAway {
