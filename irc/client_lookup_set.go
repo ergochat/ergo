@@ -209,11 +209,12 @@ func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (sessions [
 
 // AllWithCapsNotify returns all clients with the given capabilities, and that support cap-notify.
 func (clients *ClientManager) AllWithCapsNotify(capabs ...caps.Capability) (sessions []*Session) {
+	capabs = append(capabs, caps.CapNotify)
 	clients.RLock()
 	defer clients.RUnlock()
 	for _, client := range clients.byNick {
 		for _, session := range client.Sessions() {
-			capabs = append(capabs, caps.CapNotify)
+			// cap-notify is implicit in cap version 302 and above
 			if session.capabilities.HasAll(capabs...) || 302 <= session.capVersion {
 				sessions = append(sessions, session)
 			}
