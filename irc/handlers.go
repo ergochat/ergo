@@ -535,8 +535,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		if !client.registered {
 			rb.session.capState = caps.NegotiatingState
 		}
-		if len(msg.Params) > 1 && msg.Params[1] == "302" {
-			rb.session.capVersion = 302
+		if 1 < len(msg.Params) {
+			num, err := strconv.Atoi(msg.Params[1])
+			newVersion := caps.Version(num)
+			if err == nil && rb.session.capVersion < newVersion {
+				rb.session.capVersion = newVersion
+			}
 		}
 		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
 		// the server.name source... otherwise it doesn't respond to the CAP message with

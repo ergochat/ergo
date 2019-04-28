@@ -744,7 +744,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
-		capBurstSessions = server.clients.AllWithCaps(caps.CapNotify)
+		capBurstSessions = server.clients.AllWithCapsNotify()
 
 		added[caps.Cap301] = addedCaps.String(caps.Cap301, CapValues)
 		added[caps.Cap302] = addedCaps.String(caps.Cap302, CapValues)
