@@ -548,7 +548,7 @@ func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *Response
 	channelName := "*"
 	flags := ""
 
-	if client.HasMode(modes.Away) {
+	if client.Away() {
 		flags = "G"
 	} else {
 		flags = "H"

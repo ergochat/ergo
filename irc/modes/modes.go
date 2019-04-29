@@ -15,7 +15,7 @@ import (
 var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
-		Away, Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
+		Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
 	}
 
 	// SupportedChannelModes are the channel modes that we support.
@@ -107,7 +107,6 @@ func (modes Modes) String() string {
 
 // User Modes
 const (
-	Away            Mode = 'a'
 	Bot             Mode = 'B'
 	Invisible       Mode = 'i'
 	LocalOperator   Mode = 'O'
