@@ -336,13 +336,14 @@ func (channel *Channel) regenerateMembersCache() {
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	isJoined := channel.hasClient(client)
+	isOper := client.HasMode(modes.Operator)
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
 	var buffer bytes.Buffer
-	if isJoined || !channel.flags.HasMode(modes.Secret) {
+	if isJoined || !channel.flags.HasMode(modes.Secret) || isOper {
 		for _, target := range channel.Members() {
 			var nick string
 			if isUserhostInNames {
@@ -356,7 +357,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 			if modeSet == nil {
 				continue
 			}
-			if !isJoined && target.flags.HasMode(modes.Invisible) {
+			if !isJoined && target.flags.HasMode(modes.Invisible) && !isOper {
 				continue
 			}
 			prefix := modeSet.Prefixes(isMultiPrefix)
