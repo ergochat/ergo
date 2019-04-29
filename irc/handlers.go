@@ -2595,14 +2595,18 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	//	operatorOnly = true
 	//}
 
+	isOper := client.HasMode(modes.Operator)
 	if mask[0] == '#' {
 		// TODO implement wildcard matching
 		//TODO(dan): ^ only for opers
 		channel := server.channels.Get(mask)
-		if channel != nil && channel.hasClient(client) {
-			for _, member := range channel.Members() {
-				if !member.HasMode(modes.Invisible) {
-					client.rplWhoReply(channel, member, rb)
+		if channel != nil {
+			isJoined := channel.hasClient(client)
+			if !channel.flags.HasMode(modes.Secret) || isJoined || isOper {
+				for _, member := range channel.Members() {
+					if !member.HasMode(modes.Invisible) || isJoined || isOper {
+						client.rplWhoReply(channel, member, rb)
+					}
 				}
 			}
 		}
