@@ -22,25 +22,52 @@ const (
 	Quit
 	Mode
 	Tagmsg
+	Nick
 )
+
+// a Tagmsg that consists entirely of junk tags is not stored
+var junkTags = map[string]bool{
+	"+draft/typing": true,
+	"+typing":       true, // future-proofing
+}
 
 // Item represents an event (e.g., a PRIVMSG or a JOIN) and its associated data
 type Item struct {
 	Type ItemType
-	Time time.Time
 
 	Nick string
 	// this is the uncasefolded account name, if there's no account it should be set to "*"
 	AccountName string
-	Message     utils.SplitMessage
 	// for non-privmsg items, we may stuff some other data in here
+	Message utils.SplitMessage
+	Tags    map[string]string
+	Params  [1]string
 }
 
 // HasMsgid tests whether a message has the message id `msgid`.
 func (item *Item) HasMsgid(msgid string) bool {
-	// XXX we stuff other data in the Msgid field sometimes,
-	// don't match it by accident
-	return (item.Type == Privmsg || item.Type == Notice) && item.Message.Msgid == msgid
+	if item.Message.Msgid == msgid {
+		return true
+	}
+	for _, pair := range item.Message.Wrapped {
+		if pair.Msgid == msgid {
+			return true
+		}
+	}
+	return false
+}
+
+func (item *Item) isStorable() bool {
+	if item.Type == Tagmsg {
+		for name := range item.Tags {
+			if !junkTags[name] {
+				return true
+			}
+		}
+		return false // all tags were blacklisted
+	} else {
+		return true
+	}
 }
 
 type Predicate func(item Item) (matches bool)
@@ -94,8 +121,12 @@ func (list *Buffer) Add(item Item) {
 		return
 	}
 
-	if item.Time.IsZero() {
-		item.Time = time.Now().UTC()
+	if !item.isStorable() {
+		return
+	}
+
+	if item.Message.Time.IsZero() {
+		item.Message.Time = time.Now().UTC()
 	}
 
 	list.Lock()
@@ -114,8 +145,8 @@ func (list *Buffer) Add(item Item) {
 		list.end = (list.end + 1) % len(list.buffer)
 		list.start = list.end // advance start as well, overwriting first entry
 		// record the timestamp of the overwritten item
-		if list.lastDiscarded.Before(list.buffer[pos].Time) {
-			list.lastDiscarded = list.buffer[pos].Time
+		if list.lastDiscarded.Before(list.buffer[pos].Message.Time) {
+			list.lastDiscarded = list.buffer[pos].Message.Time
 		}
 	}
 
@@ -144,7 +175,7 @@ func (list *Buffer) Between(after, before time.Time, ascending bool, limit int) 
 	complete = after.Equal(list.lastDiscarded) || after.After(list.lastDiscarded)
 
 	satisfies := func(item Item) bool {
-		return (after.IsZero() || item.Time.After(after)) && (before.IsZero() || item.Time.Before(before))
+		return (after.IsZero() || item.Message.Time.After(after)) && (before.IsZero() || item.Message.Time.Before(before))
 	}
 
 	return list.matchInternal(satisfies, ascending, limit), complete
@@ -264,8 +295,8 @@ func (list *Buffer) Resize(size int) {
 			}
 			// update lastDiscarded for discarded entries
 			for i := list.start; i != start; i = (i + 1) % len(list.buffer) {
-				if list.lastDiscarded.Before(list.buffer[i].Time) {
-					list.lastDiscarded = list.buffer[i].Time
+				if list.lastDiscarded.Before(list.buffer[i].Message.Time) {
+					list.lastDiscarded = list.buffer[i].Message.Time
 				}
 			}
 		}

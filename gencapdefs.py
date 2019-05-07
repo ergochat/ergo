@@ -159,6 +159,12 @@ CAPDEFS = [
         url="https://wiki.znc.in/Query_buffers",
         standard="ZNC vendor",
     ),
+    CapDef(
+        identifier="EventPlayback",
+        name="draft/event-playback",
+        url="https://github.com/ircv3/ircv3-specifications/pull/362",
+        standard="Draft IRCv3",
+    ),
 ]
 
 def validate_defs():
