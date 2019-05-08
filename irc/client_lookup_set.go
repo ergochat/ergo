@@ -160,9 +160,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		if !currentClient.AddSession(session) {
 			return errNicknameInUse
 		}
-		// successful reattach. temporarily assign them the nick they'll have going forward
-		// (the current `client` will be discarded at the end of command execution)
-		client.updateNick(currentClient.Nick(), newcfnick, newSkeleton)
+		// successful reattach!
 		return nil
 	}
 	// analogous checks for skeletons

@@ -329,7 +329,10 @@ func (client *Client) WhoWas() (result WhoWas) {
 func (client *Client) Details() (result ClientDetails) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
+	return client.detailsNoMutex()
+}
 
+func (client *Client) detailsNoMutex() (result ClientDetails) {
 	result.nick = client.nick
 	result.nickCasefolded = client.nickCasefolded
 	result.username = client.username

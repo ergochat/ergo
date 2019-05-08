@@ -323,8 +323,10 @@ func (client *Client) run(session *Session) {
 	session.resetFakelag()
 
 	isReattach := client.Registered()
-	// don't reset the nick timer during a reattach
-	if !isReattach {
+	if isReattach {
+		client.playReattachMessages(session)
+	} else {
+		// don't reset the nick timer during a reattach
 		client.nickTimer.Initialize(client)
 	}
 
@@ -386,14 +388,14 @@ func (client *Client) run(session *Session) {
 			break
 		} else if session.client != client {
 			// bouncer reattach
-			session.playReattachMessages()
 			go session.client.run(session)
 			break
 		}
 	}
 }
 
-func (session *Session) playReattachMessages() {
+func (client *Client) playReattachMessages(session *Session) {
+	client.server.playRegistrationBurst(session)
 	for _, channel := range session.client.Channels() {
 		channel.playJoinForSession(session)
 	}
@@ -922,14 +924,11 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
-	nickMaskString := client.nickMaskString
-	accountName := client.accountName
-
-	alreadyDestroyed := len(client.sessions) == 0
+	details := client.detailsNoMutex()
+	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	var remainingSessions int
 	if session == nil {
-		sessionRemoved = !alreadyDestroyed
 		sessionsToDestroy = client.sessions
 		client.sessions = nil
 		remainingSessions = 0
@@ -939,32 +938,45 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 			sessionsToDestroy = []*Session{session}
 		}
 	}
-	var quitMessage string
-	if 0 < len(sessionsToDestroy) {
-		quitMessage = sessionsToDestroy[0].quitMessage
-	}
 	client.stateMutex.Unlock()
 
-	if alreadyDestroyed || !sessionRemoved {
+	if len(sessionsToDestroy) == 0 {
 		return
 	}
 
+	// destroy all applicable sessions:
+	var quitMessage string
 	for _, session := range sessionsToDestroy {
 		if session.client != client {
 			// session has been attached to a new client; do not destroy it
 			continue
 		}
 		session.idletimer.Stop()
-		session.socket.Close()
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
+		quitMessage = session.quitMessage
+		session.socket.Close()
+
+		// remove from connection limits
+		var source string
+		if client.isTor {
+			client.server.torLimiter.RemoveClient()
+			source = "tor"
+		} else {
+			ip := session.realIP
+			if session.proxiedIP != nil {
+				ip = session.proxiedIP
+			}
+			client.server.connectionLimiter.RemoveClient(ip)
+			source = ip.String()
+		}
+		client.server.logger.Info("localconnect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
 
+	// ok, now destroy the client, unless it still has sessions:
 	if remainingSessions != 0 {
 		return
 	}
-
-	details := client.Details()
 
 	// see #235: deduplicating the list of PART recipients uses (comparatively speaking)
 	// a lot of RAM, so limit concurrency to avoid thrashing
@@ -973,38 +985,35 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 	if beingResumed {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", details.nick))
-	} else {
+	} else if !wasReattach {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 
-	if !beingResumed {
-		client.server.whoWas.Append(details.WhoWas)
-	}
-
-	// remove from connection limits
-	if client.isTor {
-		client.server.torLimiter.RemoveClient()
-	} else {
-		client.server.connectionLimiter.RemoveClient(client.IP())
+	registered := client.Registered()
+	if !beingResumed && registered {
+		client.server.whoWas.Append(client.WhoWas())
 	}
 
 	client.server.resumeManager.Delete(client)
 
 	// alert monitors
-	client.server.monitorManager.AlertAbout(client, false)
+	if registered {
+		client.server.monitorManager.AlertAbout(client, false)
+	}
 	// clean up monitor state
 	client.server.monitorManager.RemoveAll(client)
 
 	splitQuitMessage := utils.MakeSplitMessage(quitMessage, true)
 	// clean up channels
+	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
 	for _, channel := range client.Channels() {
 		if !beingResumed {
 			channel.Quit(client)
 			channel.history.Add(history.Item{
 				Type:        history.Quit,
-				Nick:        nickMaskString,
-				AccountName: accountName,
+				Nick:        details.nickMask,
+				AccountName: details.accountName,
 				Message:     splitQuitMessage,
 			})
 		}
