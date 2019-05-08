@@ -298,9 +298,15 @@ func accVerifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb 
 
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	details := client.Details()
+	if details.account != "" {
+		rb.Add(nil, server.name, ERR_SASLALREADY, details.nick, client.t("You're already logged into an account"))
+		return false
+	}
+
 	// sasl abort
 	if !server.AccountConfig().AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
-		rb.Add(nil, server.name, ERR_SASLABORTED, client.nick, client.t("SASL authentication aborted"))
+		rb.Add(nil, server.name, ERR_SASLABORTED, details.nick, client.t("SASL authentication aborted"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -317,7 +323,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 			client.saslMechanism = mechanism
 			rb.Add(nil, server.name, "AUTHENTICATE", "+")
 		} else {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
 		}
 
 		return false
@@ -327,7 +333,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	rawData := msg.Params[0]
 
 	if len(rawData) > 400 {
-		rb.Add(nil, server.name, ERR_SASLTOOLONG, client.nick, client.t("SASL message too long"))
+		rb.Add(nil, server.name, ERR_SASLTOOLONG, details.nick, client.t("SASL message too long"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
@@ -336,7 +342,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 		client.saslValue += rawData
 		// allow 4 'continuation' lines before rejecting for length
 		if len(client.saslValue) > 400*4 {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Passphrase too long"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -353,7 +359,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	if client.saslValue != "+" {
 		data, err = base64.StdEncoding.DecodeString(client.saslValue)
 		if err != nil {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
+			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 			client.saslInProgress = false
 			client.saslMechanism = ""
 			client.saslValue = ""
@@ -366,7 +372,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 
 	// like 100% not required, but it's good to be safe I guess
 	if !handlerExists {
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
 		client.saslInProgress = false
 		client.saslMechanism = ""
 		client.saslValue = ""
