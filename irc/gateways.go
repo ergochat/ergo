@@ -73,7 +73,9 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+	session.proxiedIP = parsedProxiedIP
 	client.proxiedIP = parsedProxiedIP
+	session.rawHostname = rawHostname
 	client.rawHostname = rawHostname
 	// nickmask will be updated when the client completes registration
 	// set tls info

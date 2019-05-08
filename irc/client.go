@@ -94,7 +94,14 @@ type Client struct {
 type Session struct {
 	client *Client
 
-	socket    *Socket
+	ctime time.Time
+	atime time.Time
+
+	socket      *Socket
+	realIP      net.IP
+	proxiedIP   net.IP
+	rawHostname string
+
 	idletimer IdleTimer
 	fakelag   Fakelag
 
@@ -104,9 +111,6 @@ type Session struct {
 	maxlenRest   uint32
 	capState     caps.State
 	capVersion   caps.Version
-
-	// TODO track per-connection real IP, proxied IP, and hostname here,
-	// so we can list attached sessions and their details
 }
 
 // sets the session quit message, if there isn't one already
@@ -187,6 +191,8 @@ func RunNewClient(server *Server, conn clientConn) {
 		socket:     socket,
 		capVersion: caps.Cap301,
 		capState:   caps.NoneState,
+		ctime:      now,
+		atime:      now,
 	}
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
@@ -197,20 +203,29 @@ func RunNewClient(server *Server, conn clientConn) {
 		client.certfp, _ = socket.CertFP()
 	}
 
+	remoteAddr := conn.Conn.RemoteAddr()
 	if conn.IsTor {
 		client.SetMode(modes.TLS, true)
-		client.realIP = utils.IPv4LoopbackAddress
-		client.rawHostname = config.Server.TorListeners.Vhost
+		session.realIP = utils.AddrToIP(remoteAddr)
+		// cover up details of the tor proxying infrastructure (not a user privacy concern,
+		// but a hardening measure):
+		session.proxiedIP = utils.IPv4LoopbackAddress
+		session.rawHostname = config.Server.TorListeners.Vhost
 	} else {
-		remoteAddr := conn.Conn.RemoteAddr()
-		client.realIP = utils.AddrToIP(remoteAddr)
-		// Set the hostname for this client
-		// (may be overridden by a later PROXY command from stunnel)
-		client.rawHostname = utils.LookupHostname(client.realIP.String())
+		session.realIP = utils.AddrToIP(remoteAddr)
+		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
+		session.rawHostname = utils.LookupHostname(session.realIP.String())
+		if utils.AddrIsLocal(remoteAddr) {
+			// treat local connections as secure (may be overridden later by WEBIRC)
+			client.SetMode(modes.TLS, true)
+		}
 		if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
 			client.doIdentLookup(conn.Conn)
 		}
 	}
+	client.realIP = session.realIP
+	client.rawHostname = session.rawHostname
+	client.proxiedIP = session.proxiedIP
 
 	client.run(session)
 }
@@ -389,10 +404,13 @@ func (session *Session) playReattachMessages() {
 //
 
 // Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
-func (client *Client) Active() {
+func (client *Client) Active(session *Session) {
+	// TODO normalize all times to utc?
+	now := time.Now()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	client.atime = time.Now()
+	session.atime = now
+	client.atime = now
 }
 
 // Ping sends the client a PING message.

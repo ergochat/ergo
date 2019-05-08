@@ -58,8 +58,8 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		session.idletimer.Touch()
 	}
 
-	if !cmd.leaveClientIdle {
-		client.Active()
+	if client.registered && !cmd.leaveClientIdle {
+		client.Active(session)
 	}
 
 	return exiting
