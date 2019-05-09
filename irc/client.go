@@ -1085,7 +1085,8 @@ var (
 func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
 	var usedTrailingHack bool
-	if commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
+	config := session.client.server.Config()
+	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
 		lastParam := message.Params[len(message.Params)-1]
 		// to force trailing, we ensure the final param contains a space
 		if strings.IndexByte(lastParam, ' ') == -1 {

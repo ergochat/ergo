@@ -4,7 +4,9 @@
 package irc
 
 import (
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
@@ -12,10 +14,11 @@ import (
 )
 
 func (server *Server) Config() (config *Config) {
-	server.configurableStateMutex.RLock()
-	config = server.config
-	server.configurableStateMutex.RUnlock()
-	return
+	return (*Config)(atomic.LoadPointer(&server.config))
+}
+
+func (server *Server) SetConfig(config *Config) {
+	atomic.StorePointer(&server.config, unsafe.Pointer(config))
 }
 
 func (server *Server) ISupport() *isupport.List {
@@ -53,9 +56,7 @@ func (server *Server) GetOperator(name string) (oper *Oper) {
 	if err != nil {
 		return
 	}
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.config.operators[name]
+	return server.Config().operators[name]
 }
 
 func (server *Server) Languages() (lm *languages.Manager) {

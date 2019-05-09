@@ -286,9 +286,14 @@ type Config struct {
 		WebIRC               []webircConfig `yaml:"webirc"`
 		MaxSendQString       string         `yaml:"max-sendq"`
 		MaxSendQBytes        int
-		AllowPlaintextResume bool                              `yaml:"allow-plaintext-resume"`
-		ConnectionLimiter    connection_limits.LimiterConfig   `yaml:"connection-limits"`
-		ConnectionThrottler  connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
+		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
+		Compatibility        struct {
+			ForceTrailing      *bool `yaml:"force-trailing"`
+			forceTrailing      bool
+			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
+		}
+		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
+		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
 
 	Languages struct {
@@ -696,6 +701,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Channels.Registration.MaxChannelsPerAccount == 0 {
 		config.Channels.Registration.MaxChannelsPerAccount = 15
+	}
+
+	forceTrailingPtr := config.Server.Compatibility.ForceTrailing
+	if forceTrailingPtr != nil {
+		config.Server.Compatibility.forceTrailing = *forceTrailingPtr
+	} else {
+		config.Server.Compatibility.forceTrailing = true
 	}
 
 	// in the current implementation, we disable history by creating a history buffer

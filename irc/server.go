@@ -19,6 +19,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
@@ -65,7 +66,7 @@ type Server struct {
 	channels               ChannelManager
 	channelRegistry        ChannelRegistry
 	clients                ClientManager
-	config                 *Config
+	config                 unsafe.Pointer
 	configFilename         string
 	configurableStateMutex sync.RWMutex // tier 1; generic protection for server state modified by rehash()
 	connectionLimiter      *connection_limits.Limiter
@@ -602,7 +603,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
-		} else if server.config.Datastore.Path != config.Datastore.Path {
+		} else if server.Config().Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		}
 	}
@@ -776,9 +777,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
 
 	// save a pointer to the new config
-	server.configurableStateMutex.Lock()
-	server.config = config
-	server.configurableStateMutex.Unlock()
+	server.SetConfig(config)
 
 	server.logger.Info("server", "Using datastore", config.Datastore.Path)
 	if initial {

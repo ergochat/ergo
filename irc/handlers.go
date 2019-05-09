@@ -298,7 +298,9 @@ func accVerifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb 
 
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	config := server.Config()
 	details := client.Details()
+
 	if details.account != "" {
 		rb.Add(nil, server.name, ERR_SASLALREADY, details.nick, client.t("You're already logged into an account"))
 		return false
@@ -321,7 +323,14 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 		if mechanismIsEnabled {
 			client.saslInProgress = true
 			client.saslMechanism = mechanism
-			rb.Add(nil, server.name, "AUTHENTICATE", "+")
+			if !config.Server.Compatibility.SendUnprefixedSasl {
+				// normal behavior
+				rb.Add(nil, server.name, "AUTHENTICATE", "+")
+			} else {
+				// gross hack: send a raw message to ensure no tags or prefix
+				rb.Flush(true)
+				rb.session.SendRawMessage(ircmsg.MakeMessage(nil, "", "AUTHENTICATE", "+"), true)
+			}
 		} else {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
 		}
