@@ -592,7 +592,6 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			if session.capabilities.Has(caps.ExtendedJoin) {
 				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
 			} else {
-				session.Send(nil, details.nickMask, "JOIN", chname)
 				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
 			}
 			if givenMode != 0 {
