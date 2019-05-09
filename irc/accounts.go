@@ -238,7 +238,10 @@ func (am *AccountManager) BouncerAllowed(account string, session *Session) bool 
 	if !config.Accounts.Bouncer.Enabled {
 		return false
 	}
-	return config.Accounts.Bouncer.AllowedByDefault || session.capabilities.Has(caps.Bouncer)
+	if config.Accounts.Bouncer.AllowedByDefault {
+		return true
+	}
+	return session != nil && session.capabilities.Has(caps.Bouncer)
 }
 
 // Looks up the enforcement method stored in the database for an account

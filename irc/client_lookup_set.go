@@ -152,7 +152,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 	currentClient := clients.byNick[newcfnick]
 	// the client may just be changing case
-	if currentClient != nil && currentClient != client {
+	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
 		if client.Registered() || !bouncerAllowed || account == "" || account != currentClient.Account() || client.isTor != currentClient.isTor || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
 			return errNicknameInUse
