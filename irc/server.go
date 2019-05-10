@@ -62,37 +62,36 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts               AccountManager
-	channels               ChannelManager
-	channelRegistry        ChannelRegistry
-	clients                ClientManager
-	config                 unsafe.Pointer
-	configFilename         string
-	configurableStateMutex sync.RWMutex // tier 1; generic protection for server state modified by rehash()
-	connectionLimiter      *connection_limits.Limiter
-	connectionThrottler    *connection_limits.Throttler
-	ctime                  time.Time
-	dlines                 *DLineManager
-	helpIndexManager       HelpIndexManager
-	isupport               *isupport.List
-	klines                 *KLineManager
-	listeners              map[string]*ListenerWrapper
-	logger                 *logger.Manager
-	monitorManager         *MonitorManager
-	motdLines              []string
-	name                   string
-	nameCasefolded         string
-	rehashMutex            sync.Mutex // tier 4
-	rehashSignal           chan os.Signal
-	pprofServer            *http.Server
-	resumeManager          ResumeManager
-	signals                chan os.Signal
-	snomasks               *SnoManager
-	store                  *buntdb.DB
-	torLimiter             connection_limits.TorLimiter
-	whoWas                 WhoWasList
-	stats                  Stats
-	semaphores             ServerSemaphores
+	accounts            AccountManager
+	channels            ChannelManager
+	channelRegistry     ChannelRegistry
+	clients             ClientManager
+	config              unsafe.Pointer
+	configFilename      string
+	connectionLimiter   *connection_limits.Limiter
+	connectionThrottler *connection_limits.Throttler
+	ctime               time.Time
+	dlines              *DLineManager
+	helpIndexManager    HelpIndexManager
+	isupport            *isupport.List
+	klines              *KLineManager
+	listeners           map[string]*ListenerWrapper
+	logger              *logger.Manager
+	monitorManager      *MonitorManager
+	motdLines           []string
+	name                string
+	nameCasefolded      string
+	rehashMutex         sync.Mutex // tier 4
+	rehashSignal        chan os.Signal
+	pprofServer         *http.Server
+	resumeManager       ResumeManager
+	signals             chan os.Signal
+	snomasks            *SnoManager
+	store               *buntdb.DB
+	torLimiter          connection_limits.TorLimiter
+	whoWas              WhoWasList
+	stats               Stats
+	semaphores          ServerSemaphores
 }
 
 var (
@@ -141,13 +140,12 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
-func (server *Server) setISupport() (err error) {
+func (config *Config) generateISupport() (err error) {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
-	config := server.Config()
-
 	// add RPL_ISUPPORT tokens
-	isupport := isupport.NewList()
+	isupport := &config.Server.isupport
+	isupport.Initialize()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
@@ -175,13 +173,6 @@ func (server *Server) setISupport() (err error) {
 	isupport.Add("UTF8MAPPING", casemappingName)
 
 	err = isupport.RegenerateCachedReply()
-	if err != nil {
-		return
-	}
-
-	server.configurableStateMutex.Lock()
-	server.isupport = isupport
-	server.configurableStateMutex.Unlock()
 	return
 }
 
@@ -786,13 +777,8 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
-	oldISupportList := server.ISupport()
-	err = server.setISupport()
-	if err != nil {
-		return err
-	}
-	if oldISupportList != nil {
-		newISupportReplies = oldISupportList.GetDifference(server.ISupport())
+	if oldConfig != nil {
+		newISupportReplies = oldConfig.Server.isupport.GetDifference(&config.Server.isupport)
 	}
 
 	// we are now open for business

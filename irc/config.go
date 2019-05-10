@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
@@ -293,6 +294,7 @@ type Config struct {
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
 		}
+		isupport            isupport.List
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
@@ -712,6 +714,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	config.loadMOTD()
+
+	err = config.generateISupport()
+	if err != nil {
+		return nil, err
+	}
 
 	// in the current implementation, we disable history by creating a history buffer
 	// with zero capacity. but the `enabled` config option MUST be respected regardless

@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/modes"
 )
@@ -19,12 +18,6 @@ func (server *Server) Config() (config *Config) {
 
 func (server *Server) SetConfig(config *Config) {
 	atomic.StorePointer(&server.config, unsafe.Pointer(config))
-}
-
-func (server *Server) ISupport() *isupport.List {
-	server.configurableStateMutex.RLock()
-	defer server.configurableStateMutex.RUnlock()
-	return server.isupport
 }
 
 func (server *Server) Limits() Limits {

@@ -836,7 +836,8 @@ func (client *Client) LoggedIntoAccount() bool {
 func (client *Client) RplISupport(rb *ResponseBuffer) {
 	translatedISupport := client.t("are supported by this server")
 	nick := client.Nick()
-	for _, cachedTokenLine := range client.server.ISupport().CachedReply {
+	config := client.server.Config()
+	for _, cachedTokenLine := range config.Server.isupport.CachedReply {
 		length := len(cachedTokenLine) + 2
 		tokenline := make([]string, length)
 		tokenline[0] = nick
