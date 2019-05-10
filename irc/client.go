@@ -538,14 +538,12 @@ func (client *Client) tryResume() (success bool) {
 func (client *Client) tryResumeChannels() {
 	details := client.resumeDetails
 
-	channels := make([]*Channel, len(details.Channels))
 	for _, name := range details.Channels {
 		channel := client.server.channels.Get(name)
 		if channel == nil {
 			continue
 		}
 		channel.Resume(client, details.OldClient, details.Timestamp)
-		channels = append(channels, channel)
 	}
 
 	// replay direct PRIVSMG history

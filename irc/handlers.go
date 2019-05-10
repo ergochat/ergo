@@ -1184,20 +1184,14 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var nicks = msg.Params
 
-	var err error
-	var casefoldedNick string
-	ison := make([]string, 0)
+	ison := make([]string, 0, len(msg.Params))
 	for _, nick := range nicks {
-		casefoldedNick, err = CasefoldName(nick)
-		if err != nil {
-			continue
-		}
-		if iclient := server.clients.Get(casefoldedNick); iclient != nil {
-			ison = append(ison, iclient.nick)
+		if iclient := server.clients.Get(nick); iclient != nil {
+			ison = append(ison, iclient.Nick())
 		}
 	}
 
-	rb.Add(nil, server.name, RPL_ISON, client.nick, strings.Join(nicks, " "))
+	rb.Add(nil, server.name, RPL_ISON, client.nick, strings.Join(ison, " "))
 	return false
 }
 
@@ -2099,7 +2093,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // OPER <name> <password>
 func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.HasMode(modes.Operator) == true {
+	if client.HasMode(modes.Operator) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "OPER", client.t("You're already opered-up!"))
 		return false
 	}

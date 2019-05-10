@@ -170,7 +170,7 @@ func SplitChannelMembershipPrefixes(target string) (prefixes string, name string
 			prefixes = target[:i+1]
 			name = target[i+1:]
 		default:
-			break
+			return
 		}
 	}
 

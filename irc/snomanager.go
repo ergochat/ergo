@@ -52,7 +52,7 @@ func (m *SnoManager) RemoveMasks(client *Client, masks ...sno.Mask) {
 	for _, mask := range masks {
 		currentClientList := m.sendLists[mask]
 
-		if currentClientList == nil || len(currentClientList) == 0 {
+		if len(currentClientList) == 0 {
 			continue
 		}
 
@@ -70,7 +70,7 @@ func (m *SnoManager) RemoveClient(client *Client) {
 	for mask := range m.sendLists {
 		currentClientList := m.sendLists[mask]
 
-		if currentClientList == nil || len(currentClientList) == 0 {
+		if len(currentClientList) == 0 {
 			continue
 		}
 
@@ -87,7 +87,7 @@ func (m *SnoManager) Send(mask sno.Mask, content string) {
 
 	currentClientList := m.sendLists[mask]
 
-	if currentClientList == nil || len(currentClientList) == 0 {
+	if len(currentClientList) == 0 {
 		return
 	}
 

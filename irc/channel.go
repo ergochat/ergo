@@ -1043,34 +1043,6 @@ func (channel *Channel) ShowMaskList(client *Client, mode modes.Mode, rb *Respon
 	rb.Add(nil, client.server.name, rplendoflist, nick, channel.name, client.t("End of list"))
 }
 
-func (channel *Channel) applyModeMask(client *Client, mode modes.Mode, op modes.ModeOp, mask string, rb *ResponseBuffer) bool {
-	list := channel.lists[mode]
-	if list == nil {
-		// This should never happen, but better safe than panicky.
-		return false
-	}
-
-	if (op == modes.List) || (mask == "") {
-		channel.ShowMaskList(client, mode, rb)
-		return false
-	}
-
-	if !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You're not a channel operator"))
-		return false
-	}
-
-	if op == modes.Add {
-		return list.Add(mask)
-	}
-
-	if op == modes.Remove {
-		return list.Remove(mask)
-	}
-
-	return false
-}
-
 // Quit removes the given client from the channel
 func (channel *Channel) Quit(client *Client) {
 	channelEmpty := func() bool {

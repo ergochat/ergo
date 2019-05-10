@@ -393,7 +393,7 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// get inhereted info from other operclasses
 			if len(info.Extends) > 0 {
-				einfo, _ := ocs[info.Extends]
+				einfo := ocs[info.Extends]
 
 				for capab := range einfo.Capabilities {
 					oc.Capabilities[capab] = true

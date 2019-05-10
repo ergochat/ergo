@@ -24,7 +24,6 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -73,12 +72,10 @@ type Server struct {
 	ctime               time.Time
 	dlines              *DLineManager
 	helpIndexManager    HelpIndexManager
-	isupport            *isupport.List
 	klines              *KLineManager
 	listeners           map[string]*ListenerWrapper
 	logger              *logger.Manager
 	monitorManager      *MonitorManager
-	motdLines           []string
 	name                string
 	nameCasefolded      string
 	rehashMutex         sync.Mutex // tier 4
@@ -174,13 +171,6 @@ func (config *Config) generateISupport() (err error) {
 
 	err = isupport.RegenerateCachedReply()
 	return
-}
-
-func loadChannelList(channel *Channel, list string, maskMode modes.Mode) {
-	if list == "" {
-		return
-	}
-	channel.lists[maskMode].AddAll(strings.Split(list, " "))
 }
 
 // Shutdown shuts down the server.
@@ -518,9 +508,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	tLanguages := target.Languages()
 	if 0 < len(tLanguages) {
 		params := []string{cnick, tnick}
-		for _, str := range client.server.Languages().Codes(tLanguages) {
-			params = append(params, str)
-		}
+		params = append(params, client.server.Languages().Codes(tLanguages)...)
 		params = append(params, client.t("can speak these languages"))
 		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
