@@ -468,9 +468,7 @@ func (client *Client) t(originalString string) string {
 
 // MOTD serves the Message of the Day.
 func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
-	server.configurableStateMutex.RLock()
-	motdLines := server.motdLines
-	server.configurableStateMutex.RUnlock()
+	motdLines := server.Config().Server.motdLines
 
 	if len(motdLines) < 1 {
 		rb.Add(nil, server.name, ERR_NOMOTD, client.nick, client.t("MOTD File is missing"))
@@ -774,8 +772,6 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 	}
 
-	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
-
 	// save a pointer to the new config
 	server.SetConfig(config)
 
@@ -851,11 +847,9 @@ func (server *Server) setupPprofListener(config *Config) {
 	}
 }
 
-func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
-	server.logger.Info("server", "Using MOTD", motdPath)
-	motdLines := make([]string, 0)
-	if motdPath != "" {
-		file, err := os.Open(motdPath)
+func (config *Config) loadMOTD() (err error) {
+	if config.Server.MOTD != "" {
+		file, err := os.Open(config.Server.MOTD)
 		if err == nil {
 			defer file.Close()
 
@@ -867,7 +861,7 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 				}
 				line = strings.TrimRight(line, "\r\n")
 
-				if useFormatting {
+				if config.Server.MOTDFormatting {
 					line = ircfmt.Unescape(line)
 				}
 
@@ -875,17 +869,11 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 				// bursting it out to clients easier
 				line = fmt.Sprintf("- %s", line)
 
-				motdLines = append(motdLines, line)
+				config.Server.motdLines = append(config.Server.motdLines, line)
 			}
-		} else {
-			return err
 		}
 	}
-
-	server.configurableStateMutex.Lock()
-	server.motdLines = motdLines
-	server.configurableStateMutex.Unlock()
-	return nil
+	return
 }
 
 func (server *Server) loadDatastore(config *Config) error {

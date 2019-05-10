@@ -280,6 +280,7 @@ type Config struct {
 		STS                  STSConfig
 		CheckIdent           bool `yaml:"check-ident"`
 		MOTD                 string
+		motdLines            []string
 		MOTDFormatting       bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
 		proxyAllowedFromNets []net.IPNet
@@ -709,6 +710,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 	} else {
 		config.Server.Compatibility.forceTrailing = true
 	}
+
+	config.loadMOTD()
 
 	// in the current implementation, we disable history by creating a history buffer
 	// with zero capacity. but the `enabled` config option MUST be respected regardless
