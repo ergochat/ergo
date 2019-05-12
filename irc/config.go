@@ -733,7 +733,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {
 		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
-			return nil, fmt.Errorf("You must generate a new value of ip-cloaking.secret to enable cloaking")
+			return nil, fmt.Errorf("You must generate a new value of server.ip-cloaking.secret to enable cloaking")
 		}
 	}
 

@@ -26,6 +26,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
         - Nickname reservation
     - Channel Registration
     - Language
+    - IP cloaking
 - Frequently Asked Questions
 - Modes
     - User Modes
@@ -242,6 +243,16 @@ The above will change the server language to Romanian, with a fallback to Chines
 
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
 
+
+## IP cloaking
+
+Unlike many other chat and web platforms, IRC traditionally exposes the user's IP and hostname information to other users. This is in part because channel owners and operators (who have privileges over a single channel, but not over the server as a whole) need to be able to ban spammers and abusers from their channels, including via hostnames in cases where the abuser tries to evade the ban.
+
+IP cloaking is a way of balancing these concerns about abuse with concerns about user privacy. With cloaking, the user's IP address is deterministically "scrambled", typically via a cryptographic [MAC](https://en.wikipedia.org/wiki/Message_authentication_code), to form a "cloaked" hostname that replaces the usual reverse-DNS-based hostname. Users cannot reverse the scrambling to learn each other's IPs, but can ban a scrambled address the same way they would ban a regular hostname.
+
+Oragono supports cloaking, which can be enabled via the `server.ip-cloaking` section of the config. However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
+
+Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend on their IP address information at all, which is an option for deployments where privacy is a more pressing concern than abuse. Holders of registered accounts can also use the vhost system (for details, `/msg HostServ HELP`.)
 
 -------------------------------------------------------------------------------------------
 
