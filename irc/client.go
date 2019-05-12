@@ -1034,7 +1034,7 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 	// send quit messages to friends
 	if !beingResumed {
-		if client.Registered() {
+		if registered {
 			client.server.stats.ChangeTotal(-1)
 		}
 		if client.HasMode(modes.Invisible) {
@@ -1054,7 +1054,7 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 	if !client.exitedSnomaskSent {
 		if beingResumed {
 			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r is resuming their connection, old client has been destroyed"), client.nick))
-		} else {
+		} else if registered {
 			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 		}
 	}
