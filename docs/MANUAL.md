@@ -34,7 +34,6 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 - Commands
 - Working with other software
     - HOPM
-    - ZNC
     - Tor
 - Acknowledgements
 
@@ -593,11 +592,6 @@ connregex = ".+-.+CONNECT.+-.+ Client Connected \\[([^ ]+)\\] \\[u:([^ ]+)\\] \\
 /* A DLINE example for oragono */
 kline = "DLINE ANDKILL 2h %i :Open proxy found on your host.";
 ````
-
-## ZNC
-
-Versions of ZNC prior to 1.7 have a [bug](https://github.com/znc/znc/issues/1212) in their SASL implementation that renders them incompatible with Oragono. However, you should be able to authenticate from ZNC using its [NickServ](https://wiki.znc.in/Nickserv) module.
-
 
 ## Tor
 
