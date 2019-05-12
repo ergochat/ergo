@@ -21,8 +21,6 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/crypto/sha3"
-
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
@@ -283,32 +281,6 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 	default:
 		return false, ""
 	}
-}
-
-// simple cloaking algorithm: normalize the IP to its CIDR,
-// then hash the resulting bytes with a secret key,
-// then truncate to the desired length, b32encode, and append the fake TLD.
-func (config *CloakConfig) ComputeCloak(ip net.IP) string {
-	if !config.Enabled {
-		return ""
-	} else if config.NumBits == 0 {
-		return config.Netname
-	}
-	var masked net.IP
-	v4ip := ip.To4()
-	if v4ip != nil {
-		masked = v4ip.Mask(config.ipv4Mask)
-	} else {
-		masked = ip.Mask(config.ipv6Mask)
-	}
-	// SHA3(K || M):
-	// https://crypto.stackexchange.com/questions/17735/is-hmac-needed-for-a-sha-3-based-mac
-	input := make([]byte, len(config.Secret)+len(masked))
-	copy(input, config.Secret[:])
-	copy(input[len(config.Secret):], masked)
-	digest := sha3.Sum512(input)
-	b32digest := utils.B32Encoder.EncodeToString(digest[:config.numBytes])
-	return fmt.Sprintf("%s.%s", b32digest, config.Netname)
 }
 
 //

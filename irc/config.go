@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/isupport"
@@ -263,38 +264,6 @@ type TorListenersConfig struct {
 	MaxConnectionsPerDuration int           `yaml:"max-connections-per-duration"`
 }
 
-type CloakConfig struct {
-	Enabled     bool
-	Netname     string
-	Secret      string
-	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
-	NumBits     int `yaml:"num-bits"`
-
-	numBytes int
-	ipv4Mask net.IPMask
-	ipv6Mask net.IPMask
-}
-
-func (cloakConfig *CloakConfig) postprocess() {
-	// sanity checks:
-	numBits := cloakConfig.NumBits
-	if 0 == numBits {
-		numBits = 80
-	} else if 256 < numBits {
-		numBits = 256
-	}
-
-	// derived values:
-	cloakConfig.numBytes = numBits / 8
-	// round up to the nearest byte
-	if numBits%8 != 0 {
-		cloakConfig.numBytes += 1
-	}
-	cloakConfig.ipv4Mask = net.CIDRMask(cloakConfig.CidrLenIPv4, 32)
-	cloakConfig.ipv6Mask = net.CIDRMask(cloakConfig.CidrLenIPv6, 128)
-}
-
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -329,7 +298,7 @@ type Config struct {
 		isupport            isupport.List
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
-		Cloaks              CloakConfig                       `yaml:"ip-cloaking"`
+		Cloaks              cloaks.CloakConfig                `yaml:"ip-cloaking"`
 	}
 
 	Languages struct {
@@ -761,7 +730,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.ClientLength = 0
 	}
 
-	config.Server.Cloaks.postprocess()
+	config.Server.Cloaks.Initialize()
 
 	for _, listenAddress := range config.Server.TorListeners.Listeners {
 		found := false

@@ -1,12 +1,19 @@
 // Copyright (c) 2019 Shivaram Lingamneni
 // released under the MIT license
 
-package irc
+package cloaks
 
 import (
 	"net"
+	"reflect"
 	"testing"
 )
+
+func assertEqual(supplied, expected interface{}, t *testing.T) {
+	if !reflect.DeepEqual(supplied, expected) {
+		t.Errorf("expected %v but got %v", expected, supplied)
+	}
+}
 
 func easyParseIP(ipstr string) (result net.IP) {
 	result = net.ParseIP(ipstr)
@@ -25,7 +32,7 @@ func cloakConfForTesting() CloakConfig {
 		CidrLenIPv6: 64,
 		NumBits:     80,
 	}
-	config.postprocess()
+	config.Initialize()
 	return config
 }
 
@@ -64,7 +71,7 @@ func TestCloakShortv4Cidr(t *testing.T) {
 		CidrLenIPv6: 64,
 		NumBits:     60,
 	}
-	config.postprocess()
+	config.Initialize()
 
 	v4ip := easyParseIP("8.8.8.8")
 	assertEqual(config.ComputeCloak(v4ip), "3cay3zc72tnui.oragono", t)
@@ -76,7 +83,7 @@ func TestCloakZeroBits(t *testing.T) {
 	config := cloakConfForTesting()
 	config.NumBits = 0
 	config.Netname = "example.com"
-	config.postprocess()
+	config.Initialize()
 
 	v4ip := easyParseIP("8.8.8.8").To4()
 	assertEqual(config.ComputeCloak(v4ip), "example.com", t)
