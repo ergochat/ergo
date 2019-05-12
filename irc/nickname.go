@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 var (
@@ -44,7 +46,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 
 	hadNick := target.HasNick()
 	origNickMask := target.NickMaskString()
-	whowas := target.WhoWas()
+	details := target.Details()
 	err = client.server.clients.SetNick(target, session, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is already in use"))
@@ -57,16 +59,29 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return false
 	}
 
+	message := utils.MakeSplitMessage("", true)
+	histItem := history.Item{
+		Type:        history.Nick,
+		Nick:        origNickMask,
+		AccountName: details.accountName,
+		Message:     message,
+	}
+	histItem.Params[0] = nickname
+
 	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
 	if hadNick {
-		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), whowas.nick, nickname))
-		target.server.whoWas.Append(whowas)
-		rb.Add(nil, origNickMask, "NICK", nickname)
+		target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), details.nick, nickname))
+		target.server.whoWas.Append(details.WhoWas)
+		rb.AddFromClient(message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", nickname)
 		for session := range target.Friends() {
 			if session != rb.session {
-				session.Send(nil, origNickMask, "NICK", nickname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", nickname)
 			}
 		}
+	}
+
+	for _, channel := range client.Channels() {
+		channel.history.Add(histItem)
 	}
 
 	target.nickTimer.Touch(rb)

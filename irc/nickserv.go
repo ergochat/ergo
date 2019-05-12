@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/goshuirc/irc-go/ircfmt"
+
+	"github.com/oragono/oragono/irc/modes"
 )
 
 // "enabled" callbacks for specific nickserv commands
@@ -24,6 +26,10 @@ func servCmdRequiresNickRes(config *Config) bool {
 
 func nsEnforceEnabled(config *Config) bool {
 	return servCmdRequiresNickRes(config) && config.Accounts.NickReservation.AllowCustomEnforcement
+}
+
+func servCmdRequiresBouncerEnabled(config *Config) bool {
+	return config.Accounts.Bouncer.Enabled
 }
 
 var (
@@ -141,6 +147,16 @@ an administrator can set use this command to set up user accounts.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			capabs:    []string{"accreg"},
 			minParams: 2,
+		},
+		"sessions": {
+			handler: nsSessionsHandler,
+			help: `Syntax: $bSESSIONS [nickname]$b
+
+SESSIONS lists information about the sessions currently attached, via
+the server's bouncer functionality, to your nickname. An administrator
+can use this command to list another user's sessions.`,
+			helpShort: `$bSESSIONS$b lists the sessions attached to a nickname.`,
+			enabled:   servCmdRequiresBouncerEnabled,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
@@ -567,5 +583,36 @@ func nsEnforceHandler(server *Server, client *Client, command string, params []s
 			server.logger.Error("internal", "couldn't store NS ENFORCE data", err.Error())
 			nsNotice(rb, client.t("An error occurred"))
 		}
+	}
+}
+
+func nsSessionsHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	target := client
+
+	if 0 < len(params) {
+		// same permissions check as RPL_WHOISACTUALLY for now:
+		if !client.HasMode(modes.Operator) {
+			nsNotice(rb, client.t("Command restricted"))
+			return
+		}
+		target = server.clients.Get(params[0])
+		if target == nil {
+			nsNotice(rb, client.t("No such nick"))
+			return
+		}
+	}
+
+	sessionData, currentIndex := target.AllSessionData(rb.session)
+	nsNotice(rb, fmt.Sprintf(client.t("Nickname %s has %d attached session(s)"), target.Nick(), len(sessionData)))
+	for i, session := range sessionData {
+		if currentIndex == i {
+			nsNotice(rb, fmt.Sprintf(client.t("Session %d (currently attached session):"), i+1))
+		} else {
+			nsNotice(rb, fmt.Sprintf(client.t("Session %d:"), i+1))
+		}
+		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
+		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
+		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(IRCv3TimestampFormat)))
+		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(IRCv3TimestampFormat)))
 	}
 }

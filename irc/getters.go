@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"net"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -61,6 +62,37 @@ func (client *Client) Sessions() (sessions []*Session) {
 	sessions = make([]*Session, len(client.sessions))
 	copy(sessions, client.sessions)
 	client.stateMutex.RUnlock()
+	return
+}
+
+type SessionData struct {
+	ctime    time.Time
+	atime    time.Time
+	ip       net.IP
+	hostname string
+}
+
+func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
+	currentIndex = -1
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	data = make([]SessionData, len(client.sessions))
+	for i, session := range client.sessions {
+		if session == currentSession {
+			currentIndex = i
+		}
+		data[i] = SessionData{
+			atime:    session.atime,
+			ctime:    session.ctime,
+			hostname: session.rawHostname,
+		}
+		if session.proxiedIP != nil {
+			data[i].ip = session.proxiedIP
+		} else {
+			data[i].ip = session.realIP
+		}
+	}
 	return
 }
 
@@ -291,7 +323,10 @@ func (client *Client) WhoWas() (result WhoWas) {
 func (client *Client) Details() (result ClientDetails) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
+	return client.detailsNoMutex()
+}
 
+func (client *Client) detailsNoMutex() (result ClientDetails) {
 	result.nick = client.nick
 	result.nickCasefolded = client.nickCasefolded
 	result.username = client.username
