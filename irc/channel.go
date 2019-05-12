@@ -56,7 +56,7 @@ func NewChannel(s *Server, name string, registered bool) *Channel {
 	}
 
 	channel := &Channel{
-		createdTime: time.Now(), // may be overwritten by applyRegInfo
+		createdTime: time.Now().UTC(), // may be overwritten by applyRegInfo
 		lists: map[modes.Mode]*UserMaskSet{
 			modes.BanMask:    NewUserMaskSet(),
 			modes.ExceptMask: NewUserMaskSet(),
@@ -292,7 +292,7 @@ func (channel *Channel) SetRegistered(founder string) error {
 		return errChannelAlreadyRegistered
 	}
 	channel.registeredFounder = founder
-	channel.registeredTime = time.Now()
+	channel.registeredTime = time.Now().UTC()
 	channel.accountToUMode[founder] = modes.ChannelFounder
 	return nil
 }
@@ -686,7 +686,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 // 2. Send JOIN and MODE lines to channel participants (including the new client)
 // 3. Replay missed message history to the client
 func (channel *Channel) Resume(newClient, oldClient *Client, timestamp time.Time) {
-	now := time.Now()
+	now := time.Now().UTC()
 	channel.resumeAndAnnounce(newClient, oldClient)
 	if !timestamp.IsZero() {
 		channel.replayHistoryForResume(newClient, timestamp, now)
@@ -910,7 +910,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	channel.stateMutex.Lock()
 	channel.topic = topic
 	channel.topicSetBy = client.nickMaskString
-	channel.topicSetTime = time.Now()
+	channel.topicSetTime = time.Now().UTC()
 	channel.stateMutex.Unlock()
 
 	prefix := client.NickMaskString()

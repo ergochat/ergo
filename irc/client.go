@@ -165,7 +165,7 @@ type ClientDetails struct {
 
 // NewClient sets up a new client and runs its goroutine.
 func RunNewClient(server *Server, conn clientConn) {
-	now := time.Now()
+	now := time.Now().UTC()
 	config := server.Config()
 	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
 	// give them 1k of grace over the limit:
@@ -409,8 +409,7 @@ func (client *Client) playReattachMessages(session *Session) {
 
 // Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
 func (client *Client) Active(session *Session) {
-	// TODO normalize all times to utc?
-	now := time.Now()
+	now := time.Now().UTC()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	session.atime = now
@@ -472,7 +471,7 @@ func (client *Client) tryResume() (success bool) {
 	success = true
 
 	// this is a bit racey
-	client.resumeDetails.ResumedAt = time.Now()
+	client.resumeDetails.ResumedAt = time.Now().UTC()
 
 	client.nickTimer.Touch(nil)
 
@@ -496,7 +495,7 @@ func (client *Client) tryResume() (success bool) {
 	hostname := client.Hostname()
 
 	friends := make(ClientSet)
-	oldestLostMessage := time.Now()
+	oldestLostMessage := time.Now().UTC()
 
 	// work out how much time, if any, is not covered by history buffers
 	for _, channel := range channels {
@@ -569,7 +568,7 @@ func (client *Client) tryResumeChannels() {
 
 	// replay direct PRIVSMG history
 	if !details.Timestamp.IsZero() {
-		now := time.Now()
+		now := time.Now().UTC()
 		items, complete := client.history.Between(details.Timestamp, now, false, 0)
 		rb := NewResponseBuffer(client.Sessions()[0])
 		client.replayPrivmsgHistory(rb, items, complete)

@@ -45,7 +45,7 @@ type GenericThrottle struct {
 // it either denies it (by returning false) or allows it (by returning true)
 // and records it
 func (g *GenericThrottle) Touch() (throttled bool, remainingTime time.Duration) {
-	return g.touch(time.Now())
+	return g.touch(time.Now().UTC())
 }
 
 func (g *GenericThrottle) touch(now time.Time) (throttled bool, remainingTime time.Duration) {

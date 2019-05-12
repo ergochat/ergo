@@ -356,7 +356,7 @@ func (channel *Channel) Rename(name, nameCasefolded string) {
 	channel.name = name
 	channel.nameCasefolded = nameCasefolded
 	if channel.registeredFounder != "" {
-		channel.registeredTime = time.Now()
+		channel.registeredTime = time.Now().UTC()
 	}
 	channel.stateMutex.Unlock()
 }

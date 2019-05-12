@@ -2377,7 +2377,7 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // TIME
 func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().Format(time.RFC1123))
+	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
 	return false
 }
 

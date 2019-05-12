@@ -110,6 +110,7 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
+		ctime:               time.Now().UTC(),
 		connectionLimiter:   connection_limits.NewLimiter(),
 		connectionThrottler: connection_limits.NewThrottler(),
 		listeners:           make(map[string]*ListenerWrapper),
@@ -576,7 +577,6 @@ func (server *Server) rehash() error {
 
 func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	if initial {
-		server.ctime = time.Now()
 		server.configFilename = config.Filename
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded
