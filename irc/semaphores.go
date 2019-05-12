@@ -36,5 +36,4 @@ func (serversem *ServerSemaphores) Initialize() {
 		capacity = MaxServerSemaphoreCapacity
 	}
 	serversem.ClientDestroy.Initialize(capacity)
-	return
 }

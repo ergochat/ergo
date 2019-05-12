@@ -125,6 +125,21 @@ server:
     # this should be big enough to hold bursts of channel/direct messages
     max-sendq: 16k
 
+    # compatibility with legacy clients
+    compatibility:
+        # many clients require that the final parameter of certain messages be an
+        # RFC1459 trailing parameter, i.e., prefixed with :, whether or not this is
+        # actually required. this forces Oragono to send those parameters
+        # as trailings. this is recommended unless you're testing clients for conformance;
+        # defaults to true when unset for that reason.
+        force-trailing: true
+
+        # some clients (ZNC 1.6.x and lower, Pidgin 2.12 and lower, Adium) do not
+        # respond correctly to SASL messages with the server name as a prefix:
+        # https://github.com/znc/znc/issues/1212
+        # this works around that bug, allowing them to use SASL.
+        send-unprefixed-sasl: true
+
     # maximum number of connections per subnet
     connection-limits:
         # whether to enforce connection limits or not

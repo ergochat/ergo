@@ -5,7 +5,6 @@ package irc
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/smtp"
 	"strconv"
@@ -483,7 +482,7 @@ func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount str
 	} else if callbackNamespace == "mailto" {
 		return am.dispatchMailtoCallback(client, casefoldedAccount, callbackValue)
 	} else {
-		return "", errors.New(fmt.Sprintf("Callback not implemented: %s", callbackNamespace))
+		return "", fmt.Errorf("Callback not implemented: %s", callbackNamespace)
 	}
 }
 
@@ -1265,7 +1264,6 @@ func (am *AccountManager) Logout(client *Client) {
 		}
 	}
 	am.accountToClients[casefoldedAccount] = remainingClients
-	return
 }
 
 var (

@@ -22,9 +22,13 @@ type List struct {
 // NewList returns a new List
 func NewList() *List {
 	var il List
+	il.Initialize()
+	return &il
+}
+
+func (il *List) Initialize() {
 	il.Tokens = make(map[string]*string)
 	il.CachedReply = make([][]string, 0)
-	return &il
 }
 
 // Add adds an RPL_ISUPPORT token to our internal list

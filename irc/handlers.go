@@ -298,7 +298,9 @@ func accVerifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb 
 
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	config := server.Config()
 	details := client.Details()
+
 	if details.account != "" {
 		rb.Add(nil, server.name, ERR_SASLALREADY, details.nick, client.t("You're already logged into an account"))
 		return false
@@ -321,7 +323,14 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 		if mechanismIsEnabled {
 			client.saslInProgress = true
 			client.saslMechanism = mechanism
-			rb.Add(nil, server.name, "AUTHENTICATE", "+")
+			if !config.Server.Compatibility.SendUnprefixedSasl {
+				// normal behavior
+				rb.Add(nil, server.name, "AUTHENTICATE", "+")
+			} else {
+				// gross hack: send a raw message to ensure no tags or prefix
+				rb.Flush(true)
+				rb.session.SendRawMessage(ircmsg.MakeMessage(nil, "", "AUTHENTICATE", "+"), true)
+			}
 		} else {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
 		}
@@ -1175,20 +1184,14 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	var nicks = msg.Params
 
-	var err error
-	var casefoldedNick string
-	ison := make([]string, 0)
+	ison := make([]string, 0, len(msg.Params))
 	for _, nick := range nicks {
-		casefoldedNick, err = CasefoldName(nick)
-		if err != nil {
-			continue
-		}
-		if iclient := server.clients.Get(casefoldedNick); iclient != nil {
-			ison = append(ison, iclient.nick)
+		if iclient := server.clients.Get(nick); iclient != nil {
+			ison = append(ison, iclient.Nick())
 		}
 	}
 
-	rb.Add(nil, server.name, RPL_ISON, client.nick, strings.Join(nicks, " "))
+	rb.Add(nil, server.name, RPL_ISON, client.nick, strings.Join(ison, " "))
 	return false
 }
 
@@ -2089,7 +2092,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // OPER <name> <password>
 func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if client.HasMode(modes.Operator) == true {
+	if client.HasMode(modes.Operator) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "OPER", client.t("You're already opered-up!"))
 		return false
 	}

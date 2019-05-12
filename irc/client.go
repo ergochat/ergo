@@ -557,14 +557,12 @@ func (client *Client) tryResume() (success bool) {
 func (client *Client) tryResumeChannels() {
 	details := client.resumeDetails
 
-	channels := make([]*Channel, len(details.Channels))
 	for _, name := range details.Channels {
 		channel := client.server.channels.Get(name)
 		if channel == nil {
 			continue
 		}
 		channel.Resume(client, details.OldClient, details.Timestamp)
-		channels = append(channels, channel)
 	}
 
 	// replay direct PRIVSMG history
@@ -868,7 +866,8 @@ func (client *Client) LoggedIntoAccount() bool {
 func (client *Client) RplISupport(rb *ResponseBuffer) {
 	translatedISupport := client.t("are supported by this server")
 	nick := client.Nick()
-	for _, cachedTokenLine := range client.server.ISupport().CachedReply {
+	config := client.server.Config()
+	for _, cachedTokenLine := range config.Server.isupport.CachedReply {
 		length := len(cachedTokenLine) + 2
 		tokenline := make([]string, length)
 		tokenline[0] = nick
@@ -1122,7 +1121,8 @@ var (
 func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
 	var usedTrailingHack bool
-	if commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
+	config := session.client.server.Config()
+	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
 		lastParam := message.Params[len(message.Params)-1]
 		// to force trailing, we ensure the final param contains a space
 		if strings.IndexByte(lastParam, ' ') == -1 {

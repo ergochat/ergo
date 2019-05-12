@@ -19,11 +19,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -61,37 +61,34 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts               AccountManager
-	channels               ChannelManager
-	channelRegistry        ChannelRegistry
-	clients                ClientManager
-	config                 *Config
-	configFilename         string
-	configurableStateMutex sync.RWMutex // tier 1; generic protection for server state modified by rehash()
-	connectionLimiter      *connection_limits.Limiter
-	connectionThrottler    *connection_limits.Throttler
-	ctime                  time.Time
-	dlines                 *DLineManager
-	helpIndexManager       HelpIndexManager
-	isupport               *isupport.List
-	klines                 *KLineManager
-	listeners              map[string]*ListenerWrapper
-	logger                 *logger.Manager
-	monitorManager         *MonitorManager
-	motdLines              []string
-	name                   string
-	nameCasefolded         string
-	rehashMutex            sync.Mutex // tier 4
-	rehashSignal           chan os.Signal
-	pprofServer            *http.Server
-	resumeManager          ResumeManager
-	signals                chan os.Signal
-	snomasks               *SnoManager
-	store                  *buntdb.DB
-	torLimiter             connection_limits.TorLimiter
-	whoWas                 WhoWasList
-	stats                  Stats
-	semaphores             ServerSemaphores
+	accounts            AccountManager
+	channels            ChannelManager
+	channelRegistry     ChannelRegistry
+	clients             ClientManager
+	config              unsafe.Pointer
+	configFilename      string
+	connectionLimiter   *connection_limits.Limiter
+	connectionThrottler *connection_limits.Throttler
+	ctime               time.Time
+	dlines              *DLineManager
+	helpIndexManager    HelpIndexManager
+	klines              *KLineManager
+	listeners           map[string]*ListenerWrapper
+	logger              *logger.Manager
+	monitorManager      *MonitorManager
+	name                string
+	nameCasefolded      string
+	rehashMutex         sync.Mutex // tier 4
+	rehashSignal        chan os.Signal
+	pprofServer         *http.Server
+	resumeManager       ResumeManager
+	signals             chan os.Signal
+	snomasks            *SnoManager
+	store               *buntdb.DB
+	torLimiter          connection_limits.TorLimiter
+	whoWas              WhoWasList
+	stats               Stats
+	semaphores          ServerSemaphores
 }
 
 var (
@@ -140,13 +137,12 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
-func (server *Server) setISupport() (err error) {
+func (config *Config) generateISupport() (err error) {
 	maxTargetsString := strconv.Itoa(maxTargets)
 
-	config := server.Config()
-
 	// add RPL_ISUPPORT tokens
-	isupport := isupport.NewList()
+	isupport := &config.Server.isupport
+	isupport.Initialize()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
@@ -174,21 +170,7 @@ func (server *Server) setISupport() (err error) {
 	isupport.Add("UTF8MAPPING", casemappingName)
 
 	err = isupport.RegenerateCachedReply()
-	if err != nil {
-		return
-	}
-
-	server.configurableStateMutex.Lock()
-	server.isupport = isupport
-	server.configurableStateMutex.Unlock()
 	return
-}
-
-func loadChannelList(channel *Channel, list string, maskMode modes.Mode) {
-	if list == "" {
-		return
-	}
-	channel.lists[maskMode].AddAll(strings.Split(list, " "))
 }
 
 // Shutdown shuts down the server.
@@ -474,9 +456,7 @@ func (client *Client) t(originalString string) string {
 
 // MOTD serves the Message of the Day.
 func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
-	server.configurableStateMutex.RLock()
-	motdLines := server.motdLines
-	server.configurableStateMutex.RUnlock()
+	motdLines := server.Config().Server.motdLines
 
 	if len(motdLines) < 1 {
 		rb.Add(nil, server.name, ERR_NOMOTD, client.nick, client.t("MOTD File is missing"))
@@ -535,9 +515,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	tLanguages := target.Languages()
 	if 0 < len(tLanguages) {
 		params := []string{cnick, tnick}
-		for _, str := range client.server.Languages().Codes(tLanguages) {
-			params = append(params, str)
-		}
+		params = append(params, client.server.Languages().Codes(tLanguages)...)
 		params = append(params, client.t("can speak these languages"))
 		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
@@ -609,7 +587,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
-		} else if server.config.Datastore.Path != config.Datastore.Path {
+		} else if server.Config().Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		}
 	}
@@ -780,12 +758,8 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 	}
 
-	server.loadMOTD(config.Server.MOTD, config.Server.MOTDFormatting)
-
 	// save a pointer to the new config
-	server.configurableStateMutex.Lock()
-	server.config = config
-	server.configurableStateMutex.Unlock()
+	server.SetConfig(config)
 
 	server.logger.Info("server", "Using datastore", config.Datastore.Path)
 	if initial {
@@ -798,13 +772,8 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
-	oldISupportList := server.ISupport()
-	err = server.setISupport()
-	if err != nil {
-		return err
-	}
-	if oldISupportList != nil {
-		newISupportReplies = oldISupportList.GetDifference(server.ISupport())
+	if oldConfig != nil {
+		newISupportReplies = oldConfig.Server.isupport.GetDifference(&config.Server.isupport)
 	}
 
 	// we are now open for business
@@ -859,11 +828,9 @@ func (server *Server) setupPprofListener(config *Config) {
 	}
 }
 
-func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
-	server.logger.Info("server", "Using MOTD", motdPath)
-	motdLines := make([]string, 0)
-	if motdPath != "" {
-		file, err := os.Open(motdPath)
+func (config *Config) loadMOTD() (err error) {
+	if config.Server.MOTD != "" {
+		file, err := os.Open(config.Server.MOTD)
 		if err == nil {
 			defer file.Close()
 
@@ -875,7 +842,7 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 				}
 				line = strings.TrimRight(line, "\r\n")
 
-				if useFormatting {
+				if config.Server.MOTDFormatting {
 					line = ircfmt.Unescape(line)
 				}
 
@@ -883,17 +850,11 @@ func (server *Server) loadMOTD(motdPath string, useFormatting bool) error {
 				// bursting it out to clients easier
 				line = fmt.Sprintf("- %s", line)
 
-				motdLines = append(motdLines, line)
+				config.Server.motdLines = append(config.Server.motdLines, line)
 			}
-		} else {
-			return err
 		}
 	}
-
-	server.configurableStateMutex.Lock()
-	server.motdLines = motdLines
-	server.configurableStateMutex.Unlock()
-	return nil
+	return
 }
 
 func (server *Server) loadDatastore(config *Config) error {

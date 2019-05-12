@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
@@ -280,15 +281,22 @@ type Config struct {
 		STS                  STSConfig
 		CheckIdent           bool `yaml:"check-ident"`
 		MOTD                 string
+		motdLines            []string
 		MOTDFormatting       bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
 		proxyAllowedFromNets []net.IPNet
 		WebIRC               []webircConfig `yaml:"webirc"`
 		MaxSendQString       string         `yaml:"max-sendq"`
 		MaxSendQBytes        int
-		AllowPlaintextResume bool                              `yaml:"allow-plaintext-resume"`
-		ConnectionLimiter    connection_limits.LimiterConfig   `yaml:"connection-limits"`
-		ConnectionThrottler  connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
+		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
+		Compatibility        struct {
+			ForceTrailing      *bool `yaml:"force-trailing"`
+			forceTrailing      bool
+			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
+		}
+		isupport            isupport.List
+		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
+		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 	}
 
 	Languages struct {
@@ -385,7 +393,7 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// get inhereted info from other operclasses
 			if len(info.Extends) > 0 {
-				einfo, _ := ocs[info.Extends]
+				einfo := ocs[info.Extends]
 
 				for capab := range einfo.Capabilities {
 					oc.Capabilities[capab] = true
@@ -696,6 +704,20 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Channels.Registration.MaxChannelsPerAccount == 0 {
 		config.Channels.Registration.MaxChannelsPerAccount = 15
+	}
+
+	forceTrailingPtr := config.Server.Compatibility.ForceTrailing
+	if forceTrailingPtr != nil {
+		config.Server.Compatibility.forceTrailing = *forceTrailingPtr
+	} else {
+		config.Server.Compatibility.forceTrailing = true
+	}
+
+	config.loadMOTD()
+
+	err = config.generateISupport()
+	if err != nil {
+		return nil, err
 	}
 
 	// in the current implementation, we disable history by creating a history buffer
