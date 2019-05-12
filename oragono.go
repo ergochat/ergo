@@ -59,7 +59,7 @@ Options:
 
 	arguments, _ := docopt.ParseArgs(usage, nil, version)
 
-	// don't require a config file for genpasswd
+	// don't require a config file for genpasswd or mksecret
 	if arguments["genpasswd"].(bool) {
 		var password string
 		fd := int(os.Stdin.Fd())
@@ -84,6 +84,9 @@ Options:
 		if terminal.IsTerminal(fd) {
 			fmt.Println()
 		}
+		return
+	} else if arguments["mksecret"].(bool) {
+		fmt.Println(utils.GenerateSecretKey())
 		return
 	}
 
@@ -130,8 +133,6 @@ Options:
 				log.Fatal("  Could not create certificate:", err.Error())
 			}
 		}
-	} else if arguments["mksecret"].(bool) {
-		fmt.Println(utils.GenerateSecretKey())
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
