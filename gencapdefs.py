@@ -163,7 +163,7 @@ CAPDEFS = [
         identifier="EventPlayback",
         name="draft/event-playback",
         url="https://github.com/ircv3/ircv3-specifications/pull/362",
-        standard="Draft IRCv3",
+        standard="Proposed IRCv3",
     ),
 ]
 

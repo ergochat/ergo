@@ -109,7 +109,7 @@ const (
 	// https://wiki.znc.in/Query_buffers
 	ZNCSelfMessage Capability = iota
 
-	// EventPlayback is the Draft IRCv3 capability named "draft/event-playback":
+	// EventPlayback is the Proposed IRCv3 capability named "draft/event-playback":
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
 )

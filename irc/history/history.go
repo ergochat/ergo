@@ -25,8 +25,8 @@ const (
 	Nick
 )
 
-// a Tagmsg that consists entirely of junk tags is not stored
-var junkTags = map[string]bool{
+// a Tagmsg that consists entirely of transient tags is not stored
+var transientTags = map[string]bool{
 	"+draft/typing": true,
 	"+typing":       true, // future-proofing
 }
@@ -60,7 +60,7 @@ func (item *Item) HasMsgid(msgid string) bool {
 func (item *Item) isStorable() bool {
 	if item.Type == Tagmsg {
 		for name := range item.Tags {
-			if !junkTags[name] {
+			if !transientTags[name] {
 				return true
 			}
 		}
