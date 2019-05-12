@@ -536,6 +536,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
+	var message utils.SplitMessage
+
 	givenMode := func() (givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
 		defer channel.joinPartMutex.Unlock()
@@ -559,14 +561,15 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		channel.regenerateMembersCache()
 
-		message := utils.SplitMessage{}
-		message.Msgid = details.realname
-		channel.history.Add(history.Item{
+		message = utils.MakeSplitMessage("", true)
+		histItem := history.Item{
 			Type:        history.Join,
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
 			Message:     message,
-		})
+		}
+		histItem.Params[0] = details.realname
+		channel.history.Add(histItem)
 
 		return
 	}()
@@ -587,9 +590,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 				continue
 			}
 			if session.capabilities.Has(caps.ExtendedJoin) {
-				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
 			} else {
-				session.Send(nil, details.nickMask, "JOIN", chname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
 			}
 			if givenMode != 0 {
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
@@ -598,9 +601,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}
 
 	if rb.session.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
 	} else {
-		rb.Add(nil, details.nickMask, "JOIN", chname)
+		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
 	}
 
 	if rb.session.client == client {
@@ -613,10 +616,13 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	rb.Flush(true)
 
 	replayLimit := channel.server.Config().History.AutoreplayOnJoin
-	if replayLimit > 0 {
+	if 0 < replayLimit {
+		// TODO don't replay the client's own JOIN line?
 		items := channel.history.Latest(replayLimit)
-		channel.replayHistoryItems(rb, items)
-		rb.Flush(true)
+		if 0 < len(items) {
+			channel.replayHistoryItems(rb, items, true)
+			rb.Flush(true)
+		}
 	}
 }
 
@@ -647,14 +653,16 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 
 	channel.Quit(client)
 
+	splitMessage := utils.MakeSplitMessage(message, true)
+
 	details := client.Details()
 	for _, member := range channel.Members() {
-		member.Send(nil, details.nickMask, "PART", chname, message)
+		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
 	}
-	rb.Add(nil, details.nickMask, "PART", chname, message)
+	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
 	for _, session := range client.Sessions() {
 		if session != rb.session {
-			session.Send(nil, details.nickMask, "PART", chname, message)
+			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
 		}
 	}
 
@@ -662,7 +670,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		Type:        history.Part,
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
-		Message:     utils.MakeSplitMessage(message, true),
+		Message:     splitMessage,
 	})
 
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", details.nick, chname))
@@ -748,7 +756,7 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Time, before time.Time) {
 	items, complete := channel.history.Between(after, before, false, 0)
 	rb := NewResponseBuffer(newClient.Sessions()[0])
-	channel.replayHistoryItems(rb, items)
+	channel.replayHistoryItems(rb, items, false)
 	if !complete && !newClient.resumeDetails.HistoryIncomplete {
 		// warn here if we didn't warn already
 		rb.Add(nil, "HistServ", "NOTICE", channel.Name(), newClient.t("Some additional message history may have been lost"))
@@ -759,50 +767,93 @@ func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Tim
 func stripMaskFromNick(nickMask string) (nick string) {
 	index := strings.Index(nickMask, "!")
 	if index == -1 {
-		return
+		return nickMask
 	}
 	return nickMask[0:index]
 }
 
-func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item) {
+// munge the msgid corresponding to a replayable event,
+// yielding a consistent msgid for the fake PRIVMSG from HistServ
+func mungeMsgidForHistserv(token string) (result string) {
+	return fmt.Sprintf("_%s", token)
+}
+
+func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
 	chname := channel.Name()
 	client := rb.target
-	serverTime := rb.session.capabilities.Has(caps.ServerTime)
+	eventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
+	extendedJoin := rb.session.capabilities.Has(caps.ExtendedJoin)
+
+	if len(items) == 0 {
+		return
+	}
+	batchID := rb.StartNestedHistoryBatch(chname)
+	defer rb.EndNestedBatch(batchID)
 
 	for _, item := range items {
-		var tags map[string]string
-		if serverTime {
-			tags = map[string]string{"time": item.Time.Format(IRCv3TimestampFormat)}
-		}
-
-		// TODO(#437) support history.Tagmsg
+		nick := stripMaskFromNick(item.Nick)
 		switch item.Type {
 		case history.Privmsg:
-			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, "PRIVMSG", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "PRIVMSG", chname, item.Message)
 		case history.Notice:
-			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, "NOTICE", chname, item.Message)
-		case history.Join:
-			nick := stripMaskFromNick(item.Nick)
-			var message string
-			if item.AccountName == "*" {
-				message = fmt.Sprintf(client.t("%s joined the channel"), nick)
-			} else {
-				message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "NOTICE", chname, item.Message)
+		case history.Tagmsg:
+			if rb.session.capabilities.Has(caps.MessageTags) {
+				rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "TAGMSG", chname, item.Message)
 			}
-			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
+		case history.Join:
+			if eventPlayback {
+				if extendedJoin {
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "JOIN", chname, item.AccountName, item.Params[0])
+				} else {
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "JOIN", chname)
+				}
+			} else {
+				if autoreplay {
+					continue // #474
+				}
+				var message string
+				if item.AccountName == "*" {
+					message = fmt.Sprintf(client.t("%s joined the channel"), nick)
+				} else {
+					message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
+				}
+				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+			}
 		case history.Part:
-			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
-			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
-		case history.Quit:
-			nick := stripMaskFromNick(item.Nick)
-			message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
-			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "PART", chname, item.Message.Message)
+			} else {
+				if autoreplay {
+					continue // #474
+				}
+				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+			}
 		case history.Kick:
-			nick := stripMaskFromNick(item.Nick)
-			// XXX Msgid is the kick target
-			message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Message.Msgid, item.Message.Message)
-			rb.Add(tags, "HistServ", "PRIVMSG", chname, message)
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "KICK", chname, item.Params[0], item.Message.Message)
+			} else {
+				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
+				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+			}
+		case history.Quit:
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "QUIT", item.Message.Message)
+			} else {
+				if autoreplay {
+					continue // #474
+				}
+				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+			}
+		case history.Nick:
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "NICK", item.Params[0])
+			} else {
+				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
+				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+			}
 		}
 	}
 }
@@ -934,7 +985,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 		if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-			rb.AddFromClient(message.Msgid, nickmask, account, tagsToUse, command, chname)
+			rb.AddFromClient(message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
 		} else {
 			rb.AddSplitMessageFromClient(nickmask, account, tagsToUse, command, chname, message)
 		}
@@ -986,7 +1037,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		Message:     message,
 		Nick:        nickmask,
 		AccountName: account,
-		Time:        now,
+		Tags:        clientOnlyTags,
 	})
 }
 
@@ -1110,27 +1161,29 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		comment = comment[:kicklimit]
 	}
 
+	message := utils.MakeSplitMessage(comment, true)
 	clientMask := client.NickMaskString()
+	clientAccount := client.AccountName()
+
 	targetNick := target.Nick()
 	chname := channel.Name()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session != rb.session {
-				session.Send(nil, clientMask, "KICK", chname, targetNick, comment)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, clientMask, clientAccount, nil, "KICK", chname, targetNick, comment)
 			}
 		}
 	}
 	rb.Add(nil, clientMask, "KICK", chname, targetNick, comment)
 
-	message := utils.SplitMessage{}
-	message.Message = comment
-	message.Msgid = targetNick // XXX abuse this field
-	channel.history.Add(history.Item{
+	histItem := history.Item{
 		Type:        history.Kick,
 		Nick:        clientMask,
 		AccountName: target.AccountName(),
 		Message:     message,
-	})
+	}
+	histItem.Params[0] = targetNick
+	channel.history.Add(histItem)
 
 	channel.Quit(target)
 }

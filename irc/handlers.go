@@ -585,36 +585,36 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 // e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
 func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
 	config := server.Config()
-	// batch type is chathistory; send an empty batch if necessary
-	rb.InitializeBatch("chathistory", true)
 
 	var items []history.Item
 	success := false
 	var hist *history.Buffer
 	var channel *Channel
 	defer func() {
-		if success {
+		// successful responses are sent as a chathistory or history batch
+		if success && 0 < len(items) {
+			batchType := "chathistory"
+			if rb.session.capabilities.Has(caps.EventPlayback) {
+				batchType = "history"
+			}
+			rb.ForceBatchStart(batchType, true)
 			if channel == nil {
 				client.replayPrivmsgHistory(rb, items, true)
 			} else {
-				channel.replayHistoryItems(rb, items)
+				channel.replayHistoryItems(rb, items, false)
 			}
-		}
-		rb.Send(true) // terminate the chathistory batch
-		if success && len(items) > 0 {
 			return
 		}
-		newRb := NewResponseBuffer(rb.session)
-		newRb.Label = rb.Label // same label, new batch
+
+		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
 		// TODO: send `WARN CHATHISTORY MAX_MESSAGES_EXCEEDED` when appropriate
 		if hist == nil {
-			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_SUCH_CHANNEL")
+			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_SUCH_CHANNEL")
 		} else if len(items) == 0 {
-			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_TEXT_TO_SEND")
+			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_TEXT_TO_SEND")
 		} else if !success {
-			newRb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
+			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
 		}
-		newRb.Send(true)
 	}()
 
 	target := msg.Params[0]
@@ -744,7 +744,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 			}
 		} else {
 			matches = func(item history.Item) bool {
-				return before == item.Time.Before(timestamp)
+				return before == item.Message.Time.Before(timestamp)
 			}
 		}
 		items = hist.Match(matches, !before, limit)
@@ -767,7 +767,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 				}
 			} else {
 				matches = func(item history.Item) bool {
-					return item.Time.After(timestamp)
+					return item.Message.Time.After(timestamp)
 				}
 			}
 			items = hist.Match(matches, false, limit)
@@ -790,16 +790,16 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 			}
 		} else {
 			initialMatcher = func(item history.Item) (result bool) {
-				return item.Time.Before(timestamp)
+				return item.Message.Time.Before(timestamp)
 			}
 		}
 		var halfLimit int
 		halfLimit = (limit + 1) / 2
 		firstPass := hist.Match(initialMatcher, false, halfLimit)
 		if len(firstPass) > 0 {
-			timeWindowStart := firstPass[0].Time
+			timeWindowStart := firstPass[0].Message.Time
 			items = hist.Match(func(item history.Item) bool {
-				return item.Time.Equal(timeWindowStart) || item.Time.After(timeWindowStart)
+				return item.Message.Time.Equal(timeWindowStart) || item.Message.Time.After(timeWindowStart)
 			}, true, limit)
 		}
 		success = true
@@ -1109,7 +1109,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	items := hist.Latest(limit)
 
 	if channel != nil {
-		channel.replayHistoryItems(rb, items)
+		channel.replayHistoryItems(rb, items, false)
 	} else {
 		client.replayPrivmsgHistory(rb, items, true)
 	}
@@ -1960,7 +1960,6 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	for i, targetString := range targets {
 		// each target gets distinct msgids
 		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
-		now := time.Now().UTC()
 
 		// max of four targets per privmsg
 		if i > maxTargets-1 {
@@ -2009,17 +2008,17 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 					if histType == history.Tagmsg {
 						// don't send TAGMSG at all if they don't have the tags cap
 						if session.capabilities.Has(caps.MessageTags) {
-							session.sendFromClientInternal(false, now, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
+							session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 						}
 					} else {
-						session.sendSplitMsgFromClientInternal(false, now, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+						session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 					}
 				}
 			}
 			// an echo-message may need to be included in the response:
 			if rb.session.capabilities.Has(caps.EchoMessage) {
 				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-					rb.AddFromClient(splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
+					rb.AddFromClient(splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 				} else {
 					rb.AddSplitMessageFromClient(nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
@@ -2030,9 +2029,9 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 					continue
 				}
 				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-					session.sendFromClientInternal(false, now, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
+					session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 				} else {
-					session.sendSplitMsgFromClientInternal(false, now, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+					session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
 			if histType != history.Notice && user.Away() {

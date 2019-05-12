@@ -4,6 +4,7 @@
 package utils
 
 import "bytes"
+import "time"
 
 // WordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
 func WordWrap(text string, lineWidth int) []string {
@@ -59,6 +60,7 @@ type MessagePair struct {
 type SplitMessage struct {
 	MessagePair
 	Wrapped []MessagePair // if this is nil, `Message` didn't need wrapping and can be sent to anyone
+	Time    time.Time
 }
 
 const defaultLineWidth = 400
@@ -66,6 +68,7 @@ const defaultLineWidth = 400
 func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
 	result.Message = original
 	result.Msgid = GenerateSecretToken()
+	result.Time = time.Now().UTC()
 
 	if !origIs512 && defaultLineWidth < len(original) {
 		wrapped := WordWrap(original, defaultLineWidth)

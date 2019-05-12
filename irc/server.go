@@ -413,32 +413,43 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 		}
 	}
 
-	reattached := session.client != c
-
-	if !reattached {
-		// registration has succeeded:
-		c.SetRegistered()
-
-		// count new user in statistics
-		server.stats.ChangeTotal(1)
-
-		if !resumed {
-			server.monitorManager.AlertAbout(c, true)
-		}
+	if session.client != c {
+		// reattached, bail out.
+		// we'll play the reg burst later, on the new goroutine associated with
+		// (thisSession, otherClient). This is to avoid having to transfer state
+		// like nickname, hostname, etc. to show the correct values in the reg burst.
+		return
 	}
 
+	// registration has succeeded:
+	c.SetRegistered()
+	// count new user in statistics
+	server.stats.ChangeTotal(1)
+
+	server.playRegistrationBurst(session)
+
+	if resumed {
+		c.tryResumeChannels()
+	} else {
+		server.monitorManager.AlertAbout(c, true)
+	}
+}
+
+func (server *Server) playRegistrationBurst(session *Session) {
+	c := session.client
 	// continue registration
-	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", c.nick, c.username, c.realname))
-	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", c.nick, c.username, c.rawHostname, c.IPString(), c.realname))
+	d := c.Details()
+	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
+	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, c.RawHostname(), c.IPString(), d.realname))
 
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
 	// see http://modern.ircdocs.horse/#rplwelcome-001 for details on why we avoid using the nickmask
-	c.Send(nil, server.name, RPL_WELCOME, c.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), c.nick))
-	c.Send(nil, server.name, RPL_YOURHOST, c.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
-	c.Send(nil, server.name, RPL_CREATED, c.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
+	session.Send(nil, server.name, RPL_WELCOME, d.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), d.nick))
+	session.Send(nil, server.name, RPL_YOURHOST, d.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
+	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	c.Send(nil, server.name, RPL_MYINFO, c.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
+	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 
 	rb := NewResponseBuffer(session)
 	c.RplISupport(rb)
@@ -447,14 +458,10 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 
 	modestring := c.ModeString()
 	if modestring != "+" {
-		c.Send(nil, c.nickMaskString, RPL_UMODEIS, c.nick, c.ModeString())
+		session.Send(nil, d.nickMask, RPL_UMODEIS, d.nick, modestring)
 	}
 	if server.logger.IsLoggingRawIO() {
-		c.Notice(c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
-	}
-
-	if resumed {
-		c.tryResumeChannels()
+		session.Send(nil, c.server.name, "NOTICE", d.nick, c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}
 }
 

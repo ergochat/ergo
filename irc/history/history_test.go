@@ -87,6 +87,12 @@ func easyParse(timestamp string) time.Time {
 	return result
 }
 
+func easyItem(nick string, timestamp string) (result Item) {
+	result.Message.Time = easyParse(timestamp)
+	result.Nick = nick
+	return
+}
+
 func assertEqual(supplied, expected interface{}, t *testing.T) {
 	if !reflect.DeepEqual(supplied, expected) {
 		t.Errorf("expected %v but got %v", expected, supplied)
@@ -97,30 +103,19 @@ func TestBuffer(t *testing.T) {
 	start := easyParse("2006-01-01 00:00:00Z")
 
 	buf := NewHistoryBuffer(3)
-	buf.Add(Item{
-		Nick: "testnick0",
-		Time: easyParse("2006-01-01 15:04:05Z"),
-	})
+	buf.Add(easyItem("testnick0", "2006-01-01 15:04:05Z"))
 
-	buf.Add(Item{
-		Nick: "testnick1",
-		Time: easyParse("2006-01-02 15:04:05Z"),
-	})
+	buf.Add(easyItem("testnick1", "2006-01-02 15:04:05Z"))
 
-	buf.Add(Item{
-		Nick: "testnick2",
-		Time: easyParse("2006-01-03 15:04:05Z"),
-	})
+	buf.Add(easyItem("testnick2", "2006-01-03 15:04:05Z"))
 
 	since, complete := buf.Between(start, time.Now(), false, 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick0", "testnick1", "testnick2"}, t)
 
 	// add another item, evicting the first
-	buf.Add(Item{
-		Nick: "testnick3",
-		Time: easyParse("2006-01-04 15:04:05Z"),
-	})
+	buf.Add(easyItem("testnick3", "2006-01-04 15:04:05Z"))
+
 	since, complete = buf.Between(start, time.Now(), false, 0)
 	assertEqual(complete, false, t)
 	assertEqual(toNicks(since), []string{"testnick1", "testnick2", "testnick3"}, t)
@@ -139,18 +134,9 @@ func TestBuffer(t *testing.T) {
 	assertEqual(toNicks(since), []string{"testnick2", "testnick3"}, t)
 
 	buf.Resize(5)
-	buf.Add(Item{
-		Nick: "testnick4",
-		Time: easyParse("2006-01-05 15:04:05Z"),
-	})
-	buf.Add(Item{
-		Nick: "testnick5",
-		Time: easyParse("2006-01-06 15:04:05Z"),
-	})
-	buf.Add(Item{
-		Nick: "testnick6",
-		Time: easyParse("2006-01-07 15:04:05Z"),
-	})
+	buf.Add(easyItem("testnick4", "2006-01-05 15:04:05Z"))
+	buf.Add(easyItem("testnick5", "2006-01-06 15:04:05Z"))
+	buf.Add(easyItem("testnick6", "2006-01-07 15:04:05Z"))
 	since, complete = buf.Between(easyParse("2006-01-03 00:00:00Z"), time.Now(), false, 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick2", "testnick3", "testnick4", "testnick5", "testnick6"}, t)

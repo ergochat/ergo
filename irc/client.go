@@ -94,7 +94,14 @@ type Client struct {
 type Session struct {
 	client *Client
 
-	socket    *Socket
+	ctime time.Time
+	atime time.Time
+
+	socket      *Socket
+	realIP      net.IP
+	proxiedIP   net.IP
+	rawHostname string
+
 	idletimer IdleTimer
 	fakelag   Fakelag
 
@@ -104,9 +111,6 @@ type Session struct {
 	maxlenRest   uint32
 	capState     caps.State
 	capVersion   caps.Version
-
-	// TODO track per-connection real IP, proxied IP, and hostname here,
-	// so we can list attached sessions and their details
 }
 
 // sets the session quit message, if there isn't one already
@@ -187,6 +191,8 @@ func RunNewClient(server *Server, conn clientConn) {
 		socket:     socket,
 		capVersion: caps.Cap301,
 		capState:   caps.NoneState,
+		ctime:      now,
+		atime:      now,
 	}
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
@@ -197,20 +203,29 @@ func RunNewClient(server *Server, conn clientConn) {
 		client.certfp, _ = socket.CertFP()
 	}
 
+	remoteAddr := conn.Conn.RemoteAddr()
 	if conn.IsTor {
 		client.SetMode(modes.TLS, true)
-		client.realIP = utils.IPv4LoopbackAddress
-		client.rawHostname = config.Server.TorListeners.Vhost
+		session.realIP = utils.AddrToIP(remoteAddr)
+		// cover up details of the tor proxying infrastructure (not a user privacy concern,
+		// but a hardening measure):
+		session.proxiedIP = utils.IPv4LoopbackAddress
+		session.rawHostname = config.Server.TorListeners.Vhost
 	} else {
-		remoteAddr := conn.Conn.RemoteAddr()
-		client.realIP = utils.AddrToIP(remoteAddr)
-		// Set the hostname for this client
-		// (may be overridden by a later PROXY command from stunnel)
-		client.rawHostname = utils.LookupHostname(client.realIP.String())
+		session.realIP = utils.AddrToIP(remoteAddr)
+		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
+		session.rawHostname = utils.LookupHostname(session.realIP.String())
+		if utils.AddrIsLocal(remoteAddr) {
+			// treat local connections as secure (may be overridden later by WEBIRC)
+			client.SetMode(modes.TLS, true)
+		}
 		if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
 			client.doIdentLookup(conn.Conn)
 		}
 	}
+	client.realIP = session.realIP
+	client.rawHostname = session.rawHostname
+	client.proxiedIP = session.proxiedIP
 
 	client.run(session)
 }
@@ -308,8 +323,10 @@ func (client *Client) run(session *Session) {
 	session.resetFakelag()
 
 	isReattach := client.Registered()
-	// don't reset the nick timer during a reattach
-	if !isReattach {
+	if isReattach {
+		client.playReattachMessages(session)
+	} else {
+		// don't reset the nick timer during a reattach
 		client.nickTimer.Initialize(client)
 	}
 
@@ -371,14 +388,14 @@ func (client *Client) run(session *Session) {
 			break
 		} else if session.client != client {
 			// bouncer reattach
-			session.playReattachMessages()
 			go session.client.run(session)
 			break
 		}
 	}
 }
 
-func (session *Session) playReattachMessages() {
+func (client *Client) playReattachMessages(session *Session) {
+	client.server.playRegistrationBurst(session)
 	for _, channel := range session.client.Channels() {
 		channel.playJoinForSession(session)
 	}
@@ -389,10 +406,13 @@ func (session *Session) playReattachMessages() {
 //
 
 // Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
-func (client *Client) Active() {
+func (client *Client) Active(session *Session) {
+	// TODO normalize all times to utc?
+	now := time.Now()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	client.atime = time.Now()
+	session.atime = now
+	client.atime = now
 }
 
 // Ping sends the client a PING message.
@@ -487,7 +507,7 @@ func (client *Client) tryResume() (success bool) {
 		}
 	}
 	privmsgMatcher := func(item history.Item) bool {
-		return item.Type == history.Privmsg || item.Type == history.Notice
+		return item.Type == history.Privmsg || item.Type == history.Notice || item.Type == history.Tagmsg
 	}
 	privmsgHistory := oldClient.history.Match(privmsgMatcher, false, 0)
 	lastDiscarded := oldClient.history.LastDiscarded()
@@ -495,8 +515,7 @@ func (client *Client) tryResume() (success bool) {
 		oldestLostMessage = lastDiscarded
 	}
 	for _, item := range privmsgHistory {
-		// TODO this is the nickmask, fix that
-		sender := server.clients.Get(item.Nick)
+		sender := server.clients.Get(stripMaskFromNick(item.Nick))
 		if sender != nil {
 			friends.Add(sender)
 		}
@@ -561,8 +580,13 @@ func (client *Client) tryResumeChannels() {
 }
 
 func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, complete bool) {
+	var batchID string
 	nick := client.Nick()
-	serverTime := rb.session.capabilities.Has(caps.ServerTime)
+	if 0 < len(items) {
+		batchID = rb.StartNestedHistoryBatch(nick)
+	}
+
+	allowTags := rb.session.capabilities.Has(caps.MessageTags)
 	for _, item := range items {
 		var command string
 		switch item.Type {
@@ -570,15 +594,23 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 			command = "PRIVMSG"
 		case history.Notice:
 			command = "NOTICE"
+		case history.Tagmsg:
+			if allowTags {
+				command = "TAGMSG"
+			} else {
+				continue
+			}
 		default:
 			continue
 		}
 		var tags map[string]string
-		if serverTime {
-			tags = map[string]string{"time": item.Time.Format(IRCv3TimestampFormat)}
+		if allowTags {
+			tags = item.Tags
 		}
 		rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
 	}
+
+	rb.EndNestedBatch(batchID)
 	if !complete {
 		rb.Add(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
 	}
@@ -892,14 +924,11 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
-	nickMaskString := client.nickMaskString
-	accountName := client.accountName
-
-	alreadyDestroyed := len(client.sessions) == 0
+	details := client.detailsNoMutex()
+	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	var remainingSessions int
 	if session == nil {
-		sessionRemoved = !alreadyDestroyed
 		sessionsToDestroy = client.sessions
 		client.sessions = nil
 		remainingSessions = 0
@@ -909,27 +938,42 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 			sessionsToDestroy = []*Session{session}
 		}
 	}
-	var quitMessage string
-	if 0 < len(sessionsToDestroy) {
-		quitMessage = sessionsToDestroy[0].quitMessage
-	}
 	client.stateMutex.Unlock()
 
-	if alreadyDestroyed || !sessionRemoved {
+	if len(sessionsToDestroy) == 0 {
 		return
 	}
 
+	// destroy all applicable sessions:
+	var quitMessage string
 	for _, session := range sessionsToDestroy {
 		if session.client != client {
 			// session has been attached to a new client; do not destroy it
 			continue
 		}
 		session.idletimer.Stop()
-		session.socket.Close()
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
+		quitMessage = session.quitMessage
+		session.socket.Close()
+
+		// remove from connection limits
+		var source string
+		if client.isTor {
+			client.server.torLimiter.RemoveClient()
+			source = "tor"
+		} else {
+			ip := session.realIP
+			if session.proxiedIP != nil {
+				ip = session.proxiedIP
+			}
+			client.server.connectionLimiter.RemoveClient(ip)
+			source = ip.String()
+		}
+		client.server.logger.Info("localconnect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
 
+	// ok, now destroy the client, unless it still has sessions:
 	if remainingSessions != 0 {
 		return
 	}
@@ -940,39 +984,37 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 	defer client.server.semaphores.ClientDestroy.Release()
 
 	if beingResumed {
-		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", client.nick))
-	} else {
-		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", client.nick))
+		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", details.nick))
+	} else if !wasReattach {
+		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 
-	if !beingResumed {
+	registered := client.Registered()
+	if !beingResumed && registered {
 		client.server.whoWas.Append(client.WhoWas())
-	}
-
-	// remove from connection limits
-	if client.isTor {
-		client.server.torLimiter.RemoveClient()
-	} else {
-		client.server.connectionLimiter.RemoveClient(client.IP())
 	}
 
 	client.server.resumeManager.Delete(client)
 
 	// alert monitors
-	client.server.monitorManager.AlertAbout(client, false)
+	if registered {
+		client.server.monitorManager.AlertAbout(client, false)
+	}
 	// clean up monitor state
 	client.server.monitorManager.RemoveAll(client)
 
+	splitQuitMessage := utils.MakeSplitMessage(quitMessage, true)
 	// clean up channels
+	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
 	for _, channel := range client.Channels() {
 		if !beingResumed {
 			channel.Quit(client)
 			channel.history.Add(history.Item{
 				Type:        history.Quit,
-				Nick:        nickMaskString,
-				AccountName: accountName,
-				Message:     utils.MakeSplitMessage(quitMessage, true),
+				Nick:        details.nickMask,
+				AccountName: details.accountName,
+				Message:     splitQuitMessage,
 			})
 		}
 		for _, member := range channel.Members() {
@@ -1007,14 +1049,14 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 			if quitMessage == "" {
 				quitMessage = "Exited"
 			}
-			friend.Send(nil, client.nickMaskString, "QUIT", quitMessage)
+			friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 		}
 	}
 	if !client.exitedSnomaskSent {
 		if beingResumed {
 			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r is resuming their connection, old client has been destroyed"), client.nick))
 		} else {
-			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), client.nick))
+			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 		}
 	}
 }
@@ -1031,15 +1073,7 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, serverTime
 	}
 }
 
-// SendFromClient sends an IRC line coming from a specific client.
-// Adds account-tag to the line as well.
-func (client *Client) SendFromClient(msgid string, from *Client, tags map[string]string, command string, params ...string) error {
-	return client.sendFromClientInternal(false, time.Time{}, msgid, from.NickMaskString(), from.AccountName(), tags, command, params...)
-}
-
-// this is SendFromClient, but directly exposing nickmask and accountName,
-// for things like history replay and CHGHOST where they no longer (necessarily)
-// correspond to the current state of a client
+// Sends a line with `nickmask` as the prefix, adding `time` and `account` tags if supported
 func (client *Client) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags map[string]string, command string, params ...string) (err error) {
 	for _, session := range client.Sessions() {
 		err_ := session.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, params...)
@@ -1062,7 +1096,10 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	}
 	// attach server-time
 	if session.capabilities.Has(caps.ServerTime) {
-		msg.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
+		if serverTime.IsZero() {
+			serverTime = time.Now().UTC()
+		}
+		msg.SetTag("time", serverTime.Format(IRCv3TimestampFormat))
 	}
 
 	return session.SendRawMessage(msg, blocking)
