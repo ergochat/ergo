@@ -1075,6 +1075,11 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 // HISTORY me 15
 func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	config := server.Config()
+	if !config.History.Enabled {
+		rb.Notice(client.t("This command has been disabled by the server administrators"))
+		return false
+	}
+
 	target := msg.Params[0]
 	var hist *history.Buffer
 	channel := server.channels.Get(target)

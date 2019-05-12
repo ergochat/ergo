@@ -534,6 +534,11 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return
 	}
 
+	if !hasPrivs && channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" && !isInvited {
+		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, details.nick, chname, client.t("You must be registered to join that channel"))
+		return
+	}
+
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
 	var message utils.SplitMessage
