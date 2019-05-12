@@ -98,17 +98,6 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 	}
 }
 
-// NewLimiter returns a new connection limit handler.
-// The handler is functional, but disabled; it can be enabled via `ApplyConfig`.
-func NewLimiter() *Limiter {
-	var cl Limiter
-
-	// initialize empty population; all other state is configurable
-	cl.population = make(map[string]int)
-
-	return &cl
-}
-
 // ApplyConfig atomically applies a config update to a connection limit handler
 func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 	// assemble exempted nets
@@ -119,6 +108,10 @@ func (cl *Limiter) ApplyConfig(config LimiterConfig) error {
 
 	cl.Lock()
 	defer cl.Unlock()
+
+	if cl.population == nil {
+		cl.population = make(map[string]int)
+	}
 
 	cl.enabled = config.Enabled
 	cl.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)

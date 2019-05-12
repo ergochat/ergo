@@ -72,9 +72,9 @@ func makeTestThrottler(v4len, v6len int) *Throttler {
 		ConnectionsPerCidr: maxConnections,
 		Duration:           minute,
 	}
-	throttler := NewThrottler()
+	var throttler Throttler
 	throttler.ApplyConfig(config)
-	return throttler
+	return &throttler
 }
 
 func TestConnectionThrottle(t *testing.T) {

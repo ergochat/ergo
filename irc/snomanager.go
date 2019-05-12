@@ -14,11 +14,8 @@ type SnoManager struct {
 	sendLists     map[sno.Mask]map[*Client]bool
 }
 
-// NewSnoManager returns a new SnoManager
-func NewSnoManager() *SnoManager {
-	var m SnoManager
+func (m *SnoManager) Initialize() {
 	m.sendLists = make(map[sno.Mask]map[*Client]bool)
-	return &m
 }
 
 // AddMasks adds the given snomasks to the client.

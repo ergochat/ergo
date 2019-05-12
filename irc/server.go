@@ -67,15 +67,15 @@ type Server struct {
 	clients             ClientManager
 	config              unsafe.Pointer
 	configFilename      string
-	connectionLimiter   *connection_limits.Limiter
-	connectionThrottler *connection_limits.Throttler
+	connectionLimiter   connection_limits.Limiter
+	connectionThrottler connection_limits.Throttler
 	ctime               time.Time
 	dlines              *DLineManager
 	helpIndexManager    HelpIndexManager
 	klines              *KLineManager
 	listeners           map[string]*ListenerWrapper
 	logger              *logger.Manager
-	monitorManager      *MonitorManager
+	monitorManager      MonitorManager
 	name                string
 	nameCasefolded      string
 	rehashMutex         sync.Mutex // tier 4
@@ -83,7 +83,7 @@ type Server struct {
 	pprofServer         *http.Server
 	resumeManager       ResumeManager
 	signals             chan os.Signal
-	snomasks            *SnoManager
+	snomasks            SnoManager
 	store               *buntdb.DB
 	torLimiter          connection_limits.TorLimiter
 	whoWas              WhoWasList
@@ -110,21 +110,19 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		ctime:               time.Now().UTC(),
-		connectionLimiter:   connection_limits.NewLimiter(),
-		connectionThrottler: connection_limits.NewThrottler(),
-		listeners:           make(map[string]*ListenerWrapper),
-		logger:              logger,
-		monitorManager:      NewMonitorManager(),
-		rehashSignal:        make(chan os.Signal, 1),
-		signals:             make(chan os.Signal, len(ServerExitSignals)),
-		snomasks:            NewSnoManager(),
+		ctime:        time.Now().UTC(),
+		listeners:    make(map[string]*ListenerWrapper),
+		logger:       logger,
+		rehashSignal: make(chan os.Signal, 1),
+		signals:      make(chan os.Signal, len(ServerExitSignals)),
 	}
 
 	server.clients.Initialize()
 	server.semaphores.Initialize()
 	server.resumeManager.Initialize(server)
 	server.whoWas.Initialize(config.Limits.WhowasEntries)
+	server.monitorManager.Initialize()
+	server.snomasks.Initialize()
 
 	if err := server.applyConfig(config, true); err != nil {
 		return nil, err
