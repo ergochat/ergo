@@ -204,8 +204,7 @@ server:
         # secret key to prevent dictionary attacks against cloaked IPs
         # any high-entropy secret is valid for this purpose:
         # you MUST generate a new one for your installation.
-        # suggestion: use the output of this command:
-        # python3 -c "import secrets; print(secrets.token_urlsafe())"
+        # suggestion: use the output of `oragono mksecret`
         # note that rotating this key will invalidate all existing ban masks.
         secret: "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4"
 

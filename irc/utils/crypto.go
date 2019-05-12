@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base32"
+	"encoding/base64"
 )
 
 var (
@@ -36,4 +37,11 @@ func SecretTokensMatch(storedToken string, suppliedToken string) bool {
 	}
 
 	return subtle.ConstantTimeCompare([]byte(storedToken), []byte(suppliedToken)) == 1
+}
+
+// generate a 256-bit secret key that can be written into a config file
+func GenerateSecretKey() string {
+	var buf [32]byte
+	rand.Read(buf[:])
+	return base64.RawURLEncoding.EncodeToString(buf[:])
 }

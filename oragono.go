@@ -17,6 +17,7 @@ import (
 	"github.com/oragono/oragono/irc"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/mkcerts"
+	"github.com/oragono/oragono/irc/utils"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -46,6 +47,7 @@ Usage:
 	oragono upgradedb [--conf <filename>] [--quiet]
 	oragono genpasswd [--conf <filename>] [--quiet]
 	oragono mkcerts [--conf <filename>] [--quiet]
+	oragono mksecret [--conf <filename>] [--quiet]
 	oragono run [--conf <filename>] [--quiet]
 	oragono -h | --help
 	oragono --version
@@ -128,6 +130,8 @@ Options:
 				log.Fatal("  Could not create certificate:", err.Error())
 			}
 		}
+	} else if arguments["mksecret"].(bool) {
+		fmt.Println(utils.GenerateSecretKey())
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
