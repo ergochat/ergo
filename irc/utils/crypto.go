@@ -11,7 +11,7 @@ import (
 
 var (
 	// slingamn's own private b32 alphabet, removing 1, l, o, and 0
-	b32encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
+	B32Encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
 )
 
 const (
@@ -24,7 +24,7 @@ func GenerateSecretToken() string {
 	var buf [16]byte
 	rand.Read(buf[:])
 	// 26 ASCII characters, should be fine for most purposes
-	return b32encoder.EncodeToString(buf[:])
+	return B32Encoder.EncodeToString(buf[:])
 }
 
 // securely check if a supplied token matches a stored token
