@@ -70,6 +70,7 @@ type Client struct {
 	preregNick         string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	rawHostname        string
+	cloakedHostname    string
 	realname           string
 	realIP             net.IP
 	registered         bool
@@ -215,6 +216,7 @@ func RunNewClient(server *Server, conn clientConn) {
 		session.realIP = utils.AddrToIP(remoteAddr)
 		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
 		session.rawHostname = utils.LookupHostname(session.realIP.String())
+		client.cloakedHostname = config.Server.Cloaks.ComputeCloak(session.realIP)
 		if utils.AddrIsLocal(remoteAddr) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
 			client.SetMode(modes.TLS, true)
@@ -812,7 +814,10 @@ func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
 func (client *Client) updateNickMaskNoMutex() {
 	client.hostname = client.getVHostNoMutex()
 	if client.hostname == "" {
-		client.hostname = client.rawHostname
+		client.hostname = client.cloakedHostname
+		if client.hostname == "" {
+			client.hostname = client.rawHostname
+		}
 	}
 
 	cfhostname, err := Casefold(client.hostname)
@@ -831,6 +836,7 @@ func (client *Client) AllNickmasks() (masks []string) {
 	nick := client.nickCasefolded
 	username := client.username
 	rawHostname := client.rawHostname
+	cloakedHostname := client.cloakedHostname
 	vhost := client.getVHostNoMutex()
 	client.stateMutex.RUnlock()
 	username = strings.ToLower(username)
@@ -847,6 +853,10 @@ func (client *Client) AllNickmasks() (masks []string) {
 	if err == nil {
 		rawhostmask = fmt.Sprintf("%s!%s@%s", nick, username, cfrawhost)
 		masks = append(masks, rawhostmask)
+	}
+
+	if cloakedHostname != "" {
+		masks = append(masks, fmt.Sprintf("%s!%s@%s", nick, username, cloakedHostname))
 	}
 
 	ipmask := fmt.Sprintf("%s!%s@%s", nick, username, client.IPString())

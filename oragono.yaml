@@ -188,6 +188,44 @@ server:
             # - "192.168.1.1"
             # - "2001:0db8::/32"
 
+    # IP cloaking hides users' IP addresses from other users and from channel admins
+    # (but not from server admins), while still allowing channel admins to ban
+    # offending IP addresses or networks. In place of hostnames derived from reverse
+    # DNS, users see fake domain names like pwbs2ui4377257x8.oragono. These names are
+    # generated deterministically from the underlying IP address, but if the underlying
+    # IP is not already known, it is infeasible to recover it from the cloaked name.
+    ip-cloaking:
+        # whether to enable IP cloaking
+        enabled: false
+
+        # fake TLD at the end of the hostname, e.g., pwbs2ui4377257x8.oragono
+        netname: "oragono"
+
+        # secret key to prevent dictionary attacks against cloaked IPs
+        # any high-entropy secret is valid for this purpose:
+        # you MUST generate a new one for your installation.
+        # suggestion: use the output of `oragono mksecret`
+        # note that rotating this key will invalidate all existing ban masks.
+        secret: "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4"
+
+        # the cloaked hostname is derived only from the CIDR (most significant bits
+        # of the IP address), up to a configurable number of bits. this is the
+        # granularity at which bans will take effect for ipv4 (a /32 is a fully
+        # specified IP address). note that changing this value will invalidate
+        # any stored bans.
+        cidr-len-ipv4: 32
+
+        # analogous value for ipv6 (an ipv6 /64 is the typical prefix assigned
+        # by an ISP to an individual customer for their LAN)
+        cidr-len-ipv6: 64
+
+        # number of bits of hash output to include in the cloaked hostname.
+        # more bits means less likelihood of distinct IPs colliding,
+        # at the cost of a longer cloaked hostname. if this value is set to 0,
+        # all users will receive simply `netname` as their cloaked hostname.
+        num-bits: 80
+
+
 # account options
 accounts:
     # account registration

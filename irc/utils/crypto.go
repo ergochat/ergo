@@ -7,11 +7,12 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base32"
+	"encoding/base64"
 )
 
 var (
 	// slingamn's own private b32 alphabet, removing 1, l, o, and 0
-	b32encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
+	B32Encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
 )
 
 const (
@@ -24,7 +25,7 @@ func GenerateSecretToken() string {
 	var buf [16]byte
 	rand.Read(buf[:])
 	// 26 ASCII characters, should be fine for most purposes
-	return b32encoder.EncodeToString(buf[:])
+	return B32Encoder.EncodeToString(buf[:])
 }
 
 // securely check if a supplied token matches a stored token
@@ -36,4 +37,11 @@ func SecretTokensMatch(storedToken string, suppliedToken string) bool {
 	}
 
 	return subtle.ConstantTimeCompare([]byte(storedToken), []byte(suppliedToken)) == 1
+}
+
+// generate a 256-bit secret key that can be written into a config file
+func GenerateSecretKey() string {
+	var buf [32]byte
+	rand.Read(buf[:])
+	return base64.RawURLEncoding.EncodeToString(buf[:])
 }

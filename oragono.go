@@ -17,6 +17,7 @@ import (
 	"github.com/oragono/oragono/irc"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/mkcerts"
+	"github.com/oragono/oragono/irc/utils"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -46,6 +47,7 @@ Usage:
 	oragono upgradedb [--conf <filename>] [--quiet]
 	oragono genpasswd [--conf <filename>] [--quiet]
 	oragono mkcerts [--conf <filename>] [--quiet]
+	oragono mksecret [--conf <filename>] [--quiet]
 	oragono run [--conf <filename>] [--quiet]
 	oragono -h | --help
 	oragono --version
@@ -57,7 +59,7 @@ Options:
 
 	arguments, _ := docopt.ParseArgs(usage, nil, version)
 
-	// don't require a config file for genpasswd
+	// don't require a config file for genpasswd or mksecret
 	if arguments["genpasswd"].(bool) {
 		var password string
 		fd := int(os.Stdin.Fd())
@@ -82,6 +84,9 @@ Options:
 		if terminal.IsTerminal(fd) {
 			fmt.Println()
 		}
+		return
+	} else if arguments["mksecret"].(bool) {
+		fmt.Println(utils.GenerateSecretKey())
 		return
 	}
 

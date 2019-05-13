@@ -70,6 +70,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	ipstring := parsedProxiedIP.String()
 	client.server.logger.Info("localconnect-ip", "Accepted proxy IP for client", ipstring)
 	rawHostname := utils.LookupHostname(ipstring)
+	cloakedHostname := client.server.Config().Server.Cloaks.ComputeCloak(parsedProxiedIP)
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
@@ -77,6 +78,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	client.proxiedIP = parsedProxiedIP
 	session.rawHostname = rawHostname
 	client.rawHostname = rawHostname
+	client.cloakedHostname = cloakedHostname
 	// nickmask will be updated when the client completes registration
 	// set tls info
 	client.certfp = ""

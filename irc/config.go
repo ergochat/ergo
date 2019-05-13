@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/isupport"
@@ -297,6 +298,7 @@ type Config struct {
 		isupport            isupport.List
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
+		Cloaks              cloaks.CloakConfig                `yaml:"ip-cloaking"`
 	}
 
 	Languages struct {
@@ -726,6 +728,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !config.History.Enabled {
 		config.History.ChannelLength = 0
 		config.History.ClientLength = 0
+	}
+
+	config.Server.Cloaks.Initialize()
+	if config.Server.Cloaks.Enabled {
+		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
+			return nil, fmt.Errorf("You must generate a new value of server.ip-cloaking.secret to enable cloaking")
+		}
 	}
 
 	for _, listenAddress := range config.Server.TorListeners.Listeners {
