@@ -975,7 +975,6 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	nickmask := client.NickMaskString()
 	account := client.AccountName()
 	chname := channel.Name()
-	now := time.Now().UTC()
 
 	// STATUSMSG targets are prefixed with the supplied min-prefix, e.g., @#channel
 	if minPrefixMode != modes.Mode(0) {
@@ -983,7 +982,6 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	// TODO this should use `now` as the time for consistency
 	if rb.session.capabilities.Has(caps.EchoMessage) {
 		var tagsToUse map[string]string
 		if rb.session.capabilities.Has(caps.MessageTags) {
@@ -1005,9 +1003,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
-			session.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, chname)
+			session.sendFromClientInternal(false, message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
 		} else {
-			session.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, chname, message)
+			session.sendSplitMsgFromClientInternal(false, nickmask, account, tagsToUse, command, chname, message)
 		}
 	}
 
@@ -1030,9 +1028,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			}
 
 			if histType == history.Tagmsg {
-				session.sendFromClientInternal(false, now, message.Msgid, nickmask, account, tagsToUse, command, chname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
 			} else {
-				session.sendSplitMsgFromClientInternal(false, now, nickmask, account, tagsToUse, command, chname, message)
+				session.sendSplitMsgFromClientInternal(false, nickmask, account, tagsToUse, command, chname, message)
 			}
 		}
 	}

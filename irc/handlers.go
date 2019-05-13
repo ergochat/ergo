@@ -2019,7 +2019,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 							session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 						}
 					} else {
-						session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+						session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 					}
 				}
 			}
@@ -2039,7 +2039,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
 					session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 				} else {
-					session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
 			if histType != history.Notice && user.Away() {

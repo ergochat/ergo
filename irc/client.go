@@ -1091,12 +1091,12 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (session *Session) sendSplitMsgFromClientInternal(blocking bool, serverTime time.Time, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
+func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
 	if session.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
-		session.sendFromClientInternal(blocking, serverTime, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
+		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
 		for _, messagePair := range message.Wrapped {
-			session.sendFromClientInternal(blocking, serverTime, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+			session.sendFromClientInternal(blocking, message.Time, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
 		}
 	}
 }
