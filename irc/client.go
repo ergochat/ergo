@@ -163,8 +163,29 @@ type ClientDetails struct {
 	accountName        string
 }
 
-// NewClient sets up a new client and runs its goroutine.
-func RunNewClient(server *Server, conn clientConn) {
+// RunClient sets up a new client and runs its goroutine.
+func (server *Server) RunClient(conn clientConn) {
+	var isBanned bool
+	var banMsg string
+	var realIP net.IP
+	if conn.IsTor {
+		realIP = utils.IPv4LoopbackAddress
+		isBanned, banMsg = server.checkTorLimits()
+	} else {
+		realIP = utils.AddrToIP(conn.Conn.RemoteAddr())
+		isBanned, banMsg = server.checkBans(realIP)
+	}
+
+	if isBanned {
+		// this might not show up properly on some clients,
+		// but our objective here is just to close the connection out before it has a load impact on us
+		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.Conn.Close()
+		return
+	}
+
+	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", realIP))
+
 	now := time.Now().UTC()
 	config := server.Config()
 	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
@@ -194,6 +215,7 @@ func RunNewClient(server *Server, conn clientConn) {
 		capState:   caps.NoneState,
 		ctime:      now,
 		atime:      now,
+		realIP:     realIP,
 	}
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
@@ -204,19 +226,17 @@ func RunNewClient(server *Server, conn clientConn) {
 		client.certfp, _ = socket.CertFP()
 	}
 
-	remoteAddr := conn.Conn.RemoteAddr()
 	if conn.IsTor {
 		client.SetMode(modes.TLS, true)
-		session.realIP = utils.AddrToIP(remoteAddr)
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
 		session.proxiedIP = utils.IPv4LoopbackAddress
 		session.rawHostname = config.Server.TorListeners.Vhost
 	} else {
-		session.realIP = utils.AddrToIP(remoteAddr)
 		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
 		session.rawHostname = utils.LookupHostname(session.realIP.String())
 		client.cloakedHostname = config.Server.Cloaks.ComputeCloak(session.realIP)
+		remoteAddr := conn.Conn.RemoteAddr()
 		if utils.AddrIsLocal(remoteAddr) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
 			client.SetMode(modes.TLS, true)

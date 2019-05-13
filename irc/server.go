@@ -27,7 +27,6 @@ import (
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -207,30 +206,6 @@ func (server *Server) Run() {
 	}
 }
 
-func (server *Server) acceptClient(conn clientConn) {
-	var isBanned bool
-	var banMsg string
-	var ipaddr net.IP
-	if conn.IsTor {
-		ipaddr = utils.IPv4LoopbackAddress
-		isBanned, banMsg = server.checkTorLimits()
-	} else {
-		ipaddr = utils.AddrToIP(conn.Conn.RemoteAddr())
-		isBanned, banMsg = server.checkBans(ipaddr)
-	}
-
-	if isBanned {
-		// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
-		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
-		conn.Conn.Close()
-		return
-	}
-
-	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
-
-	go RunNewClient(server, conn)
-}
-
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
@@ -338,7 +313,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 					IsTor: isTor,
 				}
 				// hand off the connection
-				go server.acceptClient(newConn)
+				go server.RunClient(newConn)
 			}
 
 			if shouldStop {
