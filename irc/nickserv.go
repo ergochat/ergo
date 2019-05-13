@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
@@ -612,7 +613,7 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		}
 		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
-		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(IRCv3TimestampFormat)))
-		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(IRCv3TimestampFormat)))
+		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
+		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
 	}
 }
