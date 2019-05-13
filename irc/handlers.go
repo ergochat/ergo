@@ -2576,7 +2576,13 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
 				proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
 			}
-			return !client.ApplyProxiedIP(rb.session, proxiedIP, secure)
+			err, quitMsg := client.ApplyProxiedIP(rb.session, proxiedIP, secure)
+			if err != nil {
+				client.Quit(quitMsg, rb.session)
+				return true
+			} else {
+				return false
+			}
 		}
 	}
 
