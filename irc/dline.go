@@ -34,7 +34,7 @@ type IPBanInfo struct {
 }
 
 func (info IPBanInfo) timeLeft() time.Duration {
-	return info.TimeCreated.Add(info.Duration).Sub(time.Now())
+	return time.Until(info.TimeCreated.Add(info.Duration))
 }
 
 func (info IPBanInfo) TimeLeft() string {
@@ -114,7 +114,7 @@ func (dm *DLineManager) AddNetwork(network net.IPNet, duration time.Duration, re
 		Reason:      reason,
 		OperReason:  operReason,
 		OperName:    operName,
-		TimeCreated: time.Now(),
+		TimeCreated: time.Now().UTC(),
 		Duration:    duration,
 	}
 

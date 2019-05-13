@@ -27,7 +27,6 @@ import (
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -67,15 +66,15 @@ type Server struct {
 	clients             ClientManager
 	config              unsafe.Pointer
 	configFilename      string
-	connectionLimiter   *connection_limits.Limiter
-	connectionThrottler *connection_limits.Throttler
+	connectionLimiter   connection_limits.Limiter
+	connectionThrottler connection_limits.Throttler
 	ctime               time.Time
 	dlines              *DLineManager
 	helpIndexManager    HelpIndexManager
 	klines              *KLineManager
 	listeners           map[string]*ListenerWrapper
 	logger              *logger.Manager
-	monitorManager      *MonitorManager
+	monitorManager      MonitorManager
 	name                string
 	nameCasefolded      string
 	rehashMutex         sync.Mutex // tier 4
@@ -83,7 +82,7 @@ type Server struct {
 	pprofServer         *http.Server
 	resumeManager       ResumeManager
 	signals             chan os.Signal
-	snomasks            *SnoManager
+	snomasks            SnoManager
 	store               *buntdb.DB
 	torLimiter          connection_limits.TorLimiter
 	whoWas              WhoWasList
@@ -110,20 +109,19 @@ type clientConn struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		connectionLimiter:   connection_limits.NewLimiter(),
-		connectionThrottler: connection_limits.NewThrottler(),
-		listeners:           make(map[string]*ListenerWrapper),
-		logger:              logger,
-		monitorManager:      NewMonitorManager(),
-		rehashSignal:        make(chan os.Signal, 1),
-		signals:             make(chan os.Signal, len(ServerExitSignals)),
-		snomasks:            NewSnoManager(),
+		ctime:        time.Now().UTC(),
+		listeners:    make(map[string]*ListenerWrapper),
+		logger:       logger,
+		rehashSignal: make(chan os.Signal, 1),
+		signals:      make(chan os.Signal, len(ServerExitSignals)),
 	}
 
 	server.clients.Initialize()
 	server.semaphores.Initialize()
 	server.resumeManager.Initialize(server)
 	server.whoWas.Initialize(config.Limits.WhowasEntries)
+	server.monitorManager.Initialize()
+	server.snomasks.Initialize()
 
 	if err := server.applyConfig(config, true); err != nil {
 		return nil, err
@@ -206,30 +204,6 @@ func (server *Server) Run() {
 			}()
 		}
 	}
-}
-
-func (server *Server) acceptClient(conn clientConn) {
-	var isBanned bool
-	var banMsg string
-	var ipaddr net.IP
-	if conn.IsTor {
-		ipaddr = utils.IPv4LoopbackAddress
-		isBanned, banMsg = server.checkTorLimits()
-	} else {
-		ipaddr = utils.AddrToIP(conn.Conn.RemoteAddr())
-		isBanned, banMsg = server.checkBans(ipaddr)
-	}
-
-	if isBanned {
-		// this might not show up properly on some clients, but our objective here is just to close the connection out before it has a load impact on us
-		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
-		conn.Conn.Close()
-		return
-	}
-
-	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", ipaddr))
-
-	go RunNewClient(server, conn)
 }
 
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
@@ -339,7 +313,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 					IsTor: isTor,
 				}
 				// hand off the connection
-				go server.acceptClient(newConn)
+				go server.RunClient(newConn)
 			}
 
 			if shouldStop {
@@ -576,7 +550,6 @@ func (server *Server) rehash() error {
 
 func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	if initial {
-		server.ctime = time.Now()
 		server.configFilename = config.Filename
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded

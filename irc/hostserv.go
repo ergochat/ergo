@@ -176,7 +176,7 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 		hsNotice(rb, client.t("An error occurred"))
 		return
 	}
-	elapsed := time.Now().Sub(account.VHost.LastRequestTime)
+	elapsed := time.Since(account.VHost.LastRequestTime)
 	remainingTime := server.AccountConfig().VHosts.UserRequests.Cooldown - elapsed
 	// you can update your existing request, but if you were rejected,
 	// you can't spam a replacement request

@@ -309,8 +309,9 @@ func init() {
 			minParams:    4,
 		},
 		"WHO": {
-			handler:   whoHandler,
-			minParams: 1,
+			handler:         whoHandler,
+			minParams:       1,
+			leaveClientIdle: true,
 		},
 		"WHOIS": {
 			handler:   whoisHandler,

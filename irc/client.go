@@ -163,9 +163,30 @@ type ClientDetails struct {
 	accountName        string
 }
 
-// NewClient sets up a new client and runs its goroutine.
-func RunNewClient(server *Server, conn clientConn) {
-	now := time.Now()
+// RunClient sets up a new client and runs its goroutine.
+func (server *Server) RunClient(conn clientConn) {
+	var isBanned bool
+	var banMsg string
+	var realIP net.IP
+	if conn.IsTor {
+		realIP = utils.IPv4LoopbackAddress
+		isBanned, banMsg = server.checkTorLimits()
+	} else {
+		realIP = utils.AddrToIP(conn.Conn.RemoteAddr())
+		isBanned, banMsg = server.checkBans(realIP)
+	}
+
+	if isBanned {
+		// this might not show up properly on some clients,
+		// but our objective here is just to close the connection out before it has a load impact on us
+		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.Conn.Close()
+		return
+	}
+
+	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", realIP))
+
+	now := time.Now().UTC()
 	config := server.Config()
 	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
 	// give them 1k of grace over the limit:
@@ -194,6 +215,7 @@ func RunNewClient(server *Server, conn clientConn) {
 		capState:   caps.NoneState,
 		ctime:      now,
 		atime:      now,
+		realIP:     realIP,
 	}
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
@@ -204,19 +226,17 @@ func RunNewClient(server *Server, conn clientConn) {
 		client.certfp, _ = socket.CertFP()
 	}
 
-	remoteAddr := conn.Conn.RemoteAddr()
 	if conn.IsTor {
 		client.SetMode(modes.TLS, true)
-		session.realIP = utils.AddrToIP(remoteAddr)
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
 		session.proxiedIP = utils.IPv4LoopbackAddress
 		session.rawHostname = config.Server.TorListeners.Vhost
 	} else {
-		session.realIP = utils.AddrToIP(remoteAddr)
 		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
 		session.rawHostname = utils.LookupHostname(session.realIP.String())
 		client.cloakedHostname = config.Server.Cloaks.ComputeCloak(session.realIP)
+		remoteAddr := conn.Conn.RemoteAddr()
 		if utils.AddrIsLocal(remoteAddr) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
 			client.SetMode(modes.TLS, true)
@@ -409,8 +429,7 @@ func (client *Client) playReattachMessages(session *Session) {
 
 // Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
 func (client *Client) Active(session *Session) {
-	// TODO normalize all times to utc?
-	now := time.Now()
+	now := time.Now().UTC()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	session.atime = now
@@ -472,7 +491,7 @@ func (client *Client) tryResume() (success bool) {
 	success = true
 
 	// this is a bit racey
-	client.resumeDetails.ResumedAt = time.Now()
+	client.resumeDetails.ResumedAt = time.Now().UTC()
 
 	client.nickTimer.Touch(nil)
 
@@ -496,7 +515,7 @@ func (client *Client) tryResume() (success bool) {
 	hostname := client.Hostname()
 
 	friends := make(ClientSet)
-	oldestLostMessage := time.Now()
+	oldestLostMessage := time.Now().UTC()
 
 	// work out how much time, if any, is not covered by history buffers
 	for _, channel := range channels {
@@ -569,7 +588,7 @@ func (client *Client) tryResumeChannels() {
 
 	// replay direct PRIVSMG history
 	if !details.Timestamp.IsZero() {
-		now := time.Now()
+		now := time.Now().UTC()
 		items, complete := client.history.Between(details.Timestamp, now, false, 0)
 		rb := NewResponseBuffer(client.Sessions()[0])
 		client.replayPrivmsgHistory(rb, items, complete)
@@ -1072,12 +1091,12 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (session *Session) sendSplitMsgFromClientInternal(blocking bool, serverTime time.Time, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
+func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
 	if session.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
-		session.sendFromClientInternal(blocking, serverTime, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
+		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
 		for _, messagePair := range message.Wrapped {
-			session.sendFromClientInternal(blocking, serverTime, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+			session.sendFromClientInternal(blocking, message.Time, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
 		}
 	}
 }

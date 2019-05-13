@@ -2019,7 +2019,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 							session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 						}
 					} else {
-						session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+						session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 					}
 				}
 			}
@@ -2039,7 +2039,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
 					session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
 				} else {
-					session.sendSplitMsgFromClientInternal(false, splitMsg.Time, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
+					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
 			if histType != history.Notice && user.Away() {
@@ -2377,7 +2377,7 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // TIME
 func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().Format(time.RFC1123))
+	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
 	return false
 }
 
@@ -2576,7 +2576,13 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
 				proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
 			}
-			return !client.ApplyProxiedIP(rb.session, proxiedIP, secure)
+			err, quitMsg := client.ApplyProxiedIP(rb.session, proxiedIP, secure)
+			if err != nil {
+				client.Quit(quitMsg, rb.session)
+				return true
+			} else {
+				return false
+			}
 		}
 	}
 

@@ -19,13 +19,9 @@ type MonitorManager struct {
 	// (all nicks must be normalized externally by casefolding)
 }
 
-// NewMonitorManager returns a new MonitorManager.
-func NewMonitorManager() *MonitorManager {
-	mm := MonitorManager{
-		watching:  make(map[*Client]map[string]bool),
-		watchedby: make(map[string]map[*Client]bool),
-	}
-	return &mm
+func (mm *MonitorManager) Initialize() {
+	mm.watching = make(map[*Client]map[string]bool)
+	mm.watchedby = make(map[string]map[*Client]bool)
 }
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.

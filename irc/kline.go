@@ -72,7 +72,7 @@ func (km *KLineManager) AddMask(mask string, duration time.Duration, reason, ope
 		Reason:      reason,
 		OperReason:  operReason,
 		OperName:    operName,
-		TimeCreated: time.Now(),
+		TimeCreated: time.Now().UTC(),
 		Duration:    duration,
 	}
 	km.addMaskInternal(mask, info)

@@ -45,7 +45,7 @@ type GenericThrottle struct {
 // it either denies it (by returning false) or allows it (by returning true)
 // and records it
 func (g *GenericThrottle) Touch() (throttled bool, remainingTime time.Duration) {
-	return g.touch(time.Now())
+	return g.touch(time.Now().UTC())
 }
 
 func (g *GenericThrottle) touch(now time.Time) (throttled bool, remainingTime time.Duration) {
@@ -150,17 +150,6 @@ func (ct *Throttler) BanMessage() string {
 	return ct.banMessage
 }
 
-// NewThrottler returns a new client connection throttler.
-// The throttler is functional, but disabled; it can be enabled via `ApplyConfig`.
-func NewThrottler() *Throttler {
-	var ct Throttler
-
-	// initialize empty population; all other state is configurable
-	ct.population = make(map[string]ThrottleDetails)
-
-	return &ct
-}
-
 // ApplyConfig atomically applies a config update to a throttler
 func (ct *Throttler) ApplyConfig(config ThrottlerConfig) error {
 	// assemble exempted nets
@@ -171,6 +160,10 @@ func (ct *Throttler) ApplyConfig(config ThrottlerConfig) error {
 
 	ct.Lock()
 	defer ct.Unlock()
+
+	if ct.population == nil {
+		ct.population = make(map[string]ThrottleDetails)
+	}
 
 	ct.enabled = config.Enabled
 	ct.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)

@@ -46,24 +46,22 @@ func (wc *webircConfig) Populate() (err error) {
 }
 
 // ApplyProxiedIP applies the given IP to the client.
-func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls bool) (success bool) {
+func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls bool) (err error, quitMsg string) {
 	// PROXY and WEBIRC are never accepted from a Tor listener, even if the address itself
 	// is whitelisted:
 	if client.isTor {
-		return false
+		return errBadProxyLine, ""
 	}
 
 	// ensure IP is sane
 	parsedProxiedIP := net.ParseIP(proxiedIP).To16()
 	if parsedProxiedIP == nil {
-		client.Quit(fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP), session)
-		return false
+		return errBadProxyLine, fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP)
 	}
 
 	isBanned, banMsg := client.server.checkBans(parsedProxiedIP)
 	if isBanned {
-		client.Quit(banMsg, session)
-		return false
+		return errBanned, banMsg
 	}
 
 	// given IP is sane! override the client's current IP
@@ -84,7 +82,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	client.certfp = ""
 	client.SetMode(modes.TLS, tls)
 
-	return true
+	return nil, ""
 }
 
 // handle the PROXY command: http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
@@ -93,9 +91,13 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 // unfortunately, an ipv6 SOURCEIP can start with a double colon; in this case,
 // the message is invalid IRC and can't be parsed normally, hence the special handling.
 func handleProxyCommand(server *Server, client *Client, session *Session, line string) (err error) {
+	var quitMsg string
 	defer func() {
 		if err != nil {
-			client.Quit(client.t("Bad or unauthorized PROXY command"), session)
+			if quitMsg == "" {
+				quitMsg = client.t("Bad or unauthorized PROXY command")
+			}
+			client.Quit(quitMsg, session)
 		}
 	}()
 
@@ -106,13 +108,10 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 
 	if utils.IPInNets(client.realIP, server.Config().Server.proxyAllowedFromNets) {
 		// assume PROXY connections are always secure
-		if client.ApplyProxiedIP(session, params[2], true) {
-			return nil
-		} else {
-			return errBadProxyLine
-		}
+		err, quitMsg = client.ApplyProxiedIP(session, params[2], true)
+		return
+	} else {
+		// real source IP is not authorized to issue PROXY:
+		return errBadGatewayAddress
 	}
-
-	// real source IP is not authorized to issue PROXY:
-	return errBadGatewayAddress
 }
