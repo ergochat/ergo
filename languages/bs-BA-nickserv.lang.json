@@ -1,0 +1,16 @@
+{
+  "NickServ lets you register and login to an account.\n\nTo see in-depth help for a specific NickServ command, try:\n    $b/NS HELP <command>$b\n\nHere are the commands you can use:\n%s": "",
+  "Syntax: $bDROP [nickname]$b\n\nDROP de-links the given (or your current) nickname from your user account.": "",
+  "Syntax: $bENFORCE [method]$b\n\nENFORCE lets you specify a custom enforcement mechanism for your registered\nnicknames. Your options are:\n1. 'none'    [no enforcement, overriding the server default]\n2. 'timeout' [anyone using the nick must authenticate before a deadline,\n              or else they will be renamed]\n3. 'strict'  [you must already be authenticated to use the nick]\n4. 'default' [use the server default]\nWith no arguments, queries your current enforcement status.": "",
+  "Syntax: $bGHOST <nickname>$b\n\nGHOST disconnects the given user from the network if they're logged in with the\nsame user account, letting you reclaim your nickname.": "",
+  "Syntax: $bGROUP$b\n\nGROUP links your current nickname with your logged-in account, so other people\nwill not be able to use it.": "",
+  "Syntax: $bIDENTIFY <username> [password]$b\n\nIDENTIFY lets you login to the given username using either password auth, or\ncertfp (your client certificate) if a password is not given.": "",
+  "Syntax: $bINFO [username]$b\n\nINFO gives you information about the given (or your own) user account.": "",
+  "Syntax: $bPASSWD <current> <new> <new_again>$b\nOr:     $bPASSWD <username> <new>$b\n\nPASSWD lets you change your account password. You must supply your current\npassword and confirm the new one by typing it twice. If you're an IRC operator\nwith the correct permissions, you can use PASSWD to reset someone else's\npassword by supplying their username and then the desired password.": "",
+  "Syntax: $bREGISTER <username> <email> [password]$b\n\nREGISTER lets you register a user account. If the server allows anonymous\nregistration, you can send an asterisk (*) as the email address.\n\nIf the password is left out, your account will be registered to your TLS client\ncertificate (and you will need to use that certificate to login in future).": "",
+  "Syntax: $bSADROP <nickname>$b\n\nSADROP forcibly de-links the given nickname from the attached user account.": "",
+  "Syntax: $bSAREGISTER <username> <password>$b\n\nSAREGISTER registers an account on someone else's behalf.\nThis is for use in configurations that require SASL for all connections;\nan administrator can set use this command to set up user accounts.": "",
+  "Syntax: $bSESSIONS [nickname]$b\n\nSESSIONS lists information about the sessions currently attached, via\nthe server's bouncer functionality, to your nickname. An administrator\ncan use this command to list another user's sessions.": "",
+  "Syntax: $bUNREGISTER <username> [code]$b\n\nUNREGISTER lets you delete your user account (or someone else's, if you're an\nIRC operator with the correct permissions). To prevent accidental\nunregistrations, a verification code is required; invoking the command without\na code will display the necessary code.": "",
+  "Syntax: $bVERIFY <username> <code>$b\n\nVERIFY lets you complete an account registration, if the server requires email\nor other verification.": ""
+}
