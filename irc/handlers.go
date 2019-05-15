@@ -1191,8 +1191,9 @@ func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	ison := make([]string, 0, len(msg.Params))
 	for _, nick := range nicks {
-		if iclient := server.clients.Get(nick); iclient != nil {
-			ison = append(ison, iclient.Nick())
+		currentNick := server.getCurrentNick(nick)
+		if currentNick != "" {
+			ison = append(ison, currentNick)
 		}
 	}
 
@@ -1749,6 +1750,16 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	return false
 }
 
+// get the correct capitalization of a nick (if it's online), otherwise return ""
+func (server *Server) getCurrentNick(nick string) (result string) {
+	if service, isService := OragonoServices[strings.ToLower(nick)]; isService {
+		return service.Name
+	} else if iclient := server.clients.Get(nick); iclient != nil {
+		return iclient.Nick()
+	}
+	return ""
+}
+
 // MONITOR <subcmd> [params...]
 func monitorHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	handler, exists := monitorSubcommands[strings.ToLower(msg.Params[0])]
@@ -1813,11 +1824,12 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 			continue
 		}
 
+		currentNick := server.getCurrentNick(target)
 		// add to online / offline lists
-		if targetClient := server.clients.Get(casefoldedTarget); targetClient == nil {
-			offline = append(offline, target)
+		if currentNick != "" {
+			online = append(online, currentNick)
 		} else {
-			online = append(online, targetClient.Nick())
+			offline = append(offline, target)
 		}
 	}
 
@@ -1845,9 +1857,10 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	var nickList []string
 	for _, cfnick := range monitorList {
 		replynick := cfnick
+		currentNick := server.getCurrentNick(cfnick)
 		// report the uncasefolded nick if it's available, i.e., the client is online
-		if mclient := server.clients.Get(cfnick); mclient != nil {
-			replynick = mclient.Nick()
+		if currentNick != "" {
+			replynick = currentNick
 		}
 		nickList = append(nickList, replynick)
 	}
@@ -1869,11 +1882,11 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 	monitorList := server.monitorManager.List(client)
 
 	for _, name := range monitorList {
-		target := server.clients.Get(name)
-		if target == nil {
-			offline = append(offline, name)
+		currentNick := server.getCurrentNick(name)
+		if currentNick != "" {
+			online = append(online, currentNick)
 		} else {
-			online = append(online, target.Nick())
+			offline = append(offline, name)
 		}
 	}
 
