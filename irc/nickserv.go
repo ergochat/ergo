@@ -604,7 +604,7 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 	}
 
 	sessionData, currentIndex := target.AllSessionData(rb.session)
-	nsNotice(rb, fmt.Sprintf(client.t("Nickname %s has %d attached session(s)"), target.Nick(), len(sessionData)))
+	nsNotice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached session(s)"), target.Nick(), len(sessionData)))
 	for i, session := range sessionData {
 		if currentIndex == i {
 			nsNotice(rb, fmt.Sprintf(client.t("Session %d (currently attached session):"), i+1))
