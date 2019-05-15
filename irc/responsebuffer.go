@@ -90,7 +90,7 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 	}
 	// attach message-id
 	if len(msgid) > 0 && rb.session.capabilities.Has(caps.MessageTags) {
-		msg.SetTag("draft/msgid", msgid)
+		msg.SetTag("msgid", msgid)
 	}
 	// attach server-time
 	if rb.session.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
