@@ -777,12 +777,6 @@ func stripMaskFromNick(nickMask string) (nick string) {
 	return nickMask[0:index]
 }
 
-// munge the msgid corresponding to a replayable event,
-// yielding a consistent msgid for the fake PRIVMSG from HistServ
-func mungeMsgidForHistserv(token string) (result string) {
-	return fmt.Sprintf("_%s", token)
-}
-
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
 	chname := channel.Name()
 	client := rb.target
@@ -823,7 +817,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				} else {
 					message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
 				}
-				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Part:
 			if eventPlayback {
@@ -833,14 +827,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Kick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "KICK", chname, item.Params[0], item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
-				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Quit:
 			if eventPlayback {
@@ -850,14 +844,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Nick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "NICK", item.Params[0])
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
-				rb.AddFromClient(item.Message.Time, mungeMsgidForHistserv(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
 			}
 		}
 	}
