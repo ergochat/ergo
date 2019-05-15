@@ -1120,7 +1120,7 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	}
 	// attach message-id
 	if msgid != "" && session.capabilities.Has(caps.MessageTags) {
-		msg.SetTag("draft/msgid", msgid)
+		msg.SetTag("msgid", msgid)
 	}
 	// attach server-time
 	if session.capabilities.Has(caps.ServerTime) {
