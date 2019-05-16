@@ -388,7 +388,7 @@ func (client *Client) run(session *Session) {
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorLineTooLong {
-			client.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
+			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
 			continue
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)
@@ -398,9 +398,9 @@ func (client *Client) run(session *Session) {
 		cmd, exists := Commands[msg.Command]
 		if !exists {
 			if len(msg.Command) > 0 {
-				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), msg.Command, client.t("Unknown command"))
+				session.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), msg.Command, client.t("Unknown command"))
 			} else {
-				client.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), "lastcmd", client.t("No command given"))
+				session.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), "lastcmd", client.t("No command given"))
 			}
 			continue
 		}
