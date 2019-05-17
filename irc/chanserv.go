@@ -172,7 +172,7 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 
 	clientAccount := client.Account()
 	if clientAccount == "" || clientAccount != channelInfo.Founder() {
-		csNotice(rb, client.t("You must be the channel founder to op"))
+		csNotice(rb, client.t("Only the channel founder can do this"))
 		return
 	}
 
