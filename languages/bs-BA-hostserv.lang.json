@@ -1,12 +1,12 @@
 {
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "",
-  "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "",
-  "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "",
-  "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "",
-  "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "",
-  "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "",
-  "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "",
-  "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "",
-  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "",
-  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": ""
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "HostServ vam omogućuje upravljanje vhost-om (tj. niz koji se prikazuje umjesto imena poslužitelja/IP-a vašeg klijenta).\n\nZa prikaz detaljne pomoći za određenu HostServ naredbu, pokušajte:\n    $b/HS HELP <naredba>$b\n\nOvo su naredbe raspoložive za upotrebu:\n%s",
+  "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Sintaksa: $bAPPROVE<user>$b\n\nAPPROVE odobrava zahtjev korisnika za vhost-om.",
+  "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Sintaksa: $bDEL<user>$b\n\nDEL briše korisnikov vhost.",
+  "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Sintaksa: $bOFF$b\n\nOFF onemogućuje vaš već odobreni vhost.",
+  "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "Sintaksa: $bON$b\n\nON omogućuje vaš vhost, pod uslovom da vam je vhost odobren.",
+  "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "Sintaksa: $bREJECT<user><reason>$b\n\nREJECT odbija zahtjev korisnika za vhost, opciono daje korisniku i obrazloženje zašto je zahtjev odbijen.",
+  "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "Syntaksa: $bREQUEST<vhost>$b\n\nREQUEST šalje zahtjev da novi vhost bude dodijeljen vašem računu. Zatim, taj zahtjev treba biti odobren od strane server operatera.",
+  "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Sintaksa: $bSET<user><vhost>$b\n\nSET postavlja korisnikov vhost, zaobilazeći uobičajenu rutinu sistema zahtjeva.",
+  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Sintaksa: $bSTATUS[user]$b \n\nSTATUS prikazuje vaš trenutni vhost, ako postoji; i status vašeg posljednjeg poslanog zahtjeva za novi vhost. Server operater može vidjeti status drugih korisnika.",
+  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Sintaksa: $bWAITING$b\n\nWAITING prikazuje popis zahtjeva za vhost koji su na čekanju, zahtjeva koji bi mogli biti prihvaćeni ili pak odbijeni."
 }
