@@ -18,7 +18,7 @@ type resumeTokenPair struct {
 }
 
 type ResumeManager struct {
-	sync.RWMutex // level 2
+	sync.Mutex // level 2
 
 	resumeIDtoCreds map[string]resumeTokenPair
 	server          *Server
@@ -59,8 +59,8 @@ func (rm *ResumeManager) VerifyToken(token string) (client *Client) {
 		return
 	}
 
-	rm.RLock()
-	defer rm.RUnlock()
+	rm.Lock()
+	defer rm.Unlock()
 
 	id := token[:utils.SecretTokenLength]
 	pair, ok := rm.resumeIDtoCreds[id]
