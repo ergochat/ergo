@@ -347,10 +347,11 @@ type Config struct {
 
 	History struct {
 		Enabled          bool
-		ChannelLength    int `yaml:"channel-length"`
-		ClientLength     int `yaml:"client-length"`
-		AutoreplayOnJoin int `yaml:"autoreplay-on-join"`
-		ChathistoryMax   int `yaml:"chathistory-maxmessages"`
+		ChannelLength    int           `yaml:"channel-length"`
+		ClientLength     int           `yaml:"client-length"`
+		AutoresizeWindow time.Duration `yaml:"autoresize-window"`
+		AutoreplayOnJoin int           `yaml:"autoreplay-on-join"`
+		ChathistoryMax   int           `yaml:"chathistory-maxmessages"`
 	}
 
 	Filename string

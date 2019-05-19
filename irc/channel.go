@@ -76,7 +76,7 @@ func NewChannel(s *Server, name string, registered bool) *Channel {
 	config := s.Config()
 
 	channel.writerSemaphore.Initialize(1)
-	channel.history.Initialize(config.History.ChannelLength)
+	channel.history.Initialize(config.History.ChannelLength, config.History.AutoresizeWindow)
 
 	if !registered {
 		for _, mode := range config.Channels.defaultModes {

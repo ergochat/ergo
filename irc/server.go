@@ -672,16 +672,12 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	// resize history buffers as needed
-	if oldConfig != nil {
-		if oldConfig.History.ChannelLength != config.History.ChannelLength {
-			for _, channel := range server.channels.Channels() {
-				channel.history.Resize(config.History.ChannelLength)
-			}
+	if oldConfig != nil && oldConfig.History != config.History {
+		for _, channel := range server.channels.Channels() {
+			channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
 		}
-		if oldConfig.History.ClientLength != config.History.ClientLength {
-			for _, client := range server.clients.AllClients() {
-				client.history.Resize(config.History.ClientLength)
-			}
+		for _, client := range server.clients.AllClients() {
+			client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
 		}
 	}
 

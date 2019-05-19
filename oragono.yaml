@@ -592,10 +592,18 @@ history:
     enabled: false
 
     # how many channel-specific events (messages, joins, parts) should be tracked per channel?
-    channel-length: 256
+    channel-length: 1024
 
     # how many direct messages and notices should be tracked per user?
-    client-length: 64
+    client-length: 256
+
+    # how long should we try to preserve messages?
+    # if `autoresize-window` is 0, the in-memory message buffers are preallocated to
+    # their maximum length. if it is nonzero, the buffers are initially small and
+    # are dynamically expanded up to the maximum length. if the buffer is full
+    # and the oldest message is older than `autoresize-window`, then it will overwrite
+    # the oldest message rather than resize; otherwise, it will expand if possible.
+    autoresize-window: 1h
 
     # number of messages to automatically play back on channel join (0 to disable):
     autoreplay-on-join: 0

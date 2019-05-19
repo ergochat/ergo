@@ -25,6 +25,10 @@ const (
 	Nick
 )
 
+const (
+	initialAutoSize = 32
+)
+
 // a Tagmsg that consists entirely of transient tags is not stored
 var transientTags = map[string]bool{
 	"+draft/typing": true,
@@ -77,25 +81,39 @@ type Buffer struct {
 	sync.RWMutex
 
 	// ring buffer, see irc/whowas.go for conventions
-	buffer []Item
-	start  int
-	end    int
+	buffer      []Item
+	start       int
+	end         int
+	maximumSize int
+	window      time.Duration
 
 	lastDiscarded time.Time
 
 	enabled uint32
+
+	nowFunc func() time.Time
 }
 
-func NewHistoryBuffer(size int) (result *Buffer) {
+func NewHistoryBuffer(size int, window time.Duration) (result *Buffer) {
 	result = new(Buffer)
-	result.Initialize(size)
+	result.Initialize(size, window)
 	return
 }
 
-func (hist *Buffer) Initialize(size int) {
-	hist.buffer = make([]Item, size)
+func (hist *Buffer) Initialize(size int, window time.Duration) {
+	initialSize := size
+	if window != 0 {
+		initialSize = initialAutoSize
+		if size < initialSize {
+			initialSize = size // min(initialAutoSize, size)
+		}
+	}
+	hist.buffer = make([]Item, initialSize)
 	hist.start = -1
 	hist.end = -1
+	hist.window = window
+	hist.maximumSize = size
+	hist.nowFunc = time.Now
 
 	hist.setEnabled(size)
 }
@@ -131,6 +149,8 @@ func (list *Buffer) Add(item Item) {
 
 	list.Lock()
 	defer list.Unlock()
+
+	list.maybeExpand()
 
 	var pos int
 	if list.start == -1 { // empty
@@ -269,11 +289,67 @@ func (list *Buffer) next(index int) int {
 	}
 }
 
+// return n such that v <= n and n == 2**i for some i
+func roundUpToPowerOfTwo(v int) int {
+	// http://graphics.stanford.edu/~seander/bithacks.html
+	v -= 1
+	v |= v >> 1
+	v |= v >> 2
+	v |= v >> 4
+	v |= v >> 8
+	v |= v >> 16
+	return v + 1
+}
+
+func (list *Buffer) maybeExpand() {
+	if list.window == 0 {
+		return // autoresize is disabled
+	}
+
+	length := list.length()
+	if length < len(list.buffer) {
+		return // we have spare capacity already
+	}
+
+	if len(list.buffer) == list.maximumSize {
+		return // cannot expand any further
+	}
+
+	wouldDiscard := list.buffer[list.start].Message.Time
+	if list.window < list.nowFunc().Sub(wouldDiscard) {
+		return // oldest element is old enough to overwrite
+	}
+
+	newSize := roundUpToPowerOfTwo(length + 1)
+	if list.maximumSize < newSize {
+		newSize = list.maximumSize
+	}
+	list.resize(newSize)
+}
+
 // Resize shrinks or expands the buffer
-func (list *Buffer) Resize(size int) {
-	newbuffer := make([]Item, size)
+func (list *Buffer) Resize(maximumSize int, window time.Duration) {
 	list.Lock()
 	defer list.Unlock()
+
+	if list.maximumSize == maximumSize && list.window == window {
+		return // no-op
+	}
+
+	list.maximumSize = maximumSize
+	list.window = window
+
+	// if we're not autoresizing, we need to resize now;
+	// if we are autoresizing, we may need to shrink the buffer down to maximumSize,
+	// but we don't need to grow it now (we can just grow it on the next Add)
+	// TODO make it possible to shrink the buffer so that it only contains `window`
+	if window == 0 || maximumSize < len(list.buffer) {
+		list.resize(maximumSize)
+	}
+}
+
+func (list *Buffer) resize(size int) {
+	newbuffer := make([]Item, size)
 
 	list.setEnabled(size)
 
