@@ -5,6 +5,8 @@ package irc
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
@@ -23,10 +25,6 @@ func servCmdRequiresAuthEnabled(config *Config) bool {
 
 func servCmdRequiresNickRes(config *Config) bool {
 	return config.Accounts.AuthenticationEnabled && config.Accounts.NickReservation.Enabled
-}
-
-func nsEnforceEnabled(config *Config) bool {
-	return servCmdRequiresNickRes(config) && config.Accounts.NickReservation.AllowCustomEnforcement
 }
 
 func servCmdRequiresBouncerEnabled(config *Config) bool {
@@ -61,20 +59,14 @@ DROP de-links the given (or your current) nickname from your user account.`,
 			authRequired: true,
 		},
 		"enforce": {
+			hidden:  true,
 			handler: nsEnforceHandler,
 			help: `Syntax: $bENFORCE [method]$b
 
-ENFORCE lets you specify a custom enforcement mechanism for your registered
-nicknames. Your options are:
-1. 'none'    [no enforcement, overriding the server default]
-2. 'timeout' [anyone using the nick must authenticate before a deadline,
-              or else they will be renamed]
-3. 'strict'  [you must already be authenticated to use the nick]
-4. 'default' [use the server default]
-With no arguments, queries your current enforcement status.`,
-			helpShort:    `$bENFORCE$b lets you change how your nicknames are reserved.`,
+ENFORCE is an alias for $bGET enforce$b and $bSET enforce$b. See the help
+entry for $bSET$b for more information.`,
 			authRequired: true,
-			enabled:      nsEnforceEnabled,
+			enabled:      servCmdRequiresAccreg,
 		},
 		"ghost": {
 			handler: nsGhostHandler,
@@ -194,12 +186,257 @@ password by supplying their username and then the desired password.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 2,
 		},
+		"get": {
+			handler: nsGetHandler,
+			help: `Syntax: $bGET <setting>$b
+
+GET queries the current values of your account settings. For more information
+on the settings and their possible values, see HELP SET.`,
+			helpShort:    `$bGET$b queries the current values of your account settings`,
+			authRequired: true,
+			enabled:      servCmdRequiresAccreg,
+			minParams:    1,
+		},
+		"saget": {
+			handler: nsGetHandler,
+			help: `Syntax: $bSAGET <account> <setting>$b
+
+SAGET queries the values of someone else's account settings. For more
+information on the settings and their possible values, see HELP SET.`,
+			helpShort: `$bSAGET$b queries the current values of another user's account settings`,
+			enabled:   servCmdRequiresAccreg,
+			minParams: 2,
+			capabs:    []string{"accreg"},
+		},
+		"set": {
+			handler: nsSetHandler,
+			help: `Syntax $bSET <setting> <value>$b
+
+Set modifies your account settings. The following settings ara available:
+
+$bENFORCE$b
+'enforce' lets you specify a custom enforcement mechanism for your registered
+nicknames. Your options are:
+1. 'none'    [no enforcement, overriding the server default]
+2. 'timeout' [anyone using the nick must authenticate before a deadline,
+              or else they will be renamed]
+3. 'strict'  [you must already be authenticated to use the nick]
+4. 'default' [use the server default]
+
+$bBOUNCER$b
+If 'bouncer' is enabled and you are already logged in and using a nick, a
+second client of yours that authenticates with SASL and requests the same nick
+is allowed to attach to the nick as well (this is comparable to the behavior
+of IRC "bouncers" like ZNC). Your options are 'on' (allow this behavior),
+'off' (disallow it), and 'default' (use the server default value).
+
+$bAUTOREPLAY-LINES$b
+'autoreplay-lines' controls the number of lines of channel history that will
+be replayed to you automatically when joining a channel. Your options are any
+positive number, 0 to disable the feature, and 'default' to use the server
+default.
+
+$bAUTOREPLAY-JOINS$b
+'autoreplay-joins' controls whether autoreplayed channel history will include
+lines for join and part. This provides more information about the context of
+messages, but may be spammy. Your options are 'on' and 'off'.
+`,
+			helpShort:    `$bSET$b modifies your account settings`,
+			authRequired: true,
+			enabled:      servCmdRequiresAccreg,
+			minParams:    2,
+		},
+		"saset": {
+			handler:   nsSetHandler,
+			help:      `Syntax: $bSASET <account> <setting> <value>$b`,
+			helpShort: `$bSASET$b modifies another user's account settings`,
+			enabled:   servCmdRequiresAccreg,
+			minParams: 3,
+			capabs:    []string{"accreg"},
+		},
 	}
 )
 
 // nsNotice sends the client a notice from NickServ
 func nsNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "NickServ", "NOTICE", rb.target.Nick(), text)
+	// XXX i can't figure out how to use OragonoServices[servicename].prefix here
+	// without creating a compile-time initialization loop
+	rb.Add(nil, "NickServ!NickServ@localhost", "NOTICE", rb.target.Nick(), text)
+}
+
+func nsGetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var account string
+	if command == "saget" {
+		account = params[0]
+		params = params[1:]
+	} else {
+		account = client.Account()
+	}
+
+	accountData, err := server.accounts.LoadAccount(account)
+	if err == errAccountDoesNotExist {
+		nsNotice(rb, client.t("No such account"))
+		return
+	} else if err != nil {
+		nsNotice(rb, client.t("Error loading account data"))
+		return
+	}
+
+	displaySetting(params[0], accountData.Settings, client, rb)
+}
+
+func displaySetting(settingName string, settings AccountSettings, client *Client, rb *ResponseBuffer) {
+	config := client.server.Config()
+	switch strings.ToLower(settingName) {
+	case "enforce":
+		storedValue := settings.NickEnforcement
+		serializedStoredValue := nickReservationToString(storedValue)
+		nsNotice(rb, fmt.Sprintf(client.t("Your stored nickname enforcement setting is: %s"), serializedStoredValue))
+		serializedActualValue := nickReservationToString(configuredEnforcementMethod(config, storedValue))
+		nsNotice(rb, fmt.Sprintf(client.t("Given current server settings, your nickname is enforced with: %s"), serializedActualValue))
+	case "autoreplay-lines":
+		if settings.AutoreplayLines == nil {
+			nsNotice(rb, fmt.Sprintf(client.t("You will receive the server default of %d lines of autoreplayed history"), config.History.AutoreplayOnJoin))
+		} else {
+			nsNotice(rb, fmt.Sprintf(client.t("You will receive %d lines of autoreplayed history"), *settings.AutoreplayLines))
+		}
+	case "autoreplay-joins":
+		if settings.AutoreplayJoins {
+			nsNotice(rb, client.t("You will see JOINs and PARTs in autoreplayed history lines"))
+		} else {
+			nsNotice(rb, client.t("You will not see JOINs and PARTs in autoreplayed history lines"))
+		}
+	case "bouncer":
+		if !config.Accounts.Bouncer.Enabled {
+			nsNotice(rb, fmt.Sprintf(client.t("This feature has been disabled by the server administrators")))
+		} else {
+			switch settings.AllowBouncer {
+			case BouncerAllowedServerDefault:
+				if config.Accounts.Bouncer.AllowedByDefault {
+					nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently enabled for your account, but you can opt out")))
+				} else {
+					nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently disabled for your account, but you can opt in")))
+				}
+			case BouncerDisallowedByUser:
+				nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently disabled for your account")))
+			case BouncerAllowedByUser:
+				nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently enabled for your account")))
+			}
+		}
+	default:
+		nsNotice(rb, client.t("No such setting"))
+	}
+}
+
+func stringToBool(str string) (result bool, err error) {
+	switch strings.ToLower(str) {
+	case "on":
+		result = true
+	case "off":
+		result = false
+	case "true":
+		result = true
+	case "false":
+		result = false
+	default:
+		err = errInvalidParams
+	}
+	return
+}
+
+func nsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var account string
+	if command == "saset" {
+		account = params[0]
+		params = params[1:]
+	} else {
+		account = client.Account()
+	}
+
+	var munger settingsMunger
+	var finalSettings AccountSettings
+	var err error
+	switch strings.ToLower(params[0]) {
+	case "pass":
+		nsNotice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
+		return
+	case "enforce":
+		var method NickEnforcementMethod
+		method, err = nickReservationFromString(params[1])
+		if err != nil {
+			err = errInvalidParams
+			break
+		}
+		// updating enforcement settings is special-cased, because it requires
+		// an update to server.accounts.accountToMethod
+		finalSettings, err = server.accounts.SetEnforcementStatus(account, method)
+		if err == nil {
+			finalSettings.NickEnforcement = method // success
+		}
+	case "autoreplay-lines":
+		var newValue *int
+		if strings.ToLower(params[1]) != "default" {
+			val, err_ := strconv.Atoi(params[1])
+			if err_ != nil || val < 0 {
+				err = errInvalidParams
+				break
+			}
+			newValue = new(int)
+			*newValue = val
+		}
+		munger = func(in AccountSettings) (out AccountSettings, err error) {
+			out = in
+			out.AutoreplayLines = newValue
+			return
+		}
+	case "bouncer":
+		var newValue BouncerAllowedSetting
+		if strings.ToLower(params[1]) == "default" {
+			newValue = BouncerAllowedServerDefault
+		} else {
+			var enabled bool
+			enabled, err = stringToBool(params[1])
+			if enabled {
+				newValue = BouncerAllowedByUser
+			} else {
+				newValue = BouncerDisallowedByUser
+			}
+		}
+		if err == nil {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.AllowBouncer = newValue
+				return
+			}
+		}
+	case "autoreplay-joins":
+		var newValue bool
+		newValue, err = stringToBool(params[1])
+		if err == nil {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.AutoreplayJoins = newValue
+				return
+			}
+		}
+	default:
+		err = errInvalidParams
+	}
+
+	if munger != nil {
+		finalSettings, err = server.accounts.ModifyAccountSettings(account, munger)
+	}
+
+	switch err {
+	case nil:
+		nsNotice(rb, client.t("Successfully changed your account settings"))
+		displaySetting(params[0], finalSettings, client, rb)
+	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
+		nsNotice(rb, client.t(err.Error()))
+	default:
+		// unknown error
+		nsNotice(rb, client.t("An error occurred"))
+	}
 }
 
 func nsDropHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -568,22 +805,12 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 }
 
 func nsEnforceHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	newParams := []string{"enforce"}
 	if len(params) == 0 {
-		status := server.accounts.getStoredEnforcementStatus(client.Account())
-		nsNotice(rb, fmt.Sprintf(client.t("Your current nickname enforcement is: %s"), status))
+		nsGetHandler(server, client, "get", newParams, rb)
 	} else {
-		method, err := nickReservationFromString(params[0])
-		if err != nil {
-			nsNotice(rb, client.t("Invalid parameters"))
-			return
-		}
-		err = server.accounts.SetEnforcementStatus(client.Account(), method)
-		if err == nil {
-			nsNotice(rb, client.t("Enforcement method set"))
-		} else {
-			server.logger.Error("internal", "couldn't store NS ENFORCE data", err.Error())
-			nsNotice(rb, client.t("An error occurred"))
-		}
+		newParams = append(newParams, params[0])
+		nsSetHandler(server, client, "set", newParams, rb)
 	}
 }
 

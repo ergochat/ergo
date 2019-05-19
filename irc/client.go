@@ -48,6 +48,7 @@ type ResumeDetails struct {
 type Client struct {
 	account            string
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
+	accountSettings    AccountSettings
 	atime              time.Time
 	away               bool
 	awayMessage        string

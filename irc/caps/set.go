@@ -114,9 +114,3 @@ func (s *Set) String(version Version, values *Values) string {
 
 	return strings.Join(strs, " ")
 }
-
-// returns whether we should send `znc.in/self-message`-style echo messages
-// to sessions other than that which originated the message
-func (capabs *Set) SelfMessagesEnabled() bool {
-	return capabs.Has(EchoMessage) || capabs.Has(ZNCSelfMessage)
-}
