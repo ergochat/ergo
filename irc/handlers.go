@@ -2060,12 +2060,17 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
 			}
 
-			user.history.Add(history.Item{
+			item := history.Item{
 				Type:        histType,
 				Message:     splitMsg,
 				Nick:        nickMaskString,
 				AccountName: accountName,
-			})
+			}
+			// add to the target's history:
+			user.history.Add(item)
+			// add this to the client's history as well, recording the target:
+			item.Params[0] = tnick
+			client.history.Add(item)
 		}
 	}
 	return false
