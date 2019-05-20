@@ -1,10 +1,12 @@
 // Copyright (c) 2018 Shivaram Lingamneni
+// released under the MIT license
 
 package utils
 
 import (
 	"log"
 	"runtime/debug"
+	"time"
 )
 
 // Semaphore is a counting semaphore. Note that a capacity of n requires O(n) storage.
@@ -33,6 +35,25 @@ func (semaphore *Semaphore) TryAcquire() (acquired bool) {
 	default:
 		return false
 	}
+}
+
+// AcquireWithTimeout tries to acquire a semaphore, blocking for a maximum
+// of approximately `d` while waiting for it. It returns whether the acquire
+// was successful.
+func (semaphore *Semaphore) AcquireWithTimeout(timeout time.Duration) (acquired bool) {
+	if timeout < 0 {
+		return semaphore.TryAcquire()
+	}
+
+	timer := time.NewTimer(timeout)
+	select {
+	case <-(*semaphore):
+		acquired = true
+	case <-timer.C:
+		acquired = false
+	}
+	timer.Stop()
+	return
 }
 
 // Release releases a semaphore. It never blocks. (This is not a license
