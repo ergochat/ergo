@@ -620,24 +620,40 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
-	var replayLimit int
-	customReplayLimit := client.AccountSettings().AutoreplayLines
-	if customReplayLimit != nil {
-		replayLimit = *customReplayLimit
-		maxLimit := channel.server.Config().History.ChathistoryMax
-		if maxLimit < replayLimit {
-			replayLimit = maxLimit
-		}
+	// autoreplay any messages as necessary
+	config := channel.server.Config()
+	var items []history.Item
+	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets[chcfname]) {
+		items, _ = channel.history.Between(rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before, false, config.History.ChathistoryMax)
 	} else {
-		replayLimit = channel.server.Config().History.AutoreplayOnJoin
-	}
-	if 0 < replayLimit {
-		// TODO don't replay the client's own JOIN line?
-		items := channel.history.Latest(replayLimit)
-		if 0 < len(items) {
-			channel.replayHistoryItems(rb, items, true)
-			rb.Flush(true)
+		var replayLimit int
+		customReplayLimit := client.AccountSettings().AutoreplayLines
+		if customReplayLimit != nil {
+			replayLimit = *customReplayLimit
+			maxLimit := channel.server.Config().History.ChathistoryMax
+			if maxLimit < replayLimit {
+				replayLimit = maxLimit
+			}
+		} else {
+			replayLimit = channel.server.Config().History.AutoreplayOnJoin
 		}
+		if 0 < replayLimit {
+			items = channel.history.Latest(replayLimit)
+		}
+	}
+	// remove the client's own JOIN line from the replay
+	numItems := len(items)
+	for i := len(items) - 1; 0 <= i; i-- {
+		if items[i].Message.Msgid == message.Msgid {
+			// zero'ed items will not be replayed because their `Type` field is not recognized
+			items[i] = history.Item{}
+			numItems--
+			break
+		}
+	}
+	if 0 < numItems {
+		channel.replayHistoryItems(rb, items, true)
+		rb.Flush(true)
 	}
 }
 

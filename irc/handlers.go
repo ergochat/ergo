@@ -2001,12 +2001,16 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			channel.SendSplitMessage(msg.Command, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
 		} else {
-			if service, isService := OragonoServices[strings.ToLower(targetString)]; isService {
-				// NOTICE and TAGMSG to services are ignored
-				if histType == history.Privmsg {
+			// NOTICE and TAGMSG to services are ignored
+			if histType == history.Privmsg {
+				lowercaseTarget := strings.ToLower(targetString)
+				if service, isService := OragonoServices[lowercaseTarget]; isService {
 					servicePrivmsgHandler(service, server, client, message, rb)
+					continue
+				} else if _, isZNC := zncHandlers[lowercaseTarget]; isZNC {
+					zncPrivmsgHandler(client, lowercaseTarget, message, rb)
+					continue
 				}
-				continue
 			}
 
 			user := server.clients.Get(targetString)
@@ -2744,5 +2748,11 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, nickname, client.t("End of WHOWAS"))
 		}
 	}
+	return false
+}
+
+// ZNC <module> [params]
+func zncHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	zncModuleHandler(client, msg.Params[0], msg.Params[1:], rb)
 	return false
 }

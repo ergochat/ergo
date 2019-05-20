@@ -113,6 +113,8 @@ type Session struct {
 	maxlenRest   uint32
 	capState     caps.State
 	capVersion   caps.Version
+
+	zncPlaybackTimes *zncPlaybackTimes
 }
 
 // sets the session quit message, if there isn't one already
