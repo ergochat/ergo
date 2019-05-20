@@ -30,6 +30,7 @@ type serviceCommand struct {
 	capabs       []string // oper capabs the given user has to have to access this command
 	handler      func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
 	help         string
+	helpStrings  []string
 	helpShort    string
 	authRequired bool
 	hidden       bool
@@ -228,8 +229,18 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		if commandInfo == nil {
 			sendNotice(client.t(fmt.Sprintf("Unknown command. To see available commands, run /%s HELP", service.ShortName)))
 		} else {
-			for _, line := range strings.Split(ircfmt.Unescape(client.t(commandInfo.help)), "\n") {
-				sendNotice(line)
+			helpStrings := commandInfo.helpStrings
+			if helpStrings == nil {
+				hsArray := [1]string{commandInfo.help}
+				helpStrings = hsArray[:]
+			}
+			for i, helpString := range helpStrings {
+				if 0 < i {
+					sendNotice("")
+				}
+				for _, line := range strings.Split(ircfmt.Unescape(client.t(helpString)), "\n") {
+					sendNotice(line)
+				}
 			}
 		}
 	}
@@ -261,8 +272,10 @@ func initializeServices() {
 
 		// force devs to write a help entry for every command
 		for commandName, commandInfo := range service.Commands {
-			if commandInfo.aliasOf == "" && !commandInfo.hidden && (commandInfo.help == "" || commandInfo.helpShort == "") {
-				log.Fatal(fmt.Sprintf("help entry missing for %s command %s", serviceName, commandName))
+			if commandInfo.aliasOf == "" && !commandInfo.hidden {
+				if (commandInfo.help == "" && commandInfo.helpStrings == nil) || commandInfo.helpShort == "" {
+					log.Fatal(fmt.Sprintf("help entry missing for %s command %s", serviceName, commandName))
+				}
 			}
 		}
 	}

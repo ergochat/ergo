@@ -5,7 +5,10 @@
 
 package irc
 
-import "errors"
+import (
+	"errors"
+	"github.com/oragono/oragono/irc/utils"
+)
 
 // Runtime Errors
 var (
@@ -40,7 +43,7 @@ var (
 	errInvalidUsername                = errors.New("Invalid username")
 	errFeatureDisabled                = errors.New(`That feature is disabled`)
 	errBanned                         = errors.New("IP or nickmask banned")
-	errInvalidParams                  = errors.New("Invalid parameters")
+	errInvalidParams                  = utils.ErrInvalidParams
 )
 
 // Socket Errors

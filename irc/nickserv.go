@@ -12,6 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // "enabled" callbacks for specific nickserv commands
@@ -209,46 +210,51 @@ information on the settings and their possible values, see HELP SET.`,
 			capabs:    []string{"accreg"},
 		},
 		"set": {
-			handler: nsSetHandler,
-			help: `Syntax $bSET <setting> <value>$b
+			handler:   nsSetHandler,
+			helpShort: `$bSET$b modifies your account settings`,
+			// these are broken out as separate strings so they can be translated separately
+			helpStrings: []string{
+				`Syntax $bSET <setting> <value>$b
 
-Set modifies your account settings. The following settings ara available:
+Set modifies your account settings. The following settings are available:`,
 
-$bENFORCE$b
+				`$bENFORCE$b
 'enforce' lets you specify a custom enforcement mechanism for your registered
 nicknames. Your options are:
 1. 'none'    [no enforcement, overriding the server default]
 2. 'timeout' [anyone using the nick must authenticate before a deadline,
               or else they will be renamed]
 3. 'strict'  [you must already be authenticated to use the nick]
-4. 'default' [use the server default]
+4. 'default' [use the server default]`,
 
-$bBOUNCER$b
+				`$bBOUNCER$b
 If 'bouncer' is enabled and you are already logged in and using a nick, a
 second client of yours that authenticates with SASL and requests the same nick
 is allowed to attach to the nick as well (this is comparable to the behavior
 of IRC "bouncers" like ZNC). Your options are 'on' (allow this behavior),
-'off' (disallow it), and 'default' (use the server default value).
+'off' (disallow it), and 'default' (use the server default value).`,
 
-$bAUTOREPLAY-LINES$b
+				`$bAUTOREPLAY-LINES$b
 'autoreplay-lines' controls the number of lines of channel history that will
 be replayed to you automatically when joining a channel. Your options are any
 positive number, 0 to disable the feature, and 'default' to use the server
-default.
+default.`,
 
-$bAUTOREPLAY-JOINS$b
+				`$bAUTOREPLAY-JOINS$b
 'autoreplay-joins' controls whether autoreplayed channel history will include
 lines for join and part. This provides more information about the context of
-messages, but may be spammy. Your options are 'on' and 'off'.
-`,
-			helpShort:    `$bSET$b modifies your account settings`,
+messages, but may be spammy. Your options are 'on' and 'off'.`,
+			},
 			authRequired: true,
 			enabled:      servCmdRequiresAccreg,
 			minParams:    2,
 		},
 		"saset": {
-			handler:   nsSetHandler,
-			help:      `Syntax: $bSASET <account> <setting> <value>$b`,
+			handler: nsSetHandler,
+			help: `Syntax: $bSASET <account> <setting> <value>$b
+
+SASET modifies the values of someone else's account settings. For more
+information on the settings and their possible values, see HELP SET.`,
 			helpShort: `$bSASET$b modifies another user's account settings`,
 			enabled:   servCmdRequiresAccreg,
 			minParams: 3,
@@ -328,22 +334,6 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 	}
 }
 
-func stringToBool(str string) (result bool, err error) {
-	switch strings.ToLower(str) {
-	case "on":
-		result = true
-	case "off":
-		result = false
-	case "true":
-		result = true
-	case "false":
-		result = false
-	default:
-		err = errInvalidParams
-	}
-	return
-}
-
 func nsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var account string
 	if command == "saset" {
@@ -395,7 +385,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			newValue = BouncerAllowedServerDefault
 		} else {
 			var enabled bool
-			enabled, err = stringToBool(params[1])
+			enabled, err = utils.StringToBool(params[1])
 			if enabled {
 				newValue = BouncerAllowedByUser
 			} else {
@@ -411,7 +401,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "autoreplay-joins":
 		var newValue bool
-		newValue, err = stringToBool(params[1])
+		newValue, err = utils.StringToBool(params[1])
 		if err == nil {
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
@@ -787,7 +777,7 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 			}
 		}
 	default:
-		errorMessage = "Invalid parameters"
+		errorMessage = `Invalid parameters`
 	}
 
 	if errorMessage != "" {
