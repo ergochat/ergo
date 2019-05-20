@@ -165,7 +165,7 @@
   "SASL message too long": "Mesaj SASL prea lung",
   "Server notice masks": "Măști de anunț de server",
   "Session %d (currently attached session):": "",
-  "Session %d:": "",
+  "Session %d:": "Sesiune %d:",
   "Some additional message history may have been lost": "Este posibil ca unele mesaje adiționale din istoric să fi fost pierdute",
   "Successfully approved vhost request for %s": "Solicitarea de gazdă virtuală pentru %s a fost aprobată cu succes",
   "Successfully cleared vhost": "Gazda virtuală a fost ștearsă cu succes",
