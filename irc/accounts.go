@@ -29,7 +29,7 @@ const (
 	keyAccountRegTime          = "account.registered.time %s"
 	keyAccountCredentials      = "account.credentials %s"
 	keyAccountAdditionalNicks  = "account.additionalnicks %s"
-	keyAccountEnforcement      = "account.customenforcement %s"
+	keyAccountSettings         = "account.settings %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountChannels         = "account.channels %s"
@@ -55,14 +55,14 @@ type AccountManager struct {
 	accountToClients  map[string][]*Client
 	nickToAccount     map[string]string
 	skeletonToAccount map[string]string
-	accountToMethod   map[string]NickReservationMethod
+	accountToMethod   map[string]NickEnforcementMethod
 }
 
 func (am *AccountManager) Initialize(server *Server) {
 	am.accountToClients = make(map[string][]*Client)
 	am.nickToAccount = make(map[string]string)
 	am.skeletonToAccount = make(map[string]string)
-	am.accountToMethod = make(map[string]NickReservationMethod)
+	am.accountToMethod = make(map[string]NickEnforcementMethod)
 	am.server = server
 
 	am.buildNickToAccountIndex()
@@ -76,7 +76,7 @@ func (am *AccountManager) buildNickToAccountIndex() {
 
 	nickToAccount := make(map[string]string)
 	skeletonToAccount := make(map[string]string)
-	accountToMethod := make(map[string]NickReservationMethod)
+	accountToMethod := make(map[string]NickEnforcementMethod)
 	existsPrefix := fmt.Sprintf(keyAccountExists, "")
 
 	am.serialCacheUpdateMutex.Lock()
@@ -109,12 +109,16 @@ func (am *AccountManager) buildNickToAccountIndex() {
 				}
 			}
 
-			if methodStr, err := tx.Get(fmt.Sprintf(keyAccountEnforcement, account)); err == nil {
-				method, err := nickReservationFromString(methodStr)
-				if err == nil {
-					accountToMethod[account] = method
+			if rawPrefs, err := tx.Get(fmt.Sprintf(keyAccountSettings, account)); err == nil {
+				var prefs AccountSettings
+				err := json.Unmarshal([]byte(rawPrefs), &prefs)
+				if err == nil && prefs.NickEnforcement != NickEnforcementOptional {
+					accountToMethod[account] = prefs.NickEnforcement
+				} else {
+					am.server.logger.Error("internal", "corrupt account creds", account)
 				}
 			}
+
 			return true
 		})
 		return err
@@ -180,36 +184,44 @@ func (am *AccountManager) NickToAccount(nick string) string {
 	return am.nickToAccount[cfnick]
 }
 
+// given an account, combine stored enforcement method with the config settings
+// to compute the actual enforcement method
+func configuredEnforcementMethod(config *Config, storedMethod NickEnforcementMethod) (result NickEnforcementMethod) {
+	if !config.Accounts.NickReservation.Enabled {
+		return NickEnforcementNone
+	}
+	result = storedMethod
+	// if they don't have a custom setting, or customization is disabled, use the default
+	if result == NickEnforcementOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
+		result = config.Accounts.NickReservation.Method
+	}
+	if result == NickEnforcementOptional {
+		// enforcement was explicitly enabled neither in the config or by the user
+		result = NickEnforcementNone
+	}
+	return
+}
+
 // Given a nick, looks up the account that owns it and the method (none/timeout/strict)
 // used to enforce ownership.
-func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account string, method NickReservationMethod) {
+func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account string, method NickEnforcementMethod) {
 	config := am.server.Config()
 	if !config.Accounts.NickReservation.Enabled {
-		return "", NickReservationNone
+		return "", NickEnforcementNone
 	}
 
 	am.RLock()
 	defer am.RUnlock()
 
-	// given an account, combine stored enforcement method with the config settings
-	// to compute the actual enforcement method
-	finalEnforcementMethod := func(account_ string) (result NickReservationMethod) {
-		result = am.accountToMethod[account_]
-		// if they don't have a custom setting, or customization is disabled, use the default
-		if result == NickReservationOptional || !config.Accounts.NickReservation.AllowCustomEnforcement {
-			result = config.Accounts.NickReservation.Method
-		}
-		if result == NickReservationOptional {
-			// enforcement was explicitly enabled neither in the config or by the user
-			result = NickReservationNone
-		}
-		return
+	finalEnforcementMethod := func(account_ string) (result NickEnforcementMethod) {
+		storedMethod := am.accountToMethod[account_]
+		return configuredEnforcementMethod(config, storedMethod)
 	}
 
 	nickAccount := am.nickToAccount[cfnick]
 	skelAccount := am.skeletonToAccount[skeleton]
 	if nickAccount == "" && skelAccount == "" {
-		return "", NickReservationNone
+		return "", NickEnforcementNone
 	} else if nickAccount != "" && (skelAccount == nickAccount || skelAccount == "") {
 		return nickAccount, finalEnforcementMethod(nickAccount)
 	} else if skelAccount != "" && nickAccount == "" {
@@ -220,75 +232,47 @@ func (am *AccountManager) EnforcementStatus(cfnick, skeleton string) (account st
 		nickMethod := finalEnforcementMethod(nickAccount)
 		skelMethod := finalEnforcementMethod(skelAccount)
 		switch {
-		case skelMethod == NickReservationNone:
+		case skelMethod == NickEnforcementNone:
 			return nickAccount, nickMethod
-		case nickMethod == NickReservationNone:
+		case nickMethod == NickEnforcementNone:
 			return skelAccount, skelMethod
 		default:
 			// nobody can use this nick
-			return "!", NickReservationStrict
+			return "!", NickEnforcementStrict
 		}
 	}
-}
-
-func (am *AccountManager) BouncerAllowed(account string, session *Session) bool {
-	// TODO stub
-	config := am.server.Config()
-	if !config.Accounts.Bouncer.Enabled {
-		return false
-	}
-	if config.Accounts.Bouncer.AllowedByDefault {
-		return true
-	}
-	return session != nil && session.capabilities.Has(caps.Bouncer)
-}
-
-// Looks up the enforcement method stored in the database for an account
-// (typically you want EnforcementStatus instead, which respects the config)
-func (am *AccountManager) getStoredEnforcementStatus(account string) string {
-	am.RLock()
-	defer am.RUnlock()
-	return nickReservationToString(am.accountToMethod[account])
 }
 
 // Sets a custom enforcement method for an account and stores it in the database.
-func (am *AccountManager) SetEnforcementStatus(account string, method NickReservationMethod) (err error) {
+func (am *AccountManager) SetEnforcementStatus(account string, method NickEnforcementMethod) (finalSettings AccountSettings, err error) {
 	config := am.server.Config()
 	if !(config.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.AllowCustomEnforcement) {
-		return errFeatureDisabled
+		err = errFeatureDisabled
+		return
 	}
 
-	var serialized string
-	if method == NickReservationOptional {
-		serialized = "" // normally this is "default", but we're going to delete the key
-	} else {
-		serialized = nickReservationToString(method)
+	setter := func(in AccountSettings) (out AccountSettings, err error) {
+		out = in
+		out.NickEnforcement = method
+		return out, nil
 	}
 
-	key := fmt.Sprintf(keyAccountEnforcement, account)
+	_, err = am.ModifyAccountSettings(account, setter)
+	if err != nil {
+		return
+	}
 
+	// this update of the data plane is racey, but it's probably fine
 	am.Lock()
 	defer am.Unlock()
 
-	currentMethod := am.accountToMethod[account]
-	if method != currentMethod {
-		if method == NickReservationOptional {
-			delete(am.accountToMethod, account)
-		} else {
-			am.accountToMethod[account] = method
-		}
-
-		return am.server.store.Update(func(tx *buntdb.Tx) (err error) {
-			if serialized != "" {
-				_, _, err = tx.Set(key, nickReservationToString(method), nil)
-			} else {
-				_, err = tx.Delete(key)
-			}
-			return
-		})
+	if method == NickEnforcementOptional {
+		delete(am.accountToMethod, account)
+	} else {
+		am.accountToMethod[account] = method
 	}
 
-	return nil
+	return
 }
 
 func (am *AccountManager) AccountToClients(account string) (result []*Client) {
@@ -813,6 +797,12 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result Cl
 			// pretend they have no vhost and move on
 		}
 	}
+	if raw.Settings != "" {
+		e := json.Unmarshal([]byte(raw.Settings), &result.Settings)
+		if e != nil {
+			am.server.logger.Warning("internal", "could not unmarshal settings for account", result.Name, e.Error())
+		}
+	}
 	return
 }
 
@@ -825,6 +815,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
+	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 
 	_, e := tx.Get(accountKey)
 	if e == buntdb.ErrNotFound {
@@ -838,6 +829,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	result.Callback, _ = tx.Get(callbackKey)
 	result.AdditionalNicks, _ = tx.Get(nicksKey)
 	result.VHost, _ = tx.Get(vhostKey)
+	result.Settings, _ = tx.Get(settingsKey)
 
 	if _, e = tx.Get(verifiedKey); e == nil {
 		result.Verified = true
@@ -861,7 +853,7 @@ func (am *AccountManager) Unregister(account string) error {
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
-	enforcementKey := fmt.Sprintf(keyAccountEnforcement, casefoldedAccount)
+	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
@@ -892,7 +884,7 @@ func (am *AccountManager) Unregister(account string) error {
 		tx.Delete(registeredTimeKey)
 		tx.Delete(callbackKey)
 		tx.Delete(verificationCodeKey)
-		tx.Delete(enforcementKey)
+		tx.Delete(settingsKey)
 		rawNicks, _ = tx.Get(nicksKey)
 		tx.Delete(nicksKey)
 		credText, err = tx.Get(credentialsKey)
@@ -980,18 +972,12 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
 	}
 
 	var account string
-	var rawAccount rawClientAccount
 	certFPKey := fmt.Sprintf(keyCertToAccount, client.certfp)
 
-	err := am.server.store.Update(func(tx *buntdb.Tx) error {
-		var err error
+	err := am.server.store.View(func(tx *buntdb.Tx) error {
 		account, _ = tx.Get(certFPKey)
 		if account == "" {
 			return errAccountInvalidCredentials
-		}
-		rawAccount, err = am.loadRawAccount(tx, account)
-		if err != nil || !rawAccount.Verified {
-			return errAccountUnverified
 		}
 		return nil
 	})
@@ -1001,12 +987,55 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
 	}
 
 	// ok, we found an account corresponding to their certificate
-	clientAccount, err := am.deserializeRawAccount(rawAccount)
+	clientAccount, err := am.LoadAccount(account)
 	if err != nil {
 		return err
+	} else if !clientAccount.Verified {
+		return errAccountUnverified
 	}
 	am.Login(client, clientAccount)
 	return nil
+}
+
+type settingsMunger func(input AccountSettings) (output AccountSettings, err error)
+
+func (am *AccountManager) ModifyAccountSettings(account string, munger settingsMunger) (newSettings AccountSettings, err error) {
+	casefoldedAccount, err := CasefoldName(account)
+	if err != nil {
+		return newSettings, errAccountDoesNotExist
+	}
+	// TODO implement this in general via a compare-and-swap API
+	accountData, err := am.LoadAccount(casefoldedAccount)
+	if err != nil {
+		return
+	} else if !accountData.Verified {
+		return newSettings, errAccountUnverified
+	}
+	newSettings, err = munger(accountData.Settings)
+	if err != nil {
+		return
+	}
+	text, err := json.Marshal(newSettings)
+	if err != nil {
+		return
+	}
+	key := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
+	serializedValue := string(text)
+	err = am.server.store.Update(func(tx *buntdb.Tx) (err error) {
+		_, _, err = tx.Set(key, serializedValue, nil)
+		return
+	})
+	if err != nil {
+		err = errAccountUpdateFailed
+		return
+	}
+	// success, push new settings into the client objects
+	am.Lock()
+	defer am.Unlock()
+	for _, client := range am.accountToClients[casefoldedAccount] {
+		client.SetAccountSettings(newSettings)
+	}
+	return
 }
 
 // represents someone's status in hostserv
@@ -1237,6 +1266,9 @@ func (am *AccountManager) Login(client *Client, account ClientAccount) {
 	am.Lock()
 	defer am.Unlock()
 	am.accountToClients[casefoldedAccount] = append(am.accountToClients[casefoldedAccount], client)
+	for _, client := range am.accountToClients[casefoldedAccount] {
+		client.SetAccountSettings(account.Settings)
+	}
 }
 
 func (am *AccountManager) Logout(client *Client) {
@@ -1283,6 +1315,21 @@ type AccountCredentials struct {
 	Certificate    string // fingerprint
 }
 
+type BouncerAllowedSetting int
+
+const (
+	BouncerAllowedServerDefault BouncerAllowedSetting = iota
+	BouncerDisallowedByUser
+	BouncerAllowedByUser
+)
+
+type AccountSettings struct {
+	AutoreplayLines *int
+	NickEnforcement NickEnforcementMethod
+	AllowBouncer    BouncerAllowedSetting
+	AutoreplayJoins bool
+}
+
 // ClientAccount represents a user account.
 type ClientAccount struct {
 	// Name of the account.
@@ -1293,6 +1340,7 @@ type ClientAccount struct {
 	Verified        bool
 	AdditionalNicks []string
 	VHost           VHostInfo
+	Settings        AccountSettings
 }
 
 // convenience for passing around raw serialized account data
@@ -1304,6 +1352,7 @@ type rawClientAccount struct {
 	Verified        bool
 	AdditionalNicks string
 	VHost           string
+	Settings        string
 }
 
 // logoutOfAccount logs the client out of their current account.

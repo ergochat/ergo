@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "5"
+	latestDbSchema = "6"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -409,6 +409,37 @@ func schemaChangeV4ToV5(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// custom nick enforcement was a separate db key, now it's part of settings
+func schemaChangeV5ToV6(config *Config, tx *buntdb.Tx) error {
+	accountToEnforcement := make(map[string]NickEnforcementMethod)
+	prefix := "account.customenforcement "
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+		method, err := nickReservationFromString(value)
+		if err == nil {
+			accountToEnforcement[account] = method
+		} else {
+			log.Printf("skipping corrupt custom enforcement value for %s\n", account)
+		}
+		return true
+	})
+
+	for account, method := range accountToEnforcement {
+		var settings AccountSettings
+		settings.NickEnforcement = method
+		text, err := json.Marshal(settings)
+		if err != nil {
+			return err
+		}
+		tx.Delete(prefix + account)
+		tx.Set(fmt.Sprintf("account.settings %s", account), string(text), nil)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -430,6 +461,11 @@ func init() {
 			InitialVersion: "4",
 			TargetVersion:  "5",
 			Changer:        schemaChangeV4ToV5,
+		},
+		{
+			InitialVersion: "5",
+			TargetVersion:  "6",
+			Changer:        schemaChangeV5ToV6,
 		},
 	}
 

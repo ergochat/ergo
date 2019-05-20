@@ -112,63 +112,63 @@ type VHostConfig struct {
 	} `yaml:"user-requests"`
 }
 
-type NickReservationMethod int
+type NickEnforcementMethod int
 
 const (
-	// NickReservationOptional is the zero value; it serializes to
+	// NickEnforcementOptional is the zero value; it serializes to
 	// "optional" in the yaml config, and "default" as an arg to `NS ENFORCE`.
 	// in both cases, it means "defer to the other source of truth", i.e.,
 	// in the config, defer to the user's custom setting, and as a custom setting,
-	// defer to the default in the config. if both are NickReservationOptional then
+	// defer to the default in the config. if both are NickEnforcementOptional then
 	// there is no enforcement.
-	NickReservationOptional NickReservationMethod = iota
-	NickReservationNone
-	NickReservationWithTimeout
-	NickReservationStrict
+	// XXX: these are serialized as numbers in the database, so beware of collisions
+	// when refactoring (any numbers currently in use must keep their meanings, or
+	// else be fixed up by a schema change)
+	NickEnforcementOptional NickEnforcementMethod = iota
+	NickEnforcementNone
+	NickEnforcementWithTimeout
+	NickEnforcementStrict
 )
 
-func nickReservationToString(method NickReservationMethod) string {
+func nickReservationToString(method NickEnforcementMethod) string {
 	switch method {
-	case NickReservationOptional:
+	case NickEnforcementOptional:
 		return "default"
-	case NickReservationNone:
+	case NickEnforcementNone:
 		return "none"
-	case NickReservationWithTimeout:
+	case NickEnforcementWithTimeout:
 		return "timeout"
-	case NickReservationStrict:
+	case NickEnforcementStrict:
 		return "strict"
 	default:
 		return ""
 	}
 }
 
-func nickReservationFromString(method string) (NickReservationMethod, error) {
-	switch method {
+func nickReservationFromString(method string) (NickEnforcementMethod, error) {
+	switch strings.ToLower(method) {
 	case "default":
-		return NickReservationOptional, nil
+		return NickEnforcementOptional, nil
 	case "optional":
-		return NickReservationOptional, nil
+		return NickEnforcementOptional, nil
 	case "none":
-		return NickReservationNone, nil
+		return NickEnforcementNone, nil
 	case "timeout":
-		return NickReservationWithTimeout, nil
+		return NickEnforcementWithTimeout, nil
 	case "strict":
-		return NickReservationStrict, nil
+		return NickEnforcementStrict, nil
 	default:
-		return NickReservationOptional, fmt.Errorf("invalid nick-reservation.method value: %s", method)
+		return NickEnforcementOptional, fmt.Errorf("invalid nick-reservation.method value: %s", method)
 	}
 }
 
-func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var orig, raw string
+func (nr *NickEnforcementMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
 	var err error
 	if err = unmarshal(&orig); err != nil {
 		return err
 	}
-	if raw, err = Casefold(orig); err != nil {
-		return err
-	}
-	method, err := nickReservationFromString(raw)
+	method, err := nickReservationFromString(orig)
 	if err == nil {
 		*nr = method
 	}
@@ -178,7 +178,7 @@ func (nr *NickReservationMethod) UnmarshalYAML(unmarshal func(interface{}) error
 type NickReservationConfig struct {
 	Enabled                bool
 	AdditionalNickLimit    int `yaml:"additional-nick-limit"`
-	Method                 NickReservationMethod
+	Method                 NickEnforcementMethod
 	AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
 	RenameTimeout          time.Duration `yaml:"rename-timeout"`
 	RenamePrefix           string        `yaml:"rename-prefix"`

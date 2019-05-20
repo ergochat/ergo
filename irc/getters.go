@@ -275,6 +275,19 @@ func (client *Client) SetAccountName(account string) (changed bool) {
 	return
 }
 
+func (client *Client) AccountSettings() (result AccountSettings) {
+	client.stateMutex.RLock()
+	result = client.accountSettings
+	client.stateMutex.RUnlock()
+	return
+}
+
+func (client *Client) SetAccountSettings(settings AccountSettings) {
+	client.stateMutex.Lock()
+	client.accountSettings = settings
+	client.stateMutex.Unlock()
+}
+
 func (client *Client) Languages() (languages []string) {
 	client.stateMutex.RLock()
 	languages = client.languages

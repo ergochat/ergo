@@ -2046,12 +2046,12 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			// an echo-message may need to go out to other client sessions:
 			for _, session := range client.Sessions() {
-				if session == rb.session || !rb.session.capabilities.SelfMessagesEnabled() {
+				if session == rb.session {
 					continue
 				}
 				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
 					session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
-				} else {
+				} else if histType != history.Tagmsg {
 					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
 				}
 			}
@@ -2060,12 +2060,17 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 				rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
 			}
 
-			user.history.Add(history.Item{
+			item := history.Item{
 				Type:        histType,
 				Message:     splitMsg,
 				Nick:        nickMaskString,
 				AccountName: accountName,
-			})
+			}
+			// add to the target's history:
+			user.history.Add(item)
+			// add this to the client's history as well, recording the target:
+			item.Params[0] = tnick
+			client.history.Add(item)
 		}
 	}
 	return false

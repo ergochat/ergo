@@ -5,7 +5,10 @@
 
 package irc
 
-import "errors"
+import (
+	"errors"
+	"github.com/oragono/oragono/irc/utils"
+)
 
 // Runtime Errors
 var (
@@ -19,10 +22,10 @@ var (
 	errAccountNickReservationFailed   = errors.New("Could not (un)reserve nick")
 	errAccountNotLoggedIn             = errors.New("You're not logged into an account")
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")
-	errAccountUnverified              = errors.New("Account is not yet verified")
+	errAccountUnverified              = errors.New(`Account is not yet verified`)
 	errAccountVerificationFailed      = errors.New("Account verification failed")
 	errAccountVerificationInvalidCode = errors.New("Invalid account verification code")
-	errAccountUpdateFailed            = errors.New("Error while updating your account information")
+	errAccountUpdateFailed            = errors.New(`Error while updating your account information`)
 	errAccountMustHoldNick            = errors.New(`You must hold that nickname in order to register it`)
 	errCallbackFailed                 = errors.New("Account verification could not be sent")
 	errCertfpAlreadyExists            = errors.New(`An account already exists for your certificate fingerprint`)
@@ -40,7 +43,7 @@ var (
 	errInvalidUsername                = errors.New("Invalid username")
 	errFeatureDisabled                = errors.New(`That feature is disabled`)
 	errBanned                         = errors.New("IP or nickmask banned")
-	errInvalidParams                  = errors.New("Invalid parameters")
+	errInvalidParams                  = utils.ErrInvalidParams
 )
 
 // Socket Errors

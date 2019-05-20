@@ -131,7 +131,7 @@ for the rejection.`,
 
 // hsNotice sends the client a notice from HostServ
 func hsNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "HostServ", "NOTICE", rb.target.Nick(), text)
+	rb.Add(nil, "HostServ!HostServ@localhost", "NOTICE", rb.target.Nick(), text)
 }
 
 // hsNotifyChannel notifies the designated channel of new vhost activity

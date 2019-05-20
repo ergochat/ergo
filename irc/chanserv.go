@@ -86,7 +86,7 @@ referenced by their registered account names, not their nicknames.`,
 
 // csNotice sends the client a notice from ChanServ
 func csNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "ChanServ", "NOTICE", rb.target.Nick(), text)
+	rb.Add(nil, "ChanServ!ChanServ@localhost", "NOTICE", rb.target.Nick(), text)
 }
 
 func csAmodeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

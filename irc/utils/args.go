@@ -3,6 +3,15 @@
 
 package utils
 
+import (
+	"errors"
+	"strings"
+)
+
+var (
+	ErrInvalidParams = errors.New("Invalid parameters")
+)
+
 // ArgsToStrings takes the arguments and splits them into a series of strings,
 // each argument separated by delim and each string bounded by maxLength.
 func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
@@ -32,4 +41,16 @@ func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
 	}
 
 	return messages
+}
+
+func StringToBool(str string) (result bool, err error) {
+	switch strings.ToLower(str) {
+	case "on", "true", "t", "yes", "y":
+		result = true
+	case "off", "false", "f", "no", "n":
+		result = false
+	default:
+		err = ErrInvalidParams
+	}
+	return
 }

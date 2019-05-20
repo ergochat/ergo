@@ -198,7 +198,7 @@ func (nt *NickTimer) Initialize(client *Client) {
 	}
 
 	config := &client.server.Config().Accounts.NickReservation
-	enabled := config.Enabled && (config.Method == NickReservationWithTimeout || config.AllowCustomEnforcement)
+	enabled := config.Enabled && (config.Method == NickEnforcementWithTimeout || config.AllowCustomEnforcement)
 
 	nt.Lock()
 	defer nt.Unlock()
@@ -235,7 +235,7 @@ func (nt *NickTimer) Touch(rb *ResponseBuffer) {
 	cfnick, skeleton := nt.client.uniqueIdentifiers()
 	account := nt.client.Account()
 	accountForNick, method := nt.client.server.accounts.EnforcementStatus(cfnick, skeleton)
-	enforceTimeout := method == NickReservationWithTimeout
+	enforceTimeout := method == NickEnforcementWithTimeout
 
 	var shouldWarn, shouldRename bool
 
@@ -258,7 +258,7 @@ func (nt *NickTimer) Touch(rb *ResponseBuffer) {
 		if enforceTimeout && delinquent && (accountChanged || nt.timer == nil) {
 			nt.timer = time.AfterFunc(nt.timeout, nt.processTimeout)
 			shouldWarn = true
-		} else if method == NickReservationStrict && delinquent {
+		} else if method == NickEnforcementStrict && delinquent {
 			shouldRename = true // this can happen if reservation was enabled by rehash
 		}
 	}()

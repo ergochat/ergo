@@ -18,6 +18,7 @@ import (
 type ircService struct {
 	Name           string
 	ShortName      string
+	prefix         string
 	CommandAliases []string
 	Commands       map[string]*serviceCommand
 	HelpBanner     string
@@ -29,8 +30,10 @@ type serviceCommand struct {
 	capabs       []string // oper capabs the given user has to have to access this command
 	handler      func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
 	help         string
+	helpStrings  []string
 	helpShort    string
 	authRequired bool
+	hidden       bool
 	enabled      func(*Config) bool // is this command enabled in the server config?
 	minParams    int
 	maxParams    int // split into at most n params, with last param containing remaining unsplit text
@@ -139,7 +142,7 @@ func servicePrivmsgHandler(service *ircService, server *Server, client *Client, 
 func serviceRunCommand(service *ircService, server *Server, client *Client, cmd *serviceCommand, commandName string, params []string, rb *ResponseBuffer) {
 	nick := rb.target.Nick()
 	sendNotice := func(notice string) {
-		rb.Add(nil, service.Name, "NOTICE", nick, notice)
+		rb.Add(nil, service.prefix, "NOTICE", nick, notice)
 	}
 
 	if cmd == nil {
@@ -180,7 +183,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 	nick := rb.target.Nick()
 	config := server.Config()
 	sendNotice := func(notice string) {
-		rb.Add(nil, service.Name, "NOTICE", nick, notice)
+		rb.Add(nil, service.prefix, "NOTICE", nick, notice)
 	}
 
 	sendNotice(ircfmt.Unescape(fmt.Sprintf("*** $b%s HELP$b ***", service.Name)))
@@ -194,7 +197,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 			if 0 < len(commandInfo.capabs) && !client.HasRoleCapabs(commandInfo.capabs...) {
 				continue
 			}
-			if commandInfo.aliasOf != "" {
+			if commandInfo.aliasOf != "" || commandInfo.hidden {
 				continue // don't show help lines for aliases
 			}
 			if commandInfo.enabled != nil && !commandInfo.enabled(config) {
@@ -226,8 +229,18 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		if commandInfo == nil {
 			sendNotice(client.t(fmt.Sprintf("Unknown command. To see available commands, run /%s HELP", service.ShortName)))
 		} else {
-			for _, line := range strings.Split(ircfmt.Unescape(client.t(commandInfo.help)), "\n") {
-				sendNotice(line)
+			helpStrings := commandInfo.helpStrings
+			if helpStrings == nil {
+				hsArray := [1]string{commandInfo.help}
+				helpStrings = hsArray[:]
+			}
+			for i, helpString := range helpStrings {
+				if 0 < i {
+					sendNotice("")
+				}
+				for _, line := range strings.Split(ircfmt.Unescape(client.t(helpString)), "\n") {
+					sendNotice(line)
+				}
 			}
 		}
 	}
@@ -241,6 +254,8 @@ func initializeServices() {
 	oragonoServicesByCommandAlias = make(map[string]*ircService)
 
 	for serviceName, service := range OragonoServices {
+		service.prefix = fmt.Sprintf("%s!%s@localhost", service.Name, service.Name)
+
 		// make `/MSG ServiceName HELP` work correctly
 		service.Commands["help"] = &servHelpCmd
 
@@ -257,8 +272,10 @@ func initializeServices() {
 
 		// force devs to write a help entry for every command
 		for commandName, commandInfo := range service.Commands {
-			if commandInfo.aliasOf == "" && (commandInfo.help == "" || commandInfo.helpShort == "") {
-				log.Fatal(fmt.Sprintf("help entry missing for %s command %s", serviceName, commandName))
+			if commandInfo.aliasOf == "" && !commandInfo.hidden {
+				if (commandInfo.help == "" && commandInfo.helpStrings == nil) || commandInfo.helpShort == "" {
+					log.Fatal(fmt.Sprintf("help entry missing for %s command %s", serviceName, commandName))
+				}
 			}
 		}
 	}

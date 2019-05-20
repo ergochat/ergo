@@ -145,7 +145,20 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
 	account := client.Account()
-	bouncerAllowed := client.server.accounts.BouncerAllowed(account, session)
+	config := client.server.Config()
+	var bouncerAllowed bool
+	if config.Accounts.Bouncer.Enabled {
+		if session != nil && session.capabilities.Has(caps.Bouncer) {
+			bouncerAllowed = true
+		} else {
+			settings := client.AccountSettings()
+			if config.Accounts.Bouncer.AllowedByDefault && settings.AllowBouncer != BouncerDisallowedByUser {
+				bouncerAllowed = true
+			} else if settings.AllowBouncer == BouncerAllowedByUser {
+				bouncerAllowed = true
+			}
+		}
+	}
 
 	clients.Lock()
 	defer clients.Unlock()
@@ -168,7 +181,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	if skeletonHolder != nil && skeletonHolder != client {
 		return errNicknameInUse
 	}
-	if method == NickReservationStrict && reservedAccount != "" && reservedAccount != account {
+	if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
 		return errNicknameReserved
 	}
 	clients.removeInternal(client)

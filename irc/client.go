@@ -48,6 +48,7 @@ type ResumeDetails struct {
 type Client struct {
 	account            string
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
+	accountSettings    AccountSettings
 	atime              time.Time
 	away               bool
 	awayMessage        string
@@ -600,7 +601,8 @@ func (client *Client) tryResumeChannels() {
 
 func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, complete bool) {
 	var batchID string
-	nick := client.Nick()
+	details := client.Details()
+	nick := details.nick
 	if 0 < len(items) {
 		batchID = rb.StartNestedHistoryBatch(nick)
 	}
@@ -626,7 +628,14 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		if allowTags {
 			tags = item.Tags
 		}
-		rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
+		if item.Params[0] == "" {
+			// this message was sent *to* the client from another nick
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
+		} else {
+			// this message was sent *from* the client to another nick; the target is item.Params[0]
+			// substitute the client's current nickmask in case they changed nick
+			rb.AddSplitMessageFromClient(details.nickMask, item.AccountName, tags, command, item.Params[0], item.Message)
+		}
 	}
 
 	rb.EndNestedBatch(batchID)

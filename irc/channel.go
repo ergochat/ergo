@@ -620,7 +620,17 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
-	replayLimit := channel.server.Config().History.AutoreplayOnJoin
+	var replayLimit int
+	customReplayLimit := client.AccountSettings().AutoreplayLines
+	if customReplayLimit != nil {
+		replayLimit = *customReplayLimit
+		maxLimit := channel.server.Config().History.ChathistoryMax
+		if maxLimit < replayLimit {
+			replayLimit = maxLimit
+		}
+	} else {
+		replayLimit = channel.server.Config().History.AutoreplayOnJoin
+	}
 	if 0 < replayLimit {
 		// TODO don't replay the client's own JOIN line?
 		items := channel.history.Latest(replayLimit)
@@ -782,6 +792,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 	client := rb.target
 	eventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
 	extendedJoin := rb.session.capabilities.Has(caps.ExtendedJoin)
+	playJoinsAsPrivmsg := (!autoreplay || client.AccountSettings().AutoreplayJoins)
 
 	if len(items) == 0 {
 		return
@@ -808,7 +819,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "JOIN", chname)
 				}
 			} else {
-				if autoreplay {
+				if !playJoinsAsPrivmsg {
 					continue // #474
 				}
 				var message string
@@ -823,7 +834,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "PART", chname, item.Message.Message)
 			} else {
-				if autoreplay {
+				if !playJoinsAsPrivmsg {
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
@@ -840,7 +851,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "QUIT", item.Message.Message)
 			} else {
-				if autoreplay {
+				if !playJoinsAsPrivmsg {
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
@@ -989,7 +1000,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 	// send echo-message to other connected sessions
 	for _, session := range client.Sessions() {
-		if session == rb.session || !session.capabilities.SelfMessagesEnabled() {
+		if session == rb.session {
 			continue
 		}
 		var tagsToUse map[string]string
@@ -998,7 +1009,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		}
 		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
 			session.sendFromClientInternal(false, message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
-		} else {
+		} else if histType != history.Tagmsg {
 			session.sendSplitMsgFromClientInternal(false, nickmask, account, tagsToUse, command, chname, message)
 		}
 	}
