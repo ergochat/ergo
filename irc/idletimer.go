@@ -269,9 +269,9 @@ func (nt *NickTimer) Touch(rb *ResponseBuffer) {
 		// #449
 		for _, mSession := range nt.client.Sessions() {
 			if mSession == session {
-				rb.Add(nil, "NickServ", "NOTICE", tnick, message)
+				rb.Add(nil, nsPrefix, "NOTICE", tnick, message)
 			} else {
-				mSession.Send(nil, "NickServ", "NOTICE", tnick, message)
+				mSession.Send(nil, nsPrefix, "NOTICE", tnick, message)
 			}
 		}
 	} else if shouldRename {
