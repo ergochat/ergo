@@ -25,7 +25,9 @@ func zncModuleHandler(client *Client, command string, params []string, rb *Respo
 	if subHandler, ok := zncHandlers[command]; ok {
 		subHandler(client, command, params, rb)
 	} else {
-		rb.Add(nil, "*status!znc@znc.in", "NOTICE", rb.target.Nick(), fmt.Sprintf(client.t("No such module [%s]"), command))
+		nick := rb.target.Nick()
+		rb.Add(nil, client.server.name, "NOTICE", nick, fmt.Sprintf(client.t("Oragono does not emulate the ZNC module %s"), command))
+		rb.Add(nil, "*status!znc@znc.in", "NOTICE", nick, fmt.Sprintf(client.t("No such module [%s]"), command))
 	}
 }
 
