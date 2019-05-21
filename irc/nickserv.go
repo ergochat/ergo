@@ -32,7 +32,8 @@ func servCmdRequiresBouncerEnabled(config *Config) bool {
 	return config.Accounts.Bouncer.Enabled
 }
 
-var (
+const (
+	nsPrefix = "NickServ!NickServ@localhost"
 	// ZNC's nickserv module will not detect this unless it is:
 	// 1. sent with prefix `nickserv`
 	// 2. contains the string "identify"
@@ -267,7 +268,7 @@ information on the settings and their possible values, see HELP SET.`,
 func nsNotice(rb *ResponseBuffer, text string) {
 	// XXX i can't figure out how to use OragonoServices[servicename].prefix here
 	// without creating a compile-time initialization loop
-	rb.Add(nil, "NickServ!NickServ@localhost", "NOTICE", rb.target.Nick(), text)
+	rb.Add(nil, nsPrefix, "NOTICE", rb.target.Nick(), text)
 }
 
 func nsGetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
