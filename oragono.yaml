@@ -303,7 +303,7 @@ accounts:
         #             already logged-in using SASL or NickServ
         #   optional: no enforcement by default, but allow users to opt in to
         #             the enforcement level of their choice
-        method: timeout
+        method: strict
 
         # allow users to set their own nickname enforcement status, e.g.,
         # to opt in to strict enforcement
