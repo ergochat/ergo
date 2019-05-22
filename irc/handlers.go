@@ -502,6 +502,31 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
+// BRB [message]
+func brbHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	success, duration := client.brbTimer.Enable()
+	if !success {
+		rb.Add(nil, server.name, "FAIL", "BRB", "CANNOT_BRB", client.t("Your client does not support BRB"))
+		return false
+	} else {
+		rb.Add(nil, server.name, "BRB", strconv.Itoa(int(duration.Seconds())))
+	}
+
+	var message string
+	if 0 < len(msg.Params) {
+		message = msg.Params[0]
+	} else {
+		message = client.t("I'll be right back")
+	}
+
+	if len(client.Sessions()) == 1 {
+		// true BRB
+		client.SetAway(true, message)
+	}
+
+	return true
+}
+
 // CAP <subcmd> [<caps>]
 func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	subCommand := strings.ToUpper(msg.Params[0])
@@ -568,9 +593,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// if this is the first time the client is requesting a resume token,
 		// send it to them
 		if toAdd.Has(caps.Resume) {
-			token := server.resumeManager.GenerateToken(client)
+			token, id := server.resumeManager.GenerateToken(client)
 			if token != "" {
 				rb.Add(nil, server.name, "RESUME", "TOKEN", token)
+				rb.session.SetResumeID(id)
 			}
 		}
 
@@ -638,7 +664,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 			myAccount := client.Account()
 			targetAccount := targetClient.Account()
 			if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-				hist = targetClient.history
+				hist = &targetClient.history
 			}
 		}
 	}
@@ -1024,7 +1050,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false, nil)
+				mcl.destroy(nil)
 			}
 		}
 
@@ -1087,13 +1113,13 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		hist = &channel.history
 	} else {
 		if strings.ToLower(target) == "me" {
-			hist = client.history
+			hist = &client.history
 		} else {
 			targetClient := server.clients.Get(target)
 			if targetClient != nil {
 				myAccount, targetAccount := client.Account(), targetClient.Account()
 				if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-					hist = targetClient.history
+					hist = &targetClient.history
 				}
 			}
 		}
@@ -1331,7 +1357,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	target.exitedSnomaskSent = true
 
 	target.Quit(quitMsg, nil)
-	target.destroy(false, nil)
+	target.destroy(nil)
 	return false
 }
 
@@ -1461,7 +1487,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false, nil)
+				mcl.destroy(nil)
 			}
 		}
 
@@ -2326,28 +2352,25 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // RESUME <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	token := msg.Params[0]
+	details := ResumeDetails{
+		PresentedToken: msg.Params[0],
+	}
 
 	if client.registered {
-		rb.Add(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, connection registration has already been completed"))
+		rb.Add(nil, server.name, "FAIL", "RESUME", "REGISTRATION_IS_COMPLETED", client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
-	var timestamp time.Time
 	if 1 < len(msg.Params) {
 		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[1])
 		if err == nil {
-			timestamp = ts
+			details.Timestamp = ts
 		} else {
-			rb.Add(nil, server.name, "RESUME", "WARN", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+			rb.Add(nil, server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
-	client.resumeDetails = &ResumeDetails{
-		Timestamp:      timestamp,
-		PresentedToken: token,
-	}
-
+	rb.session.resumeDetails = &details
 	return false
 }
 

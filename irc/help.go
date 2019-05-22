@@ -121,6 +121,14 @@ http://ircv3.net/specs/extensions/sasl-3.1.html`,
 If [message] is sent, marks you away. If [message] is not sent, marks you no
 longer away.`,
 	},
+	"brb": {
+		text: `BRB [message]
+
+Disconnects you from the server, while instructing the server to keep you
+present for a short time window. During this window, you can either resume
+or reattach to your nickname. If [message] is sent, it is used as your away
+message (and as your quit message if you don't return in time).`,
+	},
 	"cap": {
 		text: `CAP <subcommand> [:<capabilities>]
 

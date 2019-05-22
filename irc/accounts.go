@@ -931,7 +931,7 @@ func (am *AccountManager) Unregister(account string) error {
 		if config.Accounts.RequireSasl.Enabled {
 			client.Quit(client.t("You are no longer authorized to be on this server"), nil)
 			// destroy acquires a semaphore so we can't call it while holding a lock
-			go client.destroy(false, nil)
+			go client.destroy(nil)
 		} else {
 			am.logoutOfAccount(client)
 		}

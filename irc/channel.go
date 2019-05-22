@@ -20,6 +20,10 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 )
 
+const (
+	histServMask = "HistServ!HistServ@localhost"
+)
+
 // Channel represents a channel that clients can join.
 type Channel struct {
 	flags             modes.ModeSet
@@ -695,46 +699,30 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 // 1. Replace the old client with the new in the channel's data structures
 // 2. Send JOIN and MODE lines to channel participants (including the new client)
 // 3. Replay missed message history to the client
-func (channel *Channel) Resume(newClient, oldClient *Client, timestamp time.Time) {
+func (channel *Channel) Resume(session *Session, timestamp time.Time) {
 	now := time.Now().UTC()
-	channel.resumeAndAnnounce(newClient, oldClient)
+	channel.resumeAndAnnounce(session)
 	if !timestamp.IsZero() {
-		channel.replayHistoryForResume(newClient, timestamp, now)
+		channel.replayHistoryForResume(session, timestamp, now)
 	}
 }
 
-func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
-	var oldModeSet *modes.ModeSet
-
-	func() {
-		channel.joinPartMutex.Lock()
-		defer channel.joinPartMutex.Unlock()
-
-		defer channel.regenerateMembersCache()
-
-		channel.stateMutex.Lock()
-		defer channel.stateMutex.Unlock()
-
-		newClient.channels[channel] = true
-		oldModeSet = channel.members[oldClient]
-		if oldModeSet == nil {
-			oldModeSet = modes.NewModeSet()
-		}
-		channel.members.Remove(oldClient)
-		channel.members[newClient] = oldModeSet
-	}()
-
-	// construct fake modestring if necessary
-	oldModes := oldModeSet.String()
+func (channel *Channel) resumeAndAnnounce(session *Session) {
+	channel.stateMutex.RLock()
+	modeSet := channel.members[session.client]
+	channel.stateMutex.RUnlock()
+	if modeSet == nil {
+		return
+	}
+	oldModes := modeSet.String()
 	if 0 < len(oldModes) {
 		oldModes = "+" + oldModes
 	}
 
 	// send join for old clients
-	nick := newClient.Nick()
-	nickMask := newClient.NickMaskString()
-	accountName := newClient.AccountName()
-	realName := newClient.Realname()
+	chname := channel.Name()
+	details := session.client.Details()
+	realName := session.client.Realname()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session.capabilities.Has(caps.Resume) {
@@ -742,39 +730,36 @@ func (channel *Channel) resumeAndAnnounce(newClient, oldClient *Client) {
 			}
 
 			if session.capabilities.Has(caps.ExtendedJoin) {
-				session.Send(nil, nickMask, "JOIN", channel.name, accountName, realName)
+				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, realName)
 			} else {
-				session.Send(nil, nickMask, "JOIN", channel.name)
+				session.Send(nil, details.nickMask, "JOIN", chname)
 			}
 
 			if 0 < len(oldModes) {
-				session.Send(nil, channel.server.name, "MODE", channel.name, oldModes, nick)
+				session.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
 			}
 		}
 	}
 
-	rb := NewResponseBuffer(newClient.Sessions()[0])
+	rb := NewResponseBuffer(session)
 	// use blocking i/o to synchronize with the later history replay
 	if rb.session.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, nickMask, "JOIN", channel.name, accountName, realName)
+		rb.Add(nil, details.nickMask, "JOIN", channel.name, details.accountName, realName)
 	} else {
-		rb.Add(nil, nickMask, "JOIN", channel.name)
+		rb.Add(nil, details.nickMask, "JOIN", channel.name)
 	}
-	channel.SendTopic(newClient, rb, false)
-	channel.Names(newClient, rb)
-	if 0 < len(oldModes) {
-		rb.Add(nil, newClient.server.name, "MODE", channel.name, oldModes, nick)
-	}
+	channel.SendTopic(session.client, rb, false)
+	channel.Names(session.client, rb)
 	rb.Send(true)
 }
 
-func (channel *Channel) replayHistoryForResume(newClient *Client, after time.Time, before time.Time) {
+func (channel *Channel) replayHistoryForResume(session *Session, after time.Time, before time.Time) {
 	items, complete := channel.history.Between(after, before, false, 0)
-	rb := NewResponseBuffer(newClient.Sessions()[0])
+	rb := NewResponseBuffer(session)
 	channel.replayHistoryItems(rb, items, false)
-	if !complete && !newClient.resumeDetails.HistoryIncomplete {
+	if !complete && !session.resumeDetails.HistoryIncomplete {
 		// warn here if we didn't warn already
-		rb.Add(nil, "HistServ", "NOTICE", channel.Name(), newClient.t("Some additional message history may have been lost"))
+		rb.Add(nil, histServMask, "NOTICE", channel.Name(), session.client.t("Some additional message history may have been lost"))
 	}
 	rb.Send(true)
 }
@@ -828,7 +813,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				} else {
 					message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
 				}
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Part:
 			if eventPlayback {
@@ -838,14 +823,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Kick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "KICK", chname, item.Params[0], item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Quit:
 			if eventPlayback {
@@ -855,14 +840,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Nick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "NICK", item.Params[0])
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), "HistServ", "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		}
 	}

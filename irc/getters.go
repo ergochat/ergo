@@ -65,6 +65,18 @@ func (client *Client) Sessions() (sessions []*Session) {
 	return
 }
 
+func (client *Client) GetSessionByResumeID(resumeID string) (result *Session) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	for _, session := range client.sessions {
+		if session.resumeID == resumeID {
+			return session
+		}
+	}
+	return
+}
+
 type SessionData struct {
 	ctime    time.Time
 	atime    time.Time
@@ -100,9 +112,17 @@ func (client *Client) AddSession(session *Session) (success bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	if len(client.sessions) == 0 {
+	// client may be dying and ineligible to receive another session
+	switch client.brbTimer.state {
+	case BrbDisabled:
+		if len(client.sessions) == 0 {
+			return false
+		}
+	case BrbDead:
 		return false
+		// default: BrbEnabled or BrbSticky, proceed
 	}
+	// success, attach the new session to the client
 	session.client = client
 	client.sessions = append(client.sessions, session)
 	return true
@@ -123,6 +143,12 @@ func (client *Client) removeSession(session *Session) (success bool, length int)
 	client.sessions = sessions
 	length = len(sessions)
 	return
+}
+
+func (session *Session) SetResumeID(resumeID string) {
+	session.client.stateMutex.Lock()
+	session.resumeID = resumeID
+	session.client.stateMutex.Unlock()
 }
 
 func (client *Client) Nick() string {
@@ -231,6 +257,14 @@ func (client *Client) RawHostname() (result string) {
 	result = client.rawHostname
 	client.stateMutex.Unlock()
 	return
+}
+
+func (client *Client) SetRawHostname(rawHostname string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	client.rawHostname = rawHostname
+	client.updateNickMaskNoMutex()
 }
 
 func (client *Client) AwayMessage() (result string) {

@@ -88,6 +88,10 @@ func init() {
 			handler:   awayHandler,
 			minParams: 0,
 		},
+		"BRB": {
+			handler:   brbHandler,
+			minParams: 0,
+		},
 		"CAP": {
 			handler:      capHandler,
 			usablePreReg: true,

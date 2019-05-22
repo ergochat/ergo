@@ -475,7 +475,7 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 	}
 
 	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()), nil)
-	ghost.destroy(false, nil)
+	ghost.destroy(nil)
 }
 
 func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

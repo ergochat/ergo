@@ -77,24 +77,6 @@ func (manager *MonitorManager) Remove(client *Client, nick string) error {
 	return nil
 }
 
-func (manager *MonitorManager) Resume(newClient, oldClient *Client) error {
-	manager.Lock()
-	defer manager.Unlock()
-
-	// newClient is now watching everyone oldClient was watching
-	oldTargets := manager.watching[oldClient]
-	delete(manager.watching, oldClient)
-	manager.watching[newClient] = oldTargets
-
-	// update watchedby as well
-	for watchedNick := range oldTargets {
-		delete(manager.watchedby[watchedNick], oldClient)
-		manager.watchedby[watchedNick][newClient] = true
-	}
-
-	return nil
-}
-
 // RemoveAll unregisters `client` from receiving notifications about *all* nicks.
 func (manager *MonitorManager) RemoveAll(client *Client) {
 	manager.Lock()

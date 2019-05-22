@@ -331,42 +331,40 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 //
 
 func (server *Server) tryRegister(c *Client, session *Session) {
-	resumed := false
-	// try to complete registration, either via RESUME token or normally
-	if c.resumeDetails != nil {
-		if !c.tryResume() {
-			return
-		}
-		resumed = true
-	} else {
-		if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
-			return
-		}
+	// if the session just sent us a RESUME line, try to resume
+	if session.resumeDetails != nil {
+		session.tryResume()
+		return // whether we succeeded or failed, either way `c` is not getting registered
+	}
 
-		// client MUST send PASS if necessary, or authenticate with SASL if necessary,
-		// before completing the other registration commands
-		config := server.Config()
-		if !c.isAuthorized(config) {
-			c.Quit(c.t("Bad password"), nil)
-			c.destroy(false, nil)
-			return
-		}
+	// try to complete registration normally
+	if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
+		return
+	}
 
-		rb := NewResponseBuffer(session)
-		nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
-		rb.Send(true)
-		if !nickAssigned {
-			c.preregNick = ""
-			return
-		}
+	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
+	// before completing the other registration commands
+	config := server.Config()
+	if !c.isAuthorized(config) {
+		c.Quit(c.t("Bad password"), nil)
+		c.destroy(nil)
+		return
+	}
 
-		// check KLINEs
-		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
-		if isBanned {
-			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-			c.destroy(false, nil)
-			return
-		}
+	rb := NewResponseBuffer(session)
+	nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
+	rb.Send(true)
+	if !nickAssigned {
+		c.preregNick = ""
+		return
+	}
+
+	// check KLINEs
+	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+	if isBanned {
+		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+		c.destroy(nil)
+		return
 	}
 
 	if session.client != c {
@@ -384,11 +382,7 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 
 	server.playRegistrationBurst(session)
 
-	if resumed {
-		c.tryResumeChannels()
-	} else {
-		server.monitorManager.AlertAbout(c, true)
-	}
+	server.monitorManager.AlertAbout(c, true)
 }
 
 func (server *Server) playRegistrationBurst(session *Session) {
