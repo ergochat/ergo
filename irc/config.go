@@ -335,7 +335,8 @@ type Config struct {
 	Logging []logger.LoggingConfig
 
 	Debug struct {
-		RecoverFromErrors *bool   `yaml:"recover-from-errors"`
+		RecoverFromErrors *bool `yaml:"recover-from-errors"`
+		recoverFromErrors bool
 		PprofListener     *string `yaml:"pprof-listener"`
 	}
 
@@ -669,9 +670,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	// RecoverFromErrors defaults to true
-	if config.Debug.RecoverFromErrors == nil {
-		config.Debug.RecoverFromErrors = new(bool)
-		*config.Debug.RecoverFromErrors = true
+	if config.Debug.RecoverFromErrors != nil {
+		config.Debug.recoverFromErrors = *config.Debug.RecoverFromErrors
+	} else {
+		config.Debug.recoverFromErrors = true
 	}
 
 	// casefold/validate server name

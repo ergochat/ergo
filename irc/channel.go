@@ -908,7 +908,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		return
 	}
 
-	topicLimit := client.server.Limits().TopicLen
+	topicLimit := client.server.Config().Limits.TopicLen
 	if len(topic) > topicLimit {
 		topic = topic[:topicLimit]
 	}
@@ -1137,7 +1137,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		return
 	}
 
-	kicklimit := client.server.Limits().KickLen
+	kicklimit := client.server.Config().Limits.KickLen
 	if len(comment) > kicklimit {
 		comment = comment[:kicklimit]
 	}

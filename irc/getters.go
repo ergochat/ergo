@@ -21,22 +21,6 @@ func (server *Server) SetConfig(config *Config) {
 	atomic.StorePointer(&server.config, unsafe.Pointer(config))
 }
 
-func (server *Server) Limits() Limits {
-	return server.Config().Limits
-}
-
-func (server *Server) Password() []byte {
-	return server.Config().Server.passwordBytes
-}
-
-func (server *Server) RecoverFromErrors() bool {
-	return *server.Config().Debug.RecoverFromErrors
-}
-
-func (server *Server) DefaultChannelModes() modes.Modes {
-	return server.Config().Channels.defaultModes
-}
-
 func (server *Server) ChannelRegistrationEnabled() bool {
 	return server.Config().Channels.Registration.Enabled
 }

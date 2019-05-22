@@ -336,7 +336,7 @@ func (client *Client) run(session *Session) {
 		if r := recover(); r != nil {
 			client.server.logger.Error("internal",
 				fmt.Sprintf("Client caused panic: %v\n%s", r, debug.Stack()))
-			if client.server.RecoverFromErrors() {
+			if client.server.Config().Debug.recoverFromErrors {
 				client.server.logger.Error("internal", "Disconnecting client and attempting to recover")
 			} else {
 				panic(r)

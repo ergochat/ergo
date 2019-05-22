@@ -550,7 +550,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.nameCasefolded = config.Server.nameCasefolded
 	} else {
 		// enforce configs that can't be changed after launch:
-		currentLimits := server.Limits()
+		currentLimits := server.Config().Limits
 		if currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {

@@ -35,7 +35,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return false
 	}
 
-	if err != nil || len(nickname) > server.Limits().NickLen || restrictedNicknames[cfnick] {
+	if err != nil || len(nickname) > server.Config().Limits.NickLen || restrictedNicknames[cfnick] {
 		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, currentNick, nickname, client.t("Erroneous nickname"))
 		return false
 	}

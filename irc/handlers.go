@@ -475,7 +475,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if len(msg.Params) > 0 {
 		isAway = true
 		awayMessage = msg.Params[0]
-		awayLen := server.Limits().AwayLen
+		awayLen := server.Config().Limits.AwayLen
 		if len(awayMessage) > awayLen {
 			awayMessage = awayMessage[:awayLen]
 		}
@@ -1827,7 +1827,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 	var online []string
 	var offline []string
 
-	limits := server.Limits()
+	limits := server.Config().Limits
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
@@ -2215,7 +2215,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// if no password exists, skip checking
-	serverPassword := server.Password()
+	serverPassword := server.Config().Server.passwordBytes
 	if serverPassword == nil {
 		return false
 	}
