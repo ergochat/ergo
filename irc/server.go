@@ -497,26 +497,27 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 // rplWhoReply returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *ResponseBuffer) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer) {
 	channelName := "*"
 	flags := ""
 
-	if client.Away() {
+	if target.Away() {
 		flags = "G"
 	} else {
 		flags = "H"
 	}
-	if client.HasMode(modes.Operator) {
+	if target.HasMode(modes.Operator) {
 		flags += "*"
 	}
 
 	if channel != nil {
 		// TODO is this right?
-		flags += channel.ClientPrefixes(client, rb.session.capabilities.Has(caps.MultiPrefix))
+		flags += channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
+	details := target.Details()
 	// hardcode a hopcount of 0 for now
-	rb.Add(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, "0 "+client.Realname())
+	rb.Add(nil, client.server.name, RPL_WHOREPLY, client.Nick(), channelName, details.username, details.hostname, client.server.name, details.nick, flags, "0 "+details.realname)
 }
 
 // rehash reloads the config and applies the changes from the config file.

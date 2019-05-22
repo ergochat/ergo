@@ -668,10 +668,11 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 func (channel *Channel) playJoinForSession(session *Session) {
 	client := session.client
 	sessionRb := NewResponseBuffer(session)
+	details := client.Details()
 	if session.capabilities.Has(caps.ExtendedJoin) {
-		sessionRb.Add(nil, client.NickMaskString(), "JOIN", channel.Name(), client.AccountName(), client.Realname())
+		sessionRb.Add(nil, details.nickMask, "JOIN", channel.Name(), details.accountName, details.realname)
 	} else {
-		sessionRb.Add(nil, client.NickMaskString(), "JOIN", channel.Name())
+		sessionRb.Add(nil, details.nickMask, "JOIN", channel.Name())
 	}
 	channel.SendTopic(client, sessionRb, false)
 	channel.Names(client, sessionRb)
@@ -738,7 +739,6 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 	// send join for old clients
 	chname := channel.Name()
 	details := session.client.Details()
-	realName := session.client.Realname()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session.capabilities.Has(caps.Resume) {
@@ -746,7 +746,7 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 			}
 
 			if session.capabilities.Has(caps.ExtendedJoin) {
-				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, realName)
+				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 			} else {
 				session.Send(nil, details.nickMask, "JOIN", chname)
 			}
@@ -760,7 +760,7 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 	rb := NewResponseBuffer(session)
 	// use blocking i/o to synchronize with the later history replay
 	if rb.session.capabilities.Has(caps.ExtendedJoin) {
-		rb.Add(nil, details.nickMask, "JOIN", channel.name, details.accountName, realName)
+		rb.Add(nil, details.nickMask, "JOIN", channel.name, details.accountName, details.realname)
 	} else {
 		rb.Add(nil, details.nickMask, "JOIN", channel.name)
 	}

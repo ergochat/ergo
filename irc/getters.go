@@ -187,12 +187,6 @@ func (client *Client) Hostname() string {
 	return client.hostname
 }
 
-func (client *Client) Realname() string {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.realname
-}
-
 func (client *Client) Away() (result bool) {
 	client.stateMutex.Lock()
 	result = client.away

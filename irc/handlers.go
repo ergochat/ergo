@@ -2318,12 +2318,13 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	// send RENAME messages
 	clientPrefix := client.NickMaskString()
 	for _, mcl := range channel.Members() {
+		mDetails := mcl.Details()
 		for _, mSession := range mcl.Sessions() {
 			targetRb := rb
 			targetPrefix := clientPrefix
 			if mSession != rb.session {
 				targetRb = NewResponseBuffer(mSession)
-				targetPrefix = mcl.NickMaskString()
+				targetPrefix = mDetails.nickMask
 			}
 			if mSession.capabilities.Has(caps.Rename) {
 				if reason != "" {
@@ -2338,7 +2339,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
 				}
 				if mSession.capabilities.Has(caps.ExtendedJoin) {
-					targetRb.Add(nil, targetPrefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
+					targetRb.Add(nil, targetPrefix, "JOIN", newName, mDetails.accountName, mDetails.realname)
 				} else {
 					targetRb.Add(nil, targetPrefix, "JOIN", newName)
 				}
