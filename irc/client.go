@@ -571,10 +571,10 @@ func (session *Session) playResume() {
 	}
 
 	if session.resumeDetails.HistoryIncomplete {
-		session.Send(nil, client.server.name, "RESUME", "WARN", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
 	}
 
-	session.Send(nil, client.server.name, "RESUME", details.nick)
+	session.Send(nil, client.server.name, "RESUME", "SUCCESS", details.nick)
 
 	server.playRegistrationBurst(session)
 
