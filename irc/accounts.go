@@ -1108,6 +1108,10 @@ func (am *AccountManager) VHostReject(account string, reason string) (result VHo
 
 func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
+		if input.ApprovedVHost == "" {
+			err = errNoVhost
+			return
+		}
 		output = input
 		output.Enabled = enabled
 		return

@@ -154,7 +154,9 @@ func hsOnOffHandler(server *Server, client *Client, command string, params []str
 	}
 
 	_, err := server.accounts.VHostSetEnabled(client, enable)
-	if err != nil {
+	if err == errNoVhost {
+		hsNotice(rb, client.t(err.Error()))
+	} else if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else if enable {
 		hsNotice(rb, client.t("Successfully enabled your vhost"))
