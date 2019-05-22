@@ -111,6 +111,8 @@ type Session struct {
 	capState     caps.State
 	capVersion   caps.Version
 
+	registrationMessages int
+
 	resumeID         string
 	resumeDetails    *ResumeDetails
 	zncPlaybackTimes *zncPlaybackTimes
@@ -393,6 +395,15 @@ func (client *Client) run(session *Session) {
 				} else {
 					continue
 				}
+			}
+		}
+
+		// DoS hardening, #505
+		if !client.registered {
+			session.registrationMessages++
+			if client.server.Config().Limits.RegistrationMessages < session.registrationMessages {
+				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, "*", client.t("You have sent too many registration messages"))
+				break
 			}
 		}
 
