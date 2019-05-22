@@ -111,8 +111,9 @@ type Session struct {
 	capState     caps.State
 	capVersion   caps.Version
 
-	resumeID      string
-	resumeDetails *ResumeDetails
+	resumeID         string
+	resumeDetails    *ResumeDetails
+	zncPlaybackTimes *zncPlaybackTimes
 }
 
 // sets the session quit message, if there isn't one already

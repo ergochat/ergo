@@ -165,6 +165,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/362",
         standard="Proposed IRCv3",
     ),
+    CapDef(
+        identifier="ZNCPlayback",
+        name="znc.in/playback",
+        url="https://wiki.znc.in/Playback",
+        standard="ZNC vendor",
+    ),
 ]
 
 def validate_defs():

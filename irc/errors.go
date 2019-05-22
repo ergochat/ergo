@@ -44,6 +44,7 @@ var (
 	errFeatureDisabled                = errors.New(`That feature is disabled`)
 	errBanned                         = errors.New("IP or nickmask banned")
 	errInvalidParams                  = utils.ErrInvalidParams
+	errNoVhost                        = errors.New(`You do not have an approved vhost`)
 )
 
 // Socket Errors

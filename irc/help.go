@@ -548,6 +548,13 @@ Returns information for the given user(s).`,
 
 Returns historical information on the last user with the given nickname.`,
 	},
+	"znc": {
+		text: `ZNC <module> [params]
+
+Used to emulate features of the ZNC bouncer. This command is not intended
+for direct use by end users.`,
+		duplicate: true,
+	},
 
 	// Informational
 	"modes": {

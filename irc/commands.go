@@ -325,6 +325,10 @@ func init() {
 			handler:   whowasHandler,
 			minParams: 1,
 		},
+		"ZNC": {
+			handler:   zncHandler,
+			minParams: 1,
+		},
 	}
 
 	initializeServices()
