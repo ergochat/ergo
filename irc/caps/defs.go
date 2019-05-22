@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 25
+	numCapabs = 26
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -112,6 +112,10 @@ const (
 	// EventPlayback is the Proposed IRCv3 capability named "draft/event-playback":
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
+
+	// ZNCPlayback is the ZNC vendor capability named "znc.in/playback":
+	// https://wiki.znc.in/Playback
+	ZNCPlayback Capability = iota
 )
 
 // `capabilityNames[capab]` is the string name of the capability `capab`
@@ -142,5 +146,6 @@ var (
 		"oragono.io/bnc",
 		"znc.in/self-message",
 		"draft/event-playback",
+		"znc.in/playback",
 	}
 )
