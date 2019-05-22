@@ -398,8 +398,10 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
-		// DoS hardening, #505
-		if !client.registered {
+		if client.registered {
+			session.fakelag.Touch()
+		} else {
+			// DoS hardening, #505
 			session.registrationMessages++
 			if client.server.Config().Limits.RegistrationMessages < session.registrationMessages {
 				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, "*", client.t("You have sent too many registration messages"))
