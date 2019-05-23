@@ -121,15 +121,13 @@ type Session struct {
 // sets the session quit message, if there isn't one already
 func (sd *Session) SetQuitMessage(message string) (set bool) {
 	if message == "" {
-		if sd.quitMessage == "" {
-			sd.quitMessage = "Connection closed"
-			return true
-		} else {
-			return false
-		}
-	} else {
+		message = "Connection closed"
+	}
+	if sd.quitMessage == "" {
 		sd.quitMessage = message
 		return true
+	} else {
+		return false
 	}
 }
 
