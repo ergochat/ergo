@@ -171,6 +171,12 @@ CAPDEFS = [
         url="https://wiki.znc.in/Playback",
         standard="ZNC vendor",
     ),
+    CapDef(
+        identifier="KillMe",
+        name="oragono.io/killme",
+        url="https://oragono.io/killme",
+        standard="Oragono vendor",
+    ),
 ]
 
 def validate_defs():

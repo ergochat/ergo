@@ -574,6 +574,13 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 		}
 
+		// #511: oragono.io/killme is a fake cap to trap bad clients who blindly request
+		// every offered capability:
+		if toAdd.Has(caps.KillMe) {
+			client.Quit(client.t("Requesting the oragono.io/killme CAP is forbidden"), rb.session)
+			return true
+		}
+
 		// update maxlenrest, just in case they altered the maxline cap
 		rb.session.SetMaxlenRest()
 

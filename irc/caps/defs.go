@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 26
+	numCapabs = 27
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -116,6 +116,10 @@ const (
 	// ZNCPlayback is the ZNC vendor capability named "znc.in/playback":
 	// https://wiki.znc.in/Playback
 	ZNCPlayback Capability = iota
+
+	// KillMe is the Oragono vendor capability named "oragono.io/killme":
+	// https://oragono.io/killme
+	KillMe Capability = iota
 )
 
 // `capabilityNames[capab]` is the string name of the capability `capab`
@@ -147,5 +151,6 @@ var (
 		"znc.in/self-message",
 		"draft/event-playback",
 		"znc.in/playback",
+		"oragono.io/killme",
 	}
 )
