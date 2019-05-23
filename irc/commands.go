@@ -45,8 +45,8 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 	rb.Send(true)
 
 	// after each command, see if we can send registration to the client
-	if !client.registered {
-		server.tryRegister(client, session)
+	if !exiting && !client.registered {
+		exiting = server.tryRegister(client, session)
 	}
 
 	// most servers do this only for PING/PONG, but we'll do it for any command:
