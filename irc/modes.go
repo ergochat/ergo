@@ -277,6 +277,9 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 		hasPrivs = true
 	} else if channelUserModeHasPrivsOver(clientMode, targetModeNow) && channelUserModeHasPrivsOver(clientMode, targetModeAfter) {
 		hasPrivs = true
+	} else if change.Op == modes.Remove && account == change.Arg {
+		// you can always de-op yourself
+		hasPrivs = true
 	}
 	if !hasPrivs {
 		return nil, errInsufficientPrivs
