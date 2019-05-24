@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	// anything added here MUST be casefolded:
+	// anything added here MUST be skeleton'd:
 	restrictedNicknames = map[string]bool{
 		"=scene=":  true, // used for rp commands
 		"histserv": true, // TODO(slingamn) this should become a real service
@@ -27,7 +27,7 @@ var (
 // returns whether the change succeeded or failed
 func performNickChange(server *Server, client *Client, target *Client, session *Session, newnick string, rb *ResponseBuffer) bool {
 	nickname := strings.TrimSpace(newnick)
-	cfnick, err := CasefoldName(nickname)
+	skeleton, err := Skeleton(nickname)
 	currentNick := client.Nick()
 
 	if len(nickname) < 1 {
@@ -35,7 +35,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return false
 	}
 
-	if err != nil || len(nickname) > server.Config().Limits.NickLen || restrictedNicknames[cfnick] {
+	if err != nil || len(nickname) > server.Config().Limits.NickLen || restrictedNicknames[skeleton] {
 		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, currentNick, nickname, client.t("Erroneous nickname"))
 		return false
 	}
@@ -68,7 +68,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 	histItem.Params[0] = nickname
 
-	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, cfnick))
+	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, skeleton))
 	if hadNick {
 		if client == target {
 			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), details.nick, nickname))
