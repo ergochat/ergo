@@ -126,7 +126,7 @@ func (it *IdleTimer) processTimeout() {
 		it.session.Ping()
 	} else {
 		it.session.client.Quit(it.quitMessage(previousState), it.session)
-		it.session.client.destroy(false, it.session)
+		it.session.client.destroy(it.session)
 	}
 }
 
@@ -157,7 +157,11 @@ func (it *IdleTimer) resetTimeout() {
 	case TimerDead:
 		return
 	}
-	it.timer = time.AfterFunc(nextTimeout, it.processTimeout)
+	if it.timer != nil {
+		it.timer.Reset(nextTimeout)
+	} else {
+		it.timer = time.AfterFunc(nextTimeout, it.processTimeout)
+	}
 }
 
 func (it *IdleTimer) quitMessage(state TimerState) string {
@@ -299,4 +303,135 @@ func (nt *NickTimer) processTimeout() {
 	baseMsg := "Nick is reserved and authentication timeout expired: %v"
 	nt.client.Notice(fmt.Sprintf(nt.client.t(baseMsg), nt.Timeout()))
 	nt.client.server.RandomlyRename(nt.client)
+}
+
+// BrbTimer is a timer on the client as a whole (not an individual session) for implementing
+// the BRB command and related functionality (where a client can remain online without
+// having any connected sessions).
+
+type BrbState uint
+
+const (
+	// BrbDisabled is the default state; the client will be disconnected if it has no sessions
+	BrbDisabled BrbState = iota
+	// BrbEnabled allows the client to remain online without sessions; if a timeout is
+	// reached, it will be removed
+	BrbEnabled
+	// BrbDead is the state of a client after its timeout has expired; it will be removed
+	// and therefore new sessions cannot be attached to it
+	BrbDead
+	// BrbSticky allows a client to remain online without sessions, with no timeout.
+	// This is not used yet.
+	BrbSticky
+)
+
+type BrbTimer struct {
+	// XXX we use client.stateMutex for synchronization, so we can atomically test
+	// conditions that use both brbTimer.state and client.sessions. This code
+	// is tightly coupled with the rest of Client.
+	client *Client
+
+	state    BrbState
+	duration time.Duration
+	timer    *time.Timer
+}
+
+func (bt *BrbTimer) Initialize(client *Client) {
+	bt.client = client
+}
+
+// attempts to enable BRB for a client, returns whether it succeeded
+func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
+	// BRB only makes sense if a new connection can attach to the session;
+	// this can happen either via RESUME or via bouncer reattach
+	if bt.client.Account() == "" && bt.client.ResumeID() == "" {
+		return
+	}
+
+	// TODO make this configurable
+	duration = ResumeableTotalTimeout
+
+	bt.client.stateMutex.Lock()
+	defer bt.client.stateMutex.Unlock()
+
+	switch bt.state {
+	case BrbDisabled, BrbEnabled:
+		bt.state = BrbEnabled
+		bt.duration = duration
+		bt.resetTimeout()
+		success = true
+	case BrbSticky:
+		success = true
+	default:
+		// BrbDead
+		success = false
+	}
+	return
+}
+
+// turns off BRB for a client and stops the timer; used on resume and during
+// client teardown
+func (bt *BrbTimer) Disable() {
+	bt.client.stateMutex.Lock()
+	defer bt.client.stateMutex.Unlock()
+
+	if bt.state == BrbEnabled {
+		bt.state = BrbDisabled
+	}
+	bt.resetTimeout()
+}
+
+func (bt *BrbTimer) resetTimeout() {
+	if bt.timer != nil {
+		bt.timer.Stop()
+	}
+	if bt.state != BrbEnabled {
+		return
+	}
+	if bt.timer == nil {
+		bt.timer = time.AfterFunc(bt.duration, bt.processTimeout)
+	} else {
+		bt.timer.Reset(bt.duration)
+	}
+}
+
+func (bt *BrbTimer) processTimeout() {
+	dead := false
+	defer func() {
+		if dead {
+			bt.client.Quit(bt.client.AwayMessage(), nil)
+			bt.client.destroy(nil)
+		}
+	}()
+
+	bt.client.stateMutex.Lock()
+	defer bt.client.stateMutex.Unlock()
+
+	switch bt.state {
+	case BrbDisabled, BrbEnabled:
+		if len(bt.client.sessions) == 0 {
+			// client never returned, quit them
+			bt.state = BrbDead
+			dead = true
+		} else {
+			// client resumed, reattached, or has another active session
+			bt.state = BrbDisabled
+		}
+	case BrbDead:
+		dead = true // shouldn't be possible but whatever
+	}
+	bt.resetTimeout()
+}
+
+// sets a client to be "sticky", i.e., indefinitely exempt from removal for
+// lack of sessions
+func (bt *BrbTimer) SetSticky() (success bool) {
+	bt.client.stateMutex.Lock()
+	defer bt.client.stateMutex.Unlock()
+	if bt.state != BrbDead {
+		success = true
+		bt.state = BrbSticky
+	}
+	bt.resetTimeout()
+	return
 }

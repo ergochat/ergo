@@ -557,6 +557,10 @@ limits:
         # configurable length for the rest of the message:
         rest: 2048
 
+    # maximum number of messages to accept during registration (prevents
+    # DoS / resource exhaustion attacks):
+    registration-messages: 1024
+
 # fakelag: prevents clients from spamming commands too rapidly
 fakelag:
     # whether to enforce fakelag

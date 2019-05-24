@@ -475,7 +475,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if len(msg.Params) > 0 {
 		isAway = true
 		awayMessage = msg.Params[0]
-		awayLen := server.Limits().AwayLen
+		awayLen := server.Config().Limits.AwayLen
 		if len(awayMessage) > awayLen {
 			awayMessage = awayMessage[:awayLen]
 		}
@@ -500,6 +500,31 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	return false
+}
+
+// BRB [message]
+func brbHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	success, duration := client.brbTimer.Enable()
+	if !success {
+		rb.Add(nil, server.name, "FAIL", "BRB", "CANNOT_BRB", client.t("Your client does not support BRB"))
+		return false
+	} else {
+		rb.Add(nil, server.name, "BRB", strconv.Itoa(int(duration.Seconds())))
+	}
+
+	var message string
+	if 0 < len(msg.Params) {
+		message = msg.Params[0]
+	} else {
+		message = client.t("I'll be right back")
+	}
+
+	if len(client.Sessions()) == 1 {
+		// true BRB
+		client.SetAway(true, message)
+	}
+
+	return true
 }
 
 // CAP <subcmd> [<caps>]
@@ -568,9 +593,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// if this is the first time the client is requesting a resume token,
 		// send it to them
 		if toAdd.Has(caps.Resume) {
-			token := server.resumeManager.GenerateToken(client)
+			token, id := server.resumeManager.GenerateToken(client)
 			if token != "" {
 				rb.Add(nil, server.name, "RESUME", "TOKEN", token)
+				rb.session.SetResumeID(id)
 			}
 		}
 
@@ -645,7 +671,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 			myAccount := client.Account()
 			targetAccount := targetClient.Account()
 			if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-				hist = targetClient.history
+				hist = &targetClient.history
 			}
 		}
 	}
@@ -1031,7 +1057,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false, nil)
+				mcl.destroy(nil)
 			}
 		}
 
@@ -1094,13 +1120,13 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		hist = &channel.history
 	} else {
 		if strings.ToLower(target) == "me" {
-			hist = client.history
+			hist = &client.history
 		} else {
 			targetClient := server.clients.Get(target)
 			if targetClient != nil {
 				myAccount, targetAccount := client.Account(), targetClient.Account()
 				if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-					hist = targetClient.history
+					hist = &targetClient.history
 				}
 			}
 		}
@@ -1338,7 +1364,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	target.exitedSnomaskSent = true
 
 	target.Quit(quitMsg, nil)
-	target.destroy(false, nil)
+	target.destroy(nil)
 	return false
 }
 
@@ -1468,7 +1494,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(false, nil)
+				mcl.destroy(nil)
 			}
 		}
 
@@ -1808,7 +1834,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 	var online []string
 	var offline []string
 
-	limits := server.Limits()
+	limits := server.Config().Limits
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
@@ -2196,7 +2222,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// if no password exists, skip checking
-	serverPassword := server.Password()
+	serverPassword := server.Config().Server.passwordBytes
 	if serverPassword == nil {
 		return false
 	}
@@ -2299,12 +2325,13 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	// send RENAME messages
 	clientPrefix := client.NickMaskString()
 	for _, mcl := range channel.Members() {
+		mDetails := mcl.Details()
 		for _, mSession := range mcl.Sessions() {
 			targetRb := rb
 			targetPrefix := clientPrefix
 			if mSession != rb.session {
 				targetRb = NewResponseBuffer(mSession)
-				targetPrefix = mcl.NickMaskString()
+				targetPrefix = mDetails.nickMask
 			}
 			if mSession.capabilities.Has(caps.Rename) {
 				if reason != "" {
@@ -2319,7 +2346,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
 				}
 				if mSession.capabilities.Has(caps.ExtendedJoin) {
-					targetRb.Add(nil, targetPrefix, "JOIN", newName, mcl.AccountName(), mcl.Realname())
+					targetRb.Add(nil, targetPrefix, "JOIN", newName, mDetails.accountName, mDetails.realname)
 				} else {
 					targetRb.Add(nil, targetPrefix, "JOIN", newName)
 				}
@@ -2337,28 +2364,25 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // RESUME <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	token := msg.Params[0]
+	details := ResumeDetails{
+		PresentedToken: msg.Params[0],
+	}
 
 	if client.registered {
-		rb.Add(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, connection registration has already been completed"))
+		rb.Add(nil, server.name, "FAIL", "RESUME", "REGISTRATION_IS_COMPLETED", client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
-	var timestamp time.Time
 	if 1 < len(msg.Params) {
 		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[1])
 		if err == nil {
-			timestamp = ts
+			details.Timestamp = ts
 		} else {
-			rb.Add(nil, server.name, "RESUME", "WARN", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+			rb.Add(nil, server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
 		}
 	}
 
-	client.resumeDetails = &ResumeDetails{
-		Timestamp:      timestamp,
-		PresentedToken: token,
-	}
-
+	rb.session.resumeDetails = &details
 	return false
 }
 

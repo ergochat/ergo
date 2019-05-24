@@ -331,42 +331,40 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 //
 
 func (server *Server) tryRegister(c *Client, session *Session) {
-	resumed := false
-	// try to complete registration, either via RESUME token or normally
-	if c.resumeDetails != nil {
-		if !c.tryResume() {
-			return
-		}
-		resumed = true
-	} else {
-		if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
-			return
-		}
+	// if the session just sent us a RESUME line, try to resume
+	if session.resumeDetails != nil {
+		session.tryResume()
+		return // whether we succeeded or failed, either way `c` is not getting registered
+	}
 
-		// client MUST send PASS if necessary, or authenticate with SASL if necessary,
-		// before completing the other registration commands
-		config := server.Config()
-		if !c.isAuthorized(config) {
-			c.Quit(c.t("Bad password"), nil)
-			c.destroy(false, nil)
-			return
-		}
+	// try to complete registration normally
+	if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
+		return
+	}
 
-		rb := NewResponseBuffer(session)
-		nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
-		rb.Send(true)
-		if !nickAssigned {
-			c.preregNick = ""
-			return
-		}
+	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
+	// before completing the other registration commands
+	config := server.Config()
+	if !c.isAuthorized(config) {
+		c.Quit(c.t("Bad password"), nil)
+		c.destroy(nil)
+		return
+	}
 
-		// check KLINEs
-		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
-		if isBanned {
-			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-			c.destroy(false, nil)
-			return
-		}
+	rb := NewResponseBuffer(session)
+	nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
+	rb.Send(true)
+	if !nickAssigned {
+		c.preregNick = ""
+		return
+	}
+
+	// check KLINEs
+	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+	if isBanned {
+		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+		c.destroy(nil)
+		return
 	}
 
 	if session.client != c {
@@ -384,11 +382,7 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 
 	server.playRegistrationBurst(session)
 
-	if resumed {
-		c.tryResumeChannels()
-	} else {
-		server.monitorManager.AlertAbout(c, true)
-	}
+	server.monitorManager.AlertAbout(c, true)
 }
 
 func (server *Server) playRegistrationBurst(session *Session) {
@@ -503,26 +497,27 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 // rplWhoReply returns the WHO reply between one user and another channel/user.
 // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
 // :<hopcount> <real name>
-func (target *Client) rplWhoReply(channel *Channel, client *Client, rb *ResponseBuffer) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer) {
 	channelName := "*"
 	flags := ""
 
-	if client.Away() {
+	if target.Away() {
 		flags = "G"
 	} else {
 		flags = "H"
 	}
-	if client.HasMode(modes.Operator) {
+	if target.HasMode(modes.Operator) {
 		flags += "*"
 	}
 
 	if channel != nil {
 		// TODO is this right?
-		flags += channel.ClientPrefixes(client, rb.session.capabilities.Has(caps.MultiPrefix))
+		flags += channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
+	details := target.Details()
 	// hardcode a hopcount of 0 for now
-	rb.Add(nil, target.server.name, RPL_WHOREPLY, target.nick, channelName, client.Username(), client.Hostname(), client.server.name, client.Nick(), flags, "0 "+client.Realname())
+	rb.Add(nil, client.server.name, RPL_WHOREPLY, client.Nick(), channelName, details.username, details.hostname, client.server.name, details.nick, flags, "0 "+details.realname)
 }
 
 // rehash reloads the config and applies the changes from the config file.
@@ -555,7 +550,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.nameCasefolded = config.Server.nameCasefolded
 	} else {
 		// enforce configs that can't be changed after launch:
-		currentLimits := server.Limits()
+		currentLimits := server.Config().Limits
 		if currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
 			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
 		} else if server.name != config.Server.Name {

@@ -108,26 +108,21 @@ func (clients *ClientManager) Remove(client *Client) error {
 	return clients.removeInternal(client)
 }
 
-// Resume atomically replaces `oldClient` with `newClient`, updating
-// newClient's data to match. It is the caller's responsibility first
-// to verify that the resume is allowed, and then later to call oldClient.destroy().
-func (clients *ClientManager) Resume(newClient, oldClient *Client) (err error) {
+// Handles a RESUME by attaching a session to a designated client. It is the
+// caller's responsibility to verify that the resume is allowed (checking tokens,
+// TLS status, etc.) before calling this.
+func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err error) {
 	clients.Lock()
 	defer clients.Unlock()
 
-	// atomically grant the new client the old nick
-	err = clients.removeInternal(oldClient)
-	if err != nil {
-		// oldClient no longer owns its nick, fail out
-		return err
+	cfnick := oldClient.NickCasefolded()
+	if _, ok := clients.byNick[cfnick]; !ok {
+		return errNickMissing
 	}
-	// nick has been reclaimed, grant it to the new client
-	clients.removeInternal(newClient)
-	oldcfnick, oldskeleton := oldClient.uniqueIdentifiers()
-	clients.byNick[oldcfnick] = newClient
-	clients.bySkeleton[oldskeleton] = newClient
 
-	newClient.copyResumeData(oldClient)
+	if !oldClient.AddSession(session) {
+		return errNickMissing
+	}
 
 	return nil
 }
@@ -254,27 +249,6 @@ func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	}
 
 	return set
-}
-
-// Find returns the first client that matches the given userhost mask.
-func (clients *ClientManager) Find(userhost string) *Client {
-	userhost, err := Casefold(ExpandUserHost(userhost))
-	if err != nil {
-		return nil
-	}
-	matcher := ircmatch.MakeMatch(userhost)
-	var matchedClient *Client
-
-	clients.RLock()
-	defer clients.RUnlock()
-	for _, client := range clients.byNick {
-		if matcher.Match(client.NickMaskCasefolded()) {
-			matchedClient = client
-			break
-		}
-	}
-
-	return matchedClient
 }
 
 //

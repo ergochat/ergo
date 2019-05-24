@@ -36,11 +36,8 @@ const (
 // the resume process: when handling the RESUME command itself,
 // when completing the registration, and when rejoining channels.
 type ResumeDetails struct {
-	OldClient         *Client
 	PresentedToken    string
 	Timestamp         time.Time
-	ResumedAt         time.Time
-	Channels          []string
 	HistoryIncomplete bool
 }
 
@@ -52,6 +49,7 @@ type Client struct {
 	atime              time.Time
 	away               bool
 	awayMessage        string
+	brbTimer           BrbTimer
 	certfp             string
 	channels           ChannelSet
 	ctime              time.Time
@@ -75,7 +73,6 @@ type Client struct {
 	realname           string
 	realIP             net.IP
 	registered         bool
-	resumeDetails      *ResumeDetails
 	resumeID           string
 	saslInProgress     bool
 	saslMechanism      string
@@ -87,7 +84,7 @@ type Client struct {
 	stateMutex         sync.RWMutex // tier 1
 	username           string
 	vhost              string
-	history            *history.Buffer
+	history            history.Buffer
 }
 
 // Session is an individual client connection to the server (TCP connection
@@ -114,6 +111,10 @@ type Session struct {
 	capState     caps.State
 	capVersion   caps.Version
 
+	registrationMessages int
+
+	resumeID         string
+	resumeDetails    *ResumeDetails
 	zncPlaybackTimes *zncPlaybackTimes
 }
 
@@ -209,8 +210,9 @@ func (server *Server) RunClient(conn clientConn) {
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
-		history:        history.NewHistoryBuffer(config.History.ClientLength),
 	}
+	client.history.Initialize(config.History.ClientLength)
+	client.brbTimer.Initialize(client)
 	session := &Session{
 		client:     client,
 		socket:     socket,
@@ -334,14 +336,14 @@ func (client *Client) run(session *Session) {
 		if r := recover(); r != nil {
 			client.server.logger.Error("internal",
 				fmt.Sprintf("Client caused panic: %v\n%s", r, debug.Stack()))
-			if client.server.RecoverFromErrors() {
+			if client.server.Config().Debug.recoverFromErrors {
 				client.server.logger.Error("internal", "Disconnecting client and attempting to recover")
 			} else {
 				panic(r)
 			}
 		}
 		// ensure client connection gets closed
-		client.destroy(false, session)
+		client.destroy(session)
 	}()
 
 	session.idletimer.Initialize(session)
@@ -349,7 +351,13 @@ func (client *Client) run(session *Session) {
 
 	isReattach := client.Registered()
 	if isReattach {
-		client.playReattachMessages(session)
+		if session.resumeDetails != nil {
+			session.playResume()
+			session.resumeDetails = nil
+			client.brbTimer.Disable()
+		} else {
+			client.playReattachMessages(session)
+		}
 	} else {
 		// don't reset the nick timer during a reattach
 		client.nickTimer.Initialize(client)
@@ -367,6 +375,9 @@ func (client *Client) run(session *Session) {
 				quitMessage = "readQ exceeded"
 			}
 			client.Quit(quitMessage, session)
+			// since the client did not actually send us a QUIT,
+			// give them a chance to resume or reattach if applicable:
+			client.brbTimer.Enable()
 			break
 		}
 
@@ -384,6 +395,17 @@ func (client *Client) run(session *Session) {
 				} else {
 					continue
 				}
+			}
+		}
+
+		if client.registered {
+			session.fakelag.Touch()
+		} else {
+			// DoS hardening, #505
+			session.registrationMessages++
+			if client.server.Config().Limits.RegistrationMessages < session.registrationMessages {
+				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, "*", client.t("You have sent too many registration messages"))
+				break
 			}
 		}
 
@@ -445,83 +467,66 @@ func (session *Session) Ping() {
 }
 
 // tryResume tries to resume if the client asked us to.
-func (client *Client) tryResume() (success bool) {
-	server := client.server
-	config := server.Config()
+func (session *Session) tryResume() (success bool) {
+	var oldResumeID string
 
 	defer func() {
-		if !success {
-			client.resumeDetails = nil
+		if success {
+			// "On a successful request, the server [...] terminates the old client's connection"
+			oldSession := session.client.GetSessionByResumeID(oldResumeID)
+			if oldSession != nil {
+				session.client.destroy(oldSession)
+			}
+		} else {
+			session.resumeDetails = nil
 		}
 	}()
 
-	timestamp := client.resumeDetails.Timestamp
-	var timestampString string
-	if !timestamp.IsZero() {
-		timestampString = timestamp.UTC().Format(IRCv3TimestampFormat)
-	}
+	client := session.client
+	server := client.server
+	config := server.Config()
 
-	oldClient := server.resumeManager.VerifyToken(client.resumeDetails.PresentedToken)
+	oldClient, oldResumeID := server.resumeManager.VerifyToken(client, session.resumeDetails.PresentedToken)
 	if oldClient == nil {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, token is not valid"))
+		session.Send(nil, server.name, "FAIL", "RESUME", "INVALID_TOKEN", client.t("Cannot resume connection, token is not valid"))
 		return
 	}
-	oldNick := oldClient.Nick()
-	oldNickmask := oldClient.NickMaskString()
 
 	resumeAllowed := config.Server.AllowPlaintextResume || (oldClient.HasMode(modes.TLS) && client.HasMode(modes.TLS))
 	if !resumeAllowed {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection, old and new clients must have TLS"))
+		session.Send(nil, server.name, "FAIL", "RESUME", "INSECURE_SESSION", client.t("Cannot resume connection, old and new clients must have TLS"))
 		return
 	}
 
 	if oldClient.isTor != client.isTor {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection from Tor to non-Tor or vice versa"))
+		session.Send(nil, server.name, "FAIL", "RESUME", "INSECURE_SESSION", client.t("Cannot resume connection from Tor to non-Tor or vice versa"))
 		return
 	}
 
-	if 1 < len(oldClient.Sessions()) {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume a client with multiple attached sessions"))
-		return
-	}
-
-	err := server.clients.Resume(client, oldClient)
+	err := server.clients.Resume(oldClient, session)
 	if err != nil {
-		client.Send(nil, server.name, "RESUME", "ERR", client.t("Cannot resume connection"))
+		session.Send(nil, server.name, "FAIL", "RESUME", "CANNOT_RESUME", client.t("Cannot resume connection"))
 		return
 	}
 
 	success = true
+	client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", oldClient.Nick()))
 
-	// this is a bit racey
-	client.resumeDetails.ResumedAt = time.Now().UTC()
+	return
+}
 
-	client.nickTimer.Touch(nil)
-
-	// resume successful, proceed to copy client state (nickname, flags, etc.)
-	// after this, the server thinks that `newClient` owns the nickname
-
-	client.resumeDetails.OldClient = oldClient
-
-	// transfer monitor stuff
-	server.monitorManager.Resume(client, oldClient)
-
-	// record the names, not the pointers, of the channels,
-	// to avoid dumb annoying race conditions
-	channels := oldClient.Channels()
-	client.resumeDetails.Channels = make([]string, len(channels))
-	for i, channel := range channels {
-		client.resumeDetails.Channels[i] = channel.Name()
-	}
-
-	username := client.Username()
-	hostname := client.Hostname()
+// playResume is called from the session's fresh goroutine after a resume;
+// it sends notifications to friends, then plays the registration burst and replays
+// stored history to the session
+func (session *Session) playResume() {
+	client := session.client
+	server := client.server
 
 	friends := make(ClientSet)
 	oldestLostMessage := time.Now().UTC()
 
 	// work out how much time, if any, is not covered by history buffers
-	for _, channel := range channels {
+	for _, channel := range client.Channels() {
 		for _, member := range channel.Members() {
 			friends.Add(member)
 			lastDiscarded := channel.history.LastDiscarded()
@@ -533,8 +538,8 @@ func (client *Client) tryResume() (success bool) {
 	privmsgMatcher := func(item history.Item) bool {
 		return item.Type == history.Privmsg || item.Type == history.Notice || item.Type == history.Tagmsg
 	}
-	privmsgHistory := oldClient.history.Match(privmsgMatcher, false, 0)
-	lastDiscarded := oldClient.history.LastDiscarded()
+	privmsgHistory := client.history.Match(privmsgMatcher, false, 0)
+	lastDiscarded := client.history.LastDiscarded()
 	if lastDiscarded.Before(oldestLostMessage) {
 		oldestLostMessage = lastDiscarded
 	}
@@ -545,60 +550,61 @@ func (client *Client) tryResume() (success bool) {
 		}
 	}
 
+	timestamp := session.resumeDetails.Timestamp
 	gap := lastDiscarded.Sub(timestamp)
-	client.resumeDetails.HistoryIncomplete = gap > 0
+	session.resumeDetails.HistoryIncomplete = gap > 0
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
+
+	details := client.Details()
+	oldNickmask := details.nickMask
+	client.SetRawHostname(session.rawHostname)
+	hostname := client.Hostname() // may be a vhost
+	timestampString := session.resumeDetails.Timestamp.Format(IRCv3TimestampFormat)
 
 	// send quit/resume messages to friends
 	for friend := range friends {
-		for _, session := range friend.Sessions() {
-			if session.capabilities.Has(caps.Resume) {
+		if friend == client {
+			continue
+		}
+		for _, fSession := range friend.Sessions() {
+			if fSession.capabilities.Has(caps.Resume) {
 				if timestamp.IsZero() {
-					session.Send(nil, oldNickmask, "RESUMED", username, hostname)
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
 				} else {
-					session.Send(nil, oldNickmask, "RESUMED", username, hostname, timestampString)
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname, timestampString)
 				}
 			} else {
-				if client.resumeDetails.HistoryIncomplete {
-					session.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of history lost)"), gapSeconds))
+				if session.resumeDetails.HistoryIncomplete {
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of history lost)"), gapSeconds))
 				} else {
-					session.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
 				}
 			}
 		}
 	}
 
-	if client.resumeDetails.HistoryIncomplete {
-		client.Send(nil, client.server.name, "RESUME", "WARN", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+	if session.resumeDetails.HistoryIncomplete {
+		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
 	}
 
-	client.Send(nil, client.server.name, "RESUME", "SUCCESS", oldNick)
+	session.Send(nil, client.server.name, "RESUME", "SUCCESS", details.nick)
 
-	// after we send the rest of the registration burst, we'll try rejoining channels
-	return
-}
+	server.playRegistrationBurst(session)
 
-func (client *Client) tryResumeChannels() {
-	details := client.resumeDetails
-
-	for _, name := range details.Channels {
-		channel := client.server.channels.Get(name)
-		if channel == nil {
-			continue
-		}
-		channel.Resume(client, details.OldClient, details.Timestamp)
+	for _, channel := range client.Channels() {
+		channel.Resume(session, timestamp)
 	}
 
 	// replay direct PRIVSMG history
-	if !details.Timestamp.IsZero() {
+	if !timestamp.IsZero() {
 		now := time.Now().UTC()
-		items, complete := client.history.Between(details.Timestamp, now, false, 0)
+		items, complete := client.history.Between(timestamp, now, false, 0)
 		rb := NewResponseBuffer(client.Sessions()[0])
 		client.replayPrivmsgHistory(rb, items, complete)
 		rb.Send(true)
 	}
 
-	details.OldClient.destroy(true, nil)
+	session.resumeDetails = nil
 }
 
 func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, complete bool) {
@@ -644,41 +650,6 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	if !complete {
 		rb.Add(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
 	}
-}
-
-// copy applicable state from oldClient to client as part of a resume
-func (client *Client) copyResumeData(oldClient *Client) {
-	oldClient.stateMutex.RLock()
-	history := oldClient.history
-	nick := oldClient.nick
-	nickCasefolded := oldClient.nickCasefolded
-	vhost := oldClient.vhost
-	account := oldClient.account
-	accountName := oldClient.accountName
-	skeleton := oldClient.skeleton
-	oldClient.stateMutex.RUnlock()
-
-	// copy all flags, *except* TLS (in the case that the admins enabled
-	// resume over plaintext)
-	hasTLS := client.flags.HasMode(modes.TLS)
-	temp := modes.NewModeSet()
-	temp.Copy(&oldClient.flags)
-	temp.SetMode(modes.TLS, hasTLS)
-	client.flags.Copy(temp)
-
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-
-	// reuse the old client's history buffer
-	client.history = history
-	// copy other data
-	client.nick = nick
-	client.nickCasefolded = nickCasefolded
-	client.vhost = vhost
-	client.account = account
-	client.accountName = accountName
-	client.skeleton = skeleton
-	client.updateNickMaskNoMutex()
 }
 
 // IdleTime returns how long this client's been idle.
@@ -958,12 +929,13 @@ func (client *Client) Quit(message string, session *Session) {
 // if `session` is nil, destroys the client unconditionally, removing all sessions;
 // otherwise, destroys one specific session, only destroying the client if it
 // has no more sessions.
-func (client *Client) destroy(beingResumed bool, session *Session) {
+func (client *Client) destroy(session *Session) {
 	var sessionsToDestroy []*Session
 
 	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
+	brbState := client.brbTimer.state
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	var remainingSessions int
@@ -978,10 +950,6 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 		}
 	}
 	client.stateMutex.Unlock()
-
-	if len(sessionsToDestroy) == 0 {
-		return
-	}
 
 	// destroy all applicable sessions:
 	var quitMessage string
@@ -1012,8 +980,8 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 		client.server.logger.Info("localconnect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
 
-	// ok, now destroy the client, unless it still has sessions:
-	if remainingSessions != 0 {
+	// do not destroy the client if it has either remaining sessions, or is BRB'ed
+	if remainingSessions != 0 || brbState == BrbEnabled || brbState == BrbSticky {
 		return
 	}
 
@@ -1022,14 +990,12 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 	client.server.semaphores.ClientDestroy.Acquire()
 	defer client.server.semaphores.ClientDestroy.Release()
 
-	if beingResumed {
-		client.server.logger.Debug("quit", fmt.Sprintf("%s is being resumed", details.nick))
-	} else if !wasReattach {
+	if !wasReattach {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 
 	registered := client.Registered()
-	if !beingResumed && registered {
+	if registered {
 		client.server.whoWas.Append(client.WhoWas())
 	}
 
@@ -1047,15 +1013,13 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
 	for _, channel := range client.Channels() {
-		if !beingResumed {
-			channel.Quit(client)
-			channel.history.Add(history.Item{
-				Type:        history.Quit,
-				Nick:        details.nickMask,
-				AccountName: details.accountName,
-				Message:     splitQuitMessage,
-			})
-		}
+		channel.Quit(client)
+		channel.history.Add(history.Item{
+			Type:        history.Quit,
+			Nick:        details.nickMask,
+			AccountName: details.accountName,
+			Message:     splitQuitMessage,
+		})
 		for _, member := range channel.Members() {
 			friends.Add(member)
 		}
@@ -1063,40 +1027,34 @@ func (client *Client) destroy(beingResumed bool, session *Session) {
 	friends.Remove(client)
 
 	// clean up server
-	if !beingResumed {
-		client.server.clients.Remove(client)
-	}
+	client.server.clients.Remove(client)
 
 	// clean up self
 	client.nickTimer.Stop()
+	client.brbTimer.Disable()
 
 	client.server.accounts.Logout(client)
 
 	// send quit messages to friends
-	if !beingResumed {
-		if registered {
-			client.server.stats.ChangeTotal(-1)
-		}
-		if client.HasMode(modes.Invisible) {
-			client.server.stats.ChangeInvisible(-1)
-		}
-		if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
-			client.server.stats.ChangeOperators(-1)
-		}
-
-		for friend := range friends {
-			if quitMessage == "" {
-				quitMessage = "Exited"
-			}
-			friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
-		}
+	if registered {
+		client.server.stats.ChangeTotal(-1)
 	}
-	if !client.exitedSnomaskSent {
-		if beingResumed {
-			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r is resuming their connection, old client has been destroyed"), client.nick))
-		} else if registered {
-			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
+	if client.HasMode(modes.Invisible) {
+		client.server.stats.ChangeInvisible(-1)
+	}
+	if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
+		client.server.stats.ChangeOperators(-1)
+	}
+
+	for friend := range friends {
+		if quitMessage == "" {
+			quitMessage = "Exited"
 		}
+		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
+	}
+
+	if !client.exitedSnomaskSent && registered {
+		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 	}
 }
 

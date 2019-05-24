@@ -21,22 +21,6 @@ func (server *Server) SetConfig(config *Config) {
 	atomic.StorePointer(&server.config, unsafe.Pointer(config))
 }
 
-func (server *Server) Limits() Limits {
-	return server.Config().Limits
-}
-
-func (server *Server) Password() []byte {
-	return server.Config().Server.passwordBytes
-}
-
-func (server *Server) RecoverFromErrors() bool {
-	return *server.Config().Debug.RecoverFromErrors
-}
-
-func (server *Server) DefaultChannelModes() modes.Modes {
-	return server.Config().Channels.defaultModes
-}
-
 func (server *Server) ChannelRegistrationEnabled() bool {
 	return server.Config().Channels.Registration.Enabled
 }
@@ -62,6 +46,18 @@ func (client *Client) Sessions() (sessions []*Session) {
 	sessions = make([]*Session, len(client.sessions))
 	copy(sessions, client.sessions)
 	client.stateMutex.RUnlock()
+	return
+}
+
+func (client *Client) GetSessionByResumeID(resumeID string) (result *Session) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	for _, session := range client.sessions {
+		if session.resumeID == resumeID {
+			return session
+		}
+	}
 	return
 }
 
@@ -100,9 +96,17 @@ func (client *Client) AddSession(session *Session) (success bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	if len(client.sessions) == 0 {
+	// client may be dying and ineligible to receive another session
+	switch client.brbTimer.state {
+	case BrbDisabled:
+		if len(client.sessions) == 0 {
+			return false
+		}
+	case BrbDead:
 		return false
+		// default: BrbEnabled or BrbSticky, proceed
 	}
+	// success, attach the new session to the client
 	session.client = client
 	client.sessions = append(client.sessions, session)
 	return true
@@ -123,6 +127,12 @@ func (client *Client) removeSession(session *Session) (success bool, length int)
 	client.sessions = sessions
 	length = len(sessions)
 	return
+}
+
+func (session *Session) SetResumeID(resumeID string) {
+	session.client.stateMutex.Lock()
+	session.resumeID = resumeID
+	session.client.stateMutex.Unlock()
 }
 
 func (client *Client) Nick() string {
@@ -159,12 +169,6 @@ func (client *Client) Hostname() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.hostname
-}
-
-func (client *Client) Realname() string {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.realname
 }
 
 func (client *Client) Away() (result bool) {
@@ -231,6 +235,14 @@ func (client *Client) RawHostname() (result string) {
 	result = client.rawHostname
 	client.stateMutex.Unlock()
 	return
+}
+
+func (client *Client) SetRawHostname(rawHostname string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	client.rawHostname = rawHostname
+	client.updateNickMaskNoMutex()
 }
 
 func (client *Client) AwayMessage() (result string) {

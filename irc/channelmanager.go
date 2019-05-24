@@ -61,7 +61,7 @@ func (cm *ChannelManager) Get(name string) (channel *Channel) {
 func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin bool, rb *ResponseBuffer) error {
 	server := client.server
 	casefoldedName, err := CasefoldChannel(name)
-	if err != nil || len(casefoldedName) > server.Limits().ChannelLen {
+	if err != nil || len(casefoldedName) > server.Config().Limits.ChannelLen {
 		return errNoSuchChannel
 	}
 

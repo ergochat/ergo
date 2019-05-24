@@ -254,7 +254,7 @@ func (socket *Socket) performWrite() (closed bool) {
 	socket.Unlock()
 
 	var err error
-	if !closed && len(buffers) > 0 {
+	if 0 < len(buffers) {
 		// on Linux, the runtime will optimize this into a single writev(2) call:
 		_, err = (*net.Buffers)(&buffers).WriteTo(socket.conn)
 	}

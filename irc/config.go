@@ -214,16 +214,17 @@ type LineLenLimits struct {
 
 // Various server-enforced limits on data size.
 type Limits struct {
-	AwayLen        int           `yaml:"awaylen"`
-	ChanListModes  int           `yaml:"chan-list-modes"`
-	ChannelLen     int           `yaml:"channellen"`
-	IdentLen       int           `yaml:"identlen"`
-	KickLen        int           `yaml:"kicklen"`
-	LineLen        LineLenLimits `yaml:"linelen"`
-	MonitorEntries int           `yaml:"monitor-entries"`
-	NickLen        int           `yaml:"nicklen"`
-	TopicLen       int           `yaml:"topiclen"`
-	WhowasEntries  int           `yaml:"whowas-entries"`
+	AwayLen              int           `yaml:"awaylen"`
+	ChanListModes        int           `yaml:"chan-list-modes"`
+	ChannelLen           int           `yaml:"channellen"`
+	IdentLen             int           `yaml:"identlen"`
+	KickLen              int           `yaml:"kicklen"`
+	LineLen              LineLenLimits `yaml:"linelen"`
+	MonitorEntries       int           `yaml:"monitor-entries"`
+	NickLen              int           `yaml:"nicklen"`
+	TopicLen             int           `yaml:"topiclen"`
+	WhowasEntries        int           `yaml:"whowas-entries"`
+	RegistrationMessages int           `yaml:"registration-messages"`
 }
 
 // STSConfig controls the STS configuration/
@@ -334,7 +335,8 @@ type Config struct {
 	Logging []logger.LoggingConfig
 
 	Debug struct {
-		RecoverFromErrors *bool   `yaml:"recover-from-errors"`
+		RecoverFromErrors *bool `yaml:"recover-from-errors"`
+		recoverFromErrors bool
 		PprofListener     *string `yaml:"pprof-listener"`
 	}
 
@@ -532,6 +534,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
 		return nil, ErrLimitsAreInsane
 	}
+	if config.Limits.RegistrationMessages == 0 {
+		config.Limits.RegistrationMessages = 1024
+	}
 	if config.Server.STS.Enabled {
 		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
 		if err != nil {
@@ -665,9 +670,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	// RecoverFromErrors defaults to true
-	if config.Debug.RecoverFromErrors == nil {
-		config.Debug.RecoverFromErrors = new(bool)
-		*config.Debug.RecoverFromErrors = true
+	if config.Debug.RecoverFromErrors != nil {
+		config.Debug.recoverFromErrors = *config.Debug.RecoverFromErrors
+	} else {
+		config.Debug.recoverFromErrors = true
 	}
 
 	// casefold/validate server name

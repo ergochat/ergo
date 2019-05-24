@@ -39,10 +39,6 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		return false
 	}
 
-	if client.registered {
-		session.fakelag.Touch()
-	}
-
 	rb := NewResponseBuffer(session)
 	rb.Label = GetLabel(msg)
 	exiting := cmd.handler(server, client, msg, rb)
@@ -86,6 +82,10 @@ func init() {
 		},
 		"AWAY": {
 			handler:   awayHandler,
+			minParams: 0,
+		},
+		"BRB": {
+			handler:   brbHandler,
 			minParams: 0,
 		},
 		"CAP": {
