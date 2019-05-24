@@ -121,15 +121,13 @@ type Session struct {
 // sets the session quit message, if there isn't one already
 func (sd *Session) SetQuitMessage(message string) (set bool) {
 	if message == "" {
-		if sd.quitMessage == "" {
-			sd.quitMessage = "Connection closed"
-			return true
-		} else {
-			return false
-		}
-	} else {
+		message = "Connection closed"
+	}
+	if sd.quitMessage == "" {
 		sd.quitMessage = message
 		return true
+	} else {
+		return false
 	}
 }
 
@@ -286,18 +284,30 @@ func (client *Client) doIdentLookup(conn net.Conn) {
 	}
 }
 
-func (client *Client) isAuthorized(config *Config) bool {
+type AuthOutcome uint
+
+const (
+	authSuccess AuthOutcome = iota
+	authFailPass
+	authFailTorSaslRequired
+	authFailSaslRequired
+)
+
+func (client *Client) isAuthorized(config *Config) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
 	if (config.Server.passwordBytes != nil) && !client.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
-		return false
+		return authFailPass
 	}
 	// Tor connections may be required to authenticate with SASL
 	if client.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
-		return false
+		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	return !config.Accounts.RequireSasl.Enabled || saslSent || utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets)
+	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets) {
+		return authFailSaslRequired
+	}
+	return authSuccess
 }
 
 func (session *Session) resetFakelag() {

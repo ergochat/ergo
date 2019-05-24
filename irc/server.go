@@ -330,7 +330,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 // server functionality
 //
 
-func (server *Server) tryRegister(c *Client, session *Session) {
+func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// if the session just sent us a RESUME line, try to resume
 	if session.resumeDetails != nil {
 		session.tryResume()
@@ -344,11 +344,19 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	config := server.Config()
-	if !c.isAuthorized(config) {
-		c.Quit(c.t("Bad password"), nil)
-		c.destroy(nil)
-		return
+	authOutcome := c.isAuthorized(server.Config())
+	var quitMessage string
+	switch authOutcome {
+	case authFailPass:
+		quitMessage = c.t("Password incorrect")
+		c.Send(nil, server.name, ERR_PASSWDMISMATCH, "*", quitMessage)
+	case authFailSaslRequired, authFailTorSaslRequired:
+		quitMessage = c.t("You must log in with SASL to join this server")
+		c.Send(nil, c.server.name, "FAIL", "*", "ACCOUNT_REQUIRED", quitMessage)
+	}
+	if authOutcome != authSuccess {
+		c.Quit(quitMessage, nil)
+		return true
 	}
 
 	rb := NewResponseBuffer(session)
@@ -363,8 +371,7 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 	if isBanned {
 		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-		c.destroy(nil)
-		return
+		return true
 	}
 
 	if session.client != c {
@@ -377,12 +384,13 @@ func (server *Server) tryRegister(c *Client, session *Session) {
 
 	// registration has succeeded:
 	c.SetRegistered()
+
 	// count new user in statistics
 	server.stats.ChangeTotal(1)
+	server.monitorManager.AlertAbout(c, true)
 
 	server.playRegistrationBurst(session)
-
-	server.monitorManager.AlertAbout(c, true)
+	return false
 }
 
 func (server *Server) playRegistrationBurst(session *Session) {
@@ -478,14 +486,6 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	}
 	if target.HasMode(modes.Bot) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
-	}
-
-	tLanguages := target.Languages()
-	if 0 < len(tLanguages) {
-		params := []string{cnick, tnick}
-		params = append(params, client.server.Languages().Codes(tLanguages)...)
-		params = append(params, client.t("can speak these languages"))
-		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
 	}
 
 	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {

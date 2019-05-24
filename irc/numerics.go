@@ -165,7 +165,6 @@ const (
 	ERR_CANNOTSENDRP              = "573"
 	RPL_WHOISSECURE               = "671"
 	RPL_YOURLANGUAGESARE          = "687"
-	RPL_WHOISLANGUAGE             = "690"
 	ERR_CHANNAMEINUSE             = "692"
 	ERR_CANNOTRENAME              = "693"
 	RPL_HELPSTART                 = "704"

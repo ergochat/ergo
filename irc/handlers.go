@@ -2229,13 +2229,9 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	if bcrypt.CompareHashAndPassword(serverPassword, password) != nil {
-		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.nick, client.t("Password incorrect"))
-		client.Quit(client.t("Password incorrect"), rb.session)
-		return true
-	}
+	client.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
 
-	client.sentPassCommand = true
+	// if they failed the check, we'll bounce them later when they try to complete registration
 	return false
 }
 
