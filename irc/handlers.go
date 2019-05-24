@@ -529,6 +529,7 @@ func brbHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 // CAP <subcmd> [<caps>]
 func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	details := client.Details()
 	subCommand := strings.ToUpper(msg.Params[0])
 	toAdd := caps.NewSet()
 	toRemove := caps.NewSet()
@@ -571,10 +572,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// the server.name source... otherwise it doesn't respond to the CAP message with
 		// anything and just hangs on connection.
 		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		rb.Add(nil, server.name, "CAP", client.nick, subCommand, SupportedCapabilities.String(rb.session.capVersion, CapValues))
+		rb.Add(nil, server.name, "CAP", details.nick, subCommand, SupportedCapabilities.String(rb.session.capVersion, CapValues))
 
 	case "LIST":
-		rb.Add(nil, server.name, "CAP", client.nick, subCommand, rb.session.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
+		rb.Add(nil, server.name, "CAP", details.nick, subCommand, rb.session.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
 
 	case "REQ":
 		if !client.registered {
@@ -582,13 +583,20 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 		// make sure all capabilities actually exist
-		if badCaps {
-			rb.Add(nil, server.name, "CAP", client.nick, "NAK", capString)
+		// #511, #521: oragono.io/nope is a fake cap to trap bad clients who blindly request
+		// every offered capability. during registration, requesting it produces a quit,
+		// otherwise just a CAP NAK
+		if badCaps || (toAdd.Has(caps.Nope) && client.registered) {
+			rb.Add(nil, server.name, "CAP", details.nick, "NAK", capString)
 			return false
+		} else if toAdd.Has(caps.Nope) && !client.registered {
+			client.Quit(client.t("Requesting the oragono.io/nope CAP is forbidden"), rb.session)
+			return true
 		}
+
 		rb.session.capabilities.Union(toAdd)
 		rb.session.capabilities.Subtract(toRemove)
-		rb.Add(nil, server.name, "CAP", client.nick, "ACK", capString)
+		rb.Add(nil, server.name, "CAP", details.nick, "ACK", capString)
 
 		// if this is the first time the client is requesting a resume token,
 		// send it to them
@@ -600,13 +608,6 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 		}
 
-		// #511: oragono.io/nope is a fake cap to trap bad clients who blindly request
-		// every offered capability:
-		if toAdd.Has(caps.Nope) {
-			client.Quit(client.t("Requesting the oragono.io/nope CAP is forbidden"), rb.session)
-			return true
-		}
-
 		// update maxlenrest, just in case they altered the maxline cap
 		rb.session.SetMaxlenRest()
 
@@ -616,7 +617,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 	default:
-		rb.Add(nil, server.name, ERR_INVALIDCAPCMD, client.nick, subCommand, client.t("Invalid CAP subcommand"))
+		rb.Add(nil, server.name, ERR_INVALIDCAPCMD, details.nick, subCommand, client.t("Invalid CAP subcommand"))
 	}
 	return false
 }
