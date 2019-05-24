@@ -129,13 +129,20 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 
 // SetNick sets a client's nickname, validating it against nicknames in use
 func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) error {
+	if len(newNick) > client.server.Config().Limits.NickLen {
+		return errNicknameInvalid
+	}
 	newcfnick, err := CasefoldName(newNick)
 	if err != nil {
-		return err
+		return errNicknameInvalid
 	}
 	newSkeleton, err := Skeleton(newNick)
 	if err != nil {
-		return err
+		return errNicknameInvalid
+	}
+
+	if restrictedCasefoldedNicks[newcfnick] || restrictedSkeletons[newSkeleton] {
+		return errNicknameInvalid
 	}
 
 	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
