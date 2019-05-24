@@ -395,7 +395,7 @@ func channelUserModeHasPrivsOver(clientMode modes.Mode, targetMode modes.Mode) b
 		return targetMode != modes.ChannelFounder && targetMode != modes.ChannelAdmin
 	case modes.Halfop:
 		// halfops cannot kick other halfops
-		return targetMode != modes.ChannelFounder && targetMode != modes.ChannelAdmin && targetMode != modes.Halfop
+		return targetMode == modes.Voice || targetMode == modes.Mode(0)
 	default:
 		// voice and unprivileged cannot kick anyone
 		return false
