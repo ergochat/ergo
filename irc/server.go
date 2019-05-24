@@ -488,14 +488,6 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
-	tLanguages := target.Languages()
-	if 0 < len(tLanguages) {
-		params := []string{cnick, tnick}
-		params = append(params, client.server.Languages().Codes(tLanguages)...)
-		params = append(params, client.t("can speak these languages"))
-		rb.Add(nil, client.server.name, RPL_WHOISLANGUAGE, params...)
-	}
-
 	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
 		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
 	}
