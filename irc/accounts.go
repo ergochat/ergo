@@ -293,7 +293,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errAccountCreation
 	}
 
-	if restrictedNicknames[casefoldedAccount] || restrictedNicknames[skeleton] {
+	if restrictedCasefoldedNicks[casefoldedAccount] || restrictedSkeletons[skeleton] {
 		return errAccountAlreadyRegistered
 	}
 

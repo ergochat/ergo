@@ -35,6 +35,7 @@ var (
 	errInvalidChannelName             = errors.New(`Invalid channel name`)
 	errMonitorLimitExceeded           = errors.New("Monitor limit exceeded")
 	errNickMissing                    = errors.New("nick missing")
+	errNicknameInvalid                = errors.New("invalid nickname")
 	errNicknameInUse                  = errors.New("nickname in use")
 	errNicknameReserved               = errors.New("nickname is reserved")
 	errNoExistingBan                  = errors.New("Ban does not exist")

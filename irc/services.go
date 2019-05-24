@@ -260,7 +260,7 @@ func initializeServices() {
 		service.Commands["help"] = &servHelpCmd
 
 		// reserve the nickname
-		restrictedNicknames[serviceName] = true
+		restrictedNicknames = append(restrictedNicknames, service.Name)
 
 		// register the protocol-level commands (NICKSERV, NS) that talk to the service
 		var ircCmdDef Command
@@ -278,5 +278,18 @@ func initializeServices() {
 				}
 			}
 		}
+	}
+
+	for _, restrictedNickname := range restrictedNicknames {
+		cfName, err := CasefoldName(restrictedNickname)
+		if err != nil {
+			panic(err)
+		}
+		restrictedCasefoldedNicks[cfName] = true
+		skeleton, err := Skeleton(restrictedNickname)
+		if err != nil {
+			panic(err)
+		}
+		restrictedSkeletons[skeleton] = true
 	}
 }
