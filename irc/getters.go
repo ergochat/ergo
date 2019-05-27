@@ -187,6 +187,12 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 	return
 }
 
+func (client *Client) SetExitedSnomaskSent() {
+	client.stateMutex.Lock()
+	client.exitedSnomaskSent = true
+	client.stateMutex.Unlock()
+}
+
 // uniqueIdentifiers returns the strings for which the server enforces per-client
 // uniqueness/ownership; no two clients can have colliding casefolded nicks or
 // skeletons.

@@ -987,6 +987,7 @@ func (client *Client) destroy(session *Session) {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
 	}
+	exitedSnomaskSent := client.exitedSnomaskSent
 	client.stateMutex.Unlock()
 
 	// destroy all applicable sessions:
@@ -1101,7 +1102,7 @@ func (client *Client) destroy(session *Session) {
 		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	}
 
-	if !client.exitedSnomaskSent && registered {
+	if !exitedSnomaskSent && registered {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 	}
 }
