@@ -53,6 +53,7 @@ type Client struct {
 	certfp             string
 	channels           ChannelSet
 	ctime              time.Time
+	destroyed          bool
 	exitedSnomaskSent  bool
 	flags              modes.ModeSet
 	hostname           string
@@ -962,7 +963,6 @@ func (client *Client) Quit(message string, session *Session) {
 func (client *Client) destroy(session *Session) {
 	var sessionsToDestroy []*Session
 
-	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
 	brbState := client.brbTimer.state
@@ -979,6 +979,13 @@ func (client *Client) destroy(session *Session) {
 		if sessionRemoved {
 			sessionsToDestroy = []*Session{session}
 		}
+	}
+
+	// should we destroy the whole client this time?
+	shouldDestroy := !client.destroyed && remainingSessions == 0 && (brbState != BrbEnabled && brbState != BrbSticky)
+	if shouldDestroy {
+		// if it's our job to destroy it, don't let anyone else try
+		client.destroyed = true
 	}
 	client.stateMutex.Unlock()
 
@@ -1013,8 +1020,7 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	// do not destroy the client if it has either remaining sessions, or is BRB'ed
-	if remainingSessions != 0 || brbState == BrbEnabled || brbState == BrbSticky {
-		client.server.logger.Debug("quit", fmt.Sprintf("preserving client %s with %d remaining sessions\n", details.nick, remainingSessions))
+	if !shouldDestroy {
 		return
 	}
 
