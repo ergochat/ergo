@@ -578,6 +578,9 @@ func (session *Session) playResume() {
 	}
 
 	timestamp := session.resumeDetails.Timestamp
+	if timestamp.IsZero() {
+		timestamp = session.client.ctime
+	}
 	gap := lastDiscarded.Sub(timestamp)
 	session.resumeDetails.HistoryIncomplete = gap > 0
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
@@ -595,10 +598,10 @@ func (session *Session) playResume() {
 		}
 		for _, fSession := range friend.Sessions() {
 			if fSession.capabilities.Has(caps.Resume) {
-				if timestamp.IsZero() {
-					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
-				} else {
+				if session.resumeDetails.HistoryIncomplete {
 					fSession.Send(nil, oldNickmask, "RESUMED", hostname, timestampString)
+				} else {
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
 				}
 			} else {
 				if session.resumeDetails.HistoryIncomplete {
