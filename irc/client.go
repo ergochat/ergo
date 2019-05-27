@@ -103,6 +103,7 @@ type Session struct {
 
 	idletimer IdleTimer
 	fakelag   Fakelag
+	destroyed uint32
 
 	quitMessage string
 
@@ -144,6 +145,20 @@ func (session *Session) SetMaxlenRest() {
 // so that Session.SendRawMessage doesn't have to acquire any Client locks
 func (session *Session) MaxlenRest() int {
 	return int(atomic.LoadUint32(&session.maxlenRest))
+}
+
+// returns whether the session was actively destroyed (for example, by ping
+// timeout or NS GHOST).
+// avoids a race condition between asynchronous idle-timing-out of sessions,
+// and a condition that allows implicit BRB on connection errors (since
+// destroy()'s socket.Close() appears to socket.Read() as a connection error)
+func (session *Session) Destroyed() bool {
+	return atomic.LoadUint32(&session.destroyed) == 1
+}
+
+// sets the timed-out flag
+func (session *Session) SetDestroyed() {
+	atomic.StoreUint32(&session.destroyed, 1)
 }
 
 // WhoWas is the subset of client details needed to answer a WHOWAS query
@@ -373,7 +388,7 @@ func (client *Client) run(session *Session) {
 		client.nickTimer.Initialize(client)
 	}
 
-	firstLine := true
+	firstLine := !isReattach
 
 	for {
 		maxlenRest := session.MaxlenRest()
@@ -386,8 +401,10 @@ func (client *Client) run(session *Session) {
 			}
 			client.Quit(quitMessage, session)
 			// since the client did not actually send us a QUIT,
-			// give them a chance to resume or reattach if applicable:
-			client.brbTimer.Enable()
+			// give them a chance to resume if applicable:
+			if !session.Destroyed() {
+				client.brbTimer.Enable()
+			}
 			break
 		}
 
@@ -396,7 +413,7 @@ func (client *Client) run(session *Session) {
 		}
 
 		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
-		if !isReattach && firstLine {
+		if firstLine {
 			firstLine = false
 			if strings.HasPrefix(line, "PROXY") {
 				err = handleProxyCommand(client.server, client, session, line)
@@ -946,6 +963,7 @@ func (client *Client) destroy(session *Session) {
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
 	brbState := client.brbTimer.state
+	brbAt := client.brbTimer.brbAt
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	var remainingSessions int
@@ -972,6 +990,7 @@ func (client *Client) destroy(session *Session) {
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
 		quitMessage = session.quitMessage
+		session.SetDestroyed()
 		session.socket.Close()
 
 		// remove from connection limits
@@ -992,6 +1011,7 @@ func (client *Client) destroy(session *Session) {
 
 	// do not destroy the client if it has either remaining sessions, or is BRB'ed
 	if remainingSessions != 0 || brbState == BrbEnabled || brbState == BrbSticky {
+		client.server.logger.Debug("quit", fmt.Sprintf("preserving client %s with %d remaining sessions\n", details.nick, remainingSessions))
 		return
 	}
 
@@ -1056,10 +1076,19 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.ChangeOperators(-1)
 	}
 
-	for friend := range friends {
-		if quitMessage == "" {
-			quitMessage = "Exited"
+	// this happens under failure to return from BRB
+	if quitMessage == "" {
+		if !brbAt.IsZero() {
+			awayMessage := client.AwayMessage()
+			if awayMessage != "" {
+				quitMessage = fmt.Sprintf("%s [%s ago]", awayMessage, time.Since(brbAt).Truncate(time.Second).String())
+			}
 		}
+	}
+	if quitMessage == "" {
+		quitMessage = "Exited"
+	}
+	for friend := range friends {
 		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	}
 
