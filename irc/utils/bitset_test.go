@@ -5,7 +5,7 @@ package utils
 
 import "testing"
 
-type testBitset [2]uint64
+type testBitset [4]uint32
 
 func TestSets(t *testing.T) {
 	var t1 testBitset

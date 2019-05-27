@@ -7,7 +7,6 @@ package modes
 
 import (
 	"strings"
-	"sync/atomic"
 
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -318,12 +317,13 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ModeSet holds a set of modes.
-type ModeSet [1]uint64
+type ModeSet [2]uint32
 
 // valid modes go from 65 ('A') to 122 ('z'), making at most 58 possible values;
-// subtract 65 from the mode value and use that bit of the uint64 to represent it
+// subtract 65 from the mode value and use that bit of the uint32 to represent it
 const (
-	minMode = 65 // 'A'
+	minMode = 65  // 'A'
+	maxMode = 122 // 'z'
 )
 
 // returns a pointer to a new ModeSet
@@ -357,11 +357,10 @@ func (set *ModeSet) AllModes() (result []Mode) {
 		return
 	}
 
-	block := atomic.LoadUint64(&set[0])
-	var i uint
-	for i = 0; i < 64; i++ {
-		if block&(1<<i) != 0 {
-			result = append(result, Mode(minMode+i))
+	var i Mode
+	for i = minMode; i <= maxMode; i++ {
+		if set.HasMode(i) {
+			result = append(result, i)
 		}
 	}
 	return
