@@ -11,7 +11,7 @@ import (
 )
 
 // Set holds a set of enabled capabilities.
-type Set [bitsetLen]uint64
+type Set [bitsetLen]uint32
 
 // NewSet returns a new Set, with the given capabilities enabled.
 func NewSet(capabs ...Capability) *Set {

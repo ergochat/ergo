@@ -77,6 +77,16 @@ func TestSetMode(t *testing.T) {
 	}
 }
 
+func TestModeString(t *testing.T) {
+	set := NewModeSet()
+	set.SetMode('A', true)
+	set.SetMode('z', true)
+
+	if modeString := set.String(); !(modeString == "Az" || modeString == "Za") {
+		t.Errorf("unexpected modestring: %s", modeString)
+	}
+}
+
 func TestNilReceivers(t *testing.T) {
 	set := NewModeSet()
 	set = nil
@@ -111,5 +121,18 @@ func TestHighestChannelUserMode(t *testing.T) {
 	set = nil
 	if set.HighestChannelUserMode() != Mode(0) {
 		t.Errorf("nil modeset should have the zero mode as highest channel-user mode")
+	}
+}
+
+func BenchmarkModeString(b *testing.B) {
+	set := NewModeSet()
+	set.SetMode('A', true)
+	set.SetMode('N', true)
+	set.SetMode('b', true)
+	set.SetMode('i', true)
+	set.SetMode('x', true)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = set.String()
 	}
 }

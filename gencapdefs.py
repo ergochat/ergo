@@ -204,8 +204,8 @@ package caps
 
 
     numCapabs = len(CAPDEFS)
-    bitsetLen = numCapabs // 64
-    if numCapabs % 64 > 0:
+    bitsetLen = numCapabs // 32
+    if numCapabs % 32 > 0:
         bitsetLen += 1
     print ("""
 const (
