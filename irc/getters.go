@@ -97,14 +97,8 @@ func (client *Client) AddSession(session *Session) (success bool) {
 	defer client.stateMutex.Unlock()
 
 	// client may be dying and ineligible to receive another session
-	switch client.brbTimer.state {
-	case BrbDisabled:
-		if len(client.sessions) == 0 {
-			return false
-		}
-	case BrbDead:
+	if client.destroyed {
 		return false
-		// default: BrbEnabled or BrbSticky, proceed
 	}
 	// success, attach the new session to the client
 	session.client = client
