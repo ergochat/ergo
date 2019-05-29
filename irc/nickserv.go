@@ -598,7 +598,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	certfp := client.certfp
 	if passphrase == "*" {
 		if certfp == "" {
-			nsNotice(rb, client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
+			nsNotice(rb, client.t("You must be connected with TLS and a client certificate to do this"))
 			return
 		} else {
 			passphrase = ""
