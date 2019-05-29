@@ -120,11 +120,12 @@ APPROVE approves a user's vhost request.`,
 
 REJECT rejects a user's vhost request, optionally giving them a reason
 for the rejection.`,
-			helpShort: `$bREJECT$b rejects a user's vhost request.`,
-			capabs:    []string{"vhosts"},
-			enabled:   hostservEnabled,
-			minParams: 1,
-			maxParams: 2,
+			helpShort:         `$bREJECT$b rejects a user's vhost request.`,
+			capabs:            []string{"vhosts"},
+			enabled:           hostservEnabled,
+			minParams:         1,
+			maxParams:         2,
+			unsplitFinalParam: true,
 		},
 	}
 )

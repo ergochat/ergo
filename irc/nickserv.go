@@ -110,16 +110,17 @@ INFO gives you information about the given (or your own) user account.`,
 			handler: nsRegisterHandler,
 			// TODO: "email" is an oversimplification here; it's actually any callback, e.g.,
 			// person@example.com, mailto:person@example.com, tel:16505551234.
-			help: `Syntax: $bREGISTER <username> <email> [password]$b
+			help: `Syntax: $bREGISTER <password> [email]$b
 
-REGISTER lets you register a user account. If the server allows anonymous
-registration, you can send an asterisk (*) as the email address.
+REGISTER lets you register your current nickname as a user account. If the
+server allows anonymous registration, you can omit the e-mail address.
 
-If the password is left out, your account will be registered to your TLS client
-certificate (and you will need to use that certificate to login in future).`,
+If you are currently logged in with a TLS client certificate and wish to use
+it instead of a password to log in, send * as the password.`,
 			helpShort: `$bREGISTER$b lets you register a user account.`,
 			enabled:   servCmdRequiresAccreg,
-			minParams: 2,
+			minParams: 1,
+			maxParams: 2,
 		},
 		"sadrop": {
 			handler: nsDropHandler,
@@ -586,33 +587,31 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 }
 
 func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	// get params
-	account, email := params[0], params[1]
-	var passphrase string
-	if len(params) > 2 {
-		passphrase = params[2]
+	details := client.Details()
+	account := details.nick
+	passphrase := params[0]
+	var email string
+	if 1 < len(params) {
+		email = params[1]
 	}
 
 	certfp := client.certfp
-	if passphrase == "" && certfp == "" {
-		nsNotice(rb, client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
-		return
+	if passphrase == "*" {
+		if certfp == "" {
+			nsNotice(rb, client.t("You need to either supply a passphrase or be connected via TLS with a client cert"))
+			return
+		} else {
+			passphrase = ""
+		}
 	}
 
-	if client.LoggedIntoAccount() {
+	if details.account != "" {
 		nsNotice(rb, client.t("You're already logged into an account"))
 		return
 	}
 
 	if !nsLoginThrottleCheck(client, rb) {
 		return
-	}
-
-	// band-aid to let users know if they mix up the order of registration params
-	if email == "*" {
-		nsNotice(rb, client.t("Registering your account with no email address"))
-	} else {
-		nsNotice(rb, fmt.Sprintf(client.t("Registering your account with email address %s"), email))
 	}
 
 	config := server.AccountConfig()
@@ -630,7 +629,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		callbackNamespace = "*"
 	} else {
 		callbackNamespace, callbackValue = parseCallback(email, config)
-		if callbackNamespace == "" {
+		if callbackNamespace == "" || callbackValue == "" {
 			nsNotice(rb, client.t("Registration requires a valid e-mail address"))
 			return
 		}

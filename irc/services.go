@@ -26,17 +26,18 @@ type ircService struct {
 
 // defines a command associated with a service, e.g., NICKSERV IDENTIFY
 type serviceCommand struct {
-	aliasOf      string   // marks this command as an alias of another
-	capabs       []string // oper capabs the given user has to have to access this command
-	handler      func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
-	help         string
-	helpStrings  []string
-	helpShort    string
-	authRequired bool
-	hidden       bool
-	enabled      func(*Config) bool // is this command enabled in the server config?
-	minParams    int
-	maxParams    int // split into at most n params, with last param containing remaining unsplit text
+	aliasOf           string   // marks this command as an alias of another
+	capabs            []string // oper capabs the given user has to have to access this command
+	handler           func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
+	help              string
+	helpStrings       []string
+	helpShort         string
+	enabled           func(*Config) bool // is this command enabled in the server config?
+	authRequired      bool
+	hidden            bool
+	minParams         int
+	maxParams         int  // optional, if set it's an error if the user passes more than this many params
+	unsplitFinalParam bool // split into at most maxParams, with last param containing unsplit text
 }
 
 // looks up a command in the table of command definitions for a service, resolving aliases
@@ -109,7 +110,7 @@ func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 	params := msg.Params[1:]
 	cmd := lookupServiceCommand(service.Commands, commandName)
 	// for a maxParams command, join all final parameters together if necessary
-	if cmd != nil && cmd.maxParams != 0 && cmd.maxParams < len(params) {
+	if cmd != nil && cmd.unsplitFinalParam && cmd.maxParams < len(params) {
 		newParams := make([]string, cmd.maxParams)
 		copy(newParams, params[:cmd.maxParams-1])
 		newParams[cmd.maxParams-1] = strings.Join(params[cmd.maxParams-1:], " ")
@@ -130,7 +131,7 @@ func servicePrivmsgHandler(service *ircService, server *Server, client *Client, 
 	commandName := strings.ToLower(params[0])
 	cmd := lookupServiceCommand(service.Commands, commandName)
 	// reparse if needed
-	if cmd != nil && cmd.maxParams != 0 {
+	if cmd != nil && cmd.unsplitFinalParam {
 		params = utils.FieldsN(message, cmd.maxParams+1)[1:]
 	} else {
 		params = params[1:]
@@ -150,7 +151,7 @@ func serviceRunCommand(service *ircService, server *Server, client *Client, cmd 
 		return
 	}
 
-	if len(params) < cmd.minParams {
+	if len(params) < cmd.minParams || (0 < cmd.maxParams && cmd.maxParams < len(params)) {
 		sendNotice(fmt.Sprintf(client.t("Invalid parameters. For usage, do /msg %[1]s HELP %[2]s"), service.Name, strings.ToUpper(commandName)))
 		return
 	}
@@ -276,6 +277,10 @@ func initializeServices() {
 				if (commandInfo.help == "" && commandInfo.helpStrings == nil) || commandInfo.helpShort == "" {
 					log.Fatal(fmt.Sprintf("help entry missing for %s command %s", serviceName, commandName))
 				}
+			}
+
+			if commandInfo.maxParams == 0 && commandInfo.unsplitFinalParam {
+				log.Fatal("unsplitFinalParam requires use of maxParams")
 			}
 		}
 	}

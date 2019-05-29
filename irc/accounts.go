@@ -397,6 +397,10 @@ func validatePassphrase(passphrase string) error {
 	if len(passphrase) == 0 || len(passphrase) > 600 {
 		return errAccountBadPassphrase
 	}
+	// we use * as a placeholder in some places, if it's gotten this far then fail
+	if passphrase == "*" {
+		return errAccountBadPassphrase
+	}
 	// for now, just enforce that spaces are not allowed
 	for _, r := range passphrase {
 		if unicode.IsSpace(r) {
