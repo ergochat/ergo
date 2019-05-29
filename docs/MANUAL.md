@@ -129,17 +129,17 @@ In this section, we'll explain and go through using various features of the Orag
 
 In most IRC servers you can use `NickServ` to register an account. You can do the same thing with Oragono, by default, with no other software needed!
 
-These are the two ways you can register an account:
+These are the two ways you can register an account, either one will work:
 
-    /QUOTE ACC REGISTER <username> * passphrase :<password>
-    /NS REGISTER <username> * <password>
+    /QUOTE ACC REGISTER <username> * passphrase <password>
+    /NS REGISTER <password>
 
-This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively (make sure the leave that one `:` before your actual password!).
+This is the way to go if you want to use a regular password. `<username>` and `<password>` are your username and password, respectively; if you go the `/NS REGISTER` route, then your current nickname will become your username. Your password cannot contain spaces, but make sure to use a strong one anyway.
+
+If you want to use a TLS client certificate instead of a password to authenticate (`SASL EXTERNAL`), then you can use the commands below to do so. (If you're not sure what this is, don't worry – just use the above password method to register an account.)
 
     /QUOTE ACC REGISTER <username> * certfp *
-    /NS REGISTER <username>
-
-If you want to use a TLS client certificate to authenticate (`SASL CERTFP`), then you can use the above method to do so. If you're not sure what this is, don't worry – just use the above password method to register an account.
+    /NS REGISTER *
 
 Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
 
