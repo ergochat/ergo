@@ -8,6 +8,7 @@
   "AMBIANCE <target> <text to be sent>\n\nThe AMBIANCE command is used to send a scene notification to the given target.": "",
   "AUTHENTICATE\n\nUsed during SASL authentication. See the IRCv3 specs for more info:\nhttp://ircv3.net/specs/extensions/sasl-3.1.html": "",
   "AWAY [message]\n\nIf [message] is sent, marks you away. If [message] is not sent, marks you no\nlonger away.": "",
+  "BRB [message]\n\nDisconnects you from the server, while instructing the server to keep you\npresent for a short time window. During this window, you can either resume\nor reattach to your nickname. If [message] is sent, it is used as your away\nmessage (and as your quit message if you don't return in time).": "",
   "CAP <subcommand> [:<capabilities>]\n\nUsed in capability negotiation. See the IRCv3 specs for more info:\nhttp://ircv3.net/specs/core/capability-negotiation-3.1.html\nhttp://ircv3.net/specs/core/capability-negotiation-3.2.html": "",
   "CHANSERV <subcommand> [params]\n\nChanServ controls channel registrations.": "",
   "CHATHISTORY [params]\n\nCHATHISTORY is an experimental history replay command. See these documents:\nhttps://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md\nhttps://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d": "CHATHISTORY [parametri]\n\nComanda CHATHISTORY este un desfășurător experimental pentru istoric. Vezi aceste documente:\nhttps://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md\nhttps://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d",
@@ -66,5 +67,6 @@
   "WEBIRC <password> <gateway> <hostname> <ip> [:<flags>]\n\nUsed by web<->IRC gateways and bouncers, the WEBIRC command allows gateways to\npass-through the real IP addresses of clients:\nircv3.net/specs/extensions/webirc.html\n\n<flags> is a list of space-separated strings indicating various details about\nthe connection from the client to the gateway, such as:\n\n- tls: this flag indicates that the client->gateway connection is secure": "",
   "WHO <name> [o]\n\nReturns information for the given user.": "",
   "WHOIS <client>{,<client>}\n\nReturns information for the given user(s).": "",
-  "WHOWAS <nickname>\n\nReturns historical information on the last user with the given nickname.": "WHOWAS <pseudonim>\n\nAfișează informații despre istoricul ultimului utilizator cu pseudonimul cerut."
+  "WHOWAS <nickname>\n\nReturns historical information on the last user with the given nickname.": "WHOWAS <pseudonim>\n\nAfișează informații despre istoricul ultimului utilizator cu pseudonimul cerut.",
+  "ZNC <module> [params]\n\nUsed to emulate features of the ZNC bouncer. This command is not intended\nfor direct use by end users.": ""
 }
