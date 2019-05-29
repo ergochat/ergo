@@ -580,14 +580,14 @@ func (session *Session) playResume() {
 
 	timestamp := session.resumeDetails.Timestamp
 	gap := lastDiscarded.Sub(timestamp)
-	session.resumeDetails.HistoryIncomplete = gap > 0
+	session.resumeDetails.HistoryIncomplete = gap > 0 || timestamp.IsZero()
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
 
 	details := client.Details()
 	oldNickmask := details.nickMask
 	client.SetRawHostname(session.rawHostname)
 	hostname := client.Hostname() // may be a vhost
-	timestampString := session.resumeDetails.Timestamp.Format(IRCv3TimestampFormat)
+	timestampString := timestamp.Format(IRCv3TimestampFormat)
 
 	// send quit/resume messages to friends
 	for friend := range friends {
@@ -596,23 +596,29 @@ func (session *Session) playResume() {
 		}
 		for _, fSession := range friend.Sessions() {
 			if fSession.capabilities.Has(caps.Resume) {
-				if session.resumeDetails.HistoryIncomplete {
+				if !session.resumeDetails.HistoryIncomplete {
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname, "ok")
+				} else if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
 					fSession.Send(nil, oldNickmask, "RESUMED", hostname, timestampString)
 				} else {
 					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
 				}
 			} else {
-				if session.resumeDetails.HistoryIncomplete {
-					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of history lost)"), gapSeconds))
-				} else {
+				if !session.resumeDetails.HistoryIncomplete {
 					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
+				} else if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of message history lost)"), gapSeconds))
+				} else {
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (message history may have been lost)")))
 				}
 			}
 		}
 	}
 
-	if session.resumeDetails.HistoryIncomplete {
+	if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
 		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+	} else {
+		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Resume may have lost some message history"))
 	}
 
 	session.Send(nil, client.server.name, "RESUME", "SUCCESS", details.nick)

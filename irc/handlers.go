@@ -2359,24 +2359,27 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return false
 }
 
-// RESUME <token> <timestamp>
+// RESUME <token> [timestamp]
 func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	details := ResumeDetails{
+		PresentedToken: msg.Params[0],
+	}
+
 	if client.registered {
 		rb.Add(nil, server.name, "FAIL", "RESUME", "REGISTRATION_IS_COMPLETED", client.t("Cannot resume connection, connection registration has already been completed"))
 		return false
 	}
 
-	ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[1])
-	if err != nil {
-		rb.Add(nil, server.name, "FAIL", "RESUME", "INVALID_TIMESTAMP", client.t("Cannot resume connection, timestamp is not valid"))
-		return false
+	if 1 < len(msg.Params) {
+		ts, err := time.Parse(IRCv3TimestampFormat, msg.Params[1])
+		if err == nil {
+			details.Timestamp = ts
+		} else {
+			rb.Add(nil, server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it"))
+		}
 	}
 
-	rb.session.resumeDetails = &ResumeDetails{
-		PresentedToken: msg.Params[0],
-		Timestamp:      ts,
-	}
-
+	rb.session.resumeDetails = &details
 	return false
 }
 
