@@ -1954,17 +1954,20 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	// TODO: in a post-federation world, process `target` (server to forward request to)
 
 	if len(channels) == 0 {
-		for _, channel := range server.channels.Channels() {
-			channel.Names(client, rb)
-		}
+		rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), "*", client.t("End of NAMES list"))
 		return false
 	}
 
 	for _, chname := range channels {
+		success := false
 		channel := server.channels.Get(chname)
 		if channel != nil {
-			channel.Names(client, rb)
-		} else if chname != "" {
+			if !channel.flags.HasMode(modes.Secret) || channel.hasClient(client) || client.HasMode(modes.Operator) {
+				channel.Names(client, rb)
+				success = true
+			}
+		}
+		if !success { // channel.Names() sends this numeric itself on success
 			rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
 		}
 	}

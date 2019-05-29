@@ -476,7 +476,7 @@ To unset this mode:
 
 ### +s - Secret
 
-If this mode is set, it means that your channel should be marked as 'secret'. Your channel won't show up in `/LIST` or `/WHOIS`.
+If this mode is set, it means that your channel should be marked as 'secret'. Your channel won't show up in `/LIST` or `/WHOIS`, and non-members won't be able to see its members with `/NAMES` or `/WHO`.
 
 To set this mode:
 
