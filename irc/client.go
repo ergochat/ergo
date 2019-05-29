@@ -579,9 +579,6 @@ func (session *Session) playResume() {
 	}
 
 	timestamp := session.resumeDetails.Timestamp
-	if timestamp.IsZero() {
-		timestamp = session.client.ctime
-	}
 	gap := lastDiscarded.Sub(timestamp)
 	session.resumeDetails.HistoryIncomplete = gap > 0
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion

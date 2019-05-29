@@ -113,7 +113,7 @@ CAPDEFS = [
     ),
     CapDef(
         identifier="Resume",
-        name="draft/resume-0.4",
+        name="draft/resume-0.5",
         url="https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md",
         standard="proposed IRCv3",
     ),
