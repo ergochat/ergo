@@ -590,7 +590,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			rb.Add(nil, server.name, "CAP", details.nick, "NAK", capString)
 			return false
 		} else if toAdd.Has(caps.Nope) && !client.registered {
-			client.Quit(client.t("Requesting the oragono.io/nope CAP is forbidden"), rb.session)
+			client.Quit(fmt.Sprintf(client.t("Requesting the %s client capability is forbidden"), caps.Nope.Name()), rb.session)
 			return true
 		}
 

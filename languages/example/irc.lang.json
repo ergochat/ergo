@@ -158,7 +158,7 @@
   "Remote servers not yet supported": "Remote servers not yet supported",
   "Removed D-Line for %s": "Removed D-Line for %s",
   "Removed K-Line for %s": "Removed K-Line for %s",
-  "Requesting the oragono.io/nope CAP is forbidden": "Requesting the oragono.io/nope CAP is forbidden",
+  "Requesting the %s client capability is forbidden": "Requesting the %s client capability is forbidden",
   "Resume may have lost up to %d seconds of history": "Resume may have lost up to %d seconds of history",
   "SASL authentication aborted": "SASL authentication aborted",
   "SASL authentication failed": "SASL authentication failed",
