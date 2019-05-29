@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
                     matches = re.findall(r'\`([^\`]+)\`', content)
                     for match in matches:
-                        if '\n' in match and match not in help_strings:
+                        if match not in help_strings:
                             help_strings.append(match)
 
         print("nickserv help strings:", len(help_strings))
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
                     matches = re.findall(r'\`([^\`]+)\`', content)
                     for match in matches:
-                        if '\n' in match and match not in help_strings:
+                        if match not in help_strings:
                             help_strings.append(match)
 
         print("chanserv help strings:", len(help_strings))
@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
                     matches = re.findall(r'\`([^\`]+)\`', content)
                     for match in matches:
-                        if '\n' in match and match not in help_strings:
+                        if match not in help_strings:
                             help_strings.append(match)
 
         print("hostserv help strings:", len(help_strings))
