@@ -39,6 +39,4 @@
   "Syntax: $bUNREGISTER <username> [code]$b\n\nUNREGISTER lets you delete your user account (or someone else's, if you're an\nIRC operator with the correct permissions). To prevent accidental\nunregistrations, a verification code is required; invoking the command without\na code will display the necessary code.": "Syntax: $bUNREGISTER <username> [code]$b\n\nUNREGISTER lets you delete your user account (or someone else's, if you're an\nIRC operator with the correct permissions). To prevent accidental\nunregistrations, a verification code is required; invoking the command without\na code will display the necessary code.",
   "Syntax: $bVERIFY <username> <code>$b\n\nVERIFY lets you complete an account registration, if the server requires email\nor other verification.": "Syntax: $bVERIFY <username> <code>$b\n\nVERIFY lets you complete an account registration, if the server requires email\nor other verification.",
   "This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.": "This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.",
-  "nickserv": "nickserv",
-  "none": "none"
 }
