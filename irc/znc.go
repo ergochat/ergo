@@ -73,8 +73,21 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 
 	var targets map[string]bool
 
-	// OK: the user's PMs get played back immediately on receiving this,
-	// then we save the timestamps in the session to handle replay on future channel joins
+	// three cases:
+	// 1. the user's PMs get played back immediately upon receiving this
+	// 2. if this is a new connection (from the server's POV), save the information
+	// and use it to process subsequent joins
+	// 3. if this is a reattach (from the server's POV), immediately play back
+	// history for channels that the client is already joined to. In this scenario,
+	// there are three total attempts to play the history:
+	//     3.1. During the initial reattach (no-op because the *playback privmsg
+	//          hasn't been received yet, but they negotiated the znc.in/playback
+	//          cap so we know we're going to receive it later)
+	//     3.2  Upon receiving the *playback privmsg, i.e., now: we should play
+	//          the relevant history lines
+	//     3.3  When the client sends a subsequent redundant JOIN line for those
+	//          channels; redundant JOIN is a complete no-op so we won't replay twice
+
 	config := client.server.Config()
 	if params[1] == "*" {
 		items, _ := client.history.Between(after, before, false, config.History.ChathistoryMax)
@@ -94,5 +107,10 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 		after:   after,
 		before:  before,
 		targets: targets,
+	}
+
+	for _, channel := range client.Channels() {
+		channel.autoReplayHistory(client, rb, "")
+		rb.Flush(true)
 	}
 }
