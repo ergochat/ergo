@@ -1953,20 +1953,27 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	// TODO: in a post-federation world, process `target` (server to forward request to)
 
+	// implement the modern behavior: https://modern.ircdocs.horse/#names-message
+	// "Servers MAY only return information about the first <channel> and silently ignore the others."
+	// "If no parameter is given for this command, servers SHOULD return one RPL_ENDOFNAMES numeric
+	//  with the <channel> parameter set to an asterix character"
+
 	if len(channels) == 0 {
-		for _, channel := range server.channels.Channels() {
-			channel.Names(client, rb)
-		}
+		rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), "*", client.t("End of NAMES list"))
 		return false
 	}
 
-	for _, chname := range channels {
-		channel := server.channels.Get(chname)
-		if channel != nil {
+	chname := channels[0]
+	success := false
+	channel := server.channels.Get(chname)
+	if channel != nil {
+		if !channel.flags.HasMode(modes.Secret) || channel.hasClient(client) || client.HasMode(modes.Operator) {
 			channel.Names(client, rb)
-		} else if chname != "" {
-			rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
+			success = true
 		}
+	}
+	if !success { // channel.Names() sends this numeric itself on success
+		rb.Add(nil, server.name, RPL_ENDOFNAMES, client.Nick(), chname, client.t("End of NAMES list"))
 	}
 	return false
 }
