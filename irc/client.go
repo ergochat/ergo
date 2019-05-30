@@ -985,7 +985,9 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	// should we destroy the whole client this time?
-	shouldDestroy := !client.destroyed && remainingSessions == 0 && (brbState != BrbEnabled && brbState != BrbSticky)
+	// BRB is not respected if this is a destroy of the whole client (i.e., session == nil)
+	brbEligible := session != nil && (brbState == BrbEnabled || brbState == BrbSticky)
+	shouldDestroy := !client.destroyed && remainingSessions == 0 && !brbEligible
 	if shouldDestroy {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
