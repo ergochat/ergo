@@ -65,19 +65,30 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 		return errNoSuchChannel
 	}
 
-	cm.Lock()
-	entry := cm.chans[casefoldedName]
-	if entry == nil {
-		registered := cm.registeredChannels[casefoldedName]
-		entry = &channelManagerEntry{
-			channel:      NewChannel(server, name, registered),
-			pendingJoins: 0,
+	channel := func() *Channel {
+		cm.Lock()
+		defer cm.Unlock()
+
+		entry := cm.chans[casefoldedName]
+		if entry == nil {
+			registered := cm.registeredChannels[casefoldedName]
+			// enforce OpOnlyCreation
+			if !registered && server.Config().Channels.OpOnlyCreation && !client.HasRoleCapabs("chanreg") {
+				return nil
+			}
+			entry = &channelManagerEntry{
+				channel:      NewChannel(server, name, registered),
+				pendingJoins: 0,
+			}
+			cm.chans[casefoldedName] = entry
 		}
-		cm.chans[casefoldedName] = entry
+		entry.pendingJoins += 1
+		return entry.channel
+	}()
+
+	if channel == nil {
+		return errNoSuchChannel
 	}
-	entry.pendingJoins += 1
-	channel := entry.channel
-	cm.Unlock()
 
 	channel.EnsureLoaded()
 	channel.Join(client, key, isSajoin, rb)

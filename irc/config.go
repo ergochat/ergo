@@ -320,7 +320,8 @@ type Config struct {
 	Channels struct {
 		DefaultModes         *string `yaml:"default-modes"`
 		defaultModes         modes.Modes
-		MaxChannelsPerClient int `yaml:"max-channels-per-client"`
+		MaxChannelsPerClient int  `yaml:"max-channels-per-client"`
+		OpOnlyCreation       bool `yaml:"operator-only-creation"`
 		Registration         ChannelRegistrationConfig
 	}
 
