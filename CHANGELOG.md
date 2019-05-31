@@ -9,6 +9,7 @@ We have a number of exciting improvements in 1.1.0:
 Highlights include:
 
 * Support for attaching multiple clients to the same nickname
+* Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications
 * Support for running Oragono as a Tor hidden service
 * Support for IP cloaking
 * Simplified commands for registering new accounts with NickServ
