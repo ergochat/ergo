@@ -189,7 +189,7 @@ To enable this mode, set the following configs:
 The following additional configs may be of interest:
 
 * `accounts.nick-reservation.method = strict` ; we currently recommend strict nickname enforcement as the default, since we've found that it's less disruptive than timeout-based enforcement in real-world settings
-* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into timeout-based enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help enforce`.
+* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into timeout-based enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help set`.
 
 ### SASL-only mode
 
