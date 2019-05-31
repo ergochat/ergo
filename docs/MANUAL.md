@@ -131,6 +131,20 @@ If you're using Arch, the abovementioned AUR package bundles a systemd file for 
 On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP.
 
 
+## Upgrading to a new version of Oragono
+
+As long as you are using official releases or release candidates of Oragono, any backwards-incompatible changes should be described in the changelog.
+
+The database has schema versioning; upgrades that involve incompatible changes to the database require schema changes. If you have `datastore.autoupgrade` enabled in your config, any schema changes will be automatically applied the first time you restart your server on the new version. Otherwise, you can apply upgrades manually:
+
+1. Stop your server
+1. Make a backup of your database file
+1. Run `oragono upgradedb` (from the same working directory and with the same arguments that you would use when running `oragono run`)
+1. Start the server again
+
+If you want to run our master branch as opposed to our releases, come find us in #oragono and we can guide you around any potential pitfalls.
+
+
 --------------------------------------------------------------------------------------------
 
 

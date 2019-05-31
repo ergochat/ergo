@@ -4,15 +4,15 @@ All notable changes to Oragono will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
 ## [1.1.0-rc1] - 2019-06-03
-We have a number of exciting improvements in 1.1.0:
-
-Highlights include:
+We have a number of exciting improvements in 1.1.0. Highlights include:
 
 * Support for attaching multiple clients to the same nickname
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications
 * Support for running Oragono as a Tor hidden service
 * Support for IP cloaking
 * Simplified commands for registering new accounts with NickServ
+
+This release includes a schema change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied on first restart; otherwise, you can apply it manually as described in the manual.
 
 ### Config changes
 * `tor-listeners` section added, for configuring listeners for use by Tor
