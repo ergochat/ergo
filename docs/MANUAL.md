@@ -18,6 +18,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 
 - Introduction
     - Project Basics
+    - Scalability
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
@@ -26,6 +27,8 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
         - Nickname reservation
     - Channel Registration
     - Language
+    - Bouncer
+    - History
     - IP cloaking
 - Frequently Asked Questions
 - Modes
@@ -53,7 +56,7 @@ If you have any suggestions, issues or questions, feel free to submit an issue o
 
 Let's go over some basics, for those new to Oragono. My name's Daniel, and I started the project (it was forked off a server called [Ergonomadic](https://github.com/edmund-huber/ergonomadic) that'd been around for a number of years). In addition to Oragono, I also do a lot of IRC specification work with the [various](https://modern.ircdocs.horse) [ircdocs](https://defs.ircdocs.horse) [projects](https://ircdocs.horse/specs/) and with the [IRCv3 Working Group](https://ircv3.net/).
 
-Oragono's a new IRC server, written from scratch. My main goals when starting the project was to write a server that:
+My main goals when starting the project were to write a server that:
 
 - Is fully-functional.
 - I can use to very easily prototype new [IRCv3](https://ircv3.net/) proposals and features.
@@ -68,6 +71,17 @@ Some of the features that sets Oragono apart from other servers are:
 - Integrated user account and channel registration system (no services required!).
 - Native Unicode support (including appropriate casemapping).
 - Support for [multiple languages](https://crowdin.com/project/oragono).
+- Bouncer-like features, including allowing multiple clients to use the same nickname
+
+Oragono has multiple "production" deployments (that is to say, communities using it as a day-to-day chat server) and is fairly mature --- we encourage you to consider it for your community!
+
+## Scalability
+
+We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out".
+
+In the relatively near term, work is planned to make Oragono [highly available](https://github.com/oragono/oragono/issues/343), and in the long term, we hope to support [federation](https://github.com/oragono/oragono/issues/26) as well.
+
+If you're interested in deploying Oragono at scale, or want performance tuning advice, come find us via the abovementioned support channels: we're very interested in what our software can do!
 
 
 --------------------------------------------------------------------------------------------
@@ -241,6 +255,28 @@ To change to a specific language, you can use the `LANGUAGE` command like this:
 The above will change the server language to Romanian, with a fallback to Chinese. English will always be the final fallback, if there's a line that is not translated. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
 
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
+
+
+## Bouncer
+
+Traditionally, every separate client connection to IRC has a separate identity and must use a separate nickname. Middleware programs called [bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by multiplexing a single connection to an underlying server across multiple clients. With Oragono, if the server is configured to allow it, a new client connection can share a nickname with an old one directly, without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then request the same nickname during the initial handshake ("registration") --- once you have already logged into the server, you cannot subsequently change to a shared nickname.
+
+To enable this functionality as a server administrator, set `accounts.bouncer.enabled` to `true`. You may also want to set `accounts.bouncer.allowed-by-default` to `true`, which makes the behavior opt-out for end users instead of opt-in. End users can opt in or out using `NS SET BOUNCER`.
+
+We are working on a number of initiatives to improve client support for this behavior, in particular [automated history replay](https://github.com/ircv3/ircv3-specifications/pull/349).
+
+
+## History
+
+Oragono can store a limited amount of message history in memory and replay it, which is useful for covering brief disconnections from IRC. You can access this history using the `/HISTORY` command (depending on your client, you may need to use `/QUOTE history` instead), for example `/history #mychannel 100` to get the 100 latest messages.
+
+Server administrators can configure `history.autoreplay-on-join` to automatically send clients a fixed number of history lines when they join a channel. Users can use `/msg NickServ set autoreplay-lines` to opt in or out of this behavior.
+
+We are working on a number of improvements to this functionality:
+
+* We currently emulate the ZNC playback module for clients that have special ZNC support (see the "ZNC" section below)
+* [CHATHISTORY](https://github.com/ircv3/ircv3-specifications/pull/349) will be a standardized way for clients to request history lines
+* [RESUME](https://github.com/ircv3/ircv3-specifications/pull/306), which we support in draft form, automatically replays history lines to clients who return after a brief disconnection
 
 
 ## IP cloaking
@@ -646,6 +682,13 @@ Instructions on how client software should connect to an .onion address are outs
 
 1. [Hexchat](https://hexchat.github.io/) is known to support .onion addresses, once it has been configured to use a local Tor daemon as a SOCKS proxy (Settings -> Preferences -> Network Setup -> Proxy Server).
 1. Pidgin should work with [torsocks](https://trac.torproject.org/projects/tor/wiki/doc/torsocks).
+
+
+## ZNC
+
+ZNC 1.6.x has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Oragono 1.1.0 and later support a compatibility mode that enables ZNC to complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
+
+Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
 
 
 --------------------------------------------------------------------------------------------

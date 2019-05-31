@@ -3,6 +3,84 @@ All notable changes to Oragono will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/). For the purposes of versioning, we consider the "public API" to refer to the configuration files, CLI interface and database format.
 
+## [1.1.0-rc1] - 2019-06-03
+We have a number of exciting improvements in 1.1.0:
+
+Highlights include:
+
+* Support for attaching multiple clients to the same nickname
+* Support for running Oragono as a Tor hidden service
+* Support for IP cloaking
+* Simplified commands for registering new accounts with NickServ
+
+### Config changes
+* `tor-listeners` section added, for configuring listeners for use by Tor
+* `compatibility` section added for toggling compatibility behaviors for legacy clients
+* `ip-cloaking` section added for configuring cloaking
+* `bouncer` section added for configuring bouncer-like features (in particular, whether multiple clients can use the same nickname)
+* `check-ident` now has recommended value `false`
+* `nick-reservation.method` now has recommended value `strict`
+* `limits.linelen.tags` removed due to ratification of the [message-tags spec](https://ircv3.net/specs/extensions/message-tags.html), which fixes the maximum tags length at 8191 bytes
+* `registration-messages` added to limit the length of the registration sequence (i.e., handshake)
+
+### Security
+* Eliminated the possibility of using confusable Unicode characters to impersonate network services like NickServ (#519, thanks [@csmith](https://github.com/csmith)!)
+* Improved privacy properties of secret (mode `+s`) channels (#380, thanks [@csmith](https://github.com/csmith)!)
+* The `+R` (registered-only) mode now prevents unregistered clients from joining the channel, not just from speaking (#463, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Limited the total length of the registration sequence (handshake) to mitigate potential DoS attacks (#505)
+
+### Fixed
+* Fixed `/ISON` command reporting users as always being online (#479)
+* Fixed clients who negotiated CAP version 302 or higher not receiving cap-notify messages (#464)
+* More consistent handling of channel privileges, in particular halfop (#400)
+* More consistent assignment of message IDs and timestamps to messages (#388, #477, #483)
+* Client-only tags are now stored for replay (#437)
+* Fixed various error numerics with incorrect parameters (#425, thanks [@Ascrod](https://github.com/Ascrod)!)
+* Fixed bugs in how the `RENAME` command worked with legacy clients (#300, thanks [@jesopo](https://github.com/jesopo)!)
+* Fixed a bug where clients could receive tags they hadn't enabled (#434)
+* History playback is batched when applicable (#456, thanks [@transitracer](https://github.com/oragono/oragono/issues/456)!)
+* Improved display of notices from NickServ etc. in some clients (#496, thanks [@jwheare](https://github.com/jwheare))
+* Fixed nickname timer warnings not displaying correctly under some circumstances (#449, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed confusing output from `/HISTORY` when history is disabled (#429, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed confusing output from `/HOSTSERV ON` when no vhost is available (#404, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed confusing snomask from `/SANICK` command (#360, thanks [@bogdomania](https://github.com/bogdomania)!)
+
+### Added
+* Support for attaching multiple clients to the same nickname (see the manual for details) (#403)
+* Support for running Oragono as a Tor hidden service (see the manual for details) (#369)
+* Support for IP cloaking (see the manual for details) (#108)
+* Support for `znc.in/playback`, which can automate history playback on rejoin for clients that support it (#486)
+* User preference system controlling various behaviors (`/msg NickServ help set` for details) (#466)
+* Support for the [draft/event-playback](https://github.com/DanielOaks/ircv3-specifications/blob/master+event-playback/extensions/batch/history.md) spec (#457)
+* TAGMSG and NICK are now replayable (#457)
+* Added the [SETNAME](https://github.com/ircv3/ircv3-specifications/pull/361) command for changing the user's realname (#372)
+
+### Changed
+* Registering an account with NickServ is now `/msg NickServ register <password>`, which registers the current nickname as an account, matching other service frameworks (#410)
+* Added a compatibility hack to make SASL work with ZNC 1.6.x (#261)
+* Support for the ratified [message-tags](https://ircv3.net/specs/extensions/message-tags.html) spec, replacing `draft/message-tags-0.2`
+* Support for the ratified [message IDs](https://ircv3.net/specs/extensions/message-ids.html) spec, replacing `draft/msgid`
+* Support for the upgraded [oragono.io/maxline-2](https://oragono.io/maxline-2) capability (#433)
+* Support for the [draft/resume-0.5](https://github.com/ircv3/ircv3-specifications/pull/306) capability and the associated `BRB` command, replacing `draft/resume-0.3`
+* Upgraded support for the `RENAME` command to the [latest draft of the specification](https://github.com/ircv3/ircv3-specifications/pull/308)
+* Upgraded support for the `ACC` command to the [latest draft of the specification](https://github.com/DanielOaks/ircv3-specifications/blob/register-and-verify/extensions/acc-core.md) (#453, #455)
+* History buffers and replay now include private messages you sent as well as received (#487)
+* Removed the `+a` away mode (#468, thanks [@jesopo](https://github.com/jesopo) and [@jwheare](https://github.com/jwheare)!)
+* Attempting to reauthenticate with SASL while already authenticated now returns an error
+* `autoreplay-on-join` no longer attempts to replay JOIN and PART lines by default (#474, thanks [@amyspark](https://github.com/amyspark)!)
+* snomasks are no longer sent for unregistered clients
+* `WHOIS` responses no longer include the `690 RPL_WHOISLANGUAGE` numeric (#516)
+* `ISON` responses are now sent for services (#488)
+* All times are now reported in UTC (#480)
+* `NICKSERV ENFORCE` is deprecated in favor of the new `NICKSERV SET ENFORCE` (the old syntax is still available as an alias)
+
+### Internal Notes
+* Improved build scripts (#409)
+* Official builds now use Go 1.12 (#406)
+* Minor improvements to the performance of the message building and parsing code (#387)
+* Added `oragono.io/nope` capability as a way of encouraging clients to request capabilities safely (#511)
+* Fixed latent portability issues with 32-bit architectures (#527)
+
 
 ## [1.0.0] - 2019-02-24
 We've finally made it to v1.0.0! With this release, our list of need-to-haves is rounded out, and we reckon the software's ready for production use in smaller networks. slingamn and I have been working with our contributors and translators to prepare a cracker of a release. Thanks to [@csmith](https://github.com/csmith) our [Docker builds](https://hub.docker.com/r/oragono/oragono/) have been updated, with automatic rebuilds as we develop the software. Thanks to [@bogdomania](https://github.com/bogdomania) our translation workflow has been improved a lot.
