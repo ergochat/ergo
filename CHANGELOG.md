@@ -27,6 +27,7 @@ This release includes a schema change. If you have `datastore.autoupgrade` set t
 * Improved privacy properties of secret (mode `+s`) channels (#380, thanks [@csmith](https://github.com/csmith)!)
 * The `+R` (registered-only) mode now prevents unregistered clients from joining the channel, not just from speaking (#463, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Limited the total length of the registration sequence (handshake) to mitigate potential DoS attacks (#505)
+* Attempting to reauthenticate with SASL now fails with `907 ERR_SASLALREADY` (#476)
 
 ### Fixed
 * Fixed `/ISON` command reporting users as always being online (#479)
@@ -35,10 +36,11 @@ This release includes a schema change. If you have `datastore.autoupgrade` set t
 * More consistent assignment of message IDs and timestamps to messages (#388, #477, #483)
 * Client-only tags are now stored for replay (#437)
 * Fixed various error numerics with incorrect parameters (#425, thanks [@Ascrod](https://github.com/Ascrod)!)
+* Fixed STATUSMSG not adding the correct prefix to the channel when relaying the message (#467)
 * Fixed bugs in how the `RENAME` command worked with legacy clients (#300, thanks [@jesopo](https://github.com/jesopo)!)
 * Fixed a bug where clients could receive tags they hadn't enabled (#434)
 * History playback is batched when applicable (#456, thanks [@transitracer](https://github.com/oragono/oragono/issues/456)!)
-* Improved display of notices from NickServ etc. in some clients (#496, thanks [@jwheare](https://github.com/jwheare))
+* Improved display of notices from NickServ etc. in some clients (#496, thanks [@jwheare](https://github.com/jwheare)!)
 * Fixed nickname timer warnings not displaying correctly under some circumstances (#449, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed confusing output from `/HISTORY` when history is disabled (#429, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed confusing output from `/HOSTSERV ON` when no vhost is available (#404, thanks [@bogdomania](https://github.com/bogdomania)!)
@@ -65,19 +67,22 @@ This release includes a schema change. If you have `datastore.autoupgrade` set t
 * Upgraded support for the `ACC` command to the [latest draft of the specification](https://github.com/DanielOaks/ircv3-specifications/blob/register-and-verify/extensions/acc-core.md) (#453, #455)
 * History buffers and replay now include private messages you sent as well as received (#487)
 * Removed the `+a` away mode (#468, thanks [@jesopo](https://github.com/jesopo) and [@jwheare](https://github.com/jwheare)!)
-* Attempting to reauthenticate with SASL while already authenticated now returns an error
+* Forcing trailing parameters for legacy compatibility can now be disabled in config (#479)
 * `autoreplay-on-join` no longer attempts to replay JOIN and PART lines by default (#474, thanks [@amyspark](https://github.com/amyspark)!)
-* snomasks are no longer sent for unregistered clients
+* snomasks are no longer sent for unregistered clients (#362, thanks [@bogdomania](https://github.com/bogdomania)!)
 * `WHOIS` responses no longer include the `690 RPL_WHOISLANGUAGE` numeric (#516)
 * `ISON` responses are now sent for services (#488)
 * All times are now reported in UTC (#480)
 * `NICKSERV ENFORCE` is deprecated in favor of the new `NICKSERV SET ENFORCE` (the old syntax is still available as an alias)
+* The `WHO` command is now treated like `PONG` in that it doesn't count as session activity (#485)
+* The `NAMES` command now ignores parameters after the first (#534)
 
 ### Internal Notes
 * Improved build scripts (#409)
 * Official builds now use Go 1.12 (#406)
 * Minor improvements to the performance of the message building and parsing code (#387)
 * Added `oragono.io/nope` capability as a way of encouraging clients to request capabilities safely (#511)
+* Made some previously untranslatable strings translatable (#407)
 * Fixed latent portability issues with 32-bit architectures (#527)
 
 

@@ -279,6 +279,8 @@ To enable this functionality as a server administrator, set `accounts.bouncer.en
 
 We are working on a number of initiatives to improve client support for this behavior, in particular [automated history replay](https://github.com/ircv3/ircv3-specifications/pull/349).
 
+You can see a list of your active sessions and their idle times with `/msg NickServ sessions` (operators can use `/msg NickServ sessions nickname` to see another user's sessions).
+
 
 ## History
 
