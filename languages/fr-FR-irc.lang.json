@@ -198,7 +198,7 @@
   "This command has been disabled by the server administrators": "",
   "This feature has been disabled by the server administrators": "",
   "This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect.": "",
-  "This server was created %s": "Ce serveur a été crée %s",
+  "This server was created %s": "Ce serveur a été créé le %s",
   "This vhost is currently disabled, but can be enabled with /HS ON": "",
   "Timestamp is not in 2006-01-02T15:04:05.999Z format, ignoring it": "",
   "To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD": "",
