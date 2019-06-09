@@ -368,6 +368,10 @@ channels:
     # how many channels can a client be in at once?
     max-channels-per-client: 100
 
+    # if this is true, new channels can only be created by operators with the
+    # `chanreg` operator capability
+    operator-only-creation: false
+
     # channel registration - requires an account
     registration:
         # can users register new channels?
