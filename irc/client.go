@@ -162,6 +162,13 @@ func (session *Session) SetDestroyed() {
 	atomic.StoreUint32(&session.destroyed, 1)
 }
 
+// returns whether the client supports a smart history replay cap,
+// and therefore autoreplay-on-join and similar should be suppressed
+func (session *Session) HasHistoryCaps() bool {
+	// TODO the chathistory cap will go here as well
+	return session.capabilities.Has(caps.ZNCPlayback)
+}
+
 // WhoWas is the subset of client details needed to answer a WHOWAS query
 type WhoWas struct {
 	nick           string
@@ -473,6 +480,13 @@ func (client *Client) playReattachMessages(session *Session) {
 	client.server.playRegistrationBurst(session)
 	for _, channel := range session.client.Channels() {
 		channel.playJoinForSession(session)
+		// clients should receive autoreplay-on-join lines, if applicable;
+		// if they negotiated znc.in/playback or chathistory, they will receive nothing,
+		// because those caps disable autoreplay-on-join and they haven't sent the relevant
+		// *playback PRIVMSG or CHATHISTORY command yet
+		rb := NewResponseBuffer(session)
+		channel.autoReplayHistory(client, rb, "")
+		rb.Send(true)
 	}
 }
 

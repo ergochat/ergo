@@ -624,12 +624,16 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
+	channel.autoReplayHistory(client, rb, message.Msgid)
+}
+
+func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {
 	// autoreplay any messages as necessary
 	config := channel.server.Config()
 	var items []history.Item
-	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets[chcfname]) {
+	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets[channel.NameCasefolded()]) {
 		items, _ = channel.history.Between(rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before, false, config.History.ChathistoryMax)
-	} else {
+	} else if !rb.session.HasHistoryCaps() {
 		var replayLimit int
 		customReplayLimit := client.AccountSettings().AutoreplayLines
 		if customReplayLimit != nil {
@@ -648,7 +652,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// remove the client's own JOIN line from the replay
 	numItems := len(items)
 	for i := len(items) - 1; 0 <= i; i-- {
-		if items[i].Message.Msgid == message.Msgid {
+		if items[i].Message.Msgid == skipMsgid {
 			// zero'ed items will not be replayed because their `Type` field is not recognized
 			items[i] = history.Item{}
 			numItems--
