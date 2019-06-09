@@ -97,14 +97,8 @@ func (client *Client) AddSession(session *Session) (success bool) {
 	defer client.stateMutex.Unlock()
 
 	// client may be dying and ineligible to receive another session
-	switch client.brbTimer.state {
-	case BrbDisabled:
-		if len(client.sessions) == 0 {
-			return false
-		}
-	case BrbDead:
+	if client.destroyed {
 		return false
-		// default: BrbEnabled or BrbSticky, proceed
 	}
 	// success, attach the new session to the client
 	session.client = client
@@ -185,6 +179,12 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 	client.awayMessage = awayMessage
 	client.stateMutex.Unlock()
 	return
+}
+
+func (client *Client) SetExitedSnomaskSent() {
+	client.stateMutex.Lock()
+	client.exitedSnomaskSent = true
+	client.stateMutex.Unlock()
 }
 
 // uniqueIdentifiers returns the strings for which the server enforces per-client

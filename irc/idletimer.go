@@ -334,6 +334,7 @@ type BrbTimer struct {
 	client *Client
 
 	state    BrbState
+	brbAt    time.Time
 	duration time.Duration
 	timer    *time.Timer
 }
@@ -344,9 +345,7 @@ func (bt *BrbTimer) Initialize(client *Client) {
 
 // attempts to enable BRB for a client, returns whether it succeeded
 func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
-	// BRB only makes sense if a new connection can attach to the session;
-	// this can happen either via RESUME or via bouncer reattach
-	if bt.client.Account() == "" && bt.client.ResumeID() == "" {
+	if !bt.client.Registered() || bt.client.ResumeID() == "" {
 		return
 	}
 
@@ -361,6 +360,11 @@ func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
 		bt.state = BrbEnabled
 		bt.duration = duration
 		bt.resetTimeout()
+		// only track the earliest BRB, if multiple sessions are BRB'ing at once
+		// TODO(#524) this is inaccurate in case of an auto-BRB
+		if bt.brbAt.IsZero() {
+			bt.brbAt = time.Now().UTC()
+		}
 		success = true
 	case BrbSticky:
 		success = true
@@ -373,14 +377,17 @@ func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
 
 // turns off BRB for a client and stops the timer; used on resume and during
 // client teardown
-func (bt *BrbTimer) Disable() {
+func (bt *BrbTimer) Disable() (brbAt time.Time) {
 	bt.client.stateMutex.Lock()
 	defer bt.client.stateMutex.Unlock()
 
 	if bt.state == BrbEnabled {
 		bt.state = BrbDisabled
+		brbAt = bt.brbAt
+		bt.brbAt = time.Time{}
 	}
 	bt.resetTimeout()
+	return
 }
 
 func (bt *BrbTimer) resetTimeout() {

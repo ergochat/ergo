@@ -53,6 +53,7 @@ type Client struct {
 	certfp             string
 	channels           ChannelSet
 	ctime              time.Time
+	destroyed          bool
 	exitedSnomaskSent  bool
 	flags              modes.ModeSet
 	hostname           string
@@ -103,6 +104,7 @@ type Session struct {
 
 	idletimer IdleTimer
 	fakelag   Fakelag
+	destroyed uint32
 
 	quitMessage string
 
@@ -144,6 +146,20 @@ func (session *Session) SetMaxlenRest() {
 // so that Session.SendRawMessage doesn't have to acquire any Client locks
 func (session *Session) MaxlenRest() int {
 	return int(atomic.LoadUint32(&session.maxlenRest))
+}
+
+// returns whether the session was actively destroyed (for example, by ping
+// timeout or NS GHOST).
+// avoids a race condition between asynchronous idle-timing-out of sessions,
+// and a condition that allows implicit BRB on connection errors (since
+// destroy()'s socket.Close() appears to socket.Read() as a connection error)
+func (session *Session) Destroyed() bool {
+	return atomic.LoadUint32(&session.destroyed) == 1
+}
+
+// sets the timed-out flag
+func (session *Session) SetDestroyed() {
+	atomic.StoreUint32(&session.destroyed, 1)
 }
 
 // WhoWas is the subset of client details needed to answer a WHOWAS query
@@ -373,7 +389,7 @@ func (client *Client) run(session *Session) {
 		client.nickTimer.Initialize(client)
 	}
 
-	firstLine := true
+	firstLine := !isReattach
 
 	for {
 		maxlenRest := session.MaxlenRest()
@@ -386,8 +402,10 @@ func (client *Client) run(session *Session) {
 			}
 			client.Quit(quitMessage, session)
 			// since the client did not actually send us a QUIT,
-			// give them a chance to resume or reattach if applicable:
-			client.brbTimer.Enable()
+			// give them a chance to resume if applicable:
+			if !session.Destroyed() {
+				client.brbTimer.Enable()
+			}
 			break
 		}
 
@@ -396,7 +414,7 @@ func (client *Client) run(session *Session) {
 		}
 
 		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
-		if !isReattach && firstLine {
+		if firstLine {
 			firstLine = false
 			if strings.HasPrefix(line, "PROXY") {
 				err = handleProxyCommand(client.server, client, session, line)
@@ -562,14 +580,14 @@ func (session *Session) playResume() {
 
 	timestamp := session.resumeDetails.Timestamp
 	gap := lastDiscarded.Sub(timestamp)
-	session.resumeDetails.HistoryIncomplete = gap > 0
+	session.resumeDetails.HistoryIncomplete = gap > 0 || timestamp.IsZero()
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
 
 	details := client.Details()
 	oldNickmask := details.nickMask
 	client.SetRawHostname(session.rawHostname)
 	hostname := client.Hostname() // may be a vhost
-	timestampString := session.resumeDetails.Timestamp.Format(IRCv3TimestampFormat)
+	timestampString := timestamp.Format(IRCv3TimestampFormat)
 
 	// send quit/resume messages to friends
 	for friend := range friends {
@@ -578,23 +596,29 @@ func (session *Session) playResume() {
 		}
 		for _, fSession := range friend.Sessions() {
 			if fSession.capabilities.Has(caps.Resume) {
-				if timestamp.IsZero() {
-					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
-				} else {
+				if !session.resumeDetails.HistoryIncomplete {
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname, "ok")
+				} else if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
 					fSession.Send(nil, oldNickmask, "RESUMED", hostname, timestampString)
+				} else {
+					fSession.Send(nil, oldNickmask, "RESUMED", hostname)
 				}
 			} else {
-				if session.resumeDetails.HistoryIncomplete {
-					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of history lost)"), gapSeconds))
-				} else {
+				if !session.resumeDetails.HistoryIncomplete {
 					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
+				} else if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of message history lost)"), gapSeconds))
+				} else {
+					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (message history may have been lost)")))
 				}
 			}
 		}
 	}
 
-	if session.resumeDetails.HistoryIncomplete {
+	if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
 		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+	} else {
+		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Resume may have lost some message history"))
 	}
 
 	session.Send(nil, client.server.name, "RESUME", "SUCCESS", details.nick)
@@ -942,10 +966,10 @@ func (client *Client) Quit(message string, session *Session) {
 func (client *Client) destroy(session *Session) {
 	var sessionsToDestroy []*Session
 
-	// allow destroy() to execute at most once
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
 	brbState := client.brbTimer.state
+	brbAt := client.brbTimer.brbAt
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	var remainingSessions int
@@ -959,6 +983,16 @@ func (client *Client) destroy(session *Session) {
 			sessionsToDestroy = []*Session{session}
 		}
 	}
+
+	// should we destroy the whole client this time?
+	// BRB is not respected if this is a destroy of the whole client (i.e., session == nil)
+	brbEligible := session != nil && (brbState == BrbEnabled || brbState == BrbSticky)
+	shouldDestroy := !client.destroyed && remainingSessions == 0 && !brbEligible
+	if shouldDestroy {
+		// if it's our job to destroy it, don't let anyone else try
+		client.destroyed = true
+	}
+	exitedSnomaskSent := client.exitedSnomaskSent
 	client.stateMutex.Unlock()
 
 	// destroy all applicable sessions:
@@ -972,6 +1006,7 @@ func (client *Client) destroy(session *Session) {
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
 		quitMessage = session.quitMessage
+		session.SetDestroyed()
 		session.socket.Close()
 
 		// remove from connection limits
@@ -991,7 +1026,7 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	// do not destroy the client if it has either remaining sessions, or is BRB'ed
-	if remainingSessions != 0 || brbState == BrbEnabled || brbState == BrbSticky {
+	if !shouldDestroy {
 		return
 	}
 
@@ -1056,14 +1091,23 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.ChangeOperators(-1)
 	}
 
-	for friend := range friends {
-		if quitMessage == "" {
-			quitMessage = "Exited"
+	// this happens under failure to return from BRB
+	if quitMessage == "" {
+		if !brbAt.IsZero() {
+			awayMessage := client.AwayMessage()
+			if awayMessage != "" {
+				quitMessage = fmt.Sprintf("%s [%s ago]", awayMessage, time.Since(brbAt).Truncate(time.Second).String())
+			}
 		}
+	}
+	if quitMessage == "" {
+		quitMessage = "Exited"
+	}
+	for friend := range friends {
 		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	}
 
-	if !client.exitedSnomaskSent && registered {
+	if !exitedSnomaskSent && registered {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 	}
 }

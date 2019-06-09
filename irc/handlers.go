@@ -1052,7 +1052,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for _, mcl := range clientsToKill {
-			mcl.exitedSnomaskSent = true
+			mcl.SetExitedSnomaskSent()
 			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
@@ -1362,7 +1362,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	quitMsg := fmt.Sprintf("Killed (%s (%s))", client.nick, comment)
 
 	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
-	target.exitedSnomaskSent = true
+	target.SetExitedSnomaskSent()
 
 	target.Quit(quitMsg, nil)
 	target.destroy(nil)
@@ -1489,7 +1489,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for _, mcl := range clientsToKill {
-			mcl.exitedSnomaskSent = true
+			mcl.SetExitedSnomaskSent()
 			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
