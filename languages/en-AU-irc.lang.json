@@ -7,7 +7,7 @@
   "%[1]s kicked %[2]s (%[3]s)": "",
   "%[1]s left the channel (%[2]s)": "",
   "%[1]s quit (%[2]s)": "",
-  "%s joined the channel": "",
+  "%s joined the channel": "%s joined the rabble",
   "*** $bEnd of %s HELP$b ***": "",
   "*** Could not find your username": "*** We couldn't find your username, mate",
   "*** Found your username": "*** We found your username, mate",
