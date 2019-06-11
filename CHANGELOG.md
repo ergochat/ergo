@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [1.1.0-rc1] - 2019-06-03
-We have a number of exciting improvements in 1.1.0. Highlights include:
+## [1.1.0-rc1] - 2019-06-11
+We're pleased to be publishing the release candidate for 1.1.0 (the official release should follow in a week or two, with more complete credits). This version has a number of exciting improvements, including:
 
 * Support for attaching multiple clients to the same nickname
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications
