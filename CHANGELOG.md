@@ -21,6 +21,7 @@ This release includes a schema change. If you have `datastore.autoupgrade` set t
 * `nick-reservation.method` now has recommended value `strict`
 * `limits.linelen.tags` removed due to ratification of the [message-tags spec](https://ircv3.net/specs/extensions/message-tags.html), which fixes the maximum tags length at 8191 bytes
 * `registration-messages` added to limit the length of the registration sequence (i.e., handshake)
+* `channels.operator-only-creation` added to optionally restrict creation of new channels to ircops (#537)
 
 ### Security
 * Eliminated the possibility of using confusable Unicode characters to impersonate network services like NickServ (#519, thanks [@csmith](https://github.com/csmith)!)
