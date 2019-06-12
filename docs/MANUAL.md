@@ -5,10 +5,10 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         Oragono IRCd Manual 2019-02-23
+         Oragono IRCd Manual 2019-06-12
               https://oragono.io/
 
-_Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
+_Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
 
 
 --------------------------------------------------------------------------------------------
@@ -18,6 +18,7 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 
 - Introduction
     - Project Basics
+    - Scalability
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
@@ -26,6 +27,8 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
         - Nickname reservation
     - Channel Registration
     - Language
+    - Bouncer
+    - History
     - IP cloaking
 - Frequently Asked Questions
 - Modes
@@ -46,14 +49,14 @@ _Copyright © 2018 Daniel Oaks <daniel@danieloaks.net>_
 
 This document goes over the Oragono IRC server, how to get it running and how to use it once it is up and running!
 
-If you have any suggestions, issues or questions, feel free to submit an issue on our [GitHub repo](https://github.com/oragono/oragono/) or ask in our channel [`#oragono` on Freenode](ircs://irc.freenode.net:6697/#oragono).
+If you have any suggestions, issues or questions, feel free to submit an issue on our [GitHub repo](https://github.com/oragono/oragono/) or ask in our channel [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono).
 
 
 ## Project Basics
 
 Let's go over some basics, for those new to Oragono. My name's Daniel, and I started the project (it was forked off a server called [Ergonomadic](https://github.com/edmund-huber/ergonomadic) that'd been around for a number of years). In addition to Oragono, I also do a lot of IRC specification work with the [various](https://modern.ircdocs.horse) [ircdocs](https://defs.ircdocs.horse) [projects](https://ircdocs.horse/specs/) and with the [IRCv3 Working Group](https://ircv3.net/).
 
-Oragono's a new IRC server, written from scratch. My main goals when starting the project was to write a server that:
+My main goals when starting the project were to write a server that:
 
 - Is fully-functional.
 - I can use to very easily prototype new [IRCv3](https://ircv3.net/) proposals and features.
@@ -68,6 +71,17 @@ Some of the features that sets Oragono apart from other servers are:
 - Integrated user account and channel registration system (no services required!).
 - Native Unicode support (including appropriate casemapping).
 - Support for [multiple languages](https://crowdin.com/project/oragono).
+- Bouncer-like features, including allowing multiple clients to use the same nickname
+
+Oragono has multiple communities using it as a day-to-day chat server and is fairly mature --- we encourage you to consider it for your community!
+
+## Scalability
+
+We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out".
+
+In the relatively near term, we plan to make Oragono [highly available](https://github.com/oragono/oragono/issues/343), and in the long term, we hope to support [federation](https://github.com/oragono/oragono/issues/26) as well.
+
+If you're interested in deploying Oragono at scale, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
 
 
 --------------------------------------------------------------------------------------------
@@ -115,6 +129,20 @@ The recommended way to operate oragono as a service on Linux is via systemd. Thi
 If you're using Arch, the abovementioned AUR package bundles a systemd file for starting and stopping the server. If you're rolling your own deployment, here's an [example](https://github.com/darwin-network/slash/blob/master/etc/systemd/system/ircd.service) of a systemd unit file that can be used to run Oragono as an unprivileged role user.
 
 On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP.
+
+
+## Upgrading to a new version of Oragono
+
+As long as you are using official releases or release candidates of Oragono, any backwards-incompatible changes should be described in the changelog.
+
+The database is versioned; upgrades that involve incompatible changes to the database require updating the database. If you have `datastore.autoupgrade` enabled in your config, the database will be backed up and upgraded when you restart your server when required. Otherwise, you can apply upgrades manually:
+
+1. Stop your server
+1. Make a backup of your database file
+1. Run `oragono upgradedb` (from the same working directory and with the same arguments that you would use when running `oragono run`)
+1. Start the server again
+
+If you want to run our master branch as opposed to our releases, come find us in our channel and we can guide you around any potential pitfalls.
 
 
 --------------------------------------------------------------------------------------------
@@ -174,8 +202,8 @@ To enable this mode, set the following configs:
 
 The following additional configs may be of interest:
 
-* `accounts.nick-reservation.method = timeout` ; setting `strict` here effectively forces people to use SASL, and some popular clients either do not support SASL, or have bugs in their SASL implementations.
-* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into strict enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help enforce`.
+* `accounts.nick-reservation.method = strict` ; we currently recommend strict nickname enforcement as the default, since we've found that users find it less confusing.
+* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into timeout-based enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help set`.
 
 ### SASL-only mode
 
@@ -241,6 +269,28 @@ To change to a specific language, you can use the `LANGUAGE` command like this:
 The above will change the server language to Romanian, with a fallback to Chinese. English will always be the final fallback, if there's a line that is not translated. Substitute any of the other language codes in to select other languages, and run `/LANGUAGE en` to get back to standard English.
 
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
+
+
+## Bouncer
+
+Traditionally, every connection to an IRC server is separate must use a different nickname. [Bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by letting multiple clients connect to a single nickname. With Oragono, if the server is configured to allow it, multiple clients can share a single nickname without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then use the same nickname during connection registration (while connecting to the server) – once you've logged-in, you can't share another nickname.
+
+To enable this functionality, set `accounts.bouncer.enabled` to `true`. Setting `accounts.bouncer.allowed-by-default` to `true` will allow this for everyone – by default, users need to opt-in to shared connections using `/msg NickServ SET BOUNCER`.
+
+You can see a list of your active sessions and their idle times with `/msg NickServ sessions` (network operators can use `/msg NickServ sessions nickname` to see another user's sessions).
+
+
+## History
+
+Oragono can store a limited amount of message history in memory and replay it, which is useful for covering brief disconnections from IRC. You can access this using the `/HISTORY` command (depending on your client, you may need to use `/QUOTE history` instead), for example `/HISTORY #mychannel 100` to get the 100 latest messages from `#mychannel`.
+
+Server administrators can configure `history.autoreplay-on-join` to automatically send clients a fixed number of history lines when they join a channel. Users can use `/msg NickServ set autoreplay-lines` to opt in or out of this behavior.
+
+We are working on a number of improvements to this functionality:
+
+* We currently emulate the ZNC playback module for clients that have special ZNC support (see the "ZNC" section below)
+* The [`/CHATHISTORY`](https://github.com/ircv3/ircv3-specifications/pull/349) command will be a standardized way for clients to request history lines
+* [Connection resuming](https://github.com/ircv3/ircv3-specifications/pull/306), which we support in draft form, automatically replays history lines to clients who return after a brief disconnection
 
 
 ## IP cloaking
@@ -648,6 +698,13 @@ Instructions on how client software should connect to an .onion address are outs
 1. Pidgin should work with [torsocks](https://trac.torproject.org/projects/tor/wiki/doc/torsocks).
 
 
+## ZNC
+
+ZNC 1.6.x (still pretty common in distros that package old versions of IRC software) has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Oragono supports a compatibility mode that works around this to let ZNC complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
+
+Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
+
+
 --------------------------------------------------------------------------------------------
 
 
@@ -657,4 +714,4 @@ Always, thanks to Jeremy Latt for creating Ergonomadic. Thanks for Edmund Huber 
 
 Thanks to Euan Kemp (euank) for the contributions and help with this, along with other projects, and to James Mills, Vegax and Sean Enck for various other help and contributions on the server.
 
-And a massive thanks to Shivaram Lingamneni (slingamn) for being an awesome co-maintainer of Oragono! You really convinced me to step up with this and take it forward in a big way, and I'm grateful for that.
+And a massive thanks to Shivaram Lingamneni (slingamn) for being an amazing co-maintainer of Oragono! You've contributed a lot to Oragono, and really convinced me to step up with this and take the server forward in a big way. I'm grateful for everything you've done, and working with ya' is a pleasure.
