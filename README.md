@@ -22,12 +22,12 @@ Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomad
 * UTF-8 nick and channel names with rfc7613 (PRECIS)
 * [yaml](http://yaml.org/) configuration
 * native TLS/SSL support
-* on-the-fly updating server config and TLS certificates (rehashing)
-* client accounts and SASL
+* updating server config and TLS certificates on-the-fly (rehashing)
+* user accounts and SASL
 * supports [multiple languages](https://crowdin.com/project/oragono) (you can also set a default language for your network)
-* integrated services: NickServ for nickname reservation, ChanServ for channel registration, and HostServ for vhosts
+* integrated services: NickServ for user accounts, ChanServ for channel registration, and HostServ for vanity hosts
 * experimental support for bouncer-like features (storing and replaying history, allowing multiple clients to use the same nickname)
-* advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, or running as a Tor hidden service)
+* advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, and running as a Tor hidden service)
 * an extensible privilege system for IRC operators
 * ident lookups for usernames
 * automated client connection limits
