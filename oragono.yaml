@@ -562,7 +562,7 @@ limits:
 # fakelag: prevents clients from spamming commands too rapidly
 fakelag:
     # whether to enforce fakelag
-    enabled: false
+    enabled: true
 
     # time unit for counting command rates
     window: 1s

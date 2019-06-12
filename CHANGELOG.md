@@ -19,6 +19,7 @@ This release includes a schema change. If you have `datastore.autoupgrade` set t
 * `bouncer` section added for configuring bouncer-like features (in particular, whether multiple clients can use the same nickname)
 * `check-ident` now has recommended value `false`
 * `nick-reservation.method` now has recommended value `strict`
+* `fakelag.enabled` now has recommended value `true`
 * `limits.linelen.tags` removed due to ratification of the [message-tags spec](https://ircv3.net/specs/extensions/message-tags.html), which fixes the maximum tags length at 8191 bytes
 * `registration-messages` added to limit the length of the registration sequence (i.e., handshake)
 * `channels.operator-only-creation` added to optionally restrict creation of new channels to ircops (#537)
