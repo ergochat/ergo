@@ -212,16 +212,24 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	}
 
 	useLabel := rb.session.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
-	// use a batch if we have a label, and we either currently have 0 or 2+ messages,
+	// use a batch if we have a label, and we either currently have 2+ messages,
 	// or we are doing a Flush() and we have to assume that there will be more messages
 	// in the future.
-	useBatch := useLabel && (len(rb.messages) != 1 || !final)
+	startBatch := useLabel && (1 < len(rb.messages) || !final)
 
-	// if label but no batch, add label to first message
-	if useLabel && !useBatch && len(rb.messages) == 1 && rb.batchID == "" {
-		rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
-	} else if useBatch {
+	if startBatch {
 		rb.sendBatchStart(blocking)
+	} else if useLabel && len(rb.messages) == 0 && rb.batchID == "" && final {
+		// ACK message
+		message := ircmsg.MakeMessage(nil, rb.session.client.server.name, "ACK")
+		message.SetTag(caps.LabelTagName, rb.Label)
+		if rb.session.capabilities.Has(caps.ServerTime) {
+			message.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
+		}
+		rb.session.SendRawMessage(message, blocking)
+	} else if useLabel && len(rb.messages) == 1 && rb.batchID == "" && final {
+		// single labeled message
+		rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
 	}
 
 	// send each message out

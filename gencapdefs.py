@@ -77,7 +77,7 @@ CAPDEFS = [
     ),
     CapDef(
         identifier="LabeledResponse",
-        name="draft/labeled-response",
+        name="draft/labeled-response-0.2",
         url="https://ircv3.net/specs/extensions/labeled-response.html",
         standard="draft IRCv3",
     ),
