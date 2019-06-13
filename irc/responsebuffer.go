@@ -93,9 +93,7 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 		msg.SetTag("msgid", msgid)
 	}
 	// attach server-time
-	if rb.session.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
-		msg.SetTag("time", time.UTC().Format(IRCv3TimestampFormat))
-	}
+	rb.session.setTimeTag(&msg, time)
 
 	rb.AddMessage(msg)
 }
@@ -223,9 +221,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 		// ACK message
 		message := ircmsg.MakeMessage(nil, rb.session.client.server.name, "ACK")
 		message.SetTag(caps.LabelTagName, rb.Label)
-		if rb.session.capabilities.Has(caps.ServerTime) {
-			message.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
-		}
+		rb.session.setTimeTag(&message, time.Time{})
 		rb.session.SendRawMessage(message, blocking)
 	} else if useLabel && len(rb.messages) == 1 && rb.batchID == "" && final {
 		// single labeled message
@@ -235,9 +231,7 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 	// send each message out
 	for _, message := range rb.messages {
 		// attach server-time if needed
-		if rb.session.capabilities.Has(caps.ServerTime) && !message.HasTag("time") {
-			message.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
-		}
+		rb.session.setTimeTag(&message, time.Time{})
 
 		// attach batch ID, unless this message was part of a nested batch and is
 		// already tagged
