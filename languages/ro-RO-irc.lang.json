@@ -230,7 +230,7 @@
   "You have sent too many registration messages": "Ai trimis prea multe mesaje de înregistrare",
   "You have too many nicks reserved already (you can remove some with /NS DROP)": "Ai prea multe pseudonime rezervate (poți renunța la unele dintre ele cu comanda /NS DROP)",
   "You may not reregister": "Nu te poți reînregistra",
-  "You must be an oper on the channel to register it": "Trebuie să fi operator pe canal, pentru a-l putea înregistra",
+  "You must be an oper on the channel to register it": "Trebuie să fii operator pe canal, pentru a-l putea înregistra",
   "You must be connected with TLS and a client certificate to do this": "Este necesar să te conectezi cu TLS și un certificat de client pentru a putea face asta",
   "You must be registered to join that channel": "Trebuie să te înregistrezi pentru a intra pe acel canal",
   "You must connect with a TLS client certificate to use certfp": "Trebuie să te conectezi cu un certificat TLS de client pentru a putea folosi certfp",
