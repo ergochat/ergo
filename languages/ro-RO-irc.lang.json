@@ -37,7 +37,7 @@
   "An error occurred": "A intervenit o eroare",
   "Authentication successful": "Autentificare reușită",
   "Bad or unauthorized PROXY command": "Comandă PROXY defectuoasă sau neautorizată",
-  "Ban - %[1]s - added by %[2]s - %[3]s": "Ban - %[1]s - adăugat de %[2]s - %[3]s",
+  "Ban - %[1]s - added by %[2]s - %[3]s": "Interdicție - %[1]s - adăugată de %[2]s - %[3]s",
   "Bouncer functionality is currently disabled for your account": "Funcționalitatea BNC este, în prezent, dezactivată pentru contul tău",
   "Bouncer functionality is currently disabled for your account, but you can opt in": "Funcționalitatea BNC este, în prezent, dezactivată pentru contul tău, dar o poți activa",
   "Bouncer functionality is currently enabled for your account": "Funcționalitatea BNC este, în prezent, activată pentru contul tău",
