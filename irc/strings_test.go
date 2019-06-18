@@ -181,6 +181,10 @@ func TestSkeleton(t *testing.T) {
 		t.Errorf("after skeletonizing, we should casefold")
 	}
 
+	if skeleton("smｔ") != "smt" {
+		t.Errorf("our friend lover successfully tricked the skeleton algorithm!")
+	}
+
 	if skeleton("еvan") != "evan" {
 		t.Errorf("we must protect against cyrillic homoglyph attacks")
 	}

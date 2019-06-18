@@ -163,14 +163,14 @@ func isIdent(name string) bool {
 // from the original (unfolded) identifier and stored/tracked separately from the
 // casefolded identifier.
 func Skeleton(name string) (string, error) {
-	if !isBoring(name) {
-		name = confusables.Skeleton(name)
-	}
-
 	// XXX the confusables table includes some, but not all, fullwidth->standard
 	// mappings for latin characters. do a pass of explicit width folding,
 	// same as PRECIS:
 	name = width.Fold.String(name)
+
+	if !isBoring(name) {
+		name = confusables.Skeleton(name)
+	}
 
 	// internationalized lowercasing for skeletons; this is much more lenient than
 	// Casefold. In particular, skeletons are expected to mix scripts (which may
