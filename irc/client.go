@@ -193,7 +193,7 @@ func (server *Server) RunClient(conn clientConn) {
 	var isBanned bool
 	var banMsg string
 	var realIP net.IP
-	if conn.IsTor {
+	if conn.Config.IsTor {
 		realIP = utils.IPv4LoopbackAddress
 		isBanned, banMsg = server.checkTorLimits()
 	} else {
@@ -220,7 +220,7 @@ func (server *Server) RunClient(conn clientConn) {
 		atime:     now,
 		channels:  make(ChannelSet),
 		ctime:     now,
-		isTor:     conn.IsTor,
+		isTor:     conn.Config.IsTor,
 		languages: server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -246,13 +246,13 @@ func (server *Server) RunClient(conn clientConn) {
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
 
-	if conn.IsTLS {
+	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
 		client.certfp, _ = socket.CertFP()
 	}
 
-	if conn.IsTor {
+	if conn.Config.IsTor {
 		client.SetMode(modes.TLS, true)
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
