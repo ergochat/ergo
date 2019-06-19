@@ -128,18 +128,6 @@ func TestCasefoldName(t *testing.T) {
 	}
 }
 
-func TestIsBoring(t *testing.T) {
-	assertBoring := func(str string, expected bool) {
-		if isBoring(str) != expected {
-			t.Errorf("expected [%s] to have boringness [%t], but got [%t]", str, expected, !expected)
-		}
-	}
-
-	assertBoring("warning", true)
-	assertBoring("phi|ip", false)
-	assertBoring("Νικηφόρος", false)
-}
-
 func TestIsIdent(t *testing.T) {
 	assertIdent := func(str string, expected bool) {
 		if isIdent(str) != expected {

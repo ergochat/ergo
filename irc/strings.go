@@ -108,26 +108,6 @@ func CasefoldName(name string) (string, error) {
 	return lowered, err
 }
 
-// "boring" names are exempt from skeletonization.
-// this is because confusables.txt considers various pure ASCII alphanumeric
-// strings confusable: 0 and O, 1 and l, m and rn. IMO this causes more problems
-// than it solves.
-func isBoring(name string) bool {
-	for i := 0; i < len(name); i += 1 {
-		chr := name[i]
-		if (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') {
-			continue // alphanumerics
-		}
-		switch chr {
-		case '$', '%', '^', '&', '(', ')', '{', '}', '[', ']', '<', '>', '=':
-			continue // benign printable ascii characters
-		default:
-			return false // potentially confusable ascii like | ' `, non-ascii
-		}
-	}
-	return true
-}
-
 // returns true if the given name is a valid ident, using a mix of Insp and
 // Chary's ident restrictions.
 func isIdent(name string) bool {
@@ -168,9 +148,7 @@ func Skeleton(name string) (string, error) {
 	// same as PRECIS:
 	name = width.Fold.String(name)
 
-	if !isBoring(name) {
-		name = confusables.Skeleton(name)
-	}
+	name = confusables.SkeletonTweaked(name)
 
 	// internationalized lowercasing for skeletons; this is much more lenient than
 	// Casefold. In particular, skeletons are expected to mix scripts (which may

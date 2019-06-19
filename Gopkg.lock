@@ -62,11 +62,11 @@
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
-  digest = "1:7caf3ea977a13cd8b9a2e1ecef1ccaa8e38f831b4f6ffcb8bd0aa909c48afb3a"
+  digest = "1:940e48aff4b5fe62c3e6fd1245cc35271327a424b7ffbe4febfa83ff8f9c4f53"
   name = "github.com/oragono/confusables"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d5dd03409482fae2457f0742be22782890f720c2"
+  revision = "e65e89839ad43b68dbea2d3ca62f0f1c594b029a"
 
 [[projects]]
   branch = "master"
