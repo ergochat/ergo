@@ -189,6 +189,10 @@ func TestSkeleton(t *testing.T) {
 		t.Errorf("we must protect against cyrillic homoglyph attacks")
 	}
 
+	if skeleton("еmily") != skeleton("emily") {
+		t.Errorf("we must protect against cyrillic homoglyph attacks")
+	}
+
 	if skeleton("РОТАТО") != "potato" {
 		t.Errorf("we must protect against cyrillic homoglyph attacks")
 	}
