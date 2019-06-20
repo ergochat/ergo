@@ -12,7 +12,7 @@ We're pleased to be publishing the release candidate for 1.1.0 (the official rel
 
 ### Upgrade notes
 
-This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono; otherwise, you can update the database manually by running `oragono upgradedb`.
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
 
 No changes to your configuration file should be required for this upgrade; however, updating the file is necessary to enable some new functionality, as described below.
 
