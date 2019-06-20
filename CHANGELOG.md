@@ -10,16 +10,20 @@ We're pleased to be publishing the release candidate for 1.1.0 (the official rel
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications.
 * Support for running Oragono as a Tor hidden service.
 
+### Upgrade notes
+
 This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono; otherwise, you can update the database manually by running `oragono upgradedb`.
+
+No changes to your configuration file should be required for this upgrade; however, updating the file is necessary to enable some new functionality, as described below.
 
 ### Config changes
 * `tor-listeners` section added for configuring listeners for use with Tor.
 * `compatibility` section added for toggling compatibility behaviors for legacy clients.
 * `ip-cloaking` section added for configuring cloaking.
 * `bouncer` section added for configuring bouncer-like features (in particular, whether multiple clients can use the same nickname).
-* `check-ident` now defaults to `false`.
-* `nick-reservation.method` now defaults to `"strict"`.
-* `fakelag.enabled` now defaults to `true`
+* `check-ident` now has recommended value `false`.
+* `nick-reservation.method` now has recommended value "strict"`.
+* `fakelag.enabled` now has recommended value `true`.
 * `limits.linelen.tags` removed due to ratification of the [message-tags spec](https://ircv3.net/specs/extensions/message-tags.html), which fixes the maximum tags length at 8191 bytes.
 * `limits.registration-messages` added to restrict how many messages a user can send to the server during connection registration (while connecting to the server).
 * `channels.operator-only-creation` added to optionally restrict creation of new channels to ircops (#537).
