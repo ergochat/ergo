@@ -50,7 +50,7 @@
   name = "github.com/oragono/go-ident"
 
 [[constraint]]
-  revision = "e65e89839ad43b68dbea2d3ca62f0f1c594b029a"
+  revision = "7ad2fd2ae159c35dc6004add297296011e6f2755"
   name = "github.com/oragono/confusables"
 
 [[constraint]]
