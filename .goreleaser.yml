@@ -47,5 +47,6 @@ archive:
     - languages/*.yaml
     - languages/*.json
     - languages/*.md
+  wrap_in_directory: true
 checksum:
   name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
