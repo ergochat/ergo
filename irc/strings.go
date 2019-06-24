@@ -148,7 +148,7 @@ func Skeleton(name string) (string, error) {
 	// same as PRECIS:
 	name = width.Fold.String(name)
 
-	name = confusables.Skeleton(name)
+	name = confusables.SkeletonTweaked(name)
 
 	// internationalized lowercasing for skeletons; this is much more lenient than
 	// Casefold. In particular, skeletons are expected to mix scripts (which may
