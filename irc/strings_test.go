@@ -128,18 +128,6 @@ func TestCasefoldName(t *testing.T) {
 	}
 }
 
-func TestIsBoring(t *testing.T) {
-	assertBoring := func(str string, expected bool) {
-		if isBoring(str) != expected {
-			t.Errorf("expected [%s] to have boringness [%t], but got [%t]", str, expected, !expected)
-		}
-	}
-
-	assertBoring("warning", true)
-	assertBoring("phi|ip", false)
-	assertBoring("Νικηφόρος", false)
-}
-
 func TestIsIdent(t *testing.T) {
 	assertIdent := func(str string, expected bool) {
 		if isIdent(str) != expected {
@@ -165,15 +153,15 @@ func TestSkeleton(t *testing.T) {
 		return skel
 	}
 
-	if skeleton("warning") == skeleton("waming") {
-		t.Errorf("Oragono shouldn't consider rn confusable with m")
+	if skeleton("warning") != skeleton("waming") {
+		t.Errorf("i give up, Oragono should consider rn confusable with m")
 	}
 
 	if skeleton("Phi|ip") != "philip" {
 		t.Errorf("but we still consider pipe confusable with l")
 	}
 
-	if skeleton("ｓｍｔ") != "smt" {
+	if skeleton("ｓｍｔ") != skeleton("smt") {
 		t.Errorf("fullwidth characters should skeletonize to plain old ascii characters")
 	}
 
@@ -181,11 +169,15 @@ func TestSkeleton(t *testing.T) {
 		t.Errorf("after skeletonizing, we should casefold")
 	}
 
-	if skeleton("smｔ") != "smt" {
+	if skeleton("smｔ") != skeleton("smt") {
 		t.Errorf("our friend lover successfully tricked the skeleton algorithm!")
 	}
 
 	if skeleton("еvan") != "evan" {
+		t.Errorf("we must protect against cyrillic homoglyph attacks")
+	}
+
+	if skeleton("еmily") != skeleton("emily") {
 		t.Errorf("we must protect against cyrillic homoglyph attacks")
 	}
 
