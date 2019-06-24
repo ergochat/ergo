@@ -7,7 +7,7 @@ all: install
 install: deps
 	./install.sh
 
-release:
+release: deps
 	goreleaser --skip-publish --rm-dist
 
 capdefs:
