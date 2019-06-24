@@ -153,8 +153,8 @@ func TestSkeleton(t *testing.T) {
 		return skel
 	}
 
-	if skeleton("warning") != skeleton("waming") {
-		t.Errorf("i give up, Oragono should consider rn confusable with m")
+	if skeleton("warning") == skeleton("waming") {
+		t.Errorf("Oragono shouldn't consider rn confusable with m")
 	}
 
 	if skeleton("Phi|ip") != "philip" {
@@ -165,7 +165,7 @@ func TestSkeleton(t *testing.T) {
 		t.Errorf("fullwidth characters should skeletonize to plain old ascii characters")
 	}
 
-	if skeleton("ＳＭＴ") != "smt" {
+	if skeleton("ＳＭＴ") != skeleton("smt") {
 		t.Errorf("after skeletonizing, we should casefold")
 	}
 
