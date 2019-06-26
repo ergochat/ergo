@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [1.1.0-rc1] - 2019-06-11
-We're pleased to be publishing the release candidate for 1.1.0 (the official release should follow in a week or two, with more complete credits). This version has a number of exciting improvements, including:
+## [1.1.0] - 2019-06-27
+We're pleased to announce Oragono version 1.1.0. This version has a number of exciting improvements, including:
 
 * Simplified commands for registering new accounts with NickServ.
 * Support for IP cloaking.
@@ -10,11 +10,13 @@ We're pleased to be publishing the release candidate for 1.1.0 (the official rel
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications.
 * Support for running Oragono as a Tor hidden service.
 
+Many thanks to [@Ascrod](https://github.com/Ascrod), [@amyspark](https://github.com/amyspark), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), and [@jwheare](https://github.com/jwheare) for reporting issues and contributing patches, and to $TRANSLATORS for contributing translations.
+
 ### Upgrade notes
 
 This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
 
-No changes to your configuration file should be required for this upgrade; however, updating the file is necessary to enable some new functionality, as described below.
+No changes to your configuration file should be required for this upgrade. However, updating the file is necessary to enable some new functionality, as described below.
 
 ### Config changes
 * `tor-listeners` section added for configuring listeners for use with Tor.
@@ -30,6 +32,7 @@ No changes to your configuration file should be required for this upgrade; howev
 
 ### Security
 * Users can no longer impersonate network services like ChanServ by using confusing nicks like "ChɑnServ" (#519, thanks [@csmith](https://github.com/csmith)!).
+* Closed several loopholes in confusable nick detection (#562, #564, #570, thanks lover!)
 * Secret channels (mode `+s`) now act more secret (#380, thanks [@csmith](https://github.com/csmith)!).
 * The `+R` (registered-only) mode now prevents unregistered users from joining the channel, not just from speaking (#463, thanks [@bogdomania](https://github.com/bogdomania)!).
 * Limited how many messages clients can send during connection registration to mitigate potential DoS attacks (#505).
