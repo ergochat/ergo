@@ -53,7 +53,7 @@ const (
 	// https://ircv3.net/specs/extensions/invite-notify-3.2.html
 	InviteNotify Capability = iota
 
-	// LabeledResponse is the draft IRCv3 capability named "draft/labeled-response":
+	// LabeledResponse is the draft IRCv3 capability named "draft/labeled-response-0.2":
 	// https://ircv3.net/specs/extensions/labeled-response.html
 	LabeledResponse Capability = iota
 
@@ -135,7 +135,7 @@ var (
 		"echo-message",
 		"extended-join",
 		"invite-notify",
-		"draft/labeled-response",
+		"draft/labeled-response-0.2",
 		"draft/languages",
 		"oragono.io/maxline-2",
 		"message-tags",
