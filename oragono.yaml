@@ -12,7 +12,7 @@ server:
 
     # addresses to listen on
     listeners:
-        # This is the standard SSL/TLS port for IRC:
+        # The standard SSL/TLS port for IRC is 6697. This will listen on all interfaces:
         ":6697":
             tls:
                 key: tls.key
