@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## [1.1.0] - 2019-06-27
 We're pleased to announce Oragono version 1.1.0. This version has a number of exciting improvements, including:
 
