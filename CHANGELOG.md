@@ -66,7 +66,7 @@ No changes to your configuration file should be required for this upgrade. Howev
 * Support for the [draft/event-playback](https://github.com/DanielOaks/ircv3-specifications/blob/master+event-playback/extensions/batch/history.md) spec (#457).
 * The `TAGMSG` and `NICK` messages are now replayable in history (#457).
 * Added the draft IRCv3 [`SETNAME` command](https://ircv3.net/specs/extensions/setname) for changing your realname (#372).
-* Added new Bosnian (bs-BA) translation (thanks to Elvedin Husic!).
+* Added new Bosnian (bs-BA) translation (thanks to Elvedin Hušić!).
 * Added new German (de-DE) translation (thanks to streaps!).
 
 ### Changed
