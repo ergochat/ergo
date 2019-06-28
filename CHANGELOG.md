@@ -10,7 +10,7 @@ We're pleased to announce Oragono version 1.1.0. This version has a number of ex
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications.
 * Support for running Oragono as a Tor hidden service.
 
-Many thanks to [@Ascrod](https://github.com/Ascrod), [@amyspark](https://github.com/amyspark), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), lover, and [@transitracer](https://github.com/oragono/oragono/issues/456) for reporting issues and contributing patches, and to $TRANSLATORS for contributing translations.
+Many thanks to [@Ascrod](https://github.com/Ascrod), [@amyspark](https://github.com/amyspark), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), lover, and [@transitracer](https://github.com/oragono/oragono/issues/456) for reporting issues and contributing patches, and also to [@bogdomania](https://github.com/bogdomania), Elvedin Husic, Nuve, and streaps for contributing translations.
 
 ### Upgrade notes
 
@@ -66,6 +66,8 @@ No changes to your configuration file should be required for this upgrade. Howev
 * Support for the [draft/event-playback](https://github.com/DanielOaks/ircv3-specifications/blob/master+event-playback/extensions/batch/history.md) spec (#457).
 * The `TAGMSG` and `NICK` messages are now replayable in history (#457).
 * Added the draft IRCv3 [`SETNAME` command](https://ircv3.net/specs/extensions/setname) for changing your realname (#372).
+* Added new Bosnian (bs-BA) translation (thanks to Elvedin Husic!).
+* Added new German (de-DE) translation (thanks to streaps!).
 
 ### Changed
 * Registering an account with NickServ is now `/msg NickServ register <password>`, which registers the current nickname as an account, matching other services (#410).
@@ -86,6 +88,8 @@ No changes to your configuration file should be required for this upgrade. Howev
 * `NICKSERV ENFORCE` is deprecated in favor of the new `NICKSERV SET ENFORCE` (the old syntax is still available as an alias).
 * The `WHO` command is now treated like `PONG` in that it doesn't count as user activity, since client software often uses it automatically (#485).
 * The `NAMES` command now only returns results for the first given channel (#534).
+* Updated French (fr-FR) translation (thanks to Nuve!).
+* Updated Română (ro-RO) translation (thanks to [@bogdomania](https://github.com/bogdomania)!).
 
 ### Internal Notes
 * Building Oragono is now easier (#409).
