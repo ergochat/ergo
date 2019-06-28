@@ -1,8 +1,24 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [1.1.0-rc1] - 2019-06-11
-We're pleased to be publishing the release candidate for 1.1.0 (the official release should follow in a week or two, with more complete credits). This version has a number of exciting improvements, including:
+## Unreleased
+New release of Oragono!
+
+### Config Changes
+
+### Security
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
+## [1.1.0] - 2019-06-27
+We're pleased to announce Oragono version 1.1.0. This version has a number of exciting improvements, including:
 
 * Simplified commands for registering new accounts with NickServ.
 * Support for IP cloaking.
@@ -10,22 +26,29 @@ We're pleased to be publishing the release candidate for 1.1.0 (the official rel
 * Support for the newly ratified [message tags](https://ircv3.net/specs/extensions/message-tags.html) and [message ID](https://ircv3.net/specs/extensions/message-ids.html) IRCv3 specifications; client developers are invited to use Oragono as a reference when implementing these specifications.
 * Support for running Oragono as a Tor hidden service.
 
-This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono; otherwise, you can update the database manually by running `oragono upgradedb`.
+Many thanks to [@Ascrod](https://github.com/Ascrod), [@amyspark](https://github.com/amyspark), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), lover, and [@transitracer](https://github.com/oragono/oragono/issues/456) for reporting issues and contributing patches, and also to [@bogdomania](https://github.com/bogdomania), Elvedin Hušić, Nuve, and [@streaps](https://github.com/streaps) for contributing translations.
+
+### Upgrade notes
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+No changes to your configuration file should be required for this upgrade. However, updating the file is necessary to enable some new functionality, as described below.
 
 ### Config changes
 * `tor-listeners` section added for configuring listeners for use with Tor.
 * `compatibility` section added for toggling compatibility behaviors for legacy clients.
 * `ip-cloaking` section added for configuring cloaking.
 * `bouncer` section added for configuring bouncer-like features (in particular, whether multiple clients can use the same nickname).
-* `check-ident` now defaults to `false`.
-* `nick-reservation.method` now defaults to `"strict"`.
-* `fakelag.enabled` now defaults to `true`
+* `check-ident` now has recommended value `false`.
+* `nick-reservation.method` now has recommended value "strict"`.
+* `fakelag.enabled` now has recommended value `true`.
 * `limits.linelen.tags` removed due to ratification of the [message-tags spec](https://ircv3.net/specs/extensions/message-tags.html), which fixes the maximum tags length at 8191 bytes.
 * `limits.registration-messages` added to restrict how many messages a user can send to the server during connection registration (while connecting to the server).
 * `channels.operator-only-creation` added to optionally restrict creation of new channels to ircops (#537).
 
 ### Security
 * Users can no longer impersonate network services like ChanServ by using confusing nicks like "ChɑnServ" (#519, thanks [@csmith](https://github.com/csmith)!).
+* Closed several loopholes in confusable nick detection (#562, #564, #570, thanks lover!)
 * Secret channels (mode `+s`) now act more secret (#380, thanks [@csmith](https://github.com/csmith)!).
 * The `+R` (registered-only) mode now prevents unregistered users from joining the channel, not just from speaking (#463, thanks [@bogdomania](https://github.com/bogdomania)!).
 * Limited how many messages clients can send during connection registration to mitigate potential DoS attacks (#505).
@@ -59,6 +82,8 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Support for the [draft/event-playback](https://github.com/DanielOaks/ircv3-specifications/blob/master+event-playback/extensions/batch/history.md) spec (#457).
 * The `TAGMSG` and `NICK` messages are now replayable in history (#457).
 * Added the draft IRCv3 [`SETNAME` command](https://ircv3.net/specs/extensions/setname) for changing your realname (#372).
+* Added new Bosnian (bs-BA) translation (thanks to Elvedin Hušić!).
+* Added new German (de-DE) translation (thanks to streaps!).
 
 ### Changed
 * Registering an account with NickServ is now `/msg NickServ register <password>`, which registers the current nickname as an account, matching other services (#410).
@@ -79,6 +104,8 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * `NICKSERV ENFORCE` is deprecated in favor of the new `NICKSERV SET ENFORCE` (the old syntax is still available as an alias).
 * The `WHO` command is now treated like `PONG` in that it doesn't count as user activity, since client software often uses it automatically (#485).
 * The `NAMES` command now only returns results for the first given channel (#534).
+* Updated French (fr-FR) translation (thanks to Nuve!).
+* Updated Română (ro-RO) translation (thanks to [@bogdomania](https://github.com/bogdomania)!).
 
 ### Internal Notes
 * Building Oragono is now easier (#409).

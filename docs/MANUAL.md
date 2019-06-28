@@ -22,6 +22,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
+    - Upgrading
 - Features
     - User Accounts
         - Nickname reservation
@@ -134,6 +135,8 @@ On a non-systemd system, oragono can be configured to log to a file and used [lo
 ## Upgrading to a new version of Oragono
 
 As long as you are using official releases or release candidates of Oragono, any backwards-incompatible changes should be described in the changelog.
+
+In general, the config file format should be fully backwards and forwards compatible. Unless otherwise noted, no config file changes should be necessary when upgrading Oragono. However, the "config changes" section of the changelog will typically describe new sections that can be added to your config to enable new functionality, as well as changes in the recommended values of certain fields.
 
 The database is versioned; upgrades that involve incompatible changes to the database require updating the database. If you have `datastore.autoupgrade` enabled in your config, the database will be backed up and upgraded when you restart your server when required. Otherwise, you can apply upgrades manually:
 

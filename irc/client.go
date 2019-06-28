@@ -1160,12 +1160,7 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 		msg.SetTag("msgid", msgid)
 	}
 	// attach server-time
-	if session.capabilities.Has(caps.ServerTime) {
-		if serverTime.IsZero() {
-			serverTime = time.Now().UTC()
-		}
-		msg.SetTag("time", serverTime.Format(IRCv3TimestampFormat))
-	}
+	session.setTimeTag(&msg, serverTime)
 
 	return session.SendRawMessage(msg, blocking)
 }
@@ -1246,10 +1241,17 @@ func (client *Client) Send(tags map[string]string, prefix string, command string
 
 func (session *Session) Send(tags map[string]string, prefix string, command string, params ...string) (err error) {
 	msg := ircmsg.MakeMessage(tags, prefix, command, params...)
-	if session.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
-		msg.SetTag("time", time.Now().UTC().Format(IRCv3TimestampFormat))
-	}
+	session.setTimeTag(&msg, time.Time{})
 	return session.SendRawMessage(msg, false)
+}
+
+func (session *Session) setTimeTag(msg *ircmsg.IrcMessage, serverTime time.Time) {
+	if session.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
+		if serverTime.IsZero() {
+			serverTime = time.Now()
+		}
+		msg.SetTag("time", serverTime.UTC().Format(IRCv3TimestampFormat))
+	}
 }
 
 // Notice sends the client a notice from the server.
