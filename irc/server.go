@@ -865,7 +865,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	// update or destroy all existing listeners
 	for addr := range server.listeners {
 		currentListener := server.listeners[addr]
-		newConfig, stillConfigured := config.Server.listeners[addr]
+		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
 		currentListener.Lock()
 		currentListener.shouldStop = !stillConfigured
@@ -883,7 +883,11 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	// create new listeners that were not previously configured
-	for newAddr, newConfig := range config.Server.listeners {
+	numTlsListeners := 0
+	for newAddr, newConfig := range config.Server.trueListeners {
+		if newConfig.TLSConfig != nil {
+			numTlsListeners += 1
+		}
 		_, exists := server.listeners[newAddr]
 		if !exists {
 			// make new listener
@@ -898,11 +902,11 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 	}
 
-	if len(config.Server.TLSListeners) == 0 {
+	if numTlsListeners == 0 {
 		server.logger.Warning("server", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
 	}
 
-	if config.Server.listeners[":6697"].TLSConfig == nil {
+	if config.Server.trueListeners[":6697"].TLSConfig == nil {
 		server.logger.Warning("server", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
 

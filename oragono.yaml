@@ -11,14 +11,30 @@ server:
     name: oragono.test
 
     # addresses to listen on
-    listen:
-        - ":6697" # SSL/TLS port
-        - ":6667" # plaintext port
-        # To disable plaintext over the Internet, comment out :6667 and replace with:
-        # - "127.0.0.1:6667" # (loopback ipv4, localhost-only)
-        # - "[::1]:6667"     # (loopback ipv6, localhost-only)
-        # Unix domain socket for proxying:
-        # - "/tmp/oragono_sock"
+    listeners:
+        # This is the standard SSL/TLS port for IRC:
+        ":6697":
+            tls:
+                key: tls.key
+                cert: tls.crt
+
+        # The standard plaintext port for IRC is 6667. Since using plaintext over
+        # the public Internet poses security and privacy issues, we recommend using
+        # plaintext only on local interfaces:
+        "127.0.0.1:6667": # (loopback ipv4, localhost-only)
+        "[::1]:6667":     # (loopback ipv6, localhost-only)
+        # If you need to use plaintext on non-local interfaces, comment out the above
+        # two lines, then uncomment the following line:
+        # ":6667":
+
+        # Example of a Unix domain socket for proxying:
+        # "/tmp/oragono_sock":
+
+        # Example of a Tor listener: any connection that comes in on this listener will
+        # be considered a Tor connection. It is strongly recommended that this listener
+        # *not* be on a public interface --- it should be on 127.0.0.0/8 or unix domain:
+        # "/tmp/oragono_tor_sock":
+        #     tor: true
 
     # sets the permissions for Unix listen sockets. on a typical Linux system,
     # the default is 0775 or 0755, which prevents other users/groups from connecting
@@ -26,23 +42,8 @@ server:
     # where anyone can connect.
     unix-bind-mode: 0777
 
-    # tls listeners
-    tls-listeners:
-        # listener on ":6697"
-        ":6697":
-            key: tls.key
-            cert: tls.crt
-
-    # tor listeners: designate listeners for use by a tor hidden service / .onion address
-    # WARNING: if you are running oragono as a pure hidden service, see the
-    # anonymization / hardening recommendations in docs/MANUAL.md
+    # configure the behavior of Tor listeners (ignored if you didn't enable any):
     tor-listeners:
-        # any connections that come in on these listeners will be considered
-        # Tor connections. it is strongly recommended that these listeners *not*
-        # be on public interfaces: they should be on 127.0.0.0/8 or unix domain
-        listeners:
-        #    - "/tmp/oragono_tor_sock"
-
         # if this is true, connections from Tor must authenticate with SASL
         require-sasl: false
 
