@@ -230,7 +230,7 @@ func registrationErrorToMessageAndCode(err error) (message, code string) {
 // helper function to dispatch messages when a client successfully registers
 func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
 	if forNS {
-		rb.Notice(client.t("Account created"))
+		nsNotice(rb, client.t("Account created"))
 	} else {
 		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, client.nick, client.AccountName(), client.t("Account created"))
 	}
@@ -242,7 +242,7 @@ func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSAS
 	details := client.Details()
 
 	if forNS {
-		rb.Notice(fmt.Sprintf(client.t("You're now logged in as %s"), details.accountName))
+		nsNotice(rb, fmt.Sprintf(client.t("You're now logged in as %s"), details.accountName))
 	} else {
 		//TODO(dan): some servers send this numeric even for NickServ logins iirc? to confirm and maybe do too
 		rb.Add(nil, client.server.name, RPL_LOGGEDIN, details.nick, details.nickMask, details.accountName, fmt.Sprintf(client.t("You are now logged in as %s"), details.accountName))
