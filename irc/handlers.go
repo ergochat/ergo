@@ -1638,14 +1638,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	//TODO(vegax87) Fix network statistics and additional parameters
-	totalCount, invisibleCount, operCount := server.stats.GetStats()
-
-	rb.Add(nil, server.name, RPL_LUSERCLIENT, client.nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), totalCount-invisibleCount, invisibleCount, 1))
-	rb.Add(nil, server.name, RPL_LUSEROP, client.nick, strconv.Itoa(operCount), client.t("IRC Operators online"))
-	rb.Add(nil, server.name, RPL_LUSERCHANNELS, client.nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
-	rb.Add(nil, server.name, RPL_LUSERME, client.nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), totalCount, 1))
-
+	server.Lusers(client, rb)
 	return false
 }
 
@@ -2582,7 +2575,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 // VERSION
 func versionHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
-	client.RplISupport(rb)
+	server.RplISupport(client, rb)
 	return false
 }
 

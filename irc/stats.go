@@ -4,43 +4,74 @@ import (
 	"sync"
 )
 
-// Stats contains the numbers of total, invisible and operators on the server
-type Stats struct {
-	sync.RWMutex
-
-	Total     int
+type StatsValues struct {
+	Unknown   int // unregistered clients
+	Total     int // registered clients, including invisible
+	Max       int // high-water mark of registered clients
 	Invisible int
 	Operators int
 }
 
-// ChangeTotal increments the total user count on server
-func (s *Stats) ChangeTotal(i int) {
-	s.Lock()
-	defer s.Unlock()
+// Stats tracks statistics for a running server
+type Stats struct {
+	StatsValues
 
-	s.Total += i
+	mutex sync.Mutex
 }
 
-// ChangeInvisible increments the invisible count
-func (s *Stats) ChangeInvisible(i int) {
-	s.Lock()
-	defer s.Unlock()
-
-	s.Invisible += i
+// Adds an unregistered client
+func (s *Stats) Add() {
+	s.mutex.Lock()
+	s.Unknown += 1
+	s.mutex.Unlock()
 }
 
-// ChangeOperators increases the operator count
-func (s *Stats) ChangeOperators(i int) {
-	s.Lock()
-	defer s.Unlock()
+// Transition a client from unregistered to registered
+func (s *Stats) Register() {
+	s.mutex.Lock()
+	s.Unknown -= 1
+	s.Total += 1
+	if s.Max < s.Total {
+		s.Max = s.Total
+	}
+	s.mutex.Unlock()
+}
 
-	s.Operators += i
+// Modify the Invisible count
+func (s *Stats) ChangeInvisible(increment int) {
+	s.mutex.Lock()
+	s.Invisible += increment
+	s.mutex.Unlock()
+}
+
+// Modify the Operator count
+func (s *Stats) ChangeOperators(increment int) {
+	s.mutex.Lock()
+	s.Operators += increment
+	s.mutex.Unlock()
+}
+
+// Remove a user from the server
+func (s *Stats) Remove(registered, invisible, operator bool) {
+	s.mutex.Lock()
+	if registered {
+		s.Total -= 1
+	} else {
+		s.Unknown -= 1
+	}
+	if invisible {
+		s.Invisible -= 1
+	}
+	if operator {
+		s.Operators -= 1
+	}
+	s.mutex.Unlock()
 }
 
 // GetStats retrives total, invisible and oper count
-func (s *Stats) GetStats() (int, int, int) {
-	s.Lock()
-	defer s.Unlock()
-
-	return s.Total, s.Invisible, s.Operators
+func (s *Stats) GetValues() (result StatsValues) {
+	s.mutex.Lock()
+	result = s.StatsValues
+	s.mutex.Unlock()
+	return
 }

@@ -386,7 +386,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	c.SetRegistered()
 
 	// count new user in statistics
-	server.stats.ChangeTotal(1)
+	server.stats.Register()
 	server.monitorManager.AlertAbout(c, true)
 
 	server.playRegistrationBurst(session)
@@ -410,7 +410,8 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
 
 	rb := NewResponseBuffer(session)
-	c.RplISupport(rb)
+	server.RplISupport(c, rb)
+	server.Lusers(c, rb)
 	server.MOTD(c, rb)
 	rb.Send(true)
 
@@ -423,11 +424,34 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	}
 }
 
-// t returns the translated version of the given string, based on the languages configured by the client.
-func (client *Client) t(originalString string) string {
-	// TODO(slingamn) investigate a fast path for this, using an atomic load to see if translation is disabled
-	languages := client.Languages()
-	return client.server.Languages().Translate(languages, originalString)
+// RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
+func (server *Server) RplISupport(client *Client, rb *ResponseBuffer) {
+	translatedISupport := client.t("are supported by this server")
+	nick := client.Nick()
+	config := server.Config()
+	for _, cachedTokenLine := range config.Server.isupport.CachedReply {
+		length := len(cachedTokenLine) + 2
+		tokenline := make([]string, length)
+		tokenline[0] = nick
+		copy(tokenline[1:], cachedTokenLine)
+		tokenline[length-1] = translatedISupport
+		rb.Add(nil, server.name, RPL_ISUPPORT, tokenline...)
+	}
+}
+
+func (server *Server) Lusers(client *Client, rb *ResponseBuffer) {
+	nick := client.Nick()
+	stats := server.stats.GetValues()
+
+	rb.Add(nil, server.name, RPL_LUSERCLIENT, nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), stats.Total-stats.Invisible, stats.Invisible, 1))
+	rb.Add(nil, server.name, RPL_LUSEROP, nick, strconv.Itoa(stats.Operators), client.t("IRC Operators online"))
+	rb.Add(nil, server.name, RPL_LUSERUNKNOWN, nick, strconv.Itoa(stats.Unknown), client.t("unregistered connections"))
+	rb.Add(nil, server.name, RPL_LUSERCHANNELS, nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
+	rb.Add(nil, server.name, RPL_LUSERME, nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), stats.Total, 1))
+	total := strconv.Itoa(stats.Total)
+	max := strconv.Itoa(stats.Max)
+	rb.Add(nil, server.name, RPL_LOCALUSERS, nick, total, max, fmt.Sprintf(client.t("Current local users %[1]s, max %[2]s"), total, max))
+	rb.Add(nil, server.name, RPL_GLOBALUSERS, nick, total, max, fmt.Sprintf(client.t("Current global users %[1]s, max %[2]s"), total, max))
 }
 
 // MOTD serves the Message of the Day.

@@ -275,6 +275,7 @@ func (server *Server) RunClient(conn clientConn) {
 	client.rawHostname = session.rawHostname
 	client.proxiedIP = session.proxiedIP
 
+	server.stats.Add()
 	client.run(session)
 }
 
@@ -357,6 +358,15 @@ func (client *Client) IPString() string {
 		ip = "0" + ip
 	}
 	return ip
+}
+
+// t returns the translated version of the given string, based on the languages configured by the client.
+func (client *Client) t(originalString string) string {
+	languageManager := client.server.Config().languageManager
+	if !languageManager.Enabled() {
+		return originalString
+	}
+	return languageManager.Translate(client.Languages(), originalString)
 }
 
 //
@@ -921,21 +931,6 @@ func (client *Client) LoggedIntoAccount() bool {
 	return client.Account() != ""
 }
 
-// RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
-func (client *Client) RplISupport(rb *ResponseBuffer) {
-	translatedISupport := client.t("are supported by this server")
-	nick := client.Nick()
-	config := client.server.Config()
-	for _, cachedTokenLine := range config.Server.isupport.CachedReply {
-		length := len(cachedTokenLine) + 2
-		tokenline := make([]string, length)
-		tokenline[0] = nick
-		copy(tokenline[1:], cachedTokenLine)
-		tokenline[length-1] = translatedISupport
-		rb.Add(nil, client.server.name, RPL_ISUPPORT, tokenline...)
-	}
-}
-
 // Quit sets the given quit message for the client.
 // (You must ensure separately that destroy() is called, e.g., by returning `true` from
 // the command handler or calling it yourself.)
@@ -1094,16 +1089,8 @@ func (client *Client) destroy(session *Session) {
 
 	client.server.accounts.Logout(client)
 
-	// send quit messages to friends
-	if registered {
-		client.server.stats.ChangeTotal(-1)
-	}
-	if client.HasMode(modes.Invisible) {
-		client.server.stats.ChangeInvisible(-1)
-	}
-	if client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator) {
-		client.server.stats.ChangeOperators(-1)
-	}
+	client.server.stats.Remove(registered, client.HasMode(modes.Invisible),
+		client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator))
 
 	// this happens under failure to return from BRB
 	if quitMessage == "" {

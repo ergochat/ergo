@@ -164,6 +164,11 @@ func (lm *Manager) Count() int {
 	return len(lm.Languages)
 }
 
+// Enabled returns whether translation is enabled.
+func (lm *Manager) Enabled() bool {
+	return len(lm.translations) != 0
+}
+
 // Translators returns the languages we have and the translators.
 func (lm *Manager) Translators() []string {
 	var tlist sort.StringSlice
