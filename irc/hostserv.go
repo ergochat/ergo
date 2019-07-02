@@ -11,13 +11,7 @@ import (
 )
 
 const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
-in place of your client's hostname/IP).
-
-To see in-depth help for a specific HostServ command, try:
-    $b/HS HELP <command>$b
-
-Here are the commands you can use:
-%s`
+in place of your client's hostname/IP).`
 
 var (
 	errVHostBadCharacters = errors.New("Vhost contains prohibited characters")

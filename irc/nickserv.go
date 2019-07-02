@@ -41,13 +41,7 @@ const (
 	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.`
 )
 
-const nickservHelp = `NickServ lets you register and login to an account.
-
-To see in-depth help for a specific NickServ command, try:
-    $b/NS HELP <command>$b
-
-Here are the commands you can use:
-%s`
+const nickservHelp = `NickServ lets you register and log into an account.`
 
 var (
 	nickservCommands = map[string]*serviceCommand{

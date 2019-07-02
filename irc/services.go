@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"sort"
@@ -190,6 +191,14 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 	sendNotice(ircfmt.Unescape(fmt.Sprintf("*** $b%s HELP$b ***", service.Name)))
 
 	if len(params) == 0 {
+		helpBannerLines := strings.Split(client.t(service.HelpBanner), "\n")
+		helpBannerLines = append(helpBannerLines, []string{
+			"",
+			client.t("To see in-depth help for a specific command, try:"),
+			ircfmt.Unescape(fmt.Sprintf(client.t("    $b/msg %s HELP <command>$b"), service.Name)),
+			"",
+			client.t("Here are the commands you can use:"),
+		}...)
 		// show general help
 		var shownHelpLines sort.StringSlice
 		var disabledCommands bool
@@ -206,7 +215,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 				continue
 			}
 
-			shownHelpLines = append(shownHelpLines, "    "+client.t(commandInfo.helpShort))
+			shownHelpLines = append(shownHelpLines, ircfmt.Unescape("    "+client.t(commandInfo.helpShort)))
 		}
 
 		if disabledCommands {
@@ -216,12 +225,11 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		// sort help lines
 		sort.Sort(shownHelpLines)
 
-		// assemble help text
-		assembledHelpLines := strings.Join(shownHelpLines, "\n")
-		fullHelp := ircfmt.Unescape(fmt.Sprintf(client.t(service.HelpBanner), assembledHelpLines))
-
 		// push out help text
-		for _, line := range strings.Split(fullHelp, "\n") {
+		for _, line := range helpBannerLines {
+			sendNotice(line)
+		}
+		for _, line := range shownHelpLines {
 			sendNotice(line)
 		}
 	} else {
@@ -249,6 +257,18 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 	sendNotice(ircfmt.Unescape(fmt.Sprintf(client.t("*** $bEnd of %s HELP$b ***"), service.Name)))
 }
 
+func makeServiceHelpTextGenerator(cmd string, banner string) func(*Client) string {
+	return func(client *Client) string {
+		var buf bytes.Buffer
+		fmt.Fprintf(&buf, client.t("%s <subcommand> [params]"), cmd)
+		buf.WriteRune('\n')
+		buf.WriteString(client.t(banner)) // may contain newlines, that's fine
+		buf.WriteRune('\n')
+		fmt.Fprintf(&buf, client.t("For more details, try /%s HELP"), cmd)
+		return buf.String()
+	}
+}
+
 func initializeServices() {
 	// this modifies the global Commands map,
 	// so it must be called from irc/commands.go's init()
@@ -263,12 +283,16 @@ func initializeServices() {
 		// reserve the nickname
 		restrictedNicknames = append(restrictedNicknames, service.Name)
 
-		// register the protocol-level commands (NICKSERV, NS) that talk to the service
+		// register the protocol-level commands (NICKSERV, NS) that talk to the service,
+		// and their associated help entries
 		var ircCmdDef Command
 		ircCmdDef.handler = serviceCmdHandler
 		for _, ircCmd := range service.CommandAliases {
 			Commands[ircCmd] = ircCmdDef
 			oragonoServicesByCommandAlias[ircCmd] = service
+			Help[strings.ToLower(ircCmd)] = HelpEntry{
+				textGenerator: makeServiceHelpTextGenerator(ircCmd, service.HelpBanner),
+			}
 		}
 
 		// force devs to write a help entry for every command
