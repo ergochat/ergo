@@ -388,6 +388,7 @@ func (client *Client) run(session *Session) {
 			session.playResume()
 			session.resumeDetails = nil
 			client.brbTimer.Disable()
+			client.SetAway(false, "") // clear BRB message if any
 		} else {
 			client.playReattachMessages(session)
 		}
@@ -1109,9 +1110,10 @@ func (client *Client) destroy(session *Session) {
 	if quitMessage == "" {
 		if !brbAt.IsZero() {
 			awayMessage := client.AwayMessage()
-			if awayMessage != "" {
-				quitMessage = fmt.Sprintf("%s [%s ago]", awayMessage, time.Since(brbAt).Truncate(time.Second).String())
+			if awayMessage == "" {
+				awayMessage = "Disconnected" // auto-BRB
 			}
+			quitMessage = fmt.Sprintf("%s [%s ago]", awayMessage, time.Since(brbAt).Truncate(time.Second).String())
 		}
 	}
 	if quitMessage == "" {
