@@ -39,6 +39,46 @@ func getPassword() string {
 	return strings.TrimSpace(text)
 }
 
+// implements the `oragono mkcerts` command
+func doMkcerts(configFile string, quiet bool) {
+	config, err := irc.LoadRawConfig(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !quiet {
+		log.Println("making self-signed certificates")
+	}
+
+	certToKey := make(map[string]string)
+	for name, conf := range config.Server.Listeners {
+		if conf.TLS.Cert == "" {
+			continue
+		}
+		existingKey, ok := certToKey[conf.TLS.Cert]
+		if ok {
+			if existingKey == conf.TLS.Key {
+				continue
+			} else {
+				log.Fatal("Conflicting TLS key files for", conf.TLS.Cert)
+			}
+		}
+		if !quiet {
+			log.Printf(" making cert for %s listener\n", name)
+		}
+		host := config.Server.Name
+		cert, key := conf.TLS.Cert, conf.TLS.Key
+		err := mkcerts.CreateCert("Oragono", host, cert, key)
+		if err == nil {
+			if !quiet {
+				log.Printf("  Certificate created at %s : %s\n", cert, key)
+			}
+			certToKey[cert] = key
+		} else {
+			log.Fatal("  Could not create certificate:", err.Error())
+		}
+	}
+}
+
 func main() {
 	version := irc.SemVer
 	usage := `oragono.
@@ -88,11 +128,14 @@ Options:
 	} else if arguments["mksecret"].(bool) {
 		fmt.Println(utils.GenerateSecretKey())
 		return
+	} else if arguments["mkcerts"].(bool) {
+		doMkcerts(arguments["--conf"].(string), arguments["--quiet"].(bool))
+		return
 	}
 
 	configfile := arguments["--conf"].(string)
 	config, err := irc.LoadConfig(configfile)
-	if err != nil {
+	if err != nil && !(err == irc.ErrInvalidCertKeyPair && arguments["mkcerts"].(bool)) {
 		log.Fatal("Config file did not load successfully: ", err.Error())
 	}
 
@@ -113,25 +156,6 @@ Options:
 		}
 		if !arguments["--quiet"].(bool) {
 			log.Println("database upgraded: ", config.Datastore.Path)
-		}
-	} else if arguments["mkcerts"].(bool) {
-		if !arguments["--quiet"].(bool) {
-			log.Println("making self-signed certificates")
-		}
-
-		for name, conf := range config.Server.TLSListeners {
-			if !arguments["--quiet"].(bool) {
-				log.Printf(" making cert for %s listener\n", name)
-			}
-			host := config.Server.Name
-			err := mkcerts.CreateCert("Oragono", host, conf.Cert, conf.Key)
-			if err == nil {
-				if !arguments["--quiet"].(bool) {
-					log.Printf("  Certificate created at %s : %s\n", conf.Cert, conf.Key)
-				}
-			} else {
-				log.Fatal("  Could not create certificate:", err.Error())
-			}
 		}
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {

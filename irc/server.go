@@ -50,12 +50,11 @@ var (
 
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
 type ListenerWrapper struct {
+	// protects atomic update of config and shouldStop:
+	sync.Mutex // tier 1
 	listener   net.Listener
-	tlsConfig  *tls.Config
-	isTor      bool
+	config     listenerConfig
 	shouldStop bool
-	// protects atomic update of tlsConfig and shouldStop:
-	configMutex sync.Mutex // tier 1
 }
 
 // Server is the main Oragono server.
@@ -100,9 +99,8 @@ var (
 )
 
 type clientConn struct {
-	Conn  net.Conn
-	IsTLS bool
-	IsTor bool
+	Conn   net.Conn
+	Config listenerConfig
 }
 
 // NewServer returns a new Oragono server.
@@ -262,7 +260,7 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 //
 
 // createListener starts a given listener.
-func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor bool, bindMode os.FileMode) (*ListenerWrapper, error) {
+func (server *Server) createListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
 	// make listener
 	var listener net.Listener
 	var err error
@@ -284,8 +282,7 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 	// throw our details to the server so we can be modified/killed later
 	wrapper := ListenerWrapper{
 		listener:   listener,
-		tlsConfig:  tlsConfig,
-		isTor:      isTor,
+		config:     conf,
 		shouldStop: false,
 	}
 
@@ -297,28 +294,29 @@ func (server *Server) createListener(addr string, tlsConfig *tls.Config, isTor b
 			conn, err := listener.Accept()
 
 			// synchronously access config data:
-			wrapper.configMutex.Lock()
+			wrapper.Lock()
 			shouldStop = wrapper.shouldStop
-			tlsConfig = wrapper.tlsConfig
-			isTor = wrapper.isTor
-			wrapper.configMutex.Unlock()
+			conf := wrapper.config
+			wrapper.Unlock()
 
-			if err == nil {
-				if tlsConfig != nil {
-					conn = tls.Server(conn, tlsConfig)
+			if shouldStop {
+				if conn != nil {
+					conn.Close()
+				}
+				listener.Close()
+				return
+			} else if err == nil {
+				if conf.TLSConfig != nil {
+					conn = tls.Server(conn, conf.TLSConfig)
 				}
 				newConn := clientConn{
-					Conn:  conn,
-					IsTLS: tlsConfig != nil,
-					IsTor: isTor,
+					Conn:   conn,
+					Config: conf,
 				}
 				// hand off the connection
 				go server.RunClient(newConn)
-			}
-
-			if shouldStop {
-				listener.Close()
-				return
+			} else {
+				server.logger.Error("internal", "accept error", addr, err.Error())
 			}
 		}
 	}()
@@ -885,52 +883,24 @@ func (server *Server) loadDatastore(config *Config) error {
 }
 
 func (server *Server) setupListeners(config *Config) (err error) {
-	logListener := func(addr string, tlsconfig *tls.Config, isTor bool) {
+	logListener := func(addr string, config listenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tor=%t.", addr, (tlsconfig != nil), isTor),
+			fmt.Sprintf("now listening on %s, tls=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTor),
 		)
-	}
-
-	tlsListeners, err := config.TLSListeners()
-	if err != nil {
-		server.logger.Error("server", "failed to reload TLS certificates, aborting rehash", err.Error())
-		return
-	}
-
-	isTorListener := func(listener string) bool {
-		for _, torListener := range config.Server.TorListeners.Listeners {
-			if listener == torListener {
-				return true
-			}
-		}
-		return false
 	}
 
 	// update or destroy all existing listeners
 	for addr := range server.listeners {
 		currentListener := server.listeners[addr]
-		var stillConfigured bool
-		for _, newaddr := range config.Server.Listen {
-			if newaddr == addr {
-				stillConfigured = true
-				break
-			}
-		}
+		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
-		// pass new config information to the listener, to be picked up after
-		// its next Accept(). this is like sending over a buffered channel of
-		// size 1, but where sending a second item overwrites the buffered item
-		// instead of blocking.
-		tlsConfig := tlsListeners[addr]
-		isTor := isTorListener(addr)
-		currentListener.configMutex.Lock()
+		currentListener.Lock()
 		currentListener.shouldStop = !stillConfigured
-		currentListener.tlsConfig = tlsConfig
-		currentListener.isTor = isTor
-		currentListener.configMutex.Unlock()
+		currentListener.config = newConfig
+		currentListener.Unlock()
 
 		if stillConfigured {
-			logListener(addr, tlsConfig, isTor)
+			logListener(addr, newConfig)
 		} else {
 			// tell the listener it should stop by interrupting its Accept() call:
 			currentListener.listener.Close()
@@ -940,35 +910,34 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	// create new listeners that were not previously configured
-	for _, newaddr := range config.Server.Listen {
-		_, exists := server.listeners[newaddr]
+	numTlsListeners := 0
+	hasStandardTlsListener := false
+	for newAddr, newConfig := range config.Server.trueListeners {
+		if newConfig.TLSConfig != nil {
+			numTlsListeners += 1
+			if strings.HasSuffix(newAddr, ":6697") {
+				hasStandardTlsListener = true
+			}
+		}
+		_, exists := server.listeners[newAddr]
 		if !exists {
 			// make new listener
-			isTor := isTorListener(newaddr)
-			tlsConfig := tlsListeners[newaddr]
-			listener, listenerErr := server.createListener(newaddr, tlsConfig, isTor, config.Server.UnixBindMode)
+			listener, listenerErr := server.createListener(newAddr, newConfig, config.Server.UnixBindMode)
 			if listenerErr != nil {
-				server.logger.Error("server", "couldn't listen on", newaddr, listenerErr.Error())
+				server.logger.Error("server", "couldn't listen on", newAddr, listenerErr.Error())
 				err = listenerErr
 				continue
 			}
-			server.listeners[newaddr] = listener
-			logListener(newaddr, tlsConfig, isTor)
+			server.listeners[newAddr] = listener
+			logListener(newAddr, newConfig)
 		}
 	}
 
-	if len(tlsListeners) == 0 {
+	if numTlsListeners == 0 {
 		server.logger.Warning("server", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
 	}
 
-	var usesStandardTLSPort bool
-	for addr := range tlsListeners {
-		if strings.HasSuffix(addr, ":6697") {
-			usesStandardTLSPort = true
-			break
-		}
-	}
-	if 0 < len(tlsListeners) && !usesStandardTLSPort {
+	if !hasStandardTlsListener {
 		server.logger.Warning("server", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
 	}
 

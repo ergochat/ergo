@@ -41,16 +41,17 @@ type TLSListenConfig struct {
 	Key  string
 }
 
-// Config returns the TLS contiguration assicated with this TLSListenConfig.
-func (conf *TLSListenConfig) Config() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(conf.Cert, conf.Key)
-	if err != nil {
-		return nil, ErrInvalidCertKeyPair
-	}
+// This is the YAML-deserializable type of the value of the `Server.Listeners` map
+type listenerConfigBlock struct {
+	TLS TLSListenConfig
+	Tor bool
+}
 
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}, err
+// listenerConfig is the config governing a particular listener (bound address),
+// in particular whether it has TLS or Tor (or both) enabled.
+type listenerConfig struct {
+	TLSConfig *tls.Config
+	IsTor     bool
 }
 
 type AccountConfig struct {
@@ -257,8 +258,8 @@ type FakelagConfig struct {
 }
 
 type TorListenersConfig struct {
-	Listeners                 []string
-	RequireSasl               bool `yaml:"require-sasl"`
+	Listeners                 []string // legacy only
+	RequireSasl               bool     `yaml:"require-sasl"`
 	Vhost                     string
 	MaxConnections            int           `yaml:"max-connections"`
 	ThrottleDuration          time.Duration `yaml:"throttle-duration"`
@@ -272,14 +273,19 @@ type Config struct {
 	}
 
 	Server struct {
-		Password             string
-		passwordBytes        []byte
-		Name                 string
-		nameCasefolded       string
-		Listen               []string
-		UnixBindMode         os.FileMode                 `yaml:"unix-bind-mode"`
-		TLSListeners         map[string]*TLSListenConfig `yaml:"tls-listeners"`
-		TorListeners         TorListenersConfig          `yaml:"tor-listeners"`
+		Password       string
+		passwordBytes  []byte
+		Name           string
+		nameCasefolded string
+		// Listeners is the new style for configuring listeners:
+		Listeners    map[string]listenerConfigBlock
+		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
+		TorListeners TorListenersConfig `yaml:"tor-listeners"`
+		// Listen and TLSListeners are the legacy style:
+		Listen       []string
+		TLSListeners map[string]TLSListenConfig `yaml:"tls-listeners"`
+		// either way, the result is this:
+		trueListeners        map[string]listenerConfig
 		STS                  STSConfig
 		CheckIdent           bool `yaml:"check-ident"`
 		MOTD                 string
@@ -485,28 +491,78 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 	return operators, nil
 }
 
-// TLSListeners returns a list of TLS listeners and their configs.
-func (conf *Config) TLSListeners() (map[string]*tls.Config, error) {
-	tlsListeners := make(map[string]*tls.Config)
-	for s, tlsListenersConf := range conf.Server.TLSListeners {
-		config, err := tlsListenersConf.Config()
-		if err != nil {
-			return nil, err
-		}
-		config.ClientAuth = tls.RequestClientCert
-		tlsListeners[s] = config
+func loadTlsConfig(config TLSListenConfig) (tlsConfig *tls.Config, err error) {
+	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
+	if err != nil {
+		return nil, ErrInvalidCertKeyPair
 	}
-	return tlsListeners, nil
+	result := tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequestClientCert,
+	}
+	return &result, nil
 }
 
-// LoadConfig loads the given YAML configuration file.
-func LoadConfig(filename string) (config *Config, err error) {
+// prepareListeners populates Config.Server.trueListeners
+func (conf *Config) prepareListeners() (err error) {
+	listeners := make(map[string]listenerConfig)
+	if 0 < len(conf.Server.Listeners) {
+		for addr, block := range conf.Server.Listeners {
+			var lconf listenerConfig
+			lconf.IsTor = block.Tor
+			if block.TLS.Cert != "" {
+				tlsConfig, err := loadTlsConfig(block.TLS)
+				if err != nil {
+					return err
+				}
+				lconf.TLSConfig = tlsConfig
+			}
+			listeners[addr] = lconf
+		}
+	} else if 0 < len(conf.Server.Listen) {
+		log.Printf("WARNING: configuring listeners via the legacy `server.listen` config option")
+		log.Printf("This will be removed in a later release: you should update to use `server.listeners`")
+		torListeners := make(map[string]bool, len(conf.Server.TorListeners.Listeners))
+		for _, addr := range conf.Server.TorListeners.Listeners {
+			torListeners[addr] = true
+		}
+		for _, addr := range conf.Server.Listen {
+			var lconf listenerConfig
+			lconf.IsTor = torListeners[addr]
+			tlsListenConf, ok := conf.Server.TLSListeners[addr]
+			if ok {
+				tlsConfig, err := loadTlsConfig(tlsListenConf)
+				if err != nil {
+					return err
+				}
+				lconf.TLSConfig = tlsConfig
+			}
+			listeners[addr] = lconf
+		}
+	} else {
+		return fmt.Errorf("No listeners were configured")
+	}
+	conf.Server.trueListeners = listeners
+	return nil
+}
+
+// LoadRawConfig loads the config without doing any consistency checks or postprocessing
+func LoadRawConfig(filename string) (config *Config, err error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadConfig loads the given YAML configuration file.
+func LoadConfig(filename string) (config *Config, err error) {
+	config, err = LoadRawConfig(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -524,9 +580,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Datastore.Path == "" {
 		return nil, ErrDatastorePathMissing
-	}
-	if len(config.Server.Listen) == 0 {
-		return nil, ErrNoListenersDefined
 	}
 	//dan: automagically fix identlen until a few releases in the future (from now, 0.12.0), being a newly-introduced limit
 	if config.Limits.IdentLen < 1 {
@@ -755,6 +808,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if !found {
 			return nil, fmt.Errorf("%s is configured as a Tor listener, but is not in server.listen", listenAddress)
 		}
+	}
+
+	err = config.prepareListeners()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
 	return config, nil
