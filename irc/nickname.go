@@ -86,12 +86,10 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		channel.history.Add(histItem)
 	}
 
-	target.nickTimer.Touch(rb)
-
 	if target.Registered() {
 		client.server.monitorManager.AlertAbout(target, true)
-	}
-	// else: Run() will attempt registration immediately after this
+		target.nickTimer.Touch(rb)
+	} // else: these will be deferred to the end of registration (see #572)
 	return true
 }
 
