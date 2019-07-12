@@ -797,19 +797,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
-	for _, listenAddress := range config.Server.TorListeners.Listeners {
-		found := false
-		for _, configuredListener := range config.Server.Listen {
-			if listenAddress == configuredListener {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("%s is configured as a Tor listener, but is not in server.listen", listenAddress)
-		}
-	}
-
 	err = config.prepareListeners()
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
