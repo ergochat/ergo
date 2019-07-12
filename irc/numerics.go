@@ -50,6 +50,8 @@ const (
 	RPL_TRACELOG                  = "261"
 	RPL_TRACEEND                  = "262"
 	RPL_TRYAGAIN                  = "263"
+	RPL_LOCALUSERS                = "265"
+	RPL_GLOBALUSERS               = "266"
 	RPL_WHOISCERTFP               = "276"
 	RPL_AWAY                      = "301"
 	RPL_USERHOST                  = "302"
