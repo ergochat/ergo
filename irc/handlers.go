@@ -1729,11 +1729,12 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // MODE <client> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	cDetails := client.Details()
 	nickname, err := CasefoldName(msg.Params[0])
 	target := server.clients.Get(nickname)
 	if err != nil || target == nil {
 		if len(msg.Params[0]) > 0 {
-			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, cDetails.nick, msg.Params[0], client.t("No such nick"))
 		}
 		return false
 	}
@@ -1743,9 +1744,9 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	if !hasPrivs {
 		if len(msg.Params) > 1 {
-			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't change modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, cDetails.nick, client.t("Can't change modes for other users"))
 		} else {
-			rb.Add(nil, server.name, ERR_USERSDONTMATCH, client.nick, client.t("Can't view modes for other users"))
+			rb.Add(nil, server.name, ERR_USERSDONTMATCH, cDetails.nick, client.t("Can't view modes for other users"))
 		}
 		return false
 	}
@@ -1760,7 +1761,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 		// alert for unknown mode changes
 		for char := range unknown {
-			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
+			rb.Add(nil, server.name, ERR_UNKNOWNMODE, cDetails.nick, string(char), client.t("is an unknown mode character to me"))
 		}
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
@@ -1771,13 +1772,13 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	if len(applied) > 0 {
-		rb.Add(nil, client.nickMaskString, "MODE", targetNick, applied.String())
+		rb.Add(nil, cDetails.nickMask, "MODE", targetNick, applied.String())
 	} else if hasPrivs {
-		rb.Add(nil, target.nickMaskString, RPL_UMODEIS, targetNick, target.ModeString())
-		if client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator) {
-			masks := server.snomasks.String(client)
+		rb.Add(nil, server.name, RPL_UMODEIS, targetNick, target.ModeString())
+		if target.HasMode(modes.LocalOperator) || target.HasMode(modes.Operator) {
+			masks := server.snomasks.String(target)
 			if 0 < len(masks) {
-				rb.Add(nil, target.nickMaskString, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
+				rb.Add(nil, server.name, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
 			}
 		}
 	}
