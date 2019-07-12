@@ -136,22 +136,12 @@ Used in capability negotiation. See the IRCv3 specs for more info:
 http://ircv3.net/specs/core/capability-negotiation-3.1.html
 http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 	},
-	"chanserv": {
-		text: `CHANSERV <subcommand> [params]
-
-ChanServ controls channel registrations.`,
-	},
 	"chathistory": {
 		text: `CHATHISTORY [params]
 
 CHATHISTORY is an experimental history replay command. See these documents:
 https://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md
 https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d`,
-	},
-	"cs": {
-		text: `CS <subcommand> [params]
-
-ChanServ controls channel registrations.`,
 	},
 	"debug": {
 		oper: true,
@@ -212,18 +202,6 @@ Replay message history. <target> can be a channel name, "me" to replay direct
 message history, or a nickname to replay another client's direct message
 history (they must be logged into the same account as you). At most [limit]
 messages will be replayed.`,
-	},
-	"hostserv": {
-		text: `HOSTSERV <command> [params]
-
-HostServ lets you manage your vhost (a string displayed in place of your
-real hostname).`,
-	},
-	"hs": {
-		text: `HS <command> [params]
-
-HostServ lets you manage your vhost (a string displayed in place of your
-real hostname).`,
 	},
 	"info": {
 		text: `INFO
@@ -351,11 +329,6 @@ view the channel membership prefixes supported by this server, see the help for
 
 Sets your nickname to the new given one.`,
 	},
-	"nickserv": {
-		text: `NICKSERV <subcommand> [params]
-
-NickServ controls accounts and user registrations.`,
-	},
 	"notice": {
 		text: `NOTICE <target>{,<target>} <text to be sent>
 
@@ -374,11 +347,6 @@ Requires the roleplay mode (+E) to be set on the target.`,
 The NPC command is used to send an action to the target as the source.
 
 Requires the roleplay mode (+E) to be set on the target.`,
-	},
-	"ns": {
-		text: `NS <subcommand> [params]
-
-NickServ controls accounts and user registrations.`,
 	},
 	"oper": {
 		text: `OPER <name> <password>

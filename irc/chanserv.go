@@ -17,13 +17,7 @@ import (
 	"github.com/oragono/oragono/irc/sno"
 )
 
-const chanservHelp = `ChanServ lets you register and manage channels.
-
-To see in-depth help for a specific ChanServ command, try:
-    $b/CS HELP <command>$b
-
-Here are the commands you can use:
-%s`
+const chanservHelp = `ChanServ lets you register and manage channels.`
 
 func chanregEnabled(config *Config) bool {
 	return config.Channels.Registration.Enabled

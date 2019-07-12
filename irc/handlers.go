@@ -1091,7 +1091,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 
 	if exists && (!helpHandler.oper || (helpHandler.oper && client.HasMode(modes.Operator))) {
 		if helpHandler.textGenerator != nil {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.textGenerator(client)), rb)
+			client.sendHelp(strings.ToUpper(argument), helpHandler.textGenerator(client), rb)
 		} else {
 			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text), rb)
 		}
