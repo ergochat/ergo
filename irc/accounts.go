@@ -114,7 +114,7 @@ func (am *AccountManager) buildNickToAccountIndex() {
 				err := json.Unmarshal([]byte(rawPrefs), &prefs)
 				if err == nil && prefs.NickEnforcement != NickEnforcementOptional {
 					accountToMethod[account] = prefs.NickEnforcement
-				} else {
+				} else if err != nil {
 					am.server.logger.Error("internal", "corrupt account creds", account)
 				}
 			}
