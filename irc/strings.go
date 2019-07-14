@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/oragono/confusables"
@@ -156,4 +157,56 @@ func Skeleton(name string) (string, error) {
 	// that are disallowed by PRECIS, because every identifier must independently
 	// pass PRECIS --- we are just further canonicalizing the skeleton.
 	return cases.Lower(language.Und).String(name), nil
+}
+
+// maps a nickmask fragment to an expanded, casefolded wildcard:
+// Shivaram@good-fortune -> *!shivaram@good-fortune
+// EDMUND -> edmund!*@*
+func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
+	var nick, user, host string
+	bangIndex := strings.IndexByte(userhost, '!')
+	strudelIndex := strings.IndexByte(userhost, '@')
+
+	if bangIndex != -1 && bangIndex < strudelIndex {
+		nick = userhost[:bangIndex]
+		user = userhost[bangIndex+1 : strudelIndex]
+		host = userhost[strudelIndex+1:]
+	} else if bangIndex != -1 && strudelIndex == -1 {
+		nick = userhost[:bangIndex]
+		user = userhost[bangIndex+1:]
+	} else if bangIndex != -1 && strudelIndex < bangIndex {
+		// @ before !, fail
+		return "", errNicknameInvalid
+	} else if bangIndex == -1 && strudelIndex != -1 {
+		user = userhost[:strudelIndex]
+		host = userhost[strudelIndex+1:]
+	} else if bangIndex == -1 && strudelIndex == -1 {
+		nick = userhost
+	} else {
+		// shouldn't be possible
+		return "", errInvalidParams
+	}
+
+	if nick == "" {
+		nick = "*"
+	}
+	if nick != "*" {
+		nick, err = Casefold(nick)
+		if err != nil {
+			return "", err
+		}
+	}
+	if user == "" {
+		user = "*"
+	}
+	if user != "*" {
+		user = strings.ToLower(user)
+	}
+	if host == "" {
+		host = "*"
+	}
+	if host != "*" {
+		host = strings.ToLower(host)
+	}
+	return fmt.Sprintf("%s!%s@%s", nick, user, host), nil
 }
