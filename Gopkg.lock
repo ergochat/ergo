@@ -27,7 +27,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cfd300a33b5450a167ccc1b9741562437e3262de2409a099069d2ea0aac57bb6"
+  digest = "1:97259f42662dc7333186fea039a1dde8d88695f487a937cc3ebd134c6adaacaf"
   name = "github.com/goshuirc/irc-go"
   packages = [
     "ircfmt",
