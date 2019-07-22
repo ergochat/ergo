@@ -1,7 +1,7 @@
 {
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "",
-  "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "",
-  "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "",
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "HostServ vous laisse gérer votre hôte virtuel, qui s’affiche à la place de votre adresse IP ou nom d’hôte.\n\nPour voir l’aide détaillée d’une commande relative à HostServ, essayez :\n    $b/HS HELP <commande>$b\n\nVoici les commandes à votre disposition :\n%s",
+  "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Syntaxe : $bAPPROVE <Utilisateurice>$b\n\nAPPROVE valide la demande d’hôte virtuel de l’utilisateurice en question.",
+  "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntaxe : $bDEL <Utilisateurice>$b\n\nDEL supprime l’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "",
   "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "",
   "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "",
