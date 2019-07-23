@@ -1,7 +1,7 @@
 {
-  "$bAMODE$b modifies persistent mode settings for channel members.": "",
-  "$bOP$b makes the given user (or yourself) a channel admin.": "",
-  "$bREGISTER$b lets you own a given channel.": "",
+  "$bAMODE$b modifies persistent mode settings for channel members.": "$bAMODE$b 更改频道成员的持久设置。",
+  "$bOP$b makes the given user (or yourself) a channel admin.": "$bOP$b 将指定用户（或您自己）设置为频道管理员。",
+  "$bREGISTER$b lets you own a given channel.": "$bREGISTER$b 使您拥有指定的频道。",
   "$bUNREGISTER$b deletes a channel registration.": "",
   "ChanServ lets you register and manage channels.\n\nTo see in-depth help for a specific ChanServ command, try:\n    $b/CS HELP <command>$b\n\nHere are the commands you can use:\n%s": "",
   "Syntax: $bAMODE #channel [mode change] [account]$b\n\nAMODE lists or modifies persistent mode settings that affect channel members.\nFor example, $bAMODE #channel +o dan$b grants the the holder of the \"dan\"\naccount the +o operator mode every time they join #channel. To list current\naccounts and modes, use $bAMODE #channel$b. Note that users are always\nreferenced by their registered account names, not their nicknames.": "",
