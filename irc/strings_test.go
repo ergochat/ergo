@@ -188,3 +188,27 @@ func TestSkeleton(t *testing.T) {
 	// should not raise an error:
 	skeleton("けらんぐ")
 }
+
+func TestCanonicalizeMaskWildcard(t *testing.T) {
+	tester := func(input, expected string, expectedErr error) {
+		out, err := CanonicalizeMaskWildcard(input)
+		if out != expected {
+			t.Errorf("expected %s to canonicalize to %s, instead %s", input, expected, out)
+		}
+		if err != expectedErr {
+			t.Errorf("expected %s to produce error %v, instead %v", input, expectedErr, err)
+		}
+	}
+
+	tester("shivaram", "shivaram!*@*", nil)
+	tester("slingamn!shivaram", "slingamn!shivaram@*", nil)
+	tester("ברוך", "ברוך!*@*", nil)
+	tester("hacker@monad.io", "*!hacker@monad.io", nil)
+	tester("Evan!hacker@monad.io", "evan!hacker@monad.io", nil)
+	tester("РОТАТО!Potato", "ротато!potato@*", nil)
+	tester("tkadich*", "tkadich*!*@*", nil)
+	tester("SLINGAMN!*@*", "slingamn!*@*", nil)
+	tester("slingamn!shivaram*", "slingamn!shivaram*@*", nil)
+	tester("slingamn!", "slingamn!*@*", nil)
+	tester("shivaram*@good-fortune", "*!shivaram*@good-fortune", nil)
+}

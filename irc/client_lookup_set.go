@@ -18,20 +18,6 @@ import (
 	"sync"
 )
 
-// ExpandUserHost takes a userhost, and returns an expanded version.
-func ExpandUserHost(userhost string) (expanded string) {
-	expanded = userhost
-	// fill in missing wildcards for nicks
-	//TODO(dan): this would fail with dan@lol, fix that.
-	if !strings.Contains(expanded, "!") {
-		expanded += "!*"
-	}
-	if !strings.Contains(expanded, "@") {
-		expanded += "@*"
-	}
-	return
-}
-
 // ClientManager keeps track of clients by nick, enforcing uniqueness of casefolded nicks
 type ClientManager struct {
 	sync.RWMutex // tier 2
@@ -241,7 +227,7 @@ func (clients *ClientManager) AllWithCapsNotify(capabs ...caps.Capability) (sess
 func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 
-	userhost, err := Casefold(ExpandUserHost(userhost))
+	userhost, err := CanonicalizeMaskWildcard(userhost)
 	if err != nil {
 		return set
 	}

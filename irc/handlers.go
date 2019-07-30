@@ -1372,10 +1372,11 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
 // KLINE LIST
 func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
 	if oper == nil || !oper.Class.Capabilities["oper:local_ban"] {
-		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
@@ -1421,31 +1422,31 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	// get mask
 	if len(msg.Params) < currentArg+1 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, details.nick, msg.Command, client.t("Not enough parameters"))
 		return false
 	}
-	mask := strings.ToLower(msg.Params[currentArg])
+	mask := msg.Params[currentArg]
 	currentArg++
 
 	// check mask
-	if !strings.Contains(mask, "!") && !strings.Contains(mask, "@") {
-		mask = mask + "!*@*"
-	} else if !strings.Contains(mask, "@") {
-		mask = mask + "@*"
+	mask, err = CanonicalizeMaskWildcard(mask)
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
+		return false
 	}
 
 	matcher := ircmatch.MakeMatch(mask)
 
 	for _, clientMask := range client.AllNickmasks() {
 		if !klineMyself && matcher.Match(clientMask) {
-			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
 			return false
 		}
 	}
 
 	// check remote
 	if len(msg.Params) > currentArg && msg.Params[currentArg] == "ON" {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Remote servers not yet supported"))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Remote servers not yet supported"))
 		return false
 	}
 
@@ -1467,10 +1468,10 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	var snoDescription string
 	if duration != 0 {
 		rb.Notice(fmt.Sprintf(client.t("Added temporary (%[1]s) K-Line for %[2]s"), duration.String(), mask))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), client.nick, operName, duration.String(), mask)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added temporary (%s) K-Line for %s"), details.nick, operName, duration.String(), mask)
 	} else {
 		rb.Notice(fmt.Sprintf(client.t("Added K-Line for %s"), mask))
-		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added K-Line for %s"), client.nick, operName, mask)
+		snoDescription = fmt.Sprintf(ircfmt.Unescape("%s [%s]$r added K-Line for %s"), details.nick, operName, mask)
 	}
 	server.snomasks.Send(sno.LocalXline, snoDescription)
 
@@ -1501,7 +1502,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 		// send snomask
 		sort.Strings(killedClientNicks)
-		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s [%s] killed %d clients with a KLINE $c[grey][$r%s$c[grey]]"), client.nick, operName, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
+		server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s [%s] killed %d clients with a KLINE $c[grey][$r%s$c[grey]]"), details.nick, operName, len(killedClientNicks), strings.Join(killedClientNicks, ", ")))
 	}
 
 	return killClient
@@ -2486,31 +2487,31 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // UNKLINE <mask>
 func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
 	if oper == nil || !oper.Class.Capabilities["oper:local_unban"] {
-		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
 
 	// get host
 	mask := msg.Params[0]
-
-	if !strings.Contains(mask, "!") && !strings.Contains(mask, "@") {
-		mask = mask + "!*@*"
-	} else if !strings.Contains(mask, "@") {
-		mask = mask + "@*"
+	mask, err := CanonicalizeMaskWildcard(mask)
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
+		return false
 	}
 
-	err := server.klines.RemoveMask(mask)
+	err = server.klines.RemoveMask(mask)
 
 	if err != nil {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
 		return false
 	}
 
 	rb.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
-	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), client.nick, mask))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), details.nick, mask))
 	return false
 }
 
