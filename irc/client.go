@@ -232,7 +232,7 @@ func (server *Server) RunClient(conn clientConn) {
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
-	client.history.Initialize(config.History.ClientLength)
+	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
 	client.brbTimer.Initialize(client)
 	session := &Session{
 		client:     client,
