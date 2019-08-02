@@ -43,8 +43,7 @@ func (server *Server) Languages() (lm *languages.Manager) {
 
 func (client *Client) Sessions() (sessions []*Session) {
 	client.stateMutex.RLock()
-	sessions = make([]*Session, len(client.sessions))
-	copy(sessions, client.sessions)
+	sessions = client.sessions
 	client.stateMutex.RUnlock()
 	return
 }
@@ -102,7 +101,10 @@ func (client *Client) AddSession(session *Session) (success bool) {
 	}
 	// success, attach the new session to the client
 	session.client = client
-	client.sessions = append(client.sessions, session)
+	newSessions := make([]*Session, len(client.sessions)+1)
+	copy(newSessions, client.sessions)
+	newSessions[len(newSessions)-1] = session
+	client.sessions = newSessions
 	return true
 }
 
