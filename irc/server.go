@@ -39,13 +39,9 @@ var (
 	// supportedChannelModesString acts as a cache for when we introduce users
 	supportedChannelModesString = modes.SupportedChannelModes.String()
 
-	// SupportedCapabilities are the caps we advertise.
-	// MaxLine, SASL and STS may be unset during server startup / rehash.
-	SupportedCapabilities = caps.NewCompleteSet()
-
-	// CapValues are the actual values we advertise to v3.2 clients.
-	// actual values are set during server startup.
-	CapValues = caps.NewValues()
+	// whitelist of caps to serve on the STS-only listener. In particular,
+	// never advertise SASL, to discourage people from sending their passwords:
+	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.LabeledResponse, caps.Nope)
 )
 
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
@@ -340,6 +336,11 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return
 	}
 
+	if c.isSTSOnly {
+		server.playRegistrationBurst(session)
+		return true
+	}
+
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
 	authOutcome := c.isAuthorized(server.Config())
@@ -406,6 +407,13 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
+
+	if c.isSTSOnly {
+		for _, line := range server.Config().Server.STS.bannerLines {
+			c.Notice(line)
+		}
+		return
+	}
 
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
@@ -623,23 +631,17 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	server.helpIndexManager.GenerateIndices(config.languageManager)
 
-	currentLanguageValue, _ := CapValues.Get(caps.Languages)
-	newLanguageValue := config.languageManager.CapValue()
-	if currentLanguageValue != newLanguageValue {
+	if oldConfig != nil && config.Server.capValues[caps.Languages] != oldConfig.Server.capValues[caps.Languages] {
 		updatedCaps.Add(caps.Languages)
-		CapValues.Set(caps.Languages, newLanguageValue)
 	}
 
 	// SASL
 	authPreviouslyEnabled := oldConfig != nil && oldConfig.Accounts.AuthenticationEnabled
 	if config.Accounts.AuthenticationEnabled && (oldConfig == nil || !authPreviouslyEnabled) {
 		// enabling SASL
-		SupportedCapabilities.Enable(caps.SASL)
-		CapValues.Set(caps.SASL, "PLAIN,EXTERNAL")
 		addedCaps.Add(caps.SASL)
 	} else if !config.Accounts.AuthenticationEnabled && (oldConfig == nil || authPreviouslyEnabled) {
 		// disabling SASL
-		SupportedCapabilities.Disable(caps.SASL)
 		removedCaps.Add(caps.SASL)
 	}
 
@@ -661,39 +663,17 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.channels.loadRegisteredChannels()
 	}
 
-	// MaxLine
-	if config.Limits.LineLen.Rest != 512 {
-		SupportedCapabilities.Enable(caps.MaxLine)
-		value := fmt.Sprintf("%d", config.Limits.LineLen.Rest)
-		CapValues.Set(caps.MaxLine, value)
-	} else {
-		SupportedCapabilities.Disable(caps.MaxLine)
-	}
-
 	// STS
 	stsPreviouslyEnabled := oldConfig != nil && oldConfig.Server.STS.Enabled
-	stsValue := config.Server.STS.Value()
-	stsDisabledByRehash := false
-	stsCurrentCapValue, _ := CapValues.Get(caps.STS)
+	stsValue := config.Server.capValues[caps.STS]
+	stsCurrentCapValue := ""
+	if oldConfig != nil {
+		stsCurrentCapValue = oldConfig.Server.capValues[caps.STS]
+	}
 	server.logger.Debug("server", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
-	if config.Server.STS.Enabled {
-		// enabling STS
-		SupportedCapabilities.Enable(caps.STS)
-		if !stsPreviouslyEnabled {
-			addedCaps.Add(caps.STS)
-			CapValues.Set(caps.STS, stsValue)
-		} else if stsValue != stsCurrentCapValue {
-			// STS policy updated
-			CapValues.Set(caps.STS, stsValue)
-			updatedCaps.Add(caps.STS)
-		}
-	} else {
-		// disabling STS
-		SupportedCapabilities.Disable(caps.STS)
-		if stsPreviouslyEnabled {
-			removedCaps.Add(caps.STS)
-			stsDisabledByRehash = true
-		}
+	if (config.Server.STS.Enabled != stsPreviouslyEnabled) || (stsValue != stsCurrentCapValue) {
+		// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
+		addedCaps.Add(caps.STS)
 	}
 
 	// resize history buffers as needed
@@ -708,42 +688,35 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// burst new and removed caps
 	var capBurstSessions []*Session
-	added := make(map[caps.Version]string)
-	var removed string
+	added := make(map[caps.Version][]string)
+	var removed []string
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("server", "Updated Caps", updatedCaps.String(caps.Cap301, CapValues))
+	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.String(caps.Cap301, config.Server.capValues), " "))
 	addedCaps.Union(updatedCaps)
 	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
 		capBurstSessions = server.clients.AllWithCapsNotify()
 
-		added[caps.Cap301] = addedCaps.String(caps.Cap301, CapValues)
-		added[caps.Cap302] = addedCaps.String(caps.Cap302, CapValues)
+		added[caps.Cap301] = addedCaps.String(caps.Cap301, config.Server.capValues)
+		added[caps.Cap302] = addedCaps.String(caps.Cap302, config.Server.capValues)
 		// removed never has values, so we leave it as Cap301
-		removed = removedCaps.String(caps.Cap301, CapValues)
+		removed = removedCaps.String(caps.Cap301, config.Server.capValues)
 	}
 
 	for _, sSession := range capBurstSessions {
-		if stsDisabledByRehash {
-			// remove STS policy
-			//TODO(dan): this is an ugly hack. we can write this better.
-			stsPolicy := "sts=duration=0"
-			if !addedCaps.Empty() {
-				added[caps.Cap302] = added[caps.Cap302] + " " + stsPolicy
-			} else {
-				addedCaps.Enable(caps.STS)
-				added[caps.Cap302] = stsPolicy
-			}
-		}
 		// DEL caps and then send NEW ones so that updated caps get removed/added correctly
 		if !removedCaps.Empty() {
-			sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "DEL", removed)
+			for _, capStr := range removed {
+				sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "DEL", capStr)
+			}
 		}
 		if !addedCaps.Empty() {
-			sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "NEW", added[sSession.capVersion])
+			for _, capStr := range added[sSession.capVersion] {
+				sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "NEW", capStr)
+			}
 		}
 	}
 
@@ -905,15 +878,11 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 	}
 
+	publicPlaintextListener := ""
 	// create new listeners that were not previously configured
-	numTlsListeners := 0
-	hasStandardTlsListener := false
 	for newAddr, newConfig := range config.Server.trueListeners {
-		if newConfig.TLSConfig != nil {
-			numTlsListeners += 1
-			if strings.HasSuffix(newAddr, ":6697") {
-				hasStandardTlsListener = true
-			}
+		if strings.HasPrefix(newAddr, ":") && !newConfig.IsTor && !newConfig.IsSTSOnly && newConfig.TLSConfig == nil {
+			publicPlaintextListener = newAddr
 		}
 		_, exists := server.listeners[newAddr]
 		if !exists {
@@ -929,12 +898,8 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 	}
 
-	if numTlsListeners == 0 {
-		server.logger.Warning("server", "You are not exposing an SSL/TLS listening port. You should expose at least one port (typically 6697) to accept TLS connections")
-	}
-
-	if !hasStandardTlsListener {
-		server.logger.Warning("server", "Port 6697 is the standard TLS port for IRC. You should (also) expose port 6697 as a TLS port to ensure clients can connect securely")
+	if publicPlaintextListener != "" {
+		server.logger.Warning("listeners", fmt.Sprintf("Your server is configured with public plaintext listener %s. Consider disabling it for improved security and privacy.", publicPlaintextListener))
 	}
 
 	return

@@ -301,6 +301,11 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	config := server.Config()
 	details := client.Details()
 
+	if client.isSTSOnly {
+		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
+		return false
+	}
+
 	if details.account != "" {
 		rb.Add(nil, server.name, ERR_SASLALREADY, details.nick, client.t("You're already logged into an account"))
 		return false
@@ -535,6 +540,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	toRemove := caps.NewSet()
 	var capString string
 
+	config := server.Config()
+	supportedCaps := config.Server.supportedCaps
+	if client.isSTSOnly {
+		supportedCaps = stsOnlyCaps
+	}
+
 	badCaps := false
 	if len(msg.Params) > 1 {
 		capString = msg.Params[1]
@@ -546,12 +557,26 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 				remove = true
 			}
 			capab, err := caps.NameToCapability(str)
-			if err != nil || (!remove && !SupportedCapabilities.Has(capab)) {
+			if err != nil || (!remove && !supportedCaps.Has(capab)) {
 				badCaps = true
 			} else if !remove {
 				toAdd.Enable(capab)
 			} else {
 				toRemove.Enable(capab)
+			}
+		}
+	}
+
+	sendCapLines := func(cset *caps.Set, values caps.Values) {
+		version := rb.session.capVersion
+		capLines := cset.String(version, values)
+		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
+		// the server.name source:
+		for i, capStr := range capLines {
+			if version == caps.Cap302 && i < len(capLines)-1 {
+				rb.Add(nil, server.name, "CAP", details.nick, subCommand, "*", capStr)
+			} else {
+				rb.Add(nil, server.name, "CAP", details.nick, subCommand, capStr)
 			}
 		}
 	}
@@ -568,14 +593,11 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 				rb.session.capVersion = newVersion
 			}
 		}
-		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
-		// the server.name source... otherwise it doesn't respond to the CAP message with
-		// anything and just hangs on connection.
-		//TODO(dan): limit number of caps and send it multiline in 3.2 style as appropriate.
-		rb.Add(nil, server.name, "CAP", details.nick, subCommand, SupportedCapabilities.String(rb.session.capVersion, CapValues))
+		sendCapLines(supportedCaps, config.Server.capValues)
 
 	case "LIST":
-		rb.Add(nil, server.name, "CAP", details.nick, subCommand, rb.session.capabilities.String(caps.Cap301, CapValues)) // values not sent on LIST so force 3.1
+		// values not sent on LIST
+		sendCapLines(&rb.session.capabilities, nil)
 
 	case "REQ":
 		if !client.registered {

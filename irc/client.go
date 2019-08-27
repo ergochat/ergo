@@ -58,6 +58,7 @@ type Client struct {
 	flags              modes.ModeSet
 	hostname           string
 	invitedTo          map[string]bool
+	isSTSOnly          bool
 	isTor              bool
 	languages          []string
 	loginThrottle      connection_limits.GenericThrottle
@@ -220,6 +221,7 @@ func (server *Server) RunClient(conn clientConn) {
 		atime:     now,
 		channels:  make(ChannelSet),
 		ctime:     now,
+		isSTSOnly: conn.Config.IsSTSOnly,
 		isTor:     conn.Config.IsTor,
 		languages: server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
