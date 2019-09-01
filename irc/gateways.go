@@ -63,6 +63,9 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	if isBanned {
 		return errBanned, banMsg
 	}
+	// successfully added a limiter entry for the proxied IP;
+	// remove the entry for the real IP if applicable (#197)
+	client.server.connectionLimiter.RemoveClient(session.realIP)
 
 	// given IP is sane! override the client's current IP
 	ipstring := parsedProxiedIP.String()
