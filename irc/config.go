@@ -669,6 +669,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.capValues[caps.MaxLine] = strconv.Itoa(config.Limits.LineLen.Rest)
 	}
 
+	if !config.Accounts.Bouncer.Enabled {
+		config.Server.supportedCaps.Disable(caps.Bouncer)
+	}
+
 	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
