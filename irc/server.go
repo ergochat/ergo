@@ -676,6 +676,14 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		addedCaps.Add(caps.STS)
 	}
 
+	if oldConfig != nil && config.Accounts.Bouncer.Enabled != oldConfig.Accounts.Bouncer.Enabled {
+		if config.Accounts.Bouncer.Enabled {
+			addedCaps.Add(caps.Bouncer)
+		} else {
+			removedCaps.Add(caps.Bouncer)
+		}
+	}
+
 	// resize history buffers as needed
 	if oldConfig != nil && oldConfig.History != config.History {
 		for _, channel := range server.channels.Channels() {
@@ -685,6 +693,9 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
 		}
 	}
+
+	// activate the new config
+	server.SetConfig(config)
 
 	// burst new and removed caps
 	var capBurstSessions []*Session
@@ -719,9 +730,6 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			}
 		}
 	}
-
-	// save a pointer to the new config
-	server.SetConfig(config)
 
 	server.logger.Info("server", "Using datastore", config.Datastore.Path)
 	if initial {
