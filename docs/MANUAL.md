@@ -32,6 +32,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - History
     - IP cloaking
 - Frequently Asked Questions
+- IRC over TLS
 - Modes
     - User Modes
     - Channel Modes
@@ -342,9 +343,17 @@ If you're familiar with getting this output through your client (e.g. in weechat
 
 Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
+-------------------------------------------------------------------------------------------
+
+
+# IRC over TLS
+
+IRC has traditionally been available over both plaintext (on port 6667) and SSL/TLS (on port 6697). We recommend that you make your server available exclusively via TLS, since exposing plaintext access allows for unauthorized interception or modification of user data or passwords. While the default config file exposes a plaintext public port, it also contains instructions on how to disable it or replace it with a 'dummy' plaintext listener that simply directs users to reconnect using TLS.
+
+
 ## How do I use Let's Encrypt certificates?
 
-Every deployment's gonna be different, but you can use certificates from [Let's Encrypt](https://letsencrypt.org) without too much trouble. Here's some steps that should help get you on the right track:
+[Let's Encrypt](https://letsencrypt.org) is a widely recognized certificate authority that provides free certificates. Here's a quick-start guide for using those certificates with Oragono:
 
 1. Follow this [guidance](https://letsencrypt.org/getting-started/) from Let's Encrypt to create your certificates.
 2. You should now have a set of `pem` files, Mainly, we're interested in your `live/` Let's Encrypt directory (e.g. `/etc/letsencrypt/live/<site>/`).
@@ -362,6 +371,34 @@ pkill -HUP oragono
 The main issues you'll run into are going to be permissions issues. This is because by default, certbot will generate certificates that non-root users can't (and probably shouldn't) read. If you run into trouble, look over the script in step **4** and/or make sure you're copying the files to somewhere else, as well as giving them correct permissions with `chown`, `chgrp` and `chmod`.
 
 On other platforms or with alternative ACME tools, you may need to use other steps or the specific files may be named differently.
+
+
+## How can I "redirect" users from plaintext to TLS?
+
+The [STS specification](https://ircv3.net/specs/extensions/sts) can be used to redirect clients from plaintext to TLS automatically. If you set `server.sts.enabled` to `true`, clients with specific support for STS that connect in plaintext will disconnect and reconnect over TLS. To use STS, you must be using certificates issued by a generally recognized certificate authority, such as Let's Encrypt.
+
+Many clients do not have this support. However, you can designate port 6667 as an "STS-only" listener: any client that connects to such a listener will receive both the machine-readable STS policy and a human-readable message instructing them to reconnect over TLS, and will then be disconnected by the server before they can send or receive any chat data. Here is an example of how to configure this behavior:
+
+```yaml
+    listeners:
+        ":6667":
+            sts-only: true
+
+        # These are loopback-only plaintext listeners on port 6668:
+        "127.0.0.1:6668": # (loopback ipv4, localhost-only)
+        "[::1]:6668":     # (loopback ipv6, localhost-only)
+
+        ":6697":
+            tls:
+                key: tls.key
+                cert: tls.crt
+
+    sts:
+        enabled: true
+
+        # how long clients should be forced to use TLS for.
+        duration: 1mo2d5m
+```
 
 
 --------------------------------------------------------------------------------------------

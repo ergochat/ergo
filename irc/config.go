@@ -14,10 +14,12 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
@@ -43,8 +45,9 @@ type TLSListenConfig struct {
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
 type listenerConfigBlock struct {
-	TLS TLSListenConfig
-	Tor bool
+	TLS     TLSListenConfig
+	Tor     bool
+	STSOnly bool `yaml:"sts-only"`
 }
 
 // listenerConfig is the config governing a particular listener (bound address),
@@ -52,6 +55,7 @@ type listenerConfigBlock struct {
 type listenerConfig struct {
 	TLSConfig *tls.Config
 	IsTor     bool
+	IsSTSOnly bool
 }
 
 type AccountConfig struct {
@@ -235,6 +239,8 @@ type STSConfig struct {
 	DurationString string        `yaml:"duration"`
 	Port           int
 	Preload        bool
+	STSOnlyBanner  string `yaml:"sts-only-banner"`
+	bannerLines    []string
 }
 
 // Value returns the STS value to advertise in CAP
@@ -306,6 +312,8 @@ type Config struct {
 		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
 		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
 		Cloaks              cloaks.CloakConfig                `yaml:"ip-cloaking"`
+		supportedCaps       *caps.Set
+		capValues           caps.Values
 	}
 
 	Languages struct {
@@ -511,6 +519,10 @@ func (conf *Config) prepareListeners() (err error) {
 		for addr, block := range conf.Server.Listeners {
 			var lconf listenerConfig
 			lconf.IsTor = block.Tor
+			lconf.IsSTSOnly = block.STSOnly
+			if lconf.IsSTSOnly && !conf.Server.STS.Enabled {
+				return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
+			}
 			if block.TLS.Cert != "" {
 				tlsConfig, err := loadTlsConfig(block.TLS)
 				if err != nil {
@@ -592,6 +604,15 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
 	}
+
+	config.Server.supportedCaps = caps.NewCompleteSet()
+	config.Server.capValues = make(caps.Values)
+
+	err = config.prepareListeners()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
+	}
+
 	if config.Server.STS.Enabled {
 		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
 		if err != nil {
@@ -600,7 +621,18 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Server.STS.Port < 0 || config.Server.STS.Port > 65535 {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}
+		if config.Server.STS.STSOnlyBanner != "" {
+			config.Server.STS.bannerLines = utils.WordWrap(config.Server.STS.STSOnlyBanner, 400)
+		} else {
+			config.Server.STS.bannerLines = []string{fmt.Sprintf("This server is only accessible over TLS. Please reconnect using TLS on port %d.", config.Server.STS.Port)}
+		}
+	} else {
+		config.Server.supportedCaps.Disable(caps.STS)
+		config.Server.STS.Duration = 0
 	}
+	// set this even if STS is disabled
+	config.Server.capValues[caps.STS] = config.Server.STS.Value()
+
 	if config.Server.ConnectionThrottler.Enabled {
 		config.Server.ConnectionThrottler.Duration, err = time.ParseDuration(config.Server.ConnectionThrottler.DurationString)
 		if err != nil {
@@ -626,10 +658,21 @@ func LoadConfig(filename string) (config *Config, err error) {
 		newWebIRC = append(newWebIRC, webirc)
 	}
 	config.Server.WebIRC = newWebIRC
+
 	// process limits
 	if config.Limits.LineLen.Rest < 512 {
 		config.Limits.LineLen.Rest = 512
 	}
+	if config.Limits.LineLen.Rest == 512 {
+		config.Server.supportedCaps.Disable(caps.MaxLine)
+	} else {
+		config.Server.capValues[caps.MaxLine] = strconv.Itoa(config.Limits.LineLen.Rest)
+	}
+
+	if !config.Accounts.Bouncer.Enabled {
+		config.Server.supportedCaps.Disable(caps.Bouncer)
+	}
+
 	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
@@ -713,6 +756,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.LoginThrottling.MaxAttempts = 0 // limit of 0 means disabled
 	}
 
+	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
+	if !config.Accounts.AuthenticationEnabled {
+		config.Server.supportedCaps.Disable(caps.SASL)
+	}
+
 	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse maximum SendQ size (make sure it only contains whole numbers): %s", err.Error())
@@ -723,6 +771,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not load languages: %s", err.Error())
 	}
+	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
 	// RecoverFromErrors defaults to true
 	if config.Debug.RecoverFromErrors != nil {
@@ -796,11 +845,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
 			return nil, fmt.Errorf("You must generate a new value of server.ip-cloaking.secret to enable cloaking")
 		}
-	}
-
-	err = config.prepareListeners()
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
 	return config, nil

@@ -4,14 +4,17 @@
 package caps
 
 import (
+	"bytes"
 	"sort"
-	"strings"
 
 	"github.com/oragono/oragono/irc/utils"
 )
 
 // Set holds a set of enabled capabilities.
 type Set [bitsetLen]uint32
+
+// Values holds capability values.
+type Values map[Capability]string
 
 // NewSet returns a new Set, with the given capabilities enabled.
 func NewSet(capabs ...Capability) *Set {
@@ -88,8 +91,10 @@ func (s *Set) Empty() bool {
 	return utils.BitsetEmpty(s[:])
 }
 
-// String returns all of our enabled capabilities as a string.
-func (s *Set) String(version Version, values *Values) string {
+const maxPayloadLength = 440
+
+// Strings returns all of our enabled capabilities as a slice of strings.
+func (s *Set) Strings(version Version, values Values) (result []string) {
 	var strs sort.StringSlice
 
 	var capab Capability
@@ -100,8 +105,8 @@ func (s *Set) String(version Version, values *Values) string {
 			continue
 		}
 		capString := capab.Name()
-		if version == Cap302 {
-			val, exists := values.Get(capab)
+		if version >= Cap302 {
+			val, exists := values[capab]
 			if exists {
 				capString += "=" + val
 			}
@@ -109,8 +114,31 @@ func (s *Set) String(version Version, values *Values) string {
 		strs = append(strs, capString)
 	}
 
+	if len(strs) == 0 {
+		return []string{""}
+	}
+
 	// sort the cap string before we send it out
 	sort.Sort(strs)
 
-	return strings.Join(strs, " ")
+	var buf bytes.Buffer
+	for _, str := range strs {
+		tokenLen := len(str)
+		if buf.Len() != 0 {
+			tokenLen += 1
+		}
+		if maxPayloadLength < buf.Len()+tokenLen {
+			result = append(result, buf.String())
+			buf.Reset()
+		}
+		if buf.Len() != 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(str)
+	}
+	if buf.Len() != 0 {
+		result = append(result, buf.String())
+	}
+
+	return
 }

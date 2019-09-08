@@ -58,13 +58,8 @@ func (cl *Limiter) AddClient(addr net.IP, force bool) error {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.enabled {
-		return nil
-	}
-
-	// check exempted lists
 	// we don't track populations for exempted addresses or nets - this is by design
-	if utils.IPInNets(addr, cl.exemptedNets) {
+	if !cl.enabled || utils.IPInNets(addr, cl.exemptedNets) {
 		return nil
 	}
 
@@ -85,7 +80,7 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.enabled {
+	if !cl.enabled || utils.IPInNets(addr, cl.exemptedNets) {
 		return
 	}
 

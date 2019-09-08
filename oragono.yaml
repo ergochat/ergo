@@ -15,17 +15,21 @@ server:
         # The standard plaintext port for IRC is 6667. This will listen on all interfaces:
         ":6667":
 
+        # Allowing plaintext over the public Internet poses security and privacy issues,
+        # so if possible, we recommend that you comment out the above line and replace
+        # it with these two, which listen only on local interfaces:
+        # "127.0.0.1:6667": # (loopback ipv4, localhost-only)
+        # "[::1]:6667":     # (loopback ipv6, localhost-only)
+        # Alternately, if you have a TLS certificate issued by a recognized CA,
+        # you can configure port 6667 as an STS-only listener that only serves
+        # "redirects" to the TLS port, but doesn't allow chat. See the manual
+        # for details.
+
         # The standard SSL/TLS port for IRC is 6697. This will listen on all interfaces:
         ":6697":
             tls:
                 key: tls.key
                 cert: tls.crt
-
-        # Since using plaintext over the public Internet poses security and privacy issues,
-        # you may wish to use plaintext only on local interfaces. To do so, comment out
-        # the `":6667":` line, then uncomment these two lines:
-        # "127.0.0.1:6667": # (loopback ipv4, localhost-only)
-        # "[::1]:6667":     # (loopback ipv6, localhost-only)
 
         # Example of a Unix domain socket for proxying:
         # "/tmp/oragono_sock":
