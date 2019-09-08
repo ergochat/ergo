@@ -569,11 +569,11 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 	sendCapLines := func(cset *caps.Set, values caps.Values) {
 		version := rb.session.capVersion
-		capLines := cset.String(version, values)
+		capLines := cset.Strings(version, values)
 		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
 		// the server.name source:
 		for i, capStr := range capLines {
-			if version == caps.Cap302 && i < len(capLines)-1 {
+			if version >= caps.Cap302 && i < len(capLines)-1 {
 				rb.Add(nil, server.name, "CAP", details.nick, subCommand, "*", capStr)
 			} else {
 				rb.Add(nil, server.name, "CAP", details.nick, subCommand, capStr)

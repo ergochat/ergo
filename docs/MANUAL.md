@@ -348,7 +348,7 @@ Otherwise, in the Oragono config file, you'll want to enable raw line logging by
 
 # IRC over TLS
 
-Traditionally, IRC used a plaintext protocol, typically on port 6667. Over time, a convention emerged to use this protocol inside SSL/TLS instead, typically on port 6697. As of now, we recommend that you make your server available *exclusively* via TLS, since allowing plaintext access can result in the disclosure of user data or passwords. While the default config file still exposes a public plaintext port for the benefit of legacy clients, it also contains instructions on how to disable it --- if at all possible, you should follow them!
+IRC has traditionally been available over both plaintext (on port 6667) and SSL/TLS (on port 6697). We recommend that you make your server available exclusively via TLS, since exposing plaintext access allows for unauthorized interception or modification of user data or passwords. While the default config file exposes a plaintext public port, it also contains instructions on how to disable it or replace it with a 'dummy' plaintext listener that simply directs users to reconnect using TLS.
 
 
 ## How do I use Let's Encrypt certificates?

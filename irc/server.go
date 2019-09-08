@@ -673,6 +673,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.logger.Debug("server", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
 	if (config.Server.STS.Enabled != stsPreviouslyEnabled) || (stsValue != stsCurrentCapValue) {
 		// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
+		// so the appropriate notify is always a CAP NEW; put it in addedCaps for any change
 		addedCaps.Add(caps.STS)
 	}
 
@@ -704,17 +705,17 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.String(caps.Cap301, config.Server.capValues), " "))
+	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.Strings(caps.Cap301, config.Server.capValues), " "))
 	addedCaps.Union(updatedCaps)
 	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
 		capBurstSessions = server.clients.AllWithCapsNotify()
 
-		added[caps.Cap301] = addedCaps.String(caps.Cap301, config.Server.capValues)
-		added[caps.Cap302] = addedCaps.String(caps.Cap302, config.Server.capValues)
+		added[caps.Cap301] = addedCaps.Strings(caps.Cap301, config.Server.capValues)
+		added[caps.Cap302] = addedCaps.Strings(caps.Cap302, config.Server.capValues)
 		// removed never has values, so we leave it as Cap301
-		removed = removedCaps.String(caps.Cap301, config.Server.capValues)
+		removed = removedCaps.Strings(caps.Cap301, config.Server.capValues)
 	}
 
 	for _, sSession := range capBurstSessions {

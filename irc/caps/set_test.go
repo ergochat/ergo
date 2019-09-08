@@ -43,17 +43,17 @@ func TestSets(t *testing.T) {
 		t.Error("Add/Remove don't work")
 	}
 
-	// test String()
+	// test Strings()
 	values := make(Values)
 	values[InviteNotify] = "invitemepls"
 
-	actualCap301ValuesString := s1.String(Cap301, values)
+	actualCap301ValuesString := s1.Strings(Cap301, values)
 	expectedCap301ValuesString := []string{"invite-notify userhost-in-names"}
 	if !reflect.DeepEqual(actualCap301ValuesString, expectedCap301ValuesString) {
 		t.Errorf("Generated Cap301 values string [%v] did not match expected values string [%v]", actualCap301ValuesString, expectedCap301ValuesString)
 	}
 
-	actualCap302ValuesString := s1.String(Cap302, values)
+	actualCap302ValuesString := s1.Strings(Cap302, values)
 	expectedCap302ValuesString := []string{"invite-notify=invitemepls userhost-in-names"}
 	if !reflect.DeepEqual(actualCap302ValuesString, expectedCap302ValuesString) {
 		t.Errorf("Generated Cap302 values string [%s] did not match expected values string [%s]", actualCap302ValuesString, expectedCap302ValuesString)

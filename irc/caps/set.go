@@ -93,8 +93,8 @@ func (s *Set) Empty() bool {
 
 const maxPayloadLength = 440
 
-// String returns all of our enabled capabilities as a string.
-func (s *Set) String(version Version, values Values) (result []string) {
+// Strings returns all of our enabled capabilities as a slice of strings.
+func (s *Set) Strings(version Version, values Values) (result []string) {
 	var strs sort.StringSlice
 
 	var capab Capability
@@ -105,7 +105,7 @@ func (s *Set) String(version Version, values Values) (result []string) {
 			continue
 		}
 		capString := capab.Name()
-		if version == Cap302 {
+		if version >= Cap302 {
 			val, exists := values[capab]
 			if exists {
 				capString += "=" + val
