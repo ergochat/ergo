@@ -39,6 +39,13 @@ func getPassword() string {
 	return strings.TrimSpace(text)
 }
 
+func fileDoesNotExist(file string) bool {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		return true
+	}
+	return false
+}
+
 // implements the `oragono mkcerts` command
 func doMkcerts(configFile string, quiet bool) {
 	config, err := irc.LoadRawConfig(configFile)
@@ -59,7 +66,7 @@ func doMkcerts(configFile string, quiet bool) {
 			if existingKey == conf.TLS.Key {
 				continue
 			} else {
-				log.Fatal("Conflicting TLS key files for", conf.TLS.Cert)
+				log.Fatal("Conflicting TLS key files for ", conf.TLS.Cert)
 			}
 		}
 		if !quiet {
@@ -67,6 +74,9 @@ func doMkcerts(configFile string, quiet bool) {
 		}
 		host := config.Server.Name
 		cert, key := conf.TLS.Cert, conf.TLS.Key
+		if !(fileDoesNotExist(cert) && fileDoesNotExist(key)) {
+			log.Fatalf("Preexisting TLS cert and/or key files: %s %s", cert, key)
+		}
 		err := mkcerts.CreateCert("Oragono", host, cert, key)
 		if err == nil {
 			if !quiet {
