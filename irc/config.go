@@ -827,11 +827,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	config.loadMOTD()
 
-	err = config.generateISupport()
-	if err != nil {
-		return nil, err
-	}
-
 	// in the current implementation, we disable history by creating a history buffer
 	// with zero capacity. but the `enabled` config option MUST be respected regardless
 	// of this detail
@@ -845,6 +840,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
 			return nil, fmt.Errorf("You must generate a new value of server.ip-cloaking.secret to enable cloaking")
 		}
+	}
+
+	// now that all postprocessing is complete, regenerate ISUPPORT:
+	err = config.generateISupport()
+	if err != nil {
+		return nil, err
 	}
 
 	return config, nil
