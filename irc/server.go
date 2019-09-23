@@ -42,6 +42,10 @@ var (
 	// whitelist of caps to serve on the STS-only listener. In particular,
 	// never advertise SASL, to discourage people from sending their passwords:
 	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.LabeledResponse, caps.Nope)
+
+	// we only have standard channels for now. TODO: any updates to this
+	// will also need to be reflected in CasefoldChannel
+	chanTypes = "#"
 )
 
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
@@ -137,12 +141,13 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Initialize()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
+	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
 		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 	}
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
-	isupport.Add("CHANTYPES", "#")
+	isupport.Add("CHANTYPES", chanTypes)
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
 	isupport.Add("INVEX", "")
