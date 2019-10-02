@@ -66,14 +66,9 @@ func (socket *Socket) Close() {
 	socket.wakeWriter()
 }
 
-// CertFP returns the fingerprint of the certificate provided by the client.
-func (socket *Socket) CertFP() (string, error) {
-	var tlsConn, isTLS = socket.conn.(*tls.Conn)
-	if !isTLS {
-		return "", errNotTLS
-	}
-
-	// ensure handehake is performed, and timeout after a few seconds
+// getCertFP returns the fingerprint of the certificate provided by the client.
+func getCertFP(tlsConn *tls.Conn) (string, error) {
+	// ensure handshake is performed, and timeout after a few seconds
 	tlsConn.SetDeadline(time.Now().Add(handshakeTimeout))
 	err := tlsConn.Handshake()
 	tlsConn.SetDeadline(time.Time{})

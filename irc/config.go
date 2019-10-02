@@ -39,8 +39,9 @@ import (
 
 // TLSListenConfig defines configuration options for listening on TLS.
 type TLSListenConfig struct {
-	Cert string
-	Key  string
+	Cert  string
+	Key   string
+	Proxy bool
 }
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
@@ -53,9 +54,10 @@ type listenerConfigBlock struct {
 // listenerConfig is the config governing a particular listener (bound address),
 // in particular whether it has TLS or Tor (or both) enabled.
 type listenerConfig struct {
-	TLSConfig *tls.Config
-	IsTor     bool
-	IsSTSOnly bool
+	TLSConfig  *tls.Config
+	IsTor      bool
+	IsSTSOnly  bool
+	IsTLSProxy bool
 }
 
 type AccountConfig struct {
@@ -529,6 +531,7 @@ func (conf *Config) prepareListeners() (err error) {
 					return err
 				}
 				lconf.TLSConfig = tlsConfig
+				lconf.IsTLSProxy = block.TLS.Proxy
 			}
 			listeners[addr] = lconf
 		}
@@ -846,6 +849,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = config.generateISupport()
 	if err != nil {
 		return nil, err
+	}
+
+	err = config.prepareListeners()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
 	return config, nil

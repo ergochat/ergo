@@ -30,6 +30,9 @@ server:
             tls:
                 key: tls.key
                 cert: tls.crt
+                # 'proxy' should be false unless your instance is behind a load balancer
+                # that does not terminate TLS, but sends an initial PROXY line in plaintext
+                proxy: false
 
         # Example of a Unix domain socket for proxying:
         # "/tmp/oragono_sock":

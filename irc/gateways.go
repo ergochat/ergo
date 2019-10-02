@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
@@ -18,6 +19,13 @@ import (
 var (
 	errBadGatewayAddress = errors.New("PROXY/WEBIRC commands are not accepted from this IP address")
 	errBadProxyLine      = errors.New("Invalid PROXY/WEBIRC command")
+)
+
+const (
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+	// "a 108-byte buffer is always enough to store all the line and a trailing zero
+	// for string processing."
+	maxProxyLineLen = 107
 )
 
 type webircConfig struct {
@@ -75,10 +83,10 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	session.proxiedIP = parsedProxiedIP
 	client.proxiedIP = parsedProxiedIP
-	session.rawHostname = rawHostname
 	client.rawHostname = rawHostname
+	session.proxiedIP = parsedProxiedIP
+	session.rawHostname = rawHostname
 	client.cloakedHostname = cloakedHostname
 	// nickmask will be updated when the client completes registration
 	// set tls info
@@ -117,4 +125,32 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 		// real source IP is not authorized to issue PROXY:
 		return errBadGatewayAddress
 	}
+}
+
+// read a PROXY line one byte at a time, to ensure we don't read anything beyond
+// that into a buffer, which would break the TLS handshake
+func readRawProxyLine(conn net.Conn) (result string) {
+	// normally this is covered by ping timeouts, but we're doing this outside
+	// of the normal client goroutine:
+	conn.SetDeadline(time.Now().Add(time.Minute))
+	defer conn.SetDeadline(time.Time{})
+
+	var buf [maxProxyLineLen]byte
+	oneByte := make([]byte, 1)
+	i := 0
+	for i < maxProxyLineLen {
+		n, err := conn.Read(oneByte)
+		if err != nil {
+			return
+		} else if n == 1 {
+			buf[i] = oneByte[0]
+			if buf[i] == '\n' {
+				return string(buf[0 : i+1])
+			}
+			i += 1
+		}
+	}
+
+	// no \r\n, fail out
+	return
 }

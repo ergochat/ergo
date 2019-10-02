@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -214,9 +215,7 @@ func (server *Server) RunClient(conn clientConn) {
 
 	now := time.Now().UTC()
 	config := server.Config()
-	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
-	// give them 1k of grace over the limit:
-	socket := NewSocket(conn.Conn, fullLineLenLimit+1024, config.Server.MaxSendQBytes)
+
 	client := &Client{
 		atime:     now,
 		channels:  make(ChannelSet),
@@ -228,6 +227,7 @@ func (server *Server) RunClient(conn clientConn) {
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
 		},
+		realIP:         realIP,
 		server:         server,
 		accountName:    "*",
 		nick:           "*", // * is used until actual nick is given
@@ -236,9 +236,9 @@ func (server *Server) RunClient(conn clientConn) {
 	}
 	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
 	client.brbTimer.Initialize(client)
+
 	session := &Session{
 		client:     client,
-		socket:     socket,
 		capVersion: caps.Cap301,
 		capState:   caps.NoneState,
 		ctime:      now,
@@ -248,11 +248,34 @@ func (server *Server) RunClient(conn clientConn) {
 	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
 
+	// initialize TLS on the connection
 	if conn.Config.TLSConfig != nil {
-		client.SetMode(modes.TLS, true)
+		if conn.Config.IsTLSProxy {
+			// special case: plaintext PROXY line followed by TLS handshake
+			success := false
+			rawProxyLine := readRawProxyLine(conn.Conn)
+			if rawProxyLine != "" {
+				err := handleProxyCommand(server, client, session, rawProxyLine)
+				success = err == nil
+			}
+			if !success {
+				server.logger.Info("localconnect-ip", fmt.Sprintf("Bad proxy line from %v", realIP))
+				conn.Conn.Close()
+				return
+			}
+		}
+
+		tlsConn := tls.Server(conn.Conn, conn.Config.TLSConfig)
+		conn.Conn = tlsConn
 		// error is not useful to us here anyways so we can ignore it
-		client.certfp, _ = socket.CertFP()
+		client.certfp, _ = getCertFP(tlsConn)
+		client.SetMode(modes.TLS, true)
 	}
+
+	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
+	// give them 1k of grace over the limit:
+	socket := NewSocket(conn.Conn, fullLineLenLimit+1024, config.Server.MaxSendQBytes)
+	session.socket = socket
 
 	if conn.Config.IsTor {
 		client.SetMode(modes.TLS, true)
@@ -261,8 +284,14 @@ func (server *Server) RunClient(conn clientConn) {
 		session.proxiedIP = utils.IPv4LoopbackAddress
 		session.rawHostname = config.Server.TorListeners.Vhost
 	} else {
-		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
-		session.rawHostname = utils.LookupHostname(session.realIP.String())
+		if client.proxiedIP != nil {
+			// XXX we already accepted a proxy line above, so copy the data
+			session.proxiedIP = client.proxiedIP
+			session.rawHostname = client.rawHostname
+		} else {
+			// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
+			session.rawHostname = utils.LookupHostname(session.realIP.String())
+		}
 		client.cloakedHostname = config.Server.Cloaks.ComputeCloak(session.realIP)
 		remoteAddr := conn.Conn.RemoteAddr()
 		if utils.AddrIsLocal(remoteAddr) {
@@ -273,12 +302,11 @@ func (server *Server) RunClient(conn clientConn) {
 			client.doIdentLookup(conn.Conn)
 		}
 	}
-	client.realIP = session.realIP
 	client.rawHostname = session.rawHostname
 	client.proxiedIP = session.proxiedIP
 
 	server.stats.Add()
-	client.run(session)
+	client.run(session, !conn.Config.IsTLSProxy)
 }
 
 func (client *Client) doIdentLookup(conn net.Conn) {
@@ -375,7 +403,7 @@ func (client *Client) t(originalString string) string {
 // command goroutine
 //
 
-func (client *Client) run(session *Session) {
+func (client *Client) run(session *Session, firstLine bool) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -408,8 +436,6 @@ func (client *Client) run(session *Session) {
 		// don't reset the nick timer during a reattach
 		client.nickTimer.Initialize(client)
 	}
-
-	firstLine := !isReattach
 
 	for {
 		maxlenRest := session.MaxlenRest()
@@ -483,7 +509,7 @@ func (client *Client) run(session *Session) {
 			break
 		} else if session.client != client {
 			// bouncer reattach
-			go session.client.run(session)
+			go session.client.run(session, false)
 			break
 		}
 	}

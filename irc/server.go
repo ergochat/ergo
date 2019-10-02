@@ -7,7 +7,6 @@ package irc
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -307,9 +306,6 @@ func (server *Server) createListener(addr string, conf listenerConfig, bindMode 
 				listener.Close()
 				return
 			} else if err == nil {
-				if conf.TLSConfig != nil {
-					conn = tls.Server(conn, conf.TLSConfig)
-				}
 				newConn := clientConn{
 					Conn:   conn,
 					Config: conf,
@@ -868,7 +864,7 @@ func (server *Server) loadDatastore(config *Config) error {
 func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, config listenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTor),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTLSProxy, config.IsTor),
 		)
 	}
 
