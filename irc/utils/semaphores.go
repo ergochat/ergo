@@ -4,33 +4,33 @@
 package utils
 
 import (
+	"context"
 	"log"
 	"runtime/debug"
 	"time"
 )
 
-// Semaphore is a counting semaphore. Note that a capacity of n requires O(n) storage.
+type e struct{}
+
+// Semaphore is a counting semaphore.
 // A semaphore of capacity 1 can be used as a trylock.
-type Semaphore (chan bool)
+type Semaphore (chan e)
 
 // Initialize initializes a semaphore to a given capacity.
 func (semaphore *Semaphore) Initialize(capacity int) {
-	*semaphore = make(chan bool, capacity)
-	for i := 0; i < capacity; i++ {
-		(*semaphore) <- true
-	}
+	*semaphore = make(chan e, capacity)
 }
 
 // Acquire acquires a semaphore, blocking if necessary.
 func (semaphore *Semaphore) Acquire() {
-	<-(*semaphore)
+	(*semaphore) <- e{}
 }
 
 // TryAcquire tries to acquire a semaphore, returning whether the acquire was
 // successful. It never blocks.
 func (semaphore *Semaphore) TryAcquire() (acquired bool) {
 	select {
-	case <-(*semaphore):
+	case (*semaphore) <- e{}:
 		return true
 	default:
 		return false
@@ -47,7 +47,7 @@ func (semaphore *Semaphore) AcquireWithTimeout(timeout time.Duration) (acquired 
 
 	timer := time.NewTimer(timeout)
 	select {
-	case <-(*semaphore):
+	case (*semaphore) <- e{}:
 		acquired = true
 	case <-timer.C:
 		acquired = false
@@ -56,11 +56,24 @@ func (semaphore *Semaphore) AcquireWithTimeout(timeout time.Duration) (acquired 
 	return
 }
 
+// AcquireWithContext tries to acquire a semaphore, blocking at most until
+// the context expires. It returns whether the acquire was successful.
+// Note that if the context is already expired, the acquire may succeed anyway.
+func (semaphore *Semaphore) AcquireWithContext(ctx context.Context) (acquired bool) {
+	select {
+	case (*semaphore) <- e{}:
+		acquired = true
+	case <-ctx.Done():
+		acquired = false
+	}
+	return
+}
+
 // Release releases a semaphore. It never blocks. (This is not a license
 // to program spurious releases.)
 func (semaphore *Semaphore) Release() {
 	select {
-	case (*semaphore) <- true:
+	case <-(*semaphore):
 		// good
 	default:
 		// spurious release
