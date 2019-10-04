@@ -400,12 +400,6 @@ func (channel *Channel) setUserLimit(limit int) {
 	channel.stateMutex.Unlock()
 }
 
-func (channel *Channel) Key() string {
-	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
-	return channel.key
-}
-
 func (channel *Channel) setKey(key string) {
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
@@ -416,13 +410,6 @@ func (channel *Channel) Founder() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.registeredFounder
-}
-
-func (channel *Channel) DirtyBits() (dirtyBits uint) {
-	channel.stateMutex.Lock()
-	dirtyBits = channel.dirtyBits
-	channel.stateMutex.Unlock()
-	return
 }
 
 func (channel *Channel) HighestUserMode(client *Client) (result modes.Mode) {
