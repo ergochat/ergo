@@ -425,6 +425,7 @@ func (bt *BrbTimer) processTimeout() {
 		} else {
 			// client resumed, reattached, or has another active session
 			bt.state = BrbDisabled
+			bt.brbAt = time.Time{}
 		}
 	case BrbDead:
 		dead = true // shouldn't be possible but whatever

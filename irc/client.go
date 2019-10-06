@@ -1097,7 +1097,7 @@ func (client *Client) destroy(session *Session) {
 
 	// this happens under failure to return from BRB
 	if quitMessage == "" {
-		if !brbAt.IsZero() {
+		if brbState == BrbDead && !brbAt.IsZero() {
 			awayMessage := client.AwayMessage()
 			if awayMessage == "" {
 				awayMessage = "Disconnected" // auto-BRB
