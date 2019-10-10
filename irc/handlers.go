@@ -1738,7 +1738,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	} else {
 		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
 		rb.Add(nil, prefix, RPL_CHANNELMODEIS, args...)
-		rb.Add(nil, client.nickMaskString, RPL_CHANNELCREATED, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
+		rb.Add(nil, client.nickMaskString, RPL_CREATIONTIME, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }

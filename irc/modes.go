@@ -158,12 +158,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			// confirm mask looks valid
-			mask, err := Casefold(change.Arg)
-			if err != nil {
-				continue
-			}
-
+			mask := change.Arg
 			switch change.Op {
 			case modes.Add:
 				if channel.lists[change.Mode].Length() >= client.server.Config().Limits.ChanListModes {
@@ -174,12 +169,15 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 					continue
 				}
 
-				channel.lists[change.Mode].Add(mask)
-				applied = append(applied, change)
+				details := client.Details()
+				if success := channel.lists[change.Mode].Add(mask, details.nickMask, details.accountName); success {
+					applied = append(applied, change)
+				}
 
 			case modes.Remove:
-				channel.lists[change.Mode].Remove(mask)
-				applied = append(applied, change)
+				if success := channel.lists[change.Mode].Remove(mask); success {
+					applied = append(applied, change)
+				}
 			}
 
 		case modes.UserLimit:

@@ -88,12 +88,12 @@ type RegisteredChannel struct {
 	Key string
 	// AccountToUMode maps user accounts to their persistent channel modes (e.g., +q, +h)
 	AccountToUMode map[string]modes.Mode
-	// Banlist represents the bans set on the channel.
-	Banlist []string
-	// Exceptlist represents the exceptions set on the channel.
-	Exceptlist []string
-	// Invitelist represents the invite exceptions set on the channel.
-	Invitelist []string
+	// Bans represents the bans set on the channel.
+	Bans map[string]MaskInfo
+	// Excepts represents the exceptions set on the channel.
+	Excepts map[string]MaskInfo
+	// Invites represents the invite exceptions set on the channel.
+	Invites map[string]MaskInfo
 }
 
 // ChannelRegistry manages registered channels.
@@ -180,11 +180,11 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			modeSlice[i] = modes.Mode(mode)
 		}
 
-		var banlist []string
+		var banlist map[string]MaskInfo
 		_ = json.Unmarshal([]byte(banlistString), &banlist)
-		var exceptlist []string
+		var exceptlist map[string]MaskInfo
 		_ = json.Unmarshal([]byte(exceptlistString), &exceptlist)
-		var invitelist []string
+		var invitelist map[string]MaskInfo
 		_ = json.Unmarshal([]byte(invitelistString), &invitelist)
 		accountToUMode := make(map[string]modes.Mode)
 		_ = json.Unmarshal([]byte(accountToUModeString), &accountToUMode)
@@ -198,9 +198,9 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			TopicSetTime:   time.Unix(topicSetTimeInt, 0),
 			Key:            password,
 			Modes:          modeSlice,
-			Banlist:        banlist,
-			Exceptlist:     exceptlist,
-			Invitelist:     invitelist,
+			Bans:           banlist,
+			Excepts:        exceptlist,
+			Invites:        invitelist,
 			AccountToUMode: accountToUMode,
 		}
 		return nil
@@ -296,11 +296,11 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 	}
 
 	if includeFlags&IncludeLists != 0 {
-		banlistString, _ := json.Marshal(channelInfo.Banlist)
+		banlistString, _ := json.Marshal(channelInfo.Bans)
 		tx.Set(fmt.Sprintf(keyChannelBanlist, channelKey), string(banlistString), nil)
-		exceptlistString, _ := json.Marshal(channelInfo.Exceptlist)
+		exceptlistString, _ := json.Marshal(channelInfo.Excepts)
 		tx.Set(fmt.Sprintf(keyChannelExceptlist, channelKey), string(exceptlistString), nil)
-		invitelistString, _ := json.Marshal(channelInfo.Invitelist)
+		invitelistString, _ := json.Marshal(channelInfo.Invites)
 		tx.Set(fmt.Sprintf(keyChannelInvitelist, channelKey), string(invitelistString), nil)
 		accountToUModeString, _ := json.Marshal(channelInfo.AccountToUMode)
 		tx.Set(fmt.Sprintf(keyChannelAccountToUMode, channelKey), string(accountToUModeString), nil)
