@@ -186,7 +186,7 @@ server:
         ban-duration: 10m
         ban-message: You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect.
 
-        # IPs/networks which are exempted from connection limits
+        # IPs/networks which are exempted from connection throttling
         exempted:
             - "localhost"
             # - "192.168.1.1"
