@@ -268,10 +268,10 @@ func NewUserMaskSet() *UserMaskSet {
 }
 
 // Add adds the given mask to this set.
-func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (added bool) {
+func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (maskAdded string, err error) {
 	casefoldedMask, err := CanonicalizeMaskWildcard(mask)
 	if err != nil {
-		return false
+		return
 	}
 
 	set.Lock()
@@ -279,8 +279,8 @@ func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (added
 		set.masks = make(map[string]MaskInfo)
 	}
 	_, present := set.masks[casefoldedMask]
-	added = !present
-	if added {
+	if !present {
+		maskAdded = casefoldedMask
 		set.masks[casefoldedMask] = MaskInfo{
 			TimeCreated:     time.Now().UTC(),
 			CreatorNickmask: creatorNickmask,
@@ -289,22 +289,23 @@ func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (added
 	}
 	set.Unlock()
 
-	if added {
+	if !present {
 		set.setRegexp()
 	}
 	return
 }
 
 // Remove removes the given mask from this set.
-func (set *UserMaskSet) Remove(mask string) (removed bool) {
-	mask, err := CanonicalizeMaskWildcard(mask)
+func (set *UserMaskSet) Remove(mask string) (maskRemoved string, err error) {
+	mask, err = CanonicalizeMaskWildcard(mask)
 	if err != nil {
-		return false
+		return
 	}
 
 	set.Lock()
-	_, removed = set.masks[mask]
+	_, removed := set.masks[mask]
 	if removed {
+		maskRemoved = mask
 		delete(set.masks, mask)
 	}
 	set.Unlock()

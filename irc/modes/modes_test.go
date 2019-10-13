@@ -47,6 +47,19 @@ func TestParseChannelModeChanges(t *testing.T) {
 	if len(modes) != 1 || modes[0] != expected {
 		t.Errorf("unexpected mode change: %v", modes)
 	}
+
+	modes, unknown = ParseChannelModeChanges("+b")
+	if len(unknown) > 0 {
+		t.Errorf("unexpected unknown mode change: %v", unknown)
+	}
+	// +b with no argument becomes a list operation
+	expectedChanges := ModeChanges{{
+		Op:   List,
+		Mode: BanMask,
+	}}
+	if !reflect.DeepEqual(modes, expectedChanges) {
+		t.Errorf("unexpected mode change: %v instead of %v", modes, expectedChanges)
+	}
 }
 
 func TestSetMode(t *testing.T) {

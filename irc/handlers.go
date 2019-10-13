@@ -1685,13 +1685,12 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
-	// applied mode changes
-	applied := make(modes.ModeChanges, 0)
-
+	var changes modes.ModeChanges
 	if 1 < len(msg.Params) {
 		// parse out real mode changes
 		params := msg.Params[1:]
-		changes, unknown := modes.ParseChannelModeChanges(params...)
+		var unknown map[rune]bool
+		changes, unknown = modes.ParseChannelModeChanges(params...)
 
 		// alert for unknown mode changes
 		for char := range unknown {
@@ -1700,10 +1699,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		if len(unknown) == 1 && len(changes) == 0 {
 			return false
 		}
-
-		// apply mode changes
-		applied = channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	}
+	// process mode changes, include list operations (an empty set of changes does a list)
+	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 
 	// save changes
 	var includeFlags uint
@@ -1719,8 +1717,8 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	// send out changes
-	prefix := client.NickMaskString()
 	if len(applied) > 0 {
+		prefix := client.NickMaskString()
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
 		for _, member := range channel.Members() {
@@ -1735,10 +1733,6 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				member.Send(nil, prefix, "MODE", args...)
 			}
 		}
-	} else {
-		args := append([]string{client.nick, channel.name}, channel.modeStrings(client)...)
-		rb.Add(nil, prefix, RPL_CHANNELMODEIS, args...)
-		rb.Add(nil, client.nickMaskString, RPL_CREATIONTIME, client.nick, channel.name, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 	return false
 }

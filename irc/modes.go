@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -104,17 +105,15 @@ func ParseDefaultChannelModes(rawModes *string) modes.Modes {
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
-func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes modes.ModeChanges, rb *ResponseBuffer) modes.ModeChanges {
+func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes modes.ModeChanges, rb *ResponseBuffer) (applied modes.ModeChanges) {
 	// so we only output one warning for each list type when full
 	listFullWarned := make(map[modes.Mode]bool)
 
 	var alreadySentPrivError bool
 
-	applied := make(modes.ModeChanges, 0)
-
-	isListOp := func(change modes.ModeChange) bool {
-		return (change.Op == modes.List) || (change.Arg == "")
-	}
+	maskOpCount := 0
+	chname := channel.Name()
+	details := client.Details()
 
 	hasPrivs := func(change modes.ModeChange) bool {
 		if isSamode {
@@ -127,18 +126,19 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				return true
 			}
 			cfarg, _ := CasefoldName(change.Arg)
-			isSelfChange := cfarg == client.NickCasefolded()
+			isSelfChange := cfarg == details.nickCasefolded
 			if change.Op == modes.Remove && isSelfChange {
 				// "There is no restriction, however, on anyone `deopping' themselves"
 				// <https://tools.ietf.org/html/rfc2812#section-3.1.5>
 				return true
 			}
 			return channelUserModeHasPrivsOver(channel.HighestUserMode(client), change.Mode)
-		case modes.BanMask:
-			// #163: allow unprivileged users to list ban masks
-			return isListOp(change) || channel.ClientIsAtLeast(client, modes.ChannelOperator)
-		default:
+		case modes.InviteMask, modes.ExceptMask:
+			// listing these requires privileges
 			return channel.ClientIsAtLeast(client, modes.ChannelOperator)
+		default:
+			// #163: allow unprivileged users to list ban masks, and any other modes
+			return change.Op == modes.List || channel.ClientIsAtLeast(client, modes.ChannelOperator)
 		}
 	}
 
@@ -146,14 +146,15 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
 				alreadySentPrivError = true
-				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.name, client.t("You're not a channel operator"))
+				rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, details.nick, channel.name, client.t("You're not a channel operator"))
 			}
 			continue
 		}
 
 		switch change.Mode {
 		case modes.BanMask, modes.ExceptMask, modes.InviteMask:
-			if isListOp(change) {
+			maskOpCount += 1
+			if change.Op == modes.List {
 				channel.ShowMaskList(client, change.Mode, rb)
 				continue
 			}
@@ -163,20 +164,33 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case modes.Add:
 				if channel.lists[change.Mode].Length() >= client.server.Config().Limits.ChanListModes {
 					if !listFullWarned[change.Mode] {
-						rb.Add(nil, client.server.name, ERR_BANLISTFULL, client.Nick(), channel.Name(), change.Mode.String(), client.t("Channel list is full"))
+						rb.Add(nil, client.server.name, ERR_BANLISTFULL, details.nick, chname, change.Mode.String(), client.t("Channel list is full"))
 						listFullWarned[change.Mode] = true
 					}
 					continue
 				}
 
-				details := client.Details()
-				if success := channel.lists[change.Mode].Add(mask, details.nickMask, details.accountName); success {
-					applied = append(applied, change)
+				maskAdded, err := channel.lists[change.Mode].Add(mask, details.nickMask, details.accountName)
+				if maskAdded != "" {
+					appliedChange := change
+					appliedChange.Arg = maskAdded
+					applied = append(applied, appliedChange)
+				} else if err != nil {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, mask, fmt.Sprintf(client.t("Invalid mode %s parameter: %s"), string(change.Mode), mask))
+				} else {
+					rb.Add(nil, client.server.name, ERR_LISTMODEALREADYSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %s list already contains %s"), chname, mask))
 				}
 
 			case modes.Remove:
-				if success := channel.lists[change.Mode].Remove(mask); success {
-					applied = append(applied, change)
+				maskRemoved, err := channel.lists[change.Mode].Remove(mask)
+				if maskRemoved != "" {
+					appliedChange := change
+					appliedChange.Arg = maskRemoved
+					applied = append(applied, appliedChange)
+				} else if err != nil {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, mask, fmt.Sprintf(client.t("Invalid mode %s parameter: %s"), string(change.Mode), mask))
+				} else {
+					rb.Add(nil, client.server.name, ERR_LISTMODENOTSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %s list does not contain %s"), chname, mask))
 				}
 			}
 
@@ -221,7 +235,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			nick := change.Arg
 			if nick == "" {
 				rb.Add(nil, client.server.name, ERR_NEEDMOREPARAMS, client.Nick(), "MODE", client.t("Not enough parameters"))
-				return nil
+				continue
 			}
 
 			change := channel.applyModeToMember(client, change.Mode, change.Op, nick, rb)
@@ -229,6 +243,13 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				applied = append(applied, *change)
 			}
 		}
+	}
+
+	// #649: don't send 324 RPL_CHANNELMODEIS if we were only working with mask lists
+	if len(applied) == 0 && !alreadySentPrivError && (maskOpCount == 0 || maskOpCount < len(changes)) {
+		args := append([]string{details.nick, chname}, channel.modeStrings(client)...)
+		rb.Add(nil, client.server.name, RPL_CHANNELMODEIS, args...)
+		rb.Add(nil, client.server.name, RPL_CREATIONTIME, details.nick, chname, strconv.FormatInt(channel.createdTime.Unix(), 10))
 	}
 
 	return applied
