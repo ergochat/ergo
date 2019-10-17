@@ -196,6 +196,9 @@ func (socket *Socket) wakeWriter() {
 
 // SetFinalData sets the final data to send when the SocketWriter closes.
 func (socket *Socket) SetFinalData(data []byte) {
+	if socket == nil {
+		return // XXX: allow no-op Quit() before session.socket is initialized
+	}
 	socket.Lock()
 	defer socket.Unlock()
 	socket.finalData = data
