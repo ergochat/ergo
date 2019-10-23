@@ -212,4 +212,6 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester("slingamn!", "slingamn!*@*", nil)
 	tester("shivaram*@good-fortune", "*!shivaram*@good-fortune", nil)
 	tester("shivaram*", "shivaram*!*@*", nil)
+	tester("Shivaram*", "shivaram*!*@*", nil)
+	tester("*SHIVARAM*", "*shivaram*!*@*", nil)
 }
