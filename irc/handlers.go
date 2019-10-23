@@ -2660,19 +2660,20 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // WHO [<mask> [o]]
 func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	if msg.Params[0] == "" {
+	mask := msg.Params[0]
+	var err error
+	if mask == "" {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
 		return false
+	} else if mask[0] == '#' {
+		mask, err = CasefoldChannel(msg.Params[0])
+	} else {
+		mask, err = Casefold(mask)
 	}
 
-	var mask string
-	if len(msg.Params) > 0 {
-		casefoldedMask, err := Casefold(msg.Params[0])
-		if err != nil {
-			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("Mask isn't valid"))
-			return false
-		}
-		mask = casefoldedMask
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("Mask isn't valid"))
+		return false
 	}
 
 	//TODO(dan): is this used and would I put this param in the Modern doc?
