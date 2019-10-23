@@ -5,10 +5,9 @@
 package irc
 
 import (
-	"fmt"
-	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/goshuirc/irc-go/ircmatch"
 
@@ -251,69 +250,86 @@ func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 //TODO(dan): move this over to generally using glob syntax instead?
 // kinda more expected in normal ban/etc masks, though regex is useful (probably as an extban?)
 
+type MaskInfo struct {
+	TimeCreated     time.Time
+	CreatorNickmask string
+	CreatorAccount  string
+}
+
 // UserMaskSet holds a set of client masks and lets you match  hostnames to them.
 type UserMaskSet struct {
 	sync.RWMutex
-	masks  map[string]bool
+	masks  map[string]MaskInfo
 	regexp *regexp.Regexp
 }
 
-// NewUserMaskSet returns a new UserMaskSet.
 func NewUserMaskSet() *UserMaskSet {
-	return &UserMaskSet{
-		masks: make(map[string]bool),
-	}
+	return new(UserMaskSet)
 }
 
 // Add adds the given mask to this set.
-func (set *UserMaskSet) Add(mask string) (added bool) {
-	casefoldedMask, err := Casefold(mask)
+func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (maskAdded string, err error) {
+	casefoldedMask, err := CanonicalizeMaskWildcard(mask)
 	if err != nil {
-		log.Println(fmt.Sprintf("ERROR: Could not add mask to usermaskset: [%s]", mask))
-		return false
+		return
 	}
 
 	set.Lock()
-	added = !set.masks[casefoldedMask]
-	if added {
-		set.masks[casefoldedMask] = true
+	if set.masks == nil {
+		set.masks = make(map[string]MaskInfo)
+	}
+	_, present := set.masks[casefoldedMask]
+	if !present {
+		maskAdded = casefoldedMask
+		set.masks[casefoldedMask] = MaskInfo{
+			TimeCreated:     time.Now().UTC(),
+			CreatorNickmask: creatorNickmask,
+			CreatorAccount:  creatorAccount,
+		}
 	}
 	set.Unlock()
 
-	if added {
-		set.setRegexp()
-	}
-	return
-}
-
-// AddAll adds the given masks to this set.
-func (set *UserMaskSet) AddAll(masks []string) (added bool) {
-	set.Lock()
-	defer set.Unlock()
-
-	for _, mask := range masks {
-		if !added && !set.masks[mask] {
-			added = true
-		}
-		set.masks[mask] = true
-	}
-	if added {
+	if !present {
 		set.setRegexp()
 	}
 	return
 }
 
 // Remove removes the given mask from this set.
-func (set *UserMaskSet) Remove(mask string) (removed bool) {
+func (set *UserMaskSet) Remove(mask string) (maskRemoved string, err error) {
+	mask, err = CanonicalizeMaskWildcard(mask)
+	if err != nil {
+		return
+	}
+
 	set.Lock()
-	removed = set.masks[mask]
+	_, removed := set.masks[mask]
 	if removed {
+		maskRemoved = mask
 		delete(set.masks, mask)
 	}
 	set.Unlock()
 
 	if removed {
 		set.setRegexp()
+	}
+	return
+}
+
+func (set *UserMaskSet) SetMasks(masks map[string]MaskInfo) {
+	set.Lock()
+	set.masks = masks
+	set.Unlock()
+	set.setRegexp()
+}
+
+func (set *UserMaskSet) Masks() (result map[string]MaskInfo) {
+	set.RLock()
+	defer set.RUnlock()
+
+	result = make(map[string]MaskInfo, len(set.masks))
+	for mask, info := range set.masks {
+		result[mask] = info
 	}
 	return
 }
@@ -328,19 +344,6 @@ func (set *UserMaskSet) Match(userhost string) bool {
 		return false
 	}
 	return regexp.MatchString(userhost)
-}
-
-// String returns the masks in this set.
-func (set *UserMaskSet) String() string {
-	set.RLock()
-	masks := make([]string, len(set.masks))
-	index := 0
-	for mask := range set.masks {
-		masks[index] = mask
-		index++
-	}
-	set.RUnlock()
-	return strings.Join(masks, " ")
 }
 
 func (set *UserMaskSet) Length() int {

@@ -124,18 +124,12 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	for _, mode := range chanReg.Modes {
 		channel.flags.SetMode(mode, true)
 	}
-	for _, mask := range chanReg.Banlist {
-		channel.lists[modes.BanMask].Add(mask)
-	}
-	for _, mask := range chanReg.Exceptlist {
-		channel.lists[modes.ExceptMask].Add(mask)
-	}
-	for _, mask := range chanReg.Invitelist {
-		channel.lists[modes.InviteMask].Add(mask)
-	}
 	for account, mode := range chanReg.AccountToUMode {
 		channel.accountToUMode[account] = mode
 	}
+	channel.lists[modes.BanMask].SetMasks(chanReg.Bans)
+	channel.lists[modes.InviteMask].SetMasks(chanReg.Invites)
+	channel.lists[modes.ExceptMask].SetMasks(chanReg.Excepts)
 }
 
 // obtain a consistent snapshot of the channel state that can be persisted to the DB
@@ -160,15 +154,9 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 	}
 
 	if includeFlags&IncludeLists != 0 {
-		for mask := range channel.lists[modes.BanMask].masks {
-			info.Banlist = append(info.Banlist, mask)
-		}
-		for mask := range channel.lists[modes.ExceptMask].masks {
-			info.Exceptlist = append(info.Exceptlist, mask)
-		}
-		for mask := range channel.lists[modes.InviteMask].masks {
-			info.Invitelist = append(info.Invitelist, mask)
-		}
+		info.Bans = channel.lists[modes.BanMask].Masks()
+		info.Invites = channel.lists[modes.InviteMask].Masks()
+		info.Excepts = channel.lists[modes.ExceptMask].Masks()
 		info.AccountToUMode = make(map[string]modes.Mode)
 		for account, mode := range channel.accountToUMode {
 			info.AccountToUMode[account] = mode
@@ -1097,14 +1085,12 @@ func (channel *Channel) ShowMaskList(client *Client, mode modes.Mode, rb *Respon
 	}
 
 	nick := client.Nick()
-	channel.stateMutex.RLock()
-	// XXX don't acquire any new locks in this section, besides Socket.Write
-	for mask := range channel.lists[mode].masks {
-		rb.Add(nil, client.server.name, rpllist, nick, channel.name, mask)
+	chname := channel.Name()
+	for mask, info := range channel.lists[mode].Masks() {
+		rb.Add(nil, client.server.name, rpllist, nick, chname, mask, info.CreatorNickmask, strconv.FormatInt(info.TimeCreated.Unix(), 10))
 	}
-	channel.stateMutex.RUnlock()
 
-	rb.Add(nil, client.server.name, rplendoflist, nick, channel.name, client.t("End of list"))
+	rb.Add(nil, client.server.name, rplendoflist, nick, chname, client.t("End of list"))
 }
 
 // Quit removes the given client from the channel

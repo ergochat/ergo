@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "6"
+	latestDbSchema = "7"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -440,6 +440,66 @@ func schemaChangeV5ToV6(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+type maskInfoV7 struct {
+	TimeCreated     time.Time
+	CreatorNickmask string
+	CreatorAccount  string
+}
+
+func schemaChangeV6ToV7(config *Config, tx *buntdb.Tx) error {
+	now := time.Now().UTC()
+	var channels []string
+	prefix := "channel.exists "
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		channels = append(channels, strings.TrimPrefix(key, prefix))
+		return true
+	})
+
+	converter := func(key string) {
+		oldRawValue, err := tx.Get(key)
+		if err != nil {
+			return
+		}
+		var masks []string
+		err = json.Unmarshal([]byte(oldRawValue), &masks)
+		if err != nil {
+			return
+		}
+		newCookedValue := make(map[string]maskInfoV7)
+		for _, mask := range masks {
+			normalizedMask, err := CanonicalizeMaskWildcard(mask)
+			if err != nil {
+				continue
+			}
+			newCookedValue[normalizedMask] = maskInfoV7{
+				TimeCreated:     now,
+				CreatorNickmask: "*",
+				CreatorAccount:  "*",
+			}
+		}
+		newRawValue, err := json.Marshal(newCookedValue)
+		if err != nil {
+			return
+		}
+		tx.Set(key, string(newRawValue), nil)
+	}
+
+	prefixes := []string{
+		"channel.banlist %s",
+		"channel.exceptlist %s",
+		"channel.invitelist %s",
+	}
+	for _, channel := range channels {
+		for _, prefix := range prefixes {
+			converter(fmt.Sprintf(prefix, channel))
+		}
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -466,6 +526,11 @@ func init() {
 			InitialVersion: "5",
 			TargetVersion:  "6",
 			Changer:        schemaChangeV5ToV6,
+		},
+		{
+			InitialVersion: "6",
+			TargetVersion:  "7",
+			Changer:        schemaChangeV6ToV7,
 		},
 	}
 

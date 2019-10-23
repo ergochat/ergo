@@ -8,6 +8,7 @@ package irc
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/oragono/confusables"
 	"golang.org/x/text/cases"
@@ -191,9 +192,15 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 		nick = "*"
 	}
 	if nick != "*" {
-		nick, err = Casefold(nick)
-		if err != nil {
-			return "", err
+		// XXX allow nick wildcards in pure ASCII, but not in unicode,
+		// because the * character breaks casefolding
+		if IsPureASCII(nick) {
+			nick = strings.ToLower(nick)
+		} else {
+			nick, err = Casefold(nick)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 	if user == "" {
@@ -209,4 +216,13 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 		host = strings.ToLower(host)
 	}
 	return fmt.Sprintf("%s!%s@%s", nick, user, host), nil
+}
+
+func IsPureASCII(str string) bool {
+	for i := 0; i < len(str); i++ {
+		if unicode.MaxASCII < str[i] {
+			return false
+		}
+	}
+	return true
 }
