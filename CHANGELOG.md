@@ -16,6 +16,20 @@ New release of Oragono!
 
 ### Fixed
 
+## [1.1.1] - 2019-07-21
+Oragono 1.1.1 is a bugfix release for flaws in message handling, including one with security implications.
+
+Many thanks to [@streaps](https://github.com/streaps) for reporting issues.
+
+### Upgrade notes
+
+This release does not change the database or configuration file format.
+
+### Security
+* Previous releases of Oragono would incorrectly relay chat messages containing the `\r` byte. An attacker could use this to spoof protocol messages from the server (depending on the implementation of the victim's client). This has been fixed. (#610)
+
+### Fixed
+* Fixed incorrect rejection of messages with multiple spaces (#602, thanks [@streaps](https://github.com/streaps)!)
 
 ## [1.1.0] - 2019-06-27
 We're pleased to announce Oragono version 1.1.0. This version has a number of exciting improvements, including:
