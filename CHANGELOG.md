@@ -1,20 +1,51 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## Unreleased
-New release of Oragono!
+## [1.2.0-rc1] - 2019-11-04
+We're pleased to be publishing the release candidate for 1.2.0 (the official release should follow in a week or two). This version contains bug fixes and minor improvements.
+
+Many thanks to [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@jesopo](https://github.com/jesopo), and [@jwheare](https://github.com/jwheare) for reporting issues and contributing code reviews, and also to [@bogdomania](https://github.com/bogdomania), Forbidden (cptbl00dra1n), MaLVaDoOo, Nuve, and [@streaps](https://github.com/streaps) for contributing translations.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+This release includes a change to the config file format: the old `server.listen` format for configuring listeners has been replaced by the new `server.listeners` format. See the bundled `oragono.yaml` configuration file for a commented example. For now, Oragono maintains backwards compatibility with the old format. To minimize potential downtime, we recommend the following workflow:
+
+1. Without rewriting your config file, upgrade your `oragono` binary to the new 1.2.x version and restart your server
+2. Rewrite your configuration file to use the new `server.listeners` format
+3. Rehash your server, confirming that the rewritten config file is valid and correct
 
 ### Config Changes
-
-### Security
+* Replaced `server.listen` section with `server.listeners`; see `oragono.yaml` for a commented example (#565)
+* Added `history.autoresize_window` for automatically resizing history buffers (#349)
 
 ### Added
+* Added STS-only listeners; you can configure port 6667 so that it "redirects" clients to TLS on port 6697. See the manual for details. (#448)
+* Added the `CHANLIMIT` ISUPPORT token (#625)
+* Added ban creator and creation time to banlist output (#644)
 
 ### Changed
-
-### Removed
+* Upgraded to the new the `draft/labeled-response-0.2` capability (#555)
+* `oragono mkcerts` no longer overwrites existing certificate files (#622)
+* Allowed Tor and non-Tor connections to attach to the same nickname via bouncer functionality (#632)
 
 ### Fixed
+* Fixed `CAP LS 302` response being potentially truncated (#594)
+* Fixed redundant output to some `MODE` commands (#649)
+* NickServ now replies to `/msg NickServ verify` (#567)
+* Made NickServ timeout warnings easier to see in some clients (#572)
+* `LUSERS` output is now sent at the end of connection registration (#526)
+* Fixed operators not being able to `WHOIS` some Unicode nicknames (#331)
+* Fixed `RESUME` not clearing the `BRB` reason (#592)
+* Fixed an edge case where the `BRB` timestamp wasn't reset correctly (#642)
+* Fixed double-translation of some service help output (#588)
+* Fixed behavior of `SAMODE` issued against a different user (#585)
+* Fixed a false-positive error logline (#601)
+* `oragono.io/bnc` is no longer advertised when disabled in the config (#595)
+* Made the connection limiter and throttler more resilient against the failure to whitelist a reverse proxy IP (#197)
+
+### Internal Notes
+* Official builds now use Go 1.13, which includes native TLS 1.3 support (#626)
+* Minor performance improvements (#640, #615)
 
 ## [1.1.1] - 2019-07-21
 Oragono 1.1.1 is a bugfix release for flaws in message handling, including one with security implications.
