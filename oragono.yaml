@@ -37,7 +37,7 @@ server:
         # Example of a Tor listener: any connection that comes in on this listener will
         # be considered a Tor connection. It is strongly recommended that this listener
         # *not* be on a public interface --- it should be on 127.0.0.0/8 or unix domain:
-        # "/tmp/oragono_tor_sock":
+        # "/hidden_service_sockets/oragono_tor_sock":
         #     tor: true
 
     # sets the permissions for Unix listen sockets. on a typical Linux system,
