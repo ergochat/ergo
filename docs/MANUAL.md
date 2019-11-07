@@ -343,6 +343,16 @@ If you're familiar with getting this output through your client (e.g. in weechat
 
 Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
+## How do I make a private channel?
+
+More complete support for account-based private channels is [planned](https://github.com/oragono/oragono/issues/69). In the meantime, here's a workaround:
+
+1. Register your channel (`/msg ChanServ register #example`)
+1. Set it to be invite-only (`/mode #example +i`)
+1. Grant persistent half-operator status to the desired account names (`/msg ChanServ amode #example +h alice`)
+
+Anyone with persistent half-operator privileges or higher will be able to join without an invite.
+
 -------------------------------------------------------------------------------------------
 
 
