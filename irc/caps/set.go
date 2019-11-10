@@ -4,9 +4,7 @@
 package caps
 
 import (
-	"bytes"
-	"sort"
-
+	"fmt"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -95,7 +93,8 @@ const maxPayloadLength = 440
 
 // Strings returns all of our enabled capabilities as a slice of strings.
 func (s *Set) Strings(version Version, values Values) (result []string) {
-	var strs sort.StringSlice
+	var t utils.TokenLineBuilder
+	t.Initialize(maxPayloadLength, " ")
 
 	var capab Capability
 	asSlice := s[:]
@@ -108,37 +107,15 @@ func (s *Set) Strings(version Version, values Values) (result []string) {
 		if version >= Cap302 {
 			val, exists := values[capab]
 			if exists {
-				capString += "=" + val
+				capString = fmt.Sprintf("%s=%s", capString, val)
 			}
 		}
-		strs = append(strs, capString)
+		t.Add(capString)
 	}
 
-	if len(strs) == 0 {
-		return []string{""}
+	result = t.Lines()
+	if result == nil {
+		result = []string{""}
 	}
-
-	// sort the cap string before we send it out
-	sort.Sort(strs)
-
-	var buf bytes.Buffer
-	for _, str := range strs {
-		tokenLen := len(str)
-		if buf.Len() != 0 {
-			tokenLen += 1
-		}
-		if maxPayloadLength < buf.Len()+tokenLen {
-			result = append(result, buf.String())
-			buf.Reset()
-		}
-		if buf.Len() != 0 {
-			buf.WriteByte(' ')
-		}
-		buf.WriteString(str)
-	}
-	if buf.Len() != 0 {
-		result = append(result, buf.String())
-	}
-
 	return
 }

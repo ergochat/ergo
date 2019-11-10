@@ -180,6 +180,7 @@ CAPDEFS = [
 ]
 
 def validate_defs():
+    CAPDEFS.sort(key=lambda d: d.name)
     numCaps = len(CAPDEFS)
     numNames = len(set(capdef.name for capdef in CAPDEFS))
     if numCaps != numNames:
