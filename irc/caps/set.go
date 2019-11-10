@@ -89,12 +89,15 @@ func (s *Set) Empty() bool {
 	return utils.BitsetEmpty(s[:])
 }
 
-const maxPayloadLength = 440
+const defaultMaxPayloadLength = 450
 
 // Strings returns all of our enabled capabilities as a slice of strings.
-func (s *Set) Strings(version Version, values Values) (result []string) {
+func (s *Set) Strings(version Version, values Values, maxLen int) (result []string) {
+	if maxLen == 0 {
+		maxLen = defaultMaxPayloadLength
+	}
 	var t utils.TokenLineBuilder
-	t.Initialize(maxPayloadLength, " ")
+	t.Initialize(maxLen, " ")
 
 	var capab Capability
 	asSlice := s[:]

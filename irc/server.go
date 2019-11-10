@@ -710,17 +710,17 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// updated caps get DEL'd and then NEW'd
 	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.Strings(caps.Cap301, config.Server.capValues), " "))
+	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.Strings(caps.Cap301, config.Server.capValues, 0), " "))
 	addedCaps.Union(updatedCaps)
 	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
 		capBurstSessions = server.clients.AllWithCapsNotify()
 
-		added[caps.Cap301] = addedCaps.Strings(caps.Cap301, config.Server.capValues)
-		added[caps.Cap302] = addedCaps.Strings(caps.Cap302, config.Server.capValues)
+		added[caps.Cap301] = addedCaps.Strings(caps.Cap301, config.Server.capValues, 0)
+		added[caps.Cap302] = addedCaps.Strings(caps.Cap302, config.Server.capValues, 0)
 		// removed never has values, so we leave it as Cap301
-		removed = removedCaps.Strings(caps.Cap301, config.Server.capValues)
+		removed = removedCaps.Strings(caps.Cap301, config.Server.capValues, 0)
 	}
 
 	for _, sSession := range capBurstSessions {
