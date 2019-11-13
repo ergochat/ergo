@@ -83,3 +83,44 @@ func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
 
 	return
 }
+
+// TokenLineBuilder is a helper for building IRC lines composed of delimited tokens,
+// with a maximum line length.
+type TokenLineBuilder struct {
+	lineLen int
+	delim   string
+	buf     bytes.Buffer
+	result  []string
+}
+
+func (t *TokenLineBuilder) Initialize(lineLen int, delim string) {
+	t.lineLen = lineLen
+	t.delim = delim
+}
+
+// Add adds a token to the line, creating a new line if necessary.
+func (t *TokenLineBuilder) Add(token string) {
+	tokenLen := len(token)
+	if t.buf.Len() != 0 {
+		tokenLen += len(t.delim)
+	}
+	if t.lineLen < t.buf.Len()+tokenLen {
+		t.result = append(t.result, t.buf.String())
+		t.buf.Reset()
+	}
+	if t.buf.Len() != 0 {
+		t.buf.WriteString(t.delim)
+	}
+	t.buf.WriteString(token)
+}
+
+// Lines terminates the line-building and returns all the lines.
+func (t *TokenLineBuilder) Lines() (result []string) {
+	result = t.result
+	t.result = nil
+	if t.buf.Len() != 0 {
+		result = append(result, t.buf.String())
+		t.buf.Reset()
+	}
+	return
+}

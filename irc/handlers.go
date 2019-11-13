@@ -569,9 +569,14 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 	sendCapLines := func(cset *caps.Set, values caps.Values) {
 		version := rb.session.capVersion
-		capLines := cset.Strings(version, values)
-		// weechat 1.4 has a bug here where it won't accept the CAP reply unless it contains
-		// the server.name source:
+		// we're working around two bugs:
+		// 1. weechat 1.4 won't accept the CAP reply unless it contains the server.name source
+		// 2. old versions of Kiwi and The Lounge can't parse multiline CAP LS 302 (#661),
+		// so try as hard as possible to get the response to fit on one line.
+		// :server.name CAP * LS * :<tokens>
+		// 1           7         4
+		maxLen := 510 - 1 - len(server.name) - 7 - len(subCommand) - 4
+		capLines := cset.Strings(version, values, maxLen)
 		for i, capStr := range capLines {
 			if version >= caps.Cap302 && i < len(capLines)-1 {
 				rb.Add(nil, server.name, "CAP", details.nick, subCommand, "*", capStr)

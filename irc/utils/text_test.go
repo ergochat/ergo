@@ -58,3 +58,27 @@ func BenchmarkWordWrap(b *testing.B) {
 		WordWrap(monteCristo, 60)
 	}
 }
+
+func TestTokenLineBuilder(t *testing.T) {
+	lineLen := 400
+	var tl TokenLineBuilder
+	tl.Initialize(lineLen, " ")
+	for _, token := range strings.Fields(monteCristo) {
+		tl.Add(token)
+	}
+
+	lines := tl.Lines()
+	if len(lines) != 4 {
+		t.Errorf("expected 4 lines, got %d", len(lines))
+	}
+	for _, line := range lines {
+		if len(line) > lineLen {
+			t.Errorf("line length %d exceeds maximum of %d", len(line), lineLen)
+		}
+	}
+
+	joined := strings.Join(lines, " ")
+	if joined != monteCristo {
+		t.Errorf("text incorrectly split into lines: %s instead of %s", joined, monteCristo)
+	}
+}
