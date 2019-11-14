@@ -32,6 +32,7 @@ Develop branches are either used to work out implementation details in preperati
 7. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 8. Build binaries using `make release`, upload release to Github including the changelog and binaries.
 9. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
+10. Make the appropriate announcements (Twitter, oragono.io/news)
 
 Once it's built and released, you need to setup the new development version. To do so:
 
