@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [1.2.0-rc1] - 2019-11-04
-We're pleased to be publishing the release candidate for 1.2.0 (the official release should follow in a week or two). This version contains bug fixes and minor improvements.
+## [1.2.0] - 2019-11-17
+We're pleased to announce Oragono 1.2.0. This version contains bug fixes and minor improvements.
 
 Many thanks to [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@edmund-huber](https://github.com/edmund-huber), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@poVoq](https://github.com/oragono/oragono/issues/624), [@prawnsalad](https://github.com/prawnsalad), and stealthgin for reporting issues and contributing code reviews, and also to [@bogdomania](https://github.com/bogdomania), Forbidden (cptbl00dra1n), Nuve, [@streaps](https://github.com/streaps), and UnLokitoFeliz for contributing translations.
 
@@ -29,7 +29,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Allowed Tor and non-Tor connections to attach to the same nickname via bouncer functionality (#632)
 
 ### Fixed
-* Fixed `CAP LS 302` response being potentially truncated (#594)
+* Fixed `CAP LS 302` response being potentially truncated (#594, #661)
 * Fixed redundant output to some `MODE` commands (#649)
 * Improved display of replies to `/msg NickServ verify` in some clients (#567, thanks [@edmund-huber](https://github.com/edmund-huber)!)
 * Improved display of NickServ timeout warnings in some clients (#572, thanks [@bogdomania](https://github.com/bogdomania)!)
