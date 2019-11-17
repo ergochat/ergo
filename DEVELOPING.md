@@ -23,22 +23,20 @@ Develop branches are either used to work out implementation details in preperati
 
 ## Releasing a new version
 
-1. Ensure dependencies are up-to-date.
-2. Run [`irctest`]() over it to make sure nothing's severely broken.
-3. Remove `-unreleased` from the version number in `irc/constants.go`.
-4. Update the changelog with new changes.
-5. Remove unused sections from the changelog, change the date/version number and write release notes.
-6. Commit the new changelog and constants change.
-7. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
-8. Build binaries using `make release`, upload release to Github including the changelog and binaries.
-9. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
-10. Make the appropriate announcements (Twitter, oragono.io/news)
+1. Run [`irctest`]() over it to make sure nothing's severely broken.
+1. Update the changelog with new changes and write release notes.
+1. Update the version number `irc/constants.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
+1. Commit the new changelog and constants change.
+1. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
+1. Build binaries using `make release`, upload release to Github including the changelog and binaries.
+1. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
+1. Make the appropriate announcements (Twitter, oragono.io/news)
 
 Once it's built and released, you need to setup the new development version. To do so:
 
+1. Ensure dependencies are up-to-date.
 1. In `irc/constants.go`, update the version number to `0.0.1-unreleased`, where `0.0.1` is the previous release number with the minor field incremented by one (for instance, `0.9.2` -> `0.9.3-unreleased`).
-2. At the top of the changelog, paste a new section with the content below.
-3. Commit the new version number and changelog with the message `"Setup v0.0.1-unreleased devel ver"`.
+1. Commit the new version number and changelog with the message `"Setup v0.0.1-unreleased devel ver"`.
 
 **Unreleased changelog content**
 
