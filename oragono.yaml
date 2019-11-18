@@ -144,19 +144,28 @@ server:
         # this works around that bug, allowing them to use SASL.
         send-unprefixed-sasl: true
 
-    # maximum number of connections per subnet
-    connection-limits:
-        # whether to enforce connection limits or not
-        enabled: true
+    # IP-based DoS protection
+    ip-limits:
+        # whether to enforce limits on the total number of concurrent connections per IP / CIDR
+        limit: true
+        # maximum concurrent connections per subnet
+        max-concurrent-connections: 16
 
-        # how wide the cidr should be for IPv4
+        # whether to restrict the rate of new connections per IP / CIDR
+        throttle: true
+        # how long to keep track of connections for
+        window: 10m
+        # maximum number of connections, per subnet, within the given duration
+        max-connections-per-window: 32
+        # how long to ban offenders for
+        # after banning them, the number of connections is reset (which lets you use UNDLINE to unban people)
+        throttle-ban-duration: 10m
+
+        # how wide the CIDR should be for IPv4 (a /32 is a fully specified IPv4 address)
         cidr-len-ipv4: 32
-
-        # how wide the cidr should be for IPv6
+        # how wide the cidr should be for IPv6 (a /64 is the typical prefix assigned
+        # by an ISP to an individual customer for their LAN)
         cidr-len-ipv6: 64
-
-        # maximum concurrent connections per subnet (defined above by the cidr length)
-        connections-per-subnet: 16
 
         # IPs/networks which are exempted from connection limits
         exempted:
@@ -164,33 +173,13 @@ server:
             # - "192.168.1.1"
             # - "2001:0db8::/32"
 
-    # automated connection throttling
-    connection-throttling:
-        # whether to throttle connections or not
-        enabled: true
-
-        # how wide the cidr should be for IPv4
-        cidr-len-ipv4: 32
-
-        # how wide the cidr should be for IPv6
-        cidr-len-ipv6: 64
-
-        # how long to keep track of connections for
-        duration: 10m
-
-        # maximum number of connections, per subnet, within the given duration
-        max-connections: 32
-
-        # how long to ban offenders for, and the message to use
-        # after banning them, the number of connections is reset (which lets you use UNDLINE to unban people)
-        ban-duration: 10m
-        ban-message: You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect.
-
-        # IPs/networks which are exempted from connection throttling
-        exempted:
-            - "localhost"
-            # - "192.168.1.1"
-            # - "2001:0db8::/32"
+        # custom connection limits for certain IPs/networks. Note that CIDR
+        # widths defined here override the default CIDR width --- the limit
+        # will apply to the entire CIDR no matter how large or small it is
+        custom-limits:
+            # "8.8.0.0/16":
+            #     max-concurrent-connections: 128
+            #     max-connections-per-window: 1024
 
     # IP cloaking hides users' IP addresses from other users and from channel admins
     # (but not from server admins), while still allowing channel admins to ban
@@ -214,13 +203,11 @@ server:
 
         # the cloaked hostname is derived only from the CIDR (most significant bits
         # of the IP address), up to a configurable number of bits. this is the
-        # granularity at which bans will take effect for ipv4 (a /32 is a fully
-        # specified IP address). note that changing this value will invalidate
-        # any stored bans.
+        # granularity at which bans will take effect for IPv4. Note that changing
+        # this value will invalidate any stored bans.
         cidr-len-ipv4: 32
 
-        # analogous value for ipv6 (an ipv6 /64 is the typical prefix assigned
-        # by an ISP to an individual customer for their LAN)
+        # analogous granularity for IPv6
         cidr-len-ipv6: 64
 
         # number of bits of hash output to include in the cloaked hostname.

@@ -308,12 +308,11 @@ type Config struct {
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
 		}
-		isupport            isupport.List
-		ConnectionLimiter   connection_limits.LimiterConfig   `yaml:"connection-limits"`
-		ConnectionThrottler connection_limits.ThrottlerConfig `yaml:"connection-throttling"`
-		Cloaks              cloaks.CloakConfig                `yaml:"ip-cloaking"`
-		supportedCaps       *caps.Set
-		capValues           caps.Values
+		isupport      isupport.List
+		IPLimits      connection_limits.LimiterConfig `yaml:"ip-limits"`
+		Cloaks        cloaks.CloakConfig              `yaml:"ip-cloaking"`
+		supportedCaps *caps.Set
+		capValues     caps.Values
 	}
 
 	Languages struct {
@@ -633,16 +632,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	// set this even if STS is disabled
 	config.Server.capValues[caps.STS] = config.Server.STS.Value()
 
-	if config.Server.ConnectionThrottler.Enabled {
-		config.Server.ConnectionThrottler.Duration, err = time.ParseDuration(config.Server.ConnectionThrottler.DurationString)
-		if err != nil {
-			return nil, fmt.Errorf("Could not parse connection-throttle duration: %s", err.Error())
-		}
-		config.Server.ConnectionThrottler.BanDuration, err = time.ParseDuration(config.Server.ConnectionThrottler.BanDurationString)
-		if err != nil {
-			return nil, fmt.Errorf("Could not parse connection-throttle ban-duration: %s", err.Error())
-		}
-	}
 	// process webirc blocks
 	var newWebIRC []webircConfig
 	for _, webirc := range config.Server.WebIRC {

@@ -4,14 +4,8 @@
 package connection_limits
 
 import (
-	"errors"
 	"sync"
 	"time"
-)
-
-var (
-	ErrLimitExceeded    = errors.New("too many concurrent connections")
-	ErrThrottleExceeded = errors.New("too many recent connection attempts")
 )
 
 // TorLimiter is a combined limiter and throttler for use on connections
