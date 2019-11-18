@@ -30,9 +30,9 @@ type customLimit struct {
 }
 
 // LimiterConfig controls the automated connection limits.
-// RawLimiterConfig contains all the YAML-visible fields;
+// rawLimiterConfig contains all the YAML-visible fields;
 // LimiterConfig contains additional denormalized private fields
-type RawLimiterConfig struct {
+type rawLimiterConfig struct {
 	Limit         bool
 	MaxConcurrent int `yaml:"max-concurrent-connections"`
 
@@ -50,7 +50,7 @@ type RawLimiterConfig struct {
 }
 
 type LimiterConfig struct {
-	RawLimiterConfig
+	rawLimiterConfig
 
 	ipv4Mask     net.IPMask
 	ipv6Mask     net.IPMask
@@ -59,7 +59,7 @@ type LimiterConfig struct {
 }
 
 func (config *LimiterConfig) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
-	if err = unmarshal(&config.RawLimiterConfig); err != nil {
+	if err = unmarshal(&config.rawLimiterConfig); err != nil {
 		return err
 	}
 	return config.postprocess()

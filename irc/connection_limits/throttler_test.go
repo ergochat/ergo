@@ -66,7 +66,7 @@ func makeTestThrottler(v4len, v6len int) *Limiter {
 	minute, _ := time.ParseDuration("1m")
 	maxConnections := 3
 	config := LimiterConfig{
-		RawLimiterConfig: RawLimiterConfig{
+		rawLimiterConfig: rawLimiterConfig{
 			Limit:        false,
 			Throttle:     true,
 			CidrLenIPv4:  v4len,
