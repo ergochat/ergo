@@ -308,7 +308,7 @@ func (server *Server) createListener(addr string, conf listenerConfig, bindMode 
 				return
 			} else if err == nil {
 				var proxyLine string
-				if conf.IsTLSProxy {
+				if conf.ProxyBeforeTLS {
 					proxyLine = readRawProxyLine(conn)
 					if proxyLine == "" {
 						server.logger.Error("internal", "bad TLS-proxy line from", addr)
@@ -877,7 +877,7 @@ func (server *Server) loadDatastore(config *Config) error {
 func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, config listenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTLSProxy, config.IsTor),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.ProxyBeforeTLS, config.Tor),
 		)
 	}
 
@@ -904,7 +904,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	publicPlaintextListener := ""
 	// create new listeners that were not previously configured
 	for newAddr, newConfig := range config.Server.trueListeners {
-		if strings.HasPrefix(newAddr, ":") && !newConfig.IsTor && !newConfig.IsSTSOnly && newConfig.TLSConfig == nil {
+		if strings.HasPrefix(newAddr, ":") && !newConfig.Tor && !newConfig.STSOnly && newConfig.TLSConfig == nil {
 			publicPlaintextListener = newAddr
 		}
 		_, exists := server.listeners[newAddr]
