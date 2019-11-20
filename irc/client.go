@@ -190,7 +190,7 @@ type ClientDetails struct {
 }
 
 // RunClient sets up a new client and runs its goroutine.
-func (server *Server) RunClient(conn clientConn) {
+func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	var isBanned bool
 	var banMsg string
 	var realIP net.IP
@@ -278,7 +278,7 @@ func (server *Server) RunClient(conn clientConn) {
 	client.proxiedIP = session.proxiedIP
 
 	server.stats.Add()
-	client.run(session)
+	client.run(session, proxyLine)
 }
 
 func (client *Client) doIdentLookup(conn net.Conn) {
@@ -371,11 +371,9 @@ func (client *Client) t(originalString string) string {
 	return languageManager.Translate(client.Languages(), originalString)
 }
 
-//
-// command goroutine
-//
-
-func (client *Client) run(session *Session) {
+// main client goroutine: read lines and execute the corresponding commands
+// `proxyLine` is the PROXY-before-TLS line, if there was one
+func (client *Client) run(session *Session, proxyLine string) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -414,7 +412,14 @@ func (client *Client) run(session *Session) {
 	for {
 		maxlenRest := session.MaxlenRest()
 
-		line, err := session.socket.Read()
+		var line string
+		var err error
+		if proxyLine == "" {
+			line, err = session.socket.Read()
+		} else {
+			line = proxyLine // pretend we're just now receiving the proxy-before-TLS line
+			proxyLine = ""
+		}
 		if err != nil {
 			quitMessage := "connection closed"
 			if err == errReadQ {
@@ -483,7 +488,7 @@ func (client *Client) run(session *Session) {
 			break
 		} else if session.client != client {
 			// bouncer reattach
-			go session.client.run(session)
+			go session.client.run(session, "")
 			break
 		}
 	}

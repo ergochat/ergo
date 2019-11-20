@@ -307,6 +307,15 @@ func (server *Server) createListener(addr string, conf listenerConfig, bindMode 
 				listener.Close()
 				return
 			} else if err == nil {
+				var proxyLine string
+				if conf.IsTLSProxy {
+					proxyLine = readRawProxyLine(conn)
+					if proxyLine == "" {
+						server.logger.Error("internal", "bad TLS-proxy line from", addr)
+						conn.Close()
+						continue
+					}
+				}
 				if conf.TLSConfig != nil {
 					conn = tls.Server(conn, conf.TLSConfig)
 				}
@@ -315,7 +324,7 @@ func (server *Server) createListener(addr string, conf listenerConfig, bindMode 
 					Config: conf,
 				}
 				// hand off the connection
-				go server.RunClient(newConn)
+				go server.RunClient(newConn, proxyLine)
 			} else {
 				server.logger.Error("internal", "accept error", addr, err.Error())
 			}
@@ -868,7 +877,7 @@ func (server *Server) loadDatastore(config *Config) error {
 func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, config listenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTor),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.IsTLSProxy, config.IsTor),
 		)
 	}
 
