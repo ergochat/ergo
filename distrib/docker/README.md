@@ -19,7 +19,7 @@ certificates. To get a working ircd, all you need to do is run the image and
 expose the ports:
 
 ```shell
-docker run --name oragono -d -P oragono/oragono:tag
+docker run --name oragono -d -p 6667:6667 -p 6697:6697 oragono/oragono:tag
 ```
 
 This will start Oragono and listen on ports 6667 (plain text) and 6697 (TLS).
@@ -49,14 +49,14 @@ For example, to create a new docker volume and then mount it:
 
 ```shell
 docker volume create oragono-data
-docker run -d -v oragono-data:/ircd -P oragono/oragono:tag
+docker run -d -v oragono-data:/ircd -p 6667:6667 -p 6697:6697 oragono/oragono:tag
 ```
 
 Or to mount a folder from your host machine:
 
 ```shell
 mkdir oragono-data
-docker run -d -v $(PWD)/oragono-data:/ircd -P oragono/oragono:tag
+docker run -d -v $(PWD)/oragono-data:/ircd -p 6667:6667 -p 6697:6697 oragono/oragono:tag
 ```
 
 ## Customising the config
