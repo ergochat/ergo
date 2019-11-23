@@ -124,6 +124,15 @@ To start the server, type `./oragono run` and hit enter, and the server should b
 If you're using Arch Linux, you can also install the [`oragono` package](https://aur.archlinux.org/packages/oragono/) from the AUR.
 
 
+## Docker
+
+1. Pull the latest version of Oragono: `docker pull oragono/oragono:latest`
+1. Create a volume for persistent data: `docker volume create oragono-data`
+1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
+
+For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blog/master/distrib/docker/README.md).
+
+
 ## Running oragono as a service on Linux
 
 The recommended way to operate oragono as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures oragono's loglines (sent to stderr in the default configuration) and writes them to the system journal.
