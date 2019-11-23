@@ -1,8 +1,8 @@
 # Oragono Docker
 
 This folder holds Oragono's Dockerfile and related materials. Oragono
-is published iautomatically to Docker Hub at
-[oragono/oragano](https://hub.docker.com/r/oragono/oragono).
+is published automatically to Docker Hub at
+[oragono/oragono](https://hub.docker.com/r/oragono/oragono).
 
 The `latest` tag tracks the `stable` branch of Oragono, which contains
 the latest stable release. The `dev` tag tracks the master branch, which
