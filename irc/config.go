@@ -39,8 +39,9 @@ import (
 
 // TLSListenConfig defines configuration options for listening on TLS.
 type TLSListenConfig struct {
-	Cert string
-	Key  string
+	Cert  string
+	Key   string
+	Proxy bool
 }
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
@@ -53,9 +54,10 @@ type listenerConfigBlock struct {
 // listenerConfig is the config governing a particular listener (bound address),
 // in particular whether it has TLS or Tor (or both) enabled.
 type listenerConfig struct {
-	TLSConfig *tls.Config
-	IsTor     bool
-	IsSTSOnly bool
+	TLSConfig      *tls.Config
+	Tor            bool
+	STSOnly        bool
+	ProxyBeforeTLS bool
 }
 
 type AccountConfig struct {
@@ -517,9 +519,9 @@ func (conf *Config) prepareListeners() (err error) {
 	if 0 < len(conf.Server.Listeners) {
 		for addr, block := range conf.Server.Listeners {
 			var lconf listenerConfig
-			lconf.IsTor = block.Tor
-			lconf.IsSTSOnly = block.STSOnly
-			if lconf.IsSTSOnly && !conf.Server.STS.Enabled {
+			lconf.Tor = block.Tor
+			lconf.STSOnly = block.STSOnly
+			if lconf.STSOnly && !conf.Server.STS.Enabled {
 				return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
 			}
 			if block.TLS.Cert != "" {
@@ -528,6 +530,7 @@ func (conf *Config) prepareListeners() (err error) {
 					return err
 				}
 				lconf.TLSConfig = tlsConfig
+				lconf.ProxyBeforeTLS = block.TLS.Proxy
 			}
 			listeners[addr] = lconf
 		}
@@ -540,7 +543,7 @@ func (conf *Config) prepareListeners() (err error) {
 		}
 		for _, addr := range conf.Server.Listen {
 			var lconf listenerConfig
-			lconf.IsTor = torListeners[addr]
+			lconf.Tor = torListeners[addr]
 			tlsListenConf, ok := conf.Server.TLSListeners[addr]
 			if ok {
 				tlsConfig, err := loadTlsConfig(tlsListenConf)
@@ -835,6 +838,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = config.generateISupport()
 	if err != nil {
 		return nil, err
+	}
+
+	err = config.prepareListeners()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
 	return config, nil

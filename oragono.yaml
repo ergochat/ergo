@@ -30,6 +30,10 @@ server:
             tls:
                 key: tls.key
                 cert: tls.crt
+                # 'proxy' should typically be false. It's only for Kubernetes-style load
+                # balancing that does not terminate TLS, but sends an initial PROXY line
+                # in plaintext.
+                proxy: false
 
         # Example of a Unix domain socket for proxying:
         # "/tmp/oragono_sock":
