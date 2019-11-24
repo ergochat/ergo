@@ -243,6 +243,9 @@ func (dm *DLineManager) RemoveIP(addr net.IP) error {
 // CheckIP returns whether or not an IP address was banned, and how long it is banned for.
 func (dm *DLineManager) CheckIP(addr net.IP) (isBanned bool, info IPBanInfo) {
 	addr = addr.To16() // almost certainly unnecessary
+	if addr.IsLoopback() {
+		return // #671
+	}
 
 	dm.RLock()
 	defer dm.RUnlock()
