@@ -62,19 +62,23 @@ func TestGenericThrottleDisabled(t *testing.T) {
 	}
 }
 
-func makeTestThrottler(v4len, v6len int) *Throttler {
+func makeTestThrottler(v4len, v6len int) *Limiter {
 	minute, _ := time.ParseDuration("1m")
 	maxConnections := 3
-	config := ThrottlerConfig{
-		Enabled:            true,
-		CidrLenIPv4:        v4len,
-		CidrLenIPv6:        v6len,
-		ConnectionsPerCidr: maxConnections,
-		Duration:           minute,
+	config := LimiterConfig{
+		rawLimiterConfig: rawLimiterConfig{
+			Count:        false,
+			Throttle:     true,
+			CidrLenIPv4:  v4len,
+			CidrLenIPv6:  v6len,
+			MaxPerWindow: maxConnections,
+			Window:       minute,
+		},
 	}
-	var throttler Throttler
-	throttler.ApplyConfig(config)
-	return &throttler
+	config.postprocess()
+	var limiter Limiter
+	limiter.ApplyConfig(&config)
+	return &limiter
 }
 
 func TestConnectionThrottle(t *testing.T) {
@@ -86,7 +90,7 @@ func TestConnectionThrottle(t *testing.T) {
 		assertEqual(err, nil, t)
 	}
 	err := throttler.AddClient(addr)
-	assertEqual(err, errTooManyClients, t)
+	assertEqual(err, ErrThrottleExceeded, t)
 }
 
 func TestConnectionThrottleIPv6(t *testing.T) {
@@ -101,7 +105,7 @@ func TestConnectionThrottleIPv6(t *testing.T) {
 	assertEqual(err, nil, t)
 
 	err = throttler.AddClient(net.ParseIP("2001:0db8::4"))
-	assertEqual(err, errTooManyClients, t)
+	assertEqual(err, ErrThrottleExceeded, t)
 }
 
 func TestConnectionThrottleIPv4(t *testing.T) {
@@ -116,5 +120,5 @@ func TestConnectionThrottleIPv4(t *testing.T) {
 	assertEqual(err, nil, t)
 
 	err = throttler.AddClient(net.ParseIP("192.168.1.104"))
-	assertEqual(err, errTooManyClients, t)
+	assertEqual(err, ErrThrottleExceeded, t)
 }

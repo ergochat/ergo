@@ -46,6 +46,8 @@ var (
 	// we only have standard channels for now. TODO: any updates to this
 	// will also need to be reflected in CasefoldChannel
 	chanTypes = "#"
+
+	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
 )
 
 // ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
@@ -59,34 +61,33 @@ type ListenerWrapper struct {
 
 // Server is the main Oragono server.
 type Server struct {
-	accounts            AccountManager
-	channels            ChannelManager
-	channelRegistry     ChannelRegistry
-	clients             ClientManager
-	config              unsafe.Pointer
-	configFilename      string
-	connectionLimiter   connection_limits.Limiter
-	connectionThrottler connection_limits.Throttler
-	ctime               time.Time
-	dlines              *DLineManager
-	helpIndexManager    HelpIndexManager
-	klines              *KLineManager
-	listeners           map[string]*ListenerWrapper
-	logger              *logger.Manager
-	monitorManager      MonitorManager
-	name                string
-	nameCasefolded      string
-	rehashMutex         sync.Mutex // tier 4
-	rehashSignal        chan os.Signal
-	pprofServer         *http.Server
-	resumeManager       ResumeManager
-	signals             chan os.Signal
-	snomasks            SnoManager
-	store               *buntdb.DB
-	torLimiter          connection_limits.TorLimiter
-	whoWas              WhoWasList
-	stats               Stats
-	semaphores          ServerSemaphores
+	accounts          AccountManager
+	channels          ChannelManager
+	channelRegistry   ChannelRegistry
+	clients           ClientManager
+	config            unsafe.Pointer
+	configFilename    string
+	connectionLimiter connection_limits.Limiter
+	ctime             time.Time
+	dlines            *DLineManager
+	helpIndexManager  HelpIndexManager
+	klines            *KLineManager
+	listeners         map[string]*ListenerWrapper
+	logger            *logger.Manager
+	monitorManager    MonitorManager
+	name              string
+	nameCasefolded    string
+	rehashMutex       sync.Mutex // tier 4
+	rehashSignal      chan os.Signal
+	pprofServer       *http.Server
+	resumeManager     ResumeManager
+	signals           chan os.Signal
+	snomasks          SnoManager
+	store             *buntdb.DB
+	torLimiter        connection_limits.TorLimiter
+	whoWas            WhoWasList
+	stats             Stats
+	semaphores        ServerSemaphores
 }
 
 var (
@@ -214,32 +215,28 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	}
 
 	// check connection limits
-	err := server.connectionLimiter.AddClient(ipaddr, false)
-	if err != nil {
+	err := server.connectionLimiter.AddClient(ipaddr)
+	if err == connection_limits.ErrLimitExceeded {
 		// too many connections from one client, tell the client and close the connection
 		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
 		return true, "Too many clients from your network"
-	}
-
-	// check connection throttle
-	err = server.connectionThrottler.AddClient(ipaddr)
-	if err != nil {
-		// too many connections too quickly from client, tell them and close the connection
-		duration := server.connectionThrottler.BanDuration()
+	} else if err == connection_limits.ErrThrottleExceeded {
+		duration := server.Config().Server.IPLimits.BanDuration
 		if duration == 0 {
 			return false, ""
 		}
-		server.dlines.AddIP(ipaddr, duration, server.connectionThrottler.BanMessage(), "Exceeded automated connection throttle", "auto.connection.throttler")
-
+		server.dlines.AddIP(ipaddr, duration, throttleMessage, "Exceeded automated connection throttle", "auto.connection.throttler")
 		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
 		// and once their temporary DLINE is finished they can fill up the throttler again
-		server.connectionThrottler.ResetFor(ipaddr)
+		server.connectionLimiter.ResetThrottle(ipaddr)
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
 		server.logger.Info(
 			"localconnect-ip",
 			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
-		return true, server.connectionThrottler.BanMessage()
+		return true, throttleMessage
+	} else if err != nil {
+		server.logger.Warning("internal", "unexpected ban result", err.Error())
 	}
 
 	return false, ""
@@ -604,15 +601,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 
 	// first, reload config sections for functionality implemented in subpackages:
 
-	err = server.connectionLimiter.ApplyConfig(config.Server.ConnectionLimiter)
-	if err != nil {
-		return err
-	}
-
-	err = server.connectionThrottler.ApplyConfig(config.Server.ConnectionThrottler)
-	if err != nil {
-		return err
-	}
+	server.connectionLimiter.ApplyConfig(&config.Server.IPLimits)
 
 	tlConf := &config.Server.TorListeners
 	server.torLimiter.Configure(tlConf.MaxConnections, tlConf.ThrottleDuration, tlConf.MaxConnectionsPerDuration)
