@@ -19,7 +19,7 @@ func easyParseIP(ipstr string) (result net.IP) {
 
 var baseConfig = LimiterConfig{
 	rawLimiterConfig: rawLimiterConfig{
-		Limit:         true,
+		Count:         true,
 		MaxConcurrent: 4,
 
 		Throttle:     true,

@@ -146,8 +146,8 @@ server:
 
     # IP-based DoS protection
     ip-limits:
-        # whether to enforce limits on the total number of concurrent connections per IP/CIDR
-        limit: true
+        # whether to limit the total count of concurrent connections per IP/CIDR
+        count: true
         # maximum concurrent connections per IP/CIDR
         max-concurrent-connections: 16
 

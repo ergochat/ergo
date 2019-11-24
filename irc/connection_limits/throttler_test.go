@@ -67,7 +67,7 @@ func makeTestThrottler(v4len, v6len int) *Limiter {
 	maxConnections := 3
 	config := LimiterConfig{
 		rawLimiterConfig: rawLimiterConfig{
-			Limit:        false,
+			Count:        false,
 			Throttle:     true,
 			CidrLenIPv4:  v4len,
 			CidrLenIPv6:  v6len,

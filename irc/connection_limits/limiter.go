@@ -33,7 +33,7 @@ type customLimit struct {
 // rawLimiterConfig contains all the YAML-visible fields;
 // LimiterConfig contains additional denormalized private fields
 type rawLimiterConfig struct {
-	Limit         bool
+	Count         bool
 	MaxConcurrent int `yaml:"max-concurrent-connections"`
 
 	Throttle     bool
@@ -156,7 +156,7 @@ func (cl *Limiter) AddClient(addr net.IP) error {
 	}
 
 	// now check limiter
-	if cl.config.Limit {
+	if cl.config.Count {
 		count := cl.limiter[addrString] + 1
 		if count > maxConcurrent {
 			return ErrLimitExceeded
@@ -172,7 +172,7 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.config.Limit || utils.IPInNets(addr, cl.config.exemptedNets) {
+	if !cl.config.Count || utils.IPInNets(addr, cl.config.exemptedNets) {
 		return
 	}
 
