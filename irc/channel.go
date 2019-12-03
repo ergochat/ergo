@@ -684,13 +684,18 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	splitMessage := utils.MakeSplitMessage(message, true)
 
 	details := client.Details()
-	for _, member := range channel.Members() {
-		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+	params := make([]string, 1, 2)
+	params[0] = chname
+	if message != "" {
+		params = append(params, message)
 	}
-	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+	for _, member := range channel.Members() {
+		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+	}
+	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	for _, session := range client.Sessions() {
 		if session != rb.session {
-			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 		}
 	}
 

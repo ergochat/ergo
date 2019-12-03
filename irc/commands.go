@@ -21,31 +21,39 @@ type Command struct {
 }
 
 // Run runs this command with the given client/message.
-func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.IrcMessage) bool {
-	if !client.registered && !cmd.usablePreReg {
-		client.Send(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
-		return false
-	}
-	if cmd.oper && !client.HasMode(modes.Operator) {
-		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied - You're not an IRC operator"))
-		return false
-	}
-	if len(cmd.capabs) > 0 && !client.HasRoleCapabs(cmd.capabs...) {
-		client.Send(nil, server.name, ERR_NOPRIVILEGES, client.nick, client.t("Permission Denied"))
-		return false
-	}
-	if len(msg.Params) < cmd.minParams {
-		client.Send(nil, server.name, ERR_NEEDMOREPARAMS, client.nick, msg.Command, client.t("Not enough parameters"))
-		return false
-	}
-
+func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.IrcMessage) (exiting bool) {
 	rb := NewResponseBuffer(session)
 	rb.Label = GetLabel(msg)
-	exiting := cmd.handler(server, client, msg, rb)
-	rb.Send(true)
+
+	exiting = func() bool {
+		defer rb.Send(true)
+
+		if !client.registered && !cmd.usablePreReg {
+			rb.Add(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
+			return false
+		}
+		if cmd.oper && !client.HasMode(modes.Operator) {
+			rb.Add(nil, server.name, ERR_NOPRIVILEGES, client.Nick(), client.t("Permission Denied - You're not an IRC operator"))
+			return false
+		}
+		if len(cmd.capabs) > 0 && !client.HasRoleCapabs(cmd.capabs...) {
+			rb.Add(nil, server.name, ERR_NOPRIVILEGES, client.Nick(), client.t("Permission Denied"))
+			return false
+		}
+		if len(msg.Params) < cmd.minParams {
+			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, rb.target.t("Not enough parameters"))
+			return false
+		}
+
+		return cmd.handler(server, client, msg, rb)
+	}()
+
+	if exiting {
+		return
+	}
 
 	// after each command, see if we can send registration to the client
-	if !exiting && !client.registered {
+	if !client.registered {
 		exiting = server.tryRegister(client, session)
 	}
 

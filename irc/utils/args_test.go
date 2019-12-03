@@ -21,3 +21,12 @@ func TestStringToBool(t *testing.T) {
 	val, err = StringToBool("default")
 	assertEqual(err, ErrInvalidParams, t)
 }
+
+func TestSafeErrorParam(t *testing.T) {
+	assertEqual(SafeErrorParam("hi"), "hi", t)
+	assertEqual(SafeErrorParam("#hi"), "#hi", t)
+	assertEqual(SafeErrorParam("#hi there"), "*", t)
+	assertEqual(SafeErrorParam(":"), "*", t)
+	assertEqual(SafeErrorParam("#hi:there"), "#hi:there", t)
+	assertEqual(SafeErrorParam(""), "*", t)
+}

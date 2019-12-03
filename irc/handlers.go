@@ -1162,7 +1162,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 	if hist == nil {
 		if channel == nil {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), target, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
 		} else {
 			rb.Add(nil, server.name, ERR_NOTONCHANNEL, client.Nick(), target, client.t("You're not on that channel"))
 		}
@@ -1238,7 +1238,7 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	casefoldedChannelName, err := CasefoldChannel(channelName)
 	channel := server.channels.Get(casefoldedChannelName)
 	if err != nil || channel == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, channelName, client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(channelName), client.t("No such channel"))
 		return false
 	}
 
@@ -1280,6 +1280,9 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	config := server.Config()
 	oper := client.Oper()
 	for i, name := range channels {
+		if name == "" {
+			continue // #679
+		}
 		if config.Channels.MaxChannelsPerClient <= client.NumChannels() && oper == nil {
 			rb.Add(nil, server.name, ERR_TOOMANYCHANNELS, client.Nick(), name, client.t("You have joined too many channels"))
 			return false
@@ -1290,7 +1293,7 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 		err := server.channels.Join(client, name, key, false, rb)
 		if err == errNoSuchChannel {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), name, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(name), client.t("No such channel"))
 		}
 	}
 	return false
@@ -1333,12 +1336,19 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	var kicks [][]string
+	type kickCmd struct {
+		channel string
+		nick    string
+	}
+	kicks := make([]kickCmd, 0, len(channels))
 	for index, channel := range channels {
+		if channel == "" {
+			continue // #679
+		}
 		if len(users) == 1 {
-			kicks = append(kicks, []string{channel, users[0]})
+			kicks = append(kicks, kickCmd{channel, users[0]})
 		} else {
-			kicks = append(kicks, []string{channel, users[index]})
+			kicks = append(kicks, kickCmd{channel, users[index]})
 		}
 	}
 
@@ -1346,25 +1356,21 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if len(msg.Params) > 2 {
 		comment = msg.Params[2]
 	}
-	for _, info := range kicks {
-		chname := info[0]
-		nickname := info[1]
-		casefoldedChname, err := CasefoldChannel(chname)
-		channel := server.channels.Get(casefoldedChname)
-		if err != nil || channel == nil {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+	for _, kick := range kicks {
+		channel := server.channels.Get(kick.channel)
+		if channel == nil {
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(kick.channel), client.t("No such channel"))
 			continue
 		}
 
-		casefoldedNickname, err := CasefoldName(nickname)
-		target := server.clients.Get(casefoldedNickname)
-		if err != nil || target == nil {
-			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+		target := server.clients.Get(kick.nick)
+		if target == nil {
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(kick.nick), client.t("No such nick"))
 			continue
 		}
 
 		if comment == "" {
-			comment = nickname
+			comment = kick.nick
 		}
 		channel.Kick(client, target, comment, rb)
 	}
@@ -1647,11 +1653,10 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 
 		for _, chname := range channels {
-			casefoldedChname, err := CasefoldChannel(chname)
-			channel := server.channels.Get(casefoldedChname)
-			if err != nil || channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret)) {
+			channel := server.channels.Get(chname)
+			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret)) {
 				if len(chname) > 0 {
-					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
 				}
 				continue
 			}
@@ -1686,7 +1691,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	channel := server.channels.Get(channelName)
 
 	if err != nil || channel == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
 		return false
 	}
 
@@ -2052,7 +2057,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			channel := server.channels.Get(targetString)
 			if channel == nil {
 				if histType != history.Notice {
-					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, cnick, targetString, client.t("No such channel"))
+					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, cnick, utils.SafeErrorParam(targetString), client.t("No such channel"))
 				}
 				continue
 			}
@@ -2224,15 +2229,18 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 // PART <channel>{,<channel>} [<reason>]
 func partHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	channels := strings.Split(msg.Params[0], ",")
-	var reason string //TODO(dan): if this isn't supplied here, make sure the param doesn't exist in the PART message sent to other users
+	var reason string
 	if len(msg.Params) > 1 {
 		reason = msg.Params[1]
 	}
 
 	for _, chname := range channels {
+		if chname == "" {
+			continue // #679
+		}
 		err := server.channels.Part(client, chname, reason, rb)
 		if err == errNoSuchChannel {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, chname, client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
 		}
 	}
 	return false
@@ -2305,9 +2313,6 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
 	result = false
 	oldName, newName := msg.Params[0], msg.Params[1]
-	if newName == "" {
-		newName = "<empty>" // intentionally invalid channel name, will error as expected
-	}
 	var reason string
 	if 2 < len(msg.Params) {
 		reason = msg.Params[2]
@@ -2315,7 +2320,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	channel := server.channels.Get(oldName)
 	if channel == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), oldName, client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(oldName), client.t("No such channel"))
 		return false
 	}
 	if !(channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("chanreg")) {
@@ -2332,11 +2337,11 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	// perform the channel rename
 	err := server.channels.Rename(oldName, newName)
 	if err == errInvalidChannelName {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), newName, client.t(err.Error()))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err == errChannelNameInUse {
-		rb.Add(nil, server.name, ERR_CHANNAMEINUSE, client.Nick(), newName, client.t(err.Error()))
+		rb.Add(nil, server.name, ERR_CHANNAMEINUSE, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err != nil {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Cannot rename channel"))
+		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
 	}
 	if err != nil {
 		return false
@@ -2460,7 +2465,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	channel := server.channels.Get(name)
 	if err != nil || channel == nil {
 		if len(msg.Params[0]) > 0 {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, msg.Params[0], client.t("No such channel"))
+			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
 		}
 		return false
 	}
