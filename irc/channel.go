@@ -1048,10 +1048,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 }
 
 func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) (result *modes.ModeChange) {
-	casefoldedName, err := CasefoldName(nick)
-	target := channel.server.clients.Get(casefoldedName)
-	if err != nil || target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), nick, client.t("No such nick"))
+	target := channel.server.clients.Get(nick)
+	if target == nil {
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nick), client.t("No such nick"))
 		return nil
 	}
 

@@ -1228,10 +1228,9 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	nickname := msg.Params[0]
 	channelName := msg.Params[1]
 
-	casefoldedNickname, err := CasefoldName(nickname)
-	target := server.clients.Get(casefoldedNickname)
-	if err != nil || target == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+	target := server.clients.Get(nickname)
+	if target == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nickname), client.t("No such nick"))
 		return false
 	}
 
@@ -1313,7 +1312,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		} else {
 			target = server.clients.Get(msg.Params[0])
 			if target == nil {
-				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), msg.Params[0], "No such nick")
+				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(msg.Params[0]), "No such nick")
 				return false
 			}
 			channelString = msg.Params[1]
@@ -1385,10 +1384,9 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		comment = msg.Params[1]
 	}
 
-	casefoldedNickname, err := CasefoldName(nickname)
-	target := server.clients.Get(casefoldedNickname)
-	if err != nil || target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
+	target := server.clients.Get(nickname)
+	if target == nil {
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(nickname), client.t("No such nick"))
 		return false
 	}
 
@@ -2564,25 +2562,23 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // USERHOST <nickname>{ <nickname>}
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	returnedNicks := make(map[string]bool)
+	returnedClients := make(ClientSet)
 
 	for i, nickname := range msg.Params {
 		if i >= 10 {
 			break
 		}
 
-		casefoldedNickname, err := CasefoldName(nickname)
-		target := server.clients.Get(casefoldedNickname)
-		if err != nil || target == nil {
-			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, nickname, client.t("No such nick"))
-			return false
-		}
-		if returnedNicks[casefoldedNickname] {
+		target := server.clients.Get(nickname)
+		if target == nil {
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(nickname), client.t("No such nick"))
 			continue
 		}
-
 		// to prevent returning multiple results for a single nick
-		returnedNicks[casefoldedNickname] = true
+		if returnedClients.Has(target) {
+			continue
+		}
+		returnedClients.Add(target)
 
 		var isOper, isAway string
 
@@ -2730,11 +2726,6 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		masksString = msg.Params[0]
 	}
 
-	if len(strings.TrimSpace(masksString)) < 1 {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("No masks given"))
-		return false
-	}
-
 	handleService := func(nick string) bool {
 		cfnick, _ := CasefoldName(nick)
 		service, ok := OragonoServices[cfnick]
@@ -2754,7 +2745,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		for _, mask := range strings.Split(masksString, ",") {
 			matches := server.clients.FindAll(mask)
 			if len(matches) == 0 && !handleService(mask) {
-				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, mask, client.t("No such nick"))
+				rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(mask), client.t("No such nick"))
 				continue
 			}
 			for mclient := range matches {
@@ -2768,11 +2759,11 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		if mclient != nil {
 			client.getWhoisOf(mclient, rb)
 		} else if !handleService(nick) {
-			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, masksString, client.t("No such nick"))
+			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(masksString), client.t("No such nick"))
 		}
 		// fall through, ENDOFWHOIS is always sent
 	}
-	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, masksString, client.t("End of /WHOIS list"))
+	rb.Add(nil, server.name, RPL_ENDOFWHOIS, client.nick, utils.SafeErrorParam(masksString), client.t("End of /WHOIS list"))
 	return false
 }
 
