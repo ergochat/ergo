@@ -1234,9 +1234,8 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		return false
 	}
 
-	casefoldedChannelName, err := CasefoldChannel(channelName)
-	channel := server.channels.Get(casefoldedChannelName)
-	if err != nil || channel == nil {
+	channel := server.channels.Get(channelName)
+	if channel == nil {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(channelName), client.t("No such channel"))
 		return false
 	}
@@ -1675,9 +1674,7 @@ func lusersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // MODE <target> [<modestring> [<mode arguments>...]]
 func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	_, errChan := CasefoldChannel(msg.Params[0])
-
-	if errChan == nil {
+	if 0 < len(msg.Params[0]) && msg.Params[0][0] == '#' {
 		return cmodeHandler(server, client, msg, rb)
 	}
 	return umodeHandler(server, client, msg, rb)
@@ -1685,10 +1682,9 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // MODE <channel> [<modestring> [<mode arguments>...]]
 func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	channelName, err := CasefoldChannel(msg.Params[0])
-	channel := server.channels.Get(channelName)
+	channel := server.channels.Get(msg.Params[0])
 
-	if err != nil || channel == nil {
+	if channel == nil {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
 		return false
 	}
@@ -1748,12 +1744,9 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // MODE <client> [<modestring> [<mode arguments>...]]
 func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	cDetails := client.Details()
-	nickname, err := CasefoldName(msg.Params[0])
-	target := server.clients.Get(nickname)
-	if err != nil || target == nil {
-		if len(msg.Params[0]) > 0 {
-			rb.Add(nil, server.name, ERR_NOSUCHNICK, cDetails.nick, msg.Params[0], client.t("No such nick"))
-		}
+	target := server.clients.Get(msg.Params[0])
+	if target == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHNICK, cDetails.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such nick"))
 		return false
 	}
 
@@ -2459,12 +2452,9 @@ func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // TOPIC <channel> [<topic>]
 func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	name, err := CasefoldChannel(msg.Params[0])
-	channel := server.channels.Get(name)
-	if err != nil || channel == nil {
-		if len(msg.Params[0]) > 0 {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
-		}
+	channel := server.channels.Get(msg.Params[0])
+	if channel == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
 		return false
 	}
 
