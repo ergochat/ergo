@@ -2773,9 +2773,12 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	nicknames := strings.Split(msg.Params[0], ",")
 
 	// 0 means "all the entries", as does a negative number
-	var count uint64
+	var count int
 	if len(msg.Params) > 1 {
-		count, _ = strconv.ParseUint(msg.Params[1], 10, 64)
+		count, _ = strconv.Atoi(msg.Params[1])
+		if count < 0 {
+			count = 0
+		}
 	}
 	//var target string
 	//if len(msg.Params) > 2 {
@@ -2783,19 +2786,18 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	//}
 	cnick := client.Nick()
 	for _, nickname := range nicknames {
-		results := server.whoWas.Find(nickname, int(count))
+		if len(nickname) == 0 {
+			continue
+		}
+		results := server.whoWas.Find(nickname, count)
 		if len(results) == 0 {
-			if len(nickname) > 0 {
-				rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, nickname, client.t("There was no such nickname"))
-			}
+			rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, utils.SafeErrorParam(nickname), client.t("There was no such nickname"))
 		} else {
 			for _, whoWas := range results {
 				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nick, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 			}
 		}
-		if len(nickname) > 0 {
-			rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, nickname, client.t("End of WHOWAS"))
-		}
+		rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, utils.SafeErrorParam(nickname), client.t("End of WHOWAS"))
 	}
 	return false
 }
