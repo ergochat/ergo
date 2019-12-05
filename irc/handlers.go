@@ -2564,6 +2564,8 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	returnedClients := make(ClientSet)
 
+	var tl utils.TokenLineBuilder
+	tl.Initialize(400, " ")
 	for i, nickname := range msg.Params {
 		if i >= 10 {
 			break
@@ -2571,7 +2573,6 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 		target := server.clients.Get(nickname)
 		if target == nil {
-			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(nickname), client.t("No such nick"))
 			continue
 		}
 		// to prevent returning multiple results for a single nick
@@ -2590,7 +2591,17 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		} else {
 			isAway = "+"
 		}
-		rb.Add(nil, client.server.name, RPL_USERHOST, client.nick, fmt.Sprintf("%s%s=%s%s@%s", target.nick, isOper, isAway, target.username, target.hostname))
+		details := target.Details()
+		tl.Add(fmt.Sprintf("%s%s=%s%s@%s", details.nick, isOper, isAway, details.username, details.hostname))
+	}
+
+	lines := tl.Lines()
+	if lines == nil {
+		lines = []string{""}
+	}
+	nick := client.Nick()
+	for _, line := range lines {
+		rb.Add(nil, client.server.name, RPL_USERHOST, nick, line)
 	}
 
 	return false
