@@ -7,12 +7,14 @@ package irc
 
 import "github.com/oragono/oragono/irc/modes"
 
+type empty struct{}
+
 // ClientSet is a set of clients.
-type ClientSet map[*Client]bool
+type ClientSet map[*Client]empty
 
 // Add adds the given client to this set.
 func (clients ClientSet) Add(client *Client) {
-	clients[client] = true
+	clients[client] = empty{}
 }
 
 // Remove removes the given client from this set.
@@ -22,7 +24,8 @@ func (clients ClientSet) Remove(client *Client) {
 
 // Has returns true if the given client is in this set.
 func (clients ClientSet) Has(client *Client) bool {
-	return clients[client]
+	_, ok := clients[client]
+	return ok
 }
 
 // MemberSet is a set of members with modes.

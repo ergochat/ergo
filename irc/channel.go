@@ -684,13 +684,18 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	splitMessage := utils.MakeSplitMessage(message, true)
 
 	details := client.Details()
-	for _, member := range channel.Members() {
-		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+	params := make([]string, 1, 2)
+	params[0] = chname
+	if message != "" {
+		params = append(params, message)
 	}
-	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+	for _, member := range channel.Members() {
+		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+	}
+	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	for _, session := range client.Sessions() {
 		if session != rb.session {
-			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", chname, message)
+			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 		}
 	}
 
@@ -1043,10 +1048,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 }
 
 func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) (result *modes.ModeChange) {
-	casefoldedName, err := CasefoldName(nick)
-	target := channel.server.clients.Get(casefoldedName)
-	if err != nil || target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), nick, client.t("No such nick"))
+	target := channel.server.clients.Get(nick)
+	if target == nil {
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nick), client.t("No such nick"))
 		return nil
 	}
 
