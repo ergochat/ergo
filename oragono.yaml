@@ -225,7 +225,8 @@ server:
 accounts:
     # account registration
     registration:
-        # can users register new accounts?
+        # can users register new accounts for themselves? if this is false, operators with
+        # the `accreg` capability can still create accounts with `/NICKSERV SAREGISTER`
         enabled: true
 
         # this is the bcrypt cost we'll use for account passwords
