@@ -53,13 +53,7 @@ type Channel struct {
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string, registered bool) *Channel {
-	casefoldedName, err := CasefoldChannel(name)
-	if err != nil {
-		s.logger.Error("internal", "Bad channel name", name, err.Error())
-		return nil
-	}
-
+func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channel {
 	config := s.Config()
 
 	channel := &Channel{

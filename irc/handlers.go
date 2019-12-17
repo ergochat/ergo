@@ -1290,11 +1290,26 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			key = keys[i]
 		}
 		err := server.channels.Join(client, name, key, false, rb)
-		if err == errNoSuchChannel {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(name), client.t("No such channel"))
+		if err != nil {
+			sendJoinError(client, name, rb, err)
 		}
 	}
 	return false
+}
+
+func sendJoinError(client *Client, name string, rb *ResponseBuffer, err error) {
+	var errMsg string
+	switch err {
+	case errInsufficientPrivs:
+		errMsg = `Only server operators can create new channels`
+	case errConfusableIdentifier:
+		errMsg = `That channel name is too close to the name of another channel`
+	case errChannelPurged:
+		errMsg = err.Error()
+	default:
+		errMsg = `No such channel`
+	}
+	rb.Add(nil, client.server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(name), client.t(errMsg))
 }
 
 // SAJOIN [nick] #channel{,#channel}
@@ -1306,7 +1321,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		channelString = msg.Params[0]
 	} else {
 		if len(msg.Params) == 1 {
-			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "KICK", client.t("Not enough parameters"))
+			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "SAJOIN", client.t("Not enough parameters"))
 			return false
 		} else {
 			target = server.clients.Get(msg.Params[0])
@@ -1320,7 +1335,10 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	channels := strings.Split(channelString, ",")
 	for _, chname := range channels {
-		server.channels.Join(target, chname, "", true, rb)
+		err := server.channels.Join(target, chname, "", true, rb)
+		if err != nil {
+			sendJoinError(client, chname, rb, err)
+		}
 	}
 	return false
 }

@@ -114,17 +114,15 @@ func (reg *ChannelRegistry) Initialize(server *Server) {
 	reg.server = server
 }
 
-func (reg *ChannelRegistry) AllChannels() (result map[string]bool) {
-	result = make(map[string]bool)
-
-	prefix := fmt.Sprintf(keyChannelExists, "")
+// AllChannels returns the uncasefolded names of all registered channels.
+func (reg *ChannelRegistry) AllChannels() (result []string) {
+	prefix := fmt.Sprintf(keyChannelName, "")
 	reg.server.store.View(func(tx *buntdb.Tx) error {
 		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, prefix) {
 				return false
 			}
-			channel := strings.TrimPrefix(key, prefix)
-			result[channel] = true
+			result = append(result, value)
 			return true
 		})
 	})
@@ -132,7 +130,7 @@ func (reg *ChannelRegistry) AllChannels() (result map[string]bool) {
 	return
 }
 
-// PurgedChannels returns the set of all channel names that have been purged
+// PurgedChannels returns the set of all casefolded channel names that have been purged
 func (reg *ChannelRegistry) PurgedChannels() (result map[string]empty) {
 	result = make(map[string]empty)
 

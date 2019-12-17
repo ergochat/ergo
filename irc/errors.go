@@ -41,6 +41,8 @@ var (
 	errNicknameReserved               = errors.New("nickname is reserved")
 	errNoExistingBan                  = errors.New("Ban does not exist")
 	errNoSuchChannel                  = errors.New(`No such channel`)
+	errChannelPurged                  = errors.New(`This channel was purged by the server operators and cannot be used`)
+	errConfusableIdentifier           = errors.New("This identifier is confusable with one already in use")
 	errInsufficientPrivs              = errors.New("Insufficient privileges")
 	errInvalidUsername                = errors.New("Invalid username")
 	errFeatureDisabled                = errors.New(`That feature is disabled`)
