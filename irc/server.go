@@ -377,12 +377,9 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return
 	}
 
-	// check KLINEs
-	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
-	if isBanned {
-		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-		return true
-	}
+	// we have nickname, username, and the final value of the IP address:
+	// do the hostname lookup and set the nickmask
+	session.client.lookupHostname(session, false)
 
 	if session.client != c {
 		// reattached, bail out.
@@ -390,6 +387,13 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		// (thisSession, otherClient). This is to avoid having to transfer state
 		// like nickname, hostname, etc. to show the correct values in the reg burst.
 		return
+	}
+
+	// check KLINEs
+	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+	if isBanned {
+		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+		return true
 	}
 
 	// registration has succeeded:

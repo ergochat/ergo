@@ -40,22 +40,13 @@ func AddrIsUnix(addr net.Addr) bool {
 	return ok
 }
 
-// LookupHostname returns the hostname for `addr` if it has one. Otherwise, just returns `addr`.
-func LookupHostname(addr string) string {
-	names, err := net.LookupAddr(addr)
-	if err == nil && len(names) > 0 {
-		candidate := strings.TrimSuffix(names[0], ".")
-		if IsHostname(candidate) {
-			return candidate
-		}
-	}
-
-	// return original address if no hostname found
-	if len(addr) > 0 && addr[0] == ':' {
+// IPStringToHostname converts a string representation of an IP address to an IRC-ready hostname
+func IPStringToHostname(ipStr string) string {
+	if 0 < len(ipStr) && ipStr[0] == ':' {
 		// fix for IPv6 hostnames (so they don't start with a colon), same as all other IRCds
-		addr = "0" + addr
+		ipStr = "0" + ipStr
 	}
-	return addr
+	return ipStr
 }
 
 var allowedHostnameChars = "abcdefghijklmnopqrstuvwxyz1234567890-."

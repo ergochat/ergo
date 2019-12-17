@@ -293,19 +293,22 @@ type Config struct {
 		Listen       []string
 		TLSListeners map[string]TLSListenConfig `yaml:"tls-listeners"`
 		// either way, the result is this:
-		trueListeners        map[string]listenerConfig
-		STS                  STSConfig
-		CheckIdent           bool `yaml:"check-ident"`
-		MOTD                 string
-		motdLines            []string
-		MOTDFormatting       bool     `yaml:"motd-formatting"`
-		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
-		proxyAllowedFromNets []net.IPNet
-		WebIRC               []webircConfig `yaml:"webirc"`
-		MaxSendQString       string         `yaml:"max-sendq"`
-		MaxSendQBytes        int
-		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
-		Compatibility        struct {
+		trueListeners           map[string]listenerConfig
+		STS                     STSConfig
+		LookupHostnames         *bool `yaml:"lookup-hostnames"`
+		lookupHostnames         bool
+		ForwardConfirmHostnames bool `yaml:"forward-confirm-hostnames"`
+		CheckIdent              bool `yaml:"check-ident"`
+		MOTD                    string
+		motdLines               []string
+		MOTDFormatting          bool     `yaml:"motd-formatting"`
+		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
+		proxyAllowedFromNets    []net.IPNet
+		WebIRC                  []webircConfig `yaml:"webirc"`
+		MaxSendQString          string         `yaml:"max-sendq"`
+		MaxSendQBytes           int
+		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
+		Compatibility           struct {
 			ForceTrailing      *bool `yaml:"force-trailing"`
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
@@ -634,6 +637,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	// set this even if STS is disabled
 	config.Server.capValues[caps.STS] = config.Server.STS.Value()
+
+	// lookup-hostnames defaults to true if unset
+	if config.Server.LookupHostnames != nil {
+		config.Server.lookupHostnames = *config.Server.LookupHostnames
+	} else {
+		config.Server.lookupHostnames = true
+	}
 
 	// process webirc blocks
 	var newWebIRC []webircConfig
