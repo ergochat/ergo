@@ -310,19 +310,19 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		}
 	case "bouncer":
 		if !config.Accounts.Bouncer.Enabled {
-			nsNotice(rb, fmt.Sprintf(client.t("This feature has been disabled by the server administrators")))
+			nsNotice(rb, client.t("This feature has been disabled by the server administrators"))
 		} else {
 			switch settings.AllowBouncer {
 			case BouncerAllowedServerDefault:
 				if config.Accounts.Bouncer.AllowedByDefault {
-					nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently enabled for your account, but you can opt out")))
+					nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account, but you can opt out"))
 				} else {
-					nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently disabled for your account, but you can opt in")))
+					nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account, but you can opt in"))
 				}
 			case BouncerDisallowedByUser:
-				nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently disabled for your account")))
+				nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account"))
 			case BouncerAllowedByUser:
-				nsNotice(rb, fmt.Sprintf(client.t("Bouncer functionality is currently enabled for your account")))
+				nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account"))
 			}
 		}
 	default:
@@ -569,7 +569,7 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 	}
 
 	nsNotice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
-	registeredAt := account.RegisteredAt.Format("Jan 02, 2006 15:04:05Z")
+	registeredAt := account.RegisteredAt.Format(time.RFC1123)
 	nsNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
 	// TODO nicer formatting for this
 	for _, nick := range account.AdditionalNicks {

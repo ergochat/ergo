@@ -119,6 +119,9 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		if isSamode {
 			return true
 		}
+		if details.account != "" && details.account == channel.Founder() {
+			return true
+		}
 		switch change.Mode {
 		case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
 			// List on these modes is a no-op anyway
@@ -289,15 +292,16 @@ func (channel *Channel) ProcessAccountToUmodeChange(client *Client, change modes
 		targetModeAfter = change.Mode
 	}
 
-	// operators and founders can do anything
+	// server operators and founders can do anything:
 	hasPrivs := isOperChange || (account != "" && account == channel.registeredFounder)
-	// halfop and up can list, and do add/removes at levels <= their own
+	// halfop and up can list:
 	if change.Op == modes.List && (clientMode == modes.Halfop || umodeGreaterThan(clientMode, modes.Halfop)) {
 		hasPrivs = true
+		// you can do adds or removes at levels you have "privileges over":
 	} else if channelUserModeHasPrivsOver(clientMode, targetModeNow) && channelUserModeHasPrivsOver(clientMode, targetModeAfter) {
 		hasPrivs = true
+		// and you can always de-op yourself:
 	} else if change.Op == modes.Remove && account == change.Arg {
-		// you can always de-op yourself
 		hasPrivs = true
 	}
 	if !hasPrivs {

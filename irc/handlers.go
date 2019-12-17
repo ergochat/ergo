@@ -1370,7 +1370,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		if comment == "" {
 			comment = kick.nick
 		}
-		channel.Kick(client, target, comment, rb)
+		channel.Kick(client, target, comment, rb, false)
 	}
 	return false
 }
@@ -1725,15 +1725,14 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		prefix := client.NickMaskString()
 		//TODO(dan): we should change the name of String and make it return a slice here
 		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
+		rb.Add(nil, prefix, "MODE", args...)
+		for _, session := range client.Sessions() {
+			if session != rb.session {
+				session.Send(nil, prefix, "MODE", args...)
+			}
+		}
 		for _, member := range channel.Members() {
-			if member == client {
-				rb.Add(nil, prefix, "MODE", args...)
-				for _, session := range client.Sessions() {
-					if session != rb.session {
-						session.Send(nil, prefix, "MODE", args...)
-					}
-				}
-			} else {
+			if member != client {
 				member.Send(nil, prefix, "MODE", args...)
 			}
 		}
@@ -2359,7 +2358,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				if reason != "" {
 					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed: %s"), reason))
 				} else {
-					targetRb.Add(nil, targetPrefix, "PART", oldName, fmt.Sprintf(mcl.t("Channel renamed")))
+					targetRb.Add(nil, targetPrefix, "PART", oldName, mcl.t("Channel renamed"))
 				}
 				if mSession.capabilities.Has(caps.ExtendedJoin) {
 					targetRb.Add(nil, targetPrefix, "JOIN", newName, mDetails.accountName, mDetails.realname)

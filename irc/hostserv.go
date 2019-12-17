@@ -186,7 +186,7 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
-		hsNotice(rb, fmt.Sprintf(client.t("Your vhost request will be reviewed by an administrator")))
+		hsNotice(rb, client.t("Your vhost request will be reviewed by an administrator"))
 		chanMsg := fmt.Sprintf("Account %s requests vhost %s", accountName, vhost)
 		hsNotifyChannel(server, chanMsg)
 		// TODO send admins a snomask of some kind
@@ -221,7 +221,7 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 	if account.VHost.ApprovedVHost != "" {
 		hsNotice(rb, fmt.Sprintf(client.t("Account %[1]s has vhost: %[2]s"), accountName, account.VHost.ApprovedVHost))
 		if !account.VHost.Enabled {
-			hsNotice(rb, fmt.Sprintf(client.t("This vhost is currently disabled, but can be enabled with /HS ON")))
+			hsNotice(rb, client.t("This vhost is currently disabled, but can be enabled with /HS ON"))
 		}
 	} else {
 		hsNotice(rb, fmt.Sprintf(client.t("Account %s has no vhost"), accountName))

@@ -22,6 +22,7 @@ type ChannelManager struct {
 	sync.RWMutex       // tier 2
 	chans              map[string]*channelManagerEntry
 	registeredChannels map[string]bool
+	purgedChannels     map[string]empty
 	server             *Server
 }
 
@@ -37,9 +38,11 @@ func (cm *ChannelManager) Initialize(server *Server) {
 
 func (cm *ChannelManager) loadRegisteredChannels() {
 	registeredChannels := cm.server.channelRegistry.AllChannels()
+	purgedChannels := cm.server.channelRegistry.PurgedChannels()
 	cm.Lock()
 	defer cm.Unlock()
 	cm.registeredChannels = registeredChannels
+	cm.purgedChannels = purgedChannels
 }
 
 // Get returns an existing channel with name equivalent to `name`, or nil
@@ -69,6 +72,10 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 		cm.Lock()
 		defer cm.Unlock()
 
+		_, purged := cm.purgedChannels[casefoldedName]
+		if purged {
+			return nil
+		}
 		entry := cm.chans[casefoldedName]
 		if entry == nil {
 			registered := cm.registeredChannels[casefoldedName]
@@ -266,4 +273,51 @@ func (cm *ChannelManager) Channels() (result []*Channel) {
 		}
 	}
 	return
+}
+
+// Purge marks a channel as purged.
+func (cm *ChannelManager) Purge(chname string, record ChannelPurgeRecord) (err error) {
+	chname, err = CasefoldChannel(chname)
+	if err != nil {
+		return errInvalidChannelName
+	}
+
+	cm.Lock()
+	cm.purgedChannels[chname] = empty{}
+	cm.Unlock()
+
+	cm.server.channelRegistry.PurgeChannel(chname, record)
+	return nil
+}
+
+// IsPurged queries whether a channel is purged.
+func (cm *ChannelManager) IsPurged(chname string) (result bool) {
+	chname, err := CasefoldChannel(chname)
+	if err != nil {
+		return false
+	}
+
+	cm.Lock()
+	_, result = cm.purgedChannels[chname]
+	cm.Unlock()
+	return
+}
+
+// Unpurge deletes a channel's purged status.
+func (cm *ChannelManager) Unpurge(chname string) (err error) {
+	chname, err = CasefoldChannel(chname)
+	if err != nil {
+		return errNoSuchChannel
+	}
+
+	cm.Lock()
+	_, found := cm.purgedChannels[chname]
+	delete(cm.purgedChannels, chname)
+	cm.Unlock()
+
+	cm.server.channelRegistry.UnpurgeChannel(chname)
+	if !found {
+		return errNoSuchChannel
+	}
+	return nil
 }
