@@ -327,11 +327,11 @@ func (client *Client) lookupHostname(session *Session, overwrite bool) {
 	}
 
 	session.rawHostname = hostname
+	cloakedHostname := config.Server.Cloaks.ComputeCloak(ip)
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 	// update the hostname if this is a new connection or a resume, but not if it's a reattach
 	if overwrite || client.rawHostname == "" {
-		cloakedHostname := config.Server.Cloaks.ComputeCloak(ip)
-		client.stateMutex.Lock()
-		defer client.stateMutex.Unlock()
 		client.rawHostname = hostname
 		client.cloakedHostname = cloakedHostname
 		client.updateNickMaskNoMutex()
