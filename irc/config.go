@@ -593,7 +593,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Server.Name == "" {
 		return nil, ErrServerNameMissing
 	}
-	if !utils.IsHostname(config.Server.Name) {
+	if !utils.IsServerName(config.Server.Name) {
 		return nil, ErrServerNameNotHostname
 	}
 	if config.Datastore.Path == "" {

@@ -6,6 +6,7 @@ package utils
 
 import (
 	"net"
+	"regexp"
 	"strings"
 )
 
@@ -13,6 +14,8 @@ var (
 	// subnet mask for an ipv6 /128:
 	mask128             = net.CIDRMask(128, 128)
 	IPv4LoopbackAddress = net.ParseIP("127.0.0.1").To16()
+
+	validHostnameLabelRegexp = regexp.MustCompile(`^[0-9A-Za-z.\-]+$`)
 )
 
 // AddrIsLocal returns whether the address is from a trusted local connection (loopback or unix).
@@ -49,12 +52,10 @@ func IPStringToHostname(ipStr string) string {
 	return ipStr
 }
 
-var allowedHostnameChars = "abcdefghijklmnopqrstuvwxyz1234567890-."
-
 // IsHostname returns whether we consider `name` a valid hostname.
 func IsHostname(name string) bool {
-	// IRC hostnames specifically require a period
-	if !strings.Contains(name, ".") || len(name) < 1 || len(name) > 253 {
+	name = strings.TrimSuffix(name, ".")
+	if len(name) < 1 || len(name) > 253 {
 		return false
 	}
 
@@ -63,16 +64,18 @@ func IsHostname(name string) bool {
 		if len(part) < 1 || len(part) > 63 || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
 			return false
 		}
-	}
-
-	// ensure all chars of hostname are valid
-	for _, char := range strings.Split(strings.ToLower(name), "") {
-		if !strings.Contains(allowedHostnameChars, char) {
+		if !validHostnameLabelRegexp.MatchString(part) {
 			return false
 		}
 	}
 
 	return true
+}
+
+// IsServerName returns whether we consider `name` a valid IRC server name.
+func IsServerName(name string) bool {
+	// IRC server names specifically require a period
+	return IsHostname(name) && strings.IndexByte(name, '.') != -1
 }
 
 // Convenience to test whether `ip` is contained in any of `nets`.
