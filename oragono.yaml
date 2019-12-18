@@ -85,6 +85,14 @@ server:
         # should clients include this STS policy when they ship their inbuilt preload lists?
         preload: false
 
+    # whether to look up user hostnames with reverse DNS
+    # (to suppress this for privacy purposes, use the ip-cloaking options below)
+    lookup-hostnames: true
+    # whether to confirm hostname lookups using "forward-confirmed reverse DNS", i.e., for
+    # any hostname returned from reverse DNS, resolve it back to an IP address and reject it
+    # unless it matches the connecting IP
+    forward-confirm-hostnames: true
+
     # use ident protocol to get usernames
     check-ident: false
 

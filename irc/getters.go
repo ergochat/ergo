@@ -239,14 +239,6 @@ func (client *Client) RawHostname() (result string) {
 	return
 }
 
-func (client *Client) SetRawHostname(rawHostname string) {
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-
-	client.rawHostname = rawHostname
-	client.updateNickMaskNoMutex()
-}
-
 func (client *Client) AwayMessage() (result string) {
 	client.stateMutex.RLock()
 	result = client.awayMessage

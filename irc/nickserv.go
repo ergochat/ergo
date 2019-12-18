@@ -802,14 +802,14 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 	target := client
 
 	if 0 < len(params) {
-		// same permissions check as RPL_WHOISACTUALLY for now:
-		if !client.HasMode(modes.Operator) {
-			nsNotice(rb, client.t("Command restricted"))
-			return
-		}
 		target = server.clients.Get(params[0])
 		if target == nil {
 			nsNotice(rb, client.t("No such nick"))
+			return
+		}
+		// same permissions check as RPL_WHOISACTUALLY for now:
+		if target != client && !client.HasMode(modes.Operator) {
+			nsNotice(rb, client.t("Command restricted"))
 			return
 		}
 	}

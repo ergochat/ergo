@@ -259,11 +259,10 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
 		session.proxiedIP = utils.IPv4LoopbackAddress
+		client.proxiedIP = session.proxiedIP
 		session.rawHostname = config.Server.TorListeners.Vhost
+		client.rawHostname = session.rawHostname
 	} else {
-		// set the hostname for this client (may be overridden later by PROXY or WEBIRC)
-		session.rawHostname = utils.LookupHostname(session.realIP.String())
-		client.cloakedHostname = config.Server.Cloaks.ComputeCloak(session.realIP)
 		remoteAddr := conn.Conn.RemoteAddr()
 		if utils.AddrIsLocal(remoteAddr) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
@@ -274,11 +273,69 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		}
 	}
 	client.realIP = session.realIP
-	client.rawHostname = session.rawHostname
-	client.proxiedIP = session.proxiedIP
 
 	server.stats.Add()
 	client.run(session, proxyLine)
+}
+
+// resolve an IP to an IRC-ready hostname, using reverse DNS, forward-confirming if necessary,
+// and sending appropriate notices to the client
+func (client *Client) lookupHostname(session *Session, overwrite bool) {
+	if client.isTor {
+		return
+	} // else: even if cloaking is enabled, look up the real hostname to show to operators
+
+	config := client.server.Config()
+	ip := session.realIP
+	if session.proxiedIP != nil {
+		ip = session.proxiedIP
+	}
+	ipString := ip.String()
+
+	var hostname, candidate string
+	if config.Server.lookupHostnames {
+		session.Notice("*** Looking up your hostname...")
+
+		names, err := net.LookupAddr(ipString)
+		if err == nil && 0 < len(names) {
+			candidate = strings.TrimSuffix(names[0], ".")
+		}
+		if utils.IsHostname(candidate) {
+			if config.Server.ForwardConfirmHostnames {
+				addrs, err := net.LookupHost(candidate)
+				if err == nil {
+					for _, addr := range addrs {
+						if addr == ipString {
+							hostname = candidate // successful forward confirmation
+							break
+						}
+					}
+				}
+			} else {
+				hostname = candidate
+			}
+		}
+	}
+
+	if hostname != "" {
+		session.Notice("*** Found your hostname")
+	} else {
+		if config.Server.lookupHostnames {
+			session.Notice("*** Couldn't look up your hostname")
+		}
+		hostname = utils.IPStringToHostname(ipString)
+	}
+
+	session.rawHostname = hostname
+	cloakedHostname := config.Server.Cloaks.ComputeCloak(ip)
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	// update the hostname if this is a new connection or a resume, but not if it's a reattach
+	if overwrite || client.rawHostname == "" {
+		client.rawHostname = hostname
+		client.cloakedHostname = cloakedHostname
+		client.updateNickMaskNoMutex()
+	}
 }
 
 func (client *Client) doIdentLookup(conn net.Conn) {
@@ -617,7 +674,7 @@ func (session *Session) playResume() {
 
 	details := client.Details()
 	oldNickmask := details.nickMask
-	client.SetRawHostname(session.rawHostname)
+	client.lookupHostname(session, true)
 	hostname := client.Hostname() // may be a vhost
 	timestampString := timestamp.Format(IRCv3TimestampFormat)
 
@@ -885,6 +942,10 @@ func (client *Client) updateNickMaskNoMutex() {
 		if client.hostname == "" {
 			client.hostname = client.rawHostname
 		}
+	}
+
+	if client.hostname == "" {
+		return // pre-registration, don't bother generating the hostname
 	}
 
 	cfhostname, err := Casefold(client.hostname)
@@ -1253,6 +1314,10 @@ func (session *Session) setTimeTag(msg *ircmsg.IrcMessage, serverTime time.Time)
 // Notice sends the client a notice from the server.
 func (client *Client) Notice(text string) {
 	client.Send(nil, client.server.name, "NOTICE", client.Nick(), text)
+}
+
+func (session *Session) Notice(text string) {
+	session.Send(nil, session.client.server.name, "NOTICE", session.client.Nick(), text)
 }
 
 func (client *Client) addChannel(channel *Channel) {

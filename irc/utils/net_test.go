@@ -24,14 +24,18 @@ var (
 		"gsf.ds342.co.uk",
 		"324.net.uk",
 		"xn--bcher-kva.ch",
+		"pentos",
+		"pentos.",
+		"www.google.com.",
 	}
 
 	badHostnames = []string{
 		"-lol-.net.uk",
 		"-lol.net.uk",
 		"_irc._sctp.lol.net.uk",
-		"irc",
-		"com",
+		"irc.l%l.net.uk",
+		"irc..net.uk",
+		".",
 		"",
 	}
 )
@@ -53,6 +57,15 @@ func TestIsHostname(t *testing.T) {
 				name,
 			)
 		}
+	}
+}
+
+func TestIsServerName(t *testing.T) {
+	if IsServerName("pentos") {
+		t.Error("irc server names must contain a period")
+	}
+	if !IsServerName("darwin.network") {
+		t.Error("failed to validate a perfectly good server name")
 	}
 }
 
