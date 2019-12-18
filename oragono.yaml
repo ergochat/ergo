@@ -95,7 +95,7 @@ server:
     # vulnerable to homoglyph attacks. unless you're really confident in your decision,
     # we recommend leaving this value at its default (changing it once the network is
     # already up and running is problematic).
-    casemapping: precis
+    casemapping: "precis"
 
     # whether to look up user hostnames with reverse DNS
     # (to suppress this for privacy purposes, use the ip-cloaking options below)
