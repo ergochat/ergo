@@ -236,10 +236,12 @@ be replayed to you automatically when joining a channel. Your options are any
 positive number, 0 to disable the feature, and 'default' to use the server
 default.`,
 
-				`$bAUTOREPLAY-JOINS$b
-'autoreplay-joins' controls whether autoreplayed channel history will include
+				`$bREPLAY-JOINS$b
+'replay-joins' controls whether replayed channel history will include
 lines for join and part. This provides more information about the context of
-messages, but may be spammy. Your options are 'on' and 'off'.`,
+messages, but may be spammy. Your options are 'always', 'never', and the default
+of 'commands-only' (the messages will be replayed in /HISTORY output, but not
+during autoreplay).`,
 			},
 			authRequired: true,
 			enabled:      servCmdRequiresAccreg,
@@ -302,11 +304,14 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		} else {
 			nsNotice(rb, fmt.Sprintf(client.t("You will receive %d lines of autoreplayed history"), *settings.AutoreplayLines))
 		}
-	case "autoreplay-joins":
-		if settings.AutoreplayJoins {
-			nsNotice(rb, client.t("You will see JOINs and PARTs in autoreplayed history lines"))
-		} else {
-			nsNotice(rb, client.t("You will not see JOINs and PARTs in autoreplayed history lines"))
+	case "replay-joins":
+		switch settings.ReplayJoins {
+		case ReplayJoinsCommandsOnly:
+			nsNotice(rb, client.t("You will see JOINs and PARTs in /HISTORY output, but not in autoreplay"))
+		case ReplayJoinsAlways:
+			nsNotice(rb, client.t("You will see JOINs and PARTs in /HISTORY output and in autoreplay"))
+		case ReplayJoinsNever:
+			nsNotice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
 		}
 	case "bouncer":
 		if !config.Accounts.Bouncer.Enabled {
@@ -395,13 +400,13 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 				return
 			}
 		}
-	case "autoreplay-joins":
-		var newValue bool
-		newValue, err = utils.StringToBool(params[1])
+	case "replay-joins":
+		var newValue ReplayJoinsSetting
+		newValue, err = replayJoinsSettingFromString(params[1])
 		if err == nil {
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
-				out.AutoreplayJoins = newValue
+				out.ReplayJoins = newValue
 				return
 			}
 		}

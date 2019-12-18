@@ -1331,11 +1331,35 @@ const (
 	BouncerAllowedByUser
 )
 
+// controls whether/when clients without event-playback support see fake
+// PRIVMSGs for JOINs
+type ReplayJoinsSetting uint
+
+const (
+	ReplayJoinsCommandsOnly = iota // replay in HISTORY or CHATHISTORY output
+	ReplayJoinsAlways              // replay in HISTORY, CHATHISTORY, or autoreplay
+	ReplayJoinsNever               // never replay
+)
+
+func replayJoinsSettingFromString(str string) (result ReplayJoinsSetting, err error) {
+	switch strings.ToLower(str) {
+	case "commands-only":
+		result = ReplayJoinsCommandsOnly
+	case "always":
+		result = ReplayJoinsAlways
+	case "never":
+		result = ReplayJoinsNever
+	default:
+		err = errInvalidParams
+	}
+	return
+}
+
 type AccountSettings struct {
 	AutoreplayLines *int
 	NickEnforcement NickEnforcementMethod
 	AllowBouncer    BouncerAllowedSetting
-	AutoreplayJoins bool
+	ReplayJoins     ReplayJoinsSetting
 }
 
 // ClientAccount represents a user account.

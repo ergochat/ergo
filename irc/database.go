@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "7"
+	latestDbSchema = "8"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -500,6 +500,59 @@ func schemaChangeV6ToV7(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+type accountSettingsLegacyV7 struct {
+	AutoreplayLines *int
+	NickEnforcement NickEnforcementMethod
+	AllowBouncer    BouncerAllowedSetting
+	AutoreplayJoins bool
+}
+
+type accountSettingsLegacyV8 struct {
+	AutoreplayLines *int
+	NickEnforcement NickEnforcementMethod
+	AllowBouncer    BouncerAllowedSetting
+	ReplayJoins     ReplayJoinsSetting
+}
+
+// #616: change autoreplay-joins to replay-joins
+func schemaChangeV7ToV8(config *Config, tx *buntdb.Tx) error {
+	prefix := "account.settings "
+	var accounts, blobs []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		var legacy accountSettingsLegacyV7
+		var current accountSettingsLegacyV8
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+		err := json.Unmarshal([]byte(value), &legacy)
+		if err != nil {
+			log.Printf("corrupt record for %s: %v\n", account, err)
+			return true
+		}
+		current.AutoreplayLines = legacy.AutoreplayLines
+		current.NickEnforcement = legacy.NickEnforcement
+		current.AllowBouncer = legacy.AllowBouncer
+		if legacy.AutoreplayJoins {
+			current.ReplayJoins = ReplayJoinsAlways
+		} else {
+			current.ReplayJoins = ReplayJoinsCommandsOnly
+		}
+		blob, err := json.Marshal(current)
+		if err != nil {
+			log.Printf("could not marshal record for %s: %v\n", account, err)
+			return true
+		}
+		accounts = append(accounts, account)
+		blobs = append(blobs, string(blob))
+		return true
+	})
+	for i, account := range accounts {
+		tx.Set(prefix+account, blobs[i], nil)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -531,6 +584,11 @@ func init() {
 			InitialVersion: "6",
 			TargetVersion:  "7",
 			Changer:        schemaChangeV6ToV7,
+		},
+		{
+			InitialVersion: "7",
+			TargetVersion:  "8",
+			Changer:        schemaChangeV7ToV8,
 		},
 	}
 
