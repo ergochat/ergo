@@ -349,7 +349,7 @@ The NPC command is used to send an action to the target as the source.
 Requires the roleplay mode (+E) to be set on the target.`,
 	},
 	"oper": {
-		text: `OPER <name> <password>
+		text: `OPER <name> [password]
 
 If the correct details are given, gives you IRCop privs.`,
 	},

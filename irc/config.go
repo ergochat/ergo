@@ -211,6 +211,7 @@ type OperConfig struct {
 	Vhost     string
 	WhoisLine string `yaml:"whois-line"`
 	Password  string
+	Certfp    string
 	Modes     string
 }
 
@@ -459,6 +460,7 @@ type Oper struct {
 	WhoisLine string
 	Vhost     string
 	Pass      []byte
+	Certfp    string
 	Modes     []modes.ModeChange
 }
 
@@ -479,6 +481,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		if err != nil {
 			return nil, err
 		}
+		oper.Certfp = opConf.Certfp
 
 		oper.Vhost = opConf.Vhost
 		class, exists := oc[opConf.Class]

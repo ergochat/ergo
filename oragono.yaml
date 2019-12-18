@@ -121,7 +121,7 @@ server:
         # one webirc block -- should correspond to one set of gateways
         -
             # tls fingerprint the gateway must connect with to use this webirc block
-            fingerprint: 938dd33f4b76dcaf7ce5eb25c852369cb4b8fb47ba22fc235aa29c6623a5f182
+            fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
             # password the gateway uses to connect, made with  oragono genpasswd
             password: "$2a$04$sLEFDpIOyUp55e6gTMKbOeroT6tMXTjPFvA0eGvwvImVR9pkwv7ee"
@@ -448,6 +448,9 @@ opers:
         # password to login with /OPER command
         # generated using  "oragono genpasswd"
         password: "$2a$04$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu"
+
+        # being logged in with this client cert will let you /OPER without a password
+        certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
 # logging, takes inspiration from Insp
 logging:

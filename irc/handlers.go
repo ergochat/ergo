@@ -2170,7 +2170,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
-// OPER <name> <password>
+// OPER <name> [password]
 func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	if client.HasMode(modes.Operator) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "OPER", client.t("You're already opered-up!"))
@@ -2180,8 +2180,12 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	authorized := false
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
-		password := []byte(msg.Params[1])
-		authorized = (bcrypt.CompareHashAndPassword(oper.Pass, password) == nil)
+		if utils.CertfpsMatch(oper.Certfp, client.certfp) {
+			authorized = true
+		} else if 1 < len(msg.Params) {
+			password := []byte(msg.Params[1])
+			authorized = (bcrypt.CompareHashAndPassword(oper.Pass, password) == nil)
+		}
 	}
 	if !authorized {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))

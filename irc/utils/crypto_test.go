@@ -81,3 +81,21 @@ func BenchmarkMungeSecretToken(b *testing.B) {
 		t = MungeSecretToken(t)
 	}
 }
+
+func TestCertfpComparisons(t *testing.T) {
+	opensslFP := "3D:6B:11:BF:B4:05:C3:F8:4B:38:CD:30:38:FB:EC:01:71:D5:03:54:79:04:07:88:4C:A5:5D:23:41:85:66:C9"
+	oragonoFP := "3d6b11bfb405c3f84b38cd3038fbec0171d50354790407884ca55d23418566c9"
+	badFP := "3d6b11bfb405c3f84b38cd3038fbec0171d50354790407884ca55d23418566c8"
+	if !CertfpsMatch(opensslFP, oragonoFP) {
+		t.Error("these certs should match")
+	}
+	if !CertfpsMatch(oragonoFP, opensslFP) {
+		t.Error("these certs should match")
+	}
+	if CertfpsMatch("", "") {
+		t.Error("empty stored certfp should not match empty provided certfp")
+	}
+	if CertfpsMatch(opensslFP, badFP) {
+		t.Error("these certs should not match")
+	}
+}
