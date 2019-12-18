@@ -120,10 +120,11 @@ server:
     webirc:
         # one webirc block -- should correspond to one set of gateways
         -
-            # tls fingerprint the gateway must connect with to use this webirc block
+            # SHA-256 fingerprint of the TLS certificate the gateway must use to connect
+            # (comment this out to use passwords only)
             fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
-            # password the gateway uses to connect, made with  oragono genpasswd
+            # password the gateway uses to connect, made with oragono genpasswd
             password: "$2a$04$sLEFDpIOyUp55e6gTMKbOeroT6tMXTjPFvA0eGvwvImVR9pkwv7ee"
 
             # addresses/CIDRs that can use this webirc command
@@ -449,7 +450,8 @@ opers:
         # generated using  "oragono genpasswd"
         password: "$2a$04$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu"
 
-        # being logged in with this client cert will let you /OPER without a password
+        # if you're logged in using the client cert with this SHA-256 fingerprint,
+        # you'll be able to /OPER without a password
         certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
 # logging, takes inspiration from Insp
