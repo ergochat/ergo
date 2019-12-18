@@ -8,17 +8,42 @@ package irc
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/oragono/confusables"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"golang.org/x/text/secure/precis"
+	"golang.org/x/text/unicode/norm"
 	"golang.org/x/text/width"
 )
 
 const (
-	casemappingName = "rfc8265"
+	precisUTF8MappingToken = "rfc8265"
 )
+
+type Casemapping uint
+
+const (
+	// "precis" is the default / zero value:
+	// casefolding/validation: PRECIS + ircd restrictions (like no *)
+	// confusables detection: standard skeleton algorithm
+	CasemappingPRECIS Casemapping = iota
+	// "ascii" is the traditional ircd behavior:
+	// casefolding/validation: must be pure ASCII and follow ircd restrictions, ASCII lowercasing
+	// confusables detection: none
+	CasemappingASCII
+	// "permissive" is an insecure mode:
+	// casefolding/validation: arbitrary unicodes that follow ircd restrictions, unicode casefolding
+	// confusables detection: standard skeleton algorithm (which may be ineffective
+	// over the larger set of permitted identifiers)
+	CasemappingPermissive
+)
+
+// XXX this is a global variable without explicit synchronization.
+// it gets set during the initial Server.applyConfig and cannot be changed by rehash:
+// this happens-before all IRC connections and all casefolding operations.
+var globalCasemappingSetting Casemapping = CasemappingPRECIS
 
 // Each pass of PRECIS casefolding is a composition of idempotent operations,
 // but not idempotent itself. Therefore, the spec says "do it four times and hope
@@ -46,7 +71,14 @@ func iterateFolding(profile *precis.Profile, oldStr string) (str string, err err
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	return iterateFolding(precis.UsernameCaseMapped, str)
+	switch globalCasemappingSetting {
+	default:
+		return iterateFolding(precis.UsernameCaseMapped, str)
+	case CasemappingASCII:
+		return foldASCII(str)
+	case CasemappingPermissive:
+		return foldPermissive(str)
+	}
 }
 
 // CasefoldChannel returns a casefolded version of a channel name.
@@ -144,6 +176,16 @@ func isIdent(name string) bool {
 // from the original (unfolded) identifier and stored/tracked separately from the
 // casefolded identifier.
 func Skeleton(name string) (string, error) {
+	switch globalCasemappingSetting {
+	default:
+		return realSkeleton(name)
+	case CasemappingASCII:
+		// identity function is fine because we independently case-normalize in Casefold
+		return name, nil
+	}
+}
+
+func realSkeleton(name string) (string, error) {
 	// XXX the confusables table includes some, but not all, fullwidth->standard
 	// mappings for latin characters. do a pass of explicit width folding,
 	// same as PRECIS:
@@ -211,4 +253,28 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 		host = strings.ToLower(host)
 	}
 	return fmt.Sprintf("%s!%s@%s", nick, user, host), nil
+}
+
+func foldASCII(str string) (result string, err error) {
+	if !IsPureASCII(str) {
+		return "", errInvalidCharacter
+	}
+	return strings.ToLower(str), nil
+}
+
+func IsPureASCII(str string) bool {
+	for i := 0; i < len(str); i++ {
+		if unicode.MaxASCII < str[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func foldPermissive(str string) (result string, err error) {
+	// YOLO
+	str = norm.NFD.String(str)
+	str = cases.Fold().String(str)
+	str = norm.NFD.String(str)
+	return str, nil
 }

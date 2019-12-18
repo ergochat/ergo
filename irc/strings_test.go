@@ -215,3 +215,25 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester("Shivaram*", "shivaram*!*@*", nil)
 	tester("*SHIVARAM*", "*shivaram*!*@*", nil)
 }
+
+func TestFoldPermissive(t *testing.T) {
+	tester := func(first, second string, equal bool) {
+		firstFolded, err := foldPermissive(first)
+		if err != nil {
+			panic(err)
+		}
+		secondFolded, err := foldPermissive(second)
+		if err != nil {
+			panic(err)
+		}
+		foundEqual := firstFolded == secondFolded
+		if foundEqual != equal {
+			t.Errorf("%s and %s: expected equality %t, but got %t", first, second, equal, foundEqual)
+		}
+	}
+	tester("SHIVARAM", "shivaram", true)
+	tester("shIvaram", "shivaraM", true)
+	tester("shivaram", "DAN-", false)
+	tester("dolph🐬n", "DOLPH🐬n", true)
+	tester("dolph🐬n", "dolph💻n", false)
+}

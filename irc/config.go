@@ -182,6 +182,27 @@ func (nr *NickEnforcementMethod) UnmarshalYAML(unmarshal func(interface{}) error
 	return err
 }
 
+func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+	var orig string
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+
+	var result Casemapping
+	switch strings.ToLower(orig) {
+	case "ascii":
+		result = CasemappingASCII
+	case "precis", "rfc7613", "rfc8265":
+		result = CasemappingPRECIS
+	case "permissive", "fun":
+		result = CasemappingPermissive
+	default:
+		return fmt.Errorf("invalid casemapping value: %s", orig)
+	}
+	*cm = result
+	return nil
+}
+
 type NickReservationConfig struct {
 	Enabled                bool
 	AdditionalNickLimit    int `yaml:"additional-nick-limit"`
@@ -318,6 +339,7 @@ type Config struct {
 		Cloaks        cloaks.CloakConfig              `yaml:"ip-cloaking"`
 		supportedCaps *caps.Set
 		capValues     caps.Values
+		Casemapping   Casemapping
 	}
 
 	Languages struct {

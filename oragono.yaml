@@ -85,6 +85,18 @@ server:
         # should clients include this STS policy when they ship their inbuilt preload lists?
         preload: false
 
+    # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
+    # channel names, account names, etc.), and how they are normalized for case.
+    # with the recommended default of 'precis', utf-8 identifiers that are "sane"
+    # (according to RFC 8265) are allowed, and the server additionally tries to protect
+    # against confusable characters ("homoglyph attacks").
+    # the other options are 'ascii' (traditional ASCII-only identifiers), and 'permissive',
+    # which allows identifiers to contain unusual characters like emoji, but makes users
+    # vulnerable to homoglyph attacks. unless you're really confident in your decision,
+    # we recommend leaving this value at its default (changing it once the network is
+    # already up and running is problematic).
+    casemapping: precis
+
     # whether to look up user hostnames with reverse DNS
     # (to suppress this for privacy purposes, use the ip-cloaking options below)
     lookup-hostnames: true
