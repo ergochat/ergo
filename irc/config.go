@@ -783,7 +783,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	// casefold/validate server name
-	config.Server.nameCasefolded, err = Casefold(config.Server.Name)
+	config.Server.nameCasefolded = strings.ToLower(config.Server.Name)
 	if err != nil {
 		return nil, fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
 	}

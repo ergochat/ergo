@@ -2675,7 +2675,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	} else if mask[0] == '#' {
 		mask, err = CasefoldChannel(msg.Params[0])
 	} else {
-		mask, err = Casefold(mask)
+		mask, err = CanonicalizeMaskWildcard(mask)
 	}
 
 	if err != nil {
