@@ -12,7 +12,6 @@ import (
 
 	"github.com/oragono/confusables"
 	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"golang.org/x/text/secure/precis"
 	"golang.org/x/text/unicode/norm"
 	"golang.org/x/text/width"
@@ -198,7 +197,7 @@ func realSkeleton(name string) (string, error) {
 	// violate the bidi rule). We also don't care if they contain runes
 	// that are disallowed by PRECIS, because every identifier must independently
 	// pass PRECIS --- we are just further canonicalizing the skeleton.
-	return cases.Lower(language.Und).String(name), nil
+	return cases.Fold().String(name), nil
 }
 
 // maps a nickmask fragment to an expanded, casefolded wildcard:
