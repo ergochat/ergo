@@ -207,12 +207,12 @@ type OperClassConfig struct {
 
 // OperConfig defines a specific operator's configuration.
 type OperConfig struct {
-	Class     string
-	Vhost     string
-	WhoisLine string `yaml:"whois-line"`
-	Password  string
-	Certfp    string
-	Modes     string
+	Class       string
+	Vhost       string
+	WhoisLine   string `yaml:"whois-line"`
+	Password    string
+	Fingerprint string
+	Modes       string
 }
 
 // LineLenConfig controls line lengths.
@@ -455,13 +455,13 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 // Oper represents a single assembled operator's config.
 type Oper struct {
-	Name      string
-	Class     *OperClass
-	WhoisLine string
-	Vhost     string
-	Pass      []byte
-	Certfp    string
-	Modes     []modes.ModeChange
+	Name        string
+	Class       *OperClass
+	WhoisLine   string
+	Vhost       string
+	Pass        []byte
+	Fingerprint string
+	Modes       []modes.ModeChange
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -481,7 +481,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		if err != nil {
 			return nil, err
 		}
-		oper.Certfp = opConf.Certfp
+		oper.Fingerprint = opConf.Fingerprint
 
 		oper.Vhost = opConf.Vhost
 		class, exists := oc[opConf.Class]

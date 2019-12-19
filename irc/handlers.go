@@ -2180,7 +2180,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	authorized := false
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
-		if utils.CertfpsMatch(oper.Certfp, client.certfp) {
+		if utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
 			authorized = true
 		} else if 1 < len(msg.Params) {
 			password := []byte(msg.Params[1])
@@ -2645,7 +2645,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if 0 < len(info.Fingerprint) && client.certfp != info.Fingerprint {
+			if 0 < len(info.Fingerprint) && !utils.CertfpsMatch(info.Fingerprint, client.certfp) {
 				continue
 			}
 

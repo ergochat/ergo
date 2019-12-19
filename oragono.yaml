@@ -452,7 +452,7 @@ opers:
 
         # if you're logged in using the client cert with this SHA-256 fingerprint,
         # you'll be able to /OPER without a password
-        certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
 # logging, takes inspiration from Insp
 logging:
