@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/base64"
+	"strings"
 )
 
 var (
@@ -67,4 +68,16 @@ func GenerateSecretKey() string {
 	var buf [32]byte
 	rand.Read(buf[:])
 	return base64.RawURLEncoding.EncodeToString(buf[:])
+}
+
+func normalizeCertfp(certfp string) string {
+	return strings.ToLower(strings.Replace(certfp, ":", "", -1))
+}
+
+// Convenience to compare certfps as returned by different tools, e.g., openssl vs. oragono
+func CertfpsMatch(storedCertfp, suppliedCertfp string) bool {
+	if storedCertfp == "" {
+		return false
+	}
+	return normalizeCertfp(storedCertfp) == normalizeCertfp(suppliedCertfp)
 }

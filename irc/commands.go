@@ -206,7 +206,7 @@ func init() {
 		},
 		"OPER": {
 			handler:   operHandler,
-			minParams: 2,
+			minParams: 1,
 		},
 		"PART": {
 			handler:   partHandler,

@@ -77,6 +77,18 @@ func (rb *ResponseBuffer) Add(tags map[string]string, prefix string, command str
 	rb.AddMessage(ircmsg.MakeMessage(tags, prefix, command, params...))
 }
 
+// Broadcast adds a standard new message to our queue, then sends an unlabeled copy
+// to all other sessions.
+func (rb *ResponseBuffer) Broadcast(tags map[string]string, prefix string, command string, params ...string) {
+	// can't reuse the IrcMessage object because of tag pollution :-\
+	rb.Add(tags, prefix, command, params...)
+	for _, session := range rb.session.client.Sessions() {
+		if session != rb.session {
+			session.Send(tags, prefix, command, params...)
+		}
+	}
+}
+
 // AddFromClient adds a new message from a specific client to our queue.
 func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMask string, fromAccount string, tags map[string]string, command string, params ...string) {
 	msg := ircmsg.MakeMessage(nil, fromNickMask, command, params...)
