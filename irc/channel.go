@@ -786,15 +786,26 @@ func stripMaskFromNick(nickMask string) (nick string) {
 }
 
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
+	if len(items) == 0 {
+		return
+	}
+
 	chname := channel.Name()
 	client := rb.target
 	eventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
 	extendedJoin := rb.session.capabilities.Has(caps.ExtendedJoin)
-	playJoinsAsPrivmsg := (!autoreplay || client.AccountSettings().AutoreplayJoins)
-
-	if len(items) == 0 {
-		return
+	var playJoinsAsPrivmsg bool
+	if !eventPlayback {
+		switch client.AccountSettings().ReplayJoins {
+		case ReplayJoinsCommandsOnly:
+			playJoinsAsPrivmsg = !autoreplay
+		case ReplayJoinsAlways:
+			playJoinsAsPrivmsg = true
+		case ReplayJoinsNever:
+			playJoinsAsPrivmsg = false
+		}
 	}
+
 	batchID := rb.StartNestedHistoryBatch(chname)
 	defer rb.EndNestedBatch(batchID)
 
