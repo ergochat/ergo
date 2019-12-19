@@ -2177,14 +2177,19 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	authorized := false
+	// must have a matching oper block and not fail any enabled checks
+	// (config validation ensures that there is at least one check)
 	oper := server.GetOperator(msg.Params[0])
+	authorized := oper != nil
 	if oper != nil {
-		if utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
-			authorized = true
-		} else if 1 < len(msg.Params) {
-			password := []byte(msg.Params[1])
-			authorized = (bcrypt.CompareHashAndPassword(oper.Pass, password) == nil)
+		if oper.Fingerprint != "" && !utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
+			authorized = false
+		} else if oper.Pass != nil {
+			if len(msg.Params) == 1 {
+				authorized = false
+			} else if bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+				authorized = false
+			}
 		}
 	}
 	if !authorized {
@@ -2193,9 +2198,17 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return true
 	}
 
-	oldNickmask := client.NickMaskString()
+	applyOper(client, oper, rb)
+	return false
+}
+
+// applies operator status to a client, who MUST NOT already be an operator
+func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
+	details := client.Details()
+	oldNickmask := details.nickMask
 	client.SetOper(oper)
-	if client.NickMaskString() != oldNickmask {
+	newNickmask := client.NickMaskString()
+	if newNickmask != oldNickmask {
 		client.sendChghost(oldNickmask, oper.Vhost)
 	}
 
@@ -2208,17 +2221,14 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	copy(modeChanges[1:], oper.Modes)
 	applied := ApplyUserModeChanges(client, modeChanges, true)
 
-	rb.Add(nil, server.name, RPL_YOUREOPER, client.nick, client.t("You are now an IRC operator"))
-	rb.Add(nil, server.name, "MODE", client.nick, applied.String())
+	client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, oper.Name))
 
-	server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, oper.Name))
-
-	// client may now be unthrottled by the fakelag system
+	rb.Broadcast(nil, client.server.name, RPL_YOUREOPER, details.nick, client.t("You are now an IRC operator"))
+	rb.Broadcast(nil, client.server.name, "MODE", details.nick, applied.String())
 	for _, session := range client.Sessions() {
+		// client may now be unthrottled by the fakelag system
 		session.resetFakelag()
 	}
-
-	return false
 }
 
 // PART <channel>{,<channel>} [<reason>]

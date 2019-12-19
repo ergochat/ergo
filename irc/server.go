@@ -440,6 +440,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if modestring != "+" {
 		session.Send(nil, d.nickMask, RPL_UMODEIS, d.nick, modestring)
 	}
+
+	c.attemptAutoOper(session)
+
 	if server.logger.IsLoggingRawIO() {
 		session.Send(nil, c.server.name, "NOTICE", d.nick, c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}

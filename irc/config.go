@@ -212,6 +212,7 @@ type OperConfig struct {
 	WhoisLine   string `yaml:"whois-line"`
 	Password    string
 	Fingerprint string
+	Auto        bool
 	Modes       string
 }
 
@@ -461,6 +462,7 @@ type Oper struct {
 	Vhost       string
 	Pass        []byte
 	Fingerprint string
+	Auto        bool
 	Modes       []modes.ModeChange
 }
 
@@ -477,11 +479,18 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		}
 		oper.Name = name
 
-		oper.Pass, err = decodeLegacyPasswordHash(opConf.Password)
-		if err != nil {
-			return nil, err
+		if opConf.Password != "" {
+			oper.Pass, err = decodeLegacyPasswordHash(opConf.Password)
+			if err != nil {
+				return nil, err
+			}
 		}
 		oper.Fingerprint = opConf.Fingerprint
+		oper.Auto = opConf.Auto
+
+		if oper.Pass == nil && oper.Fingerprint == "" {
+			return nil, fmt.Errorf("Oper %s has neither a password nor a fingerprint", name)
+		}
 
 		oper.Vhost = opConf.Vhost
 		class, exists := oc[opConf.Class]

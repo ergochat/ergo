@@ -1354,3 +1354,18 @@ func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
 	delete(client.invitedTo, casefoldedChannel)
 	return
 }
+
+// Implements auto-oper by certfp (scans for an auto-eligible operator block that matches
+// the client's cert, then applies it).
+func (client *Client) attemptAutoOper(session *Session) {
+	if client.certfp == "" || client.HasMode(modes.Operator) {
+		return
+	}
+	for _, oper := range client.server.Config().operators {
+		if oper.Auto && oper.Pass == nil && utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
+			rb := NewResponseBuffer(session)
+			applyOper(client, oper, rb)
+			rb.Send(true)
+		}
+	}
+}
