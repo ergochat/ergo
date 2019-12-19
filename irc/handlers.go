@@ -229,11 +229,13 @@ func registrationErrorToMessageAndCode(err error) (message, code string) {
 
 // helper function to dispatch messages when a client successfully registers
 func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
+	details := client.Details()
 	if forNS {
 		nsNotice(rb, client.t("Account created"))
 	} else {
-		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, client.nick, client.AccountName(), client.t("Account created"))
+		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, details.nick, details.accountName, client.t("Account created"))
 	}
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
 	sendSuccessfulAccountAuth(client, rb, forNS, false)
 }
 

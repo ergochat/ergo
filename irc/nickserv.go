@@ -12,6 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -671,6 +672,7 @@ func nsSaregisterHandler(server *Server, client *Client, command string, params 
 		nsNotice(rb, errMsg)
 	} else {
 		nsNotice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
+		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Operator $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] with SAREGISTER"), client.Oper().Name, account))
 	}
 }
 
@@ -717,6 +719,8 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
 		server.logger.Info("accounts", "client", client.Nick(), "unregistered account", cfname)
 	}
+
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] unregistered account $c[grey][$r%s$c[grey]]"), client.NickMaskString(), account.Name))
 }
 
 func nsVerifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
