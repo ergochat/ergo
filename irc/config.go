@@ -482,7 +482,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		if opConf.Password != "" {
 			oper.Pass, err = decodeLegacyPasswordHash(opConf.Password)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Oper %s has an invalid password hash: %s", oper.Name, err.Error())
 			}
 		}
 		oper.Fingerprint = opConf.Fingerprint
