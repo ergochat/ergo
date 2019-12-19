@@ -2177,22 +2177,27 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
-	// must have a matching oper block and not fail any enabled checks
-	// (config validation ensures that there is at least one check)
+	// must pass at least one check, and all enabled checks
+	var checkPassed, checkFailed bool
 	oper := server.GetOperator(msg.Params[0])
-	authorized := oper != nil
 	if oper != nil {
-		if oper.Fingerprint != "" && !utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
-			authorized = false
-		} else if oper.Pass != nil {
-			if len(msg.Params) == 1 {
-				authorized = false
-			} else if bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
-				authorized = false
+		if oper.Fingerprint != "" {
+			if utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
+				checkPassed = true
+			} else {
+				checkFailed = true
+			}
+		}
+		if !checkFailed && oper.Pass != nil {
+			if len(msg.Params) == 1 || bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+				checkFailed = true
+			} else {
+				checkPassed = true
 			}
 		}
 	}
-	if !authorized {
+
+	if !checkPassed || checkFailed {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))
 		client.Quit(client.t("Password incorrect"), rb.session)
 		return true
