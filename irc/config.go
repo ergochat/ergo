@@ -618,6 +618,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !utils.IsServerName(config.Server.Name) {
 		return nil, ErrServerNameNotHostname
 	}
+	config.Server.nameCasefolded = strings.ToLower(config.Server.Name)
 	if config.Datastore.Path == "" {
 		return nil, ErrDatastorePathMissing
 	}
@@ -802,12 +803,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Debug.recoverFromErrors = *config.Debug.RecoverFromErrors
 	} else {
 		config.Debug.recoverFromErrors = true
-	}
-
-	// casefold/validate server name
-	config.Server.nameCasefolded = strings.ToLower(config.Server.Name)
-	if err != nil {
-		return nil, fmt.Errorf("Server name isn't valid [%s]: %s", config.Server.Name, err.Error())
 	}
 
 	// process operator definitions, store them to config.operators
