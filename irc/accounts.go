@@ -65,12 +65,12 @@ func (am *AccountManager) Initialize(server *Server) {
 	am.accountToMethod = make(map[string]NickEnforcementMethod)
 	am.server = server
 
-	am.buildNickToAccountIndex()
+	am.buildNickToAccountIndex(server.Config())
 	am.initVHostRequestQueue()
 }
 
-func (am *AccountManager) buildNickToAccountIndex() {
-	if !am.server.AccountConfig().NickReservation.Enabled {
+func (am *AccountManager) buildNickToAccountIndex(config *Config) {
+	if !config.Accounts.NickReservation.Enabled {
 		return
 	}
 

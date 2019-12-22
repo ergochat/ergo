@@ -658,7 +658,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	nickReservationPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.NickReservation.Enabled
 	nickReservationNowEnabled := config.Accounts.NickReservation.Enabled
 	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
-		server.accounts.buildNickToAccountIndex()
+		server.accounts.buildNickToAccountIndex(config)
 	}
 
 	hsPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.VHosts.Enabled
