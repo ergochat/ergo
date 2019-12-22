@@ -237,6 +237,7 @@ func TestFoldPermissive(t *testing.T) {
 	tester("shivaram", "DAN-", false)
 	tester("dolph🐬n", "DOLPH🐬n", true)
 	tester("dolph🐬n", "dolph💻n", false)
+	tester("9FRONT", "9front", true)
 }
 
 func TestFoldPermissiveInvalid(t *testing.T) {

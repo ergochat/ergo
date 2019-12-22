@@ -7,6 +7,7 @@ package irc
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -19,6 +20,12 @@ import (
 
 const (
 	precisUTF8MappingToken = "rfc8265"
+)
+
+var (
+	// reviving the old ergonomadic nickname regex:
+	// in permissive mode, allow arbitrary letters, numbers, punctuation, and symbols
+	permissiveCharsRegex = regexp.MustCompile(`^[\pL\pN\pP\pS]*$`)
 )
 
 type Casemapping uint
@@ -271,10 +278,8 @@ func IsPureASCII(str string) bool {
 }
 
 func foldPermissive(str string) (result string, err error) {
-	for _, r := range str {
-		if unicode.IsSpace(r) || r == 0 {
-			return "", errInvalidCharacter
-		}
+	if !permissiveCharsRegex.MatchString(str) {
+		return "", errInvalidCharacter
 	}
 	// YOLO
 	str = norm.NFD.String(str)
