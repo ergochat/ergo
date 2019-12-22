@@ -271,6 +271,11 @@ func IsPureASCII(str string) bool {
 }
 
 func foldPermissive(str string) (result string, err error) {
+	for _, r := range str {
+		if unicode.IsSpace(r) || r == 0 {
+			return "", errInvalidCharacter
+		}
+	}
 	// YOLO
 	str = norm.NFD.String(str)
 	str = cases.Fold().String(str)

@@ -63,6 +63,7 @@ func TestCasefoldChannel(t *testing.T) {
 		"", "#*starpower", "# NASA", "#interro?", "OOF#", "foo",
 		// bidi violation mixing latin and hebrew characters:
 		"#shalomעליכם",
+		"#tab\tcharacter", "#\t", "#carriage\rreturn",
 	} {
 		testCases = append(testCases, channelTest{channel: errCase, err: true})
 	}
@@ -236,4 +237,15 @@ func TestFoldPermissive(t *testing.T) {
 	tester("shivaram", "DAN-", false)
 	tester("dolph🐬n", "DOLPH🐬n", true)
 	tester("dolph🐬n", "dolph💻n", false)
+}
+
+func TestFoldPermissiveInvalid(t *testing.T) {
+	_, err := foldPermissive("a\tb")
+	if err == nil {
+		t.Errorf("whitespace should be invalid in identifiers")
+	}
+	_, err = foldPermissive("a\x00b")
+	if err == nil {
+		t.Errorf("the null byte should be invalid in identifiers")
+	}
 }
