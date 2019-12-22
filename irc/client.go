@@ -694,11 +694,11 @@ func (session *Session) playResume() {
 				}
 			} else {
 				if !session.resumeDetails.HistoryIncomplete {
-					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected")))
+					fSession.Send(nil, oldNickmask, "QUIT", friend.t("Client reconnected"))
 				} else if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
 					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (up to %d seconds of message history lost)"), gapSeconds))
 				} else {
-					fSession.Send(nil, oldNickmask, "QUIT", fmt.Sprintf(friend.t("Client reconnected (message history may have been lost)")))
+					fSession.Send(nil, oldNickmask, "QUIT", friend.t("Client reconnected (message history may have been lost)"))
 				}
 			}
 		}

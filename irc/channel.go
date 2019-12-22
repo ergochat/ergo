@@ -37,6 +37,7 @@ type Channel struct {
 	createdTime       time.Time
 	registeredFounder string
 	registeredTime    time.Time
+	transferPendingTo string
 	topic             string
 	topicSetBy        string
 	topicSetTime      time.Time
@@ -52,29 +53,18 @@ type Channel struct {
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name string, registered bool) *Channel {
-	casefoldedName, err := CasefoldChannel(name)
-	if err != nil {
-		s.logger.Error("internal", "Bad channel name", name, err.Error())
-		return nil
-	}
+func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channel {
+	config := s.Config()
 
 	channel := &Channel{
-		createdTime: time.Now().UTC(), // may be overwritten by applyRegInfo
-		lists: map[modes.Mode]*UserMaskSet{
-			modes.BanMask:    NewUserMaskSet(),
-			modes.ExceptMask: NewUserMaskSet(),
-			modes.InviteMask: NewUserMaskSet(),
-		},
+		createdTime:    time.Now().UTC(), // may be overwritten by applyRegInfo
 		members:        make(MemberSet),
 		name:           name,
 		nameCasefolded: casefoldedName,
 		server:         s,
-		accountToUMode: make(map[string]modes.Mode),
 	}
 
-	config := s.Config()
-
+	channel.initializeLists()
 	channel.writerSemaphore.Initialize(1)
 	channel.history.Initialize(config.History.ChannelLength, config.History.AutoresizeWindow)
 
@@ -87,6 +77,15 @@ func NewChannel(s *Server, name string, registered bool) *Channel {
 	} // else: modes will be loaded before first join
 
 	return channel
+}
+
+func (channel *Channel) initializeLists() {
+	channel.lists = map[modes.Mode]*UserMaskSet{
+		modes.BanMask:    NewUserMaskSet(),
+		modes.ExceptMask: NewUserMaskSet(),
+		modes.InviteMask: NewUserMaskSet(),
+	}
+	channel.accountToUMode = make(map[string]modes.Mode)
 }
 
 // EnsureLoaded blocks until the channel's registration info has been loaded
@@ -303,11 +302,95 @@ func (channel *Channel) SetUnregistered(expectedFounder string) {
 	channel.accountToUMode = make(map[string]modes.Mode)
 }
 
+// implements `CHANSERV CLEAR #chan ACCESS` (resets bans, invites, excepts, and amodes)
+func (channel *Channel) resetAccess() {
+	defer channel.MarkDirty(IncludeLists)
+
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	channel.initializeLists()
+	if channel.registeredFounder != "" {
+		channel.accountToUMode[channel.registeredFounder] = modes.ChannelFounder
+	}
+}
+
 // IsRegistered returns whether the channel is registered.
 func (channel *Channel) IsRegistered() bool {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.registeredFounder != ""
+}
+
+type channelTransferStatus uint
+
+const (
+	channelTransferComplete channelTransferStatus = iota
+	channelTransferPending
+	channelTransferCancelled
+	channelTransferFailed
+)
+
+// Transfer transfers ownership of a registered channel to a different account
+func (channel *Channel) Transfer(client *Client, target string, hasPrivs bool) (status channelTransferStatus, err error) {
+	status = channelTransferFailed
+	defer func() {
+		if status == channelTransferComplete && err == nil {
+			channel.Store(IncludeAllChannelAttrs)
+		}
+	}()
+
+	cftarget, err := CasefoldName(target)
+	if err != nil {
+		err = errAccountDoesNotExist
+		return
+	}
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	if channel.registeredFounder == "" {
+		err = errChannelNotOwnedByAccount
+		return
+	}
+	if hasPrivs {
+		channel.transferOwnership(cftarget)
+		return channelTransferComplete, nil
+	} else {
+		if channel.registeredFounder == cftarget {
+			// transferring back to yourself cancels a pending transfer
+			channel.transferPendingTo = ""
+			return channelTransferCancelled, nil
+		} else {
+			channel.transferPendingTo = cftarget
+			return channelTransferPending, nil
+		}
+	}
+}
+
+func (channel *Channel) transferOwnership(newOwner string) {
+	delete(channel.accountToUMode, channel.registeredFounder)
+	channel.registeredFounder = newOwner
+	channel.accountToUMode[channel.registeredFounder] = modes.ChannelFounder
+	channel.transferPendingTo = ""
+}
+
+// AcceptTransfer implements `CS TRANSFER #chan ACCEPT`
+func (channel *Channel) AcceptTransfer(client *Client) (err error) {
+	defer func() {
+		if err == nil {
+			channel.Store(IncludeAllChannelAttrs)
+		}
+	}()
+
+	account := client.Account()
+	if account == "" {
+		return errAccountNotLoggedIn
+	}
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	if account != channel.transferPendingTo {
+		return errChannelTransferNotOffered
+	}
+	channel.transferOwnership(account)
+	return nil
 }
 
 func (channel *Channel) regenerateMembersCache() {
@@ -1128,21 +1211,23 @@ func (channel *Channel) Quit(client *Client) {
 	client.removeChannel(channel)
 }
 
-func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer) {
-	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
-		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
-		return
+func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer, hasPrivs bool) {
+	if !hasPrivs {
+		if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
+			rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
+			return
+		}
+		if !channel.ClientHasPrivsOver(client, target) {
+			rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You don't have enough channel privileges"))
+			return
+		}
 	}
 	if !channel.hasClient(target) {
 		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.Nick(), channel.Name(), client.t("They aren't on that channel"))
 		return
 	}
-	if !channel.ClientHasPrivsOver(client, target) {
-		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You don't have enough channel privileges"))
-		return
-	}
 
-	kicklimit := client.server.Config().Limits.KickLen
+	kicklimit := channel.server.Config().Limits.KickLen
 	if len(comment) > kicklimit {
 		comment = comment[:kicklimit]
 	}
