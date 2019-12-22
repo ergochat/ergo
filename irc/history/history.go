@@ -101,14 +101,7 @@ func NewHistoryBuffer(size int, window time.Duration) (result *Buffer) {
 }
 
 func (hist *Buffer) Initialize(size int, window time.Duration) {
-	initialSize := size
-	if window != 0 {
-		initialSize = initialAutoSize
-		if size < initialSize {
-			initialSize = size // min(initialAutoSize, size)
-		}
-	}
-	hist.buffer = make([]Item, initialSize)
+	hist.buffer = make([]Item, hist.initialSize(size, window))
 	hist.start = -1
 	hist.end = -1
 	hist.window = window
@@ -116,6 +109,18 @@ func (hist *Buffer) Initialize(size int, window time.Duration) {
 	hist.nowFunc = time.Now
 
 	hist.setEnabled(size)
+}
+
+// compute the initial size for the buffer, taking into account autoresize
+func (hist *Buffer) initialSize(size int, window time.Duration) (result int) {
+	result = size
+	if window != 0 {
+		result = initialAutoSize
+		if size < result {
+			result = size // min(initialAutoSize, size)
+		}
+	}
+	return
 }
 
 func (hist *Buffer) setEnabled(size int) {
@@ -339,12 +344,19 @@ func (list *Buffer) Resize(maximumSize int, window time.Duration) {
 	list.maximumSize = maximumSize
 	list.window = window
 
-	// if we're not autoresizing, we need to resize now;
-	// if we are autoresizing, we may need to shrink the buffer down to maximumSize,
-	// but we don't need to grow it now (we can just grow it on the next Add)
+	// three cases where we need to preemptively resize:
+	// (1) we are not autoresizing
+	// (2) the buffer is currently larger than maximumSize and needs to be shrunk
+	// (3) the buffer is currently smaller than the recommended initial size
+	//     (including the case where it is currently disabled and needs to be enabled)
 	// TODO make it possible to shrink the buffer so that it only contains `window`
 	if window == 0 || maximumSize < len(list.buffer) {
 		list.resize(maximumSize)
+	} else {
+		initialSize := list.initialSize(maximumSize, window)
+		if len(list.buffer) < initialSize {
+			list.resize(initialSize)
+		}
 	}
 }
 
