@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/oragono/confusables"
 	"golang.org/x/text/cases"
@@ -262,15 +261,18 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 }
 
 func foldASCII(str string) (result string, err error) {
-	if !IsPureASCII(str) {
+	if !IsPrintableASCII(str) {
 		return "", errInvalidCharacter
 	}
 	return strings.ToLower(str), nil
 }
 
-func IsPureASCII(str string) bool {
+func IsPrintableASCII(str string) bool {
 	for i := 0; i < len(str); i++ {
-		if unicode.MaxASCII < str[i] {
+		// allow space here because it's technically printable;
+		// it will be disallowed later by CasefoldName/CasefoldChannel
+		chr := str[i]
+		if chr < ' ' || chr > '~' {
 			return false
 		}
 	}
