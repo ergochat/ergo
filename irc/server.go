@@ -664,7 +664,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	hsPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.VHosts.Enabled
 	hsNowEnabled := config.Accounts.VHosts.Enabled
 	if hsPreviouslyDisabled && hsNowEnabled {
-		server.accounts.initVHostRequestQueue()
+		server.accounts.initVHostRequestQueue(config)
 	}
 
 	chanRegPreviouslyDisabled := oldConfig != nil && !oldConfig.Channels.Registration.Enabled

@@ -65,8 +65,9 @@ func (am *AccountManager) Initialize(server *Server) {
 	am.accountToMethod = make(map[string]NickEnforcementMethod)
 	am.server = server
 
-	am.buildNickToAccountIndex(server.Config())
-	am.initVHostRequestQueue()
+	config := server.Config()
+	am.buildNickToAccountIndex(config)
+	am.initVHostRequestQueue(config)
 }
 
 func (am *AccountManager) buildNickToAccountIndex(config *Config) {
@@ -135,8 +136,8 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 	}
 }
 
-func (am *AccountManager) initVHostRequestQueue() {
-	if !am.server.AccountConfig().VHosts.Enabled {
+func (am *AccountManager) initVHostRequestQueue(config *Config) {
+	if !config.Accounts.VHosts.Enabled {
 		return
 	}
 
