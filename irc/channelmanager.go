@@ -30,12 +30,14 @@ func (cm *ChannelManager) Initialize(server *Server) {
 	cm.chans = make(map[string]*channelManagerEntry)
 	cm.server = server
 
-	if server.Config().Channels.Registration.Enabled {
-		cm.loadRegisteredChannels()
-	}
+	cm.loadRegisteredChannels(server.Config())
 }
 
-func (cm *ChannelManager) loadRegisteredChannels() {
+func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
+	if !config.Channels.Registration.Enabled {
+		return
+	}
+
 	registeredChannels := cm.server.channelRegistry.AllChannels()
 	cm.Lock()
 	defer cm.Unlock()

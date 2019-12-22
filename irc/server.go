@@ -611,18 +611,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		}
 	}
 
-	// sanity checks complete, start modifying server state
 	server.logger.Info("server", "Using config file", server.configFilename)
 	oldConfig := server.Config()
 
 	// first, reload config sections for functionality implemented in subpackages:
-
-	server.connectionLimiter.ApplyConfig(&config.Server.IPLimits)
-
-	tlConf := &config.Server.TorListeners
-	server.torLimiter.Configure(tlConf.MaxConnections, tlConf.ThrottleDuration, tlConf.MaxConnectionsPerDuration)
-
-	// reload logging config
 	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()
 	err = server.logger.ApplyConfig(config.Logging)
 	if err != nil {
@@ -631,6 +623,11 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	nowLoggingRawIO := server.logger.IsLoggingRawIO()
 	// notify existing clients if raw i/o logging was enabled by a rehash
 	sendRawOutputNotice := !wasLoggingRawIO && nowLoggingRawIO
+
+	server.connectionLimiter.ApplyConfig(&config.Server.IPLimits)
+
+	tlConf := &config.Server.TorListeners
+	server.torLimiter.Configure(tlConf.MaxConnections, tlConf.ThrottleDuration, tlConf.MaxConnectionsPerDuration)
 
 	// setup new and removed caps
 	addedCaps := caps.NewSet()
@@ -641,67 +638,50 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	server.helpIndexManager.GenerateIndices(config.languageManager)
 
-	if oldConfig != nil && config.Server.capValues[caps.Languages] != oldConfig.Server.capValues[caps.Languages] {
-		updatedCaps.Add(caps.Languages)
-	}
-
-	// SASL
-	authPreviouslyEnabled := oldConfig != nil && oldConfig.Accounts.AuthenticationEnabled
-	if config.Accounts.AuthenticationEnabled && (oldConfig == nil || !authPreviouslyEnabled) {
-		// enabling SASL
-		addedCaps.Add(caps.SASL)
-	} else if !config.Accounts.AuthenticationEnabled && (oldConfig == nil || authPreviouslyEnabled) {
-		// disabling SASL
-		removedCaps.Add(caps.SASL)
-	}
-
-	nickReservationPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.NickReservation.Enabled
-	nickReservationNowEnabled := config.Accounts.NickReservation.Enabled
-	if nickReservationPreviouslyDisabled && nickReservationNowEnabled {
-		server.accounts.buildNickToAccountIndex(config)
-	}
-
-	hsPreviouslyDisabled := oldConfig != nil && !oldConfig.Accounts.VHosts.Enabled
-	hsNowEnabled := config.Accounts.VHosts.Enabled
-	if hsPreviouslyDisabled && hsNowEnabled {
-		server.accounts.initVHostRequestQueue(config)
-	}
-
-	chanRegPreviouslyDisabled := oldConfig != nil && !oldConfig.Channels.Registration.Enabled
-	chanRegNowEnabled := config.Channels.Registration.Enabled
-	if chanRegPreviouslyDisabled && chanRegNowEnabled {
-		server.channels.loadRegisteredChannels()
-	}
-
-	// STS
-	stsPreviouslyEnabled := oldConfig != nil && oldConfig.Server.STS.Enabled
-	stsValue := config.Server.capValues[caps.STS]
-	stsCurrentCapValue := ""
 	if oldConfig != nil {
-		stsCurrentCapValue = oldConfig.Server.capValues[caps.STS]
-	}
-	server.logger.Debug("server", "STS Vals", stsCurrentCapValue, stsValue, fmt.Sprintf("server[%v] config[%v]", stsPreviouslyEnabled, config.Server.STS.Enabled))
-	if (config.Server.STS.Enabled != stsPreviouslyEnabled) || (stsValue != stsCurrentCapValue) {
-		// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
-		// so the appropriate notify is always a CAP NEW; put it in addedCaps for any change
-		addedCaps.Add(caps.STS)
-	}
+		// cap changes
+		if oldConfig.Server.capValues[caps.Languages] != config.Server.capValues[caps.Languages] {
+			updatedCaps.Add(caps.Languages)
+		}
 
-	if oldConfig != nil && config.Accounts.Bouncer.Enabled != oldConfig.Accounts.Bouncer.Enabled {
-		if config.Accounts.Bouncer.Enabled {
+		if !oldConfig.Accounts.AuthenticationEnabled && config.Accounts.AuthenticationEnabled {
+			addedCaps.Add(caps.SASL)
+		} else if oldConfig.Accounts.AuthenticationEnabled && !config.Accounts.AuthenticationEnabled {
+			removedCaps.Add(caps.SASL)
+		}
+
+		if !oldConfig.Accounts.Bouncer.Enabled && config.Accounts.Bouncer.Enabled {
 			addedCaps.Add(caps.Bouncer)
-		} else {
+		} else if oldConfig.Accounts.Bouncer.Enabled && !config.Accounts.Bouncer.Enabled {
 			removedCaps.Add(caps.Bouncer)
 		}
-	}
 
-	// resize history buffers as needed
-	if oldConfig != nil && oldConfig.History != config.History {
-		for _, channel := range server.channels.Channels() {
-			channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
+		if oldConfig.Server.STS.Enabled != config.Server.STS.Enabled || oldConfig.Server.capValues[caps.STS] != config.Server.capValues[caps.STS] {
+			// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
+			// so the appropriate notify is always a CAP NEW; put it in addedCaps for any change
+			addedCaps.Add(caps.STS)
 		}
-		for _, client := range server.clients.AllClients() {
-			client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
+
+		// if certain features were enabled by rehash, we need to load the corresponding data
+		// from the store
+		if !oldConfig.Accounts.NickReservation.Enabled {
+			server.accounts.buildNickToAccountIndex(config)
+		}
+		if !oldConfig.Accounts.VHosts.Enabled {
+			server.accounts.initVHostRequestQueue(config)
+		}
+		if !oldConfig.Channels.Registration.Enabled {
+			server.channels.loadRegisteredChannels(config)
+		}
+
+		// resize history buffers as needed
+		if oldConfig.History != config.History {
+			for _, channel := range server.channels.Channels() {
+				channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
+			}
+			for _, client := range server.clients.AllClients() {
+				client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
+			}
 		}
 	}
 
