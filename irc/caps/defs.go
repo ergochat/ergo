@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 27
+	numCapabs = 28
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -52,6 +52,10 @@ const (
 	// Languages is the proposed IRCv3 capability named "draft/languages":
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
+
+	// Multiline is the Proposed IRCv3 capability named "draft/multiline":
+	// https://github.com/ircv3/ircv3-specifications/pull/398
+	Multiline Capability = iota
 
 	// Rename is the proposed IRCv3 capability named "draft/rename":
 	// https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md
@@ -135,6 +139,7 @@ var (
 		"draft/event-playback",
 		"draft/labeled-response-0.2",
 		"draft/languages",
+		"draft/multiline",
 		"draft/rename",
 		"draft/resume-0.5",
 		"draft/setname",

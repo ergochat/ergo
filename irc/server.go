@@ -629,39 +629,11 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	tlConf := &config.Server.TorListeners
 	server.torLimiter.Configure(tlConf.MaxConnections, tlConf.ThrottleDuration, tlConf.MaxConnectionsPerDuration)
 
-	// setup new and removed caps
-	addedCaps := caps.NewSet()
-	removedCaps := caps.NewSet()
-	updatedCaps := caps.NewSet()
-
 	// Translations
 	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	server.helpIndexManager.GenerateIndices(config.languageManager)
 
 	if oldConfig != nil {
-		// cap changes
-		if oldConfig.Server.capValues[caps.Languages] != config.Server.capValues[caps.Languages] {
-			updatedCaps.Add(caps.Languages)
-		}
-
-		if !oldConfig.Accounts.AuthenticationEnabled && config.Accounts.AuthenticationEnabled {
-			addedCaps.Add(caps.SASL)
-		} else if oldConfig.Accounts.AuthenticationEnabled && !config.Accounts.AuthenticationEnabled {
-			removedCaps.Add(caps.SASL)
-		}
-
-		if !oldConfig.Accounts.Bouncer.Enabled && config.Accounts.Bouncer.Enabled {
-			addedCaps.Add(caps.Bouncer)
-		} else if oldConfig.Accounts.Bouncer.Enabled && !config.Accounts.Bouncer.Enabled {
-			removedCaps.Add(caps.Bouncer)
-		}
-
-		if oldConfig.Server.STS.Enabled != config.Server.STS.Enabled || oldConfig.Server.capValues[caps.STS] != config.Server.capValues[caps.STS] {
-			// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
-			// so the appropriate notify is always a CAP NEW; put it in addedCaps for any change
-			addedCaps.Add(caps.STS)
-		}
-
 		// if certain features were enabled by rehash, we need to load the corresponding data
 		// from the store
 		if !oldConfig.Accounts.NickReservation.Enabled {
@@ -689,15 +661,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	server.SetConfig(config)
 
 	// burst new and removed caps
+	addedCaps, removedCaps := config.Diff(oldConfig)
 	var capBurstSessions []*Session
 	added := make(map[caps.Version][]string)
 	var removed []string
-
-	// updated caps get DEL'd and then NEW'd
-	// so, we can just add updated ones to both removed and added lists here and they'll be correctly handled
-	server.logger.Debug("server", "Updated Caps", strings.Join(updatedCaps.Strings(caps.Cap301, config.Server.capValues, 0), " "))
-	addedCaps.Union(updatedCaps)
-	removedCaps.Union(updatedCaps)
 
 	if !addedCaps.Empty() || !removedCaps.Empty() {
 		capBurstSessions = server.clients.AllWithCapsNotify()

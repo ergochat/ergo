@@ -16,6 +16,7 @@ type Command struct {
 	oper            bool
 	usablePreReg    bool
 	leaveClientIdle bool // if true, leaves the client active time alone
+	allowedInBatch  bool // allowed in client-to-server batches
 	minParams       int
 	capabs          []string
 }
@@ -42,6 +43,11 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		}
 		if len(msg.Params) < cmd.minParams {
 			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, rb.target.t("Not enough parameters"))
+			return false
+		}
+		if session.batch.label != "" && !cmd.allowedInBatch {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Command not allowed during a multiline batch"))
+			session.batch = MultilineBatch{}
 			return false
 		}
 
@@ -91,6 +97,11 @@ func init() {
 		"AWAY": {
 			handler:   awayHandler,
 			minParams: 0,
+		},
+		"BATCH": {
+			handler:        batchHandler,
+			minParams:      1,
+			allowedInBatch: true,
 		},
 		"BRB": {
 			handler:   brbHandler,
@@ -193,8 +204,9 @@ func init() {
 			minParams:    1,
 		},
 		"NOTICE": {
-			handler:   messageHandler,
-			minParams: 2,
+			handler:        messageHandler,
+			minParams:      2,
+			allowedInBatch: true,
 		},
 		"NPC": {
 			handler:   npcHandler,
@@ -230,8 +242,9 @@ func init() {
 			leaveClientIdle: true,
 		},
 		"PRIVMSG": {
-			handler:   messageHandler,
-			minParams: 2,
+			handler:        messageHandler,
+			minParams:      2,
+			allowedInBatch: true,
 		},
 		"RENAME": {
 			handler:   renameHandler,

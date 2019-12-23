@@ -3,8 +3,17 @@
 
 package utils
 
-import "bytes"
-import "time"
+import (
+	"bytes"
+	"strings"
+	"time"
+)
+
+func IsRestrictedCTCPMessage(message string) bool {
+	// block all CTCP privmsgs to Tor clients except for ACTION
+	// DCC can potentially be used for deanonymization, the others for fingerprinting
+	return strings.HasPrefix(message, "\x01") && !strings.HasPrefix(message, "\x01ACTION")
+}
 
 // WordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
 func WordWrap(text string, lineWidth int) []string {
@@ -54,9 +63,17 @@ func WordWrap(text string, lineWidth int) []string {
 type MessagePair struct {
 	Message string
 	Msgid   string
+	Concat  bool // should be relayed with the multiline-concat tag
 }
 
 // SplitMessage represents a message that's been split for sending.
+// Three possibilities:
+// (a) Standard message that can be relayed on a single 512-byte line
+//     (MessagePair contains the message, Wrapped == nil)
+// (b) oragono.io/maxline-2 message that was split on the server side
+//     (MessagePair contains the unsplit message, Wrapped contains the split lines)
+// (c) multiline message that was split on the client side
+//     (MessagePair is zero, Wrapped contains the split lines)
 type SplitMessage struct {
 	MessagePair
 	Wrapped []MessagePair // if this is nil, `Message` didn't need wrapping and can be sent to anyone
@@ -82,6 +99,58 @@ func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
 	}
 
 	return
+}
+
+func (sm *SplitMessage) Append(message string, concat bool) {
+	if sm.Msgid == "" {
+		sm.Msgid = GenerateSecretToken()
+	}
+	sm.Wrapped = append(sm.Wrapped, MessagePair{
+		Message: message,
+		Msgid:   GenerateSecretToken(),
+		Concat:  concat,
+	})
+}
+
+func (sm *SplitMessage) LenLines() int {
+	if sm.Wrapped == nil {
+		if (sm.MessagePair == MessagePair{}) {
+			return 0
+		} else {
+			return 1
+		}
+	}
+	return len(sm.Wrapped)
+}
+
+func (sm *SplitMessage) LenBytes() (result int) {
+	if sm.Wrapped == nil {
+		return len(sm.Message)
+	}
+	for i := 0; i < len(sm.Wrapped); i++ {
+		result += len(sm.Wrapped[i].Message)
+	}
+	return
+}
+
+func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {
+	if IsRestrictedCTCPMessage(sm.Message) {
+		return true
+	}
+	for i := 0; i < len(sm.Wrapped); i++ {
+		if IsRestrictedCTCPMessage(sm.Wrapped[i].Message) {
+			return true
+		}
+	}
+	return false
+}
+
+func (sm *SplitMessage) IsMultiline() bool {
+	return sm.Message == "" && len(sm.Wrapped) != 0
+}
+
+func (sm *SplitMessage) Is512() bool {
+	return sm.Message != "" && sm.Wrapped == nil
 }
 
 // TokenLineBuilder is a helper for building IRC lines composed of delimited tokens,

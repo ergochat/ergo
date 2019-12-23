@@ -1042,7 +1042,7 @@ func (channel *Channel) CanSpeak(client *Client) bool {
 	return true
 }
 
-func msgCommandToHistType(server *Server, command string) (history.ItemType, error) {
+func msgCommandToHistType(command string) (history.ItemType, error) {
 	switch command {
 	case "PRIVMSG":
 		return history.Privmsg, nil
@@ -1051,13 +1051,23 @@ func msgCommandToHistType(server *Server, command string) (history.ItemType, err
 	case "TAGMSG":
 		return history.Tagmsg, nil
 	default:
-		server.logger.Error("internal", "unrecognized messaging command", command)
 		return history.ItemType(0), errInvalidParams
 	}
 }
 
+func histTypeToMsgCommand(t history.ItemType) string {
+	switch t {
+	case history.Notice:
+		return "NOTICE"
+	case history.Tagmsg:
+		return "TAGMSG"
+	default:
+		return "PRIVMSG"
+	}
+}
+
 func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
-	histType, err := msgCommandToHistType(channel.server, command)
+	histType, err := msgCommandToHistType(command)
 	if err != nil {
 		return
 	}

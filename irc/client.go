@@ -107,6 +107,8 @@ type Session struct {
 	fakelag   Fakelag
 	destroyed uint32
 
+	batchCounter uint32
+
 	quitMessage string
 
 	capabilities caps.Set
@@ -119,6 +121,18 @@ type Session struct {
 	resumeID         string
 	resumeDetails    *ResumeDetails
 	zncPlaybackTimes *zncPlaybackTimes
+
+	batch MultilineBatch
+}
+
+// MultilineBatch tracks the state of a client-to-server multiline batch.
+type MultilineBatch struct {
+	label         string // this is the first param to BATCH (the "reference tag")
+	command       string
+	target        string
+	responseLabel string // this is the value of the labeled-response tag sent with BATCH
+	message       utils.SplitMessage
+	tags          map[string]string
 }
 
 // sets the session quit message, if there isn't one already
@@ -168,6 +182,15 @@ func (session *Session) SetDestroyed() {
 func (session *Session) HasHistoryCaps() bool {
 	// TODO the chathistory cap will go here as well
 	return session.capabilities.Has(caps.ZNCPlayback)
+}
+
+// generates a batch ID. the uniqueness requirements for this are fairly weak:
+// any two batch IDs that are active concurrently (either through interleaving
+// or nesting) on an individual session connection need to be unique.
+// this allows ~4 billion such batches which should be fine.
+func (session *Session) generateBatchID() string {
+	id := atomic.AddUint32(&session.batchCounter, 1)
+	return strconv.Itoa(int(id))
 }
 
 // WhoWas is the subset of client details needed to answer a WHOWAS query
@@ -528,6 +551,19 @@ func (client *Client) run(session *Session, proxyLine string) {
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)
 			break
+		}
+
+		// "Clients MUST NOT send messages other than PRIVMSG while a multiline batch is open."
+		// in future we might want to whitelist some commands that are allowed here, like PONG
+		if session.batch.label != "" && msg.Command != "BATCH" {
+			_, batchTag := msg.GetTag("batch")
+			if batchTag != session.batch.label {
+				if msg.Command != "NOTICE" {
+					session.Send(nil, client.server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Incorrect batch tag sent"))
+				}
+				session.batch = MultilineBatch{}
+				continue
+			}
 		}
 
 		cmd, exists := Commands[msg.Command]
@@ -1186,11 +1222,17 @@ func (client *Client) destroy(session *Session) {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
-	if session.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+	if message.Is512() || session.capabilities.Has(caps.MaxLine) {
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
-		for _, messagePair := range message.Wrapped {
-			session.sendFromClientInternal(blocking, message.Time, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+		if message.IsMultiline() && session.capabilities.Has(caps.Multiline) {
+			for _, msg := range session.composeMultilineBatch(nickmask, accountName, tags, command, target, message) {
+				session.SendRawMessage(msg, blocking)
+			}
+		} else {
+			for _, messagePair := range message.Wrapped {
+				session.sendFromClientInternal(blocking, message.Time, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+			}
 		}
 	}
 }
@@ -1220,6 +1262,30 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	session.setTimeTag(&msg, serverTime)
 
 	return session.SendRawMessage(msg, blocking)
+}
+
+func (session *Session) composeMultilineBatch(fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IrcMessage) {
+	batchID := session.generateBatchID()
+	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType)
+	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
+	batchStart.SetTag("msgid", message.Msgid)
+	if session.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
+		batchStart.SetTag("account", fromAccount)
+	}
+	result = append(result, batchStart)
+
+	for _, msg := range message.Wrapped {
+		message := ircmsg.MakeMessage(nil, fromNickMask, command, target, msg.Message)
+		message.SetTag("batch", batchID)
+		message.SetTag(caps.MultilineFmsgidTag, msg.Msgid)
+		if msg.Concat {
+			message.SetTag(caps.MultilineConcatTag, "")
+		}
+		result = append(result, message)
+	}
+
+	result = append(result, ircmsg.MakeMessage(nil, fromNickMask, "BATCH", "-"+batchID))
+	return
 }
 
 var (

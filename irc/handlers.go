@@ -509,6 +509,59 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
+// BATCH {+,-}reference-tag type [params...]
+func batchHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	tag := msg.Params[0]
+	fail := false
+	sendErrors := rb.session.batch.command != "NOTICE"
+	if len(tag) == 0 {
+		fail = true
+	} else if tag[0] == '+' {
+		if rb.session.batch.label != "" || msg.Params[1] != caps.MultilineBatchType {
+			fail = true
+		} else {
+			rb.session.batch.label = tag[1:]
+			rb.session.batch.tags = msg.ClientOnlyTags()
+			if len(msg.Params) == 2 {
+				fail = true
+			} else {
+				rb.session.batch.target = msg.Params[2]
+				// save the response label for later
+				// XXX changing the label inside a handler is a bit dodgy, but it works here
+				// because there's no way we could have triggered a flush up to this point
+				rb.session.batch.responseLabel = rb.Label
+				rb.Label = ""
+			}
+		}
+	} else if tag[0] == '-' {
+		if rb.session.batch.label == "" || rb.session.batch.label != tag[1:] {
+			fail = true
+		} else if rb.session.batch.message.LenLines() == 0 {
+			fail = true
+		} else {
+			batch := rb.session.batch
+			rb.session.batch = MultilineBatch{}
+			batch.message.Time = time.Now().UTC()
+			histType, err := msgCommandToHistType(batch.command)
+			if err != nil {
+				histType = history.Privmsg
+			}
+			// see previous caution about modifying ResponseBuffer.Label
+			rb.Label = batch.responseLabel
+			dispatchMessageToTarget(client, batch.tags, histType, batch.target, batch.message, rb)
+		}
+	}
+
+	if fail {
+		rb.session.batch = MultilineBatch{}
+		if sendErrors {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Invalid multiline batch"))
+		}
+	}
+
+	return false
+}
+
 // BRB [message]
 func brbHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	success, duration := client.brbTimer.Enable()
@@ -665,11 +718,6 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	defer func() {
 		// successful responses are sent as a chathistory or history batch
 		if success && 0 < len(items) {
-			batchType := "chathistory"
-			if rb.session.capabilities.Has(caps.EventPlayback) {
-				batchType = "history"
-			}
-			rb.ForceBatchStart(batchType, true)
 			if channel == nil {
 				client.replayPrivmsgHistory(rb, items, true)
 			} else {
@@ -2019,12 +2067,41 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
+// helper to store a batched PRIVMSG in the session object
+func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IrcMessage, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
+	// sanity checks. batch tag correctness was already checked and is redundant here
+	// as a defensive measure. TAGMSG is checked without an error message: "don't eat paste"
+	if batchTag != rb.session.batch.label || histType == history.Tagmsg || len(msg.Params) == 1 || msg.Params[1] == "" {
+		return
+	}
+	rb.session.batch.command = msg.Command
+	isConcat, _ := msg.GetTag(caps.MultilineConcatTag)
+	rb.session.batch.message.Append(msg.Params[1], isConcat)
+	config := server.Config()
+	if config.Limits.Multiline.MaxBytes < rb.session.batch.message.LenBytes() {
+		if histType != history.Notice {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_MAX_BYTES", strconv.Itoa(config.Limits.Multiline.MaxBytes))
+		}
+		rb.session.batch = MultilineBatch{}
+	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.batch.message.LenLines() {
+		if histType != history.Notice {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_MAX_LINES", strconv.Itoa(config.Limits.Multiline.MaxLines))
+		}
+		rb.session.batch = MultilineBatch{}
+	}
+}
+
 // NOTICE <target>{,<target>} <message>
 // PRIVMSG <target>{,<target>} <message>
 // TAGMSG <target>{,<target>}
 func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	histType, err := msgCommandToHistType(server, msg.Command)
+	histType, err := msgCommandToHistType(msg.Command)
 	if err != nil {
+		return false
+	}
+
+	if isBatched, batchTag := msg.GetTag("batch"); isBatched {
+		absorbBatchedMessage(server, client, msg, batchTag, histType, rb)
 		return false
 	}
 
@@ -2040,116 +2117,125 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	if len(msg.Params) > 1 {
 		message = msg.Params[1]
 	}
+	if histType != history.Tagmsg && message == "" {
+		rb.Add(nil, server.name, ERR_NOTEXTTOSEND, cnick, client.t("No text to send"))
+		return false
+	}
 
-	// note that error replies are never sent for NOTICE
-
-	if client.isTor && isRestrictedCTCPMessage(message) {
+	if client.isTor && utils.IsRestrictedCTCPMessage(message) {
+		// note that error replies are never sent for NOTICE
 		if histType != history.Notice {
-			rb.Add(nil, server.name, "NOTICE", client.t("CTCP messages are disabled over Tor"))
+			rb.Notice(client.t("CTCP messages are disabled over Tor"))
 		}
 		return false
 	}
 
 	for i, targetString := range targets {
-		// each target gets distinct msgids
-		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
-
 		// max of four targets per privmsg
-		if i > maxTargets-1 {
+		if i == maxTargets {
 			break
 		}
-		prefixes, targetString := modes.SplitChannelMembershipPrefixes(targetString)
-		lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
-
-		if len(targetString) == 0 {
-			continue
-		} else if targetString[0] == '#' {
-			channel := server.channels.Get(targetString)
-			if channel == nil {
-				if histType != history.Notice {
-					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, cnick, utils.SafeErrorParam(targetString), client.t("No such channel"))
-				}
-				continue
-			}
-			channel.SendSplitMessage(msg.Command, lowestPrefix, clientOnlyTags, client, splitMsg, rb)
-		} else {
-			// NOTICE and TAGMSG to services are ignored
-			if histType == history.Privmsg {
-				lowercaseTarget := strings.ToLower(targetString)
-				if service, isService := OragonoServices[lowercaseTarget]; isService {
-					servicePrivmsgHandler(service, server, client, message, rb)
-					continue
-				} else if _, isZNC := zncHandlers[lowercaseTarget]; isZNC {
-					zncPrivmsgHandler(client, lowercaseTarget, message, rb)
-					continue
-				}
-			}
-
-			user := server.clients.Get(targetString)
-			if user == nil {
-				if histType != history.Notice {
-					rb.Add(nil, server.name, ERR_NOSUCHNICK, cnick, targetString, "No such nick")
-				}
-				continue
-			}
-			tnick := user.Nick()
-
-			nickMaskString := client.NickMaskString()
-			accountName := client.AccountName()
-			// restrict messages appropriately when +R is set
-			// intentionally make the sending user think the message went through fine
-			allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
-			allowedTor := !user.isTor || !isRestrictedCTCPMessage(message)
-			if allowedPlusR && allowedTor {
-				for _, session := range user.Sessions() {
-					if histType == history.Tagmsg {
-						// don't send TAGMSG at all if they don't have the tags cap
-						if session.capabilities.Has(caps.MessageTags) {
-							session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
-						}
-					} else {
-						session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
-					}
-				}
-			}
-			// an echo-message may need to be included in the response:
-			if rb.session.capabilities.Has(caps.EchoMessage) {
-				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-					rb.AddFromClient(splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
-				} else {
-					rb.AddSplitMessageFromClient(nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
-				}
-			}
-			// an echo-message may need to go out to other client sessions:
-			for _, session := range client.Sessions() {
-				if session == rb.session {
-					continue
-				}
-				if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-					session.sendFromClientInternal(false, splitMsg.Time, splitMsg.Msgid, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick)
-				} else if histType != history.Tagmsg {
-					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, clientOnlyTags, msg.Command, tnick, splitMsg)
-				}
-			}
-			if histType != history.Notice && user.Away() {
-				//TODO(dan): possibly implement cooldown of away notifications to users
-				rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
-			}
-
-			item := history.Item{
-				Type:        histType,
-				Message:     splitMsg,
-				Nick:        nickMaskString,
-				AccountName: accountName,
-			}
-			// add to the target's history:
-			user.history.Add(item)
-			// add this to the client's history as well, recording the target:
-			item.Params[0] = tnick
-			client.history.Add(item)
-		}
+		// each target gets distinct msgids
+		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
+		dispatchMessageToTarget(client, clientOnlyTags, histType, targetString, splitMsg, rb)
 	}
 	return false
+}
+
+func dispatchMessageToTarget(client *Client, tags map[string]string, histType history.ItemType, target string, message utils.SplitMessage, rb *ResponseBuffer) {
+	server := client.server
+	command := histTypeToMsgCommand(histType)
+
+	prefixes, target := modes.SplitChannelMembershipPrefixes(target)
+	lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
+
+	if len(target) == 0 {
+		return
+	} else if target[0] == '#' {
+		channel := server.channels.Get(target)
+		if channel == nil {
+			if histType != history.Notice {
+				rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
+			}
+			return
+		}
+		channel.SendSplitMessage(command, lowestPrefix, tags, client, message, rb)
+	} else {
+		// NOTICE and TAGMSG to services are ignored
+		if histType == history.Privmsg {
+			lowercaseTarget := strings.ToLower(target)
+			if service, isService := OragonoServices[lowercaseTarget]; isService {
+				servicePrivmsgHandler(service, server, client, message.Message, rb)
+				return
+			} else if _, isZNC := zncHandlers[lowercaseTarget]; isZNC {
+				zncPrivmsgHandler(client, lowercaseTarget, message.Message, rb)
+				return
+			}
+		}
+
+		user := server.clients.Get(target)
+		if user == nil {
+			if histType != history.Notice {
+				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), target, "No such nick")
+			}
+			return
+		}
+		tnick := user.Nick()
+
+		nickMaskString := client.NickMaskString()
+		accountName := client.AccountName()
+		// restrict messages appropriately when +R is set
+		// intentionally make the sending user think the message went through fine
+		allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
+		allowedTor := !user.isTor || !message.IsRestrictedCTCPMessage()
+		if allowedPlusR && allowedTor {
+			for _, session := range user.Sessions() {
+				if histType == history.Tagmsg {
+					// don't send TAGMSG at all if they don't have the tags cap
+					if session.capabilities.Has(caps.MessageTags) {
+						session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+					}
+				} else {
+					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tags, command, tnick, message)
+				}
+			}
+		}
+		// an echo-message may need to be included in the response:
+		if rb.session.capabilities.Has(caps.EchoMessage) {
+			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+			} else {
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, tags, command, tnick, message)
+			}
+		}
+		// an echo-message may need to go out to other client sessions:
+		for _, session := range client.Sessions() {
+			if session == rb.session {
+				continue
+			}
+			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+			} else if histType != history.Tagmsg {
+				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tags, command, tnick, message)
+			}
+		}
+		if histType != history.Notice && user.Away() {
+			//TODO(dan): possibly implement cooldown of away notifications to users
+			rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, user.AwayMessage())
+		}
+
+		item := history.Item{
+			Type:        histType,
+			Message:     message,
+			Nick:        nickMaskString,
+			AccountName: accountName,
+		}
+		// add to the target's history:
+		user.history.Add(item)
+		// add this to the client's history as well, recording the target:
+		item.Params[0] = tnick
+		client.history.Add(item)
+	}
 }
 
 // NPC <target> <sourcenick> <message>
@@ -2306,12 +2392,6 @@ func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 func pongHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// client gets touched when they send this command, so we don't need to do anything
 	return false
-}
-
-func isRestrictedCTCPMessage(message string) bool {
-	// block all CTCP privmsgs to Tor clients except for ACTION
-	// DCC can potentially be used for deanonymization, the others for fingerprinting
-	return strings.HasPrefix(message, "\x01") && !strings.HasPrefix(message, "\x01ACTION")
 }
 
 // QUIT [<reason>]

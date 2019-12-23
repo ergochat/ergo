@@ -177,6 +177,12 @@ CAPDEFS = [
         url="https://oragono.io/nope",
         standard="Oragono vendor",
     ),
+    CapDef(
+        identifier="Multiline",
+        name="draft/multiline",
+        url="https://github.com/ircv3/ircv3-specifications/pull/398",
+        standard="Proposed IRCv3",
+    ),
 ]
 
 def validate_defs():
