@@ -36,14 +36,16 @@ func (cm *ChannelManager) Initialize(server *Server) {
 	cm.chansSkeletons = make(StringSet)
 	cm.server = server
 
-	if server.Config().Channels.Registration.Enabled {
-		cm.loadRegisteredChannels()
-	}
+	cm.loadRegisteredChannels(server.Config())
 	// purging should work even if registration is disabled
 	cm.purgedChannels = cm.server.channelRegistry.PurgedChannels()
 }
 
-func (cm *ChannelManager) loadRegisteredChannels() {
+func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
+	if !config.Channels.Registration.Enabled {
+		return
+	}
+
 	rawNames := cm.server.channelRegistry.AllChannels()
 	registeredChannels := make(StringSet, len(rawNames))
 	registeredSkeletons := make(StringSet, len(rawNames))

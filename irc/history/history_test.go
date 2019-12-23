@@ -213,6 +213,35 @@ func TestAutoresize(t *testing.T) {
 	assertEqual(atoi(items[len(items)-1].Nick), 271, t)
 }
 
+// regression test for #702
+func TestEnabledByResize(t *testing.T) {
+	now := easyParse("2006-01-01 00:00:00Z")
+	// empty/disabled autoresizing buffer
+	buf := NewHistoryBuffer(0, time.Hour)
+	// enable the buffer as during a rehash
+	buf.Resize(128, time.Hour)
+	// add an item and test that it is stored and retrievable
+	buf.Add(autoItem(0, now))
+	items := buf.Latest(0)
+	assertEqual(len(items), 1, t)
+	assertEqual(atoi(items[0].Nick), 0, t)
+}
+
+func TestDisabledByResize(t *testing.T) {
+	now := easyParse("2006-01-01 00:00:00Z")
+	// enabled autoresizing buffer
+	buf := NewHistoryBuffer(128, time.Hour)
+	buf.Add(autoItem(0, now))
+	items := buf.Latest(0)
+	assertEqual(len(items), 1, t)
+	assertEqual(atoi(items[0].Nick), 0, t)
+
+	// disable as during a rehash, confirm that nothing can be retrieved
+	buf.Resize(0, time.Hour)
+	items = buf.Latest(0)
+	assertEqual(len(items), 0, t)
+}
+
 func TestRoundUp(t *testing.T) {
 	assertEqual(roundUpToPowerOfTwo(2), 2, t)
 	assertEqual(roundUpToPowerOfTwo(3), 4, t)
