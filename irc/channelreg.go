@@ -32,6 +32,8 @@ const (
 	keyChannelPassword       = "channel.key %s"
 	keyChannelModes          = "channel.modes %s"
 	keyChannelAccountToUMode = "channel.accounttoumode %s"
+
+	keyChannelPurged = "channel.purged %s"
 )
 
 var (
@@ -96,6 +98,12 @@ type RegisteredChannel struct {
 	Invites map[string]MaskInfo
 }
 
+type ChannelPurgeRecord struct {
+	Oper     string
+	PurgedAt time.Time
+	Reason   string
+}
+
 // ChannelRegistry manages registered channels.
 type ChannelRegistry struct {
 	server *Server
@@ -106,21 +114,37 @@ func (reg *ChannelRegistry) Initialize(server *Server) {
 	reg.server = server
 }
 
-func (reg *ChannelRegistry) AllChannels() (result map[string]bool) {
-	result = make(map[string]bool)
+// AllChannels returns the uncasefolded names of all registered channels.
+func (reg *ChannelRegistry) AllChannels() (result []string) {
+	prefix := fmt.Sprintf(keyChannelName, "")
+	reg.server.store.View(func(tx *buntdb.Tx) error {
+		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, prefix) {
+				return false
+			}
+			result = append(result, value)
+			return true
+		})
+	})
 
-	prefix := fmt.Sprintf(keyChannelExists, "")
+	return
+}
+
+// PurgedChannels returns the set of all casefolded channel names that have been purged
+func (reg *ChannelRegistry) PurgedChannels() (result map[string]empty) {
+	result = make(map[string]empty)
+
+	prefix := fmt.Sprintf(keyChannelPurged, "")
 	reg.server.store.View(func(tx *buntdb.Tx) error {
 		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, prefix) {
 				return false
 			}
 			channel := strings.TrimPrefix(key, prefix)
-			result[channel] = true
+			result[channel] = empty{}
 			return true
 		})
 	})
-
 	return
 }
 
@@ -191,11 +215,11 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 
 		info = RegisteredChannel{
 			Name:           name,
-			RegisteredAt:   time.Unix(regTimeInt, 0),
+			RegisteredAt:   time.Unix(regTimeInt, 0).UTC(),
 			Founder:        founder,
 			Topic:          topic,
 			TopicSetBy:     topicSetBy,
-			TopicSetTime:   time.Unix(topicSetTimeInt, 0),
+			TopicSetTime:   time.Unix(topicSetTimeInt, 0).UTC(),
 			Key:            password,
 			Modes:          modeSlice,
 			Bans:           banlist,
@@ -256,14 +280,12 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 	}
 }
 
-// saveChannel saves a channel to the store.
-func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredChannel, includeFlags uint) {
+func (reg *ChannelRegistry) updateAccountToChannelMapping(tx *buntdb.Tx, channelInfo RegisteredChannel) {
 	channelKey := channelInfo.NameCasefolded
-	// maintain the mapping of account -> registered channels
-	chanExistsKey := fmt.Sprintf(keyChannelExists, channelKey)
-	_, existsErr := tx.Get(chanExistsKey)
-	if existsErr == buntdb.ErrNotFound {
-		// this is a new registration, need to update account-to-channels
+	chanFounderKey := fmt.Sprintf(keyChannelFounder, channelKey)
+	founder, existsErr := tx.Get(chanFounderKey)
+	if existsErr == buntdb.ErrNotFound || founder != channelInfo.Founder {
+		// add to new founder's list
 		accountChannelsKey := fmt.Sprintf(keyAccountChannels, channelInfo.Founder)
 		alreadyChannels, _ := tx.Get(accountChannelsKey)
 		newChannels := channelKey // this is the casefolded channel name
@@ -272,9 +294,30 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 		}
 		tx.Set(accountChannelsKey, newChannels, nil)
 	}
+	if existsErr == nil && founder != channelInfo.Founder {
+		// remove from old founder's list
+		accountChannelsKey := fmt.Sprintf(keyAccountChannels, founder)
+		alreadyChannelsRaw, _ := tx.Get(accountChannelsKey)
+		var newChannels []string
+		if alreadyChannelsRaw != "" {
+			for _, chname := range strings.Split(alreadyChannelsRaw, ",") {
+				if chname != channelInfo.NameCasefolded {
+					newChannels = append(newChannels, chname)
+				}
+			}
+		}
+		tx.Set(accountChannelsKey, strings.Join(newChannels, ","), nil)
+	}
+}
+
+// saveChannel saves a channel to the store.
+func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredChannel, includeFlags uint) {
+	channelKey := channelInfo.NameCasefolded
+	// maintain the mapping of account -> registered channels
+	reg.updateAccountToChannelMapping(tx, channelInfo)
 
 	if includeFlags&IncludeInitial != 0 {
-		tx.Set(chanExistsKey, "1", nil)
+		tx.Set(fmt.Sprintf(keyChannelExists, channelKey), "1", nil)
 		tx.Set(fmt.Sprintf(keyChannelName, channelKey), channelInfo.Name, nil)
 		tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.Unix(), 10), nil)
 		tx.Set(fmt.Sprintf(keyChannelFounder, channelKey), channelInfo.Founder, nil)
@@ -305,4 +348,49 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 		accountToUModeString, _ := json.Marshal(channelInfo.AccountToUMode)
 		tx.Set(fmt.Sprintf(keyChannelAccountToUMode, channelKey), string(accountToUModeString), nil)
 	}
+}
+
+// PurgeChannel records a channel purge.
+func (reg *ChannelRegistry) PurgeChannel(chname string, record ChannelPurgeRecord) (err error) {
+	serialized, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	serializedStr := string(serialized)
+	key := fmt.Sprintf(keyChannelPurged, chname)
+
+	return reg.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, serializedStr, nil)
+		return nil
+	})
+}
+
+// LoadPurgeRecord retrieves information about whether and how a channel was purged.
+func (reg *ChannelRegistry) LoadPurgeRecord(chname string) (record ChannelPurgeRecord, err error) {
+	var rawRecord string
+	key := fmt.Sprintf(keyChannelPurged, chname)
+	reg.server.store.View(func(tx *buntdb.Tx) error {
+		rawRecord, _ = tx.Get(key)
+		return nil
+	})
+	if rawRecord == "" {
+		err = errNoSuchChannel
+		return
+	}
+	err = json.Unmarshal([]byte(rawRecord), &record)
+	if err != nil {
+		reg.server.logger.Error("internal", "corrupt purge record", chname, err.Error())
+		err = errNoSuchChannel
+		return
+	}
+	return
+}
+
+// UnpurgeChannel deletes the record of a channel purge.
+func (reg *ChannelRegistry) UnpurgeChannel(chname string) (err error) {
+	key := fmt.Sprintf(keyChannelPurged, chname)
+	return reg.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Delete(key)
+		return nil
+	})
 }

@@ -18,6 +18,7 @@ import (
 )
 
 const chanservHelp = `ChanServ lets you register and manage channels.`
+const chanservMask = "ChanServ!ChanServ@localhost"
 
 func chanregEnabled(config *Config) bool {
 	return config.Channels.Registration.Enabled
@@ -75,12 +76,71 @@ referenced by their registered account names, not their nicknames.`,
 			enabled:   chanregEnabled,
 			minParams: 1,
 		},
+		"clear": {
+			handler: csClearHandler,
+			help: `Syntax: $bCLEAR #channel target$b
+
+CLEAR removes users or settings from a channel. Specifically:
+
+$bCLEAR #channel users$b kicks all users except for you.
+$bCLEAR #channel access$b resets all stored bans, invites, ban exceptions,
+and persistent user-mode grants made with CS AMODE.`,
+			helpShort: `$bCLEAR$b removes users or settings from a channel.`,
+			enabled:   chanregEnabled,
+			minParams: 2,
+		},
+		"transfer": {
+			handler: csTransferHandler,
+			help: `Syntax: $bTRANSFER [accept] #channel user [code]$b
+
+TRANSFER transfers ownership of a channel from one user to another.
+To prevent accidental transfers, a verification code is required. For
+example, $bTRANSFER #channel alice$b displays the required confirmation
+code, then $bTRANSFER #channel alice 2930242125$b initiates the transfer.
+Unless you are an IRC operator with the correct permissions, alice must
+then accept the transfer, which she can do with $bTRANSFER accept #channel$b.`,
+			helpShort: `$bTRANSFER$b transfers ownership of a channel to another user.`,
+			enabled:   chanregEnabled,
+			minParams: 2,
+		},
+		"purge": {
+			handler: csPurgeHandler,
+			help: `Syntax: $bPURGE #channel [reason]$b
+
+PURGE blacklists a channel from the server, making it impossible to join
+or otherwise interact with the channel. If the channel currently has members,
+they will be kicked from it. PURGE may also be applied preemptively to
+channels that do not currently have members.`,
+			helpShort:         `$bPURGE$b blacklists a channel from the server.`,
+			capabs:            []string{"chanreg"},
+			minParams:         1,
+			maxParams:         2,
+			unsplitFinalParam: true,
+		},
+		"unpurge": {
+			handler: csUnpurgeHandler,
+			help: `Syntax: $bUNPURGE #channel$b
+
+UNPURGE removes any blacklisting of a channel that was previously
+set using PURGE.`,
+			helpShort: `$bUNPURGE$b undoes a previous PURGE command.`,
+			capabs:    []string{"chanreg"},
+			minParams: 1,
+		},
+		"info": {
+			handler: csInfoHandler,
+			help: `Syntax: $INFO #channel$b
+
+INFO displays info about a registered channel.`,
+			helpShort: `$bINFO$b displays info about a registered channel.`,
+			minParams: 1,
+		},
 	}
 )
 
 // csNotice sends the client a notice from ChanServ
 func csNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "ChanServ!ChanServ@localhost", "NOTICE", rb.target.Nick(), text)
+	rb.Add(nil, chanservMask, "NOTICE", rb.target.Nick(), text)
 }
 
 func csAmodeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -219,9 +279,7 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	account := client.Account()
-	channelsAlreadyRegistered := server.accounts.ChannelsForAccount(account)
-	if server.Config().Channels.Registration.MaxChannelsPerAccount <= len(channelsAlreadyRegistered) {
-		csNotice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
+	if !checkChanLimit(client, rb) {
 		return
 	}
 
@@ -234,7 +292,7 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s successfully registered"), channelName))
 
-	server.logger.Info("services", fmt.Sprintf("Client %s registered channel %s", client.nick, channelName))
+	server.logger.Info("services", fmt.Sprintf("Client %s registered channel %s", client.Nick(), channelName))
 	server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
 
 	// give them founder privs
@@ -247,6 +305,17 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 			member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
 		}
 	}
+}
+
+// check whether a client has already registered too many channels
+func checkChanLimit(client *Client, rb *ResponseBuffer) (ok bool) {
+	account := client.Account()
+	channelsAlreadyRegistered := client.server.accounts.ChannelsForAccount(account)
+	ok = len(channelsAlreadyRegistered) < client.server.Config().Channels.Registration.MaxChannelsPerAccount || client.HasRoleCapabs("chanreg")
+	if !ok {
+		csNotice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
+	}
+	return
 }
 
 func csUnregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -298,4 +367,205 @@ func unregisterConfirmationCode(name string, registeredAt time.Time) (code strin
 	codeInput.WriteString(name)
 	codeInput.WriteString(strconv.FormatInt(registeredAt.Unix(), 16))
 	return strconv.Itoa(int(crc32.ChecksumIEEE(codeInput.Bytes())))
+}
+
+func csClearHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	channel := server.channels.Get(params[0])
+	if channel == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	}
+	account := client.Account()
+	if !(client.HasRoleCapabs("chanreg") || (account != "" && account == channel.Founder())) {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return
+	}
+
+	switch strings.ToLower(params[1]) {
+	case "access":
+		channel.resetAccess()
+		csNotice(rb, client.t("Successfully reset channel access"))
+	case "users":
+		for _, target := range channel.Members() {
+			if target != client {
+				channel.Kick(client, target, "Cleared by ChanServ", rb, true)
+			}
+		}
+	default:
+		csNotice(rb, client.t("Invalid parameters"))
+	}
+
+}
+
+func csTransferHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if strings.ToLower(params[0]) == "accept" {
+		processTransferAccept(client, params[1], rb)
+		return
+	}
+	chname := params[0]
+	channel := server.channels.Get(chname)
+	if channel == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	}
+	regInfo := channel.ExportRegistration(0)
+	chname = regInfo.Name
+	account := client.Account()
+	isFounder := account != "" && account == regInfo.Founder
+	hasPrivs := client.HasRoleCapabs("chanreg")
+	if !(isFounder || hasPrivs) {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return
+	}
+	target := params[1]
+	_, err := server.accounts.LoadAccount(params[1])
+	if err != nil {
+		csNotice(rb, client.t("Account does not exist"))
+		return
+	}
+	expectedCode := unregisterConfirmationCode(regInfo.Name, regInfo.RegisteredAt)
+	codeValidated := 2 < len(params) && params[2] == expectedCode
+	if !codeValidated {
+		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: you are about to transfer control of your channel to another user.$b")))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm your channel transfer, type: /CS TRANSFER %[1]s %[2]s %[3]s"), chname, target, expectedCode))
+		return
+	}
+	status, err := channel.Transfer(client, target, hasPrivs)
+	if err == nil {
+		switch status {
+		case channelTransferComplete:
+			csNotice(rb, fmt.Sprintf(client.t("Successfully transferred channel %[1]s to account %[2]s"), chname, target))
+		case channelTransferPending:
+			sendTransferPendingNotice(server, target, chname)
+			csNotice(rb, fmt.Sprintf(client.t("Transfer of channel %[1]s to account %[2]s succeeded, pending acceptance"), chname, target))
+		case channelTransferCancelled:
+			csNotice(rb, fmt.Sprintf(client.t("Cancelled pending transfer of channel %s"), chname))
+		}
+	} else {
+		csNotice(rb, client.t("Could not transfer channel"))
+	}
+}
+
+func sendTransferPendingNotice(server *Server, account, chname string) {
+	clients := server.accounts.AccountToClients(account)
+	if len(clients) == 0 {
+		return
+	}
+	var client *Client
+	for _, candidate := range clients {
+		client = candidate
+		if candidate.NickCasefolded() == candidate.Account() {
+			break // prefer the login where the nick is the account
+		}
+	}
+	client.Send(nil, chanservMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("You have been offered ownership of channel %s. To accept, /CS TRANSFER ACCEPT %s"), chname, chname))
+}
+
+func processTransferAccept(client *Client, chname string, rb *ResponseBuffer) {
+	channel := client.server.channels.Get(chname)
+	if channel == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	}
+	if !checkChanLimit(client, rb) {
+		return
+	}
+	switch channel.AcceptTransfer(client) {
+	case nil:
+		csNotice(rb, fmt.Sprintf(client.t("Successfully accepted ownership of channel %s"), channel.Name()))
+	case errChannelTransferNotOffered:
+		csNotice(rb, fmt.Sprintf(client.t("You weren't offered ownership of channel %s"), channel.Name()))
+	default:
+		csNotice(rb, fmt.Sprintf(client.t("Could not accept ownership of channel %s"), channel.Name()))
+	}
+}
+
+func csPurgeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	oper := client.Oper()
+	if oper == nil {
+		return // should be impossible because you need oper capabs for this
+	}
+
+	chname := params[0]
+	var reason string
+	if 1 < len(params) {
+		reason = params[1]
+	}
+	purgeRecord := ChannelPurgeRecord{
+		Oper:     oper.Name,
+		PurgedAt: time.Now().UTC(),
+		Reason:   reason,
+	}
+	switch server.channels.Purge(chname, purgeRecord) {
+	case nil:
+		channel := server.channels.Get(chname)
+		if channel != nil { // channel need not exist to be purged
+			for _, target := range channel.Members() {
+				channel.Kick(client, target, "Cleared by ChanServ", rb, true)
+			}
+		}
+		csNotice(rb, fmt.Sprintf(client.t("Successfully purged channel %s from the server"), chname))
+	case errInvalidChannelName:
+		csNotice(rb, fmt.Sprintf(client.t("Can't purge invalid channel %s"), chname))
+	default:
+		csNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func csUnpurgeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	chname := params[0]
+	switch server.channels.Unpurge(chname) {
+	case nil:
+		csNotice(rb, fmt.Sprintf(client.t("Successfully unpurged channel %s from the server"), chname))
+	case errNoSuchChannel:
+		csNotice(rb, fmt.Sprintf(client.t("Channel %s wasn't previously purged from the server"), chname))
+	default:
+		csNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func csInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	chname, err := CasefoldChannel(params[0])
+	if err != nil {
+		csNotice(rb, client.t("Invalid channel name"))
+		return
+	}
+
+	// purge status
+	if client.HasRoleCapabs("chanreg") {
+		purgeRecord, err := server.channelRegistry.LoadPurgeRecord(chname)
+		if err == nil {
+			csNotice(rb, fmt.Sprintf(client.t("Channel %s was purged by the server operators and cannot be used"), chname))
+			csNotice(rb, fmt.Sprintf(client.t("Purged by operator: %s"), purgeRecord.Oper))
+			csNotice(rb, fmt.Sprintf(client.t("Purged at: %s"), purgeRecord.PurgedAt.Format(time.RFC1123)))
+			if purgeRecord.Reason != "" {
+				csNotice(rb, fmt.Sprintf(client.t("Purge reason: %s"), purgeRecord.Reason))
+			}
+		}
+	} else {
+		if server.channels.IsPurged(chname) {
+			csNotice(rb, fmt.Sprintf(client.t("Channel %s was purged by the server operators and cannot be used"), chname))
+		}
+	}
+
+	var chinfo RegisteredChannel
+	channel := server.channels.Get(params[0])
+	if channel != nil {
+		chinfo = channel.ExportRegistration(0)
+	} else {
+		chinfo, err = server.channelRegistry.LoadChannel(chname)
+		if err != nil && !(err == errNoSuchChannel || err == errFeatureDisabled) {
+			csNotice(rb, client.t("An error occurred"))
+			return
+		}
+	}
+
+	// channel exists but is unregistered, or doesn't exist:
+	if chinfo.Founder == "" {
+		csNotice(rb, fmt.Sprintf(client.t("Channel %s is not registered"), chname))
+		return
+	}
+	csNotice(rb, fmt.Sprintf(client.t("Channel %s is registered"), chinfo.Name))
+	csNotice(rb, fmt.Sprintf(client.t("Founder: %s"), chinfo.Founder))
+	csNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), chinfo.RegisteredAt.Format(time.RFC1123)))
 }
