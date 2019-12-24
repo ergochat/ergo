@@ -786,7 +786,7 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result ClientAccount, err error) {
 	result.Name = raw.Name
 	regTimeInt, _ := strconv.ParseInt(raw.RegisteredAt, 10, 64)
-	result.RegisteredAt = time.Unix(regTimeInt, 0)
+	result.RegisteredAt = time.Unix(regTimeInt, 0).UTC()
 	e := json.Unmarshal([]byte(raw.Credentials), &result.Credentials)
 	if e != nil {
 		am.server.logger.Error("internal", "could not unmarshal credentials", e.Error())
