@@ -410,17 +410,17 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 func authPlainHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
 	splitValue := bytes.Split(value, []byte{'\000'})
 
-	var accountKey, authzid string
+	var accountKey, authcid string
 
 	nick := client.Nick()
 
 	if len(splitValue) == 3 {
 		accountKey = string(splitValue[0])
-		authzid = string(splitValue[1])
+		authcid = string(splitValue[1])
 
 		if accountKey == "" {
-			accountKey = authzid
-		} else if accountKey != authzid {
+			accountKey = authcid
+		} else if accountKey != authcid {
 			rb.Add(nil, server.name, ERR_SASLFAIL, nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
 			return false
 		}
