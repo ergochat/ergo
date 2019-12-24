@@ -410,36 +410,34 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 func authPlainHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
 	splitValue := bytes.Split(value, []byte{'\000'})
 
-	var accountKey, authcid string
-
-	nick := client.Nick()
+	// PLAIN has separate "authorization ID" (which user you want to become)
+	// and "authentication ID" (whose password you want to use). the first is optional:
+	// [authzid] \x00 authcid \x00 password
+	var authzid, authcid string
 
 	if len(splitValue) == 3 {
-		accountKey = string(splitValue[0])
-		authcid = string(splitValue[1])
+		authzid, authcid = string(splitValue[0]), string(splitValue[1])
 
-		if accountKey == "" {
-			accountKey = authcid
-		} else if accountKey != authcid {
-			rb.Add(nil, server.name, ERR_SASLFAIL, nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
+		if authzid != "" && authcid != authzid {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: authcid and authzid should be the same"))
 			return false
 		}
 	} else {
-		rb.Add(nil, server.name, ERR_SASLFAIL, nick, client.t("SASL authentication failed: Invalid auth blob"))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: Invalid auth blob"))
 		return false
 	}
 
 	throttled, remainingTime := client.loginThrottle.Touch()
 	if throttled {
-		rb.Add(nil, server.name, ERR_SASLFAIL, nick, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
 		return false
 	}
 
 	password := string(splitValue[2])
-	err := server.accounts.AuthenticateByPassphrase(client, accountKey, password)
+	err := server.accounts.AuthenticateByPassphrase(client, authcid, password)
 	if err != nil {
 		msg := authErrorToMessage(server, err)
-		rb.Add(nil, server.name, ERR_SASLFAIL, nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
 	}
 
