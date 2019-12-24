@@ -854,6 +854,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
 			return nil, fmt.Errorf("You must generate a new value of server.ip-cloaking.secret to enable cloaking")
 		}
+		if !utils.IsHostname(config.Server.Cloaks.Netname) {
+			return nil, fmt.Errorf("Invalid netname for cloaked hostnames: %s", config.Server.Cloaks.Netname)
+		}
 	}
 
 	// now that all postprocessing is complete, regenerate ISUPPORT:
