@@ -780,6 +780,7 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 	}
 
 	result, err = am.deserializeRawAccount(raw)
+	result.NameCasefolded = casefoldedAccount
 	return
 }
 
@@ -1366,8 +1367,8 @@ type AccountSettings struct {
 // ClientAccount represents a user account.
 type ClientAccount struct {
 	// Name of the account.
-	Name string
-	// RegisteredAt represents the time that the account was registered.
+	Name            string
+	NameCasefolded  string
 	RegisteredAt    time.Time
 	Credentials     AccountCredentials
 	Verified        bool
