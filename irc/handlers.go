@@ -469,6 +469,17 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 		return false
 	}
 
+	// EXTERNAL doesn't carry an authentication ID (this is determined from the
+	// certificate), but does carry an optional authorization ID.
+	if len(value) != 0 {
+		authcid := client.Account()
+		cfAuthzid, err := CasefoldName(string(value))
+		if err != nil || cfAuthzid != authcid {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: authcid and authzid should be the same"))
+			return false
+		}
+	}
+
 	sendSuccessfulAccountAuth(client, rb, false, true)
 	return false
 }
