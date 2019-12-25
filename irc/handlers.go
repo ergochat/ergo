@@ -446,13 +446,14 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 }
 
 func authErrorToMessage(server *Server, err error) (msg string) {
-	if err == errAccountDoesNotExist || err == errAccountUnverified || err == errAccountInvalidCredentials {
-		msg = err.Error()
-	} else {
+	switch err {
+	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch:
+		return err.Error()
+	default:
+		// don't expose arbitrary error messages to the user
 		server.logger.Error("internal", "sasl authentication failure", err.Error())
-		msg = "Unknown"
+		return "Unknown"
 	}
-	return
 }
 
 // AUTHENTICATE EXTERNAL
@@ -462,22 +463,25 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 		return false
 	}
 
-	err := server.accounts.AuthenticateByCertFP(client)
+	// EXTERNAL doesn't carry an authentication ID (this is determined from the
+	// certificate), but does carry an optional authorization ID.
+	var authzid string
+	var err error
+	if len(value) != 0 {
+		authzid, err = CasefoldName(string(value))
+		if err != nil {
+			err = errAuthzidAuthcidMismatch
+		}
+	}
+
+	if err == nil {
+		err = server.accounts.AuthenticateByCertFP(client, authzid)
+	}
+
 	if err != nil {
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
-	}
-
-	// EXTERNAL doesn't carry an authentication ID (this is determined from the
-	// certificate), but does carry an optional authorization ID.
-	if len(value) != 0 {
-		authcid := client.Account()
-		cfAuthzid, err := CasefoldName(string(value))
-		if err != nil || cfAuthzid != authcid {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: authcid and authzid should be the same"))
-			return false
-		}
 	}
 
 	sendSuccessfulAccountAuth(client, rb, false, true)
