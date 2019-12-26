@@ -98,7 +98,8 @@ To prevent accidental transfers, a verification code is required. For
 example, $bTRANSFER #channel alice$b displays the required confirmation
 code, then $bTRANSFER #channel alice 2930242125$b initiates the transfer.
 Unless you are an IRC operator with the correct permissions, alice must
-then accept the transfer, which she can do with $bTRANSFER accept #channel$b.`,
+then accept the transfer, which she can do with $bTRANSFER accept #channel$b.
+To cancel a pending transfer, transfer the channel to yourself.`,
 			helpShort: `$bTRANSFER$b transfers ownership of a channel to another user.`,
 			enabled:   chanregEnabled,
 			minParams: 2,
@@ -418,17 +419,19 @@ func csTransferHandler(server *Server, client *Client, command string, params []
 		return
 	}
 	target := params[1]
-	_, err := server.accounts.LoadAccount(params[1])
+	targetAccount, err := server.accounts.LoadAccount(params[1])
 	if err != nil {
 		csNotice(rb, client.t("Account does not exist"))
 		return
 	}
-	expectedCode := unregisterConfirmationCode(regInfo.Name, regInfo.RegisteredAt)
-	codeValidated := 2 < len(params) && params[2] == expectedCode
-	if !codeValidated {
-		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: you are about to transfer control of your channel to another user.$b")))
-		csNotice(rb, fmt.Sprintf(client.t("To confirm your channel transfer, type: /CS TRANSFER %[1]s %[2]s %[3]s"), chname, target, expectedCode))
-		return
+	if targetAccount.NameCasefolded != account {
+		expectedCode := unregisterConfirmationCode(regInfo.Name, regInfo.RegisteredAt)
+		codeValidated := 2 < len(params) && params[2] == expectedCode
+		if !codeValidated {
+			csNotice(rb, ircfmt.Unescape(client.t("$bWarning: you are about to transfer control of your channel to another user.$b")))
+			csNotice(rb, fmt.Sprintf(client.t("To confirm your channel transfer, type: /CS TRANSFER %[1]s %[2]s %[3]s"), chname, target, expectedCode))
+			return
+		}
 	}
 	status, err := channel.Transfer(client, target, hasPrivs)
 	if err == nil {
