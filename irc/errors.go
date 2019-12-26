@@ -27,6 +27,7 @@ var (
 	errAccountVerificationInvalidCode = errors.New("Invalid account verification code")
 	errAccountUpdateFailed            = errors.New(`Error while updating your account information`)
 	errAccountMustHoldNick            = errors.New(`You must hold that nickname in order to register it`)
+	errAuthzidAuthcidMismatch         = errors.New(`authcid and authzid must be the same`)
 	errCallbackFailed                 = errors.New("Account verification could not be sent")
 	errCertfpAlreadyExists            = errors.New(`An account already exists for your certificate fingerprint`)
 	errChannelNotOwnedByAccount       = errors.New("Channel not owned by the specified account")

@@ -972,7 +972,7 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 	return unmarshalRegisteredChannels(channelStr)
 }
 
-func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
+func (am *AccountManager) AuthenticateByCertFP(client *Client, authzid string) error {
 	if client.certfp == "" {
 		return errAccountInvalidCredentials
 	}
@@ -990,6 +990,10 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client) error {
 
 	if err != nil {
 		return err
+	}
+
+	if authzid != "" && authzid != account {
+		return errAuthzidAuthcidMismatch
 	}
 
 	// ok, we found an account corresponding to their certificate
