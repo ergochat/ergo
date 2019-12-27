@@ -1055,17 +1055,6 @@ func msgCommandToHistType(command string) (history.ItemType, error) {
 	}
 }
 
-func histTypeToMsgCommand(t history.ItemType) string {
-	switch t {
-	case history.Notice:
-		return "NOTICE"
-	case history.Tagmsg:
-		return "TAGMSG"
-	default:
-		return "PRIVMSG"
-	}
-}
-
 func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mode, clientOnlyTags map[string]string, client *Client, message utils.SplitMessage, rb *ResponseBuffer) {
 	histType, err := msgCommandToHistType(command)
 	if err != nil {

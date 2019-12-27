@@ -545,10 +545,11 @@ func batchHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			histType, err := msgCommandToHistType(batch.command)
 			if err != nil {
 				histType = history.Privmsg
+				batch.command = "PRIVMSG"
 			}
 			// see previous caution about modifying ResponseBuffer.Label
 			rb.Label = batch.responseLabel
-			dispatchMessageToTarget(client, batch.tags, histType, batch.target, batch.message, rb)
+			dispatchMessageToTarget(client, batch.tags, histType, batch.command, batch.target, batch.message, rb)
 		}
 	}
 
@@ -2137,14 +2138,13 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		}
 		// each target gets distinct msgids
 		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
-		dispatchMessageToTarget(client, clientOnlyTags, histType, targetString, splitMsg, rb)
+		dispatchMessageToTarget(client, clientOnlyTags, histType, msg.Command, targetString, splitMsg, rb)
 	}
 	return false
 }
 
-func dispatchMessageToTarget(client *Client, tags map[string]string, histType history.ItemType, target string, message utils.SplitMessage, rb *ResponseBuffer) {
+func dispatchMessageToTarget(client *Client, tags map[string]string, histType history.ItemType, command, target string, message utils.SplitMessage, rb *ResponseBuffer) {
 	server := client.server
-	command := histTypeToMsgCommand(histType)
 
 	prefixes, target := modes.SplitChannelMembershipPrefixes(target)
 	lowestPrefix := modes.GetLowestChannelModePrefix(prefixes)
