@@ -66,10 +66,16 @@ func (rb *ResponseBuffer) AddMessage(msg ircmsg.IrcMessage) {
 		return
 	}
 
+	rb.session.setTimeTag(&msg, time.Time{})
+	rb.setNestedBatchTag(&msg)
+
+	rb.messages = append(rb.messages, msg)
+}
+
+func (rb *ResponseBuffer) setNestedBatchTag(msg *ircmsg.IrcMessage) {
 	if 0 < len(rb.nestedBatches) {
 		msg.SetTag("batch", rb.nestedBatches[len(rb.nestedBatches)-1])
 	}
-	rb.messages = append(rb.messages, msg)
 }
 
 // Add adds a standard new message to our queue.
@@ -112,22 +118,20 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
 func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
-	if rb.session.capabilities.Has(caps.MaxLine) || message.Wrapped == nil {
+	if message.Is512() || rb.session.capabilities.Has(caps.MaxLine) {
 		rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
 	} else {
-		for _, messagePair := range message.Wrapped {
-			rb.AddFromClient(message.Time, messagePair.Msgid, fromNickMask, fromAccount, tags, command, target, messagePair.Message)
+		if message.IsMultiline() && rb.session.capabilities.Has(caps.Multiline) {
+			batch := rb.session.composeMultilineBatch(fromNickMask, fromAccount, tags, command, target, message)
+			rb.setNestedBatchTag(&batch[0])
+			rb.setNestedBatchTag(&batch[len(batch)-1])
+			rb.messages = append(rb.messages, batch...)
+		} else {
+			for _, messagePair := range message.Wrapped {
+				rb.AddFromClient(message.Time, messagePair.Msgid, fromNickMask, fromAccount, tags, command, target, messagePair.Message)
+			}
 		}
 	}
-}
-
-// ForceBatchStart forcibly starts a batch of batch `batchType`.
-// Normally, Send/Flush will decide automatically whether to start a batch
-// of type draft/labeled-response. This allows changing the batch type
-// and forcing the creation of a possibly empty batch.
-func (rb *ResponseBuffer) ForceBatchStart(batchType string, blocking bool) {
-	rb.batchType = batchType
-	rb.sendBatchStart(blocking)
 }
 
 func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
@@ -136,7 +140,7 @@ func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
 		return
 	}
 
-	rb.batchID = utils.GenerateSecretToken()
+	rb.batchID = rb.session.generateBatchID()
 	message := ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "+"+rb.batchID, rb.batchType)
 	if rb.Label != "" {
 		message.SetTag(caps.LabelTagName, rb.Label)
@@ -157,7 +161,7 @@ func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
 // Starts a nested batch (see the ResponseBuffer struct definition for a description of
 // how this works)
 func (rb *ResponseBuffer) StartNestedBatch(batchType string, params ...string) (batchID string) {
-	batchID = utils.GenerateSecretToken()
+	batchID = rb.session.generateBatchID()
 	msgParams := make([]string, len(params)+2)
 	msgParams[0] = "+" + batchID
 	msgParams[1] = batchType
@@ -213,6 +217,23 @@ func (rb *ResponseBuffer) Flush(blocking bool) error {
 	return rb.flushInternal(false, blocking)
 }
 
+// detects whether the response buffer consists of a single, unflushed nested batch,
+// in which case it can be collapsed down to that batch
+func (rb *ResponseBuffer) isCollapsible() (result bool) {
+	// rb.batchID indicates that we already flushed some lines
+	if rb.batchID != "" || len(rb.messages) < 2 {
+		return false
+	}
+	first, last := rb.messages[0], rb.messages[len(rb.messages)-1]
+	if first.Command != "BATCH" || last.Command != "BATCH" {
+		return false
+	}
+	if len(first.Params) == 0 || len(first.Params[0]) == 0 || len(last.Params) == 0 || len(last.Params[0]) == 0 {
+		return false
+	}
+	return first.Params[0][1:] == last.Params[0][1:]
+}
+
 // flushInternal sends the contents of the buffer, either blocking or nonblocking
 // It sends the `BATCH +` message if the client supports it and it hasn't been sent already.
 // If `final` is true, it also sends `BATCH -` (if necessary).
@@ -221,30 +242,28 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 		return nil
 	}
 
-	useLabel := rb.session.capabilities.Has(caps.LabeledResponse) && rb.Label != ""
-	// use a batch if we have a label, and we either currently have 2+ messages,
-	// or we are doing a Flush() and we have to assume that there will be more messages
-	// in the future.
-	startBatch := useLabel && (1 < len(rb.messages) || !final)
-
-	if startBatch {
-		rb.sendBatchStart(blocking)
-	} else if useLabel && len(rb.messages) == 0 && rb.batchID == "" && final {
-		// ACK message
-		message := ircmsg.MakeMessage(nil, rb.session.client.server.name, "ACK")
-		message.SetTag(caps.LabelTagName, rb.Label)
-		rb.session.setTimeTag(&message, time.Time{})
-		rb.session.SendRawMessage(message, blocking)
-	} else if useLabel && len(rb.messages) == 1 && rb.batchID == "" && final {
-		// single labeled message
-		rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
+	if rb.session.capabilities.Has(caps.LabeledResponse) && rb.Label != "" {
+		if final && rb.isCollapsible() {
+			// collapse to the outermost nested batch
+			rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
+		} else if !final || 2 <= len(rb.messages) {
+			// we either have 2+ messages, or we are doing a Flush() and have to assume
+			// there will be more messages in the future
+			rb.sendBatchStart(blocking)
+		} else if len(rb.messages) == 1 && rb.batchID == "" {
+			// single labeled message
+			rb.messages[0].SetTag(caps.LabelTagName, rb.Label)
+		} else if len(rb.messages) == 0 && rb.batchID == "" {
+			// ACK message
+			message := ircmsg.MakeMessage(nil, rb.session.client.server.name, "ACK")
+			message.SetTag(caps.LabelTagName, rb.Label)
+			rb.session.setTimeTag(&message, time.Time{})
+			rb.session.SendRawMessage(message, blocking)
+		}
 	}
 
 	// send each message out
 	for _, message := range rb.messages {
-		// attach server-time if needed
-		rb.session.setTimeTag(&message, time.Time{})
-
 		// attach batch ID, unless this message was part of a nested batch and is
 		// already tagged
 		if rb.batchID != "" && !message.HasTag("batch") {

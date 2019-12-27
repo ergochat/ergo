@@ -234,6 +234,10 @@ type Limits struct {
 	TopicLen             int           `yaml:"topiclen"`
 	WhowasEntries        int           `yaml:"whowas-entries"`
 	RegistrationMessages int           `yaml:"registration-messages"`
+	Multiline            struct {
+		MaxBytes int `yaml:"max-bytes"`
+		MaxLines int `yaml:"max-lines"`
+	}
 }
 
 // STSConfig controls the STS configuration/
@@ -683,6 +687,18 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.capValues[caps.MaxLine] = strconv.Itoa(config.Limits.LineLen.Rest)
 	}
 
+	if config.Limits.Multiline.MaxBytes <= 0 {
+		config.Server.supportedCaps.Disable(caps.Multiline)
+	} else {
+		var multilineCapValue string
+		if config.Limits.Multiline.MaxLines == 0 {
+			multilineCapValue = fmt.Sprintf("max-bytes=%d", config.Limits.Multiline.MaxBytes)
+		} else {
+			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
+		}
+		config.Server.capValues[caps.Multiline] = multilineCapValue
+	}
+
 	if !config.Accounts.Bouncer.Enabled {
 		config.Server.supportedCaps.Disable(caps.Bouncer)
 	}
@@ -871,4 +887,48 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	return config, nil
+}
+
+// Diff returns changes in supported caps across a rehash.
+func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set) {
+	addedCaps = caps.NewSet()
+	removedCaps = caps.NewSet()
+	if oldConfig == nil {
+		return
+	}
+
+	if oldConfig.Server.capValues[caps.Languages] != config.Server.capValues[caps.Languages] {
+		// XXX updated caps get a DEL line and then a NEW line with the new value
+		addedCaps.Add(caps.Languages)
+		removedCaps.Add(caps.Languages)
+	}
+
+	if !oldConfig.Accounts.AuthenticationEnabled && config.Accounts.AuthenticationEnabled {
+		addedCaps.Add(caps.SASL)
+	} else if oldConfig.Accounts.AuthenticationEnabled && !config.Accounts.AuthenticationEnabled {
+		removedCaps.Add(caps.SASL)
+	}
+
+	if !oldConfig.Accounts.Bouncer.Enabled && config.Accounts.Bouncer.Enabled {
+		addedCaps.Add(caps.Bouncer)
+	} else if oldConfig.Accounts.Bouncer.Enabled && !config.Accounts.Bouncer.Enabled {
+		removedCaps.Add(caps.Bouncer)
+	}
+
+	if oldConfig.Limits.Multiline.MaxBytes != 0 && config.Limits.Multiline.MaxBytes == 0 {
+		removedCaps.Add(caps.Multiline)
+	} else if oldConfig.Limits.Multiline.MaxBytes == 0 && config.Limits.Multiline.MaxBytes != 0 {
+		addedCaps.Add(caps.Multiline)
+	} else if oldConfig.Limits.Multiline != config.Limits.Multiline {
+		removedCaps.Add(caps.Multiline)
+		addedCaps.Add(caps.Multiline)
+	}
+
+	if oldConfig.Server.STS.Enabled != config.Server.STS.Enabled || oldConfig.Server.capValues[caps.STS] != config.Server.capValues[caps.STS] {
+		// XXX: STS is always removed by CAP NEW sts=duration=0, not CAP DEL
+		// so the appropriate notify is always a CAP NEW; put it in addedCaps for any change
+		addedCaps.Add(caps.STS)
+	}
+
+	return
 }

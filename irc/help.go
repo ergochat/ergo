@@ -121,6 +121,12 @@ http://ircv3.net/specs/extensions/sasl-3.1.html`,
 If [message] is sent, marks you away. If [message] is not sent, marks you no
 longer away.`,
 	},
+	"batch": {
+		text: `BATCH {+,-}reference-tag type [params...]
+
+BATCH initiates an IRCv3 client-to-server batch. You should never need to
+issue this command manually.`,
+	},
 	"brb": {
 		text: `BRB [message]
 

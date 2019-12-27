@@ -579,6 +579,11 @@ limits:
     # DoS / resource exhaustion attacks):
     registration-messages: 1024
 
+    # message length limits for the new multiline cap
+    multiline:
+        max-bytes: 4096 # 0 means disabled
+        max-lines: 24   # 0 means no limit
+
 # fakelag: prevents clients from spamming commands too rapidly
 fakelag:
     # whether to enforce fakelag
