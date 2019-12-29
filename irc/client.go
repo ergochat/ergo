@@ -984,12 +984,7 @@ func (client *Client) updateNickMaskNoMutex() {
 		return // pre-registration, don't bother generating the hostname
 	}
 
-	cfhostname, err := Casefold(client.hostname)
-	if err != nil {
-		client.server.logger.Error("internal", "hostname couldn't be casefolded", client.hostname, err.Error())
-		cfhostname = client.hostname // YOLO
-	}
-
+	cfhostname := strings.ToLower(client.hostname)
 	client.nickMaskString = fmt.Sprintf("%s!%s@%s", client.nick, client.username, client.hostname)
 	client.nickMaskCasefolded = fmt.Sprintf("%s!%s@%s", client.nickCasefolded, strings.ToLower(client.username), cfhostname)
 }
@@ -1006,18 +1001,14 @@ func (client *Client) AllNickmasks() (masks []string) {
 	username = strings.ToLower(username)
 
 	if len(vhost) > 0 {
-		cfvhost, err := Casefold(vhost)
-		if err == nil {
-			masks = append(masks, fmt.Sprintf("%s!%s@%s", nick, username, cfvhost))
-		}
+		cfvhost := strings.ToLower(vhost)
+		masks = append(masks, fmt.Sprintf("%s!%s@%s", nick, username, cfvhost))
 	}
 
 	var rawhostmask string
-	cfrawhost, err := Casefold(rawHostname)
-	if err == nil {
-		rawhostmask = fmt.Sprintf("%s!%s@%s", nick, username, cfrawhost)
-		masks = append(masks, rawhostmask)
-	}
+	cfrawhost := strings.ToLower(rawHostname)
+	rawhostmask = fmt.Sprintf("%s!%s@%s", nick, username, cfrawhost)
+	masks = append(masks, rawhostmask)
 
 	if cloakedHostname != "" {
 		masks = append(masks, fmt.Sprintf("%s!%s@%s", nick, username, cloakedHostname))

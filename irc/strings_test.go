@@ -63,6 +63,7 @@ func TestCasefoldChannel(t *testing.T) {
 		"", "#*starpower", "# NASA", "#interro?", "OOF#", "foo",
 		// bidi violation mixing latin and hebrew characters:
 		"#shalomעליכם",
+		"#tab\tcharacter", "#\t", "#carriage\rreturn",
 	} {
 		testCases = append(testCases, channelTest{channel: errCase, err: true})
 	}
@@ -214,4 +215,62 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester("shivaram*", "shivaram*!*@*", nil)
 	tester("Shivaram*", "shivaram*!*@*", nil)
 	tester("*SHIVARAM*", "*shivaram*!*@*", nil)
+}
+
+func validFoldTester(first, second string, equal bool, folder func(string) (string, error), t *testing.T) {
+	firstFolded, err := folder(first)
+	if err != nil {
+		panic(err)
+	}
+	secondFolded, err := folder(second)
+	if err != nil {
+		panic(err)
+	}
+	foundEqual := firstFolded == secondFolded
+	if foundEqual != equal {
+		t.Errorf("%s and %s: expected equality %t, but got %t", first, second, equal, foundEqual)
+	}
+}
+
+func TestFoldPermissive(t *testing.T) {
+	tester := func(first, second string, equal bool) {
+		validFoldTester(first, second, equal, foldPermissive, t)
+	}
+	tester("SHIVARAM", "shivaram", true)
+	tester("shIvaram", "shivaraM", true)
+	tester("shivaram", "DAN-", false)
+	tester("dolph🐬n", "DOLPH🐬n", true)
+	tester("dolph🐬n", "dolph💻n", false)
+	tester("9FRONT", "9front", true)
+}
+
+func TestFoldPermissiveInvalid(t *testing.T) {
+	_, err := foldPermissive("a\tb")
+	if err == nil {
+		t.Errorf("whitespace should be invalid in identifiers")
+	}
+	_, err = foldPermissive("a\x00b")
+	if err == nil {
+		t.Errorf("the null byte should be invalid in identifiers")
+	}
+}
+
+func TestFoldASCII(t *testing.T) {
+	tester := func(first, second string, equal bool) {
+		validFoldTester(first, second, equal, foldASCII, t)
+	}
+	tester("shivaram", "SHIVARAM", true)
+	tester("X|Y", "x|y", true)
+	tester("a != b", "A != B", true)
+}
+
+func TestFoldASCIIInvalid(t *testing.T) {
+	_, err := foldASCII("\x01")
+	if err == nil {
+		t.Errorf("control characters should be invalid in identifiers")
+	}
+	_, err = foldASCII("\x7F")
+	if err == nil {
+		t.Errorf("control characters should be invalid in identifiers")
+	}
 }

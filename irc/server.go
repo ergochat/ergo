@@ -165,7 +165,9 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
-	isupport.Add("UTF8MAPPING", casemappingName)
+	if globalCasemappingSetting == CasemappingPRECIS {
+		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
+	}
 
 	err = isupport.RegenerateCachedReply()
 	return
@@ -599,6 +601,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		server.configFilename = config.Filename
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded
+		globalCasemappingSetting = config.Server.Casemapping
 	} else {
 		// enforce configs that can't be changed after launch:
 		currentLimits := server.Config().Limits
@@ -608,6 +611,8 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
 		} else if server.Config().Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
+		} else if globalCasemappingSetting != config.Server.Casemapping {
+			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
 		}
 	}
 
