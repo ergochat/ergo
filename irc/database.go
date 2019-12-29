@@ -22,7 +22,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "8"
+	latestDbSchema = "9"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -553,6 +553,57 @@ func schemaChangeV7ToV8(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+type accountCredsLegacyV8 struct {
+	Version        uint
+	PassphraseSalt []byte // legacy field, not used by v1 and later
+	PassphraseHash []byte
+	Certificate    string
+}
+
+type accountCredsLegacyV9 struct {
+	Version        uint
+	PassphraseSalt []byte // legacy field, not used by v1 and later
+	PassphraseHash []byte
+	Certfps        []string
+}
+
+// #530: support multiple client certificate fingerprints
+func schemaChangeV8ToV9(config *Config, tx *buntdb.Tx) error {
+	prefix := "account.credentials "
+	var accounts, blobs []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		var legacy accountCredsLegacyV8
+		var current accountCredsLegacyV9
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+		err := json.Unmarshal([]byte(value), &legacy)
+		if err != nil {
+			log.Printf("corrupt record for %s: %v\n", account, err)
+			return true
+		}
+		current.Version = legacy.Version
+		current.PassphraseSalt = legacy.PassphraseSalt // ugh can't get rid of this
+		current.PassphraseHash = legacy.PassphraseHash
+		if legacy.Certificate != "" {
+			current.Certfps = []string{legacy.Certificate}
+		}
+		blob, err := json.Marshal(current)
+		if err != nil {
+			log.Printf("could not marshal record for %s: %v\n", account, err)
+			return true
+		}
+		accounts = append(accounts, account)
+		blobs = append(blobs, string(blob))
+		return true
+	})
+	for i, account := range accounts {
+		tx.Set(prefix+account, blobs[i], nil)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -589,6 +640,11 @@ func init() {
 			InitialVersion: "7",
 			TargetVersion:  "8",
 			Changer:        schemaChangeV7ToV8,
+		},
+		{
+			InitialVersion: "8",
+			TargetVersion:  "9",
+			Changer:        schemaChangeV8ToV9,
 		},
 	}
 

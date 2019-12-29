@@ -36,6 +36,8 @@ const (
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
+
+	maxCertfpsPerAccount = 5
 )
 
 // everything about accounts is persistent; therefore, the database is the authoritative
@@ -327,7 +329,14 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
-	credStr, err := am.serializeCredentials(passphrase, certfp)
+	var creds AccountCredentials
+	creds.Version = 1
+	err = creds.SetPassphrase(passphrase, am.server.Config().Accounts.Registration.BcryptCost)
+	if err != nil {
+		return err
+	}
+	creds.AddCertfp(certfp)
+	credStr, err := creds.Serialize()
 	if err != nil {
 		return err
 	}
@@ -411,58 +420,124 @@ func validatePassphrase(passphrase string) error {
 	return nil
 }
 
-// helper to assemble the serialized JSON for an account's credentials
-func (am *AccountManager) serializeCredentials(passphrase string, certfp string) (result string, err error) {
-	var creds AccountCredentials
-	creds.Version = 1
-	// we need at least one of passphrase and certfp:
-	if passphrase == "" && certfp == "" {
-		return "", errAccountBadPassphrase
-	}
-	// but if we have one, it's fine if the other is missing, it just means no
-	// credential of that type will be accepted.
-	creds.Certificate = certfp
-	if passphrase != "" {
-		if validatePassphrase(passphrase) != nil {
-			return "", errAccountBadPassphrase
-		}
-		bcryptCost := int(am.server.Config().Accounts.Registration.BcryptCost)
-		creds.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), bcryptCost)
-		if err != nil {
-			am.server.logger.Error("internal", "could not hash password", err.Error())
-			return "", errAccountCreation
-		}
-	}
-
-	credText, err := json.Marshal(creds)
-	if err != nil {
-		am.server.logger.Error("internal", "could not marshal credentials", err.Error())
-		return "", errAccountCreation
-	}
-	return string(credText), nil
-}
-
 // changes the password for an account
-func (am *AccountManager) setPassword(account string, password string) (err error) {
-	casefoldedAccount, err := CasefoldName(account)
+func (am *AccountManager) setPassword(account string, password string, hasPrivs bool) (err error) {
+	cfAccount, err := CasefoldName(account)
 	if err != nil {
-		return err
+		return errAccountDoesNotExist
 	}
-	act, err := am.LoadAccount(casefoldedAccount)
+
+	credKey := fmt.Sprintf(keyAccountCredentials, cfAccount)
+	var credStr string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		// no need to check verification status here or below;
+		// you either need to be auth'ed to the account or be an oper to do this
+		credStr, err = tx.Get(credKey)
+		return nil
+	})
+
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	var creds AccountCredentials
+	err = json.Unmarshal([]byte(credStr), &creds)
 	if err != nil {
 		return err
 	}
 
-	credStr, err := am.serializeCredentials(password, act.Credentials.Certificate)
+	err = creds.SetPassphrase(password, am.server.Config().Accounts.Registration.BcryptCost)
 	if err != nil {
 		return err
 	}
 
-	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
-	return am.server.store.Update(func(tx *buntdb.Tx) error {
-		_, _, err := tx.Set(credentialsKey, credStr, nil)
+	if creds.Empty() && !hasPrivs {
+		return errEmptyCredentials
+	}
+
+	newCredStr, err := creds.Serialize()
+	if err != nil {
+		return err
+	}
+
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		curCredStr, err := tx.Get(credKey)
+		if credStr != curCredStr {
+			return errCASFailed
+		}
+		_, _, err = tx.Set(credKey, newCredStr, nil)
 		return err
 	})
+
+	return err
+}
+
+func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasPrivs bool) (err error) {
+	certfp, err = utils.NormalizeCertfp(certfp)
+	if err != nil {
+		return err
+	}
+
+	cfAccount, err := CasefoldName(account)
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	credKey := fmt.Sprintf(keyAccountCredentials, cfAccount)
+	var credStr string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		credStr, err = tx.Get(credKey)
+		return nil
+	})
+
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	var creds AccountCredentials
+	err = json.Unmarshal([]byte(credStr), &creds)
+	if err != nil {
+		return err
+	}
+
+	if add {
+		err = creds.AddCertfp(certfp)
+	} else {
+		err = creds.RemoveCertfp(certfp)
+	}
+	if err != nil {
+		return err
+	}
+
+	if creds.Empty() && !hasPrivs {
+		return errEmptyCredentials
+	}
+
+	newCredStr, err := creds.Serialize()
+	if err != nil {
+		return err
+	}
+
+	certfpKey := fmt.Sprintf(keyCertToAccount, certfp)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		curCredStr, err := tx.Get(credKey)
+		if credStr != curCredStr {
+			return errCASFailed
+		}
+		if add {
+			_, err = tx.Get(certfpKey)
+			if err != buntdb.ErrNotFound {
+				return errCertfpAlreadyExists
+			}
+			tx.Set(certfpKey, cfAccount, nil)
+		} else {
+			tx.Delete(certfpKey)
+		}
+		_, _, err = tx.Set(credKey, newCredStr, nil)
+		return err
+	})
+
+	return err
 }
 
 func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount string, callbackNamespace string, callbackValue string) (string, error) {
@@ -574,8 +649,8 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			// XXX we shouldn't do (de)serialization inside the txn,
 			// but this is like 2 usec on my system
 			json.Unmarshal([]byte(raw.Credentials), &creds)
-			if creds.Certificate != "" {
-				certFPKey := fmt.Sprintf(keyCertToAccount, creds.Certificate)
+			for _, cert := range creds.Certfps {
+				certFPKey := fmt.Sprintf(keyCertToAccount, cert)
 				tx.Set(certFPKey, casefoldedAccount, nil)
 			}
 
@@ -906,14 +981,16 @@ func (am *AccountManager) Unregister(account string) error {
 
 	if err == nil {
 		var creds AccountCredentials
-		if err = json.Unmarshal([]byte(credText), &creds); err == nil && creds.Certificate != "" {
-			certFPKey := fmt.Sprintf(keyCertToAccount, creds.Certificate)
-			am.server.store.Update(func(tx *buntdb.Tx) error {
-				if account, err := tx.Get(certFPKey); err == nil && account == casefoldedAccount {
-					tx.Delete(certFPKey)
-				}
-				return nil
-			})
+		if err = json.Unmarshal([]byte(credText), &creds); err == nil {
+			for _, cert := range creds.Certfps {
+				certFPKey := fmt.Sprintf(keyCertToAccount, cert)
+				am.server.store.Update(func(tx *buntdb.Tx) error {
+					if account, err := tx.Get(certFPKey); err == nil && account == casefoldedAccount {
+						tx.Delete(certFPKey)
+					}
+					return nil
+				})
+			}
 		}
 	}
 
@@ -1326,7 +1403,73 @@ type AccountCredentials struct {
 	Version        uint
 	PassphraseSalt []byte // legacy field, not used by v1 and later
 	PassphraseHash []byte
-	Certificate    string // fingerprint
+	Certfps        []string
+}
+
+func (ac *AccountCredentials) Empty() bool {
+	return len(ac.PassphraseHash) == 0 && len(ac.Certfps) == 0
+}
+
+// helper to assemble the serialized JSON for an account's credentials
+func (ac *AccountCredentials) Serialize() (result string, err error) {
+	ac.Version = 1
+	credText, err := json.Marshal(*ac)
+	if err != nil {
+		return "", err
+	}
+	return string(credText), nil
+}
+
+func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) (err error) {
+	if passphrase == "" {
+		ac.PassphraseHash = nil
+		return nil
+	}
+
+	if validatePassphrase(passphrase) != nil {
+		return errAccountBadPassphrase
+	}
+
+	ac.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), int(bcryptCost))
+	if err != nil {
+		return errAccountBadPassphrase
+	}
+
+	return nil
+}
+
+func (ac *AccountCredentials) AddCertfp(certfp string) (err error) {
+	for _, current := range ac.Certfps {
+		if certfp == current {
+			return errNoop
+		}
+	}
+
+	if maxCertfpsPerAccount <= len(ac.Certfps) {
+		return errLimitExceeded
+	}
+
+	ac.Certfps = append(ac.Certfps, certfp)
+	return nil
+}
+
+func (ac *AccountCredentials) RemoveCertfp(certfp string) (err error) {
+	found := false
+	newList := make([]string, 0, len(ac.Certfps))
+	for _, current := range ac.Certfps {
+		if current == certfp {
+			found = true
+		} else {
+			newList = append(newList, current)
+		}
+	}
+	if !found {
+		// this is important because it prevents you from deleting someone else's
+		// fingerprint record
+		return errNoop
+	}
+	ac.Certfps = newList
+	return nil
 }
 
 type BouncerAllowedSetting int

@@ -50,6 +50,10 @@ var (
 	errBanned                         = errors.New("IP or nickmask banned")
 	errInvalidParams                  = utils.ErrInvalidParams
 	errNoVhost                        = errors.New(`You do not have an approved vhost`)
+	errLimitExceeded                  = errors.New("Limit exceeded")
+	errNoop                           = errors.New("Action was a no-op")
+	errCASFailed                      = errors.New("Compare-and-swap update of database value failed")
+	errEmptyCredentials               = errors.New("No more credentials are approved")
 )
 
 // Socket Errors

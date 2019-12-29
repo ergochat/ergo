@@ -39,11 +39,15 @@ type webircConfig struct {
 // Populate fills out our password or fingerprint.
 func (wc *webircConfig) Populate() (err error) {
 	if wc.Fingerprint == "" && wc.PasswordString == "" {
-		return ErrNoFingerprintOrPassword
+		err = ErrNoFingerprintOrPassword
 	}
 
-	if wc.PasswordString != "" {
+	if err == nil && wc.PasswordString != "" {
 		wc.Password, err = decodeLegacyPasswordHash(wc.PasswordString)
+	}
+
+	if err == nil && wc.Fingerprint != "" {
+		wc.Fingerprint, err = utils.NormalizeCertfp(wc.Fingerprint)
 	}
 
 	if err == nil {

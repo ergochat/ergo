@@ -16,12 +16,6 @@ CapDef = namedtuple("CapDef", ['identifier', 'name', 'url', 'standard'])
 
 CAPDEFS = [
     CapDef(
-        identifier="Acc",
-        name="draft/acc",
-        url="https://github.com/ircv3/ircv3-specifications/pull/276",
-        standard="proposed IRCv3",
-    ),
-    CapDef(
         identifier="AccountNotify",
         name="account-notify",
         url="https://ircv3.net/specs/extensions/account-notify-3.1.html",
@@ -163,7 +157,7 @@ CAPDEFS = [
         identifier="EventPlayback",
         name="draft/event-playback",
         url="https://github.com/ircv3/ircv3-specifications/pull/362",
-        standard="Proposed IRCv3",
+        standard="proposed IRCv3",
     ),
     CapDef(
         identifier="ZNCPlayback",
@@ -181,7 +175,7 @@ CAPDEFS = [
         identifier="Multiline",
         name="draft/multiline",
         url="https://github.com/ircv3/ircv3-specifications/pull/398",
-        standard="Proposed IRCv3",
+        standard="proposed IRCv3",
     ),
 ]
 
