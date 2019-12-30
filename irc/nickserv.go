@@ -43,7 +43,7 @@ const (
 	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.`
 )
 
-const nickservHelp = `NickServ lets you register and log into an account.`
+const nickservHelp = `NickServ lets you register, log in to, and manage an account.`
 
 var (
 	nickservCommands = map[string]*serviceCommand{
@@ -927,7 +927,7 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 			return
 		}
 		certfps := accountData.Credentials.Certfps
-		nsNotice(rb, fmt.Sprintf(client.t("There are %d certificate fingerprint(s) authorized for account %s."), len(certfps), accountData.Name))
+		nsNotice(rb, fmt.Sprintf(client.t("There are %[1]d certificate fingerprint(s) authorized for account %[2]s."), len(certfps), accountData.Name))
 		for i, certfp := range certfps {
 			nsNotice(rb, fmt.Sprintf("%d: %s", i+1, certfp))
 		}
