@@ -8,12 +8,16 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"strings"
 )
 
 var (
 	// slingamn's own private b32 alphabet, removing 1, l, o, and 0
 	B32Encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
+
+	ErrInvalidCertfp = errors.New("Invalid certfp")
 )
 
 const (
@@ -70,14 +74,12 @@ func GenerateSecretKey() string {
 	return base64.RawURLEncoding.EncodeToString(buf[:])
 }
 
-func normalizeCertfp(certfp string) string {
-	return strings.ToLower(strings.Replace(certfp, ":", "", -1))
-}
-
-// Convenience to compare certfps as returned by different tools, e.g., openssl vs. oragono
-func CertfpsMatch(storedCertfp, suppliedCertfp string) bool {
-	if storedCertfp == "" {
-		return false
+// Normalize openssl-formatted certfp's to oragono's format
+func NormalizeCertfp(certfp string) (result string, err error) {
+	result = strings.ToLower(strings.Replace(certfp, ":", "", -1))
+	decoded, err := hex.DecodeString(result)
+	if err != nil || len(decoded) != 32 {
+		return "", ErrInvalidCertfp
 	}
-	return normalizeCertfp(storedCertfp) == normalizeCertfp(suppliedCertfp)
+	return
 }

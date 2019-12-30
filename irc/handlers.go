@@ -31,52 +31,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ACC [LS|REGISTER|VERIFY] ...
-func accHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	subcommand := strings.ToLower(msg.Params[0])
-
-	if subcommand == "ls" {
-		config := server.Config().Accounts
-
-		rb.Add(nil, server.name, "ACC", "LS", "SUBCOMMANDS", "LS REGISTER VERIFY")
-
-		// this list is sorted by the config loader, yay
-		rb.Add(nil, server.name, "ACC", "LS", "CALLBACKS", strings.Join(config.Registration.EnabledCallbacks, " "))
-
-		rb.Add(nil, server.name, "ACC", "LS", "CREDTYPES", "passphrase certfp")
-
-		flags := []string{"nospaces"}
-		if config.NickReservation.Enabled {
-			flags = append(flags, "regnick")
-		}
-		sort.Strings(flags)
-		rb.Add(nil, server.name, "ACC", "LS", "FLAGS", strings.Join(flags, " "))
-		return false
-	}
-
-	// disallow account stuff before connection registration has completed, for now
-	if !client.Registered() {
-		client.Send(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
-		return false
-	}
-
-	// make sure reg is enabled
-	if !server.AccountConfig().Registration.Enabled {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_UNAVAILABLE", client.t("Account registration is disabled"))
-		return false
-	}
-
-	if subcommand == "register" {
-		return accRegisterHandler(server, client, msg, rb)
-	} else if subcommand == "verify" {
-		return accVerifyHandler(server, client, msg, rb)
-	} else {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "ACC", msg.Params[0], client.t("Unknown subcommand"))
-	}
-
-	return false
-}
-
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
 func parseCallback(spec string, config *AccountConfig) (callbackNamespace string, callbackValue string) {
 	callback := strings.ToLower(spec)
@@ -101,113 +55,6 @@ func parseCallback(spec string, config *AccountConfig) (callbackNamespace string
 	// error value
 	callbackNamespace = ""
 	return
-}
-
-// ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
-func accRegisterHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	nick := client.Nick()
-
-	if len(msg.Params) < 4 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, nick, msg.Command, client.t("Not enough parameters"))
-		return false
-	}
-
-	account := msg.Params[1]
-
-	// check for account name of *
-	if account == "*" {
-		account = nick
-	} else {
-		if server.Config().Accounts.NickReservation.Enabled {
-			rb.Add(nil, server.name, "FAIL", "ACC", "REG_MUST_USE_REGNICK", account, client.t("Must register with current nickname instead of separate account name"))
-			return false
-		}
-	}
-
-	// clients can't reg new accounts if they're already logged in
-	if client.LoggedIntoAccount() {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_UNSPECIFIED_ERROR", account, client.t("You're already logged into an account"))
-		return false
-	}
-
-	// sanitise account name
-	casefoldedAccount, err := CasefoldName(account)
-	if err != nil {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_ACCOUNT_NAME", account, client.t("Account name is not valid"))
-		return false
-	}
-
-	callbackSpec := msg.Params[2]
-	callbackNamespace, callbackValue := parseCallback(callbackSpec, server.AccountConfig())
-
-	if callbackNamespace == "" {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_CALLBACK", account, callbackSpec, client.t("Cannot send verification code there"))
-		return false
-	}
-
-	// get credential type/value
-	var credentialType, credentialValue string
-
-	if len(msg.Params) > 4 {
-		credentialType = strings.ToLower(msg.Params[3])
-		credentialValue = msg.Params[4]
-	} else {
-		// exactly 4 params
-		credentialType = "passphrase" // default from the spec
-		credentialValue = msg.Params[3]
-	}
-
-	// ensure the credential type is valid
-	var credentialValid bool
-	for _, name := range server.AccountConfig().Registration.EnabledCredentialTypes {
-		if credentialType == name {
-			credentialValid = true
-		}
-	}
-	if credentialType == "certfp" && client.certfp == "" {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_CREDENTIAL", account, client.t("You must connect with a TLS client certificate to use certfp"))
-		return false
-	}
-
-	if !credentialValid {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_INVALID_CRED_TYPE", account, credentialType, client.t("Credential type is not supported"))
-		return false
-	}
-
-	var passphrase, certfp string
-	if credentialType == "certfp" {
-		certfp = client.certfp
-	} else if credentialType == "passphrase" {
-		passphrase = credentialValue
-	}
-
-	throttled, remainingTime := client.loginThrottle.Touch()
-	if throttled {
-		rb.Add(nil, server.name, "FAIL", "ACC", "REG_UNSPECIFIED_ERROR", account, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
-		return false
-	}
-
-	err = server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, certfp)
-	if err != nil {
-		msg, code := registrationErrorToMessageAndCode(err)
-		rb.Add(nil, server.name, "FAIL", "ACC", code, account, client.t(msg))
-		return false
-	}
-
-	// automatically complete registration
-	if callbackNamespace == "*" {
-		err := server.accounts.Verify(client, casefoldedAccount, "")
-		if err != nil {
-			return false
-		}
-		sendSuccessfulRegResponse(client, rb, false)
-	} else {
-		messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
-		message := fmt.Sprintf(messageTemplate, fmt.Sprintf("%s:%s", callbackNamespace, callbackValue))
-		rb.Add(nil, server.name, RPL_REG_VERIFICATION_REQUIRED, nick, casefoldedAccount, message)
-	}
-
-	return false
 }
 
 func registrationErrorToMessageAndCode(err error) (message, code string) {
@@ -261,41 +108,6 @@ func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSAS
 	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
 
 	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
-}
-
-// ACC VERIFY <accountname> <auth_code>
-func accVerifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	account := strings.TrimSpace(msg.Params[1])
-
-	if len(msg.Params) < 3 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
-		return false
-	}
-
-	err := server.accounts.Verify(client, account, msg.Params[2])
-
-	var code string
-	var message string
-
-	if err == errAccountVerificationInvalidCode {
-		code = "ACCOUNT_INVALID_VERIFY_CODE"
-		message = err.Error()
-	} else if err == errAccountAlreadyVerified {
-		code = "ACCOUNT_ALREADY_VERIFIED"
-		message = err.Error()
-	} else if err != nil {
-		code = "VERIFY_UNSPECIFIED_ERROR"
-		message = errAccountVerificationFailed.Error()
-	}
-
-	if err == nil {
-		rb.Add(nil, server.name, RPL_VERIFY_SUCCESS, client.Nick(), account, client.t("Account verification successful"))
-		sendSuccessfulAccountAuth(client, rb, false, false)
-	} else {
-		rb.Add(nil, server.name, "FAIL", "ACC", code, account, client.t(message))
-	}
-
-	return false
 }
 
 // AUTHENTICATE [<mechanism>|<data>|*]
@@ -2300,7 +2112,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Fingerprint != "" {
-			if utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
+			if oper.Fingerprint == client.certfp {
 				checkPassed = true
 			} else {
 				checkFailed = true
@@ -2772,7 +2584,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if 0 < len(info.Fingerprint) && !utils.CertfpsMatch(info.Fingerprint, client.certfp) {
+			if info.Fingerprint != "" && info.Fingerprint != client.certfp {
 				continue
 			}
 

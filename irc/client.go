@@ -1419,10 +1419,11 @@ func (client *Client) attemptAutoOper(session *Session) {
 		return
 	}
 	for _, oper := range client.server.Config().operators {
-		if oper.Auto && oper.Pass == nil && utils.CertfpsMatch(oper.Fingerprint, client.certfp) {
+		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == client.certfp {
 			rb := NewResponseBuffer(session)
 			applyOper(client, oper, rb)
 			rb.Send(true)
+			return
 		}
 	}
 }

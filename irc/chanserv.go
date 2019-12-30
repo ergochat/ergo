@@ -134,6 +134,7 @@ set using PURGE.`,
 
 INFO displays info about a registered channel.`,
 			helpShort: `$bINFO$b displays info about a registered channel.`,
+			enabled:   chanregEnabled,
 			minParams: 1,
 		},
 	}

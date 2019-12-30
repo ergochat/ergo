@@ -63,7 +63,7 @@ func handleLegacyPasswordV0(server *Server, account string, credentials AccountC
 	}
 
 	// upgrade credentials
-	err = server.accounts.setPassword(account, passphrase)
+	err = server.accounts.setPassword(account, passphrase, true)
 	if err != nil {
 		server.logger.Error("internal", fmt.Sprintf("could not upgrade user password: %v", err))
 	}

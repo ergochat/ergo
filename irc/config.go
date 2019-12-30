@@ -511,7 +511,12 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 				return nil, fmt.Errorf("Oper %s has an invalid password hash: %s", oper.Name, err.Error())
 			}
 		}
-		oper.Fingerprint = opConf.Fingerprint
+		if opConf.Fingerprint != "" {
+			oper.Fingerprint, err = utils.NormalizeCertfp(opConf.Fingerprint)
+			if err != nil {
+				return nil, fmt.Errorf("Oper %s has an invalid fingerprint: %s", oper.Name, err.Error())
+			}
+		}
 		oper.Auto = opConf.Auto
 
 		if oper.Pass == nil && oper.Fingerprint == "" {

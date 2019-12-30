@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 28
+	numCapabs = 27
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -37,11 +37,7 @@ const (
 	// https://ircv3.net/specs/extensions/chghost-3.2.html
 	ChgHost Capability = iota
 
-	// Acc is the proposed IRCv3 capability named "draft/acc":
-	// https://github.com/ircv3/ircv3-specifications/pull/276
-	Acc Capability = iota
-
-	// EventPlayback is the Proposed IRCv3 capability named "draft/event-playback":
+	// EventPlayback is the proposed IRCv3 capability named "draft/event-playback":
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
 
@@ -53,7 +49,7 @@ const (
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
 
-	// Multiline is the Proposed IRCv3 capability named "draft/multiline":
+	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
 
@@ -135,7 +131,6 @@ var (
 		"batch",
 		"cap-notify",
 		"chghost",
-		"draft/acc",
 		"draft/event-playback",
 		"draft/labeled-response-0.2",
 		"draft/languages",

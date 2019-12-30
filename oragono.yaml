@@ -244,6 +244,9 @@ server:
 
 # account options
 accounts:
+    # is account authentication enabled, i.e., can users log into existing accounts?
+    authentication-enabled: true
+
     # account registration
     registration:
         # can users register new accounts for themselves? if this is false, operators with
@@ -270,9 +273,6 @@ accounts:
         #         username: ""
         #         password: ""
         #         sender: "admin@my.network"
-
-    # is account authentication enabled?
-    authentication-enabled: true
 
     # throttle account login attempts (to prevent either password guessing, or DoS
     # attacks on the server aimed at forcing repeated expensive bcrypt computations)

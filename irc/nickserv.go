@@ -12,6 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -72,6 +73,7 @@ entry for $bSET$b for more information.`,
 GHOST disconnects the given user from the network if they're logged in with the
 same user account, letting you reclaim your nickname.`,
 			helpShort:    `$bGHOST$b reclaims your nickname.`,
+			enabled:      servCmdRequiresAuthEnabled,
 			authRequired: true,
 			minParams:    1,
 		},
@@ -92,6 +94,7 @@ will not be able to use it.`,
 IDENTIFY lets you login to the given username using either password auth, or
 certfp (your client certificate) if a password is not given.`,
 			helpShort: `$bIDENTIFY$b lets you login to your account.`,
+			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
 		},
 		"info": {
@@ -179,7 +182,8 @@ Or:     $bPASSWD <username> <new>$b
 PASSWD lets you change your account password. You must supply your current
 password and confirm the new one by typing it twice. If you're an IRC operator
 with the correct permissions, you can use PASSWD to reset someone else's
-password by supplying their username and then the desired password.`,
+password by supplying their username and then the desired password. To
+indicate an empty password, use * instead.`,
 			helpShort: `$bPASSWD$b lets you change your password.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 2,
@@ -258,6 +262,20 @@ information on the settings and their possible values, see HELP SET.`,
 			enabled:   servCmdRequiresAccreg,
 			minParams: 3,
 			capabs:    []string{"accreg"},
+		},
+		"cert": {
+			handler: nsCertHandler,
+			help: `Syntax: $bCERT <LIST | ADD | DEL> [account] [certfp]$b
+
+CERT examines or modifies the TLS certificate fingerprints that can be used to
+log into an account. Specifically, $bCERT LIST$b lists the authorized
+fingerprints, $bCERT ADD <fingerprint>$b adds a new fingerprint, and
+$bCERT DEL <fingerprint>$b removes a fingerprint. If you're an IRC operator
+with the correct permissions, you can act on another user's account, for
+example with $bCERT ADD <account> <fingerprint>$b.`,
+			helpShort: `$bCERT$b controls a user account's certificate fingerprints`,
+			enabled:   servCmdRequiresAuthEnabled,
+			minParams: 1,
 		},
 	}
 )
@@ -548,6 +566,11 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 }
 
 func nsInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !server.Config().Accounts.AuthenticationEnabled && !client.HasRoleCapabs("accreg") {
+		nsNotice(rb, client.t("This command has been disabled by the server administrators"))
+		return
+	}
+
 	var accountName string
 	if len(params) > 0 {
 		nick := params[0]
@@ -659,6 +682,9 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 
 func nsSaregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	account, passphrase := params[0], params[1]
+	if passphrase == "*" {
+		passphrase = ""
+	}
 	err := server.accounts.Register(nil, account, "admin", "", passphrase, "")
 	if err == nil {
 		err = server.accounts.Verify(nil, account, "")
@@ -753,30 +779,40 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 	var errorMessage string
 
 	hasPrivs := client.HasRoleCapabs("accreg")
-	if !hasPrivs && !nsLoginThrottleCheck(client, rb) {
-		return
-	}
 
 	switch len(params) {
 	case 2:
 		if !hasPrivs {
-			errorMessage = "Insufficient privileges"
+			errorMessage = `Insufficient privileges`
 		} else {
 			target, newPassword = params[0], params[1]
+			if newPassword == "*" {
+				newPassword = ""
+			}
 		}
 	case 3:
 		target = client.Account()
 		if target == "" {
-			errorMessage = "You're not logged into an account"
+			errorMessage = `You're not logged into an account`
 		} else if params[1] != params[2] {
-			errorMessage = "Passwords do not match"
+			errorMessage = `Passwords do not match`
 		} else {
-			// check that they correctly supplied the preexisting password
-			_, err := server.accounts.checkPassphrase(target, params[0])
+			if !nsLoginThrottleCheck(client, rb) {
+				return
+			}
+			accountData, err := server.accounts.LoadAccount(target)
 			if err != nil {
-				errorMessage = "Password incorrect"
+				errorMessage = `You're not logged into an account`
 			} else {
-				newPassword = params[1]
+				hash := accountData.Credentials.PassphraseHash
+				if hash != nil && passwd.CompareHashAndPassword(hash, []byte(params[0])) != nil {
+					errorMessage = `Password incorrect`
+				} else {
+					newPassword = params[1]
+					if newPassword == "*" {
+						newPassword = ""
+					}
+				}
 			}
 		}
 	default:
@@ -788,10 +824,15 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 		return
 	}
 
-	err := server.accounts.setPassword(target, newPassword)
-	if err == nil {
+	err := server.accounts.setPassword(target, newPassword, hasPrivs)
+	switch err {
+	case nil:
 		nsNotice(rb, client.t("Password changed"))
-	} else {
+	case errEmptyCredentials:
+		nsNotice(rb, client.t("You can't delete your password unless you add a certificate fingerprint"))
+	case errCASFailed:
+		nsNotice(rb, client.t("Try again later"))
+	default:
 		server.logger.Error("internal", "could not upgrade user password:", err.Error())
 		nsNotice(rb, client.t("Password could not be changed due to server error"))
 	}
@@ -835,5 +876,95 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
 		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
 		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
+	}
+}
+
+func nsCertHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	verb := strings.ToLower(params[0])
+	params = params[1:]
+	var target, certfp string
+
+	switch verb {
+	case "list":
+		if 1 <= len(params) {
+			target = params[0]
+		}
+	case "add", "del":
+		if 2 <= len(params) {
+			target, certfp = params[0], params[1]
+		} else if len(params) == 1 {
+			certfp = params[0]
+		} else {
+			nsNotice(rb, client.t("Invalid parameters"))
+			return
+		}
+	default:
+		nsNotice(rb, client.t("Invalid parameters"))
+		return
+	}
+
+	hasPrivs := client.HasRoleCapabs("accreg")
+	if target != "" && !hasPrivs {
+		nsNotice(rb, client.t("Insufficient privileges"))
+		return
+	} else if target == "" {
+		target = client.Account()
+		if target == "" {
+			nsNotice(rb, client.t("You're not logged into an account"))
+			return
+		}
+	}
+
+	var err error
+	switch verb {
+	case "list":
+		accountData, err := server.accounts.LoadAccount(target)
+		if err == errAccountDoesNotExist {
+			nsNotice(rb, client.t("Account does not exist"))
+			return
+		} else if err != nil {
+			nsNotice(rb, client.t("An error occurred"))
+			return
+		}
+		certfps := accountData.Credentials.Certfps
+		nsNotice(rb, fmt.Sprintf(client.t("There are %d certificate fingerprint(s) authorized for account %s."), len(certfps), accountData.Name))
+		for i, certfp := range certfps {
+			nsNotice(rb, fmt.Sprintf("%d: %s", i+1, certfp))
+		}
+		return
+	case "add":
+		err = server.accounts.addRemoveCertfp(target, certfp, true, hasPrivs)
+	case "del":
+		err = server.accounts.addRemoveCertfp(target, certfp, false, hasPrivs)
+	}
+
+	switch err {
+	case nil:
+		if verb == "add" {
+			nsNotice(rb, client.t("Certificate fingerprint successfully added"))
+		} else {
+			nsNotice(rb, client.t("Certificate fingerprint successfully removed"))
+		}
+	case errNoop:
+		if verb == "add" {
+			nsNotice(rb, client.t("That certificate fingerprint was already authorized"))
+		} else {
+			nsNotice(rb, client.t("Certificate fingerprint not found"))
+		}
+	case errAccountDoesNotExist:
+		nsNotice(rb, client.t("Account does not exist"))
+	case errLimitExceeded:
+		nsNotice(rb, client.t("You already have too many certificate fingerprints"))
+	case utils.ErrInvalidCertfp:
+		nsNotice(rb, client.t("Invalid certificate fingerprint"))
+	case errCertfpAlreadyExists:
+		nsNotice(rb, client.t("That certificate fingerprint is already associated with another account"))
+	case errEmptyCredentials:
+		nsNotice(rb, client.t("You can't remove all your certificate fingerprints unless you add a password"))
+	case errCASFailed:
+		nsNotice(rb, client.t("Try again later"))
+	default:
+		server.logger.Error("internal", "could not modify certificates:", err.Error())
+		nsNotice(rb, client.t("An error occurred"))
 	}
 }
