@@ -462,7 +462,7 @@ func sendTransferPendingNotice(server *Server, account, chname string) {
 			break // prefer the login where the nick is the account
 		}
 	}
-	client.Send(nil, chanservMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("You have been offered ownership of channel %s. To accept, /CS TRANSFER ACCEPT %s"), chname, chname))
+	client.Send(nil, chanservMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("You have been offered ownership of channel %[1]s. To accept, /CS TRANSFER ACCEPT %[1]s"), chname))
 }
 
 func processTransferAccept(client *Client, chname string, rb *ResponseBuffer) {
