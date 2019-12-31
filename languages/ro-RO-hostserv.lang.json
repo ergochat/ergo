@@ -1,5 +1,14 @@
 {
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "Serviciul HostServ îți permite să administrezi gazde virtuale(de ex. șirul de caractere afișat\nîn locul gazdei sau adresei IP a clientului tău).\n\nPentru mai multe informații suplimentare, specifice unei comenzi HostServ, tastează:\n    $b/HS HELP <comandă>$b\n\nUrmătoarele comenzi sunt disponibile:\n%s",
+  "$bAPPROVE$b approves a user's vhost request.": "$bAPPROVE$b aprobă cererea de gazdă virtuală a unui utilizator.",
+  "$bDEL$b deletes a user's vhost.": "$bDEL$b șterge gazda virtuală a unui utilizator.",
+  "$bOFF$b disables your vhost, if you have one approved.": "$bOFF$b dezactivează gazda ta virtuală, dacă ai una aprobată, în prealabil.",
+  "$bON$b enables your vhost, if you have one approved.": "$bON$b îți activează gazda virtuală, dacă ai un aprobată, în prealabil.",
+  "$bREJECT$b rejects a user's vhost request.": "$bREJECT$b respinge cererea de gazdă virtuală a unui utilizator.",
+  "$bREQUEST$b requests a new vhost, pending operator approval.": "$bREQUEST$b cere o nouă gazdă virtuală, cu aprobarea în așteptare, din partea unui operator.",
+  "$bSET$b sets a user's vhost.": "$bSET$b setează gazda virtuală a unui utilizator.",
+  "$bSTATUS$b shows your vhost and request status.": "$bSTATUS$b afișează informații despre gazda ta virtuală și stadiul cererii.",
+  "$bWAITING$b shows a list of pending vhost requests.": "$bWAITING$b afișează o listă cu toate cererile în așteptare, pentru gazde virtuale.",
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "HostServ îți permite să-ți administrezi gazda virtuală (de ex: șirul de caractere afișat în locul gazdei/adresei IP proprii).",
   "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Sintaxă: $bAPPROVE <utilizator>$b\n\nComanda APPROVE aprobă solicitarea de gazdă virtuală a unui utilizator.",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Sintaxă: $bDEL <utilizator>$b\n\nComanda DEL șterge o gazdă virtuală atribuită unui utilizator.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Sintaxă: $bOFF$b\n\nComanda OFF îți dezactivează gazda virtuală, dacă există vreuna activă.",
@@ -8,5 +17,6 @@
   "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "Sintaxă: $bREQUEST <gazdă virtuală>$b\n\nComanda REQUEST solicită o nouă gazdă virtuală pentru contul tău.\nSolicitarea trebuie să fie, apoi, aprobată de către un operator.",
   "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Sintaxă: $bSET <utilizator> <gazdă virtuală>$b\n\nComanda SET setează o gazdă virtuală pentru un utilizator, trecând peste sistemul de cereri implementat în server.",
   "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Sintaxă $bSTATUS [utilizator]$b\n\nComanda STATUS afișează gazda ta virtuală, în uz, dacă există, și starea\ncelor mai recente solicitări pentru una nouă. Un operator de server poate vizualiza\nși starea unui alt utilizator.",
-  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Sintaxă: $bWAITING$b\n\nComanda WAITING afișează o listă de solicitări de gazde virtuale în așteptare, \nce urmează a fi aprobate sau respinse."
+  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Sintaxă: $bWAITING$b\n\nComanda WAITING afișează o listă de solicitări de gazde virtuale în așteptare, \nce urmează a fi aprobate sau respinse.",
+  "^[0-9A-Za-z.\\-_/]+$": "^[0-9A-Za-z.\\-_/]+$"
 }
