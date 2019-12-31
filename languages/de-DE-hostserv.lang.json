@@ -1,5 +1,14 @@
 {
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "Mit HostServ Du Deine vHost Einstellungen ändern (der vHost wird\nanstelle des Hostnamens oder der IP Deines Client angezeigt).\n\nFür ausführliche Hilfe zu den einzelnen HostServ Befehlen, verwende:\n    $b/HS HELP <befehl>$b\n\nFolgende Befehle kannst Du nutzen:\n%s",
+  "$bAPPROVE$b approves a user's vhost request.": "",
+  "$bDEL$b deletes a user's vhost.": "",
+  "$bOFF$b disables your vhost, if you have one approved.": "",
+  "$bON$b enables your vhost, if you have one approved.": "",
+  "$bREJECT$b rejects a user's vhost request.": "",
+  "$bREQUEST$b requests a new vhost, pending operator approval.": "",
+  "$bSET$b sets a user's vhost.": "",
+  "$bSTATUS$b shows your vhost and request status.": "",
+  "$bWAITING$b shows a list of pending vhost requests.": "",
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "",
   "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Syntax: $bAPPROVE <kontoname>$b\n\nAPPROVE bestätigt die vHost Anfrage für ein Konto.",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntax: $bDEL <kontoname>$b\n\nDEL löscht den vHost eines Kontos.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Syntax: $bOFF$b\n\nOFF deaktiviert Deinen vHost, wenn Du einen bestätigten hast.",
@@ -8,5 +17,6 @@
   "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "Syntax: $bREQUEST <vhost>$b\n\nREQUEST fordert die Einrichtung eines neuen vHost für Dein Konto an. Deine Anfrage\nmuss dann von einem Server Operator bestätigt werden.",
   "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Syntax: $bSET <kontoname> <vhost>$b\n\nSET erstellt direkt einen vHost für ein Konto ohne das eine Anfrage und Bestätigung\nnotwendig ist.",
   "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Syntax: $bSTATUS [kontoname]$b\n\nSTATUS zeigt Deinen aktuellen vHost an, sofern eingerichtet, und den Status\nDeiner letzten Anfrage nach einem neuen vHost. Ein Server Operator kann sich den\nStatus eines anderen anzeigen lassen.",
-  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntax: $bWAITING$b\n\nWAITING zeigt eine Liste aller offenen vHost Anfragen, die bestätigt oder\nabgelehnt werden können."
+  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntax: $bWAITING$b\n\nWAITING zeigt eine Liste aller offenen vHost Anfragen, die bestätigt oder\nabgelehnt werden können.",
+  "^[0-9A-Za-z.\\-_/]+$": ""
 }

@@ -1,5 +1,14 @@
 {
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).\n\nTo see in-depth help for a specific HostServ command, try:\n    $b/HS HELP <command>$b\n\nHere are the commands you can use:\n%s": "HostServ vous laisse gérer votre hôte virtuel, qui s’affiche à la place de votre adresse IP ou nom d’hôte.\n\nPour voir l’aide détaillée d’une commande relative à HostServ, essayez :\n    $b/HS HELP <commande>$b\n\nVoici les commandes à votre disposition :\n%s",
+  "$bAPPROVE$b approves a user's vhost request.": "",
+  "$bDEL$b deletes a user's vhost.": "",
+  "$bOFF$b disables your vhost, if you have one approved.": "",
+  "$bON$b enables your vhost, if you have one approved.": "",
+  "$bREJECT$b rejects a user's vhost request.": "",
+  "$bREQUEST$b requests a new vhost, pending operator approval.": "",
+  "$bSET$b sets a user's vhost.": "",
+  "$bSTATUS$b shows your vhost and request status.": "",
+  "$bWAITING$b shows a list of pending vhost requests.": "",
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "",
   "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Syntaxe : $bAPPROVE <Utilisateurice>$b\n\nAPPROVE valide la demande d’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntaxe : $bDEL <Utilisateurice>$b\n\nDEL supprime l’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "",
@@ -8,5 +17,6 @@
   "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "",
   "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "",
   "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "",
-  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntaxe : $bWAITING$b\n\nWAITING affiche une liste des demandes d'hôte virtuel en attente, qui peuvent être approuvées ou rejetées."
+  "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntaxe : $bWAITING$b\n\nWAITING affiche une liste des demandes d'hôte virtuel en attente, qui peuvent être approuvées ou rejetées.",
+  "^[0-9A-Za-z.\\-_/]+$": ""
 }
