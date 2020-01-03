@@ -1257,7 +1257,7 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 
 func (session *Session) composeMultilineBatch(fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IrcMessage) {
 	batchID := session.generateBatchID()
-	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType)
+	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType, target)
 	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
 	batchStart.SetTag("msgid", message.Msgid)
 	if session.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
