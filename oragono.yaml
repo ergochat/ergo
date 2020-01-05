@@ -320,7 +320,7 @@ accounts:
         #             the enforcement level of their choice
         #
         # 'optional' matches the behavior of other NickServs, but 'strict' is
-        # preferable as long as all your users can enable SASL.
+        # preferable if all your users can enable SASL.
         method: optional
 
         # allow users to set their own nickname enforcement status, e.g.,
