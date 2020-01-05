@@ -73,7 +73,7 @@ entry for $bSET$b for more information.`,
 GHOST disconnects the given user from the network if they're logged in with the
 same user account, letting you reclaim your nickname.`,
 			helpShort:    `$bGHOST$b reclaims your nickname.`,
-			enabled:      servCmdRequiresAuthEnabled,
+			enabled:      servCmdRequiresNickRes,
 			authRequired: true,
 			minParams:    1,
 		},
