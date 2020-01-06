@@ -378,6 +378,9 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
 			tx.Set(credentialsKey, credStr, setOptions)
 			tx.Set(callbackKey, callbackSpec, setOptions)
+			if certfp != "" {
+				tx.Set(certFPKey, casefoldedAccount, setOptions)
+			}
 			return nil
 		})
 	}()
