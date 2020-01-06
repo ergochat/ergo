@@ -1439,6 +1439,13 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 }
 
 func (ac *AccountCredentials) AddCertfp(certfp string) (err error) {
+	// XXX we require that certfp is already normalized (rather than normalize here
+	// and pass back the normalized version as an additional return parameter);
+	// this is just a final sanity check:
+	if len(certfp) != 64 {
+		return utils.ErrInvalidCertfp
+	}
+
 	for _, current := range ac.Certfps {
 		if certfp == current {
 			return errNoop
