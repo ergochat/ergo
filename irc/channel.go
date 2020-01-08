@@ -119,6 +119,7 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	channel.name = chanReg.Name
 	channel.createdTime = chanReg.RegisteredAt
 	channel.key = chanReg.Key
+	channel.userLimit = chanReg.UserLimit
 
 	for _, mode := range chanReg.Modes {
 		channel.flags.SetMode(mode, true)
@@ -150,6 +151,7 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 	if includeFlags&IncludeModes != 0 {
 		info.Key = channel.key
 		info.Modes = channel.flags.AllModes()
+		info.UserLimit = channel.userLimit
 	}
 
 	if includeFlags&IncludeLists != 0 {
