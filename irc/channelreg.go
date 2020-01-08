@@ -32,6 +32,7 @@ const (
 	keyChannelPassword       = "channel.key %s"
 	keyChannelModes          = "channel.modes %s"
 	keyChannelAccountToUMode = "channel.accounttoumode %s"
+	keyChannelUserLimit      = "channel.userlimit %s"
 
 	keyChannelPurged = "channel.purged %s"
 )
@@ -51,6 +52,7 @@ var (
 		keyChannelPassword,
 		keyChannelModes,
 		keyChannelAccountToUMode,
+		keyChannelUserLimit,
 	}
 )
 
@@ -88,6 +90,8 @@ type RegisteredChannel struct {
 	Modes []modes.Mode
 	// Key represents the channel key / password
 	Key string
+	// UserLimit is the user limit (0 for no limit)
+	UserLimit int
 	// AccountToUMode maps user accounts to their persistent channel modes (e.g., +q, +h)
 	AccountToUMode map[string]modes.Mode
 	// Bans represents the bans set on the channel.
@@ -194,6 +198,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		topicSetTimeInt, _ := strconv.ParseInt(topicSetTime, 10, 64)
 		password, _ := tx.Get(fmt.Sprintf(keyChannelPassword, channelKey))
 		modeString, _ := tx.Get(fmt.Sprintf(keyChannelModes, channelKey))
+		userLimitString, _ := tx.Get(fmt.Sprintf(keyChannelUserLimit, channelKey))
 		banlistString, _ := tx.Get(fmt.Sprintf(keyChannelBanlist, channelKey))
 		exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
 		invitelistString, _ := tx.Get(fmt.Sprintf(keyChannelInvitelist, channelKey))
@@ -203,6 +208,8 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		for i, mode := range modeString {
 			modeSlice[i] = modes.Mode(mode)
 		}
+
+		userLimit, _ := strconv.Atoi(userLimitString)
 
 		var banlist map[string]MaskInfo
 		_ = json.Unmarshal([]byte(banlistString), &banlist)
@@ -226,6 +233,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			Excepts:        exceptlist,
 			Invites:        invitelist,
 			AccountToUMode: accountToUMode,
+			UserLimit:      int(userLimit),
 		}
 		return nil
 	})
@@ -336,6 +344,7 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 			modeStrings[i] = string(mode)
 		}
 		tx.Set(fmt.Sprintf(keyChannelModes, channelKey), strings.Join(modeStrings, ""), nil)
+		tx.Set(fmt.Sprintf(keyChannelUserLimit, channelKey), strconv.Itoa(channelInfo.UserLimit), nil)
 	}
 
 	if includeFlags&IncludeLists != 0 {
