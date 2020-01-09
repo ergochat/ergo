@@ -226,6 +226,10 @@ server:
         # note that rotating this key will invalidate all existing ban masks.
         secret: "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4"
 
+        # name of an environment variable to pull the secret from, for use with
+        # k8s secret distribution:
+        # secret-environment-variable: "ORAGONO_CLOAKING_SECRET"
+
         # the cloaked hostname is derived only from the CIDR (most significant bits
         # of the IP address), up to a configurable number of bits. this is the
         # granularity at which bans will take effect for IPv4. Note that changing
