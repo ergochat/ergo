@@ -5,6 +5,7 @@ package cloaks
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"golang.org/x/crypto/sha3"
 
@@ -12,12 +13,13 @@ import (
 )
 
 type CloakConfig struct {
-	Enabled     bool
-	Netname     string
-	Secret      string
-	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
-	NumBits     int `yaml:"num-bits"`
+	Enabled      bool
+	Netname      string
+	Secret       string
+	SecretEnvVar string `yaml:"secret-environment-variable"`
+	CidrLenIPv4  int    `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6  int    `yaml:"cidr-len-ipv6"`
+	NumBits      int    `yaml:"num-bits"`
 
 	numBytes int
 	ipv4Mask net.IPMask
@@ -25,6 +27,13 @@ type CloakConfig struct {
 }
 
 func (cloakConfig *CloakConfig) Initialize() {
+	if cloakConfig.SecretEnvVar != "" {
+		envSecret := os.Getenv(cloakConfig.SecretEnvVar)
+		if envSecret != "" {
+			cloakConfig.Secret = envSecret
+		}
+	}
+
 	// sanity checks:
 	numBits := cloakConfig.NumBits
 	if 0 == numBits {
