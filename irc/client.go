@@ -222,7 +222,10 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		isBanned, banMsg = server.checkTorLimits()
 	} else {
 		realIP = utils.AddrToIP(conn.Conn.RemoteAddr())
-		isBanned, banMsg = server.checkBans(realIP)
+		// skip the ban check for k8s-style proxy-before-TLS
+		if proxyLine == "" {
+			isBanned, banMsg = server.checkBans(realIP)
+		}
 	}
 
 	if isBanned {
