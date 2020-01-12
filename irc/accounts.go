@@ -1129,6 +1129,7 @@ func (am *AccountManager) ModifyAccountSettings(account string, munger settingsM
 type VHostInfo struct {
 	ApprovedVHost   string
 	Enabled         bool
+	Forbidden       bool
 	RequestedVHost  string
 	RejectedVHost   string
 	RejectionReason string
@@ -1205,6 +1206,16 @@ func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (result 
 	}
 
 	return am.performVHostChange(client.Account(), munger)
+}
+
+func (am *AccountManager) VHostForbid(account string, forbid bool) (result VHostInfo, err error) {
+	munger := func(input VHostInfo) (output VHostInfo, err error) {
+		output = input
+		output.Forbidden = forbid
+		return
+	}
+
+	return am.performVHostChange(account, munger)
 }
 
 func (am *AccountManager) performVHostChange(account string, munger vhostMunger) (result VHostInfo, err error) {
@@ -1322,7 +1333,7 @@ func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	}
 
 	vhost := ""
-	if info.Enabled {
+	if info.Enabled && !info.Forbidden {
 		vhost = info.ApprovedVHost
 	}
 	oldNickmask := client.NickMaskString()
