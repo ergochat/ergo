@@ -391,12 +391,12 @@ func hsOfferListHandler(server *Server, client *Client, command string, params [
 		if vhostConfig.UserRequests.Enabled {
 			hsNotice(rb, client.t("The server does not offer any vhosts (but you can request one with /HOSTSERV REQUEST)"))
 		} else {
-			hsNotice(rb, client.t("The server does not offer any vhosts)"))
+			hsNotice(rb, client.t("The server does not offer any vhosts"))
 		}
 	} else {
 		hsNotice(rb, client.t("The following vhosts are available and can be chosen with /HOSTSERV TAKE:"))
-		for i, vhost := range vhostConfig.OfferList {
-			hsNotice(rb, fmt.Sprintf("%d. %s", i+1, vhost))
+		for _, vhost := range vhostConfig.OfferList {
+			hsNotice(rb, vhost)
 		}
 	}
 }
