@@ -165,7 +165,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
-	if globalCasemappingSetting == CasemappingPRECIS {
+	if config.Server.Casemapping == CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
 	}
 
