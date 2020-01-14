@@ -214,6 +214,9 @@ func (cm *ChannelManager) SetRegistered(channelName string, account string) (err
 		return err
 	}
 	cm.registeredChannels.Add(cfname)
+	if skel, err := Skeleton(channel.Name()); err == nil {
+		cm.registeredSkeletons.Add(skel)
+	}
 	return nil
 }
 
@@ -243,6 +246,9 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 	}
 	entry.channel.SetUnregistered(account)
 	delete(cm.registeredChannels, cfname)
+	if skel, err := Skeleton(entry.channel.Name()); err == nil {
+		delete(cm.registeredSkeletons, skel)
+	}
 	return nil
 }
 
@@ -350,9 +356,9 @@ func (cm *ChannelManager) IsPurged(chname string) (result bool) {
 		return false
 	}
 
-	cm.Lock()
+	cm.RLock()
 	result = cm.purgedChannels.Has(chname)
-	cm.Unlock()
+	cm.RUnlock()
 	return
 }
 
