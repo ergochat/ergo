@@ -133,46 +133,6 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	return server, nil
 }
 
-// setISupport sets up our RPL_ISUPPORT reply.
-func (config *Config) generateISupport() (err error) {
-	maxTargetsString := strconv.Itoa(maxTargets)
-
-	// add RPL_ISUPPORT tokens
-	isupport := &config.Server.isupport
-	isupport.Initialize()
-	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
-	isupport.Add("CASEMAPPING", "ascii")
-	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
-	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
-	if config.History.Enabled && config.History.ChathistoryMax > 0 {
-		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
-	}
-	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
-	isupport.Add("CHANTYPES", chanTypes)
-	isupport.Add("ELIST", "U")
-	isupport.Add("EXCEPTS", "")
-	isupport.Add("INVEX", "")
-	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
-	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
-	isupport.Add("MAXTARGETS", maxTargetsString)
-	isupport.Add("MODES", "")
-	isupport.Add("MONITOR", strconv.Itoa(config.Limits.MonitorEntries))
-	isupport.Add("NETWORK", config.Network.Name)
-	isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
-	isupport.Add("PREFIX", "(qaohv)~&@%+")
-	isupport.Add("RPCHAN", "E")
-	isupport.Add("RPUSER", "E")
-	isupport.Add("STATUSMSG", "~&@%+")
-	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
-	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
-	if globalCasemappingSetting == CasemappingPRECIS {
-		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
-	}
-
-	err = isupport.RegenerateCachedReply()
-	return
-}
-
 // Shutdown shuts down the server.
 func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
