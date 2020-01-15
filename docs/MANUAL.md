@@ -419,6 +419,13 @@ Many clients do not have this support. However, you can designate port 6667 as a
         duration: 1mo2d5m
 ```
 
+## Reverse proxies
+
+You may want to configure a reverse proxy, such as nginx, for TLS termination --- for example, because you need to support versions of the TLS protocol that are not implemented natively by Go, or because you want to consolidate your certificate management into a single nginx instance. Oragono supports the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for preserving the end user's IP in this case. To configure a reverse proxy, use the following steps:
+
+1. Add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
+1. Configure your reverse proxy to connect to an appropriate Oragono listener and send the PROXY line. In this [example nginx config](https://github.com/darwin-network/slash/commit/aae9ba08d70128eb4b700cade333fe824a53562d), nginx connects to Oragono via a Unix domain socket.
+
 
 --------------------------------------------------------------------------------------------
 
