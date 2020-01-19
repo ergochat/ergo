@@ -50,15 +50,7 @@ type Item struct {
 
 // HasMsgid tests whether a message has the message id `msgid`.
 func (item *Item) HasMsgid(msgid string) bool {
-	if item.Message.Msgid == msgid {
-		return true
-	}
-	for _, pair := range item.Message.Wrapped {
-		if pair.Msgid == msgid {
-			return true
-		}
-	}
-	return false
+	return item.Message.Msgid == msgid
 }
 
 func (item *Item) isStorable() bool {

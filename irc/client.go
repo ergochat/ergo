@@ -112,7 +112,6 @@ type Session struct {
 	quitMessage string
 
 	capabilities caps.Set
-	maxlenRest   uint32
 	capState     caps.State
 	capVersion   caps.Version
 
@@ -146,21 +145,6 @@ func (sd *Session) SetQuitMessage(message string) (set bool) {
 	} else {
 		return false
 	}
-}
-
-// set the negotiated message length based on session capabilities
-func (session *Session) SetMaxlenRest() {
-	maxlenRest := 512
-	if session.capabilities.Has(caps.MaxLine) {
-		maxlenRest = session.client.server.Config().Limits.LineLen.Rest
-	}
-	atomic.StoreUint32(&session.maxlenRest, uint32(maxlenRest))
-}
-
-// allow the negotiated message length limit to be read without locks; this is a convenience
-// so that Session.SendRawMessage doesn't have to acquire any Client locks
-func (session *Session) MaxlenRest() int {
-	return int(atomic.LoadUint32(&session.maxlenRest))
 }
 
 // returns whether the session was actively destroyed (for example, by ping
@@ -240,9 +224,8 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 
 	now := time.Now().UTC()
 	config := server.Config()
-	fullLineLenLimit := ircmsg.MaxlenTagsFromClient + config.Limits.LineLen.Rest
 	// give them 1k of grace over the limit:
-	socket := NewSocket(conn.Conn, fullLineLenLimit+1024, config.Server.MaxSendQBytes)
+	socket := NewSocket(conn.Conn, ircmsg.MaxlenTagsFromClient+512+1024, config.Server.MaxSendQBytes)
 	client := &Client{
 		atime:     now,
 		channels:  make(ChannelSet),
@@ -271,7 +254,6 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		atime:      now,
 		realIP:     realIP,
 	}
-	session.SetMaxlenRest()
 	client.sessions = []*Session{session}
 
 	if conn.Config.TLSConfig != nil {
@@ -493,8 +475,6 @@ func (client *Client) run(session *Session, proxyLine string) {
 	firstLine := !isReattach
 
 	for {
-		maxlenRest := session.MaxlenRest()
-
 		var line string
 		var err error
 		if proxyLine == "" {
@@ -545,7 +525,7 @@ func (client *Client) run(session *Session, proxyLine string) {
 			}
 		}
 
-		msg, err := ircmsg.ParseLineStrict(line, true, maxlenRest)
+		msg, err := ircmsg.ParseLineStrict(line, true, 512)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorLineTooLong {
@@ -1161,7 +1141,7 @@ func (client *Client) destroy(session *Session) {
 	// clean up monitor state
 	client.server.monitorManager.RemoveAll(client)
 
-	splitQuitMessage := utils.MakeSplitMessage(quitMessage, true)
+	splitQuitMessage := utils.MakeMessage(quitMessage)
 	// clean up channels
 	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
@@ -1216,7 +1196,8 @@ func (client *Client) destroy(session *Session) {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
-	if message.Is512() || session.capabilities.Has(caps.MaxLine) {
+	// TODO no maxline support
+	if message.Is512() {
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
 		if message.IsMultiline() && session.capabilities.Has(caps.Multiline) {
@@ -1224,8 +1205,12 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, 
 				session.SendRawMessage(msg, blocking)
 			}
 		} else {
-			for _, messagePair := range message.Wrapped {
-				session.sendFromClientInternal(blocking, message.Time, messagePair.Msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+			for i, messagePair := range message.Split {
+				var msgid string
+				if i == 0 {
+					msgid = message.Msgid
+				}
+				session.sendFromClientInternal(blocking, message.Time, msgid, nickmask, accountName, tags, command, target, messagePair.Message)
 			}
 		}
 	}
@@ -1268,10 +1253,9 @@ func (session *Session) composeMultilineBatch(fromNickMask, fromAccount string, 
 	}
 	result = append(result, batchStart)
 
-	for _, msg := range message.Wrapped {
+	for _, msg := range message.Split {
 		message := ircmsg.MakeMessage(nil, fromNickMask, command, target, msg.Message)
 		message.SetTag("batch", batchID)
-		message.SetTag(caps.MultilineFmsgidTag, msg.Msgid)
 		if msg.Concat {
 			message.SetTag(caps.MultilineConcatTag, "")
 		}
@@ -1310,8 +1294,7 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 	}
 
 	// assemble message
-	maxlenRest := session.MaxlenRest()
-	line, err := message.LineBytesStrict(false, maxlenRest)
+	line, err := message.LineBytesStrict(false, 512)
 	if err != nil {
 		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
 		session.client.server.logger.Error("internal", logline)

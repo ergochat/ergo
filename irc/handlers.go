@@ -366,7 +366,6 @@ func batchHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		} else {
 			batch := rb.session.batch
 			rb.session.batch = MultilineBatch{}
-			batch.message.Time = time.Now().UTC()
 			histType, err := msgCommandToHistType(batch.command)
 			if err != nil {
 				histType = history.Privmsg
@@ -515,10 +514,6 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 				rb.session.SetResumeID(id)
 			}
 		}
-
-		// update maxlenrest, just in case they altered the maxline cap
-		rb.session.SetMaxlenRest()
-
 	case "END":
 		if !client.registered {
 			rb.session.capState = caps.NegotiatedState
@@ -1962,7 +1957,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			break
 		}
 		// each target gets distinct msgids
-		splitMsg := utils.MakeSplitMessage(message, !rb.session.capabilities.Has(caps.MaxLine))
+		splitMsg := utils.MakeMessage(message)
 		dispatchMessageToTarget(client, clientOnlyTags, histType, msg.Command, targetString, splitMsg, rb)
 	}
 	return false

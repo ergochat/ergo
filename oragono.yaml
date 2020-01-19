@@ -586,13 +586,6 @@ limits:
     # maximum length of channel lists (beI modes)
     chan-list-modes: 60
 
-    # maximum length of IRC lines
-    # this should generally be 1024-2048, and will only apply when negotiated by clients
-    linelen:
-        # ratified version of the message-tags cap fixes the max tag length at 8191 bytes
-        # configurable length for the rest of the message:
-        rest: 2048
-
     # maximum number of messages to accept during registration (prevents
     # DoS / resource exhaustion attacks):
     registration-messages: 1024

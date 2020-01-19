@@ -15,120 +15,62 @@ func IsRestrictedCTCPMessage(message string) bool {
 	return strings.HasPrefix(message, "\x01") && !strings.HasPrefix(message, "\x01ACTION")
 }
 
-// WordWrap wraps the given text into a series of lines that don't exceed lineWidth characters.
-func WordWrap(text string, lineWidth int) []string {
-	var lines []string
-	var cacheLine, cacheWord bytes.Buffer
-
-	for _, char := range text {
-		if char == '\r' {
-			continue
-		} else if char == '\n' {
-			cacheLine.Write(cacheWord.Bytes())
-			lines = append(lines, cacheLine.String())
-			cacheWord.Reset()
-			cacheLine.Reset()
-		} else if (char == ' ' || char == '-') && cacheLine.Len()+cacheWord.Len()+1 < lineWidth {
-			// natural word boundary
-			cacheLine.Write(cacheWord.Bytes())
-			cacheLine.WriteRune(char)
-			cacheWord.Reset()
-		} else if lineWidth <= cacheLine.Len()+cacheWord.Len()+1 {
-			// time to wrap to next line
-			if cacheLine.Len() < (lineWidth / 2) {
-				// this word takes up more than half a line... just split in the middle of the word
-				cacheLine.Write(cacheWord.Bytes())
-				cacheLine.WriteRune(char)
-				cacheWord.Reset()
-			} else {
-				cacheWord.WriteRune(char)
-			}
-			lines = append(lines, cacheLine.String())
-			cacheLine.Reset()
-		} else {
-			// normal character
-			cacheWord.WriteRune(char)
-		}
-	}
-	if 0 < cacheWord.Len() {
-		cacheLine.Write(cacheWord.Bytes())
-	}
-	if 0 < cacheLine.Len() {
-		lines = append(lines, cacheLine.String())
-	}
-
-	return lines
-}
-
 type MessagePair struct {
 	Message string
-	Msgid   string
 	Concat  bool // should be relayed with the multiline-concat tag
 }
 
 // SplitMessage represents a message that's been split for sending.
-// Three possibilities:
+// Two possibilities:
 // (a) Standard message that can be relayed on a single 512-byte line
 //     (MessagePair contains the message, Wrapped == nil)
-// (b) oragono.io/maxline-2 message that was split on the server side
-//     (MessagePair contains the unsplit message, Wrapped contains the split lines)
-// (c) multiline message that was split on the client side
-//     (MessagePair is zero, Wrapped contains the split lines)
+// (b) multiline message that was split on the client side
+//     (Message == "", Wrapped contains the split lines)
 type SplitMessage struct {
-	MessagePair
-	Wrapped []MessagePair // if this is nil, `Message` didn't need wrapping and can be sent to anyone
+	Message string
+	Msgid   string
+	Split   []MessagePair
 	Time    time.Time
 }
 
-const defaultLineWidth = 400
-
-func MakeSplitMessage(original string, origIs512 bool) (result SplitMessage) {
+func MakeMessage(original string) (result SplitMessage) {
 	result.Message = original
 	result.Msgid = GenerateSecretToken()
 	result.Time = time.Now().UTC()
-
-	if !origIs512 && defaultLineWidth < len(original) {
-		wrapped := WordWrap(original, defaultLineWidth)
-		result.Wrapped = make([]MessagePair, len(wrapped))
-		for i, wrappedMessage := range wrapped {
-			result.Wrapped[i] = MessagePair{
-				Message: wrappedMessage,
-				Msgid:   GenerateSecretToken(),
-			}
-		}
-	}
 
 	return
 }
 
 func (sm *SplitMessage) Append(message string, concat bool) {
+	if sm.Time.IsZero() {
+		sm.Time = time.Now().UTC()
+	}
 	if sm.Msgid == "" {
 		sm.Msgid = GenerateSecretToken()
 	}
-	sm.Wrapped = append(sm.Wrapped, MessagePair{
+	sm.Split = append(sm.Split, MessagePair{
 		Message: message,
-		Msgid:   GenerateSecretToken(),
 		Concat:  concat,
 	})
 }
 
 func (sm *SplitMessage) LenLines() int {
-	if sm.Wrapped == nil {
-		if (sm.MessagePair == MessagePair{}) {
+	if sm.Split == nil {
+		if sm.Message == "" {
 			return 0
 		} else {
 			return 1
 		}
 	}
-	return len(sm.Wrapped)
+	return len(sm.Split)
 }
 
 func (sm *SplitMessage) LenBytes() (result int) {
-	if sm.Wrapped == nil {
+	if sm.Split == nil {
 		return len(sm.Message)
 	}
-	for i := 0; i < len(sm.Wrapped); i++ {
-		result += len(sm.Wrapped[i].Message)
+	for i := 0; i < len(sm.Split); i++ {
+		result += len(sm.Split[i].Message)
 	}
 	return
 }
@@ -137,8 +79,8 @@ func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {
 	if IsRestrictedCTCPMessage(sm.Message) {
 		return true
 	}
-	for i := 0; i < len(sm.Wrapped); i++ {
-		if IsRestrictedCTCPMessage(sm.Wrapped[i].Message) {
+	for i := 0; i < len(sm.Split); i++ {
+		if IsRestrictedCTCPMessage(sm.Split[i].Message) {
 			return true
 		}
 	}
@@ -146,11 +88,11 @@ func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {
 }
 
 func (sm *SplitMessage) IsMultiline() bool {
-	return sm.Message == "" && len(sm.Wrapped) != 0
+	return sm.Message == "" && len(sm.Split) != 0
 }
 
 func (sm *SplitMessage) Is512() bool {
-	return sm.Message != "" && sm.Wrapped == nil
+	return sm.Message != ""
 }
 
 // TokenLineBuilder is a helper for building IRC lines composed of delimited tokens,

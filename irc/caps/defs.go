@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 27
+	numCapabs = 26
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -89,10 +89,6 @@ const (
 	// https://oragono.io/bnc
 	Bouncer Capability = iota
 
-	// MaxLine is the Oragono-specific capability named "oragono.io/maxline-2":
-	// https://oragono.io/maxline-2
-	MaxLine Capability = iota
-
 	// Nope is the Oragono vendor capability named "oragono.io/nope":
 	// https://oragono.io/nope
 	Nope Capability = iota
@@ -144,7 +140,6 @@ var (
 		"message-tags",
 		"multi-prefix",
 		"oragono.io/bnc",
-		"oragono.io/maxline-2",
 		"oragono.io/nope",
 		"sasl",
 		"server-time",

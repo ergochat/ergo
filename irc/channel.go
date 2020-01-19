@@ -643,7 +643,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		channel.regenerateMembersCache()
 
-		message = utils.MakeSplitMessage("", true)
+		message = utils.MakeMessage("")
 		histItem := history.Item{
 			Type:        history.Join,
 			Nick:        details.nickMask,
@@ -766,7 +766,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 
 	channel.Quit(client)
 
-	splitMessage := utils.MakeSplitMessage(message, true)
+	splitMessage := utils.MakeMessage(message)
 
 	details := client.Details()
 	params := make([]string, 1, 2)
@@ -1233,7 +1233,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		comment = comment[:kicklimit]
 	}
 
-	message := utils.MakeSplitMessage(comment, true)
+	message := utils.MakeMessage(comment)
 	clientMask := client.NickMaskString()
 	clientAccount := client.AccountName()
 

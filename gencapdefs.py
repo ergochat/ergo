@@ -82,12 +82,6 @@ CAPDEFS = [
         standard="proposed IRCv3",
     ),
     CapDef(
-        identifier="MaxLine",
-        name="oragono.io/maxline-2",
-        url="https://oragono.io/maxline-2",
-        standard="Oragono-specific",
-    ),
-    CapDef(
         identifier="MessageTags",
         name="message-tags",
         url="https://ircv3.net/specs/extensions/message-tags.html",
