@@ -42,9 +42,6 @@ func MakeMessage(original string) (result SplitMessage) {
 }
 
 func (sm *SplitMessage) Append(message string, concat bool) {
-	if sm.Time.IsZero() {
-		sm.Time = time.Now().UTC()
-	}
 	if sm.Msgid == "" {
 		sm.Msgid = GenerateSecretToken()
 	}
@@ -52,6 +49,10 @@ func (sm *SplitMessage) Append(message string, concat bool) {
 		Message: message,
 		Concat:  concat,
 	})
+}
+
+func (sm *SplitMessage) SetTime() {
+	sm.Time = time.Now().UTC()
 }
 
 func (sm *SplitMessage) LenLines() int {
