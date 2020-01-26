@@ -2011,13 +2011,16 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		allowedTor := !user.isTor || !message.IsRestrictedCTCPMessage()
 		if allowedPlusR && allowedTor {
 			for _, session := range user.Sessions() {
-				if histType == history.Tagmsg {
-					// don't send TAGMSG at all if they don't have the tags cap
-					if session.capabilities.Has(caps.MessageTags) {
-						session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+				hasTagsCap := session.capabilities.Has(caps.MessageTags)
+				// don't send TAGMSG at all if they don't have the tags cap
+				if histType == history.Tagmsg && hasTagsCap {
+					session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+				} else if histType != history.Tagmsg {
+					tagsToSend := tags
+					if !hasTagsCap {
+						tagsToSend = nil
 					}
-				} else {
-					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tags, command, tnick, message)
+					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
 				}
 			}
 		}
@@ -2034,10 +2037,15 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			if session == rb.session {
 				continue
 			}
-			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+			hasTagsCap := session.capabilities.Has(caps.MessageTags)
+			if histType == history.Tagmsg && hasTagsCap {
 				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
 			} else if histType != history.Tagmsg {
-				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tags, command, tnick, message)
+				tagsToSend := tags
+				if !hasTagsCap {
+					tagsToSend = nil
+				}
+				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
 			}
 		}
 		if histType != history.Notice && user.Away() {
