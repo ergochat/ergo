@@ -57,7 +57,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return false
 	}
 
-	message := utils.MakeSplitMessage("", true)
+	message := utils.MakeMessage("")
 	histItem := history.Item{
 		Type:        history.Nick,
 		Nick:        origNickMask,

@@ -564,10 +564,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		globalCasemappingSetting = config.Server.Casemapping
 	} else {
 		// enforce configs that can't be changed after launch:
-		currentLimits := server.Config().Limits
-		if currentLimits.LineLen.Rest != config.Limits.LineLen.Rest {
-			return fmt.Errorf("Maximum line length (linelen) cannot be changed after launching the server, rehash aborted")
-		} else if server.name != config.Server.Name {
+		if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
 		} else if server.Config().Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")

@@ -237,24 +237,18 @@ type OperConfig struct {
 	Modes       string
 }
 
-// LineLenConfig controls line lengths.
-type LineLenLimits struct {
-	Rest int
-}
-
 // Various server-enforced limits on data size.
 type Limits struct {
-	AwayLen              int           `yaml:"awaylen"`
-	ChanListModes        int           `yaml:"chan-list-modes"`
-	ChannelLen           int           `yaml:"channellen"`
-	IdentLen             int           `yaml:"identlen"`
-	KickLen              int           `yaml:"kicklen"`
-	LineLen              LineLenLimits `yaml:"linelen"`
-	MonitorEntries       int           `yaml:"monitor-entries"`
-	NickLen              int           `yaml:"nicklen"`
-	TopicLen             int           `yaml:"topiclen"`
-	WhowasEntries        int           `yaml:"whowas-entries"`
-	RegistrationMessages int           `yaml:"registration-messages"`
+	AwayLen              int `yaml:"awaylen"`
+	ChanListModes        int `yaml:"chan-list-modes"`
+	ChannelLen           int `yaml:"channellen"`
+	IdentLen             int `yaml:"identlen"`
+	KickLen              int `yaml:"kicklen"`
+	MonitorEntries       int `yaml:"monitor-entries"`
+	NickLen              int `yaml:"nicklen"`
+	TopicLen             int `yaml:"topiclen"`
+	WhowasEntries        int `yaml:"whowas-entries"`
+	RegistrationMessages int `yaml:"registration-messages"`
 	Multiline            struct {
 		MaxBytes int `yaml:"max-bytes"`
 		MaxLines int `yaml:"max-lines"`
@@ -671,7 +665,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}
 		if config.Server.STS.STSOnlyBanner != "" {
-			config.Server.STS.bannerLines = utils.WordWrap(config.Server.STS.STSOnlyBanner, 400)
+			for _, line := range strings.Split(config.Server.STS.STSOnlyBanner, "\n") {
+				config.Server.STS.bannerLines = append(config.Server.STS.bannerLines, strings.TrimSpace(line))
+			}
 		} else {
 			config.Server.STS.bannerLines = []string{fmt.Sprintf("This server is only accessible over TLS. Please reconnect using TLS on port %d.", config.Server.STS.Port)}
 		}
@@ -704,16 +700,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		newWebIRC = append(newWebIRC, webirc)
 	}
 	config.Server.WebIRC = newWebIRC
-
-	// process limits
-	if config.Limits.LineLen.Rest < 512 {
-		config.Limits.LineLen.Rest = 512
-	}
-	if config.Limits.LineLen.Rest == 512 {
-		config.Server.supportedCaps.Disable(caps.MaxLine)
-	} else {
-		config.Server.capValues[caps.MaxLine] = strconv.Itoa(config.Limits.LineLen.Rest)
-	}
 
 	if config.Limits.Multiline.MaxBytes <= 0 {
 		config.Server.supportedCaps.Disable(caps.Multiline)
