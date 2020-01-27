@@ -608,6 +608,10 @@ This mode is enabled by default, and means that only channel operators can chang
 
 If this mode is unset, anyone will be able to change the channel topic.
 
+### +C - No CTCPs
+
+This mode means that [client-to-client protocol](https://tools.ietf.org/id/draft-oakley-irc-ctcp-01.html) messages other than `ACTION` (`/me`) cannot be sent to the channel.
+
 
 ## Channel Prefixes
 
