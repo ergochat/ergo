@@ -21,6 +21,7 @@ var (
 	SupportedChannelModes = Modes{
 		BanMask, ChanRoleplaying, ExceptMask, InviteMask, InviteOnly, Key,
 		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, Secret, UserLimit,
+		NoCTCP,
 	}
 )
 
@@ -132,6 +133,7 @@ const (
 	// RegisteredOnly mode is reused here from umode definition
 	Secret    Mode = 's' // flag
 	UserLimit Mode = 'l' // flag arg
+	NoCTCP    Mode = 'C' // flag
 )
 
 var (

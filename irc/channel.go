@@ -1070,6 +1070,14 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		return
 	}
 
+	isCTCP := message.IsRestrictedCTCPMessage()
+	if isCTCP && channel.flags.HasMode(modes.NoCTCP) {
+		if histType != history.Notice {
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, client.Nick(), channel.Name(), fmt.Sprintf(client.t("Cannot send to channel (+%s)"), "C"))
+		}
+		return
+	}
+
 	nickmask := client.NickMaskString()
 	account := client.AccountName()
 	chname := channel.Name()
@@ -1115,6 +1123,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
+		}
+		if isCTCP && member.isTor {
+			continue // #753
 		}
 
 		for _, session := range member.Sessions() {
