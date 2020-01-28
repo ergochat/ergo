@@ -610,7 +610,7 @@ If this mode is unset, anyone will be able to change the channel topic.
 
 ### +C - No CTCPs
 
-This mode means that [client-to-client protocol](https://tools.ietf.org/id/draft-oakley-irc-ctcp-01.html) messages other than `ACTION` (`/me`) cannot be sent to the channel.
+This mode means that [client-to-client protocol](https://tools.ietf.org/id/draft-oakley-irc-ctcp-02.html) messages other than `ACTION` (`/me`) cannot be sent to the channel.
 
 
 ## Channel Prefixes
