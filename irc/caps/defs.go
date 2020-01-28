@@ -41,10 +41,6 @@ const (
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
 
-	// LabeledResponse is the draft IRCv3 capability named "draft/labeled-response-0.2":
-	// https://ircv3.net/specs/extensions/labeled-response.html
-	LabeledResponse Capability = iota
-
 	// Languages is the proposed IRCv3 capability named "draft/languages":
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
@@ -76,6 +72,10 @@ const (
 	// InviteNotify is the IRCv3 capability named "invite-notify":
 	// https://ircv3.net/specs/extensions/invite-notify-3.2.html
 	InviteNotify Capability = iota
+
+	// LabeledResponse is the IRCv3 capability named "labeled-response":
+	// https://ircv3.net/specs/extensions/labeled-response.html
+	LabeledResponse Capability = iota
 
 	// MessageTags is the IRCv3 capability named "message-tags":
 	// https://ircv3.net/specs/extensions/message-tags.html
@@ -128,7 +128,6 @@ var (
 		"cap-notify",
 		"chghost",
 		"draft/event-playback",
-		"draft/labeled-response-0.2",
 		"draft/languages",
 		"draft/multiline",
 		"draft/rename",
@@ -137,6 +136,7 @@ var (
 		"echo-message",
 		"extended-join",
 		"invite-notify",
+		"labeled-response",
 		"message-tags",
 		"multi-prefix",
 		"oragono.io/bnc",
