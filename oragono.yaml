@@ -152,7 +152,7 @@ server:
 
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold bursts of channel/direct messages
-    max-sendq: 16k
+    max-sendq: 96k
 
     # compatibility with legacy clients
     compatibility:
@@ -593,7 +593,7 @@ limits:
     # message length limits for the new multiline cap
     multiline:
         max-bytes: 4096 # 0 means disabled
-        max-lines: 24   # 0 means no limit
+        max-lines: 100  # 0 means no limit
 
 # fakelag: prevents clients from spamming commands too rapidly
 fakelag:
