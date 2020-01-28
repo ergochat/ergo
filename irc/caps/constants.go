@@ -54,7 +54,7 @@ const (
 const (
 	// LabelTagName is the tag name used for the labeled-response spec.
 	// https://ircv3.net/specs/extensions/labeled-response.html
-	LabelTagName = "draft/label"
+	LabelTagName = "label"
 	// More draft names associated with draft/multiline:
 	MultilineBatchType = "draft/multiline"
 	MultilineConcatTag = "draft/multiline-concat"
