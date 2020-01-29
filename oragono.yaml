@@ -380,6 +380,10 @@ accounts:
             # before they can request a new one.
             cooldown: 168h
 
+        # vhosts that users can take without approval, using `/HS TAKE`
+        offer-list:
+            #- "oragono.test"
+
 # channel options
 channels:
     # modes that are set when new channels are created
