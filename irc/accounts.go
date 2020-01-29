@@ -1142,12 +1142,40 @@ type PendingVHostRequest struct {
 	Account string
 }
 
+type vhostThrottleExceeded struct {
+	timeRemaining time.Duration
+}
+
+func (vhe *vhostThrottleExceeded) Error() string {
+	return fmt.Sprintf("Wait at least %v and try again", vhe.timeRemaining)
+}
+
+func (vh *VHostInfo) checkThrottle(cooldown time.Duration) (err error) {
+	if cooldown == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	elapsed := now.Sub(vh.LastRequestTime)
+	if elapsed > cooldown {
+		// success
+		vh.LastRequestTime = now
+		return nil
+	} else {
+		return &vhostThrottleExceeded{timeRemaining: cooldown - elapsed}
+	}
+}
+
 // callback type implementing the actual business logic of vhost operations
 type vhostMunger func(input VHostInfo) (output VHostInfo, err error)
 
-func (am *AccountManager) VHostSet(account string, vhost string) (result VHostInfo, err error) {
+func (am *AccountManager) VHostSet(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
+		err = output.checkThrottle(cooldown)
+		if err != nil {
+			return
+		}
 		output.Enabled = true
 		output.ApprovedVHost = vhost
 		return
@@ -1156,9 +1184,17 @@ func (am *AccountManager) VHostSet(account string, vhost string) (result VHostIn
 	return am.performVHostChange(account, munger)
 }
 
-func (am *AccountManager) VHostRequest(account string, vhost string) (result VHostInfo, err error) {
+func (am *AccountManager) VHostRequest(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
+		// you can update your existing request, but if you were approved or rejected,
+		// you can't spam a new request
+		if output.RequestedVHost == "" {
+			err = output.checkThrottle(cooldown)
+		}
+		if err != nil {
+			return
+		}
 		output.RequestedVHost = vhost
 		output.RejectedVHost = ""
 		output.RejectionReason = ""

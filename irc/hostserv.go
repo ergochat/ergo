@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"time"
 )
 
 const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
@@ -213,23 +212,13 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 	}
 
 	accountName := client.Account()
-	account, err := server.accounts.LoadAccount(client.Account())
+	_, err := server.accounts.VHostRequest(accountName, vhost, server.Config().Accounts.VHosts.UserRequests.Cooldown)
 	if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
-		return
-	}
-	elapsed := time.Since(account.VHost.LastRequestTime)
-	remainingTime := server.AccountConfig().VHosts.UserRequests.Cooldown - elapsed
-	// you can update your existing request, but if you were rejected,
-	// you can't spam a replacement request
-	if account.VHost.RequestedVHost == "" && remainingTime > 0 {
-		hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), remainingTime))
-		return
-	}
-
-	_, err = server.accounts.VHostRequest(accountName, vhost)
-	if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
+		if throttled, ok := err.(*vhostThrottleExceeded); ok {
+			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), throttled.timeRemaining))
+		} else {
+			hsNotice(rb, client.t("An error occurred"))
+		}
 	} else {
 		hsNotice(rb, client.t("Your vhost request will be reviewed by an administrator"))
 		chanMsg := fmt.Sprintf("Account %s requests vhost %s", accountName, vhost)
@@ -309,7 +298,7 @@ func hsSetHandler(server *Server, client *Client, command string, params []strin
 	}
 	// else: command == "del", vhost == ""
 
-	_, err := server.accounts.VHostSet(user, vhost)
+	_, err := server.accounts.VHostSet(user, vhost, 0)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
@@ -402,9 +391,10 @@ func hsOfferListHandler(server *Server, client *Client, command string, params [
 }
 
 func hsTakeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	config := server.Config()
 	vhost := params[0]
 	found := false
-	for _, offered := range server.Config().Accounts.VHosts.OfferList {
+	for _, offered := range config.Accounts.VHosts.OfferList {
 		if offered == vhost {
 			found = true
 		}
@@ -414,9 +404,13 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 		return
 	}
 
-	_, err := server.accounts.VHostSet(client.Account(), vhost)
+	_, err := server.accounts.VHostSet(client.Account(), vhost, config.Accounts.VHosts.UserRequests.Cooldown)
 	if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
+		if throttled, ok := err.(*vhostThrottleExceeded); ok {
+			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))
+		} else {
+			hsNotice(rb, client.t("An error occurred"))
+		}
 	} else if vhost != "" {
 		hsNotice(rb, client.t("Successfully set vhost"))
 	} else {
