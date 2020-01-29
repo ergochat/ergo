@@ -94,11 +94,10 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 		items, _ := client.history.Between(after, before, false, config.History.ChathistoryMax)
 		client.replayPrivmsgHistory(rb, items, true)
 	} else {
+		targets = make(StringSet)
+		// TODO actually handle nickname targets
 		for _, targetName := range strings.Split(targetString, ",") {
 			if cfTarget, err := CasefoldChannel(targetName); err == nil {
-				if targets == nil {
-					targets = make(StringSet)
-				}
 				targets.Add(cfTarget)
 			}
 		}
