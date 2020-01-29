@@ -704,7 +704,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 	// autoreplay any messages as necessary
 	config := channel.server.Config()
 	var items []history.Item
-	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets[channel.NameCasefolded()]) {
+	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets.Has(channel.NameCasefolded())) {
 		items, _ = channel.history.Between(rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before, false, config.History.ChathistoryMax)
 	} else if !rb.session.HasHistoryCaps() {
 		var replayLimit int

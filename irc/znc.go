@@ -49,7 +49,7 @@ func zncWireTimeToTime(str string) (result time.Time) {
 type zncPlaybackTimes struct {
 	after   time.Time
 	before  time.Time
-	targets map[string]bool // nil for "*" (everything), otherwise the channel names
+	targets StringSet // nil for "*" (everything), otherwise the channel names
 }
 
 // https://wiki.znc.in/Playback
@@ -71,12 +71,13 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 		before = zncWireTimeToTime(params[3])
 	}
 
-	var targets map[string]bool
+	var targets StringSet
 
 	// three cases:
 	// 1. the user's PMs get played back immediately upon receiving this
 	// 2. if this is a new connection (from the server's POV), save the information
-	// and use it to process subsequent joins
+	// and use it to process subsequent joins. (This is the Textual behavior:
+	// first send the playback PRIVMSG, then send the JOIN lines.)
 	// 3. if this is a reattach (from the server's POV), immediately play back
 	// history for channels that the client is already joined to. In this scenario,
 	// there are three total attempts to play the history:
@@ -96,9 +97,9 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 		for _, targetName := range strings.Split(targetString, ",") {
 			if cfTarget, err := CasefoldChannel(targetName); err == nil {
 				if targets == nil {
-					targets = make(map[string]bool)
+					targets = make(StringSet)
 				}
-				targets[cfTarget] = true
+				targets.Add(cfTarget)
 			}
 		}
 	}
@@ -110,7 +111,9 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	}
 
 	for _, channel := range client.Channels() {
-		channel.autoReplayHistory(client, rb, "")
-		rb.Flush(true)
+		if targets == nil || targets.Has(channel.NameCasefolded()) {
+			channel.autoReplayHistory(client, rb, "")
+			rb.Flush(true)
+		}
 	}
 }
