@@ -378,9 +378,9 @@ func hsForbidHandler(server *Server, client *Client, command string, params []st
 		hsNotice(rb, client.t("An error occurred"))
 	} else {
 		if forbidden {
-			hsNotice(rb, fmt.Sprintf(client.t("Successfully forbidden vhosts to user %s"), user))
+			hsNotice(rb, fmt.Sprintf(client.t("User %s is no longer allowed to use vhosts"), user))
 		} else {
-			hsNotice(rb, fmt.Sprintf(client.t("Successfully permitted vhosts for user %s"), user))
+			hsNotice(rb, fmt.Sprintf(client.t("User %s is now allowed to use vhosts"), user))
 		}
 	}
 }
@@ -389,7 +389,7 @@ func hsOfferListHandler(server *Server, client *Client, command string, params [
 	vhostConfig := server.Config().Accounts.VHosts
 	if len(vhostConfig.OfferList) == 0 {
 		if vhostConfig.UserRequests.Enabled {
-			hsNotice(rb, client.t("The server does not offer any vhosts (but you can request one with /HOSTSERV REQUEST)"))
+			hsNotice(rb, client.t("The server does not offer any vhosts, but you can request one with /HOSTSERV REQUEST"))
 		} else {
 			hsNotice(rb, client.t("The server does not offer any vhosts"))
 		}
