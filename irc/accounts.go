@@ -1183,6 +1183,10 @@ func (am *AccountManager) VHostSet(account string, vhost string) (result VHostIn
 func (am *AccountManager) VHostRequest(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
+		if input.Forbidden {
+			err = errVhostsForbidden
+			return
+		}
 		// you can update your existing request, but if you were approved or rejected,
 		// you can't spam a new request
 		if output.RequestedVHost == "" {
@@ -1204,7 +1208,10 @@ func (am *AccountManager) VHostRequest(account string, vhost string, cooldown ti
 func (am *AccountManager) VHostTake(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
-
+		if input.Forbidden {
+			err = errVhostsForbidden
+			return
+		}
 		// if you have a request pending, you can cancel it using take;
 		// otherwise, you're subject to the same throttling as if you were making a request
 		if output.RequestedVHost == "" {

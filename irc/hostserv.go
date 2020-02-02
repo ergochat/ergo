@@ -216,6 +216,8 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), throttled.timeRemaining))
+		} else if err == errVhostsForbidden {
+			hsNotice(rb, client.t("An administrator has denied you the ability to use vhosts"))
 		} else {
 			hsNotice(rb, client.t("An error occurred"))
 		}
@@ -408,6 +410,8 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))
+		} else if err == errVhostsForbidden {
+			hsNotice(rb, client.t("An administrator has denied you the ability to use vhosts"))
 		} else {
 			hsNotice(rb, client.t("An error occurred"))
 		}
