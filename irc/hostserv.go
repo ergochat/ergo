@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+
+	"github.com/oragono/oragono/irc/sno"
 )
 
 const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
@@ -225,7 +227,7 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 		hsNotice(rb, client.t("Your vhost request will be reviewed by an administrator"))
 		chanMsg := fmt.Sprintf("Account %s requests vhost %s", accountName, vhost)
 		hsNotifyChannel(server, chanMsg)
-		// TODO send admins a snomask of some kind
+		server.snomasks.Send(sno.LocalVhosts, chanMsg)
 	}
 }
 
@@ -328,6 +330,7 @@ func hsApproveHandler(server *Server, client *Client, command string, params []s
 		hsNotice(rb, fmt.Sprintf(client.t("Successfully approved vhost request for %s"), user))
 		chanMsg := fmt.Sprintf("Oper %[1]s approved vhost %[2]s for account %[3]s", client.Nick(), vhostInfo.ApprovedVHost, user)
 		hsNotifyChannel(server, chanMsg)
+		server.snomasks.Send(sno.LocalVhosts, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			client.Notice(client.t("Your vhost request was approved by an administrator"))
 		}
@@ -348,6 +351,7 @@ func hsRejectHandler(server *Server, client *Client, command string, params []st
 		hsNotice(rb, fmt.Sprintf(client.t("Successfully rejected vhost request for %s"), user))
 		chanMsg := fmt.Sprintf("Oper %s rejected vhost %s for account %s, with the reason: %v", client.Nick(), vhostInfo.RejectedVHost, user, reason)
 		hsNotifyChannel(server, chanMsg)
+		server.snomasks.Send(sno.LocalVhosts, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			if reason == "" {
 				client.Notice("Your vhost request was rejected by an administrator")
@@ -406,7 +410,8 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 		return
 	}
 
-	_, err := server.accounts.VHostTake(client.Account(), vhost, config.Accounts.VHosts.UserRequests.Cooldown)
+	account := client.Account()
+	_, err := server.accounts.VHostTake(account, vhost, config.Accounts.VHosts.UserRequests.Cooldown)
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))
@@ -415,9 +420,8 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 		} else {
 			hsNotice(rb, client.t("An error occurred"))
 		}
-	} else if vhost != "" {
-		hsNotice(rb, client.t("Successfully set vhost"))
 	} else {
-		hsNotice(rb, client.t("Successfully cleared vhost"))
+		hsNotice(rb, client.t("Successfully set vhost"))
+		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Client %s (account %s) took vhost %s", client.Nick(), account, vhost))
 	}
 }

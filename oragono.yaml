@@ -466,7 +466,7 @@ opers:
         vhost: "n"
 
         # modes are the modes to auto-set upon opering-up
-        modes: +is acjknoqtux
+        modes: +is acjknoqtuxv
 
         # operators can be authenticated either by password (with the /OPER command),
         # or by certificate fingerprint, or both. if a password hash is set, then a

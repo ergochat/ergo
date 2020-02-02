@@ -9,7 +9,7 @@ type Mask rune
 
 // Notice mask types
 const (
-	LocalAccouncements Mask = 'a'
+	LocalAnnouncements Mask = 'a'
 	LocalConnects      Mask = 'c'
 	LocalChannels      Mask = 'j'
 	LocalKills         Mask = 'k'
@@ -19,12 +19,13 @@ const (
 	Stats              Mask = 't'
 	LocalAccounts      Mask = 'u'
 	LocalXline         Mask = 'x'
+	LocalVhosts        Mask = 'v'
 )
 
 var (
 	// NoticeMaskNames has readable names for our snomask types.
 	NoticeMaskNames = map[Mask]string{
-		LocalAccouncements: "ANNOUNCEMENT",
+		LocalAnnouncements: "ANNOUNCEMENT",
 		LocalConnects:      "CONNECT",
 		LocalChannels:      "CHANNEL",
 		LocalKills:         "KILL",
@@ -34,11 +35,12 @@ var (
 		Stats:              "STATS",
 		LocalAccounts:      "ACCOUNT",
 		LocalXline:         "XLINE",
+		LocalVhosts:        "VHOST",
 	}
 
 	// ValidMasks contains the snomasks that we support.
 	ValidMasks = map[Mask]bool{
-		LocalAccouncements: true,
+		LocalAnnouncements: true,
 		LocalConnects:      true,
 		LocalChannels:      true,
 		LocalKills:         true,
@@ -48,5 +50,6 @@ var (
 		Stats:              true,
 		LocalAccounts:      true,
 		LocalXline:         true,
+		LocalVhosts:        true,
 	}
 )
