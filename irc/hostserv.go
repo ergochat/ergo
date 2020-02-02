@@ -298,7 +298,7 @@ func hsSetHandler(server *Server, client *Client, command string, params []strin
 	}
 	// else: command == "del", vhost == ""
 
-	_, err := server.accounts.VHostSet(user, vhost, 0)
+	_, err := server.accounts.VHostSet(user, vhost)
 	if err != nil {
 		hsNotice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
@@ -404,7 +404,7 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 		return
 	}
 
-	_, err := server.accounts.VHostSet(client.Account(), vhost, config.Accounts.VHosts.UserRequests.Cooldown)
+	_, err := server.accounts.VHostTake(client.Account(), vhost, config.Accounts.VHosts.UserRequests.Cooldown)
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))

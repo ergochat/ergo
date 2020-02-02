@@ -1169,13 +1169,9 @@ func (vh *VHostInfo) checkThrottle(cooldown time.Duration) (err error) {
 // callback type implementing the actual business logic of vhost operations
 type vhostMunger func(input VHostInfo) (output VHostInfo, err error)
 
-func (am *AccountManager) VHostSet(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
+func (am *AccountManager) VHostSet(account string, vhost string) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
-		err = output.checkThrottle(cooldown)
-		if err != nil {
-			return
-		}
 		output.Enabled = true
 		output.ApprovedVHost = vhost
 		return
@@ -1196,6 +1192,29 @@ func (am *AccountManager) VHostRequest(account string, vhost string, cooldown ti
 			return
 		}
 		output.RequestedVHost = vhost
+		output.RejectedVHost = ""
+		output.RejectionReason = ""
+		output.LastRequestTime = time.Now().UTC()
+		return
+	}
+
+	return am.performVHostChange(account, munger)
+}
+
+func (am *AccountManager) VHostTake(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
+	munger := func(input VHostInfo) (output VHostInfo, err error) {
+		output = input
+
+		// if you have a request pending, you can cancel it using take;
+		// otherwise, you're subject to the same throttling as if you were making a request
+		if output.RequestedVHost == "" {
+			err = output.checkThrottle(cooldown)
+		}
+		if err != nil {
+			return
+		}
+		output.ApprovedVHost = vhost
+		output.RequestedVHost = ""
 		output.RejectedVHost = ""
 		output.RejectionReason = ""
 		output.LastRequestTime = time.Now().UTC()
