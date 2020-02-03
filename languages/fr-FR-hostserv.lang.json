@@ -11,12 +11,12 @@
   "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "",
   "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Syntaxe : $bAPPROVE <Utilisateurice>$b\n\nAPPROVE valide la demande d’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntaxe : $bDEL <Utilisateurice>$b\n\nDEL supprime l’hôte virtuel de l’utilisateurice en question.",
-  "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "",
-  "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "",
-  "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "",
-  "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "",
-  "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "",
-  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "",
+  "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Syntaxe : $bOFF$b\n\nOFF désactive votre hôte virtuel.",
+  "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "Syntaxe : $bON$b\n\nON active votre hôte virtuel.",
+  "Syntax: $bREJECT <user> [<reason>]$b\n\nREJECT rejects a user's vhost request, optionally giving them a reason\nfor the rejection.": "Syntaxe : $bREJECT Utilisateurice (Raison)$b\n\nREJECT décline une demande d’hôte virtuel, avec ou sans raison donnée.",
+  "Syntax: $bREQUEST <vhost>$b\n\nREQUEST requests that a new vhost by assigned to your account. The request must\nthen be approved by a server operator.": "Syntaxe : $bREQUEST Hôte$b\nExemple : $bREQUEST nuve.est-ma.déesse$b\n\nREQUEST émet la demande d’un nouvel hôte virtuel pour votre compte, qui sera\npassée en revue par l’un·e des opérateurices du serveur.",
+  "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Syntaxe : $bSET <Utilisateurice> <Hôte>$b\n\nSET établit l’hôte virtuel d’un·e utilisateurice.",
+  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Syntaxe : $bSTATUS (Utilisateurice)$b\n\nSTATUS affiche votre hôte virtuel, ou l’état de votre demande\npour en obtenir un. Un·e opérateurice peut voir le statut d’autres utilisateurices.",
   "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntaxe : $bWAITING$b\n\nWAITING affiche une liste des demandes d'hôte virtuel en attente, qui peuvent être approuvées ou rejetées.",
   "^[0-9A-Za-z.\\-_/]+$": ""
 }
