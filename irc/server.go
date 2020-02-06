@@ -331,6 +331,12 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return true
 	}
 
+	// we have the final value of the IP address: do the hostname lookup
+	// (nickmask will be set below once nickname assignment succeeds)
+	if session.rawHostname == "" {
+		session.client.lookupHostname(session, false)
+	}
+
 	rb := NewResponseBuffer(session)
 	nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
 	rb.Send(true)
@@ -338,10 +344,6 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.preregNick = ""
 		return
 	}
-
-	// we have nickname, username, and the final value of the IP address:
-	// do the hostname lookup and set the nickmask
-	session.client.lookupHostname(session, false)
 
 	if session.client != c {
 		// reattached, bail out.

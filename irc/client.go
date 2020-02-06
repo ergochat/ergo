@@ -955,16 +955,16 @@ func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
 
 // updateNickMaskNoMutex updates the casefolded nickname and nickmask, not acquiring any mutexes.
 func (client *Client) updateNickMaskNoMutex() {
+	if client.nick == "*" {
+		return // pre-registration, don't bother generating the hostname
+	}
+
 	client.hostname = client.getVHostNoMutex()
 	if client.hostname == "" {
 		client.hostname = client.cloakedHostname
 		if client.hostname == "" {
 			client.hostname = client.rawHostname
 		}
-	}
-
-	if client.hostname == "" {
-		return // pre-registration, don't bother generating the hostname
 	}
 
 	cfhostname := strings.ToLower(client.hostname)
