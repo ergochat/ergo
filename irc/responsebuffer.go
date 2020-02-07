@@ -14,7 +14,7 @@ import (
 
 const (
 	// https://ircv3.net/specs/extensions/labeled-response.html
-	defaultBatchType = "draft/labeled-response"
+	defaultBatchType = "labeled-response"
 )
 
 // ResponseBuffer - put simply - buffers messages and then outputs them to a given client.
