@@ -1,14 +1,14 @@
 {
-  "$bAPPROVE$b approves a user's vhost request.": "",
-  "$bDEL$b deletes a user's vhost.": "",
-  "$bOFF$b disables your vhost, if you have one approved.": "",
-  "$bON$b enables your vhost, if you have one approved.": "",
-  "$bREJECT$b rejects a user's vhost request.": "",
-  "$bREQUEST$b requests a new vhost, pending operator approval.": "",
-  "$bSET$b sets a user's vhost.": "",
-  "$bSTATUS$b shows your vhost and request status.": "",
-  "$bWAITING$b shows a list of pending vhost requests.": "",
-  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "",
+  "$bAPPROVE$b approves a user's vhost request.": "$bAPPROVE$b accepte la demande d’hôte virtuel.",
+  "$bDEL$b deletes a user's vhost.": "$bDEL$b supprime la demande d’hôte virtuel.",
+  "$bOFF$b disables your vhost, if you have one approved.": "$bOFF$b désactive votre hôte virtuel.",
+  "$bON$b enables your vhost, if you have one approved.": "$bON$b active votre hôte virtuel.",
+  "$bREJECT$b rejects a user's vhost request.": "$bREJECT$b décline la demande d’hôte virtuel.",
+  "$bREQUEST$b requests a new vhost, pending operator approval.": "$bREQUEST$b demande un nouvel hôte virtuel.",
+  "$bSET$b sets a user's vhost.": "$bSET$b définit l’hôte virtuel d’un·e utilisateurice.",
+  "$bSTATUS$b shows your vhost and request status.": "$bSTATUS$b affiche votre hôte virtuel, ou le statut de votre demande.",
+  "$bWAITING$b shows a list of pending vhost requests.": "$bWAITING$b affiche une liste des demandes d’hôte virtuel en attente.",
+  "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "HostServ vous laisse gérer votre hôte virtuel, dit « vhost », qui\nremplace votre véritable nom d’hôte, ou adresse IP, par le texte de votre choix.",
   "Syntax: $bAPPROVE <user>$b\n\nAPPROVE approves a user's vhost request.": "Syntaxe : $bAPPROVE <Utilisateurice>$b\n\nAPPROVE valide la demande d’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntaxe : $bDEL <Utilisateurice>$b\n\nDEL supprime l’hôte virtuel de l’utilisateurice en question.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Syntaxe : $bOFF$b\n\nOFF désactive votre hôte virtuel.",
@@ -18,5 +18,5 @@
   "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Syntaxe : $bSET <Utilisateurice> <Hôte>$b\n\nSET établit l’hôte virtuel d’un·e utilisateurice.",
   "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Syntaxe : $bSTATUS (Utilisateurice)$b\n\nSTATUS affiche votre hôte virtuel, ou l’état de votre demande\npour en obtenir un. Un·e opérateurice peut voir le statut d’autres utilisateurices.",
   "Syntax: $bWAITING$b\n\nWAITING shows a list of pending vhost requests, which can then be approved\nor rejected.": "Syntaxe : $bWAITING$b\n\nWAITING affiche une liste des demandes d'hôte virtuel en attente, qui peuvent être approuvées ou rejetées.",
-  "^[0-9A-Za-z.\\-_/]+$": ""
+  "^[0-9A-Za-z.\\-_/]+$": "^[0-9A-Za-z.\\-_/]+$"
 }
