@@ -18,6 +18,22 @@
   revision = "ee0de3bc6815ee19d4a46c7eb90f829db0e014b1"
 
 [[projects]]
+  digest = "1:c30a38ce87f5727ec45bfb8c8b965a004ab8c70149b082ef96341731ab69eebe"
+  name = "github.com/go-asn1-ber/asn1-ber"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "effdc98edfb5dde0d9fd8dfba266f6483e6ce9f0"
+  version = "v1.4.1"
+
+[[projects]]
+  digest = "1:64f3b98bfb2cc6d5fdbada1bf2f1bee5b57cbf3a094c1dde85af44311be53a2e"
+  name = "github.com/go-ldap/ldap"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0e14253abf0be63b8f3159f5014f289337ed3db1"
+  version = "v3.1.6"
+
+[[projects]]
   branch = "master"
   digest = "1:148948635cfd8724af31d43ed024dac11c2b87c27a2a3eeb6c04e7360ab56366"
   name = "github.com/goshuirc/e-nfa"
@@ -212,6 +228,7 @@
   input-imports = [
     "code.cloudfoundry.org/bytefmt",
     "github.com/docopt/docopt-go",
+    "github.com/go-ldap/ldap",
     "github.com/goshuirc/irc-go/ircfmt",
     "github.com/goshuirc/irc-go/ircmatch",
     "github.com/goshuirc/irc-go/ircmsg",
@@ -224,8 +241,8 @@
     "golang.org/x/crypto/sha3",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/text/cases",
-    "golang.org/x/text/language",
     "golang.org/x/text/secure/precis",
+    "golang.org/x/text/unicode/norm",
     "golang.org/x/text/width",
     "gopkg.in/yaml.v2",
   ]

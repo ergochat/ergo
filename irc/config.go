@@ -68,6 +68,7 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
+	LDAP            LDAPConfig
 	LoginThrottling struct {
 		Enabled     bool
 		Duration    time.Duration
@@ -80,6 +81,28 @@ type AccountConfig struct {
 		AllowedByDefault bool `yaml:"allowed-by-default"`
 	}
 	VHosts VHostConfig
+}
+
+type LDAPConfig struct {
+	Timeout       int
+	Enabled       bool
+	AllowSignup   bool     `yaml:"allow-signup"`
+	BindDN        string   `yaml:"bind-dn"`
+	BindPwd       string   `yaml:"bind-password"`
+	SearchFilter  string   `yaml:"search-filter"`
+	SearchBaseDNs []string `yaml:"search-base-dns"`
+	Attributes    map[string]string
+	Servers       LDAPServerConfig
+}
+
+type LDAPServerConfig struct {
+	Host          string
+	Port          int
+	UseSSL        bool   `yaml:"use-ssl"`
+	StartTLS      bool   `yaml:"start-tls"`
+	SkipTLSVerify bool   `yaml:"skip-tls-verify"`
+	ClientCert    string `yaml:"client-cert"`
+	ClientKey     string `yaml:"client-key"`
 }
 
 // AccountRegistrationConfig controls account registration.
