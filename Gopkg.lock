@@ -3,11 +3,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:805d31e8de22d8be01b05e29eb3d1a02e512c9d437724372afe3e9cd45a1cf87"
+  digest = "1:c5f3f73b4b9a2a086ff3fc72bb3dbe128e2304d8f0501efa057ae1ede0c03993"
   name = "code.cloudfoundry.org/bytefmt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "854d396b647c90b5a45646f9dcc2c9cd08ea8d51"
+  revision = "cf55d5288a48262e16d2e628b6221dd2df67bcd1"
 
 [[projects]]
   branch = "master"
@@ -62,12 +62,12 @@
   version = "v0.1.4"
 
 [[projects]]
-  digest = "1:d62282425ffb75047679d7e2c3b980eea7f82c05ef5fb9142ee617ebac6e7432"
+  digest = "1:0c58d31abe2a2ccb429c559b6292e7df89dcda675456fecc282fa90aa08273eb"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
   pruneopts = "UT"
-  revision = "88ba11cfdc67c7588b30042edf244b2875f892b6"
-  version = "v0.0.10"
+  revision = "7b513a986450394f7bbf1476909911b3aa3a55ce"
+  version = "v0.0.12"
 
 [[projects]]
   branch = "master"
@@ -109,12 +109,12 @@
   version = "v1.1.2"
 
 [[projects]]
-  digest = "1:5a68167017eaa32aa408397806b9d69815244238ed774439a8863ef4bc329eeb"
+  digest = "1:fcea9aca14ce388baeb3afd42bc3302089393f78f9531212aed88d60a134a921"
   name = "github.com/tidwall/gjson"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c34bf81952c067718854115564f8e55978be5e1d"
-  version = "v1.3.4"
+  revision = "d10932a0d0b5f1618759b6259b05f7cb7bea0c25"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -133,12 +133,12 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:ddfe0a54e5f9b29536a6d7b2defa376f2cb2b6e4234d676d7ff214d5b097cb50"
+  digest = "1:f63bab79e68e805cdd9bf70daa09e8c430cfbddf29d14b567a92fb12581b9b95"
   name = "github.com/tidwall/pretty"
   packages = ["."]
   pruneopts = "UT"
-  revision = "1166b9ac2b65e46a43d8618d30d1554f4652d49b"
-  version = "v1.0.0"
+  revision = "b2475501f89994f7ea30b3c94ba86b49079961fe"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
@@ -161,7 +161,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ee7263bc4399e2ed4f28e3c9c2e661218d427e4e4e4501748080aae41e6942ba"
+  digest = "1:0af7de6d849a5ac8579ad02b7de873697b80876af34f676fe8bcdbd673d586aa"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -170,11 +170,11 @@
     "ssh/terminal",
   ]
   pruneopts = "UT"
-  revision = "e1110fd1c708ef015366ea01799a23c459593c47"
+  revision = "ecb85df213405b7d32e4d73cb5bbaace2ec88881"
 
 [[projects]]
   branch = "master"
-  digest = "1:5d507fb4c4f49b851691887afc8a5a547634186965f85209cc1f25a3ab6a6c57"
+  digest = "1:82a36a77bd0e9b96345f621e6fe74a83261bb09f1ec3863328420ac5198e7510"
   name = "golang.org/x/sys"
   packages = [
     "cpu",
@@ -182,7 +182,7 @@
     "windows",
   ]
   pruneopts = "UT"
-  revision = "52ab431487773bc9dd1b0766228b1cf3944126bf"
+  revision = "d101bd2416d505c0448a6ce8a282482678040a89"
 
 [[projects]]
   digest = "1:5f1559c4cee44069f81517430ebba19589869f3d4d4648213a4d5ddd199b11d8"
@@ -215,12 +215,12 @@
   version = "v0.3.2"
 
 [[projects]]
-  digest = "1:f26a5d382387e03a40d1471dddfba85dfff9bf05352d7e42d37612677c4d3c5c"
+  digest = "1:55b110c99c5fdc4f14930747326acce56b52cfce60b24b1c03ef686ac0e46bb1"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "UT"
-  revision = "f90ceb4f409096b60e2e9076b38b304b8246e5fa"
-  version = "v2.2.5"
+  revision = "53403b58ad1b561927d19068c655246f2db79d48"
+  version = "v2.2.8"
 
 [solve-meta]
   analyzer-name = "dep"
