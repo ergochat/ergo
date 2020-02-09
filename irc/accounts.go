@@ -834,6 +834,8 @@ func (am *AccountManager) checkLDAPPassphrase(accountName, passphrase string) (a
 	var (
 		host, url string
 		port      int
+		sr		  *ldap.SearchResult
+		l		  *ldap.Conn
 	)
 
 	host = am.server.AccountConfig().LDAP.Servers.Host
@@ -855,7 +857,7 @@ func (am *AccountManager) checkLDAPPassphrase(accountName, passphrase string) (a
 		url = fmt.Sprintf("ldap://%s:%d", host, port)
 	}
 
-	l, err := ldap.DialURL(url)
+	l, err = ldap.DialURL(url)
 	if err != nil {
 		return
 	}
@@ -875,7 +877,7 @@ func (am *AccountManager) checkLDAPPassphrase(accountName, passphrase string) (a
 
 	for _, baseDN := range am.server.AccountConfig().LDAP.SearchBaseDNs {
 		req := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, am.server.AccountConfig().LDAP.Timeout, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", accountName), []string{"dn"}, nil)
-		sr, err := l.Search(req)
+		sr, err = l.Search(req)
 		if err != nil {
 			return
 		}
@@ -901,6 +903,10 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 
 	if am.server.AccountConfig().LDAP.Enabled {
 		account, err = am.checkLDAPPassphrase(accountName, passphrase)
+		if err == nil {
+			am.Login(client, account)
+			return nil
+		}
 	}
 
 	account, err = am.checkPassphrase(accountName, passphrase)
