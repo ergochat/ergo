@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/smtp"
@@ -14,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/go-ldap/ldap"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -828,8 +830,80 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	return
 }
 
+func (am *AccountManager) checkLDAPPassphrase(accountName, passphrase string) (account ClientAccount, err error) {
+	var (
+		host, url string
+		port      int
+	)
+
+	host = am.server.AccountConfig().LDAP.Servers.Host
+	port = am.server.AccountConfig().LDAP.Servers.Port
+
+	account, err = am.LoadAccount(accountName)
+	if err != nil {
+		return
+	}
+
+	if !account.Verified {
+		err = errAccountUnverified
+		return
+	}
+
+	if am.server.AccountConfig().LDAP.Servers.UseSSL {
+		url = fmt.Sprintf("ldaps://%s:%d", host, port)
+	} else {
+		url = fmt.Sprintf("ldap://%s:%d", host, port)
+	}
+
+	l, err := ldap.DialURL(url)
+	if err != nil {
+		return
+	}
+	defer l.Close()
+
+	if am.server.AccountConfig().LDAP.Servers.StartTLS {
+		err = l.StartTLS(&tls.Config{InsecureSkipVerify: am.server.AccountConfig().LDAP.Servers.SkipTLSVerify})
+		if err != nil {
+			return
+		}
+	}
+
+	err = l.Bind(am.server.AccountConfig().LDAP.BindDN, am.server.AccountConfig().LDAP.BindPwd)
+	if err != nil {
+		return
+	}
+
+	for _, baseDN := range am.server.AccountConfig().LDAP.SearchBaseDNs {
+		req := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, am.server.AccountConfig().LDAP.Timeout, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", accountName), []string{"dn"}, nil)
+		sr, err := l.Search(req)
+		if err != nil {
+			return
+		}
+
+		userdn := sr.Entries[0].DN
+
+		if len(sr.Entries) > 0 {
+			// verify the user passphrase
+			err = l.Bind(userdn, passphrase)
+			if err != nil {
+				continue
+			}
+			break
+		}
+	}
+
+	return
+}
+
 func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
-	account, err := am.checkPassphrase(accountName, passphrase)
+	var account ClientAccount
+	var err error
+
+	if am.server.AccountConfig().LDAP.Enabled {
+		account, err = am.checkLDAPPassphrase(accountName, passphrase)
+	}
+
+	account, err = am.checkPassphrase(accountName, passphrase)
 	if err != nil {
 		return err
 	}
