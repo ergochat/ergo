@@ -74,19 +74,7 @@ The `stable` branch contains the latest release. You can run this for a producti
 
 #### Building
 
-You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). You'll also need to set up a [Go workspace](https://golang.org/doc/code.html). Typically, this is just a directory `~/go`, with the `GOPATH` environment variable exported to its path with `export GOPATH=~/go`.
-
-Clone the repository where `go` expects it to be and then run `make`, i.e.,
-
-```bash
-mkdir -p ${GOPATH}/src/github.com/oragono
-cd ${GOPATH}/src/github.com/oragono
-git clone https://github.com/oragono/oragono
-cd oragono
-# check out the appropriate branch if necessary
-# now, this will install a development copy of oragono at ${GOPATH}/bin/oragono:
-make
-````
+You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once you have that, just clone the repository and run `make build`. If everything goes well, you should now have an executable named `oragono` in the base directory of the project.
 
 ## Configuration
 
