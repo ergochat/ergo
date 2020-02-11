@@ -4,7 +4,6 @@
 package irc
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/smtp"
@@ -15,8 +14,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/go-ldap/ldap"
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -448,6 +447,10 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 		return err
 	}
 
+	if !hasPrivs && creds.Empty() {
+		return errCredsExternallyManaged
+	}
+
 	err = creds.SetPassphrase(password, am.server.Config().Accounts.Registration.BcryptCost)
 	if err != nil {
 		return err
@@ -500,6 +503,10 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 	err = json.Unmarshal([]byte(credStr), &creds)
 	if err != nil {
 		return err
+	}
+
+	if !hasPrivs && creds.Empty() {
+		return errCredsExternallyManaged
 	}
 
 	if add {
@@ -688,6 +695,15 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	return nil
 }
 
+// register and verify an account, for internal use
+func (am *AccountManager) SARegister(account, passphrase string) (err error) {
+	err = am.Register(nil, account, "admin", "", passphrase, "")
+	if err == nil {
+		err = am.Verify(nil, account, "")
+	}
+	return
+}
+
 func marshalReservedNicks(nicks []string) string {
 	return strings.Join(nicks, ",")
 }
@@ -830,92 +846,34 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	return
 }
 
-func (am *AccountManager) checkLDAPPassphrase(accountName, passphrase string) (account ClientAccount, err error) {
-	var (
-		host, url string
-		port      int
-		sr		  *ldap.SearchResult
-		l		  *ldap.Conn
-	)
-
-	host = am.server.AccountConfig().LDAP.Servers.Host
-	port = am.server.AccountConfig().LDAP.Servers.Port
-
-	account, err = am.LoadAccount(accountName)
-	if err != nil {
-		return
-	}
-
-	if !account.Verified {
-		err = errAccountUnverified
-		return
-	}
-
-	if am.server.AccountConfig().LDAP.Servers.UseSSL {
-		url = fmt.Sprintf("ldaps://%s:%d", host, port)
-	} else {
-		url = fmt.Sprintf("ldap://%s:%d", host, port)
-	}
-
-	l, err = ldap.DialURL(url)
-	if err != nil {
-		return
-	}
-	defer l.Close()
-
-	if am.server.AccountConfig().LDAP.Servers.StartTLS {
-		err = l.StartTLS(&tls.Config{InsecureSkipVerify: am.server.AccountConfig().LDAP.Servers.SkipTLSVerify})
-		if err != nil {
-			return
-		}
-	}
-
-	err = l.Bind(am.server.AccountConfig().LDAP.BindDN, am.server.AccountConfig().LDAP.BindPwd)
-	if err != nil {
-		return
-	}
-
-	for _, baseDN := range am.server.AccountConfig().LDAP.SearchBaseDNs {
-		req := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, am.server.AccountConfig().LDAP.Timeout, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", accountName), []string{"dn"}, nil)
-		sr, err = l.Search(req)
-		if err != nil {
-			return
-		}
-
-		userdn := sr.Entries[0].DN
-
-		if len(sr.Entries) > 0 {
-			// verify the user passphrase
-			err = l.Bind(userdn, passphrase)
-			if err != nil {
-				continue
-			}
-			break
-		}
-	}
-
-	return
-}
-
-func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
+func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
 	var account ClientAccount
-	var err error
 
-	if am.server.AccountConfig().LDAP.Enabled {
-		account, err = am.checkLDAPPassphrase(accountName, passphrase)
+	defer func() {
 		if err == nil {
 			am.Login(client, account)
-			return nil
+		}
+	}()
+
+	ldapConf := am.server.Config().Accounts.LDAP
+	if ldapConf.Enabled {
+		err = ldap.CheckLDAPPassphrase(ldapConf, accountName, passphrase, am.server.logger)
+		if err == nil {
+			account, err = am.LoadAccount(accountName)
+			// autocreate if necessary:
+			if err == errAccountDoesNotExist && ldapConf.Autocreate {
+				err = am.SARegister(accountName, "")
+				if err != nil {
+					return
+				}
+				account, err = am.LoadAccount(accountName)
+			}
+			return
 		}
 	}
 
 	account, err = am.checkPassphrase(accountName, passphrase)
-	if err != nil {
-		return err
-	}
-
-	am.Login(client, account)
-	return nil
+	return err
 }
 
 func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount, err error) {

@@ -55,6 +55,7 @@ var (
 	errNoop                           = errors.New("Action was a no-op")
 	errCASFailed                      = errors.New("Compare-and-swap update of database value failed")
 	errEmptyCredentials               = errors.New("No more credentials are approved")
+	errCredsExternallyManaged         = errors.New("Credentials are externally managed and cannot be changed here")
 )
 
 // Socket Errors

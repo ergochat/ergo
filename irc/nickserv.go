@@ -132,7 +132,7 @@ SADROP forcibly de-links the given nickname from the attached user account.`,
 		},
 		"saregister": {
 			handler: nsSaregisterHandler,
-			help: `Syntax: $bSAREGISTER <username> <password>$b
+			help: `Syntax: $bSAREGISTER <username> [password]$b
 
 SAREGISTER registers an account on someone else's behalf.
 This is for use in configurations that require SASL for all connections;
@@ -140,7 +140,7 @@ an administrator can set use this command to set up user accounts.`,
 			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			capabs:    []string{"accreg"},
-			minParams: 2,
+			minParams: 1,
 		},
 		"sessions": {
 			handler: nsSessionsHandler,
@@ -681,14 +681,12 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 }
 
 func nsSaregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	account, passphrase := params[0], params[1]
-	if passphrase == "*" {
-		passphrase = ""
+	var account, passphrase string
+	account = params[0]
+	if 1 < len(params) && params[1] != "*" {
+		passphrase = params[1]
 	}
-	err := server.accounts.Register(nil, account, "admin", "", passphrase, "")
-	if err == nil {
-		err = server.accounts.Verify(nil, account, "")
-	}
+	err := server.accounts.SARegister(account, passphrase)
 
 	if err != nil {
 		var errMsg string
@@ -830,6 +828,8 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 		nsNotice(rb, client.t("Password changed"))
 	case errEmptyCredentials:
 		nsNotice(rb, client.t("You can't delete your password unless you add a certificate fingerprint"))
+	case errCredsExternallyManaged:
+		nsNotice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
 	case errCASFailed:
 		nsNotice(rb, client.t("Try again later"))
 	default:
@@ -961,6 +961,8 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 		nsNotice(rb, client.t("That certificate fingerprint is already associated with another account"))
 	case errEmptyCredentials:
 		nsNotice(rb, client.t("You can't remove all your certificate fingerprints unless you add a password"))
+	case errCredsExternallyManaged:
+		nsNotice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
 	case errCASFailed:
 		nsNotice(rb, client.t("Try again later"))
 	default:
