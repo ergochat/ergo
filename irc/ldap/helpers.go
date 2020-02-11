@@ -1,5 +1,5 @@
-// Copyright Grafana Labs and contributors
-// and released under the Apache 2.0 license
+// Copyright 2014-2018 Grafana Labs
+// Released under the Apache 2.0 license
 
 package ldap
 
@@ -48,4 +48,13 @@ func getAttribute(name string, entry *ldap.Entry) string {
 		}
 	}
 	return ""
+}
+
+func appendIfNotEmpty(slice []string, values ...string) []string {
+	for _, v := range values {
+		if v != "" {
+			slice = append(slice, v)
+		}
+	}
+	return slice
 }

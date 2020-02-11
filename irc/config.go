@@ -69,7 +69,7 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
-	LDAP            ldap.LDAPConfig
+	LDAP            ldap.ServerConfig
 	LoginThrottling struct {
 		Enabled     bool
 		Duration    time.Duration
