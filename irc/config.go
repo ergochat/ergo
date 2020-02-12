@@ -25,6 +25,7 @@ import (
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
+	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
@@ -68,6 +69,7 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
+	LDAP            ldap.ServerConfig
 	LoginThrottling struct {
 		Enabled     bool
 		Duration    time.Duration

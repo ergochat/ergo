@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -446,6 +447,10 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 		return err
 	}
 
+	if !hasPrivs && creds.Empty() {
+		return errCredsExternallyManaged
+	}
+
 	err = creds.SetPassphrase(password, am.server.Config().Accounts.Registration.BcryptCost)
 	if err != nil {
 		return err
@@ -498,6 +503,10 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 	err = json.Unmarshal([]byte(credStr), &creds)
 	if err != nil {
 		return err
+	}
+
+	if !hasPrivs && creds.Empty() {
+		return errCredsExternallyManaged
 	}
 
 	if add {
@@ -686,6 +695,15 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	return nil
 }
 
+// register and verify an account, for internal use
+func (am *AccountManager) SARegister(account, passphrase string) (err error) {
+	err = am.Register(nil, account, "admin", "", passphrase, "")
+	if err == nil {
+		err = am.Verify(nil, account, "")
+	}
+	return
+}
+
 func marshalReservedNicks(nicks []string) string {
 	return strings.Join(nicks, ",")
 }
@@ -828,14 +846,34 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	return
 }
 
-func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) error {
-	account, err := am.checkPassphrase(accountName, passphrase)
-	if err != nil {
-		return err
+func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
+	var account ClientAccount
+
+	defer func() {
+		if err == nil {
+			am.Login(client, account)
+		}
+	}()
+
+	ldapConf := am.server.Config().Accounts.LDAP
+	if ldapConf.Enabled {
+		err = ldap.CheckLDAPPassphrase(ldapConf, accountName, passphrase, am.server.logger)
+		if err == nil {
+			account, err = am.LoadAccount(accountName)
+			// autocreate if necessary:
+			if err == errAccountDoesNotExist && ldapConf.Autocreate {
+				err = am.SARegister(accountName, "")
+				if err != nil {
+					return
+				}
+				account, err = am.LoadAccount(accountName)
+			}
+			return
+		}
 	}
 
-	am.Login(client, account)
-	return nil
+	account, err = am.checkPassphrase(accountName, passphrase)
+	return err
 }
 
 func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount, err error) {
