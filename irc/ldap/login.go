@@ -43,10 +43,12 @@ var (
 )
 
 // equivalent of Grafana's `Server`, but unexported
+// also, `log` was renamed to `logger`, since the APIs are slightly different
+// and this way the compiler will catch any unchanged references to Grafana's `Server.log`
 type serverConn struct {
 	Config     *ServerConfig
 	Connection *ldap.Conn
-	log        *logger.Manager
+	logger     *logger.Manager
 }
 
 func CheckLDAPPassphrase(config ServerConfig, accountName, passphrase string, log *logger.Manager) (err error) {
@@ -58,7 +60,7 @@ func CheckLDAPPassphrase(config ServerConfig, accountName, passphrase string, lo
 
 	server := serverConn{
 		Config: &config,
-		log:    log,
+		logger: log,
 	}
 
 	err = server.Dial()
@@ -126,10 +128,10 @@ func (server *serverConn) validateGroupMembership(user *ldap.Entry) (err error) 
 	var memberOf []string
 	memberOf, err = server.getMemberOf(user)
 	if err != nil {
-		server.log.Debug("ldap", "could not retrieve group memberships", err.Error())
+		server.logger.Debug("ldap", "could not retrieve group memberships", err.Error())
 		return
 	}
-	server.log.Debug("ldap", fmt.Sprintf("found group memberships: %v", memberOf))
+	server.logger.Debug("ldap", fmt.Sprintf("found group memberships: %v", memberOf))
 	foundGroup := false
 	for _, inGroup := range memberOf {
 		for _, acceptableGroup := range server.Config.RequireGroups {

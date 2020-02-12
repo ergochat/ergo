@@ -1,8 +1,9 @@
 // Copyright 2014-2018 Grafana Labs
 // Released under the Apache 2.0 license
 
-// Modification notice: these functions were altered by substituting
-// `serverConn` for `Server`.
+// Modification notice:
+// 1. `serverConn` was substituted for `Server` as the type of the server object
+// 2. Debug loglines were altered to work with Oragono's logging system
 
 package ldap
 
@@ -210,7 +211,7 @@ func (server *serverConn) requestMemberOf(entry *ldap.Entry) ([]string, error) {
 			-1,
 		)
 
-		server.log.Info("Searching for user's groups", "filter", filter)
+		server.logger.Debug("ldap", "Searching for groups with filter", filter)
 
 		// support old way of reading settings
 		groupIDAttribute := config.Attr.MemberOf

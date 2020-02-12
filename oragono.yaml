@@ -392,6 +392,8 @@ accounts:
     #     enabled: true
     #     # should we automatically create users if their LDAP login succeeds?
     #     autocreate: true
+    #     # example configuration that works with Forum Systems's testing server:
+    #     # https://www.forumsys.com/tutorials/integration-how-to/ldap/online-ldap-test-server/
     #     host: "ldap.forumsys.com"
     #     port: 389
     #     timeout: 30s
@@ -404,7 +406,8 @@ accounts:
     #     #bind-dn: "cn=read-only-admin,dc=example,dc=com"
     #     #bind-password: "password"
     #     #search-filter: "(uid=%s)"
-    #     # example of requiring that users be in a particular group:
+    #     # example of requiring that users be in a particular group
+    #     # (note that this is an OR over the listed groups, not an AND):
     #     #require-groups:
     #     #    - "ou=mathematicians,dc=example,dc=com"
     #     #group-search-filter-user-attribute: "dn"

@@ -4,7 +4,11 @@
 // Modification notice:
 // 1. All field names were changed from toml and snake case to yaml and kebab case,
 //    matching the Oragono project conventions
-// 2. Two fields were added: `Autocreate` and `Timeout`
+// 2. Four fields were added:
+//    2.1 `Enabled`
+//    2.2 `Autocreate`
+//    2.3 `Timeout`
+//    2.4 `RequireGroups`
 
 // XXX: none of AttributeMap does anything in oragono, except MemberOf,
 // which can be used to retrieve group memberships
