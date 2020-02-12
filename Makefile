@@ -1,23 +1,20 @@
-.PHONY: all install build release capdefs deps test
+.PHONY: all install build release capdefs test
 
 capdef_file = ./irc/caps/defs.go
 
 all: install
 
-install: deps
+install:
 	go install -v
 
-build: deps
+build:
 	go build -v
 
-release: deps
+release:
 	goreleaser --skip-publish --rm-dist
 
 capdefs:
 	python3 ./gencapdefs.py > ${capdef_file}
-
-deps:
-	git submodule update --init
 
 test:
 	python3 ./gencapdefs.py | diff - ${capdef_file}

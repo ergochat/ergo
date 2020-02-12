@@ -7,9 +7,7 @@ This is just a bunch of tips and tricks we keep in mind while developing Oragono
 
 You should use the [latest distribution of the Go language for your OS and architecture](https://golang.org/dl/). (If `uname -m` on your Raspberry Pi reports `armv7l`, use the `armv6l` distribution of Go; if it reports v8, you may be able to use the `arm64` distribution.)
 
-Oragono vendors all its dependencies. The vendored code is tracked via a git submodule: `vendor/` is a submodule pointing to the [oragono-vendor](https://github.com/oragono/oragono-vendor) repository. As long as you're not modifying the vendored dependencies, `make` should take care of everything for you --- but if you are, see the "vendor" section below.
-
-Because of this, Oragono is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies. If you're having trouble building the code, it's very likely because your clone of the repository is in the wrong place: Go is very opinionated about where you should keep your code. Take a look at the [go workspaces documentation](https://golang.org/doc/code.html) if you're having trouble.
+Oragono vendors all its dependencies. Because of this, Oragono is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies.
 
 
 ## Branches
@@ -57,23 +55,6 @@ New release of Oragono!
 ### Fixed
 ```
 
-
-
-## Updating `vendor/`
-
-The `vendor/` directory holds our dependencies. When we import new repos, we need to update this folder to contain these new deps. This is something that I'll mostly be handling.
-
-To update this folder:
-
-1. Install https://github.com/golang/dep
-2. `cd` to Oragono folder
-3. `dep ensure -update`
-4. `cd vendor`
-5. Commit the changes with the message `"Updated packages"`
-6. `cd ..`
-4. Commit the result with the message `"vendor: Updated submodules"`
-
-This will make sure things stay nice and up-to-date for users.
 
 
 ## Fuzzing and Testing
