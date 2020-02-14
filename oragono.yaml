@@ -258,7 +258,7 @@ accounts:
         enabled: true
 
         # this is the bcrypt cost we'll use for account passwords
-        bcrypt-cost: 12
+        bcrypt-cost: 9
 
         # length of time a user has to verify their account before it can be re-registered
         verify-timeout: "32h"
@@ -325,10 +325,10 @@ accounts:
         #
         # 'optional' matches the behavior of other NickServs, but 'strict' is
         # preferable if all your users can enable SASL.
-        method: optional
+        method: strict
 
         # allow users to set their own nickname enforcement status, e.g.,
-        # to opt in to strict enforcement
+        # to opt out of strict enforcement
         allow-custom-enforcement: true
 
         # rename-timeout - this is how long users have 'til they're renamed
@@ -346,9 +346,10 @@ accounts:
         # client
         enabled: true
 
-        # clients can opt in to bouncer functionality using the cap system, or
-        # via nickserv. if this is enabled, then they have to opt out instead
-        allowed-by-default: false
+        # if this is disabled, clients have to opt in to bouncer functionality
+        # using nickserv or the cap system. if it's enabled, they can opt out
+        # via nickserv
+        allowed-by-default: true
 
     # vhosts controls the assignment of vhosts (strings displayed in place of the user's
     # hostname/IP) by the HostServ service
