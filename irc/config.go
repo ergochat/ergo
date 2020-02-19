@@ -61,6 +61,151 @@ type listenerConfig struct {
 	ProxyBeforeTLS bool
 }
 
+type PersistentStatus uint
+
+const (
+	PersistentUnspecified PersistentStatus = iota
+	PersistentDisabled
+	PersistentOptIn
+	PersistentOptOut
+	PersistentMandatory
+)
+
+func persistentStatusToString(status PersistentStatus) string {
+	switch status {
+	case PersistentUnspecified:
+		return "default"
+	case PersistentDisabled:
+		return "disabled"
+	case PersistentOptIn:
+		return "opt-in"
+	case PersistentOptOut:
+		return "opt-out"
+	case PersistentMandatory:
+		return "mandatory"
+	default:
+		return ""
+	}
+}
+
+func persistentStatusFromString(status string) (PersistentStatus, error) {
+	switch strings.ToLower(status) {
+	case "default":
+		return PersistentUnspecified, nil
+	case "":
+		return PersistentDisabled, nil
+	case "opt-in":
+		return PersistentOptIn, nil
+	case "opt-out":
+		return PersistentOptOut, nil
+	case "mandatory":
+		return PersistentMandatory, nil
+	default:
+		b, err := utils.StringToBool(status)
+		if b {
+			return PersistentMandatory, err
+		} else {
+			return PersistentDisabled, err
+		}
+	}
+}
+
+func (ps *PersistentStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	result, err := persistentStatusFromString(orig)
+	if err == nil {
+		if result == PersistentUnspecified {
+			result = PersistentDisabled
+		}
+		*ps = result
+	}
+	return err
+}
+
+func persistenceEnabled(serverSetting, clientSetting PersistentStatus) (enabled bool) {
+	if serverSetting == PersistentDisabled {
+		return false
+	} else if serverSetting == PersistentMandatory {
+		return true
+	} else if clientSetting == PersistentDisabled {
+		return false
+	} else if clientSetting == PersistentMandatory {
+		return true
+	} else if serverSetting == PersistentOptOut {
+		return true
+	} else {
+		return false
+	}
+}
+
+type HistoryStatus uint
+
+const (
+	HistoryDefault HistoryStatus = iota
+	HistoryDisabled
+	HistoryEphemeral
+	HistoryPersistent
+)
+
+func historyStatusFromString(str string) (status HistoryStatus, err error) {
+	switch strings.ToLower(str) {
+	case "default":
+		return HistoryDefault, nil
+	case "ephemeral":
+		return HistoryEphemeral, nil
+	case "persistent":
+		return HistoryPersistent, nil
+	default:
+		b, err := utils.StringToBool(str)
+		if b {
+			return HistoryPersistent, err
+		} else {
+			return HistoryDisabled, err
+		}
+	}
+}
+
+func historyStatusToString(status HistoryStatus) string {
+	switch status {
+	case HistoryDefault:
+		return "default"
+	case HistoryDisabled:
+		return "disabled"
+	case HistoryEphemeral:
+		return "ephemeral"
+	case HistoryPersistent:
+		return "persistent"
+	default:
+		return ""
+	}
+}
+
+func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) (result HistoryStatus) {
+	if serverSetting == PersistentDisabled {
+		return HistoryDisabled
+	} else if serverSetting == PersistentMandatory {
+		return HistoryPersistent
+	} else if serverSetting == PersistentOptOut {
+		if localSetting == HistoryDefault {
+			return HistoryPersistent
+		} else {
+			return localSetting
+		}
+	} else if serverSetting == PersistentOptIn {
+		if localSetting >= HistoryEphemeral {
+			return localSetting
+		} else {
+			return HistoryDisabled
+		}
+	} else {
+		return HistoryDisabled
+	}
+}
+
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
@@ -79,7 +224,8 @@ type AccountConfig struct {
 	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
 	Bouncer            struct {
 		Enabled          bool
-		AllowedByDefault bool `yaml:"allowed-by-default"`
+		AllowedByDefault bool             `yaml:"allowed-by-default"`
+		AlwaysOn         PersistentStatus `yaml:"always-on"`
 	}
 	VHosts VHostConfig
 }
@@ -340,6 +486,8 @@ type Config struct {
 		isupport      isupport.List
 		IPLimits      connection_limits.LimiterConfig `yaml:"ip-limits"`
 		Cloaks        cloaks.CloakConfig              `yaml:"ip-cloaking"`
+		SecureNetDefs []string                        `yaml:"secure-nets"`
+		secureNets    []net.IPNet
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
@@ -356,6 +504,14 @@ type Config struct {
 	Datastore struct {
 		Path        string
 		AutoUpgrade bool
+		MySQL       struct {
+			Enabled         bool
+			Host            string
+			Port            int
+			User            string
+			Password        string
+			HistoryDatabase string `yaml:"history-database"`
+		}
 	}
 
 	Accounts AccountConfig
@@ -395,6 +551,18 @@ type Config struct {
 		AutoresizeWindow time.Duration `yaml:"autoresize-window"`
 		AutoreplayOnJoin int           `yaml:"autoreplay-on-join"`
 		ChathistoryMax   int           `yaml:"chathistory-maxmessages"`
+		ZNCMax           int           `yaml:"znc-maxmessages"`
+		Restrictions     struct {
+			ExpireTime              time.Duration `yaml:"expire-time"`
+			EnforceRegistrationDate bool          `yaml:"enforce-registration-date"`
+			GracePeriod             time.Duration `yaml:"grace-period"`
+		}
+		Persistent struct {
+			Enabled              bool
+			UnregisteredChannels bool             `yaml:"unregistered-channels"`
+			RegisteredChannels   PersistentStatus `yaml:"registered-channels"`
+			DirectMessages       PersistentStatus `yaml:"direct-messages"`
+		}
 	}
 
 	Filename string
@@ -717,7 +885,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if !config.Accounts.Bouncer.Enabled {
+		config.Accounts.Bouncer.AlwaysOn = PersistentDisabled
 		config.Server.supportedCaps.Disable(caps.Bouncer)
+	} else if config.Accounts.Bouncer.AlwaysOn >= PersistentOptOut {
+		config.Accounts.Bouncer.AllowedByDefault = true
 	}
 
 	var newLogConfigs []logger.LoggingConfig
@@ -784,6 +955,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.proxyAllowedFromNets, err = utils.ParseNetList(config.Server.ProxyAllowedFrom)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse proxy-allowed-from nets: %v", err.Error())
+	}
+
+	config.Server.secureNets, err = utils.ParseNetList(config.Server.SecureNetDefs)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse secure-nets: %v\n", err.Error())
 	}
 
 	rawRegexp := config.Accounts.VHosts.ValidRegexpRaw
@@ -880,6 +1056,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !config.History.Enabled {
 		config.History.ChannelLength = 0
 		config.History.ClientLength = 0
+	}
+
+	if !config.History.Enabled || !config.History.Persistent.Enabled {
+		config.History.Persistent.UnregisteredChannels = false
+		config.History.Persistent.RegisteredChannels = PersistentDisabled
+		config.History.Persistent.DirectMessages = PersistentDisabled
+	}
+
+	if config.History.ZNCMax == 0 {
+		config.History.ZNCMax = config.History.ChathistoryMax
 	}
 
 	config.Server.Cloaks.Initialize()

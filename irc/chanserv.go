@@ -137,6 +137,35 @@ INFO displays info about a registered channel.`,
 			enabled:   chanregEnabled,
 			minParams: 1,
 		},
+		"get": {
+			handler: csGetHandler,
+			help: `Syntax: $bGET #channel <setting>$b
+
+GET queries the current values of the channel settings. For more information
+on the settings and their possible values, see HELP SET.`,
+			helpShort: `$bGET$b queries the current values of a channel's settings`,
+			enabled:   chanregEnabled,
+			minParams: 2,
+		},
+		"set": {
+			handler:   csSetHandler,
+			helpShort: `$bSET$b modifies a channel's settings`,
+			// these are broken out as separate strings so they can be translated separately
+			helpStrings: []string{
+				`Syntax $bSET #channel <setting> <value>$b
+
+SET modifies a channel's settings. The following settings are available:`,
+
+				`$bHISTORY$b
+'history' lets you control how channel history is stored. Your options are:
+1. 'off'        [no history]
+2. 'ephemeral'  [a limited amount of temporary history, not stored on disk]
+3. 'on'         [history stored in a permanent database, if available]
+4. 'default'    [use the server default]`,
+			},
+			enabled:   chanregEnabled,
+			minParams: 3,
+		},
 	}
 )
 
@@ -320,6 +349,22 @@ func checkChanLimit(client *Client, rb *ResponseBuffer) (ok bool) {
 	return
 }
 
+func csPrivsCheck(channel RegisteredChannel, client *Client, rb *ResponseBuffer) (success bool) {
+	founder := channel.Founder
+	if founder == "" {
+		csNotice(rb, client.t("That channel is not registered"))
+		return false
+	}
+	if client.HasRoleCapabs("chanreg") {
+		return true
+	}
+	if founder != client.Account() {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return false
+	}
+	return true
+}
+
 func csUnregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	channelName := params[0]
 	var verificationCode string
@@ -327,31 +372,18 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		verificationCode = params[1]
 	}
 
-	channelKey, err := CasefoldChannel(channelName)
-	if channelKey == "" || err != nil {
-		csNotice(rb, client.t("Channel name is not valid"))
-		return
-	}
-
-	channel := server.channels.Get(channelKey)
+	channel := server.channels.Get(channelName)
 	if channel == nil {
 		csNotice(rb, client.t("No such channel"))
 		return
 	}
 
-	founder := channel.Founder()
-	if founder == "" {
-		csNotice(rb, client.t("That channel is not registered"))
-		return
-	}
-
-	hasPrivs := client.HasRoleCapabs("chanreg") || founder == client.Account()
-	if !hasPrivs {
-		csNotice(rb, client.t("Insufficient privileges"))
-		return
-	}
-
 	info := channel.ExportRegistration(0)
+	channelKey := info.NameCasefolded
+	if !csPrivsCheck(info, client, rb) {
+		return
+	}
+
 	expectedCode := unregisterConfirmationCode(info.Name, info.RegisteredAt)
 	if expectedCode != verificationCode {
 		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this channel will remove all stored channel attributes.$b")))
@@ -359,7 +391,7 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	server.channels.SetUnregistered(channelKey, founder)
+	server.channels.SetUnregistered(channelKey, info.Founder)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
 }
 
@@ -377,9 +409,7 @@ func csClearHandler(server *Server, client *Client, command string, params []str
 		csNotice(rb, client.t("Channel does not exist"))
 		return
 	}
-	account := client.Account()
-	if !(client.HasRoleCapabs("chanreg") || (account != "" && account == channel.Founder())) {
-		csNotice(rb, client.t("Insufficient privileges"))
+	if !csPrivsCheck(channel.ExportRegistration(0), client, rb) {
 		return
 	}
 
@@ -572,4 +602,69 @@ func csInfoHandler(server *Server, client *Client, command string, params []stri
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is registered"), chinfo.Name))
 	csNotice(rb, fmt.Sprintf(client.t("Founder: %s"), chinfo.Founder))
 	csNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), chinfo.RegisteredAt.Format(time.RFC1123)))
+}
+
+func displayChannelSetting(settingName string, settings ChannelSettings, client *Client, rb *ResponseBuffer) {
+	config := client.server.Config()
+
+	switch strings.ToLower(settingName) {
+	case "history":
+		effectiveValue := historyEnabled(config.History.Persistent.RegisteredChannels, settings.History)
+		csNotice(rb, fmt.Sprintf(client.t("The stored channel history setting is: %s"), historyStatusToString(settings.History)))
+		csNotice(rb, fmt.Sprintf(client.t("Given current server settings, the channel history setting is: %s"), historyStatusToString(effectiveValue)))
+	default:
+		csNotice(rb, client.t("Invalid params"))
+	}
+}
+
+func csGetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	chname, setting := params[0], params[1]
+	channel := server.channels.Get(chname)
+	if channel == nil {
+		csNotice(rb, client.t("No such channel"))
+		return
+	}
+	info := channel.ExportRegistration(IncludeSettings)
+	if !csPrivsCheck(info, client, rb) {
+		return
+	}
+
+	displayChannelSetting(setting, info.Settings, client, rb)
+}
+
+func csSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	chname, setting, value := params[0], params[1], params[2]
+	channel := server.channels.Get(chname)
+	if channel == nil {
+		csNotice(rb, client.t("No such channel"))
+		return
+	}
+	info := channel.ExportRegistration(IncludeSettings)
+	settings := info.Settings
+	if !csPrivsCheck(info, client, rb) {
+		return
+	}
+
+	var err error
+	switch strings.ToLower(setting) {
+	case "history":
+		settings.History, err = historyStatusFromString(value)
+		if err != nil {
+			err = errInvalidParams
+			break
+		}
+		channel.SetSettings(settings)
+		channel.resizeHistory(server.Config())
+	}
+
+	switch err {
+	case nil:
+		csNotice(rb, client.t("Successfully changed the channel settings"))
+		displayChannelSetting(setting, settings, client, rb)
+	case errInvalidParams:
+		csNotice(rb, client.t("Invalid parameters"))
+	default:
+		server.logger.Error("internal", "CS SET error:", err.Error())
+		csNotice(rb, client.t("An error occurred"))
+	}
 }

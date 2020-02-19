@@ -91,21 +91,27 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 	return
 }
 
-func (client *Client) AddSession(session *Session) (success bool) {
+func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSignoff time.Time) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
 	// client may be dying and ineligible to receive another session
 	if client.destroyed {
-		return false
+		return
 	}
 	// success, attach the new session to the client
 	session.client = client
 	newSessions := make([]*Session, len(client.sessions)+1)
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session
+	if len(client.sessions) == 0 && client.accountSettings.AutoreplayMissed {
+		// n.b. this is only possible if client is persistent and remained
+		// on the server with no sessions:
+		lastSignoff = client.lastSignoff
+		client.lastSignoff = time.Time{}
+	}
 	client.sessions = newSessions
-	return true
+	return true, len(client.sessions), lastSignoff
 }
 
 func (client *Client) removeSession(session *Session) (success bool, length int) {
@@ -189,6 +195,13 @@ func (client *Client) SetExitedSnomaskSent() {
 	client.stateMutex.Unlock()
 }
 
+func (client *Client) AlwaysOn() (alwaysOn bool) {
+	client.stateMutex.Lock()
+	alwaysOn = client.alwaysOn
+	client.stateMutex.Unlock()
+	return
+}
+
 // uniqueIdentifiers returns the strings for which the server enforces per-client
 // uniqueness/ownership; no two clients can have colliding casefolded nicks or
 // skeletons.
@@ -264,21 +277,39 @@ func (client *Client) AccountName() string {
 	return client.accountName
 }
 
-func (client *Client) SetAccountName(account string) (changed bool) {
-	var casefoldedAccount string
-	var err error
-	if account != "" {
-		if casefoldedAccount, err = CasefoldName(account); err != nil {
-			return
-		}
-	}
-
+func (client *Client) Login(account ClientAccount) {
+	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Bouncer.AlwaysOn, account.Settings.AlwaysOn)
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	changed = client.account != casefoldedAccount
-	client.account = casefoldedAccount
-	client.accountName = account
+	client.account = account.NameCasefolded
+	client.accountName = account.Name
+	client.accountSettings = account.Settings
+	// check `registered` to avoid incorrectly marking a temporary (pre-reattach),
+	// SASL'ing client as always-on
+	if client.registered {
+		client.alwaysOn = alwaysOn
+	}
+	client.accountRegDate = account.RegisteredAt
 	return
+}
+
+func (client *Client) historyCutoff() (cutoff time.Time) {
+	client.stateMutex.Lock()
+	if client.account != "" {
+		cutoff = client.accountRegDate
+	} else {
+		cutoff = client.ctime
+	}
+	client.stateMutex.Unlock()
+	return
+}
+
+func (client *Client) Logout() {
+	client.stateMutex.Lock()
+	client.account = ""
+	client.accountName = ""
+	client.alwaysOn = false
+	client.stateMutex.Unlock()
 }
 
 func (client *Client) AccountSettings() (result AccountSettings) {
@@ -289,8 +320,12 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 }
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
+	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Bouncer.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
 	client.accountSettings = settings
+	if client.registered {
+		client.alwaysOn = alwaysOn
+	}
 	client.stateMutex.Unlock()
 }
 
@@ -309,11 +344,17 @@ func (client *Client) SetLanguages(languages []string) {
 
 func (client *Client) HasMode(mode modes.Mode) bool {
 	// client.flags has its own synch
-	return client.flags.HasMode(mode)
+	return client.modes.HasMode(mode)
 }
 
 func (client *Client) SetMode(mode modes.Mode, on bool) bool {
-	return client.flags.SetMode(mode, on)
+	return client.modes.SetMode(mode, on)
+}
+
+func (client *Client) SetRealname(realname string) {
+	client.stateMutex.Lock()
+	client.realname = realname
+	client.stateMutex.Unlock()
 }
 
 func (client *Client) Channels() (result []*Channel) {
@@ -409,4 +450,18 @@ func (channel *Channel) HighestUserMode(client *Client) (result modes.Mode) {
 	clientModes := channel.members[client]
 	channel.stateMutex.RUnlock()
 	return clientModes.HighestChannelUserMode()
+}
+
+func (channel *Channel) Settings() (result ChannelSettings) {
+	channel.stateMutex.RLock()
+	result = channel.settings
+	channel.stateMutex.RUnlock()
+	return result
+}
+
+func (channel *Channel) SetSettings(settings ChannelSettings) {
+	channel.stateMutex.Lock()
+	channel.settings = settings
+	channel.stateMutex.Unlock()
+	channel.MarkDirty(IncludeSettings)
 }

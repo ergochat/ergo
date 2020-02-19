@@ -105,7 +105,8 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 		return errNickMissing
 	}
 
-	if !oldClient.AddSession(session) {
+	success, _, _ := oldClient.AddSession(session)
+	if !success {
 		return errNickMissing
 	}
 
@@ -113,32 +114,50 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 }
 
 // SetNick sets a client's nickname, validating it against nicknames in use
-func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) error {
-	if len(newNick) > client.server.Config().Limits.NickLen {
-		return errNicknameInvalid
-	}
+func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error) {
 	newcfnick, err := CasefoldName(newNick)
 	if err != nil {
-		return errNicknameInvalid
+		return "", errNicknameInvalid
+	}
+	if len(newcfnick) > client.server.Config().Limits.NickLen {
+		return "", errNicknameInvalid
 	}
 	newSkeleton, err := Skeleton(newNick)
 	if err != nil {
-		return errNicknameInvalid
+		return "", errNicknameInvalid
 	}
 
 	if restrictedCasefoldedNicks[newcfnick] || restrictedSkeletons[newSkeleton] {
-		return errNicknameInvalid
+		return "", errNicknameInvalid
 	}
 
 	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
-	account := client.Account()
 	config := client.server.Config()
+	client.stateMutex.RLock()
+	account := client.account
+	accountName := client.accountName
+	settings := client.accountSettings
+	registered := client.registered
+	realname := client.realname
+	client.stateMutex.RUnlock()
+
+	// recompute this (client.alwaysOn is not set for unregistered clients):
+	alwaysOn := account != "" && persistenceEnabled(config.Accounts.Bouncer.AlwaysOn, settings.AlwaysOn)
+
+	if alwaysOn && registered {
+		return "", errCantChangeNick
+	}
+
 	var bouncerAllowed bool
 	if config.Accounts.Bouncer.Enabled {
-		if session != nil && session.capabilities.Has(caps.Bouncer) {
+		if alwaysOn {
+			// ignore the pre-reg nick, force a reattach
+			newNick = accountName
+			newcfnick = account
+			bouncerAllowed = true
+		} else if session != nil && session.capabilities.Has(caps.Bouncer) {
 			bouncerAllowed = true
 		} else {
-			settings := client.AccountSettings()
 			if config.Accounts.Bouncer.AllowedByDefault && settings.AllowBouncer != BouncerDisallowedByUser {
 				bouncerAllowed = true
 			} else if settings.AllowBouncer == BouncerAllowedByUser {
@@ -154,28 +173,41 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	// the client may just be changing case
 	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
-		if client.Registered() || !bouncerAllowed || account == "" || account != currentClient.Account() || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
-			return errNicknameInUse
+		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
+			return "", errNicknameInUse
 		}
-		if !currentClient.AddSession(session) {
-			return errNicknameInUse
+		reattachSuccessful, numSessions, lastSignoff := currentClient.AddSession(session)
+		if !reattachSuccessful {
+			return "", errNicknameInUse
 		}
+		if numSessions == 1 {
+			invisible := client.HasMode(modes.Invisible)
+			operator := client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator)
+			client.server.stats.AddRegistered(invisible, operator)
+		}
+		session.lastSignoff = lastSignoff
+		// XXX SetNames only changes names if they are unset, so the realname change only
+		// takes effect on first attach to an always-on client (good), but the user/ident
+		// change is always a no-op (bad). we could make user/ident act the same way as
+		// realname, but then we'd have to send CHGHOST and i don't want to deal with that
+		// for performance reasons
+		currentClient.SetNames("user", realname, true)
 		// successful reattach!
-		return nil
+		return newNick, nil
 	}
 	// analogous checks for skeletons
 	skeletonHolder := clients.bySkeleton[newSkeleton]
 	if skeletonHolder != nil && skeletonHolder != client {
-		return errNicknameInUse
+		return "", errNicknameInUse
 	}
 	if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
-		return errNicknameReserved
+		return "", errNicknameReserved
 	}
 	clients.removeInternal(client)
 	clients.byNick[newcfnick] = client
 	clients.bySkeleton[newSkeleton] = client
 	client.updateNick(newNick, newcfnick, newSkeleton)
-	return nil
+	return newNick, nil
 }
 
 func (clients *ClientManager) AllClients() (result []*Client) {

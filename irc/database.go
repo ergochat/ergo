@@ -36,22 +36,6 @@ type SchemaChange struct {
 // maps an initial version to a schema change capable of upgrading it
 var schemaChanges map[string]SchemaChange
 
-type incompatibleSchemaError struct {
-	currentVersion  string
-	requiredVersion string
-}
-
-func IncompatibleSchemaError(currentVersion string) (result *incompatibleSchemaError) {
-	return &incompatibleSchemaError{
-		currentVersion:  currentVersion,
-		requiredVersion: latestDbSchema,
-	}
-}
-
-func (err *incompatibleSchemaError) Error() string {
-	return fmt.Sprintf("Database requires update. Expected schema v%s, got v%s", err.requiredVersion, err.currentVersion)
-}
-
 // InitDB creates the database, implementing the `oragono initdb` command.
 func InitDB(path string) {
 	_, err := os.Stat(path)
@@ -129,7 +113,7 @@ func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB,
 		// successful autoupgrade, let's try this again:
 		return openDatabaseInternal(config, false)
 	} else {
-		err = IncompatibleSchemaError(version)
+		err = &utils.IncompatibleSchemaError{CurrentVersion: version, RequiredVersion: latestDbSchema}
 		return
 	}
 }
@@ -173,7 +157,7 @@ func UpgradeDB(config *Config) (err error) {
 					break
 				}
 				// unable to upgrade to the desired version, roll back
-				return IncompatibleSchemaError(version)
+				return &utils.IncompatibleSchemaError{CurrentVersion: version, RequiredVersion: latestDbSchema}
 			}
 			log.Println("attempting to update schema from version " + version)
 			err := change.Changer(config, tx)

@@ -33,7 +33,8 @@ const (
 	keyAccountSettings         = "account.settings %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
-	keyAccountChannels         = "account.channels %s"
+	keyAccountChannels         = "account.channels %s" // channels registered to the account
+	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -71,6 +72,40 @@ func (am *AccountManager) Initialize(server *Server) {
 	config := server.Config()
 	am.buildNickToAccountIndex(config)
 	am.initVHostRequestQueue(config)
+	am.createAlwaysOnClients(config)
+}
+
+func (am *AccountManager) createAlwaysOnClients(config *Config) {
+	if config.Accounts.Bouncer.AlwaysOn == PersistentDisabled {
+		return
+	}
+
+	verifiedPrefix := fmt.Sprintf(keyAccountVerified, "")
+
+	am.serialCacheUpdateMutex.Lock()
+	defer am.serialCacheUpdateMutex.Unlock()
+
+	var accounts []string
+
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		err := tx.AscendGreaterOrEqual("", verifiedPrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, verifiedPrefix) {
+				return false
+			}
+			account := strings.TrimPrefix(key, verifiedPrefix)
+			accounts = append(accounts, account)
+			return true
+		})
+		return err
+	})
+
+	for _, accountName := range accounts {
+		account, err := am.LoadAccount(accountName)
+		if err == nil && account.Verified &&
+			persistenceEnabled(config.Accounts.Bouncer.AlwaysOn, account.Settings.AlwaysOn) {
+			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName))
+		}
+	}
 }
 
 func (am *AccountManager) buildNickToAccountIndex(config *Config) {
@@ -477,6 +512,28 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 	return err
 }
 
+func (am *AccountManager) saveChannels(account string, channels []string) {
+	channelsStr := strings.Join(channels, ",")
+	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, channelsStr, nil)
+		return nil
+	})
+}
+
+func (am *AccountManager) loadChannels(account string) (channels []string) {
+	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+	var channelsStr string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		channelsStr, _ = tx.Get(key)
+		return nil
+	})
+	if channelsStr != "" {
+		return strings.Split(channelsStr, ",")
+	}
+	return
+}
+
 func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasPrivs bool) (err error) {
 	certfp, err = utils.NormalizeCertfp(certfp)
 	if err != nil {
@@ -685,7 +742,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
 	raw.Verified = true
-	clientAccount, err := am.deserializeRawAccount(raw)
+	clientAccount, err := am.deserializeRawAccount(raw, casefoldedAccount)
 	if err != nil {
 		return err
 	}
@@ -892,13 +949,13 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 		return
 	}
 
-	result, err = am.deserializeRawAccount(raw)
-	result.NameCasefolded = casefoldedAccount
+	result, err = am.deserializeRawAccount(raw, casefoldedAccount)
 	return
 }
 
-func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result ClientAccount, err error) {
+func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName string) (result ClientAccount, err error) {
 	result.Name = raw.Name
+	result.NameCasefolded = cfName
 	regTimeInt, _ := strconv.ParseInt(raw.RegisteredAt, 10, 64)
 	result.RegisteredAt = time.Unix(regTimeInt, 0).UTC()
 	e := json.Unmarshal([]byte(raw.Credentials), &result.Credentials)
@@ -976,6 +1033,7 @@ func (am *AccountManager) Unregister(account string) error {
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
+	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1011,6 +1069,7 @@ func (am *AccountManager) Unregister(account string) error {
 		tx.Delete(vhostKey)
 		channelsStr, _ = tx.Get(channelsKey)
 		tx.Delete(channelsKey)
+		tx.Delete(joinedChannelsKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
@@ -1455,10 +1514,7 @@ func (am *AccountManager) applyVhostToClients(account string, result VHostInfo) 
 }
 
 func (am *AccountManager) Login(client *Client, account ClientAccount) {
-	changed := client.SetAccountName(account.Name)
-	if !changed {
-		return
-	}
+	client.Login(account)
 
 	client.nickTimer.Touch(nil)
 
@@ -1468,9 +1524,6 @@ func (am *AccountManager) Login(client *Client, account ClientAccount) {
 	am.Lock()
 	defer am.Unlock()
 	am.accountToClients[casefoldedAccount] = append(am.accountToClients[casefoldedAccount], client)
-	for _, client := range am.accountToClients[casefoldedAccount] {
-		client.SetAccountSettings(account.Settings)
-	}
 }
 
 func (am *AccountManager) Logout(client *Client) {
@@ -1623,10 +1676,13 @@ func replayJoinsSettingFromString(str string) (result ReplayJoinsSetting, err er
 }
 
 type AccountSettings struct {
-	AutoreplayLines *int
-	NickEnforcement NickEnforcementMethod
-	AllowBouncer    BouncerAllowedSetting
-	ReplayJoins     ReplayJoinsSetting
+	AutoreplayLines  *int
+	NickEnforcement  NickEnforcementMethod
+	AllowBouncer     BouncerAllowedSetting
+	ReplayJoins      ReplayJoinsSetting
+	AlwaysOn         PersistentStatus
+	AutoreplayMissed bool
+	DMHistory        HistoryStatus
 }
 
 // ClientAccount represents a user account.
@@ -1661,7 +1717,7 @@ func (am *AccountManager) logoutOfAccount(client *Client) {
 		return
 	}
 
-	client.SetAccountName("")
+	client.Logout()
 	go client.nickTimer.Touch(nil)
 
 	// dispatch account-notify

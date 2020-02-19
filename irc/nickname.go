@@ -43,13 +43,15 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	hadNick := target.HasNick()
 	origNickMask := target.NickMaskString()
 	details := target.Details()
-	err := client.server.clients.SetNick(target, session, nickname)
+	assignedNickname, err := client.server.clients.SetNick(target, session, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is already in use"))
 	} else if err == errNicknameReserved {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, nickname, client.t("Nickname is reserved by a different account"))
 	} else if err == errNicknameInvalid {
 		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, currentNick, utils.SafeErrorParam(nickname), client.t("Erroneous nickname"))
+	} else if err == errCantChangeNick {
+		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t(err.Error()))
 	} else if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 	}
@@ -64,26 +66,26 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		AccountName: details.accountName,
 		Message:     message,
 	}
-	histItem.Params[0] = nickname
+	histItem.Params[0] = assignedNickname
 
-	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, nickname, client.NickCasefolded()))
+	client.server.logger.Debug("nick", fmt.Sprintf("%s changed nickname to %s [%s]", origNickMask, assignedNickname, client.NickCasefolded()))
 	if hadNick {
 		if client == target {
-			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), details.nick, nickname))
+			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("$%s$r changed nickname to %s"), details.nick, assignedNickname))
 		} else {
-			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("Operator %s changed nickname of $%s$r to %s"), client.Nick(), details.nick, nickname))
+			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("Operator %s changed nickname of $%s$r to %s"), client.Nick(), details.nick, assignedNickname))
 		}
 		target.server.whoWas.Append(details.WhoWas)
-		rb.AddFromClient(message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", nickname)
+		rb.AddFromClient(message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", assignedNickname)
 		for session := range target.Friends() {
 			if session != rb.session {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", nickname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", assignedNickname)
 			}
 		}
 	}
 
 	for _, channel := range client.Channels() {
-		channel.history.Add(histItem)
+		channel.AddHistoryItem(histItem)
 	}
 
 	if target.Registered() {

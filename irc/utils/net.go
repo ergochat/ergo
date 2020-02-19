@@ -18,14 +18,6 @@ var (
 	validHostnameLabelRegexp = regexp.MustCompile(`^[0-9A-Za-z.\-]+$`)
 )
 
-// AddrIsLocal returns whether the address is from a trusted local connection (loopback or unix).
-func AddrIsLocal(addr net.Addr) bool {
-	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
-		return tcpaddr.IP.IsLoopback()
-	}
-	return AddrIsUnix(addr)
-}
-
 // AddrToIP returns the IP address for a net.Addr; unix domain sockets are treated as IPv4 loopback
 func AddrToIP(addr net.Addr) net.IP {
 	if tcpaddr, ok := addr.(*net.TCPAddr); ok {

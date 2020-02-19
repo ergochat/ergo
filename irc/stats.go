@@ -26,15 +26,33 @@ func (s *Stats) Add() {
 	s.mutex.Unlock()
 }
 
+// Activates a registered client, e.g., for the initial attach to a persistent client
+func (s *Stats) AddRegistered(invisible, operator bool) {
+	s.mutex.Lock()
+	if invisible {
+		s.Invisible += 1
+	}
+	if operator {
+		s.Operators += 1
+	}
+	s.Total += 1
+	s.setMax()
+	s.mutex.Unlock()
+}
+
 // Transition a client from unregistered to registered
 func (s *Stats) Register() {
 	s.mutex.Lock()
 	s.Unknown -= 1
 	s.Total += 1
+	s.setMax()
+	s.mutex.Unlock()
+}
+
+func (s *Stats) setMax() {
 	if s.Max < s.Total {
 		s.Max = s.Total
 	}
-	s.mutex.Unlock()
 }
 
 // Modify the Invisible count

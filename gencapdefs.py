@@ -171,6 +171,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/398",
         standard="proposed IRCv3",
     ),
+    CapDef(
+        identifier="Chathistory",
+        name="draft/chathistory",
+        url="https://github.com/ircv3/ircv3-specifications/pull/393",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():

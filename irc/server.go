@@ -24,8 +24,10 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
+	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/tidwall/buntdb"
 )
@@ -84,6 +86,7 @@ type Server struct {
 	signals           chan os.Signal
 	snomasks          SnoManager
 	store             *buntdb.DB
+	historyDB         mysql.MySQL
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
 	stats             Stats
@@ -122,7 +125,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	server.monitorManager.Initialize()
 	server.snomasks.Initialize()
 
-	if err := server.applyConfig(config, true); err != nil {
+	if err := server.applyConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -143,6 +146,8 @@ func (server *Server) Shutdown() {
 	if err := server.store.Close(); err != nil {
 		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
 	}
+
+	server.historyDB.Close()
 }
 
 // Run starts the server.
@@ -316,7 +321,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	authOutcome := c.isAuthorized(server.Config())
+	authOutcome := c.isAuthorized(server.Config(), session.isTor)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -376,7 +381,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	// continue registration
 	d := c.Details()
 	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
-	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, c.RawHostname(), c.IPString(), d.realname))
+	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
 
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
@@ -550,7 +555,7 @@ func (server *Server) rehash() error {
 		return fmt.Errorf("Error loading config file config: %s", err.Error())
 	}
 
-	err = server.applyConfig(config, false)
+	err = server.applyConfig(config)
 	if err != nil {
 		return fmt.Errorf("Error applying config changes: %s", err.Error())
 	}
@@ -558,7 +563,10 @@ func (server *Server) rehash() error {
 	return nil
 }
 
-func (server *Server) applyConfig(config *Config, initial bool) (err error) {
+func (server *Server) applyConfig(config *Config) (err error) {
+	oldConfig := server.Config()
+	initial := oldConfig == nil
+
 	if initial {
 		server.configFilename = config.Filename
 		server.name = config.Server.Name
@@ -568,7 +576,7 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
 			return fmt.Errorf("Server name cannot be changed after launching the server, rehash aborted")
-		} else if server.Config().Datastore.Path != config.Datastore.Path {
+		} else if oldConfig.Datastore.Path != config.Datastore.Path {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		} else if globalCasemappingSetting != config.Server.Casemapping {
 			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
@@ -576,7 +584,6 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	}
 
 	server.logger.Info("server", "Using config file", server.configFilename)
-	oldConfig := server.Config()
 
 	// first, reload config sections for functionality implemented in subpackages:
 	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()
@@ -609,14 +616,13 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 		if !oldConfig.Channels.Registration.Enabled {
 			server.channels.loadRegisteredChannels(config)
 		}
-
 		// resize history buffers as needed
 		if oldConfig.History != config.History {
 			for _, channel := range server.channels.Channels() {
-				channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
+				channel.resizeHistory(config)
 			}
 			for _, client := range server.clients.AllClients() {
-				client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
+				client.resizeHistory(config)
 			}
 		}
 	}
@@ -657,6 +663,10 @@ func (server *Server) applyConfig(config *Config, initial bool) (err error) {
 	if initial {
 		if err := server.loadDatastore(config); err != nil {
 			return err
+		}
+	} else {
+		if config.Datastore.MySQL.Enabled {
+			server.historyDB.SetExpireTime(config.History.Restrictions.ExpireTime)
 		}
 	}
 
@@ -778,6 +788,15 @@ func (server *Server) loadDatastore(config *Config) error {
 	server.channels.Initialize(server)
 	server.accounts.Initialize(server)
 
+	if config.Datastore.MySQL.Enabled {
+		server.historyDB.Initialize(server.logger, config.History.Restrictions.ExpireTime)
+		err = server.historyDB.Open(config.Datastore.MySQL.User, config.Datastore.MySQL.Password, config.Datastore.MySQL.Host, config.Datastore.MySQL.Port, config.Datastore.MySQL.HistoryDatabase)
+		if err != nil {
+			server.logger.Error("internal", "could not connect to mysql", err.Error())
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -832,6 +851,72 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		server.logger.Warning("listeners", fmt.Sprintf("Your server is configured with public plaintext listener %s. Consider disabling it for improved security and privacy.", publicPlaintextListener))
 	}
 
+	return
+}
+
+// Gets the abstract sequence from which we're going to query history;
+// we may already know the channel we're querying, or we may have
+// to look it up via a string target. This function is responsible for
+// privilege checking.
+func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, target string) (channel *Channel, sequence history.Sequence, err error) {
+	config := server.Config()
+	var sender, recipient string
+	var hist *history.Buffer
+	if target == "*" {
+		if client.AlwaysOn() {
+			recipient = client.NickCasefolded()
+		} else {
+			hist = &client.history
+		}
+	} else {
+		channel = providedChannel
+		if channel == nil {
+			channel = server.channels.Get(target)
+		}
+		if channel != nil {
+			if !channel.hasClient(client) {
+				err = errInsufficientPrivs
+				return
+			}
+			persistent, ephemeral, cfTarget := channel.historyStatus(config)
+			if persistent {
+				recipient = cfTarget
+			} else if ephemeral {
+				hist = &channel.history
+			} else {
+				return
+			}
+		} else {
+			sender = client.NickCasefolded()
+			var cfTarget string
+			cfTarget, err = CasefoldName(target)
+			if err != nil {
+				return
+			}
+			recipient = cfTarget
+			if !client.AlwaysOn() {
+				hist = &client.history
+			}
+		}
+	}
+
+	var cutoff time.Time
+	if config.History.Restrictions.ExpireTime != 0 {
+		cutoff = time.Now().UTC().Add(-config.History.Restrictions.ExpireTime)
+	}
+	if config.History.Restrictions.EnforceRegistrationDate {
+		regCutoff := client.historyCutoff()
+		regCutoff.Add(-config.History.Restrictions.GracePeriod)
+		// take the earlier of the two cutoffs
+		if regCutoff.After(cutoff) {
+			cutoff = regCutoff
+		}
+	}
+	if hist != nil {
+		sequence = hist.MakeSequence(recipient, cutoff)
+	} else if recipient != "" {
+		sequence = server.historyDB.MakeSequence(sender, recipient, cutoff)
+	}
 	return
 }
 

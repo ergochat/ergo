@@ -23,9 +23,9 @@ type MessagePair struct {
 // SplitMessage represents a message that's been split for sending.
 // Two possibilities:
 // (a) Standard message that can be relayed on a single 512-byte line
-//     (MessagePair contains the message, Wrapped == nil)
+//     (MessagePair contains the message, Split == nil)
 // (b) multiline message that was split on the client side
-//     (Message == "", Wrapped contains the split lines)
+//     (Message == "", Split contains the split lines)
 type SplitMessage struct {
 	Message string
 	Msgid   string
@@ -36,7 +36,7 @@ type SplitMessage struct {
 func MakeMessage(original string) (result SplitMessage) {
 	result.Message = original
 	result.Msgid = GenerateSecretToken()
-	result.Time = time.Now().UTC()
+	result.SetTime()
 
 	return
 }
@@ -52,7 +52,8 @@ func (sm *SplitMessage) Append(message string, concat bool) {
 }
 
 func (sm *SplitMessage) SetTime() {
-	sm.Time = time.Now().UTC()
+	// strip the monotonic time, it's a potential source of problems:
+	sm.Time = time.Now().UTC().Round(0)
 }
 
 func (sm *SplitMessage) LenLines() int {
@@ -86,10 +87,6 @@ func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {
 		}
 	}
 	return false
-}
-
-func (sm *SplitMessage) IsMultiline() bool {
-	return sm.Message == "" && len(sm.Split) != 0
 }
 
 func (sm *SplitMessage) Is512() bool {

@@ -245,6 +245,15 @@ server:
         # all users will receive simply `netname` as their cloaked hostname.
         num-bits: 80
 
+    # secure-nets identifies IPs and CIDRs which are secure at layer 3,
+    # for example, because they are on a trusted internal LAN or a VPN.
+    # plaintext connections from these IPs and CIDRs will be considered
+    # secure (clients will receive the +Z mode and be allowed to resume
+    # or reattach to secure connections). note that loopback IPs are always
+    # considered secure:
+    secure-nets:
+        # - "10.0.0.0/8"
+
 
 # account options
 accounts:
@@ -350,6 +359,11 @@ accounts:
         # using nickserv or the cap system. if it's enabled, they can opt out
         # via nickserv
         allowed-by-default: true
+
+        # whether to allow clients that remain on the server even
+        # when they have no active connections. The possible values are:
+        # "disabled", "opt-in", "opt-out", or "mandatory".
+        always-on: "disabled"
 
     # vhosts controls the assignment of vhosts (strings displayed in place of the user's
     # hostname/IP) by the HostServ service
@@ -585,6 +599,16 @@ datastore:
     # up, and if the upgrade fails, the original database will be restored.
     autoupgrade: true
 
+    # connection information for MySQL (currently only used for persistent history):
+    mysql:
+        enabled: false
+        host: "localhost"
+        # port is unnecessary for connections via unix domain socket:
+        #port: 3306
+        user: "oragono"
+        password: "KOHw8WSaRwaoo-avo0qVpQ"
+        history-database: "oragono_history"
+
 # languages config
 languages:
     # whether to load languages
@@ -657,7 +681,7 @@ fakelag:
 # message history tracking, for the RESUME extension and possibly other uses in future
 history:
     # should we store messages for later playback?
-    # the current implementation stores messages in RAM only; they do not persist
+    # by default, messages are stored in RAM only; they do not persist
     # across server restarts. however, you should not enable this unless you understand
     # how it interacts with the GDPR and/or any data privacy laws that apply
     # in your country and the countries of your users.
@@ -683,3 +707,41 @@ history:
     # maximum number of CHATHISTORY messages that can be
     # requested at once (0 disables support for CHATHISTORY)
     chathistory-maxmessages: 100
+
+    # maximum number of messages that can be replayed at once during znc emulation
+    # (znc.in/playback, or automatic replay on initial reattach to a persistent client):
+    znc-maxmessages: 2048
+
+    # options to delete old messages, or prevent them from being retrieved
+    restrictions:
+        # if this is set, messages older than this cannot be retrieved by anyone
+        # (and will eventually be deleted from persistent storage, if that's enabled)
+        #expire-time: 168h # 7 days
+
+        # if this is set, logged-in users cannot retrieve messages older than their
+        # account registration date, and logged-out users cannot retrieve messages
+        # older than their sign-on time (modulo grace-period, see below):
+        enforce-registration-date: false
+
+        # but if this is set, you can retrieve messages that are up to `grace-period`
+        # older than the above cutoff time. this is recommended to allow logged-out
+        # users to do session resumption / query history after disconnections.
+        grace-period: 1h
+
+    # options to store history messages in a persistent database (currently only MySQL):
+    persistent:
+        enabled: false
+
+        # store unregistered channel messages in the persistent database?
+        unregistered-channels: false
+
+        # for a registered channel, the channel owner can potentially customize
+        # the history storage setting. as the server operator, your options are
+        # 'disabled' (no persistent storage, regardless of per-channel setting),
+        # 'opt-in', 'opt-out', and 'mandatory' (force persistent storage, ignoring
+        # per-channel setting):
+        registered-channels: "opt-out"
+
+        # direct messages are only stored in the database for persistent clients;
+        # you can control how they are stored here (same options as above)
+        direct-messages: "opt-out"
