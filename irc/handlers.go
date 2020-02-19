@@ -112,6 +112,7 @@ func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSAS
 
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	session := rb.session
 	config := server.Config()
 	details := client.Details()
 
@@ -128,20 +129,17 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	// sasl abort
 	if !server.AccountConfig().AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
 		rb.Add(nil, server.name, ERR_SASLABORTED, details.nick, client.t("SASL authentication aborted"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	}
 
 	// start new sasl session
-	if !client.saslInProgress {
+	if session.sasl.mechanism == "" {
 		mechanism := strings.ToUpper(msg.Params[0])
 		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
 
 		if mechanismIsEnabled {
-			client.saslInProgress = true
-			client.saslMechanism = mechanism
+			session.sasl.mechanism = mechanism
 			if !config.Server.Compatibility.SendUnprefixedSasl {
 				// normal behavior
 				rb.Add(nil, server.name, "AUTHENTICATE", "+")
@@ -162,58 +160,46 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 
 	if len(rawData) > 400 {
 		rb.Add(nil, server.name, ERR_SASLTOOLONG, details.nick, client.t("SASL message too long"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	} else if len(rawData) == 400 {
-		client.saslValue += rawData
 		// allow 4 'continuation' lines before rejecting for length
-		if len(client.saslValue) > 400*4 {
+		if len(session.sasl.value) >= 400*4 {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
+			session.sasl.Clear()
 			return false
 		}
+		session.sasl.value += rawData
 		return false
 	}
 	if rawData != "+" {
-		client.saslValue += rawData
+		session.sasl.value += rawData
 	}
 
 	var data []byte
 	var err error
-	if client.saslValue != "+" {
-		data, err = base64.StdEncoding.DecodeString(client.saslValue)
+	if session.sasl.value != "+" {
+		data, err = base64.StdEncoding.DecodeString(session.sasl.value)
 		if err != nil {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
+			session.sasl.Clear()
 			return false
 		}
 	}
 
 	// call actual handler
-	handler, handlerExists := EnabledSaslMechanisms[client.saslMechanism]
+	handler, handlerExists := EnabledSaslMechanisms[session.sasl.mechanism]
 
 	// like 100% not required, but it's good to be safe I guess
 	if !handlerExists {
 		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	}
 
 	// let the SASL handler do its thing
-	exiting := handler(server, client, client.saslMechanism, data, rb)
-
-	// wait 'til SASL is done before emptying the sasl vars
-	client.saslInProgress = false
-	client.saslMechanism = ""
-	client.saslValue = ""
+	exiting := handler(server, client, session.sasl.mechanism, data, rb)
+	session.sasl.Clear()
 
 	return exiting
 }
@@ -270,7 +256,7 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 
 // AUTHENTICATE EXTERNAL
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
-	if client.certfp == "" {
+	if rb.session.certfp == "" {
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
 		return false
 	}
@@ -287,7 +273,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	}
 
 	if err == nil {
-		err = server.accounts.AuthenticateByCertFP(client, authzid)
+		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
 	}
 
 	if err != nil {
@@ -2055,7 +2041,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Fingerprint != "" {
-			if oper.Fingerprint == client.certfp {
+			if oper.Fingerprint == rb.session.certfp {
 				checkPassed = true
 			} else {
 				checkFailed = true
@@ -2144,7 +2130,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	client.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
+	rb.session.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
 
 	// if they failed the check, we'll bounce them later when they try to complete registration
 	return false
@@ -2523,7 +2509,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if info.Fingerprint != "" && info.Fingerprint != client.certfp {
+			if info.Fingerprint != "" && info.Fingerprint != rb.session.certfp {
 				continue
 			}
 

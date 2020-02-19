@@ -65,6 +65,7 @@ type SessionData struct {
 	atime    time.Time
 	ip       net.IP
 	hostname string
+	certfp   string
 }
 
 func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
@@ -81,6 +82,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			atime:    session.atime,
 			ctime:    session.ctime,
 			hostname: session.rawHostname,
+			certfp:   session.certfp,
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP

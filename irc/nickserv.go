@@ -605,7 +605,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	var username, passphrase string
 	if len(params) == 1 {
-		if client.certfp != "" {
+		if rb.session.certfp != "" {
 			username = params[0]
 		} else {
 			// XXX undocumented compatibility mode with other nickservs, allowing
@@ -628,8 +628,8 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	}
 
 	// try certfp
-	if !loginSuccessful && client.certfp != "" {
-		err := server.accounts.AuthenticateByCertFP(client, "")
+	if !loginSuccessful && rb.session.certfp != "" {
+		err := server.accounts.AuthenticateByCertFP(client, rb.session.certfp, "")
 		loginSuccessful = (err == nil)
 	}
 
@@ -693,7 +693,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		email = params[1]
 	}
 
-	certfp := client.certfp
+	certfp := rb.session.certfp
 	if passphrase == "*" {
 		if certfp == "" {
 			nsNotice(rb, client.t("You must be connected with TLS and a client certificate to do this"))
@@ -733,7 +733,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	}
 
-	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, client.certfp)
+	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, rb.session.certfp)
 	if err == nil {
 		if callbackNamespace == "*" {
 			err = server.accounts.Verify(client, account, "")
@@ -951,6 +951,9 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
 		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
 		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
+		if session.certfp != "" {
+			nsNotice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
+		}
 	}
 }
 

@@ -51,7 +51,6 @@ type Client struct {
 	away               bool
 	awayMessage        string
 	brbTimer           BrbTimer
-	certfp             string
 	channels           ChannelSet
 	ctime              time.Time
 	destroyed          bool
@@ -77,10 +76,6 @@ type Client struct {
 	realIP             net.IP
 	registered         bool
 	resumeID           string
-	saslInProgress     bool
-	saslMechanism      string
-	saslValue          string
-	sentPassCommand    bool
 	server             *Server
 	skeleton           string
 	sessions           []*Session
@@ -91,6 +86,15 @@ type Client struct {
 	history            history.Buffer
 	dirtyBits          uint
 	writerSemaphore    utils.Semaphore // tier 1.5
+}
+
+type saslStatus struct {
+	mechanism string
+	value     string
+}
+
+func (s *saslStatus) Clear() {
+	*s = saslStatus{}
 }
 
 // Session is an individual client connection to the server (TCP connection
@@ -111,6 +115,10 @@ type Session struct {
 	idletimer IdleTimer
 	fakelag   Fakelag
 	destroyed uint32
+
+	certfp          string
+	sasl            saslStatus
+	sentPassCommand bool
 
 	batchCounter uint32
 
@@ -271,7 +279,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
-		client.certfp, _ = socket.CertFP()
+		session.certfp, _ = socket.CertFP()
 	}
 
 	if conn.Config.Tor {
@@ -451,18 +459,18 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(config *Config, isTor bool) AuthOutcome {
+func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
-	if (config.Server.passwordBytes != nil) && !client.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
+	if (config.Server.passwordBytes != nil) && !session.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
 		return authFailPass
 	}
 	// Tor connections may be required to authenticate with SASL
-	if isTor && config.Server.TorListeners.RequireSasl && !saslSent {
+	if session.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets) {
+	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}
 	return authSuccess
@@ -1518,11 +1526,11 @@ func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
 // Implements auto-oper by certfp (scans for an auto-eligible operator block that matches
 // the client's cert, then applies it).
 func (client *Client) attemptAutoOper(session *Session) {
-	if client.certfp == "" || client.HasMode(modes.Operator) {
+	if session.certfp == "" || client.HasMode(modes.Operator) {
 		return
 	}
 	for _, oper := range client.server.Config().operators {
-		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == client.certfp {
+		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == session.certfp {
 			rb := NewResponseBuffer(session)
 			applyOper(client, oper, rb)
 			rb.Send(true)

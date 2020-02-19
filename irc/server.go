@@ -321,7 +321,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	authOutcome := c.isAuthorized(server.Config(), session.isTor)
+	authOutcome := c.isAuthorized(server.Config(), session)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -508,8 +508,12 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
-	if target.certfp != "" && (client.HasMode(modes.Operator) || client == target) {
-		rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), target.certfp))
+	if client == target || client.HasMode(modes.Operator) {
+		for _, session := range target.Sessions() {
+			if session.certfp != "" {
+				rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), session.certfp))
+			}
+		}
 	}
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 }

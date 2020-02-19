@@ -88,7 +88,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	session.proxiedIP = parsedProxiedIP
 	// nickmask will be updated when the client completes registration
 	// set tls info
-	client.certfp = ""
+	session.certfp = ""
 	client.SetMode(modes.TLS, tls)
 
 	return nil, ""

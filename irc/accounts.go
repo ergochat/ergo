@@ -1146,13 +1146,13 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 	return unmarshalRegisteredChannels(channelStr)
 }
 
-func (am *AccountManager) AuthenticateByCertFP(client *Client, authzid string) error {
-	if client.certfp == "" {
+func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid string) error {
+	if certfp == "" {
 		return errAccountInvalidCredentials
 	}
 
 	var account string
-	certFPKey := fmt.Sprintf(keyCertToAccount, client.certfp)
+	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
 	err := am.server.store.View(func(tx *buntdb.Tx) error {
 		account, _ = tx.Get(certFPKey)
