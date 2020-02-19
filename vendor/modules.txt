@@ -9,6 +9,9 @@ github.com/go-asn1-ber/asn1-ber
 # github.com/go-ldap/ldap/v3 v3.1.6
 ## explicit
 github.com/go-ldap/ldap/v3
+# github.com/go-sql-driver/mysql v1.5.0
+## explicit
+github.com/go-sql-driver/mysql
 # github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940
 ## explicit
 github.com/goshuirc/e-nfa
@@ -26,36 +29,35 @@ github.com/mattn/go-isatty
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 ## explicit
 github.com/mgutz/ansi
+# github.com/onsi/ginkgo v1.12.0
+## explicit
+# github.com/onsi/gomega v1.9.0
+## explicit
 # github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0
 ## explicit
 github.com/oragono/confusables
 # github.com/oragono/go-ident v0.0.0-20170110123031-337fed0fd21a
 ## explicit
 github.com/oragono/go-ident
-# github.com/tidwall/btree v0.0.0-20191029221954-400434d76274
+# github.com/stretchr/testify v1.4.0
 ## explicit
+# github.com/tidwall/btree v0.0.0-20191029221954-400434d76274
 github.com/tidwall/btree
 # github.com/tidwall/buntdb v1.1.2
 ## explicit
 github.com/tidwall/buntdb
 # github.com/tidwall/gjson v1.3.4
-## explicit
 github.com/tidwall/gjson
 # github.com/tidwall/grect v0.0.0-20161006141115-ba9a043346eb
-## explicit
 github.com/tidwall/grect
 # github.com/tidwall/match v1.0.1
-## explicit
 github.com/tidwall/match
 # github.com/tidwall/pretty v1.0.0
-## explicit
 github.com/tidwall/pretty
 # github.com/tidwall/rtree v0.0.0-20180113144539-6cd427091e0e
-## explicit
 github.com/tidwall/rtree
 github.com/tidwall/rtree/base
 # github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563
-## explicit
 github.com/tidwall/tinyqueue
 # golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708
 ## explicit
@@ -63,8 +65,7 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.0.0-20191115151921-52ab43148777
-## explicit
+# golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
