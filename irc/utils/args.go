@@ -51,9 +51,9 @@ func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
 
 func StringToBool(str string) (result bool, err error) {
 	switch strings.ToLower(str) {
-	case "on", "true", "t", "yes", "y", "disabled":
+	case "on", "true", "t", "yes", "y", "enabled":
 		result = true
-	case "off", "false", "f", "no", "n", "enabled":
+	case "off", "false", "f", "no", "n", "disabled":
 		result = false
 	default:
 		err = ErrInvalidParams
