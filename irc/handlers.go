@@ -1943,10 +1943,15 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 
 		// the originating session may get an echo message:
 		if rb.session.capabilities.Has(caps.EchoMessage) {
-			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+			hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
+			if histType == history.Tagmsg && hasTagsCap {
 				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
 			} else {
-				rb.AddSplitMessageFromClient(nickMaskString, accountName, tags, command, tnick, message)
+				tagsToSend := tags
+				if !hasTagsCap {
+					tagsToSend = nil
+				}
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToSend, command, tnick, message)
 			}
 		}
 		if histType != history.Notice && user.Away() {
