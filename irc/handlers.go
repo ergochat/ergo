@@ -1975,8 +1975,8 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 		targetedItem := item
 		targetedItem.Params[0] = tnick
-		cPersistent, cEphemeral := client.historyStatus(config)
-		tPersistent, tEphemeral := user.historyStatus(config)
+		cPersistent, cEphemeral, _ := client.historyStatus(config)
+		tPersistent, tEphemeral, _ := user.historyStatus(config)
 		// add to ephemeral history
 		if cEphemeral {
 			targetedItem.CfCorrespondent = tDetails.nickCasefolded

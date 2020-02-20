@@ -867,10 +867,13 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	var sender, recipient string
 	var hist *history.Buffer
 	if target == "*" {
-		if client.AlwaysOn() {
-			recipient = client.NickCasefolded()
-		} else {
+		persistent, ephemeral, target := client.historyStatus(config)
+		if persistent {
+			recipient = target
+		} else if ephemeral {
 			hist = &client.history
+		} else {
+			return
 		}
 	} else {
 		channel = providedChannel

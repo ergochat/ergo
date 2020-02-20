@@ -353,7 +353,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string)
 }
 
 func (client *Client) resizeHistory(config *Config) {
-	_, ephemeral := client.historyStatus(config)
+	_, ephemeral, _ := client.historyStatus(config)
 	if ephemeral {
 		client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
 	} else {
@@ -756,7 +756,7 @@ func (session *Session) playResume() {
 			}
 		}
 	}
-	_, cEphemeral := client.historyStatus(config)
+	_, cEphemeral, _ := client.historyStatus(config)
 	if cEphemeral {
 		lastDiscarded := client.history.LastDiscarded()
 		if oldestLostMessage.Before(lastDiscarded) {
@@ -1543,20 +1543,23 @@ func (client *Client) attemptAutoOper(session *Session) {
 	}
 }
 
-func (client *Client) historyStatus(config *Config) (persistent, ephemeral bool) {
+func (client *Client) historyStatus(config *Config) (persistent, ephemeral bool, target string) {
 	if !config.History.Enabled {
-		return false, false
+		return
 	} else if !config.History.Persistent.Enabled {
-		return false, true
+		ephemeral = true
+		return
 	}
 
 	client.stateMutex.RLock()
 	alwaysOn := client.alwaysOn
 	historyStatus := client.accountSettings.DMHistory
+	target = client.nickCasefolded
 	client.stateMutex.RUnlock()
 
 	if !alwaysOn {
-		return false, true
+		ephemeral = true
+		return
 	}
 
 	historyStatus = historyEnabled(config.History.Persistent.DirectMessages, historyStatus)
