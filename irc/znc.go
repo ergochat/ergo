@@ -45,7 +45,7 @@ func zncWireTimeToTime(str string) (result time.Time) {
 	}
 	seconds, _ := strconv.ParseInt(secondsPortion, 10, 64)
 	fraction, _ := strconv.ParseFloat(fracPortion, 64)
-	return time.Unix(seconds, int64(fraction*1000000000))
+	return time.Unix(seconds, int64(fraction*1000000000)).UTC()
 }
 
 type zncPlaybackTimes struct {

@@ -271,7 +271,7 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 	if err == nil {
 		regTime, _ := tx.Get(fmt.Sprintf(keyChannelRegTime, key))
 		regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
-		registeredAt := time.Unix(regTimeInt, 0)
+		registeredAt := time.Unix(regTimeInt, 0).UTC()
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, key))
 
 		// to see if we're deleting the right channel, confirm the founder and the registration time

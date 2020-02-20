@@ -80,5 +80,5 @@ func (err *IncompatibleSchemaError) Error() string {
 }
 
 func NanoToTimestamp(nanotime int64) string {
-	return time.Unix(0, nanotime).Format(IRCv3TimestampFormat)
+	return time.Unix(0, nanotime).UTC().Format(IRCv3TimestampFormat)
 }

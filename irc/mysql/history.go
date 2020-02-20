@@ -405,7 +405,7 @@ func (mysql *MySQL) msgidToTime(msgid string) (result time.Time, err error) {
 	if mysql.logError("could not resolve msgid to time", err) {
 		return
 	}
-	result = time.Unix(0, nanotime)
+	result = time.Unix(0, nanotime).UTC()
 	return
 }
 
