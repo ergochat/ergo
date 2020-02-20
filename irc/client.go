@@ -306,7 +306,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	client.run(session, proxyLine)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSignoff time.Time) {
 	now := time.Now().UTC()
 	config := server.Config()
 
@@ -322,7 +322,8 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string)
 		rawHostname: server.name,
 		realIP:      utils.IPv4LoopbackAddress,
 
-		alwaysOn: true,
+		alwaysOn:    true,
+		lastSignoff: lastSignoff,
 	}
 
 	client.SetMode(modes.TLS, true)
@@ -1187,9 +1188,16 @@ func (client *Client) destroy(session *Session) {
 	}
 	if alwaysOn && remainingSessions == 0 {
 		client.lastSignoff = lastSignoff
+		client.dirtyBits |= IncludeLastSignoff
+	} else {
+		lastSignoff = time.Time{}
 	}
 	exitedSnomaskSent := client.exitedSnomaskSent
 	client.stateMutex.Unlock()
+
+	if !lastSignoff.IsZero() {
+		client.wakeWriter()
+	}
 
 	// destroy all applicable sessions:
 	var quitMessage string
@@ -1573,6 +1581,7 @@ func (client *Client) historyStatus(config *Config) (persistent, ephemeral bool,
 // TODO add a dirty flag for lastSignoff
 const (
 	IncludeChannels uint = 1 << iota
+	IncludeLastSignoff
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1609,7 +1618,7 @@ func (client *Client) writeLoop() {
 
 func (client *Client) performWrite() {
 	client.stateMutex.Lock()
-	// TODO actually read dirtyBits in the future
+	dirtyBits := client.dirtyBits
 	client.dirtyBits = 0
 	account := client.account
 	client.stateMutex.Unlock()
@@ -1619,10 +1628,18 @@ func (client *Client) performWrite() {
 		return
 	}
 
-	channels := client.Channels()
-	channelNames := make([]string, len(channels))
-	for i, channel := range channels {
-		channelNames[i] = channel.Name()
+	if (dirtyBits & IncludeChannels) != 0 {
+		channels := client.Channels()
+		channelNames := make([]string, len(channels))
+		for i, channel := range channels {
+			channelNames[i] = channel.Name()
+		}
+		client.server.accounts.saveChannels(account, channelNames)
 	}
-	client.server.accounts.saveChannels(account, channelNames)
+	if (dirtyBits & IncludeLastSignoff) != 0 {
+		client.stateMutex.RLock()
+		lastSignoff := client.lastSignoff
+		client.stateMutex.RUnlock()
+		client.server.accounts.saveLastSignoff(account, lastSignoff)
+	}
 }

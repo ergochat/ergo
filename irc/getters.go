@@ -94,6 +94,12 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 }
 
 func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSignoff time.Time) {
+	defer func() {
+		if !lastSignoff.IsZero() {
+			client.wakeWriter()
+		}
+	}()
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -111,6 +117,7 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 		// on the server with no sessions:
 		lastSignoff = client.lastSignoff
 		client.lastSignoff = time.Time{}
+		client.dirtyBits |= IncludeLastSignoff
 	}
 	client.sessions = newSessions
 	return true, len(client.sessions), lastSignoff

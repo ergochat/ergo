@@ -35,6 +35,7 @@ const (
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
+	keyAccountLastSignoff      = "account.lastsignoff %s"
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -103,7 +104,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
 			persistenceEnabled(config.Accounts.Bouncer.AlwaysOn, account.Settings.AlwaysOn) {
-			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName))
+			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSignoff(accountName))
 		}
 	}
 }
@@ -530,6 +531,36 @@ func (am *AccountManager) loadChannels(account string) (channels []string) {
 	})
 	if channelsStr != "" {
 		return strings.Split(channelsStr, ",")
+	}
+	return
+}
+
+func (am *AccountManager) saveLastSignoff(account string, lastSignoff time.Time) {
+	key := fmt.Sprintf(keyAccountLastSignoff, account)
+	var val string
+	if !lastSignoff.IsZero() {
+		val = strconv.FormatInt(lastSignoff.UnixNano(), 10)
+	}
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		if val != "" {
+			tx.Set(key, val, nil)
+		} else {
+			tx.Delete(key)
+		}
+		return nil
+	})
+}
+
+func (am *AccountManager) loadLastSignoff(account string) (lastSignoff time.Time) {
+	key := fmt.Sprintf(keyAccountLastSignoff, account)
+	var lsText string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		lsText, _ = tx.Get(key)
+		return nil
+	})
+	lsNum, err := strconv.ParseInt(lsText, 10, 64)
+	if err != nil {
+		return time.Unix(0, lsNum)
 	}
 	return
 }
@@ -1034,6 +1065,7 @@ func (am *AccountManager) Unregister(account string) error {
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
+	lastSignoffKey := fmt.Sprintf(keyAccountLastSignoff, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1070,6 +1102,7 @@ func (am *AccountManager) Unregister(account string) error {
 		channelsStr, _ = tx.Get(channelsKey)
 		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
+		tx.Delete(lastSignoffKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
