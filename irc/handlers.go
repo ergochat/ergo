@@ -1911,46 +1911,42 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		details := client.Details()
 		nickMaskString := details.nickMask
 		accountName := details.accountName
+		var deliverySessions []*Session
 		// restrict messages appropriately when +R is set
 		// intentionally make the sending user think the message went through fine
 		allowedPlusR := !user.HasMode(modes.RegisteredOnly) || details.account != ""
 		if allowedPlusR {
-			for _, session := range user.Sessions() {
-				hasTagsCap := session.capabilities.Has(caps.MessageTags)
-				// don't send TAGMSG at all if they don't have the tags cap
-				if histType == history.Tagmsg && hasTagsCap {
-					session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-				} else if histType != history.Tagmsg && !(session.isTor && message.IsRestrictedCTCPMessage()) {
-					tagsToSend := tags
-					if !hasTagsCap {
-						tagsToSend = nil
-					}
-					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
+			deliverySessions = append(deliverySessions, user.Sessions()...)
+		}
+		// all sessions of the sender, except the originating session, get a copy as well:
+		if client != user {
+			for _, session := range client.Sessions() {
+				if session != rb.session {
+					deliverySessions = append(deliverySessions, session)
 				}
 			}
 		}
-		// an echo-message may need to be included in the response:
-		if rb.session.capabilities.Has(caps.EchoMessage) {
-			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else {
-				rb.AddSplitMessageFromClient(nickMaskString, accountName, tags, command, tnick, message)
-			}
-		}
-		// an echo-message may need to go out to other client sessions:
-		for _, session := range client.Sessions() {
-			if session == rb.session {
-				continue
-			}
+
+		for _, session := range deliverySessions {
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
+			// don't send TAGMSG at all if they don't have the tags cap
 			if histType == history.Tagmsg && hasTagsCap {
 				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else if histType != history.Tagmsg {
+			} else if histType != history.Tagmsg && !(session.isTor && message.IsRestrictedCTCPMessage()) {
 				tagsToSend := tags
 				if !hasTagsCap {
 					tagsToSend = nil
 				}
 				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
+			}
+		}
+
+		// the originating session may get an echo message:
+		if rb.session.capabilities.Has(caps.EchoMessage) {
+			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
+				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+			} else {
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, tags, command, tnick, message)
 			}
 		}
 		if histType != history.Notice && user.Away() {
