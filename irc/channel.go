@@ -682,8 +682,6 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
-	var message utils.SplitMessage
-
 	givenMode := func() (givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
 		defer channel.joinPartMutex.Unlock()
@@ -707,21 +705,22 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		channel.regenerateMembersCache()
 
-		// no history item for fake persistent joins
-		if rb != nil {
-			message = utils.MakeMessage("")
-			histItem := history.Item{
-				Type:        history.Join,
-				Nick:        details.nickMask,
-				AccountName: details.accountName,
-				Message:     message,
-			}
-			histItem.Params[0] = details.realname
-			channel.AddHistoryItem(histItem)
-		}
-
 		return
 	}()
+
+	var message utils.SplitMessage
+	// no history item for fake persistent joins
+	if rb != nil {
+		message = utils.MakeMessage("")
+		histItem := history.Item{
+			Type:        history.Join,
+			Nick:        details.nickMask,
+			AccountName: details.accountName,
+			Message:     message,
+		}
+		histItem.Params[0] = details.realname
+		channel.AddHistoryItem(histItem)
+	}
 
 	client.addChannel(channel)
 
