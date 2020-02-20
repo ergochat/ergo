@@ -58,10 +58,6 @@ func NewResponseBuffer(session *Session) *ResponseBuffer {
 }
 
 func (rb *ResponseBuffer) AddMessage(msg ircmsg.IrcMessage) {
-	if rb == nil {
-		return
-	}
-
 	if rb.finalized {
 		rb.target.server.logger.Error("internal", "message added to finalized ResponseBuffer, undefined behavior")
 		debug.PrintStack()
@@ -84,20 +80,12 @@ func (rb *ResponseBuffer) setNestedBatchTag(msg *ircmsg.IrcMessage) {
 
 // Add adds a standard new message to our queue.
 func (rb *ResponseBuffer) Add(tags map[string]string, prefix string, command string, params ...string) {
-	if rb == nil {
-		return
-	}
-
 	rb.AddMessage(ircmsg.MakeMessage(tags, prefix, command, params...))
 }
 
 // Broadcast adds a standard new message to our queue, then sends an unlabeled copy
 // to all other sessions.
 func (rb *ResponseBuffer) Broadcast(tags map[string]string, prefix string, command string, params ...string) {
-	if rb == nil {
-		return
-	}
-
 	// can't reuse the IrcMessage object because of tag pollution :-\
 	rb.Add(tags, prefix, command, params...)
 	for _, session := range rb.session.client.Sessions() {
@@ -109,10 +97,6 @@ func (rb *ResponseBuffer) Broadcast(tags map[string]string, prefix string, comma
 
 // AddFromClient adds a new message from a specific client to our queue.
 func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMask string, fromAccount string, tags map[string]string, command string, params ...string) {
-	if rb == nil {
-		return
-	}
-
 	msg := ircmsg.MakeMessage(nil, fromNickMask, command, params...)
 	if rb.session.capabilities.Has(caps.MessageTags) {
 		msg.UpdateTags(tags)
@@ -134,10 +118,6 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
 func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
-	if rb == nil {
-		return
-	}
-
 	if message.Is512() {
 		rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
 	} else {
@@ -185,10 +165,6 @@ func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
 // Starts a nested batch (see the ResponseBuffer struct definition for a description of
 // how this works)
 func (rb *ResponseBuffer) StartNestedBatch(batchType string, params ...string) (batchID string) {
-	if rb == nil {
-		return
-	}
-
 	batchID = rb.session.generateBatchID()
 	msgParams := make([]string, len(params)+2)
 	msgParams[0] = "+" + batchID
@@ -218,10 +194,6 @@ func (rb *ResponseBuffer) EndNestedBatch(batchID string) {
 // Convenience to start a nested batch for history lines, at the highest level
 // supported by the client (`history`, `chathistory`, or no batch, in descending order).
 func (rb *ResponseBuffer) StartNestedHistoryBatch(params ...string) (batchID string) {
-	if rb == nil {
-		return
-	}
-
 	var batchType string
 	if rb.session.capabilities.Has(caps.EventPlayback) {
 		batchType = "history"
@@ -238,10 +210,6 @@ func (rb *ResponseBuffer) StartNestedHistoryBatch(params ...string) (batchID str
 // Afterwards, the buffer is in an undefined state and MUST NOT be used further.
 // If `blocking` is true you MUST be sending to the client from its own goroutine.
 func (rb *ResponseBuffer) Send(blocking bool) error {
-	if rb == nil {
-		return nil
-	}
-
 	return rb.flushInternal(true, blocking)
 }
 
@@ -250,10 +218,6 @@ func (rb *ResponseBuffer) Send(blocking bool) error {
 // to ensure that the final `BATCH -` message is sent.
 // If `blocking` is true you MUST be sending to the client from its own goroutine.
 func (rb *ResponseBuffer) Flush(blocking bool) error {
-	if rb == nil {
-		return nil
-	}
-
 	return rb.flushInternal(false, blocking)
 }
 
@@ -328,9 +292,5 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 
 // Notice sends the client the given notice from the server.
 func (rb *ResponseBuffer) Notice(text string) {
-	if rb == nil {
-		return
-	}
-
 	rb.Add(nil, rb.target.server.name, "NOTICE", rb.target.Nick(), text)
 }

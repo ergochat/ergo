@@ -724,6 +724,10 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	client.addChannel(channel)
 
+	if rb == nil {
+		return
+	}
+
 	var modestr string
 	if givenMode != 0 {
 		modestr = fmt.Sprintf("+%v", givenMode)
@@ -731,7 +735,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
-			if rb != nil && session == rb.session {
+			if session == rb.session {
 				continue
 			} else if client == session.client {
 				channel.playJoinForSession(session)
@@ -748,13 +752,13 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}
 	}
 
-	if rb != nil && rb.session.capabilities.Has(caps.ExtendedJoin) {
+	if rb.session.capabilities.Has(caps.ExtendedJoin) {
 		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
 	} else {
 		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
 	}
 
-	if rb != nil && rb.session.client == client {
+	if rb.session.client == client {
 		// don't send topic and names for a SAJOIN of a different client
 		channel.SendTopic(client, rb, false)
 		channel.Names(client, rb)
@@ -763,9 +767,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
 	rb.Flush(true)
 
-	if rb != nil {
-		channel.autoReplayHistory(client, rb, message.Msgid)
-	}
+	channel.autoReplayHistory(client, rb, message.Msgid)
 }
 
 func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {
