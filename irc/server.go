@@ -670,7 +670,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		}
 	} else {
 		if config.Datastore.MySQL.Enabled {
-			server.historyDB.SetExpireTime(config.History.Restrictions.ExpireTime)
+			server.historyDB.SetExpireTime(time.Duration(config.History.Restrictions.ExpireTime))
 		}
 	}
 
@@ -793,7 +793,7 @@ func (server *Server) loadDatastore(config *Config) error {
 	server.accounts.Initialize(server)
 
 	if config.Datastore.MySQL.Enabled {
-		server.historyDB.Initialize(server.logger, config.History.Restrictions.ExpireTime)
+		server.historyDB.Initialize(server.logger, time.Duration(config.History.Restrictions.ExpireTime))
 		err = server.historyDB.Open(config.Datastore.MySQL.User, config.Datastore.MySQL.Password, config.Datastore.MySQL.Host, config.Datastore.MySQL.Port, config.Datastore.MySQL.HistoryDatabase)
 		if err != nil {
 			server.logger.Error("internal", "could not connect to mysql", err.Error())
@@ -906,11 +906,11 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 
 	var cutoff time.Time
 	if config.History.Restrictions.ExpireTime != 0 {
-		cutoff = time.Now().UTC().Add(-config.History.Restrictions.ExpireTime)
+		cutoff = time.Now().UTC().Add(-time.Duration(config.History.Restrictions.ExpireTime))
 	}
 	if config.History.Restrictions.EnforceRegistrationDate {
 		regCutoff := client.historyCutoff()
-		regCutoff.Add(-config.History.Restrictions.GracePeriod)
+		regCutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
 		// take the earlier of the two cutoffs
 		if regCutoff.After(cutoff) {
 			cutoff = regCutoff

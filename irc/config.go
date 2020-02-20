@@ -233,9 +233,9 @@ type AccountConfig struct {
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
 	Enabled                bool
-	EnabledCallbacks       []string      `yaml:"enabled-callbacks"`
-	EnabledCredentialTypes []string      `yaml:"-"`
-	VerifyTimeout          time.Duration `yaml:"verify-timeout"`
+	EnabledCallbacks       []string         `yaml:"enabled-callbacks"`
+	EnabledCredentialTypes []string         `yaml:"-"`
+	VerifyTimeout          custime.Duration `yaml:"verify-timeout"`
 	Callbacks              struct {
 		Mailto struct {
 			Server string
@@ -263,7 +263,7 @@ type VHostConfig struct {
 	UserRequests   struct {
 		Enabled  bool
 		Channel  string
-		Cooldown time.Duration
+		Cooldown custime.Duration
 	} `yaml:"user-requests"`
 	OfferList []string `yaml:"offer-list"`
 }
@@ -406,18 +406,17 @@ type Limits struct {
 
 // STSConfig controls the STS configuration/
 type STSConfig struct {
-	Enabled        bool
-	Duration       time.Duration `yaml:"duration-real"`
-	DurationString string        `yaml:"duration"`
-	Port           int
-	Preload        bool
-	STSOnlyBanner  string `yaml:"sts-only-banner"`
-	bannerLines    []string
+	Enabled       bool
+	Duration      custime.Duration
+	Port          int
+	Preload       bool
+	STSOnlyBanner string `yaml:"sts-only-banner"`
+	bannerLines   []string
 }
 
 // Value returns the STS value to advertise in CAP
 func (sts *STSConfig) Value() string {
-	val := fmt.Sprintf("duration=%d", int(sts.Duration.Seconds()))
+	val := fmt.Sprintf("duration=%d", int(time.Duration(sts.Duration).Seconds()))
 	if sts.Enabled && sts.Port > 0 {
 		val += fmt.Sprintf(",port=%d", sts.Port)
 	}
@@ -553,9 +552,9 @@ type Config struct {
 		ChathistoryMax   int           `yaml:"chathistory-maxmessages"`
 		ZNCMax           int           `yaml:"znc-maxmessages"`
 		Restrictions     struct {
-			ExpireTime              time.Duration `yaml:"expire-time"`
-			EnforceRegistrationDate bool          `yaml:"enforce-registration-date"`
-			GracePeriod             time.Duration `yaml:"grace-period"`
+			ExpireTime              custime.Duration `yaml:"expire-time"`
+			EnforceRegistrationDate bool             `yaml:"enforce-registration-date"`
+			GracePeriod             custime.Duration `yaml:"grace-period"`
 		}
 		Persistent struct {
 			Enabled              bool
@@ -828,10 +827,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if config.Server.STS.Enabled {
-		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
-		if err != nil {
-			return nil, fmt.Errorf("Could not parse STS duration: %s", err.Error())
-		}
 		if config.Server.STS.Port < 0 || config.Server.STS.Port > 65535 {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}

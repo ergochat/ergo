@@ -182,3 +182,18 @@ func ParseDuration(s string) (time.Duration, error) {
 	}
 	return time.Duration(d), nil
 }
+
+type Duration time.Duration
+
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	result, err := ParseDuration(orig)
+	if err == nil {
+		*d = Duration(result)
+	}
+	return err
+}

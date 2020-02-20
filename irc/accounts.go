@@ -381,7 +381,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
-	ttl := config.Registration.VerifyTimeout
+	ttl := time.Duration(config.Registration.VerifyTimeout)
 	if ttl != 0 {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}

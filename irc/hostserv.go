@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/oragono/oragono/irc/sno"
 )
@@ -214,7 +215,7 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 	}
 
 	accountName := client.Account()
-	_, err := server.accounts.VHostRequest(accountName, vhost, server.Config().Accounts.VHosts.UserRequests.Cooldown)
+	_, err := server.accounts.VHostRequest(accountName, vhost, time.Duration(server.Config().Accounts.VHosts.UserRequests.Cooldown))
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), throttled.timeRemaining))
@@ -411,7 +412,7 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 	}
 
 	account := client.Account()
-	_, err := server.accounts.VHostTake(account, vhost, config.Accounts.VHosts.UserRequests.Cooldown)
+	_, err := server.accounts.VHostTake(account, vhost, time.Duration(config.Accounts.VHosts.UserRequests.Cooldown))
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))

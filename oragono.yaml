@@ -716,7 +716,7 @@ history:
     restrictions:
         # if this is set, messages older than this cannot be retrieved by anyone
         # (and will eventually be deleted from persistent storage, if that's enabled)
-        #expire-time: 168h # 7 days
+        #expire-time: 1w
 
         # if this is set, logged-in users cannot retrieve messages older than their
         # account registration date, and logged-out users cannot retrieve messages
