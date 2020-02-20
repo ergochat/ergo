@@ -28,6 +28,7 @@ import (
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"gopkg.in/yaml.v2"
@@ -816,6 +817,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
+	}
+	if config.Datastore.MySQL.Enabled {
+		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
+			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
+		}
 	}
 
 	config.Server.supportedCaps = caps.NewCompleteSet()

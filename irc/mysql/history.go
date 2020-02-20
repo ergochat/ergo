@@ -15,6 +15,10 @@ import (
 )
 
 const (
+	// maximum length in bytes of any message target (nickname or channel name) in its
+	// canonicalized (i.e., casefolded) state:
+	MaxTargetLength = 64
+
 	// latest schema of the db
 	latestDbSchema   = "1"
 	keySchemaVersion = "db.version"
@@ -120,27 +124,27 @@ func (mysql *MySQL) createTables() (err error) {
 		return err
 	}
 
-	_, err = mysql.db.Exec(`CREATE TABLE sequence (
+	_, err = mysql.db.Exec(fmt.Sprintf(`CREATE TABLE sequence (
 		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		target VARBINARY(64) NOT NULL,
+		target VARBINARY(%[1]d) NOT NULL,
 		nanotime BIGINT UNSIGNED NOT NULL,
 		history_id BIGINT NOT NULL,
 		KEY (target, nanotime),
 		KEY (history_id)
-	) CHARSET=ascii COLLATE=ascii_bin;`)
+	) CHARSET=ascii COLLATE=ascii_bin;`, MaxTargetLength))
 	if err != nil {
 		return err
 	}
 
-	_, err = mysql.db.Exec(`CREATE TABLE conversations (
+	_, err = mysql.db.Exec(fmt.Sprintf(`CREATE TABLE conversations (
 		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		lower_target VARBINARY(64) NOT NULL,
-		upper_target VARBINARY(64) NOT NULL,
+		lower_target VARBINARY(%[1]d) NOT NULL,
+		upper_target VARBINARY(%[1]d) NOT NULL,
 		nanotime BIGINT UNSIGNED NOT NULL,
 		history_id BIGINT NOT NULL,
 		KEY (lower_target, upper_target, nanotime),
 		KEY (history_id)
-	) CHARSET=ascii COLLATE=ascii_bin;`)
+	) CHARSET=ascii COLLATE=ascii_bin;`, MaxTargetLength))
 	if err != nil {
 		return err
 	}
