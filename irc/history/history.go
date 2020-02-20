@@ -42,9 +42,12 @@ type Item struct {
 	// this is the uncasefolded account name, if there's no account it should be set to "*"
 	AccountName string
 	// for non-privmsg items, we may stuff some other data in here
-	Message         utils.SplitMessage
-	Tags            map[string]string
-	Params          [1]string
+	Message utils.SplitMessage
+	Tags    map[string]string
+	Params  [1]string
+	// for a DM, this is the casefolded nickname of the other party (whether this is
+	// an incoming or outgoing message). this lets us emulate the "query buffer" functionality
+	// required by CHATHISTORY:
 	CfCorrespondent string
 }
 

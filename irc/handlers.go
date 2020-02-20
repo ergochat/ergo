@@ -1914,7 +1914,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		var deliverySessions []*Session
 		// restrict messages appropriately when +R is set
 		// intentionally make the sending user think the message went through fine
-		allowedPlusR := !user.HasMode(modes.RegisteredOnly) || details.account != ""
+		allowedPlusR := details.account != "" || !user.HasMode(modes.RegisteredOnly)
 		if allowedPlusR {
 			deliverySessions = append(deliverySessions, user.Sessions()...)
 		}

@@ -871,8 +871,12 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		if allowTags {
 			tags = item.Tags
 		}
+		// XXX: Params[0] is the message target. if the source of this message is an in-memory
+		// buffer, then it's "" for an incoming message and the recipient's nick for an outgoing
+		// message. if the source of the message is mysql, then mysql only sees one copy of the
+		// message, and it's the version with the recipient's nick filled in. so this is an
+		// incoming message if Params[0] (the recipient's nick) equals the client's nick:
 		if item.Params[0] == "" || item.Params[0] == nick {
-			// this message was sent *to* the client from another nick
 			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
 		} else {
 			// this message was sent *from* the client to another nick; the target is item.Params[0]
@@ -1237,9 +1241,9 @@ func (client *Client) destroy(session *Session) {
 		Message:     splitQuitMessage,
 	}
 	var channels []*Channel
+	// use a defer here to avoid writing to mysql while holding the destroy semaphore:
 	defer func() {
 		for _, channel := range channels {
-			// TODO it's dangerous to write to mysql while holding the destroy semaphore
 			channel.AddHistoryItem(quitItem)
 		}
 	}()

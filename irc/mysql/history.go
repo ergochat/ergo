@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
-	"strconv"
 	"sync"
 	"time"
 
@@ -197,7 +196,7 @@ func (mysql *MySQL) doCleanup(age time.Duration) (count int, err error) {
 		if i != 0 {
 			inBuf.WriteRune(',')
 		}
-		inBuf.WriteString(strconv.FormatInt(int64(id), 10))
+		fmt.Fprintf(&inBuf, "%d", id)
 	}
 	inBuf.WriteRune(')')
 
