@@ -608,6 +608,7 @@ datastore:
         user: "oragono"
         password: "KOHw8WSaRwaoo-avo0qVpQ"
         history-database: "oragono_history"
+        timeout: 3s
 
 # languages config
 languages:

@@ -669,8 +669,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return err
 		}
 	} else {
-		if config.Datastore.MySQL.Enabled {
-			server.historyDB.SetExpireTime(time.Duration(config.History.Restrictions.ExpireTime))
+		if config.Datastore.MySQL.Enabled && config.Datastore.MySQL != oldConfig.Datastore.MySQL {
+			server.historyDB.SetConfig(config.Datastore.MySQL)
 		}
 	}
 
@@ -793,8 +793,8 @@ func (server *Server) loadDatastore(config *Config) error {
 	server.accounts.Initialize(server)
 
 	if config.Datastore.MySQL.Enabled {
-		server.historyDB.Initialize(server.logger, time.Duration(config.History.Restrictions.ExpireTime))
-		err = server.historyDB.Open(config.Datastore.MySQL.User, config.Datastore.MySQL.Password, config.Datastore.MySQL.Host, config.Datastore.MySQL.Port, config.Datastore.MySQL.HistoryDatabase)
+		server.historyDB.Initialize(server.logger, config.Datastore.MySQL)
+		err = server.historyDB.Open()
 		if err != nil {
 			server.logger.Error("internal", "could not connect to mysql", err.Error())
 			return err

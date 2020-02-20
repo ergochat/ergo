@@ -504,14 +504,7 @@ type Config struct {
 	Datastore struct {
 		Path        string
 		AutoUpgrade bool
-		MySQL       struct {
-			Enabled         bool
-			Host            string
-			Port            int
-			User            string
-			Password        string
-			HistoryDatabase string `yaml:"history-database"`
-		}
+		MySQL       mysql.Config
 	}
 
 	Accounts AccountConfig
@@ -1068,6 +1061,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.History.ZNCMax == 0 {
 		config.History.ZNCMax = config.History.ChathistoryMax
 	}
+
+	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
 
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {
