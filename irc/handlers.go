@@ -1982,7 +1982,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			targetedItem.CfCorrespondent = tDetails.nickCasefolded
 			client.history.Add(targetedItem)
 		}
-		if tEphemeral {
+		if tEphemeral && client != user {
 			item.CfCorrespondent = details.nickCasefolded
 			user.history.Add(item)
 		}
