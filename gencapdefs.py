@@ -136,12 +136,6 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
-        identifier="Bouncer",
-        name="oragono.io/bnc",
-        url="https://oragono.io/bnc",
-        standard="Oragono-specific",
-    ),
-    CapDef(
         identifier="ZNCSelfMessage",
         name="znc.in/self-message",
         url="https://wiki.znc.in/Query_buffers",

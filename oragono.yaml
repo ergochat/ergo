@@ -346,9 +346,10 @@ accounts:
         # rename-prefix - this is the prefix to use when renaming clients (e.g. Guest-AB54U31)
         rename-prefix: Guest-
 
-    # bouncer controls whether oragono can act as a bouncer, i.e., allowing
-    # multiple connections to attach to the same client/nickname identity
-    bouncer:
+    # multiclient controls whether oragono allows multiple connections to
+    # attach to the same client/nickname identity; this is part of the
+    # functionality traditionally provided by a bouncer like ZNC
+    multiclient:
         # when disabled, each connection must use a separate nickname (as is the
         # typical behavior of IRC servers). when enabled, a new connection that
         # has authenticated with SASL can associate itself with an existing

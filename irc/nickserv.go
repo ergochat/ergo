@@ -31,7 +31,7 @@ func servCmdRequiresNickRes(config *Config) bool {
 }
 
 func servCmdRequiresBouncerEnabled(config *Config) bool {
-	return config.Accounts.Bouncer.Enabled
+	return config.Accounts.Multiclient.Enabled
 }
 
 const (
@@ -147,7 +147,7 @@ an administrator can set use this command to set up user accounts.`,
 			help: `Syntax: $bSESSIONS [nickname]$b
 
 SESSIONS lists information about the sessions currently attached, via
-the server's bouncer functionality, to your nickname. An administrator
+the server's multiclient functionality, to your nickname. An administrator
 can use this command to list another user's sessions.`,
 			helpShort: `$bSESSIONS$b lists the sessions attached to a nickname.`,
 			enabled:   servCmdRequiresBouncerEnabled,
@@ -228,8 +228,8 @@ nicknames. Your options are:
 3. 'strict'  [you must already be authenticated to use the nick]
 4. 'default' [use the server default]`,
 
-				`$bBOUNCER$b
-If 'bouncer' is enabled and you are already logged in and using a nick, a
+				`$bMULTICLIENT$b
+If 'multiclient' is enabled and you are already logged in and using a nick, a
 second client of yours that authenticates with SASL and requests the same nick
 is allowed to attach to the nick as well (this is comparable to the behavior
 of IRC "bouncers" like ZNC). Your options are 'on' (allow this behavior),
@@ -348,21 +348,21 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		case ReplayJoinsNever:
 			nsNotice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
 		}
-	case "bouncer":
-		if !config.Accounts.Bouncer.Enabled {
+	case "multiclient":
+		if !config.Accounts.Multiclient.Enabled {
 			nsNotice(rb, client.t("This feature has been disabled by the server administrators"))
 		} else {
 			switch settings.AllowBouncer {
-			case BouncerAllowedServerDefault:
-				if config.Accounts.Bouncer.AllowedByDefault {
-					nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account, but you can opt out"))
+			case MulticlientAllowedServerDefault:
+				if config.Accounts.Multiclient.AllowedByDefault {
+					nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account, but you can opt out"))
 				} else {
-					nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account, but you can opt in"))
+					nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account, but you can opt in"))
 				}
-			case BouncerDisallowedByUser:
-				nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account"))
-			case BouncerAllowedByUser:
-				nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account"))
+			case MulticlientDisallowedByUser:
+				nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account"))
+			case MulticlientAllowedByUser:
+				nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account"))
 			}
 		}
 	case "always-on":
@@ -440,17 +440,17 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			out.AutoreplayLines = newValue
 			return
 		}
-	case "bouncer":
-		var newValue BouncerAllowedSetting
+	case "multiclient":
+		var newValue MulticlientAllowedSetting
 		if strings.ToLower(params[1]) == "default" {
-			newValue = BouncerAllowedServerDefault
+			newValue = MulticlientAllowedServerDefault
 		} else {
 			var enabled bool
 			enabled, err = utils.StringToBool(params[1])
 			if enabled {
-				newValue = BouncerAllowedByUser
+				newValue = MulticlientAllowedByUser
 			} else {
-				newValue = BouncerDisallowedByUser
+				newValue = MulticlientDisallowedByUser
 			}
 		}
 		if err == nil {

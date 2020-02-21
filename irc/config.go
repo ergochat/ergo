@@ -207,6 +207,12 @@ func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) 
 	}
 }
 
+type MulticlientConfig struct {
+	Enabled          bool
+	AllowedByDefault bool             `yaml:"allowed-by-default"`
+	AlwaysOn         PersistentStatus `yaml:"always-on"`
+}
+
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
@@ -223,12 +229,8 @@ type AccountConfig struct {
 	} `yaml:"login-throttling"`
 	SkipServerPassword bool                  `yaml:"skip-server-password"`
 	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
-	Bouncer            struct {
-		Enabled          bool
-		AllowedByDefault bool             `yaml:"allowed-by-default"`
-		AlwaysOn         PersistentStatus `yaml:"always-on"`
-	}
-	VHosts VHostConfig
+	Multiclient        MulticlientConfig
+	VHosts             VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -878,11 +880,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.capValues[caps.Multiline] = multilineCapValue
 	}
 
-	if !config.Accounts.Bouncer.Enabled {
-		config.Accounts.Bouncer.AlwaysOn = PersistentDisabled
-		config.Server.supportedCaps.Disable(caps.Bouncer)
-	} else if config.Accounts.Bouncer.AlwaysOn >= PersistentOptOut {
-		config.Accounts.Bouncer.AllowedByDefault = true
+	if !config.Accounts.Multiclient.Enabled {
+		config.Accounts.Multiclient.AlwaysOn = PersistentDisabled
+	} else if config.Accounts.Multiclient.AlwaysOn >= PersistentOptOut {
+		config.Accounts.Multiclient.AllowedByDefault = true
 	}
 
 	var newLogConfigs []logger.LoggingConfig
@@ -1146,12 +1147,6 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 		addedCaps.Add(caps.SASL)
 	} else if oldConfig.Accounts.AuthenticationEnabled && !config.Accounts.AuthenticationEnabled {
 		removedCaps.Add(caps.SASL)
-	}
-
-	if !oldConfig.Accounts.Bouncer.Enabled && config.Accounts.Bouncer.Enabled {
-		addedCaps.Add(caps.Bouncer)
-	} else if oldConfig.Accounts.Bouncer.Enabled && !config.Accounts.Bouncer.Enabled {
-		removedCaps.Add(caps.Bouncer)
 	}
 
 	if oldConfig.Limits.Multiline.MaxBytes != 0 && config.Limits.Multiline.MaxBytes == 0 {

@@ -287,7 +287,7 @@ func (client *Client) AccountName() string {
 }
 
 func (client *Client) Login(account ClientAccount) {
-	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Bouncer.AlwaysOn, account.Settings.AlwaysOn)
+	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn)
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 	client.account = account.NameCasefolded
@@ -329,7 +329,7 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 }
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
-	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Bouncer.AlwaysOn, settings.AlwaysOn)
+	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
 	client.accountSettings = settings
 	if client.registered {

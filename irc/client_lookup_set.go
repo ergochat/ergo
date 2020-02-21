@@ -142,25 +142,23 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	client.stateMutex.RUnlock()
 
 	// recompute this (client.alwaysOn is not set for unregistered clients):
-	alwaysOn := account != "" && persistenceEnabled(config.Accounts.Bouncer.AlwaysOn, settings.AlwaysOn)
+	alwaysOn := account != "" && persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 
 	if alwaysOn && registered {
 		return "", errCantChangeNick
 	}
 
 	var bouncerAllowed bool
-	if config.Accounts.Bouncer.Enabled {
+	if config.Accounts.Multiclient.Enabled {
 		if alwaysOn {
 			// ignore the pre-reg nick, force a reattach
 			newNick = accountName
 			newcfnick = account
 			bouncerAllowed = true
-		} else if session != nil && session.capabilities.Has(caps.Bouncer) {
-			bouncerAllowed = true
 		} else {
-			if config.Accounts.Bouncer.AllowedByDefault && settings.AllowBouncer != BouncerDisallowedByUser {
+			if config.Accounts.Multiclient.AllowedByDefault && settings.AllowBouncer != MulticlientDisallowedByUser {
 				bouncerAllowed = true
-			} else if settings.AllowBouncer == BouncerAllowedByUser {
+			} else if settings.AllowBouncer == MulticlientAllowedByUser {
 				bouncerAllowed = true
 			}
 		}

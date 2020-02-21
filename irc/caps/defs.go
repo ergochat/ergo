@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 27
+	numCapabs = 26
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -89,10 +89,6 @@ const (
 	// https://ircv3.net/specs/extensions/multi-prefix-3.1.html
 	MultiPrefix Capability = iota
 
-	// Bouncer is the Oragono-specific capability named "oragono.io/bnc":
-	// https://oragono.io/bnc
-	Bouncer Capability = iota
-
 	// Nope is the Oragono vendor capability named "oragono.io/nope":
 	// https://oragono.io/nope
 	Nope Capability = iota
@@ -144,7 +140,6 @@ var (
 		"labeled-response",
 		"message-tags",
 		"multi-prefix",
-		"oragono.io/bnc",
 		"oragono.io/nope",
 		"sasl",
 		"server-time",

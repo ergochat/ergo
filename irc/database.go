@@ -487,14 +487,14 @@ func schemaChangeV6ToV7(config *Config, tx *buntdb.Tx) error {
 type accountSettingsLegacyV7 struct {
 	AutoreplayLines *int
 	NickEnforcement NickEnforcementMethod
-	AllowBouncer    BouncerAllowedSetting
+	AllowBouncer    MulticlientAllowedSetting
 	AutoreplayJoins bool
 }
 
 type accountSettingsLegacyV8 struct {
 	AutoreplayLines *int
 	NickEnforcement NickEnforcementMethod
-	AllowBouncer    BouncerAllowedSetting
+	AllowBouncer    MulticlientAllowedSetting
 	ReplayJoins     ReplayJoinsSetting
 }
 

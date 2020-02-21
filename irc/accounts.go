@@ -77,7 +77,7 @@ func (am *AccountManager) Initialize(server *Server) {
 }
 
 func (am *AccountManager) createAlwaysOnClients(config *Config) {
-	if config.Accounts.Bouncer.AlwaysOn == PersistentDisabled {
+	if config.Accounts.Multiclient.AlwaysOn == PersistentDisabled {
 		return
 	}
 
@@ -103,7 +103,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 	for _, accountName := range accounts {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
-			persistenceEnabled(config.Accounts.Bouncer.AlwaysOn, account.Settings.AlwaysOn) {
+			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
 			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSignoff(accountName))
 		}
 	}
@@ -1676,12 +1676,12 @@ func (ac *AccountCredentials) RemoveCertfp(certfp string) (err error) {
 	return nil
 }
 
-type BouncerAllowedSetting int
+type MulticlientAllowedSetting int
 
 const (
-	BouncerAllowedServerDefault BouncerAllowedSetting = iota
-	BouncerDisallowedByUser
-	BouncerAllowedByUser
+	MulticlientAllowedServerDefault MulticlientAllowedSetting = iota
+	MulticlientDisallowedByUser
+	MulticlientAllowedByUser
 )
 
 // controls whether/when clients without event-playback support see fake
@@ -1708,10 +1708,12 @@ func replayJoinsSettingFromString(str string) (result ReplayJoinsSetting, err er
 	return
 }
 
+// XXX: AllowBouncer cannot be renamed AllowMulticlient because it is stored in
+// persistent JSON blobs in the database
 type AccountSettings struct {
 	AutoreplayLines  *int
 	NickEnforcement  NickEnforcementMethod
-	AllowBouncer     BouncerAllowedSetting
+	AllowBouncer     MulticlientAllowedSetting
 	ReplayJoins      ReplayJoinsSetting
 	AlwaysOn         PersistentStatus
 	AutoreplayMissed bool
