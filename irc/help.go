@@ -145,9 +145,9 @@ http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 	"chathistory": {
 		text: `CHATHISTORY [params]
 
-CHATHISTORY is an experimental history replay command. See these documents:
-https://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md
-https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d`,
+CHATHISTORY is a history replay command associated with the IRCv3
+specification draft/chathistory. See this document:
+https://github.com/ircv3/ircv3-specifications/pull/393`,
 	},
 	"debug": {
 		oper: true,
