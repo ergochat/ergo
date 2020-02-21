@@ -832,9 +832,11 @@ func (session *Session) playResume() {
 	if !timestamp.IsZero() && privmsgSeq != nil {
 		after := history.Selector{Time: timestamp}
 		items, complete, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
-		rb := NewResponseBuffer(session)
-		client.replayPrivmsgHistory(rb, items, "", complete)
-		rb.Send(true)
+		if len(items) != 0 {
+			rb := NewResponseBuffer(session)
+			client.replayPrivmsgHistory(rb, items, "", complete)
+			rb.Send(true)
+		}
 	}
 
 	session.resumeDetails = nil
@@ -844,12 +846,10 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	var batchID string
 	details := client.Details()
 	nick := details.nick
-	if 0 < len(items) {
-		if target == "" {
-			target = nick
-		}
-		batchID = rb.StartNestedHistoryBatch(target)
+	if target == "" {
+		target = nick
 	}
+	batchID = rb.StartNestedHistoryBatch(target)
 
 	allowTags := rb.session.capabilities.Has(caps.MessageTags)
 	for _, item := range items {

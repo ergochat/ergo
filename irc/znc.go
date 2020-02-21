@@ -124,7 +124,7 @@ func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, after, before time.Time
 	}
 	zncMax := client.server.Config().History.ZNCMax
 	items, _, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
-	if err == nil {
+	if err == nil && len(items) != 0 {
 		client.replayPrivmsgHistory(rb, items, "", true)
 	}
 }

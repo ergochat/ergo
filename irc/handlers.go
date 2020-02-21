@@ -525,7 +525,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	var err error
 	defer func() {
 		// successful responses are sent as a chathistory or history batch
-		if err == nil && 0 < len(items) {
+		if err == nil {
 			if channel != nil {
 				channel.replayHistoryItems(rb, items, false)
 			} else {
@@ -958,7 +958,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		items, _, err = sequence.Between(start, end, limit)
 	}
 
-	if err == nil {
+	if err == nil && len(items) != 0 {
 		if channel != nil {
 			channel.replayHistoryItems(rb, items, false)
 		} else {

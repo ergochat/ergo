@@ -944,7 +944,9 @@ func (channel *Channel) replayHistoryForResume(session *Session, after time.Time
 		items, complete, _ = seq.Between(afterS, beforeS, channel.server.Config().History.ZNCMax)
 	}
 	rb := NewResponseBuffer(session)
-	channel.replayHistoryItems(rb, items, false)
+	if len(items) != 0 {
+		channel.replayHistoryItems(rb, items, false)
+	}
 	if !complete && !session.resumeDetails.HistoryIncomplete {
 		// warn here if we didn't warn already
 		rb.Add(nil, histServMask, "NOTICE", channel.Name(), session.client.t("Some additional message history may have been lost"))
@@ -961,10 +963,7 @@ func stripMaskFromNick(nickMask string) (nick string) {
 }
 
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
-	if len(items) == 0 {
-		return
-	}
-
+	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()
 	client := rb.target
 	eventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
