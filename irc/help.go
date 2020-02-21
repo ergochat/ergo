@@ -153,13 +153,14 @@ https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d`,
 		oper: true,
 		text: `DEBUG <option>
 
-Prints debug information about the IRCd. <option> can be one of:
+Provides various debugging commands for the IRCd. <option> can be one of:
 
 * GCSTATS: Garbage control statistics.
 * NUMGOROUTINE: Number of goroutines in use.
 * STARTCPUPROFILE: Starts the CPU profiler.
 * STOPCPUPROFILE: Stops the CPU profiler.
-* PROFILEHEAP: Writes out the CPU profiler info.`,
+* PROFILEHEAP: Writes a memory profile.
+* CRASHSERVER: Crashes the server (for use in failover testing)`,
 	},
 	"dline": {
 		oper: true,

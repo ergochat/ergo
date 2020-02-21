@@ -815,6 +815,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			rb.Notice(fmt.Sprintf(client.t("To crash the server, issue the following command: /DEBUG CRASHSERVER %s"), code))
 			return false
 		}
+		server.logger.Error("server", fmt.Sprintf("DEBUG CRASHSERVER executed by operator %s", client.Oper().Name))
 		go func() {
 			// intentional nil dereference on a new goroutine, bypassing recover-from-errors
 			var i, j *int
