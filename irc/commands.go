@@ -116,6 +116,11 @@ func init() {
 			minParams: 1,
 			oper:      true,
 		},
+		"DEOPER": {
+			handler:   deoperHandler,
+			minParams: 0,
+			oper:      true,
+		},
 		"DLINE": {
 			handler:   dlineHandler,
 			minParams: 1,

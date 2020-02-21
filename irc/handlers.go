@@ -2141,33 +2141,47 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
-// applies operator status to a client, who MUST NOT already be an operator
+// adds or removes operator status
+// XXX: to add oper, this calls into ApplyUserModeChanges, but to remove oper,
+// ApplyUserModeChanges calls into this, because the commands are asymmetric
+// (/OPER to add, /MODE self -o to remove)
 func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 	details := client.Details()
-	oldNickmask := details.nickMask
 	client.SetOper(oper)
-	newNickmask := client.NickMaskString()
-	if newNickmask != oldNickmask {
-		client.sendChghost(oldNickmask, oper.Vhost)
+	newDetails := client.Details()
+	if details.nickMask != newDetails.nickMask {
+		client.sendChghost(details.nickMask, newDetails.hostname)
 	}
 
-	// set new modes: modes.Operator, plus anything specified in the config
-	modeChanges := make([]modes.ModeChange, len(oper.Modes)+1)
-	modeChanges[0] = modes.ModeChange{
-		Mode: modes.Operator,
-		Op:   modes.Add,
+	if oper != nil {
+		// set new modes: modes.Operator, plus anything specified in the config
+		modeChanges := make([]modes.ModeChange, len(oper.Modes)+1)
+		modeChanges[0] = modes.ModeChange{
+			Mode: modes.Operator,
+			Op:   modes.Add,
+		}
+		copy(modeChanges[1:], oper.Modes)
+		applied := ApplyUserModeChanges(client, modeChanges, true)
+
+		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), newDetails.nickMask, oper.Name))
+
+		rb.Broadcast(nil, client.server.name, RPL_YOUREOPER, details.nick, client.t("You are now an IRC operator"))
+		rb.Broadcast(nil, client.server.name, "MODE", details.nick, applied.String())
+	} else {
+		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client deopered $c[grey][$r%s$c[grey]]"), newDetails.nickMask))
 	}
-	copy(modeChanges[1:], oper.Modes)
-	applied := ApplyUserModeChanges(client, modeChanges, true)
 
-	client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), client.nickMaskString, oper.Name))
-
-	rb.Broadcast(nil, client.server.name, RPL_YOUREOPER, details.nick, client.t("You are now an IRC operator"))
-	rb.Broadcast(nil, client.server.name, "MODE", details.nick, applied.String())
 	for _, session := range client.Sessions() {
 		// client may now be unthrottled by the fakelag system
 		session.resetFakelag()
 	}
+}
+
+// DEOPER
+func deoperHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	// pretend they sent /MODE $nick -o
+	fakeModeMsg := ircmsg.MakeMessage(nil, "", "MODE", client.Nick(), "-o")
+	return umodeHandler(server, client, fakeModeMsg, rb)
 }
 
 // PART <channel>{,<channel>} [<reason>]
