@@ -156,6 +156,12 @@ func performAutoUpgrade(currentVersion string, config *Config) (err error) {
 
 // UpgradeDB upgrades the datastore to the latest schema.
 func UpgradeDB(config *Config) (err error) {
+	// #715: test that the database exists
+	_, err = os.Stat(config.Datastore.Path)
+	if err != nil {
+		return err
+	}
+
 	store, err := buntdb.Open(config.Datastore.Path)
 	if err != nil {
 		return err
