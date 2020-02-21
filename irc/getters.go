@@ -318,6 +318,8 @@ func (client *Client) Logout() {
 	client.account = ""
 	client.accountName = ""
 	client.alwaysOn = false
+	client.accountRegDate = time.Time{}
+	client.accountSettings = AccountSettings{}
 	client.stateMutex.Unlock()
 }
 
