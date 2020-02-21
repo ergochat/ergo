@@ -12,14 +12,14 @@ server:
 
     # addresses to listen on
     listeners:
-        # The standard plaintext port for IRC is 6667. This will listen on all interfaces:
-        ":6667":
-
-        # Allowing plaintext over the public Internet poses security and privacy issues,
-        # so if possible, we recommend that you comment out the above line and replace
-        # it with these two, which listen only on local interfaces:
-        # "127.0.0.1:6667": # (loopback ipv4, localhost-only)
-        # "[::1]:6667":     # (loopback ipv6, localhost-only)
+        # The standard plaintext port for IRC is 6667. Allowing plaintext over the
+        # public Internet poses serious security and privacy issues. Accordingly,
+        # we recommend using plaintext only on local (loopback) interfaces:
+        "127.0.0.1:6667": # (loopback ipv4, localhost-only)
+        "[::1]:6667":     # (loopback ipv6, localhost-only)
+        # If you need to serve plaintext on public interfaces, comment out the above
+        # two lines and uncomment the line below (which listens on all interfaces):
+        # ":6667":
         # Alternately, if you have a TLS certificate issued by a recognized CA,
         # you can configure port 6667 as an STS-only listener that only serves
         # "redirects" to the TLS port, but doesn't allow chat. See the manual
