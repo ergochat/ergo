@@ -230,6 +230,7 @@ type AccountConfig struct {
 	SkipServerPassword bool                  `yaml:"skip-server-password"`
 	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
 	Multiclient        MulticlientConfig
+	Bouncer            *MulticlientConfig // # handle old name for 'multiclient'
 	VHosts             VHostConfig
 }
 
@@ -878,6 +879,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
 		}
 		config.Server.capValues[caps.Multiline] = multilineCapValue
+	}
+
+	// handle legacy name 'bouncer' for 'multiclient' section:
+	if config.Accounts.Bouncer != nil {
+		config.Accounts.Multiclient = *config.Accounts.Bouncer
 	}
 
 	if !config.Accounts.Multiclient.Enabled {
