@@ -4,17 +4,15 @@
 package irc
 
 import (
-	"bytes"
 	"fmt"
-	"hash/crc32"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const chanservHelp = `ChanServ lets you register and manage channels.`
@@ -352,7 +350,7 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 	}
 
 	info := channel.ExportRegistration(0)
-	expectedCode := unregisterConfirmationCode(info.Name, info.RegisteredAt)
+	expectedCode := utils.ConfirmationCode(info.Name, info.RegisteredAt)
 	if expectedCode != verificationCode {
 		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this channel will remove all stored channel attributes.$b")))
 		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %[1]s %[2]s"), channelKey, expectedCode))
@@ -361,14 +359,6 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 
 	server.channels.SetUnregistered(channelKey, founder)
 	csNotice(rb, fmt.Sprintf(client.t("Channel %s is now unregistered"), channelKey))
-}
-
-// deterministically generates a confirmation code for unregistering a channel / account
-func unregisterConfirmationCode(name string, registeredAt time.Time) (code string) {
-	var codeInput bytes.Buffer
-	codeInput.WriteString(name)
-	codeInput.WriteString(strconv.FormatInt(registeredAt.Unix(), 16))
-	return strconv.Itoa(int(crc32.ChecksumIEEE(codeInput.Bytes())))
 }
 
 func csClearHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -426,7 +416,7 @@ func csTransferHandler(server *Server, client *Client, command string, params []
 		return
 	}
 	if targetAccount.NameCasefolded != account {
-		expectedCode := unregisterConfirmationCode(regInfo.Name, regInfo.RegisteredAt)
+		expectedCode := utils.ConfirmationCode(regInfo.Name, regInfo.RegisteredAt)
 		codeValidated := 2 < len(params) && params[2] == expectedCode
 		if !codeValidated {
 			csNotice(rb, ircfmt.Unescape(client.t("$bWarning: you are about to transfer control of your channel to another user.$b")))

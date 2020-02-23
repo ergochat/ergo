@@ -810,7 +810,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			rb.Notice(client.t("You must have rehash permissions in order to execute DEBUG CRASHSERVER"))
 			return false
 		}
-		code := unregisterConfirmationCode(server.name, server.ctime)
+		code := utils.ConfirmationCode(server.name, server.ctime)
 		if len(msg.Params) == 1 || msg.Params[1] != code {
 			rb.Notice(fmt.Sprintf(client.t("To crash the server, issue the following command: /DEBUG CRASHSERVER %s"), code))
 			return false
