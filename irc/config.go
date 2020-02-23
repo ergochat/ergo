@@ -28,6 +28,7 @@ import (
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"gopkg.in/yaml.v2"
@@ -61,6 +62,157 @@ type listenerConfig struct {
 	ProxyBeforeTLS bool
 }
 
+type PersistentStatus uint
+
+const (
+	PersistentUnspecified PersistentStatus = iota
+	PersistentDisabled
+	PersistentOptIn
+	PersistentOptOut
+	PersistentMandatory
+)
+
+func persistentStatusToString(status PersistentStatus) string {
+	switch status {
+	case PersistentUnspecified:
+		return "default"
+	case PersistentDisabled:
+		return "disabled"
+	case PersistentOptIn:
+		return "opt-in"
+	case PersistentOptOut:
+		return "opt-out"
+	case PersistentMandatory:
+		return "mandatory"
+	default:
+		return ""
+	}
+}
+
+func persistentStatusFromString(status string) (PersistentStatus, error) {
+	switch strings.ToLower(status) {
+	case "default":
+		return PersistentUnspecified, nil
+	case "":
+		return PersistentDisabled, nil
+	case "opt-in":
+		return PersistentOptIn, nil
+	case "opt-out":
+		return PersistentOptOut, nil
+	case "mandatory":
+		return PersistentMandatory, nil
+	default:
+		b, err := utils.StringToBool(status)
+		if b {
+			return PersistentMandatory, err
+		} else {
+			return PersistentDisabled, err
+		}
+	}
+}
+
+func (ps *PersistentStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	result, err := persistentStatusFromString(orig)
+	if err == nil {
+		if result == PersistentUnspecified {
+			result = PersistentDisabled
+		}
+		*ps = result
+	}
+	return err
+}
+
+func persistenceEnabled(serverSetting, clientSetting PersistentStatus) (enabled bool) {
+	if serverSetting == PersistentDisabled {
+		return false
+	} else if serverSetting == PersistentMandatory {
+		return true
+	} else if clientSetting == PersistentDisabled {
+		return false
+	} else if clientSetting == PersistentMandatory {
+		return true
+	} else if serverSetting == PersistentOptOut {
+		return true
+	} else {
+		return false
+	}
+}
+
+type HistoryStatus uint
+
+const (
+	HistoryDefault HistoryStatus = iota
+	HistoryDisabled
+	HistoryEphemeral
+	HistoryPersistent
+)
+
+func historyStatusFromString(str string) (status HistoryStatus, err error) {
+	switch strings.ToLower(str) {
+	case "default":
+		return HistoryDefault, nil
+	case "ephemeral":
+		return HistoryEphemeral, nil
+	case "persistent":
+		return HistoryPersistent, nil
+	default:
+		b, err := utils.StringToBool(str)
+		if b {
+			return HistoryPersistent, err
+		} else {
+			return HistoryDisabled, err
+		}
+	}
+}
+
+func historyStatusToString(status HistoryStatus) string {
+	switch status {
+	case HistoryDefault:
+		return "default"
+	case HistoryDisabled:
+		return "disabled"
+	case HistoryEphemeral:
+		return "ephemeral"
+	case HistoryPersistent:
+		return "persistent"
+	default:
+		return ""
+	}
+}
+
+func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) (result HistoryStatus) {
+	if serverSetting == PersistentDisabled {
+		return HistoryDisabled
+	} else if serverSetting == PersistentMandatory {
+		return HistoryPersistent
+	} else if serverSetting == PersistentOptOut {
+		if localSetting == HistoryDefault {
+			return HistoryPersistent
+		} else {
+			return localSetting
+		}
+	} else if serverSetting == PersistentOptIn {
+		if localSetting >= HistoryEphemeral {
+			return localSetting
+		} else {
+			return HistoryDisabled
+		}
+	} else {
+		return HistoryDisabled
+	}
+}
+
+type MulticlientConfig struct {
+	Enabled          bool
+	AllowedByDefault bool             `yaml:"allowed-by-default"`
+	AlwaysOn         PersistentStatus `yaml:"always-on"`
+}
+
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
@@ -77,19 +229,17 @@ type AccountConfig struct {
 	} `yaml:"login-throttling"`
 	SkipServerPassword bool                  `yaml:"skip-server-password"`
 	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
-	Bouncer            struct {
-		Enabled          bool
-		AllowedByDefault bool `yaml:"allowed-by-default"`
-	}
-	VHosts VHostConfig
+	Multiclient        MulticlientConfig
+	Bouncer            *MulticlientConfig // # handle old name for 'multiclient'
+	VHosts             VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
 	Enabled                bool
-	EnabledCallbacks       []string      `yaml:"enabled-callbacks"`
-	EnabledCredentialTypes []string      `yaml:"-"`
-	VerifyTimeout          time.Duration `yaml:"verify-timeout"`
+	EnabledCallbacks       []string         `yaml:"enabled-callbacks"`
+	EnabledCredentialTypes []string         `yaml:"-"`
+	VerifyTimeout          custime.Duration `yaml:"verify-timeout"`
 	Callbacks              struct {
 		Mailto struct {
 			Server string
@@ -117,7 +267,7 @@ type VHostConfig struct {
 	UserRequests   struct {
 		Enabled  bool
 		Channel  string
-		Cooldown time.Duration
+		Cooldown custime.Duration
 	} `yaml:"user-requests"`
 	OfferList []string `yaml:"offer-list"`
 }
@@ -260,18 +410,17 @@ type Limits struct {
 
 // STSConfig controls the STS configuration/
 type STSConfig struct {
-	Enabled        bool
-	Duration       time.Duration `yaml:"duration-real"`
-	DurationString string        `yaml:"duration"`
-	Port           int
-	Preload        bool
-	STSOnlyBanner  string `yaml:"sts-only-banner"`
-	bannerLines    []string
+	Enabled       bool
+	Duration      custime.Duration
+	Port          int
+	Preload       bool
+	STSOnlyBanner string `yaml:"sts-only-banner"`
+	bannerLines   []string
 }
 
 // Value returns the STS value to advertise in CAP
 func (sts *STSConfig) Value() string {
-	val := fmt.Sprintf("duration=%d", int(sts.Duration.Seconds()))
+	val := fmt.Sprintf("duration=%d", int(time.Duration(sts.Duration).Seconds()))
 	if sts.Enabled && sts.Port > 0 {
 		val += fmt.Sprintf(",port=%d", sts.Port)
 	}
@@ -337,6 +486,8 @@ type Config struct {
 		isupport      isupport.List
 		IPLimits      connection_limits.LimiterConfig `yaml:"ip-limits"`
 		Cloaks        cloaks.CloakConfig              `yaml:"ip-cloaking"`
+		SecureNetDefs []string                        `yaml:"secure-nets"`
+		secureNets    []net.IPNet
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
@@ -353,6 +504,7 @@ type Config struct {
 	Datastore struct {
 		Path        string
 		AutoUpgrade bool
+		MySQL       mysql.Config
 	}
 
 	Accounts AccountConfig
@@ -392,6 +544,18 @@ type Config struct {
 		AutoresizeWindow time.Duration `yaml:"autoresize-window"`
 		AutoreplayOnJoin int           `yaml:"autoreplay-on-join"`
 		ChathistoryMax   int           `yaml:"chathistory-maxmessages"`
+		ZNCMax           int           `yaml:"znc-maxmessages"`
+		Restrictions     struct {
+			ExpireTime              custime.Duration `yaml:"expire-time"`
+			EnforceRegistrationDate bool             `yaml:"enforce-registration-date"`
+			GracePeriod             custime.Duration `yaml:"grace-period"`
+		}
+		Persistent struct {
+			Enabled              bool
+			UnregisteredChannels bool             `yaml:"unregistered-channels"`
+			RegisteredChannels   PersistentStatus `yaml:"registered-channels"`
+			DirectMessages       PersistentStatus `yaml:"direct-messages"`
+		}
 	}
 
 	Filename string
@@ -626,6 +790,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
 	}
+	if config.Datastore.MySQL.Enabled {
+		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
+			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
+		}
+	}
 
 	config.Server.supportedCaps = caps.NewCompleteSet()
 	config.Server.capValues = make(caps.Values)
@@ -636,10 +805,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if config.Server.STS.Enabled {
-		config.Server.STS.Duration, err = custime.ParseDuration(config.Server.STS.DurationString)
-		if err != nil {
-			return nil, fmt.Errorf("Could not parse STS duration: %s", err.Error())
-		}
 		if config.Server.STS.Port < 0 || config.Server.STS.Port > 65535 {
 			return nil, fmt.Errorf("STS port is incorrect, should be 0 if disabled: %d", config.Server.STS.Port)
 		}
@@ -692,8 +857,15 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.capValues[caps.Multiline] = multilineCapValue
 	}
 
-	if !config.Accounts.Bouncer.Enabled {
-		config.Server.supportedCaps.Disable(caps.Bouncer)
+	// handle legacy name 'bouncer' for 'multiclient' section:
+	if config.Accounts.Bouncer != nil {
+		config.Accounts.Multiclient = *config.Accounts.Bouncer
+	}
+
+	if !config.Accounts.Multiclient.Enabled {
+		config.Accounts.Multiclient.AlwaysOn = PersistentDisabled
+	} else if config.Accounts.Multiclient.AlwaysOn >= PersistentOptOut {
+		config.Accounts.Multiclient.AllowedByDefault = true
 	}
 
 	var newLogConfigs []logger.LoggingConfig
@@ -760,6 +932,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.proxyAllowedFromNets, err = utils.ParseNetList(config.Server.ProxyAllowedFrom)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse proxy-allowed-from nets: %v", err.Error())
+	}
+
+	config.Server.secureNets, err = utils.ParseNetList(config.Server.SecureNetDefs)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse secure-nets: %v\n", err.Error())
 	}
 
 	rawRegexp := config.Accounts.VHosts.ValidRegexpRaw
@@ -858,6 +1035,18 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.ClientLength = 0
 	}
 
+	if !config.History.Enabled || !config.History.Persistent.Enabled {
+		config.History.Persistent.UnregisteredChannels = false
+		config.History.Persistent.RegisteredChannels = PersistentDisabled
+		config.History.Persistent.DirectMessages = PersistentDisabled
+	}
+
+	if config.History.ZNCMax == 0 {
+		config.History.ZNCMax = config.History.ChathistoryMax
+	}
+
+	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
+
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {
 		if config.Server.Cloaks.Secret == "" || config.Server.Cloaks.Secret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
@@ -940,12 +1129,6 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 		addedCaps.Add(caps.SASL)
 	} else if oldConfig.Accounts.AuthenticationEnabled && !config.Accounts.AuthenticationEnabled {
 		removedCaps.Add(caps.SASL)
-	}
-
-	if !oldConfig.Accounts.Bouncer.Enabled && config.Accounts.Bouncer.Enabled {
-		addedCaps.Add(caps.Bouncer)
-	} else if oldConfig.Accounts.Bouncer.Enabled && !config.Accounts.Bouncer.Enabled {
-		removedCaps.Add(caps.Bouncer)
 	}
 
 	if oldConfig.Limits.Multiline.MaxBytes != 0 && config.Limits.Multiline.MaxBytes == 0 {

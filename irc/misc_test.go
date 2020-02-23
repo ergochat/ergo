@@ -9,9 +9,9 @@ import (
 )
 
 func TestZncTimestampParser(t *testing.T) {
-	assertEqual(zncWireTimeToTime("1558338348.988"), time.Unix(1558338348, 988000000), t)
-	assertEqual(zncWireTimeToTime("1558338348.9"), time.Unix(1558338348, 900000000), t)
-	assertEqual(zncWireTimeToTime("1558338348"), time.Unix(1558338348, 0), t)
-	assertEqual(zncWireTimeToTime(".988"), time.Unix(0, 988000000), t)
-	assertEqual(zncWireTimeToTime("garbage"), time.Unix(0, 0), t)
+	assertEqual(zncWireTimeToTime("1558338348.988"), time.Unix(1558338348, 988000000).UTC(), t)
+	assertEqual(zncWireTimeToTime("1558338348.9"), time.Unix(1558338348, 900000000).UTC(), t)
+	assertEqual(zncWireTimeToTime("1558338348"), time.Unix(1558338348, 0).UTC(), t)
+	assertEqual(zncWireTimeToTime(".988"), time.Unix(0, 988000000).UTC(), t)
+	assertEqual(zncWireTimeToTime("garbage"), time.Unix(0, 0).UTC(), t)
 }

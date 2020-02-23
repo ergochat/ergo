@@ -33,7 +33,9 @@ const (
 	keyAccountSettings         = "account.settings %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
-	keyAccountChannels         = "account.channels %s"
+	keyAccountChannels         = "account.channels %s" // channels registered to the account
+	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
+	keyAccountLastSignoff      = "account.lastsignoff %s"
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -71,6 +73,40 @@ func (am *AccountManager) Initialize(server *Server) {
 	config := server.Config()
 	am.buildNickToAccountIndex(config)
 	am.initVHostRequestQueue(config)
+	am.createAlwaysOnClients(config)
+}
+
+func (am *AccountManager) createAlwaysOnClients(config *Config) {
+	if config.Accounts.Multiclient.AlwaysOn == PersistentDisabled {
+		return
+	}
+
+	verifiedPrefix := fmt.Sprintf(keyAccountVerified, "")
+
+	am.serialCacheUpdateMutex.Lock()
+	defer am.serialCacheUpdateMutex.Unlock()
+
+	var accounts []string
+
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		err := tx.AscendGreaterOrEqual("", verifiedPrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, verifiedPrefix) {
+				return false
+			}
+			account := strings.TrimPrefix(key, verifiedPrefix)
+			accounts = append(accounts, account)
+			return true
+		})
+		return err
+	})
+
+	for _, accountName := range accounts {
+		account, err := am.LoadAccount(accountName)
+		if err == nil && account.Verified &&
+			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
+			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSignoff(accountName))
+		}
+	}
 }
 
 func (am *AccountManager) buildNickToAccountIndex(config *Config) {
@@ -346,7 +382,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
-	ttl := config.Registration.VerifyTimeout
+	ttl := time.Duration(config.Registration.VerifyTimeout)
 	if ttl != 0 {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}
@@ -475,6 +511,58 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 	})
 
 	return err
+}
+
+func (am *AccountManager) saveChannels(account string, channels []string) {
+	channelsStr := strings.Join(channels, ",")
+	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, channelsStr, nil)
+		return nil
+	})
+}
+
+func (am *AccountManager) loadChannels(account string) (channels []string) {
+	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+	var channelsStr string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		channelsStr, _ = tx.Get(key)
+		return nil
+	})
+	if channelsStr != "" {
+		return strings.Split(channelsStr, ",")
+	}
+	return
+}
+
+func (am *AccountManager) saveLastSignoff(account string, lastSignoff time.Time) {
+	key := fmt.Sprintf(keyAccountLastSignoff, account)
+	var val string
+	if !lastSignoff.IsZero() {
+		val = strconv.FormatInt(lastSignoff.UnixNano(), 10)
+	}
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		if val != "" {
+			tx.Set(key, val, nil)
+		} else {
+			tx.Delete(key)
+		}
+		return nil
+	})
+}
+
+func (am *AccountManager) loadLastSignoff(account string) (lastSignoff time.Time) {
+	key := fmt.Sprintf(keyAccountLastSignoff, account)
+	var lsText string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		lsText, _ = tx.Get(key)
+		return nil
+	})
+	lsNum, err := strconv.ParseInt(lsText, 10, 64)
+	if err != nil {
+		return time.Unix(0, lsNum).UTC()
+	}
+	return
 }
 
 func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasPrivs bool) (err error) {
@@ -685,7 +773,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
 	raw.Verified = true
-	clientAccount, err := am.deserializeRawAccount(raw)
+	clientAccount, err := am.deserializeRawAccount(raw, casefoldedAccount)
 	if err != nil {
 		return err
 	}
@@ -892,13 +980,13 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 		return
 	}
 
-	result, err = am.deserializeRawAccount(raw)
-	result.NameCasefolded = casefoldedAccount
+	result, err = am.deserializeRawAccount(raw, casefoldedAccount)
 	return
 }
 
-func (am *AccountManager) deserializeRawAccount(raw rawClientAccount) (result ClientAccount, err error) {
+func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName string) (result ClientAccount, err error) {
 	result.Name = raw.Name
+	result.NameCasefolded = cfName
 	regTimeInt, _ := strconv.ParseInt(raw.RegisteredAt, 10, 64)
 	result.RegisteredAt = time.Unix(regTimeInt, 0).UTC()
 	e := json.Unmarshal([]byte(raw.Credentials), &result.Credentials)
@@ -976,6 +1064,8 @@ func (am *AccountManager) Unregister(account string) error {
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
+	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
+	lastSignoffKey := fmt.Sprintf(keyAccountLastSignoff, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1011,6 +1101,8 @@ func (am *AccountManager) Unregister(account string) error {
 		tx.Delete(vhostKey)
 		channelsStr, _ = tx.Get(channelsKey)
 		tx.Delete(channelsKey)
+		tx.Delete(joinedChannelsKey)
+		tx.Delete(lastSignoffKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
@@ -1087,13 +1179,13 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 	return unmarshalRegisteredChannels(channelStr)
 }
 
-func (am *AccountManager) AuthenticateByCertFP(client *Client, authzid string) error {
-	if client.certfp == "" {
+func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid string) error {
+	if certfp == "" {
 		return errAccountInvalidCredentials
 	}
 
 	var account string
-	certFPKey := fmt.Sprintf(keyCertToAccount, client.certfp)
+	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
 	err := am.server.store.View(func(tx *buntdb.Tx) error {
 		account, _ = tx.Get(certFPKey)
@@ -1455,10 +1547,7 @@ func (am *AccountManager) applyVhostToClients(account string, result VHostInfo) 
 }
 
 func (am *AccountManager) Login(client *Client, account ClientAccount) {
-	changed := client.SetAccountName(account.Name)
-	if !changed {
-		return
-	}
+	client.Login(account)
 
 	client.nickTimer.Touch(nil)
 
@@ -1468,9 +1557,6 @@ func (am *AccountManager) Login(client *Client, account ClientAccount) {
 	am.Lock()
 	defer am.Unlock()
 	am.accountToClients[casefoldedAccount] = append(am.accountToClients[casefoldedAccount], client)
-	for _, client := range am.accountToClients[casefoldedAccount] {
-		client.SetAccountSettings(account.Settings)
-	}
 }
 
 func (am *AccountManager) Logout(client *Client) {
@@ -1590,12 +1676,12 @@ func (ac *AccountCredentials) RemoveCertfp(certfp string) (err error) {
 	return nil
 }
 
-type BouncerAllowedSetting int
+type MulticlientAllowedSetting int
 
 const (
-	BouncerAllowedServerDefault BouncerAllowedSetting = iota
-	BouncerDisallowedByUser
-	BouncerAllowedByUser
+	MulticlientAllowedServerDefault MulticlientAllowedSetting = iota
+	MulticlientDisallowedByUser
+	MulticlientAllowedByUser
 )
 
 // controls whether/when clients without event-playback support see fake
@@ -1622,11 +1708,16 @@ func replayJoinsSettingFromString(str string) (result ReplayJoinsSetting, err er
 	return
 }
 
+// XXX: AllowBouncer cannot be renamed AllowMulticlient because it is stored in
+// persistent JSON blobs in the database
 type AccountSettings struct {
-	AutoreplayLines *int
-	NickEnforcement NickEnforcementMethod
-	AllowBouncer    BouncerAllowedSetting
-	ReplayJoins     ReplayJoinsSetting
+	AutoreplayLines  *int
+	NickEnforcement  NickEnforcementMethod
+	AllowBouncer     MulticlientAllowedSetting
+	ReplayJoins      ReplayJoinsSetting
+	AlwaysOn         PersistentStatus
+	AutoreplayMissed bool
+	DMHistory        HistoryStatus
 }
 
 // ClientAccount represents a user account.
@@ -1661,7 +1752,7 @@ func (am *AccountManager) logoutOfAccount(client *Client) {
 		return
 	}
 
-	client.SetAccountName("")
+	client.Logout()
 	go client.nickTimer.Touch(nil)
 
 	// dispatch account-notify

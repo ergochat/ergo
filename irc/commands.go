@@ -54,6 +54,12 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		return cmd.handler(server, client, msg, rb)
 	}()
 
+	// most servers do this only for PING/PONG, but we'll do it for any command:
+	if client.registered {
+		// touch even if `exiting`, so we record the time of a QUIT accurately
+		session.idletimer.Touch()
+	}
+
 	if exiting {
 		return
 	}
@@ -61,11 +67,6 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 	// after each command, see if we can send registration to the client
 	if !client.registered {
 		exiting = server.tryRegister(client, session)
-	}
-
-	// most servers do this only for PING/PONG, but we'll do it for any command:
-	if client.registered {
-		session.idletimer.Touch()
 	}
 
 	if client.registered && !cmd.leaveClientIdle {
@@ -109,7 +110,7 @@ func init() {
 		},
 		"CHATHISTORY": {
 			handler:   chathistoryHandler,
-			minParams: 3,
+			minParams: 4,
 		},
 		"DEBUG": {
 			handler:   debugHandler,

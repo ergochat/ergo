@@ -31,7 +31,7 @@ func servCmdRequiresNickRes(config *Config) bool {
 }
 
 func servCmdRequiresBouncerEnabled(config *Config) bool {
-	return config.Accounts.Bouncer.Enabled
+	return config.Accounts.Multiclient.Enabled
 }
 
 const (
@@ -147,7 +147,7 @@ an administrator can set use this command to set up user accounts.`,
 			help: `Syntax: $bSESSIONS [nickname]$b
 
 SESSIONS lists information about the sessions currently attached, via
-the server's bouncer functionality, to your nickname. An administrator
+the server's multiclient functionality, to your nickname. An administrator
 can use this command to list another user's sessions.`,
 			helpShort: `$bSESSIONS$b lists the sessions attached to a nickname.`,
 			enabled:   servCmdRequiresBouncerEnabled,
@@ -217,7 +217,7 @@ information on the settings and their possible values, see HELP SET.`,
 			helpStrings: []string{
 				`Syntax $bSET <setting> <value>$b
 
-Set modifies your account settings. The following settings are available:`,
+SET modifies your account settings. The following settings are available:`,
 
 				`$bENFORCE$b
 'enforce' lets you specify a custom enforcement mechanism for your registered
@@ -228,8 +228,8 @@ nicknames. Your options are:
 3. 'strict'  [you must already be authenticated to use the nick]
 4. 'default' [use the server default]`,
 
-				`$bBOUNCER$b
-If 'bouncer' is enabled and you are already logged in and using a nick, a
+				`$bMULTICLIENT$b
+If 'multiclient' is enabled and you are already logged in and using a nick, a
 second client of yours that authenticates with SASL and requests the same nick
 is allowed to attach to the nick as well (this is comparable to the behavior
 of IRC "bouncers" like ZNC). Your options are 'on' (allow this behavior),
@@ -247,6 +247,22 @@ lines for join and part. This provides more information about the context of
 messages, but may be spammy. Your options are 'always', 'never', and the default
 of 'commands-only' (the messages will be replayed in /HISTORY output, but not
 during autoreplay).`,
+				`$bALWAYS-ON$b
+'always-on' controls whether your nickname/identity will remain active
+even while you are disconnected from the server. Your options are 'true',
+'false', and 'default' (use the server default value).`,
+				`$bAUTOREPLAY-MISSED$b
+'autoreplay-missed' is only effective for always-on clients. If enabled,
+if you have at most one active session, the server will remember the time
+you disconnect and then replay missed messages to you when you reconnect.
+Your options are 'on' and 'off'.`,
+				`$bDM-HISTORY$b
+'dm-history' is only effective for always-on clients. It lets you control
+how the history of your direct messages is stored. Your options are:
+1. 'off'        [no history]
+2. 'ephemeral'  [a limited amount of temporary history, not stored on disk]
+3. 'on'         [history stored in a permanent database, if available]
+4. 'default'    [use the server default]`,
 			},
 			authRequired: true,
 			enabled:      servCmdRequiresAccreg,
@@ -332,23 +348,48 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		case ReplayJoinsNever:
 			nsNotice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
 		}
-	case "bouncer":
-		if !config.Accounts.Bouncer.Enabled {
+	case "multiclient":
+		if !config.Accounts.Multiclient.Enabled {
 			nsNotice(rb, client.t("This feature has been disabled by the server administrators"))
 		} else {
 			switch settings.AllowBouncer {
-			case BouncerAllowedServerDefault:
-				if config.Accounts.Bouncer.AllowedByDefault {
-					nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account, but you can opt out"))
+			case MulticlientAllowedServerDefault:
+				if config.Accounts.Multiclient.AllowedByDefault {
+					nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account, but you can opt out"))
 				} else {
-					nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account, but you can opt in"))
+					nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account, but you can opt in"))
 				}
-			case BouncerDisallowedByUser:
-				nsNotice(rb, client.t("Bouncer functionality is currently disabled for your account"))
-			case BouncerAllowedByUser:
-				nsNotice(rb, client.t("Bouncer functionality is currently enabled for your account"))
+			case MulticlientDisallowedByUser:
+				nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account"))
+			case MulticlientAllowedByUser:
+				nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account"))
 			}
 		}
+	case "always-on":
+		stored := settings.AlwaysOn
+		actual := client.AlwaysOn()
+		nsNotice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), persistentStatusToString(stored)))
+		if actual {
+			nsNotice(rb, client.t("Given current server settings, your client is always-on"))
+		} else {
+			nsNotice(rb, client.t("Given current server settings, your client is not always-on"))
+		}
+	case "autoreplay-missed":
+		stored := settings.AutoreplayMissed
+		if stored {
+			if client.AlwaysOn() {
+				nsNotice(rb, client.t("Autoreplay of missed messages is enabled"))
+			} else {
+				nsNotice(rb, client.t("You have enabled autoreplay of missed messages, but you can't receive them because your client isn't set to always-on"))
+			}
+		} else {
+			nsNotice(rb, client.t("Your account is not configured to receive autoreplayed missed messages"))
+		}
+	case "dm-history":
+		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
+		csNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
+		csNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
+
 	default:
 		nsNotice(rb, client.t("No such setting"))
 	}
@@ -399,17 +440,17 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			out.AutoreplayLines = newValue
 			return
 		}
-	case "bouncer":
-		var newValue BouncerAllowedSetting
+	case "multiclient":
+		var newValue MulticlientAllowedSetting
 		if strings.ToLower(params[1]) == "default" {
-			newValue = BouncerAllowedServerDefault
+			newValue = MulticlientAllowedServerDefault
 		} else {
 			var enabled bool
 			enabled, err = utils.StringToBool(params[1])
 			if enabled {
-				newValue = BouncerAllowedByUser
+				newValue = MulticlientAllowedByUser
 			} else {
-				newValue = BouncerDisallowedByUser
+				newValue = MulticlientDisallowedByUser
 			}
 		}
 		if err == nil {
@@ -426,6 +467,37 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
 				out.ReplayJoins = newValue
+				return
+			}
+		}
+	case "always-on":
+		var newValue PersistentStatus
+		newValue, err = persistentStatusFromString(params[1])
+		// "opt-in" and "opt-out" don't make sense as user preferences
+		if err == nil && newValue != PersistentOptIn && newValue != PersistentOptOut {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.AlwaysOn = newValue
+				return
+			}
+		}
+	case "autoreplay-missed":
+		var newValue bool
+		newValue, err = utils.StringToBool(params[1])
+		if err == nil {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.AutoreplayMissed = newValue
+				return
+			}
+		}
+	case "dm-history":
+		var newValue HistoryStatus
+		newValue, err = historyStatusFromString(params[1])
+		if err == nil {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.DMHistory = newValue
 				return
 			}
 		}
@@ -480,6 +552,9 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 	} else if ghost == client {
 		nsNotice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
 		return
+	} else if ghost.AlwaysOn() {
+		nsNotice(rb, client.t("You can't GHOST an always-on client"))
+		return
 	}
 
 	authorized := false
@@ -530,7 +605,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	var username, passphrase string
 	if len(params) == 1 {
-		if client.certfp != "" {
+		if rb.session.certfp != "" {
 			username = params[0]
 		} else {
 			// XXX undocumented compatibility mode with other nickservs, allowing
@@ -553,8 +628,8 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	}
 
 	// try certfp
-	if !loginSuccessful && client.certfp != "" {
-		err := server.accounts.AuthenticateByCertFP(client, "")
+	if !loginSuccessful && rb.session.certfp != "" {
+		err := server.accounts.AuthenticateByCertFP(client, rb.session.certfp, "")
 		loginSuccessful = (err == nil)
 	}
 
@@ -618,7 +693,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		email = params[1]
 	}
 
-	certfp := client.certfp
+	certfp := rb.session.certfp
 	if passphrase == "*" {
 		if certfp == "" {
 			nsNotice(rb, client.t("You must be connected with TLS and a client certificate to do this"))
@@ -658,7 +733,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	}
 
-	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, client.certfp)
+	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, rb.session.certfp)
 	if err == nil {
 		if callbackNamespace == "*" {
 			err = server.accounts.Verify(client, account, "")
@@ -876,6 +951,9 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
 		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
 		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
+		if session.certfp != "" {
+			nsNotice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
+		}
 	}
 }
 

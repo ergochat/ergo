@@ -37,6 +37,10 @@ const (
 	// https://ircv3.net/specs/extensions/chghost-3.2.html
 	ChgHost Capability = iota
 
+	// Chathistory is the proposed IRCv3 capability named "draft/chathistory":
+	// https://github.com/ircv3/ircv3-specifications/pull/393
+	Chathistory Capability = iota
+
 	// EventPlayback is the proposed IRCv3 capability named "draft/event-playback":
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
@@ -85,10 +89,6 @@ const (
 	// https://ircv3.net/specs/extensions/multi-prefix-3.1.html
 	MultiPrefix Capability = iota
 
-	// Bouncer is the Oragono-specific capability named "oragono.io/bnc":
-	// https://oragono.io/bnc
-	Bouncer Capability = iota
-
 	// Nope is the Oragono vendor capability named "oragono.io/nope":
 	// https://oragono.io/nope
 	Nope Capability = iota
@@ -127,6 +127,7 @@ var (
 		"batch",
 		"cap-notify",
 		"chghost",
+		"draft/chathistory",
 		"draft/event-playback",
 		"draft/languages",
 		"draft/multiline",
@@ -139,7 +140,6 @@ var (
 		"labeled-response",
 		"message-tags",
 		"multi-prefix",
-		"oragono.io/bnc",
 		"oragono.io/nope",
 		"sasl",
 		"server-time",

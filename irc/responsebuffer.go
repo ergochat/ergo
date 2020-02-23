@@ -121,7 +121,7 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 	if message.Is512() {
 		rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
 	} else {
-		if message.IsMultiline() && rb.session.capabilities.Has(caps.Multiline) {
+		if rb.session.capabilities.Has(caps.Multiline) {
 			batch := rb.session.composeMultilineBatch(fromNickMask, fromAccount, tags, command, target, message)
 			rb.setNestedBatchTag(&batch[0])
 			rb.setNestedBatchTag(&batch[len(batch)-1])
@@ -292,5 +292,5 @@ func (rb *ResponseBuffer) flushInternal(final bool, blocking bool) error {
 
 // Notice sends the client the given notice from the server.
 func (rb *ResponseBuffer) Notice(text string) {
-	rb.Add(nil, rb.target.server.name, "NOTICE", rb.target.nick, text)
+	rb.Add(nil, rb.target.server.name, "NOTICE", rb.target.Nick(), text)
 }

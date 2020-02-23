@@ -29,7 +29,7 @@ import (
 const (
 	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
 	IdentTimeoutSeconds  = 1.5
-	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
+	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
 )
 
 // ResumeDetails is a place to stash data at various stages of
@@ -45,22 +45,22 @@ type ResumeDetails struct {
 type Client struct {
 	account            string
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
+	accountRegDate     time.Time
 	accountSettings    AccountSettings
 	atime              time.Time
 	away               bool
 	awayMessage        string
 	brbTimer           BrbTimer
-	certfp             string
 	channels           ChannelSet
 	ctime              time.Time
 	destroyed          bool
 	exitedSnomaskSent  bool
-	flags              modes.ModeSet
+	modes              modes.ModeSet
 	hostname           string
 	invitedTo          map[string]bool
 	isSTSOnly          bool
-	isTor              bool
 	languages          []string
+	lastSignoff        time.Time // for always-on clients, the time their last session quit
 	loginThrottle      connection_limits.GenericThrottle
 	nick               string
 	nickCasefolded     string
@@ -76,17 +76,25 @@ type Client struct {
 	realIP             net.IP
 	registered         bool
 	resumeID           string
-	saslInProgress     bool
-	saslMechanism      string
-	saslValue          string
-	sentPassCommand    bool
 	server             *Server
 	skeleton           string
 	sessions           []*Session
 	stateMutex         sync.RWMutex // tier 1
+	alwaysOn           bool
 	username           string
 	vhost              string
 	history            history.Buffer
+	dirtyBits          uint
+	writerSemaphore    utils.Semaphore // tier 1.5
+}
+
+type saslStatus struct {
+	mechanism string
+	value     string
+}
+
+func (s *saslStatus) Clear() {
+	*s = saslStatus{}
 }
 
 // Session is an individual client connection to the server (TCP connection
@@ -102,10 +110,15 @@ type Session struct {
 	realIP      net.IP
 	proxiedIP   net.IP
 	rawHostname string
+	isTor       bool
 
 	idletimer IdleTimer
 	fakelag   Fakelag
 	destroyed uint32
+
+	certfp          string
+	sasl            saslStatus
+	sentPassCommand bool
 
 	batchCounter uint32
 
@@ -120,6 +133,7 @@ type Session struct {
 	resumeID         string
 	resumeDetails    *ResumeDetails
 	zncPlaybackTimes *zncPlaybackTimes
+	lastSignoff      time.Time
 
 	batch MultilineBatch
 }
@@ -147,6 +161,13 @@ func (sd *Session) SetQuitMessage(message string) (set bool) {
 	}
 }
 
+func (s *Session) IP() net.IP {
+	if s.proxiedIP != nil {
+		return s.proxiedIP
+	}
+	return s.realIP
+}
+
 // returns whether the session was actively destroyed (for example, by ping
 // timeout or NS GHOST).
 // avoids a race condition between asynchronous idle-timing-out of sessions,
@@ -164,8 +185,7 @@ func (session *Session) SetDestroyed() {
 // returns whether the client supports a smart history replay cap,
 // and therefore autoreplay-on-join and similar should be suppressed
 func (session *Session) HasHistoryCaps() bool {
-	// TODO the chathistory cap will go here as well
-	return session.capabilities.Has(caps.ZNCPlayback)
+	return session.capabilities.Has(caps.Chathistory) || session.capabilities.Has(caps.ZNCPlayback)
 }
 
 // generates a batch ID. the uniqueness requirements for this are fairly weak:
@@ -231,7 +251,6 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		channels:  make(ChannelSet),
 		ctime:     now,
 		isSTSOnly: conn.Config.STSOnly,
-		isTor:     conn.Config.Tor,
 		languages: server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -253,13 +272,14 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		ctime:      now,
 		atime:      now,
 		realIP:     realIP,
+		isTor:      conn.Config.Tor,
 	}
 	client.sessions = []*Session{session}
 
 	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
-		client.certfp, _ = socket.CertFP()
+		session.certfp, _ = socket.CertFP()
 	}
 
 	if conn.Config.Tor {
@@ -272,7 +292,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		client.rawHostname = session.rawHostname
 	} else {
 		remoteAddr := conn.Conn.RemoteAddr()
-		if utils.AddrIsLocal(remoteAddr) {
+		if realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
 			client.SetMode(modes.TLS, true)
 		}
@@ -286,10 +306,66 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	client.run(session, proxyLine)
 }
 
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSignoff time.Time) {
+	now := time.Now().UTC()
+	config := server.Config()
+
+	client := &Client{
+		atime:     now,
+		channels:  make(ChannelSet),
+		ctime:     now,
+		languages: server.Languages().Default(),
+		server:    server,
+
+		// TODO figure out how to set these on reattach?
+		username:    "~user",
+		rawHostname: server.name,
+		realIP:      utils.IPv4LoopbackAddress,
+
+		alwaysOn:    true,
+		lastSignoff: lastSignoff,
+	}
+
+	client.SetMode(modes.TLS, true)
+	client.writerSemaphore.Initialize(1)
+	client.history.Initialize(0, 0)
+	client.brbTimer.Initialize(client)
+
+	server.accounts.Login(client, account)
+
+	client.resizeHistory(config)
+
+	_, err := server.clients.SetNick(client, nil, account.Name)
+	if err != nil {
+		server.logger.Error("internal", "could not establish always-on client", account.Name, err.Error())
+		return
+	} else {
+		server.logger.Debug("accounts", "established always-on client", account.Name)
+	}
+
+	// XXX set this last to avoid confusing SetNick:
+	client.registered = true
+
+	for _, chname := range chnames {
+		// XXX we're using isSajoin=true, to make these joins succeed even without channel key
+		// this is *probably* ok as long as the persisted memberships are accurate
+		server.channels.Join(client, chname, "", true, nil)
+	}
+}
+
+func (client *Client) resizeHistory(config *Config) {
+	_, ephemeral, _ := client.historyStatus(config)
+	if ephemeral {
+		client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
+	} else {
+		client.history.Resize(0, 0)
+	}
+}
+
 // resolve an IP to an IRC-ready hostname, using reverse DNS, forward-confirming if necessary,
 // and sending appropriate notices to the client
 func (client *Client) lookupHostname(session *Session, overwrite bool) {
-	if client.isTor {
+	if session.isTor {
 		return
 	} // else: even if cloaking is enabled, look up the real hostname to show to operators
 
@@ -384,18 +460,18 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(config *Config) AuthOutcome {
+func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
-	if (config.Server.passwordBytes != nil) && !client.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
+	if (config.Server.passwordBytes != nil) && !session.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
 		return authFailPass
 	}
 	// Tor connections may be required to authenticate with SASL
-	if client.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
+	if session.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(client.IP(), config.Accounts.RequireSasl.exemptedNets) {
+	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}
 	return authSuccess
@@ -572,9 +648,13 @@ func (client *Client) run(session *Session, proxyLine string) {
 
 func (client *Client) playReattachMessages(session *Session) {
 	client.server.playRegistrationBurst(session)
+	hasHistoryCaps := session.HasHistoryCaps()
 	for _, channel := range session.client.Channels() {
 		channel.playJoinForSession(session)
-		// clients should receive autoreplay-on-join lines, if applicable;
+		// clients should receive autoreplay-on-join lines, if applicable:
+		if hasHistoryCaps {
+			continue
+		}
 		// if they negotiated znc.in/playback or chathistory, they will receive nothing,
 		// because those caps disable autoreplay-on-join and they haven't sent the relevant
 		// *playback PRIVMSG or CHATHISTORY command yet
@@ -582,6 +662,12 @@ func (client *Client) playReattachMessages(session *Session) {
 		channel.autoReplayHistory(client, rb, "")
 		rb.Send(true)
 	}
+	if !session.lastSignoff.IsZero() && !hasHistoryCaps {
+		rb := NewResponseBuffer(session)
+		zncPlayPrivmsgs(client, rb, session.lastSignoff, time.Time{})
+		rb.Send(true)
+	}
+	session.lastSignoff = time.Time{}
 }
 
 //
@@ -634,11 +720,6 @@ func (session *Session) tryResume() (success bool) {
 		return
 	}
 
-	if oldClient.isTor != client.isTor {
-		session.Send(nil, server.name, "FAIL", "RESUME", "INSECURE_SESSION", client.t("Cannot resume connection from Tor to non-Tor or vice versa"))
-		return
-	}
-
 	err := server.clients.Resume(oldClient, session)
 	if err != nil {
 		session.Send(nil, server.name, "FAIL", "RESUME", "CANNOT_RESUME", client.t("Cannot resume connection"))
@@ -657,37 +738,45 @@ func (session *Session) tryResume() (success bool) {
 func (session *Session) playResume() {
 	client := session.client
 	server := client.server
+	config := server.Config()
 
 	friends := make(ClientSet)
-	oldestLostMessage := time.Now().UTC()
+	var oldestLostMessage time.Time
 
 	// work out how much time, if any, is not covered by history buffers
+	// assume that a persistent buffer covers the whole resume period
 	for _, channel := range client.Channels() {
 		for _, member := range channel.Members() {
 			friends.Add(member)
+		}
+		_, ephemeral, _ := channel.historyStatus(config)
+		if ephemeral {
 			lastDiscarded := channel.history.LastDiscarded()
-			if lastDiscarded.Before(oldestLostMessage) {
+			if oldestLostMessage.Before(lastDiscarded) {
 				oldestLostMessage = lastDiscarded
 			}
 		}
 	}
-	privmsgMatcher := func(item history.Item) bool {
-		return item.Type == history.Privmsg || item.Type == history.Notice || item.Type == history.Tagmsg
+	_, cEphemeral, _ := client.historyStatus(config)
+	if cEphemeral {
+		lastDiscarded := client.history.LastDiscarded()
+		if oldestLostMessage.Before(lastDiscarded) {
+			oldestLostMessage = lastDiscarded
+		}
 	}
-	privmsgHistory := client.history.Match(privmsgMatcher, false, 0)
-	lastDiscarded := client.history.LastDiscarded()
-	if lastDiscarded.Before(oldestLostMessage) {
-		oldestLostMessage = lastDiscarded
-	}
-	for _, item := range privmsgHistory {
-		sender := server.clients.Get(stripMaskFromNick(item.Nick))
-		if sender != nil {
-			friends.Add(sender)
+	_, privmsgSeq, _ := server.GetHistorySequence(nil, client, "*")
+	if privmsgSeq != nil {
+		privmsgs, _, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
+		for _, item := range privmsgs {
+			sender := server.clients.Get(stripMaskFromNick(item.Nick))
+			if sender != nil {
+				friends.Add(sender)
+			}
 		}
 	}
 
 	timestamp := session.resumeDetails.Timestamp
-	gap := lastDiscarded.Sub(timestamp)
+	gap := oldestLostMessage.Sub(timestamp)
 	session.resumeDetails.HistoryIncomplete = gap > 0 || timestamp.IsZero()
 	gapSeconds := int(gap.Seconds()) + 1 // round up to avoid confusion
 
@@ -723,10 +812,12 @@ func (session *Session) playResume() {
 		}
 	}
 
-	if session.resumeDetails.HistoryIncomplete && !timestamp.IsZero() {
-		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
-	} else {
-		session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Resume may have lost some message history"))
+	if session.resumeDetails.HistoryIncomplete {
+		if !timestamp.IsZero() {
+			session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", fmt.Sprintf(client.t("Resume may have lost up to %d seconds of history"), gapSeconds))
+		} else {
+			session.Send(nil, client.server.name, "WARN", "RESUME", "HISTORY_LOST", client.t("Resume may have lost some message history"))
+		}
 	}
 
 	session.Send(nil, client.server.name, "RESUME", "SUCCESS", details.nick)
@@ -738,24 +829,27 @@ func (session *Session) playResume() {
 	}
 
 	// replay direct PRIVSMG history
-	if !timestamp.IsZero() {
-		now := time.Now().UTC()
-		items, complete := client.history.Between(timestamp, now, false, 0)
-		rb := NewResponseBuffer(client.Sessions()[0])
-		client.replayPrivmsgHistory(rb, items, complete)
-		rb.Send(true)
+	if !timestamp.IsZero() && privmsgSeq != nil {
+		after := history.Selector{Time: timestamp}
+		items, complete, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
+		if len(items) != 0 {
+			rb := NewResponseBuffer(session)
+			client.replayPrivmsgHistory(rb, items, "", complete)
+			rb.Send(true)
+		}
 	}
 
 	session.resumeDetails = nil
 }
 
-func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, complete bool) {
+func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string, complete bool) {
 	var batchID string
 	details := client.Details()
 	nick := details.nick
-	if 0 < len(items) {
-		batchID = rb.StartNestedHistoryBatch(nick)
+	if target == "" {
+		target = nick
 	}
+	batchID = rb.StartNestedHistoryBatch(target)
 
 	allowTags := rb.session.capabilities.Has(caps.MessageTags)
 	for _, item := range items {
@@ -778,12 +872,16 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		if allowTags {
 			tags = item.Tags
 		}
-		if item.Params[0] == "" {
-			// this message was sent *to* the client from another nick
+		// XXX: Params[0] is the message target. if the source of this message is an in-memory
+		// buffer, then it's "" for an incoming message and the recipient's nick for an outgoing
+		// message. if the source of the message is mysql, then mysql only sees one copy of the
+		// message, and it's the version with the recipient's nick filled in. so this is an
+		// incoming message if Params[0] (the recipient's nick) equals the client's nick:
+		if item.Params[0] == "" || item.Params[0] == nick {
 			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
 		} else {
 			// this message was sent *from* the client to another nick; the target is item.Params[0]
-			// substitute the client's current nickmask in case they changed nick
+			// substitute client's current nickmask in case client changed nick
 			rb.AddSplitMessageFromClient(details.nickMask, item.AccountName, tags, command, item.Params[0], item.Message)
 		}
 	}
@@ -875,7 +973,7 @@ func (client *Client) HasRoleCapabs(capabs ...string) bool {
 
 // ModeString returns the mode string for this client.
 func (client *Client) ModeString() (str string) {
-	return "+" + client.flags.String()
+	return "+" + client.modes.String()
 }
 
 // Friends refers to clients that share a channel with this client.
@@ -1053,6 +1151,12 @@ func (client *Client) Quit(message string, session *Session) {
 // has no more sessions.
 func (client *Client) destroy(session *Session) {
 	var sessionsToDestroy []*Session
+	var lastSignoff time.Time
+	if session != nil {
+		lastSignoff = session.idletimer.LastTouch()
+	} else {
+		lastSignoff = time.Now().UTC()
+	}
 
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
@@ -1060,6 +1164,8 @@ func (client *Client) destroy(session *Session) {
 	brbAt := client.brbTimer.brbAt
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
+	registered := client.registered
+	alwaysOn := client.alwaysOn
 	var remainingSessions int
 	if session == nil {
 		sessionsToDestroy = client.sessions
@@ -1074,14 +1180,24 @@ func (client *Client) destroy(session *Session) {
 
 	// should we destroy the whole client this time?
 	// BRB is not respected if this is a destroy of the whole client (i.e., session == nil)
-	brbEligible := session != nil && (brbState == BrbEnabled || brbState == BrbSticky)
+	brbEligible := session != nil && (brbState == BrbEnabled || alwaysOn)
 	shouldDestroy := !client.destroyed && remainingSessions == 0 && !brbEligible
 	if shouldDestroy {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
 	}
+	if alwaysOn && remainingSessions == 0 {
+		client.lastSignoff = lastSignoff
+		client.dirtyBits |= IncludeLastSignoff
+	} else {
+		lastSignoff = time.Time{}
+	}
 	exitedSnomaskSent := client.exitedSnomaskSent
 	client.stateMutex.Unlock()
+
+	if !lastSignoff.IsZero() {
+		client.wakeWriter()
+	}
 
 	// destroy all applicable sessions:
 	var quitMessage string
@@ -1099,7 +1215,7 @@ func (client *Client) destroy(session *Session) {
 
 		// remove from connection limits
 		var source string
-		if client.isTor {
+		if session.isTor {
 			client.server.torLimiter.RemoveClient()
 			source = "tor"
 		} else {
@@ -1113,10 +1229,32 @@ func (client *Client) destroy(session *Session) {
 		client.server.logger.Info("localconnect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
 
+	// decrement stats if we have no more sessions, even if the client will not be destroyed
+	if shouldDestroy || remainingSessions == 0 {
+		invisible := client.HasMode(modes.Invisible)
+		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
+		client.server.stats.Remove(registered, invisible, operator)
+	}
+
 	// do not destroy the client if it has either remaining sessions, or is BRB'ed
 	if !shouldDestroy {
 		return
 	}
+
+	splitQuitMessage := utils.MakeMessage(quitMessage)
+	quitItem := history.Item{
+		Type:        history.Quit,
+		Nick:        details.nickMask,
+		AccountName: details.accountName,
+		Message:     splitQuitMessage,
+	}
+	var channels []*Channel
+	// use a defer here to avoid writing to mysql while holding the destroy semaphore:
+	defer func() {
+		for _, channel := range channels {
+			channel.AddHistoryItem(quitItem)
+		}
+	}()
 
 	// see #235: deduplicating the list of PART recipients uses (comparatively speaking)
 	// a lot of RAM, so limit concurrency to avoid thrashing
@@ -1127,7 +1265,6 @@ func (client *Client) destroy(session *Session) {
 		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 
-	registered := client.Registered()
 	if registered {
 		client.server.whoWas.Append(client.WhoWas())
 	}
@@ -1141,18 +1278,12 @@ func (client *Client) destroy(session *Session) {
 	// clean up monitor state
 	client.server.monitorManager.RemoveAll(client)
 
-	splitQuitMessage := utils.MakeMessage(quitMessage)
 	// clean up channels
 	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
-	for _, channel := range client.Channels() {
+	channels = client.Channels()
+	for _, channel := range channels {
 		channel.Quit(client)
-		channel.history.Add(history.Item{
-			Type:        history.Quit,
-			Nick:        details.nickMask,
-			AccountName: details.accountName,
-			Message:     splitQuitMessage,
-		})
 		for _, member := range channel.Members() {
 			friends.Add(member)
 		}
@@ -1167,9 +1298,6 @@ func (client *Client) destroy(session *Session) {
 	client.brbTimer.Disable()
 
 	client.server.accounts.Logout(client)
-
-	client.server.stats.Remove(registered, client.HasMode(modes.Invisible),
-		client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator))
 
 	// this happens under failure to return from BRB
 	if quitMessage == "" {
@@ -1196,11 +1324,10 @@ func (client *Client) destroy(session *Session) {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
-	// TODO no maxline support
 	if message.Is512() {
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
-		if message.IsMultiline() && session.capabilities.Has(caps.Multiline) {
+		if session.capabilities.Has(caps.Multiline) {
 			for _, msg := range session.composeMultilineBatch(nickmask, accountName, tags, command, target, message) {
 				session.SendRawMessage(msg, blocking)
 			}
@@ -1366,13 +1493,23 @@ func (session *Session) Notice(text string) {
 func (client *Client) addChannel(channel *Channel) {
 	client.stateMutex.Lock()
 	client.channels[channel] = true
+	alwaysOn := client.alwaysOn
 	client.stateMutex.Unlock()
+
+	if alwaysOn {
+		client.markDirty(IncludeChannels)
+	}
 }
 
 func (client *Client) removeChannel(channel *Channel) {
 	client.stateMutex.Lock()
 	delete(client.channels, channel)
+	alwaysOn := client.alwaysOn
 	client.stateMutex.Unlock()
+
+	if alwaysOn {
+		client.markDirty(IncludeChannels)
+	}
 }
 
 // Records that the client has been invited to join an invite-only channel
@@ -1401,15 +1538,108 @@ func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
 // Implements auto-oper by certfp (scans for an auto-eligible operator block that matches
 // the client's cert, then applies it).
 func (client *Client) attemptAutoOper(session *Session) {
-	if client.certfp == "" || client.HasMode(modes.Operator) {
+	if session.certfp == "" || client.HasMode(modes.Operator) {
 		return
 	}
 	for _, oper := range client.server.Config().operators {
-		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == client.certfp {
+		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == session.certfp {
 			rb := NewResponseBuffer(session)
 			applyOper(client, oper, rb)
 			rb.Send(true)
 			return
 		}
+	}
+}
+
+func (client *Client) historyStatus(config *Config) (persistent, ephemeral bool, target string) {
+	if !config.History.Enabled {
+		return
+	} else if !config.History.Persistent.Enabled {
+		ephemeral = true
+		return
+	}
+
+	client.stateMutex.RLock()
+	alwaysOn := client.alwaysOn
+	historyStatus := client.accountSettings.DMHistory
+	target = client.nickCasefolded
+	client.stateMutex.RUnlock()
+
+	if !alwaysOn {
+		ephemeral = true
+		return
+	}
+
+	historyStatus = historyEnabled(config.History.Persistent.DirectMessages, historyStatus)
+	ephemeral = (historyStatus == HistoryEphemeral)
+	persistent = (historyStatus == HistoryPersistent)
+	return
+}
+
+// these are bit flags indicating what part of the client status is "dirty"
+// and needs to be read from memory and written to the db
+// TODO add a dirty flag for lastSignoff
+const (
+	IncludeChannels uint = 1 << iota
+	IncludeLastSignoff
+)
+
+func (client *Client) markDirty(dirtyBits uint) {
+	client.stateMutex.Lock()
+	alwaysOn := client.alwaysOn
+	client.dirtyBits = client.dirtyBits | dirtyBits
+	client.stateMutex.Unlock()
+
+	if alwaysOn {
+		client.wakeWriter()
+	}
+}
+
+func (client *Client) wakeWriter() {
+	if client.writerSemaphore.TryAcquire() {
+		go client.writeLoop()
+	}
+}
+
+func (client *Client) writeLoop() {
+	for {
+		client.performWrite()
+		client.writerSemaphore.Release()
+
+		client.stateMutex.RLock()
+		isDirty := client.dirtyBits != 0
+		client.stateMutex.RUnlock()
+
+		if !isDirty || !client.writerSemaphore.TryAcquire() {
+			return
+		}
+	}
+}
+
+func (client *Client) performWrite() {
+	client.stateMutex.Lock()
+	dirtyBits := client.dirtyBits
+	client.dirtyBits = 0
+	account := client.account
+	client.stateMutex.Unlock()
+
+	if account == "" {
+		client.server.logger.Error("internal", "attempting to persist logged-out client", client.Nick())
+		return
+	}
+
+	if (dirtyBits & IncludeChannels) != 0 {
+		channels := client.Channels()
+		channelNames := make([]string, len(channels))
+		for i, channel := range channels {
+			channelNames[i] = channel.Name()
+		}
+		client.server.accounts.saveChannels(account, channelNames)
+	}
+	if (dirtyBits & IncludeLastSignoff) != 0 {
+		client.stateMutex.RLock()
+		lastSignoff := client.lastSignoff
+		client.stateMutex.RUnlock()
+		client.server.accounts.saveLastSignoff(account, lastSignoff)
 	}
 }

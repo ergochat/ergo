@@ -145,9 +145,9 @@ http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 	"chathistory": {
 		text: `CHATHISTORY [params]
 
-CHATHISTORY is an experimental history replay command. See these documents:
-https://github.com/MuffinMedic/ircv3-specifications/blob/chathistory/extensions/chathistory.md
-https://gist.github.com/DanielOaks/c104ad6e8759c01eb5c826d627caf80d`,
+CHATHISTORY is a history replay command associated with the IRCv3
+specification draft/chathistory. See this document:
+https://github.com/ircv3/ircv3-specifications/pull/393`,
 	},
 	"debug": {
 		oper: true,
@@ -213,8 +213,9 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 
 Replay message history. <target> can be a channel name, "me" to replay direct
 message history, or a nickname to replay another client's direct message
-history (they must be logged into the same account as you). At most [limit]
-messages will be replayed.`,
+history (they must be logged into the same account as you). [limit] can be
+either an integer (the maximum number of messages to replay), or a time
+duration like 10m or 1h (the time window within which to replay messages).`,
 	},
 	"info": {
 		text: `INFO

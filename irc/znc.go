@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/oragono/oragono/irc/history"
 )
 
 type zncCommandHandler func(client *Client, command string, params []string, rb *ResponseBuffer)
@@ -43,7 +45,7 @@ func zncWireTimeToTime(str string) (result time.Time) {
 	}
 	seconds, _ := strconv.ParseInt(secondsPortion, 10, 64)
 	fraction, _ := strconv.ParseFloat(fracPortion, 64)
-	return time.Unix(seconds, int64(fraction*1000000000))
+	return time.Unix(seconds, int64(fraction*1000000000)).UTC()
 }
 
 type zncPlaybackTimes struct {
@@ -89,10 +91,8 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	//     3.3  When the client sends a subsequent redundant JOIN line for those
 	//          channels; redundant JOIN is a complete no-op so we won't replay twice
 
-	config := client.server.Config()
 	if params[1] == "*" {
-		items, _ := client.history.Between(after, before, false, config.History.ChathistoryMax)
-		client.replayPrivmsgHistory(rb, items, true)
+		zncPlayPrivmsgs(client, rb, after, before)
 	} else {
 		targets = make(StringSet)
 		// TODO actually handle nickname targets
@@ -114,5 +114,17 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 			channel.autoReplayHistory(client, rb, "")
 			rb.Flush(true)
 		}
+	}
+}
+
+func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, after, before time.Time) {
+	_, sequence, _ := client.server.GetHistorySequence(nil, client, "*")
+	if sequence == nil {
+		return
+	}
+	zncMax := client.server.Config().History.ZNCMax
+	items, _, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
+	if err == nil && len(items) != 0 {
+		client.replayPrivmsgHistory(rb, items, "", true)
 	}
 }

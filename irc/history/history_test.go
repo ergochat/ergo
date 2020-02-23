@@ -14,19 +14,21 @@ const (
 	timeFormat = "2006-01-02 15:04:05Z"
 )
 
+func betweenTimestamps(buf *Buffer, start, end time.Time, limit int) (result []Item, complete bool) {
+	result, complete, _ = buf.betweenHelper(Selector{Time: start}, Selector{Time: end}, time.Time{}, nil, limit)
+	return
+}
+
 func TestEmptyBuffer(t *testing.T) {
 	pastTime := easyParse(timeFormat)
 
 	buf := NewHistoryBuffer(0, 0)
-	if buf.Enabled() {
-		t.Error("the buffer of size 0 must be considered disabled")
-	}
 
 	buf.Add(Item{
 		Nick: "testnick",
 	})
 
-	since, complete := buf.Between(pastTime, time.Now(), false, 0)
+	since, complete := betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 0 {
 		t.Error("shouldn't be able to add to disabled buf")
 	}
@@ -35,16 +37,13 @@ func TestEmptyBuffer(t *testing.T) {
 	}
 
 	buf.Resize(1, 0)
-	if !buf.Enabled() {
-		t.Error("the buffer of size 1 must be considered enabled")
-	}
-	since, complete = buf.Between(pastTime, time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	assertEqual(complete, true, t)
 	assertEqual(len(since), 0, t)
 	buf.Add(Item{
 		Nick: "testnick",
 	})
-	since, complete = buf.Between(pastTime, time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 1 {
 		t.Error("should be able to store items in a nonempty buffer")
 	}
@@ -58,7 +57,7 @@ func TestEmptyBuffer(t *testing.T) {
 	buf.Add(Item{
 		Nick: "testnick2",
 	})
-	since, complete = buf.Between(pastTime, time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 1 {
 		t.Error("expect exactly 1 item")
 	}
@@ -68,8 +67,7 @@ func TestEmptyBuffer(t *testing.T) {
 	if since[0].Nick != "testnick2" {
 		t.Error("retrieved junk data")
 	}
-	matchAll := func(item Item) bool { return true }
-	assertEqual(toNicks(buf.Match(matchAll, false, 0)), []string{"testnick2"}, t)
+	assertEqual(toNicks(buf.latest(0)), []string{"testnick2"}, t)
 }
 
 func toNicks(items []Item) (result []string) {
@@ -110,27 +108,27 @@ func TestBuffer(t *testing.T) {
 
 	buf.Add(easyItem("testnick2", "2006-01-03 15:04:05Z"))
 
-	since, complete := buf.Between(start, time.Now(), false, 0)
+	since, complete := betweenTimestamps(buf, start, time.Now(), 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick0", "testnick1", "testnick2"}, t)
 
 	// add another item, evicting the first
 	buf.Add(easyItem("testnick3", "2006-01-04 15:04:05Z"))
 
-	since, complete = buf.Between(start, time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, start, time.Now(), 0)
 	assertEqual(complete, false, t)
 	assertEqual(toNicks(since), []string{"testnick1", "testnick2", "testnick3"}, t)
 	// now exclude the time of the discarded entry; results should be complete again
-	since, complete = buf.Between(easyParse("2006-01-02 00:00:00Z"), time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, easyParse("2006-01-02 00:00:00Z"), time.Now(), 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick1", "testnick2", "testnick3"}, t)
-	since, complete = buf.Between(easyParse("2006-01-02 00:00:00Z"), easyParse("2006-01-03 00:00:00Z"), false, 0)
+	since, complete = betweenTimestamps(buf, easyParse("2006-01-02 00:00:00Z"), easyParse("2006-01-03 00:00:00Z"), 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick1"}, t)
 
 	// shrink the buffer, cutting off testnick1
 	buf.Resize(2, 0)
-	since, complete = buf.Between(easyParse("2006-01-02 00:00:00Z"), time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, easyParse("2006-01-02 00:00:00Z"), time.Now(), 0)
 	assertEqual(complete, false, t)
 	assertEqual(toNicks(since), []string{"testnick2", "testnick3"}, t)
 
@@ -138,18 +136,19 @@ func TestBuffer(t *testing.T) {
 	buf.Add(easyItem("testnick4", "2006-01-05 15:04:05Z"))
 	buf.Add(easyItem("testnick5", "2006-01-06 15:04:05Z"))
 	buf.Add(easyItem("testnick6", "2006-01-07 15:04:05Z"))
-	since, complete = buf.Between(easyParse("2006-01-03 00:00:00Z"), time.Now(), false, 0)
+	since, complete = betweenTimestamps(buf, easyParse("2006-01-03 00:00:00Z"), time.Now(), 0)
 	assertEqual(complete, true, t)
 	assertEqual(toNicks(since), []string{"testnick2", "testnick3", "testnick4", "testnick5", "testnick6"}, t)
 
 	// test ascending order
-	since, _ = buf.Between(easyParse("2006-01-03 00:00:00Z"), time.Now(), true, 2)
+	since, _ = betweenTimestamps(buf, easyParse("2006-01-03 00:00:00Z"), time.Time{}, 2)
 	assertEqual(toNicks(since), []string{"testnick2", "testnick3"}, t)
 }
 
 func autoItem(id int, t time.Time) (result Item) {
 	result.Message.Time = t
 	result.Nick = strconv.Itoa(id)
+	result.Message.Msgid = result.Nick
 	return
 }
 
@@ -181,7 +180,7 @@ func TestAutoresize(t *testing.T) {
 		now = now.Add(time.Minute * 10)
 		id += 1
 	}
-	items := buf.Latest(0)
+	items := buf.latest(0)
 	assertEqual(len(items), initialAutoSize, t)
 	assertEqual(atoi(items[0].Nick), 40, t)
 	assertEqual(atoi(items[len(items)-1].Nick), 71, t)
@@ -195,7 +194,7 @@ func TestAutoresize(t *testing.T) {
 	// ok, 5 items from the first batch are still in the 1-hour window;
 	// we should overwrite until only those 5 are left, then start expanding
 	// the buffer so that it retains those 5 and the 100 new items
-	items = buf.Latest(0)
+	items = buf.latest(0)
 	assertEqual(len(items), 105, t)
 	assertEqual(atoi(items[0].Nick), 67, t)
 	assertEqual(atoi(items[len(items)-1].Nick), 171, t)
@@ -207,7 +206,7 @@ func TestAutoresize(t *testing.T) {
 		id += 1
 	}
 	// should fill up to the maximum size of 128 and start overwriting
-	items = buf.Latest(0)
+	items = buf.latest(0)
 	assertEqual(len(items), 128, t)
 	assertEqual(atoi(items[0].Nick), 144, t)
 	assertEqual(atoi(items[len(items)-1].Nick), 271, t)
@@ -222,7 +221,7 @@ func TestEnabledByResize(t *testing.T) {
 	buf.Resize(128, time.Hour)
 	// add an item and test that it is stored and retrievable
 	buf.Add(autoItem(0, now))
-	items := buf.Latest(0)
+	items := buf.latest(0)
 	assertEqual(len(items), 1, t)
 	assertEqual(atoi(items[0].Nick), 0, t)
 }
@@ -232,13 +231,13 @@ func TestDisabledByResize(t *testing.T) {
 	// enabled autoresizing buffer
 	buf := NewHistoryBuffer(128, time.Hour)
 	buf.Add(autoItem(0, now))
-	items := buf.Latest(0)
+	items := buf.latest(0)
 	assertEqual(len(items), 1, t)
 	assertEqual(atoi(items[0].Nick), 0, t)
 
 	// disable as during a rehash, confirm that nothing can be retrieved
 	buf.Resize(0, time.Hour)
-	items = buf.Latest(0)
+	items = buf.latest(0)
 	assertEqual(len(items), 0, t)
 }
 
@@ -251,4 +250,26 @@ func TestRoundUp(t *testing.T) {
 	assertEqual(roundUpToPowerOfTwo(1000), 1024, t)
 	assertEqual(roundUpToPowerOfTwo(1025), 2048, t)
 	assertEqual(roundUpToPowerOfTwo(269435457), 536870912, t)
+}
+
+func BenchmarkInsert(b *testing.B) {
+	buf := NewHistoryBuffer(1024, 0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf.Add(Item{})
+	}
+}
+
+func BenchmarkMatch(b *testing.B) {
+	buf := NewHistoryBuffer(1024, 0)
+	var now time.Time
+	for i := 0; i < 1024; i += 1 {
+		buf.Add(autoItem(i, now))
+		now = now.Add(time.Second)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf.lookup("512")
+	}
 }

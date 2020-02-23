@@ -75,8 +75,9 @@ var unitMap = map[string]int64{
 	"m":  int64(time.Minute),
 	"h":  int64(time.Hour),
 	"d":  int64(time.Hour * 24),
+	"w":  int64(time.Hour * 24 * 7),
 	"mo": int64(time.Hour * 24 * 30),
-	"y":  int64(time.Hour * 24 * 265),
+	"y":  int64(time.Hour * 24 * 365),
 }
 
 // ParseDuration parses a duration string.
@@ -180,4 +181,19 @@ func ParseDuration(s string) (time.Duration, error) {
 		d = -d
 	}
 	return time.Duration(d), nil
+}
+
+type Duration time.Duration
+
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	result, err := ParseDuration(orig)
+	if err == nil {
+		*d = Duration(result)
+	}
+	return err
 }

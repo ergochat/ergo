@@ -112,6 +112,7 @@ func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSAS
 
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	session := rb.session
 	config := server.Config()
 	details := client.Details()
 
@@ -128,20 +129,17 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	// sasl abort
 	if !server.AccountConfig().AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
 		rb.Add(nil, server.name, ERR_SASLABORTED, details.nick, client.t("SASL authentication aborted"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	}
 
 	// start new sasl session
-	if !client.saslInProgress {
+	if session.sasl.mechanism == "" {
 		mechanism := strings.ToUpper(msg.Params[0])
 		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
 
 		if mechanismIsEnabled {
-			client.saslInProgress = true
-			client.saslMechanism = mechanism
+			session.sasl.mechanism = mechanism
 			if !config.Server.Compatibility.SendUnprefixedSasl {
 				// normal behavior
 				rb.Add(nil, server.name, "AUTHENTICATE", "+")
@@ -162,58 +160,46 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 
 	if len(rawData) > 400 {
 		rb.Add(nil, server.name, ERR_SASLTOOLONG, details.nick, client.t("SASL message too long"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	} else if len(rawData) == 400 {
-		client.saslValue += rawData
 		// allow 4 'continuation' lines before rejecting for length
-		if len(client.saslValue) > 400*4 {
+		if len(session.sasl.value) >= 400*4 {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
+			session.sasl.Clear()
 			return false
 		}
+		session.sasl.value += rawData
 		return false
 	}
 	if rawData != "+" {
-		client.saslValue += rawData
+		session.sasl.value += rawData
 	}
 
 	var data []byte
 	var err error
-	if client.saslValue != "+" {
-		data, err = base64.StdEncoding.DecodeString(client.saslValue)
+	if session.sasl.value != "+" {
+		data, err = base64.StdEncoding.DecodeString(session.sasl.value)
 		if err != nil {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
-			client.saslInProgress = false
-			client.saslMechanism = ""
-			client.saslValue = ""
+			session.sasl.Clear()
 			return false
 		}
 	}
 
 	// call actual handler
-	handler, handlerExists := EnabledSaslMechanisms[client.saslMechanism]
+	handler, handlerExists := EnabledSaslMechanisms[session.sasl.mechanism]
 
 	// like 100% not required, but it's good to be safe I guess
 	if !handlerExists {
 		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
-		client.saslInProgress = false
-		client.saslMechanism = ""
-		client.saslValue = ""
+		session.sasl.Clear()
 		return false
 	}
 
 	// let the SASL handler do its thing
-	exiting := handler(server, client, client.saslMechanism, data, rb)
-
-	// wait 'til SASL is done before emptying the sasl vars
-	client.saslInProgress = false
-	client.saslMechanism = ""
-	client.saslValue = ""
+	exiting := handler(server, client, session.sasl.mechanism, data, rb)
+	session.sasl.Clear()
 
 	return exiting
 }
@@ -270,7 +256,7 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 
 // AUTHENTICATE EXTERNAL
 func authExternalHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
-	if client.certfp == "" {
+	if rb.session.certfp == "" {
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
 		return false
 	}
@@ -287,7 +273,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	}
 
 	if err == nil {
-		err = server.accounts.AuthenticateByCertFP(client, authzid)
+		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
 	}
 
 	if err != nil {
@@ -531,64 +517,49 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 // CHATHISTORY <target> BETWEEN <query> <query> <direction> [<limit>]
 // e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
 func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
-	config := server.Config()
-
 	var items []history.Item
-	success := false
-	var hist *history.Buffer
+	unknown_command := false
+	var target string
 	var channel *Channel
+	var sequence history.Sequence
+	var err error
 	defer func() {
 		// successful responses are sent as a chathistory or history batch
-		if success && 0 < len(items) {
-			if channel == nil {
-				client.replayPrivmsgHistory(rb, items, true)
-			} else {
+		if err == nil {
+			if channel != nil {
 				channel.replayHistoryItems(rb, items, false)
+			} else {
+				client.replayPrivmsgHistory(rb, items, target, true)
 			}
 			return
 		}
 
 		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
-		// TODO: send `WARN CHATHISTORY MAX_MESSAGES_EXCEEDED` when appropriate
-		if hist == nil {
-			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_SUCH_CHANNEL")
-		} else if len(items) == 0 {
-			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NO_TEXT_TO_SEND")
-		} else if !success {
-			rb.Add(nil, server.name, "ERR", "CHATHISTORY", "NEED_MORE_PARAMS")
+		if unknown_command {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown command"))
+		} else if err == utils.ErrInvalidParams {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMETERS", msg.Params[0], client.t("Invalid parameters"))
+		} else if err != nil {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
+		} else if sequence == nil {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "NO_SUCH_CHANNEL", utils.SafeErrorParam(msg.Params[1]), client.t("No such channel"))
 		}
 	}()
 
-	target := msg.Params[0]
-	channel = server.channels.Get(target)
-	if channel != nil && channel.hasClient(client) {
-		// "If [...] the user does not have permission to view the requested content, [...]
-		// NO_SUCH_CHANNEL SHOULD be returned"
-		hist = &channel.history
-	} else {
-		targetClient := server.clients.Get(target)
-		if targetClient != nil {
-			myAccount := client.Account()
-			targetAccount := targetClient.Account()
-			if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-				hist = &targetClient.history
-			}
-		}
-	}
-	if hist == nil {
+	config := server.Config()
+	maxChathistoryLimit := config.History.ChathistoryMax
+	if maxChathistoryLimit == 0 {
 		return
 	}
 
-	preposition := strings.ToLower(msg.Params[1])
-
 	parseQueryParam := func(param string) (msgid string, timestamp time.Time, err error) {
-		err = errInvalidParams
+		err = utils.ErrInvalidParams
 		pieces := strings.SplitN(param, "=", 2)
 		if len(pieces) < 2 {
 			return
 		}
 		identifier, value := strings.ToLower(pieces[0]), pieces[1]
-		if identifier == "id" {
+		if identifier == "msgid" {
 			msgid, err = value, nil
 			return
 		} else if identifier == "timestamp" {
@@ -598,10 +569,6 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return
 	}
 
-	maxChathistoryLimit := config.History.ChathistoryMax
-	if maxChathistoryLimit == 0 {
-		return
-	}
 	parseHistoryLimit := func(paramIndex int) (limit int) {
 		if len(msg.Params) < (paramIndex + 1) {
 			return maxChathistoryLimit
@@ -613,140 +580,74 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return
 	}
 
-	// TODO: as currently implemented, almost all of thes queries are worst-case O(n)
-	// in the number of stored history entries. Every one of them can be made O(1)
-	// if necessary, without too much difficulty. Some ideas:
-	// * Ensure that the ring buffer is sorted by time, enabling binary search for times
-	// * Maintain a map from msgid to position in the ring buffer
-
-	if preposition == "between" {
-		if len(msg.Params) >= 5 {
-			startMsgid, startTimestamp, startErr := parseQueryParam(msg.Params[2])
-			endMsgid, endTimestamp, endErr := parseQueryParam(msg.Params[3])
-			ascending := msg.Params[4] == "+"
-			limit := parseHistoryLimit(5)
-			if startErr != nil || endErr != nil {
-				success = false
-			} else if startMsgid != "" && endMsgid != "" {
-				inInterval := false
-				matches := func(item history.Item) (result bool) {
-					result = inInterval
-					if item.HasMsgid(startMsgid) {
-						if ascending {
-							inInterval = true
-						} else {
-							inInterval = false
-							return false // interval is exclusive
-						}
-					} else if item.HasMsgid(endMsgid) {
-						if ascending {
-							inInterval = false
-							return false
-						} else {
-							inInterval = true
-						}
-					}
-					return
-				}
-				items = hist.Match(matches, ascending, limit)
-				success = true
-			} else if !startTimestamp.IsZero() && !endTimestamp.IsZero() {
-				items, _ = hist.Between(startTimestamp, endTimestamp, ascending, limit)
-				if !ascending {
-					history.Reverse(items)
-				}
-				success = true
-			}
-			// else: mismatched params, success = false, fail
-		}
+	preposition := strings.ToLower(msg.Params[0])
+	target = msg.Params[1]
+	channel, sequence, err = server.GetHistorySequence(nil, client, target)
+	if err != nil || sequence == nil {
 		return
 	}
 
-	// before, after, latest, around
-	queryParam := msg.Params[2]
-	msgid, timestamp, err := parseQueryParam(queryParam)
-	limit := parseHistoryLimit(3)
-	before := false
-	switch preposition {
-	case "before":
-		before = true
-		fallthrough
-	case "after":
-		var matches history.Predicate
-		if err != nil {
-			break
-		} else if msgid != "" {
-			inInterval := false
-			matches = func(item history.Item) (result bool) {
-				result = inInterval
-				if item.HasMsgid(msgid) {
-					inInterval = true
-				}
-				return
-			}
-		} else {
-			matches = func(item history.Item) bool {
-				return before == item.Message.Time.Before(timestamp)
-			}
-		}
-		items = hist.Match(matches, !before, limit)
-		success = true
-	case "latest":
-		if queryParam == "*" {
-			items = hist.Latest(limit)
-		} else if err != nil {
-			break
-		} else {
-			var matches history.Predicate
-			if msgid != "" {
-				shouldStop := false
-				matches = func(item history.Item) bool {
-					if shouldStop {
-						return false
-					}
-					shouldStop = item.HasMsgid(msgid)
-					return !shouldStop
-				}
-			} else {
-				matches = func(item history.Item) bool {
-					return item.Message.Time.After(timestamp)
-				}
-			}
-			items = hist.Match(matches, false, limit)
-		}
-		success = true
-	case "around":
-		if err != nil {
-			break
-		}
-		var initialMatcher history.Predicate
-		if msgid != "" {
-			inInterval := false
-			initialMatcher = func(item history.Item) (result bool) {
-				if inInterval {
-					return true
-				} else {
-					inInterval = item.HasMsgid(msgid)
-					return inInterval
-				}
-			}
-		} else {
-			initialMatcher = func(item history.Item) (result bool) {
-				return item.Message.Time.Before(timestamp)
-			}
-		}
-		var halfLimit int
-		halfLimit = (limit + 1) / 2
-		firstPass := hist.Match(initialMatcher, false, halfLimit)
-		if len(firstPass) > 0 {
-			timeWindowStart := firstPass[0].Message.Time
-			items = hist.Match(func(item history.Item) bool {
-				return item.Message.Time.Equal(timeWindowStart) || item.Message.Time.After(timeWindowStart)
-			}, true, limit)
-		}
-		success = true
+	roundUp := func(endpoint time.Time) (result time.Time) {
+		return endpoint.Truncate(time.Millisecond).Add(time.Millisecond)
 	}
 
+	var start, end history.Selector
+	var limit int
+	switch preposition {
+	case "between":
+		start.Msgid, start.Time, err = parseQueryParam(msg.Params[2])
+		if err != nil {
+			return
+		}
+		end.Msgid, end.Time, err = parseQueryParam(msg.Params[3])
+		if err != nil {
+			return
+		}
+		// XXX preserve the ordering of the two parameters, since we might be going backwards,
+		// but round up the chronologically first one, whichever it is, to make it exclusive
+		if !start.Time.IsZero() && !end.Time.IsZero() {
+			if start.Time.Before(end.Time) {
+				start.Time = roundUp(start.Time)
+			} else {
+				end.Time = roundUp(end.Time)
+			}
+		}
+		limit = parseHistoryLimit(4)
+	case "before", "after", "around":
+		start.Msgid, start.Time, err = parseQueryParam(msg.Params[2])
+		if err != nil {
+			return
+		}
+		if preposition == "after" && !start.Time.IsZero() {
+			start.Time = roundUp(start.Time)
+		}
+		if preposition == "before" {
+			end = start
+			start = history.Selector{}
+		}
+		limit = parseHistoryLimit(3)
+	case "latest":
+		if msg.Params[2] != "*" {
+			end.Msgid, end.Time, err = parseQueryParam(msg.Params[2])
+			if err != nil {
+				return
+			}
+			if !end.Time.IsZero() {
+				end.Time = roundUp(end.Time)
+			}
+			start.Time = time.Now().UTC()
+		}
+		limit = parseHistoryLimit(3)
+	default:
+		unknown_command = true
+		return
+	}
+
+	if preposition == "around" {
+		items, err = sequence.Around(start, limit)
+	} else {
+		items, _, err = sequence.Between(start, end, limit)
+	}
 	return
 }
 
@@ -1026,6 +927,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 // HISTORY <target> [<limit>]
 // e.g., HISTORY #ubuntu 10
 // HISTORY me 15
+// HISTORY #darwin 1h
 func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	config := server.Config()
 	if !config.History.Enabled {
@@ -1034,53 +936,55 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	}
 
 	target := msg.Params[0]
-	var hist *history.Buffer
-	channel := server.channels.Get(target)
-	if channel != nil && channel.hasClient(client) {
-		hist = &channel.history
-	} else {
-		if strings.ToLower(target) == "me" {
-			hist = &client.history
-		} else {
-			targetClient := server.clients.Get(target)
-			if targetClient != nil {
-				myAccount, targetAccount := client.Account(), targetClient.Account()
-				if myAccount != "" && targetAccount != "" && myAccount == targetAccount {
-					hist = &targetClient.history
-				}
+	if strings.ToLower(target) == "me" {
+		target = "*"
+	}
+	channel, sequence, err := server.GetHistorySequence(nil, client, target)
+
+	if sequence == nil || err != nil {
+		// whatever
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
+		return false
+	}
+
+	var duration time.Duration
+	maxChathistoryLimit := config.History.ChathistoryMax
+	limit := 100
+	if maxChathistoryLimit < limit {
+		limit = maxChathistoryLimit
+	}
+	if len(msg.Params) > 1 {
+		providedLimit, err := strconv.Atoi(msg.Params[1])
+		if err == nil && providedLimit != 0 {
+			limit = providedLimit
+			if maxChathistoryLimit < limit {
+				limit = maxChathistoryLimit
+			}
+		} else if err != nil {
+			duration, err = time.ParseDuration(msg.Params[1])
+			if err == nil {
+				limit = maxChathistoryLimit
 			}
 		}
 	}
 
-	if hist == nil {
-		if channel == nil {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
-		} else {
-			rb.Add(nil, server.name, ERR_NOTONCHANNEL, client.Nick(), target, client.t("You're not on that channel"))
-		}
-		return false
-	}
-
-	limit := 10
-	maxChathistoryLimit := config.History.ChathistoryMax
-	if len(msg.Params) > 1 {
-		providedLimit, err := strconv.Atoi(msg.Params[1])
-		if providedLimit > maxChathistoryLimit {
-			providedLimit = maxChathistoryLimit
-		}
-		if err == nil && providedLimit != 0 {
-			limit = providedLimit
-		}
-	}
-
-	items := hist.Latest(limit)
-
-	if channel != nil {
-		channel.replayHistoryItems(rb, items, false)
+	var items []history.Item
+	if duration == 0 {
+		items, _, err = sequence.Between(history.Selector{}, history.Selector{}, limit)
 	} else {
-		client.replayPrivmsgHistory(rb, items, true)
+		now := time.Now().UTC()
+		start := history.Selector{Time: now}
+		end := history.Selector{Time: now.Add(-duration)}
+		items, _, err = sequence.Between(start, end, limit)
 	}
 
+	if err == nil && len(items) != 0 {
+		if channel != nil {
+			channel.replayHistoryItems(rb, items, false)
+		} else {
+			client.replayPrivmsgHistory(rb, items, "", true)
+		}
+	}
 	return false
 }
 
@@ -1964,7 +1868,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	if client.isTor && utils.IsRestrictedCTCPMessage(message) {
+	if rb.session.isTor && utils.IsRestrictedCTCPMessage(message) {
 		// note that error replies are never sent for NOTICE
 		if histType != history.Notice {
 			rb.Notice(client.t("CTCP messages are disabled over Tor"))
@@ -2021,46 +1925,34 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 			return
 		}
-		tnick := user.Nick()
+		tDetails := user.Details()
+		tnick := tDetails.nick
 
-		nickMaskString := client.NickMaskString()
-		accountName := client.AccountName()
+		details := client.Details()
+		nickMaskString := details.nickMask
+		accountName := details.accountName
+		var deliverySessions []*Session
 		// restrict messages appropriately when +R is set
 		// intentionally make the sending user think the message went through fine
-		allowedPlusR := !user.HasMode(modes.RegisteredOnly) || client.LoggedIntoAccount()
-		allowedTor := !user.isTor || !message.IsRestrictedCTCPMessage()
-		if allowedPlusR && allowedTor {
-			for _, session := range user.Sessions() {
-				hasTagsCap := session.capabilities.Has(caps.MessageTags)
-				// don't send TAGMSG at all if they don't have the tags cap
-				if histType == history.Tagmsg && hasTagsCap {
-					session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-				} else if histType != history.Tagmsg {
-					tagsToSend := tags
-					if !hasTagsCap {
-						tagsToSend = nil
-					}
-					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
+		allowedPlusR := details.account != "" || !user.HasMode(modes.RegisteredOnly)
+		if allowedPlusR {
+			deliverySessions = append(deliverySessions, user.Sessions()...)
+		}
+		// all sessions of the sender, except the originating session, get a copy as well:
+		if client != user {
+			for _, session := range client.Sessions() {
+				if session != rb.session {
+					deliverySessions = append(deliverySessions, session)
 				}
 			}
 		}
-		// an echo-message may need to be included in the response:
-		if rb.session.capabilities.Has(caps.EchoMessage) {
-			if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else {
-				rb.AddSplitMessageFromClient(nickMaskString, accountName, tags, command, tnick, message)
-			}
-		}
-		// an echo-message may need to go out to other client sessions:
-		for _, session := range client.Sessions() {
-			if session == rb.session {
-				continue
-			}
+
+		for _, session := range deliverySessions {
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
+			// don't send TAGMSG at all if they don't have the tags cap
 			if histType == history.Tagmsg && hasTagsCap {
 				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else if histType != history.Tagmsg {
+			} else if histType != history.Tagmsg && !(session.isTor && message.IsRestrictedCTCPMessage()) {
 				tagsToSend := tags
 				if !hasTagsCap {
 					tagsToSend = nil
@@ -2068,22 +1960,56 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
 			}
 		}
+
+		// the originating session may get an echo message:
+		if rb.session.capabilities.Has(caps.EchoMessage) {
+			hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
+			if histType == history.Tagmsg && hasTagsCap {
+				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+			} else {
+				tagsToSend := tags
+				if !hasTagsCap {
+					tagsToSend = nil
+				}
+				rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToSend, command, tnick, message)
+			}
+		}
 		if histType != history.Notice && user.Away() {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, user.AwayMessage())
 		}
 
+		config := server.Config()
+		if !config.History.Enabled {
+			return
+		}
 		item := history.Item{
 			Type:        histType,
 			Message:     message,
 			Nick:        nickMaskString,
 			AccountName: accountName,
+			Tags:        tags,
 		}
-		// add to the target's history:
-		user.history.Add(item)
-		// add this to the client's history as well, recording the target:
-		item.Params[0] = tnick
-		client.history.Add(item)
+		if !item.IsStorable() {
+			return
+		}
+		targetedItem := item
+		targetedItem.Params[0] = tnick
+		cPersistent, cEphemeral, _ := client.historyStatus(config)
+		tPersistent, tEphemeral, _ := user.historyStatus(config)
+		// add to ephemeral history
+		if cEphemeral {
+			targetedItem.CfCorrespondent = tDetails.nickCasefolded
+			client.history.Add(targetedItem)
+		}
+		if tEphemeral && client != user {
+			item.CfCorrespondent = details.nickCasefolded
+			user.history.Add(item)
+		}
+		if cPersistent || tPersistent {
+			item.CfCorrespondent = ""
+			server.historyDB.AddDirectMessage(details.nickCasefolded, user.NickCasefolded(), cPersistent, tPersistent, targetedItem)
+		}
 	}
 }
 
@@ -2136,7 +2062,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Fingerprint != "" {
-			if oper.Fingerprint == client.certfp {
+			if oper.Fingerprint == rb.session.certfp {
 				checkPassed = true
 			} else {
 				checkFailed = true
@@ -2239,7 +2165,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	// check the provided password
 	password := []byte(msg.Params[0])
-	client.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
+	rb.session.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
 
 	// if they failed the check, we'll bounce them later when they try to complete registration
 	return false
@@ -2409,11 +2335,7 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // SETNAME <realname>
 func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
-
-	client.stateMutex.Lock()
-	client.realname = realname
-	client.stateMutex.Unlock()
-
+	client.SetRealname(realname)
 	details := client.Details()
 
 	// alert friends
@@ -2622,7 +2544,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if info.Fingerprint != "" && info.Fingerprint != client.certfp {
+			if info.Fingerprint != "" && info.Fingerprint != rb.session.certfp {
 				continue
 			}
 

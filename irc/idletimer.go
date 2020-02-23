@@ -52,6 +52,7 @@ type IdleTimer struct {
 	quitTimeout time.Duration
 	state       TimerState
 	timer       *time.Timer
+	lastTouch   time.Time
 }
 
 // Initialize sets up an IdleTimer and starts counting idle time;
@@ -61,9 +62,11 @@ func (it *IdleTimer) Initialize(session *Session) {
 	it.registerTimeout = RegisterTimeout
 	it.idleTimeout, it.quitTimeout = it.recomputeDurations()
 	registered := session.client.Registered()
+	now := time.Now().UTC()
 
 	it.Lock()
 	defer it.Unlock()
+	it.lastTouch = now
 	if registered {
 		it.state = TimerActive
 	} else {
@@ -82,7 +85,7 @@ func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duratio
 	}
 
 	idleTimeout = DefaultIdleTimeout
-	if it.session.client.isTor {
+	if it.session.isTor {
 		idleTimeout = TorIdleTimeout
 	}
 
@@ -92,15 +95,24 @@ func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duratio
 
 func (it *IdleTimer) Touch() {
 	idleTimeout, quitTimeout := it.recomputeDurations()
+	now := time.Now().UTC()
 
 	it.Lock()
 	defer it.Unlock()
 	it.idleTimeout, it.quitTimeout = idleTimeout, quitTimeout
+	it.lastTouch = now
 	// a touch transitions TimerUnregistered or TimerIdle into TimerActive
 	if it.state != TimerDead {
 		it.state = TimerActive
 		it.resetTimeout()
 	}
+}
+
+func (it *IdleTimer) LastTouch() (result time.Time) {
+	it.Lock()
+	result = it.lastTouch
+	it.Unlock()
+	return
 }
 
 func (it *IdleTimer) processTimeout() {
@@ -322,9 +334,6 @@ const (
 	// BrbDead is the state of a client after its timeout has expired; it will be removed
 	// and therefore new sessions cannot be attached to it
 	BrbDead
-	// BrbSticky allows a client to remain online without sessions, with no timeout.
-	// This is not used yet.
-	BrbSticky
 )
 
 type BrbTimer struct {
@@ -345,15 +354,15 @@ func (bt *BrbTimer) Initialize(client *Client) {
 
 // attempts to enable BRB for a client, returns whether it succeeded
 func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
-	if !bt.client.Registered() || bt.client.ResumeID() == "" {
-		return
-	}
-
 	// TODO make this configurable
 	duration = ResumeableTotalTimeout
 
 	bt.client.stateMutex.Lock()
 	defer bt.client.stateMutex.Unlock()
+
+	if !bt.client.registered || bt.client.alwaysOn || bt.client.resumeID == "" {
+		return
+	}
 
 	switch bt.state {
 	case BrbDisabled, BrbEnabled:
@@ -365,8 +374,6 @@ func (bt *BrbTimer) Enable() (success bool, duration time.Duration) {
 		if bt.brbAt.IsZero() {
 			bt.brbAt = time.Now().UTC()
 		}
-		success = true
-	case BrbSticky:
 		success = true
 	default:
 		// BrbDead
@@ -416,6 +423,10 @@ func (bt *BrbTimer) processTimeout() {
 	bt.client.stateMutex.Lock()
 	defer bt.client.stateMutex.Unlock()
 
+	if bt.client.alwaysOn {
+		return
+	}
+
 	switch bt.state {
 	case BrbDisabled, BrbEnabled:
 		if len(bt.client.sessions) == 0 {
@@ -431,17 +442,4 @@ func (bt *BrbTimer) processTimeout() {
 		dead = true // shouldn't be possible but whatever
 	}
 	bt.resetTimeout()
-}
-
-// sets a client to be "sticky", i.e., indefinitely exempt from removal for
-// lack of sessions
-func (bt *BrbTimer) SetSticky() (success bool) {
-	bt.client.stateMutex.Lock()
-	defer bt.client.stateMutex.Unlock()
-	if bt.state != BrbDead {
-		success = true
-		bt.state = BrbSticky
-	}
-	bt.resetTimeout()
-	return
 }

@@ -5,7 +5,13 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"time"
+)
+
+const (
+	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 )
 
 var (
@@ -45,9 +51,9 @@ func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
 
 func StringToBool(str string) (result bool, err error) {
 	switch strings.ToLower(str) {
-	case "on", "true", "t", "yes", "y":
+	case "on", "true", "t", "yes", "y", "enabled":
 		result = true
-	case "off", "false", "f", "no", "n":
+	case "off", "false", "f", "no", "n", "disabled":
 		result = false
 	default:
 		err = ErrInvalidParams
@@ -62,4 +68,17 @@ func SafeErrorParam(param string) string {
 		return "*"
 	}
 	return param
+}
+
+type IncompatibleSchemaError struct {
+	CurrentVersion  string
+	RequiredVersion string
+}
+
+func (err *IncompatibleSchemaError) Error() string {
+	return fmt.Sprintf("Database requires update. Expected schema v%s, got v%s", err.RequiredVersion, err.CurrentVersion)
+}
+
+func NanoToTimestamp(nanotime int64) string {
+	return time.Unix(0, nanotime).UTC().Format(IRCv3TimestampFormat)
 }

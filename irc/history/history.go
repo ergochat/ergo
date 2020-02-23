@@ -6,7 +6,6 @@ package history
 import (
 	"github.com/oragono/oragono/irc/utils"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -46,6 +45,10 @@ type Item struct {
 	Message utils.SplitMessage
 	Tags    map[string]string
 	Params  [1]string
+	// for a DM, this is the casefolded nickname of the other party (whether this is
+	// an incoming or outgoing message). this lets us emulate the "query buffer" functionality
+	// required by CHATHISTORY:
+	CfCorrespondent string
 }
 
 // HasMsgid tests whether a message has the message id `msgid`.
@@ -53,20 +56,30 @@ func (item *Item) HasMsgid(msgid string) bool {
 	return item.Message.Msgid == msgid
 }
 
-func (item *Item) isStorable() bool {
-	if item.Type == Tagmsg {
+func (item *Item) IsStorable() bool {
+	switch item.Type {
+	case Tagmsg:
 		for name := range item.Tags {
 			if !transientTags[name] {
 				return true
 			}
 		}
 		return false // all tags were blacklisted
-	} else {
+	case Privmsg, Notice:
+		// don't store CTCP other than ACTION
+		return !item.Message.IsRestrictedCTCPMessage()
+	default:
 		return true
 	}
 }
 
-type Predicate func(item Item) (matches bool)
+type Predicate func(item *Item) (matches bool)
+
+func Reverse(results []Item) {
+	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
+		results[i], results[j] = results[j], results[i]
+	}
+}
 
 // Buffer is a ring buffer holding message/event history for a channel or user
 type Buffer struct {
@@ -80,8 +93,6 @@ type Buffer struct {
 	window      time.Duration
 
 	lastDiscarded time.Time
-
-	enabled uint32
 
 	nowFunc func() time.Time
 }
@@ -99,8 +110,6 @@ func (hist *Buffer) Initialize(size int, window time.Duration) {
 	hist.window = window
 	hist.maximumSize = size
 	hist.nowFunc = time.Now
-
-	hist.setEnabled(size)
 }
 
 // compute the initial size for the buffer, taking into account autoresize
@@ -115,37 +124,18 @@ func (hist *Buffer) initialSize(size int, window time.Duration) (result int) {
 	return
 }
 
-func (hist *Buffer) setEnabled(size int) {
-	var enabled uint32
-	if size != 0 {
-		enabled = 1
-	}
-	atomic.StoreUint32(&hist.enabled, enabled)
-}
-
-// Enabled returns whether the buffer is currently storing messages
-// (a disabled buffer blackholes everything it sees)
-func (list *Buffer) Enabled() bool {
-	return atomic.LoadUint32(&list.enabled) != 0
-}
-
 // Add adds a history item to the buffer
 func (list *Buffer) Add(item Item) {
-	// fast path without a lock acquisition for when we are not storing history
-	if !list.Enabled() {
-		return
-	}
-
-	if !item.isStorable() {
-		return
-	}
-
 	if item.Message.Time.IsZero() {
 		item.Message.Time = time.Now().UTC()
 	}
 
 	list.Lock()
 	defer list.Unlock()
+
+	if len(list.buffer) == 0 {
+		return
+	}
 
 	list.maybeExpand()
 
@@ -170,55 +160,100 @@ func (list *Buffer) Add(item Item) {
 	list.buffer[pos] = item
 }
 
-// Reverse reverses an []Item, in-place.
-func Reverse(results []Item) {
-	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
-		results[i], results[j] = results[j], results[i]
+func (list *Buffer) lookup(msgid string) (result Item, found bool) {
+	predicate := func(item *Item) bool {
+		return item.HasMsgid(msgid)
 	}
+	results := list.matchInternal(predicate, false, 1)
+	if len(results) != 0 {
+		return results[0], true
+	}
+	return
 }
 
 // Between returns all history items with a time `after` <= time <= `before`,
 // with an indication of whether the results are complete or are missing items
 // because some of that period was discarded. A zero value of `before` is considered
 // higher than all other times.
-func (list *Buffer) Between(after, before time.Time, ascending bool, limit int) (results []Item, complete bool) {
-	if !list.Enabled() {
-		return
-	}
+func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Predicate, limit int) (results []Item, complete bool, err error) {
+	var ascending bool
+
+	defer func() {
+		if !ascending {
+			Reverse(results)
+		}
+	}()
 
 	list.RLock()
 	defer list.RUnlock()
+
+	if len(list.buffer) == 0 {
+		return
+	}
+
+	after := start.Time
+	if start.Msgid != "" {
+		item, found := list.lookup(start.Msgid)
+		if !found {
+			return
+		}
+		after = item.Message.Time
+	}
+	before := end.Time
+	if end.Msgid != "" {
+		item, found := list.lookup(end.Msgid)
+		if !found {
+			return
+		}
+		before = item.Message.Time
+	}
+
+	after, before, ascending = MinMaxAsc(after, before, cutoff)
 
 	complete = after.Equal(list.lastDiscarded) || after.After(list.lastDiscarded)
 
-	satisfies := func(item Item) bool {
-		return (after.IsZero() || item.Message.Time.After(after)) && (before.IsZero() || item.Message.Time.Before(before))
+	satisfies := func(item *Item) bool {
+		return (after.IsZero() || item.Message.Time.After(after)) &&
+			(before.IsZero() || item.Message.Time.Before(before)) &&
+			(pred == nil || pred(item))
 	}
 
-	return list.matchInternal(satisfies, ascending, limit), complete
+	return list.matchInternal(satisfies, ascending, limit), complete, nil
 }
 
-// Match returns all history items such that `predicate` returns true for them.
-// Items are considered in reverse insertion order if `ascending` is false, or
-// in insertion order if `ascending` is true, up to a total of `limit` matches
-// if `limit` > 0 (unlimited otherwise).
-// `predicate` MAY be a closure that maintains its own state across invocations;
-// it MUST NOT acquire any locks or otherwise do anything weird.
-// Results are always returned in insertion order.
-func (list *Buffer) Match(predicate Predicate, ascending bool, limit int) (results []Item) {
-	if !list.Enabled() {
-		return
+// implements history.Sequence, emulating a single history buffer (for a channel,
+// a single user's DMs, or a DM conversation)
+type bufferSequence struct {
+	list   *Buffer
+	pred   Predicate
+	cutoff time.Time
+}
+
+func (list *Buffer) MakeSequence(correspondent string, cutoff time.Time) Sequence {
+	var pred Predicate
+	if correspondent != "" {
+		pred = func(item *Item) bool {
+			return item.CfCorrespondent == correspondent
+		}
 	}
+	return &bufferSequence{
+		list:   list,
+		pred:   pred,
+		cutoff: cutoff,
+	}
+}
 
-	list.RLock()
-	defer list.RUnlock()
+func (seq *bufferSequence) Between(start, end Selector, limit int) (results []Item, complete bool, err error) {
+	return seq.list.betweenHelper(start, end, seq.cutoff, seq.pred, limit)
+}
 
-	return list.matchInternal(predicate, ascending, limit)
+func (seq *bufferSequence) Around(start Selector, limit int) (results []Item, err error) {
+	return GenericAround(seq, start, limit)
 }
 
 // you must be holding the read lock to call this
 func (list *Buffer) matchInternal(predicate Predicate, ascending bool, limit int) (results []Item) {
-	if list.start == -1 {
+	if list.start == -1 || len(list.buffer) == 0 {
 		return
 	}
 
@@ -232,7 +267,7 @@ func (list *Buffer) matchInternal(predicate Predicate, ascending bool, limit int
 	}
 
 	for {
-		if predicate(list.buffer[pos]) {
+		if predicate(&list.buffer[pos]) {
 			results = append(results, list.buffer[pos])
 		}
 		if pos == stop || (limit != 0 && len(results) == limit) {
@@ -245,18 +280,14 @@ func (list *Buffer) matchInternal(predicate Predicate, ascending bool, limit int
 		}
 	}
 
-	// TODO sort by time instead?
-	if !ascending {
-		Reverse(results)
-	}
 	return
 }
 
-// Latest returns the items most recently added, up to `limit`. If `limit` is 0,
+// latest returns the items most recently added, up to `limit`. If `limit` is 0,
 // it returns all items.
-func (list *Buffer) Latest(limit int) (results []Item) {
-	matchAll := func(item Item) bool { return true }
-	return list.Match(matchAll, false, limit)
+func (list *Buffer) latest(limit int) (results []Item) {
+	results, _, _ = list.betweenHelper(Selector{}, Selector{}, time.Time{}, nil, limit)
+	return
 }
 
 // LastDiscarded returns the latest time of any entry that was evicted
@@ -354,8 +385,6 @@ func (list *Buffer) Resize(maximumSize int, window time.Duration) {
 
 func (list *Buffer) resize(size int) {
 	newbuffer := make([]Item, size)
-
-	list.setEnabled(size)
 
 	if list.start == -1 {
 		// indices are already correct and nothing needs to be copied

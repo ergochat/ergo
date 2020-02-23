@@ -33,6 +33,7 @@ const (
 	keyChannelModes          = "channel.modes %s"
 	keyChannelAccountToUMode = "channel.accounttoumode %s"
 	keyChannelUserLimit      = "channel.userlimit %s"
+	keyChannelSettings       = "channel.settings %s"
 
 	keyChannelPurged = "channel.purged %s"
 )
@@ -53,6 +54,7 @@ var (
 		keyChannelModes,
 		keyChannelAccountToUMode,
 		keyChannelUserLimit,
+		keyChannelSettings,
 	}
 )
 
@@ -63,6 +65,7 @@ const (
 	IncludeTopic
 	IncludeModes
 	IncludeLists
+	IncludeSettings
 )
 
 // this is an OR of all possible flags
@@ -100,6 +103,8 @@ type RegisteredChannel struct {
 	Excepts map[string]MaskInfo
 	// Invites represents the invite exceptions set on the channel.
 	Invites map[string]MaskInfo
+	// Settings are the chanserv-modifiable settings
+	Settings ChannelSettings
 }
 
 type ChannelPurgeRecord struct {
@@ -203,6 +208,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
 		invitelistString, _ := tx.Get(fmt.Sprintf(keyChannelInvitelist, channelKey))
 		accountToUModeString, _ := tx.Get(fmt.Sprintf(keyChannelAccountToUMode, channelKey))
+		settingsString, _ := tx.Get(fmt.Sprintf(keyChannelSettings, channelKey))
 
 		modeSlice := make([]modes.Mode, len(modeString))
 		for i, mode := range modeString {
@@ -220,6 +226,9 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		accountToUMode := make(map[string]modes.Mode)
 		_ = json.Unmarshal([]byte(accountToUModeString), &accountToUMode)
 
+		var settings ChannelSettings
+		_ = json.Unmarshal([]byte(settingsString), &settings)
+
 		info = RegisteredChannel{
 			Name:           name,
 			RegisteredAt:   time.Unix(regTimeInt, 0).UTC(),
@@ -234,6 +243,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			Invites:        invitelist,
 			AccountToUMode: accountToUMode,
 			UserLimit:      int(userLimit),
+			Settings:       settings,
 		}
 		return nil
 	})
@@ -261,7 +271,7 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 	if err == nil {
 		regTime, _ := tx.Get(fmt.Sprintf(keyChannelRegTime, key))
 		regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
-		registeredAt := time.Unix(regTimeInt, 0)
+		registeredAt := time.Unix(regTimeInt, 0).UTC()
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, key))
 
 		// to see if we're deleting the right channel, confirm the founder and the registration time
@@ -356,6 +366,11 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 		tx.Set(fmt.Sprintf(keyChannelInvitelist, channelKey), string(invitelistString), nil)
 		accountToUModeString, _ := json.Marshal(channelInfo.AccountToUMode)
 		tx.Set(fmt.Sprintf(keyChannelAccountToUMode, channelKey), string(accountToUModeString), nil)
+	}
+
+	if includeFlags&IncludeSettings != 0 {
+		settingsString, _ := json.Marshal(channelInfo.Settings)
+		tx.Set(fmt.Sprintf(keyChannelSettings, channelKey), string(settingsString), nil)
 	}
 }
 

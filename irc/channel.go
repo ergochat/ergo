@@ -24,6 +24,10 @@ const (
 	histServMask = "HistServ!HistServ@localhost"
 )
 
+type ChannelSettings struct {
+	History HistoryStatus
+}
+
 // Channel represents a channel that clients can join.
 type Channel struct {
 	flags             modes.ModeSet
@@ -49,6 +53,7 @@ type Channel struct {
 	joinPartMutex     sync.Mutex      // tier 3
 	ensureLoaded      utils.Once      // manages loading stored registration info from the database
 	dirtyBits         uint
+	settings          ChannelSettings
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -66,9 +71,10 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channe
 
 	channel.initializeLists()
 	channel.writerSemaphore.Initialize(1)
-	channel.history.Initialize(config.History.ChannelLength, config.History.AutoresizeWindow)
+	channel.history.Initialize(0, 0)
 
 	if !registered {
+		channel.resizeHistory(config)
 		for _, mode := range config.Channels.defaultModes {
 			channel.flags.SetMode(mode, true)
 		}
@@ -106,8 +112,19 @@ func (channel *Channel) IsLoaded() bool {
 	return channel.ensureLoaded.Done()
 }
 
+func (channel *Channel) resizeHistory(config *Config) {
+	_, ephemeral, _ := channel.historyStatus(config)
+	if ephemeral {
+		channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
+	} else {
+		channel.history.Resize(0, 0)
+	}
+}
+
 // read in channel state that was persisted in the DB
 func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
+	defer channel.resizeHistory(channel.server.Config())
+
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
 
@@ -120,6 +137,7 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	channel.createdTime = chanReg.RegisteredAt
 	channel.key = chanReg.Key
 	channel.userLimit = chanReg.UserLimit
+	channel.settings = chanReg.Settings
 
 	for _, mode := range chanReg.Modes {
 		channel.flags.SetMode(mode, true)
@@ -162,6 +180,10 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 		for account, mode := range channel.accountToUMode {
 			info.AccountToUMode[account] = mode
 		}
+	}
+
+	if includeFlags&IncludeSettings != 0 {
+		info.Settings = channel.settings
 	}
 
 	return
@@ -434,7 +456,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 			if modeSet == nil {
 				continue
 			}
-			if !isJoined && target.flags.HasMode(modes.Invisible) && !isOper {
+			if !isJoined && target.HasMode(modes.Invisible) && !isOper {
 				continue
 			}
 			prefix := modeSet.Prefixes(isMultiPrefix)
@@ -564,6 +586,48 @@ func (channel *Channel) IsEmpty() bool {
 	return len(channel.members) == 0
 }
 
+// figure out where history is being stored: persistent, ephemeral, or neither
+// target is only needed if we're doing persistent history
+func (channel *Channel) historyStatus(config *Config) (persistent, ephemeral bool, target string) {
+	if !config.History.Persistent.Enabled {
+		return false, config.History.Enabled, ""
+	}
+
+	channel.stateMutex.RLock()
+	target = channel.nameCasefolded
+	historyStatus := channel.settings.History
+	registered := channel.registeredFounder != ""
+	channel.stateMutex.RUnlock()
+
+	historyStatus = historyEnabled(config.History.Persistent.RegisteredChannels, historyStatus)
+
+	// ephemeral history: either the channel owner explicitly set the ephemeral preference,
+	// or persistent history is disabled for unregistered channels
+	if registered {
+		ephemeral = (historyStatus == HistoryEphemeral)
+		persistent = (historyStatus == HistoryPersistent)
+	} else {
+		ephemeral = config.History.Enabled && !config.History.Persistent.UnregisteredChannels
+		persistent = config.History.Persistent.UnregisteredChannels
+	}
+	return
+}
+
+func (channel *Channel) AddHistoryItem(item history.Item) (err error) {
+	if !item.IsStorable() {
+		return
+	}
+
+	persistent, ephemeral, target := channel.historyStatus(channel.server.Config())
+	if ephemeral {
+		channel.history.Add(item)
+	}
+	if persistent {
+		return channel.server.historyDB.AddChannelItem(target, item)
+	}
+	return nil
+}
+
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
 	details := client.Details()
@@ -618,8 +682,6 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
-	var message utils.SplitMessage
-
 	givenMode := func() (givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
 		defer channel.joinPartMutex.Unlock()
@@ -643,6 +705,12 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		channel.regenerateMembersCache()
 
+		return
+	}()
+
+	var message utils.SplitMessage
+	// no history item for fake persistent joins
+	if rb != nil {
 		message = utils.MakeMessage("")
 		histItem := history.Item{
 			Type:        history.Join,
@@ -651,12 +719,14 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			Message:     message,
 		}
 		histItem.Params[0] = details.realname
-		channel.history.Add(histItem)
-
-		return
-	}()
+		channel.AddHistoryItem(histItem)
+	}
 
 	client.addChannel(channel)
+
+	if rb == nil {
+		return
+	}
 
 	var modestr string
 	if givenMode != 0 {
@@ -702,10 +772,22 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {
 	// autoreplay any messages as necessary
-	config := channel.server.Config()
 	var items []history.Item
+
+	var after, before time.Time
 	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets.Has(channel.NameCasefolded())) {
-		items, _ = channel.history.Between(rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before, false, config.History.ChathistoryMax)
+		after, before = rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before
+	} else if !rb.session.lastSignoff.IsZero() {
+		// we already checked for history caps in `playReattachMessages`
+		after = rb.session.lastSignoff
+	}
+
+	if !after.IsZero() || !before.IsZero() {
+		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
+		if seq != nil {
+			zncMax := channel.server.Config().History.ZNCMax
+			items, _, _ = seq.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
+		}
 	} else if !rb.session.HasHistoryCaps() {
 		var replayLimit int
 		customReplayLimit := client.AccountSettings().AutoreplayLines
@@ -719,7 +801,10 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 			replayLimit = channel.server.Config().History.AutoreplayOnJoin
 		}
 		if 0 < replayLimit {
-			items = channel.history.Latest(replayLimit)
+			_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
+			if seq != nil {
+				items, _, _ = seq.Between(history.Selector{}, history.Selector{}, replayLimit)
+			}
 		}
 	}
 	// remove the client's own JOIN line from the replay
@@ -784,7 +869,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		}
 	}
 
-	channel.history.Add(history.Item{
+	channel.AddHistoryItem(history.Item{
 		Type:        history.Part,
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
@@ -799,10 +884,9 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 // 2. Send JOIN and MODE lines to channel participants (including the new client)
 // 3. Replay missed message history to the client
 func (channel *Channel) Resume(session *Session, timestamp time.Time) {
-	now := time.Now().UTC()
 	channel.resumeAndAnnounce(session)
 	if !timestamp.IsZero() {
-		channel.replayHistoryForResume(session, timestamp, now)
+		channel.replayHistoryForResume(session, timestamp, time.Time{})
 	}
 }
 
@@ -852,9 +936,17 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 }
 
 func (channel *Channel) replayHistoryForResume(session *Session, after time.Time, before time.Time) {
-	items, complete := channel.history.Between(after, before, false, 0)
+	var items []history.Item
+	var complete bool
+	afterS, beforeS := history.Selector{Time: after}, history.Selector{Time: before}
+	_, seq, _ := channel.server.GetHistorySequence(channel, session.client, "")
+	if seq != nil {
+		items, complete, _ = seq.Between(afterS, beforeS, channel.server.Config().History.ZNCMax)
+	}
 	rb := NewResponseBuffer(session)
-	channel.replayHistoryItems(rb, items, false)
+	if len(items) != 0 {
+		channel.replayHistoryItems(rb, items, false)
+	}
 	if !complete && !session.resumeDetails.HistoryIncomplete {
 		// warn here if we didn't warn already
 		rb.Add(nil, histServMask, "NOTICE", channel.Name(), session.client.t("Some additional message history may have been lost"))
@@ -871,10 +963,7 @@ func stripMaskFromNick(nickMask string) (nick string) {
 }
 
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
-	if len(items) == 0 {
-		return
-	}
-
+	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()
 	client := rb.target
 	eventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
@@ -908,9 +997,9 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		case history.Join:
 			if eventPlayback {
 				if extendedJoin {
-					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "JOIN", chname, item.AccountName, item.Params[0])
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "JOIN", chname, item.AccountName, item.Params[0])
 				} else {
-					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "JOIN", chname)
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "JOIN", chname)
 				}
 			} else {
 				if !playJoinsAsPrivmsg {
@@ -926,7 +1015,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			}
 		case history.Part:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "PART", chname, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "PART", chname, item.Message.Message)
 			} else {
 				if !playJoinsAsPrivmsg {
 					continue // #474
@@ -936,14 +1025,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			}
 		case history.Kick:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "KICK", chname, item.Params[0], item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "KICK", chname, item.Params[0], item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
 				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
 		case history.Quit:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "QUIT", item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "QUIT", item.Message.Message)
 			} else {
 				if !playJoinsAsPrivmsg {
 					continue // #474
@@ -953,7 +1042,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 			}
 		case history.Nick:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "HEVENT", "NICK", item.Params[0])
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "NICK", item.Params[0])
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
 				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
@@ -1124,11 +1213,12 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			// STATUSMSG
 			continue
 		}
-		if isCTCP && member.isTor {
-			continue // #753
-		}
 
 		for _, session := range member.Sessions() {
+			if isCTCP && session.isTor {
+				continue // #753
+			}
+
 			var tagsToUse map[string]string
 			if session.capabilities.Has(caps.MessageTags) {
 				tagsToUse = clientOnlyTags
@@ -1144,7 +1234,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		}
 	}
 
-	channel.history.Add(history.Item{
+	channel.AddHistoryItem(history.Item{
 		Type:        histType,
 		Message:     message,
 		Nick:        nickmask,
@@ -1266,7 +1356,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		Message:     message,
 	}
 	histItem.Params[0] = targetNick
-	channel.history.Add(histItem)
+	channel.AddHistoryItem(histItem)
 
 	channel.Quit(target)
 }
