@@ -313,10 +313,7 @@ type Config struct {
 		Listeners    map[string]listenerConfigBlock
 		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
 		TorListeners TorListenersConfig `yaml:"tor-listeners"`
-		// Listen and TLSListeners are the legacy style:
-		Listen       []string
-		TLSListeners map[string]TLSListenConfig `yaml:"tls-listeners"`
-		// either way, the result is this:
+		// they get parsed into this internal representation:
 		trueListeners           map[string]listenerConfig
 		STS                     STSConfig
 		LookupHostnames         *bool `yaml:"lookup-hostnames"`
@@ -558,49 +555,28 @@ func loadTlsConfig(config TLSListenConfig) (tlsConfig *tls.Config, err error) {
 
 // prepareListeners populates Config.Server.trueListeners
 func (conf *Config) prepareListeners() (err error) {
-	listeners := make(map[string]listenerConfig)
-	if 0 < len(conf.Server.Listeners) {
-		for addr, block := range conf.Server.Listeners {
-			var lconf listenerConfig
-			lconf.Tor = block.Tor
-			lconf.STSOnly = block.STSOnly
-			if lconf.STSOnly && !conf.Server.STS.Enabled {
-				return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
-			}
-			if block.TLS.Cert != "" {
-				tlsConfig, err := loadTlsConfig(block.TLS)
-				if err != nil {
-					return err
-				}
-				lconf.TLSConfig = tlsConfig
-				lconf.ProxyBeforeTLS = block.TLS.Proxy
-			}
-			listeners[addr] = lconf
-		}
-	} else if 0 < len(conf.Server.Listen) {
-		log.Printf("WARNING: configuring listeners via the legacy `server.listen` config option")
-		log.Printf("This will be removed in a later release: you should update to use `server.listeners`")
-		torListeners := make(map[string]bool, len(conf.Server.TorListeners.Listeners))
-		for _, addr := range conf.Server.TorListeners.Listeners {
-			torListeners[addr] = true
-		}
-		for _, addr := range conf.Server.Listen {
-			var lconf listenerConfig
-			lconf.Tor = torListeners[addr]
-			tlsListenConf, ok := conf.Server.TLSListeners[addr]
-			if ok {
-				tlsConfig, err := loadTlsConfig(tlsListenConf)
-				if err != nil {
-					return err
-				}
-				lconf.TLSConfig = tlsConfig
-			}
-			listeners[addr] = lconf
-		}
-	} else {
+	if len(conf.Server.Listeners) == 0 {
 		return fmt.Errorf("No listeners were configured")
 	}
-	conf.Server.trueListeners = listeners
+
+	conf.Server.trueListeners = make(map[string]listenerConfig)
+	for addr, block := range conf.Server.Listeners {
+		var lconf listenerConfig
+		lconf.Tor = block.Tor
+		lconf.STSOnly = block.STSOnly
+		if lconf.STSOnly && !conf.Server.STS.Enabled {
+			return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
+		}
+		if block.TLS.Cert != "" {
+			tlsConfig, err := loadTlsConfig(block.TLS)
+			if err != nil {
+				return err
+			}
+			lconf.TLSConfig = tlsConfig
+			lconf.ProxyBeforeTLS = block.TLS.Proxy
+		}
+		conf.Server.trueListeners[addr] = lconf
+	}
 	return nil
 }
 
