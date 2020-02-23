@@ -45,13 +45,26 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool)
 				}
 
 			case modes.Remove:
+				var removedSnomasks string
 				if client.SetMode(change.Mode, false) {
 					if change.Mode == modes.Invisible {
 						client.server.stats.ChangeInvisible(-1)
 					} else if change.Mode == modes.Operator || change.Mode == modes.LocalOperator {
+						removedSnomasks = client.server.snomasks.String(client)
 						client.server.stats.ChangeOperators(-1)
+						applyOper(client, nil, nil)
+						if removedSnomasks != "" {
+							client.server.snomasks.RemoveClient(client)
+						}
 					}
 					applied = append(applied, change)
+					if removedSnomasks != "" {
+						applied = append(applied, modes.ModeChange{
+							Mode: modes.ServerNotice,
+							Op:   modes.Remove,
+							Arg:  removedSnomasks,
+						})
+					}
 				}
 			}
 

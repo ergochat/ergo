@@ -161,6 +161,12 @@ Prints debug information about the IRCd. <option> can be one of:
 * STOPCPUPROFILE: Stops the CPU profiler.
 * PROFILEHEAP: Writes out the CPU profiler info.`,
 	},
+	"deoper": {
+		oper: true,
+		text: `DEOPER
+
+DEOPER removes the IRCop privileges granted to you by a successful /OPER.`,
+	},
 	"dline": {
 		oper: true,
 		text: `DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
