@@ -732,7 +732,7 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	expectedCode := unregisterConfirmationCode(account.Name, account.RegisteredAt)
+	expectedCode := utils.ConfirmationCode(account.Name, account.RegisteredAt)
 	if expectedCode != verificationCode {
 		nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
 		nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %[1]s %[2]s"), cfname, expectedCode))
