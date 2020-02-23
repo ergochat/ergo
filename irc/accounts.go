@@ -441,7 +441,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 // validatePassphrase checks whether a passphrase is allowed by our rules
 func validatePassphrase(passphrase string) error {
 	// sanity check the length
-	if len(passphrase) == 0 || len(passphrase) > 256 {
+	if len(passphrase) == 0 || len(passphrase) > 300 {
 		return errAccountBadPassphrase
 	}
 	// we use * as a placeholder in some places, if it's gotten this far then fail
