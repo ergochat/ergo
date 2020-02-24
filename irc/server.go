@@ -913,11 +913,13 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	}
 	if config.History.Restrictions.EnforceRegistrationDate {
 		regCutoff := client.historyCutoff()
-		regCutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
-		// take the earlier of the two cutoffs
+		// take the later of the two cutoffs
 		if regCutoff.After(cutoff) {
 			cutoff = regCutoff
 		}
+	}
+	if !cutoff.IsZero() {
+		cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
 	}
 	if hist != nil {
 		sequence = hist.MakeSequence(recipient, cutoff)
