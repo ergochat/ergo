@@ -243,7 +243,7 @@ server:
         # more bits means less likelihood of distinct IPs colliding,
         # at the cost of a longer cloaked hostname. if this value is set to 0,
         # all users will receive simply `netname` as their cloaked hostname.
-        num-bits: 80
+        num-bits: 64
 
     # secure-nets identifies IPs and CIDRs which are secure at layer 3,
     # for example, because they are on a trusted internal LAN or a VPN.
