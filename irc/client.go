@@ -354,8 +354,8 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 }
 
 func (client *Client) resizeHistory(config *Config) {
-	_, ephemeral, _ := client.historyStatus(config)
-	if ephemeral {
+	status, _ := client.historyStatus(config)
+	if status == HistoryEphemeral {
 		client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
 	} else {
 		client.history.Resize(0, 0)
@@ -749,16 +749,16 @@ func (session *Session) playResume() {
 		for _, member := range channel.Members() {
 			friends.Add(member)
 		}
-		_, ephemeral, _ := channel.historyStatus(config)
-		if ephemeral {
+		status, _ := channel.historyStatus(config)
+		if status == HistoryEphemeral {
 			lastDiscarded := channel.history.LastDiscarded()
 			if oldestLostMessage.Before(lastDiscarded) {
 				oldestLostMessage = lastDiscarded
 			}
 		}
 	}
-	_, cEphemeral, _ := client.historyStatus(config)
-	if cEphemeral {
+	cHistoryStatus, _ := client.historyStatus(config)
+	if cHistoryStatus == HistoryEphemeral {
 		lastDiscarded := client.history.LastDiscarded()
 		if oldestLostMessage.Before(lastDiscarded) {
 			oldestLostMessage = lastDiscarded
@@ -1551,29 +1551,21 @@ func (client *Client) attemptAutoOper(session *Session) {
 	}
 }
 
-func (client *Client) historyStatus(config *Config) (persistent, ephemeral bool, target string) {
+func (client *Client) historyStatus(config *Config) (status HistoryStatus, target string) {
 	if !config.History.Enabled {
-		return
-	} else if !config.History.Persistent.Enabled {
-		ephemeral = true
-		return
+		return HistoryDisabled, ""
 	}
 
 	client.stateMutex.RLock()
-	alwaysOn := client.alwaysOn
+	loggedIn := client.account != ""
 	historyStatus := client.accountSettings.DMHistory
 	target = client.nickCasefolded
 	client.stateMutex.RUnlock()
 
-	if !alwaysOn {
-		ephemeral = true
-		return
+	if !loggedIn {
+		return HistoryEphemeral, ""
 	}
-
-	historyStatus = historyEnabled(config.History.Persistent.DirectMessages, historyStatus)
-	ephemeral = (historyStatus == HistoryEphemeral)
-	persistent = (historyStatus == HistoryPersistent)
-	return
+	return historyEnabled(config.History.Persistent.DirectMessages, historyStatus), target
 }
 
 // these are bit flags indicating what part of the client status is "dirty"

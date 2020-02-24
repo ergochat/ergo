@@ -185,25 +185,40 @@ func historyStatusToString(status HistoryStatus) string {
 	}
 }
 
+// XXX you must have already checked History.Enabled before calling this
 func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) (result HistoryStatus) {
-	if serverSetting == PersistentDisabled {
-		return HistoryDisabled
-	} else if serverSetting == PersistentMandatory {
+	switch serverSetting {
+	case PersistentMandatory:
 		return HistoryPersistent
-	} else if serverSetting == PersistentOptOut {
+	case PersistentOptOut:
 		if localSetting == HistoryDefault {
 			return HistoryPersistent
 		} else {
 			return localSetting
 		}
-	} else if serverSetting == PersistentOptIn {
-		if localSetting >= HistoryEphemeral {
-			return localSetting
-		} else {
+	case PersistentOptIn:
+		switch localSetting {
+		case HistoryPersistent:
+			return HistoryPersistent
+		case HistoryEphemeral, HistoryDefault:
+			return HistoryEphemeral
+		default:
 			return HistoryDisabled
 		}
-	} else {
-		return HistoryDisabled
+	case PersistentDisabled:
+		if localSetting == HistoryDisabled {
+			return HistoryDisabled
+		} else {
+			return HistoryEphemeral
+		}
+	default:
+		// PersistentUnspecified: shouldn't happen because the deserializer converts it
+		// to PersistentDisabled
+		if localSetting == HistoryDefault {
+			return HistoryEphemeral
+		} else {
+			return localSetting
+		}
 	}
 }
 

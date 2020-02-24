@@ -113,8 +113,8 @@ func (channel *Channel) IsLoaded() bool {
 }
 
 func (channel *Channel) resizeHistory(config *Config) {
-	_, ephemeral, _ := channel.historyStatus(config)
-	if ephemeral {
+	status, _ := channel.historyStatus(config)
+	if status == HistoryEphemeral {
 		channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
 	} else {
 		channel.history.Resize(0, 0)
@@ -588,9 +588,9 @@ func (channel *Channel) IsEmpty() bool {
 
 // figure out where history is being stored: persistent, ephemeral, or neither
 // target is only needed if we're doing persistent history
-func (channel *Channel) historyStatus(config *Config) (persistent, ephemeral bool, target string) {
-	if !config.History.Persistent.Enabled {
-		return false, config.History.Enabled, ""
+func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, target string) {
+	if !config.History.Enabled {
+		return HistoryDisabled, ""
 	}
 
 	channel.stateMutex.RLock()
@@ -599,18 +599,17 @@ func (channel *Channel) historyStatus(config *Config) (persistent, ephemeral boo
 	registered := channel.registeredFounder != ""
 	channel.stateMutex.RUnlock()
 
-	historyStatus = historyEnabled(config.History.Persistent.RegisteredChannels, historyStatus)
-
 	// ephemeral history: either the channel owner explicitly set the ephemeral preference,
 	// or persistent history is disabled for unregistered channels
 	if registered {
-		ephemeral = (historyStatus == HistoryEphemeral)
-		persistent = (historyStatus == HistoryPersistent)
+		return historyEnabled(config.History.Persistent.RegisteredChannels, historyStatus), target
 	} else {
-		ephemeral = config.History.Enabled && !config.History.Persistent.UnregisteredChannels
-		persistent = config.History.Persistent.UnregisteredChannels
+		if config.History.Persistent.UnregisteredChannels {
+			return HistoryPersistent, target
+		} else {
+			return HistoryEphemeral, target
+		}
 	}
-	return
 }
 
 func (channel *Channel) AddHistoryItem(item history.Item) (err error) {
@@ -618,14 +617,13 @@ func (channel *Channel) AddHistoryItem(item history.Item) (err error) {
 		return
 	}
 
-	persistent, ephemeral, target := channel.historyStatus(channel.server.Config())
-	if ephemeral {
+	status, target := channel.historyStatus(channel.server.Config())
+	if status == HistoryPersistent {
+		err = channel.server.historyDB.AddChannelItem(target, item)
+	} else if status == HistoryEphemeral {
 		channel.history.Add(item)
 	}
-	if persistent {
-		return channel.server.historyDB.AddChannelItem(target, item)
-	}
-	return nil
+	return
 }
 
 // Join joins the given client to this channel (if they can be joined).

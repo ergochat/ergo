@@ -1995,17 +1995,19 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 		targetedItem := item
 		targetedItem.Params[0] = tnick
-		cPersistent, cEphemeral, _ := client.historyStatus(config)
-		tPersistent, tEphemeral, _ := user.historyStatus(config)
+		cStatus, _ := client.historyStatus(config)
+		tStatus, _ := user.historyStatus(config)
 		// add to ephemeral history
-		if cEphemeral {
+		if cStatus == HistoryEphemeral {
 			targetedItem.CfCorrespondent = tDetails.nickCasefolded
 			client.history.Add(targetedItem)
 		}
-		if tEphemeral && client != user {
+		if tStatus == HistoryEphemeral && client != user {
 			item.CfCorrespondent = details.nickCasefolded
 			user.history.Add(item)
 		}
+		cPersistent := cStatus == HistoryPersistent
+		tPersistent := tStatus == HistoryPersistent
 		if cPersistent || tPersistent {
 			item.CfCorrespondent = ""
 			server.historyDB.AddDirectMessage(details.nickCasefolded, user.NickCasefolded(), cPersistent, tPersistent, targetedItem)
