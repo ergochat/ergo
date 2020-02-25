@@ -54,22 +54,18 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		return cmd.handler(server, client, msg, rb)
 	}()
 
+	// after each command, see if we can send registration to the client
+	if !exiting && !client.registered {
+		exiting = server.tryRegister(client, session)
+	}
+
 	// most servers do this only for PING/PONG, but we'll do it for any command:
 	if client.registered {
 		// touch even if `exiting`, so we record the time of a QUIT accurately
 		session.idletimer.Touch()
 	}
 
-	if exiting {
-		return
-	}
-
-	// after each command, see if we can send registration to the client
-	if !client.registered {
-		exiting = server.tryRegister(client, session)
-	}
-
-	if client.registered && !cmd.leaveClientIdle {
+	if !exiting && client.registered && !cmd.leaveClientIdle {
 		client.Active(session)
 	}
 

@@ -1181,7 +1181,8 @@ func (client *Client) destroy(session *Session) {
 	// should we destroy the whole client this time?
 	// BRB is not respected if this is a destroy of the whole client (i.e., session == nil)
 	brbEligible := session != nil && (brbState == BrbEnabled || alwaysOn)
-	shouldDestroy := !client.destroyed && remainingSessions == 0 && !brbEligible
+	alreadyDestroyed := client.destroyed
+	shouldDestroy := !alreadyDestroyed && remainingSessions == 0 && !brbEligible
 	if shouldDestroy {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
@@ -1230,7 +1231,7 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	// decrement stats if we have no more sessions, even if the client will not be destroyed
-	if shouldDestroy || remainingSessions == 0 {
+	if shouldDestroy || (!alreadyDestroyed && remainingSessions == 0) {
 		invisible := client.HasMode(modes.Invisible)
 		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
 		client.server.stats.Remove(registered, invisible, operator)
