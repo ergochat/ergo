@@ -551,8 +551,15 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	if maxChathistoryLimit == 0 {
 		return
 	}
+	preposition := strings.ToLower(msg.Params[0])
+	target = msg.Params[1]
 
 	parseQueryParam := func(param string) (msgid string, timestamp time.Time, err error) {
+		if param == "*" && (preposition == "before" || preposition == "between") {
+			// XXX compatibility with kiwi, which as of February 2020 is
+			// using BEFORE * as a synonym for LATEST *
+			return
+		}
 		err = utils.ErrInvalidParams
 		pieces := strings.SplitN(param, "=", 2)
 		if len(pieces) < 2 {
@@ -580,8 +587,6 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		return
 	}
 
-	preposition := strings.ToLower(msg.Params[0])
-	target = msg.Params[1]
 	channel, sequence, err = server.GetHistorySequence(nil, client, target)
 	if err != nil || sequence == nil {
 		return
