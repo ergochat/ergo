@@ -1,7 +1,7 @@
 language: go
 
 go:
-    - "1.14rc1"
+    - "1.14.x"
 
 script:
 - make
