@@ -864,46 +864,52 @@ func (server *Server) setupListeners(config *Config) (err error) {
 // privilege checking.
 func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, target string) (channel *Channel, sequence history.Sequence, err error) {
 	config := server.Config()
+	// 4 cases: {persistent, ephemeral} x {normal, conversation}
+	// with ephemeral history, recipient is implicit in the choice of `hist`,
+	// and sender is "" if we're retrieving a channel or *, and the correspondent's name
+	// if we're retrieving a DM conversation ("query buffer"). with persistent history,
+	// recipient is always nonempty, and sender is either empty or nonempty as before.
+	var status HistoryStatus
 	var sender, recipient string
 	var hist *history.Buffer
-	if target == "*" {
-		persistent, ephemeral, target := client.historyStatus(config)
-		if persistent {
-			recipient = target
-		} else if ephemeral {
-			hist = &client.history
-		} else {
+	channel = providedChannel
+	if channel == nil {
+		if strings.HasPrefix(target, "#") {
+			channel = server.channels.Get(target)
+			if channel == nil {
+				return
+			}
+		}
+	}
+	if channel != nil {
+		if !channel.hasClient(client) {
+			err = errInsufficientPrivs
+			return
+		}
+		status, recipient = channel.historyStatus(config)
+		switch status {
+		case HistoryEphemeral:
+			hist = &channel.history
+		case HistoryPersistent:
+			// already set `recipient`
+		default:
 			return
 		}
 	} else {
-		channel = providedChannel
-		if channel == nil {
-			channel = server.channels.Get(target)
-		}
-		if channel != nil {
-			if !channel.hasClient(client) {
-				err = errInsufficientPrivs
-				return
-			}
-			persistent, ephemeral, cfTarget := channel.historyStatus(config)
-			if persistent {
-				recipient = cfTarget
-			} else if ephemeral {
-				hist = &channel.history
-			} else {
-				return
-			}
-		} else {
-			sender = client.NickCasefolded()
-			var cfTarget string
-			cfTarget, err = CasefoldName(target)
+		status, recipient = client.historyStatus(config)
+		if target != "*" {
+			sender, err = CasefoldName(target)
 			if err != nil {
 				return
 			}
-			recipient = cfTarget
-			if !client.AlwaysOn() {
-				hist = &client.history
-			}
+		}
+		switch status {
+		case HistoryEphemeral:
+			hist = &client.history
+		case HistoryPersistent:
+			// already set `recipient`, and `sender` if necessary
+		default:
+			return
 		}
 	}
 
@@ -921,8 +927,9 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	if !cutoff.IsZero() {
 		cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
 	}
+
 	if hist != nil {
-		sequence = hist.MakeSequence(recipient, cutoff)
+		sequence = hist.MakeSequence(sender, cutoff)
 	} else if recipient != "" {
 		sequence = server.historyDB.MakeSequence(sender, recipient, cutoff)
 	}
