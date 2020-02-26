@@ -584,6 +584,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		} else if globalCasemappingSetting != config.Server.Casemapping {
 			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
+		} else if oldConfig.Accounts.Multiclient.AlwaysOn != config.Accounts.Multiclient.AlwaysOn {
+			return fmt.Errorf("Default always-on setting cannot be changed after launching the server, rehash aborted")
 		}
 	}
 
