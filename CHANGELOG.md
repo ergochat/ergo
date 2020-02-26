@@ -1,6 +1,102 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.0.0-rc1] - 2020-03-01
+We're pleased to be publishing the release candidate for Oragono 2.0.0 (the official release should follow in a week or two). Version 2.0.0 is a major update with a wide range of enhancements and fixes. Major highlights include:
+
+* Support for storing chat history in a MySQL backend
+* Full "bouncer" functionality, including "always-on" clients that remain present on the server even when disconnected
+* LDAP support contributed by [@mattouille](https://github.com/mattouille)
+* Support for the ratified [labeled-response](https://ircv3.net/specs/extensions/labeled-response.html) IRCv3 capability
+* Enhanced support for Kubernetes
+
+Many thanks to [@csmith](https://github.com/csmith), [@mattouille](https://github.com/mattouille), and [@xPaw](https://github.com/xPaw) for contributing patches, to [@csmith](https://github.com/csmith) and [@wrmsr](https://github.com/wrmsr) for contributing code reviews, to [@bogdomania](https://github.com/bogdomania), [@brenns10](https://github.com/brenns10), [@daurnimator](https://github.com/daurnimator), [@ekianjo](https://github.com/ekianjo), horseface, [@ivucica](https://github.com/ivucica), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), KoDi, lover, [@mabgnu](https://github.com/mabgnu), [@poVoq](https://github.com/poVoq), [@TETYYS](https://github.com/TETYYS), and [@zaher](https://github.com/zaher) for reporting issues, and to [TRANSLATORS].
+
+This release includes changes to the config file format, including two breaking changes:
+
+1. Backwards compatibility with the old `server.listen` format for configuring listeners has been removed; you must now use the `server.listeners` format that was introduced in 1.2.0.
+2. The two sections `server.connection-limits` and `server.connection-throttling` have been consolidated into one new section, `server.ip-limits`.
+
+Other changes to the config file format are backwards compatible and do not require updating before restart. To minimize potential downtime, we suggest the following workflow:
+
+1. Without upgrading your `oragono` binary, edit your config file to add new `server.listeners` and `server.ip-limits` sections, based on the example config file
+2. Rehash your server, confirming that the new config file is valid for for the previous version of the server
+3. Upgrade your `oragono` binary to the new 2.0.x version and restart your server
+4. Once your deployment is stable on 2.0.x, delete the old `server.listen`, `server.connection-limits`, and `server.connection-throttling` sections from your config, and rehash your server to confirm
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+### Config Changes
+* Desupported `server.listen` in favor of `server.listeners`, a breaking change (#794)
+* Desupported `server.connection-limits` and `server.connection-throttling` in favor of `server.ip-limits`, a breaking change (#646)
+* The recommended default is now to allow plaintext only on loopback interfaces (#801)
+* Added `server.casemapping` option to control which Unicode nicknames and channels are allowed (#693)
+* Added `server.lookup-hostnames` and `server.forward-confirm-hostnames` options to control hostname lookup (#688)
+* Added new `limits.multiline` section to control the new `draft/multiline` capability
+* Added sections for enabling the optional MySQL history storage backend: `datastore.mysql` for connecting to the server and `history.persistent` for controlling which messages are stored
+* Added `history.restrictions` for preventing people from retrieving arbitrarily old history messages
+* Added `history.znc-maxmessages`, allowing a higher history replay limit for bouncer emulation relative to CHATHISTORY
+* Added `accounts.vhosts.offer-list`, allowing users to take pre-approved vhosts without operator approval (#737)
+* Renamed `accounts.bouncer` to `accounts.multiclient` (the old name still works) (#787)
+* New recommended values of `server.max-sendq`, `server.ip-cloaking.num-bits`, `accounts.registration.bcrypt-cost`, `accounts.nick-reservation.enabled` (now true), `accounts.multiclient.allowed-by-default` (now true)
+* Added `server.ip-cloaking.secret-environment-variable`, allowing the cloaking secret to be deployed via an environment variable for use in Kubernetes (#741, thanks [@daurnimator](https://github.com/daurnimator)!)
+
+### Security
+* Added forward confirmation of reverse DNS lookups for hostnames: to enable this, set `server.forward-confirm-hostnames` to true (#688)
+* Added protection against confusable channel names (#581)
+* Fixed cases where Tor users could receive CTCP messages, contrary to expectations (#752, #753)
+* Fixed `NS INFO` displaying the local timezone (#710)
+* Fixed `accounts.authentication-enabled` failing to disable the `NS IDENTIFY` command (#721)
+* Fixed confusable protection not being applied to newly registered accounts (#745, thanks [@bogdomania](https://github.com/bogdomania)!)
+
+### Added
+* Added support for persistent history storage in MySQL (#348)
+* Added support for "always-on" clients that remain present on the server even when disconnected (#348, #701)
+* Added support for LDAP (#690, thanks [@mattouille](https://github.com/mattouille), [@ivucica](https://github.com/ivucica), and [@mabgnu](https://github.com/mabgnu)!)
+* Added support for the new [draft/multiline](https://github.com/ircv3/ircv3-specifications/pull/398) specification (#670, thanks [@jwheare](https://github.com/jwheare) and [@jesopo](https://github.com/jesopo)!)
+* Added new modes for Unicode characters in nicknames and channel names: ASCII-only and "permissive" (allowing emoji) (#693)
+* Added support for plaintext PROXY lines ahead of a TLS handshake, improving compatibility with some Kubernetes load balancers (#561, thanks @RyanSquared](https://github.com/RyanSquared) and [@daurnimator](https://github.com/daurnimator)!)
+* Added support for authenticating operators by TLS client certificates, and automatically applying operator privileges on login (#696, thanks [@RyanSquared](https://github.com/RyanSquared)!)
+* Added `/DEOPER` command to remove operator privileges (#549, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Added `/CHANSERV TRANSFER`, allowing transfers of channel ownership (#684)
+* Added `/NICKSERV CERT`, allowing users to manage their authorized client certificates (#530)
+* Added `/HOSTSERV TAKE`, allowing users to take pre-approved vhosts without operator approval (#737)
+* Added support for configuring connection limits and throttling for individual CIDRs (#646, thanks KoDi!)
+* Added `/CHANSERV PURGE`, allowing server administrators to shut down channels (#683)
+* Added `/CHANSERV CLEAR`, allowing channel founders to reset stored bans and privileges (#692)
+* Added `/CHANSERV SET`, allowing channel founders to disable channel history (#379)
+* Added account preference `AUTOREPLAY-JOINS`, allowing greater control over when joins and parts appear in history replay (#616, thanks [@zaher](https://github.com/zaher)!)
+* Added `/DEBUG CRASHSERVER` command (#791)
+* Added channel mode `+C` to suppress CTCP messages to a channel (#756)
+* Added some missing snomasks for events related to accounts and vhosts (`+s v` to enable vhost snomasks) (#347, #103)
+
+### Changed
+* Updated CHATHISTORY support to the [latest draft](https://github.com/ircv3/ircv3-specifications/pull/393) (#621, thanks [@prawnsalad](https://github.com/prawnsalad)!)
+* `/HISTORY` now defaults to returning 100 messages, and also takes time durations like `1h` as arguments (#621, thanks lover!)
+* D-Lines are no longer enforced against loopback IPs (#671)
+* Password length limit was reduced from 600 bytes to 300 bytes (#775)
+
+### Fixed
+* Fixed a bug where `znc.in/playback` commands would play every channel, regardless of the target parameter (#760, thanks [@brenns10](https://github.com/brenns10)!)
+* Fixed `MODE -o` not removing all operator permissions (#725, #549, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed client-only tags being relayed in direct messages to users without the `message-tags` capability (#754, thanks [@jesopo](https://github.com/jesopo)!)
+* Fixed the channel user limit (the `+l` mode) not persisting after server restart (#705, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed response to `JOIN` lines with parameters ending in a comma (#679, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed confusable protection not being removed from unregistered accounts (#745, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed rehash not enabling nickname reservation, vhosts, or history under some circumstances (#702, thanks [@bogdomania)(https://github.com/bogdomania)!)
+* Fixed responses to the `USERHOST` command (#682)
+* Fixed bad results when running `oragono upgradedb` against a missing database file (#715, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed confusing `NS GHOST` behavior when nickname reservation is disabled (#727, thanks horseface!)
+* Fixed validation of authzid during SASL (#716, thanks [@xPaw](https://github.com/xPaw)!)
+* Non-ASCII characters are proactively disallowed in `ip-cloaking.netname` (#713, thanks [@bogdomania](https://github.com/bogdomania)!)
+
+### Removed
+* Removed `oragono.io/maxline-2` capability in favor of the new `draft/multiline` capability (#670, #752)
+* Removed `oragono.io/bnc` capability (multiclient functionality is now controllable only via server config and `/NS SET MULTICLIENT`) (#787)
+
+### Internal Notes
+* Updated to Go 1.14 and modules, simplifying the build process (#699)
+
 ## [1.2.0] - 2019-11-17
 We're pleased to announce Oragono 1.2.0. This version contains bug fixes and minor improvements.
 
