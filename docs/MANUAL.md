@@ -780,8 +780,11 @@ Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of c
 
 # Acknowledgements
 
-Always, thanks to Jeremy Latt for creating Ergonomadic. Thanks for Edmund Huber for maintaining Ergonomadic and providing useful help while transitioning.
+Oragono's past and present maintainers and core contributors are:
 
-Thanks to Euan Kemp (euank) for the contributions and help with this, along with other projects, and to James Mills, Vegax and Sean Enck for various other help and contributions on the server.
+* Jeremy Latt (2012-2014)
+* Edmund Huber (2014-2015)
+* Daniel Oaks (2016-present)
+* Shivaram Lingamneni (2017-present)
 
-And a massive thanks to Shivaram Lingamneni (slingamn) for being an amazing co-maintainer of Oragono! You've contributed a lot to Oragono, and really convinced me to step up with this and take the server forward in a big way. I'm grateful for everything you've done, and working with ya' is a pleasure.
+In addition, Oragono has benefited tremendously from its community of contributors, users, and translators, not to mention collaborations with the wider IRCv3 community. There are too many people to name here --- but we try to credit people for individual contributions in the changelog, please reach out to us if we forgot you :-)
