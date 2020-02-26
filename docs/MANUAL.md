@@ -56,7 +56,7 @@ If you have any suggestions, issues or questions, feel free to submit an issue o
 
 ## Project Basics
 
-Oragono is an ircd written "from scratch" in the [Go](https://en.wikipedia.org/wiki/Go_%28programming_language%29) language, i.e., it shares no code with the [original ircd daemon](http://www.irc.org/history_docs/jarkko.html) or [any other major ircd](https://github.com/grawity/irc-docs/blob/master/family-tree.txt). It began as [ergonomadic](https://github.com/jlatt/ergonomadic), which was implemented by Jeremy Latt between 2012 and 2014. In 2016, Daniel Oaks forked the project under its current name Oragono, in order to prototype [IRCv3](https://ircv3.net/) features and for use as a reference implementation of the [Modern IRC specification](https://modern.ircdocs.horse). Oragono 1.0.0 was released in February 2019, and as of 2020 the project is under active development by multiple contributors.
+Oragono is an ircd written "from scratch" in the [Go](https://en.wikipedia.org/wiki/Go_%28programming_language%29) language, i.e., it [shares no code](https://github.com/grawity/irc-docs/blob/master/family-tree.txt) with the original ircd implementation or any other major ircd. It began as [ergonomadic](https://github.com/jlatt/ergonomadic), which was developed by Jeremy Latt between 2012 and 2014. In 2016, Daniel Oaks forked the project under its current name Oragono, in order to prototype [IRCv3](https://ircv3.net/) features and for use as a reference implementation of the [Modern IRC specification](https://modern.ircdocs.horse). Oragono 1.0.0 was released in February 2019, and as of 2020 the project is under active development by multiple contributors.
 
 Oragono's core design goals are:
 
