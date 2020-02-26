@@ -559,7 +559,7 @@ func (am *AccountManager) loadLastSignoff(account string) (lastSignoff time.Time
 		return nil
 	})
 	lsNum, err := strconv.ParseInt(lsText, 10, 64)
-	if err != nil {
+	if err == nil {
 		return time.Unix(0, lsNum).UTC()
 	}
 	return
