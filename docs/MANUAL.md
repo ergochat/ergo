@@ -28,7 +28,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
         - Nickname reservation
     - Channel Registration
     - Language
-    - Bouncer
+    - Multiclient ("Bouncer")
     - History
     - IP cloaking
 - Frequently Asked Questions
@@ -56,34 +56,24 @@ If you have any suggestions, issues or questions, feel free to submit an issue o
 
 ## Project Basics
 
-Let's go over some basics, for those new to Oragono. My name's Daniel, and I started the project (it was forked off a server called [Ergonomadic](https://github.com/edmund-huber/ergonomadic) that'd been around for a number of years). In addition to Oragono, I also do a lot of IRC specification work with the [various](https://modern.ircdocs.horse) [ircdocs](https://defs.ircdocs.horse) [projects](https://ircdocs.horse/specs/) and with the [IRCv3 Working Group](https://ircv3.net/).
+Oragono is an ircd written "from scratch" in the [Go](https://en.wikipedia.org/wiki/Go_%28programming_language%29) language, i.e., it shares no code with the [original ircd daemon](http://www.irc.org/history_docs/jarkko.html) or [any other major ircd](https://github.com/grawity/irc-docs/blob/master/family-tree.txt). It began as [ergonomadic](https://github.com/jlatt/ergonomadic), which was implemented by Jeremy Latt between 2012 and 2014. In 2016, Daniel Oaks forked the project under its current name Oragono, in order to prototype [IRCv3](https://ircv3.net/) features and for use as a reference implementation of the [Modern IRC specification](https://modern.ircdocs.horse). Oragono 1.0.0 was released in February 2019, and as of 2020 the project is under active development by multiple contributors.
 
-My main goals when starting the project were to write a server that:
+Oragono's core design goals are:
 
-- Is fully-functional.
-- I can use to very easily prototype new [IRCv3](https://ircv3.net/) proposals and features.
-- I can consider a reference implementation for the [Modern spec](https://modern.ircdocs.horse).
+* Being simple to set up and use
+* Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
+* Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
+* Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
 
-All in all, these have gone pretty well. The server has relatively extensive command coverage, it prototypes a whole lot of the IRCv3 proposals and accepted/draft specs, and we pretty regularly update it to match new behaviour written into the Modern spec.
-
-Some of the features that sets Oragono apart from other servers are:
-
-- Extensive IRCv3 support.
-- Extensive logging and oper privilege levels configuration.
-- Integrated user account and channel registration system (no services required!).
-- Native Unicode support (including appropriate casemapping).
-- Support for [multiple languages](https://crowdin.com/project/oragono).
-- Bouncer-like features, including allowing multiple clients to use the same nickname
-
-Oragono has multiple communities using it as a day-to-day chat server and is fairly mature --- we encourage you to consider it for your community!
+In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono has multiple communities using it as a day-to-day chat server and is fairly mature --- we encourage you to consider it for your organization or community!
 
 ## Scalability
 
-We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out".
+We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out". (Federation is [planned](https://github.com/oragono/oragono/issues/26) but is not scheduled for development in the near term.)
 
-In the relatively near term, we plan to make Oragono [highly available](https://github.com/oragono/oragono/issues/343), and in the long term, we hope to support [federation](https://github.com/oragono/oragono/issues/26) as well.
+Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file).
 
-If you're interested in deploying Oragono at scale, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
+If you're interested in deploying Oragono at scale or for high availability, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
 
 
 --------------------------------------------------------------------------------------------
@@ -284,26 +274,30 @@ The above will change the server language to Romanian, with a fallback to Chines
 Our language and translation functionality is very early, so feel free to let us know if there are any troubles with it! If you know another language and you'd like to contribute, we've got a CrowdIn project here: [https://crowdin.com/project/oragono](https://crowdin.com/project/oragono)
 
 
-## Bouncer
+## Multiclient ("Bouncer")
 
 Traditionally, every connection to an IRC server is separate must use a different nickname. [Bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by letting multiple clients connect to a single nickname. With Oragono, if the server is configured to allow it, multiple clients can share a single nickname without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then use the same nickname during connection registration (while connecting to the server) – once you've logged-in, you can't share another nickname.
 
-To enable this functionality, set `accounts.bouncer.enabled` to `true`. Setting `accounts.bouncer.allowed-by-default` to `true` will allow this for everyone – by default, users need to opt-in to shared connections using `/msg NickServ SET BOUNCER`.
+To enable this functionality, set `accounts.multiclient.enabled` to `true`. Setting `accounts.multiclient.allowed-by-default` to `true` will allow this for everyone. If `allowed-by-default` is `false` (but `enabled` is still `true`), users can opt in to shared connections using `/msg NickServ SET multiclient on`.
 
 You can see a list of your active sessions and their idle times with `/msg NickServ sessions` (network operators can use `/msg NickServ sessions nickname` to see another user's sessions).
+
+Oragono now supports "always-on clients" that remain present on the server (holding their nickname, subscribed to channels, able to receive DMs, etc.) even when no actual clients are connected. To enable this as a server operator, set `accounts.multiclient.always-on` to either `opt-in`, `opt-out`, or `mandatory`. To enable or disable it as a client (if the server setting is `opt-in` or `opt-out` respectively), use `/msg NickServ set always-on true` (or `false`).
 
 
 ## History
 
+Oragono supports two methods of storing history, an in-memory buffer with a configurable maximum number of messages, and persistent history stored in MySQL (with no fixed limits on message capacity). To enable in-memory history, configure `history.enabled` and associated settings in the `history` section. To enable persistent history, enter your MySQL server information in `datastore.mysql` and then enable persistent history storage in `history.persistent`.
+
+Unfortunately, client support for history playback is still patchy. In descending order of support:
+
+1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC's unreleased master branch](https://kiwiirc.com/), and hopefully other clients soon.
+1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
+1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`.
+1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
+1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
+
 Oragono can store a limited amount of message history in memory and replay it, which is useful for covering brief disconnections from IRC. You can access this using the `/HISTORY` command (depending on your client, you may need to use `/QUOTE history` instead), for example `/HISTORY #mychannel 100` to get the 100 latest messages from `#mychannel`.
-
-Server administrators can configure `history.autoreplay-on-join` to automatically send clients a fixed number of history lines when they join a channel. Users can use `/msg NickServ set autoreplay-lines` to opt in or out of this behavior.
-
-We are working on a number of improvements to this functionality:
-
-* We currently emulate the ZNC playback module for clients that have special ZNC support (see the "ZNC" section below)
-* The [`/CHATHISTORY`](https://github.com/ircv3/ircv3-specifications/pull/349) command will be a standardized way for clients to request history lines
-* [Connection resuming](https://github.com/ircv3/ircv3-specifications/pull/306), which we support in draft form, automatically replays history lines to clients who return after a brief disconnection
 
 
 ## IP cloaking

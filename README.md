@@ -1,8 +1,13 @@
 ![Oragono logo](docs/logo.png)
 
-Oragono is a modern, experimental IRC server written in Go. It's designed to be simple to setup and use, and it includes features such as UTF-8 nicks / channel names, client accounts with SASL, and other assorted IRCv3 support.
+Oragono is a modern IRC server written in Go. Its core design principles are:
 
-Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomadic) IRC daemon <3
+* Being simple to set up and use
+* Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
+* Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
+* Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
+
+Oragono is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC daemon <3
 
 ---
 
@@ -19,14 +24,15 @@ Oragono is a fork of the [Ergonomadic](https://github.com/edmund-huber/ergonomad
 
 ## Features
 
-* UTF-8 nick and channel names with rfc7613 (PRECIS)
-* [yaml](http://yaml.org/) configuration
-* native TLS/SSL support
-* updating server config and TLS certificates on-the-fly (rehashing)
-* user accounts and SASL
-* supports [multiple languages](https://crowdin.com/project/oragono) (you can also set a default language for your network)
 * integrated services: NickServ for user accounts, ChanServ for channel registration, and HostServ for vanity hosts
-* experimental support for bouncer-like features (storing and replaying history, allowing multiple clients to use the same nickname)
+* bouncer-like features: storing and replaying history, allowing multiple clients to use the same nickname
+* UTF-8 nick and channel names with rfc7613 (PRECIS)
+* native TLS/SSL support, including support for client certificates
+* [yaml](https://yaml.org/) configuration
+* updating server config and TLS certificates on-the-fly (rehashing)
+* SASL authentication
+* LDAP support
+* supports [multiple languages](https://crowdin.com/project/oragono) (you can also set a default language for your network)
 * advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, and running as a Tor hidden service)
 * an extensible privilege system for IRC operators
 * ident lookups for usernames
