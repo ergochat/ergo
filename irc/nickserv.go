@@ -471,10 +471,17 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			}
 		}
 	case "always-on":
-		details := client.Details()
-		if details.nick != details.accountName {
-			err = errNickAccountMismatch
-		} else {
+		// #821: it's problematic to alter the value of always-on if you're not
+		// the (actual or potential) always-on client yourself. make an exception
+		// for `saset` to give operators an escape hatch (any consistency problems
+		// can probably be fixed by restarting the server):
+		if command != "saset" {
+			details := client.Details()
+			if details.nick != details.accountName {
+				err = errNickAccountMismatch
+			}
+		}
+		if err == nil {
 			var newValue PersistentStatus
 			newValue, err = persistentStatusFromString(params[1])
 			// "opt-in" and "opt-out" don't make sense as user preferences
