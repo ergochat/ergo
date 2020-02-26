@@ -935,6 +935,12 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 }
 
 func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
+	if client.registered {
+		if clientAlready := am.server.clients.Get(accountName); clientAlready != nil && clientAlready.AlwaysOn() {
+			return errNickAccountMismatch
+		}
+	}
+
 	var account ClientAccount
 
 	defer func() {
@@ -1209,6 +1215,11 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 		return err
 	} else if !clientAccount.Verified {
 		return errAccountUnverified
+	}
+	if client.registered {
+		if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
+			return errNickAccountMismatch
+		}
 	}
 	am.Login(client, clientAccount)
 	return nil

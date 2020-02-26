@@ -471,14 +471,26 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			}
 		}
 	case "always-on":
-		var newValue PersistentStatus
-		newValue, err = persistentStatusFromString(params[1])
-		// "opt-in" and "opt-out" don't make sense as user preferences
-		if err == nil && newValue != PersistentOptIn && newValue != PersistentOptOut {
-			munger = func(in AccountSettings) (out AccountSettings, err error) {
-				out = in
-				out.AlwaysOn = newValue
-				return
+		// #821: it's problematic to alter the value of always-on if you're not
+		// the (actual or potential) always-on client yourself. make an exception
+		// for `saset` to give operators an escape hatch (any consistency problems
+		// can probably be fixed by restarting the server):
+		if command != "saset" {
+			details := client.Details()
+			if details.nick != details.accountName {
+				err = errNickAccountMismatch
+			}
+		}
+		if err == nil {
+			var newValue PersistentStatus
+			newValue, err = persistentStatusFromString(params[1])
+			// "opt-in" and "opt-out" don't make sense as user preferences
+			if err == nil && newValue != PersistentOptIn && newValue != PersistentOptOut {
+				munger = func(in AccountSettings) (out AccountSettings, err error) {
+					out = in
+					out.AlwaysOn = newValue
+					return
+				}
 			}
 		}
 	case "autoreplay-missed":
@@ -515,6 +527,8 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		displaySetting(params[0], finalSettings, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
 		nsNotice(rb, client.t(err.Error()))
+	case errNickAccountMismatch:
+		nsNotice(rb, fmt.Sprintf(client.t("Your nickname must match your account name %s exactly to modify this setting. Try changing it with /NICK, or logging out and back in with the correct nickname."), client.AccountName()))
 	default:
 		// unknown error
 		nsNotice(rb, client.t("An error occurred"))
@@ -601,6 +615,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
+	var err error
 	loginSuccessful := false
 
 	var username, passphrase string
@@ -623,18 +638,20 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 		if !nsLoginThrottleCheck(client, rb) {
 			return
 		}
-		err := server.accounts.AuthenticateByPassphrase(client, username, passphrase)
+		err = server.accounts.AuthenticateByPassphrase(client, username, passphrase)
 		loginSuccessful = (err == nil)
 	}
 
 	// try certfp
 	if !loginSuccessful && rb.session.certfp != "" {
-		err := server.accounts.AuthenticateByCertFP(client, rb.session.certfp, "")
+		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, "")
 		loginSuccessful = (err == nil)
 	}
 
 	if loginSuccessful {
 		sendSuccessfulAccountAuth(client, rb, true, true)
+	} else if err == errNickAccountMismatch {
+		nsNotice(rb, client.t("That account is set to always-on; try logging out and logging back in with SASL"))
 	} else {
 		nsNotice(rb, client.t("Could not login with your TLS certificate or supplied username/password"))
 	}

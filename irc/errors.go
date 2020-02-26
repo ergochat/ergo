@@ -42,6 +42,7 @@ var (
 	errNicknameInUse                  = errors.New("nickname in use")
 	errNicknameReserved               = errors.New("nickname is reserved")
 	errCantChangeNick                 = errors.New(`Always-on clients can't change nicknames`)
+	errNickAccountMismatch            = errors.New(`Your nickname doesn't match your account name`)
 	errNoExistingBan                  = errors.New("Ban does not exist")
 	errNoSuchChannel                  = errors.New(`No such channel`)
 	errChannelPurged                  = errors.New(`This channel was purged by the server operators and cannot be used`)
