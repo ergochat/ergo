@@ -65,8 +65,9 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		session.idletimer.Touch()
 	}
 
-	if !exiting && client.registered && !cmd.leaveClientIdle {
-		client.Active(session)
+	// TODO: eliminate idletimer entirely in favor of this measurement
+	if client.registered {
+		client.Touch(!cmd.leaveClientIdle, session)
 	}
 
 	return exiting

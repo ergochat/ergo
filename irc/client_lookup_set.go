@@ -174,7 +174,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
 			return "", errNicknameInUse
 		}
-		reattachSuccessful, numSessions, lastSignoff := currentClient.AddSession(session)
+		reattachSuccessful, numSessions, lastSeen := currentClient.AddSession(session)
 		if !reattachSuccessful {
 			return "", errNicknameInUse
 		}
@@ -183,7 +183,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			operator := client.HasMode(modes.Operator) || client.HasMode(modes.LocalOperator)
 			client.server.stats.AddRegistered(invisible, operator)
 		}
-		session.lastSignoff = lastSignoff
+		session.autoreplayMissedSince = lastSeen
 		// XXX SetNames only changes names if they are unset, so the realname change only
 		// takes effect on first attach to an always-on client (good), but the user/ident
 		// change is always a no-op (bad). we could make user/ident act the same way as
