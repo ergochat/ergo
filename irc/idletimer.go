@@ -52,7 +52,6 @@ type IdleTimer struct {
 	quitTimeout time.Duration
 	state       TimerState
 	timer       *time.Timer
-	lastTouch   time.Time
 }
 
 // Initialize sets up an IdleTimer and starts counting idle time;
@@ -62,11 +61,9 @@ func (it *IdleTimer) Initialize(session *Session) {
 	it.registerTimeout = RegisterTimeout
 	it.idleTimeout, it.quitTimeout = it.recomputeDurations()
 	registered := session.client.Registered()
-	now := time.Now().UTC()
 
 	it.Lock()
 	defer it.Unlock()
-	it.lastTouch = now
 	if registered {
 		it.state = TimerActive
 	} else {
@@ -95,24 +92,15 @@ func (it *IdleTimer) recomputeDurations() (idleTimeout, quitTimeout time.Duratio
 
 func (it *IdleTimer) Touch() {
 	idleTimeout, quitTimeout := it.recomputeDurations()
-	now := time.Now().UTC()
 
 	it.Lock()
 	defer it.Unlock()
 	it.idleTimeout, it.quitTimeout = idleTimeout, quitTimeout
-	it.lastTouch = now
 	// a touch transitions TimerUnregistered or TimerIdle into TimerActive
 	if it.state != TimerDead {
 		it.state = TimerActive
 		it.resetTimeout()
 	}
-}
-
-func (it *IdleTimer) LastTouch() (result time.Time) {
-	it.Lock()
-	result = it.lastTouch
-	it.Unlock()
-	return
 }
 
 func (it *IdleTimer) processTimeout() {

@@ -79,7 +79,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			currentIndex = i
 		}
 		data[i] = SessionData{
-			atime:    session.atime,
+			atime:    session.lastActive,
 			ctime:    session.ctime,
 			hostname: session.rawHostname,
 			certfp:   session.certfp,
@@ -93,13 +93,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 	return
 }
 
-func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSignoff time.Time) {
-	defer func() {
-		if !lastSignoff.IsZero() {
-			client.wakeWriter()
-		}
-	}()
-
+func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -112,15 +106,11 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	newSessions := make([]*Session, len(client.sessions)+1)
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session
-	if len(client.sessions) == 0 && client.accountSettings.AutoreplayMissed {
-		// n.b. this is only possible if client is persistent and remained
-		// on the server with no sessions:
-		lastSignoff = client.lastSignoff
-		client.lastSignoff = time.Time{}
-		client.dirtyBits |= IncludeLastSignoff
+	if client.accountSettings.AutoreplayMissed {
+		lastSeen = client.lastSeen
 	}
 	client.sessions = newSessions
-	return true, len(client.sessions), lastSignoff
+	return true, len(client.sessions), lastSeen
 }
 
 func (client *Client) removeSession(session *Session) (success bool, length int) {

@@ -35,7 +35,7 @@ const (
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
-	keyAccountLastSignoff      = "account.lastsignoff %s"
+	keyAccountLastSeen         = "account.lastseen %s"
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -104,7 +104,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
 			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
-			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSignoff(accountName))
+			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSeen(accountName))
 		}
 	}
 }
@@ -535,11 +535,11 @@ func (am *AccountManager) loadChannels(account string) (channels []string) {
 	return
 }
 
-func (am *AccountManager) saveLastSignoff(account string, lastSignoff time.Time) {
-	key := fmt.Sprintf(keyAccountLastSignoff, account)
+func (am *AccountManager) saveLastSeen(account string, lastSeen time.Time) {
+	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var val string
-	if !lastSignoff.IsZero() {
-		val = strconv.FormatInt(lastSignoff.UnixNano(), 10)
+	if !lastSeen.IsZero() {
+		val = strconv.FormatInt(lastSeen.UnixNano(), 10)
 	}
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		if val != "" {
@@ -551,11 +551,15 @@ func (am *AccountManager) saveLastSignoff(account string, lastSignoff time.Time)
 	})
 }
 
-func (am *AccountManager) loadLastSignoff(account string) (lastSignoff time.Time) {
-	key := fmt.Sprintf(keyAccountLastSignoff, account)
+func (am *AccountManager) loadLastSeen(account string) (lastSeen time.Time) {
+	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var lsText string
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx *buntdb.Tx) error {
 		lsText, _ = tx.Get(key)
+		// XXX clear this on startup, because it's not clear when it's
+		// going to be overwritten, and restarting the server twice in a row
+		// could result in a large amount of duplicated history replay
+		tx.Delete(key)
 		return nil
 	})
 	lsNum, err := strconv.ParseInt(lsText, 10, 64)
@@ -1071,7 +1075,7 @@ func (am *AccountManager) Unregister(account string) error {
 	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
-	lastSignoffKey := fmt.Sprintf(keyAccountLastSignoff, casefoldedAccount)
+	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1108,7 +1112,7 @@ func (am *AccountManager) Unregister(account string) error {
 		channelsStr, _ = tx.Get(channelsKey)
 		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
-		tx.Delete(lastSignoffKey)
+		tx.Delete(lastSeenKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)

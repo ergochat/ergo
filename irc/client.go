@@ -47,7 +47,6 @@ type Client struct {
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	accountRegDate     time.Time
 	accountSettings    AccountSettings
-	atime              time.Time
 	away               bool
 	awayMessage        string
 	brbTimer           BrbTimer
@@ -60,7 +59,8 @@ type Client struct {
 	invitedTo          map[string]bool
 	isSTSOnly          bool
 	languages          []string
-	lastSignoff        time.Time // for always-on clients, the time their last session quit
+	lastActive         time.Time // last time they sent a command that wasn't PONG or similar
+	lastSeen           time.Time // last time they sent any kind of command
 	loginThrottle      connection_limits.GenericThrottle
 	nick               string
 	nickCasefolded     string
@@ -103,8 +103,8 @@ func (s *saslStatus) Clear() {
 type Session struct {
 	client *Client
 
-	ctime time.Time
-	atime time.Time
+	ctime      time.Time
+	lastActive time.Time
 
 	socket      *Socket
 	realIP      net.IP
@@ -130,10 +130,10 @@ type Session struct {
 
 	registrationMessages int
 
-	resumeID         string
-	resumeDetails    *ResumeDetails
-	zncPlaybackTimes *zncPlaybackTimes
-	lastSignoff      time.Time
+	resumeID              string
+	resumeDetails         *ResumeDetails
+	zncPlaybackTimes      *zncPlaybackTimes
+	autoreplayMissedSince time.Time
 
 	batch MultilineBatch
 }
@@ -247,11 +247,12 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn.Conn, ircmsg.MaxlenTagsFromClient+512+1024, config.Server.MaxSendQBytes)
 	client := &Client{
-		atime:     now,
-		channels:  make(ChannelSet),
-		ctime:     now,
-		isSTSOnly: conn.Config.STSOnly,
-		languages: server.Languages().Default(),
+		lastSeen:   now,
+		lastActive: now,
+		channels:   make(ChannelSet),
+		ctime:      now,
+		isSTSOnly:  conn.Config.STSOnly,
+		languages:  server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
@@ -270,7 +271,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		capVersion: caps.Cap301,
 		capState:   caps.NoneState,
 		ctime:      now,
-		atime:      now,
+		lastActive: now,
 		realIP:     realIP,
 		isTor:      conn.Config.Tor,
 	}
@@ -306,24 +307,27 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	client.run(session, proxyLine)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSignoff time.Time) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastActive time.Time) {
 	now := time.Now().UTC()
 	config := server.Config()
+	if lastActive.IsZero() {
+		lastActive = now
+	}
 
 	client := &Client{
-		atime:     now,
-		channels:  make(ChannelSet),
-		ctime:     now,
-		languages: server.Languages().Default(),
-		server:    server,
+		lastSeen:   now,
+		lastActive: lastActive,
+		channels:   make(ChannelSet),
+		ctime:      now,
+		languages:  server.Languages().Default(),
+		server:     server,
 
 		// TODO figure out how to set these on reattach?
 		username:    "~user",
 		rawHostname: server.name,
 		realIP:      utils.IPv4LoopbackAddress,
 
-		alwaysOn:    true,
-		lastSignoff: lastSignoff,
+		alwaysOn: true,
 	}
 
 	client.SetMode(modes.TLS, true)
@@ -662,25 +666,30 @@ func (client *Client) playReattachMessages(session *Session) {
 		channel.autoReplayHistory(client, rb, "")
 		rb.Send(true)
 	}
-	if !session.lastSignoff.IsZero() && !hasHistoryCaps {
+	if !session.autoreplayMissedSince.IsZero() && !hasHistoryCaps {
 		rb := NewResponseBuffer(session)
-		zncPlayPrivmsgs(client, rb, session.lastSignoff, time.Time{})
+		zncPlayPrivmsgs(client, rb, session.autoreplayMissedSince, time.Time{})
 		rb.Send(true)
 	}
-	session.lastSignoff = time.Time{}
+	session.autoreplayMissedSince = time.Time{}
 }
 
 //
 // idle, quit, timers and timeouts
 //
 
-// Active updates when the client was last 'active' (i.e. the user should be sitting in front of their client).
-func (client *Client) Active(session *Session) {
+// Touch indicates that we received a line from the client (so the connection is healthy
+// at this time, modulo network latency and fakelag). `active` means not a PING or suchlike
+// (i.e. the user should be sitting in front of their client).
+func (client *Client) Touch(active bool, session *Session) {
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	session.atime = now
-	client.atime = now
+	client.lastSeen = now
+	if active {
+		client.lastActive = now
+		session.lastActive = now
+	}
 }
 
 // Ping sends the client a PING message.
@@ -896,7 +905,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 func (client *Client) IdleTime() time.Duration {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	return time.Since(client.atime)
+	return time.Since(client.lastActive)
 }
 
 // SignonTime returns this client's signon time as a unix timestamp.
@@ -1151,12 +1160,6 @@ func (client *Client) Quit(message string, session *Session) {
 // has no more sessions.
 func (client *Client) destroy(session *Session) {
 	var sessionsToDestroy []*Session
-	var lastSignoff time.Time
-	if session != nil {
-		lastSignoff = session.idletimer.LastTouch()
-	} else {
-		lastSignoff = time.Now().UTC()
-	}
 
 	client.stateMutex.Lock()
 	details := client.detailsNoMutex()
@@ -1166,6 +1169,7 @@ func (client *Client) destroy(session *Session) {
 	sessionRemoved := false
 	registered := client.registered
 	alwaysOn := client.alwaysOn
+	saveLastSeen := alwaysOn && client.accountSettings.AutoreplayMissed
 	var remainingSessions int
 	if session == nil {
 		sessionsToDestroy = client.sessions
@@ -1187,16 +1191,17 @@ func (client *Client) destroy(session *Session) {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
 	}
-	if alwaysOn && remainingSessions == 0 {
-		client.lastSignoff = lastSignoff
-		client.dirtyBits |= IncludeLastSignoff
-	} else {
-		lastSignoff = time.Time{}
+	if saveLastSeen {
+		client.dirtyBits |= IncludeLastSeen
 	}
 	exitedSnomaskSent := client.exitedSnomaskSent
 	client.stateMutex.Unlock()
 
-	if !lastSignoff.IsZero() {
+	// XXX there is no particular reason to persist this state here rather than
+	// any other place: it would be correct to persist it after every `Touch`. However,
+	// I'm not comfortable introducing that many database writes, and I don't want to
+	// design a throttle.
+	if saveLastSeen {
 		client.wakeWriter()
 	}
 
@@ -1571,10 +1576,9 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 
 // these are bit flags indicating what part of the client status is "dirty"
 // and needs to be read from memory and written to the db
-// TODO add a dirty flag for lastSignoff
 const (
 	IncludeChannels uint = 1 << iota
-	IncludeLastSignoff
+	IncludeLastSeen
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1629,10 +1633,10 @@ func (client *Client) performWrite() {
 		}
 		client.server.accounts.saveChannels(account, channelNames)
 	}
-	if (dirtyBits & IncludeLastSignoff) != 0 {
+	if (dirtyBits & IncludeLastSeen) != 0 {
 		client.stateMutex.RLock()
-		lastSignoff := client.lastSignoff
+		lastSeen := client.lastSeen
 		client.stateMutex.RUnlock()
-		client.server.accounts.saveLastSignoff(account, lastSignoff)
+		client.server.accounts.saveLastSeen(account, lastSeen)
 	}
 }
