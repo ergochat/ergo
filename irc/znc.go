@@ -12,6 +12,11 @@ import (
 	"github.com/oragono/oragono/irc/history"
 )
 
+const (
+	// #829, also see "Case 2" in the "three cases" below:
+	zncPlaybackCommandExpiration = time.Second * 30
+)
+
 type zncCommandHandler func(client *Client, command string, params []string, rb *ResponseBuffer)
 
 var zncHandlers = map[string]zncCommandHandler{
@@ -52,6 +57,23 @@ type zncPlaybackTimes struct {
 	after   time.Time
 	before  time.Time
 	targets StringSet // nil for "*" (everything), otherwise the channel names
+	setAt   time.Time
+}
+
+func (z *zncPlaybackTimes) ValidFor(target string) bool {
+	if z == nil {
+		return false
+	}
+
+	if time.Now().Sub(z.setAt) > zncPlaybackCommandExpiration {
+		return false
+	}
+
+	if z.targets == nil {
+		return true
+	}
+
+	return z.targets.Has(target)
 }
 
 // https://wiki.znc.in/Playback
@@ -74,6 +96,7 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	}
 
 	var targets StringSet
+	var nickTargets []string
 
 	// three cases:
 	// 1. the user's PMs get played back immediately upon receiving this
@@ -92,13 +115,18 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	//          channels; redundant JOIN is a complete no-op so we won't replay twice
 
 	if params[1] == "*" {
-		zncPlayPrivmsgs(client, rb, after, before)
+		zncPlayPrivmsgs(client, rb, "*", after, before)
 	} else {
 		targets = make(StringSet)
-		// TODO actually handle nickname targets
 		for _, targetName := range strings.Split(targetString, ",") {
-			if cfTarget, err := CasefoldChannel(targetName); err == nil {
-				targets.Add(cfTarget)
+			if strings.HasPrefix(targetName, "#") {
+				if cfTarget, err := CasefoldChannel(targetName); err == nil {
+					targets.Add(cfTarget)
+				}
+			} else {
+				if cfNick, err := CasefoldName(targetName); err == nil {
+					nickTargets = append(nickTargets, cfNick)
+				}
 			}
 		}
 	}
@@ -107,6 +135,7 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 		after:   after,
 		before:  before,
 		targets: targets,
+		setAt:   time.Now().UTC(),
 	}
 
 	for _, channel := range client.Channels() {
@@ -115,10 +144,15 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 			rb.Flush(true)
 		}
 	}
+
+	for _, cfNick := range nickTargets {
+		zncPlayPrivmsgs(client, rb, cfNick, after, before)
+		rb.Flush(true)
+	}
 }
 
-func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, after, before time.Time) {
-	_, sequence, _ := client.server.GetHistorySequence(nil, client, "*")
+func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, target string, after, before time.Time) {
+	_, sequence, _ := client.server.GetHistorySequence(nil, client, target)
 	if sequence == nil {
 		return
 	}

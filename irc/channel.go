@@ -773,7 +773,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 	var items []history.Item
 
 	var after, before time.Time
-	if rb.session.zncPlaybackTimes != nil && (rb.session.zncPlaybackTimes.targets == nil || rb.session.zncPlaybackTimes.targets.Has(channel.NameCasefolded())) {
+	if rb.session.zncPlaybackTimes.ValidFor(channel.NameCasefolded()) {
 		after, before = rb.session.zncPlaybackTimes.after, rb.session.zncPlaybackTimes.before
 	} else if !rb.session.autoreplayMissedSince.IsZero() {
 		// we already checked for history caps in `playReattachMessages`
