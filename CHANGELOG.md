@@ -67,6 +67,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Added `/CHANSERV SET`, allowing channel founders to disable channel history (#379)
 * Added account preference `AUTOREPLAY-JOINS`, allowing greater control over when joins and parts appear in history replay (#616, thanks [@zaher](https://github.com/zaher)!)
 * Added `/DEBUG CRASHSERVER` command (#791)
+* `znc.in/playback` now supports nicknames as targets (#830)
 * Added channel mode `+C` to suppress CTCP messages to a channel (#756)
 * Added some missing snomasks for events related to accounts and vhosts (`+s v` to enable vhost snomasks) (#347, #103)
 
@@ -89,6 +90,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Fixed confusing `NS GHOST` behavior when nickname reservation is disabled (#727, thanks horseface!)
 * Fixed validation of authzid during SASL (#716, thanks [@xPaw](https://github.com/xPaw)!)
 * Non-ASCII characters are proactively disallowed in `ip-cloaking.netname` (#713, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Limited the time during which `znc.in/playback` affects channel joins (#829)
 
 ### Removed
 * Removed `oragono.io/maxline-2` capability in favor of the new `draft/multiline` capability (#670, #752)
