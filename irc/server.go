@@ -862,22 +862,22 @@ func (server *Server) setupListeners(config *Config) (err error) {
 
 // Gets the abstract sequence from which we're going to query history;
 // we may already know the channel we're querying, or we may have
-// to look it up via a string target. This function is responsible for
+// to look it up via a string query. This function is responsible for
 // privilege checking.
-func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, target string) (channel *Channel, sequence history.Sequence, err error) {
+func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, query string) (channel *Channel, sequence history.Sequence, err error) {
 	config := server.Config()
 	// 4 cases: {persistent, ephemeral} x {normal, conversation}
-	// with ephemeral history, recipient is implicit in the choice of `hist`,
-	// and sender is "" if we're retrieving a channel or *, and the correspondent's name
+	// with ephemeral history, target is implicit in the choice of `hist`,
+	// and correspondent is "" if we're retrieving a channel or *, and the correspondent's name
 	// if we're retrieving a DM conversation ("query buffer"). with persistent history,
-	// recipient is always nonempty, and sender is either empty or nonempty as before.
+	// target is always nonempty, and correspondent is either empty or nonempty as before.
 	var status HistoryStatus
-	var sender, recipient string
+	var target, correspondent string
 	var hist *history.Buffer
 	channel = providedChannel
 	if channel == nil {
-		if strings.HasPrefix(target, "#") {
-			channel = server.channels.Get(target)
+		if strings.HasPrefix(query, "#") {
+			channel = server.channels.Get(query)
 			if channel == nil {
 				return
 			}
@@ -888,19 +888,19 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 			err = errInsufficientPrivs
 			return
 		}
-		status, recipient = channel.historyStatus(config)
+		status, target = channel.historyStatus(config)
 		switch status {
 		case HistoryEphemeral:
 			hist = &channel.history
 		case HistoryPersistent:
-			// already set `recipient`
+			// already set `target`
 		default:
 			return
 		}
 	} else {
-		status, recipient = client.historyStatus(config)
-		if target != "*" {
-			sender, err = CasefoldName(target)
+		status, target = client.historyStatus(config)
+		if query != "*" {
+			correspondent, err = CasefoldName(query)
 			if err != nil {
 				return
 			}
@@ -909,7 +909,7 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 		case HistoryEphemeral:
 			hist = &client.history
 		case HistoryPersistent:
-			// already set `recipient`, and `sender` if necessary
+			// already set `target`, and `correspondent` if necessary
 		default:
 			return
 		}
@@ -931,9 +931,9 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	}
 
 	if hist != nil {
-		sequence = hist.MakeSequence(sender, cutoff)
-	} else if recipient != "" {
-		sequence = server.historyDB.MakeSequence(sender, recipient, cutoff)
+		sequence = hist.MakeSequence(correspondent, cutoff)
+	} else if target != "" {
+		sequence = server.historyDB.MakeSequence(target, correspondent, cutoff)
 	}
 	return
 }
