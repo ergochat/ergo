@@ -744,6 +744,8 @@ history:
         # per-channel setting):
         registered-channels: "opt-out"
 
-        # direct messages are only stored in the database for persistent clients;
-        # you can control how they are stored here (same options as above)
+        # direct messages are only stored in the database for logged-in clients;
+        # you can control how they are stored here (same options as above).
+        # if you enable this, strict nickname reservation is strongly recommended
+        # as well.
         direct-messages: "opt-out"
