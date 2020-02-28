@@ -84,7 +84,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Fixed the channel user limit (the `+l` mode) not persisting after server restart (#705, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed response to `JOIN` lines with parameters ending in a comma (#679, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed confusable protection not being removed from unregistered accounts (#745, thanks [@bogdomania](https://github.com/bogdomania)!)
-* Fixed rehash not enabling nickname reservation, vhosts, or history under some circumstances (#702, thanks [@bogdomania)(https://github.com/bogdomania)!)
+* Fixed rehash not enabling nickname reservation, vhosts, or history under some circumstances (#702, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed responses to the `USERHOST` command (#682)
 * Fixed bad results when running `oragono upgradedb` against a missing database file (#715, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed confusing `NS GHOST` behavior when nickname reservation is disabled (#727, thanks horseface!)
