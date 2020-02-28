@@ -54,8 +54,8 @@ func zncWireTimeToTime(str string) (result time.Time) {
 }
 
 type zncPlaybackTimes struct {
-	after   time.Time
-	before  time.Time
+	start   time.Time
+	end     time.Time
 	targets StringSet // nil for "*" (everything), otherwise the channel names
 	setAt   time.Time
 }
@@ -80,19 +80,26 @@ func (z *zncPlaybackTimes) ValidFor(target string) bool {
 // PRIVMSG *playback :play <target> [lower_bound] [upper_bound]
 // e.g., PRIVMSG *playback :play * 1558374442
 func zncPlaybackHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
-	if len(params) < 2 {
+	if len(params) < 2 || len(params) > 4 {
 		return
 	} else if strings.ToLower(params[0]) != "play" {
 		return
 	}
 	targetString := params[1]
 
-	var after, before time.Time
-	if 2 < len(params) {
-		after = zncWireTimeToTime(params[2])
-	}
-	if 3 < len(params) {
-		before = zncWireTimeToTime(params[3])
+	now := time.Now().UTC()
+	var start, end time.Time
+	switch len(params) {
+	case 3:
+		// #831: this should have the same semantics as `LATEST timestamp=qux`,
+		// or equivalently `BETWEEN timestamp=$now timestamp=qux`, as opposed to
+		// `AFTER timestamp=qux` (this matters in the case where there are
+		// more than znc-maxmessages available)
+		start = now
+		end = zncWireTimeToTime(params[2])
+	case 4:
+		start = zncWireTimeToTime(params[2])
+		end = zncWireTimeToTime(params[3])
 	}
 
 	var targets StringSet
@@ -115,7 +122,7 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	//          channels; redundant JOIN is a complete no-op so we won't replay twice
 
 	if params[1] == "*" {
-		zncPlayPrivmsgs(client, rb, "*", after, before)
+		zncPlayPrivmsgs(client, rb, "*", start, end)
 	} else {
 		targets = make(StringSet)
 		for _, targetName := range strings.Split(targetString, ",") {
@@ -132,8 +139,8 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	}
 
 	rb.session.zncPlaybackTimes = &zncPlaybackTimes{
-		after:   after,
-		before:  before,
+		start:   start,
+		end:     end,
 		targets: targets,
 		setAt:   time.Now().UTC(),
 	}
@@ -146,7 +153,7 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 	}
 
 	for _, cfNick := range nickTargets {
-		zncPlayPrivmsgs(client, rb, cfNick, after, before)
+		zncPlayPrivmsgs(client, rb, cfNick, start, end)
 		rb.Flush(true)
 	}
 }
