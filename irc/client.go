@@ -1563,15 +1563,18 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 	}
 
 	client.stateMutex.RLock()
-	loggedIn := client.account != ""
+	target = client.account
 	historyStatus := client.accountSettings.DMHistory
-	target = client.nickCasefolded
 	client.stateMutex.RUnlock()
 
-	if !loggedIn {
+	if target == "" {
 		return HistoryEphemeral, ""
 	}
-	return historyEnabled(config.History.Persistent.DirectMessages, historyStatus), target
+	status = historyEnabled(config.History.Persistent.DirectMessages, historyStatus)
+	if status != HistoryPersistent {
+		target = ""
+	}
+	return
 }
 
 // these are bit flags indicating what part of the client status is "dirty"

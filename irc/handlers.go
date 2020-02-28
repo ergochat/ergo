@@ -2011,11 +2011,9 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			item.CfCorrespondent = details.nickCasefolded
 			user.history.Add(item)
 		}
-		cPersistent := cStatus == HistoryPersistent
-		tPersistent := tStatus == HistoryPersistent
-		if cPersistent || tPersistent {
-			item.CfCorrespondent = ""
-			server.historyDB.AddDirectMessage(details.nickCasefolded, user.NickCasefolded(), cPersistent, tPersistent, targetedItem)
+		if cStatus == HistoryPersistent || tStatus == HistoryPersistent {
+			targetedItem.CfCorrespondent = ""
+			server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
 		}
 	}
 }
