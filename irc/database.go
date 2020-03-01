@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "9"
+	latestDbSchema = "10"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -594,6 +595,32 @@ func schemaChangeV8ToV9(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #836: account registration time at nanosecond resolution
+// (mostly to simplify testing)
+func schemaChangeV9ToV10(config *Config, tx *buntdb.Tx) error {
+	prefix := "account.registered.time "
+	var accounts, times []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+		accounts = append(accounts, account)
+		times = append(times, value)
+		return true
+	})
+	for i, account := range accounts {
+		time, err := strconv.ParseInt(times[i], 10, 64)
+		if err != nil {
+			log.Printf("corrupt registration time entry for %s: %v\n", account, err)
+			continue
+		}
+		time = time * 1000000000
+		tx.Set(prefix+account, strconv.FormatInt(time, 10), nil)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -635,6 +662,11 @@ func init() {
 			InitialVersion: "8",
 			TargetVersion:  "9",
 			Changer:        schemaChangeV8ToV9,
+		},
+		{
+			InitialVersion: "9",
+			TargetVersion:  "10",
+			Changer:        schemaChangeV9ToV10,
 		},
 	}
 

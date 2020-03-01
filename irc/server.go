@@ -919,14 +919,16 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	if config.History.Restrictions.ExpireTime != 0 {
 		cutoff = time.Now().UTC().Add(-time.Duration(config.History.Restrictions.ExpireTime))
 	}
-	if config.History.Restrictions.EnforceRegistrationDate {
+	// #836: registration date cutoff is always enforced for DMs
+	if config.History.Restrictions.EnforceRegistrationDate || channel == nil {
 		regCutoff := client.historyCutoff()
 		// take the later of the two cutoffs
 		if regCutoff.After(cutoff) {
 			cutoff = regCutoff
 		}
 	}
-	if !cutoff.IsZero() {
+	// #836 again: grace period is never applied to DMs
+	if !cutoff.IsZero() && channel != nil {
 		cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
 	}
 
