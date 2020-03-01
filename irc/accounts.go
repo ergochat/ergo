@@ -378,7 +378,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return err
 	}
 
-	registeredTimeStr := strconv.FormatInt(time.Now().Unix(), 10)
+	registeredTimeStr := strconv.FormatInt(time.Now().UnixNano(), 10)
 	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
@@ -998,7 +998,7 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName str
 	result.Name = raw.Name
 	result.NameCasefolded = cfName
 	regTimeInt, _ := strconv.ParseInt(raw.RegisteredAt, 10, 64)
-	result.RegisteredAt = time.Unix(regTimeInt, 0).UTC()
+	result.RegisteredAt = time.Unix(0, regTimeInt).UTC()
 	e := json.Unmarshal([]byte(raw.Credentials), &result.Credentials)
 	if e != nil {
 		am.server.logger.Error("internal", "could not unmarshal credentials", e.Error())
