@@ -95,6 +95,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 ### Removed
 * Removed `oragono.io/maxline-2` capability in favor of the new `draft/multiline` capability (#670, #752)
 * Removed `oragono.io/bnc` capability (multiclient functionality is now controllable only via server config and `/NS SET MULTICLIENT`) (#787)
+* Removed `draft/acc` capability and related `ACC` command (#723)
 
 ### Internal Notes
 * Updated to Go 1.14 and modules, simplifying the build process (#699)
