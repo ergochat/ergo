@@ -73,6 +73,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 
 ### Changed
 * Updated CHATHISTORY support to the [latest draft](https://github.com/ircv3/ircv3-specifications/pull/393) (#621, thanks [@prawnsalad](https://github.com/prawnsalad)!)
+* Updated to the ratified [labeled-response](https://ircv3.net/specs/extensions/labeled-response.html) specification from the earlier `draft/labeled-response-0.2` (#757)
 * `/HISTORY` now defaults to returning 100 messages, and also takes time durations like `1h` as arguments (#621, thanks lover!)
 * D-Lines are no longer enforced against loopback IPs (#671)
 * Password length limit was reduced from 600 bytes to 300 bytes (#775)
