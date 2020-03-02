@@ -367,7 +367,7 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		}
 	case "always-on":
 		stored := settings.AlwaysOn
-		actual := client.AlwaysOn()
+		actual := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, stored)
 		nsNotice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), persistentStatusToString(stored)))
 		if actual {
 			nsNotice(rb, client.t("Given current server settings, your client is always-on"))
@@ -377,7 +377,8 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 	case "autoreplay-missed":
 		stored := settings.AutoreplayMissed
 		if stored {
-			if client.AlwaysOn() {
+			alwaysOn := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
+			if alwaysOn {
 				nsNotice(rb, client.t("Autoreplay of missed messages is enabled"))
 			} else {
 				nsNotice(rb, client.t("You have enabled autoreplay of missed messages, but you can't receive them because your client isn't set to always-on"))
