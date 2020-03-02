@@ -263,6 +263,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
+	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
 	client.brbTimer.Initialize(client)
 	session := &Session{
