@@ -996,15 +996,7 @@ var (
 	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
     Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
 `, "\n")
-	infoString3 = strings.Split(`    3onyc
-    Edmund Huber
-    Euan Kemp (euank)
-    Jeremy Latt
-    Martin Lindhe (martinlindhe)
-    Roberto Besser (besser)
-    Robin Burchell (rburchell)
-    Sean Enck (enckse)
-    soul9
-    Vegax
+	infoString3 = strings.Split(`    Jeremy Latt,            jlatt
+    Edmund Huber,           edmund-huber
 `, "\n")
 )

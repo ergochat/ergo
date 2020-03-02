@@ -1001,16 +1001,17 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
 	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Thanks to Jeremy Latt for founding Ergonomadic, the project this is based on")+" <3")
-	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
 	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
 	for _, line := range infoString2 {
 		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Contributors and Former Developers:"))
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Former Core Developers:"))
 	for _, line := range infoString3 {
 		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
 	}
+	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("For a more complete list of contributors, see our changelog:"))
+	rb.Add(nil, server.name, RPL_INFO, client.nick, "    https://github.com/oragono/oragono/blob/master/CHANGELOG.md")
+	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
 	// show translators for languages other than good ole' regular English
 	tlines := server.Languages().Translators()
 	if 0 < len(tlines) {
