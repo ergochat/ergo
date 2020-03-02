@@ -293,11 +293,9 @@ Unfortunately, client support for history playback is still patchy. In descendin
 
 1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC's unreleased master branch](https://kiwiirc.com/), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
-1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`.
+1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`. Unfortunately, this feature will only work reliably if you are *not* using the multiclient functionality described in the above section --- you must be connecting with at most one client at a time.
 1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
 1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
-
-Oragono can store a limited amount of message history in memory and replay it, which is useful for covering brief disconnections from IRC. You can access this using the `/HISTORY` command (depending on your client, you may need to use `/QUOTE history` instead), for example `/HISTORY #mychannel 100` to get the 100 latest messages from `#mychannel`.
 
 
 ## IP cloaking
