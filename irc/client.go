@@ -308,16 +308,16 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	client.run(session, proxyLine)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastActive time.Time) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time) {
 	now := time.Now().UTC()
 	config := server.Config()
-	if lastActive.IsZero() {
-		lastActive = now
+	if lastSeen.IsZero() {
+		lastSeen = now
 	}
 
 	client := &Client{
-		lastSeen:   now,
-		lastActive: lastActive,
+		lastSeen:   lastSeen,
+		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
 		languages:  server.Languages().Default(),
