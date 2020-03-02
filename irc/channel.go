@@ -359,7 +359,7 @@ func (channel *Channel) Transfer(client *Client, target string, hasPrivs bool) (
 	status = channelTransferFailed
 	defer func() {
 		if status == channelTransferComplete && err == nil {
-			channel.Store(IncludeAllChannelAttrs)
+			channel.Store(IncludeAllAttrs)
 		}
 	}()
 
@@ -400,7 +400,7 @@ func (channel *Channel) transferOwnership(newOwner string) {
 func (channel *Channel) AcceptTransfer(client *Client) (err error) {
 	defer func() {
 		if err == nil {
-			channel.Store(IncludeAllChannelAttrs)
+			channel.Store(IncludeAllAttrs)
 		}
 	}()
 
@@ -720,7 +720,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.AddHistoryItem(histItem)
 	}
 
-	client.addChannel(channel)
+	client.addChannel(channel, rb == nil)
 
 	if rb == nil {
 		return

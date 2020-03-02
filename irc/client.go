@@ -263,6 +263,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
 	}
+	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
 	client.brbTimer.Initialize(client)
 	session := &Session{
@@ -307,16 +308,16 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	client.run(session, proxyLine)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastActive time.Time) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time) {
 	now := time.Now().UTC()
 	config := server.Config()
-	if lastActive.IsZero() {
-		lastActive = now
+	if lastSeen.IsZero() {
+		lastSeen = now
 	}
 
 	client := &Client{
-		lastSeen:   now,
-		lastActive: lastActive,
+		lastSeen:   lastSeen,
+		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
 		languages:  server.Languages().Default(),
@@ -1496,13 +1497,15 @@ func (session *Session) Notice(text string) {
 	session.Send(nil, session.client.server.name, "NOTICE", session.client.Nick(), text)
 }
 
-func (client *Client) addChannel(channel *Channel) {
+// `simulated` is for the fake join of an always-on client
+// (we just read the channel name from the database, there's no need to write it back)
+func (client *Client) addChannel(channel *Channel, simulated bool) {
 	client.stateMutex.Lock()
 	client.channels[channel] = true
 	alwaysOn := client.alwaysOn
 	client.stateMutex.Unlock()
 
-	if alwaysOn {
+	if alwaysOn && !simulated {
 		client.markDirty(IncludeChannels)
 	}
 }
@@ -1621,6 +1624,7 @@ func (client *Client) performWrite() {
 	dirtyBits := client.dirtyBits
 	client.dirtyBits = 0
 	account := client.account
+	lastSeen := client.lastSeen
 	client.stateMutex.Unlock()
 
 	if account == "" {
@@ -1637,9 +1641,6 @@ func (client *Client) performWrite() {
 		client.server.accounts.saveChannels(account, channelNames)
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
-		client.stateMutex.RLock()
-		lastSeen := client.lastSeen
-		client.stateMutex.RUnlock()
 		client.server.accounts.saveLastSeen(account, lastSeen)
 	}
 }

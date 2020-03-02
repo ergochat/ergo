@@ -198,7 +198,7 @@ func (cm *ChannelManager) SetRegistered(channelName string, account string) (err
 	defer func() {
 		if err == nil && channel != nil {
 			// registration was successful: make the database reflect it
-			err = channel.Store(IncludeAllChannelAttrs)
+			err = channel.Store(IncludeAllAttrs)
 		}
 	}()
 
@@ -272,7 +272,7 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	var info RegisteredChannel
 	defer func() {
 		if channel != nil && info.Founder != "" {
-			channel.Store(IncludeAllChannelAttrs)
+			channel.Store(IncludeAllAttrs)
 			// we just flushed the channel under its new name, therefore this delete
 			// cannot be overwritten by a write to the old name:
 			cm.server.channelRegistry.Delete(info)
