@@ -720,7 +720,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.AddHistoryItem(histItem)
 	}
 
-	client.addChannel(channel)
+	client.addChannel(channel, rb == nil)
 
 	if rb == nil {
 		return

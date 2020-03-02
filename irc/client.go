@@ -1496,13 +1496,15 @@ func (session *Session) Notice(text string) {
 	session.Send(nil, session.client.server.name, "NOTICE", session.client.Nick(), text)
 }
 
-func (client *Client) addChannel(channel *Channel) {
+// `simulated` is for the fake join of an always-on client
+// (we just read the channel name from the database, there's no need to write it back)
+func (client *Client) addChannel(channel *Channel, simulated bool) {
 	client.stateMutex.Lock()
 	client.channels[channel] = true
 	alwaysOn := client.alwaysOn
 	client.stateMutex.Unlock()
 
-	if alwaysOn {
+	if alwaysOn && !simulated {
 		client.markDirty(IncludeChannels)
 	}
 }
