@@ -321,13 +321,19 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 }
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
+	// we mark dirty if the client is transitioning to always-on
+	markDirty := false
 	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
 	client.accountSettings = settings
 	if client.registered {
+		markDirty = !client.alwaysOn && alwaysOn
 		client.alwaysOn = alwaysOn
 	}
 	client.stateMutex.Unlock()
+	if markDirty {
+		client.markDirty(IncludeAllAttrs)
+	}
 }
 
 func (client *Client) Languages() (languages []string) {
