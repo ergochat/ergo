@@ -55,7 +55,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Added support for LDAP (#690, thanks [@mattouille](https://github.com/mattouille), [@ivucica](https://github.com/ivucica), and [@mabgnu](https://github.com/mabgnu)!)
 * Added support for the new [draft/multiline](https://github.com/ircv3/ircv3-specifications/pull/398) specification (#670, thanks [@jwheare](https://github.com/jwheare) and [@jesopo](https://github.com/jesopo)!)
 * Added new modes for Unicode characters in nicknames and channel names: ASCII-only and "permissive" (allowing emoji) (#693)
-* Added support for plaintext PROXY lines ahead of a TLS handshake, improving compatibility with some Kubernetes load balancers (#561, thanks @RyanSquared](https://github.com/RyanSquared) and [@daurnimator](https://github.com/daurnimator)!)
+* Added support for plaintext PROXY lines ahead of a TLS handshake, improving compatibility with some Kubernetes load balancers (#561, thanks [@RyanSquared](https://github.com/RyanSquared) and [@daurnimator](https://github.com/daurnimator)!)
 * Added support for authenticating operators by TLS client certificates, and automatically applying operator privileges on login (#696, thanks [@RyanSquared](https://github.com/RyanSquared)!)
 * Added `/DEOPER` command to remove operator privileges (#549, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Added `/CHANSERV TRANSFER`, allowing transfers of channel ownership (#684)
