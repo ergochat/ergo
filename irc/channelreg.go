@@ -70,7 +70,7 @@ const (
 
 // this is an OR of all possible flags
 const (
-	IncludeAllChannelAttrs = ^uint(0)
+	IncludeAllAttrs = ^uint(0)
 )
 
 // RegisteredChannel holds details about a given registered channel.
