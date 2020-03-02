@@ -1624,6 +1624,7 @@ func (client *Client) performWrite() {
 	dirtyBits := client.dirtyBits
 	client.dirtyBits = 0
 	account := client.account
+	lastSeen := client.lastSeen
 	client.stateMutex.Unlock()
 
 	if account == "" {
@@ -1640,9 +1641,6 @@ func (client *Client) performWrite() {
 		client.server.accounts.saveChannels(account, channelNames)
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
-		client.stateMutex.RLock()
-		lastSeen := client.lastSeen
-		client.stateMutex.RUnlock()
 		client.server.accounts.saveLastSeen(account, lastSeen)
 	}
 }
