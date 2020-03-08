@@ -10,8 +10,8 @@ ADD . /go/src/github.com/oragono/oragono/
 
 # modify default config file so that it doesn't die on IPv6
 # and so it can be exposed via 6667 by default
-run sed -i 's/^\(.*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/oragono.yaml
-run sed -i 's/^.*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/oragono.yaml
+run sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/oragono.yaml
+run sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/oragono.yaml
 
 # make sure submodules are up-to-date
 RUN git submodule update --init
