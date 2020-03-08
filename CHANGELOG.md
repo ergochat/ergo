@@ -1,14 +1,15 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.0.0-rc1] - 2020-03-01
-We're pleased to be publishing the release candidate for Oragono 2.0.0 (the official release should follow in a week or two). Version 2.0.0 is a major update with a wide range of enhancements and fixes. Major highlights include:
+## [2.0.0] - 2020-03-08
+We're pleased to announce Oragono 2.0.0, a major update with a wide range of enhancements and fixes. Highlights include:
 
 * Support for storing chat history in a MySQL backend
 * Full "bouncer" functionality, including "always-on" clients that remain present on the server even when disconnected
 * LDAP support contributed by [@mattouille](https://github.com/mattouille)
 * Support for the ratified [labeled-response](https://ircv3.net/specs/extensions/labeled-response.html) IRCv3 capability
 * Enhanced support for Kubernetes
+* Many new service commands, improving management of client certificates, vhosts, and channel ownership
 
 Many thanks to [@csmith](https://github.com/csmith), [@mattouille](https://github.com/mattouille), and [@xPaw](https://github.com/xPaw) for contributing patches, to [@csmith](https://github.com/csmith) and [@wrmsr](https://github.com/wrmsr) for contributing code reviews, to [@bogdomania](https://github.com/bogdomania), [@brenns10](https://github.com/brenns10), [@daurnimator](https://github.com/daurnimator), [@ekianjo](https://github.com/ekianjo), horseface, [@ivucica](https://github.com/ivucica), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), KoDi, lover, [@mabgnu](https://github.com/mabgnu), [@poVoq](https://github.com/poVoq), [@TETYYS](https://github.com/TETYYS), and [@zaher](https://github.com/zaher) for reporting issues, and to [@bogdomania](https://github.com/bogdomania) and Nuve for contributing translations.
 
@@ -55,7 +56,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Added support for LDAP (#690, thanks [@mattouille](https://github.com/mattouille), [@ivucica](https://github.com/ivucica), and [@mabgnu](https://github.com/mabgnu)!)
 * Added support for the new [draft/multiline](https://github.com/ircv3/ircv3-specifications/pull/398) specification (#670, thanks [@jwheare](https://github.com/jwheare) and [@jesopo](https://github.com/jesopo)!)
 * Added new modes for Unicode characters in nicknames and channel names: ASCII-only and "permissive" (allowing emoji) (#693)
-* Added support for plaintext PROXY lines ahead of a TLS handshake, improving compatibility with some Kubernetes load balancers (#561, thanks @RyanSquared](https://github.com/RyanSquared) and [@daurnimator](https://github.com/daurnimator)!)
+* Added support for plaintext PROXY lines ahead of a TLS handshake, improving compatibility with some Kubernetes load balancers (#561, thanks [@RyanSquared](https://github.com/RyanSquared) and [@daurnimator](https://github.com/daurnimator)!)
 * Added support for authenticating operators by TLS client certificates, and automatically applying operator privileges on login (#696, thanks [@RyanSquared](https://github.com/RyanSquared)!)
 * Added `/DEOPER` command to remove operator privileges (#549, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Added `/CHANSERV TRANSFER`, allowing transfers of channel ownership (#684)

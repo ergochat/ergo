@@ -607,7 +607,7 @@ datastore:
         # port is unnecessary for connections via unix domain socket:
         #port: 3306
         user: "oragono"
-        password: "KOHw8WSaRwaoo-avo0qVpQ"
+        password: "hunter2"
         history-database: "oragono_history"
         timeout: 3s
 
