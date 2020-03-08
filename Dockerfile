@@ -1,12 +1,17 @@
 ## build Oragono
 FROM golang:1.14-alpine AS build-env
 
-RUN apk add --no-cache git make curl
+RUN apk add --no-cache git make curl sed
 
 # copy oragono
 RUN mkdir -p /go/src/github.com/oragono/oragono
 WORKDIR /go/src/github.com/oragono/oragono
 ADD . /go/src/github.com/oragono/oragono/
+
+# modify default config file so that it doesn't die on IPv6
+# and so it can be exposed via 6667 by default
+run sed -i 's/^\(.*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/oragono.yaml
+run sed -i 's/^.*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/oragono.yaml
 
 # make sure submodules are up-to-date
 RUN git submodule update --init
@@ -36,13 +41,6 @@ RUN mkdir -p /ircd-bin
 COPY --from=build-env /go/bin/oragono /ircd-bin
 COPY --from=build-env /go/src/github.com/oragono/oragono/languages /ircd-bin/languages/
 COPY --from=build-env /go/src/github.com/oragono/oragono/oragono.yaml /ircd-bin/oragono.yaml
-
-# modify default config file so that it doesn't die on IPv6
-#  and so it can be exposed via 6667 by default
-RUN apk add --no-cache python3
-RUN apk add --no-cache jq
-RUN pip3 install yq
-RUN yq -iy 'del(.server.listeners."[::1]:6667") | del(.server.listeners."127.0.0.1:6667") | .server.listeners += {":6667": {}}' /ircd-bin/oragono.yaml
 
 COPY distrib/docker/run.sh /ircd-bin/run.sh
 RUN chmod +x /ircd-bin/run.sh
