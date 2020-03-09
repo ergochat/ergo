@@ -5,7 +5,7 @@ go 1.14
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20190819182555-854d396b647c
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/go-ldap/ldap/v3 v3.1.6
+	github.com/go-ldap/ldap/v3 v3.1.7
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940 // indirect
 	github.com/goshuirc/irc-go v0.0.0-20190713001546-05ecc95249a0
