@@ -1,4 +1,4 @@
-# code.cloudfoundry.org/bytefmt v0.0.0-20190819182555-854d396b647c
+# code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
@@ -6,7 +6,7 @@ code.cloudfoundry.org/bytefmt
 github.com/docopt/docopt-go
 # github.com/go-asn1-ber/asn1-ber v1.3.1
 github.com/go-asn1-ber/asn1-ber
-# github.com/go-ldap/ldap/v3 v3.1.6
+# github.com/go-ldap/ldap/v3 v3.1.7
 ## explicit
 github.com/go-ldap/ldap/v3
 # github.com/go-sql-driver/mysql v1.5.0
@@ -59,7 +59,7 @@ github.com/tidwall/rtree
 github.com/tidwall/rtree/base
 # github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563
 github.com/tidwall/tinyqueue
-# golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708
+# golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -84,6 +84,6 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# gopkg.in/yaml.v2 v2.2.5
+# gopkg.in/yaml.v2 v2.2.8
 ## explicit
 gopkg.in/yaml.v2
