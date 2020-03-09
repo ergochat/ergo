@@ -3,7 +3,7 @@ module github.com/oragono/oragono
 go 1.14
 
 require (
-	code.cloudfoundry.org/bytefmt v0.0.0-20190819182555-854d396b647c
+	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/go-ldap/ldap/v3 v3.1.7
 	github.com/go-sql-driver/mysql v1.5.0
