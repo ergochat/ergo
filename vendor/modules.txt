@@ -59,7 +59,7 @@ github.com/tidwall/rtree
 github.com/tidwall/rtree/base
 # github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563
 github.com/tidwall/tinyqueue
-# golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708
+# golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
