@@ -1410,6 +1410,7 @@ var (
 		"PRIVMSG": true,
 		"NOTICE":  true,
 
+		RPL_NAMREPLY:      true, // weird conflicting legacy format reasons: https://forums.mirc.com/ubbthreads.php/topics/266939/re-nick-list
 		RPL_WHOISCHANNELS: true,
 		RPL_USERHOST:      true,
 	}
