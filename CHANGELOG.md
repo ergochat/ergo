@@ -48,7 +48,6 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Fixed cases where Tor users could receive CTCP messages, contrary to expectations (#752, #753)
 * Fixed `NS INFO` displaying the local timezone (#710)
 * Fixed `accounts.authentication-enabled` failing to disable the `NS IDENTIFY` command (#721)
-* Fixed confusable protection not being applied to newly registered accounts (#745, thanks [@bogdomania](https://github.com/bogdomania)!)
 
 ### Added
 * Added support for persistent history storage in MySQL (#348)
