@@ -1412,6 +1412,10 @@ var (
 
 		RPL_WHOISCHANNELS: true,
 		RPL_USERHOST:      true,
+
+		// mirc's handling of RPL_NAMREPLY is broken:
+		// https://forums.mirc.com/ubbthreads.php/topics/266939/re-nick-list
+		RPL_NAMREPLY: true,
 	}
 )
 
