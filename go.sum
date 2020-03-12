@@ -2,6 +2,7 @@ code.cloudfoundry.org/bytefmt v0.0.0-20190819182555-854d396b647c h1:2RuXx1+tSNWR
 code.cloudfoundry.org/bytefmt v0.0.0-20190819182555-854d396b647c/go.mod h1:wN/zk7mhREp/oviagqUXY3EwuHhWyOvAdsn5Y4CzOrc=
 code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48 h1:/EMHruHCFXR9xClkGV/t0rmHrdhX4+trQUcBqjwc9xE=
 code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48/go.mod h1:wN/zk7mhREp/oviagqUXY3EwuHhWyOvAdsn5Y4CzOrc=
+github.com/DanielOaks/go-idn v0.0.0-20160120021903-76db0e10dc65/go.mod h1:GYIaL2hleNQvfMUBTes1Zd/lDTyI/p2hv3kYB4jssyU=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815 h1:bWDMxwH3px2JBh6AyO7hdCn/PkvCZXii8TGj7sbtEbQ=
@@ -22,6 +23,8 @@ github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940 h1:KmRLPRstEJiE/9Oj
 github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940/go.mod h1:VOmrX6cmj7zwUeexC9HzznUdTIObHqIXUrWNYS+Ik7w=
 github.com/goshuirc/irc-go v0.0.0-20190713001546-05ecc95249a0 h1:unxsR0de0MIS708eZI7lKa6HiP8FS0PhGCWwwEt9+vQ=
 github.com/goshuirc/irc-go v0.0.0-20190713001546-05ecc95249a0/go.mod h1:rhIkxdehxNqK9iwJXWzQnxlGuuUR4cHu7PN64VryKXk=
+github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac h1:0JSojWrghcpK9/wx1RpV9Bv2d+3TbBWtHWubKjU2tao=
+github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac/go.mod h1:BRnLblzpqH2T5ANCODHBZLytz0NZN2KaMJ+di8oh3EM=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/mattn/go-colorable v0.1.4 h1:snbPLB8fVfU9iwbbo30TPtbLRzwWu6aJS6Xh4eaaviA=

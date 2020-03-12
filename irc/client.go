@@ -1412,21 +1412,19 @@ var (
 
 		RPL_WHOISCHANNELS: true,
 		RPL_USERHOST:      true,
+
+		// mirc's handling of RPL_NAMREPLY is broken:
+		// https://forums.mirc.com/ubbthreads.php/topics/266939/re-nick-list
+		RPL_NAMREPLY: true,
 	}
 )
 
 // SendRawMessage sends a raw message to the client.
 func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
-	var usedTrailingHack bool
 	config := session.client.server.Config()
-	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] && len(message.Params) > 0 {
-		lastParam := message.Params[len(message.Params)-1]
-		// to force trailing, we ensure the final param contains a space
-		if strings.IndexByte(lastParam, ' ') == -1 {
-			message.Params[len(message.Params)-1] = lastParam + " "
-			usedTrailingHack = true
-		}
+	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] {
+		message.ForceTrailing()
 	}
 
 	// assemble message
@@ -1444,12 +1442,6 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 			session.socket.Write(line)
 		}
 		return err
-	}
-
-	// if we used the trailing hack, we need to strip the final space we appended earlier on
-	if usedTrailingHack {
-		copy(line[len(line)-3:], "\r\n")
-		line = line[:len(line)-1]
 	}
 
 	if session.client.server.logger.IsLoggingRawIO() {
