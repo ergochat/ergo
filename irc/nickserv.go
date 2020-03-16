@@ -610,6 +610,23 @@ func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
 	return true
 }
 
+// if enforce-account-name is set, account name and nickname must be equal,
+// so we need to re-NICK automatically on every login event (IDENTIFY,
+// VERIFY, and a REGISTER that auto-verifies). if we can't get the nick
+// then we log them out (they will be able to reattach with SASL)
+func nsFixNickname(client *Client, rb *ResponseBuffer, config *Config) (success bool) {
+	if !config.Accounts.NickReservation.EnforceAccountName {
+		return true
+	}
+	// don't need to supply a nickname, SetNick will use the account name
+	if !performNickChange(client.server, client, client, rb.session, "", rb) {
+		client.server.accounts.Logout(client)
+		nsNotice(rb, client.t("A client is already using that account; try logging out and logging back in with SASL"))
+		return false
+	}
+	return true
+}
+
 func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if client.LoggedIntoAccount() {
 		nsNotice(rb, client.t("You're already logged into an account"))
@@ -650,10 +667,15 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	}
 
 	if loginSuccessful {
+		if !nsFixNickname(client, rb, server.Config()) {
+			loginSuccessful = false
+			err = errNickAccountMismatch
+		}
+	}
+
+	if loginSuccessful {
 		sendSuccessfulAccountAuth(client, rb, true, true)
-	} else if err == errNickAccountMismatch {
-		nsNotice(rb, client.t("That account is set to always-on; try logging out and logging back in with SASL"))
-	} else {
+	} else if err != errNickAccountMismatch {
 		nsNotice(rb, client.t("Could not login with your TLS certificate or supplied username/password"))
 	}
 }
@@ -667,7 +689,7 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 	var accountName string
 	if len(params) > 0 {
 		nick := params[0]
-		if server.AccountConfig().NickReservation.Enabled {
+		if server.Config().Accounts.NickReservation.Enabled {
 			accountName = server.accounts.NickToAccount(nick)
 			if accountName == "" {
 				nsNotice(rb, client.t("That nickname is not registered"))
@@ -704,7 +726,6 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 
 func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	details := client.Details()
-	account := details.nick
 	passphrase := params[0]
 	var email string
 	if 1 < len(params) {
@@ -730,10 +751,20 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		return
 	}
 
-	config := server.AccountConfig()
+	config := server.Config()
+	account := details.nick
+	if config.Accounts.NickReservation.EnforceGuestFormat {
+		matches := config.Accounts.NickReservation.guestRegexp.FindStringSubmatch(account)
+		if matches == nil || len(matches) < 2 {
+			nsNotice(rb, client.t("Erroneous nickname"))
+			return
+		}
+		account = matches[1]
+	}
+
 	var callbackNamespace, callbackValue string
 	noneCallbackAllowed := false
-	for _, callback := range config.Registration.EnabledCallbacks {
+	for _, callback := range config.Accounts.Registration.EnabledCallbacks {
 		if callback == "*" {
 			noneCallbackAllowed = true
 		}
@@ -744,7 +775,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	if noneCallbackAllowed {
 		callbackNamespace = "*"
 	} else {
-		callbackNamespace, callbackValue = parseCallback(email, config)
+		callbackNamespace, callbackValue = parseCallback(email, config.Accounts)
 		if callbackNamespace == "" || callbackValue == "" {
 			nsNotice(rb, client.t("Registration requires a valid e-mail address"))
 			return
@@ -755,7 +786,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	if err == nil {
 		if callbackNamespace == "*" {
 			err = server.accounts.Verify(client, account, "")
-			if err == nil {
+			if err == nil && nsFixNickname(client, rb, config) {
 				sendSuccessfulRegResponse(client, rb, true)
 			}
 		} else {
@@ -861,7 +892,9 @@ func nsVerifyHandler(server *Server, client *Client, command string, params []st
 		return
 	}
 
-	sendSuccessfulRegResponse(client, rb, true)
+	if nsFixNickname(client, rb, server.Config()) {
+		sendSuccessfulRegResponse(client, rb, true)
+	}
 }
 
 func nsPasswdHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

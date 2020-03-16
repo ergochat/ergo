@@ -32,7 +32,7 @@ import (
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
-func parseCallback(spec string, config *AccountConfig) (callbackNamespace string, callbackValue string) {
+func parseCallback(spec string, config AccountConfig) (callbackNamespace string, callbackValue string) {
 	callback := strings.ToLower(spec)
 	if callback == "*" {
 		callbackNamespace = "*"
@@ -127,7 +127,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	}
 
 	// sasl abort
-	if !server.AccountConfig().AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
+	if !config.Accounts.AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
 		rb.Add(nil, server.name, ERR_SASLABORTED, details.nick, client.t("SASL authentication aborted"))
 		session.sasl.Clear()
 		return false

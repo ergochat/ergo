@@ -76,7 +76,11 @@ func iterateFolding(profile *precis.Profile, oldStr string) (str string, err err
 
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	switch globalCasemappingSetting {
+	return casefoldWithSetting(str, globalCasemappingSetting)
+}
+
+func casefoldWithSetting(str string, setting Casemapping) (string, error) {
+	switch setting {
 	default:
 		return iterateFolding(precis.UsernameCaseMapped, str)
 	case CasemappingASCII:

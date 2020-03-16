@@ -116,23 +116,9 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 // SetNick sets a client's nickname, validating it against nicknames in use
 func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error) {
 	config := client.server.Config()
-	newcfnick, err := CasefoldName(newNick)
-	if err != nil {
-		return "", errNicknameInvalid
-	}
-	if len(newNick) > config.Limits.NickLen || len(newcfnick) > config.Limits.NickLen {
-		return "", errNicknameInvalid
-	}
-	newSkeleton, err := Skeleton(newNick)
-	if err != nil {
-		return "", errNicknameInvalid
-	}
 
-	if restrictedCasefoldedNicks[newcfnick] || restrictedSkeletons[newSkeleton] {
-		return "", errNicknameInvalid
-	}
+	var newcfnick, newSkeleton string
 
-	reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
 	client.stateMutex.RLock()
 	account := client.account
 	accountName := client.accountName
@@ -141,19 +127,58 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	realname := client.realname
 	client.stateMutex.RUnlock()
 
-	// recompute this (client.alwaysOn is not set for unregistered clients):
-	alwaysOn := account != "" && persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
+	// recompute always-on status, because client.alwaysOn is not set for unregistered clients
+	var alwaysOn, useAccountName bool
+	if account != "" {
+		alwaysOn = persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
+		useAccountName = alwaysOn || config.Accounts.NickReservation.EnforceAccountName
+	}
 
-	if alwaysOn && registered {
-		return "", errCantChangeNick
+	if useAccountName {
+		if registered && newNick != accountName && newNick != "" {
+			return "", errNickAccountMismatch
+		}
+		newNick = accountName
+		newcfnick = account
+		newSkeleton, err = Skeleton(newNick)
+		if err != nil {
+			return "", errNicknameInvalid
+		}
+	} else {
+		newNick = strings.TrimSpace(newNick)
+		if len(newNick) == 0 {
+			return "", errNickMissing
+		}
+
+		if account == "" && config.Accounts.NickReservation.EnforceGuestFormat {
+			newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
+		}
+
+		newcfnick, err = CasefoldName(newNick)
+		if err != nil {
+			return "", errNicknameInvalid
+		}
+		if len(newNick) > config.Limits.NickLen || len(newcfnick) > config.Limits.NickLen {
+			return "", errNicknameInvalid
+		}
+		newSkeleton, err = Skeleton(newNick)
+		if err != nil {
+			return "", errNicknameInvalid
+		}
+
+		if restrictedCasefoldedNicks[newcfnick] || restrictedSkeletons[newSkeleton] {
+			return "", errNicknameInvalid
+		}
+
+		reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
+		if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
+			return "", errNicknameReserved
+		}
 	}
 
 	var bouncerAllowed bool
 	if config.Accounts.Multiclient.Enabled {
-		if alwaysOn {
-			// ignore the pre-reg nick, force a reattach
-			newNick = accountName
-			newcfnick = account
+		if useAccountName {
 			bouncerAllowed = true
 		} else {
 			if config.Accounts.Multiclient.AllowedByDefault && settings.AllowBouncer != MulticlientDisallowedByUser {
@@ -198,9 +223,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	if skeletonHolder != nil && skeletonHolder != client {
 		return "", errNicknameInUse
 	}
-	if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
-		return "", errNicknameReserved
-	}
+
 	clients.removeInternal(client)
 	clients.byNick[newcfnick] = client
 	clients.bySkeleton[newSkeleton] = client

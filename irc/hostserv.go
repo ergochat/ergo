@@ -178,7 +178,7 @@ func hsNotice(rb *ResponseBuffer, text string) {
 
 // hsNotifyChannel notifies the designated channel of new vhost activity
 func hsNotifyChannel(server *Server, message string) {
-	chname := server.AccountConfig().VHosts.UserRequests.Channel
+	chname := server.Config().Accounts.VHosts.UserRequests.Channel
 	channel := server.channels.Get(chname)
 	if channel == nil {
 		return
@@ -280,11 +280,11 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 }
 
 func validateVhost(server *Server, vhost string, oper bool) error {
-	ac := server.AccountConfig()
-	if len(vhost) > ac.VHosts.MaxLength {
+	config := server.Config()
+	if len(vhost) > config.Accounts.VHosts.MaxLength {
 		return errVHostTooLong
 	}
-	if !ac.VHosts.ValidRegexp.MatchString(vhost) {
+	if !config.Accounts.VHosts.ValidRegexp.MatchString(vhost) {
 		return errVHostBadCharacters
 	}
 	return nil
