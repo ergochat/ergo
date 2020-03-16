@@ -353,7 +353,9 @@ accounts:
         guest-nickname-format: "Guest-*"
 
         # when enabled, forces users not logged into an account to use
-        # a nickname matching the guest template:
+        # a nickname matching the guest template. a caveat: this may prevent
+        # users from choosing nicknames in scripts different from the guest
+        # nickname format.
         enforce-guest-format: false
 
         # when enabled, forces users logged into an account to use the
