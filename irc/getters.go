@@ -25,10 +25,6 @@ func (server *Server) ChannelRegistrationEnabled() bool {
 	return server.Config().Channels.Registration.Enabled
 }
 
-func (server *Server) AccountConfig() *AccountConfig {
-	return &server.Config().Accounts
-}
-
 func (server *Server) GetOperator(name string) (oper *Oper) {
 	name, err := CasefoldName(name)
 	if err != nil {

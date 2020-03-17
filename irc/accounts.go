@@ -337,24 +337,28 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errAccountAlreadyRegistered
 	}
 
-	config := am.server.AccountConfig()
+	config := am.server.Config()
 
 	// final "is registration allowed" check, probably redundant:
-	if !(config.Registration.Enabled || callbackNamespace == "admin") {
+	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") {
 		return errFeatureDisabled
 	}
 
 	// if nick reservation is enabled, you can only register your current nickname
 	// as an account; this prevents "land-grab" situations where someone else
 	// registers your nick out from under you and then NS GHOSTs you
-	// n.b. client is nil during a SAREGISTER:
-	if config.NickReservation.Enabled && client != nil && client.NickCasefolded() != casefoldedAccount {
+	// n.b. client is nil during a SAREGISTER
+	// n.b. if ForceGuestFormat, then there's no concern, because you can't
+	// register a guest nickname anyway, and the actual registration system
+	// will prevent any double-register
+	if client != nil && config.Accounts.NickReservation.Enabled &&
+		!config.Accounts.NickReservation.ForceGuestFormat &&
+		client.NickCasefolded() != casefoldedAccount {
 		return errAccountMustHoldNick
 	}
 
 	// can't register a guest nickname
-	renamePrefix := strings.ToLower(config.NickReservation.RenamePrefix)
-	if renamePrefix != "" && strings.HasPrefix(casefoldedAccount, renamePrefix) {
+	if config.Accounts.NickReservation.guestRegexpFolded.MatchString(casefoldedAccount) {
 		return errAccountAlreadyRegistered
 	}
 
@@ -382,7 +386,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
-	ttl := time.Duration(config.Registration.VerifyTimeout)
+	ttl := time.Duration(config.Accounts.Registration.VerifyTimeout)
 	if ttl != 0 {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
 	}
@@ -652,7 +656,7 @@ func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount str
 }
 
 func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccount string, callbackValue string) (code string, err error) {
-	config := am.server.AccountConfig().Registration.Callbacks.Mailto
+	config := am.server.Config().Accounts.Registration.Callbacks.Mailto
 	code = utils.GenerateSecretToken()
 
 	subject := config.VerifyMessageSubject
@@ -811,7 +815,7 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 	cfnick, err := CasefoldName(nick)
 	skeleton, skerr := Skeleton(nick)
 	// garbage nick, or garbage options, or disabled
-	nrconfig := am.server.AccountConfig().NickReservation
+	nrconfig := am.server.Config().Accounts.NickReservation
 	if err != nil || skerr != nil || cfnick == "" || (reserve && saUnreserve) || !nrconfig.Enabled {
 		return errAccountNickReservationFailed
 	}
@@ -939,6 +943,10 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 }
 
 func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
+	// XXX check this now, so we don't allow a redundant login for an always-on client
+	// even for a brief period. the other potential source of nick-account conflicts
+	// is from force-nick-equals-account, but those will be caught later by
+	// fixupNickEqualsAccount and if there is a conflict, they will be logged out.
 	if client.registered {
 		if clientAlready := am.server.clients.Get(accountName); clientAlready != nil && clientAlready.AlwaysOn() {
 			return errNickAccountMismatch
@@ -1536,7 +1544,7 @@ func (am *AccountManager) VHostListRequests(limit int) (requests []PendingVHostR
 func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	// if hostserv is disabled in config, then don't grant vhosts
 	// that were previously approved while it was enabled
-	if !am.server.AccountConfig().VHosts.Enabled {
+	if !am.server.Config().Accounts.VHosts.Enabled {
 		return
 	}
 

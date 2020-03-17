@@ -7,6 +7,7 @@ package irc
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -242,11 +243,24 @@ type AccountConfig struct {
 		Duration    time.Duration
 		MaxAttempts int `yaml:"max-attempts"`
 	} `yaml:"login-throttling"`
-	SkipServerPassword bool                  `yaml:"skip-server-password"`
-	NickReservation    NickReservationConfig `yaml:"nick-reservation"`
-	Multiclient        MulticlientConfig
-	Bouncer            *MulticlientConfig // # handle old name for 'multiclient'
-	VHosts             VHostConfig
+	SkipServerPassword bool `yaml:"skip-server-password"`
+	NickReservation    struct {
+		Enabled                bool
+		AdditionalNickLimit    int `yaml:"additional-nick-limit"`
+		Method                 NickEnforcementMethod
+		AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
+		RenameTimeout          time.Duration `yaml:"rename-timeout"`
+		// RenamePrefix is the legacy field, GuestFormat is the new version
+		RenamePrefix           string `yaml:"rename-prefix"`
+		GuestFormat            string `yaml:"guest-nickname-format"`
+		guestRegexp            *regexp.Regexp
+		guestRegexpFolded      *regexp.Regexp
+		ForceGuestFormat       bool `yaml:"force-guest-format"`
+		ForceNickEqualsAccount bool `yaml:"force-nick-equals-account"`
+	} `yaml:"nick-reservation"`
+	Multiclient MulticlientConfig
+	Bouncer     *MulticlientConfig // # handle old name for 'multiclient'
+	VHosts      VHostConfig
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -369,15 +383,6 @@ func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err err
 	}
 	*cm = result
 	return nil
-}
-
-type NickReservationConfig struct {
-	Enabled                bool
-	AdditionalNickLimit    int `yaml:"additional-nick-limit"`
-	Method                 NickEnforcementMethod
-	AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
-	RenameTimeout          time.Duration `yaml:"rename-timeout"`
-	RenamePrefix           string        `yaml:"rename-prefix"`
 }
 
 // ChannelRegistrationConfig controls channel registration.
@@ -883,6 +888,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.Multiclient.AllowedByDefault = true
 	}
 
+	// handle guest format, including the legacy key rename-prefix
+	if config.Accounts.NickReservation.GuestFormat == "" {
+		renamePrefix := config.Accounts.NickReservation.RenamePrefix
+		if renamePrefix == "" {
+			renamePrefix = "Guest-"
+		}
+		config.Accounts.NickReservation.GuestFormat = renamePrefix + "*"
+	}
+	config.Accounts.NickReservation.guestRegexp, config.Accounts.NickReservation.guestRegexpFolded, err = compileGuestRegexp(config.Accounts.NickReservation.GuestFormat, config.Server.Casemapping)
+	if err != nil {
+		return nil, err
+	}
+
 	var newLogConfigs []logger.LoggingConfig
 	for _, logConfig := range config.Logging {
 		// methods
@@ -1161,5 +1179,31 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 		addedCaps.Add(caps.STS)
 	}
 
+	return
+}
+
+func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
+	starIndex := strings.IndexByte(guestFormat, '*')
+	if starIndex == -1 {
+		return nil, nil, errors.New("guest format must contain exactly one *")
+	}
+	initial := guestFormat[:starIndex]
+	final := guestFormat[starIndex+1:]
+	if strings.IndexByte(final, '*') != -1 {
+		return nil, nil, errors.New("guest format must contain exactly one *")
+	}
+	standard, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initial, final))
+	if err != nil {
+		return
+	}
+	initialFolded, err := casefoldWithSetting(initial, casemapping)
+	if err != nil {
+		return
+	}
+	finalFolded, err := casefoldWithSetting(final, casemapping)
+	if err != nil {
+		return
+	}
+	folded, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initialFolded, finalFolded))
 	return
 }

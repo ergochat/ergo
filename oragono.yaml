@@ -343,8 +343,26 @@ accounts:
         # rename-timeout - this is how long users have 'til they're renamed
         rename-timeout: 30s
 
-        # rename-prefix - this is the prefix to use when renaming clients (e.g. Guest-AB54U31)
-        rename-prefix: Guest-
+        # format for guest nicknames:
+        # 1. these nicknames cannot be registered or reserved
+        # 2. if a client is automatically renamed by the server,
+        #    this is the template that will be used (e.g., Guest-nccj6rgmt97cg)
+        # 3. if enforce-guest-format (see below) is enabled, clients without
+        #    a registered account will have this template applied to their
+        #    nicknames (e.g., 'katie' will become 'Guest-katie')
+        guest-nickname-format: "Guest-*"
+
+        # when enabled, forces users not logged into an account to use
+        # a nickname matching the guest template. a caveat: this may prevent
+        # users from choosing nicknames in scripts different from the guest
+        # nickname format.
+        force-guest-format: false
+
+        # when enabled, forces users logged into an account to use the
+        # account name as their nickname. when combined with strict nickname
+        # enforcement, this lets users treat nicknames and account names
+        # as equivalent for the purpose of ban/invite/exception lists.
+        force-nick-equals-account: false
 
     # multiclient controls whether oragono allows multiple connections to
     # attach to the same client/nickname identity; this is part of the

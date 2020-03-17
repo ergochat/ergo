@@ -32,7 +32,7 @@ import (
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
-func parseCallback(spec string, config *AccountConfig) (callbackNamespace string, callbackValue string) {
+func parseCallback(spec string, config AccountConfig) (callbackNamespace string, callbackValue string) {
 	callback := strings.ToLower(spec)
 	if callback == "*" {
 		callbackNamespace = "*"
@@ -127,7 +127,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.IrcMessage, 
 	}
 
 	// sasl abort
-	if !server.AccountConfig().AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
+	if !config.Accounts.AuthenticationEnabled || len(msg.Params) == 1 && msg.Params[0] == "*" {
 		rb.Add(nil, server.name, ERR_SASLABORTED, details.nick, client.t("SASL authentication aborted"))
 		session.sasl.Clear()
 		return false
@@ -237,6 +237,8 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
+	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
+		return false
 	}
 
 	sendSuccessfulAccountAuth(client, rb, false, true)
@@ -245,7 +247,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 
 func authErrorToMessage(server *Server, err error) (msg string) {
 	switch err {
-	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch:
+	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch:
 		return err.Error()
 	default:
 		// don't expose arbitrary error messages to the user
@@ -279,6 +281,8 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	if err != nil {
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
+		return false
+	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
 		return false
 	}
 
