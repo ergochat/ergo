@@ -1602,7 +1602,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		// apply mode changes
-		applied = ApplyUserModeChanges(client, changes, msg.Command == "SAMODE")
+		applied = ApplyUserModeChanges(target, changes, msg.Command == "SAMODE")
 	}
 
 	if len(applied) > 0 {
