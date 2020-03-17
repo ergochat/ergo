@@ -23,7 +23,9 @@ var (
 )
 
 // ApplyUserModeChanges applies the given changes, and returns the applied changes.
-func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool) modes.ModeChanges {
+// `oper` is the operclass of the client gaining +o, when applicable (this is just
+// to confirm that the client actually has a valid operclass)
+func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool, oper *Oper) modes.ModeChanges {
 	applied := make(modes.ModeChanges, 0)
 
 	for _, change := range changes {
@@ -31,7 +33,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool)
 		case modes.Bot, modes.Invisible, modes.WallOps, modes.UserRoleplaying, modes.Operator, modes.LocalOperator, modes.RegisteredOnly:
 			switch change.Op {
 			case modes.Add:
-				if !force && (change.Mode == modes.Operator || change.Mode == modes.LocalOperator) {
+				if (change.Mode == modes.Operator || change.Mode == modes.LocalOperator) && !(force && oper != nil) {
 					continue
 				}
 
