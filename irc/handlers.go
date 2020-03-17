@@ -1602,7 +1602,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		// apply mode changes
-		applied = ApplyUserModeChanges(client, changes, msg.Command == "SAMODE")
+		applied = ApplyUserModeChanges(target, changes, msg.Command == "SAMODE", nil)
 	}
 
 	if len(applied) > 0 {
@@ -2117,7 +2117,7 @@ func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 			Op:   modes.Add,
 		}
 		copy(modeChanges[1:], oper.Modes)
-		applied := ApplyUserModeChanges(client, modeChanges, true)
+		applied := ApplyUserModeChanges(client, modeChanges, true, oper)
 
 		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), newDetails.nickMask, oper.Name))
 
