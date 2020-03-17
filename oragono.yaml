@@ -356,13 +356,13 @@ accounts:
         # a nickname matching the guest template. a caveat: this may prevent
         # users from choosing nicknames in scripts different from the guest
         # nickname format.
-        enforce-guest-format: false
+        force-guest-format: false
 
         # when enabled, forces users logged into an account to use the
         # account name as their nickname. when combined with strict nickname
         # enforcement, this lets users treat nicknames and account names
         # as equivalent for the purpose of ban/invite/exception lists.
-        enforce-account-name: false
+        force-nick-equals-account: false
 
     # multiclient controls whether oragono allows multiple connections to
     # attach to the same client/nickname identity; this is part of the

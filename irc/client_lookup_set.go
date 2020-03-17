@@ -131,7 +131,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	var alwaysOn, useAccountName bool
 	if account != "" {
 		alwaysOn = persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
-		useAccountName = alwaysOn || config.Accounts.NickReservation.EnforceAccountName
+		useAccountName = alwaysOn || config.Accounts.NickReservation.ForceNickEqualsAccount
 	}
 
 	if useAccountName {
@@ -150,7 +150,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNickMissing
 		}
 
-		if account == "" && config.Accounts.NickReservation.EnforceGuestFormat {
+		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
 			newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
 		}
 

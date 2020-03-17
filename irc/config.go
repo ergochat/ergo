@@ -251,12 +251,12 @@ type AccountConfig struct {
 		AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
 		RenameTimeout          time.Duration `yaml:"rename-timeout"`
 		// RenamePrefix is the legacy field, GuestFormat is the new version
-		RenamePrefix       string `yaml:"rename-prefix"`
-		GuestFormat        string `yaml:"guest-nickname-format"`
-		guestRegexp        *regexp.Regexp
-		guestRegexpFolded  *regexp.Regexp
-		EnforceGuestFormat bool `yaml:"enforce-guest-format"`
-		EnforceAccountName bool `yaml:"enforce-account-name"`
+		RenamePrefix           string `yaml:"rename-prefix"`
+		GuestFormat            string `yaml:"guest-nickname-format"`
+		guestRegexp            *regexp.Regexp
+		guestRegexpFolded      *regexp.Regexp
+		ForceGuestFormat       bool `yaml:"force-guest-format"`
+		ForceNickEqualsAccount bool `yaml:"force-nick-equals-account"`
 	} `yaml:"nick-reservation"`
 	Multiclient MulticlientConfig
 	Bouncer     *MulticlientConfig // # handle old name for 'multiclient'

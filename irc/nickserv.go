@@ -610,12 +610,12 @@ func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
 	return true
 }
 
-// if enforce-account-name is set, account name and nickname must be equal,
+// if force-nick-equals-account is set, account name and nickname must be equal,
 // so we need to re-NICK automatically on every login event (IDENTIFY,
 // VERIFY, and a REGISTER that auto-verifies). if we can't get the nick
 // then we log them out (they will be able to reattach with SASL)
 func nsFixNickname(client *Client, rb *ResponseBuffer, config *Config) (success bool) {
-	if !config.Accounts.NickReservation.EnforceAccountName {
+	if !config.Accounts.NickReservation.ForceNickEqualsAccount {
 		return true
 	}
 	// don't need to supply a nickname, SetNick will use the account name
@@ -753,7 +753,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 
 	config := server.Config()
 	account := details.nick
-	if config.Accounts.NickReservation.EnforceGuestFormat {
+	if config.Accounts.NickReservation.ForceGuestFormat {
 		matches := config.Accounts.NickReservation.guestRegexp.FindStringSubmatch(account)
 		if matches == nil || len(matches) < 2 {
 			nsNotice(rb, client.t("Erroneous nickname"))
