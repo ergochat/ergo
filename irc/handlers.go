@@ -237,6 +237,8 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
+	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
+		return false
 	}
 
 	sendSuccessfulAccountAuth(client, rb, false, true)
@@ -245,7 +247,7 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 
 func authErrorToMessage(server *Server, err error) (msg string) {
 	switch err {
-	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch:
+	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch:
 		return err.Error()
 	default:
 		// don't expose arbitrary error messages to the user
@@ -279,6 +281,8 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	if err != nil {
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
+		return false
+	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
 		return false
 	}
 

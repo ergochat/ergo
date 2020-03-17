@@ -943,6 +943,10 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 }
 
 func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
+	// XXX check this now, so we don't allow a redundant login for an always-on client
+	// even for a brief period. the other potential source of nick-account conflicts
+	// is from force-nick-equals-account, but those will be caught later by
+	// fixupNickEqualsAccount and if there is a conflict, they will be logged out.
 	if client.registered {
 		if clientAlready := am.server.clients.Get(accountName); clientAlready != nil && clientAlready.AlwaysOn() {
 			return errNickAccountMismatch
