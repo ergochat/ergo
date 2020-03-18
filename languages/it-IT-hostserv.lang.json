@@ -1,7 +1,7 @@
 {
-  "$bAPPROVE$b approves a user's vhost request.": "",
-  "$bDEL$b deletes a user's vhost.": "",
-  "$bFORBID$b prevents a user from using vhosts.": "",
+  "$bAPPROVE$b approves a user's vhost request.": "$bAPPROVE$b approva la richiesta vhost di un utente.",
+  "$bDEL$b deletes a user's vhost.": "$bDEL$b cancella il vhost di un utente.",
+  "$bFORBID$b prevents a user from using vhosts.": "$bFORBID$b proibisce ad un utente di usare vhosts.",
   "$bOFF$b disables your vhost, if you have one approved.": "",
   "$bOFFERLIST$b lists vhosts that can be taken without operator approval.": "",
   "$bON$b enables your vhost, if you have one approved.": "",
