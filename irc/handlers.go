@@ -1042,7 +1042,7 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	channel := server.channels.Get(channelName)
 	if channel == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(channelName), client.t("No such channel"))
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(channelName), client.t("No such channel"))
 		return false
 	}
 
