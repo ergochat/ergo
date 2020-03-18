@@ -191,33 +191,38 @@ indicate an empty password, use * instead.`,
 		"get": {
 			handler: nsGetHandler,
 			help: `Syntax: $bGET <setting>$b
+Or:     $bGET <username> <setting>$b
 
-GET queries the current values of your account settings. For more information
-on the settings and their possible values, see HELP SET.`,
-			helpShort:    `$bGET$b queries the current values of your account settings`,
-			authRequired: true,
-			enabled:      servCmdRequiresAccreg,
-			minParams:    1,
+GET queries the current values of your account settings (or someone else's,
+given the appropriate operator permissions). For more information on the
+settings and their possible values, see HELP SET.`,
+			helpShort: `$bGET$b queries the current values of an account's settings.`,
+			enabled:   servCmdRequiresAccreg,
+			minParams: 1,
+			maxParams: 2,
 		},
 		"saget": {
 			handler: nsGetHandler,
+			hidden:  true,
 			help: `Syntax: $bSAGET <account> <setting>$b
 
 SAGET queries the values of someone else's account settings. For more
 information on the settings and their possible values, see HELP SET.`,
-			helpShort: `$bSAGET$b queries the current values of another user's account settings`,
+			helpShort: `$bSAGET$b queries the current values of another user's account settings.`,
 			enabled:   servCmdRequiresAccreg,
 			minParams: 2,
 			capabs:    []string{"accreg"},
 		},
 		"set": {
 			handler:   nsSetHandler,
-			helpShort: `$bSET$b modifies your account settings`,
+			helpShort: `$bSET$b modifies account settings.`,
 			// these are broken out as separate strings so they can be translated separately
 			helpStrings: []string{
 				`Syntax $bSET <setting> <value>$b
+Or:    $bSET <account> <setting> <value>$b
 
-SET modifies your account settings. The following settings are available:`,
+SET modifies your account settings (or someone else's, given the appropriate
+operator permissions). The following settings are available:`,
 
 				`$bENFORCE$b
 'enforce' lets you specify a custom enforcement mechanism for your registered
@@ -264,17 +269,18 @@ how the history of your direct messages is stored. Your options are:
 3. 'on'         [history stored in a permanent database, if available]
 4. 'default'    [use the server default]`,
 			},
-			authRequired: true,
-			enabled:      servCmdRequiresAccreg,
-			minParams:    2,
+			enabled:   servCmdRequiresAccreg,
+			minParams: 2,
+			maxParams: 3,
 		},
 		"saset": {
 			handler: nsSetHandler,
+			hidden:  true,
 			help: `Syntax: $bSASET <account> <setting> <value>$b
 
 SASET modifies the values of someone else's account settings. For more
 information on the settings and their possible values, see HELP SET.`,
-			helpShort: `$bSASET$b modifies another user's account settings`,
+			helpShort: `$bSASET$b modifies another user's account settings.`,
 			enabled:   servCmdRequiresAccreg,
 			minParams: 3,
 			capabs:    []string{"accreg"},
@@ -304,12 +310,23 @@ func nsNotice(rb *ResponseBuffer, text string) {
 }
 
 func nsGetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	var account string
-	if command == "saget" {
-		account = params[0]
-		params = params[1:]
-	} else {
+	var err error
+	var account, setting string
+	if len(params) == 1 {
 		account = client.Account()
+		if account == "" {
+			nsNotice(rb, client.t("You're not logged into an account"))
+			return
+		}
+		setting = params[0]
+	} else {
+		account, err = CasefoldName(params[0])
+		if client.HasRoleCapabs("accreg") || account == client.Account() {
+			setting = params[1]
+		} else {
+			nsNotice(rb, client.t("Insufficient privileges"))
+			return
+		}
 	}
 
 	accountData, err := server.accounts.LoadAccount(account)
@@ -321,7 +338,7 @@ func nsGetHandler(server *Server, client *Client, command string, params []strin
 		return
 	}
 
-	displaySetting(params[0], accountData.Settings, client, rb)
+	displaySetting(setting, accountData.Settings, client, rb)
 }
 
 func displaySetting(settingName string, settings AccountSettings, client *Client, rb *ResponseBuffer) {
@@ -397,24 +414,36 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 }
 
 func nsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	var account string
-	if command == "saset" {
-		account = params[0]
-		params = params[1:]
-	} else {
+	var err error
+	var account, setting, value string
+	hasPrivs := false
+	if len(params) == 2 {
 		account = client.Account()
+		if account == "" {
+			nsNotice(rb, client.t("You're not logged into an account"))
+			return
+		}
+		setting, value = params[0], params[1]
+	} else {
+		hasPrivs = client.HasRoleCapabs("accreg")
+		account, err = CasefoldName(params[0])
+		if hasPrivs || account == client.Account() {
+			setting, value = params[1], params[2]
+		} else {
+			nsNotice(rb, client.t("Insufficient privileges"))
+			return
+		}
 	}
 
 	var munger settingsMunger
 	var finalSettings AccountSettings
-	var err error
-	switch strings.ToLower(params[0]) {
+	switch strings.ToLower(setting) {
 	case "pass":
 		nsNotice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
 	case "enforce":
 		var method NickEnforcementMethod
-		method, err = nickReservationFromString(params[1])
+		method, err = nickReservationFromString(value)
 		if err != nil {
 			err = errInvalidParams
 			break
@@ -427,8 +456,8 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "autoreplay-lines":
 		var newValue *int
-		if strings.ToLower(params[1]) != "default" {
-			val, err_ := strconv.Atoi(params[1])
+		if strings.ToLower(value) != "default" {
+			val, err_ := strconv.Atoi(value)
 			if err_ != nil || val < 0 {
 				err = errInvalidParams
 				break
@@ -443,11 +472,11 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "multiclient":
 		var newValue MulticlientAllowedSetting
-		if strings.ToLower(params[1]) == "default" {
+		if strings.ToLower(value) == "default" {
 			newValue = MulticlientAllowedServerDefault
 		} else {
 			var enabled bool
-			enabled, err = utils.StringToBool(params[1])
+			enabled, err = utils.StringToBool(value)
 			if enabled {
 				newValue = MulticlientAllowedByUser
 			} else {
@@ -463,7 +492,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "replay-joins":
 		var newValue ReplayJoinsSetting
-		newValue, err = replayJoinsSettingFromString(params[1])
+		newValue, err = replayJoinsSettingFromString(value)
 		if err == nil {
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
@@ -476,7 +505,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		// the (actual or potential) always-on client yourself. make an exception
 		// for `saset` to give operators an escape hatch (any consistency problems
 		// can probably be fixed by restarting the server):
-		if command != "saset" {
+		if !hasPrivs {
 			details := client.Details()
 			if details.nick != details.accountName {
 				err = errNickAccountMismatch
@@ -484,7 +513,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 		if err == nil {
 			var newValue PersistentStatus
-			newValue, err = persistentStatusFromString(params[1])
+			newValue, err = persistentStatusFromString(value)
 			// "opt-in" and "opt-out" don't make sense as user preferences
 			if err == nil && newValue != PersistentOptIn && newValue != PersistentOptOut {
 				munger = func(in AccountSettings) (out AccountSettings, err error) {
@@ -496,7 +525,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "autoreplay-missed":
 		var newValue bool
-		newValue, err = utils.StringToBool(params[1])
+		newValue, err = utils.StringToBool(value)
 		if err == nil {
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
@@ -506,7 +535,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 		}
 	case "dm-history":
 		var newValue HistoryStatus
-		newValue, err = historyStatusFromString(params[1])
+		newValue, err = historyStatusFromString(value)
 		if err == nil {
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
@@ -525,7 +554,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 	switch err {
 	case nil:
 		nsNotice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(params[0], finalSettings, client, rb)
+		displaySetting(setting, finalSettings, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
 		nsNotice(rb, client.t(err.Error()))
 	case errNickAccountMismatch:
