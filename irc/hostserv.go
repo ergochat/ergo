@@ -12,8 +12,11 @@ import (
 	"github.com/oragono/oragono/irc/sno"
 )
 
-const hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
+const (
+	hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
 in place of your client's hostname/IP).`
+	hsNickMask = "HostServ!HostServ@localhost"
+)
 
 var (
 	errVHostBadCharacters = errors.New("Vhost contains prohibited characters")
@@ -173,7 +176,7 @@ the offered vhosts, use /HOSTSERV OFFERLIST.`,
 
 // hsNotice sends the client a notice from HostServ
 func hsNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, "HostServ!HostServ@localhost", "NOTICE", rb.target.Nick(), text)
+	rb.Add(nil, hsNickMask, "NOTICE", rb.target.Nick(), text)
 }
 
 // hsNotifyChannel notifies the designated channel of new vhost activity
@@ -185,7 +188,7 @@ func hsNotifyChannel(server *Server, message string) {
 	}
 	chname = channel.Name()
 	for _, client := range channel.Members() {
-		client.Send(nil, "HostServ", "PRIVMSG", chname, message)
+		client.Send(nil, hsNickMask, "PRIVMSG", chname, message)
 	}
 }
 
@@ -333,7 +336,7 @@ func hsApproveHandler(server *Server, client *Client, command string, params []s
 		hsNotifyChannel(server, chanMsg)
 		server.snomasks.Send(sno.LocalVhosts, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
-			client.Notice(client.t("Your vhost request was approved by an administrator"))
+			client.Send(nil, hsNickMask, "NOTICE", client.Nick(), client.t("Your vhost request was approved by an administrator"))
 		}
 	}
 }
@@ -355,9 +358,9 @@ func hsRejectHandler(server *Server, client *Client, command string, params []st
 		server.snomasks.Send(sno.LocalVhosts, chanMsg)
 		for _, client := range server.accounts.AccountToClients(user) {
 			if reason == "" {
-				client.Notice("Your vhost request was rejected by an administrator")
+				client.Send(nil, hsNickMask, "NOTICE", client.Nick(), client.t("Your vhost request was rejected by an administrator"))
 			} else {
-				client.Notice(fmt.Sprintf(client.t("Your vhost request was rejected by an administrator. The reason given was: %s"), reason))
+				client.Send(nil, hsNickMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Your vhost request was rejected by an administrator. The reason given was: %s"), reason))
 			}
 		}
 	}
