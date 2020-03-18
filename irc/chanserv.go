@@ -293,16 +293,17 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 }
 
 func csRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	channelName := params[0]
-
-	channelKey, err := CasefoldChannel(channelName)
-	if err != nil {
-		csNotice(rb, client.t("Channel name is not valid"))
+	if server.Config().Channels.Registration.OperatorOnly && !client.HasRoleCapabs("chanreg") {
+		csNotice(rb, client.t("Channel registration is restricted to server operators"))
 		return
 	}
-
-	channelInfo := server.channels.Get(channelKey)
-	if channelInfo == nil || !channelInfo.ClientIsAtLeast(client, modes.ChannelOperator) {
+	channelName := params[0]
+	channelInfo := server.channels.Get(channelName)
+	if channelInfo == nil {
+		csNotice(rb, client.t("No such channel"))
+		return
+	}
+	if !channelInfo.ClientIsAtLeast(client, modes.ChannelOperator) {
 		csNotice(rb, client.t("You must be an oper on the channel to register it"))
 		return
 	}
@@ -313,7 +314,7 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 	}
 
 	// this provides the synchronization that allows exactly one registration of the channel:
-	err = server.channels.SetRegistered(channelKey, account)
+	err := server.channels.SetRegistered(channelName, account)
 	if err != nil {
 		csNotice(rb, err.Error())
 		return

@@ -973,7 +973,7 @@ func (client *Client) HasRoleCapabs(capabs ...string) bool {
 	}
 
 	for _, capab := range capabs {
-		if !oper.Class.Capabilities[capab] {
+		if !oper.Class.Capabilities.Has(capab) {
 			return false
 		}
 	}

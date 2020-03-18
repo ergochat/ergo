@@ -385,12 +385,6 @@ func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err err
 	return nil
 }
 
-// ChannelRegistrationConfig controls channel registration.
-type ChannelRegistrationConfig struct {
-	Enabled               bool
-	MaxChannelsPerAccount int `yaml:"max-channels-per-account"`
-}
-
 // OperClassConfig defines a specific operator class.
 type OperClassConfig struct {
 	Title        string
@@ -534,7 +528,11 @@ type Config struct {
 		defaultModes         modes.Modes
 		MaxChannelsPerClient int  `yaml:"max-channels-per-client"`
 		OpOnlyCreation       bool `yaml:"operator-only-creation"`
-		Registration         ChannelRegistrationConfig
+		Registration         struct {
+			Enabled               bool
+			OperatorOnly          bool `yaml:"operator-only"`
+			MaxChannelsPerAccount int  `yaml:"max-channels-per-account"`
+		}
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
@@ -584,12 +582,16 @@ type Config struct {
 // OperClass defines an assembled operator class.
 type OperClass struct {
 	Title        string
-	WhoisLine    string          `yaml:"whois-line"`
-	Capabilities map[string]bool // map to make lookups much easier
+	WhoisLine    string    `yaml:"whois-line"`
+	Capabilities StringSet // map to make lookups much easier
 }
 
 // OperatorClasses returns a map of assembled operator classes from the given config.
 func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
+	fixupCapability := func(capab string) string {
+		return strings.TrimPrefix(capab, "oper:") // #868
+	}
+
 	ocs := make(map[string]*OperClass)
 
 	// loop from no extends to most extended, breaking if we can't add any more
@@ -619,21 +621,21 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// create new operclass
 			var oc OperClass
-			oc.Capabilities = make(map[string]bool)
+			oc.Capabilities = make(StringSet)
 
 			// get inhereted info from other operclasses
 			if len(info.Extends) > 0 {
 				einfo := ocs[info.Extends]
 
 				for capab := range einfo.Capabilities {
-					oc.Capabilities[capab] = true
+					oc.Capabilities.Add(fixupCapability(capab))
 				}
 			}
 
 			// add our own info
 			oc.Title = info.Title
 			for _, capab := range info.Capabilities {
-				oc.Capabilities[capab] = true
+				oc.Capabilities.Add(fixupCapability(capab))
 			}
 			if len(info.WhoisLine) > 0 {
 				oc.WhoisLine = info.WhoisLine
@@ -1114,7 +1116,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
-	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
+	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret, modes.NoCTCP, modes.RegisteredOnly}.String()}, ","))
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
 		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 	}

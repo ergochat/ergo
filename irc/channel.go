@@ -1364,12 +1364,17 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
 	chname := channel.Name()
 	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), channel.Name(), inviter.t("You're not a channel operator"))
+		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), chname, inviter.t("You're not a channel operator"))
 		return
 	}
 
 	if !channel.hasClient(inviter) {
-		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, inviter.Nick(), channel.Name(), inviter.t("You're not on that channel"))
+		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, inviter.Nick(), chname, inviter.t("You're not on that channel"))
+		return
+	}
+
+	if channel.hasClient(invitee) {
+		rb.Add(nil, inviter.server.name, ERR_USERONCHANNEL, inviter.Nick(), invitee.Nick(), chname, inviter.t("User is already on that channel"))
 		return
 	}
 

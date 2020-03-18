@@ -472,6 +472,10 @@ channels:
         # can users register new channels?
         enabled: true
 
+        # restrict new channel registrations to operators only?
+        # (operators can then transfer channels to regular users using /CS TRANSFER)
+        operator-only: false
+
         # how many channels can each account register?
         max-channels-per-account: 15
 
@@ -484,9 +488,9 @@ oper-classes:
 
         # capability names
         capabilities:
-            - "oper:local_kill"
-            - "oper:local_ban"
-            - "oper:local_unban"
+            - "local_kill"
+            - "local_ban"
+            - "local_unban"
             - "nofakelag"
 
     # network operator
@@ -499,9 +503,9 @@ oper-classes:
 
         # capability names
         capabilities:
-            - "oper:remote_kill"
-            - "oper:remote_ban"
-            - "oper:remote_unban"
+            - "remote_kill"
+            - "remote_ban"
+            - "remote_unban"
 
     # server admin
     "server-admin":
@@ -513,8 +517,8 @@ oper-classes:
 
         # capability names
         capabilities:
-            - "oper:rehash"
-            - "oper:die"
+            - "rehash"
+            - "die"
             - "accreg"
             - "sajoin"
             - "samode"
