@@ -160,7 +160,7 @@ func init() {
 			handler:   killHandler,
 			minParams: 1,
 			oper:      true,
-			capabs:    []string{"oper:local_kill"}, //TODO(dan): when we have S2S, this will be checked in the command handler itself
+			capabs:    []string{"local_kill"}, //TODO(dan): when we have S2S, this will be checked in the command handler itself
 		},
 		"KLINE": {
 			handler:   klineHandler,
@@ -289,7 +289,7 @@ func init() {
 			handler:   rehashHandler,
 			minParams: 0,
 			oper:      true,
-			capabs:    []string{"oper:rehash"},
+			capabs:    []string{"rehash"},
 		},
 		"TIME": {
 			handler:   timeHandler,

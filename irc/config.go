@@ -584,12 +584,16 @@ type Config struct {
 // OperClass defines an assembled operator class.
 type OperClass struct {
 	Title        string
-	WhoisLine    string          `yaml:"whois-line"`
-	Capabilities map[string]bool // map to make lookups much easier
+	WhoisLine    string    `yaml:"whois-line"`
+	Capabilities StringSet // map to make lookups much easier
 }
 
 // OperatorClasses returns a map of assembled operator classes from the given config.
 func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
+	fixupCapability := func(capab string) string {
+		return strings.TrimPrefix(capab, "oper:") // #868
+	}
+
 	ocs := make(map[string]*OperClass)
 
 	// loop from no extends to most extended, breaking if we can't add any more
@@ -619,21 +623,21 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// create new operclass
 			var oc OperClass
-			oc.Capabilities = make(map[string]bool)
+			oc.Capabilities = make(StringSet)
 
 			// get inhereted info from other operclasses
 			if len(info.Extends) > 0 {
 				einfo := ocs[info.Extends]
 
 				for capab := range einfo.Capabilities {
-					oc.Capabilities[capab] = true
+					oc.Capabilities.Add(fixupCapability(capab))
 				}
 			}
 
 			// add our own info
 			oc.Title = info.Title
 			for _, capab := range info.Capabilities {
-				oc.Capabilities[capab] = true
+				oc.Capabilities.Add(fixupCapability(capab))
 			}
 			if len(info.WhoisLine) > 0 {
 				oc.WhoisLine = info.WhoisLine

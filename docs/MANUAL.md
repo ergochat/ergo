@@ -683,9 +683,9 @@ oper-classes:
 
         # capability names
         capabilities:
-        - "oper:local_kill"
-        - "oper:local_ban"
-        - "oper:local_unban"
+        - "local_kill"
+        - "local_ban"
+        - "local_unban"
         - "nofakelag"
 
 # ircd operators
