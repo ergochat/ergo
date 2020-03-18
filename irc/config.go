@@ -385,12 +385,6 @@ func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err err
 	return nil
 }
 
-// ChannelRegistrationConfig controls channel registration.
-type ChannelRegistrationConfig struct {
-	Enabled               bool
-	MaxChannelsPerAccount int `yaml:"max-channels-per-account"`
-}
-
 // OperClassConfig defines a specific operator class.
 type OperClassConfig struct {
 	Title        string
@@ -534,7 +528,11 @@ type Config struct {
 		defaultModes         modes.Modes
 		MaxChannelsPerClient int  `yaml:"max-channels-per-client"`
 		OpOnlyCreation       bool `yaml:"operator-only-creation"`
-		Registration         ChannelRegistrationConfig
+		Registration         struct {
+			Enabled               bool
+			OperatorOnly          bool `yaml:"operator-only"`
+			MaxChannelsPerAccount int  `yaml:"max-channels-per-account"`
+		}
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`

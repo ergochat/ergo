@@ -472,6 +472,10 @@ channels:
         # can users register new channels?
         enabled: true
 
+        # restrict new channel registrations to operators only?
+        # (operators can then transfer channels to regular users using /CS TRANSFER)
+        operator-only: false
+
         # how many channels can each account register?
         max-channels-per-account: 15
 
