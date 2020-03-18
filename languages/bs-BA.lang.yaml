@@ -1,5 +1,15 @@
 ---
+#translation info file for our example language
+#languages are made up of a few different files:
+#<locale>.lang.yaml       - general info about the translation
+#<locale>-irc.lang.json   - IRC strings to be translated
+#<locale>-help.lang.json  - help entries to be translated
+#we split up translations in this way so that they can be displayed more nicely on CrowdIn
+#name - this is the 'nice' or 'full' name of the language
 name: "Bosanski"
+#code - this is what the language will be referred to in our list of languages
 code: "bs"
+#contributors - people who have contributed to this translation
 contributors: "Elvedin Husic <elvedinhusiccontact@gmail.com>"
+#incomplete - whether to mark this language as incomplete
 incomplete: true
