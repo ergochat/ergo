@@ -2558,13 +2558,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				continue
 			}
 
-			proxiedIP := msg.Params[3]
-			// see #211; websocket gateways will wrap ipv6 addresses in square brackets
-			// because IRC parameters can't start with :
-			if strings.HasPrefix(proxiedIP, "[") && strings.HasSuffix(proxiedIP, "]") {
-				proxiedIP = proxiedIP[1 : len(proxiedIP)-1]
-			}
-			err, quitMsg := client.ApplyProxiedIP(rb.session, proxiedIP, secure)
+			err, quitMsg := client.ApplyProxiedIP(rb.session, msg.Params[3], secure)
 			if err != nil {
 				client.Quit(quitMsg, rb.session)
 				return true
