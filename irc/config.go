@@ -1118,7 +1118,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
-	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret}.String()}, ","))
+	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), "", modes.Modes{modes.UserLimit, modes.Key}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret, modes.NoCTCP, modes.RegisteredOnly}.String()}, ","))
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
 		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 	}
