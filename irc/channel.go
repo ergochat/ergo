@@ -211,6 +211,8 @@ func (channel *Channel) MarkDirty(dirtyBits uint) {
 // ChannelManager's lock (that way, no one can join and make the channel dirty again
 // between this method exiting and the actual deletion).
 func (channel *Channel) IsClean() bool {
+	config := channel.server.Config()
+
 	if !channel.writerSemaphore.TryAcquire() {
 		// a database write (which may fail) is in progress, the channel cannot be cleaned up
 		return false
@@ -219,8 +221,16 @@ func (channel *Channel) IsClean() bool {
 
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
-	// the channel must be empty, and either be unregistered or fully written to the DB
-	return len(channel.members) == 0 && (channel.registeredFounder == "" || channel.dirtyBits == 0)
+	if len(channel.members) != 0 {
+		return false
+	}
+	if channel.registeredFounder == "" {
+		return true
+	}
+	// a registered channel must be fully written to the DB,
+	// and not set to ephemeral history (#704)
+	return channel.dirtyBits == 0 &&
+		channelHistoryStatus(config, true, channel.settings.History) != HistoryEphemeral
 }
 
 func (channel *Channel) wakeWriter() {
@@ -599,15 +609,23 @@ func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, tar
 	registered := channel.registeredFounder != ""
 	channel.stateMutex.RUnlock()
 
+	return channelHistoryStatus(config, registered, historyStatus), target
+}
+
+func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryStatus) (result HistoryStatus) {
+	if !config.History.Enabled {
+		return HistoryDisabled
+	}
+
 	// ephemeral history: either the channel owner explicitly set the ephemeral preference,
 	// or persistent history is disabled for unregistered channels
 	if registered {
-		return historyEnabled(config.History.Persistent.RegisteredChannels, historyStatus), target
+		return historyEnabled(config.History.Persistent.RegisteredChannels, storedStatus)
 	} else {
 		if config.History.Persistent.UnregisteredChannels {
-			return HistoryPersistent, target
+			return HistoryPersistent
 		} else {
-			return HistoryEphemeral, target
+			return HistoryEphemeral
 		}
 	}
 }
