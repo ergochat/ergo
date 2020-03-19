@@ -47,11 +47,12 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 
 		for _, member := range channel.Members() {
 			for _, session := range member.Sessions() {
-				if member == client && !session.capabilities.Has(caps.EchoMessage) {
-					continue
-				} else if rb.session == session {
+				// see discussion on #865: clients do not understand how to do local echo
+				// of roleplay commands, so send them a copy whether they have echo-message
+				// or not
+				if rb.session == session {
 					rb.Add(nil, source, "PRIVMSG", channel.name, message)
-				} else if member == client || session.capabilities.Has(caps.EchoMessage) {
+				} else {
 					session.Send(nil, source, "PRIVMSG", channel.name, message)
 				}
 			}
