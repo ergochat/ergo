@@ -151,10 +151,19 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		}
 
 		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
-			newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
+			newcfnick, err = CasefoldName(newNick)
+			if err != nil {
+				return "", errNicknameInvalid
+			}
+			if !config.Accounts.NickReservation.guestRegexpFolded.MatchString(newcfnick) {
+				newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
+				newcfnick = "" // re-fold it below
+			}
 		}
 
-		newcfnick, err = CasefoldName(newNick)
+		if newcfnick == "" {
+			newcfnick, err = CasefoldName(newNick)
+		}
 		if err != nil {
 			return "", errNicknameInvalid
 		}
