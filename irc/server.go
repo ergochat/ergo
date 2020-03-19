@@ -979,7 +979,10 @@ func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 		}
 	}
 
-	rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
+	// #704: some channels are kept around even with no members
+	if memberCount != 0 {
+		rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
+	}
 }
 
 var (
