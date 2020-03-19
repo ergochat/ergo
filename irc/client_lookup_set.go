@@ -117,7 +117,7 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error) {
 	config := client.server.Config()
 
-	var newcfnick, newSkeleton string
+	var newCfNick, newSkeleton string
 
 	client.stateMutex.RLock()
 	account := client.account
@@ -139,7 +139,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNickAccountMismatch
 		}
 		newNick = accountName
-		newcfnick = account
+		newCfNick = account
 		newSkeleton, err = Skeleton(newNick)
 		if err != nil {
 			return "", errNicknameInvalid
@@ -151,23 +151,23 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		}
 
 		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
-			newcfnick, err = CasefoldName(newNick)
+			newCfNick, err = CasefoldName(newNick)
 			if err != nil {
 				return "", errNicknameInvalid
 			}
-			if !config.Accounts.NickReservation.guestRegexpFolded.MatchString(newcfnick) {
+			if !config.Accounts.NickReservation.guestRegexpFolded.MatchString(newCfNick) {
 				newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
-				newcfnick = "" // re-fold it below
+				newCfNick = "" // re-fold it below
 			}
 		}
 
-		if newcfnick == "" {
-			newcfnick, err = CasefoldName(newNick)
+		if newCfNick == "" {
+			newCfNick, err = CasefoldName(newNick)
 		}
 		if err != nil {
 			return "", errNicknameInvalid
 		}
-		if len(newNick) > config.Limits.NickLen || len(newcfnick) > config.Limits.NickLen {
+		if len(newNick) > config.Limits.NickLen || len(newCfNick) > config.Limits.NickLen {
 			return "", errNicknameInvalid
 		}
 		newSkeleton, err = Skeleton(newNick)
@@ -175,11 +175,11 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNicknameInvalid
 		}
 
-		if restrictedCasefoldedNicks[newcfnick] || restrictedSkeletons[newSkeleton] {
+		if restrictedCasefoldedNicks[newCfNick] || restrictedSkeletons[newSkeleton] {
 			return "", errNicknameInvalid
 		}
 
-		reservedAccount, method := client.server.accounts.EnforcementStatus(newcfnick, newSkeleton)
+		reservedAccount, method := client.server.accounts.EnforcementStatus(newCfNick, newSkeleton)
 		if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
 			return "", errNicknameReserved
 		}
@@ -201,7 +201,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	clients.Lock()
 	defer clients.Unlock()
 
-	currentClient := clients.byNick[newcfnick]
+	currentClient := clients.byNick[newCfNick]
 	// the client may just be changing case
 	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
@@ -234,9 +234,9 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	}
 
 	clients.removeInternal(client)
-	clients.byNick[newcfnick] = client
+	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
-	client.updateNick(newNick, newcfnick, newSkeleton)
+	client.updateNick(newNick, newCfNick, newSkeleton)
 	return newNick, nil
 }
 
