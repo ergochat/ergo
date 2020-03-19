@@ -507,6 +507,15 @@ type Config struct {
 		Casemapping   Casemapping
 	}
 
+	Roleplay struct {
+		Enabled        *bool
+		enabled        bool
+		RequireChanops bool  `yaml:"require-chanops"`
+		RequireOper    bool  `yaml:"require-oper"`
+		AddSuffix      *bool `yaml:"add-suffix"`
+		addSuffix      bool
+	}
+
 	Languages struct {
 		Enabled bool
 		Path    string
@@ -844,12 +853,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	// set this even if STS is disabled
 	config.Server.capValues[caps.STS] = config.Server.STS.Value()
 
-	// lookup-hostnames defaults to true if unset
-	if config.Server.LookupHostnames != nil {
-		config.Server.lookupHostnames = *config.Server.LookupHostnames
-	} else {
-		config.Server.lookupHostnames = true
-	}
+	config.Server.lookupHostnames = utils.BoolDefaultTrue(config.Server.LookupHostnames)
 
 	// process webirc blocks
 	var newWebIRC []webircConfig
@@ -1014,12 +1018,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
-	// RecoverFromErrors defaults to true
-	if config.Debug.RecoverFromErrors != nil {
-		config.Debug.recoverFromErrors = *config.Debug.RecoverFromErrors
-	} else {
-		config.Debug.recoverFromErrors = true
-	}
+	config.Debug.recoverFromErrors = utils.BoolDefaultTrue(config.Debug.RecoverFromErrors)
 
 	// process operator definitions, store them to config.operators
 	operclasses, err := config.OperatorClasses()
@@ -1053,12 +1052,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Channels.Registration.MaxChannelsPerAccount = 15
 	}
 
-	forceTrailingPtr := config.Server.Compatibility.ForceTrailing
-	if forceTrailingPtr != nil {
-		config.Server.Compatibility.forceTrailing = *forceTrailingPtr
-	} else {
-		config.Server.Compatibility.forceTrailing = true
-	}
+	config.Server.Compatibility.forceTrailing = utils.BoolDefaultTrue(config.Server.Compatibility.ForceTrailing)
 
 	config.loadMOTD()
 
@@ -1079,6 +1073,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.History.ZNCMax == 0 {
 		config.History.ZNCMax = config.History.ChathistoryMax
 	}
+
+	config.Roleplay.enabled = utils.BoolDefaultTrue(config.Roleplay.Enabled)
+	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)
 
 	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
 
@@ -1133,8 +1130,10 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("NETWORK", config.Network.Name)
 	isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
 	isupport.Add("PREFIX", "(qaohv)~&@%+")
-	isupport.Add("RPCHAN", "E")
-	isupport.Add("RPUSER", "E")
+	if config.Roleplay.enabled {
+		isupport.Add("RPCHAN", "E")
+		isupport.Add("RPUSER", "E")
+	}
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))

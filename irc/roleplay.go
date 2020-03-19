@@ -4,10 +4,11 @@
 package irc
 
 import (
-	"fmt"
+	"bytes"
 
-	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -15,17 +16,39 @@ const (
 	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
 
-func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, message string, rb *ResponseBuffer) {
-	if isAction {
-		message = fmt.Sprintf("\x01ACTION %s (%s)\x01", message, client.nick)
-	} else {
-		// block attempts to send CTCP messages to Tor clients
-		// TODO(#395) clean this up
-		if len(message) != 0 && message[0] == '\x01' {
-			return
-		}
-		message = fmt.Sprintf("%s (%s)", message, client.nick)
+func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, messageParts []string, rb *ResponseBuffer) {
+	config := server.Config()
+	if !config.Roleplay.enabled {
+		rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Roleplaying has been disabled by the server administrators"))
+		return
 	}
+	if config.Roleplay.RequireOper && !client.HasRoleCapabs("roleplay") {
+		rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Insufficient privileges"))
+		return
+	}
+
+	// block attempts to send CTCP messages to Tor clients
+	if len(messageParts) > 0 && len(messageParts[0]) > 0 && messageParts[0][0] == '\x01' {
+		return
+	}
+
+	var buf bytes.Buffer
+	if isAction {
+		buf.WriteString("\x01ACTION ")
+	}
+	for i, part := range messageParts {
+		buf.WriteString(part)
+		if i != len(messageParts)-1 {
+			buf.WriteByte(' ')
+		}
+	}
+	if config.Roleplay.addSuffix {
+		buf.WriteString(" (")
+		buf.WriteString(client.Nick())
+		buf.WriteString(")")
+	}
+
+	splitMessage := utils.MakeMessage(buf.String())
 
 	target, cerr := CasefoldChannel(targetString)
 	if cerr == nil {
@@ -35,13 +58,19 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
+		targetString = channel.Name()
 		if !channel.CanSpeak(client) {
-			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, channel.name, client.t("Cannot send to channel"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, targetString, client.t("Cannot send to channel"))
 			return
 		}
 
 		if !channel.flags.HasMode(modes.ChanRoleplaying) {
-			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, channel.name, client.t("Channel doesn't have roleplaying mode available"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Channel doesn't have roleplaying mode available"))
+			return
+		}
+
+		if config.Roleplay.RequireChanops && !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Insufficient privileges"))
 			return
 		}
 
@@ -51,12 +80,18 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 				// of roleplay commands, so send them a copy whether they have echo-message
 				// or not
 				if rb.session == session {
-					rb.Add(nil, source, "PRIVMSG", channel.name, message)
+					rb.AddSplitMessageFromClient(source, "", nil, "PRIVMSG", targetString, splitMessage)
 				} else {
-					session.Send(nil, source, "PRIVMSG", channel.name, message)
+					session.sendSplitMsgFromClientInternal(false, source, "", nil, "PRIVMSG", targetString, splitMessage)
 				}
 			}
 		}
+
+		channel.AddHistoryItem(history.Item{
+			Type:    history.Privmsg,
+			Message: splitMessage,
+			Nick:    source,
+		})
 	} else {
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)
@@ -72,9 +107,8 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 
 		cnick := client.Nick()
 		tnick := user.Nick()
-		user.Send(nil, source, "PRIVMSG", tnick, message)
-		if rb.session.capabilities.Has(caps.EchoMessage) {
-			rb.Add(nil, source, "PRIVMSG", tnick, message)
+		for _, session := range user.Sessions() {
+			session.sendSplitMsgFromClientInternal(false, source, "", nil, "PRIVMSG", tnick, splitMessage)
 		}
 		if user.Away() {
 			//TODO(dan): possibly implement cooldown of away notifications to users

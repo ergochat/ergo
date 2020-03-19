@@ -492,6 +492,7 @@ oper-classes:
             - "local_ban"
             - "local_unban"
             - "nofakelag"
+            - "roleplay"
 
     # network operator
     "network-oper":
@@ -701,6 +702,23 @@ fakelag:
     # client status resets to the default state if they go this long without
     # sending any commands:
     cooldown: 2s
+
+# the roleplay commands are semi-standardized extensions to IRC that allow
+# sending and receiving messages from pseudo-nicknames. this can be used either
+# for actual roleplaying, or for bridging IRC with other protocols.
+roleplay:
+    # are roleplay commands enabled at all? (channels and clients still have to
+    # opt in individually with the +E mode)
+    enabled: true
+
+    # require the "roleplay" oper capability to send roleplay messages?
+    require-oper: false
+
+    # require channel operator permissions to send roleplay messages?
+    require-chanops: false
+
+    # add the real nickname, in parentheses, to the end of every roleplay message?
+    add-suffix: true
 
 # message history tracking, for the RESUME extension and possibly other uses in future
 history:
