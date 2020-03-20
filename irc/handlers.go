@@ -2027,7 +2027,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
-	message := msg.Params[2]
+	message := msg.Params[2:]
 
 	_, err := CasefoldName(fakeSource)
 	if err != nil {
@@ -2046,7 +2046,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
-	message := msg.Params[2]
+	message := msg.Params[2:]
 	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
 
 	_, err := CasefoldName(fakeSource)
@@ -2231,7 +2231,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(oldName), client.t("No such channel"))
 		return false
 	}
-	if !(channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("chanreg")) {
+	if !(channel.ClientIsAtLeast(client, modes.ChannelOperator) || client.HasRoleCapabs("chanreg")) {
 		rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), oldName, client.t("You're not a channel operator"))
 		return false
 	}
@@ -2334,7 +2334,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 // SCENE <target> <message>
 func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
-	message := msg.Params[1]
+	message := msg.Params[1:]
 	sourceString := fmt.Sprintf(sceneNickMask, client.nick)
 
 	sendRoleplayMessage(server, client, sourceString, target, false, message, rb)

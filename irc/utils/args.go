@@ -82,3 +82,10 @@ func (err *IncompatibleSchemaError) Error() string {
 func NanoToTimestamp(nanotime int64) string {
 	return time.Unix(0, nanotime).UTC().Format(IRCv3TimestampFormat)
 }
+
+func BoolDefaultTrue(value *bool) bool {
+	if value != nil {
+		return *value
+	}
+	return true
+}
