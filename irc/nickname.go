@@ -29,14 +29,13 @@ var (
 func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) bool {
 	currentNick := client.Nick()
 	details := target.Details()
-	if details.nick == nickname {
-		return true
-	}
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
 
 	assignedNickname, err := client.server.clients.SetNick(target, session, nickname)
-	if err == errNicknameInUse {
+	if err == errNoop {
+		return true
+	} else if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
 	} else if err == errNicknameReserved {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t("Nickname is reserved by a different account"))

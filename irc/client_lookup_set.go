@@ -202,7 +202,12 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	defer clients.Unlock()
 
 	currentClient := clients.byNick[newCfNick]
-	// the client may just be changing case
+	// three cases:
+	// case 1. complete no-op:
+	if currentClient == client && currentClient.Nick() == newNick {
+		return "", errNoop
+	}
+	// case 2: reattach:
 	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
 		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
@@ -232,6 +237,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	if skeletonHolder != nil && skeletonHolder != client {
 		return "", errNicknameInUse
 	}
+	// case 3: client is changing case, handle like any other change:
 
 	clients.removeInternal(client)
 	clients.byNick[newCfNick] = client
