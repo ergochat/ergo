@@ -226,7 +226,13 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 		return err
 	}
 
-	var info RegisteredChannel
+	info, err := cm.server.channelRegistry.LoadChannel(cfname)
+	if err != nil {
+		return err
+	}
+	if info.Founder != account {
+		return errChannelNotOwnedByAccount
+	}
 
 	defer func() {
 		if err == nil {
@@ -237,17 +243,12 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 	cm.Lock()
 	defer cm.Unlock()
 	entry := cm.chans[cfname]
-	if entry == nil {
-		return errNoSuchChannel
-	}
-	info = entry.channel.ExportRegistration(0)
-	if info.Founder != account {
-		return errChannelNotOwnedByAccount
-	}
-	entry.channel.SetUnregistered(account)
-	delete(cm.registeredChannels, cfname)
-	if skel, err := Skeleton(entry.channel.Name()); err == nil {
-		delete(cm.registeredSkeletons, skel)
+	if entry != nil {
+		entry.channel.SetUnregistered(account)
+		delete(cm.registeredChannels, cfname)
+		if skel, err := Skeleton(entry.channel.Name()); err == nil {
+			delete(cm.registeredSkeletons, skel)
+		}
 	}
 	return nil
 }
