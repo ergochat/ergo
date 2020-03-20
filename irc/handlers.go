@@ -66,7 +66,7 @@ func registrationErrorToMessageAndCode(err error) (message, code string) {
 	case errAccountBadPassphrase:
 		code = "REG_INVALID_CREDENTIAL"
 		message = err.Error()
-	case errAccountAlreadyRegistered, errAccountAlreadyVerified:
+	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered:
 		message = err.Error()
 	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
 		message = err.Error()

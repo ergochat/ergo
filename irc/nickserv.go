@@ -164,6 +164,20 @@ a code will display the necessary code.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
 		},
+		"erase": {
+			handler: nsUnregisterHandler,
+			help: `Syntax: $bERASE <username> [code]$b
+
+ERASE deletes all records of an account, allowing it to be re-registered.
+This should be used with caution, because it violates an expectation that
+account names are permanent identifiers. Typically, UNREGISTER should be
+used instead. A confirmation code is required; invoking the command
+without a code will display the necessary code.`,
+			helpShort: `$bERASE$b erases all records of an account, allowing reuse.`,
+			enabled:   servCmdRequiresAuthEnabled,
+			capabs:    []string{"accreg"},
+			minParams: 1,
+		},
 		"verify": {
 			handler: nsVerifyHandler,
 			help: `Syntax: $bVERIFY <username> <code>$b
@@ -815,6 +829,8 @@ func nsSaregisterHandler(server *Server, client *Client, command string, params 
 }
 
 func nsUnregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	erase := command == "erase"
+
 	username := params[0]
 	var verificationCode string
 	if len(params) > 1 {
@@ -826,39 +842,51 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		return
 	}
 
-	account, err := server.accounts.LoadAccount(username)
-	if err == errAccountDoesNotExist {
-		nsNotice(rb, client.t("Invalid account name"))
-		return
-	} else if err != nil {
-		nsNotice(rb, client.t("Internal error"))
-		return
+	var accountName string
+	var registeredAt time.Time
+	if erase {
+		// account may not be in a loadable state, e.g., if it was unregistered
+		accountName = username
+	} else {
+		account, err := server.accounts.LoadAccount(username)
+		if err == errAccountDoesNotExist {
+			nsNotice(rb, client.t("Invalid account name"))
+			return
+		} else if err != nil {
+			nsNotice(rb, client.t("Internal error"))
+			return
+		}
+		accountName = account.Name
+		registeredAt = account.RegisteredAt
 	}
 
-	cfname, _ := CasefoldName(username)
-	if !(cfname == client.Account() || client.HasRoleCapabs("accreg")) {
+	if !(accountName == client.AccountName() || client.HasRoleCapabs("accreg")) {
 		nsNotice(rb, client.t("Insufficient oper privs"))
 		return
 	}
 
-	expectedCode := utils.ConfirmationCode(account.Name, account.RegisteredAt)
+	expectedCode := utils.ConfirmationCode(accountName, registeredAt)
 	if expectedCode != verificationCode {
-		nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
-		nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %[1]s %[2]s"), cfname, expectedCode))
+		if erase {
+			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
+			nsNotice(rb, fmt.Sprintf(client.t("To confirm account erase, type: /NS ERASE %[1]s %[2]s"), accountName, expectedCode))
+		} else {
+			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
+			nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %[1]s %[2]s"), accountName, expectedCode))
+		}
 		return
 	}
 
-	err = server.accounts.Unregister(cfname)
+	err := server.accounts.Unregister(accountName, erase)
 	if err == errAccountDoesNotExist {
 		nsNotice(rb, client.t(err.Error()))
 	} else if err != nil {
 		nsNotice(rb, client.t("Error while unregistering account"))
 	} else {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), cfname))
-		server.logger.Info("accounts", "client", client.Nick(), "unregistered account", cfname)
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), accountName))
+		server.logger.Info("accounts", "client", client.Nick(), "unregistered account", accountName)
+		client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] unregistered account $c[grey][$r%s$c[grey]]"), client.NickMaskString(), accountName))
 	}
-
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] unregistered account $c[grey][$r%s$c[grey]]"), client.NickMaskString(), account.Name))
 }
 
 func nsVerifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

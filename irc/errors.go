@@ -13,6 +13,7 @@ import (
 // Runtime Errors
 var (
 	errAccountAlreadyRegistered       = errors.New(`Account already exists`)
+	errAccountAlreadyUnregistered     = errors.New(`That account name was registered previously and can't be reused`)
 	errAccountAlreadyVerified         = errors.New(`Account is already verified`)
 	errAccountCantDropPrimaryNick     = errors.New("Can't unreserve primary nickname")
 	errAccountCreation                = errors.New("Account could not be created")
