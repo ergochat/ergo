@@ -8,6 +8,95 @@ import (
 	"testing"
 )
 
+func assertEqual(supplied, expected interface{}, t *testing.T) {
+	if !reflect.DeepEqual(supplied, expected) {
+		t.Errorf("expected %v but got %v", expected, supplied)
+	}
+}
+
+func TestIssue874(t *testing.T) {
+	emptyUnknown := make(map[rune]bool)
+	modes, unknown := ParseChannelModeChanges("+k")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{}, t)
+
+	modes, unknown = ParseChannelModeChanges("+k", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{ModeChange{Op: Add, Mode: Key, Arg: "beer"}}, t)
+
+	modes, unknown = ParseChannelModeChanges("-k")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{ModeChange{Op: Remove, Mode: Key, Arg: "*"}}, t)
+
+	modes, unknown = ParseChannelModeChanges("-k", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{ModeChange{Op: Remove, Mode: Key, Arg: "*"}}, t)
+
+	modes, unknown = ParseChannelModeChanges("+kb", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
+		ModeChange{Op: List, Mode: BanMask, Arg: ""},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("+kb", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
+		ModeChange{Op: List, Mode: BanMask, Arg: ""},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("-kb", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Remove, Mode: Key, Arg: "*"},
+		ModeChange{Op: List, Mode: BanMask, Arg: ""},
+	}, t)
+
+	// "beer" is the ban arg, +k with no arg should be ignored
+	modes, unknown = ParseChannelModeChanges("+bk", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Add, Mode: BanMask, Arg: "beer"},
+	}, t)
+
+	// "beer" is the ban arg again
+	modes, unknown = ParseChannelModeChanges("-bk", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Remove, Mode: BanMask, Arg: "beer"},
+		ModeChange{Op: Remove, Mode: Key, Arg: "*"},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("+bk", "shivaram", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Add, Mode: BanMask, Arg: "shivaram"},
+		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("+kb", "beer", "shivaram")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
+		ModeChange{Op: Add, Mode: BanMask, Arg: "shivaram"},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("-bk", "shivaram", "beer")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Remove, Mode: BanMask, Arg: "shivaram"},
+		ModeChange{Op: Remove, Mode: Key, Arg: "*"},
+	}, t)
+
+	modes, unknown = ParseChannelModeChanges("-kb", "beer", "shivaram")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(modes, ModeChanges{
+		ModeChange{Op: Remove, Mode: Key, Arg: "*"},
+		ModeChange{Op: Remove, Mode: BanMask, Arg: "shivaram"},
+	}, t)
+}
+
 func TestParseChannelModeChanges(t *testing.T) {
 	modes, unknown := ParseChannelModeChanges("+h", "wrmsr")
 	if len(unknown) > 0 {

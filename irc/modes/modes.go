@@ -281,7 +281,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				} else {
 					continue
 				}
-			case Key, UserLimit:
+			case UserLimit:
 				// don't require value when removing
 				if change.Op == Add {
 					if len(params) > skipArgs {
@@ -290,6 +290,23 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 					} else {
 						continue
 					}
+				}
+			case Key:
+				// #874: +k is technically a type B mode, requiring a parameter
+				// both for add and remove. so attempt to consume a parameter,
+				// but allow remove (but not add) even if no parameter is available.
+				// however, the remove parameter should always display as "*", matching
+				// the freenode behavior.
+				if len(params) > skipArgs {
+					if change.Op == Add {
+						change.Arg = params[skipArgs]
+					}
+					skipArgs++
+				} else if change.Op == Add {
+					continue
+				}
+				if change.Op == Remove {
+					change.Arg = "*"
 				}
 			}
 
