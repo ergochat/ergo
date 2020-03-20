@@ -516,6 +516,9 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		}
 	}
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
+	if target.Away() {
+		rb.Add(nil, client.server.name, RPL_AWAY, cnick, tnick, target.AwayMessage())
+	}
 }
 
 // rplWhoReply returns the WHO reply between one user and another channel/user.
