@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	handshakeTimeout, _ = time.ParseDuration("5s")
-	errSendQExceeded    = errors.New("SendQ exceeded")
+	handshakeTimeout = RegisterTimeout
+	errSendQExceeded = errors.New("SendQ exceeded")
 
 	sendQExceededMessage = []byte("\r\nERROR :SendQ Exceeded\r\n")
 )
