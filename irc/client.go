@@ -278,6 +278,9 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	}
 	client.sessions = []*Session{session}
 
+	session.idletimer.Initialize(session)
+	session.resetFakelag()
+
 	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
@@ -534,9 +537,6 @@ func (client *Client) run(session *Session, proxyLine string) {
 		// ensure client connection gets closed
 		client.destroy(session)
 	}()
-
-	session.idletimer.Initialize(session)
-	session.resetFakelag()
 
 	isReattach := client.Registered()
 	if isReattach {
@@ -1245,7 +1245,6 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.Remove(registered, invisible, operator)
 	}
 
-	// do not destroy the client if it has either remaining sessions, or is BRB'ed
 	if !shouldDestroy {
 		return
 	}
