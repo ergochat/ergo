@@ -24,6 +24,7 @@ import (
 const (
 	keyAccountExists           = "account.exists %s"
 	keyAccountVerified         = "account.verified %s"
+	keyAccountUnregistered     = "account.unregistered %s"
 	keyAccountCallback         = "account.callback %s"
 	keyAccountVerificationCode = "account.verificationcode %s"
 	keyAccountName             = "account.name %s" // stores the 'preferred name' of the account, not casemapped
@@ -363,6 +364,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	}
 
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
+	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
@@ -401,7 +403,11 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		}
 
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
-			_, err := am.loadRawAccount(tx, casefoldedAccount)
+			if _, err := tx.Get(unregisteredKey); err == nil {
+				return errAccountAlreadyUnregistered
+			}
+
+			_, err = am.loadRawAccount(tx, casefoldedAccount)
 			if err != errAccountDoesNotExist {
 				return errAccountAlreadyRegistered
 			}
@@ -432,7 +438,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 
 	code, err := am.dispatchCallback(client, casefoldedAccount, callbackNamespace, callbackValue)
 	if err != nil {
-		am.Unregister(casefoldedAccount)
+		am.Unregister(casefoldedAccount, true)
 		return errCallbackFailed
 	} else {
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
@@ -1063,7 +1069,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	return
 }
 
-func (am *AccountManager) Unregister(account string) error {
+func (am *AccountManager) Unregister(account string, erase bool) error {
 	config := am.server.Config()
 	casefoldedAccount, err := CasefoldName(account)
 	if err != nil {
@@ -1084,6 +1090,7 @@ func (am *AccountManager) Unregister(account string) error {
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
+	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1091,7 +1098,10 @@ func (am *AccountManager) Unregister(account string) error {
 	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
 		for _, channelName := range registeredChannels {
-			am.server.channels.SetUnregistered(channelName, casefoldedAccount)
+			err := am.server.channels.SetUnregistered(channelName, casefoldedAccount)
+			if err != nil {
+				am.server.logger.Error("internal", "couldn't unregister channel", channelName, err.Error())
+			}
 		}
 	}()
 
@@ -1104,6 +1114,13 @@ func (am *AccountManager) Unregister(account string) error {
 	var accountName string
 	var channelsStr string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
+		if erase {
+			tx.Delete(unregisteredKey)
+		} else {
+			if _, err := tx.Get(accountKey); err == nil {
+				tx.Set(unregisteredKey, "1", nil)
+			}
+		}
 		tx.Delete(accountKey)
 		accountName, _ = tx.Get(accountNameKey)
 		tx.Delete(accountNameKey)
@@ -1129,7 +1146,7 @@ func (am *AccountManager) Unregister(account string) error {
 
 	if err == nil {
 		var creds AccountCredentials
-		if err = json.Unmarshal([]byte(credText), &creds); err == nil {
+		if err := json.Unmarshal([]byte(credText), &creds); err == nil {
 			for _, cert := range creds.Certfps {
 				certFPKey := fmt.Sprintf(keyCertToAccount, cert)
 				am.server.store.Update(func(tx *buntdb.Tx) error {
@@ -1169,7 +1186,7 @@ func (am *AccountManager) Unregister(account string) error {
 		}
 	}
 
-	if err != nil {
+	if err != nil && !erase {
 		return errAccountDoesNotExist
 	}
 

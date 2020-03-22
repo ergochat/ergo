@@ -231,6 +231,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 
 		info = RegisteredChannel{
 			Name:           name,
+			NameCasefolded: nameCasefolded,
 			RegisteredAt:   time.Unix(regTimeInt, 0).UTC(),
 			Founder:        founder,
 			Topic:          topic,
