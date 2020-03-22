@@ -1245,7 +1245,6 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.Remove(registered, invisible, operator)
 	}
 
-	// do not destroy the client if it has either remaining sessions, or is BRB'ed
 	if !shouldDestroy {
 		return
 	}
