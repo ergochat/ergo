@@ -4,9 +4,8 @@
 package mkcerts
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -23,7 +22,10 @@ func CreateCertBytes(orgName string, host string) (certBytes []byte, keyBytes []
 	validFor := 365 * 24 * time.Hour
 	notAfter := validFrom.Add(validFor)
 
-	priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return
+	}
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -59,11 +61,11 @@ func CreateCertBytes(orgName string, host string) (certBytes []byte, keyBytes []
 
 	certBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 
-	b, err := x509.MarshalECPrivateKey(priv)
+	b, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Unable to marshal ECDSA private key: %v", err.Error())
+		return nil, nil, fmt.Errorf("Unable to marshal private key: %v", err.Error())
 	}
-	pemBlock := pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
+	pemBlock := pem.Block{Type: "PRIVATE KEY", Bytes: b}
 	keyBytes = pem.EncodeToMemory(&pemBlock)
 	return certBytes, keyBytes, nil
 }
