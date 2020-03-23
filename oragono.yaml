@@ -561,7 +561,7 @@ logging:
     -
         # how to log these messages
         #
-        #   file    log to given target filename
+        #   file    log to a file
         #   stdout  log to stdout
         #   stderr  log to stderr
         #   (you can specify multiple methods, e.g., to log to both stderr and a file)
