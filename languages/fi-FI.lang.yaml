@@ -9,5 +9,7 @@
 name: "Suomalainen"
 #code - this is what the language will be referred to in our list of languages
 code: "fi"
+#contributors - people who have contributed to this translation
+contributors: "Cookie Dough"
 #incomplete - whether to mark this language as incomplete
 incomplete: true
