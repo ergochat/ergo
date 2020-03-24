@@ -98,7 +98,7 @@ Usage:
 	oragono genpasswd [--conf <filename>] [--quiet]
 	oragono mkcerts [--conf <filename>] [--quiet]
 	oragono mksecret [--conf <filename>] [--quiet]
-	oragono run [--conf <filename>] [--quiet]
+	oragono run [--conf <filename>] [--quiet] [--smoke]
 	oragono -h | --help
 	oragono --version
 Options:
@@ -197,6 +197,8 @@ Options:
 			logman.Info("server", "Server running")
 			defer logman.Info("server", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
 		}
-		server.Run()
+		if !arguments["--smoke"].(bool) {
+			server.Run()
+		}
 	}
 }
