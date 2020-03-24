@@ -39,13 +39,6 @@ func TestIssue874(t *testing.T) {
 		ModeChange{Op: List, Mode: BanMask, Arg: ""},
 	}, t)
 
-	modes, unknown = ParseChannelModeChanges("+kb", "beer")
-	assertEqual(unknown, emptyUnknown, t)
-	assertEqual(modes, ModeChanges{
-		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
-		ModeChange{Op: List, Mode: BanMask, Arg: ""},
-	}, t)
-
 	modes, unknown = ParseChannelModeChanges("-kb", "beer")
 	assertEqual(unknown, emptyUnknown, t)
 	assertEqual(modes, ModeChanges{
