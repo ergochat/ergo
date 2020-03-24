@@ -1,4 +1,4 @@
-.PHONY: all install build release capdefs test
+.PHONY: all install build release capdefs test smoke
 
 capdef_file = ./irc/caps/defs.go
 
@@ -29,3 +29,6 @@ test:
 	cd irc/passwd && go test . && go vet .
 	cd irc/utils && go test . && go vet .
 	./.check-gofmt.sh
+
+smoke:
+	oragono run --conf ./oragono.yaml --smoke
