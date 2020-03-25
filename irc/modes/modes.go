@@ -28,10 +28,6 @@ var (
 // ModeOp is an operation performed with modes
 type ModeOp rune
 
-func (op ModeOp) String() string {
-	return string(op)
-}
-
 const (
 	// Add is used when adding the given key.
 	Add ModeOp = '+'
@@ -55,43 +51,36 @@ type ModeChange struct {
 	Arg  string
 }
 
-func (change *ModeChange) String() (str string) {
-	if (change.Op == Add) || (change.Op == Remove) {
-		str = change.Op.String()
-	}
-	str += change.Mode.String()
-	if change.Arg != "" {
-		str += " " + change.Arg
-	}
-	return
-}
-
 // ModeChanges are a collection of 'ModeChange's
 type ModeChanges []ModeChange
 
-func (changes ModeChanges) String() string {
+func (changes ModeChanges) Strings() (result []string) {
 	if len(changes) == 0 {
-		return ""
+		return
 	}
 
+	var builder strings.Builder
+
 	op := changes[0].Op
-	str := changes[0].Op.String()
+	builder.WriteRune(rune(op))
 
 	for _, change := range changes {
 		if change.Op != op {
 			op = change.Op
-			str += change.Op.String()
+			builder.WriteRune(rune(op))
 		}
-		str += change.Mode.String()
+		builder.WriteRune(rune(change.Mode))
 	}
+
+	result = append(result, builder.String())
 
 	for _, change := range changes {
 		if change.Arg == "" {
 			continue
 		}
-		str += " " + change.Arg
+		result = append(result, change.Arg)
 	}
-	return str
+	return
 }
 
 // Modes is just a raw list of modes

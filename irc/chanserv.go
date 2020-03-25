@@ -238,7 +238,16 @@ func csAmodeHandler(server *Server, client *Client, command string, params []str
 		}
 	case modes.Add, modes.Remove:
 		if len(affectedModes) > 0 {
-			csNotice(rb, fmt.Sprintf(client.t("Successfully set mode %s"), change.String()))
+			csNotice(rb, fmt.Sprintf(client.t("Successfully set persistent mode %s%s on %s"), string(change.Op), string(change.Mode), change.Arg))
+			// #729: apply change to current membership
+			for _, member := range channel.Members() {
+				if member.Account() == change.Arg {
+					applied, change := channel.applyModeToMember(client, change, rb)
+					if applied {
+						announceCmodeChanges(channel, modes.ModeChanges{change}, chanservMask, rb)
+					}
+				}
+			}
 		} else {
 			csNotice(rb, client.t("No changes were made"))
 		}
@@ -275,14 +284,14 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 	if clientAccount == target.Account() {
 		givenMode = modes.ChannelFounder
 	}
-	change := channelInfo.applyModeToMember(client, givenMode, modes.Add, target.NickCasefolded(), rb)
-	if change != nil {
-		//TODO(dan): we should change the name of String and make it return a slice here
-		//TODO(dan): unify this code with code in modes.go
-		args := append([]string{channelName}, strings.Split(change.String(), " ")...)
-		for _, member := range channelInfo.Members() {
-			member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
-		}
+	applied, change := channelInfo.applyModeToMember(client,
+		modes.ModeChange{Mode: givenMode,
+			Op:  modes.Add,
+			Arg: target.NickCasefolded(),
+		},
+		rb)
+	if applied {
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, rb)
 	}
 
 	csNotice(rb, fmt.Sprintf(client.t("Successfully op'd in channel %s"), channelName))
@@ -326,14 +335,15 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 	server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Channel registered $c[grey][$r%s$c[grey]] by $c[grey][$r%s$c[grey]]"), channelName, client.nickMaskString))
 
 	// give them founder privs
-	change := channelInfo.applyModeToMember(client, modes.ChannelFounder, modes.Add, client.NickCasefolded(), rb)
-	if change != nil {
-		//TODO(dan): we should change the name of String and make it return a slice here
-		//TODO(dan): unify this code with code in modes.go
-		args := append([]string{channelName}, strings.Split(change.String(), " ")...)
-		for _, member := range channelInfo.Members() {
-			member.Send(nil, fmt.Sprintf("ChanServ!services@%s", client.server.name), "MODE", args...)
-		}
+	applied, change := channelInfo.applyModeToMember(client,
+		modes.ModeChange{
+			Mode: modes.ChannelFounder,
+			Op:   modes.Add,
+			Arg:  client.NickCasefolded(),
+		},
+		rb)
+	if applied {
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, rb)
 	}
 }
 

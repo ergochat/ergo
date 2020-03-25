@@ -1260,22 +1260,20 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	})
 }
 
-func (channel *Channel) applyModeToMember(client *Client, mode modes.Mode, op modes.ModeOp, nick string, rb *ResponseBuffer) (result *modes.ModeChange) {
-	target := channel.server.clients.Get(nick)
+func (channel *Channel) applyModeToMember(client *Client, change modes.ModeChange, rb *ResponseBuffer) (applied bool, result modes.ModeChange) {
+	target := channel.server.clients.Get(change.Arg)
 	if target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nick), client.t("No such nick"))
-		return nil
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(change.Arg), client.t("No such nick"))
+		return
 	}
+	change.Arg = target.Nick()
 
 	channel.stateMutex.Lock()
 	modeset, exists := channel.members[target]
 	if exists {
-		if modeset.SetMode(mode, op == modes.Add) {
-			result = &modes.ModeChange{
-				Op:   op,
-				Mode: mode,
-				Arg:  nick,
-			}
+		if modeset.SetMode(change.Mode, change.Op == modes.Add) {
+			applied = true
+			result = change
 		}
 	}
 	channel.stateMutex.Unlock()

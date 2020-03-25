@@ -1530,38 +1530,25 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 	// process mode changes, include list operations (an empty set of changes does a list)
 	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
+	announceCmodeChanges(channel, applied, client.NickMaskString(), rb)
 
-	// save changes
-	var includeFlags uint
-	for _, change := range applied {
-		includeFlags |= IncludeModes
-		if change.Mode == modes.BanMask || change.Mode == modes.ExceptMask || change.Mode == modes.InviteMask {
-			includeFlags |= IncludeLists
-		}
-	}
+	return false
+}
 
-	if includeFlags != 0 {
-		channel.MarkDirty(includeFlags)
-	}
-
+func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source string, rb *ResponseBuffer) {
 	// send out changes
 	if len(applied) > 0 {
-		prefix := client.NickMaskString()
 		//TODO(dan): we should change the name of String and make it return a slice here
-		args := append([]string{channel.name}, strings.Split(applied.String(), " ")...)
-		rb.Add(nil, prefix, "MODE", args...)
-		for _, session := range client.Sessions() {
-			if session != rb.session {
-				session.Send(nil, prefix, "MODE", args...)
-			}
-		}
+		args := append([]string{channel.name}, applied.Strings()...)
+		rb.Add(nil, source, "MODE", args...)
 		for _, member := range channel.Members() {
-			if member != client {
-				member.Send(nil, prefix, "MODE", args...)
+			for _, session := range member.Sessions() {
+				if session != rb.session {
+					session.Send(nil, source, "MODE", args...)
+				}
 			}
 		}
 	}
-	return false
 }
 
 // MODE <client> [<modestring> [<mode arguments>...]]
@@ -1606,7 +1593,8 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	if len(applied) > 0 {
-		rb.Add(nil, cDetails.nickMask, "MODE", targetNick, applied.String())
+		args := append([]string{targetNick}, applied.Strings()...)
+		rb.Add(nil, cDetails.nickMask, "MODE", args...)
 	} else if hasPrivs {
 		rb.Add(nil, server.name, RPL_UMODEIS, targetNick, target.ModeString())
 		if target.HasMode(modes.LocalOperator) || target.HasMode(modes.Operator) {
@@ -2122,7 +2110,8 @@ func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), newDetails.nickMask, oper.Name))
 
 		rb.Broadcast(nil, client.server.name, RPL_YOUREOPER, details.nick, client.t("You are now an IRC operator"))
-		rb.Broadcast(nil, client.server.name, "MODE", details.nick, applied.String())
+		args := append([]string{details.nick}, applied.Strings()...)
+		rb.Broadcast(nil, client.server.name, "MODE", args...)
 	} else {
 		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client deopered $c[grey][$r%s$c[grey]]"), newDetails.nickMask))
 	}
