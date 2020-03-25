@@ -165,6 +165,24 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 		return err
 	})
 
+	if config.Accounts.NickReservation.Method == NickEnforcementStrict {
+		unregisteredPrefix := fmt.Sprintf(keyAccountUnregistered, "")
+		am.server.store.View(func(tx *buntdb.Tx) error {
+			tx.AscendGreaterOrEqual("", unregisteredPrefix, func(key, value string) bool {
+				if !strings.HasPrefix(key, unregisteredPrefix) {
+					return false
+				}
+				account := strings.TrimPrefix(key, unregisteredPrefix)
+				accountName := value
+				nickToAccount[account] = account
+				skeleton, _ := Skeleton(accountName)
+				skeletonToAccount[skeleton] = account
+				return true
+			})
+			return nil
+		})
+	}
+
 	if err != nil {
 		am.server.logger.Error("internal", "couldn't read reserved nicks", err.Error())
 	} else {
@@ -1113,16 +1131,18 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 
 	var accountName string
 	var channelsStr string
+	keepProtections := false
 	am.server.store.Update(func(tx *buntdb.Tx) error {
+		accountName, _ = tx.Get(accountNameKey)
 		if erase {
 			tx.Delete(unregisteredKey)
 		} else {
 			if _, err := tx.Get(verifiedKey); err == nil {
-				tx.Set(unregisteredKey, "1", nil)
+				tx.Set(unregisteredKey, accountName, nil)
+				keepProtections = true
 			}
 		}
 		tx.Delete(accountKey)
-		accountName, _ = tx.Get(accountNameKey)
 		tx.Delete(accountNameKey)
 		tx.Delete(verifiedKey)
 		tx.Delete(registeredTimeKey)
@@ -1168,8 +1188,11 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 
 	clients = am.accountToClients[casefoldedAccount]
 	delete(am.accountToClients, casefoldedAccount)
-	delete(am.nickToAccount, casefoldedAccount)
-	delete(am.skeletonToAccount, skeleton)
+	// protect the account name itself where applicable, but not any grouped nicks
+	if !(keepProtections && config.Accounts.NickReservation.Method == NickEnforcementStrict) {
+		delete(am.nickToAccount, casefoldedAccount)
+		delete(am.skeletonToAccount, skeleton)
+	}
 	for _, nick := range additionalNicks {
 		delete(am.nickToAccount, nick)
 		additionalSkel, _ := Skeleton(nick)
