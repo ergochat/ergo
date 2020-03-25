@@ -1117,7 +1117,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		if erase {
 			tx.Delete(unregisteredKey)
 		} else {
-			if _, err := tx.Get(accountKey); err == nil {
+			if _, err := tx.Get(verifiedKey); err == nil {
 				tx.Set(unregisteredKey, "1", nil)
 			}
 		}
