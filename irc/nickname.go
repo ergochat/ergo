@@ -45,7 +45,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	} else if err == errNickAccountMismatch {
 		// this used to use ERR_NICKNAMEINUSE, but it displayed poorly in some clients;
 		// ERR_UNKNOWNERROR at least has a better chance of displaying our error text
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", client.t(err.Error()))
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", client.t("You must use your account name as your nickname"))
 	} else if err == errNickMissing {
 		rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, currentNick, client.t("No nickname given"))
 	} else if err != nil {
