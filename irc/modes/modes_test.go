@@ -219,6 +219,22 @@ func TestHighestChannelUserMode(t *testing.T) {
 	}
 }
 
+func TestModeChangesString(t *testing.T) {
+	m := ModeChanges{
+		ModeChange{Op: Add, Mode: RegisteredOnly},
+		ModeChange{Op: Add, Mode: Key, Arg: "beer"},
+		ModeChange{Op: Add, Mode: BanMask, Arg: "shivaram"},
+	}
+	assertEqual(m.Strings(), []string{"+Rkb", "beer", "shivaram"}, t)
+
+	m = ModeChanges{
+		ModeChange{Op: Add, Mode: RegisteredOnly},
+		ModeChange{Op: Remove, Mode: Key, Arg: "beer"},
+		ModeChange{Op: Add, Mode: BanMask, Arg: "shivaram"},
+	}
+	assertEqual(m.Strings(), []string{"+R-k+b", "beer", "shivaram"}, t)
+}
+
 func BenchmarkModeString(b *testing.B) {
 	set := NewModeSet()
 	set.SetMode('A', true)

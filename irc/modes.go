@@ -256,11 +256,26 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				continue
 			}
 
-			change := channel.applyModeToMember(client, change.Mode, change.Op, nick, rb)
-			if change != nil {
-				applied = append(applied, *change)
+			success, change := channel.applyModeToMember(client, change, rb)
+			if success {
+				applied = append(applied, change)
 			}
 		}
+	}
+
+	var includeFlags uint
+	for _, change := range applied {
+		switch change.Mode {
+		case modes.BanMask, modes.ExceptMask, modes.InviteMask:
+			includeFlags |= IncludeLists
+		case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
+			// these are never persisted currently, but might be in the future (see discussion on #729)
+		default:
+			includeFlags |= IncludeModes
+		}
+	}
+	if includeFlags != 0 {
+		channel.MarkDirty(includeFlags)
 	}
 
 	// #649: don't send 324 RPL_CHANNELMODEIS if we were only working with mask lists
