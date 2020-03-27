@@ -25,6 +25,7 @@ const (
 // from the loop that accepts the client's input and runs commands
 type Fakelag struct {
 	config    FakelagConfig
+	suspended bool
 	nowFunc   func() time.Time
 	sleepFunc func(time.Duration)
 
@@ -38,6 +39,22 @@ func (fl *Fakelag) Initialize(config FakelagConfig) {
 	fl.nowFunc = time.Now
 	fl.sleepFunc = time.Sleep
 	fl.state = FakelagBursting
+}
+
+// Idempotently turn off fakelag if it's enabled
+func (fl *Fakelag) Suspend() {
+	if fl.config.Enabled {
+		fl.suspended = true
+		fl.config.Enabled = false
+	}
+}
+
+// Idempotently turn fakelag back on if it was previously Suspend'ed
+func (fl *Fakelag) Unsuspend() {
+	if fl.suspended {
+		fl.config.Enabled = true
+		fl.suspended = false
+	}
 }
 
 // register a new command, sleep if necessary to delay it

@@ -112,9 +112,10 @@ type Session struct {
 	rawHostname string
 	isTor       bool
 
-	idletimer IdleTimer
-	fakelag   Fakelag
-	destroyed uint32
+	idletimer            IdleTimer
+	fakelag              Fakelag
+	deferredFakelagCount int
+	destroyed            uint32
 
 	certfp          string
 	sasl            saslStatus
@@ -146,6 +147,42 @@ type MultilineBatch struct {
 	responseLabel string // this is the value of the labeled-response tag sent with BATCH
 	message       utils.SplitMessage
 	tags          map[string]string
+}
+
+// Starts a multiline batch, failing if there's one already open
+func (s *Session) StartMultilineBatch(label, target, responseLabel string, tags map[string]string) (err error) {
+	if s.batch.label != "" {
+		return errInvalidMultilineBatch
+	}
+
+	s.batch.label, s.batch.target, s.batch.responseLabel, s.batch.tags = label, target, responseLabel, tags
+	s.fakelag.Suspend()
+	return
+}
+
+// Closes a multiline batch unconditionally; returns the batch and whether
+// it was validly terminated (pass "" as the label if you don't care about the batch)
+func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err error) {
+	batch = s.batch
+	s.batch = MultilineBatch{}
+	s.fakelag.Unsuspend()
+
+	// heuristics to estimate how much data they used while fakelag was suspended
+	fakelagBill := (batch.message.LenBytes() / 512) + 1
+	fakelagBillLines := (batch.message.LenLines() * 60) / 512
+	if fakelagBill < fakelagBillLines {
+		fakelagBill = fakelagBillLines
+	}
+	s.deferredFakelagCount = fakelagBill
+
+	if batch.label == "" || batch.label != label || batch.message.LenLines() == 0 {
+		err = errInvalidMultilineBatch
+		return
+	}
+
+	batch.message.SetTime()
+
+	return
 }
 
 // sets the session quit message, if there isn't one already
@@ -596,7 +633,11 @@ func (client *Client) run(session *Session, proxyLine string) {
 		}
 
 		if client.registered {
-			session.fakelag.Touch()
+			touches := session.deferredFakelagCount + 1
+			session.deferredFakelagCount = 0
+			for i := 0; i < touches; i++ {
+				session.fakelag.Touch()
+			}
 		} else {
 			// DoS hardening, #505
 			session.registrationMessages++
@@ -615,19 +656,6 @@ func (client *Client) run(session *Session, proxyLine string) {
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)
 			break
-		}
-
-		// "Clients MUST NOT send messages other than PRIVMSG while a multiline batch is open."
-		// in future we might want to whitelist some commands that are allowed here, like PONG
-		if session.batch.label != "" && msg.Command != "BATCH" {
-			_, batchTag := msg.GetTag("batch")
-			if batchTag != session.batch.label {
-				if msg.Command != "NOTICE" {
-					session.Send(nil, client.server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Incorrect batch tag sent"))
-				}
-				session.batch = MultilineBatch{}
-				continue
-			}
 		}
 
 		cmd, exists := Commands[msg.Command]
