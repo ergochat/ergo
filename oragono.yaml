@@ -266,6 +266,14 @@ accounts:
         # the `accreg` capability can still create accounts with `/NICKSERV SAREGISTER`
         enabled: true
 
+        # global throttle on new account creation
+        throttling:
+            enabled: true
+            # window
+            duration: 10m
+            # number of attempts allowed within the window
+            max-attempts: 30
+
         # this is the bcrypt cost we'll use for account passwords
         bcrypt-cost: 9
 

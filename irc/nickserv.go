@@ -616,7 +616,9 @@ func nsGroupHandler(server *Server, client *Client, command string, params []str
 }
 
 func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
+	client.stateMutex.Lock()
 	throttled, remainingTime := client.loginThrottle.Touch()
+	client.stateMutex.Unlock()
 	if throttled {
 		nsNotice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
 		return false
@@ -741,11 +743,6 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	}
 
-	if details.account != "" {
-		nsNotice(rb, client.t("You're already logged into an account"))
-		return
-	}
-
 	if !nsLoginThrottleCheck(client, rb) {
 		return
 	}
@@ -793,13 +790,10 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 			message := fmt.Sprintf(messageTemplate, fmt.Sprintf("%s:%s", callbackNamespace, callbackValue))
 			nsNotice(rb, message)
 		}
-	}
-
-	// details could not be stored and relevant numerics have been dispatched, abort
-	message, _ := registrationErrorToMessageAndCode(err)
-	if err != nil {
+	} else {
+		// details could not be stored and relevant numerics have been dispatched, abort
+		message, _ := registrationErrorToMessageAndCode(err)
 		nsNotice(rb, client.t(message))
-		return
 	}
 }
 
@@ -894,10 +888,13 @@ func nsVerifyHandler(server *Server, client *Client, command string, params []st
 	err := server.accounts.Verify(client, username, code)
 
 	var errorMessage string
-	if err == errAccountVerificationInvalidCode || err == errAccountAlreadyVerified {
-		errorMessage = err.Error()
-	} else if err != nil {
-		errorMessage = errAccountVerificationFailed.Error()
+	if err != nil {
+		switch err {
+		case errAccountAlreadyLoggedIn, errAccountVerificationInvalidCode, errAccountAlreadyVerified:
+			errorMessage = err.Error()
+		default:
+			errorMessage = errAccountVerificationFailed.Error()
+		}
 	}
 
 	if errorMessage != "" {

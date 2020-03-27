@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/oragono/oragono/irc/caps"
+	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -62,6 +63,7 @@ type AccountManager struct {
 	nickToAccount     map[string]string
 	skeletonToAccount map[string]string
 	accountToMethod   map[string]NickEnforcementMethod
+	registerThrottle  connection_limits.GenericThrottle
 }
 
 func (am *AccountManager) Initialize(server *Server) {
@@ -75,6 +77,24 @@ func (am *AccountManager) Initialize(server *Server) {
 	am.buildNickToAccountIndex(config)
 	am.initVHostRequestQueue(config)
 	am.createAlwaysOnClients(config)
+	am.resetRegisterThrottle(config)
+}
+
+func (am *AccountManager) resetRegisterThrottle(config *Config) {
+	am.Lock()
+	defer am.Unlock()
+
+	am.registerThrottle = connection_limits.GenericThrottle{
+		Duration: config.Accounts.Registration.Throttling.Duration,
+		Limit:    config.Accounts.Registration.Throttling.MaxAttempts,
+	}
+}
+
+func (am *AccountManager) touchRegisterThrottle() (throttled bool) {
+	am.Lock()
+	defer am.Unlock()
+	throttled, _ = am.registerThrottle.Touch()
+	return
 }
 
 func (am *AccountManager) createAlwaysOnClients(config *Config) {
@@ -361,6 +381,15 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	// final "is registration allowed" check, probably redundant:
 	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") {
 		return errFeatureDisabled
+	}
+
+	if client != nil && client.Account() != "" {
+		return errAccountAlreadyLoggedIn
+	}
+
+	if client != nil && am.touchRegisterThrottle() {
+		am.server.logger.Warning("accounts", "global registration throttle exceeded by client", client.Nick())
+		return errLimitExceeded
 	}
 
 	// if nick reservation is enabled, you can only register your current nickname
@@ -723,6 +752,10 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	casefoldedAccount, err := CasefoldName(account)
 	if err != nil || account == "" || account == "*" {
 		return errAccountVerificationFailed
+	}
+
+	if client != nil && client.Account() != "" {
+		return errAccountAlreadyLoggedIn
 	}
 
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)

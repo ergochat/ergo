@@ -229,6 +229,29 @@ type MulticlientConfig struct {
 	AlwaysOn         PersistentStatus `yaml:"always-on"`
 }
 
+type throttleConfig struct {
+	Enabled     bool
+	Duration    time.Duration
+	MaxAttempts int `yaml:"max-attempts"`
+}
+
+type ThrottleConfig struct {
+	throttleConfig
+}
+
+func (t *ThrottleConfig) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+	// note that this technique only works if the zero value of the struct
+	// doesn't need any postprocessing (because if the field is omitted entirely
+	// from the YAML, then UnmarshalYAML won't be called at all)
+	if err = unmarshal(&t.throttleConfig); err != nil {
+		return
+	}
+	if !t.Enabled {
+		t.MaxAttempts = 0 // limit of 0 means disabled
+	}
+	return
+}
+
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
@@ -237,13 +260,9 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
-	LDAP            ldap.ServerConfig
-	LoginThrottling struct {
-		Enabled     bool
-		Duration    time.Duration
-		MaxAttempts int `yaml:"max-attempts"`
-	} `yaml:"login-throttling"`
-	SkipServerPassword bool `yaml:"skip-server-password"`
+	LDAP               ldap.ServerConfig
+	LoginThrottling    ThrottleConfig `yaml:"login-throttling"`
+	SkipServerPassword bool           `yaml:"skip-server-password"`
 	NickReservation    struct {
 		Enabled                bool
 		AdditionalNickLimit    int `yaml:"additional-nick-limit"`
@@ -266,6 +285,7 @@ type AccountConfig struct {
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
 	Enabled                bool
+	Throttling             ThrottleConfig
 	EnabledCallbacks       []string         `yaml:"enabled-callbacks"`
 	EnabledCredentialTypes []string         `yaml:"-"`
 	VerifyTimeout          custime.Duration `yaml:"verify-timeout"`
@@ -995,10 +1015,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if !config.Accounts.VHosts.ValidRegexp.MatchString(vhost) {
 			return nil, fmt.Errorf("invalid offered vhost: %s", vhost)
 		}
-	}
-
-	if !config.Accounts.LoginThrottling.Enabled {
-		config.Accounts.LoginThrottling.MaxAttempts = 0 // limit of 0 means disabled
 	}
 
 	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
