@@ -634,6 +634,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 				client.resizeHistory(config)
 			}
 		}
+		if oldConfig.Accounts.Registration.Throttling != config.Accounts.Registration.Throttling {
+			server.accounts.resetRegisterThrottle(config)
+		}
 	}
 
 	// activate the new config

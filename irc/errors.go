@@ -22,6 +22,7 @@ var (
 	errAccountBadPassphrase           = errors.New(`Passphrase contains forbidden characters or is otherwise invalid`)
 	errAccountNickReservationFailed   = errors.New("Could not (un)reserve nick")
 	errAccountNotLoggedIn             = errors.New("You're not logged into an account")
+	errAccountAlreadyLoggedIn         = errors.New("You're already logged into an account")
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")
 	errAccountUnverified              = errors.New(`Account is not yet verified`)
 	errAccountVerificationFailed      = errors.New("Account verification failed")

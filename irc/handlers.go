@@ -66,10 +66,10 @@ func registrationErrorToMessageAndCode(err error) (message, code string) {
 	case errAccountBadPassphrase:
 		code = "REG_INVALID_CREDENTIAL"
 		message = err.Error()
-	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered:
+	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
 		message = err.Error()
-	case errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
-		message = err.Error()
+	case errLimitExceeded:
+		message = `There have been too many registration attempts recently; try again later`
 	}
 	return
 }
