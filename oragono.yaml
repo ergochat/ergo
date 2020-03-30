@@ -349,7 +349,7 @@ accounts:
 
         # allow users to set their own nickname enforcement status, e.g.,
         # to opt out of strict enforcement
-        allow-custom-enforcement: true
+        allow-custom-enforcement: false
 
         # rename-timeout - this is how long users have 'til they're renamed
         rename-timeout: 30s
