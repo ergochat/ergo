@@ -1,4 +1,7 @@
-# oragono IRCd config
+# This is the default config file for Oragono.
+# It contains recommended defaults for all settings, including some behaviors
+# that differ from conventional ircds. See conventional.yaml for a config
+# with more "mainstream" behavior.
 
 # network configuration
 network:
