@@ -373,7 +373,7 @@ accounts:
         # account name as their nickname. when combined with strict nickname
         # enforcement, this lets users treat nicknames and account names
         # as equivalent for the purpose of ban/invite/exception lists.
-        force-nick-equals-account: false
+        force-nick-equals-account: true
 
     # multiclient controls whether oragono allows multiple connections to
     # attach to the same client/nickname identity; this is part of the
