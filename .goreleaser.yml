@@ -28,6 +28,8 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: arm64
+    flags:
+      - -trimpath
 archive:
   name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
   format: tar.gz
