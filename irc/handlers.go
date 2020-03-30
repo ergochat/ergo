@@ -332,30 +332,20 @@ func batchHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	if len(tag) == 0 {
 		fail = true
 	} else if tag[0] == '+' {
-		if rb.session.batch.label != "" || msg.Params[1] != caps.MultilineBatchType {
+		if len(msg.Params) < 3 || msg.Params[1] != caps.MultilineBatchType {
 			fail = true
 		} else {
-			rb.session.batch.label = tag[1:]
-			rb.session.batch.tags = msg.ClientOnlyTags()
-			if len(msg.Params) == 2 {
-				fail = true
-			} else {
-				rb.session.batch.target = msg.Params[2]
-				// save the response label for later
-				rb.session.batch.responseLabel = rb.Label
+			err := rb.session.StartMultilineBatch(tag[1:], msg.Params[2], rb.Label, msg.ClientOnlyTags())
+			fail = (err != nil)
+			if !fail {
+				// suppress ACK for the initial BATCH message (we'll apply the stored label later)
 				rb.Label = ""
 			}
 		}
 	} else if tag[0] == '-' {
-		if rb.session.batch.label == "" || rb.session.batch.label != tag[1:] {
-			fail = true
-		} else if rb.session.batch.message.LenLines() == 0 {
-			fail = true
-		} else {
-			batch := rb.session.batch
-			rb.session.batch = MultilineBatch{}
-			// time tag should correspond to the time when the message was completed
-			batch.message.SetTime()
+		batch, err := rb.session.EndMultilineBatch(tag[1:])
+		fail = (err != nil)
+		if !fail {
 			histType, err := msgCommandToHistType(batch.command)
 			if err != nil {
 				histType = history.Privmsg
@@ -369,7 +359,7 @@ func batchHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	if fail {
-		rb.session.batch = MultilineBatch{}
+		rb.session.EndMultilineBatch("")
 		if sendErrors {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Invalid multiline batch"))
 		}
@@ -1813,9 +1803,17 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // helper to store a batched PRIVMSG in the session object
 func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IrcMessage, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
-	// sanity checks. batch tag correctness was already checked and is redundant here
-	// as a defensive measure. TAGMSG is checked without an error message: "don't eat paste"
-	if batchTag != rb.session.batch.label || histType == history.Tagmsg || len(msg.Params) == 1 || msg.Params[1] == "" {
+	if batchTag != rb.session.batch.label {
+		if histType != history.Notice {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Incorrect batch tag sent"))
+		}
+		rb.session.EndMultilineBatch("")
+		return
+	} else if len(msg.Params) < 2 || msg.Params[1] == "" {
+		if histType != history.Notice {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Invalid multiline batch"))
+		}
+		rb.session.EndMultilineBatch("")
 		return
 	}
 	rb.session.batch.command = msg.Command
@@ -1826,12 +1824,12 @@ func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IrcMessage,
 		if histType != history.Notice {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_MAX_BYTES", strconv.Itoa(config.Limits.Multiline.MaxBytes))
 		}
-		rb.session.batch = MultilineBatch{}
+		rb.session.EndMultilineBatch("")
 	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.batch.message.LenLines() {
 		if histType != history.Notice {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_MAX_LINES", strconv.Itoa(config.Limits.Multiline.MaxLines))
 		}
-		rb.session.batch = MultilineBatch{}
+		rb.session.EndMultilineBatch("")
 	}
 }
 

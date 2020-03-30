@@ -47,7 +47,7 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		}
 		if session.batch.label != "" && !cmd.allowedInBatch {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Command not allowed during a multiline batch"))
-			session.batch = MultilineBatch{}
+			session.EndMultilineBatch("")
 			return false
 		}
 

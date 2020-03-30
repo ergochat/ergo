@@ -121,3 +121,35 @@ func TestFakelag(t *testing.T) {
 		t.Fatalf("should not have slept")
 	}
 }
+
+func TestSuspend(t *testing.T) {
+	window, _ := time.ParseDuration("1s")
+	fl, _ := newFakelagForTesting(window, 3, 2, window)
+	assertEqual(fl.config.Enabled, true, t)
+
+	// suspend idempotently disables
+	fl.Suspend()
+	assertEqual(fl.config.Enabled, false, t)
+	fl.Suspend()
+	assertEqual(fl.config.Enabled, false, t)
+	// unsuspend idempotently enables
+	fl.Unsuspend()
+	assertEqual(fl.config.Enabled, true, t)
+	fl.Unsuspend()
+	assertEqual(fl.config.Enabled, true, t)
+	fl.Suspend()
+	assertEqual(fl.config.Enabled, false, t)
+
+	fl2, _ := newFakelagForTesting(window, 3, 2, window)
+	fl2.config.Enabled = false
+
+	// if we were never enabled, suspend and unsuspend are both no-ops
+	fl2.Suspend()
+	assertEqual(fl2.config.Enabled, false, t)
+	fl2.Suspend()
+	assertEqual(fl2.config.Enabled, false, t)
+	fl2.Unsuspend()
+	assertEqual(fl2.config.Enabled, false, t)
+	fl2.Unsuspend()
+	assertEqual(fl2.config.Enabled, false, t)
+}
