@@ -64,7 +64,7 @@ DROP de-links the given (or your current) nickname from your user account.`,
 ENFORCE is an alias for $bGET enforce$b and $bSET enforce$b. See the help
 entry for $bSET$b for more information.`,
 			authRequired: true,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      servCmdRequiresNickRes,
 		},
 		"ghost": {
 			handler: nsGhostHandler,
@@ -210,7 +210,7 @@ GET queries the current values of your account settings. For more information
 on the settings and their possible values, see HELP SET.`,
 			helpShort:    `$bGET$b queries the current values of your account settings`,
 			authRequired: true,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      servCmdRequiresAuthEnabled,
 			minParams:    1,
 		},
 		"saget": {
@@ -220,7 +220,7 @@ on the settings and their possible values, see HELP SET.`,
 SAGET queries the values of someone else's account settings. For more
 information on the settings and their possible values, see HELP SET.`,
 			helpShort: `$bSAGET$b queries the current values of another user's account settings`,
-			enabled:   servCmdRequiresAccreg,
+			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 2,
 			capabs:    []string{"accreg"},
 		},
@@ -279,7 +279,7 @@ how the history of your direct messages is stored. Your options are:
 4. 'default'    [use the server default]`,
 			},
 			authRequired: true,
-			enabled:      servCmdRequiresAccreg,
+			enabled:      servCmdRequiresAuthEnabled,
 			minParams:    2,
 		},
 		"saset": {
@@ -289,7 +289,7 @@ how the history of your direct messages is stored. Your options are:
 SASET modifies the values of someone else's account settings. For more
 information on the settings and their possible values, see HELP SET.`,
 			helpShort: `$bSASET$b modifies another user's account settings`,
-			enabled:   servCmdRequiresAccreg,
+			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 3,
 			capabs:    []string{"accreg"},
 		},
