@@ -2,6 +2,20 @@
 # It contains recommended defaults for all settings, including some behaviors
 # that differ from conventional ircds. See conventional.yaml for a config
 # with more "mainstream" behavior.
+#
+# If you are setting up a new oragono server, you should copy this file
+# to a new one named 'ircd.yaml', then read the whole file to see which
+# settings you want to customize. If you don't understand a setting, or
+# aren't sure what behavior you want, most of the defaults are fine
+# to start with (you can change them later, even on a running server).
+# However, there are a few that you should probably change up front:
+# 1. network.name (a human-readable name that identifies your network,
+#    no spaces or special characters) and server.name (consider using the
+#    domain name of your server)
+# 2. if you have valid TLS certificates (for example, from letsencrypt.org),
+#    you should enable them in server.listeners in place of the default
+#    self-signed certificates
+# 3. the operator password in the 'opers' section
 
 # network configuration
 network:
