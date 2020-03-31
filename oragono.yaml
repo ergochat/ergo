@@ -407,7 +407,7 @@ accounts:
         # whether to allow clients that remain on the server even
         # when they have no active connections. The possible values are:
         # "disabled", "opt-in", "opt-out", or "mandatory".
-        always-on: "disabled"
+        always-on: "opt-in"
 
     # vhosts controls the assignment of vhosts (strings displayed in place of the user's
     # hostname/IP) by the HostServ service
