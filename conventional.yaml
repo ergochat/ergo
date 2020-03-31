@@ -532,8 +532,8 @@ oper-classes:
 
 # ircd operators
 opers:
-    # operator named 'dan'
-    dan:
+    # operator named 'admin'; log in with /OPER admin [password]
+    admin:
         # which capabilities this oper has access to
         class: "server-admin"
 
