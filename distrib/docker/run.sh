@@ -9,7 +9,7 @@ if [ ! -f "/ircd/ircd.yaml" ]; then
 
     # change default oper passwd
     OPERPASS=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c20)
-    echo "Oper username:password is dan:$OPERPASS"
+    echo "Oper username:password is admin:$OPERPASS"
     ENCRYPTEDPASS=$(echo "$OPERPASS" | /ircd-bin/oragono genpasswd)
     ORIGINALPASS='\$2a\$04\$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu'
 

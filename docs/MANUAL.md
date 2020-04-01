@@ -206,7 +206,7 @@ To enable this mode, set the following configs:
 The following additional configs may be of interest:
 
 * `accounts.nick-reservation.method = strict` ; we currently recommend strict nickname enforcement as the default, since we've found that users find it less confusing.
-* `accounts.nick-reservation.allow-custom-enforcement = true` ; this allows people to opt into timeout-based enforcement or opt out of enforcement as they wish. For details on how to do this, `/msg NickServ help set`.
+* `accounts.nick-reservation.force-nick-equals-account = true` ; this allows nicknames to be treated as account names for most purposes, including for controlling access to channels (see the discussion of private channels below)
 
 ### SASL-only mode
 
@@ -221,9 +221,10 @@ To enable this mode, set the following configs:
 * `accounts.require-sasl.enabled = true`
 * `accounts.nick-reservation.enabled = true`
 
-Additionally, the following config is recommended:
+Additionally, the following configs are recommended:
 
 * `accounts.nick-reservation.method = strict`
+* `accounts.nick-reservation.force-nick-equals-account = true`
 
 
 ## Channel Registration
@@ -346,13 +347,21 @@ Otherwise, in the Oragono config file, you'll want to enable raw line logging by
 
 ## How do I make a private channel?
 
-More complete support for account-based private channels is [planned](https://github.com/oragono/oragono/issues/69). In the meantime, here's a workaround:
+We recommend that server administrators set the following recommended defaults:
 
-1. Register your channel (`/msg ChanServ register #example`)
+1. `nick-reservation-method: strict`
+1. `force-nick-equals-account: true`
+
+These settings imply that any registered account name can be treated as synonymous with a nickname; anyone using the nickname is necessarily logged into the account, and anyone logged intot he account is necessarily using the nickname.
+
+Under these circumstances, users can follow the following steps:
+
+1. Register a channel (`/msg ChanServ register #example`)
 1. Set it to be invite-only (`/mode #example +i`)
-1. Grant persistent half-operator status to the desired account names (`/msg ChanServ amode #example +h alice`)
+1. Add the desired nick/account names to the invite exception list (`/mode #example +I alice`)
+1. Anyone with persistent half-operator status or higher will also be able to join without an invite (`/msg ChanServ amode #example +h alice`)
 
-Anyone with persistent half-operator privileges or higher will be able to join without an invite.
+Similarly, for a public channel (one without `+i`), users can ban nick/account names with `/mode #example +b bob`. (To restrict the channel to users with valid accounts, set it to registered-only with `/mode #example +R`.)
 
 -------------------------------------------------------------------------------------------
 

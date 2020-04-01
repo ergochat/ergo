@@ -36,7 +36,7 @@ docker logs oragono
 You should see a line similar to:
 
 ```
-Oper username:password is dan:cnn2tm9TP3GeI4vLaEMS
+Oper username:password is admin:cnn2tm9TP3GeI4vLaEMS
 ```
 
 ## Persisting data
