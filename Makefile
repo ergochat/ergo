@@ -22,6 +22,7 @@ test:
 	cd irc/caps && go test . && go vet .
 	cd irc/cloaks && go test . && go vet .
 	cd irc/connection_limits && go test . && go vet .
+	cd irc/email && go test . && go vet .
 	cd irc/history && go test . && go vet .
 	cd irc/isupport && go test . && go vet .
 	cd irc/modes && go test . && go vet .

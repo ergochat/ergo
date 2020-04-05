@@ -316,7 +316,8 @@ var testHookStartTLS func(*tls.Config) // nil, except for tests
 // attachments (see the mime/multipart package), or other mail
 // functionality. Higher-level packages exist outside of the standard
 // library.
-func SendMail(addr string, a Auth, from string, to []string, msg []byte) error {
+// XXX: modified in Oragono to add `requireTLS` and `heloDomain` arguments
+func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS bool) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
@@ -330,7 +331,7 @@ func SendMail(addr string, a Auth, from string, to []string, msg []byte) error {
 		return err
 	}
 	defer c.Close()
-	if err = c.hello(); err != nil {
+	if err = c.Hello(heloDomain); err != nil {
 		return err
 	}
 	if ok, _ := c.Extension("STARTTLS"); ok {
@@ -341,6 +342,8 @@ func SendMail(addr string, a Auth, from string, to []string, msg []byte) error {
 		if err = c.StartTLS(config); err != nil {
 			return err
 		}
+	} else if requireTLS {
+		return errors.New("TLS required, but not negotiated")
 	}
 	if a != nil && c.ext != nil {
 		if _, ok := c.ext["AUTH"]; !ok {

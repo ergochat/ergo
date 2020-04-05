@@ -24,6 +24,7 @@ import (
 	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/ldap"
@@ -290,20 +291,7 @@ type AccountRegistrationConfig struct {
 	EnabledCredentialTypes []string         `yaml:"-"`
 	VerifyTimeout          custime.Duration `yaml:"verify-timeout"`
 	Callbacks              struct {
-		Mailto struct {
-			Server string
-			Port   int
-			TLS    struct {
-				Enabled            bool
-				InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
-				ServerName         string `yaml:"servername"`
-			}
-			Username             string
-			Password             string
-			Sender               string
-			VerifyMessageSubject string `yaml:"verify-message-subject"`
-			VerifyMessage        string `yaml:"verify-message"`
-		}
+		Mailto email.MailtoConfig
 	}
 	BcryptCost uint `yaml:"bcrypt-cost"`
 }
@@ -975,13 +963,23 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	// hardcode this for now
 	config.Accounts.Registration.EnabledCredentialTypes = []string{"passphrase", "certfp"}
+	mailtoEnabled := false
 	for i, name := range config.Accounts.Registration.EnabledCallbacks {
 		if name == "none" {
 			// we store "none" as "*" internally
 			config.Accounts.Registration.EnabledCallbacks[i] = "*"
+		} else if name == "mailto" {
+			mailtoEnabled = true
 		}
 	}
 	sort.Strings(config.Accounts.Registration.EnabledCallbacks)
+
+	if mailtoEnabled {
+		err := config.Accounts.Registration.Callbacks.Mailto.Postprocess(config.Server.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
 	if err != nil {
