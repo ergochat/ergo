@@ -98,6 +98,10 @@ func (server *Server) RandomlyRename(client *Client) {
 	nick := strings.Replace(format, "*", utils.B32Encoder.EncodeToString(buf), -1)
 	sessions := client.Sessions()
 	if len(sessions) == 0 {
+		// this can happen if they are anonymous and BRB (in general, an always-on
+		// client has title to its nickname and will never be the victim of
+		// a call to RandomlyRename)
+		client.destroy(nil)
 		return
 	}
 	// XXX arbitrarily pick the first session to receive error messages;

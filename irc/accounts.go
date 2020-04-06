@@ -744,6 +744,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, account string,
 
 func (am *AccountManager) Verify(client *Client, account string, code string) error {
 	casefoldedAccount, err := CasefoldName(account)
+	var skeleton string
 	if err != nil || account == "" || account == "*" {
 		return errAccountVerificationFailed
 	}
@@ -814,7 +815,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		})
 
 		if err == nil {
-			skeleton, _ := Skeleton(raw.Name)
+			skeleton, _ = Skeleton(raw.Name)
 			am.Lock()
 			am.nickToAccount[casefoldedAccount] = casefoldedAccount
 			am.skeletonToAccount[skeleton] = casefoldedAccount
@@ -838,6 +839,18 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	if client != nil {
 		am.Login(client, clientAccount)
+	}
+	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
+	if method != NickEnforcementNone {
+		currentClient := am.server.clients.Get(casefoldedAccount)
+		if currentClient == nil || currentClient == client || currentClient.Account() == casefoldedAccount {
+			return nil
+		}
+		if method == NickEnforcementStrict {
+			am.server.RandomlyRename(currentClient)
+		} else if method == NickEnforcementWithTimeout {
+			currentClient.nickTimer.Touch(nil)
+		}
 	}
 	return nil
 }
