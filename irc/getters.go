@@ -302,7 +302,7 @@ func (client *Client) historyCutoff() (cutoff time.Time) {
 func (client *Client) Logout() {
 	client.stateMutex.Lock()
 	client.account = ""
-	client.accountName = ""
+	client.accountName = "*"
 	client.alwaysOn = false
 	client.accountRegDate = time.Time{}
 	client.accountSettings = AccountSettings{}
