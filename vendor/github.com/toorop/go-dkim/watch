@@ -1,0 +1,4 @@
+while true
+do 
+inotifywait -q -r -e modify,attrib,close_write,move,create,delete . && echo "--------------" && go test -v
+done

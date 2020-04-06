@@ -59,6 +59,9 @@ github.com/tidwall/rtree
 github.com/tidwall/rtree/base
 # github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563
 github.com/tidwall/tinyqueue
+# github.com/toorop/go-dkim v0.0.0-20191019073156-897ad64a2eeb
+## explicit
+github.com/toorop/go-dkim
 # golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 ## explicit
 golang.org/x/crypto/bcrypt

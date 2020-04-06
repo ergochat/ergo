@@ -4,9 +4,9 @@
 package irc
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/smtp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
+	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -483,7 +484,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return err
 	}
 
-	code, err := am.dispatchCallback(client, casefoldedAccount, callbackNamespace, callbackValue)
+	code, err := am.dispatchCallback(client, account, callbackNamespace, callbackValue)
 	if err != nil {
 		am.Unregister(casefoldedAccount, true)
 		return errCallbackFailed
@@ -698,17 +699,17 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 	return err
 }
 
-func (am *AccountManager) dispatchCallback(client *Client, casefoldedAccount string, callbackNamespace string, callbackValue string) (string, error) {
+func (am *AccountManager) dispatchCallback(client *Client, account string, callbackNamespace string, callbackValue string) (string, error) {
 	if callbackNamespace == "*" || callbackNamespace == "none" || callbackNamespace == "admin" {
 		return "", nil
 	} else if callbackNamespace == "mailto" {
-		return am.dispatchMailtoCallback(client, casefoldedAccount, callbackValue)
+		return am.dispatchMailtoCallback(client, account, callbackValue)
 	} else {
 		return "", fmt.Errorf("Callback not implemented: %s", callbackNamespace)
 	}
 }
 
-func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccount string, callbackValue string) (code string, err error) {
+func (am *AccountManager) dispatchMailtoCallback(client *Client, account string, callbackValue string) (code string, err error) {
 	config := am.server.Config().Accounts.Registration.Callbacks.Mailto
 	code = utils.GenerateSecretToken()
 
@@ -716,34 +717,27 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, casefoldedAccou
 	if subject == "" {
 		subject = fmt.Sprintf(client.t("Verify your account on %s"), am.server.name)
 	}
-	messageStrings := []string{
-		fmt.Sprintf("From: %s\r\n", config.Sender),
-		fmt.Sprintf("To: %s\r\n", callbackValue),
-		fmt.Sprintf("Subject: %s\r\n", subject),
-		"\r\n", // end headers, begin message body
-		fmt.Sprintf(client.t("Account: %s"), casefoldedAccount) + "\r\n",
-		fmt.Sprintf(client.t("Verification code: %s"), code) + "\r\n",
-		"\r\n",
-		client.t("To verify your account, issue the following command:") + "\r\n",
-		fmt.Sprintf("/MSG NickServ VERIFY %s %s", casefoldedAccount, code) + "\r\n",
-	}
 
-	var message []byte
-	for i := 0; i < len(messageStrings); i++ {
-		message = append(message, []byte(messageStrings[i])...)
+	var message bytes.Buffer
+	fmt.Fprintf(&message, "From: %s\r\n", config.Sender)
+	fmt.Fprintf(&message, "To: %s\r\n", callbackValue)
+	if config.DKIM.Domain != "" {
+		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), config.DKIM.Domain)
 	}
-	addr := fmt.Sprintf("%s:%d", config.Server, config.Port)
-	var auth smtp.Auth
-	if config.Username != "" && config.Password != "" {
-		auth = smtp.PlainAuth("", config.Username, config.Password, config.Server)
-	}
+	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
+	message.WriteString("\r\n") // blank line: end headers, begin message body
+	fmt.Fprintf(&message, client.t("Account: %s"), account)
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, client.t("Verification code: %s"), code)
+	message.WriteString("\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(client.t("To verify your account, issue the following command:"))
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, "/MSG NickServ VERIFY %s %s\r\n", account, code)
 
-	// TODO: this will never send the password in plaintext over a nonlocal link,
-	// but it might send the email in plaintext, regardless of the value of
-	// config.TLS.InsecureSkipVerify
-	err = smtp.SendMail(addr, auth, config.Sender, []string{callbackValue}, message)
+	err = email.SendMail(config, callbackValue, message.Bytes())
 	if err != nil {
-		am.server.logger.Error("internal", "Failed to dispatch e-mail", err.Error())
+		am.server.logger.Error("internal", "Failed to dispatch e-mail to", callbackValue, err.Error())
 	}
 	return
 }
