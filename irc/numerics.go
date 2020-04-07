@@ -153,7 +153,7 @@ const (
 	ERR_BANNEDFROMCHAN            = "474"
 	ERR_BADCHANNELKEY             = "475"
 	ERR_BADCHANMASK               = "476"
-	ERR_NOCHANMODES               = "477"
+	ERR_NEEDREGGEDNICK            = "477" // conflicted with ERR_NOCHANMODES; see #936
 	ERR_BANLISTFULL               = "478"
 	ERR_NOPRIVILEGES              = "481"
 	ERR_CHANOPRIVSNEEDED          = "482"
