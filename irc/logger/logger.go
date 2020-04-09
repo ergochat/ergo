@@ -301,7 +301,7 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 			formattedBuf.WriteRune(' ')
 			formattedBuf.WriteString(separator)
 			formattedBuf.WriteRune(' ')
-			if logger.MethodFile.Enabled {
+			if logger.MethodFile.Enabled || !logger.Colorized.Value() {
 				rawBuf.WriteString(" : ")
 			}
 		}
