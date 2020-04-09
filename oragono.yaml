@@ -595,6 +595,11 @@ logging:
         # filename to log to, if file method is selected
         # filename: ircd.log
 
+        # if logging to stdout or stderr and you don't want colorized output
+        # set this to false. If you do, set to true or leave undefined -
+        # it defaults to true
+        # colorized: true
+
         # type(s) of logs to keep here. you can use - to exclude those types
         #
         # exclusions take precedent over inclusions, so if you exclude a type it will NEVER

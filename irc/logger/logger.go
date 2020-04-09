@@ -88,6 +88,34 @@ type LoggingConfig struct {
 	ExcludedTypes []string `yaml:"real-excluded-types"`
 	LevelString   string   `yaml:"level"`
 	Level         Level    `yaml:"level-real"`
+	Colorized     BoolDefaultTrue
+}
+
+// This seems like a lot of work just to get a YAML boolean that
+// defaults to true....
+type BoolDefaultTrue struct {
+	isset bool
+	value bool
+}
+
+func (b BoolDefaultTrue) Value() bool {
+	if b.isset {
+		return b.value
+	} else {
+		return true
+	}
+}
+
+func (bdt *BoolDefaultTrue) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+	var result BoolDefaultTrue
+	var read bool
+	if err = unmarshal(&read); err != nil {
+		return err
+	}
+	result.isset = true
+	result.value = read
+	*bdt = result
+	return nil
 }
 
 // NewManager returns a new log manager.
@@ -138,6 +166,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 			ExcludedTypes:   excludedTypeMap,
 			stdoutWriteLock: &logger.stdoutWriteLock,
 			fileWriteLock:   &logger.fileWriteLock,
+			Colorized:       logConfig.Colorized,
 		}
 		ioEnabled := typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"]))
 		// raw I/O is only logged at level debug;
@@ -211,6 +240,7 @@ type singleLogger struct {
 	Level           Level
 	Types           map[string]bool
 	ExcludedTypes   map[string]bool
+	Colorized       BoolDefaultTrue
 }
 
 func (logger *singleLogger) Close() error {
@@ -259,12 +289,12 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 
 	var formattedBuf, rawBuf bytes.Buffer
 	fmt.Fprintf(&formattedBuf, "%s %s %s %s %s %s ", colorTimeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), separator, levelDisplay, separator, colorSection(logType), separator)
-	if logger.MethodFile.Enabled {
+	if logger.MethodFile.Enabled || !logger.Colorized.Value() {
 		fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
 	}
 	for i, p := range messageParts {
 		formattedBuf.WriteString(p)
-		if logger.MethodFile.Enabled {
+		if logger.MethodFile.Enabled || !logger.Colorized.Value() {
 			rawBuf.WriteString(p)
 		}
 		if i != len(messageParts)-1 {
@@ -277,19 +307,27 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 		}
 	}
 	formattedBuf.WriteRune('\n')
-	if logger.MethodFile.Enabled {
+	if logger.MethodFile.Enabled || !logger.Colorized.Value() {
 		rawBuf.WriteRune('\n')
 	}
 
 	// output
 	if logger.MethodSTDOUT {
 		logger.stdoutWriteLock.Lock()
-		colorableStdout.Write(formattedBuf.Bytes())
+		if logger.Colorized.Value() {
+			colorableStdout.Write(formattedBuf.Bytes())
+		} else {
+			colorableStdout.Write(rawBuf.Bytes())
+		}
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodSTDERR {
 		logger.stdoutWriteLock.Lock()
-		colorableStderr.Write(formattedBuf.Bytes())
+		if logger.Colorized.Value() {
+			colorableStderr.Write(formattedBuf.Bytes())
+		} else {
+			colorableStderr.Write(rawBuf.Bytes())
+		}
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
