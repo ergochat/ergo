@@ -43,7 +43,7 @@ var (
 	LogLevelDisplayNames = map[Level]string{
 		LogDebug:   "debug",
 		LogInfo:    "info",
-		LogWarning: "warning",
+		LogWarning: "warn",
 		LogError:   "error",
 	}
 )
@@ -227,7 +227,9 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	// assemble full line
 
 	var rawBuf bytes.Buffer
-	fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), LogLevelDisplayNames[level], logType)
+	// XXX magic number here: 9 is len("listeners"), the longest log category name
+	// in current use. it's not a big deal if this number gets out of date.
+	fmt.Fprintf(&rawBuf, "%s : %-5s : %-9s : ", time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), LogLevelDisplayNames[level], logType)
 	for i, p := range messageParts {
 		rawBuf.WriteString(p)
 
