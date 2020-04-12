@@ -160,7 +160,6 @@ In this section, we'll explain and go through using various features of the Orag
 
 In most IRC servers you can use `NickServ` to register an account. You can do the same thing with Oragono, by default, with no other software needed!
 
-These are the two ways you can register an account, either one will work:
 To register an account, use:
 
     /NS REGISTER <password>
