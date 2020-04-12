@@ -9,9 +9,6 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940 // indirect
 	github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
-	github.com/mattn/go-colorable v0.1.4
-	github.com/mattn/go-isatty v0.0.10 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0
