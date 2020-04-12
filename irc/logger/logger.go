@@ -14,9 +14,6 @@ import (
 
 	"sync"
 	"sync/atomic"
-
-	colorable "github.com/mattn/go-colorable"
-	"github.com/mgutz/ansi"
 )
 
 // Level represents the level to log messages at.
@@ -31,20 +28,6 @@ const (
 	LogWarning
 	// LogError represents errors.
 	LogError
-)
-
-var (
-	colorTimeGrey = ansi.ColorFunc("243")
-	colorGrey     = ansi.ColorFunc("8")
-	colorAlert    = ansi.ColorFunc("232+b:red")
-	colorWarn     = ansi.ColorFunc("black:214")
-	colorInfo     = ansi.ColorFunc("117")
-	colorDebug    = ansi.ColorFunc("78")
-	colorSection  = ansi.ColorFunc("229")
-	separator     = colorGrey(":")
-
-	colorableStdout = colorable.NewColorableStdout()
-	colorableStderr = colorable.NewColorableStderr()
 )
 
 var (
@@ -246,50 +229,26 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 
 	// assemble full line
 
-	levelDisplay := LogLevelDisplayNames[level]
-	if level == LogError {
-		levelDisplay = colorAlert(levelDisplay)
-	} else if level == LogWarning {
-		levelDisplay = colorWarn(levelDisplay)
-	} else if level == LogInfo {
-		levelDisplay = colorInfo(levelDisplay)
-	} else if level == LogDebug {
-		levelDisplay = colorDebug(levelDisplay)
-	}
-
-	var formattedBuf, rawBuf bytes.Buffer
-	fmt.Fprintf(&formattedBuf, "%s %s %s %s %s %s ", colorTimeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), separator, levelDisplay, separator, colorSection(logType), separator)
-	if logger.MethodFile.Enabled {
-		fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
-	}
+	var rawBuf bytes.Buffer
+	fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
 	for i, p := range messageParts {
-		formattedBuf.WriteString(p)
-		if logger.MethodFile.Enabled {
-			rawBuf.WriteString(p)
-		}
+		rawBuf.WriteString(p)
+
 		if i != len(messageParts)-1 {
-			formattedBuf.WriteRune(' ')
-			formattedBuf.WriteString(separator)
-			formattedBuf.WriteRune(' ')
-			if logger.MethodFile.Enabled {
-				rawBuf.WriteString(" : ")
-			}
+			rawBuf.WriteString(" : ")
 		}
 	}
-	formattedBuf.WriteRune('\n')
-	if logger.MethodFile.Enabled {
-		rawBuf.WriteRune('\n')
-	}
+	rawBuf.WriteRune('\n')
 
 	// output
 	if logger.MethodSTDOUT {
 		logger.stdoutWriteLock.Lock()
-		colorableStdout.Write(formattedBuf.Bytes())
+		os.Stdout.Write(rawBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodSTDERR {
 		logger.stdoutWriteLock.Lock()
-		colorableStderr.Write(formattedBuf.Bytes())
+		os.Stderr.Write(rawBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {
