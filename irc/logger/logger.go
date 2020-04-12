@@ -230,7 +230,7 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	// assemble full line
 
 	var rawBuf bytes.Buffer
-	fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
+	fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), LogLevelDisplayNames[level], logType)
 	for i, p := range messageParts {
 		rawBuf.WriteString(p)
 
