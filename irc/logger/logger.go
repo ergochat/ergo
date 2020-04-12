@@ -10,8 +10,6 @@ import (
 	"os"
 	"time"
 
-	"strings"
-
 	"sync"
 	"sync/atomic"
 )
@@ -221,8 +219,7 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	}
 
 	// ensure we're capturing this logType
-	logTypeCleaned := strings.ToLower(strings.TrimSpace(logType))
-	capturing := (logger.Types["*"] || logger.Types[logTypeCleaned]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logTypeCleaned]
+	capturing := (logger.Types["*"] || logger.Types[logType]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logType]
 	if !capturing {
 		return
 	}
