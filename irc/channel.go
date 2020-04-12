@@ -692,7 +692,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}
 
 	if !hasPrivs && channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" && !isInvited {
-		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, details.nick, chname, client.t("You must be registered to join that channel"))
+		rb.Add(nil, client.server.name, ERR_NEEDREGGEDNICK, details.nick, chname, client.t("You must be registered to join that channel"))
 		return
 	}
 
