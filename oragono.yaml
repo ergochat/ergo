@@ -627,7 +627,7 @@ logging:
     #   # example of a file log that avoids logging IP addresses
     #   method: file
     #   filename: ircd.log
-    #   type: "* -userinput -useroutput -localconnect -localconnect-ip"
+    #   type: "* -userinput -useroutput -connect-ip"
     #   level: debug
 
 # debug options

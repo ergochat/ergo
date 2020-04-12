@@ -80,7 +80,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	client.server.connectionLimiter.RemoveClient(session.realIP)
 
 	// given IP is sane! override the client's current IP
-	client.server.logger.Info("localconnect-ip", "Accepted proxy IP for client", parsedProxiedIP.String())
+	client.server.logger.Info("connect-ip", "Accepted proxy IP for client", parsedProxiedIP.String())
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
