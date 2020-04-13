@@ -724,6 +724,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, account string,
 	if config.DKIM.Domain != "" {
 		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), config.DKIM.Domain)
 	}
+	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
 	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
 	message.WriteString("\r\n") // blank line: end headers, begin message body
 	fmt.Fprintf(&message, client.t("Account: %s"), account)
