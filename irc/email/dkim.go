@@ -37,7 +37,7 @@ var defaultOptions = dkim.SigOptions{
 	Version:               1,
 	Canonicalization:      "relaxed/relaxed",
 	Algo:                  "rsa-sha256",
-	Headers:               []string{"from", "to", "subject", "message-id"},
+	Headers:               []string{"from", "to", "subject", "message-id", "date"},
 	BodyLength:            0,
 	QueryMethods:          []string{"dns/txt"},
 	AddSignatureTimestamp: true,
