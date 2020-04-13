@@ -10,13 +10,8 @@ import (
 	"os"
 	"time"
 
-	"strings"
-
 	"sync"
 	"sync/atomic"
-
-	colorable "github.com/mattn/go-colorable"
-	"github.com/mgutz/ansi"
 )
 
 // Level represents the level to log messages at.
@@ -34,20 +29,6 @@ const (
 )
 
 var (
-	colorTimeGrey = ansi.ColorFunc("243")
-	colorGrey     = ansi.ColorFunc("8")
-	colorAlert    = ansi.ColorFunc("232+b:red")
-	colorWarn     = ansi.ColorFunc("black:214")
-	colorInfo     = ansi.ColorFunc("117")
-	colorDebug    = ansi.ColorFunc("78")
-	colorSection  = ansi.ColorFunc("229")
-	separator     = colorGrey(":")
-
-	colorableStdout = colorable.NewColorableStdout()
-	colorableStderr = colorable.NewColorableStderr()
-)
-
-var (
 	// LogLevelNames takes a config name and gives the real log level.
 	LogLevelNames = map[string]Level{
 		"debug":    LogDebug,
@@ -62,10 +43,25 @@ var (
 	LogLevelDisplayNames = map[Level]string{
 		LogDebug:   "debug",
 		LogInfo:    "info",
-		LogWarning: "warning",
+		LogWarning: "warn",
 		LogError:   "error",
 	}
+
+	// these are old names for log types that might still appear in yaml configs,
+	// but have been replaced in the code. this is used for canonicalization when
+	// loading configs, but not during logging.
+	typeAliases = map[string]string{
+		"localconnect":    "connect",
+		"localconnect-ip": "connect-ip",
+	}
 )
+
+func resolveTypeAlias(typeName string) (result string) {
+	if canonicalized, ok := typeAliases[typeName]; ok {
+		return canonicalized
+	}
+	return typeName
+}
 
 // Manager is the main interface used to log debug/info/error messages.
 type Manager struct {
@@ -119,11 +115,11 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	for _, logConfig := range config {
 		typeMap := make(map[string]bool)
 		for _, name := range logConfig.Types {
-			typeMap[name] = true
+			typeMap[resolveTypeAlias(name)] = true
 		}
 		excludedTypeMap := make(map[string]bool)
 		for _, name := range logConfig.ExcludedTypes {
-			excludedTypeMap[name] = true
+			excludedTypeMap[resolveTypeAlias(name)] = true
 		}
 
 		sLogger := singleLogger{
@@ -238,58 +234,35 @@ func (logger *singleLogger) Log(level Level, logType string, messageParts ...str
 	}
 
 	// ensure we're capturing this logType
-	logTypeCleaned := strings.ToLower(strings.TrimSpace(logType))
-	capturing := (logger.Types["*"] || logger.Types[logTypeCleaned]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logTypeCleaned]
+	capturing := (logger.Types["*"] || logger.Types[logType]) && !logger.ExcludedTypes["*"] && !logger.ExcludedTypes[logType]
 	if !capturing {
 		return
 	}
 
 	// assemble full line
 
-	levelDisplay := LogLevelDisplayNames[level]
-	if level == LogError {
-		levelDisplay = colorAlert(levelDisplay)
-	} else if level == LogWarning {
-		levelDisplay = colorWarn(levelDisplay)
-	} else if level == LogInfo {
-		levelDisplay = colorInfo(levelDisplay)
-	} else if level == LogDebug {
-		levelDisplay = colorDebug(levelDisplay)
-	}
-
-	var formattedBuf, rawBuf bytes.Buffer
-	fmt.Fprintf(&formattedBuf, "%s %s %s %s %s %s ", colorTimeGrey(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")), separator, levelDisplay, separator, colorSection(logType), separator)
-	if logger.MethodFile.Enabled {
-		fmt.Fprintf(&rawBuf, "%s : %s : %s : ", time.Now().UTC().Format("2006-01-02T15:04:05Z"), LogLevelDisplayNames[level], logType)
-	}
+	var rawBuf bytes.Buffer
+	// XXX magic number here: 10 is len("connect-ip"), the longest log category name
+	// in current use. it's not a big deal if this number gets out of date.
+	fmt.Fprintf(&rawBuf, "%s : %-5s : %-10s : ", time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), LogLevelDisplayNames[level], logType)
 	for i, p := range messageParts {
-		formattedBuf.WriteString(p)
-		if logger.MethodFile.Enabled {
-			rawBuf.WriteString(p)
-		}
+		rawBuf.WriteString(p)
+
 		if i != len(messageParts)-1 {
-			formattedBuf.WriteRune(' ')
-			formattedBuf.WriteString(separator)
-			formattedBuf.WriteRune(' ')
-			if logger.MethodFile.Enabled {
-				rawBuf.WriteString(" : ")
-			}
+			rawBuf.WriteString(" : ")
 		}
 	}
-	formattedBuf.WriteRune('\n')
-	if logger.MethodFile.Enabled {
-		rawBuf.WriteRune('\n')
-	}
+	rawBuf.WriteRune('\n')
 
 	// output
 	if logger.MethodSTDOUT {
 		logger.stdoutWriteLock.Lock()
-		colorableStdout.Write(formattedBuf.Bytes())
+		os.Stdout.Write(rawBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodSTDERR {
 		logger.stdoutWriteLock.Lock()
-		colorableStderr.Write(formattedBuf.Bytes())
+		os.Stderr.Write(rawBuf.Bytes())
 		logger.stdoutWriteLock.Unlock()
 	}
 	if logger.MethodFile.Enabled {

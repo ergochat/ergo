@@ -277,7 +277,7 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		return
 	}
 
-	server.logger.Info("localconnect-ip", fmt.Sprintf("Client connecting from %v", realIP))
+	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting from %v", realIP))
 
 	now := time.Now().UTC()
 	config := server.Config()
@@ -1263,7 +1263,7 @@ func (client *Client) destroy(session *Session) {
 			client.server.connectionLimiter.RemoveClient(ip)
 			source = ip.String()
 		}
-		client.server.logger.Info("localconnect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
+		client.server.logger.Info("connect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
 
 	// decrement stats if we have no more sessions, even if the client will not be destroyed

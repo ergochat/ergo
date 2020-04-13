@@ -177,7 +177,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
-		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected by d-line", ipaddr))
+		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected by d-line", ipaddr))
 		return true, info.BanMessage("You are banned from this server (%s)")
 	}
 
@@ -185,7 +185,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	err := server.connectionLimiter.AddClient(ipaddr)
 	if err == connection_limits.ErrLimitExceeded {
 		// too many connections from one client, tell the client and close the connection
-		server.logger.Info("localconnect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
+		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
 		return true, "Too many clients from your network"
 	} else if err == connection_limits.ErrThrottleExceeded {
 		duration := server.Config().Server.IPLimits.BanDuration
@@ -199,7 +199,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 
 		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
 		server.logger.Info(
-			"localconnect-ip",
+			"connect-ip",
 			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
 		return true, throttleMessage
 	} else if err != nil {
@@ -380,7 +380,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	c := session.client
 	// continue registration
 	d := c.Details()
-	server.logger.Info("localconnect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
+	server.logger.Info("connect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
 
 	// send welcome text
