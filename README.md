@@ -17,7 +17,7 @@ Oragono is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC
 [![Freenode #oragono](https://img.shields.io/badge/Freenode-%23oragono-1e72ff.svg?style=flat)](https://www.irccloud.com/invite?channel=%23oragono&hostname=irc.freenode.net&port=6697&ssl=1)
 [![Crowdin](https://d322cqt584bo4o.cloudfront.net/oragono/localized.svg)](https://crowdin.com/project/oragono)
 
-If you want to play with a running Oragono instance or test some client code, check out [testnet.oragono.io](ircs://testnet.oragono.io:6697/#chat).
+If you want to take a look at a running Oragono instance or test some client code, feel free to play with testnet.oragono.io (TLS on port 6697 or plaintext on port 6667).
 
 ---
 
