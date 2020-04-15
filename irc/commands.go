@@ -124,6 +124,10 @@ func init() {
 			minParams: 1,
 			oper:      true,
 		},
+		"EXTJWT": {
+			handler:   extjwtHandler,
+			minParams: 1,
+		},
 		"HELP": {
 			handler:   helpHandler,
 			minParams: 0,

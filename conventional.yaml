@@ -142,6 +142,13 @@ server:
                 # - "192.168.1.1"
                 # - "192.168.10.1/24"
 
+    # these services can integrate with the ircd using JSON Web Tokens (https://jwt.io)
+    # sometimes referred to with 'EXTJWT'
+    jwt-services:
+        # # service name -> secret string the service uses to verify our tokens
+        # call-host: call-hosting-secret-token
+        # image-host: image-hosting-secret-token
+
     # allow use of the RESUME extension over plaintext connections:
     # do not enable this unless the ircd is only accessible over internal networks
     allow-plaintext-resume: false
