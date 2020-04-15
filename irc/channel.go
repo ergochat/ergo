@@ -35,6 +35,7 @@ type Channel struct {
 	key               string
 	members           MemberSet
 	membersCache      []*Client // allow iteration over channel members without holding the lock
+	memberJoinTimes   map[*Client]time.Time
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -62,11 +63,12 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channe
 	config := s.Config()
 
 	channel := &Channel{
-		createdTime:    time.Now().UTC(), // may be overwritten by applyRegInfo
-		members:        make(MemberSet),
-		name:           name,
-		nameCasefolded: casefoldedName,
-		server:         s,
+		createdTime:     time.Now().UTC(), // may be overwritten by applyRegInfo
+		members:         make(MemberSet),
+		memberJoinTimes: make(map[*Client]time.Time),
+		name:            name,
+		nameCasefolded:  casefoldedName,
+		server:          s,
 	}
 
 	channel.initializeLists()
@@ -550,6 +552,16 @@ func (channel *Channel) ClientModeStrings(client *Client) []string {
 	}
 }
 
+func (channel *Channel) ClientJoinTime(client *Client) *time.Time {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	time, present := channel.memberJoinTimes[client]
+	if present {
+		return &time
+	}
+	return nil
+}
+
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
 	clientModes := channel.members[client]
@@ -718,6 +730,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			defer channel.stateMutex.Unlock()
 
 			channel.members.Add(client)
+			channel.memberJoinTimes[client] = time.Now()
 			firstJoin := len(channel.members) == 1
 			newChannel := firstJoin && channel.registeredFounder == ""
 			if newChannel {
@@ -1327,6 +1340,7 @@ func (channel *Channel) Quit(client *Client) {
 
 		channel.stateMutex.Lock()
 		channel.members.Remove(client)
+		delete(channel.memberJoinTimes, client)
 		channelEmpty := len(channel.members) == 0
 		channel.stateMutex.Unlock()
 		channel.regenerateMembersCache()
