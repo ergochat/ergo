@@ -660,7 +660,7 @@ To see the integrated command help, simply spin up a copy of Oragono and then ru
 
 If that doesn't work, you may need to run this instead:
 
-    /QUOTE HELP <command>
+    /QUOTE HELPOP <command>
 
 We may add some additional notes here for specific commands down the line, but right now the in-server docs are the best ones to consult.
 
