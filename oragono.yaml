@@ -166,9 +166,13 @@ server:
     # these services can integrate with the ircd using JSON Web Tokens (https://jwt.io)
     # sometimes referred to with 'EXTJWT'
     jwt-services:
-        # # service name -> secret string the service uses to verify our tokens
-        # call-host: call-hosting-secret-token
-        # image-host: image-hosting-secret-token
+        # # service name
+        # call-host:
+        #     # custom expiry length, default is 30s
+        #     expiry-in-seconds: 45
+
+        #     # secret string to verify the generated tokens
+        #     secret: call-hosting-secret-token
 
     # allow use of the RESUME extension over plaintext connections:
     # do not enable this unless the ircd is only accessible over internal networks

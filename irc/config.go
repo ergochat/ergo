@@ -469,6 +469,11 @@ type TorListenersConfig struct {
 	MaxConnectionsPerDuration int           `yaml:"max-connections-per-duration"`
 }
 
+type JwtServiceConfig struct {
+	ExpiryInSeconds int64 `yaml:"expiry-in-seconds"`
+	Secret          string
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -496,9 +501,9 @@ type Config struct {
 		MOTDFormatting          bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
 		proxyAllowedFromNets    []net.IPNet
-		WebIRC                  []webircConfig    `yaml:"webirc"`
-		JwtServices             map[string]string `yaml:"jwt-services"`
-		MaxSendQString          string            `yaml:"max-sendq"`
+		WebIRC                  []webircConfig              `yaml:"webirc"`
+		JwtServices             map[string]JwtServiceConfig `yaml:"jwt-services"`
+		MaxSendQString          string                      `yaml:"max-sendq"`
 		MaxSendQBytes           int
 		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
 		Compatibility           struct {
@@ -890,6 +895,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
 		}
 		config.Server.capValues[caps.Multiline] = multilineCapValue
+	}
+
+	// confirm jwt config
+	for name, info := range config.Server.JwtServices {
+		if info.Secret == "" {
+			return nil, fmt.Errorf("Could not parse jwt-services config, %s service has no secret set", name)
+		}
 	}
 
 	// handle legacy name 'bouncer' for 'multiclient' section:

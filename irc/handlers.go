@@ -900,7 +900,6 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	}
 
 	claims := jwt.MapClaims{
-		"exp":     time.Now().Unix() + expireInSeconds,
 		"iss":     server.name,
 		"sub":     client.Nick(),
 		"account": accountName,
@@ -923,8 +922,6 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		}
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	// we default to a secret of `*`. if you want a real secret setup a service in the config~
 	service := "*"
 	secret := "*"
@@ -932,14 +929,19 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		service = strings.ToLower(msg.Params[1])
 
 		c := server.Config()
-		var exists bool
-		secret, exists = c.Server.JwtServices[service]
+		info, exists := c.Server.JwtServices[service]
 		if !exists {
 			rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_SERVICE", client.t("No such service"))
 			return false
 		}
+		secret = info.Secret
+		if info.ExpiryInSeconds != 0 {
+			expireInSeconds = info.ExpiryInSeconds
+		}
 	}
+	claims["exp"] = time.Now().Unix() + expireInSeconds
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(secret))
 
 	if err == nil {
