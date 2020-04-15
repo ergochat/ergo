@@ -502,8 +502,9 @@ type Config struct {
 		MOTDFormatting          bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
 		proxyAllowedFromNets    []net.IPNet
-		WebIRC                  []webircConfig `yaml:"webirc"`
-		MaxSendQString          string         `yaml:"max-sendq"`
+		WebIRC                  []webircConfig    `yaml:"webirc"`
+		JwtServices             map[string]string `yaml:"jwt-services"`
+		MaxSendQString          string            `yaml:"max-sendq"`
 		MaxSendQBytes           int
 		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
 		Compatibility           struct {
@@ -1177,6 +1178,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANTYPES", chanTypes)
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
+	isupport.Add("EXTJWT", "1")
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))

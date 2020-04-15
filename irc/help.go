@@ -199,6 +199,11 @@ ON <server> specifies that the ban is to be set on that specific server.
 
 If "DLINE LIST" is sent, the server sends back a list of our current DLINEs.`,
 	},
+	"extjwt": {
+		text: `EXTJWT <target> [service_name]
+
+Get a JSON Web Token for target (either * or a channel name).`,
+	},
 	"help": {
 		text: `HELP <argument>
 

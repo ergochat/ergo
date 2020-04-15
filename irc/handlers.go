@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
@@ -909,6 +910,73 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	return killClient
+}
+
+// EXTJWT <target> [service_name]
+func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	expireInSeconds := int64(30)
+
+	accountName := client.AccountName()
+	if accountName == "*" {
+		accountName = ""
+	}
+
+	claims := jwt.MapClaims{
+		"exp":     time.Now().Unix() + expireInSeconds,
+		"iss":     server.name,
+		"sub":     client.Nick(),
+		"account": accountName,
+		"umodes":  []string{},
+	}
+
+	if msg.Params[0] != "*" {
+		channel := server.channels.Get(msg.Params[0])
+		if channel == nil {
+			rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_CHANNEL", client.t("No such channel"))
+			return false
+		}
+
+		claims["channel"] = channel.Name()
+		claims["joined"] = 0
+		claims["cmodes"] = []string{}
+		if channel.hasClient(client) {
+			claims["joined"] = time.Now().Unix() - 100 //TODO(dan): um we need to store when clients joined for reals
+			claims["cmodes"] = channel.ClientModeStrings(client)
+		}
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// we default to a secret of `*`. if you want a real secret setup a service in the config~
+	service := "*"
+	secret := "*"
+	if 1 < len(msg.Params) {
+		service = strings.ToLower(msg.Params[1])
+
+		c := server.Config()
+		var exists bool
+		secret, exists = c.Server.JwtServices[service]
+		if !exists {
+			rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_SERVICE", client.t("No such service"))
+			return false
+		}
+	}
+
+	tokenString, err := token.SignedString([]byte(secret))
+
+	if err == nil {
+		maxTokenLength := 400
+
+		for maxTokenLength < len(tokenString) {
+			rb.Add(nil, server.name, "EXTJWT", msg.Params[0], service, "*", tokenString[:maxTokenLength])
+			tokenString = tokenString[maxTokenLength:]
+		}
+		rb.Add(nil, server.name, "EXTJWT", msg.Params[0], service, tokenString)
+	} else {
+		rb.Add(nil, server.name, "FAIL", "EXTJWT", "UNKNOWN_ERROR", client.t("Could not generate EXTJWT token"))
+	}
+
+	return false
 }
 
 // HELP [<query>]
