@@ -1,6 +1,9 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
+# github.com/dgrijalva/jwt-go v3.2.0+incompatible
+## explicit
+github.com/dgrijalva/jwt-go
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 ## explicit
 github.com/docopt/docopt-go
@@ -13,7 +16,6 @@ github.com/go-ldap/ldap/v3
 ## explicit
 github.com/go-sql-driver/mysql
 # github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940
-## explicit
 github.com/goshuirc/e-nfa
 # github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
 ## explicit
