@@ -407,7 +407,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 
 	modestring := c.ModeString()
 	if modestring != "+" {
-		session.Send(nil, d.nickMask, RPL_UMODEIS, d.nick, modestring)
+		session.Send(nil, server.name, RPL_UMODEIS, d.nick, modestring)
 	}
 
 	c.attemptAutoOper(session)
@@ -993,8 +993,8 @@ func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
 
 var (
 	infoString1 = strings.Split(`      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄
-▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
- ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
+▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪
+ ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄
 ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
  ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
