@@ -541,25 +541,23 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 	}
 }
 
-func (channel *Channel) ClientModeStrings(client *Client) []string {
+func (channel *Channel) ClientModeStrings(client *Client) (result []string) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	modes, present := channel.members[client]
-	if !present {
-		return []string{}
-	} else {
-		return modes.Strings()
+	if present {
+		for _, mode := range modes.AllModes() {
+			result = append(result, mode.String())
+		}
 	}
+	return
 }
 
-func (channel *Channel) ClientJoinTime(client *Client) *time.Time {
+func (channel *Channel) ClientJoinTime(client *Client) time.Time {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
-	time, present := channel.memberJoinTimes[client]
-	if present {
-		return &time
-	}
-	return nil
+	time := channel.memberJoinTimes[client]
+	return time
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
@@ -738,7 +736,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			defer channel.stateMutex.Unlock()
 
 			channel.members.Add(client)
-			channel.memberJoinTimes[client] = time.Now()
+			channel.memberJoinTimes[client] = time.Now().UTC()
 			firstJoin := len(channel.members) == 1
 			newChannel := firstJoin && channel.registeredFounder == ""
 			if newChannel {

@@ -940,7 +940,7 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		claims["cmodes"] = []string{}
 		if channel.hasClient(client) {
 			joinTime := channel.ClientJoinTime(client)
-			if joinTime == nil {
+			if joinTime.IsZero() {
 				// shouldn't happen, only in races
 				rb.Add(nil, server.name, "FAIL", "EXTJWT", "UNKNOWN_ERROR", client.t("Channel join time is inconsistent, JWT not generated"))
 				return false
