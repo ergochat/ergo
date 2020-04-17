@@ -387,18 +387,6 @@ func (set *ModeSet) String() (result string) {
 	return buf.String()
 }
 
-// Strings returns the modes in this set.
-func (set *ModeSet) Strings() (result []string) {
-	if set == nil {
-		return
-	}
-
-	for _, mode := range set.AllModes() {
-		result = append(result, mode.String())
-	}
-	return
-}
-
 // Prefixes returns a list of prefixes for the given set of channel modes.
 func (set *ModeSet) Prefixes(isMultiPrefix bool) (prefixes string) {
 	if set == nil {
