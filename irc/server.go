@@ -343,11 +343,14 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	}
 
 	rb := NewResponseBuffer(session)
-	nickAssigned := performNickChange(server, c, c, session, c.preregNick, rb)
+	nickError := performNickChange(server, c, c, session, c.preregNick, rb)
 	rb.Send(true)
-	if !nickAssigned {
+	if nickError == errInsecureReattach {
+		c.Quit(c.t("You can't mix secure and insecure connections to this account"), nil)
+		return true
+	} else if nickError != nil {
 		c.preregNick = ""
-		return
+		return false
 	}
 
 	if session.client != c {
@@ -355,7 +358,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		// we'll play the reg burst later, on the new goroutine associated with
 		// (thisSession, otherClient). This is to avoid having to transfer state
 		// like nickname, hostname, etc. to show the correct values in the reg burst.
-		return
+		return false
 	}
 
 	// check KLINEs

@@ -42,6 +42,7 @@ var (
 	errNickMissing                    = errors.New("nick missing")
 	errNicknameInvalid                = errors.New("invalid nickname")
 	errNicknameInUse                  = errors.New("nickname in use")
+	errInsecureReattach               = errors.New("insecure reattach")
 	errNicknameReserved               = errors.New("nickname is reserved")
 	errNickAccountMismatch            = errors.New(`Your nickname must match your account name; try logging out and logging back in with SASL`)
 	errNoExistingBan                  = errors.New("Ban does not exist")

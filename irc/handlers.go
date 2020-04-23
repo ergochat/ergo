@@ -1520,24 +1520,35 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 	// process mode changes, include list operations (an empty set of changes does a list)
 	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
-	announceCmodeChanges(channel, applied, client.NickMaskString(), rb)
+	details := client.Details()
+	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, rb)
 
 	return false
 }
 
-func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source string, rb *ResponseBuffer) {
+func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, accountName string, rb *ResponseBuffer) {
 	// send out changes
 	if len(applied) > 0 {
-		//TODO(dan): we should change the name of String and make it return a slice here
-		args := append([]string{channel.name}, applied.Strings()...)
-		rb.Add(nil, source, "MODE", args...)
+		message := utils.MakeMessage("")
+		changeStrings := applied.Strings()
+		for _, changeString := range changeStrings {
+			message.Split = append(message.Split, utils.MessagePair{Message: changeString})
+		}
+		args := append([]string{channel.name}, changeStrings...)
+		rb.AddFromClient(message.Time, message.Msgid, source, accountName, nil, "MODE", args...)
 		for _, member := range channel.Members() {
 			for _, session := range member.Sessions() {
 				if session != rb.session {
-					session.Send(nil, source, "MODE", args...)
+					session.sendFromClientInternal(false, message.Time, message.Msgid, source, accountName, nil, "MODE", args...)
 				}
 			}
 		}
+		channel.AddHistoryItem(history.Item{
+			Type:        history.Mode,
+			Nick:        source,
+			AccountName: accountName,
+			Message:     message,
+		})
 	}
 }
 
@@ -2054,7 +2065,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// must pass at least one check, and all enabled checks
-	var checkPassed, checkFailed bool
+	var checkPassed, checkFailed, passwordFailed bool
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Fingerprint != "" {
@@ -2065,8 +2076,11 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			}
 		}
 		if !checkFailed && oper.Pass != nil {
-			if len(msg.Params) == 1 || bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+			if len(msg.Params) == 1 {
 				checkFailed = true
+			} else if bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+				checkFailed = true
+				passwordFailed = true
 			} else {
 				checkPassed = true
 			}
@@ -2075,11 +2089,18 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	if !checkPassed || checkFailed {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))
-		client.Quit(client.t("Password incorrect"), rb.session)
-		return true
+		// #951: only disconnect them if we actually tried to check a password for them
+		if passwordFailed {
+			client.Quit(client.t("Password incorrect"), rb.session)
+			return true
+		} else {
+			return false
+		}
 	}
 
-	applyOper(client, oper, rb)
+	if oper != nil {
+		applyOper(client, oper, rb)
+	}
 	return false
 }
 
