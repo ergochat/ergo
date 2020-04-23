@@ -22,6 +22,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
+    - Productionizing
     - Upgrading
 - Features
     - User Accounts
@@ -120,16 +121,47 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 1. Create a volume for persistent data: `docker volume create oragono-data`
 1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
 
-For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blog/master/distrib/docker/README.md).
+For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
 
 
-## Running oragono as a service on Linux
+## Productionizing
 
 The recommended way to operate oragono as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures oragono's loglines (sent to stderr in the default configuration) and writes them to the system journal.
 
-If you're using Arch, the abovementioned AUR package bundles a systemd file for starting and stopping the server. If you're rolling your own deployment, here's an [example](https://github.com/darwin-network/slash/blob/master/etc/systemd/system/ircd.service) of a systemd unit file that can be used to run Oragono as an unprivileged role user.
+The only major distribution that currently packages Oragono is Arch Linux; the aforementioned AUR package includes a systemd unit file. However, it should be fairly straightforward to set up a productionized Oragono on any Linux distribution. Here's a quickstart guide for Debian/Ubuntu:
 
-On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP.
+1. Create a dedicated, unprivileged role user who will own the oragono process and all its associated files: `adduser --system --group oragono`. This user now has a home directory at `/home/oragono`.
+1. Copy the executable binary `oragono`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`tls.crt` and `tls.key`) to `/home/oragono`. Ensure that they are all owned by the new oragono role user: `sudo chown oragono:oragono /home/oragono/*`. Ensure that the configuration file logs to stderr.
+1. Install our example [oragono.service](https://github.com/oragono/oragono/blob/master/distrib/systemd/oragono.service) file to `/etc/systemd/system/oragono.service`.
+1. Enable and start the new service with the following commands:
+    1. `systemctl daemon-reload`
+    1. `systemctl enable oragono.service`
+    1. `systemctl start oragono.service`
+    1. Confirm that the service started correctly with `systemctl status oragono.service`
+
+The other major hurdle for productionizing (but one well worth the effort) is obtaining valid TLS certificates for your domain, if you haven't already done so:
+
+1. The simplest way to get valid TLS certificates is from [Let's Encrypt](https://letsencrypt.org/) with [Certbot](https://certbot.eff.org/). The correct procedure will depend on whether you are already running a web server on port 80. If you are, follow the guides on the Certbot website; if you aren't, you can use `certbot certonly --standalone --preferred-challenges http -d example.com` (replace `example.com` with your domain).
+1. At this point, you should have certificates available at `/etc/letsencrypt/live/example.com` (replacing `example.com` with your domain). You should serve `fullchain.pem` as the certificate and `privkey.pem` as its private key. However, these files are owned by root and the private key is not readable by the oragono role user, so you won't be able to use them directly in their current locations. You can write a post-renewal hook for certbot to make copies of these certificates accessible to the oragono role user. For example, install the following script as `/etc/letsencrypt/renewal-hooks/post/install-oragono-certificates`, again replacing `example.com` with your domain name, and chmod it 0755:
+
+````bash
+#!/bin/bash
+
+set -eu
+
+umask 077
+cp /etc/letsencrypt/live/example.com/fullchain.pem /home/oragono/tls.crt
+cp /etc/letsencrypt/live/example.com/privkey.pem /home/oragono/tls.key
+chown oragono:oragono /home/oragono/tls.*
+# rehash oragono, which will reload the certificates:
+systemctl reload oragono.service
+````
+
+Executing this script manually will install the certificates for the first time and perform a rehash, enabling them.
+
+If you are using Certbot 0.29.0 or higher, you can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file).
+
+On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To send the sighup, you can use `killall -HUP oragono` or `pkill -HUP oragono`.
 
 
 ## Upgrading to a new version of Oragono
@@ -366,30 +398,9 @@ Similarly, for a public channel (one without `+i`), users can ban nick/account n
 
 # IRC over TLS
 
-IRC has traditionally been available over both plaintext (on port 6667) and SSL/TLS (on port 6697). We recommend that you make your server available exclusively via TLS, since exposing plaintext access allows for unauthorized interception or modification of user data or passwords. While the default config file exposes a plaintext public port, it also contains instructions on how to disable it or replace it with a 'dummy' plaintext listener that simply directs users to reconnect using TLS.
+IRC has traditionally been available over both plaintext (on port 6667) and SSL/TLS (on port 6697). We recommend that you make your server available exclusively via TLS, since exposing plaintext access allows for unauthorized interception or modification of user data or passwords. The default config file no longer exposes a plaintext port, so if you haven't modified your `listeners` section, you're good to go.
 
-
-## How do I use Let's Encrypt certificates?
-
-[Let's Encrypt](https://letsencrypt.org) is a widely recognized certificate authority that provides free certificates. Here's a quick-start guide for using those certificates with Oragono:
-
-1. Follow this [guidance](https://letsencrypt.org/getting-started/) from Let's Encrypt to create your certificates.
-2. You should now have a set of `pem` files, Mainly, we're interested in your `live/` Let's Encrypt directory (e.g. `/etc/letsencrypt/live/<site>/`).
-3. Here are how the config file keys map to LE files:
-    - `cert: tls.crt` is `live/<site>/fullchain.pem`
-    - ` key: tls.key` is `live/<site>/privkey.pem`
-4. You may need to copy the `pem` files to another directory so Oragono can read them, or similarly use a script like [this one](https://github.com/darwin-network/slash/blob/master/etc/bin/install-lecerts) to automagically do something similar.
-5. By default, `certbot` will automatically renew your certificates. Oragono will only reread certificates when it is restarted, or during a rehash (e.g., on receiving the `/rehash` command or the `SIGHUP` signal). You can add an executable script to `/etc/letsencrypt/renewal-hooks/post` that can perform the rehash. Here's one example of such a script:
-
-```bash
-#!/bin/bash
-pkill -HUP oragono
-```
-
-The main issues you'll run into are going to be permissions issues. This is because by default, certbot will generate certificates that non-root users can't (and probably shouldn't) read. If you run into trouble, look over the script in step **4** and/or make sure you're copying the files to somewhere else, as well as giving them correct permissions with `chown`, `chgrp` and `chmod`.
-
-On other platforms or with alternative ACME tools, you may need to use other steps or the specific files may be named differently.
-
+For a quickstart guide to obtaining valid TLS certificates from Let's Encrypt, see the "productionizing" section of the manual above.
 
 ## How can I "redirect" users from plaintext to TLS?
 
