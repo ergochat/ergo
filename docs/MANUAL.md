@@ -159,7 +159,7 @@ systemctl reload oragono.service
 
 Executing this script manually will install the certificates for the first time and perform a rehash, enabling them.
 
-You can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file), but this is not recommended if you plan to use the certificate for services other than oragono.
+If you are using Certbot 0.29.0 or higher, you can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file).
 
 On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP.
 
