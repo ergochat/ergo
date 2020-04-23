@@ -25,12 +25,11 @@ var (
 	restrictedSkeletons       = make(map[string]bool)
 )
 
-// returns whether the change succeeded or failed
-func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) bool {
+func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) error {
 	currentNick := client.Nick()
 	details := target.Details()
 	if details.nick == nickname {
-		return true
+		return nil
 	}
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
@@ -52,7 +51,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 	}
 	if err != nil {
-		return false
+		return err
 	}
 
 	message := utils.MakeMessage("")
@@ -88,7 +87,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		client.server.monitorManager.AlertAbout(target, true)
 		target.nickTimer.Touch(rb)
 	} // else: these will be deferred to the end of registration (see #572)
-	return true
+	return nil
 }
 
 func (server *Server) RandomlyRename(client *Client) {
@@ -124,7 +123,7 @@ func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config) 
 	if !client.registered {
 		return true
 	}
-	if !performNickChange(client.server, client, client, rb.session, client.AccountName(), rb) {
+	if performNickChange(client.server, client, client, rb.session, client.AccountName(), rb) != nil {
 		client.server.accounts.Logout(client)
 		nsNotice(rb, client.t("A client is already using that account; try logging out and logging back in with SASL"))
 		return false

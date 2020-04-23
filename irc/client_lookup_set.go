@@ -205,8 +205,17 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	// the client may just be changing case
 	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
-		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() || client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
+		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() {
 			return "", errNicknameInUse
+		}
+		// check TLS modes
+		if client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
+			if useAccountName {
+				// #955: this is fatal because they can't fix it by trying a different nick
+				return "", errInsecureReattach
+			} else {
+				return "", errNicknameInUse
+			}
 		}
 		reattachSuccessful, numSessions, lastSeen := currentClient.AddSession(session)
 		if !reattachSuccessful {
