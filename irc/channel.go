@@ -541,9 +541,15 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
+	founder := channel.registeredFounder
 	clientModes := channel.members[client]
 	targetModes := channel.members[target]
 	channel.stateMutex.RUnlock()
+
+	if founder != "" && founder == client.Account() {
+		// #950: founder can kick or whatever without actually having the +q mode
+		return true
+	}
 
 	return channelUserModeHasPrivsOver(clientModes.HighestChannelUserMode(), targetModes.HighestChannelUserMode())
 }
