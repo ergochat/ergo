@@ -1070,6 +1070,25 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
 				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
 			}
+		case history.Topic:
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "TOPIC", chname, item.Message.Message)
+			} else {
+				message := fmt.Sprintf(client.t("%[1]s set the channel topic to: %[2]s"), nick, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
+			}
+		case history.Mode:
+			params := make([]string, len(item.Message.Split)+1)
+			params[0] = chname
+			for i, pair := range item.Message.Split {
+				params[i+1] = pair.Message
+			}
+			if eventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "MODE", params...)
+			} else {
+				message := fmt.Sprintf(client.t("%[1]s set channel modes: %[2]s"), nick, strings.Join(params[1:], " "))
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histServMask, "*", nil, "PRIVMSG", chname, message)
+			}
 		}
 	}
 }
@@ -1119,21 +1138,29 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	}
 
 	channel.stateMutex.Lock()
+	chname := channel.name
 	channel.topic = topic
 	channel.topicSetBy = client.nickMaskString
 	channel.topicSetTime = time.Now().UTC()
 	channel.stateMutex.Unlock()
 
-	prefix := client.NickMaskString()
+	details := client.Details()
+	message := utils.MakeMessage(topic)
+	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "TOPIC", chname, topic)
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
-			if session == rb.session {
-				rb.Add(nil, prefix, "TOPIC", channel.name, topic)
-			} else {
-				session.Send(nil, prefix, "TOPIC", channel.name, topic)
+			if session != rb.session {
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "TOPIC", chname, topic)
 			}
 		}
 	}
+
+	channel.AddHistoryItem(history.Item{
+		Type:        history.Topic,
+		Nick:        details.nickMask,
+		AccountName: details.accountName,
+		Message:     message,
+	})
 
 	channel.MarkDirty(IncludeTopic)
 }

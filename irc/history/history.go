@@ -22,6 +22,7 @@ const (
 	Mode
 	Tagmsg
 	Nick
+	Topic
 )
 
 const (
