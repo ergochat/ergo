@@ -2054,7 +2054,7 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// must pass at least one check, and all enabled checks
-	var checkPassed, checkFailed bool
+	var checkPassed, checkFailed, passwordFailed bool
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Fingerprint != "" {
@@ -2065,8 +2065,11 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			}
 		}
 		if !checkFailed && oper.Pass != nil {
-			if len(msg.Params) == 1 || bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+			if len(msg.Params) == 1 {
 				checkFailed = true
+			} else if bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
+				checkFailed = true
+				passwordFailed = true
 			} else {
 				checkPassed = true
 			}
@@ -2075,11 +2078,18 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	if !checkPassed || checkFailed {
 		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))
-		client.Quit(client.t("Password incorrect"), rb.session)
-		return true
+		// #951: only disconnect them if we actually tried to check a password for them
+		if passwordFailed {
+			client.Quit(client.t("Password incorrect"), rb.session)
+			return true
+		} else {
+			return false
+		}
 	}
 
-	applyOper(client, oper, rb)
+	if oper != nil {
+		applyOper(client, oper, rb)
+	}
 	return false
 }
 
