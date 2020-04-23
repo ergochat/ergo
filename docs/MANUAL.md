@@ -22,6 +22,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
+    - Productionizing
     - Upgrading
 - Features
     - User Accounts
@@ -120,14 +121,40 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 1. Create a volume for persistent data: `docker volume create oragono-data`
 1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
 
-For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blog/master/distrib/docker/README.md).
+For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
 
 
-## Running oragono as a service on Linux
+## Productionizing on Linux
 
 The recommended way to operate oragono as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures oragono's loglines (sent to stderr in the default configuration) and writes them to the system journal.
 
-If you're using Arch, the abovementioned AUR package bundles a systemd file for starting and stopping the server. If you're rolling your own deployment, here's an [example](https://github.com/darwin-network/slash/blob/master/etc/systemd/system/ircd.service) of a systemd unit file that can be used to run Oragono as an unprivileged role user.
+The only major distribution that currently packages Oragono is Arch Linux; the aforementioned AUR package includes a systemd unit file. However, it should be fairly straightforward to set up a productionized Oragono on any Linux distribution. Here's a quickstart guide for Debian/Ubuntu:
+
+1. Create a dedicated, unprivileged role user who will own the oragono process and all its associated files: `adduser --system --group oragono`. This user now has a home directory at `/home/oragono`.
+1. Copy the executable binary `oragono`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`tls.crt` and `tls.key`) to `/home/oragono`. Ensure that they are all owned by the new oragono role user: `sudo chown oragono:oragono /home/oragono/*`. Ensure that the configuration file logs to stderr.
+1. Install our example [oragono.service](https://github.com/oragono/oragono/blob/master/distrib/systemd/oragono.service) file to `/etc/systemd/system/oragono.service`.
+1. Enable and start the new service with the following commands:
+  1. `systemctl daemon-reload`
+  1. `systemctl enable oragono.service`
+  1. `systemctl start oragono.service`
+  1. Confirm that the service started correctly with `systemctl status oragono.service`
+1. Now, if you haven't already, obtain valid TLS certificates for your domain. The simplest way to do this is to get them from [Let's Encrypt](https://letsencrypt.org/) with [Certbot](https://certbot.eff.org/). The correct way to do this will depend on whether you are already running a web server on port 80. If you are, follow the guides on the Certbot website; if you aren't, you can use `certbot certonly --standalone --preferred-challenges http -d example.com` (replace `example.com` with your domain).
+1. At this point, you should have certificates available at `/etc/letsencrypt/live/example.com` (replacing `example.com` with your domain). You should serve `fullchain.pem` as the certificate and `privkey.pem` as its private key. However, these files are owned by root and the private key is not readable by the oragono role user, so you won't be able to use them directly in their current locations. You can write a post-renewal hook for certbot to make copies of these certificates accessible to the oragono role user. For example, install the following script as `/etc/letsencrypt/renewal-hooks/post/install-oragono-certificates`, again replacing `example.com` with your domain name, and chmod it 0755:
+
+````bash
+#!/bin/bash
+
+set -eu
+
+umask 077
+cp /etc/letsencrypt/live/example.com/fullchain.pem /home/oragono/tls.crt
+cp /etc/letsencrypt/live/example.com/privkey.pem /home/oragono/tls.key
+chown oragono:oragono /home/oragono/tls.*
+# rehash oragono, which will reload the certificates:
+systemctl reload oragono.service
+````
+
+You can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file), but this is not recommended if you plan to use the certificate for services other than oragono.
 
 On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP.
 

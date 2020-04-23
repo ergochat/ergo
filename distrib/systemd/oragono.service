@@ -1,0 +1,19 @@
+[Unit]
+Description=oragono
+After=network.target
+# If you are using MySQL for history storage, comment out the above line
+# and uncomment these two instead:
+# Requires=mysql.service
+# After=network.target mysql.service
+
+[Service]
+Type=simple
+User=oragono
+WorkingDirectory=/home/oragono
+ExecStart=/home/oragono/oragono run --conf /home/oragono/ircd.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
