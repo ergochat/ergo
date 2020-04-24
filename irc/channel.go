@@ -1284,13 +1284,16 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		}
 	}
 
-	channel.AddHistoryItem(history.Item{
-		Type:        histType,
-		Message:     message,
-		Nick:        nickmask,
-		AccountName: account,
-		Tags:        clientOnlyTags,
-	})
+	// #959: don't save STATUSMSG
+	if minPrefixMode == modes.Mode(0) {
+		channel.AddHistoryItem(history.Item{
+			Type:        histType,
+			Message:     message,
+			Nick:        nickmask,
+			AccountName: account,
+			Tags:        clientOnlyTags,
+		})
+	}
 }
 
 func (channel *Channel) applyModeToMember(client *Client, change modes.ModeChange, rb *ResponseBuffer) (applied bool, result modes.ModeChange) {
