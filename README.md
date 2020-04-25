@@ -112,7 +112,7 @@ oragono run
 
 ### How to register a channel
 
-1. Register your account with `/NS REGISTER <username> <email> <password>`
+1. Register your account with `/NS REGISTER <password>`
 2. Join the channel with `/join #channel`
 3. Register the channel with `/CS REGISTER #channel`
 
