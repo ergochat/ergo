@@ -1408,6 +1408,14 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 // LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
 func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	config := server.Config()
+	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" {
+		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
+		csNotice(rb, fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
+		rb.Add(nil, server.name, RPL_LISTEND, client.nick, client.t("End of LIST"))
+		return false
+	}
+
 	// get channels
 	var channels []string
 	for _, param := range msg.Params {

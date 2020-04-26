@@ -491,6 +491,10 @@ channels:
         # how many channels can each account register?
         max-channels-per-account: 15
 
+    # as a crude countermeasure against spambots, connections younger than this value
+    # will get an empty response to /LIST (a time period of 0 disables)
+    list-delay: 0s
+
 # operator classes
 oper-classes:
     # local operator
