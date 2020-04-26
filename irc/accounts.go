@@ -1174,7 +1174,12 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	var channelsStr string
 	keepProtections := false
 	am.server.store.Update(func(tx *buntdb.Tx) error {
+		// get the unfolded account name; for an active account, this is
+		// stored under accountNameKey, for an unregistered account under unregisteredKey
 		accountName, _ = tx.Get(accountNameKey)
+		if accountName == "" {
+			accountName, _ = tx.Get(unregisteredKey)
+		}
 		if erase {
 			tx.Delete(unregisteredKey)
 		} else {
