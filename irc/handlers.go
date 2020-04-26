@@ -1412,7 +1412,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" {
 		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
 		csNotice(rb, fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
-		rb.Add(nil, server.name, RPL_LISTEND, client.nick, client.t("End of LIST"))
+		rb.Add(nil, server.name, RPL_LISTEND, client.Nick(), client.t("End of LIST"))
 		return false
 	}
 
