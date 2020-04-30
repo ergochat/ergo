@@ -20,6 +20,10 @@ var (
 	DefaultChannelModes = modes.Modes{
 		modes.NoOutside, modes.OpOnlyTopic,
 	}
+
+	// DefaultUserModes are set on all users when they login.
+	// this can be overridden in the `server` config, with the `default-user-modes` key
+	DefaultUserModes = modes.Modes{}
 )
 
 // ApplyUserModeChanges applies the given changes, and returns the applied changes.
@@ -102,21 +106,35 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 	return applied
 }
 
+// parseDefaultModes uses the provided mode change parser to parse the rawModes.
+func parseDefaultModes(rawModes string, parser func(params ...string) (modes.ModeChanges, map[rune]bool)) modes.Modes {
+	modeChangeStrings := strings.Fields(rawModes)
+	modeChanges, _ := parser(modeChangeStrings...)
+	defaultModes := make(modes.Modes, 0)
+	for _, modeChange := range modeChanges {
+		if modeChange.Op == modes.Add {
+			defaultModes = append(defaultModes, modeChange.Mode)
+		}
+	}
+	return defaultModes
+}
+
 // ParseDefaultChannelModes parses the `default-modes` line of the config
 func ParseDefaultChannelModes(rawModes *string) modes.Modes {
 	if rawModes == nil {
 		// not present in config, fall back to compile-time default
 		return DefaultChannelModes
 	}
-	modeChangeStrings := strings.Fields(*rawModes)
-	modeChanges, _ := modes.ParseChannelModeChanges(modeChangeStrings...)
-	defaultChannelModes := make(modes.Modes, 0)
-	for _, modeChange := range modeChanges {
-		if modeChange.Op == modes.Add {
-			defaultChannelModes = append(defaultChannelModes, modeChange.Mode)
-		}
+	return parseDefaultModes(*rawModes, modes.ParseChannelModeChanges)
+}
+
+// ParseDefaultUserModes parses the `default-user-modes` line of the config
+func ParseDefaultUserModes(rawModes *string) modes.Modes {
+	if rawModes == nil {
+		// not present in config, fall back to compile-time default
+		return DefaultUserModes
 	}
-	return defaultChannelModes
+	return parseDefaultModes(*rawModes, modes.ParseUserModeChanges)
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.

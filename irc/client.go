@@ -318,6 +318,10 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
+	for _, defaultMode := range config.Accounts.defaultUserModes {
+		client.SetMode(defaultMode, true)
+	}
+
 	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
