@@ -61,6 +61,10 @@ server:
         # "/hidden_service_sockets/oragono_tor_sock":
         #     tor: true
 
+        # Example of a WebSocket listener.
+        #"127.0.0.1:8080":
+        #    websocket: true
+
     # sets the permissions for Unix listen sockets. on a typical Linux system,
     # the default is 0775 or 0755, which prevents other users/groups from connecting
     # to the socket. With 0777, it behaves like a normal TCP socket
