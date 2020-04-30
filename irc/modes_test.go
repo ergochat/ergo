@@ -35,6 +35,31 @@ func TestParseDefaultChannelModes(t *testing.T) {
 	}
 }
 
+func TestParseDefaultUserModes(t *testing.T) {
+	iR := "+iR"
+	i := "+i"
+	empty := ""
+	rminusi := "+R -i"
+
+	var parseTests = []struct {
+		raw      *string
+		expected modes.Modes
+	}{
+		{&iR, modes.Modes{modes.Invisible, modes.RegisteredOnly}},
+		{&i, modes.Modes{modes.Invisible}},
+		{&empty, modes.Modes{}},
+		{&rminusi, modes.Modes{modes.RegisteredOnly}},
+		{nil, modes.Modes{}},
+	}
+
+	for _, testcase := range parseTests {
+		result := ParseDefaultUserModes(testcase.raw)
+		if !reflect.DeepEqual(result, testcase.expected) {
+			t.Errorf("expected modes %s, got %s", testcase.expected, result)
+		}
+	}
+}
+
 func TestUmodeGreaterThan(t *testing.T) {
 	if !umodeGreaterThan(modes.Halfop, modes.Voice) {
 		t.Errorf("expected Halfop > Voice")
