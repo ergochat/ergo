@@ -261,6 +261,8 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
+	DefaultUserModes   *string `yaml:"default-user-modes"`
+	defaultUserModes   modes.Modes
 	LDAP               ldap.ServerConfig
 	LoginThrottling    ThrottleConfig `yaml:"login-throttling"`
 	SkipServerPassword bool           `yaml:"skip-server-password"`
@@ -981,6 +983,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, err
 		}
 	}
+
+	config.Accounts.defaultUserModes = ParseDefaultUserModes(config.Accounts.DefaultUserModes)
 
 	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
 	if err != nil {
