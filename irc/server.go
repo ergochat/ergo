@@ -29,6 +29,7 @@ import (
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -57,6 +58,8 @@ type ListenerWrapper struct {
 	// protects atomic update of config and shouldStop:
 	sync.Mutex // tier 1
 	listener   net.Listener
+	// optional WebSocket endpoint
+	httpServer *http.Server
 	config     listenerConfig
 	shouldStop bool
 }
@@ -226,9 +229,101 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 
 // createListener starts a given listener.
 func (server *Server) createListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
-	// make listener
+	if conf.WebSocket {
+		return server.createWSListener(addr, conf)
+	}
+	return server.createNetListener(addr, conf, bindMode)
+}
+
+func (server *Server) isTrusted(ip string) bool {
+	netIP := net.ParseIP(ip)
+	return utils.IPInNets(netIP, server.Config().Server.proxyAllowedFromNets)
+}
+
+func (server *Server) followHTTPForwards(addr string, forwards string) string {
+	if !server.isTrusted(addr) {
+		return addr
+	}
+
+	forwardIPs := strings.Split(forwards, ",")
+
+	// Iterate backwards to have the inner-most proxy first.
+	for i := len(forwardIPs) - 1; i >= 0; i-- {
+		// Using i so that addr points to the last item after the end of the loop.
+		addr = forwardIPs[i]
+
+		if !server.isTrusted(addr) {
+			return addr
+		}
+	}
+
+	// All IPs are trusted? weird. Let's take the last one and call it a day.
+	return addr
+}
+
+// createWSListener starts a given WebSocket listener.
+func (server *Server) createWSListener(addr string, conf listenerConfig) (*ListenerWrapper, error) {
 	var listener net.Listener
 	var err error
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		remoteAddr := r.RemoteAddr
+		if header, ok := r.Header["X-Forwarded-For"]; ok {
+			remoteAddr = server.followHTTPForwards(remoteAddr, header[len(header)-1])
+		}
+
+		conn, err := wsUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			server.logger.Error("internal", "upgrade error", addr, err.Error())
+			return
+		}
+
+		newConn := clientConn{
+			Conn:   WSContainer{conn},
+			Config: conf,
+		}
+
+		server.RunClient(newConn, "")
+	}
+	endpoint := http.Server{
+		Addr:           addr,
+		Handler:        http.HandlerFunc(handler),
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	if conf.TLSConfig != nil {
+		listener, err = tls.Listen("tcp", addr, conf.TLSConfig)
+	} else {
+		listener, err = net.Listen("tcp", addr)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// throw our details to the server so we can be modified/killed later
+	wrapper := ListenerWrapper{
+		listener:   listener,
+		httpServer: &endpoint,
+		config:     conf,
+		shouldStop: false,
+	}
+
+	go func() {
+		err := endpoint.Serve(listener)
+		if err != nil {
+			server.logger.Error("internal", "Failed to start WebSocket listener on", addr)
+		}
+	}()
+
+	return &wrapper, nil
+}
+
+// createNetListener starts a given unix or TCP listener.
+func (server *Server) createNetListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
+	var listener net.Listener
+	var err error
+
 	addr = strings.TrimPrefix(addr, "unix:")
 	if strings.HasPrefix(addr, "/") {
 		// https://stackoverflow.com/a/34881585
@@ -815,7 +910,7 @@ func (server *Server) loadDatastore(config *Config) error {
 func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, config listenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.ProxyBeforeTLS, config.Tor),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.ProxyBeforeTLS, config.Tor, config.WebSocket),
 		)
 	}
 

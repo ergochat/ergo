@@ -12,6 +12,9 @@ github.com/go-ldap/ldap/v3
 # github.com/go-sql-driver/mysql v1.5.0
 ## explicit
 github.com/go-sql-driver/mysql
+# github.com/gorilla/websocket v1.4.2
+## explicit
+github.com/gorilla/websocket
 # github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940
 ## explicit
 github.com/goshuirc/e-nfa

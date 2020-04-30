@@ -50,9 +50,10 @@ type TLSListenConfig struct {
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
 type listenerConfigBlock struct {
-	TLS     TLSListenConfig
-	Tor     bool
-	STSOnly bool `yaml:"sts-only"`
+	TLS       TLSListenConfig
+	Tor       bool
+	STSOnly   bool `yaml:"sts-only"`
+	WebSocket bool
 }
 
 // listenerConfig is the config governing a particular listener (bound address),
@@ -62,6 +63,7 @@ type listenerConfig struct {
 	Tor            bool
 	STSOnly        bool
 	ProxyBeforeTLS bool
+	WebSocket      bool
 }
 
 type PersistentStatus uint
@@ -778,6 +780,7 @@ func (conf *Config) prepareListeners() (err error) {
 			lconf.TLSConfig = tlsConfig
 			lconf.ProxyBeforeTLS = block.TLS.Proxy
 		}
+		lconf.WebSocket = block.WebSocket
 		conf.Server.trueListeners[addr] = lconf
 	}
 	return nil
