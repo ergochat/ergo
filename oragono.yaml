@@ -455,7 +455,7 @@ accounts:
     # if unset, no user modes will be set by default
     # +i is invisible (a user's channels are hidden from whois replies)
     # see  /QUOTE HELP umodes  for more user modes
-    # default-user-modes: +i
+    default-user-modes: +i
 
     # support for deferring password checking to an external LDAP server
     # you should probably ignore this section! consult the grafana docs for details:
