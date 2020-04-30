@@ -375,6 +375,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		alwaysOn: true,
 	}
 
+	for _, defaultMode := range config.Accounts.defaultUserModes {
+		client.SetMode(defaultMode, true)
+	}
+
 	client.SetMode(modes.TLS, true)
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(0, 0)

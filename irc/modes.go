@@ -22,7 +22,7 @@ var (
 	}
 
 	// DefaultUserModes are set on all users when they login.
-	// this can be overridden in the `server` config, with the `default-user-modes` key
+	// this can be overridden in the `accounts` config, with the `default-user-modes` key
 	DefaultUserModes = modes.Modes{}
 )
 
