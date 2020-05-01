@@ -4,7 +4,7 @@ Oragono is a modern IRC server written in Go. Its core design principles are:
 
 * Being simple to set up and use
 * Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
-* Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
+* Bleeding-edge [IRCv3 support](https://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
 * Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
 
 Oragono is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC daemon <3
@@ -39,7 +39,7 @@ If you want to take a look at a running Oragono instance or test some client cod
 * automated client connection limits
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
 * banning ips/nets and masks with `KLINE` and `DLINE`
-* [IRCv3 support](http://ircv3.net/software/servers.html)
+* [IRCv3 support](https://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](https://oragono.io/specs.html)
 
 ## Installation
@@ -112,7 +112,7 @@ oragono run
 
 ### How to register a channel
 
-1. Register your account with `/NS REGISTER <username> <email> <password>`
+1. Register your account with `/NS REGISTER <password>`
 2. Join the channel with `/join #channel`
 3. Register the channel with `/CS REGISTER #channel`
 

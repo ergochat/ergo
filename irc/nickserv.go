@@ -841,6 +841,8 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	if erase {
 		// account may not be in a loadable state, e.g., if it was unregistered
 		accountName = username
+		// make the confirmation code nondeterministic for ERASE
+		registeredAt = server.ctime
 	} else {
 		account, err := server.accounts.LoadAccount(username)
 		if err == errAccountDoesNotExist {

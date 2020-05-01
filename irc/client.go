@@ -318,6 +318,10 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
+	for _, defaultMode := range config.Accounts.defaultUserModes {
+		client.SetMode(defaultMode, true)
+	}
+
 	if conn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
@@ -369,6 +373,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		realIP:      utils.IPv4LoopbackAddress,
 
 		alwaysOn: true,
+	}
+
+	for _, defaultMode := range config.Accounts.defaultUserModes {
+		client.SetMode(defaultMode, true)
 	}
 
 	client.SetMode(modes.TLS, true)

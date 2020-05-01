@@ -244,7 +244,7 @@ func csAmodeHandler(server *Server, client *Client, command string, params []str
 				if member.Account() == change.Arg {
 					applied, change := channel.applyModeToMember(client, change, rb)
 					if applied {
-						announceCmodeChanges(channel, modes.ModeChanges{change}, chanservMask, rb)
+						announceCmodeChanges(channel, modes.ModeChanges{change}, chanservMask, "*", rb)
 					}
 				}
 			}
@@ -291,7 +291,7 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 		},
 		rb)
 	if applied {
-		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, rb)
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, "*", rb)
 	}
 
 	csNotice(rb, fmt.Sprintf(client.t("Successfully op'd in channel %s"), channelName))
@@ -343,7 +343,7 @@ func csRegisterHandler(server *Server, client *Client, command string, params []
 		},
 		rb)
 	if applied {
-		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, rb)
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, "*", rb)
 	}
 }
 
