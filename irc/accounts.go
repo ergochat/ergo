@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1045,6 +1046,41 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 
 	account, err = am.checkPassphrase(accountName, passphrase)
 	return err
+}
+
+// AllNicks returns the uncasefolded nicknames for all accounts, including additional (grouped) nicks.
+func (am *AccountManager) AllNicks() (result []string) {
+	accountNamePrefix := fmt.Sprintf(keyAccountName, "")
+	accountAdditionalNicksPrefix := fmt.Sprintf(keyAccountAdditionalNicks, "")
+
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		// Account names
+		err := tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, accountNamePrefix) {
+				return false
+			}
+			result = append(result, value)
+			return true
+		})
+		if err != nil {
+			return err
+		}
+
+		// Additional nicks
+		return tx.AscendGreaterOrEqual("", accountAdditionalNicksPrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, accountAdditionalNicksPrefix) {
+				return false
+			}
+			additionalNicks := unmarshalReservedNicks(value)
+			for _, additionalNick := range additionalNicks {
+				result = append(result, additionalNick)
+			}
+			return true
+		})
+	})
+
+	sort.Strings(result)
+	return
 }
 
 func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount, err error) {

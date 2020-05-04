@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -96,6 +97,17 @@ certfp (your client certificate) if a password is not given.`,
 			helpShort: `$bIDENTIFY$b lets you login to your account.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
+		},
+		"list": {
+			handler: nsListHandler,
+			help: `Syntax: $bLIST [regex]$b
+
+LIST returns the list of registered nicknames, which match the given regex.
+If no regex is provided, all registered nicknames are returned.`,
+			helpShort: `$bLIST$b searches the list of registered nicknames.`,
+			enabled:   servCmdRequiresAuthEnabled,
+			capabs:    []string{"accreg"},
+			minParams: 0,
 		},
 		"info": {
 			handler: nsInfoHandler,
@@ -679,6 +691,34 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	} else if !nickFixupFailed {
 		nsNotice(rb, fmt.Sprintf(client.t("Authentication failed: %s"), authErrorToMessage(server, err)))
 	}
+}
+
+func nsListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !client.HasRoleCapabs("accreg") {
+		nsNotice(rb, client.t("Insufficient privileges"))
+		return
+	}
+
+	var searchRegex *regexp.Regexp
+	if len(params) > 0 {
+		var err error
+		searchRegex, err = regexp.Compile(params[0])
+		if err != nil {
+			nsNotice(rb, client.t("Invalid regex"))
+			return
+		}
+	}
+
+	nsNotice(rb, ircfmt.Unescape(client.t("*** $bNickServ LIST$b ***")))
+
+	nicks := server.accounts.AllNicks()
+	for _, nick := range nicks {
+		if searchRegex == nil || searchRegex.MatchString(nick) {
+			nsNotice(rb, fmt.Sprintf("    %s", nick))
+		}
+	}
+
+	nsNotice(rb, ircfmt.Unescape(client.t("*** $bEnd of NickServ LIST$b ***")))
 }
 
 func nsInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
