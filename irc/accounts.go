@@ -1050,21 +1050,23 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 
 // AllNicks returns the uncasefolded nicknames for all accounts, including additional (grouped) nicks.
 func (am *AccountManager) AllNicks() (result []string) {
-	// Account names
 	accountNamePrefix := fmt.Sprintf(keyAccountName, "")
+	accountAdditionalNicksPrefix := fmt.Sprintf(keyAccountAdditionalNicks, "")
+
 	am.server.store.View(func(tx *buntdb.Tx) error {
-		return tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
+		// Account names
+		err := tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, accountNamePrefix) {
 				return false
 			}
 			result = append(result, value)
 			return true
 		})
-	})
+		if err != nil {
+			return err
+		}
 
-	// Additional nicknames
-	accountAdditionalNicksPrefix := fmt.Sprintf(keyAccountAdditionalNicks, "")
-	am.server.store.View(func(tx *buntdb.Tx) error {
+		// Additional nicks
 		return tx.AscendGreaterOrEqual("", accountAdditionalNicksPrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, accountAdditionalNicksPrefix) {
 				return false
