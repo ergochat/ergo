@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -125,6 +126,16 @@ set using PURGE.`,
 			helpShort: `$bUNPURGE$b undoes a previous PURGE command.`,
 			capabs:    []string{"chanreg"},
 			minParams: 1,
+		},
+		"list": {
+			handler: csListHandler,
+			help: `Syntax: $bLIST [regex]$b
+
+LIST returns the list of registered channels, which match the given regex.
+If no regex is provided, all registered channels are returned.`,
+			helpShort: `$bLIST$b searches the list of registered channels.`,
+			capabs:    []string{"chanreg"},
+			minParams: 0,
 		},
 		"info": {
 			handler: csInfoHandler,
@@ -557,6 +568,34 @@ func csUnpurgeHandler(server *Server, client *Client, command string, params []s
 	default:
 		csNotice(rb, client.t("An error occurred"))
 	}
+}
+
+func csListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !client.HasRoleCapabs("chanreg") {
+		csNotice(rb, client.t("Insufficient privileges"))
+		return
+	}
+
+	var searchRegex *regexp.Regexp
+	if len(params) > 0 {
+		var err error
+		searchRegex, err = regexp.Compile(params[0])
+		if err != nil {
+			csNotice(rb, client.t("Invalid regex"))
+			return
+		}
+	}
+
+	csNotice(rb, ircfmt.Unescape(client.t("*** $bChanServ LIST$b ***")))
+
+	channels := server.channelRegistry.AllChannels()
+	for _, channel := range channels {
+		if searchRegex == nil || searchRegex.MatchString(channel) {
+			csNotice(rb, fmt.Sprintf("    %s", channel))
+		}
+	}
+
+	csNotice(rb, ircfmt.Unescape(client.t("*** $bEnd of ChanServ LIST$b ***")))
 }
 
 func csInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

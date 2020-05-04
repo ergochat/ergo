@@ -1047,6 +1047,17 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	return err
 }
 
+func (am *AccountManager) AllNicks() []string {
+	am.RLock()
+	defer am.RUnlock()
+
+	nicks := make([]string, 0, len(am.nickToAccount))
+	for nick := range am.nickToAccount {
+		nicks = append(nicks, nick)
+	}
+	return nicks
+}
+
 func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount, err error) {
 	casefoldedAccount, err := CasefoldName(accountName)
 	if err != nil {
