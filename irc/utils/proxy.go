@@ -86,10 +86,10 @@ func ParseProxyLine(line string) (ip net.IP, err error) {
 	return ip.To16(), nil
 }
 
-/// ProxiedConnection is a net.Conn with some additional data stapled to it;
+/// WrappedConn is a net.Conn with some additional data stapled to it;
 // the proxied IP, if one was read via the PROXY protocol, and the listener
 // configuration.
-type ProxiedConnection struct {
+type WrappedConn struct {
 	net.Conn
 	ProxiedIP net.IP
 	Config    ListenerConfig
@@ -154,7 +154,7 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 		conn = tls.Server(conn, config.TLSConfig)
 	}
 
-	return &ProxiedConnection{
+	return &WrappedConn{
 		Conn:      conn,
 		ProxiedIP: proxiedIP,
 		Config:    config,

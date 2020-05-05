@@ -277,7 +277,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	if isBanned {
 		// this might not show up properly on some clients,
 		// but our objective here is just to close the connection out before it has a load impact on us
-		conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.WriteLine([]byte(fmt.Sprintf(errorMsg, banMsg)))
 		conn.Close()
 		return
 	}

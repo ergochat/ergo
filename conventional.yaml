@@ -89,10 +89,11 @@ server:
         preload: false
 
     websockets:
-        # sets the Origin headers that will be accepted for websocket connections.
-        # an empty list means any value (or no value) is allowed. the main use of this
-        # is to prevent malicious third-party Javascript from co-opting non-malicious
-        # clients (i.e., mainstream browsers) to DDoS your server.
+        # Restrict the origin of WebSocket connections by matching the "Origin" HTTP
+        # header. This settings makes oragono reject every WebSocket connection,
+        # except when it originates from one of the hosts in this list. Use this to
+        # prevent malicious websites from making their visitors connect to oragono
+        # without their knowledge. An empty list means that there are no restrictions.
         allowed-origins:
             # - "https://oragono.io"
             # - "https://*.oragono.io"

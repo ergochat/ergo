@@ -144,7 +144,7 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 		return io.EOF
 	}
 
-	err = socket.conn.Write(data)
+	err = socket.conn.WriteLine(data)
 	if err != nil {
 		socket.finalize()
 	}
@@ -216,7 +216,7 @@ func (socket *Socket) performWrite() (closed bool) {
 
 	var err error
 	if 0 < len(buffers) {
-		err = socket.conn.WriteBuffers(buffers)
+		err = socket.conn.WriteLines(buffers)
 	}
 
 	closed = closed || err != nil
@@ -244,7 +244,7 @@ func (socket *Socket) finalize() {
 	}
 
 	if len(finalData) != 0 {
-		socket.conn.Write(finalData)
+		socket.conn.WriteLine(finalData)
 	}
 
 	// close the connection

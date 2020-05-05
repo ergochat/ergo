@@ -22,13 +22,16 @@ var (
 
 // IRCConn abstracts away the distinction between a regular
 // net.Conn (which includes both raw TCP and TLS) and a websocket.
-// it doesn't expose Read and Write because websockets are message-oriented,
-// not stream-oriented.
+// it doesn't expose the net.Conn, io.Reader, or io.Writer interfaces
+// because websockets are message-oriented, not stream-oriented, and
+// therefore this abstraction is message-oriented as well.
 type IRCConn interface {
-	UnderlyingConn() *utils.ProxiedConnection
+	UnderlyingConn() *utils.WrappedConn
 
-	Write([]byte) error
-	WriteBuffers([][]byte) error
+	// these take an IRC line or lines, correctly terminated with CRLF:
+	WriteLine([]byte) error
+	WriteLines([][]byte) error
+	// this returns an IRC line without the terminating CRLF:
 	ReadLine() (line []byte, err error)
 
 	Close() error
@@ -36,26 +39,26 @@ type IRCConn interface {
 
 // IRCStreamConn is an IRCConn over a regular stream connection.
 type IRCStreamConn struct {
-	conn   *utils.ProxiedConnection
+	conn   *utils.WrappedConn
 	reader *bufio.Reader
 }
 
-func NewIRCStreamConn(conn *utils.ProxiedConnection) *IRCStreamConn {
+func NewIRCStreamConn(conn *utils.WrappedConn) *IRCStreamConn {
 	return &IRCStreamConn{
 		conn: conn,
 	}
 }
 
-func (cc *IRCStreamConn) UnderlyingConn() *utils.ProxiedConnection {
+func (cc *IRCStreamConn) UnderlyingConn() *utils.WrappedConn {
 	return cc.conn
 }
 
-func (cc *IRCStreamConn) Write(buf []byte) (err error) {
+func (cc *IRCStreamConn) WriteLine(buf []byte) (err error) {
 	_, err = cc.conn.Write(buf)
 	return
 }
 
-func (cc *IRCStreamConn) WriteBuffers(buffers [][]byte) (err error) {
+func (cc *IRCStreamConn) WriteLines(buffers [][]byte) (err error) {
 	// on Linux, with a plaintext TCP or Unix domain socket,
 	// the Go runtime will optimize this into a single writev(2) call:
 	_, err = (*net.Buffers)(&buffers).WriteTo(cc.conn)
@@ -90,17 +93,13 @@ func NewIRCWSConn(conn *websocket.Conn) IRCWSConn {
 	return IRCWSConn{conn: conn}
 }
 
-func (wc IRCWSConn) UnderlyingConn() *utils.ProxiedConnection {
-	pConn, ok := wc.conn.UnderlyingConn().(*utils.ProxiedConnection)
-	if ok {
-		return pConn
-	} else {
-		// this can't happen
-		return nil
-	}
+func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
+	// just assume that the type is OK
+	wConn, _ := wc.conn.UnderlyingConn().(*utils.WrappedConn)
+	return wConn
 }
 
-func (wc IRCWSConn) Write(buf []byte) (err error) {
+func (wc IRCWSConn) WriteLine(buf []byte) (err error) {
 	buf = bytes.TrimSuffix(buf, crlf)
 	// there's not much we can do about this;
 	// silently drop the message
@@ -110,9 +109,9 @@ func (wc IRCWSConn) Write(buf []byte) (err error) {
 	return wc.conn.WriteMessage(websocket.TextMessage, buf)
 }
 
-func (wc IRCWSConn) WriteBuffers(buffers [][]byte) (err error) {
+func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 	for _, buf := range buffers {
-		err = wc.Write(buf)
+		err = wc.WriteLine(buf)
 		if err != nil {
 			return
 		}

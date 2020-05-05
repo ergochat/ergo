@@ -89,7 +89,7 @@ func (nl *NetListener) Stop() error {
 }
 
 // ensure that any IP we got from the PROXY line is trustworthy (otherwise, clear it)
-func validateProxiedIP(conn *utils.ProxiedConnection, config *Config) {
+func validateProxiedIP(conn *utils.WrappedConn, config *Config) {
 	if !utils.IPInNets(utils.AddrToIP(conn.RemoteAddr()), config.Server.proxyAllowedFromNets) {
 		conn.ProxiedIP = nil
 	}
@@ -101,12 +101,12 @@ func (nl *NetListener) serve() {
 
 		if err == nil {
 			// hand off the connection
-			pConn, ok := conn.(*utils.ProxiedConnection)
+			wConn, ok := conn.(*utils.WrappedConn)
 			if ok {
-				if pConn.ProxiedIP != nil {
-					validateProxiedIP(pConn, nl.server.Config())
+				if wConn.ProxiedIP != nil {
+					validateProxiedIP(wConn, nl.server.Config())
 				}
-				go nl.server.RunClient(NewIRCStreamConn(pConn))
+				go nl.server.RunClient(NewIRCStreamConn(wConn))
 			} else {
 				nl.server.logger.Error("internal", "invalid connection type", nl.addr)
 			}
@@ -186,19 +186,19 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pConn, ok := conn.UnderlyingConn().(*utils.ProxiedConnection)
+	wConn, ok := conn.UnderlyingConn().(*utils.WrappedConn)
 	if !ok {
 		wl.server.logger.Error("internal", "non-proxied connection on websocket", wl.addr)
 		conn.Close()
 		return
 	}
-	if pConn.ProxiedIP != nil {
-		validateProxiedIP(pConn, config)
+	if wConn.ProxiedIP != nil {
+		validateProxiedIP(wConn, config)
 	} else {
 		// if there was no PROXY protocol IP, use the validated X-Forwarded-For IP instead,
 		// unless it is redundant
-		if proxiedIP != nil && !proxiedIP.Equal(utils.AddrToIP(pConn.RemoteAddr())) {
-			pConn.ProxiedIP = proxiedIP
+		if proxiedIP != nil && !proxiedIP.Equal(utils.AddrToIP(wConn.RemoteAddr())) {
+			wConn.ProxiedIP = proxiedIP
 		}
 	}
 

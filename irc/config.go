@@ -772,7 +772,7 @@ func (conf *Config) prepareListeners() (err error) {
 	conf.Server.trueListeners = make(map[string]utils.ListenerConfig)
 	for addr, block := range conf.Server.Listeners {
 		var lconf utils.ListenerConfig
-		lconf.ProxyDeadline = time.Minute
+		lconf.ProxyDeadline = RegisterTimeout
 		lconf.Tor = block.Tor
 		lconf.STSOnly = block.STSOnly
 		if lconf.STSOnly && !conf.Server.STS.Enabled {
@@ -1217,20 +1217,19 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 }
 
 func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
+	if strings.Count(guestFormat, "?") != 0 || strings.Count(guestFormat, "*") != 1 {
+		err = errors.New("guest format must contain 1 '*' and no '?'s")
+		return
+	}
+
 	standard, err = utils.CompileGlob(guestFormat)
 	if err != nil {
 		return
 	}
 
 	starIndex := strings.IndexByte(guestFormat, '*')
-	if starIndex == -1 {
-		return nil, nil, errors.New("guest format must contain exactly one *")
-	}
 	initial := guestFormat[:starIndex]
 	final := guestFormat[starIndex+1:]
-	if strings.IndexByte(final, '*') != -1 {
-		return nil, nil, errors.New("guest format must contain exactly one *")
-	}
 	initialFolded, err := casefoldWithSetting(initial, casemapping)
 	if err != nil {
 		return

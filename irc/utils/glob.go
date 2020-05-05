@@ -6,7 +6,7 @@ package utils
 import (
 	"bytes"
 	"regexp"
-	"strings"
+	"regexp/syntax"
 )
 
 // yet another glob implementation in Go
@@ -14,15 +14,16 @@ import (
 func CompileGlob(glob string) (result *regexp.Regexp, err error) {
 	var buf bytes.Buffer
 	buf.WriteByte('^')
-	for {
-		i := strings.IndexByte(glob, '*')
-		if i == -1 {
-			buf.WriteString(regexp.QuoteMeta(glob))
-			break
-		} else {
-			buf.WriteString(regexp.QuoteMeta(glob[:i]))
-			buf.WriteString(".*")
-			glob = glob[i+1:]
+	for _, r := range glob {
+		switch r {
+		case '*':
+			buf.WriteString("(.*)")
+		case '?':
+			buf.WriteString("(.)")
+		case 0xFFFD:
+			return nil, &syntax.Error{Code: syntax.ErrInvalidUTF8, Expr: glob}
+		default:
+			buf.WriteString(regexp.QuoteMeta(string(r)))
 		}
 	}
 	buf.WriteByte('$')

@@ -736,16 +736,16 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
 		if stillConfigured {
-			err := currentListener.Reload(newConfig)
+			reloadErr := currentListener.Reload(newConfig)
 			// attempt to stop and replace the listener if the reload failed
-			if err != nil {
+			if reloadErr != nil {
 				currentListener.Stop()
-				newListener, err := NewListener(server, addr, newConfig, config.Server.UnixBindMode)
-				if err != nil {
-					delete(server.listeners, addr)
-					return err
-				} else {
+				newListener, newErr := NewListener(server, addr, newConfig, config.Server.UnixBindMode)
+				if newErr == nil {
 					server.listeners[addr] = newListener
+				} else {
+					delete(server.listeners, addr)
+					return newErr
 				}
 			}
 			logListener(addr, newConfig)
@@ -765,13 +765,13 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		_, exists := server.listeners[newAddr]
 		if !exists {
 			// make a new listener
-			newListener, listenerErr := NewListener(server, newAddr, newConfig, config.Server.UnixBindMode)
-			if listenerErr != nil {
-				server.logger.Error("server", "couldn't listen on", newAddr, listenerErr.Error())
-				err = listenerErr
-			} else {
+			newListener, newErr := NewListener(server, newAddr, newConfig, config.Server.UnixBindMode)
+			if newErr == nil {
 				server.listeners[newAddr] = newListener
 				logListener(newAddr, newConfig)
+			} else {
+				server.logger.Error("server", "couldn't listen on", newAddr, newErr.Error())
+				err = newErr
 			}
 		}
 	}
