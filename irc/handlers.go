@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -2581,7 +2582,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				continue
 			}
 
-			err, quitMsg := client.ApplyProxiedIP(rb.session, msg.Params[3], secure)
+			err, quitMsg := client.ApplyProxiedIP(rb.session, net.ParseIP(msg.Params[3]), secure)
 			if err != nil {
 				client.Quit(quitMsg, rb.session)
 				return true

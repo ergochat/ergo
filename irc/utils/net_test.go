@@ -159,3 +159,39 @@ func TestNormalizedNetFromString(t *testing.T) {
 	assertEqual(NetToNormalizedString(network), "2001:db8::1", t)
 	assertEqual(network.Contains(net.ParseIP("2001:0db8::1")), true, t)
 }
+
+func checkXFF(remoteAddr, forwardedHeader string, expectedStr string, t *testing.T) {
+	whitelistCIDRs := []string{"10.0.0.0/8", "127.0.0.1/8"}
+	var whitelist []net.IPNet
+	for _, str := range whitelistCIDRs {
+		_, wlNet, err := net.ParseCIDR(str)
+		if err != nil {
+			panic(err)
+		}
+		whitelist = append(whitelist, *wlNet)
+	}
+
+	expected := net.ParseIP(expectedStr)
+	actual := HandleXForwardedFor(remoteAddr, forwardedHeader, whitelist)
+
+	if !actual.Equal(expected) {
+		t.Errorf("handling %s and %s, expected %s, got %s", remoteAddr, forwardedHeader, expected, actual)
+	}
+}
+
+func TestXForwardedFor(t *testing.T) {
+	checkXFF("8.8.4.4:9999", "", "8.8.4.4", t)
+	// forged XFF header from untrustworthy external IP, should be ignored:
+	checkXFF("8.8.4.4:9999", "1.1.1.1", "8.8.4.4", t)
+
+	checkXFF("10.0.0.4:28432", "", "10.0.0.4", t)
+
+	checkXFF("10.0.0.4:28432", "8.8.4.4", "8.8.4.4", t)
+	checkXFF("10.0.0.4:28432", "10.0.0.3", "10.0.0.3", t)
+
+	checkXFF("10.0.0.4:28432", "1.1.1.1, 8.8.4.4", "8.8.4.4", t)
+	checkXFF("10.0.0.4:28432", "8.8.4.4, 1.1.1.1, 10.0.0.3", "1.1.1.1", t)
+	checkXFF("10.0.0.4:28432", "10.0.0.1, 10.0.0.2, 10.0.0.3", "10.0.0.1", t)
+
+	checkXFF("@", "8.8.4.4, 1.1.1.1, 10.0.0.3", "1.1.1.1", t)
+}

@@ -7,10 +7,7 @@ package irc
 
 import (
 	"errors"
-	"fmt"
 	"net"
-	"strings"
-	"time"
 
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
@@ -58,7 +55,7 @@ func (wc *webircConfig) Populate() (err error) {
 }
 
 // ApplyProxiedIP applies the given IP to the client.
-func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls bool) (err error, quitMsg string) {
+func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls bool) (err error, quitMsg string) {
 	// PROXY and WEBIRC are never accepted from a Tor listener, even if the address itself
 	// is whitelisted:
 	if session.isTor {
@@ -66,12 +63,12 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	}
 
 	// ensure IP is sane
-	parsedProxiedIP := net.ParseIP(proxiedIP).To16()
-	if parsedProxiedIP == nil {
-		return errBadProxyLine, fmt.Sprintf(client.t("Proxied IP address is not valid: [%s]"), proxiedIP)
+	if proxiedIP == nil {
+		return errBadProxyLine, "proxied IP is not valid"
 	}
+	proxiedIP = proxiedIP.To16()
 
-	isBanned, banMsg := client.server.checkBans(parsedProxiedIP)
+	isBanned, banMsg := client.server.checkBans(proxiedIP)
 	if isBanned {
 		return errBanned, banMsg
 	}
@@ -80,12 +77,12 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP string, tls boo
 	client.server.connectionLimiter.RemoveClient(session.realIP)
 
 	// given IP is sane! override the client's current IP
-	client.server.logger.Info("connect-ip", "Accepted proxy IP for client", parsedProxiedIP.String())
+	client.server.logger.Info("connect-ip", "Accepted proxy IP for client", proxiedIP.String())
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	client.proxiedIP = parsedProxiedIP
-	session.proxiedIP = parsedProxiedIP
+	client.proxiedIP = proxiedIP
+	session.proxiedIP = proxiedIP
 	// nickmask will be updated when the client completes registration
 	// set tls info
 	session.certfp = ""
@@ -110,50 +107,17 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 		}
 	}()
 
-	params := strings.Fields(line)
-	if len(params) != 6 {
-		return errBadProxyLine
+	ip, err := utils.ParseProxyLine(line)
+	if err != nil {
+		return err
 	}
 
 	if utils.IPInNets(client.realIP, server.Config().Server.proxyAllowedFromNets) {
 		// assume PROXY connections are always secure
-		err, quitMsg = client.ApplyProxiedIP(session, params[2], true)
+		err, quitMsg = client.ApplyProxiedIP(session, ip, true)
 		return
 	} else {
 		// real source IP is not authorized to issue PROXY:
 		return errBadGatewayAddress
 	}
-}
-
-// read a PROXY line one byte at a time, to ensure we don't read anything beyond
-// that into a buffer, which would break the TLS handshake
-func readRawProxyLine(conn net.Conn) (result string) {
-	// normally this is covered by ping timeouts, but we're doing this outside
-	// of the normal client goroutine:
-	conn.SetDeadline(time.Now().Add(time.Minute))
-	defer conn.SetDeadline(time.Time{})
-
-	var buf [maxProxyLineLen]byte
-	oneByte := make([]byte, 1)
-	i := 0
-	for i < maxProxyLineLen {
-		n, err := conn.Read(oneByte)
-		if err != nil {
-			return
-		} else if n == 1 {
-			buf[i] = oneByte[0]
-			if buf[i] == '\n' {
-				candidate := string(buf[0 : i+1])
-				if strings.HasPrefix(candidate, "PROXY") {
-					return candidate
-				} else {
-					return
-				}
-			}
-			i += 1
-		}
-	}
-
-	// no \r\n, fail out
-	return
 }

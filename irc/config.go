@@ -56,16 +56,6 @@ type listenerConfigBlock struct {
 	WebSocket bool
 }
 
-// listenerConfig is the config governing a particular listener (bound address),
-// in particular whether it has TLS or Tor (or both) enabled.
-type listenerConfig struct {
-	TLSConfig      *tls.Config
-	Tor            bool
-	STSOnly        bool
-	ProxyBeforeTLS bool
-	WebSocket      bool
-}
-
 type PersistentStatus uint
 
 const (
@@ -488,8 +478,12 @@ type Config struct {
 		Listeners    map[string]listenerConfigBlock
 		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
 		TorListeners TorListenersConfig `yaml:"tor-listeners"`
+		Websockets   struct {
+			AllowedOrigins       []string `yaml:"allowed-origins"`
+			allowedOriginRegexps []*regexp.Regexp
+		}
 		// they get parsed into this internal representation:
-		trueListeners           map[string]listenerConfig
+		trueListeners           map[string]utils.ListenerConfig
 		STS                     STSConfig
 		LookupHostnames         *bool `yaml:"lookup-hostnames"`
 		lookupHostnames         bool
@@ -767,9 +761,10 @@ func (conf *Config) prepareListeners() (err error) {
 		return fmt.Errorf("No listeners were configured")
 	}
 
-	conf.Server.trueListeners = make(map[string]listenerConfig)
+	conf.Server.trueListeners = make(map[string]utils.ListenerConfig)
 	for addr, block := range conf.Server.Listeners {
-		var lconf listenerConfig
+		var lconf utils.ListenerConfig
+		lconf.ProxyDeadline = time.Minute
 		lconf.Tor = block.Tor
 		lconf.STSOnly = block.STSOnly
 		if lconf.STSOnly && !conf.Server.STS.Enabled {
@@ -781,7 +776,7 @@ func (conf *Config) prepareListeners() (err error) {
 				return err
 			}
 			lconf.TLSConfig = tlsConfig
-			lconf.ProxyBeforeTLS = block.TLS.Proxy
+			lconf.RequireProxy = block.TLS.Proxy
 		}
 		lconf.WebSocket = block.WebSocket
 		conf.Server.trueListeners[addr] = lconf
@@ -847,6 +842,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = config.prepareListeners()
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
+	}
+
+	for _, glob := range config.Server.Websockets.AllowedOrigins {
+		globre, err := utils.CompileGlob(glob)
+		if err != nil {
+			return nil, fmt.Errorf("invalid websocket allowed-origin expression: %s", glob)
+		}
+		config.Server.Websockets.allowedOriginRegexps = append(config.Server.Websockets.allowedOriginRegexps, globre)
 	}
 
 	if config.Server.STS.Enabled {
@@ -1206,6 +1209,11 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 }
 
 func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
+	standard, err = utils.CompileGlob(guestFormat)
+	if err != nil {
+		return
+	}
+
 	starIndex := strings.IndexByte(guestFormat, '*')
 	if starIndex == -1 {
 		return nil, nil, errors.New("guest format must contain exactly one *")
@@ -1215,10 +1223,6 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	if strings.IndexByte(final, '*') != -1 {
 		return nil, nil, errors.New("guest format must contain exactly one *")
 	}
-	standard, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initial, final))
-	if err != nil {
-		return
-	}
 	initialFolded, err := casefoldWithSetting(initial, casemapping)
 	if err != nil {
 		return
@@ -1227,6 +1231,6 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	if err != nil {
 		return
 	}
-	folded, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initialFolded, finalFolded))
+	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded))
 	return
 }

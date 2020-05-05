@@ -254,26 +254,31 @@ type ClientDetails struct {
 }
 
 // RunClient sets up a new client and runs its goroutine.
-func (server *Server) RunClient(conn clientConn, proxyLine string) {
+func (server *Server) RunClient(conn IRCConn) {
+	proxiedConn := conn.UnderlyingConn()
 	var isBanned bool
 	var banMsg string
-	var realIP net.IP
-	if conn.Config.Tor {
-		realIP = utils.IPv4LoopbackAddress
+	realIP := utils.AddrToIP(proxiedConn.RemoteAddr())
+	var proxiedIP net.IP
+	if proxiedConn.Config.Tor {
+		// cover up details of the tor proxying infrastructure (not a user privacy concern,
+		// but a hardening measure):
+		proxiedIP = utils.IPv4LoopbackAddress
 		isBanned, banMsg = server.checkTorLimits()
 	} else {
-		realIP = utils.AddrToIP(conn.Conn.RemoteAddr())
-		// skip the ban check for k8s-style proxy-before-TLS
-		if proxyLine == "" {
-			isBanned, banMsg = server.checkBans(realIP)
+		ipToCheck := realIP
+		if proxiedConn.ProxiedIP != nil {
+			proxiedIP = proxiedConn.ProxiedIP
+			ipToCheck = proxiedIP
 		}
+		isBanned, banMsg = server.checkBans(ipToCheck)
 	}
 
 	if isBanned {
 		// this might not show up properly on some clients,
 		// but our objective here is just to close the connection out before it has a load impact on us
-		conn.Conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
-		conn.Conn.Close()
+		conn.Write([]byte(fmt.Sprintf(errorMsg, banMsg)))
+		conn.Close()
 		return
 	}
 
@@ -282,13 +287,13 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	// give them 1k of grace over the limit:
-	socket := NewSocket(conn.Conn, ircmsg.MaxlenTagsFromClient+512+1024, config.Server.MaxSendQBytes)
+	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
 		lastSeen:   now,
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
-		isSTSOnly:  conn.Config.STSOnly,
+		isSTSOnly:  proxiedConn.Config.STSOnly,
 		languages:  server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -299,6 +304,8 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		nick:           "*", // * is used until actual nick is given
 		nickCasefolded: "*",
 		nickMaskString: "*", // * is used until actual nick is given
+		realIP:         realIP,
+		proxiedIP:      proxiedIP,
 	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
@@ -311,7 +318,8 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		ctime:      now,
 		lastActive: now,
 		realIP:     realIP,
-		isTor:      conn.Config.Tor,
+		proxiedIP:  proxiedIP,
+		isTor:      proxiedConn.Config.Tor,
 	}
 	client.sessions = []*Session{session}
 
@@ -322,34 +330,28 @@ func (server *Server) RunClient(conn clientConn, proxyLine string) {
 		client.SetMode(defaultMode, true)
 	}
 
-	if conn.Config.TLSConfig != nil {
+	if proxiedConn.Config.TLSConfig != nil {
 		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
-		session.certfp, _ = socket.CertFP()
+		session.certfp, _ = utils.GetCertFP(proxiedConn.Conn, RegisterTimeout)
 	}
 
-	if conn.Config.Tor {
+	if session.isTor {
 		client.SetMode(modes.TLS, true)
-		// cover up details of the tor proxying infrastructure (not a user privacy concern,
-		// but a hardening measure):
-		session.proxiedIP = utils.IPv4LoopbackAddress
-		client.proxiedIP = session.proxiedIP
 		session.rawHostname = config.Server.TorListeners.Vhost
 		client.rawHostname = session.rawHostname
 	} else {
-		remoteAddr := conn.Conn.RemoteAddr()
 		if realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets) {
 			// treat local connections as secure (may be overridden later by WEBIRC)
 			client.SetMode(modes.TLS, true)
 		}
-		if config.Server.CheckIdent && !utils.AddrIsUnix(remoteAddr) {
-			client.doIdentLookup(conn.Conn)
+		if config.Server.CheckIdent {
+			client.doIdentLookup(proxiedConn.Conn)
 		}
 	}
-	client.realIP = session.realIP
 
 	server.stats.Add()
-	client.run(session, proxyLine)
+	client.run(session)
 }
 
 func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time) {
@@ -476,21 +478,19 @@ func (client *Client) lookupHostname(session *Session, overwrite bool) {
 }
 
 func (client *Client) doIdentLookup(conn net.Conn) {
-	_, serverPortString, err := net.SplitHostPort(conn.LocalAddr().String())
-	if err != nil {
-		client.server.logger.Error("internal", "bad server address", err.Error())
+	localTCPAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+	if !ok {
 		return
 	}
-	serverPort, _ := strconv.Atoi(serverPortString)
-	clientHost, clientPortString, err := net.SplitHostPort(conn.RemoteAddr().String())
-	if err != nil {
-		client.server.logger.Error("internal", "bad client address", err.Error())
+	serverPort := localTCPAddr.Port
+	remoteTCPAddr, ok := conn.RemoteAddr().(*net.TCPAddr)
+	if !ok {
 		return
 	}
-	clientPort, _ := strconv.Atoi(clientPortString)
+	clientPort := remoteTCPAddr.Port
 
 	client.Notice(client.t("*** Looking up your username"))
-	resp, err := ident.Query(clientHost, serverPort, clientPort, IdentTimeoutSeconds)
+	resp, err := ident.Query(remoteTCPAddr.IP.String(), serverPort, clientPort, IdentTimeoutSeconds)
 	if err == nil {
 		err := client.SetNames(resp.Identifier, "", true)
 		if err == nil {
@@ -567,7 +567,7 @@ func (client *Client) t(originalString string) string {
 
 // main client goroutine: read lines and execute the corresponding commands
 // `proxyLine` is the PROXY-before-TLS line, if there was one
-func (client *Client) run(session *Session, proxyLine string) {
+func (client *Client) run(session *Session) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -601,14 +601,7 @@ func (client *Client) run(session *Session, proxyLine string) {
 	firstLine := !isReattach
 
 	for {
-		var line string
-		var err error
-		if proxyLine == "" {
-			line, err = session.socket.Read()
-		} else {
-			line = proxyLine // pretend we're just now receiving the proxy-before-TLS line
-			proxyLine = ""
-		}
+		line, err := session.socket.Read()
 		if err != nil {
 			quitMessage := "connection closed"
 			if err == errReadQ {
@@ -681,7 +674,7 @@ func (client *Client) run(session *Session, proxyLine string) {
 			break
 		} else if session.client != client {
 			// bouncer reattach
-			go session.client.run(session, "")
+			go session.client.run(session)
 			break
 		}
 	}

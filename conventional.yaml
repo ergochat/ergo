@@ -40,9 +40,12 @@ server:
         # "/hidden_service_sockets/oragono_tor_sock":
         #     tor: true
 
-        # Example of a WebSocket listener.
-        #"127.0.0.1:8080":
-        #    websocket: true
+        # Example of a WebSocket listener:
+        # ":4430":
+        #     websocket: true
+        #     tls:
+        #         key: tls.key
+        #         cert: tls.crt
 
     # sets the permissions for Unix listen sockets. on a typical Linux system,
     # the default is 0775 or 0755, which prevents other users/groups from connecting
@@ -84,6 +87,15 @@ server:
 
         # should clients include this STS policy when they ship their inbuilt preload lists?
         preload: false
+
+    websockets:
+        # sets the Origin headers that will be accepted for websocket connections.
+        # an empty list means any value (or no value) is allowed. the main use of this
+        # is to prevent malicious third-party Javascript from co-opting non-malicious
+        # clients (i.e., mainstream browsers) to DDoS your server.
+        allowed-origins:
+            # - "https://oragono.io"
+            # - "https://*.oragono.io"
 
     # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
     # channel names, account names, etc.), and how they are normalized for case.

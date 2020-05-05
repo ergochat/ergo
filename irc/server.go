@@ -7,7 +7,6 @@ package irc
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -53,17 +52,6 @@ var (
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
 )
 
-// ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
-type ListenerWrapper struct {
-	// protects atomic update of config and shouldStop:
-	sync.Mutex // tier 1
-	listener   net.Listener
-	// optional WebSocket endpoint
-	httpServer *http.Server
-	config     listenerConfig
-	shouldStop bool
-}
-
 // Server is the main Oragono server.
 type Server struct {
 	accounts          AccountManager
@@ -77,7 +65,7 @@ type Server struct {
 	dlines            *DLineManager
 	helpIndexManager  HelpIndexManager
 	klines            *KLineManager
-	listeners         map[string]*ListenerWrapper
+	listeners         map[string]IRCListener
 	logger            *logger.Manager
 	monitorManager    MonitorManager
 	name              string
@@ -105,17 +93,12 @@ var (
 	}
 )
 
-type clientConn struct {
-	Conn   net.Conn
-	Config listenerConfig
-}
-
 // NewServer returns a new Oragono server.
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
 		ctime:        time.Now().UTC(),
-		listeners:    make(map[string]*ListenerWrapper),
+		listeners:    make(map[string]IRCListener),
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		signals:      make(chan os.Signal, len(ServerExitSignals)),
@@ -221,176 +204,6 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 	default:
 		return false, ""
 	}
-}
-
-//
-// IRC protocol listeners
-//
-
-// createListener starts a given listener.
-func (server *Server) createListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
-	if conf.WebSocket {
-		return server.createWSListener(addr, conf)
-	}
-	return server.createNetListener(addr, conf, bindMode)
-}
-
-func (server *Server) isTrusted(ip string) bool {
-	netIP := net.ParseIP(ip)
-	return utils.IPInNets(netIP, server.Config().Server.proxyAllowedFromNets)
-}
-
-func (server *Server) followHTTPForwards(addr string, forwards string) string {
-	if !server.isTrusted(addr) {
-		return addr
-	}
-
-	forwardIPs := strings.Split(forwards, ",")
-
-	// Iterate backwards to have the inner-most proxy first.
-	for i := len(forwardIPs) - 1; i >= 0; i-- {
-		// Using i so that addr points to the last item after the end of the loop.
-		addr = forwardIPs[i]
-
-		if !server.isTrusted(addr) {
-			return addr
-		}
-	}
-
-	// All IPs are trusted? weird. Let's take the last one and call it a day.
-	return addr
-}
-
-// createWSListener starts a given WebSocket listener.
-func (server *Server) createWSListener(addr string, conf listenerConfig) (*ListenerWrapper, error) {
-	var listener net.Listener
-	var err error
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		remoteAddr := r.RemoteAddr
-		if header, ok := r.Header["X-Forwarded-For"]; ok {
-			remoteAddr = server.followHTTPForwards(remoteAddr, header[len(header)-1])
-		}
-
-		conn, err := wsUpgrader.Upgrade(w, r, nil)
-		if err != nil {
-			server.logger.Error("internal", "upgrade error", addr, err.Error())
-			return
-		}
-
-		newConn := clientConn{
-			Conn:   WSContainer{conn},
-			Config: conf,
-		}
-
-		server.RunClient(newConn, "")
-	}
-	endpoint := http.Server{
-		Addr:           addr,
-		Handler:        http.HandlerFunc(handler),
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	if conf.TLSConfig != nil {
-		listener, err = tls.Listen("tcp", addr, conf.TLSConfig)
-	} else {
-		listener, err = net.Listen("tcp", addr)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// throw our details to the server so we can be modified/killed later
-	wrapper := ListenerWrapper{
-		listener:   listener,
-		httpServer: &endpoint,
-		config:     conf,
-		shouldStop: false,
-	}
-
-	go func() {
-		err := endpoint.Serve(listener)
-		if err != nil {
-			server.logger.Error("internal", "Failed to start WebSocket listener on", addr)
-		}
-	}()
-
-	return &wrapper, nil
-}
-
-// createNetListener starts a given unix or TCP listener.
-func (server *Server) createNetListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
-	var listener net.Listener
-	var err error
-
-	addr = strings.TrimPrefix(addr, "unix:")
-	if strings.HasPrefix(addr, "/") {
-		// https://stackoverflow.com/a/34881585
-		os.Remove(addr)
-		listener, err = net.Listen("unix", addr)
-		if err == nil && bindMode != 0 {
-			os.Chmod(addr, bindMode)
-		}
-	} else {
-		listener, err = net.Listen("tcp", addr)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// throw our details to the server so we can be modified/killed later
-	wrapper := ListenerWrapper{
-		listener:   listener,
-		config:     conf,
-		shouldStop: false,
-	}
-
-	var shouldStop bool
-
-	// setup accept goroutine
-	go func() {
-		for {
-			conn, err := listener.Accept()
-
-			// synchronously access config data:
-			wrapper.Lock()
-			shouldStop = wrapper.shouldStop
-			conf := wrapper.config
-			wrapper.Unlock()
-
-			if shouldStop {
-				if conn != nil {
-					conn.Close()
-				}
-				listener.Close()
-				return
-			} else if err == nil {
-				var proxyLine string
-				if conf.ProxyBeforeTLS {
-					proxyLine = readRawProxyLine(conn)
-					if proxyLine == "" {
-						server.logger.Error("internal", "bad TLS-proxy line from", addr)
-						conn.Close()
-						continue
-					}
-				}
-				if conf.TLSConfig != nil {
-					conn = tls.Server(conn, conf.TLSConfig)
-				}
-				newConn := clientConn{
-					Conn:   conn,
-					Config: conf,
-				}
-				// hand off the connection
-				go server.RunClient(newConn, proxyLine)
-			} else {
-				server.logger.Error("internal", "accept error", addr, err.Error())
-			}
-		}
-	}()
-
-	return &wrapper, nil
 }
 
 //
@@ -911,9 +724,9 @@ func (server *Server) loadDatastore(config *Config) error {
 }
 
 func (server *Server) setupListeners(config *Config) (err error) {
-	logListener := func(addr string, config listenerConfig) {
+	logListener := func(addr string, config utils.ListenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.ProxyBeforeTLS, config.Tor, config.WebSocket),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.RequireProxy, config.Tor, config.WebSocket),
 		)
 	}
 
@@ -922,16 +735,22 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		currentListener := server.listeners[addr]
 		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
-		currentListener.Lock()
-		currentListener.shouldStop = !stillConfigured
-		currentListener.config = newConfig
-		currentListener.Unlock()
-
 		if stillConfigured {
+			err := currentListener.Reload(newConfig)
+			// attempt to stop and replace the listener if the reload failed
+			if err != nil {
+				currentListener.Stop()
+				newListener, err := NewListener(server, addr, newConfig, config.Server.UnixBindMode)
+				if err != nil {
+					delete(server.listeners, addr)
+					return err
+				} else {
+					server.listeners[addr] = newListener
+				}
+			}
 			logListener(addr, newConfig)
 		} else {
-			// tell the listener it should stop by interrupting its Accept() call:
-			currentListener.listener.Close()
+			currentListener.Stop()
 			delete(server.listeners, addr)
 			server.logger.Info("listeners", fmt.Sprintf("stopped listening on %s.", addr))
 		}
@@ -945,15 +764,15 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 		_, exists := server.listeners[newAddr]
 		if !exists {
-			// make new listener
-			listener, listenerErr := server.createListener(newAddr, newConfig, config.Server.UnixBindMode)
-			if listenerErr != nil {
+			// make a new listener
+			newListener, listenerErr := NewListener(server, newAddr, newConfig, config.Server.UnixBindMode)
+			if err != nil {
 				server.logger.Error("server", "couldn't listen on", newAddr, listenerErr.Error())
 				err = listenerErr
-				continue
+			} else {
+				server.listeners[newAddr] = newListener
+				logListener(newAddr, newConfig)
 			}
-			server.listeners[newAddr] = listener
-			logListener(newAddr, newConfig)
 		}
 	}
 
