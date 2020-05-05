@@ -478,7 +478,7 @@ type Config struct {
 		Listeners    map[string]listenerConfigBlock
 		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
 		TorListeners TorListenersConfig `yaml:"tor-listeners"`
-		Websockets   struct {
+		WebSockets   struct {
 			AllowedOrigins       []string `yaml:"allowed-origins"`
 			allowedOriginRegexps []*regexp.Regexp
 		}
@@ -844,12 +844,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
-	for _, glob := range config.Server.Websockets.AllowedOrigins {
+	for _, glob := range config.Server.WebSockets.AllowedOrigins {
 		globre, err := utils.CompileGlob(glob)
 		if err != nil {
 			return nil, fmt.Errorf("invalid websocket allowed-origin expression: %s", glob)
 		}
-		config.Server.Websockets.allowedOriginRegexps = append(config.Server.Websockets.allowedOriginRegexps, globre)
+		config.Server.WebSockets.allowedOriginRegexps = append(config.Server.WebSockets.allowedOriginRegexps, globre)
 	}
 
 	if config.Server.STS.Enabled {

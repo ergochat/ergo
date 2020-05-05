@@ -164,14 +164,14 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 
 	wsUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			if len(config.Server.Websockets.allowedOriginRegexps) == 0 {
+			if len(config.Server.WebSockets.allowedOriginRegexps) == 0 {
 				return true
 			}
 			origin := strings.TrimSpace(r.Header.Get("Origin"))
 			if len(origin) == 0 {
 				return false
 			}
-			for _, re := range config.Server.Websockets.allowedOriginRegexps {
+			for _, re := range config.Server.WebSockets.allowedOriginRegexps {
 				if re.MatchString(origin) {
 					return true
 				}
