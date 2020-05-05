@@ -743,14 +743,22 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 	return operators, nil
 }
 
-func loadTlsConfig(config TLSListenConfig) (tlsConfig *tls.Config, err error) {
+func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Config, err error) {
 	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
 	if err != nil {
 		return nil, ErrInvalidCertKeyPair
 	}
+	clientAuth := tls.RequestClientCert
+	if webSocket {
+		// if Chrome receives a server request for a client certificate
+		// on a websocket connection, it will immediately disconnect:
+		// https://bugs.chromium.org/p/chromium/issues/detail?id=329884
+		// work around this behavior:
+		clientAuth = tls.NoClientCert
+	}
 	result := tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequestClientCert,
+		ClientAuth:   clientAuth,
 	}
 	return &result, nil
 }
@@ -771,7 +779,7 @@ func (conf *Config) prepareListeners() (err error) {
 			return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
 		}
 		if block.TLS.Cert != "" {
-			tlsConfig, err := loadTlsConfig(block.TLS)
+			tlsConfig, err := loadTlsConfig(block.TLS, block.WebSocket)
 			if err != nil {
 				return err
 			}
