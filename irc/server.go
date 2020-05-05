@@ -766,7 +766,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		if !exists {
 			// make a new listener
 			newListener, listenerErr := NewListener(server, newAddr, newConfig, config.Server.UnixBindMode)
-			if err != nil {
+			if listenerErr != nil {
 				server.logger.Error("server", "couldn't listen on", newAddr, listenerErr.Error())
 				err = listenerErr
 			} else {
