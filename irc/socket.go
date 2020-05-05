@@ -216,7 +216,7 @@ func (socket *Socket) performWrite() (closed bool) {
 
 	var err error
 	if 0 < len(buffers) {
-		socket.conn.WriteBuffers(buffers)
+		err = socket.conn.WriteBuffers(buffers)
 	}
 
 	closed = closed || err != nil
