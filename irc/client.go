@@ -231,7 +231,7 @@ func (session *Session) HasHistoryCaps() bool {
 // this allows ~4 billion such batches which should be fine.
 func (session *Session) generateBatchID() string {
 	id := atomic.AddUint32(&session.batchCounter, 1)
-	return strconv.Itoa(int(id))
+	return strconv.FormatInt(int64(id), 32)
 }
 
 // WhoWas is the subset of client details needed to answer a WHOWAS query
