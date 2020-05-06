@@ -827,7 +827,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 			}
 		} else {
 			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
-			message := fmt.Sprintf(messageTemplate, fmt.Sprintf("%s:%s", callbackNamespace, callbackValue))
+			message := fmt.Sprintf(messageTemplate, callbackValue)
 			nsNotice(rb, message)
 		}
 	} else {
