@@ -158,7 +158,7 @@ server:
     # this should be restricted to 127.0.0.1/8 and ::1/128 (unless you have a good reason)
     # you should also add these addresses to the connection limits and throttling exemption lists
     proxy-allowed-from:
-        # - localhost
+        - localhost
         # - "192.168.1.1"
         # - "192.168.10.1/24"
 
