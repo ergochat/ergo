@@ -746,7 +746,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Config, err error) {
 	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
 	if err != nil {
-		return nil, ErrInvalidCertKeyPair
+		return nil, &CertKeyError{Err: err}
 	}
 	clientAuth := tls.RequestClientCert
 	if webSocket {
