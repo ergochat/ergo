@@ -27,3 +27,32 @@ func BenchmarkGenerateBatchID(b *testing.B) {
 		session.generateBatchID()
 	}
 }
+
+func TestUserMasks(t *testing.T) {
+	var um UserMaskSet
+
+	if um.Match("horse_!user@tor-network.onion") {
+		t.Error("bad match")
+	}
+
+	um.Add("_!*@*", "x", "x")
+	if !um.Match("_!user@tor-network.onion") {
+		t.Error("failure to match")
+	}
+	if um.Match("horse_!user@tor-network.onion") {
+		t.Error("bad match")
+	}
+
+	um.Add("beer*!*@*", "x", "x")
+	if !um.Match("beergarden!user@tor-network.onion") {
+		t.Error("failure to match")
+	}
+	if um.Match("horse_!user@tor-network.onion") {
+		t.Error("bad match")
+	}
+
+	um.Add("horse*!user@*", "x", "x")
+	if !um.Match("horse_!user@tor-network.onion") {
+		t.Error("failure to match")
+	}
+}
