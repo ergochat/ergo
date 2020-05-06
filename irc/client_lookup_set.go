@@ -452,7 +452,7 @@ func (set *UserMaskSet) setRegexp() {
 	set.RUnlock()
 
 	if index > 0 {
-		expr := "^" + strings.Join(maskExprs, "|") + "$"
+		expr := "^(" + strings.Join(maskExprs, "|") + ")$"
 		re, _ = regexp.Compile(expr)
 	}
 
