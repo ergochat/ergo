@@ -145,8 +145,11 @@ Options:
 
 	configfile := arguments["--conf"].(string)
 	config, err := irc.LoadConfig(configfile)
-	if err != nil && !(err == irc.ErrInvalidCertKeyPair && arguments["mkcerts"].(bool)) {
-		log.Fatal("Config file did not load successfully: ", err.Error())
+	if err != nil {
+		_, isCertError := err.(*irc.CertKeyError)
+		if !(isCertError && arguments["mkcerts"].(bool)) {
+			log.Fatal("Config file did not load successfully: ", err.Error())
+		}
 	}
 
 	logman, err := logger.NewManager(config.Logging)

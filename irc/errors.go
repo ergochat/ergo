@@ -7,6 +7,8 @@ package irc
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -78,10 +80,17 @@ var (
 	errInvalidCharacter  = errors.New("Invalid character")
 )
 
+type CertKeyError struct {
+	Err error
+}
+
+func (ck *CertKeyError) Error() string {
+	return fmt.Sprintf("Invalid TLS cert/key pair: %v", ck.Err)
+}
+
 // Config Errors
 var (
 	ErrDatastorePathMissing    = errors.New("Datastore path missing")
-	ErrInvalidCertKeyPair      = errors.New("tls cert+key: invalid pair")
 	ErrLimitsAreInsane         = errors.New("Limits aren't setup properly, check them and make them sane")
 	ErrLineLengthsTooSmall     = errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	ErrLoggerExcludeEmpty      = errors.New("Encountered logging type '-' with no type to exclude")
