@@ -5,22 +5,15 @@
 package irc
 
 import (
-	"bufio"
-	"crypto/sha256"
-	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"io"
-	"net"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/oragono/oragono/irc/utils"
 )
 
 var (
-	handshakeTimeout = RegisterTimeout
 	errSendQExceeded = errors.New("SendQ exceeded")
 
 	sendQExceededMessage = []byte("\r\nERROR :SendQ Exceeded\r\n")
@@ -30,8 +23,7 @@ var (
 type Socket struct {
 	sync.Mutex
 
-	conn   net.Conn
-	reader *bufio.Reader
+	conn IRCConn
 
 	maxSendQBytes int
 
@@ -47,10 +39,9 @@ type Socket struct {
 }
 
 // NewSocket returns a new Socket.
-func NewSocket(conn net.Conn, maxReadQBytes int, maxSendQBytes int) *Socket {
+func NewSocket(conn IRCConn, maxSendQBytes int) *Socket {
 	result := Socket{
 		conn:          conn,
-		reader:        bufio.NewReaderSize(conn, maxReadQBytes),
 		maxSendQBytes: maxSendQBytes,
 	}
 	result.writerSemaphore.Initialize(1)
@@ -66,43 +57,13 @@ func (socket *Socket) Close() {
 	socket.wakeWriter()
 }
 
-// CertFP returns the fingerprint of the certificate provided by the client.
-func (socket *Socket) CertFP() (string, error) {
-	var tlsConn, isTLS = socket.conn.(*tls.Conn)
-	if !isTLS {
-		return "", errNotTLS
-	}
-
-	// ensure handehake is performed, and timeout after a few seconds
-	tlsConn.SetDeadline(time.Now().Add(handshakeTimeout))
-	err := tlsConn.Handshake()
-	tlsConn.SetDeadline(time.Time{})
-
-	if err != nil {
-		return "", err
-	}
-
-	peerCerts := tlsConn.ConnectionState().PeerCertificates
-	if len(peerCerts) < 1 {
-		return "", errNoPeerCerts
-	}
-
-	rawCert := sha256.Sum256(peerCerts[0].Raw)
-	fingerprint := hex.EncodeToString(rawCert[:])
-
-	return fingerprint, nil
-}
-
 // Read returns a single IRC line from a Socket.
 func (socket *Socket) Read() (string, error) {
 	if socket.IsClosed() {
 		return "", io.EOF
 	}
 
-	lineBytes, isPrefix, err := socket.reader.ReadLine()
-	if isPrefix {
-		return "", errReadQ
-	}
+	lineBytes, err := socket.conn.ReadLine()
 
 	// convert bytes to string
 	line := string(lineBytes)
@@ -183,7 +144,7 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 		return io.EOF
 	}
 
-	_, err = socket.conn.Write(data)
+	err = socket.conn.WriteLine(data)
 	if err != nil {
 		socket.finalize()
 	}
@@ -255,8 +216,7 @@ func (socket *Socket) performWrite() (closed bool) {
 
 	var err error
 	if 0 < len(buffers) {
-		// on Linux, the runtime will optimize this into a single writev(2) call:
-		_, err = (*net.Buffers)(&buffers).WriteTo(socket.conn)
+		err = socket.conn.WriteLines(buffers)
 	}
 
 	closed = closed || err != nil
@@ -284,7 +244,7 @@ func (socket *Socket) finalize() {
 	}
 
 	if len(finalData) != 0 {
-		socket.conn.Write(finalData)
+		socket.conn.WriteLine(finalData)
 	}
 
 	// close the connection

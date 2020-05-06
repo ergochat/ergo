@@ -7,7 +7,6 @@ package irc
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -29,6 +28,7 @@ import (
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -52,15 +52,6 @@ var (
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
 )
 
-// ListenerWrapper wraps a listener so it can be safely reconfigured or stopped
-type ListenerWrapper struct {
-	// protects atomic update of config and shouldStop:
-	sync.Mutex // tier 1
-	listener   net.Listener
-	config     listenerConfig
-	shouldStop bool
-}
-
 // Server is the main Oragono server.
 type Server struct {
 	accounts          AccountManager
@@ -74,7 +65,7 @@ type Server struct {
 	dlines            *DLineManager
 	helpIndexManager  HelpIndexManager
 	klines            *KLineManager
-	listeners         map[string]*ListenerWrapper
+	listeners         map[string]IRCListener
 	logger            *logger.Manager
 	monitorManager    MonitorManager
 	name              string
@@ -102,17 +93,12 @@ var (
 	}
 )
 
-type clientConn struct {
-	Conn   net.Conn
-	Config listenerConfig
-}
-
 // NewServer returns a new Oragono server.
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
 		ctime:        time.Now().UTC(),
-		listeners:    make(map[string]*ListenerWrapper),
+		listeners:    make(map[string]IRCListener),
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		signals:      make(chan os.Signal, len(ServerExitSignals)),
@@ -218,84 +204,6 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 	default:
 		return false, ""
 	}
-}
-
-//
-// IRC protocol listeners
-//
-
-// createListener starts a given listener.
-func (server *Server) createListener(addr string, conf listenerConfig, bindMode os.FileMode) (*ListenerWrapper, error) {
-	// make listener
-	var listener net.Listener
-	var err error
-	addr = strings.TrimPrefix(addr, "unix:")
-	if strings.HasPrefix(addr, "/") {
-		// https://stackoverflow.com/a/34881585
-		os.Remove(addr)
-		listener, err = net.Listen("unix", addr)
-		if err == nil && bindMode != 0 {
-			os.Chmod(addr, bindMode)
-		}
-	} else {
-		listener, err = net.Listen("tcp", addr)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// throw our details to the server so we can be modified/killed later
-	wrapper := ListenerWrapper{
-		listener:   listener,
-		config:     conf,
-		shouldStop: false,
-	}
-
-	var shouldStop bool
-
-	// setup accept goroutine
-	go func() {
-		for {
-			conn, err := listener.Accept()
-
-			// synchronously access config data:
-			wrapper.Lock()
-			shouldStop = wrapper.shouldStop
-			conf := wrapper.config
-			wrapper.Unlock()
-
-			if shouldStop {
-				if conn != nil {
-					conn.Close()
-				}
-				listener.Close()
-				return
-			} else if err == nil {
-				var proxyLine string
-				if conf.ProxyBeforeTLS {
-					proxyLine = readRawProxyLine(conn)
-					if proxyLine == "" {
-						server.logger.Error("internal", "bad TLS-proxy line from", addr)
-						conn.Close()
-						continue
-					}
-				}
-				if conf.TLSConfig != nil {
-					conn = tls.Server(conn, conf.TLSConfig)
-				}
-				newConn := clientConn{
-					Conn:   conn,
-					Config: conf,
-				}
-				// hand off the connection
-				go server.RunClient(newConn, proxyLine)
-			} else {
-				server.logger.Error("internal", "accept error", addr, err.Error())
-			}
-		}
-	}()
-
-	return &wrapper, nil
 }
 
 //
@@ -816,9 +724,9 @@ func (server *Server) loadDatastore(config *Config) error {
 }
 
 func (server *Server) setupListeners(config *Config) (err error) {
-	logListener := func(addr string, config listenerConfig) {
+	logListener := func(addr string, config utils.ListenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t.", addr, (config.TLSConfig != nil), config.ProxyBeforeTLS, config.Tor),
+			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.RequireProxy, config.Tor, config.WebSocket),
 		)
 	}
 
@@ -827,16 +735,22 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		currentListener := server.listeners[addr]
 		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
-		currentListener.Lock()
-		currentListener.shouldStop = !stillConfigured
-		currentListener.config = newConfig
-		currentListener.Unlock()
-
 		if stillConfigured {
+			reloadErr := currentListener.Reload(newConfig)
+			// attempt to stop and replace the listener if the reload failed
+			if reloadErr != nil {
+				currentListener.Stop()
+				newListener, newErr := NewListener(server, addr, newConfig, config.Server.UnixBindMode)
+				if newErr == nil {
+					server.listeners[addr] = newListener
+				} else {
+					delete(server.listeners, addr)
+					return newErr
+				}
+			}
 			logListener(addr, newConfig)
 		} else {
-			// tell the listener it should stop by interrupting its Accept() call:
-			currentListener.listener.Close()
+			currentListener.Stop()
 			delete(server.listeners, addr)
 			server.logger.Info("listeners", fmt.Sprintf("stopped listening on %s.", addr))
 		}
@@ -850,15 +764,15 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		}
 		_, exists := server.listeners[newAddr]
 		if !exists {
-			// make new listener
-			listener, listenerErr := server.createListener(newAddr, newConfig, config.Server.UnixBindMode)
-			if listenerErr != nil {
-				server.logger.Error("server", "couldn't listen on", newAddr, listenerErr.Error())
-				err = listenerErr
-				continue
+			// make a new listener
+			newListener, newErr := NewListener(server, newAddr, newConfig, config.Server.UnixBindMode)
+			if newErr == nil {
+				server.listeners[newAddr] = newListener
+				logListener(newAddr, newConfig)
+			} else {
+				server.logger.Error("server", "couldn't listen on", newAddr, newErr.Error())
+				err = newErr
 			}
-			server.listeners[newAddr] = listener
-			logListener(newAddr, newConfig)
 		}
 	}
 

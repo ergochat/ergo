@@ -22,17 +22,11 @@ var (
 func AddrToIP(addr net.Addr) net.IP {
 	if tcpaddr, ok := addr.(*net.TCPAddr); ok {
 		return tcpaddr.IP.To16()
-	} else if AddrIsUnix(addr) {
+	} else if _, ok := addr.(*net.UnixAddr); ok {
 		return IPv4LoopbackAddress
 	} else {
 		return nil
 	}
-}
-
-// AddrIsUnix returns whether the address is a unix domain socket.
-func AddrIsUnix(addr net.Addr) bool {
-	_, ok := addr.(*net.UnixAddr)
-	return ok
 }
 
 // IPStringToHostname converts a string representation of an IP address to an IRC-ready hostname
@@ -156,5 +150,46 @@ func ParseNetList(netList []string) (nets []net.IPNet, err error) {
 			nets = append(nets, network)
 		}
 	}
+	return
+}
+
+// Process the X-Forwarded-For header, validating against a list of trusted IPs.
+// Returns the address that the request was forwarded for, or nil if no trustworthy
+// data was available.
+func HandleXForwardedFor(remoteAddr string, xForwardedFor string, whitelist []net.IPNet) (result net.IP) {
+	// http.Request.RemoteAddr "has no defined format". with TCP it's typically "127.0.0.1:23784",
+	// with unix domain it's typically "@"
+	var remoteIP net.IP
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		remoteIP = IPv4LoopbackAddress
+	} else {
+		remoteIP = net.ParseIP(host)
+	}
+
+	if remoteIP == nil || !IPInNets(remoteIP, whitelist) {
+		return remoteIP
+	}
+
+	// walk backwards through the X-Forwarded-For chain looking for an IP
+	// that is *not* trusted. that means it was added by one of our trusted
+	// forwarders (either remoteIP or something ahead of it in the chain)
+	// and we can trust it:
+	result = remoteIP
+	forwardedIPs := strings.Split(xForwardedFor, ",")
+	for i := len(forwardedIPs) - 1; i >= 0; i-- {
+		proxiedIP := net.ParseIP(strings.TrimSpace(forwardedIPs[i]))
+		if proxiedIP == nil {
+			return
+		} else if !IPInNets(proxiedIP, whitelist) {
+			return proxiedIP
+		} else {
+			result = proxiedIP
+		}
+	}
+
+	// no valid untrusted IPs were found in the chain;
+	// return either the last valid and trusted IP (which must be the origin),
+	// or nil:
 	return
 }

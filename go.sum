@@ -19,6 +19,8 @@ github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gG
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/golang/protobuf v1.2.0 h1:P3YflyNX/ehuJFLhxviNdFxQPkGK5cDcApsge1SqnvM=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
+github.com/gorilla/websocket v1.4.2 h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0Ufc=
+github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940 h1:KmRLPRstEJiE/9OjumKqI8Rccip8Qmyw2FwyTFxtVqs=
 github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940/go.mod h1:VOmrX6cmj7zwUeexC9HzznUdTIObHqIXUrWNYS+Ik7w=
 github.com/goshuirc/irc-go v0.0.0-20190713001546-05ecc95249a0 h1:unxsR0de0MIS708eZI7lKa6HiP8FS0PhGCWwwEt9+vQ=

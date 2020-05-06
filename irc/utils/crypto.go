@@ -5,12 +5,16 @@ package utils
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"net"
 	"strings"
+	"time"
 )
 
 var (
@@ -18,6 +22,10 @@ var (
 	B32Encoder = base32.NewEncoding("abcdefghijkmnpqrstuvwxyz23456789").WithPadding(base32.NoPadding)
 
 	ErrInvalidCertfp = errors.New("Invalid certfp")
+
+	ErrNoPeerCerts = errors.New("No certfp available")
+
+	ErrNotTLS = errors.New("Connection is not TLS")
 )
 
 const (
@@ -82,4 +90,30 @@ func NormalizeCertfp(certfp string) (result string, err error) {
 		return "", ErrInvalidCertfp
 	}
 	return
+}
+
+func GetCertFP(conn net.Conn, handshakeTimeout time.Duration) (result string, err error) {
+	tlsConn, isTLS := conn.(*tls.Conn)
+	if !isTLS {
+		return "", ErrNotTLS
+	}
+
+	// ensure handshake is performed
+	tlsConn.SetDeadline(time.Now().Add(handshakeTimeout))
+	err = tlsConn.Handshake()
+	tlsConn.SetDeadline(time.Time{})
+
+	if err != nil {
+		return "", err
+	}
+
+	peerCerts := tlsConn.ConnectionState().PeerCertificates
+	if len(peerCerts) < 1 {
+		return "", ErrNoPeerCerts
+	}
+
+	rawCert := sha256.Sum256(peerCerts[0].Raw)
+	fingerprint := hex.EncodeToString(rawCert[:])
+
+	return fingerprint, nil
 }

@@ -50,18 +50,10 @@ type TLSListenConfig struct {
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
 type listenerConfigBlock struct {
-	TLS     TLSListenConfig
-	Tor     bool
-	STSOnly bool `yaml:"sts-only"`
-}
-
-// listenerConfig is the config governing a particular listener (bound address),
-// in particular whether it has TLS or Tor (or both) enabled.
-type listenerConfig struct {
-	TLSConfig      *tls.Config
-	Tor            bool
-	STSOnly        bool
-	ProxyBeforeTLS bool
+	TLS       TLSListenConfig
+	Tor       bool
+	STSOnly   bool `yaml:"sts-only"`
+	WebSocket bool
 }
 
 type PersistentStatus uint
@@ -486,8 +478,12 @@ type Config struct {
 		Listeners    map[string]listenerConfigBlock
 		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
 		TorListeners TorListenersConfig `yaml:"tor-listeners"`
+		WebSockets   struct {
+			AllowedOrigins       []string `yaml:"allowed-origins"`
+			allowedOriginRegexps []*regexp.Regexp
+		}
 		// they get parsed into this internal representation:
-		trueListeners           map[string]listenerConfig
+		trueListeners           map[string]utils.ListenerConfig
 		STS                     STSConfig
 		LookupHostnames         *bool `yaml:"lookup-hostnames"`
 		lookupHostnames         bool
@@ -747,14 +743,22 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 	return operators, nil
 }
 
-func loadTlsConfig(config TLSListenConfig) (tlsConfig *tls.Config, err error) {
+func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Config, err error) {
 	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
 	if err != nil {
 		return nil, ErrInvalidCertKeyPair
 	}
+	clientAuth := tls.RequestClientCert
+	if webSocket {
+		// if Chrome receives a server request for a client certificate
+		// on a websocket connection, it will immediately disconnect:
+		// https://bugs.chromium.org/p/chromium/issues/detail?id=329884
+		// work around this behavior:
+		clientAuth = tls.NoClientCert
+	}
 	result := tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequestClientCert,
+		ClientAuth:   clientAuth,
 	}
 	return &result, nil
 }
@@ -765,22 +769,24 @@ func (conf *Config) prepareListeners() (err error) {
 		return fmt.Errorf("No listeners were configured")
 	}
 
-	conf.Server.trueListeners = make(map[string]listenerConfig)
+	conf.Server.trueListeners = make(map[string]utils.ListenerConfig)
 	for addr, block := range conf.Server.Listeners {
-		var lconf listenerConfig
+		var lconf utils.ListenerConfig
+		lconf.ProxyDeadline = RegisterTimeout
 		lconf.Tor = block.Tor
 		lconf.STSOnly = block.STSOnly
 		if lconf.STSOnly && !conf.Server.STS.Enabled {
 			return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
 		}
 		if block.TLS.Cert != "" {
-			tlsConfig, err := loadTlsConfig(block.TLS)
+			tlsConfig, err := loadTlsConfig(block.TLS, block.WebSocket)
 			if err != nil {
 				return err
 			}
 			lconf.TLSConfig = tlsConfig
-			lconf.ProxyBeforeTLS = block.TLS.Proxy
+			lconf.RequireProxy = block.TLS.Proxy
 		}
+		lconf.WebSocket = block.WebSocket
 		conf.Server.trueListeners[addr] = lconf
 	}
 	return nil
@@ -844,6 +850,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = config.prepareListeners()
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
+	}
+
+	for _, glob := range config.Server.WebSockets.AllowedOrigins {
+		globre, err := utils.CompileGlob(glob)
+		if err != nil {
+			return nil, fmt.Errorf("invalid websocket allowed-origin expression: %s", glob)
+		}
+		config.Server.WebSockets.allowedOriginRegexps = append(config.Server.WebSockets.allowedOriginRegexps, globre)
 	}
 
 	if config.Server.STS.Enabled {
@@ -1203,19 +1217,19 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 }
 
 func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
-	starIndex := strings.IndexByte(guestFormat, '*')
-	if starIndex == -1 {
-		return nil, nil, errors.New("guest format must contain exactly one *")
+	if strings.Count(guestFormat, "?") != 0 || strings.Count(guestFormat, "*") != 1 {
+		err = errors.New("guest format must contain 1 '*' and no '?'s")
+		return
 	}
-	initial := guestFormat[:starIndex]
-	final := guestFormat[starIndex+1:]
-	if strings.IndexByte(final, '*') != -1 {
-		return nil, nil, errors.New("guest format must contain exactly one *")
-	}
-	standard, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initial, final))
+
+	standard, err = utils.CompileGlob(guestFormat)
 	if err != nil {
 		return
 	}
+
+	starIndex := strings.IndexByte(guestFormat, '*')
+	initial := guestFormat[:starIndex]
+	final := guestFormat[starIndex+1:]
 	initialFolded, err := casefoldWithSetting(initial, casemapping)
 	if err != nil {
 		return
@@ -1224,6 +1238,6 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	if err != nil {
 		return
 	}
-	folded, err = regexp.Compile(fmt.Sprintf("^%s(.*)%s$", initialFolded, finalFolded))
+	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded))
 	return
 }
