@@ -155,8 +155,9 @@ server:
     motd-formatting: true
 
     # addresses/CIDRs the PROXY command can be used from
-    # this should be restricted to 127.0.0.1/8 and ::1/128 (unless you have a good reason)
-    # you should also add these addresses to the connection limits and throttling exemption lists
+    # this should be restricted to localhost (127.0.0.1/8, ::1/128, and unix sockets),
+    # unless you have a good reason. you should also add these addresses to the
+    # connection limits and throttling exemption lists.
     proxy-allowed-from:
         - localhost
         # - "192.168.1.1"

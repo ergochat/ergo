@@ -601,6 +601,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		newISupportReplies = oldConfig.Server.isupport.GetDifference(&config.Server.isupport)
 	}
 
+	if len(config.Server.ProxyAllowedFrom) != 0 {
+		server.logger.Info("server", "Proxied IPs will be accepted from", strings.Join(config.Server.ProxyAllowedFrom, ", "))
+	}
+
 	// we are now open for business
 	err = server.setupListeners(config)
 
