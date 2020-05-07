@@ -1022,6 +1022,21 @@ func (client *Client) ModeString() (str string) {
 	return "+" + client.modes.String()
 }
 
+// IsFriend() returns true if the given otherClient shares a channel with this client, or if they are the same user.
+func (client *Client) IsFriend(otherClient *Client) bool {
+	if client == otherClient {
+		return true
+	}
+
+	for _, channel := range client.Channels() {
+		if channel.hasClient(otherClient) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Friends refers to clients that share a channel with this client.
 func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]bool) {
 	result = make(map[*Session]bool)
