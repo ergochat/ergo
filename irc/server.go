@@ -740,19 +740,13 @@ func (server *Server) setupListeners(config *Config) (err error) {
 		newConfig, stillConfigured := config.Server.trueListeners[addr]
 
 		if stillConfigured {
-			reloadErr := currentListener.Reload(newConfig)
-			// attempt to stop and replace the listener if the reload failed
-			if reloadErr != nil {
+			if reloadErr := currentListener.Reload(newConfig); reloadErr == nil {
+				logListener(addr, newConfig)
+			} else {
+				// stop the listener; we will attempt to replace it below
 				currentListener.Stop()
-				newListener, newErr := NewListener(server, addr, newConfig, config.Server.UnixBindMode)
-				if newErr == nil {
-					server.listeners[addr] = newListener
-				} else {
-					delete(server.listeners, addr)
-					return newErr
-				}
+				delete(server.listeners, addr)
 			}
-			logListener(addr, newConfig)
 		} else {
 			currentListener.Stop()
 			delete(server.listeners, addr)
@@ -761,7 +755,8 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	publicPlaintextListener := ""
-	// create new listeners that were not previously configured
+	// create new listeners that were not previously configured,
+	// or that couldn't be reloaded above:
 	for newAddr, newConfig := range config.Server.trueListeners {
 		if strings.HasPrefix(newAddr, ":") && !newConfig.Tor && !newConfig.STSOnly && newConfig.TLSConfig == nil {
 			publicPlaintextListener = newAddr
