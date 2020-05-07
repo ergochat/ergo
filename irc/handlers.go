@@ -2637,7 +2637,9 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 	} else {
 		for mclient := range server.clients.FindAll(mask) {
-			client.rplWhoReply(nil, mclient, rb)
+			if !mclient.HasMode(modes.Invisible) || isOper {
+				client.rplWhoReply(nil, mclient, rb)
+			}
 		}
 	}
 
