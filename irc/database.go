@@ -23,7 +23,9 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "10"
+	latestDbSchema = "11"
+
+	keyCloakSecret = "crypto.cloak_secret"
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -63,6 +65,7 @@ func initializeDB(path string) error {
 	err = store.Update(func(tx *buntdb.Tx) error {
 		// set schema version
 		tx.Set(keySchemaVersion, latestDbSchema, nil)
+		tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 		return nil
 	})
 
@@ -184,6 +187,21 @@ func UpgradeDB(config *Config) (err error) {
 		log.Printf("database upgrade failed and was rolled back: %v\n", err)
 	}
 	return err
+}
+
+func LoadCloakSecret(db *buntdb.DB) (result string) {
+	db.View(func(tx *buntdb.Tx) error {
+		result, _ = tx.Get(keyCloakSecret)
+		return nil
+	})
+	return
+}
+
+func StoreCloakSecret(db *buntdb.DB, secret string) {
+	db.Update(func(tx *buntdb.Tx) error {
+		tx.Set(keyCloakSecret, secret, nil)
+		return nil
+	})
 }
 
 func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {
@@ -621,6 +639,17 @@ func schemaChangeV9ToV10(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #952: move the cloak secret into the database,
+// generate a new one if necessary
+func schemaChangeV10ToV11(config *Config, tx *buntdb.Tx) error {
+	cloakSecret := config.Server.Cloaks.LegacySecretValue
+	if cloakSecret == "" || cloakSecret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
+		cloakSecret = utils.GenerateSecretKey()
+	}
+	_, _, err := tx.Set(keyCloakSecret, cloakSecret, nil)
+	return err
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -667,6 +696,11 @@ func init() {
 			InitialVersion: "9",
 			TargetVersion:  "10",
 			Changer:        schemaChangeV9ToV10,
+		},
+		{
+			InitialVersion: "10",
+			TargetVersion:  "11",
+			Changer:        schemaChangeV10ToV11,
 		},
 	}
 

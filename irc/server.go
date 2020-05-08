@@ -550,8 +550,33 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		}
 	}
 
+	server.logger.Info("server", "Using datastore", config.Datastore.Path)
+	if initial {
+		if err := server.loadDatastore(config); err != nil {
+			return err
+		}
+	} else {
+		if config.Datastore.MySQL.Enabled && config.Datastore.MySQL != oldConfig.Datastore.MySQL {
+			server.historyDB.SetConfig(config.Datastore.MySQL)
+		}
+	}
+
+	// now that the datastore is initialized, we can load the cloak secret from it
+	// XXX this modifies config after the initial load, which is naughty,
+	// but there's no data race because we haven't done SetConfig yet
+	if config.Server.Cloaks.Enabled {
+		config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
+	}
+
 	// activate the new config
 	server.SetConfig(config)
+
+	// load [dk]-lines, registered users and channels, etc.
+	if initial {
+		if err := server.loadFromDatastore(config); err != nil {
+			return err
+		}
+	}
 
 	// burst new and removed caps
 	addedCaps, removedCaps := config.Diff(oldConfig)
@@ -579,17 +604,6 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			for _, capStr := range added[sSession.capVersion] {
 				sSession.Send(nil, server.name, "CAP", sSession.client.Nick(), "NEW", capStr)
 			}
-		}
-	}
-
-	server.logger.Info("server", "Using datastore", config.Datastore.Path)
-	if initial {
-		if err := server.loadDatastore(config); err != nil {
-			return err
-		}
-	} else {
-		if config.Datastore.MySQL.Enabled && config.Datastore.MySQL != oldConfig.Datastore.MySQL {
-			server.historyDB.SetConfig(config.Datastore.MySQL)
 		}
 	}
 
@@ -702,10 +716,13 @@ func (server *Server) loadDatastore(config *Config) error {
 	db, err := OpenDatabase(config)
 	if err == nil {
 		server.store = db
+		return nil
 	} else {
 		return fmt.Errorf("Failed to open datastore: %s", err.Error())
 	}
+}
 
+func (server *Server) loadFromDatastore(config *Config) (err error) {
 	// load *lines (from the datastores)
 	server.logger.Debug("server", "Loading D/Klines")
 	server.loadDLines()
