@@ -131,8 +131,9 @@ server:
     # already up and running is problematic).
     casemapping: "precis"
 
-    # whether to look up user hostnames with reverse DNS
-    # (to suppress this for privacy purposes, use the ip-cloaking options below)
+    # whether to look up user hostnames with reverse DNS.
+    # (disabling this will expose user IPs instead of hostnames;
+    # to make IP/hostname information private, see the ip-cloaking section)
     lookup-hostnames: true
     # whether to confirm hostname lookups using "forward-confirmed reverse DNS", i.e., for
     # any hostname returned from reverse DNS, resolve it back to an IP address and reject it
@@ -249,10 +250,11 @@ server:
     # IP is not already known, it is infeasible to recover it from the cloaked name.
     ip-cloaking:
         # whether to enable IP cloaking
-        enabled: false
+        enabled: true
 
-        # fake TLD at the end of the hostname, e.g., pwbs2ui4377257x8.oragono
-        netname: "oragono"
+        # fake TLD at the end of the hostname, e.g., pwbs2ui4377257x8.irc
+        # you may want to use your network name here
+        netname: "irc"
 
         # the cloaked hostname is derived only from the CIDR (most significant bits
         # of the IP address), up to a configurable number of bits. this is the
