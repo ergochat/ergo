@@ -661,12 +661,7 @@ func (client *Client) run(session *Session) {
 
 		cmd, exists := Commands[msg.Command]
 		if !exists {
-			if len(msg.Command) > 0 {
-				session.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), msg.Command, client.t("Unknown command"))
-			} else {
-				session.Send(nil, client.server.name, ERR_UNKNOWNCOMMAND, client.Nick(), "lastcmd", client.t("No command given"))
-			}
-			continue
+			cmd = unknownCommand
 		}
 
 		isExiting := cmd.Run(client.server, client, session, msg)
