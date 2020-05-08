@@ -451,7 +451,7 @@ func hsSetCloakSecretHandler(server *Server, client *Client, command string, par
 	expectedCode := utils.ConfirmationCode(secret, server.ctime)
 	if len(params) == 1 || params[1] != expectedCode {
 		hsNotice(rb, ircfmt.Unescape(client.t("$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b")))
-		hsNotice(rb, fmt.Sprintf(client.t("To confirm, type: /HS SETCLOAKSECRET %[1]s %[2]s"), secret, expectedCode))
+		hsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/HS SETCLOAKSECRET %s %s", secret, expectedCode)))
 		return
 	}
 	StoreCloakSecret(server.store, secret)

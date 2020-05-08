@@ -407,7 +407,7 @@ func csUnregisterHandler(server *Server, client *Client, command string, params 
 	expectedCode := utils.ConfirmationCode(info.Name, info.RegisteredAt)
 	if expectedCode != verificationCode {
 		csNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this channel will remove all stored channel attributes.$b")))
-		csNotice(rb, fmt.Sprintf(client.t("To confirm channel unregistration, type: /CS UNREGISTER %[1]s %[2]s"), channelKey, expectedCode))
+		csNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/CS UNREGISTER %s %s", channelKey, expectedCode)))
 		return
 	}
 

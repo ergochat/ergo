@@ -905,11 +905,10 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	if expectedCode != verificationCode {
 		if erase {
 			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
-			nsNotice(rb, fmt.Sprintf(client.t("To confirm account erase, type: /NS ERASE %[1]s %[2]s"), accountName, expectedCode))
 		} else {
 			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
-			nsNotice(rb, fmt.Sprintf(client.t("To confirm account unregistration, type: /NS UNREGISTER %[1]s %[2]s"), accountName, expectedCode))
 		}
+		nsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS UNREGISTER %s %s", accountName, expectedCode)))
 		return
 	}
 
