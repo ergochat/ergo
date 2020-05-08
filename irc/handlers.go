@@ -2636,8 +2636,28 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 		}
 	} else {
+		// Construct set of channels the client is in.
+		userChannels := make(map[*Channel]bool)
+		for _, channel := range client.Channels() {
+			userChannels[channel] = true
+		}
+
+		// Another client is a friend if they share at least one channel, or they are the same client.
+		isFriend := func(otherClient *Client) bool {
+			if client == otherClient {
+				return true
+			}
+
+			for _, channel := range otherClient.Channels() {
+				if userChannels[channel] {
+					return true
+				}
+			}
+			return false
+		}
+
 		for mclient := range server.clients.FindAll(mask) {
-			if isOper || !mclient.HasMode(modes.Invisible) || mclient.IsFriend(client) {
+			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
 				client.rplWhoReply(nil, mclient, rb)
 			}
 		}
