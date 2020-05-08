@@ -713,7 +713,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 		code := utils.ConfirmationCode(server.name, server.ctime)
 		if len(msg.Params) == 1 || msg.Params[1] != code {
-			rb.Notice(fmt.Sprintf(client.t("To crash the server, issue the following command: /DEBUG CRASHSERVER %s"), code))
+			rb.Notice(fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/DEBUG CRASHSERVER %s", code)))
 			return false
 		}
 		server.logger.Error("server", fmt.Sprintf("DEBUG CRASHSERVER executed by operator %s", client.Oper().Name))

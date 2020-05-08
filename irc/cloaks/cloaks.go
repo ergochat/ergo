@@ -5,7 +5,6 @@ package cloaks
 import (
 	"fmt"
 	"net"
-	"os"
 
 	"golang.org/x/crypto/sha3"
 
@@ -13,25 +12,22 @@ import (
 )
 
 type CloakConfig struct {
-	Enabled      bool
-	Netname      string
-	Secret       string
-	SecretEnvVar string `yaml:"secret-environment-variable"`
-	CidrLenIPv4  int    `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6  int    `yaml:"cidr-len-ipv6"`
-	NumBits      int    `yaml:"num-bits"`
+	Enabled           bool
+	Netname           string
+	CidrLenIPv4       int    `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6       int    `yaml:"cidr-len-ipv6"`
+	NumBits           int    `yaml:"num-bits"`
+	LegacySecretValue string `yaml:"secret"`
 
+	secret   string
 	numBytes int
 	ipv4Mask net.IPMask
 	ipv6Mask net.IPMask
 }
 
 func (cloakConfig *CloakConfig) Initialize() {
-	if cloakConfig.SecretEnvVar != "" {
-		envSecret := os.Getenv(cloakConfig.SecretEnvVar)
-		if envSecret != "" {
-			cloakConfig.Secret = envSecret
-		}
+	if !cloakConfig.Enabled {
+		return
 	}
 
 	// sanity checks:
@@ -52,15 +48,20 @@ func (cloakConfig *CloakConfig) Initialize() {
 	cloakConfig.ipv6Mask = net.CIDRMask(cloakConfig.CidrLenIPv6, 128)
 }
 
+func (cloakConfig *CloakConfig) SetSecret(secret string) {
+	cloakConfig.secret = secret
+}
+
 // simple cloaking algorithm: normalize the IP to its CIDR,
 // then hash the resulting bytes with a secret key,
 // then truncate to the desired length, b32encode, and append the fake TLD.
 func (config *CloakConfig) ComputeCloak(ip net.IP) string {
 	if !config.Enabled {
 		return ""
-	} else if config.NumBits == 0 {
+	} else if config.NumBits == 0 || config.secret == "" {
 		return config.Netname
 	}
+
 	var masked net.IP
 	v4ip := ip.To4()
 	if v4ip != nil {
@@ -70,9 +71,9 @@ func (config *CloakConfig) ComputeCloak(ip net.IP) string {
 	}
 	// SHA3(K || M):
 	// https://crypto.stackexchange.com/questions/17735/is-hmac-needed-for-a-sha-3-based-mac
-	input := make([]byte, len(config.Secret)+len(masked))
-	copy(input, config.Secret[:])
-	copy(input[len(config.Secret):], masked)
+	input := make([]byte, len(config.secret)+len(masked))
+	copy(input, config.secret[:])
+	copy(input[len(config.secret):], masked)
 	digest := sha3.Sum512(input)
 	b32digest := utils.B32Encoder.EncodeToString(digest[:config.numBytes])
 	return fmt.Sprintf("%s.%s", b32digest, config.Netname)

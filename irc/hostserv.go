@@ -9,7 +9,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/goshuirc/irc-go/ircfmt"
+
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -170,6 +173,19 @@ the offered vhosts, use /HOSTSERV OFFERLIST.`,
 			authRequired: true,
 			minParams:    1,
 			maxParams:    1,
+		},
+		"setcloaksecret": {
+			handler: hsSetCloakSecretHandler,
+			help: `Syntax: $bSETCLOAKSECRET$b <secret> [code]
+
+SETCLOAKSECRET can be used to set or rotate the cloak secret. You should use
+a cryptographically strong secret. To prevent accidental modification, a
+verification code is required; invoking the command without a code will
+display the necessary code.`,
+			helpShort: `$bSETCLOAKSECRET$b modifies the IP cloaking secret.`,
+			capabs:    []string{"vhosts", "rehash"},
+			minParams: 1,
+			maxParams: 2,
 		},
 	}
 )
@@ -428,4 +444,16 @@ func hsTakeHandler(server *Server, client *Client, command string, params []stri
 		hsNotice(rb, client.t("Successfully set vhost"))
 		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Client %s (account %s) took vhost %s", client.Nick(), account, vhost))
 	}
+}
+
+func hsSetCloakSecretHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	secret := params[0]
+	expectedCode := utils.ConfirmationCode(secret, server.ctime)
+	if len(params) == 1 || params[1] != expectedCode {
+		hsNotice(rb, ircfmt.Unescape(client.t("$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b")))
+		hsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/HS SETCLOAKSECRET %s %s", secret, expectedCode)))
+		return
+	}
+	StoreCloakSecret(server.store, secret)
+	hsNotice(rb, client.t("Rotated the cloak secret; you must rehash or restart the server for it to take effect"))
 }

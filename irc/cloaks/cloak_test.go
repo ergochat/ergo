@@ -27,7 +27,7 @@ func cloakConfForTesting() CloakConfig {
 	config := CloakConfig{
 		Enabled:     true,
 		Netname:     "oragono",
-		Secret:      "_BdVPWB5sray7McbFmeuJL996yaLgG4l9tEyficGXKg",
+		secret:      "_BdVPWB5sray7McbFmeuJL996yaLgG4l9tEyficGXKg",
 		CidrLenIPv4: 32,
 		CidrLenIPv6: 64,
 		NumBits:     80,
@@ -55,7 +55,7 @@ func TestCloakDeterminism(t *testing.T) {
 	assertEqual(config.ComputeCloak(v6ipdifferentcidr), "ccmptyrjwsxv4f4d.oragono", t)
 
 	// cloak values must be sensitive to changes in the secret key
-	config.Secret = "HJcXK4lLawxBE4-9SIdPji_21YiL3N5r5f5-SPNrGVY"
+	config.SetSecret("HJcXK4lLawxBE4-9SIdPji_21YiL3N5r5f5-SPNrGVY")
 	assertEqual(config.ComputeCloak(v4ip), "4khy3usk8mfu42pe.oragono", t)
 	assertEqual(config.ComputeCloak(v6mappedIP), "4khy3usk8mfu42pe.oragono", t)
 	assertEqual(config.ComputeCloak(v6ip), "mxpk3c83vdxkek9j.oragono", t)
@@ -66,7 +66,7 @@ func TestCloakShortv4Cidr(t *testing.T) {
 	config := CloakConfig{
 		Enabled:     true,
 		Netname:     "oragono",
-		Secret:      "_BdVPWB5sray7McbFmeuJL996yaLgG4l9tEyficGXKg",
+		secret:      "_BdVPWB5sray7McbFmeuJL996yaLgG4l9tEyficGXKg",
 		CidrLenIPv4: 24,
 		CidrLenIPv6: 64,
 		NumBits:     60,
