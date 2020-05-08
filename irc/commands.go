@@ -73,6 +73,12 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 	return exiting
 }
 
+// fake handler for unknown commands (see #994: this ensures the response tags are correct)
+var unknownCommand = Command{
+	handler:      unknownCommandHandler,
+	usablePreReg: true,
+}
+
 // Commands holds all commands executable by a client connected to us.
 var Commands map[string]Command
 

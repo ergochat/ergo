@@ -2760,3 +2760,9 @@ func zncHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	zncModuleHandler(client, msg.Params[0], msg.Params[1:], rb)
 	return false
 }
+
+// fake handler for unknown commands
+func unknownCommandHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), client.t("Unknown command"))
+	return false
+}
