@@ -57,8 +57,9 @@ func (wc *webircConfig) Populate() (err error) {
 // ApplyProxiedIP applies the given IP to the client.
 func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls bool) (err error, quitMsg string) {
 	// PROXY and WEBIRC are never accepted from a Tor listener, even if the address itself
-	// is whitelisted:
-	if session.isTor {
+	// is whitelisted. Furthermore, don't accept PROXY or WEBIRC if we already accepted
+	// a proxied IP from any source (PROXY, WEBIRC, or X-Forwarded-For):
+	if session.isTor || session.proxiedIP != nil {
 		return errBadProxyLine, ""
 	}
 
