@@ -329,22 +329,19 @@ func (server *Server) RunClient(conn IRCConn) {
 	for _, defaultMode := range config.Accounts.defaultUserModes {
 		client.SetMode(defaultMode, true)
 	}
+	if proxiedConn.Secure {
+		client.SetMode(modes.TLS, true)
+	}
 
 	if proxiedConn.Config.TLSConfig != nil {
-		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
 		session.certfp, _ = utils.GetCertFP(proxiedConn.Conn, RegisterTimeout)
 	}
 
 	if session.isTor {
-		client.SetMode(modes.TLS, true)
 		session.rawHostname = config.Server.TorListeners.Vhost
 		client.rawHostname = session.rawHostname
 	} else {
-		if realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets) {
-			// treat local connections as secure (may be overridden later by WEBIRC)
-			client.SetMode(modes.TLS, true)
-		}
 		if config.Server.CheckIdent {
 			client.doIdentLookup(proxiedConn.Conn)
 		}

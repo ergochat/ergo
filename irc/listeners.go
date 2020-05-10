@@ -88,13 +88,6 @@ func (nl *NetListener) Stop() error {
 	return nl.listener.Close()
 }
 
-// ensure that any IP we got from the PROXY line is trustworthy (otherwise, clear it)
-func validateProxiedIP(conn *utils.WrappedConn, config *Config) {
-	if !utils.IPInNets(utils.AddrToIP(conn.RemoteAddr()), config.Server.proxyAllowedFromNets) {
-		conn.ProxiedIP = nil
-	}
-}
-
 func (nl *NetListener) serve() {
 	for {
 		conn, err := nl.listener.Accept()
@@ -103,9 +96,7 @@ func (nl *NetListener) serve() {
 			// hand off the connection
 			wConn, ok := conn.(*utils.WrappedConn)
 			if ok {
-				if wConn.ProxiedIP != nil {
-					validateProxiedIP(wConn, nl.server.Config())
-				}
+				confirmProxyData(wConn, "", "", "", nl.server.Config())
 				go nl.server.RunClient(NewIRCStreamConn(wConn))
 			} else {
 				nl.server.logger.Error("internal", "invalid connection type", nl.addr)
@@ -159,8 +150,9 @@ func (wl *WSListener) Stop() error {
 
 func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 	config := wl.server.Config()
-	proxyAllowedFrom := config.Server.proxyAllowedFromNets
-	proxiedIP := utils.HandleXForwardedFor(r.RemoteAddr, r.Header.Get("X-Forwarded-For"), proxyAllowedFrom)
+	remoteAddr := r.RemoteAddr
+	xff := r.Header.Get("X-Forwarded-For")
+	xfp := r.Header.Get("X-Forwarded-Proto")
 
 	wsUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -192,18 +184,39 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	if wConn.ProxiedIP != nil {
-		validateProxiedIP(wConn, config)
-	} else {
-		// if there was no PROXY protocol IP, use the validated X-Forwarded-For IP instead,
-		// unless it is redundant
-		if proxiedIP != nil && !proxiedIP.Equal(utils.AddrToIP(wConn.RemoteAddr())) {
-			wConn.ProxiedIP = proxiedIP
-		}
-	}
+
+	confirmProxyData(wConn, remoteAddr, xff, xfp, config)
 
 	// avoid a DoS attack from buffering excessively large messages:
 	conn.SetReadLimit(maxReadQBytes)
 
 	go wl.server.RunClient(NewIRCWSConn(conn))
+}
+
+// validate conn.ProxiedIP and conn.Secure against config, HTTP headers, etc.
+func confirmProxyData(conn *utils.WrappedConn, remoteAddr, xForwardedFor, xForwardedProto string, config *Config) {
+	if conn.ProxiedIP != nil {
+		if !utils.IPInNets(utils.AddrToIP(conn.RemoteAddr()), config.Server.proxyAllowedFromNets) {
+			conn.ProxiedIP = nil
+		}
+	} else if xForwardedFor != "" {
+		proxiedIP := utils.HandleXForwardedFor(remoteAddr, xForwardedFor, config.Server.proxyAllowedFromNets)
+		// don't set proxied IP if it is redundant with the actual IP
+		if proxiedIP != nil && !proxiedIP.Equal(utils.AddrToIP(conn.RemoteAddr())) {
+			conn.ProxiedIP = proxiedIP
+		}
+	}
+
+	if conn.Config.TLSConfig != nil || conn.Config.Tor {
+		// we terminated our own encryption:
+		conn.Secure = true
+	} else if !conn.Config.WebSocket {
+		// plaintext normal connection: loopback and secureNets are secure
+		realIP := utils.AddrToIP(conn.RemoteAddr())
+		conn.Secure = realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets)
+	} else {
+		// plaintext websocket: trust X-Forwarded-Proto from a trusted source
+		conn.Secure = utils.IPInNets(utils.AddrToIP(conn.RemoteAddr()), config.Server.proxyAllowedFromNets) &&
+			xForwardedProto == "https"
+	}
 }
