@@ -282,7 +282,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		return
 	}
 
-	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting from %v", realIP))
+	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
 
 	now := time.Now().UTC()
 	config := server.Config()
