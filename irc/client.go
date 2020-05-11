@@ -282,7 +282,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		return
 	}
 
-	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting from %v", realIP))
+	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
 
 	now := time.Now().UTC()
 	config := server.Config()
@@ -327,22 +327,19 @@ func (server *Server) RunClient(conn IRCConn) {
 	session.resetFakelag()
 
 	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
+	if proxiedConn.Secure {
+		client.SetMode(modes.TLS, true)
+	}
 
 	if proxiedConn.Config.TLSConfig != nil {
-		client.SetMode(modes.TLS, true)
 		// error is not useful to us here anyways so we can ignore it
 		session.certfp, _ = utils.GetCertFP(proxiedConn.Conn, RegisterTimeout)
 	}
 
 	if session.isTor {
-		client.SetMode(modes.TLS, true)
 		session.rawHostname = config.Server.TorListeners.Vhost
 		client.rawHostname = session.rawHostname
 	} else {
-		if realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets) {
-			// treat local connections as secure (may be overridden later by WEBIRC)
-			client.SetMode(modes.TLS, true)
-		}
 		if config.Server.CheckIdent {
 			client.doIdentLookup(proxiedConn.Conn)
 		}

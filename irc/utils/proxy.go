@@ -93,6 +93,9 @@ type WrappedConn struct {
 	net.Conn
 	ProxiedIP net.IP
 	Config    ListenerConfig
+	// Secure indicates whether we believe the connection between us and the client
+	// was secure against interception and modification (including all proxies):
+	Secure bool
 }
 
 // ReloadableListener is a wrapper for net.Listener that allows reloading
