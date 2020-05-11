@@ -515,7 +515,12 @@ func channelUserModeHasPrivsOver(clientMode modes.Mode, targetMode modes.Mode) b
 func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
 	channel.stateMutex.RLock()
 	clientModes := channel.members[client]
+	founder := channel.registeredFounder
 	channel.stateMutex.RUnlock()
+
+	if founder != "" && founder == client.Account() {
+		return true
+	}
 
 	for _, mode := range modes.ChannelUserModes {
 		if clientModes.HasMode(mode) {
