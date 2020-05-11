@@ -326,9 +326,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
-	for _, defaultMode := range config.Accounts.defaultUserModes {
-		client.SetMode(defaultMode, true)
-	}
+	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
 	if proxiedConn.Secure {
 		client.SetMode(modes.TLS, true)
 	}
@@ -374,9 +372,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		alwaysOn: true,
 	}
 
-	for _, defaultMode := range config.Accounts.defaultUserModes {
-		client.SetMode(defaultMode, true)
-	}
+	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
 
 	client.SetMode(modes.TLS, true)
 	client.writerSemaphore.Initialize(1)
