@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0
-	github.com/oragono/go-ident v0.0.0-20170110123031-337fed0fd21a
+	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.1.2
 	github.com/toorop/go-dkim v0.0.0-20191019073156-897ad64a2eeb
