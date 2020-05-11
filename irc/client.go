@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	// IdentTimeoutSeconds is how many seconds before our ident (username) check times out.
-	IdentTimeoutSeconds  = 1.5
+	// IdentTimeout is how long before our ident (username) check times out.
+	IdentTimeout         = time.Second + 500*time.Millisecond
 	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
 )
 
@@ -483,7 +483,7 @@ func (client *Client) doIdentLookup(conn net.Conn) {
 	clientPort := remoteTCPAddr.Port
 
 	client.Notice(client.t("*** Looking up your username"))
-	resp, err := ident.Query(remoteTCPAddr.IP.String(), serverPort, clientPort, IdentTimeoutSeconds)
+	resp, err := ident.Query(remoteTCPAddr.IP.String(), serverPort, clientPort, IdentTimeout)
 	if err == nil {
 		err := client.SetNames(resp.Identifier, "", true)
 		if err == nil {

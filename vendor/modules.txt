@@ -30,7 +30,7 @@ github.com/goshuirc/irc-go/ircmsg
 # github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0
 ## explicit
 github.com/oragono/confusables
-# github.com/oragono/go-ident v0.0.0-20170110123031-337fed0fd21a
+# github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 ## explicit
 github.com/oragono/go-ident
 # github.com/stretchr/testify v1.4.0

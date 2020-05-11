@@ -46,6 +46,8 @@ github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0 h1:4qw57EiWD2M
 github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0/go.mod h1:+uesPRay9e5tW6zhw4CJkRV3QOEbbZIJcsuo9ZnC+hE=
 github.com/oragono/go-ident v0.0.0-20170110123031-337fed0fd21a h1:tZApUffT5QuX4XhJLz2KfBJT8JgdwjLUBWtvmRwgFu4=
 github.com/oragono/go-ident v0.0.0-20170110123031-337fed0fd21a/go.mod h1:r5Fk840a4eu3ii1kxGDNSJupQu9Z1UC1nfJOZZXC24c=
+github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775 h1:AMAsAn/i4AgsmWQYdMoze9omwtHpbxrKuT+AT1LmhtI=
+github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775/go.mod h1:r5Fk840a4eu3ii1kxGDNSJupQu9Z1UC1nfJOZZXC24c=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
