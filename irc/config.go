@@ -254,7 +254,7 @@ type AccountConfig struct {
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
 	DefaultUserModes   *string `yaml:"default-user-modes"`
-	defaultUserModes   modes.Modes
+	defaultUserModes   modes.ModeChanges
 	LDAP               ldap.ServerConfig
 	LoginThrottling    ThrottleConfig `yaml:"login-throttling"`
 	SkipServerPassword bool           `yaml:"skip-server-password"`
