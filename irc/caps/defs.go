@@ -61,10 +61,6 @@ const (
 	// https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md
 	Resume Capability = iota
 
-	// SetName is the proposed IRCv3 capability named "draft/setname":
-	// https://github.com/ircv3/ircv3-specifications/pull/361
-	SetName Capability = iota
-
 	// EchoMessage is the IRCv3 capability named "echo-message":
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
 	EchoMessage Capability = iota
@@ -101,6 +97,10 @@ const (
 	// https://ircv3.net/specs/extensions/server-time-3.2.html
 	ServerTime Capability = iota
 
+	// SetName is the IRCv3 capability named "setname":
+	// https://ircv3.net/specs/extensions/setname.html
+	SetName Capability = iota
+
 	// STS is the IRCv3 capability named "sts":
 	// https://ircv3.net/specs/extensions/sts.html
 	STS Capability = iota
@@ -133,7 +133,6 @@ var (
 		"draft/multiline",
 		"draft/rename",
 		"draft/resume-0.5",
-		"draft/setname",
 		"echo-message",
 		"extended-join",
 		"invite-notify",
@@ -143,6 +142,7 @@ var (
 		"oragono.io/nope",
 		"sasl",
 		"server-time",
+		"setname",
 		"sts",
 		"userhost-in-names",
 		"znc.in/playback",
