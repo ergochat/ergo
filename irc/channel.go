@@ -20,10 +20,6 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 )
 
-const (
-	histServMask = "HistServ!HistServ@localhost"
-)
-
 type ChannelSettings struct {
 	History HistoryStatus
 }
@@ -641,14 +637,14 @@ func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryS
 	}
 }
 
-func (channel *Channel) AddHistoryItem(item history.Item) (err error) {
+func (channel *Channel) AddHistoryItem(item history.Item, account string) (err error) {
 	if !item.IsStorable() {
 		return
 	}
 
 	status, target := channel.historyStatus(channel.server.Config())
 	if status == HistoryPersistent {
-		err = channel.server.historyDB.AddChannelItem(target, item)
+		err = channel.server.historyDB.AddChannelItem(target, item, account)
 	} else if status == HistoryEphemeral {
 		channel.history.Add(item)
 	}
@@ -746,7 +742,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			Message:     message,
 		}
 		histItem.Params[0] = details.realname
-		channel.AddHistoryItem(histItem)
+		channel.AddHistoryItem(histItem, details.account)
 	}
 
 	client.addChannel(channel, rb == nil)
@@ -902,7 +898,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     splitMessage,
-	})
+	}, details.account)
 
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
@@ -1165,7 +1161,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     message,
-	})
+	}, details.account)
 
 	channel.MarkDirty(IncludeTopic)
 }
@@ -1222,8 +1218,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		return
 	}
 
-	nickmask := client.NickMaskString()
-	account := client.AccountName()
+	details := client.Details()
 	chname := channel.Name()
 
 	// STATUSMSG targets are prefixed with the supplied min-prefix, e.g., @#channel
@@ -1238,9 +1233,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 		if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-			rb.AddFromClient(message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
+			rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
 		} else {
-			rb.AddSplitMessageFromClient(nickmask, account, tagsToUse, command, chname, message)
+			rb.AddSplitMessageFromClient(details.nickMask, details.accountName, tagsToUse, command, chname, message)
 		}
 	}
 	// send echo-message to other connected sessions
@@ -1253,9 +1248,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			tagsToUse = clientOnlyTags
 		}
 		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
-			session.sendFromClientInternal(false, message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
+			session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
 		} else if histType != history.Tagmsg {
-			session.sendSplitMsgFromClientInternal(false, nickmask, account, tagsToUse, command, chname, message)
+			session.sendSplitMsgFromClientInternal(false, details.nickMask, details.accountName, tagsToUse, command, chname, message)
 		}
 	}
 
@@ -1282,9 +1277,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			}
 
 			if histType == history.Tagmsg {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, nickmask, account, tagsToUse, command, chname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
 			} else {
-				session.sendSplitMsgFromClientInternal(false, nickmask, account, tagsToUse, command, chname, message)
+				session.sendSplitMsgFromClientInternal(false, details.nickMask, details.accountName, tagsToUse, command, chname, message)
 			}
 		}
 	}
@@ -1294,10 +1289,10 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		channel.AddHistoryItem(history.Item{
 			Type:        histType,
 			Message:     message,
-			Nick:        nickmask,
-			AccountName: account,
+			Nick:        details.nickMask,
+			AccountName: details.accountName,
 			Tags:        clientOnlyTags,
-		})
+		}, details.account)
 	}
 }
 
@@ -1391,28 +1386,27 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 	}
 
 	message := utils.MakeMessage(comment)
-	clientMask := client.NickMaskString()
-	clientAccount := client.AccountName()
+	details := client.Details()
 
 	targetNick := target.Nick()
 	chname := channel.Name()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session != rb.session {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, clientMask, clientAccount, nil, "KICK", chname, targetNick, comment)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "KICK", chname, targetNick, comment)
 			}
 		}
 	}
-	rb.Add(nil, clientMask, "KICK", chname, targetNick, comment)
+	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "KICK", chname, targetNick, comment)
 
 	histItem := history.Item{
 		Type:        history.Kick,
-		Nick:        clientMask,
-		AccountName: target.AccountName(),
+		Nick:        details.nickMask,
+		AccountName: details.accountName,
 		Message:     message,
 	}
 	histItem.Params[0] = targetNick
-	channel.AddHistoryItem(histItem)
+	channel.AddHistoryItem(histItem, details.account)
 
 	channel.Quit(target)
 }

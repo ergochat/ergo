@@ -82,6 +82,13 @@ var OragonoServices = map[string]*ircService{
 		Commands:       hostservCommands,
 		HelpBanner:     hostservHelp,
 	},
+	"histserv": {
+		Name:           "HistServ",
+		ShortName:      "HISTSERV",
+		CommandAliases: []string{"HISTSERV"},
+		Commands:       histservCommands,
+		HelpBanner:     histservHelp,
+	},
 }
 
 // all service commands at the protocol level, by uppercase command name

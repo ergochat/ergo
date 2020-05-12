@@ -1277,7 +1277,7 @@ func (client *Client) destroy(session *Session) {
 	// use a defer here to avoid writing to mysql while holding the destroy semaphore:
 	defer func() {
 		for _, channel := range channels {
-			channel.AddHistoryItem(quitItem)
+			channel.AddHistoryItem(quitItem, details.account)
 		}
 	}()
 

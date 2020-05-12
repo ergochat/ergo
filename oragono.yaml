@@ -280,6 +280,10 @@ server:
     secure-nets:
         # - "10.0.0.0/8"
 
+    # oragono will write files to disk under certain circumstances, e.g.,
+    # CPU profiling or data export. by default, these files will be written
+    # to the working directory. set this to customize:
+    # output-path: "/home/oragono/out"
 
 # account options
 accounts:
@@ -577,6 +581,7 @@ oper-classes:
             - "samode"
             - "vhosts"
             - "chanreg"
+            - "history"
 
 # ircd operators
 opers:
@@ -772,7 +777,8 @@ roleplay:
     # add the real nickname, in parentheses, to the end of every roleplay message?
     add-suffix: true
 
-# message history tracking, for the RESUME extension and possibly other uses in future
+# history message storage: this is used by CHATHISTORY, HISTORY, znc.in/playback,
+# various autoreplay features, and the resume extension
 history:
     # should we store messages for later playback?
     # by default, messages are stored in RAM only; they do not persist
@@ -841,3 +847,13 @@ history:
         # if you enable this, strict nickname reservation is strongly recommended
         # as well.
         direct-messages: "opt-out"
+
+    # options to control how messages are stored and deleted:
+    retention:
+        # allow users to delete their own messages from history?
+        allow-individual-delete: false
+
+        # if persistent history is enabled, create additional index tables,
+        # allowing deletion of JSON export of an account's messages. this
+        # may be needed for compliance with data privacy regulations.
+        enable-account-indexing: false

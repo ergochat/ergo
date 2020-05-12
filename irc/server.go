@@ -879,6 +879,76 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	return
 }
 
+func (server *Server) ForgetHistory(accountName string) {
+	// sanity check
+	if accountName == "*" {
+		return
+	}
+
+	config := server.Config()
+	if !config.History.Enabled {
+		return
+	}
+
+	if cfAccount, err := CasefoldName(accountName); err == nil {
+		server.historyDB.Forget(cfAccount)
+	}
+
+	persistent := config.History.Persistent
+	if persistent.Enabled && persistent.UnregisteredChannels && persistent.RegisteredChannels == PersistentMandatory && persistent.DirectMessages == PersistentMandatory {
+		return
+	}
+
+	predicate := func(item *history.Item) bool { return item.AccountName == accountName }
+
+	for _, channel := range server.channels.Channels() {
+		channel.history.Delete(predicate)
+	}
+
+	for _, client := range server.clients.AllClients() {
+		client.history.Delete(predicate)
+	}
+}
+
+// deletes a message. target is a hint about what buffer it's in (not required for
+// persistent history, where all the msgids are indexed together). if accountName
+// is anything other than "*", it must match the recorded AccountName of the message
+func (server *Server) DeleteMessage(target, msgid, accountName string) (err error) {
+	config := server.Config()
+	var hist *history.Buffer
+
+	if target != "" {
+		if target[0] == '#' {
+			channel := server.channels.Get(target)
+			if channel != nil {
+				if status, _ := channel.historyStatus(config); status == HistoryEphemeral {
+					hist = &channel.history
+				}
+			}
+		} else {
+			client := server.clients.Get(target)
+			if client != nil {
+				if status, _ := client.historyStatus(config); status == HistoryEphemeral {
+					hist = &client.history
+				}
+			}
+		}
+	}
+
+	if hist == nil {
+		err = server.historyDB.DeleteMsgid(msgid, accountName)
+	} else {
+		count := hist.Delete(func(item *history.Item) bool {
+			return item.Message.Msgid == msgid && (accountName == "*" || item.AccountName == accountName)
+		})
+		if count == 0 {
+			err = errNoop
+		}
+	}
+
+	return
+}
+
 // elistMatcher takes and matches ELIST conditions
 type elistMatcher struct {
 	MinClientsActive bool

@@ -677,7 +677,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		rb.Notice(fmt.Sprintf("num goroutines: %d", count))
 
 	case "PROFILEHEAP":
-		profFile := "oragono.mprof"
+		profFile := server.Config().getOutputPath("oragono.mprof")
 		file, err := os.Create(profFile)
 		if err != nil {
 			rb.Notice(fmt.Sprintf("error: %s", err))
@@ -688,7 +688,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		rb.Notice(fmt.Sprintf("written to %s", profFile))
 
 	case "STARTCPUPROFILE":
-		profFile := "oragono.prof"
+		profFile := server.Config().getOutputPath("oragono.prof")
 		file, err := os.Create(profFile)
 		if err != nil {
 			rb.Notice(fmt.Sprintf("error: %s", err))
@@ -935,50 +935,17 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	target := msg.Params[0]
-	if strings.ToLower(target) == "me" {
-		target = "*"
-	}
-	channel, sequence, err := server.GetHistorySequence(nil, client, target)
+	items, channel, err := easySelectHistory(server, client, msg.Params)
 
-	if sequence == nil || err != nil {
-		// whatever
-		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
+	if err == errNoSuchChannel {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
+		return false
+	} else if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), msg.Command, client.t("Could not retrieve history"))
 		return false
 	}
 
-	var duration time.Duration
-	maxChathistoryLimit := config.History.ChathistoryMax
-	limit := 100
-	if maxChathistoryLimit < limit {
-		limit = maxChathistoryLimit
-	}
-	if len(msg.Params) > 1 {
-		providedLimit, err := strconv.Atoi(msg.Params[1])
-		if err == nil && providedLimit != 0 {
-			limit = providedLimit
-			if maxChathistoryLimit < limit {
-				limit = maxChathistoryLimit
-			}
-		} else if err != nil {
-			duration, err = time.ParseDuration(msg.Params[1])
-			if err == nil {
-				limit = maxChathistoryLimit
-			}
-		}
-	}
-
-	var items []history.Item
-	if duration == 0 {
-		items, _, err = sequence.Between(history.Selector{}, history.Selector{}, limit)
-	} else {
-		now := time.Now().UTC()
-		start := history.Selector{Time: now}
-		end := history.Selector{Time: now.Add(-duration)}
-		items, _, err = sequence.Between(start, end, limit)
-	}
-
-	if err == nil && len(items) != 0 {
+	if len(items) != 0 {
 		if channel != nil {
 			channel.replayHistoryItems(rb, items, false)
 		} else {
@@ -1530,12 +1497,12 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	// process mode changes, include list operations (an empty set of changes does a list)
 	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	details := client.Details()
-	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, rb)
+	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, rb)
 
 	return false
 }
 
-func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, accountName string, rb *ResponseBuffer) {
+func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, accountName, account string, rb *ResponseBuffer) {
 	// send out changes
 	if len(applied) > 0 {
 		message := utils.MakeMessage("")
@@ -1557,7 +1524,7 @@ func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, a
 			Nick:        source,
 			AccountName: accountName,
 			Message:     message,
-		})
+		}, account)
 	}
 }
 

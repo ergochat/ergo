@@ -18,5 +18,6 @@ type Config struct {
 	Timeout         time.Duration
 
 	// XXX these are copied from elsewhere in the config:
-	ExpireTime time.Duration
+	ExpireTime           time.Duration
+	TrackAccountMessages bool
 }
