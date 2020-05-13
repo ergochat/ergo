@@ -145,7 +145,7 @@ func histservExportHandler(server *Server, client *Client, command string, param
 	if err != nil {
 		hsNotice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
 	} else {
-		hsNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %s to file %s"), cfAccount, filename))
+		hsNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %[1]s to file %[2]s"), cfAccount, filename))
 	}
 
 	go histservExportAndNotify(server, cfAccount, outfile, filename, client.Nick())
