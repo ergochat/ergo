@@ -58,8 +58,8 @@ be necessary to locate the message.`,
 			handler: histservExportHandler,
 			help: `Syntax: $bEXPORT <account>$b
 
-EXPORT exports all messages sent by an account as JSON. This can be used for
-regulatory compliance.`,
+EXPORT exports all messages sent by an account as JSON. This can be used at
+the request of the account holder.`,
 			helpShort: `$bEXPORT$b exports all messages sent by an account as JSON.`,
 			enabled:   historyComplianceEnabled,
 			capabs:    []string{"history"},
