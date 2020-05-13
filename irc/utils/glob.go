@@ -46,6 +46,9 @@ func CompileGlob(glob string, submatch bool) (result *regexp.Regexp, err error) 
 	return regexp.Compile(buf.String())
 }
 
+// Compile a list of globs into a single or-expression that matches any one of them.
+// This is used for channel ban/invite/exception lists. It's applicable to k-lines
+// but we're not using it there yet.
 func CompileMasks(masks []string) (result *regexp.Regexp, err error) {
 	var buf bytes.Buffer
 	buf.WriteString("^(")

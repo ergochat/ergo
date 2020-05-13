@@ -432,12 +432,6 @@ func (set *UserMaskSet) Length() int {
 	return len(set.masks)
 }
 
-// setRegexp generates a regular expression from the set of user mask
-// strings. Masks are split at the two types of wildcards, `*` and
-// `?`. All the pieces are meta-escaped. `*` is replaced with `.*`,
-// the regexp equivalent. Likewise, `?` is replaced with `.`. The
-// parts are re-joined and finally all masks are joined into a big
-// or-expression.
 func (set *UserMaskSet) setRegexp() {
 	set.RLock()
 	maskExprs := make([]string, len(set.masks))
