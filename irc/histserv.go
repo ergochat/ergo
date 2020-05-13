@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -57,8 +58,8 @@ be necessary to locate the message.`,
 			handler: histservExportHandler,
 			help: `Syntax: $bEXPORT <account>$b
 
-EXPORT exports all messages sent by an account as JSON. This can be used
-for regulatory compliance, e.g., article 15 of the GDPR.`,
+EXPORT exports all messages sent by an account as JSON. This can be used for
+regulatory compliance.`,
 			helpShort: `$bEXPORT$b exports all messages sent by an account as JSON.`,
 			enabled:   historyComplianceEnabled,
 			capabs:    []string{"history"},
@@ -137,19 +138,20 @@ func histservExportHandler(server *Server, client *Client, command string, param
 	}
 
 	config := server.Config()
-	filename := fmt.Sprintf("%s@%s.json", cfAccount, time.Now().UTC().Format(IRCv3TimestampFormat))
+	// don't include the account name in the filename because of escaping concerns
+	filename := fmt.Sprintf("%s-%s.json", utils.GenerateSecretToken(), time.Now().UTC().Format(IRCv3TimestampFormat))
 	pathname := config.getOutputPath(filename)
 	outfile, err := os.Create(pathname)
 	if err != nil {
 		hsNotice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
 	} else {
-		hsNotice(rb, fmt.Sprintf(client.t("Started exporting account data to file %s"), pathname))
+		hsNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %s to file %s"), cfAccount, filename))
 	}
 
-	go histservExportAndNotify(server, cfAccount, outfile, client.Nick())
+	go histservExportAndNotify(server, cfAccount, outfile, filename, client.Nick())
 }
 
-func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File, alertNick string) {
+func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File, filename, alertNick string) {
 	defer func() {
 		if r := recover(); r != nil {
 			server.logger.Error("history",
@@ -165,7 +167,7 @@ func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File,
 
 	client := server.clients.Get(alertNick)
 	if client != nil && client.HasRoleCapabs("history") {
-		client.Send(nil, histServMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Data export for %[1]s completed and written to %[2]s"), cfAccount, outfile.Name()))
+		client.Send(nil, histServMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Data export for %[1]s completed and written to %[2]s"), cfAccount, filename))
 	}
 }
 
