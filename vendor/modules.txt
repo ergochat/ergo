@@ -17,11 +17,9 @@ github.com/go-sql-driver/mysql
 github.com/gorilla/websocket
 # github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940
 ## explicit
-github.com/goshuirc/e-nfa
 # github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
 ## explicit
 github.com/goshuirc/irc-go/ircfmt
-github.com/goshuirc/irc-go/ircmatch
 github.com/goshuirc/irc-go/ircmsg
 # github.com/onsi/ginkgo v1.12.0
 ## explicit

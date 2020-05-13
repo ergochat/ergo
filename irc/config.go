@@ -853,7 +853,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	for _, glob := range config.Server.WebSockets.AllowedOrigins {
-		globre, err := utils.CompileGlob(glob)
+		globre, err := utils.CompileGlob(glob, false)
 		if err != nil {
 			return nil, fmt.Errorf("invalid websocket allowed-origin expression: %s", glob)
 		}
@@ -1219,7 +1219,7 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 		return
 	}
 
-	standard, err = utils.CompileGlob(guestFormat)
+	standard, err = utils.CompileGlob(guestFormat, true)
 	if err != nil {
 		return
 	}
@@ -1235,6 +1235,6 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	if err != nil {
 		return
 	}
-	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded))
+	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded), false)
 	return
 }
