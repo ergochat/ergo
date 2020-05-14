@@ -80,7 +80,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 
 	for _, channel := range client.Channels() {
-		channel.AddHistoryItem(histItem)
+		channel.AddHistoryItem(histItem, details.account)
 	}
 
 	if target.Registered() {

@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -511,6 +512,7 @@ type Config struct {
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
+		OutputPath    string `yaml:"output-path"`
 	}
 
 	Roleplay struct {
@@ -589,6 +591,10 @@ type Config struct {
 			UnregisteredChannels bool             `yaml:"unregistered-channels"`
 			RegisteredChannels   PersistentStatus `yaml:"registered-channels"`
 			DirectMessages       PersistentStatus `yaml:"direct-messages"`
+		}
+		Retention struct {
+			AllowIndividualDelete bool `yaml:"allow-individual-delete"`
+			EnableAccountIndexing bool `yaml:"enable-account-indexing"`
 		}
 	}
 
@@ -1111,6 +1117,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)
 
 	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
+	config.Datastore.MySQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
 
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {
@@ -1131,6 +1138,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	return config, nil
+}
+
+func (config *Config) getOutputPath(filename string) string {
+	return filepath.Join(config.Server.OutputPath, filename)
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.

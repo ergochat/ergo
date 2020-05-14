@@ -91,7 +91,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			Type:    history.Privmsg,
 			Message: splitMessage,
 			Nick:    source,
-		})
+		}, client.Account())
 	} else {
 		target, err := CasefoldName(targetString)
 		user := server.clients.Get(target)

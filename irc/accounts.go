@@ -1103,6 +1103,30 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 	return
 }
 
+// look up the unfolded version of an account name, possibly after deletion
+func (am *AccountManager) AccountToAccountName(account string) (result string) {
+	casefoldedAccount, err := CasefoldName(account)
+	if err != nil {
+		return
+	}
+
+	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
+	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
+
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		if name, err := tx.Get(accountNameKey); err == nil {
+			result = name
+			return nil
+		}
+		if name, err := tx.Get(unregisteredKey); err == nil {
+			result = name
+		}
+		return nil
+	})
+
+	return
+}
+
 func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName string) (result ClientAccount, err error) {
 	result.Name = raw.Name
 	result.NameCasefolded = cfName

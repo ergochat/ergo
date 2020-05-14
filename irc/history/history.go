@@ -284,6 +284,32 @@ func (list *Buffer) matchInternal(predicate Predicate, ascending bool, limit int
 	return
 }
 
+// Delete deletes messages matching some predicate.
+func (list *Buffer) Delete(predicate Predicate) (count int) {
+	list.Lock()
+	defer list.Unlock()
+
+	if list.start == -1 || len(list.buffer) == 0 {
+		return
+	}
+
+	pos := list.start
+	stop := list.prev(list.end)
+
+	for {
+		if predicate(&list.buffer[pos]) {
+			list.buffer[pos] = Item{}
+			count++
+		}
+		if pos == stop {
+			break
+		}
+		pos = list.next(pos)
+	}
+
+	return
+}
+
 // latest returns the items most recently added, up to `limit`. If `limit` is 0,
 // it returns all items.
 func (list *Buffer) latest(limit int) (results []Item) {
