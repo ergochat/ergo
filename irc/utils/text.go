@@ -73,8 +73,22 @@ func (sm *SplitMessage) LenBytes() (result int) {
 	}
 	for i := 0; i < len(sm.Split); i++ {
 		result += len(sm.Split[i].Message)
+		// bill for the joining newline if necessary
+		if i != 0 && !sm.Split[i].Concat {
+			result += 1
+		}
 	}
 	return
+}
+
+func (sm *SplitMessage) ValidMultiline() bool {
+	// must contain at least one nonblank line
+	for i := 0; i < len(sm.Split); i++ {
+		if len(sm.Split[i].Message) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {

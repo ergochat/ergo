@@ -175,7 +175,7 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 	}
 	s.deferredFakelagCount = fakelagBill
 
-	if batch.label == "" || batch.label != label || batch.message.LenLines() == 0 {
+	if batch.label == "" || batch.label != label || !batch.message.ValidMultiline() {
 		err = errInvalidMultilineBatch
 		return
 	}
@@ -1357,9 +1357,14 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, 
 				session.SendRawMessage(msg, blocking)
 			}
 		} else {
-			for i, messagePair := range message.Split {
+			msgidSent := false // send msgid on the first nonblank line
+			for _, messagePair := range message.Split {
+				if len(messagePair.Message) == 0 {
+					continue
+				}
 				var msgid string
-				if i == 0 {
+				if !msgidSent {
+					msgidSent = true
 					msgid = message.Msgid
 				}
 				session.sendFromClientInternal(blocking, message.Time, msgid, nickmask, accountName, tags, command, target, messagePair.Message)
