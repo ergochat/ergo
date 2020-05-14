@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
@@ -1280,10 +1279,14 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
-	matcher := ircmatch.MakeMatch(mask)
+	matcher, err := utils.CompileGlob(mask, false)
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
+		return false
+	}
 
 	for _, clientMask := range client.AllNickmasks() {
-		if !klineMyself && matcher.Match(clientMask) {
+		if !klineMyself && matcher.MatchString(clientMask) {
 			rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("This ban matches you. To KLINE yourself, you must use the command:  /KLINE MYSELF <arguments>"))
 			return false
 		}
@@ -1327,7 +1330,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 		for _, mcl := range server.clients.AllClients() {
 			for _, clientMask := range mcl.AllNickmasks() {
-				if matcher.Match(clientMask) {
+				if matcher.MatchString(clientMask) {
 					clientsToKill = append(clientsToKill, mcl)
 					killedClientNicks = append(killedClientNicks, mcl.nick)
 				}

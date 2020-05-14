@@ -7,14 +7,12 @@ package irc
 import (
 	"regexp"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/goshuirc/irc-go/ircmatch"
 
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/modes"
-
-	"sync"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // ClientManager keeps track of clients by nick, enforcing uniqueness of casefolded nicks
@@ -301,12 +299,16 @@ func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	if err != nil {
 		return set
 	}
-	matcher := ircmatch.MakeMatch(userhost)
+	matcher, err := utils.CompileGlob(userhost, false)
+	if err != nil {
+		// not much we can do here
+		return
+	}
 
 	clients.RLock()
 	defer clients.RUnlock()
 	for _, client := range clients.byNick {
-		if matcher.Match(client.NickMaskCasefolded()) {
+		if matcher.MatchString(client.NickMaskCasefolded()) {
 			set.Add(client)
 		}
 	}
@@ -330,8 +332,9 @@ type MaskInfo struct {
 // UserMaskSet holds a set of client masks and lets you match  hostnames to them.
 type UserMaskSet struct {
 	sync.RWMutex
-	masks  map[string]MaskInfo
-	regexp *regexp.Regexp
+	serialCacheUpdateMutex sync.Mutex
+	masks                  map[string]MaskInfo
+	regexp                 *regexp.Regexp
 }
 
 func NewUserMaskSet() *UserMaskSet {
@@ -344,6 +347,9 @@ func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (maskA
 	if err != nil {
 		return
 	}
+
+	set.serialCacheUpdateMutex.Lock()
+	defer set.serialCacheUpdateMutex.Unlock()
 
 	set.Lock()
 	if set.masks == nil {
@@ -372,6 +378,9 @@ func (set *UserMaskSet) Remove(mask string) (maskRemoved string, err error) {
 	if err != nil {
 		return
 	}
+
+	set.serialCacheUpdateMutex.Lock()
+	defer set.serialCacheUpdateMutex.Unlock()
 
 	set.Lock()
 	_, removed := set.masks[mask]
@@ -423,38 +432,15 @@ func (set *UserMaskSet) Length() int {
 	return len(set.masks)
 }
 
-// setRegexp generates a regular expression from the set of user mask
-// strings. Masks are split at the two types of wildcards, `*` and
-// `?`. All the pieces are meta-escaped. `*` is replaced with `.*`,
-// the regexp equivalent. Likewise, `?` is replaced with `.`. The
-// parts are re-joined and finally all masks are joined into a big
-// or-expression.
 func (set *UserMaskSet) setRegexp() {
-	var re *regexp.Regexp
-
 	set.RLock()
 	maskExprs := make([]string, len(set.masks))
-	index := 0
 	for mask := range set.masks {
-		manyParts := strings.Split(mask, "*")
-		manyExprs := make([]string, len(manyParts))
-		for mindex, manyPart := range manyParts {
-			oneParts := strings.Split(manyPart, "?")
-			oneExprs := make([]string, len(oneParts))
-			for oindex, onePart := range oneParts {
-				oneExprs[oindex] = regexp.QuoteMeta(onePart)
-			}
-			manyExprs[mindex] = strings.Join(oneExprs, ".")
-		}
-		maskExprs[index] = strings.Join(manyExprs, ".*")
-		index++
+		maskExprs = append(maskExprs, mask)
 	}
 	set.RUnlock()
 
-	if index > 0 {
-		expr := "^(" + strings.Join(maskExprs, "|") + ")$"
-		re, _ = regexp.Compile(expr)
-	}
+	re, _ := utils.CompileMasks(maskExprs)
 
 	set.Lock()
 	set.regexp = re

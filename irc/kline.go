@@ -6,12 +6,14 @@ package irc
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircmatch"
 	"github.com/tidwall/buntdb"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -23,7 +25,7 @@ type KLineInfo struct {
 	// Mask that is blocked.
 	Mask string
 	// Matcher, to facilitate fast matching.
-	Matcher ircmatch.Matcher
+	Matcher *regexp.Regexp
 	// Info contains information on the ban.
 	Info IPBanInfo
 }
@@ -80,9 +82,14 @@ func (km *KLineManager) AddMask(mask string, duration time.Duration, reason, ope
 }
 
 func (km *KLineManager) addMaskInternal(mask string, info IPBanInfo) {
+	re, err := utils.CompileGlob(mask, false)
+	// this is validated externally and shouldn't fail regardless
+	if err != nil {
+		return
+	}
 	kln := KLineInfo{
 		Mask:    mask,
-		Matcher: ircmatch.MakeMatch(mask),
+		Matcher: re,
 		Info:    info,
 	}
 
@@ -189,7 +196,7 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info IPBanIn
 
 	for _, entryInfo := range km.entries {
 		for _, mask := range masks {
-			if entryInfo.Matcher.Match(mask) {
+			if entryInfo.Matcher.MatchString(mask) {
 				return true, entryInfo.Info
 			}
 		}
