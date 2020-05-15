@@ -113,19 +113,19 @@ func histservDeleteHandler(server *Server, client *Client, command string, param
 	if !hasPrivs {
 		accountName = client.AccountName()
 		if !(server.Config().History.Retention.AllowIndividualDelete && accountName != "*") {
-			hsNotice(rb, client.t("Insufficient privileges"))
+			histNotice(rb, client.t("Insufficient privileges"))
 			return
 		}
 	}
 
 	err := server.DeleteMessage(target, msgid, accountName)
 	if err == nil {
-		hsNotice(rb, client.t("Successfully deleted message"))
+		histNotice(rb, client.t("Successfully deleted message"))
 	} else {
 		if hasPrivs {
-			hsNotice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
+			histNotice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
 		} else {
-			hsNotice(rb, client.t("Could not delete message"))
+			histNotice(rb, client.t("Could not delete message"))
 		}
 	}
 }
@@ -143,9 +143,9 @@ func histservExportHandler(server *Server, client *Client, command string, param
 	pathname := config.getOutputPath(filename)
 	outfile, err := os.Create(pathname)
 	if err != nil {
-		hsNotice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
+		histNotice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
 	} else {
-		hsNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %[1]s to file %[2]s"), cfAccount, filename))
+		histNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %[1]s to file %[2]s"), cfAccount, filename))
 	}
 
 	go histservExportAndNotify(server, cfAccount, outfile, filename, client.Nick())
@@ -174,12 +174,12 @@ func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File,
 func histservPlayHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	items, _, err := easySelectHistory(server, client, params)
 	if err != nil {
-		hsNotice(rb, client.t("Could not retrieve history"))
+		histNotice(rb, client.t("Could not retrieve history"))
 		return
 	}
 
 	playMessage := func(timestamp time.Time, nick, message string) {
-		hsNotice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), stripMaskFromNick(nick), message))
+		histNotice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), stripMaskFromNick(nick), message))
 	}
 
 	for _, item := range items {
@@ -196,7 +196,7 @@ func histservPlayHandler(server *Server, client *Client, command string, params 
 		}
 	}
 
-	hsNotice(rb, client.t("End of history playback"))
+	histNotice(rb, client.t("End of history playback"))
 }
 
 // handles parameter parsing and history queries for /HISTORY and /HISTSERV PLAY
