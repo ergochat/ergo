@@ -67,14 +67,14 @@ func (sm *SplitMessage) LenLines() int {
 	return len(sm.Split)
 }
 
-func (sm *SplitMessage) LenBytes() (result int) {
-	if sm.Split == nil {
-		return len(sm.Message)
-	}
+func (sm *SplitMessage) ValidMultiline() bool {
+	// must contain at least one nonblank line
 	for i := 0; i < len(sm.Split); i++ {
-		result += len(sm.Split[i].Message)
+		if len(sm.Split[i].Message) != 0 {
+			return true
+		}
 	}
-	return
+	return false
 }
 
 func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {

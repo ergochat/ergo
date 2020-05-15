@@ -146,6 +146,7 @@ type MultilineBatch struct {
 	target        string
 	responseLabel string // this is the value of the labeled-response tag sent with BATCH
 	message       utils.SplitMessage
+	lenBytes      int
 	tags          map[string]string
 }
 
@@ -168,14 +169,14 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 	s.fakelag.Unsuspend()
 
 	// heuristics to estimate how much data they used while fakelag was suspended
-	fakelagBill := (batch.message.LenBytes() / 512) + 1
+	fakelagBill := (batch.lenBytes / 512) + 1
 	fakelagBillLines := (batch.message.LenLines() * 60) / 512
 	if fakelagBill < fakelagBillLines {
 		fakelagBill = fakelagBillLines
 	}
 	s.deferredFakelagCount = fakelagBill
 
-	if batch.label == "" || batch.label != label || batch.message.LenLines() == 0 {
+	if batch.label == "" || batch.label != label || !batch.message.ValidMultiline() {
 		err = errInvalidMultilineBatch
 		return
 	}
@@ -1357,9 +1358,14 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, 
 				session.SendRawMessage(msg, blocking)
 			}
 		} else {
-			for i, messagePair := range message.Split {
+			msgidSent := false // send msgid on the first nonblank line
+			for _, messagePair := range message.Split {
+				if len(messagePair.Message) == 0 {
+					continue
+				}
 				var msgid string
-				if i == 0 {
+				if !msgidSent {
+					msgidSent = true
 					msgid = message.Msgid
 				}
 				session.sendFromClientInternal(blocking, message.Time, msgid, nickmask, accountName, tags, command, target, messagePair.Message)
