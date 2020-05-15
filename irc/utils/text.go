@@ -67,20 +67,6 @@ func (sm *SplitMessage) LenLines() int {
 	return len(sm.Split)
 }
 
-func (sm *SplitMessage) LenBytes() (result int) {
-	if sm.Split == nil {
-		return len(sm.Message)
-	}
-	for i := 0; i < len(sm.Split); i++ {
-		result += len(sm.Split[i].Message)
-		// bill for the joining newline if necessary
-		if i != 0 && !sm.Split[i].Concat {
-			result += 1
-		}
-	}
-	return
-}
-
 func (sm *SplitMessage) ValidMultiline() bool {
 	// must contain at least one nonblank line
 	for i := 0; i < len(sm.Split); i++ {

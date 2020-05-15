@@ -1816,9 +1816,13 @@ func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IrcMessage,
 		errorCode, errorMessage = "MULTILINE_INVALID", client.t("Cannot send a blank line with the multiline concat tag")
 		return
 	}
+	if !isConcat && len(rb.session.batch.message.Split) != 0 {
+		rb.session.batch.lenBytes++ // bill for the newline
+	}
 	rb.session.batch.message.Append(msg.Params[1], isConcat)
+	rb.session.batch.lenBytes += len(msg.Params[1])
 	config := server.Config()
-	if config.Limits.Multiline.MaxBytes < rb.session.batch.message.LenBytes() {
+	if config.Limits.Multiline.MaxBytes < rb.session.batch.lenBytes {
 		errorCode, errorMessage = "MULTILINE_MAX_BYTES", strconv.Itoa(config.Limits.Multiline.MaxBytes)
 	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.batch.message.LenLines() {
 		errorCode, errorMessage = "MULTILINE_MAX_LINES", strconv.Itoa(config.Limits.Multiline.MaxLines)
