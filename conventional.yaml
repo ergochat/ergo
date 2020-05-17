@@ -157,7 +157,7 @@ server:
             # addresses/CIDRs that can use this webirc command
             # you should also add these addresses to the connection limits and throttling exemption lists
             hosts:
-                # - localhost
+                - localhost
                 # - "192.168.1.1"
                 # - "192.168.10.1/24"
 
