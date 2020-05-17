@@ -90,6 +90,8 @@ func (m *MySQL) Open() (err error) {
 	var address string
 	if m.config.Port != 0 {
 		address = fmt.Sprintf("tcp(%s:%d)", m.config.Host, m.config.Port)
+	} else {
+		address = fmt.Sprintf("unix(%s)", m.config.Host)
 	}
 
 	m.db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@%s/%s", m.config.User, m.config.Password, address, m.config.HistoryDatabase))
