@@ -134,6 +134,15 @@ func ParseDefaultUserModes(rawModes *string) modes.ModeChanges {
 	return modeChanges
 }
 
+// #1021: channel key must be valid as a non-final parameter
+func validateChannelKey(key string) bool {
+	// empty string is valid in this context because it unsets the mode
+	if len(key) == 0 {
+		return true
+	}
+	return key[0] != ':' && strings.IndexByte(key, ' ') == -1
+}
+
 // ApplyChannelModeChanges applies a given set of mode changes.
 func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, changes modes.ModeChanges, rb *ResponseBuffer) (applied modes.ModeChanges) {
 	// so we only output one warning for each list type when full
@@ -244,8 +253,12 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		case modes.Key:
 			switch change.Op {
 			case modes.Add:
-				channel.setKey(change.Arg)
-				applied = append(applied, change)
+				if validateChannelKey(change.Arg) {
+					channel.setKey(change.Arg)
+					applied = append(applied, change)
+				} else {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, "*", fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), change.Arg))
+				}
 			case modes.Remove:
 				channel.setKey("")
 				applied = append(applied, change)
