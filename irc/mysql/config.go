@@ -12,6 +12,7 @@ type Config struct {
 	Enabled         bool
 	Host            string
 	Port            int
+	SocketPath      string `yaml:"socket-path"`
 	User            string
 	Password        string
 	HistoryDatabase string `yaml:"history-database"`
