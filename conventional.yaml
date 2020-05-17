@@ -665,6 +665,8 @@ datastore:
         host: "localhost"
         # port is unnecessary for connections via unix domain socket:
         #port: 3306
+        # if socket-path is set, it will be used instead of host:port
+        #socket-path: "/var/run/mysqld/mysqld.sock"
         user: "oragono"
         password: "hunter2"
         history-database: "oragono_history"

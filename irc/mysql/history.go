@@ -88,7 +88,9 @@ func (mysql *MySQL) getExpireTime() (expireTime time.Duration) {
 
 func (m *MySQL) Open() (err error) {
 	var address string
-	if m.config.Port != 0 {
+	if m.config.SocketPath != "" {
+		address = fmt.Sprintf("unix(%s)", m.config.SocketPath)
+	} else if m.config.Port != 0 {
 		address = fmt.Sprintf("tcp(%s:%d)", m.config.Host, m.config.Port)
 	}
 
