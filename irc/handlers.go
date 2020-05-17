@@ -102,7 +102,12 @@ func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSAS
 
 	// dispatch account-notify
 	for friend := range client.Friends(caps.AccountNotify) {
-		friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
+		if friend != rb.session {
+			friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
+		}
+	}
+	if rb.session.capabilities.Has(caps.AccountNotify) {
+		rb.Add(nil, details.nickMask, "ACCOUNT", details.accountName)
 	}
 
 	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
