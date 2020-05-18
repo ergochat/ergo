@@ -84,15 +84,6 @@ type Server struct {
 	semaphores        ServerSemaphores
 }
 
-var (
-	// ServerExitSignals are the signals the server will exit on.
-	ServerExitSignals = []os.Signal{
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	}
-)
-
 // NewServer returns a new Oragono server.
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
