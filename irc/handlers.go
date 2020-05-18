@@ -2159,6 +2159,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
+	// only give them one try to run the PASS command (all code paths end with this
+	// variable being set):
 	if rb.session.passStatus != serverPassUnsent {
 		return false
 	}
@@ -2184,6 +2186,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			}
 		}
 	}
+	// if login-via-PASS failed for any reason, proceed to try and interpret the
+	// provided password as the server password
 
 	serverPassword := config.Server.passwordBytes
 
@@ -2200,6 +2204,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 
 	// if they failed the check, we'll bounce them later when they try to complete registration
+	// note in particular that with skip-server-password, you can give the wrong server
+	// password here, then successfully SASL and be admitted
 	return false
 }
 
