@@ -564,7 +564,12 @@ func (channel *Channel) hasClient(client *Client) bool {
 
 // <mode> <mode params>
 func (channel *Channel) modeStrings(client *Client) (result []string) {
-	isMember := client.HasMode(modes.Operator) || channel.hasClient(client)
+	hasPrivs := client.HasMode(modes.Operator)
+
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	isMember := hasPrivs || channel.members[client] != nil
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 
@@ -579,9 +584,6 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 	}
 
 	mods += channel.flags.String()
-
-	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
 
 	result = []string{mods}
 
