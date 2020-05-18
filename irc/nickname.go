@@ -17,8 +17,7 @@ import (
 
 var (
 	restrictedNicknames = []string{
-		"=scene=",  // used for rp commands
-		"HistServ", // used to play back JOIN, PART, etc. to legacy clients
+		"=scene=", // used for rp commands
 	}
 
 	restrictedCasefoldedNicks = make(map[string]bool)
