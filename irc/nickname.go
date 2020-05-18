@@ -17,7 +17,7 @@ import (
 
 var (
 	restrictedNicknames = []string{
-		"=scene=",  // used for rp commands
+		"=scene=", // used for rp commands
 	}
 
 	restrictedCasefoldedNicks = make(map[string]bool)
