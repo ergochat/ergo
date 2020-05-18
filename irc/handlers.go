@@ -2238,14 +2238,18 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.logger.Info("server", fmt.Sprintf("REHASH command used by %s", client.nick))
+	nick := client.Nick()
+	server.logger.Info("server", "REHASH command used by", nick)
 	err := server.rehash()
 
 	if err == nil {
-		rb.Add(nil, server.name, RPL_REHASHING, client.nick, "ircd.yaml", client.t("Rehashing"))
+		// we used to send RPL_REHASHING here but i don't think it really makes sense
+		// in the labeled-response world, since the intent is "rehash in progress" but
+		// it won't display until the rehash is actually complete
+		// TODO all operators should get a notice of some kind here
+		rb.Notice(client.t("Rehash complete"))
 	} else {
-		server.logger.Error("server", fmt.Sprintln("Failed to rehash:", err.Error()))
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "REHASH", err.Error())
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, nick, "REHASH", err.Error())
 	}
 	return false
 }
