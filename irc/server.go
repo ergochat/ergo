@@ -141,10 +141,7 @@ func (server *Server) Run() {
 		case <-server.rehashSignal:
 			go func() {
 				server.logger.Info("server", "Rehashing due to SIGHUP")
-				err := server.rehash()
-				if err != nil {
-					server.logger.Error("server", fmt.Sprintln("Failed to rehash:", err.Error()))
-				}
+				server.rehash()
 			}()
 		}
 	}
@@ -451,7 +448,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
-	server.logger.Debug("server", "Starting rehash")
+	server.logger.Info("server", "Attempting rehash")
 
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
@@ -461,14 +458,17 @@ func (server *Server) rehash() error {
 
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
-		return fmt.Errorf("Error loading config file config: %s", err.Error())
+		server.logger.Error("server", "failed to load config file", err.Error())
+		return err
 	}
 
 	err = server.applyConfig(config)
 	if err != nil {
-		return fmt.Errorf("Error applying config changes: %s", err.Error())
+		server.logger.Error("server", "Failed to rehash", err.Error())
+		return err
 	}
 
+	server.logger.Info("server", "Rehash completed successfully")
 	return nil
 }
 
