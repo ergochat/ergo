@@ -47,6 +47,8 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", client.t("You must use your account name as your nickname"))
 	} else if err == errNickMissing {
 		rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, currentNick, client.t("No nickname given"))
+	} else if err == errNoop {
+		// no message
 	} else if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
 	}
