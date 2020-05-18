@@ -448,7 +448,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
-	server.logger.Info("server", "Starting rehash")
+	server.logger.Info("server", "Attempting rehash")
 
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
