@@ -2159,18 +2159,53 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
+	// only give them one try to run the PASS command (all code paths end with this
+	// variable being set):
+	if rb.session.passStatus != serverPassUnsent {
+		return false
+	}
+
+	password := msg.Params[0]
+	config := server.Config()
+
+	if config.Accounts.LoginViaPassCommand {
+		colonIndex := strings.IndexByte(password, ':')
+		if colonIndex != -1 && client.Account() == "" {
+			// TODO consolidate all login throttle checks into AccountManager
+			throttled, _ := client.loginThrottle.Touch()
+			if !throttled {
+				account, accountPass := password[:colonIndex], password[colonIndex+1:]
+				err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
+				if err == nil {
+					sendSuccessfulAccountAuth(client, rb, false, true)
+					// login-via-pass-command entails that we do not need to check
+					// an actual server password (either no password or skip-server-password)
+					rb.session.passStatus = serverPassSuccessful
+					return false
+				}
+			}
+		}
+	}
+	// if login-via-PASS failed for any reason, proceed to try and interpret the
+	// provided password as the server password
+
+	serverPassword := config.Server.passwordBytes
 
 	// if no password exists, skip checking
-	serverPassword := server.Config().Server.passwordBytes
 	if serverPassword == nil {
 		return false
 	}
 
 	// check the provided password
-	password := []byte(msg.Params[0])
-	rb.session.sentPassCommand = bcrypt.CompareHashAndPassword(serverPassword, password) == nil
+	if bcrypt.CompareHashAndPassword(serverPassword, []byte(password)) == nil {
+		rb.session.passStatus = serverPassSuccessful
+	} else {
+		rb.session.passStatus = serverPassFailed
+	}
 
 	// if they failed the check, we'll bounce them later when they try to complete registration
+	// note in particular that with skip-server-password, you can give the wrong server
+	// password here, then successfully SASL and be admitted
 	return false
 }
 

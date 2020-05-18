@@ -97,6 +97,15 @@ func (s *saslStatus) Clear() {
 	*s = saslStatus{}
 }
 
+// what stage the client is at w.r.t. the PASS command:
+type serverPassStatus uint
+
+const (
+	serverPassUnsent serverPassStatus = iota
+	serverPassSuccessful
+	serverPassFailed
+)
+
 // Session is an individual client connection to the server (TCP connection
 // and associated per-connection data, such as capabilities). There is a
 // many-one relationship between sessions and clients.
@@ -117,9 +126,9 @@ type Session struct {
 	deferredFakelagCount int
 	destroyed            uint32
 
-	certfp          string
-	sasl            saslStatus
-	sentPassCommand bool
+	certfp     string
+	sasl       saslStatus
+	passStatus serverPassStatus
 
 	batchCounter uint32
 
@@ -510,7 +519,7 @@ const (
 func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
-	if (config.Server.passwordBytes != nil) && !session.sentPassCommand && !(config.Accounts.SkipServerPassword && saslSent) {
+	if (config.Server.passwordBytes != nil) && session.passStatus != serverPassSuccessful && !(config.Accounts.SkipServerPassword && saslSent) {
 		return authFailPass
 	}
 	// Tor connections may be required to authenticate with SASL

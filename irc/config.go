@@ -254,12 +254,13 @@ type AccountConfig struct {
 		Exempted     []string
 		exemptedNets []net.IPNet
 	} `yaml:"require-sasl"`
-	DefaultUserModes   *string `yaml:"default-user-modes"`
-	defaultUserModes   modes.ModeChanges
-	LDAP               ldap.ServerConfig
-	LoginThrottling    ThrottleConfig `yaml:"login-throttling"`
-	SkipServerPassword bool           `yaml:"skip-server-password"`
-	NickReservation    struct {
+	DefaultUserModes    *string `yaml:"default-user-modes"`
+	defaultUserModes    modes.ModeChanges
+	LDAP                ldap.ServerConfig
+	LoginThrottling     ThrottleConfig `yaml:"login-throttling"`
+	SkipServerPassword  bool           `yaml:"skip-server-password"`
+	LoginViaPassCommand bool           `yaml:"login-via-pass-command"`
+	NickReservation     struct {
 		Enabled                bool
 		AdditionalNickLimit    int `yaml:"additional-nick-limit"`
 		Method                 NickEnforcementMethod
@@ -1077,6 +1078,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.passwordBytes, err = decodeLegacyPasswordHash(config.Server.Password)
 		if err != nil {
 			return nil, err
+		}
+		if config.Accounts.LoginViaPassCommand && !config.Accounts.SkipServerPassword {
+			return nil, errors.New("Using a server password and login-via-pass-command requires skip-server-password as well")
 		}
 	}
 

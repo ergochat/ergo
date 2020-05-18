@@ -330,6 +330,10 @@ accounts:
     # PASS as well, so it can be configured to authenticate with SASL only.
     skip-server-password: false
 
+    # enable login to accounts via the PASS command, e.g., PASS account:password
+    # this is sometimes useful for compatibility with old clients that don't support SASL
+    login-via-pass-command: false
+
     # require-sasl controls whether clients are required to have accounts
     # (and sign into them using SASL) to connect to the server
     require-sasl:
