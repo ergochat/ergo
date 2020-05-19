@@ -265,20 +265,20 @@ type ClientDetails struct {
 
 // RunClient sets up a new client and runs its goroutine.
 func (server *Server) RunClient(conn IRCConn) {
-	proxiedConn := conn.UnderlyingConn()
+	wConn := conn.UnderlyingConn()
 	var isBanned bool
 	var banMsg string
-	realIP := utils.AddrToIP(proxiedConn.RemoteAddr())
+	realIP := utils.AddrToIP(wConn.RemoteAddr())
 	var proxiedIP net.IP
-	if proxiedConn.Config.Tor {
+	if wConn.Config.Tor {
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
 		proxiedIP = utils.IPv4LoopbackAddress
 		isBanned, banMsg = server.checkTorLimits()
 	} else {
 		ipToCheck := realIP
-		if proxiedConn.ProxiedIP != nil {
-			proxiedIP = proxiedConn.ProxiedIP
+		if wConn.ProxiedIP != nil {
+			proxiedIP = wConn.ProxiedIP
 			ipToCheck = proxiedIP
 		}
 		isBanned, banMsg = server.checkBans(ipToCheck)
@@ -303,7 +303,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
-		isSTSOnly:  proxiedConn.Config.STSOnly,
+		isSTSOnly:  wConn.Config.STSOnly,
 		languages:  server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -329,7 +329,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		lastActive: now,
 		realIP:     realIP,
 		proxiedIP:  proxiedIP,
-		isTor:      proxiedConn.Config.Tor,
+		isTor:      wConn.Config.Tor,
 	}
 	client.sessions = []*Session{session}
 
@@ -337,13 +337,13 @@ func (server *Server) RunClient(conn IRCConn) {
 	session.resetFakelag()
 
 	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
-	if proxiedConn.Secure {
+	if wConn.Secure {
 		client.SetMode(modes.TLS, true)
 	}
 
-	if proxiedConn.Config.TLSConfig != nil {
+	if wConn.Config.TLSConfig != nil {
 		// error is not useful to us here anyways so we can ignore it
-		session.certfp, _ = utils.GetCertFP(proxiedConn.Conn, RegisterTimeout)
+		session.certfp, _ = utils.GetCertFP(wConn.Conn, RegisterTimeout)
 	}
 
 	if session.isTor {
@@ -351,7 +351,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		client.rawHostname = session.rawHostname
 	} else {
 		if config.Server.CheckIdent {
-			client.doIdentLookup(proxiedConn.Conn)
+			client.doIdentLookup(wConn.Conn)
 		}
 	}
 
