@@ -318,7 +318,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		proxiedIP:      proxiedIP,
 	}
 	client.writerSemaphore.Initialize(1)
-	client.history.Initialize(config.History.ClientLength, config.History.AutoresizeWindow)
+	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
 	client.brbTimer.Initialize(client)
 	session := &Session{
 		client:     client,
@@ -414,7 +414,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 func (client *Client) resizeHistory(config *Config) {
 	status, _ := client.historyStatus(config)
 	if status == HistoryEphemeral {
-		client.history.Resize(config.History.ClientLength, config.History.AutoresizeWindow)
+		client.history.Resize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
 	} else {
 		client.history.Resize(0, 0)
 	}
