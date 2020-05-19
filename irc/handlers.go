@@ -316,6 +316,11 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
 
+	dispatchAwayNotify(client, isAway, awayMessage)
+	return false
+}
+
+func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
 	// dispatch away-notify
 	details := client.Details()
 	for session := range client.Friends(caps.AwayNotify) {
@@ -325,8 +330,6 @@ func awayHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY")
 		}
 	}
-
-	return false
 }
 
 // BATCH {+,-}reference-tag type [params...]

@@ -1884,6 +1884,7 @@ type AccountSettings struct {
 	AlwaysOn         PersistentStatus
 	AutoreplayMissed bool
 	DMHistory        HistoryStatus
+	AutoAway         PersistentStatus
 }
 
 // ClientAccount represents a user account.

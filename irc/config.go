@@ -221,6 +221,7 @@ type MulticlientConfig struct {
 	Enabled          bool
 	AllowedByDefault bool             `yaml:"allowed-by-default"`
 	AlwaysOn         PersistentStatus `yaml:"always-on"`
+	AutoAway         PersistentStatus `yaml:"auto-away"`
 }
 
 type throttleConfig struct {

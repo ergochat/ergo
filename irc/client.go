@@ -48,6 +48,7 @@ type Client struct {
 	accountRegDate     time.Time
 	accountSettings    AccountSettings
 	away               bool
+	autoAway           bool
 	awayMessage        string
 	brbTimer           BrbTimer
 	channels           ChannelSet
@@ -393,7 +394,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 	client.resizeHistory(config)
 
-	_, err := server.clients.SetNick(client, nil, account.Name)
+	_, err, _ := server.clients.SetNick(client, nil, account.Name)
 	if err != nil {
 		server.logger.Error("internal", "could not establish always-on client", account.Name, err.Error())
 		return
@@ -408,6 +409,12 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		// XXX we're using isSajoin=true, to make these joins succeed even without channel key
 		// this is *probably* ok as long as the persisted memberships are accurate
 		server.channels.Join(client, chname, "", true, nil)
+	}
+
+	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+		client.autoAway = true
+		client.away = true
+		client.awayMessage = client.t("User is currently disconnected")
 	}
 }
 
@@ -1187,6 +1194,7 @@ func (client *Client) Quit(message string, session *Session) {
 // otherwise, destroys one specific session, only destroying the client if it
 // has no more sessions.
 func (client *Client) destroy(session *Session) {
+	config := client.server.Config()
 	var sessionsToDestroy []*Session
 
 	client.stateMutex.Lock()
@@ -1225,6 +1233,17 @@ func (client *Client) destroy(session *Session) {
 		client.dirtyBits |= IncludeLastSeen
 	}
 	exitedSnomaskSent := client.exitedSnomaskSent
+
+	autoAway := false
+	var awayMessage string
+	if alwaysOn && remainingSessions == 0 && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+		autoAway = true
+		client.autoAway = true
+		client.away = true
+		awayMessage = config.languageManager.Translate(client.languages, `Disconnected from the server`)
+		client.awayMessage = awayMessage
+	}
+
 	client.stateMutex.Unlock()
 
 	// XXX there is no particular reason to persist this state here rather than
@@ -1270,6 +1289,10 @@ func (client *Client) destroy(session *Session) {
 		invisible := client.HasMode(modes.Invisible)
 		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
 		client.server.stats.Remove(registered, invisible, operator)
+	}
+
+	if autoAway {
+		dispatchAwayNotify(client, true, awayMessage)
 	}
 
 	if !shouldDestroy {

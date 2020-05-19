@@ -103,7 +103,7 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 		return errNickMissing
 	}
 
-	success, _, _ := oldClient.AddSession(session)
+	success, _, _, _ := oldClient.AddSession(session)
 	if !success {
 		return errNickMissing
 	}
@@ -112,7 +112,7 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 }
 
 // SetNick sets a client's nickname, validating it against nicknames in use
-func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error) {
+func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error, returnedFromAway bool) {
 	config := client.server.Config()
 
 	var newCfNick, newSkeleton string
@@ -134,24 +134,24 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 	if useAccountName {
 		if registered && newNick != accountName && newNick != "" {
-			return "", errNickAccountMismatch
+			return "", errNickAccountMismatch, false
 		}
 		newNick = accountName
 		newCfNick = account
 		newSkeleton, err = Skeleton(newNick)
 		if err != nil {
-			return "", errNicknameInvalid
+			return "", errNicknameInvalid, false
 		}
 	} else {
 		newNick = strings.TrimSpace(newNick)
 		if len(newNick) == 0 {
-			return "", errNickMissing
+			return "", errNickMissing, false
 		}
 
 		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
 			newCfNick, err = CasefoldName(newNick)
 			if err != nil {
-				return "", errNicknameInvalid
+				return "", errNicknameInvalid, false
 			}
 			if !config.Accounts.NickReservation.guestRegexpFolded.MatchString(newCfNick) {
 				newNick = strings.Replace(config.Accounts.NickReservation.GuestFormat, "*", newNick, 1)
@@ -163,23 +163,23 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			newCfNick, err = CasefoldName(newNick)
 		}
 		if err != nil {
-			return "", errNicknameInvalid
+			return "", errNicknameInvalid, false
 		}
 		if len(newNick) > config.Limits.NickLen || len(newCfNick) > config.Limits.NickLen {
-			return "", errNicknameInvalid
+			return "", errNicknameInvalid, false
 		}
 		newSkeleton, err = Skeleton(newNick)
 		if err != nil {
-			return "", errNicknameInvalid
+			return "", errNicknameInvalid, false
 		}
 
 		if restrictedCasefoldedNicks[newCfNick] || restrictedSkeletons[newSkeleton] {
-			return "", errNicknameInvalid
+			return "", errNicknameInvalid, false
 		}
 
 		reservedAccount, method := client.server.accounts.EnforcementStatus(newCfNick, newSkeleton)
 		if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
-			return "", errNicknameReserved
+			return "", errNicknameReserved, false
 		}
 	}
 
@@ -204,20 +204,20 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	if currentClient != nil && currentClient != client && session != nil {
 		// these conditions forbid reattaching to an existing session:
 		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() {
-			return "", errNicknameInUse
+			return "", errNicknameInUse, false
 		}
 		// check TLS modes
 		if client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
 			if useAccountName {
 				// #955: this is fatal because they can't fix it by trying a different nick
-				return "", errInsecureReattach
+				return "", errInsecureReattach, false
 			} else {
-				return "", errNicknameInUse
+				return "", errNicknameInUse, false
 			}
 		}
-		reattachSuccessful, numSessions, lastSeen := currentClient.AddSession(session)
+		reattachSuccessful, numSessions, lastSeen, back := currentClient.AddSession(session)
 		if !reattachSuccessful {
-			return "", errNicknameInUse
+			return "", errNicknameInUse, false
 		}
 		if numSessions == 1 {
 			invisible := currentClient.HasMode(modes.Invisible)
@@ -232,24 +232,24 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		// for performance reasons
 		currentClient.SetNames("user", realname, true)
 		// successful reattach!
-		return newNick, nil
+		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {
 		// see #1019: normally no-op nick changes are caught earlier, by performNickChange,
 		// but they are not detected there when force-guest-format is enabled (because
 		// the proposed nickname is e.g. alice and the current nickname is Guest-alice)
-		return "", errNoop
+		return "", errNoop, false
 	}
 	// analogous checks for skeletons
 	skeletonHolder := clients.bySkeleton[newSkeleton]
 	if skeletonHolder != nil && skeletonHolder != client {
-		return "", errNicknameInUse
+		return "", errNicknameInUse, false
 	}
 
 	clients.removeInternal(client)
 	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
 	client.updateNick(newNick, newCfNick, newSkeleton)
-	return newNick, nil
+	return newNick, nil, false
 }
 
 func (clients *ClientManager) AllClients() (result []*Client) {

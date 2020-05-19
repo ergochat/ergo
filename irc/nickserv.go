@@ -289,6 +289,10 @@ how the history of your direct messages is stored. Your options are:
 2. 'ephemeral'  [a limited amount of temporary history, not stored on disk]
 3. 'on'         [history stored in a permanent database, if available]
 4. 'default'    [use the server default]`,
+				`$bAUTO-AWAY$b
+'auto-away' is only effective for always-on clients. If enabled, you will
+automatically be marked away when all your sessions are disconnected, and
+automatically return from away when you connect again.`,
 			},
 			authRequired: true,
 			enabled:      servCmdRequiresAuthEnabled,
@@ -412,6 +416,18 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		} else {
 			nsNotice(rb, client.t("Your account is not configured to receive autoreplayed missed messages"))
 		}
+	case "auto-away":
+		stored := settings.AutoAway
+		alwaysOn := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
+		actual := persistenceEnabled(config.Accounts.Multiclient.AutoAway, settings.AutoAway)
+		nsNotice(rb, fmt.Sprintf(client.t("Your stored auto-away setting is: %s"), persistentStatusToString(stored)))
+		if actual && alwaysOn {
+			nsNotice(rb, client.t("Given current server settings, auto-away is enabled for your client"))
+		} else if actual && !alwaysOn {
+			nsNotice(rb, client.t("Because your client is not always-on, auto-away is disabled"))
+		} else if !actual {
+			nsNotice(rb, client.t("Given current server settings, auto-away is disabled for your client"))
+		}
 	case "dm-history":
 		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
 		csNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
@@ -527,6 +543,17 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 			munger = func(in AccountSettings) (out AccountSettings, err error) {
 				out = in
 				out.AutoreplayMissed = newValue
+				return
+			}
+		}
+	case "auto-away":
+		var newValue PersistentStatus
+		newValue, err = persistentStatusFromString(params[1])
+		// "opt-in" and "opt-out" don't make sense as user preferences
+		if err == nil && newValue != PersistentOptIn && newValue != PersistentOptOut {
+			munger = func(in AccountSettings) (out AccountSettings, err error) {
+				out = in
+				out.AutoAway = newValue
 				return
 			}
 		}

@@ -33,7 +33,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
 
-	assignedNickname, err := client.server.clients.SetNick(target, session, nickname)
+	assignedNickname, err, back := client.server.clients.SetNick(target, session, nickname)
 	if err == errNicknameInUse {
 		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
 	} else if err == errNicknameReserved {
@@ -78,6 +78,10 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", assignedNickname)
 			}
 		}
+	}
+
+	if back {
+		dispatchAwayNotify(session.client, false, "")
 	}
 
 	for _, channel := range client.Channels() {
