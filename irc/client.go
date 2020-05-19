@@ -360,7 +360,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time, uModes modes.Modes) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen.IsZero() {
@@ -383,9 +383,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		alwaysOn: true,
 	}
 
-	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
-
 	client.SetMode(modes.TLS, true)
+	for _, m := range uModes {
+		client.SetMode(m, true)
+	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(0, 0)
 	client.brbTimer.Initialize(client)
@@ -1633,6 +1634,7 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 const (
 	IncludeChannels uint = 1 << iota
 	IncludeLastSeen
+	IncludeUserModes
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1690,5 +1692,19 @@ func (client *Client) performWrite() {
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
 		client.server.accounts.saveLastSeen(account, lastSeen)
+	}
+	if (dirtyBits & IncludeUserModes) != 0 {
+		uModes := make(modes.Modes, 0, len(modes.SupportedUserModes))
+		for _, m := range modes.SupportedUserModes {
+			switch m {
+			case modes.Operator, modes.ServerNotice:
+				// these can't be persisted because they depend on the operator block
+			default:
+				if client.HasMode(m) {
+					uModes = append(uModes, m)
+				}
+			}
+		}
+		client.server.accounts.saveModes(account, uModes)
 	}
 }
