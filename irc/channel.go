@@ -111,7 +111,7 @@ func (channel *Channel) IsLoaded() bool {
 func (channel *Channel) resizeHistory(config *Config) {
 	status, _ := channel.historyStatus(config)
 	if status == HistoryEphemeral {
-		channel.history.Resize(config.History.ChannelLength, config.History.AutoresizeWindow)
+		channel.history.Resize(config.History.ChannelLength, time.Duration(config.History.AutoresizeWindow))
 	} else {
 		channel.history.Resize(0, 0)
 	}

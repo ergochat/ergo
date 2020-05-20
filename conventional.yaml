@@ -766,13 +766,13 @@ roleplay:
 history:
     # should we store messages for later playback?
     # by default, messages are stored in RAM only; they do not persist
-    # across server restarts. however, you should not enable this unless you understand
-    # how it interacts with the GDPR and/or any data privacy laws that apply
+    # across server restarts. however, you may want to understand how message
+    # history interacts with the GDPR and/or any data privacy laws that apply
     # in your country and the countries of your users.
-    enabled: false
+    enabled: true
 
     # how many channel-specific events (messages, joins, parts) should be tracked per channel?
-    channel-length: 1024
+    channel-length: 2048
 
     # how many direct messages and notices should be tracked per user?
     client-length: 256
@@ -783,7 +783,7 @@ history:
     # are dynamically expanded up to the maximum length. if the buffer is full
     # and the oldest message is older than `autoresize-window`, then it will overwrite
     # the oldest message rather than resize; otherwise, it will expand if possible.
-    autoresize-window: 1h
+    autoresize-window: 3d
 
     # number of messages to automatically play back on channel join (0 to disable):
     autoreplay-on-join: 0
@@ -800,7 +800,7 @@ history:
     restrictions:
         # if this is set, messages older than this cannot be retrieved by anyone
         # (and will eventually be deleted from persistent storage, if that's enabled)
-        #expire-time: 1w
+        expire-time: 1w
 
         # if this is set, logged-in users cannot retrieve messages older than their
         # account registration date, and logged-out users cannot retrieve messages
