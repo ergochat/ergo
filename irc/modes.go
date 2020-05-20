@@ -102,6 +102,10 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 		// can't do anything to TLS mode
 	}
 
+	if len(applied) != 0 {
+		client.markDirty(IncludeUserModes)
+	}
+
 	// return the changes we could actually apply
 	return applied
 }

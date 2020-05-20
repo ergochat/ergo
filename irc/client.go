@@ -48,6 +48,7 @@ type Client struct {
 	accountRegDate     time.Time
 	accountSettings    AccountSettings
 	away               bool
+	autoAway           bool
 	awayMessage        string
 	brbTimer           BrbTimer
 	channels           ChannelSet
@@ -359,7 +360,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time, uModes modes.Modes) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen.IsZero() {
@@ -382,9 +383,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		alwaysOn: true,
 	}
 
-	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
-
 	client.SetMode(modes.TLS, true)
+	for _, m := range uModes {
+		client.SetMode(m, true)
+	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(0, 0)
 	client.brbTimer.Initialize(client)
@@ -393,7 +395,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 	client.resizeHistory(config)
 
-	_, err := server.clients.SetNick(client, nil, account.Name)
+	_, err, _ := server.clients.SetNick(client, nil, account.Name)
 	if err != nil {
 		server.logger.Error("internal", "could not establish always-on client", account.Name, err.Error())
 		return
@@ -408,6 +410,12 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		// XXX we're using isSajoin=true, to make these joins succeed even without channel key
 		// this is *probably* ok as long as the persisted memberships are accurate
 		server.channels.Join(client, chname, "", true, nil)
+	}
+
+	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+		client.autoAway = true
+		client.away = true
+		client.awayMessage = client.t("User is currently disconnected")
 	}
 }
 
@@ -588,6 +596,7 @@ func (client *Client) run(session *Session) {
 
 	isReattach := client.Registered()
 	if isReattach {
+		session.idletimer.Touch()
 		if session.resumeDetails != nil {
 			session.playResume()
 			session.resumeDetails = nil
@@ -1187,6 +1196,7 @@ func (client *Client) Quit(message string, session *Session) {
 // otherwise, destroys one specific session, only destroying the client if it
 // has no more sessions.
 func (client *Client) destroy(session *Session) {
+	config := client.server.Config()
 	var sessionsToDestroy []*Session
 
 	client.stateMutex.Lock()
@@ -1225,6 +1235,17 @@ func (client *Client) destroy(session *Session) {
 		client.dirtyBits |= IncludeLastSeen
 	}
 	exitedSnomaskSent := client.exitedSnomaskSent
+
+	autoAway := false
+	var awayMessage string
+	if alwaysOn && remainingSessions == 0 && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+		autoAway = true
+		client.autoAway = true
+		client.away = true
+		awayMessage = config.languageManager.Translate(client.languages, `Disconnected from the server`)
+		client.awayMessage = awayMessage
+	}
+
 	client.stateMutex.Unlock()
 
 	// XXX there is no particular reason to persist this state here rather than
@@ -1270,6 +1291,10 @@ func (client *Client) destroy(session *Session) {
 		invisible := client.HasMode(modes.Invisible)
 		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
 		client.server.stats.Remove(registered, invisible, operator)
+	}
+
+	if autoAway {
+		dispatchAwayNotify(client, true, awayMessage)
 	}
 
 	if !shouldDestroy {
@@ -1610,6 +1635,7 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 const (
 	IncludeChannels uint = 1 << iota
 	IncludeLastSeen
+	IncludeUserModes
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1667,5 +1693,19 @@ func (client *Client) performWrite() {
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
 		client.server.accounts.saveLastSeen(account, lastSeen)
+	}
+	if (dirtyBits & IncludeUserModes) != 0 {
+		uModes := make(modes.Modes, 0, len(modes.SupportedUserModes))
+		for _, m := range modes.SupportedUserModes {
+			switch m {
+			case modes.Operator, modes.ServerNotice:
+				// these can't be persisted because they depend on the operator block
+			default:
+				if client.HasMode(m) {
+					uModes = append(uModes, m)
+				}
+			}
+		}
+		client.server.accounts.saveModes(account, uModes)
 	}
 }

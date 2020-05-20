@@ -19,6 +19,7 @@ import (
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/ldap"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
@@ -40,6 +41,7 @@ const (
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 	keyAccountLastSeen         = "account.lastseen %s"
+	keyAccountModes            = "account.modes %s" // user modes for the always-on client as a string
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -127,7 +129,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
 			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
-			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSeen(accountName))
+			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSeen(accountName), am.loadModes(accountName))
 		}
 	}
 }
@@ -590,6 +592,28 @@ func (am *AccountManager) loadChannels(account string) (channels []string) {
 	})
 	if channelsStr != "" {
 		return strings.Split(channelsStr, ",")
+	}
+	return
+}
+
+func (am *AccountManager) saveModes(account string, uModes modes.Modes) {
+	modeStr := uModes.String()
+	key := fmt.Sprintf(keyAccountModes, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, modeStr, nil)
+		return nil
+	})
+}
+
+func (am *AccountManager) loadModes(account string) (uModes modes.Modes) {
+	key := fmt.Sprintf(keyAccountModes, account)
+	var modeStr string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		modeStr, _ = tx.Get(key)
+		return nil
+	})
+	for _, m := range modeStr {
+		uModes = append(uModes, modes.Mode(m))
 	}
 	return
 }
@@ -1884,6 +1908,7 @@ type AccountSettings struct {
 	AlwaysOn         PersistentStatus
 	AutoreplayMissed bool
 	DMHistory        HistoryStatus
+	AutoAway         PersistentStatus
 }
 
 // ClientAccount represents a user account.

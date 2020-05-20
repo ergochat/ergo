@@ -89,7 +89,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 	return
 }
 
-func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time) {
+func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time, back bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -106,7 +106,13 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 		lastSeen = client.lastSeen
 	}
 	client.sessions = newSessions
-	return true, len(client.sessions), lastSeen
+	if client.autoAway {
+		back = true
+		client.autoAway = false
+		client.away = false
+		client.awayMessage = ""
+	}
+	return true, len(client.sessions), lastSeen, back
 }
 
 func (client *Client) removeSession(session *Session) (success bool, length int) {
