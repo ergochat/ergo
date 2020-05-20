@@ -50,6 +50,7 @@ archives:
       - CHANGELOG.md
       - oragono.motd
       - oragono.yaml
+      - conventional.yaml
       - docs/*
       - languages/*.yaml
       - languages/*.json
