@@ -596,6 +596,7 @@ func (client *Client) run(session *Session) {
 
 	isReattach := client.Registered()
 	if isReattach {
+		session.idletimer.Touch()
 		if session.resumeDetails != nil {
 			session.playResume()
 			session.resumeDetails = nil
