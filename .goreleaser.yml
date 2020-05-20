@@ -30,25 +30,30 @@ builds:
         goarch: arm64
     flags:
       - -trimpath
-archive:
-  name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
-  format: tar.gz
-  replacements:
-    386: i386
-    amd64: x64
-    darwin: osx
-  format_overrides:
-    - goos: windows
-      format: zip
-  files:
-    - README
-    - CHANGELOG.md
-    - oragono.motd
-    - oragono.yaml
-    - docs/*
-    - languages/*.yaml
-    - languages/*.json
-    - languages/*.md
-  wrap_in_directory: true
+    # #1031: don't include the git hash in an official build
+    # default is: "-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser"
+    ldflags:
+      - "-s -w -X main.build={{.Version}}"
+
+archives:
+  -
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    format: tar.gz
+    replacements:
+      amd64: x86_64
+      darwin: macos
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README
+      - CHANGELOG.md
+      - oragono.motd
+      - oragono.yaml
+      - docs/*
+      - languages/*.yaml
+      - languages/*.json
+      - languages/*.md
+    wrap_in_directory: true
 checksum:
   name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"

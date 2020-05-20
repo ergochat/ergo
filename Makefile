@@ -1,14 +1,16 @@
 .PHONY: all install build release capdefs test smoke
 
+GIT_COMMIT := $(shell git rev-parse --short=16 HEAD 2> /dev/null)
+
 capdef_file = ./irc/caps/defs.go
 
 all: install
 
 install:
-	go install -v
+	go install -v -ldflags "-X main.commit=$(GIT_COMMIT)"
 
 build:
-	go build -v
+	go build -v -ldflags "-X main.commit=$(GIT_COMMIT)"
 
 release:
 	goreleaser --skip-publish --rm-dist
