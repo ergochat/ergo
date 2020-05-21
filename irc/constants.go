@@ -5,20 +5,7 @@
 
 package irc
 
-import "fmt"
-
 const (
-	// SemVer is the semantic version of Oragono.
-	SemVer = "2.1.0-unreleased"
-)
-
-var (
-	// Commit is the current git commit.
-	Commit = ""
-
-	// Ver is the full version of Oragono, used in responses to clients.
-	Ver = fmt.Sprintf("oragono-%s", SemVer)
-
 	// maxLastArgLength is used to simply cap off the final argument when creating general messages where we need to select a limit.
 	// for instance, in MONITOR lists, RPL_ISUPPORT lists, etc.
 	maxLastArgLength = 400
