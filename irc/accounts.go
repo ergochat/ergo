@@ -15,7 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/ldap"
@@ -1937,6 +1936,7 @@ type rawClientAccount struct {
 }
 
 // logoutOfAccount logs the client out of their current account.
+// TODO(#1027) delete this entire method and just use client.Logout()
 func (am *AccountManager) logoutOfAccount(client *Client) {
 	if client.Account() == "" {
 		// already logged out
@@ -1945,12 +1945,4 @@ func (am *AccountManager) logoutOfAccount(client *Client) {
 
 	client.Logout()
 	go client.nickTimer.Touch(nil)
-
-	// dispatch account-notify
-	// TODO: doing the I/O here is kind of a kludge, let's move this somewhere else
-	go func() {
-		for friend := range client.Friends(caps.AccountNotify) {
-			friend.Send(nil, client.NickMaskString(), "ACCOUNT", "*")
-		}
-	}()
 }
