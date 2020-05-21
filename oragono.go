@@ -21,7 +21,9 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-var commit = ""
+// set via linker flags, either by make or by goreleaser:
+var commit = ""  // git hash
+var version = "" // tagged version
 
 // get a password from stdin from the user
 func getPassword() string {
@@ -89,7 +91,7 @@ func doMkcerts(configFile string, quiet bool) {
 }
 
 func main() {
-	version := irc.SemVer
+	irc.SetVersionString(version, commit)
 	usage := `oragono.
 Usage:
 	oragono initdb [--conf <filename>] [--quiet]
@@ -105,7 +107,7 @@ Options:
 	-h --help          Show this screen.
 	--version          Show version.`
 
-	arguments, _ := docopt.ParseArgs(usage, nil, version)
+	arguments, _ := docopt.ParseArgs(usage, nil, irc.Ver)
 
 	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
@@ -167,22 +169,11 @@ Options:
 		}
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
-			logman.Info("server", fmt.Sprintf("Oragono v%s starting", irc.SemVer))
-			if commit == "" {
-				logman.Debug("server", fmt.Sprintf("Could not get current commit"))
-			} else {
-				logman.Info("server", fmt.Sprintf("Running commit %s", commit))
-			}
-		}
-
-		// set current git commit
-		irc.Commit = commit
-		if commit != "" {
-			irc.Ver = fmt.Sprintf("%s-%s", irc.Ver, commit)
+			logman.Info("server", fmt.Sprintf("%s starting", irc.Ver))
 		}
 
 		// warning if running a non-final version
-		if strings.Contains(irc.SemVer, "unreleased") {
+		if strings.Contains(irc.Ver, "unreleased") {
 			logman.Warning("server", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
 		}
 
