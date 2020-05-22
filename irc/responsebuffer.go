@@ -119,7 +119,12 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
 func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
 	if message.Is512() {
-		rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
+		if message.Message == "" {
+			// XXX this is a TAGMSG
+			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target)
+		} else {
+			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
+		}
 	} else {
 		if rb.session.capabilities.Has(caps.Multiline) {
 			batch := rb.session.composeMultilineBatch(fromNickMask, fromAccount, tags, command, target, message)

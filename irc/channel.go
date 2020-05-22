@@ -1017,7 +1017,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		case history.Notice:
 			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "NOTICE", chname, item.Message)
 		case history.Tagmsg:
-			if rb.session.capabilities.Has(caps.MessageTags) {
+			if eventPlayback {
 				rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "TAGMSG", chname, item.Message)
 			}
 		case history.Join:
