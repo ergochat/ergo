@@ -90,7 +90,7 @@ func (sm *SplitMessage) IsRestrictedCTCPMessage() bool {
 }
 
 func (sm *SplitMessage) Is512() bool {
-	return sm.Message != ""
+	return sm.Split == nil
 }
 
 // TokenLineBuilder is a helper for building IRC lines composed of delimited tokens,

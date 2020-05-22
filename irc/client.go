@@ -897,7 +897,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	}
 	batchID = rb.StartNestedHistoryBatch(target)
 
-	allowTags := rb.session.capabilities.Has(caps.MessageTags)
+	allowTags := rb.session.capabilities.Has(caps.EventPlayback)
 	for _, item := range items {
 		var command string
 		switch item.Type {
