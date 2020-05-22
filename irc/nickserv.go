@@ -935,7 +935,7 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 		} else {
 			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
 		}
-		nsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS UNREGISTER %s %s", accountName, expectedCode)))
+		nsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
 		return
 	}
 
