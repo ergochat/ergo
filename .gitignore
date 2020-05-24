@@ -109,3 +109,4 @@ _test
 oragono.prof
 oragono.mprof
 /dist
+*.pem

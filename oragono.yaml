@@ -50,8 +50,8 @@ server:
         # The standard SSL/TLS port for IRC is 6697. This will listen on all interfaces:
         ":6697":
             tls:
-                key: tls.key
-                cert: tls.crt
+                cert: fullchain.pem
+                key: privkey.pem
                 # 'proxy' should typically be false. It's only for Kubernetes-style load
                 # balancing that does not terminate TLS, but sends an initial PROXY line
                 # in plaintext.
@@ -70,8 +70,8 @@ server:
         # ":8097":
         #     websocket: true
         #     tls:
-        #         key: tls.key
-        #         cert: tls.crt
+        #         cert: fullchain.pem
+        #         key: privkey.pem
 
     # sets the permissions for Unix listen sockets. on a typical Linux system,
     # the default is 0775 or 0755, which prevents other users/groups from connecting
