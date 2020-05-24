@@ -1,6 +1,117 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.1.0-rc1] - 2020-05-25
+We're pleased to be publishing the release candidate for 2.1.0 (the official release should follow in a week or so).
+
+Since the release of 2.0.0 in March, a number of new communities and organizations have adopted Oragono as a communications tool. This new release incorporates many improvements and fixes derived from the experiences of real-world operators and end users. Highlights include:
+
+* Native support for websockets contributed by [@hhirtz](https://github.com/hhirtz), eliminating the need for a separate websockets-to-IRC proxy server
+* Tighter control over the relationship between account names and nicknames, eliminating the need for extbans
+* Support for sending account verification emails directly from Oragono, including DKIM signatures
+
+Many thanks to [@ajaspers](https://github.com/ajaspers) and [@hhirtz](https://github.com/hhirtz) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@eklitzke](https://github.com/eklitzke), and [@hhirtz](https://github.com/hhirtz) for contributing code reviews, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@clukawski](https://github.com/clukawski), Csibesz, [@csmith](https://github.com/csmith), [@eklitzke](https://github.com/eklitzke), [@nxths](https://github.com/nxths), [@hhirtz](https://github.com/hhirtz), [@jesopo](https://github.com/jesopo), [@jlnt](https://github.com/jlnt), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@kula](https://github.com/kula), [@kylef](https://github.com/kylef), [@Mitaka8](https://github.com/Mitaka8), [@petteri](https://github.com/petteri), [@PizzaLover2007](https://github.com/PizzaLover2007), [@prawnsalad](https://github.com/prawnsalad), [@RyanSquared](https://github.com/RyanSquared), savoyard, and [@xPaw](https://github.com/xPaw) for reporting issues, and to TODO: TRANSLATORS for contributing translations.
+
+This release includes changes to the config file format, including one breaking change: support for `server.ip-cloaking.secret-environment-variable` has been removed. (See below for instructions on how to upgrade if you were using this feature.) All other changes to the config file format are backwards compatible and do not require updating before restart.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+This release includes a change to the MySQL schema. This change will be applied automatically when you restart Oragono. It is fully backwards compatible (i.e., if it is necessary for you to downgrade Oragono back to 2.0.0, it will not be necessary to downgrade the schema).
+
+### Config Changes
+* Added `websocket` attribute of individual listeners, and a new `server.websockets` section, for configuring websocket listeners. (#967, thanks [@hhirtz](https://github.com/hhirtz)!)
+* The recommended default is now to enable IP cloaking. In order to facilitate this, the cloaking secret is now stored in the database, instead of the config file. If you currently have a secret stored in the config file (as `server.ip-cloaking.secret`), it will be automatically imported into the database. If you were using `secret-environment-variable` to distribute your cloaking secret, you can import it manually after restart using the new `/HOSTSERV SETCLOAKSECRET` command. (#952)
+* Added `accounts.nick-reservation.force-nick-equals-account`, which ensures that logged-in clients are using their account name as their nickname. This eliminates the need for extbans and is a new recommended default. (#864)
+* Added `guest-nickname-format` and `force-guest-format`, which optionally add a prefix like `Guest-` to the nicknames of unauthenticated users (#749)
+* The recommended default is now to enable history storage and playback, with messages expiring after 7 days. (As with all changes in recommended config values, applying this to an existing config file requires explicitly changing the values.) (#1030)
+* Added `history.retention` section for controlling new features related to history storage and deletion (#858)
+* The recommended default for `accounts.multiclient.always-on` is now `opt-in` (#919)
+* Added `accounts.default-user-modes`; the recommended default is now to set `+i` on all users automatically (#942, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Added `channels.list-delay`, allowing restrictions on channel listings as a defence against spambots (#964)
+* Added `accounts.multiclient.auto-away`, allowing always-on clients to be automatically marked as away when all their sessions disconnect
+* Added `accounts.throttling` as a global throttle on the creation of new accounts (#913)
+* New format for `accounts.callbacks.mailto`, allowing direct email sending and DKIM signing (#921)
+* Added `accounts.login-via-pass-command`, providing a new mechanism for legacy clients to authenticate to accounts by sending `PASS account:password` pre-registration (#1020)
+* Added `datastore.mysql.socket-path`, allowing MySQL connections over UNIX domain sockets (#1016, thanks savoyard and [@ajaspers](https://github.com/ajaspers)!)
+* Added `roleplay` section for controlling the server's roleplay features (#865)
+* The recommended default for `accounts.nick-reservation.allow-custom-enforcement` is now `false` (#918)
+* The recommended default is now to allow PROXY and WEBIRC lines from localhost (#989, #1011)
+* Added `channels.registration.operator-only`, optionally restricting channel registrations to operators (#685)
+* Added `server.output-path` for controlling where the server writes output files (#1004)
+* Operator capability names prefixed with `oper:` have been normalized to remove the prefix (the old names are still respected in the config file) (#868)
+* The log category names `localconnect` and `localconnect-ip` have been changed to `connect` and `connect-ip` respectively (the old names are still respected in the config file) (#940)
+
+### Security
+* Fixed incorrect enforcement of ban/invite/exception masks under some circumstances (#983)
+* STATUSMSG were being stored in history without the relevant minimum-prefix information, so they could be replayed to unprivileged users. This was fixed by not storing them at all. (#959, thanks [@prawnsalad](https://github.com/prawnsalad)!)
+* Fixed invisible users not being hidden from `WHO *` queries (#991, thanks [@ajaspers](https://github.com/ajaspers)!)
+
+### Fixed
+* Fixed incorrect rejection of `draft/multiline` messages containing blank lines (#1005, thanks [@jwheare](https://github.com/jwheare)!)
+* Fixed roleplay commands, which were completely broken from v1.1.0 through v2.0.0 (#865, thanks [@petteri](https://github.com/petteri) and [@Mitaka8](https://github.com/Mitaka8)!)
+* Fixed `/SAMODE` applying user mode changes to the operator instead of the target user (#866, thanks [@csmith](https://github.com/csmith)!)
+* Fixed some channels not being unregistered during account unregistration (#889)
+* Fixed `/NICKSERV SET` and related commands being unavailable when account registration is disabled (#922, thanks [@PizzaLover2007](https://github.com/PizzaLover2007)!)
+* Fixed `TAGMSG` not being replayed correctly in history (#1044)
+* Fixed `301 RPL_AWAY` not being sent in `WHOIS` responses when applicable (#850)
+* `/OPER` with no password no longer disconnects the client (#951)
+* Fixed failure to send extended-join responses after account unregistration (#933, thanks [@jesopo](https://github.com/jesopo)!)
+* Improved validation of channel keys (#1021, thanks [@kylef](https://github.com/kylef)!)
+* Fixed labeling of `421 ERR_UNKNOWNCOMMAND` responses (#994, thanks [@k4bek4be](https://github.com/k4bek4be)!)
+* Fixed incorrect parsing of ident protocol responses (#1002, thanks [@justjanne](https://github.com/justjanne)!)
+* Fixed redundant `/INVITE` commands not sending `443 ERR_USERONCHANNEL` (#842, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed `/NICKSERV REGISTER` response displaying `mailto:` out of context (#985, thanks [@eklitzke](https://github.com/eklitzke)!)
+* Fixed HostServ approval and rejection notices being sent from the wrong source (#805)
+* Error messages for invalid TLS certificate/key pairs are now more informative (#982)
+* Fixed error message when attempting to attach a plaintext session to an always-on client (#955, thanks [@bogdomania](https://github.com/bogdomania) and [@xPaw](https://github.com/xPaw)!)
+* Increased the TLS handshake timeout, increasing reliability under high CPU contention (#894)
+* Fixed `CHANMODES` ISUPPORT token (#408, #874, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed edge cases in handling of the `+k` channel mode parameter (#874, thanks [@hhirtz](https://github.com/hhirtz)!)
+* `account-notify` lines are now part of the labeled-response batch when applicable (#1018)
+* Fixed incorrect help description of channel mode `+R` (#930, thanks [@PizzaLover2007](https://github.com/PizzaLover2007)!)
+* Fixed `255 RPL_LUSERME` response to indicate that the number of federated peer servers is 0 (#846, thanks [@RyanSquared](https://github.com/RyanSquared)!)
+
+### Changed
+* Account names are now permanent identifiers; they cannot be re-registered after unregistration, and applicable nickname protections remain in force. (#793)
+* User modes of always-on clients now persist across server restarts (#819)
+* Registered channels with no members remain present on the server, including their in-memory history messages when applicable (#704, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Updated the [setname](https://ircv3.net/specs/extensions/setname) IRCv3 capability to its ratified version (#1001)
+* `/CHANSERV AMODE` now takes immediate effect (#729)
+* The channel founder can now take any action that would require channel privileges without actually having the `+q` mode (#950, #998)
+* Account unregistration now always disconnects the client (#1028)
+* Fakelag is now temporarily disabled during the sending of a `draft/multiline` message batch (#817)
+* Failed attempts to join a `+R` channel now send `477 ERR_NEEDREGGEDNICK` (#936, thanks [@PizzaLover2007](https://github.com/PizzaLover2007), [@jesopo](https://github.com/jesopo)!)
+* Channels with persistent history can no longer be renamed with `/RENAME` (#827)
+* The self-signed certificate generation command `oragono mkcerts` now generates a 2048-bit RSA certificate, instead of a NIST P-521 ECDSA certificate (#898)
+* Cleaned up compatibility with an obsolete WEBIRC escaping convention (#869)
+* The cloak secret is now stored in the database, so it can no longer be rotated by changing `server.ip-cloaking.secret`. To rotate the secret, use the new `/HOSTSERV SETCLOAKSECRET` command. (#952)
+
+### Added
+* Added native support for websockets (#967, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Added support for sending verification emails directly (i.e., without a MTA/smarthost), including DKIM signing (#920, #921)
+* Added `/NICKSERV LIST` and `/CHANSERV LIST`, allowing operators to list registered nicknames and channels (#974, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Added auto-away feature for marking always-on clients away when all their sessions are disconnected; see `accounts.multiclient.auto-away` and `/NICKSERV HELP SET` for more information (#824)
+* Added `/HISTSERV PLAY`, which plays back history messages as NOTICEs from the `HistServ` service (#383, thanks [@nxths](https://github.com/nxths)!)
+* Added `/HISTSERV DELETE` for deleting history messages (see the config option `history.retention.allow-individual-delete`) (#858)
+* Added `/HISTSERV FORGET` for deleting all history messages associated with an account (see the config option `history.retention.enable-account-indexing`) (#858)
+* Added `/HISTSERV EXPORT` for exporting all history messages associated with an account as JSON. This can be used at the user's request for regulatory compliance reasons (see the config option `history.retention.enable-account-indexing`) (#858)
+* Added support for logging legacy clients into accounts via the `PASS` command, with the [account:password](https://freenode.net/kb/answer/registration#logging-in) syntax used by Freenode. To enable this feature, set `accounts.login-via-pass-command` to `true`. (#1020, thanks [@jlnt](https://github.com/jlnt)!)
+* Added `/NICKSERV ERASE` as an escape hatch for operators, allowing an account to be erased and re-registered (#793)
+* Added support for playing back `MODE` and `TOPIC` messages in history (#532)
+* Added `conventional.yaml`, a version of the config file that provides a more traditional IRC experience. We recommend a config file based on `oragono.yaml` for production networks, and one based on `conventional.yaml` for IRCv3 conformance testing. (#918)
+* Added an optional global throttle on the creation of new accounts (#913)
+* Added support for restricting `/LIST` responses sent to anonymous clients (#964)
+* Added support for the Plan 9 operating system and its derivatives, including testing on 9front (#1025, thanks [@clukawski](https://github.com/clukawski)!)
+
+### Removed
+* Removed support for colored log output (#940, #939)
+* Removed support for distributing the cloaking secret via environment variables (#952)
+
+### Internal
+* `make build` now includes an abbreviated git hash in the `002 RPL_YOURHOST` and `004 RPL_MYINFO` version strings, when applicable (#1031)
+* Official releases no longer contain the git hash, only the revision tag (#1031)
+* Official releases are now built with `-trimpath` (#901)
+
 ## [2.0.0] - 2020-03-08
 We're pleased to announce Oragono 2.0.0, a major update with a wide range of enhancements and fixes. Highlights include:
 
