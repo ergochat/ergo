@@ -219,9 +219,9 @@ Oragono supports several different modes of operation with respect to accounts a
 
 ### Traditional / lenient mode
 
-This is the default mode, and makes Oragono's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
+This makes Oragono's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
 
-To enable this mode, set the following configs (this is the default mode):
+To enable this mode, set the following configs:
 
 * `accounts.registration.enabled = true`
 * `accounts.authentication-enabled = true`
@@ -229,22 +229,17 @@ To enable this mode, set the following configs (this is the default mode):
 
 ### Nick ownership
 
-This mode makes Oragono's services act like those of a typical IRC network (like Freenode). In this mode, registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s):
-
-* You can proactively prevent anyone from using your nickname, unless they're already logged into your account
-* Alternately, you can give clients a grace period to log into your account, but if they don't and the grace period expires, the server will change their nickname to something else
-* Alternately, you can forego any proactive enforcement – but if you decide you want to reclaim your nickname from a squatter, you can `/msg Nickserv ghost stolen_nickname` and they'll be disconnected
-* You can associate additional nicknames with your account by changing to it and then issuing `/msg NickServ group`
+In this mode (the default), registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s). No one will be able to use your nickname unless they are logged into your account.
 
 To enable this mode, set the following configs:
 
 * `accounts.registration.enabled = true`
 * `accounts.authentication-enabled = true`
 * `accounts.nick-reservation.enabled = true`
+* `accounts.nick-reservation.method = strict`
 
 The following additional configs may be of interest:
 
-* `accounts.nick-reservation.method = strict` ; we currently recommend strict nickname enforcement as the default, since we've found that users find it less confusing.
 * `accounts.nick-reservation.force-nick-equals-account = true` ; this allows nicknames to be treated as account names for most purposes, including for controlling access to channels (see the discussion of private channels below)
 
 ### SASL-only mode
@@ -259,9 +254,6 @@ To enable this mode, set the following configs:
 * `accounts.authentication-enabled = true`
 * `accounts.require-sasl.enabled = true`
 * `accounts.nick-reservation.enabled = true`
-
-Additionally, the following configs are recommended:
-
 * `accounts.nick-reservation.method = strict`
 * `accounts.nick-reservation.force-nick-equals-account = true`
 
