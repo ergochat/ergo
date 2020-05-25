@@ -53,6 +53,7 @@ This release includes a change to the MySQL schema. This change will be applied 
 * Fixed some channels not being unregistered during account unregistration (#889)
 * Fixed `/NICKSERV SET` and related commands being unavailable when account registration is disabled (#922, thanks [@PizzaLover2007](https://github.com/PizzaLover2007)!)
 * Fixed `TAGMSG` not being replayed correctly in history (#1044)
+* Fixed incorrect `401 ERR_NOSUCHNICK` responses on `TAGMSG` sent to a service (#1051, thanks [@ajaspers](https://github.com/ajaspers)!)
 * Fixed `301 RPL_AWAY` not being sent in `WHOIS` responses when applicable (#850)
 * `/OPER` with no password no longer disconnects the client (#951)
 * Fixed failure to send extended-join responses after account unregistration (#933, thanks [@jesopo](https://github.com/jesopo)!)
