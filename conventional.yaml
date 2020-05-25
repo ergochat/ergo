@@ -152,7 +152,7 @@ server:
             fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
             # password the gateway uses to connect, made with oragono genpasswd
-            password: "$2a$04$sLEFDpIOyUp55e6gTMKbOeroT6tMXTjPFvA0eGvwvImVR9pkwv7ee"
+            password: "$2a$04$abcdef0123456789abcdef0123456789abcdef0123456789abcde"
 
             # addresses/CIDRs that can use this webirc command
             # you should also add these addresses to the connection limits and throttling exemption lists
@@ -589,7 +589,7 @@ opers:
         # or by certificate fingerprint, or both. if a password hash is set, then a
         # password is required to oper up (e.g., /OPER dan mypassword). to generate
         # the hash, use `oragono genpasswd`.
-        password: "$2a$04$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu"
+        password: "$2a$04$0123456789abcdef0123456789abcdef0123456789abcdef01234"
 
         # if a SHA-256 certificate fingerprint is configured here, then it will be
         # required to /OPER. if you comment out the password hash above, then you can

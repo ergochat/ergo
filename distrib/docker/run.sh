@@ -11,7 +11,7 @@ if [ ! -f "/ircd/ircd.yaml" ]; then
     OPERPASS=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c20)
     echo "Oper username:password is admin:$OPERPASS"
     ENCRYPTEDPASS=$(echo "$OPERPASS" | /ircd-bin/oragono genpasswd)
-    ORIGINALPASS='\$2a\$04\$LiytCxaY0lI.guDj2pBN4eLRD5cdM2OLDwqmGAgB6M2OPirbF5Jcu'
+    ORIGINALPASS='\$2a\$04\$0123456789abcdef0123456789abcdef0123456789abcdef01234'
 
     awk "{gsub(/password: \\\"$ORIGINALPASS\\\"/,\"password: \\\"$ENCRYPTEDPASS\\\"\")}1" /tmp/ircd.yaml > /tmp/ircd2.yaml
 

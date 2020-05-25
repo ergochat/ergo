@@ -5,7 +5,7 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         Oragono IRCd Manual 2019-06-12
+           Oragono IRCd Manual v2.1.0
               https://oragono.io/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
@@ -22,6 +22,8 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - Installing
     - Windows
     - macOS / Linux / Raspberry Pi
+    - Docker
+    - Becoming an operator
     - Productionizing
     - Upgrading
 - Features
@@ -38,8 +40,10 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - User Modes
     - Channel Modes
     - Channel Prefixes
+    - Client certificates
 - Commands
 - Working with other software
+    - Kiwi IRC
     - HOPM
     - Tor
 - Acknowledgements
@@ -66,7 +70,7 @@ Oragono's core design goals are:
 * Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
 * Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
 
-In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono has multiple communities using it as a day-to-day chat server and is fairly mature --- we encourage you to consider it for your organization or community!
+In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono is a mature project with multiple communities using it as a day-to-day chat server --- we encourage you to consider it for your organization or community!
 
 ## Scalability
 
@@ -122,6 +126,11 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
 
 For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
+
+
+## Becoming an operator
+
+Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Oragono instance is first to pick a strong, secure password, then "hash" it using the `oragono genpasswd` command (run `oragono genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
 
 
 ## Productionizing
@@ -322,7 +331,7 @@ Oragono supports two methods of storing history, an in-memory buffer with a conf
 
 Unfortunately, client support for history playback is still patchy. In descending order of support:
 
-1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC's unreleased master branch](https://kiwiirc.com/), and hopefully other clients soon.
+1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
 1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`. Unfortunately, this feature will only work reliably if you are *not* using the multiclient functionality described in the above section --- you must be connecting with at most one client at a time.
 1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
@@ -335,7 +344,7 @@ Unlike many other chat and web platforms, IRC traditionally exposes the user's I
 
 IP cloaking is a way of balancing these concerns about abuse with concerns about user privacy. With cloaking, the user's IP address is deterministically "scrambled", typically via a cryptographic [MAC](https://en.wikipedia.org/wiki/Message_authentication_code), to form a "cloaked" hostname that replaces the usual reverse-DNS-based hostname. Users cannot reverse the scrambling to learn each other's IPs, but can ban a scrambled address the same way they would ban a regular hostname.
 
-Oragono supports cloaking, which can be enabled via the `server.ip-cloaking` section of the config. However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
+Oragono supports cloaking, which is enabled by default (via the `server.ip-cloaking` section of the config). However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
 
 Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend on their IP address information at all, which is an option for deployments where privacy is a more pressing concern than abuse. Holders of registered accounts can also use the vhost system (for details, `/msg HostServ HELP`.)
 
@@ -435,6 +444,12 @@ You may want to configure a reverse proxy, such as nginx, for TLS termination --
 
 1. Add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
 1. Configure your reverse proxy to connect to an appropriate Oragono listener and send the PROXY line. In this [example nginx config](https://github.com/darwin-network/slash/commit/aae9ba08d70128eb4b700cade333fe824a53562d), nginx connects to Oragono via a Unix domain socket.
+
+## Client certificates
+
+Oragono supports authenticating to user accounts via TLS client certificates. The end user must enable the client certificate in their client and also enable SASL with the `EXTERNAL` method. To register an account using only a client certificate for authentication, connect with the client certificate and use `/NS REGISTER *` (or `/NS REGISTER * email@example.com` if email verification is enabled on the server). To add a client certificate to an existing account, obtain the SHA-256 fingerprint of the certificate (either by connecting with it and looking at your own `/WHOIS` response, in particular the `276 RPL_WHOISCERTFP` line, or using the openssl command `openssl x509 -noout -fingerprint -sha256 -in example_client_cert.pem`), then use the `/NS CERT` command).
+
+Client certificates are not supported over websockets due to a [Chrome bug](https://bugs.chromium.org/p/chromium/issues/detail?id=329884).
 
 
 --------------------------------------------------------------------------------------------
@@ -686,6 +701,40 @@ Oragono should interoperate with most IRC-based software, including bots. If you
 One exception is services frameworks like [Anope](https://github.com/anope/anope) or [Atheme](https://github.com/atheme/atheme); we have our own services implementations built directly into the server, and since we don't support federation, there's no place to plug in an alternative implementation.
 
 If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
+
+## Kiwi IRC
+
+[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client with excellent IRCv3 support. In particular, it is the only major client to fully support Oragono's server-side history features. For a demonstration of these features, see the [Oragono testnet](https://testnet.oragono.io/kiwi).
+
+Current versions of Kiwi are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. This frontend can connect directly to Oragono, using Oragono's support for native websockets. For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Oragono. For example, configure the following listener in ircd.yaml:
+
+```yaml
+        "127.0.0.1:8067":
+            websocket: true
+```
+
+then the following location block in your nginx config (this proxies only `/webirc` on your server to Oragono's websocket listener):
+
+```
+	location /webirc {
+		proxy_pass http://127.0.0.1:8067;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "Upgrade";
+		proxy_set_header X-Forwarded-For $remote_addr;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+```
+
+then add the following `startupOptions` to Kiwi's `static/config.json` file (see the [Oragono testnet's config.json](https://testnet.oragono.io/kiwi/static/config.json) for a fully functional example):
+
+```
+    "startupOptions" : {
+        "websocket": "wss://domain.example.com/webirc",
+        "channel": "#chat",
+        "nick": "kiwi-n?"
+    },
+```
 
 ## Hybrid Open Proxy Monitor (HOPM)
 
