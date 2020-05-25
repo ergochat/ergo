@@ -140,7 +140,7 @@ The recommended way to operate oragono as a service on Linux is via systemd. Thi
 The only major distribution that currently packages Oragono is Arch Linux; the aforementioned AUR package includes a systemd unit file. However, it should be fairly straightforward to set up a productionized Oragono on any Linux distribution. Here's a quickstart guide for Debian/Ubuntu:
 
 1. Create a dedicated, unprivileged role user who will own the oragono process and all its associated files: `adduser --system --group oragono`. This user now has a home directory at `/home/oragono`.
-1. Copy the executable binary `oragono`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`tls.crt` and `tls.key`) to `/home/oragono`. Ensure that they are all owned by the new oragono role user: `sudo chown oragono:oragono /home/oragono/*`. Ensure that the configuration file logs to stderr.
+1. Copy the executable binary `oragono`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`fullchain.pem` and `privkey.pem`) to `/home/oragono`. Ensure that they are all owned by the new oragono role user: `sudo chown oragono:oragono /home/oragono/*`. Ensure that the configuration file logs to stderr.
 1. Install our example [oragono.service](https://github.com/oragono/oragono/blob/master/distrib/systemd/oragono.service) file to `/etc/systemd/system/oragono.service`.
 1. Enable and start the new service with the following commands:
     1. `systemctl daemon-reload`
@@ -159,9 +159,9 @@ The other major hurdle for productionizing (but one well worth the effort) is ob
 set -eu
 
 umask 077
-cp /etc/letsencrypt/live/example.com/fullchain.pem /home/oragono/tls.crt
-cp /etc/letsencrypt/live/example.com/privkey.pem /home/oragono/tls.key
-chown oragono:oragono /home/oragono/tls.*
+cp /etc/letsencrypt/live/example.com/fullchain.pem /home/oragono/
+cp /etc/letsencrypt/live/example.com/privkey.pem /home/oragono/
+chown oragono:oragono /home/oragono/*.pem
 # rehash oragono, which will reload the certificates:
 systemctl reload oragono.service
 ````
@@ -428,8 +428,8 @@ Many clients do not have this support. However, you can designate port 6667 as a
 
         ":6697":
             tls:
-                key: tls.key
-                cert: tls.crt
+                cert: fullchain.pem
+                key: privkey.pem
 
     sts:
         enabled: true
