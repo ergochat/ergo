@@ -5,7 +5,7 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         Oragono IRCd Manual 2019-06-12
+           Oragono IRCd Manual v2.1.0
               https://oragono.io/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
@@ -40,8 +40,10 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - User Modes
     - Channel Modes
     - Channel Prefixes
+    - Client certificates
 - Commands
 - Working with other software
+    - Kiwi IRC
     - HOPM
     - Tor
 - Acknowledgements
@@ -68,7 +70,7 @@ Oragono's core design goals are:
 * Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
 * Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
 
-In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono has multiple communities using it as a day-to-day chat server and is fairly mature --- we encourage you to consider it for your organization or community!
+In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono is a mature project with multiple communities using it as a day-to-day chat server --- we encourage you to consider it for your organization or community!
 
 ## Scalability
 
@@ -443,6 +445,12 @@ You may want to configure a reverse proxy, such as nginx, for TLS termination --
 1. Add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
 1. Configure your reverse proxy to connect to an appropriate Oragono listener and send the PROXY line. In this [example nginx config](https://github.com/darwin-network/slash/commit/aae9ba08d70128eb4b700cade333fe824a53562d), nginx connects to Oragono via a Unix domain socket.
 
+## Client certificates
+
+Oragono supports authenticating to user accounts via TLS client certificates. The end user must enable the client certificate in their client and also enable SASL with the `EXTERNAL` method. To register an account using only a client certificate for authentication, connect with the client certificate and use `/NS REGISTER *` (or `/NS REGISTER * email@example.com` if email verification is enabled on the server). To add a client certificate to an existing account, obtain the SHA-256 fingerprint of the certificate (either by connecting with it and looking at your own `/WHOIS` response, in particular the `276 RPL_WHOISCERTFP` line, or using the openssl command `openssl x509 -noout -fingerprint -sha256 -in example_client_cert.pem`), then use the `/NS CERT` command).
+
+Client certificates are not supported over websockets due to a [Chrome bug](https://bugs.chromium.org/p/chromium/issues/detail?id=329884).
+
 
 --------------------------------------------------------------------------------------------
 
@@ -694,9 +702,9 @@ One exception is services frameworks like [Anope](https://github.com/anope/anope
 
 If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
 
-## Kiwi
+## Kiwi IRC
 
-[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client at the bleeding edge of IRCv3 support. In particular, it is the only major client to support fully Oragono's server-side history features. For a demonstration of these features, see the [Oragono testnet](https://testnet.oragono.io/kiwi).
+[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client with excellent IRCv3 support. In particular, it is the only major client to fully support Oragono's server-side history features. For a demonstration of these features, see the [Oragono testnet](https://testnet.oragono.io/kiwi).
 
 Current versions of Kiwi are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. This frontend can connect directly to Oragono, using Oragono's support for native websockets. For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Oragono. For example, configure the following listener in ircd.yaml:
 
