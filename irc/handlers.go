@@ -1906,16 +1906,23 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 		channel.SendSplitMessage(command, lowestPrefix, tags, client, message, rb)
 	} else {
-		// NOTICE and TAGMSG to services are ignored
+		lowercaseTarget := strings.ToLower(target)
+		service, isService := OragonoServices[lowercaseTarget]
+		_, isZNC := zncHandlers[lowercaseTarget]
+
 		if histType == history.Privmsg {
-			lowercaseTarget := strings.ToLower(target)
-			if service, isService := OragonoServices[lowercaseTarget]; isService {
+			if isService {
 				servicePrivmsgHandler(service, server, client, message.Message, rb)
 				return
-			} else if _, isZNC := zncHandlers[lowercaseTarget]; isZNC {
+			} else if isZNC {
 				zncPrivmsgHandler(client, lowercaseTarget, message.Message, rb)
 				return
 			}
+		}
+
+		// NOTICE and TAGMSG to services are ignored
+		if isService || isZNC {
+			return
 		}
 
 		user := server.clients.Get(target)
