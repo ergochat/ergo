@@ -1997,7 +1997,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			AccountName: accountName,
 			Tags:        tags,
 		}
-		if !item.IsStorable() {
+		if !item.IsStorable() || !allowedPlusR {
 			return
 		}
 		targetedItem := item
