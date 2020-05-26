@@ -9,6 +9,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
@@ -130,6 +131,11 @@ func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 
 // generic handler for service PRIVMSG, like `/msg NickServ INFO`
 func servicePrivmsgHandler(service *ircService, server *Server, client *Client, message string, rb *ResponseBuffer) {
+	if strings.HasPrefix(message, "\x01") {
+		serviceCTCPHandler(service, client, message)
+		return
+	}
+
 	params := strings.Fields(message)
 	if len(params) == 0 {
 		return
@@ -145,6 +151,29 @@ func servicePrivmsgHandler(service *ircService, server *Server, client *Client, 
 		params = params[1:]
 	}
 	serviceRunCommand(service, server, client, cmd, commandName, params, rb)
+}
+
+func serviceCTCPHandler(service *ircService, client *Client, message string) {
+	ctcp := strings.TrimSuffix(message[1:], "\x01")
+
+	ctcpSplit := utils.FieldsN(ctcp, 2)
+	ctcpCmd := strings.ToUpper(ctcpSplit[0])
+	ctcpOut := ""
+
+	switch ctcpCmd {
+	case "VERSION":
+		ctcpOut = fmt.Sprintf("%s (%s)", service.Name, Ver)
+	case "PING":
+		if len(ctcpSplit) > 1 {
+			ctcpOut = ctcpSplit[1]
+		}
+	case "TIME":
+		ctcpOut = time.Now().UTC().Format(time.RFC1123)
+	}
+
+	if ctcpOut != "" {
+		client.Send(nil, service.prefix, "NOTICE", client.Nick(), fmt.Sprintf("\x01%s %s\x01", ctcpCmd, ctcpOut))
+	}
 }
 
 // actually execute a service command
