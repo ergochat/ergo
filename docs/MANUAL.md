@@ -29,6 +29,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - Features
     - User Accounts
         - Nickname reservation
+        - Email verification
     - Channel Registration
     - Language
     - Multiclient ("Bouncer")
@@ -256,6 +257,26 @@ To enable this mode, set the following configs:
 * `accounts.nick-reservation.enabled = true`
 * `accounts.nick-reservation.method = strict`
 * `accounts.nick-reservation.force-nick-equals-account = true`
+
+### Email verification
+
+By default, account registrations complete immediately and do not require a verification step. However, like other service frameworks, Oragono's NickServ can be configured to require email verification of registrations. The main challenge here is to prevent your emails from being marked as spam, which you can do by configuring [SPF](https://en.wikipedia.org/wiki/Sender_Policy_Framework), [DKIM](https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail), and [DMARC](https://en.wikipedia.org/wiki/DMARC). For example, this configuration (when added to the `accounts.registration` section) enables email verification, with the emails being signed with a DKIM key and sent directly from Oragono:
+
+```yaml
+        enabled-callbacks:
+            - mailto
+
+        callbacks:
+            mailto:
+                sender: "admin@my.network"
+                require-tls: true
+                dkim:
+                    domain: "my.network"
+                    selector: "20200525"
+                    key-file: "dkim-private-20200525.pem"
+```
+
+You must create the corresponding TXT record `20200525._domainkey.my.network` to hold your public key. You can also use an MTA ("relay" or "smarthost") to send the email, in which case DKIM signing can be deferred to the MTA; see the example config for details.
 
 
 ## Channel Registration
