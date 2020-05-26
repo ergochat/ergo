@@ -43,9 +43,10 @@ func (il *List) AddNoValue(name string) {
 
 // getTokenString gets the appropriate string for a token+value.
 func getTokenString(name string, value *string) string {
-	if value == nil {
+	if value == nil || len(*value) == 0 {
 		return name
 	}
+
 	return fmt.Sprintf("%s=%s", name, *value)
 }
 
