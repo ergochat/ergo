@@ -206,7 +206,9 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	}
 
 	// try to complete registration normally
-	if c.preregNick == "" || !c.HasUsername() || session.capState == caps.NegotiatingState {
+	// XXX(#1057) username can be filled in by an ident query without the client
+	// having sent USER: check for both username and realname to ensure they did
+	if c.preregNick == "" || c.username == "" || c.realname == "" || session.capState == caps.NegotiatingState {
 		return
 	}
 
