@@ -503,9 +503,9 @@ To unset this mode and let anyone speak to you:
 
     /mode dan -R
 
-### +s - Server Notice Masks
+### +s - Server Notice Masks ("snomasks")
 
-This is a special 'list mode'. If you're an IRC operator, this mode lets you see special server notices that get sent out. See the Server Notice Masks section for more information on this mode.
+This is a special 'list mode'. If you're an IRC operator, this mode lets you see special server notices that get sent out. See `/helpop snomasks` (as an operator) for more information on this mode.
 
 ### +Z - TLS
 

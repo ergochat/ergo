@@ -83,6 +83,7 @@ Oragono supports the following server notice masks for operators:
   t  |  Local /STATS usage.
   u  |  Local client account actions.
   x  |  Local X-lines (DLINE/KLINE/etc).
+  v  |  Local vhost changes.
 
 To set a snomask, do this with your nickname:
 
