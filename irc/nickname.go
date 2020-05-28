@@ -89,7 +89,11 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 
 	if target.Registered() {
-		client.server.monitorManager.AlertAbout(target, true)
+		newCfnick := target.NickCasefolded()
+		if newCfnick != details.nickCasefolded {
+			client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
+			client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
+		}
 		target.nickTimer.Touch(rb)
 	} // else: these will be deferred to the end of registration (see #572)
 	return nil

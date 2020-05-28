@@ -271,7 +271,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// count new user in statistics
 	server.stats.Register()
-	server.monitorManager.AlertAbout(c, true)
+	server.monitorManager.AlertAbout(c.Nick(), c.NickCasefolded(), true)
 
 	server.playRegistrationBurst(session)
 	return false
