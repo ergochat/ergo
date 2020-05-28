@@ -927,6 +927,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.Multiclient.AllowedByDefault = true
 	}
 
+	if config.Accounts.NickReservation.ForceNickEqualsAccount && !config.Accounts.Multiclient.Enabled {
+		return nil, errors.New("force-nick-equals-account requires enabling multiclient as well")
+	}
+
 	// handle guest format, including the legacy key rename-prefix
 	if config.Accounts.NickReservation.GuestFormat == "" {
 		renamePrefix := config.Accounts.NickReservation.RenamePrefix
