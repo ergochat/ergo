@@ -266,11 +266,18 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return true
 	}
 
+	// Apply default user modes (without updating the invisible counter)
+	// The number of invisible users will be updated by server.stats.Register
+	// if we're using default user mode +i.
+	for _, defaultMode := range server.Config().Accounts.defaultUserModes {
+		c.SetMode(defaultMode, true)
+	}
+
 	// registration has succeeded:
 	c.SetRegistered()
 
 	// count new user in statistics
-	server.stats.Register()
+	server.stats.Register(c.HasMode(modes.Invisible))
 	server.monitorManager.AlertAbout(c, true)
 
 	server.playRegistrationBurst(session)
