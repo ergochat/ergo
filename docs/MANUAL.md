@@ -331,7 +331,7 @@ Our language and translation functionality is very early, so feel free to let us
 
 Traditionally, every connection to an IRC server is separate must use a different nickname. [Bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by letting multiple clients connect to a single nickname. With Oragono, if the server is configured to allow it, multiple clients can share a single nickname without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then use the same nickname during connection registration (while connecting to the server) – once you've logged-in, you can't share another nickname.
 
-To enable this functionality, set `accounts.multiclient.enabled` to `true`. Setting `accounts.multiclient.allowed-by-default` to `true` will allow this for everyone. If `allowed-by-default` is `false` (but `enabled` is still `true`), users can opt in to shared connections using `/msg NickServ SET multiclient on`.
+To enable this functionality, set `accounts.multiclient.enabled` to `true`. Setting `accounts.multiclient.allowed-by-default` to `true` will allow this for everyone. If `allowed-by-default` is `false` (but `enabled` is still `true`), users can opt in to shared connections using `/msg NickServ SET multiclient true`.
 
 You can see a list of your active sessions and their idle times with `/msg NickServ sessions` (network operators can use `/msg NickServ sessions nickname` to see another user's sessions).
 
