@@ -18,6 +18,9 @@ import (
 var (
 	restrictedNicknames = []string{
 		"=scene=", // used for rp commands
+		"Global",  // global announcements on some networks
+		// common services not implemented by us:
+		"MemoServ", "BotServ", "OperServ",
 	}
 
 	restrictedCasefoldedNicks = make(map[string]bool)
