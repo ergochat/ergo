@@ -35,7 +35,7 @@ func ArgsToStrings(maxLength int, arguments []string, delim string) []string {
 			continue
 		}
 
-		if len(buffer) > 1 {
+		if len(buffer) > 0 {
 			buffer += delim
 		}
 		buffer += arguments[0]
