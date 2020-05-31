@@ -1181,7 +1181,7 @@ func (config *Config) generateISupport() (err error) {
 		isupport.Add("RPUSER", "E")
 	}
 	isupport.Add("STATUSMSG", "~&@%+")
-	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:", maxTargetsString, maxTargetsString, maxTargetsString))
+	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:%d", maxTargetsString, maxTargetsString, maxTargetsString, config.Limits.MonitorEntries))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
 	if config.Server.Casemapping == CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
