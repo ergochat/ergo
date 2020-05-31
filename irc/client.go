@@ -337,7 +337,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
-	ApplyUserModeChanges(client, config.Accounts.defaultUserModes, false, nil)
 	if wConn.Secure {
 		client.SetMode(modes.TLS, true)
 	}

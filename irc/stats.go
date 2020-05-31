@@ -41,9 +41,12 @@ func (s *Stats) AddRegistered(invisible, operator bool) {
 }
 
 // Transition a client from unregistered to registered
-func (s *Stats) Register() {
+func (s *Stats) Register(invisible bool) {
 	s.mutex.Lock()
 	s.Unknown -= 1
+	if invisible {
+		s.Invisible += 1
+	}
 	s.Total += 1
 	s.setMax()
 	s.mutex.Unlock()

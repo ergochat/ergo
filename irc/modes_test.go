@@ -43,19 +43,19 @@ func TestParseDefaultUserModes(t *testing.T) {
 
 	var parseTests = []struct {
 		raw      *string
-		expected modes.ModeChanges
+		expected modes.Modes
 	}{
-		{&iR, modes.ModeChanges{{Mode: modes.Invisible, Op: modes.Add}, {Mode: modes.RegisteredOnly, Op: modes.Add}}},
-		{&i, modes.ModeChanges{{Mode: modes.Invisible, Op: modes.Add}}},
-		{&empty, modes.ModeChanges{}},
-		{&rminusi, modes.ModeChanges{{Mode: modes.RegisteredOnly, Op: modes.Add}}},
-		{nil, modes.ModeChanges{}},
+		{&iR, modes.Modes{modes.Invisible, modes.RegisteredOnly}},
+		{&i, modes.Modes{modes.Invisible}},
+		{&empty, modes.Modes{}},
+		{&rminusi, modes.Modes{modes.RegisteredOnly}},
+		{nil, modes.Modes{}},
 	}
 
 	for _, testcase := range parseTests {
 		result := ParseDefaultUserModes(testcase.raw)
 		if !reflect.DeepEqual(result, testcase.expected) {
-			t.Errorf("expected modes %v, got %v", testcase.expected, result)
+			t.Errorf("expected modes %s, got %s", testcase.expected, result)
 		}
 	}
 }
