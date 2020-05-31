@@ -305,7 +305,7 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, "*", "", rb)
 	}
 
-	csNotice(rb, fmt.Sprintf(client.t("Successfully op'd in channel %s"), channelName))
+	csNotice(rb, client.t("Successfully granted operator privileges"))
 
 	tnick := target.Nick()
 	server.logger.Info("services", fmt.Sprintf("Client %s op'd [%s] in channel %s", client.Nick(), tnick, channelName))
