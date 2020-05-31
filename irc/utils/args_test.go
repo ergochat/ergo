@@ -5,6 +5,14 @@ package utils
 
 import "testing"
 
+func TestArgsToStrings(t *testing.T) {
+	val := ArgsToStrings(512, []string{"a", "b", "c"}, ",")
+	assertEqual(val, []string{"a,b,c"}, t)
+
+	val = ArgsToStrings(10, []string{"abcd", "efgh", "ijkl"}, ",")
+	assertEqual(val, []string{"abcd,efgh", "ijkl"}, t)
+}
+
 func TestStringToBool(t *testing.T) {
 	val, err := StringToBool("on")
 	assertEqual(val, true, t)
