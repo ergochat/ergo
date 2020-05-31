@@ -36,10 +36,8 @@ var (
 	// common error line to sub values into
 	errorMsg = "ERROR :%s\r\n"
 
-	// supportedUserModesString acts as a cache for when we introduce users
-	supportedUserModesString = modes.SupportedUserModes.String()
-	// supportedChannelModesString acts as a cache for when we introduce users
-	supportedChannelModesString = modes.SupportedChannelModes.String()
+	// three final parameters of 004 RPL_MYINFO, enumerating our supported modes
+	rplMyInfo1, rplMyInfo2, rplMyInfo3 = modes.RplMyInfo()
 
 	// whitelist of caps to serve on the STS-only listener. In particular,
 	// never advertise SASL, to discourage people from sending their passwords:
@@ -297,8 +295,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_WELCOME, d.nick, fmt.Sprintf(c.t("Welcome to the Internet Relay Network %s"), d.nick))
 	session.Send(nil, server.name, RPL_YOURHOST, d.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
 	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
-	//TODO(dan): Look at adding last optional [<channel modes with a parameter>] parameter
-	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, supportedUserModesString, supportedChannelModesString)
+	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
 
 	if c.isSTSOnly {
 		for _, line := range server.Config().Server.STS.bannerLines {

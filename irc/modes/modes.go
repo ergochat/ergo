@@ -6,6 +6,7 @@
 package modes
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/oragono/oragono/irc/utils"
@@ -417,4 +418,28 @@ func (set *ModeSet) HighestChannelUserMode() (result Mode) {
 		}
 	}
 	return
+}
+
+type ByCodepoint Modes
+
+func (a ByCodepoint) Len() int           { return len(a) }
+func (a ByCodepoint) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByCodepoint) Less(i, j int) bool { return a[i] < a[j] }
+
+func RplMyInfo() (param1, param2, param3 string) {
+	userModes := make(Modes, len(SupportedUserModes))
+	copy(userModes, SupportedUserModes)
+	sort.Sort(ByCodepoint(userModes))
+
+	channelModes := make(Modes, len(SupportedChannelModes)+len(ChannelUserModes))
+	copy(channelModes, SupportedChannelModes)
+	copy(channelModes[len(SupportedChannelModes):], ChannelUserModes)
+	sort.Sort(ByCodepoint(channelModes))
+
+	// XXX enumerate these by hand, i can't see any way to DRY this
+	channelParametrizedModes := Modes{BanMask, ExceptMask, InviteMask, Key, UserLimit}
+	channelParametrizedModes = append(channelParametrizedModes, ChannelUserModes...)
+	sort.Sort(ByCodepoint(channelParametrizedModes))
+
+	return userModes.String(), channelModes.String(), channelParametrizedModes.String()
 }
