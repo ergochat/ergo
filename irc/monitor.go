@@ -25,9 +25,7 @@ func (mm *MonitorManager) Initialize() {
 }
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
-func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
-	cfnick := client.NickCasefolded()
-	nick := client.Nick()
+func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool) {
 	var watchers []*Client
 	// safely copy the list of clients watching our nick
 	manager.RLock()
@@ -42,7 +40,7 @@ func (manager *MonitorManager) AlertAbout(client *Client, online bool) {
 	}
 
 	for _, mClient := range watchers {
-		mClient.Send(nil, client.server.name, command, mClient.Nick(), nick)
+		mClient.Send(nil, mClient.server.name, command, mClient.Nick(), nick)
 	}
 }
 

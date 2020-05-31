@@ -1332,7 +1332,7 @@ func (client *Client) destroy(session *Session) {
 
 	// alert monitors
 	if registered {
-		client.server.monitorManager.AlertAbout(client, false)
+		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
 	}
 	// clean up monitor state
 	client.server.monitorManager.RemoveAll(client)
