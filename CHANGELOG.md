@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.1.0-rc1] - 2020-05-25
-We're pleased to be publishing the release candidate for 2.1.0 (the official release should follow in a week or so).
+## [2.1.0] - 2020-06-01
+We're pleased to announce Oragono 2.1.0, a new stable release.
 
 Since the release of 2.0.0 in March, a number of new communities and organizations have adopted Oragono as a communications tool. This new release incorporates many improvements and fixes derived from the experiences of real-world operators and end users. Highlights include:
 
@@ -45,6 +45,7 @@ This release includes a change to the MySQL schema. This change will be applied 
 * Fixed incorrect enforcement of ban/invite/exception masks under some circumstances (#983)
 * STATUSMSG were being stored in history without the relevant minimum-prefix information, so they could be replayed to unprivileged users. This was fixed by not storing them at all. (#959, thanks [@prawnsalad](https://github.com/prawnsalad)!)
 * Fixed invisible users not being hidden from `WHO *` queries (#991, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Restricted nicknames of some additional common services: `OperServ`, `BotServ`, `MemoServ`, and `Global` (#1080, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
 
 ### Fixed
 * Fixed incorrect rejection of `draft/multiline` messages containing blank lines (#1005, thanks [@jwheare](https://github.com/jwheare)!)
@@ -64,11 +65,15 @@ This release includes a change to the MySQL schema. This change will be applied 
 * Fixed messages rejected by the `+R` mode being stored in history (#1061, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
 * Fixed redundant `/INVITE` commands not sending `443 ERR_USERONCHANNEL` (#842, thanks [@hhirtz](https://github.com/hhirtz)!)
 * Fixed `/NICKSERV REGISTER` response displaying `mailto:` out of context (#985, thanks [@eklitzke](https://github.com/eklitzke)!)
+* Fixed nickname changes not sending `731 RPL_MONOFFLINE` when appropriate (#1076, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed incorrect MONITOR responses in some cases (#1086, thanks [@ajaspers](https://github.com/ajaspers)!)
 * Fixed HostServ approval and rejection notices being sent from the wrong source (#805)
 * Error messages for invalid TLS certificate/key pairs are now more informative (#982)
 * Fixed error message when attempting to attach a plaintext session to an always-on client (#955, thanks [@bogdomania](https://github.com/bogdomania) and [@xPaw](https://github.com/xPaw)!)
 * Increased the TLS handshake timeout, increasing reliability under high CPU contention (#894)
 * Fixed `CHANMODES` ISUPPORT token (#408, #874, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed `002 RPL_MYINFO` parameters (#1058, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
+* Fixed incorrect parameter limit for `MONITOR` in the `TARGMAX` isupport token (#1090, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
 * Fixed edge cases in handling of the `+k` channel mode parameter (#874, thanks [@hhirtz](https://github.com/hhirtz)!)
 * `account-notify` lines are now part of the labeled-response batch when applicable (#1018)
 * Fixed incorrect help description of channel mode `+R` (#930, thanks [@PizzaLover2007](https://github.com/PizzaLover2007)!)
