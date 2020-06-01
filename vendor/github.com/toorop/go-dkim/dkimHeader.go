@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type dkimHeader struct {
+type DKIMHeader struct {
 	// Version  This tag defines the version of DKIM
 	// specification that applies to the signature record.
 	// tag v
@@ -193,12 +193,12 @@ type dkimHeader struct {
 
 	// RawForsign represents the raw part (without canonicalization) of the header
 	// used for computint sig in verify process
-	RawForSign string
+	rawForSign string
 }
 
 // NewDkimHeaderBySigOptions return a new DkimHeader initioalized with sigOptions value
-func newDkimHeaderBySigOptions(options SigOptions) *dkimHeader {
-	h := new(dkimHeader)
+func newDkimHeaderBySigOptions(options SigOptions) *DKIMHeader {
+	h := new(DKIMHeader)
 	h.Version = "1"
 	h.Algorithm = options.Algo
 	h.MessageCanonicalization = options.Canonicalization
@@ -218,10 +218,10 @@ func newDkimHeaderBySigOptions(options SigOptions) *dkimHeader {
 	return h
 }
 
-// NewFromEmail return a new DkimHeader by parsing an email
+// GetHeader return a new DKIMHeader by parsing an email
 // Note: according to RFC 6376 an email can have multiple DKIM Header
 // in this case we return the last inserted or the last with d== mail from
-func newDkimHeaderFromEmail(email *[]byte) (*dkimHeader, error) {
+func GetHeader(email *[]byte) (*DKIMHeader, error) {
 	m, err := mail.ReadMessage(bytes.NewReader(*email))
 	if err != nil {
 		return nil, err
@@ -265,7 +265,7 @@ func newDkimHeaderFromEmail(email *[]byte) (*dkimHeader, error) {
 		}
 	}
 
-	var keep *dkimHeader
+	var keep *DKIMHeader
 	var keepErr error
 	//for _, dk := range m.Header[textproto.CanonicalMIMEHeaderKey("DKIM-Signature")] {
 	for _, h := range dkHeaders {
@@ -291,8 +291,8 @@ func newDkimHeaderFromEmail(email *[]byte) (*dkimHeader, error) {
 }
 
 // parseDkHeader parse raw dkim header
-func parseDkHeader(header string) (dkh *dkimHeader, err error) {
-	dkh = new(dkimHeader)
+func parseDkHeader(header string) (dkh *DKIMHeader, err error) {
+	dkh = new(DKIMHeader)
 
 	keyVal := strings.SplitN(header, ":", 2)
 
@@ -300,10 +300,10 @@ func parseDkHeader(header string) (dkh *dkimHeader, err error) {
 	if t == -1 {
 		return nil, ErrDkimHeaderBTagNotFound
 	}
-	dkh.RawForSign = header[0 : t+2]
+	dkh.rawForSign = header[0 : t+2]
 	p := strings.IndexByte(header[t:], ';')
 	if p != -1 {
-		dkh.RawForSign = dkh.RawForSign + header[t+p:]
+		dkh.rawForSign = dkh.rawForSign + header[t+p:]
 	}
 
 	// Mandatory
@@ -452,7 +452,7 @@ func parseDkHeader(header string) (dkh *dkimHeader, err error) {
 
 // GetHeaderBase return base header for signers
 // Todo: some refactoring needed...
-func (d *dkimHeader) getHeaderBaseForSigning(bodyHash string) string {
+func (d *DKIMHeader) getHeaderBaseForSigning(bodyHash string) string {
 	h := "DKIM-Signature: v=" + d.Version + "; a=" + d.Algorithm + "; q=" + strings.Join(d.QueryMethods, ":") + "; c=" + d.MessageCanonicalization + ";" + CRLF + TAB
 	subh := "s=" + d.Selector + ";"
 	if len(subh)+len(d.Domain)+4 > MaxHeaderLineLength {
