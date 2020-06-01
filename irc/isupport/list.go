@@ -15,7 +15,7 @@ const (
 
 // List holds a list of ISUPPORT tokens
 type List struct {
-	Tokens      map[string]*string
+	Tokens      map[string]string
 	CachedReply [][]string
 }
 
@@ -27,26 +27,27 @@ func NewList() *List {
 }
 
 func (il *List) Initialize() {
-	il.Tokens = make(map[string]*string)
+	il.Tokens = make(map[string]string)
 	il.CachedReply = make([][]string, 0)
 }
 
 // Add adds an RPL_ISUPPORT token to our internal list
 func (il *List) Add(name string, value string) {
-	il.Tokens[name] = &value
+	il.Tokens[name] = value
 }
 
 // AddNoValue adds an RPL_ISUPPORT token that does not have a value
 func (il *List) AddNoValue(name string) {
-	il.Tokens[name] = nil
+	il.Tokens[name] = ""
 }
 
 // getTokenString gets the appropriate string for a token+value.
-func getTokenString(name string, value *string) string {
-	if value == nil {
+func getTokenString(name string, value string) string {
+	if len(value) == 0 {
 		return name
 	}
-	return fmt.Sprintf("%s=%s", name, *value)
+
+	return fmt.Sprintf("%s=%s", name, value)
 }
 
 // GetDifference returns the difference between two token lists.
@@ -68,7 +69,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 	// append added tokens
 	for name, value := range newil.Tokens {
 		newval, exists := il.Tokens[name]
-		if exists && ((value == nil && newval == nil) || (value != nil && newval != nil && *value == *newval)) {
+		if exists && value == newval {
 			continue
 		}
 
