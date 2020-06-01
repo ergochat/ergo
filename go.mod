@@ -5,7 +5,7 @@ go 1.14
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/go-ldap/ldap/v3 v3.1.7
+	github.com/go-ldap/ldap/v3 v3.1.10
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/goshuirc/e-nfa v0.0.0-20160917075329-7071788e3940 // indirect
@@ -16,8 +16,9 @@ require (
 	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.1.2
-	github.com/toorop/go-dkim v0.0.0-20191019073156-897ad64a2eeb
+	github.com/toorop/go-dkim v0.0.0-20200526084421-76378ae5207e
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
+	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect
 	golang.org/x/text v0.3.2
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 )

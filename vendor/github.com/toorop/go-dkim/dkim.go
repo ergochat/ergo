@@ -202,7 +202,7 @@ func Sign(email *[]byte, options SigOptions) error {
 // error: if an error occurs during verification
 func Verify(email *[]byte, opts ...DNSOpt) (verifyOutput, error) {
 	// parse email
-	dkimHeader, err := newDkimHeaderFromEmail(email)
+	dkimHeader, err := GetHeader(email)
 	if err != nil {
 		if err == ErrDkimHeaderNotFound {
 			return NOTSIGNED, ErrDkimHeaderNotFound
@@ -254,7 +254,7 @@ func Verify(email *[]byte, opts ...DNSOpt) (verifyOutput, error) {
 	}
 
 	// compute sig
-	dkimHeaderCano, err := canonicalizeHeader(dkimHeader.RawForSign, strings.Split(dkimHeader.MessageCanonicalization, "/")[0])
+	dkimHeaderCano, err := canonicalizeHeader(dkimHeader.rawForSign, strings.Split(dkimHeader.MessageCanonicalization, "/")[0])
 	if err != nil {
 		return getVerifyOutput(TEMPFAIL, err, pubKey.FlagTesting)
 	}
