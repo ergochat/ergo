@@ -11,31 +11,19 @@ import (
 	"log"
 	"os"
 	"strings"
-	"syscall"
 
 	"github.com/docopt/docopt-go"
 	"github.com/oragono/oragono/irc"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/mkcerts"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 // set via linker flags, either by make or by goreleaser:
 var commit = ""  // git hash
 var version = "" // tagged version
 
-// get a password from stdin from the user
-func getPassword() string {
-	fd := int(os.Stdin.Fd())
-	if terminal.IsTerminal(fd) {
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			log.Fatal("Error reading password:", err.Error())
-		}
-		return string(bytePassword)
-	}
-	reader := bufio.NewReader(os.Stdin)
+func readPassword(reader *bufio.Reader) (result string) {
 	text, _ := reader.ReadString('\n')
 	return strings.TrimSpace(text)
 }
@@ -112,26 +100,25 @@ Options:
 	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
 		var password string
-		fd := int(os.Stdin.Fd())
-		if terminal.IsTerminal(fd) {
-			fmt.Print("Enter Password: ")
-			password = getPassword()
-			fmt.Print("\n")
-			fmt.Print("Reenter Password: ")
-			confirm := getPassword()
-			fmt.Print("\n")
+		reader := bufio.NewReader(os.Stdin)
+		quiet := arguments["--quiet"].(bool)
+		if !quiet {
+			fmt.Println("Enter Password:")
+			password = readPassword(reader)
+			fmt.Println("Reenter Password:")
+			confirm := readPassword(reader)
 			if confirm != password {
 				log.Fatal("passwords do not match")
 			}
 		} else {
-			password = getPassword()
+			password = readPassword(reader)
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
 		fmt.Print(string(hash))
-		if terminal.IsTerminal(fd) {
+		if !quiet {
 			fmt.Println()
 		}
 		return
