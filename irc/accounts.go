@@ -873,8 +873,6 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		}
 		if method == NickEnforcementStrict {
 			am.server.RandomlyRename(currentClient)
-		} else if method == NickEnforcementWithTimeout {
-			currentClient.nickTimer.Touch(nil)
 		}
 	}
 	return nil
@@ -1738,8 +1736,6 @@ func (am *AccountManager) applyVhostToClients(account string, result VHostInfo) 
 func (am *AccountManager) Login(client *Client, account ClientAccount) {
 	client.Login(account)
 
-	client.nickTimer.Touch(nil)
-
 	am.applyVHostInfo(client, account.VHost)
 
 	casefoldedAccount := client.Account()
@@ -1757,7 +1753,7 @@ func (am *AccountManager) Logout(client *Client) {
 		return
 	}
 
-	am.logoutOfAccount(client)
+	client.Logout()
 
 	clients := am.accountToClients[casefoldedAccount]
 	if len(clients) <= 1 {
@@ -1933,16 +1929,4 @@ type rawClientAccount struct {
 	AdditionalNicks string
 	VHost           string
 	Settings        string
-}
-
-// logoutOfAccount logs the client out of their current account.
-// TODO(#1027) delete this entire method and just use client.Logout()
-func (am *AccountManager) logoutOfAccount(client *Client) {
-	if client.Account() == "" {
-		// already logged out
-		return
-	}
-
-	client.Logout()
-	go client.nickTimer.Touch(nil)
 }

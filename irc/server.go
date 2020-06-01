@@ -320,9 +320,6 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if server.logger.IsLoggingRawIO() {
 		session.Send(nil, c.server.name, "NOTICE", d.nick, c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 	}
-
-	// #572: defer nick warnings to the end of the registration burst
-	session.client.nickTimer.Touch(nil)
 }
 
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
@@ -628,13 +625,6 @@ func (server *Server) applyConfig(config *Config) (err error) {
 
 			if sendRawOutputNotice {
 				sClient.Notice(sClient.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
-			}
-
-			if !oldConfig.Accounts.NickReservation.Enabled && config.Accounts.NickReservation.Enabled {
-				sClient.nickTimer.Initialize(sClient)
-				sClient.nickTimer.Touch(nil)
-			} else if oldConfig.Accounts.NickReservation.Enabled && !config.Accounts.NickReservation.Enabled {
-				sClient.nickTimer.Stop()
 			}
 		}
 	}

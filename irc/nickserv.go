@@ -37,11 +37,6 @@ func servCmdRequiresBouncerEnabled(config *Config) bool {
 
 const (
 	nsPrefix = "NickServ!NickServ@localhost"
-	// ZNC's nickserv module will not detect this unless it is:
-	// 1. sent with prefix `nickserv`
-	// 2. contains the string "identify"
-	// 3. contains at least one of several other magic strings ("msg" works)
-	nsTimeoutNotice = `This nickname is reserved. Please login within %v (using $b/msg NickServ IDENTIFY <password>$b or SASL), or switch to a different nickname.`
 )
 
 const nickservHelp = `NickServ lets you register, log in to, and manage an account.`
@@ -249,10 +244,9 @@ SET modifies your account settings. The following settings are available:`,
 'enforce' lets you specify a custom enforcement mechanism for your registered
 nicknames. Your options are:
 1. 'none'    [no enforcement, overriding the server default]
-2. 'timeout' [anyone using the nick must authenticate before a deadline,
               or else they will be renamed]
-3. 'strict'  [you must already be authenticated to use the nick]
-4. 'default' [use the server default]`,
+2. 'strict'  [you must already be authenticated to use the nick]
+3. 'default' [use the server default]`,
 
 				`$bMULTICLIENT$b
 If 'multiclient' is enabled and you are already logged in and using a nick, a

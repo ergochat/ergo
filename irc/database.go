@@ -23,7 +23,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "11"
+	latestDbSchema = "12"
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -650,6 +650,42 @@ func schemaChangeV10ToV11(config *Config, tx *buntdb.Tx) error {
 	return err
 }
 
+// #1027: NickEnforcementTimeout (2) was removed,
+// NickEnforcementStrict was 3 and is now 2
+func schemaChangeV11ToV12(config *Config, tx *buntdb.Tx) error {
+	prefix := "account.settings "
+	var accounts, rawSettings []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+		accounts = append(accounts, account)
+		rawSettings = append(rawSettings, value)
+		return true
+	})
+
+	for i, account := range accounts {
+		var settings AccountSettings
+		err := json.Unmarshal([]byte(rawSettings[i]), &settings)
+		if err != nil {
+			log.Printf("corrupt account settings entry for %s: %v\n", account, err)
+			continue
+		}
+		// upgrade NickEnforcementTimeout (which was 2) to NickEnforcementStrict (currently 2),
+		// fix up the old value of NickEnforcementStrict (3) to the current value (2)
+		if int(settings.NickEnforcement) == 3 {
+			settings.NickEnforcement = NickEnforcementMethod(2)
+			text, err := json.Marshal(settings)
+			if err != nil {
+				return err
+			}
+			tx.Set(prefix+account, string(text), nil)
+		}
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -701,6 +737,11 @@ func init() {
 			InitialVersion: "10",
 			TargetVersion:  "11",
 			Changer:        schemaChangeV10ToV11,
+		},
+		{
+			InitialVersion: "11",
+			TargetVersion:  "12",
+			Changer:        schemaChangeV11ToV12,
 		},
 	}
 

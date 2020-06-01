@@ -67,7 +67,6 @@ type Client struct {
 	nickCasefolded     string
 	nickMaskCasefolded string
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
-	nickTimer          NickTimer
 	oper               *Oper
 	preregNick         string
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
@@ -604,9 +603,6 @@ func (client *Client) run(session *Session) {
 		} else {
 			client.playReattachMessages(session)
 		}
-	} else {
-		// don't reset the nick timer during a reattach
-		client.nickTimer.Initialize(client)
 	}
 
 	firstLine := !isReattach
@@ -1353,7 +1349,6 @@ func (client *Client) destroy(session *Session) {
 	client.server.clients.Remove(client)
 
 	// clean up self
-	client.nickTimer.Stop()
 	client.brbTimer.Disable()
 
 	client.server.accounts.Logout(client)
