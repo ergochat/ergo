@@ -320,7 +320,6 @@ const (
 	// else be fixed up by a schema change)
 	NickEnforcementOptional NickEnforcementMethod = iota
 	NickEnforcementNone
-	NickEnforcementWithTimeout
 	NickEnforcementStrict
 )
 
@@ -330,8 +329,6 @@ func nickReservationToString(method NickEnforcementMethod) string {
 		return "default"
 	case NickEnforcementNone:
 		return "none"
-	case NickEnforcementWithTimeout:
-		return "timeout"
 	case NickEnforcementStrict:
 		return "strict"
 	default:
@@ -347,8 +344,6 @@ func nickReservationFromString(method string) (NickEnforcementMethod, error) {
 		return NickEnforcementOptional, nil
 	case "none":
 		return NickEnforcementNone, nil
-	case "timeout":
-		return NickEnforcementWithTimeout, nil
 	case "strict":
 		return NickEnforcementStrict, nil
 	default:
