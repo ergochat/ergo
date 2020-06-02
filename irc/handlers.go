@@ -964,33 +964,39 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 // INFO
 func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	nick := client.Nick()
 	// we do the below so that the human-readable lines in info can be translated.
 	for _, line := range infoString1 {
-		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, nick, line)
 	}
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Oragono is released under the MIT license."))
-	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Core Developers:"))
+	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("This is Oragono version %s."), SemVer))
+	if Commit != "" {
+		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was built from git hash %s."), Commit))
+	}
+	rb.Add(nil, server.name, RPL_INFO, nick, "")
+	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Oragono is released under the MIT license."))
+	rb.Add(nil, server.name, RPL_INFO, nick, "")
+	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Core Developers:"))
 	for _, line := range infoString2 {
-		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, nick, line)
 	}
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Former Core Developers:"))
+	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Former Core Developers:"))
 	for _, line := range infoString3 {
-		rb.Add(nil, server.name, RPL_INFO, client.nick, line)
+		rb.Add(nil, server.name, RPL_INFO, nick, line)
 	}
-	rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("For a more complete list of contributors, see our changelog:"))
-	rb.Add(nil, server.name, RPL_INFO, client.nick, "    https://github.com/oragono/oragono/blob/master/CHANGELOG.md")
-	rb.Add(nil, server.name, RPL_INFO, client.nick, "")
+	rb.Add(nil, server.name, RPL_INFO, nick, client.t("For a more complete list of contributors, see our changelog:"))
+	rb.Add(nil, server.name, RPL_INFO, nick, "    https://github.com/oragono/oragono/blob/master/CHANGELOG.md")
+	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	// show translators for languages other than good ole' regular English
 	tlines := server.Languages().Translators()
 	if 0 < len(tlines) {
-		rb.Add(nil, server.name, RPL_INFO, client.nick, client.t("Translators:"))
+		rb.Add(nil, server.name, RPL_INFO, nick, client.t("Translators:"))
 		for _, line := range tlines {
-			rb.Add(nil, server.name, RPL_INFO, client.nick, "    "+strings.Replace(line, "\n", ", ", -1))
+			rb.Add(nil, server.name, RPL_INFO, nick, "    "+strings.Replace(line, "\n", ", ", -1))
 		}
-		rb.Add(nil, server.name, RPL_INFO, client.nick, "")
+		rb.Add(nil, server.name, RPL_INFO, nick, "")
 	}
-	rb.Add(nil, server.name, RPL_ENDOFINFO, client.nick, client.t("End of /INFO"))
+	rb.Add(nil, server.name, RPL_ENDOFINFO, nick, client.t("End of /INFO"))
 	return false
 }
 
