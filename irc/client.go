@@ -1052,9 +1052,9 @@ func (client *Client) SetOper(oper *Oper) {
 // XXX: CHGHOST requires prefix nickmask to have original hostname,
 // this is annoying to do correctly
 func (client *Client) sendChghost(oldNickMask string, vhost string) {
-	username := client.Username()
+	details := client.Details()
 	for fClient := range client.Friends(caps.ChgHost) {
-		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, client.AccountName(), nil, "CHGHOST", username, vhost)
+		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, details.accountName, nil, "CHGHOST", details.username, vhost)
 	}
 }
 
