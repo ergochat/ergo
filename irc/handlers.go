@@ -2417,6 +2417,12 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	return false
 }
 
+// SUMMON [parameters]
+func summonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, ERR_SUMMONDISABLED, client.Nick(), client.t("SUMMON has been disabled"))
+	return false
+}
+
 // TIME
 func timeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
@@ -2573,6 +2579,12 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		rb.Add(nil, client.server.name, RPL_USERHOST, nick, line)
 	}
 
+	return false
+}
+
+// USERS [parameters]
+func usersHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, ERR_USERSDISABLED, client.Nick(), client.t("USERS has been disabled"))
 	return false
 }
 

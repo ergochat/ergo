@@ -282,6 +282,9 @@ func init() {
 			handler:   setnameHandler,
 			minParams: 1,
 		},
+		"SUMMON": {
+			handler: summonHandler,
+		},
 		"TAGMSG": {
 			handler:   messageHandler,
 			minParams: 1,
@@ -323,6 +326,9 @@ func init() {
 		"USERHOST": {
 			handler:   userhostHandler,
 			minParams: 1,
+		},
+		"USERS": {
+			handler: usersHandler,
 		},
 		"VERSION": {
 			handler:   versionHandler,

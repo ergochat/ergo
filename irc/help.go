@@ -433,6 +433,11 @@ The SCENE command is used to send a scene notification to the given target.`,
 
 The SETNAME command updates the realname to be the newly-given one.`,
 	},
+	"summon": {
+		text: `SUMMON [parameters]
+
+The SUMMON command is not implemented.`,
+	},
 	"tagmsg": {
 		text: `@+client-only-tags TAGMSG <target>{,<target>}
 
@@ -492,6 +497,11 @@ For example:
 
 Used in connection registration, sets your username and realname to the given
 values (though your username may also be looked up with Ident).`,
+	},
+	"users": {
+		text: `USERS [parameters]
+
+The USERS command is not implemented.`,
 	},
 	"userhost": {
 		text: `USERHOST <nickname>{ <nickname>}
