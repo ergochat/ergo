@@ -47,6 +47,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - Kiwi IRC
     - HOPM
     - Tor
+    - External authentication systems
 - Acknowledgements
 
 
@@ -845,6 +846,38 @@ Instructions on how client software should connect to an .onion address are outs
 ZNC 1.6.x (still pretty common in distros that package old versions of IRC software) has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Oragono supports a compatibility mode that works around this to let ZNC complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
 
 Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
+
+## External authentication systems
+
+Oragono can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Oragono will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON dictionary with the following keys:
+
+* `accountName`: during passphrase-based authentication, this is a string, otherwise omitted
+* `passphrase`: during passphrase-based authentication, this is a string, otherwise omitted
+* `certfp`: during certfp-based authentication, this is a string, otherwise omitted
+* `ip`: a string representation of the client's IP address
+
+The script must print a single line (`\n`-terminated) to its output and exit. This line must be a JSON dictionary with the following keys:
+
+* `success`, a boolean indicating whether the authentication was successful
+* `accountName`, a string containing the normalized account name (in the case of passphrase-based authentication, it is permissible to return the empty string or omit the value)
+* `error`, containing a human-readable description of the authentication error to be logged if applicable
+
+Here is a toy example of an authentication script in Python that checks that the account name and the password are equal (and rejects any attempts to authenticate via certfp):
+
+```
+#!/usr/bin/python3
+
+import sys, json
+
+raw_input = sys.stdin.readline()
+input = json.loads(b)
+account_name = input.get("accountName")
+passphrase = input.get("passphrase")
+success = bool(account_name) and bool(passphrase) and account_name == passphrase
+print(json.dumps({"success": success})
+```
+
+Note that after a failed script invocation, Oragono will proceed to check the credentials against its local database.
 
 
 --------------------------------------------------------------------------------------------
