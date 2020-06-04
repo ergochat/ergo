@@ -64,6 +64,7 @@ var (
 	errEmptyCredentials               = errors.New("No more credentials are approved")
 	errCredsExternallyManaged         = errors.New("Credentials are externally managed and cannot be changed here")
 	errInvalidMultilineBatch          = errors.New("Invalid multiline batch")
+	errTimedOut                       = errors.New("Operation timed out")
 )
 
 // Socket Errors

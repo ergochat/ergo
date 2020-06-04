@@ -517,6 +517,21 @@ accounts:
     #     attributes:
     #         member-of: "memberOf"
 
+    # pluggable authentication mechanism, via subprocess invocation
+    # see the manual for details on how to write an authentication plugin script
+    auth-script:
+        enabled: false
+        command: "/usr/local/bin/authenticate-irc-user"
+        # constant list of args to pass to the command; the actual authentication
+        # data is transmitted over stdin/stdout:
+        args: []
+        # should we automatically create users if the plugin returns success?
+        autocreate: true
+        # timeout for process execution, after which we send a SIGTERM:
+        timeout: 9s
+        # how long after the SIGTERM before we follow up with a SIGKILL:
+        kill-timeout: 1s
+
 # channel options
 channels:
     # modes that are set when new channels are created

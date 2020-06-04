@@ -1029,6 +1029,18 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	return
 }
 
+func (am *AccountManager) loadWithAutocreation(accountName string, autocreate bool) (account ClientAccount, err error) {
+	account, err = am.LoadAccount(accountName)
+	if err == errAccountDoesNotExist && autocreate {
+		err = am.SARegister(accountName, "")
+		if err != nil {
+			return
+		}
+		account, err = am.LoadAccount(accountName)
+	}
+	return
+}
+
 func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName string, passphrase string) (err error) {
 	// XXX check this now, so we don't allow a redundant login for an always-on client
 	// even for a brief period. the other potential source of nick-account conflicts
@@ -1048,19 +1060,29 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		}
 	}()
 
-	ldapConf := am.server.Config().Accounts.LDAP
-	if ldapConf.Enabled {
+	config := am.server.Config()
+	if config.Accounts.LDAP.Enabled {
+		ldapConf := am.server.Config().Accounts.LDAP
 		err = ldap.CheckLDAPPassphrase(ldapConf, accountName, passphrase, am.server.logger)
-		if err == nil {
-			account, err = am.LoadAccount(accountName)
-			// autocreate if necessary:
-			if err == errAccountDoesNotExist && ldapConf.Autocreate {
-				err = am.SARegister(accountName, "")
-				if err != nil {
-					return
-				}
-				account, err = am.LoadAccount(accountName)
+		if err != nil {
+			account, err = am.loadWithAutocreation(accountName, ldapConf.Autocreate)
+			return
+		}
+	}
+
+	if config.Accounts.AuthScript.Enabled {
+		var output AuthScriptOutput
+		output, err = CheckAuthScript(config.Accounts.AuthScript,
+			AuthScriptInput{AccountName: accountName, Passphrase: passphrase})
+		if err != nil {
+			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
+			return err
+		}
+		if output.Success {
+			if output.AccountName != "" {
+				accountName = output.AccountName
 			}
+			account, err = am.loadWithAutocreation(accountName, config.Accounts.AuthScript.Autocreate)
 			return
 		}
 	}
@@ -1361,15 +1383,49 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 	return unmarshalRegisteredChannels(channelStr)
 }
 
-func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid string) error {
+func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid string) (err error) {
 	if certfp == "" {
 		return errAccountInvalidCredentials
+	}
+
+	var clientAccount ClientAccount
+
+	defer func() {
+		if err != nil {
+			return
+		} else if !clientAccount.Verified {
+			err = errAccountUnverified
+			return
+		}
+		// TODO(#1109) clean this check up?
+		if client.registered {
+			if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
+				err = errNickAccountMismatch
+				return
+			}
+		}
+		am.Login(client, clientAccount)
+		return
+	}()
+
+	config := am.server.Config()
+	if config.Accounts.AuthScript.Enabled {
+		var output AuthScriptOutput
+		output, err = CheckAuthScript(config.Accounts.AuthScript, AuthScriptInput{Certfp: certfp})
+		if err != nil {
+			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
+			return err
+		}
+		if output.Success && output.AccountName != "" {
+			clientAccount, err = am.loadWithAutocreation(output.AccountName, config.Accounts.AuthScript.Autocreate)
+			return
+		}
 	}
 
 	var account string
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
-	err := am.server.store.View(func(tx *buntdb.Tx) error {
+	err = am.server.store.View(func(tx *buntdb.Tx) error {
 		account, _ = tx.Get(certFPKey)
 		if account == "" {
 			return errAccountInvalidCredentials
@@ -1386,19 +1442,8 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 	}
 
 	// ok, we found an account corresponding to their certificate
-	clientAccount, err := am.LoadAccount(account)
-	if err != nil {
-		return err
-	} else if !clientAccount.Verified {
-		return errAccountUnverified
-	}
-	if client.registered {
-		if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
-			return errNickAccountMismatch
-		}
-	}
-	am.Login(client, clientAccount)
-	return nil
+	clientAccount, err = am.LoadAccount(account)
+	return err
 }
 
 type settingsMunger func(input AccountSettings) (output AccountSettings, err error)

@@ -278,6 +278,16 @@ type AccountConfig struct {
 	Multiclient MulticlientConfig
 	Bouncer     *MulticlientConfig // # handle old name for 'multiclient'
 	VHosts      VHostConfig
+	AuthScript  AuthScriptConfig `yaml:"auth-script"`
+}
+
+type AuthScriptConfig struct {
+	Enabled     bool
+	Command     string
+	Args        []string
+	Autocreate  bool
+	Timeout     time.Duration
+	KillTimeout time.Duration `yaml:"kill-timeout"`
 }
 
 // AccountRegistrationConfig controls account registration.
