@@ -702,13 +702,13 @@ limits:
     channellen: 64
 
     # awaylen is the maximum length of an away message
-    awaylen: 500
+    awaylen: 390
 
     # kicklen is the maximum length of a kick message
-    kicklen: 1000
+    kicklen: 390
 
     # topiclen is the maximum length of a channel topic
-    topiclen: 1000
+    topiclen: 390
 
     # maximum number of monitor entries a client can have
     monitor-entries: 100
