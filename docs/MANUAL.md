@@ -849,14 +849,14 @@ Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of c
 
 ## External authentication systems
 
-Oragono can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Oragono will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON-encoded dictionary with the following keys:
+Oragono can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Oragono will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON dictionary with the following keys:
 
 * `accountName`: during passphrase-based authentication, this is a string, otherwise omitted
 * `passphrase`: during passphrase-based authentication, this is a string, otherwise omitted
 * `certfp`: during certfp-based authentication, this is a string, otherwise omitted
 * `ip`: a string representation of the client's IP address
 
-The script must print a single line (`\n`-terminated) to its output and exit. This line must be a JSON-encoded dictionary with the following keys:
+The script must print a single line (`\n`-terminated) to its output and exit. This line must be a JSON dictionary with the following keys:
 
 * `success`, a boolean indicating whether the authentication was successful
 * `accountName`, a string containing the normalized account name (in the case of passphrase-based authentication, it is permissible to return the empty string or omit the value)
