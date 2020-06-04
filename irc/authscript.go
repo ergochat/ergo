@@ -15,15 +15,16 @@ import (
 
 // JSON-serializable input and output types for the script
 type AuthScriptInput struct {
-	AccountName string
-	Passphrase  string
-	Certfp      string
+	AccountName string `json:"accountName,omitempty"`
+	Passphrase  string `json:"passphrase,omitempty"`
+	Certfp      string `json:"certfp,omitempty"`
+	IP          string `json:"ip,omitempty"`
 }
 
 type AuthScriptOutput struct {
-	AccountName string
-	Success     bool
-	Error       string
+	AccountName string `json:"accountName"`
+	Success     bool   `json:"success"`
+	Error       string `json:"error"`
 }
 
 // internal tupling of output and error for passing over a channel

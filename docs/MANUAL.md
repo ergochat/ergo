@@ -851,15 +851,16 @@ Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of c
 
 Oragono can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Oragono will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON-encoded dictionary with the following keys:
 
-* `AccountName`: this is a string during passphrase-based authentication, otherwise the empty string
-* `Passphrase`: this is a string during passphrase-based authentication, otherwise the empty string
-* `Certfp`: this is a string during certfp-based authentication, otherwise the empty string
+* `accountName`: during passphrase-based authentication, this is a string, otherwise omitted
+* `passphrase`: during passphrase-based authentication, this is a string, otherwise omitted
+* `certfp`: during certfp-based authentication, this is a string, otherwise omitted
+* `ip`: a string representation of the client's IP address
 
 The script must print a single line (`\n`-terminated) to its output and exit. This line must be a JSON-encoded dictionary with the following keys:
 
-* `Success`, a boolean indicating whether the authentication was successful
-* `AccountName`, a string containing the normalized account name (in the case of passphrase-based authentication, it is permissible to return the empty string or omit the value)
-* `Error`, containing a human-readable description of the authentication error to be logged if applicable
+* `success`, a boolean indicating whether the authentication was successful
+* `accountName`, a string containing the normalized account name (in the case of passphrase-based authentication, it is permissible to return the empty string or omit the value)
+* `error`, containing a human-readable description of the authentication error to be logged if applicable
 
 Here is a toy example of an authentication script in Python that checks that the account name and the password are equal (and rejects any attempts to authenticate via certfp):
 
@@ -870,10 +871,10 @@ import sys, json
 
 raw_input = sys.stdin.readline()
 input = json.loads(b)
-account_name = input.get("AccountName")
-passphrase = input.get("Passphrase")
+account_name = input.get("accountName")
+passphrase = input.get("passphrase")
 success = bool(account_name) and bool(passphrase) and account_name == passphrase
-print(json.dumps({"Success": success})
+print(json.dumps({"success": success})
 ```
 
 Note that after a failed script invocation, Oragono will proceed to check the credentials against its local database.
