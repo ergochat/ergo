@@ -106,7 +106,7 @@ func TestCasefoldName(t *testing.T) {
 	for _, errCase := range []string{
 		"", "#", "foo,bar", "star*man*junior", "lo7t?",
 		"f.l", "excited!nick", "foo@bar", ":trail",
-		"~o", "&o", "@o", "%h", "+v", "-m",
+		"~o", "&o", "@o", "%h", "+v", "-m", "\t", "a\tb",
 	} {
 		testCases = append(testCases, nameTest{name: errCase, err: true})
 	}
