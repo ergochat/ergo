@@ -1,6 +1,6 @@
 {
   "    $b/msg %s HELP <command>$b": "    $b/msg %s HELP <comandă>$b",
-  "$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b": "",
+  "$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b": "$bWarning: schimbarea mantiei secrete v-a invalida ban/invitatie/lista cu exceptii. stocate.$b",
   "$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b": "",
   "$bWarning: unregistering this account will remove its stored privileges.$b": "$bAvertisment: ștergerea acestui cont, va conduce la anularea tuturor privilegiilor deținute$b",
   "$bWarning: unregistering this channel will remove all stored channel attributes.$b": "$bAvertisment: ștergerea acestui canal, va conduce la anularea tuturor atributelor salvate.$b",
