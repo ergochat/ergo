@@ -89,6 +89,7 @@ This release includes a change to the MySQL schema. This change will be applied 
 * Account unregistration now always disconnects the client (#1028)
 * Fakelag is now temporarily disabled during the sending of a `draft/multiline` message batch (#817)
 * Failed attempts to join a `+R` channel now send `477 ERR_NEEDREGGEDNICK` (#936, thanks [@PizzaLover2007](https://github.com/PizzaLover2007), [@jesopo](https://github.com/jesopo)!)
+* `353 RPL_NAMREPLY` now always uses a trailing parameter, for compatibility with incorrect client implementations (#854, #862)
 * Channels with persistent history can no longer be renamed with `/RENAME` (#827)
 * The self-signed certificate generation command `oragono mkcerts` now generates a 2048-bit RSA certificate, instead of a NIST P-521 ECDSA certificate (#898)
 * Cleaned up compatibility with an obsolete WEBIRC escaping convention (#869)
