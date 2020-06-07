@@ -54,7 +54,7 @@ vim ircd.yaml  # modify the config file to your liking
 oragono mkcerts
 ```
 
-**Note:** For setting up proper Let's Encrypt certificates, we've got [this manual entry](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#how-do-i-use-lets-encrypt-certificates).
+**Note:** See the [productionizing guide in our manual](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#productionizing) for recommendations on how to run a production network, including obtaining valid TLS certificates.
 
 ### Platform Packages
 
