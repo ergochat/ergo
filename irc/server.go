@@ -444,6 +444,9 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 		flags += channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix))
 		channelName = channel.name
 	}
+	if target.HasMode(modes.Bot) {
+		flags += "B"
+	}
 	details := target.Details()
 	// hardcode a hopcount of 0 for now
 	rb.Add(nil, client.server.name, RPL_WHOREPLY, client.Nick(), channelName, details.username, details.hostname, client.server.name, details.nick, flags, "0 "+details.realname)

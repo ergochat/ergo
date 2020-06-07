@@ -1166,6 +1166,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport := &config.Server.isupport
 	isupport.Initialize()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
+	isupport.Add("BOT", "B")
 	isupport.Add("CASEMAPPING", "ascii")
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
 	isupport.Add("CHANMODES", strings.Join([]string{modes.Modes{modes.BanMask, modes.ExceptMask, modes.InviteMask}.String(), modes.Modes{modes.Key}.String(), modes.Modes{modes.UserLimit}.String(), modes.Modes{modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.ChanRoleplaying, modes.Secret, modes.NoCTCP, modes.RegisteredOnly}.String()}, ","))
