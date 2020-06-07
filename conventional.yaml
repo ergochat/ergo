@@ -176,7 +176,7 @@ server:
         # actually required. this forces Oragono to send those parameters
         # as trailings. this is recommended unless you're testing clients for conformance;
         # defaults to true when unset for that reason.
-        force-trailing: true
+        force-trailing: false
 
         # some clients (ZNC 1.6.x and lower, Pidgin 2.12 and lower) do not
         # respond correctly to SASL messages with the server name as a prefix:
