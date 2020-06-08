@@ -19,6 +19,16 @@ import (
 
 const (
 	precisUTF8MappingToken = "rfc8265"
+
+	// space can't be used
+	// , is used as a separator
+	// * is used in mask matching
+	// ? is used in mask matching
+	// . denotes a server name
+	// ! separates nickname from username
+	// @ separates username from hostname
+	// : means trailing
+	protocolBreakingNameCharacters = " ,*?.!@:"
 )
 
 var (
@@ -132,18 +142,10 @@ func CasefoldName(name string) (string, error) {
 		return "", errStringIsEmpty
 	}
 
-	// space can't be used
-	// , is used as a separator
-	// * is used in mask matching
-	// ? is used in mask matching
-	// . denotes a server name
-	// ! separates nickname from username
-	// @ separates username from hostname
-	// : means trailing
 	// # is a channel prefix
 	// ~&@%+ are channel membership prefixes
 	// - I feel like disallowing
-	if strings.ContainsAny(lowered, " ,*?.!@:") || strings.ContainsAny(string(lowered[0]), "#~&@%+-") {
+	if strings.ContainsAny(lowered, protocolBreakingNameCharacters) || strings.ContainsAny(string(lowered[0]), "#~&@%+-") {
 		return "", errInvalidCharacter
 	}
 

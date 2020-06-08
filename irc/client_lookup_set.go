@@ -173,8 +173,13 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNicknameInvalid, false
 		}
 
-		if strings.Contains(newCfNick, "/") {
-			return "", errNicknameInvalid, false
+		config := client.server.Config()
+		if config.Server.Relaying.Enabled {
+			for _, char := range config.Server.Relaying.Separators {
+				if strings.ContainsRune(newCfNick, char) {
+					return "", errNicknameInvalid, false
+				}
+			}
 		}
 
 		if restrictedCasefoldedNicks[newCfNick] || restrictedSkeletons[newSkeleton] {

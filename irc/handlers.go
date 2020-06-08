@@ -1888,12 +1888,22 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			break
 		}
 
-		if strings.Contains(targetString, "/") {
-			if histType == history.Privmsg {
-				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot be sent private messages"))
+		config := server.Config()
+		if config.Server.Relaying.Enabled {
+			var isForRelayClient bool
+			for _, char := range config.Server.Relaying.Separators {
+				if strings.ContainsRune(targetString, char) {
+					isForRelayClient = true
+					break
+				}
 			}
-			// TAGMSG/NOTICEs are intentionally silently dropped
-			continue
+			if isForRelayClient {
+				if histType == history.Privmsg {
+					rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot be sent private messages"))
+				}
+				// TAGMSG/NOTICEs are intentionally silently dropped
+				continue
+			}
 		}
 
 		// each target gets distinct msgids
@@ -2281,14 +2291,21 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // RELAYMSG <channel> <spoofed nick> :<message>
 func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
+	config := server.Config()
+	if !config.Server.Relaying.Enabled {
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_ENABLED", client.t("Relaying has been disabled"))
+		return false
+	}
+
 	channel := server.channels.Get(msg.Params[0])
 	if channel == nil {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
 		return false
 	}
 
-	if !(channel.ClientIsAtLeast(client, modes.ChannelOperator) || client.HasRoleCapabs("relaymsg-anywhere")) {
-		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_PRIVED", client.t("Only channel operators or ircops with the 'relaymsg-anywhere' role can relay messages"))
+	allowedToRelay := client.HasRoleCapabs("relaymsg-anywhere") || (config.Server.Relaying.AvailableToChanops && channel.ClientIsAtLeast(client, modes.ChannelOperator))
+	if !allowedToRelay {
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_PRIVED", client.t("You cannot relay messages to this channel"))
 		return false
 	}
 

@@ -499,14 +499,19 @@ type Config struct {
 		CheckIdent              bool `yaml:"check-ident"`
 		MOTD                    string
 		motdLines               []string
-		MOTDFormatting          bool     `yaml:"motd-formatting"`
-		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
-		proxyAllowedFromNets    []net.IPNet
-		WebIRC                  []webircConfig `yaml:"webirc"`
-		MaxSendQString          string         `yaml:"max-sendq"`
-		MaxSendQBytes           int
-		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
-		Compatibility           struct {
+		MOTDFormatting          bool `yaml:"motd-formatting"`
+		Relaying                struct {
+			Enabled            bool
+			Separators         string
+			AvailableToChanops bool `yaml:"available-to-chanops"`
+		}
+		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
+		proxyAllowedFromNets []net.IPNet
+		WebIRC               []webircConfig `yaml:"webirc"`
+		MaxSendQString       string         `yaml:"max-sendq"`
+		MaxSendQBytes        int
+		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
+		Compatibility        struct {
 			ForceTrailing      *bool `yaml:"force-trailing"`
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
@@ -1068,8 +1073,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
-	// intentionally not configurable
-	config.Server.capValues[caps.Relaymsg] = "/"
+	if config.Server.Relaying.Enabled {
+		for _, char := range protocolBreakingNameCharacters {
+			if strings.ContainsRune(config.Server.Relaying.Separators, char) {
+				return nil, fmt.Errorf("Relaying separators cannot include the characters %s", protocolBreakingNameCharacters)
+			}
+		}
+		config.Server.capValues[caps.Relaymsg] = config.Server.Relaying.Separators
+	} else {
+		config.Server.supportedCaps.Disable(caps.Relaymsg)
+	}
 
 	config.Debug.recoverFromErrors = utils.BoolDefaultTrue(config.Debug.RecoverFromErrors)
 

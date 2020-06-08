@@ -497,6 +497,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
 		} else if oldConfig.Accounts.Multiclient.AlwaysOn != config.Accounts.Multiclient.AlwaysOn {
 			return fmt.Errorf("Default always-on setting cannot be changed after launching the server, rehash aborted")
+		} else if oldConfig.Server.Relaying.Enabled != config.Server.Relaying.Enabled {
+			return fmt.Errorf("Cannot enable or disable relaying after launching the server, rehash aborted")
+		} else if oldConfig.Server.Relaying.Separators != config.Server.Relaying.Separators {
+			return fmt.Errorf("Cannot change relaying separators after launching the server, rehash aborted")
 		}
 	}
 

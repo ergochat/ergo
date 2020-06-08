@@ -160,6 +160,19 @@ server:
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
     motd-formatting: true
 
+    # relaying using the RELAYMSG command
+    relaying:
+        # is relaying enabled at all?
+        enabled: true
+
+        # which character(s) are reserved for relayed nicks?
+        separators: "/"
+
+        # can channel operators use RELAYMSG in their channels?
+        # our implementation of RELAYMSG makes it safe for chanops to use without the
+        # possibility of real users being silently spoofed
+        available-to-chanops: true
+
     # addresses/CIDRs the PROXY command can be used from
     # this should be restricted to localhost (127.0.0.1/8, ::1/128, and unix sockets),
     # unless you have a good reason. you should also add these addresses to the
