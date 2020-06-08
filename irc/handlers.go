@@ -2336,9 +2336,11 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 	// send msg
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
-			tagsToUse := make(map[string]string)
+			var tagsToUse map[string]string
 			if session.capabilities.Has(caps.Relaymsg) {
-				tagsToUse["relaymsg"] = client.Nick()
+				tagsToUse = map[string]string{
+					"relaymsg": client.Nick(),
+				}
 			}
 
 			session.sendSplitMsgFromClientInternal(false, nick, "", tagsToUse, "PRIVMSG", channel.Name(), message)
