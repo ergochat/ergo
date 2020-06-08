@@ -1899,7 +1899,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 			}
 			if isForRelayClient {
 				if histType == history.Privmsg {
-					rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot be sent private messages"))
+					rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot receive private messages"))
 				}
 				// TAGMSG/NOTICEs are intentionally silently dropped
 				continue
@@ -2334,6 +2334,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 	}, "")
 
 	// send msg
+	channelName := channel.Name()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			var tagsToUse map[string]string
@@ -2343,7 +2344,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 				}
 			}
 
-			session.sendSplitMsgFromClientInternal(false, nick, "", tagsToUse, "PRIVMSG", channel.Name(), message)
+			session.sendSplitMsgFromClientInternal(false, nick, "", tagsToUse, "PRIVMSG", channelName, message)
 		}
 	}
 	return false
