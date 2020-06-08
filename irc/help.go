@@ -51,6 +51,7 @@ Oragono supports the following channel modes:
   +R  |  Only registered users can join the channel.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
   +t  |  Only channel opers can modify the topic.
+  +C  |  Clients are blocked from sending CTCP messages in the channel.
 
 = Prefixes =
 
@@ -68,7 +69,8 @@ Oragono supports the following user modes:
   +o  |  User is an IRC operator.
   +R  |  User only accepts messages from other registered users. 
   +s  |  Server Notice Masks (see help with /HELPOP snomasks).
-  +Z  |  User is connected via TLS.`
+  +Z  |  User is connected via TLS.
+  +T  |  User is blocked from sending CTCP messages.`
 	snomaskHelpText = `== Server Notice Masks ==
 
 Oragono supports the following server notice masks for operators:

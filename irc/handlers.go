@@ -1938,6 +1938,12 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 			return
 		}
+
+		// Restrict CTCP message for target user with +T
+		if user.modes.HasMode(modes.UserNoCTCP) && message.IsRestrictedCTCPMessage() {
+			return
+		}
+
 		tDetails := user.Details()
 		tnick := tDetails.nick
 
