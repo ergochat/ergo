@@ -10,6 +10,6 @@ name: "Română"
 #code - this is what the language will be referred to in our list of languages
 code: "ro"
 #contributors - people who have contributed to this translation
-contributors: "Bogdan Mințoi <mintoi.bogdan@gmail.com>"
+contributors: "Bogdan Mințoi <mintoi.bogdan@gmail.com>\nEne Alin Gabriel <zmeu@whitehat.ro>"
 #incomplete - whether to mark this language as incomplete
 incomplete: true
