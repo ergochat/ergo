@@ -394,6 +394,16 @@ Replies to a PING. Used to check link connectivity.`,
 
 Sends the text to the given targets as a PRIVMSG.`,
 	},
+	"relaymsg": {
+		text: `RELAYMSG <channel> <spoofed nick> :<message>
+
+This command lets channel operators relay messages to their
+channel from other messaging systems using relay bots. The
+spoofed nickname MUST contain a forwardslash.
+
+For example:
+	RELAYMSG #ircv3 Mallory/D :Welp, we linked Discord...`,
+	},
 	"rename": {
 		text: `RENAME <channel> <newname> [<reason>]
 

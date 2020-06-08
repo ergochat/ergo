@@ -250,6 +250,10 @@ func init() {
 			minParams:      2,
 			allowedInBatch: true,
 		},
+		"RELAYMSG": {
+			handler:   relaymsgHandler,
+			minParams: 3,
+		},
 		"RENAME": {
 			handler:   renameHandler,
 			minParams: 2,

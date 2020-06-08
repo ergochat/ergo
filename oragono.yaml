@@ -609,6 +609,7 @@ oper-classes:
             - "vhosts"
             - "chanreg"
             - "history"
+            - "relaymsg-anywhere"
 
 # ircd operators
 opers:

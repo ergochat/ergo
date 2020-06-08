@@ -1068,6 +1068,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
+	// intentionally not configurable
+	config.Server.capValues[caps.Relaymsg] = "/"
+
 	config.Debug.recoverFromErrors = utils.BoolDefaultTrue(config.Debug.RecoverFromErrors)
 
 	// process operator definitions, store them to config.operators
