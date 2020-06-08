@@ -2327,7 +2327,11 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		return false
 	}
 
-	//TODO: add to history here??
+	channel.AddHistoryItem(history.Item{
+		Type:    history.Privmsg,
+		Message: message,
+		Nick:    nick,
+	}, "")
 
 	// send msg
 	for _, member := range channel.Members() {
