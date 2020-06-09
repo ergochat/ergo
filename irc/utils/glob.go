@@ -4,14 +4,14 @@
 package utils
 
 import (
-	"bytes"
 	"regexp"
 	"regexp/syntax"
+	"strings"
 )
 
 // yet another glob implementation in Go
 
-func addRegexp(buf *bytes.Buffer, glob string, submatch bool) (err error) {
+func addRegexp(buf *strings.Builder, glob string, submatch bool) (err error) {
 	for _, r := range glob {
 		switch r {
 		case '*':
@@ -36,7 +36,7 @@ func addRegexp(buf *bytes.Buffer, glob string, submatch bool) (err error) {
 }
 
 func CompileGlob(glob string, submatch bool) (result *regexp.Regexp, err error) {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	buf.WriteByte('^')
 	err = addRegexp(&buf, glob, submatch)
 	if err != nil {
@@ -50,7 +50,7 @@ func CompileGlob(glob string, submatch bool) (result *regexp.Regexp, err error) 
 // This is used for channel ban/invite/exception lists. It's applicable to k-lines
 // but we're not using it there yet.
 func CompileMasks(masks []string) (result *regexp.Regexp, err error) {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	buf.WriteString("^(")
 	for i, mask := range masks {
 		err = addRegexp(&buf, mask, false)

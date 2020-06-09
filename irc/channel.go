@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -447,7 +446,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
-	var buffer bytes.Buffer
+	var buffer strings.Builder
 	if isJoined || !channel.flags.HasMode(modes.Secret) || isOper {
 		for _, target := range channel.Members() {
 			var nick string
