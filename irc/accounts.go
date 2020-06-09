@@ -1763,7 +1763,7 @@ func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	}
 	oldNickmask := client.NickMaskString()
 	updated := client.SetVHost(vhost)
-	if updated {
+	if updated && client.Registered() {
 		// TODO: doing I/O here is kind of a kludge
 		client.sendChghost(oldNickmask, client.Hostname())
 	}
