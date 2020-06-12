@@ -8,6 +8,7 @@ package irc
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -87,6 +88,14 @@ type CertKeyError struct {
 
 func (ck *CertKeyError) Error() string {
 	return fmt.Sprintf("Invalid TLS cert/key pair: %v", ck.Err)
+}
+
+type ThrottleError struct {
+	time.Duration
+}
+
+func (te *ThrottleError) Error() string {
+	return fmt.Sprintf(`Please wait at least %v and try again`, te.Duration)
 }
 
 // Config Errors

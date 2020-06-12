@@ -649,14 +649,11 @@ func nsGroupHandler(server *Server, client *Client, command string, params []str
 }
 
 func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
-	client.stateMutex.Lock()
-	throttled, remainingTime := client.loginThrottle.Touch()
-	client.stateMutex.Unlock()
+	throttled, remainingTime := client.checkLoginThrottle()
 	if throttled {
 		nsNotice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
-		return false
 	}
-	return true
+	return !throttled
 }
 
 func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -685,9 +682,6 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	// try passphrase
 	if passphrase != "" {
-		if !nsLoginThrottleCheck(client, rb) {
-			return
-		}
 		err = server.accounts.AuthenticateByPassphrase(client, username, passphrase)
 		loginSuccessful = (err == nil)
 	}
@@ -1069,6 +1063,9 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 			nsNotice(rb, fmt.Sprintf(client.t("Session %d (currently attached session):"), i+1))
 		} else {
 			nsNotice(rb, fmt.Sprintf(client.t("Session %d:"), i+1))
+		}
+		if session.deviceID != "" {
+			nsNotice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
 		}
 		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))

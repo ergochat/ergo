@@ -236,6 +236,11 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		return false
 	}
 
+	// see #843: strip the device ID for the benefit of clients that don't
+	// distinguish user/ident from account name
+	if strudelIndex := strings.IndexByte(authcid, '@'); strudelIndex != -1 {
+		authcid = authcid[:strudelIndex]
+	}
 	password := string(splitValue[2])
 	err := server.accounts.AuthenticateByPassphrase(client, authcid, password)
 	if err != nil {
@@ -251,6 +256,10 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 }
 
 func authErrorToMessage(server *Server, err error) (msg string) {
+	if throttled, ok := err.(*ThrottleError); ok {
+		return throttled.Error()
+	}
+
 	switch err {
 	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch:
 		return err.Error()
@@ -280,6 +289,11 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	}
 
 	if err == nil {
+		// see #843: strip the device ID for the benefit of clients that don't
+		// distinguish user/ident from account name
+		if strudelIndex := strings.IndexByte(authzid, '@'); strudelIndex != -1 {
+			authzid = authzid[:strudelIndex]
+		}
 		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
 	}
 
@@ -2180,8 +2194,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
-	// only give them one try to run the PASS command (all code paths end with this
-	// variable being set):
+	// only give them one try to run the PASS command (if a server password is set,
+	// then all code paths end with this variable being set):
 	if rb.session.passStatus != serverPassUnsent {
 		return false
 	}
@@ -2192,18 +2206,17 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if config.Accounts.LoginViaPassCommand {
 		colonIndex := strings.IndexByte(password, ':')
 		if colonIndex != -1 && client.Account() == "" {
-			// TODO consolidate all login throttle checks into AccountManager
-			throttled, _ := client.loginThrottle.Touch()
-			if !throttled {
-				account, accountPass := password[:colonIndex], password[colonIndex+1:]
-				err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
-				if err == nil {
-					sendSuccessfulAccountAuth(client, rb, false, true)
-					// login-via-pass-command entails that we do not need to check
-					// an actual server password (either no password or skip-server-password)
-					rb.session.passStatus = serverPassSuccessful
-					return false
-				}
+			account, accountPass := password[:colonIndex], password[colonIndex+1:]
+			if strudelIndex := strings.IndexByte(account, '@'); strudelIndex != -1 {
+				account, rb.session.deviceID = account[:strudelIndex], account[strudelIndex+1:]
+			}
+			err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
+			if err == nil {
+				sendSuccessfulAccountAuth(client, rb, false, true)
+				// login-via-pass-command entails that we do not need to check
+				// an actual server password (either no password or skip-server-password)
+				rb.session.passStatus = serverPassSuccessful
+				return false
 			}
 		}
 	}
@@ -2519,6 +2532,22 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if len(realname) == 0 {
 		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), client.t("Not enough parameters"))
 		return false
+	}
+
+	// #843: we accept either: `USER user:pass@clientid` or `USER user@clientid`
+	if strudelIndex := strings.IndexByte(username, '@'); strudelIndex != -1 {
+		username, rb.session.deviceID = username[:strudelIndex], username[strudelIndex+1:]
+		if colonIndex := strings.IndexByte(username, ':'); colonIndex != -1 {
+			var password string
+			username, password = username[:colonIndex], username[colonIndex+1:]
+			err := server.accounts.AuthenticateByPassphrase(client, username, password)
+			if err == nil {
+				sendSuccessfulAccountAuth(client, rb, false, true)
+			} else {
+				// this is wrong, but send something for debugging that will show up in a raw transcript
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed"))
+			}
+		}
 	}
 
 	err := client.SetNames(username, realname, false)

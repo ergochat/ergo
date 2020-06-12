@@ -30,6 +30,11 @@ const (
 	// IdentTimeout is how long before our ident (username) check times out.
 	IdentTimeout         = time.Second + 500*time.Millisecond
 	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
+	// limit the number of device IDs a client can use, as a DoS mitigation
+	maxDeviceIDsPerClient = 64
+	// controls how often often we write an autoreplay-missed client's
+	// deviceid->lastseentime mapping to the database
+	lastSeenWriteInterval = time.Minute * 10
 )
 
 // ResumeDetails is a place to stash data at various stages of
@@ -60,8 +65,9 @@ type Client struct {
 	invitedTo          map[string]bool
 	isSTSOnly          bool
 	languages          []string
-	lastActive         time.Time // last time they sent a command that wasn't PONG or similar
-	lastSeen           time.Time // last time they sent any kind of command
+	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
+	lastSeen           map[string]time.Time // maps device ID (including "") to time of last received command
+	lastSeenLastWrite  time.Time            // last time `lastSeen` was written to the datastore
 	loginThrottle      connection_limits.GenericThrottle
 	nick               string
 	nickCasefolded     string
@@ -111,6 +117,8 @@ const (
 // many-one relationship between sessions and clients.
 type Session struct {
 	client *Client
+
+	deviceID string
 
 	ctime      time.Time
 	lastActive time.Time
@@ -299,7 +307,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
-		lastSeen:   now,
+		lastSeen:   make(map[string]time.Time),
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
@@ -358,11 +366,14 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time, uModes modes.Modes) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes) {
 	now := time.Now().UTC()
 	config := server.Config()
-	if lastSeen.IsZero() {
-		lastSeen = now
+	if lastSeen == nil {
+		lastSeen = make(map[string]time.Time)
+		if account.Settings.AutoreplayMissed {
+			lastSeen[""] = now
+		}
 	}
 
 	client := &Client{
@@ -714,13 +725,38 @@ func (client *Client) playReattachMessages(session *Session) {
 // at this time, modulo network latency and fakelag). `active` means not a PING or suchlike
 // (i.e. the user should be sitting in front of their client).
 func (client *Client) Touch(active bool, session *Session) {
+	var markDirty bool
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.lastSeen = now
 	if active {
 		client.lastActive = now
 		session.lastActive = now
+	}
+	if client.accountSettings.AutoreplayMissed {
+		client.setLastSeen(now, session.deviceID)
+		if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
+			markDirty = true
+			client.lastSeenLastWrite = now
+		}
+	}
+	client.stateMutex.Unlock()
+	if markDirty {
+		client.markDirty(IncludeLastSeen)
+	}
+}
+
+func (client *Client) setLastSeen(now time.Time, deviceID string) {
+	client.lastSeen[deviceID] = now
+	// evict the least-recently-used entry if necessary
+	if maxDeviceIDsPerClient < len(client.lastSeen) {
+		var minLastSeen time.Time
+		var minClientId string
+		for deviceID, lastSeen := range client.lastSeen {
+			if minLastSeen.IsZero() || lastSeen.Before(minLastSeen) {
+				minClientId, minLastSeen = deviceID, lastSeen
+			}
+		}
+		delete(client.lastSeen, minClientId)
 	}
 }
 
@@ -1604,6 +1640,12 @@ func (client *Client) attemptAutoOper(session *Session) {
 	}
 }
 
+func (client *Client) checkLoginThrottle() (throttled bool, remainingTime time.Duration) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	return client.loginThrottle.Touch()
+}
+
 func (client *Client) historyStatus(config *Config) (status HistoryStatus, target string) {
 	if !config.History.Enabled {
 		return HistoryDisabled, ""
@@ -1620,6 +1662,16 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 	status = historyEnabled(config.History.Persistent.DirectMessages, historyStatus)
 	if status != HistoryPersistent {
 		target = ""
+	}
+	return
+}
+
+func (client *Client) copyLastSeen() (result map[string]time.Time) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	result = make(map[string]time.Time, len(client.lastSeen))
+	for id, lastSeen := range client.lastSeen {
+		result[id] = lastSeen
 	}
 	return
 }
@@ -1669,7 +1721,6 @@ func (client *Client) performWrite() {
 	dirtyBits := client.dirtyBits
 	client.dirtyBits = 0
 	account := client.account
-	lastSeen := client.lastSeen
 	client.stateMutex.Unlock()
 
 	if account == "" {
@@ -1686,7 +1737,7 @@ func (client *Client) performWrite() {
 		client.server.accounts.saveChannels(account, channelNames)
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
-		client.server.accounts.saveLastSeen(account, lastSeen)
+		client.server.accounts.saveLastSeen(account, client.copyLastSeen())
 	}
 	if (dirtyBits & IncludeUserModes) != 0 {
 		uModes := make(modes.Modes, 0, len(modes.SupportedUserModes))
