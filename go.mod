@@ -8,6 +8,7 @@ require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/go-ldap/ldap/v3 v3.1.10
 	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
 	github.com/onsi/ginkgo v1.12.0 // indirect
