@@ -334,7 +334,7 @@ func (client *Client) SetAccountSettings(settings AccountSettings) {
 		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
 		if autoreplayMissedDisabled {
-			client.lastSeen = make(map[string]time.Time)
+			client.lastSeen = nil
 		}
 	}
 	client.accountSettings = settings

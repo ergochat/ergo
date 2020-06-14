@@ -307,7 +307,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
-		lastSeen:   make(map[string]time.Time),
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
@@ -369,11 +368,8 @@ func (server *Server) RunClient(conn IRCConn) {
 func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes) {
 	now := time.Now().UTC()
 	config := server.Config()
-	if lastSeen == nil {
-		lastSeen = make(map[string]time.Time)
-		if account.Settings.AutoreplayMissed {
-			lastSeen[""] = now
-		}
+	if lastSeen == nil && account.Settings.AutoreplayMissed {
+		lastSeen = map[string]time.Time{"": now}
 	}
 
 	client := &Client{
@@ -746,6 +742,9 @@ func (client *Client) Touch(active bool, session *Session) {
 }
 
 func (client *Client) setLastSeen(now time.Time, deviceID string) {
+	if client.lastSeen == nil {
+		client.lastSeen = make(map[string]time.Time)
+	}
 	client.lastSeen[deviceID] = now
 	// evict the least-recently-used entry if necessary
 	if maxDeviceIDsPerClient < len(client.lastSeen) {
