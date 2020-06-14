@@ -34,5 +34,5 @@ test:
 	./.check-gofmt.sh
 
 smoke:
-	oragono mkcerts --conf ./oragono.yaml || true
-	oragono run --conf ./oragono.yaml --smoke
+	oragono mkcerts --conf ./default.yaml || true
+	oragono run --conf ./default.yaml --smoke

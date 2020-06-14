@@ -97,7 +97,7 @@ To get started with Oragono on Windows:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) downloaded.
 1. Extract the zip file to a folder.
-1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
 1. Open up a `cmd.exe` window, then `cd` to where you have Oragono extracted.
 1. Run `oragono.exe mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
@@ -111,7 +111,7 @@ To get started with Oragono on macOS, Linux, or on a Raspberry Pi:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) for your OS/distro downloaded.
 1. Extract the tar.gz file to a folder.
-1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
 1. Open up a Terminal window, then `cd` to where you have Oragono extracted.
 1. Run `./oragono mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).

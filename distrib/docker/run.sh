@@ -5,7 +5,7 @@ cd /ircd
 
 # make config file
 if [ ! -f "/ircd/ircd.yaml" ]; then
-    awk '{gsub(/path: languages/,"path: /ircd-bin/languages")}1' /ircd-bin/oragono.yaml > /tmp/ircd.yaml
+    awk '{gsub(/path: languages/,"path: /ircd-bin/languages")}1' /ircd-bin/default.yaml > /tmp/ircd.yaml
 
     # change default oper passwd
     OPERPASS=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c20)

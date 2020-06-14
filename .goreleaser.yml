@@ -45,7 +45,7 @@ archives:
       - README
       - CHANGELOG.md
       - oragono.motd
-      - oragono.yaml
+      - default.yaml
       - conventional.yaml
       - docs/*
       - languages/*.yaml

@@ -10,8 +10,8 @@ ADD . /go/src/github.com/oragono/oragono/
 
 # modify default config file so that it doesn't die on IPv6
 # and so it can be exposed via 6667 by default
-run sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/oragono.yaml
-run sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/oragono.yaml
+run sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/default.yaml
+run sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/default.yaml
 
 # make sure submodules are up-to-date
 RUN git submodule update --init
@@ -40,7 +40,7 @@ EXPOSE 6667/tcp 6697/tcp
 RUN mkdir -p /ircd-bin
 COPY --from=build-env /go/bin/oragono /ircd-bin
 COPY --from=build-env /go/src/github.com/oragono/oragono/languages /ircd-bin/languages/
-COPY --from=build-env /go/src/github.com/oragono/oragono/oragono.yaml /ircd-bin/oragono.yaml
+COPY --from=build-env /go/src/github.com/oragono/oragono/default.yaml /ircd-bin/default.yaml
 
 COPY distrib/docker/run.sh /ircd-bin/run.sh
 RUN chmod +x /ircd-bin/run.sh
