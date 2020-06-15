@@ -860,6 +860,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.supportedCaps = caps.NewCompleteSet()
 	config.Server.capValues = make(caps.Values)
 
+	// indicates that we send labeled responses for ALL commands
+	config.Server.capValues[caps.LabeledResponse] = "all"
+
 	err = config.prepareListeners()
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
