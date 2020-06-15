@@ -617,11 +617,12 @@ func (am *AccountManager) loadModes(account string) (uModes modes.Modes) {
 	return
 }
 
-func (am *AccountManager) saveLastSeen(account string, lastSeen time.Time) {
+func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var val string
-	if !lastSeen.IsZero() {
-		val = strconv.FormatInt(lastSeen.UnixNano(), 10)
+	if len(lastSeen) != 0 {
+		text, _ := json.Marshal(lastSeen)
+		val = string(text)
 	}
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		if val != "" {
@@ -633,20 +634,19 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen time.Time) {
 	})
 }
 
-func (am *AccountManager) loadLastSeen(account string) (lastSeen time.Time) {
+func (am *AccountManager) loadLastSeen(account string) (lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var lsText string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		lsText, _ = tx.Get(key)
-		// XXX clear this on startup, because it's not clear when it's
-		// going to be overwritten, and restarting the server twice in a row
-		// could result in a large amount of duplicated history replay
-		tx.Delete(key)
 		return nil
 	})
-	lsNum, err := strconv.ParseInt(lsText, 10, 64)
-	if err == nil {
-		return time.Unix(0, lsNum).UTC()
+	if lsText == "" {
+		return nil
+	}
+	err := json.Unmarshal([]byte(lsText), &lastSeen)
+	if err != nil {
+		return nil
 	}
 	return
 }
@@ -1050,6 +1050,10 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		if clientAlready := am.server.clients.Get(accountName); clientAlready != nil && clientAlready.AlwaysOn() {
 			return errNickAccountMismatch
 		}
+	}
+
+	if throttled, remainingTime := client.checkLoginThrottle(); throttled {
+		return &ThrottleError{remainingTime}
 	}
 
 	var account ClientAccount

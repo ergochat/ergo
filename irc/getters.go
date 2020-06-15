@@ -62,6 +62,7 @@ type SessionData struct {
 	ip       net.IP
 	hostname string
 	certfp   string
+	deviceID string
 }
 
 func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
@@ -79,6 +80,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			ctime:    session.ctime,
 			hostname: session.rawHostname,
 			certfp:   session.certfp,
+			deviceID: session.deviceID,
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
@@ -103,7 +105,7 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session
 	if client.accountSettings.AutoreplayMissed {
-		lastSeen = client.lastSeen
+		lastSeen = client.lastSeen[session.deviceID]
 	}
 	client.sessions = newSessions
 	if client.autoAway {
@@ -324,17 +326,23 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
 	// we mark dirty if the client is transitioning to always-on
-	markDirty := false
+	var becameAlwaysOn, autoreplayMissedDisabled bool
 	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
-	client.accountSettings = settings
 	if client.registered {
-		markDirty = !client.alwaysOn && alwaysOn
+		autoreplayMissedDisabled = (client.accountSettings.AutoreplayMissed && !settings.AutoreplayMissed)
+		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
+		if autoreplayMissedDisabled {
+			client.lastSeen = nil
+		}
 	}
+	client.accountSettings = settings
 	client.stateMutex.Unlock()
-	if markDirty {
+	if becameAlwaysOn {
 		client.markDirty(IncludeAllAttrs)
+	} else if autoreplayMissedDisabled {
+		client.markDirty(IncludeLastSeen)
 	}
 }
 
