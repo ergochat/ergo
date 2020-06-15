@@ -539,16 +539,11 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 	}
 }
 
-func (channel *Channel) ClientModeStrings(client *Client) (result []string) {
+func (channel *Channel) ClientStatus(client *Client) (present bool, cModes modes.Modes) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	modes, present := channel.members[client]
-	if present {
-		for _, mode := range modes.AllModes() {
-			result = append(result, mode.String())
-		}
-	}
-	return
+	return present, modes.AllModes()
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {

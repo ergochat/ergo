@@ -27,6 +27,7 @@ import (
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
@@ -471,11 +472,6 @@ type TorListenersConfig struct {
 	MaxConnectionsPerDuration int           `yaml:"max-connections-per-duration"`
 }
 
-type JwtServiceConfig struct {
-	ExpiryInSeconds int64 `yaml:"expiry-in-seconds"`
-	Secret          string
-}
-
 // Config defines the overall configuration.
 type Config struct {
 	Network struct {
@@ -507,9 +503,8 @@ type Config struct {
 		MOTDFormatting          bool     `yaml:"motd-formatting"`
 		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
 		proxyAllowedFromNets    []net.IPNet
-		WebIRC                  []webircConfig              `yaml:"webirc"`
-		JwtServices             map[string]JwtServiceConfig `yaml:"jwt-services"`
-		MaxSendQString          string                      `yaml:"max-sendq"`
+		WebIRC                  []webircConfig `yaml:"webirc"`
+		MaxSendQString          string         `yaml:"max-sendq"`
 		MaxSendQBytes           int
 		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
 		Compatibility           struct {
@@ -535,6 +530,11 @@ type Config struct {
 		RequireOper    bool  `yaml:"require-oper"`
 		AddSuffix      *bool `yaml:"add-suffix"`
 		addSuffix      bool
+	}
+
+	Extjwt struct {
+		Default  jwt.JwtServiceConfig            `yaml:",inline"`
+		Services map[string]jwt.JwtServiceConfig `yaml:"services"`
 	}
 
 	Languages struct {
@@ -811,6 +811,29 @@ func (conf *Config) prepareListeners() (err error) {
 	return nil
 }
 
+func (config *Config) processExtjwt() (err error) {
+	// first process the default service, which may be disabled
+	err = config.Extjwt.Default.Postprocess()
+	if err != nil {
+		return
+	}
+	// now process the named services. it is an error if any is disabled
+	// also, normalize the service names to lowercase
+	services := make(map[string]jwt.JwtServiceConfig, len(config.Extjwt.Services))
+	for service, sConf := range config.Extjwt.Services {
+		err := sConf.Postprocess()
+		if err != nil {
+			return err
+		}
+		if !sConf.Enabled() {
+			return fmt.Errorf("no keys enabled for extjwt service %s", service)
+		}
+		services[strings.ToLower(service)] = sConf
+	}
+	config.Extjwt.Services = services
+	return nil
+}
+
 // LoadRawConfig loads the config without doing any consistency checks or postprocessing
 func LoadRawConfig(filename string) (config *Config, err error) {
 	data, err := ioutil.ReadFile(filename)
@@ -925,13 +948,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
 		}
 		config.Server.capValues[caps.Multiline] = multilineCapValue
-	}
-
-	// confirm jwt config
-	for name, info := range config.Server.JwtServices {
-		if info.Secret == "" {
-			return nil, fmt.Errorf("Could not parse jwt-services config, %s service has no secret set", name)
-		}
 	}
 
 	// handle legacy name 'bouncer' for 'multiclient' section:
@@ -1153,6 +1169,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
+	err = config.processExtjwt()
+	if err != nil {
+		return nil, err
+	}
+
 	// now that all postprocessing is complete, regenerate ISUPPORT:
 	err = config.generateISupport()
 	if err != nil {
@@ -1190,7 +1211,9 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANTYPES", chanTypes)
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
-	isupport.Add("EXTJWT", "1")
+	if config.Extjwt.Default.Enabled() || len(config.Extjwt.Services) != 0 {
+		isupport.Add("EXTJWT", "1")
+	}
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))

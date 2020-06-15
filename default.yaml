@@ -187,17 +187,6 @@ server:
                 # - "192.168.1.1"
                 # - "192.168.10.1/24"
 
-    # these services can integrate with the ircd using JSON Web Tokens (https://jwt.io)
-    # sometimes referred to with 'EXTJWT'
-    jwt-services:
-        # # service name
-        # call-host:
-        #     # custom expiry length, default is 30s
-        #     expiry-in-seconds: 45
-
-        #     # secret string to verify the generated tokens
-        #     secret: call-hosting-secret-token
-
     # allow use of the RESUME extension over plaintext connections:
     # do not enable this unless the ircd is only accessible over internal networks
     allow-plaintext-resume: false
@@ -815,6 +804,23 @@ roleplay:
 
     # add the real nickname, in parentheses, to the end of every roleplay message?
     add-suffix: true
+
+# external services can integrate with the ircd using JSON Web Tokens (https://jwt.io).
+# in effect, the server can sign a token attesting that the client is present on
+# the server, is a member of a particular channel, etc.
+extjwt:
+    # default service:
+    # expiration: 45s
+    # symmetric secret for HMAC signing:
+    # secret: "65PHvk0K1_sM-raTsCEhatVkER_QD8a0zVV8gG2EWcI"
+    # private key for RSA signing:
+    # rsa-private-key-file: "extjwt.pem"
+
+    # named services:
+    # services:
+    #     "jitsi":
+    #         expiration: 30s
+    #         secret: "qmamLKDuOzIzlO8XqsGGewei_At11lewh6jtKfSTbkg"
 
 # history message storage: this is used by CHATHISTORY, HISTORY, znc.in/playback,
 # various autoreplay features, and the resume extension

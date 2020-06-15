@@ -20,12 +20,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -914,8 +914,6 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 // EXTJWT <target> [service_name]
 func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	expireInSeconds := int64(30)
-
 	accountName := client.AccountName()
 	if accountName == "*" {
 		accountName = ""
@@ -938,42 +936,42 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		claims["channel"] = channel.Name()
 		claims["joined"] = 0
 		claims["cmodes"] = []string{}
-		if channel.hasClient(client) {
+		if present, cModes := channel.ClientStatus(client); present {
 			claims["joined"] = 1
-			claims["cmodes"] = channel.ClientModeStrings(client)
+			var modeStrings []string
+			for _, cMode := range cModes {
+				modeStrings = append(modeStrings, string(cMode))
+			}
+			claims["cmodes"] = modeStrings
 		}
 	}
 
-	// we default to a secret of `*`. if you want a real secret setup a service in the config~
-	service := "*"
-	secret := "*"
+	config := server.Config()
+	var serviceName string
+	var sConfig jwt.JwtServiceConfig
 	if 1 < len(msg.Params) {
-		service = strings.ToLower(msg.Params[1])
-
-		c := server.Config()
-		info, exists := c.Server.JwtServices[service]
-		if !exists {
-			rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_SERVICE", client.t("No such service"))
-			return false
-		}
-		secret = info.Secret
-		if info.ExpiryInSeconds != 0 {
-			expireInSeconds = info.ExpiryInSeconds
-		}
+		serviceName = strings.ToLower(msg.Params[1])
+		sConfig = config.Extjwt.Services[serviceName]
+	} else {
+		serviceName = "*"
+		sConfig = config.Extjwt.Default
 	}
-	claims["exp"] = time.Now().Unix() + expireInSeconds
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secret))
+	if !sConfig.Enabled() {
+		rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_SERVICE", client.t("No such service"))
+		return false
+	}
+
+	tokenString, err := sConfig.Sign(claims)
 
 	if err == nil {
 		maxTokenLength := 400
 
 		for maxTokenLength < len(tokenString) {
-			rb.Add(nil, server.name, "EXTJWT", msg.Params[0], service, "*", tokenString[:maxTokenLength])
+			rb.Add(nil, server.name, "EXTJWT", msg.Params[0], serviceName, "*", tokenString[:maxTokenLength])
 			tokenString = tokenString[maxTokenLength:]
 		}
-		rb.Add(nil, server.name, "EXTJWT", msg.Params[0], service, tokenString)
+		rb.Add(nil, server.name, "EXTJWT", msg.Params[0], serviceName, tokenString)
 	} else {
 		rb.Add(nil, server.name, "FAIL", "EXTJWT", "UNKNOWN_ERROR", client.t("Could not generate EXTJWT token"))
 	}
