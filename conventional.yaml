@@ -18,7 +18,7 @@ server:
         # This version of the config provides a public plaintext listener on
         # port 6667 for testing and compatibility with legacy applications.
         # We recommend disabling this listener in a production setting
-        # and replacing it with loopback-only listeners (see oragono.yaml):
+        # and replacing it with loopback-only listeners (see default.yaml):
         ":6667":
 
         # The standard SSL/TLS port for IRC is 6697. This will listen on all interfaces:

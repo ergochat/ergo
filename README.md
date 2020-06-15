@@ -49,7 +49,7 @@ To go through the standard installation, download the latest release from this p
 Extract it into a folder, then run the following commands:
 
 ```sh
-cp oragono.yaml ircd.yaml
+cp default.yaml ircd.yaml
 vim ircd.yaml  # modify the config file to your liking
 oragono mkcerts
 ```
@@ -84,7 +84,7 @@ You'll need an [up-to-date distribution of the Go language for your OS and archi
 
 ## Configuration
 
-The default config file [`oragono.yaml`](oragono.yaml) helps walk you through what each option means and changes. The configuration's intended to be sparse, so if there are options missing it's either because that feature isn't written/configurable yet or because we don't think it should be configurable.
+The default config file [`default.yaml`](default.yaml) helps walk you through what each option means and changes.
 
 You can use the `--conf` parameter when launching Oragono to control where it looks for the config file. For instance: `oragono run --conf /path/to/ircd.yaml`. The configuration file also stores where the log, database, certificate, and other files are opened. Normally, all these files use relative paths, but you can change them to be absolute (such as `/var/log/ircd.log`) when running Oragono as a service.
 
