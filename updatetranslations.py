@@ -31,6 +31,10 @@ import json
 from docopt import docopt
 import yaml
 
+ignored_strings = [
+    'none', 'saset'
+]
+
 if __name__ == '__main__':
     arguments = docopt(__doc__, version="0.1.0")
 
@@ -53,6 +57,13 @@ if __name__ == '__main__':
                     for match in matches:
                         if match not in irc_strings:
                             irc_strings.append(match)
+
+        for s in ignored_strings:
+            try:
+                irc_strings.remove(s)
+            except ValueError:
+                # ignore any that don't exist
+                ...
 
         print("irc strings:", len(irc_strings))
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'irc.lang.json'), 'w') as f:
@@ -77,6 +88,13 @@ if __name__ == '__main__':
                         if '\n' in match and match not in help_strings:
                             help_strings.append(match)
 
+        for s in ignored_strings:
+            try:
+                help_strings.remove(s)
+            except ValueError:
+                # ignore any that don't exist
+                ...
+
         print("help strings:", len(help_strings))
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'help.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
@@ -99,6 +117,13 @@ if __name__ == '__main__':
                     for match in matches:
                         if match not in help_strings:
                             help_strings.append(match)
+
+        for s in ignored_strings:
+            try:
+                help_strings.remove(s)
+            except ValueError:
+                # ignore any that don't exist
+                ...
 
         print("nickserv help strings:", len(help_strings))
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'nickserv.lang.json'), 'w') as f:
@@ -123,6 +148,13 @@ if __name__ == '__main__':
                         if match not in help_strings:
                             help_strings.append(match)
 
+        for s in ignored_strings:
+            try:
+                help_strings.remove(s)
+            except ValueError:
+                # ignore any that don't exist
+                ...
+
         print("chanserv help strings:", len(help_strings))
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'chanserv.lang.json'), 'w') as f:
             f.write(json.dumps({k:k for k in help_strings}, sort_keys=True, indent=2, separators=(',', ': ')))
@@ -145,6 +177,13 @@ if __name__ == '__main__':
                     for match in matches:
                         if match not in help_strings:
                             help_strings.append(match)
+
+        for s in ignored_strings:
+            try:
+                help_strings.remove(s)
+            except ValueError:
+                # ignore any that don't exist
+                ...
 
         print("hostserv help strings:", len(help_strings))
         with open(os.path.join(arguments['<languages-dir>'], 'example', 'hostserv.lang.json'), 'w') as f:
