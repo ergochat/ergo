@@ -27,6 +27,7 @@ import (
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
@@ -531,6 +532,11 @@ type Config struct {
 		addSuffix      bool
 	}
 
+	Extjwt struct {
+		Default  jwt.JwtServiceConfig            `yaml:",inline"`
+		Services map[string]jwt.JwtServiceConfig `yaml:"services"`
+	}
+
 	Languages struct {
 		Enabled bool
 		Path    string
@@ -802,6 +808,29 @@ func (conf *Config) prepareListeners() (err error) {
 		lconf.WebSocket = block.WebSocket
 		conf.Server.trueListeners[addr] = lconf
 	}
+	return nil
+}
+
+func (config *Config) processExtjwt() (err error) {
+	// first process the default service, which may be disabled
+	err = config.Extjwt.Default.Postprocess()
+	if err != nil {
+		return
+	}
+	// now process the named services. it is an error if any is disabled
+	// also, normalize the service names to lowercase
+	services := make(map[string]jwt.JwtServiceConfig, len(config.Extjwt.Services))
+	for service, sConf := range config.Extjwt.Services {
+		err := sConf.Postprocess()
+		if err != nil {
+			return err
+		}
+		if !sConf.Enabled() {
+			return fmt.Errorf("no keys enabled for extjwt service %s", service)
+		}
+		services[strings.ToLower(service)] = sConf
+	}
+	config.Extjwt.Services = services
 	return nil
 }
 
@@ -1140,6 +1169,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
+	err = config.processExtjwt()
+	if err != nil {
+		return nil, err
+	}
+
 	// now that all postprocessing is complete, regenerate ISUPPORT:
 	err = config.generateISupport()
 	if err != nil {
@@ -1177,6 +1211,9 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANTYPES", chanTypes)
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
+	if config.Extjwt.Default.Enabled() || len(config.Extjwt.Services) != 0 {
+		isupport.Add("EXTJWT", "1")
+	}
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
