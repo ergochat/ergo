@@ -783,15 +783,15 @@ roleplay:
 # in effect, the server can sign a token attesting that the client is present on
 # the server, is a member of a particular channel, etc.
 extjwt:
-    # default service config (for `EXTJWT #channel`).
-    # expiration time for the token:
+    # # default service config (for `EXTJWT #channel`).
+    # # expiration time for the token:
     # expiration: 45s
-    # you can configure tokens to be signed either with HMAC and a symmetric secret:
+    # # you can configure tokens to be signed either with HMAC and a symmetric secret:
     # secret: "65PHvk0K1_sM-raTsCEhatVkER_QD8a0zVV8gG2EWcI"
-    # or with an RSA private key:
+    # # or with an RSA private key:
     # #rsa-private-key-file: "extjwt.pem"
 
-    # named services:
+    # # named services (for `EXTJWT #channel service_name`):
     # services:
     #     "jitsi":
     #         expiration: 30s
