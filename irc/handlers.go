@@ -240,9 +240,10 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 	// see #843: strip the device ID for the benefit of clients that don't
 	// distinguish user/ident from account name
 	if strudelIndex := strings.IndexByte(authcid, '@'); strudelIndex != -1 {
-		authcid = authcid[:strudelIndex]
+		var deviceID string
+		authcid, deviceID = authcid[:strudelIndex], authcid[strudelIndex+1:]
 		if !client.registered {
-			rb.session.deviceID = authcid[strudelIndex+1:]
+			rb.session.deviceID = deviceID
 		}
 	}
 	password := string(splitValue[2])
@@ -296,9 +297,10 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 		// see #843: strip the device ID for the benefit of clients that don't
 		// distinguish user/ident from account name
 		if strudelIndex := strings.IndexByte(authzid, '@'); strudelIndex != -1 {
-			authzid = authzid[:strudelIndex]
+			var deviceID string
+			authzid, deviceID = authzid[:strudelIndex], authzid[strudelIndex+1:]
 			if !client.registered {
-				rb.session.deviceID = authzid[strudelIndex+1:]
+				rb.session.deviceID = deviceID
 			}
 		}
 		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
