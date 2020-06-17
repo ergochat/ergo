@@ -1070,9 +1070,7 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 			AuthScriptInput{AccountName: accountName, Passphrase: passphrase, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
-			return err
-		}
-		if output.Success {
+		} else if output.Success {
 			if output.AccountName != "" {
 				accountName = output.AccountName
 			}
