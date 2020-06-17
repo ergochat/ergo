@@ -1407,9 +1407,7 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 			AuthScriptInput{Certfp: certfp, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
-			return err
-		}
-		if output.Success && output.AccountName != "" {
+		} else if output.Success && output.AccountName != "" {
 			clientAccount, err = am.loadWithAutocreation(output.AccountName, config.Accounts.AuthScript.Autocreate)
 			return
 		}
