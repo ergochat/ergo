@@ -29,7 +29,6 @@ import (
 	"github.com/oragono/oragono/irc/isupport"
 	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/languages"
-	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/mysql"
@@ -258,7 +257,6 @@ type AccountConfig struct {
 	} `yaml:"require-sasl"`
 	DefaultUserModes    *string `yaml:"default-user-modes"`
 	defaultUserModes    modes.Modes
-	LDAP                ldap.ServerConfig
 	LoginThrottling     ThrottleConfig `yaml:"login-throttling"`
 	SkipServerPassword  bool           `yaml:"skip-server-password"`
 	LoginViaPassCommand bool           `yaml:"login-via-pass-command"`

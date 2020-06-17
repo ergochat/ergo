@@ -17,7 +17,6 @@ import (
 
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/email"
-	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -1065,15 +1064,6 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	}()
 
 	config := am.server.Config()
-	if config.Accounts.LDAP.Enabled {
-		ldapConf := am.server.Config().Accounts.LDAP
-		err = ldap.CheckLDAPPassphrase(ldapConf, accountName, passphrase, am.server.logger)
-		if err != nil {
-			account, err = am.loadWithAutocreation(accountName, ldapConf.Autocreate)
-			return
-		}
-	}
-
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
 		output, err = CheckAuthScript(config.Accounts.AuthScript,
