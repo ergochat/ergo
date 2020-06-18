@@ -104,7 +104,7 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	newSessions := make([]*Session, len(client.sessions)+1)
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session
-	if client.accountSettings.AutoreplayMissed {
+	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		lastSeen = client.lastSeen[session.deviceID]
 	}
 	client.sessions = newSessions

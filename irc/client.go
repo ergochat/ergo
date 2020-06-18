@@ -728,7 +728,7 @@ func (client *Client) Touch(active bool, session *Session) {
 		client.lastActive = now
 		session.lastActive = now
 	}
-	if client.accountSettings.AutoreplayMissed {
+	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		client.setLastSeen(now, session.deviceID)
 		if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
 			markDirty = true
@@ -1228,8 +1228,10 @@ func (client *Client) Quit(message string, session *Session) {
 func (client *Client) destroy(session *Session) {
 	config := client.server.Config()
 	var sessionsToDestroy []*Session
+	var saveLastSeen bool
 
 	client.stateMutex.Lock()
+
 	details := client.detailsNoMutex()
 	brbState := client.brbTimer.state
 	brbAt := client.brbTimer.brbAt
@@ -1237,7 +1239,7 @@ func (client *Client) destroy(session *Session) {
 	sessionRemoved := false
 	registered := client.registered
 	alwaysOn := client.alwaysOn
-	saveLastSeen := alwaysOn && client.accountSettings.AutoreplayMissed
+
 	var remainingSessions int
 	if session == nil {
 		sessionsToDestroy = client.sessions
@@ -1247,6 +1249,20 @@ func (client *Client) destroy(session *Session) {
 		sessionRemoved, remainingSessions = client.removeSession(session)
 		if sessionRemoved {
 			sessionsToDestroy = []*Session{session}
+		}
+	}
+
+	// save last seen if applicable:
+	if alwaysOn {
+		if client.accountSettings.AutoreplayMissed {
+			saveLastSeen = true
+		} else {
+			for _, session := range sessionsToDestroy {
+				if session.deviceID != "" {
+					saveLastSeen = true
+					break
+				}
+			}
 		}
 	}
 
