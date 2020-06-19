@@ -42,16 +42,17 @@ If you want to take a look at a running Oragono instance or test some client cod
 * [IRCv3 support](https://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](https://oragono.io/specs.html)
 
-## Installation
+## Quick start guide
 
-To go through the standard installation, download the latest release from this page: https://github.com/oragono/oragono/releases/latest
+Download the latest release from this page: https://github.com/oragono/oragono/releases/latest
 
 Extract it into a folder, then run the following commands:
 
 ```sh
 cp default.yaml ircd.yaml
-vim ircd.yaml  # modify the config file to your liking
+vim ircd.yaml   # modify the config file to your liking
 oragono mkcerts
+oragono run     # server should be ready to go!
 ```
 
 **Note:** See the [productionizing guide in our manual](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#productionizing) for recommendations on how to run a production network, including obtaining valid TLS certificates.
@@ -101,14 +102,6 @@ oragono genpasswd
 ```
 
 With this, you receive a blob of text which you can plug into your configuration file.
-
-## Running
-
-After this, running the server is easy! Simply run the below command and you should see the relevant startup information pop up.
-
-```sh
-oragono run
-```
 
 ### How to register a channel
 
