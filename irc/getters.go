@@ -334,7 +334,8 @@ func (client *Client) SetAccountSettings(settings AccountSettings) {
 		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
 		if autoreplayMissedDisabled {
-			client.lastSeen = nil
+			// clear the lastSeen entry for the default session, but not for device IDs
+			delete(client.lastSeen, "")
 		}
 	}
 	client.accountSettings = settings
