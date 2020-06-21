@@ -149,7 +149,7 @@ server:
         -
             # SHA-256 fingerprint of the TLS certificate the gateway must use to connect
             # (comment this out to use passwords only)
-            fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+            certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
             # password the gateway uses to connect, made with oragono genpasswd
             password: "$2a$04$abcdef0123456789abcdef0123456789abcdef0123456789abcde"
@@ -574,7 +574,7 @@ opers:
         # if a SHA-256 certificate fingerprint is configured here, then it will be
         # required to /OPER. if you comment out the password hash above, then you can
         # /OPER without a password.
-        #fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        #certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
         # if 'auto' is set (and no password hash is set), operator permissions will be
         # granted automatically as soon as you connect with the right fingerprint.
         #auto: true

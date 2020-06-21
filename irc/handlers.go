@@ -2164,8 +2164,8 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	var checkPassed, checkFailed, passwordFailed bool
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
-		if oper.Fingerprint != "" {
-			if oper.Fingerprint == rb.session.certfp {
+		if oper.Certfp != "" {
+			if oper.Certfp == rb.session.certfp {
 				checkPassed = true
 			} else {
 				checkFailed = true
@@ -2737,7 +2737,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if info.Fingerprint != "" && info.Fingerprint != rb.session.certfp {
+			if info.Certfp != "" && info.Certfp != rb.session.certfp {
 				continue
 			}
 

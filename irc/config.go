@@ -408,7 +408,8 @@ type OperConfig struct {
 	Vhost       string
 	WhoisLine   string `yaml:"whois-line"`
 	Password    string
-	Fingerprint string
+	Fingerprint *string // legacy name for certfp, #1050
+	Certfp      string
 	Auto        bool
 	Modes       string
 }
@@ -695,14 +696,14 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 // Oper represents a single assembled operator's config.
 type Oper struct {
-	Name        string
-	Class       *OperClass
-	WhoisLine   string
-	Vhost       string
-	Pass        []byte
-	Fingerprint string
-	Auto        bool
-	Modes       []modes.ModeChange
+	Name      string
+	Class     *OperClass
+	WhoisLine string
+	Vhost     string
+	Pass      []byte
+	Certfp    string
+	Auto      bool
+	Modes     []modes.ModeChange
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -724,15 +725,19 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 				return nil, fmt.Errorf("Oper %s has an invalid password hash: %s", oper.Name, err.Error())
 			}
 		}
-		if opConf.Fingerprint != "" {
-			oper.Fingerprint, err = utils.NormalizeCertfp(opConf.Fingerprint)
+		certfp := opConf.Certfp
+		if certfp == "" && opConf.Fingerprint != nil {
+			certfp = *opConf.Fingerprint
+		}
+		if certfp != "" {
+			oper.Certfp, err = utils.NormalizeCertfp(certfp)
 			if err != nil {
 				return nil, fmt.Errorf("Oper %s has an invalid fingerprint: %s", oper.Name, err.Error())
 			}
 		}
 		oper.Auto = opConf.Auto
 
-		if oper.Pass == nil && oper.Fingerprint == "" {
+		if oper.Pass == nil && oper.Certfp == "" {
 			return nil, fmt.Errorf("Oper %s has neither a password nor a fingerprint", name)
 		}
 

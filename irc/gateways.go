@@ -26,31 +26,39 @@ const (
 )
 
 type webircConfig struct {
-	PasswordString string `yaml:"password"`
-	Password       []byte `yaml:"password-bytes"`
-	Fingerprint    string
+	PasswordString string  `yaml:"password"`
+	Password       []byte  `yaml:"password-bytes"`
+	Fingerprint    *string // legacy name for certfp, #1050
+	Certfp         string
 	Hosts          []string
 	allowedNets    []net.IPNet
 }
 
 // Populate fills out our password or fingerprint.
 func (wc *webircConfig) Populate() (err error) {
-	if wc.Fingerprint == "" && wc.PasswordString == "" {
-		err = ErrNoFingerprintOrPassword
-	}
-
-	if err == nil && wc.PasswordString != "" {
+	if wc.PasswordString != "" {
 		wc.Password, err = decodeLegacyPasswordHash(wc.PasswordString)
+		if err != nil {
+			return
+		}
 	}
 
-	if err == nil && wc.Fingerprint != "" {
-		wc.Fingerprint, err = utils.NormalizeCertfp(wc.Fingerprint)
+	certfp := wc.Certfp
+	if certfp == "" && wc.Fingerprint != nil {
+		certfp = *wc.Fingerprint
+	}
+	if certfp != "" {
+		wc.Certfp, err = utils.NormalizeCertfp(certfp)
+	}
+	if err != nil {
+		return
 	}
 
-	if err == nil {
-		wc.allowedNets, err = utils.ParseNetList(wc.Hosts)
+	if wc.Certfp == "" && wc.PasswordString == "" {
+		return ErrNoFingerprintOrPassword
 	}
 
+	wc.allowedNets, err = utils.ParseNetList(wc.Hosts)
 	return err
 }
 
