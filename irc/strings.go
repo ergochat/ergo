@@ -50,6 +50,10 @@ const (
 // this happens-before all IRC connections and all casefolding operations.
 var globalCasemappingSetting Casemapping = CasemappingPRECIS
 
+// XXX analogous unsynchronized global variable controlling utf8 validation
+// if this is off, you get the traditional IRC behavior (relaying any valid RFC1459
+// octets) and invalid utf8 messages are silently dropped for websocket clients only.
+// if this is on, invalid utf8 inputs get an ERR_UNKNOWNERROR.
 var globalUtf8EnforcementSetting bool
 
 // Each pass of PRECIS casefolding is a composition of idempotent operations,
