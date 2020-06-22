@@ -1316,6 +1316,9 @@ func (client *Client) destroy(session *Session) {
 		session.SetDestroyed()
 		session.socket.Close()
 
+		// clean up monitor state
+		client.server.monitorManager.RemoveAll(session)
+
 		// remove from connection limits
 		var source string
 		if session.isTor {
@@ -1381,8 +1384,6 @@ func (client *Client) destroy(session *Session) {
 	if registered {
 		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
 	}
-	// clean up monitor state
-	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
 	// (note that if this is a reattach, client has no channels and therefore no friends)
