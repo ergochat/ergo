@@ -75,6 +75,9 @@ func (socket *Socket) Read() (string, error) {
 
 	if err == io.EOF && strings.TrimSpace(line) != "" {
 		// don't do anything
+	} else if err == errInvalidUtf8 {
+		// pass the data through so we can parse the command at least
+		return line, err
 	} else if err != nil {
 		return "", err
 	}

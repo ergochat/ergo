@@ -50,6 +50,8 @@ const (
 // this happens-before all IRC connections and all casefolding operations.
 var globalCasemappingSetting Casemapping = CasemappingPRECIS
 
+var globalUtf8EnforcementSetting bool
+
 // Each pass of PRECIS casefolding is a composition of idempotent operations,
 // but not idempotent itself. Therefore, the spec says "do it four times and hope
 // it converges" (lolwtf). Golang's PRECIS implementation has a "repeat" option,

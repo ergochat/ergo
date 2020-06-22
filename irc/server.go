@@ -487,6 +487,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded
 		globalCasemappingSetting = config.Server.Casemapping
+		globalUtf8EnforcementSetting = config.Server.EnforceUtf8
 	} else {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
@@ -495,6 +496,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		} else if globalCasemappingSetting != config.Server.Casemapping {
 			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
+		} else if globalUtf8EnforcementSetting != config.Server.EnforceUtf8 {
+			return fmt.Errorf("UTF-8 enforcement cannot be changed after launching the server, rehash aborted")
 		} else if oldConfig.Accounts.Multiclient.AlwaysOn != config.Accounts.Multiclient.AlwaysOn {
 			return fmt.Errorf("Default always-on setting cannot be changed after launching the server, rehash aborted")
 		}
