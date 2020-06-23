@@ -1646,7 +1646,7 @@ func (client *Client) attemptAutoOper(session *Session) {
 		return
 	}
 	for _, oper := range client.server.Config().operators {
-		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == session.certfp {
+		if oper.Auto && oper.Pass == nil && oper.Certfp != "" && oper.Certfp == session.certfp {
 			rb := NewResponseBuffer(session)
 			applyOper(client, oper, rb)
 			rb.Send(true)
