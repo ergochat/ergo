@@ -2918,3 +2918,9 @@ func unknownCommandHandler(server *Server, client *Client, msg ircmsg.IrcMessage
 	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), client.t("Unknown command"))
 	return false
 }
+
+// fake handler for invalid utf8
+func invalidUtf8Handler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, "FAIL", utils.SafeErrorParam(msg.Command), "INVALID_UTF8", client.t("Message rejected for containing invalid UTF-8"))
+	return false
+}

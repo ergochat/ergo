@@ -100,7 +100,7 @@ server:
 
     # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
     # channel names, account names, etc.), and how they are normalized for case.
-    # with the recommended default of 'precis', utf-8 identifiers that are "sane"
+    # with the recommended default of 'precis', UTF8 identifiers that are "sane"
     # (according to RFC 8265) are allowed, and the server additionally tries to protect
     # against confusable characters ("homoglyph attacks").
     # the other options are 'ascii' (traditional ASCII-only identifiers), and 'permissive',
@@ -109,6 +109,11 @@ server:
     # we recommend leaving this value at its default (changing it once the network is
     # already up and running is problematic).
     casemapping: "precis"
+
+    # enforce-utf8 controls whether the server allows non-UTF8 bytes in messages
+    # (as in traditional IRC) or preemptively discards non-UTF8 messages (since
+    # they cannot be relayed to websocket clients).
+    enforce-utf8: true
 
     # whether to look up user hostnames with reverse DNS.
     # (disabling this will expose user IPs instead of hostnames;

@@ -76,7 +76,9 @@ func (cc *IRCStreamConn) ReadLine() (line []byte, err error) {
 	if isPrefix {
 		return nil, errReadQ
 	}
-	line = bytes.TrimSuffix(line, crlf)
+	if globalUtf8EnforcementSetting && !utf8.Valid(line) {
+		err = errInvalidUtf8
+	}
 	return
 }
 
@@ -101,9 +103,9 @@ func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
 
 func (wc IRCWSConn) WriteLine(buf []byte) (err error) {
 	buf = bytes.TrimSuffix(buf, crlf)
-	// there's not much we can do about this;
-	// silently drop the message
-	if !utf8.Valid(buf) {
+	if !globalUtf8EnforcementSetting && !utf8.Valid(buf) {
+		// there's not much we can do about this;
+		// silently drop the message
 		return nil
 	}
 	return wc.conn.WriteMessage(websocket.TextMessage, buf)

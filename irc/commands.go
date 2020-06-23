@@ -79,6 +79,11 @@ var unknownCommand = Command{
 	usablePreReg: true,
 }
 
+var invalidUtf8Command = Command{
+	handler:      invalidUtf8Handler,
+	usablePreReg: true,
+}
+
 // Commands holds all commands executable by a client connected to us.
 var Commands map[string]Command
 

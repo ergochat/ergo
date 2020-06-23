@@ -7,7 +7,6 @@ package irc
 import (
 	"errors"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/oragono/oragono/irc/utils"
@@ -59,27 +58,24 @@ func (socket *Socket) Close() {
 
 // Read returns a single IRC line from a Socket.
 func (socket *Socket) Read() (string, error) {
+	// immediately fail if Close() has been called, even if there's
+	// still data in a bufio.Reader or websocket buffer:
 	if socket.IsClosed() {
 		return "", io.EOF
 	}
 
 	lineBytes, err := socket.conn.ReadLine()
-
-	// convert bytes to string
 	line := string(lineBytes)
 
-	// read last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
 	if err == io.EOF {
 		socket.Close()
+		// process last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
+		if line != "" {
+			err = nil
+		}
 	}
 
-	if err == io.EOF && strings.TrimSpace(line) != "" {
-		// don't do anything
-	} else if err != nil {
-		return "", err
-	}
-
-	return line, nil
+	return line, err
 }
 
 // Write sends the given string out of Socket. Requirements:

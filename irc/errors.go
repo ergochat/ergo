@@ -66,6 +66,7 @@ var (
 	errCredsExternallyManaged         = errors.New("Credentials are externally managed and cannot be changed here")
 	errInvalidMultilineBatch          = errors.New("Invalid multiline batch")
 	errTimedOut                       = errors.New("Operation timed out")
+	errInvalidUtf8                    = errors.New("Message rejected for invalid utf8")
 )
 
 // Socket Errors

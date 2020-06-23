@@ -519,6 +519,7 @@ type Config struct {
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
+		EnforceUtf8   bool   `yaml:"enforce-utf8"`
 		OutputPath    string `yaml:"output-path"`
 	}
 

@@ -615,8 +615,11 @@ func (client *Client) run(session *Session) {
 	firstLine := !isReattach
 
 	for {
+		var invalidUtf8 bool
 		line, err := session.socket.Read()
-		if err != nil {
+		if err == errInvalidUtf8 {
+			invalidUtf8 = true // handle as normal, including labeling
+		} else if err != nil {
 			quitMessage := "connection closed"
 			if err == errReadQ {
 				quitMessage = "readQ exceeded"
@@ -676,6 +679,8 @@ func (client *Client) run(session *Session) {
 		cmd, exists := Commands[msg.Command]
 		if !exists {
 			cmd = unknownCommand
+		} else if invalidUtf8 {
+			cmd = invalidUtf8Command
 		}
 
 		isExiting := cmd.Run(client.server, client, session, msg)
