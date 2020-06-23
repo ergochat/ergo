@@ -1722,11 +1722,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
-		cfnick, err := CasefoldName(target)
-		if err != nil {
-			continue
-		}
-		server.monitorManager.Remove(client, cfnick)
+		server.monitorManager.Remove(rb.session, target)
 	}
 
 	return false
@@ -1752,12 +1748,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 		}
 
 		// add target
-		casefoldedTarget, err := CasefoldName(target)
-		if err != nil {
-			continue
-		}
-
-		err = server.monitorManager.Add(client, casefoldedTarget, limits.MonitorEntries)
+		err := server.monitorManager.Add(rb.session, target, limits.MonitorEntries)
 		if err == errMonitorLimitExceeded {
 			rb.Add(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(limits.MonitorEntries), strings.Join(targets, ","))
 			break
@@ -1786,14 +1777,14 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 
 // MONITOR C
 func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.monitorManager.RemoveAll(client)
+	server.monitorManager.RemoveAll(rb.session)
 	return false
 }
 
 // MONITOR L
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nick := client.Nick()
-	monitorList := server.monitorManager.List(client)
+	monitorList := server.monitorManager.List(rb.session)
 
 	var nickList []string
 	for _, cfnick := range monitorList {
@@ -1820,7 +1811,7 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 	var online []string
 	var offline []string
 
-	monitorList := server.monitorManager.List(client)
+	monitorList := server.monitorManager.List(rb.session)
 
 	for _, name := range monitorList {
 		currentNick := server.getCurrentNick(name)
