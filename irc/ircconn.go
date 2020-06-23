@@ -76,7 +76,6 @@ func (cc *IRCStreamConn) ReadLine() (line []byte, err error) {
 	if isPrefix {
 		return nil, errReadQ
 	}
-	line = bytes.TrimSuffix(line, crlf)
 	if globalUtf8EnforcementSetting && !utf8.Valid(line) {
 		err = errInvalidUtf8
 	}
