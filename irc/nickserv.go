@@ -1092,6 +1092,8 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 			target, certfp = params[0], params[1]
 		} else if len(params) == 1 {
 			certfp = params[0]
+		} else if len(params) == 0 && verb == "add" && rb.session.certfp != "" {
+			certfp = rb.session.certfp // #1059
 		} else {
 			nsNotice(rb, client.t("Invalid parameters"))
 			return
