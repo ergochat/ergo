@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -112,12 +111,10 @@ func (nl *NetListener) serve() {
 // WSListener is a listener for IRC-over-websockets (initially HTTP, then upgraded to a
 // different application protocol that provides a message-based API, possibly with TLS)
 type WSListener struct {
-	sync.Mutex // tier 1
 	listener   *utils.ReloadableListener
 	httpServer *http.Server
 	server     *Server
 	addr       string
-	config     utils.ListenerConfig
 }
 
 func NewWSListener(server *Server, addr string, listener *utils.ReloadableListener, config utils.ListenerConfig) (result *WSListener, err error) {
@@ -125,7 +122,6 @@ func NewWSListener(server *Server, addr string, listener *utils.ReloadableListen
 		listener: listener,
 		server:   server,
 		addr:     addr,
-		config:   config,
 	}
 	result.httpServer = &http.Server{
 		Handler:      http.HandlerFunc(result.handle),
