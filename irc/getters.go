@@ -106,6 +106,7 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	newSessions[len(newSessions)-1] = session
 	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		lastSeen = client.lastSeen[session.deviceID]
+		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
 	client.sessions = newSessions
 	if client.autoAway {
