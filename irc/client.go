@@ -34,7 +34,7 @@ const (
 	maxDeviceIDsPerClient = 64
 	// controls how often often we write an autoreplay-missed client's
 	// deviceid->lastseentime mapping to the database
-	lastSeenWriteInterval = time.Minute * 10
+	lastSeenWriteInterval = time.Hour
 )
 
 // ResumeDetails is a place to stash data at various stages of
