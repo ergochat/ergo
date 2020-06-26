@@ -1245,6 +1245,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
+	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 
 	var clients []*Client
 
@@ -1299,6 +1300,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
 		tx.Delete(lastSeenKey)
+		tx.Delete(modesKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
