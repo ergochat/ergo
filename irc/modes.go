@@ -34,7 +34,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 
 	for _, change := range changes {
 		switch change.Mode {
-		case modes.Bot, modes.Invisible, modes.WallOps, modes.UserRoleplaying, modes.Operator, modes.LocalOperator, modes.RegisteredOnly:
+		case modes.Bot, modes.Invisible, modes.WallOps, modes.UserRoleplaying, modes.Operator, modes.LocalOperator, modes.RegisteredOnly, modes.UserNoCTCP:
 			switch change.Op {
 			case modes.Add:
 				if (change.Mode == modes.Operator || change.Mode == modes.LocalOperator) && !(force && oper != nil) {
