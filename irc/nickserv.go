@@ -244,7 +244,6 @@ SET modifies your account settings. The following settings are available:`,
 'enforce' lets you specify a custom enforcement mechanism for your registered
 nicknames. Your options are:
 1. 'none'    [no enforcement, overriding the server default]
-              or else they will be renamed]
 2. 'strict'  [you must already be authenticated to use the nick]
 3. 'default' [use the server default]`,
 
