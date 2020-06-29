@@ -1724,7 +1724,7 @@ func (client *Client) wakeWriter() {
 
 func (client *Client) writeLoop() {
 	for {
-		client.performWrite()
+		client.performWrite(0)
 		client.writerSemaphore.Release()
 
 		client.stateMutex.RLock()
@@ -1737,9 +1737,9 @@ func (client *Client) writeLoop() {
 	}
 }
 
-func (client *Client) performWrite() {
+func (client *Client) performWrite(additionalDirtyBits uint) {
 	client.stateMutex.Lock()
-	dirtyBits := client.dirtyBits
+	dirtyBits := client.dirtyBits | additionalDirtyBits
 	client.dirtyBits = 0
 	account := client.account
 	client.stateMutex.Unlock()
@@ -1774,4 +1774,22 @@ func (client *Client) performWrite() {
 		}
 		client.server.accounts.saveModes(account, uModes)
 	}
+}
+
+// Blocking store; see Channel.Store and Socket.BlockingWrite
+func (client *Client) Store(dirtyBits uint) (err error) {
+	defer func() {
+		client.stateMutex.Lock()
+		isDirty := client.dirtyBits != 0
+		client.stateMutex.Unlock()
+
+		if isDirty {
+			client.wakeWriter()
+		}
+	}()
+
+	client.writerSemaphore.Acquire()
+	defer client.writerSemaphore.Release()
+	client.performWrite(dirtyBits)
+	return nil
 }

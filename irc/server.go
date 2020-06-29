@@ -116,6 +116,9 @@ func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
+		if client.AlwaysOn() {
+			client.Store(IncludeLastSeen)
+		}
 	}
 
 	if err := server.store.Close(); err != nil {
