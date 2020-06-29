@@ -723,16 +723,11 @@ func (client *Client) playReattachMessages(session *Session) {
 //
 
 // Touch indicates that we received a line from the client (so the connection is healthy
-// at this time, modulo network latency and fakelag). `active` means not a PING or suchlike
-// (i.e. the user should be sitting in front of their client).
-func (client *Client) Touch(active bool, session *Session) {
+// at this time, modulo network latency and fakelag).
+func (client *Client) Touch(session *Session) {
 	var markDirty bool
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
-	if active {
-		client.lastActive = now
-		session.lastActive = now
-	}
 	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		client.setLastSeen(now, session.deviceID)
 		if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {

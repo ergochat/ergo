@@ -1955,7 +1955,12 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	if rb.session.isTor && utils.IsRestrictedCTCPMessage(message) {
+	isCTCP := utils.IsRestrictedCTCPMessage(message)
+	if histType == history.Privmsg && !isCTCP {
+		client.UpdateActive(rb.session)
+	}
+
+	if rb.session.isTor && isCTCP {
 		// note that error replies are never sent for NOTICE
 		if histType != history.Notice {
 			rb.Notice(client.t("CTCP messages are disabled over Tor"))
