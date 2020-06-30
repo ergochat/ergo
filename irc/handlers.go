@@ -1142,15 +1142,9 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		keys = strings.Split(msg.Params[1], ",")
 	}
 
-	config := server.Config()
-	oper := client.Oper()
 	for i, name := range channels {
 		if name == "" {
 			continue // #679
-		}
-		if config.Channels.MaxChannelsPerClient <= client.NumChannels() && oper == nil {
-			rb.Add(nil, server.name, ERR_TOOMANYCHANNELS, client.Nick(), name, client.t("You have joined too many channels"))
-			return false
 		}
 		var key string
 		if len(keys) > i {
@@ -1165,18 +1159,35 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 }
 
 func sendJoinError(client *Client, name string, rb *ResponseBuffer, err error) {
-	var errMsg string
+	var code, errMsg, forbiddingMode string
 	switch err {
 	case errInsufficientPrivs:
-		errMsg = `Only server operators can create new channels`
+		code, errMsg = ERR_NOSUCHCHANNEL, `Only server operators can create new channels`
 	case errConfusableIdentifier:
-		errMsg = `That channel name is too close to the name of another channel`
+		code, errMsg = ERR_NOSUCHCHANNEL, `That channel name is too close to the name of another channel`
 	case errChannelPurged:
-		errMsg = err.Error()
+		code, errMsg = ERR_NOSUCHCHANNEL, err.Error()
+	case errTooManyChannels:
+		code, errMsg = ERR_TOOMANYCHANNELS, `You have joined too many channels`
+	case errLimitExceeded:
+		code, forbiddingMode = ERR_CHANNELISFULL, "l"
+	case errWrongChannelKey:
+		code, forbiddingMode = ERR_BADCHANNELKEY, "k"
+	case errInviteOnly:
+		code, forbiddingMode = ERR_INVITEONLYCHAN, "i"
+	case errBanned:
+		code, forbiddingMode = ERR_BANNEDFROMCHAN, "b"
+	case errRegisteredOnly:
+		code, errMsg = ERR_NEEDREGGEDNICK, `You must be registered to join that channel`
 	default:
-		errMsg = `No such channel`
+		code, errMsg = ERR_NOSUCHCHANNEL, `No such channel`
 	}
-	rb.Add(nil, client.server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(name), client.t(errMsg))
+	if forbiddingMode != "" {
+		errMsg = fmt.Sprintf(client.t("Cannot join channel (+%s)"), forbiddingMode)
+	} else {
+		errMsg = client.t(errMsg)
+	}
+	rb.Add(nil, client.server.name, code, client.Nick(), utils.SafeErrorParam(name), errMsg)
 }
 
 // SAJOIN [nick] #channel{,#channel}
