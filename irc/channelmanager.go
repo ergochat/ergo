@@ -130,11 +130,11 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 	}
 
 	channel.EnsureLoaded()
-	channel.Join(client, key, isSajoin, rb)
+	err = channel.Join(client, key, isSajoin, rb)
 
 	cm.maybeCleanup(channel, true)
 
-	return nil
+	return err
 }
 
 func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {

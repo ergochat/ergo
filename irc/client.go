@@ -62,7 +62,7 @@ type Client struct {
 	exitedSnomaskSent  bool
 	modes              modes.ModeSet
 	hostname           string
-	invitedTo          map[string]bool
+	invitedTo          StringSet
 	isSTSOnly          bool
 	languages          []string
 	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
@@ -1595,15 +1595,24 @@ func (session *Session) Notice(text string) {
 
 // `simulated` is for the fake join of an always-on client
 // (we just read the channel name from the database, there's no need to write it back)
-func (client *Client) addChannel(channel *Channel, simulated bool) {
+func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
+	config := client.server.Config()
+
 	client.stateMutex.Lock()
-	client.channels[channel] = true
 	alwaysOn := client.alwaysOn
+	if client.destroyed {
+		err = errClientDestroyed
+	} else if client.oper == nil && len(client.channels) >= config.Channels.MaxChannelsPerClient {
+		err = errTooManyChannels
+	} else {
+		client.channels[channel] = empty{} // success
+	}
 	client.stateMutex.Unlock()
 
-	if alwaysOn && !simulated {
+	if err == nil && alwaysOn && !simulated {
 		client.markDirty(IncludeChannels)
 	}
+	return
 }
 
 func (client *Client) removeChannel(channel *Channel) {
@@ -1623,10 +1632,10 @@ func (client *Client) Invite(casefoldedChannel string) {
 	defer client.stateMutex.Unlock()
 
 	if client.invitedTo == nil {
-		client.invitedTo = make(map[string]bool)
+		client.invitedTo = make(StringSet)
 	}
 
-	client.invitedTo[casefoldedChannel] = true
+	client.invitedTo.Add(casefoldedChannel)
 }
 
 // Checks that the client was invited to join a given channel
@@ -1634,7 +1643,7 @@ func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	invited = client.invitedTo[casefoldedChannel]
+	invited = client.invitedTo.Has(casefoldedChannel)
 	// joining an invited channel "uses up" your invite, so you can't rejoin on kick
 	delete(client.invitedTo, casefoldedChannel)
 	return

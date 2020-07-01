@@ -67,6 +67,11 @@ var (
 	errInvalidMultilineBatch          = errors.New("Invalid multiline batch")
 	errTimedOut                       = errors.New("Operation timed out")
 	errInvalidUtf8                    = errors.New("Message rejected for invalid utf8")
+	errClientDestroyed                = errors.New("Client was already destroyed")
+	errTooManyChannels                = errors.New("You have joined too many channels")
+	errWrongChannelKey                = errors.New("Cannot join password-protected channel without the password")
+	errInviteOnly                     = errors.New("Cannot join invite-only channel without an invite")
+	errRegisteredOnly                 = errors.New("Cannot join registered-only channel without an account")
 )
 
 // Socket Errors

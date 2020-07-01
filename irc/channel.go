@@ -660,7 +660,7 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 }
 
 // Join joins the given client to this channel (if they can be joined).
-func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
+func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) error {
 	details := client.Details()
 
 	channel.stateMutex.RLock()
@@ -676,39 +676,43 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	if alreadyJoined {
 		// no message needs to be sent
-		return
+		return nil
 	}
 
-	// the founder can always join (even if they disabled auto +q on join);
-	// anyone who automatically receives halfop or higher can always join
-	hasPrivs := isSajoin || (founder != "" && founder == details.account) || (persistentMode != 0 && persistentMode != modes.Voice)
+	// 0. SAJOIN always succeeds
+	// 1. the founder can always join (even if they disabled auto +q on join)
+	// 2. anyone who automatically receives halfop or higher can always join
+	// 3. people invited with INVITE can join
+	hasPrivs := isSajoin || (founder != "" && founder == details.account) ||
+		(persistentMode != 0 && persistentMode != modes.Voice) ||
+		client.CheckInvited(chcfname)
+	if !hasPrivs {
+		if limit != 0 && chcount >= limit {
+			return errLimitExceeded
+		}
 
-	if !hasPrivs && limit != 0 && chcount >= limit {
-		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
-		return
+		if chkey != "" && !utils.SecretTokensMatch(chkey, key) {
+			return errWrongChannelKey
+		}
+
+		if channel.flags.HasMode(modes.InviteOnly) &&
+			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
+			return errInviteOnly
+		}
+
+		if channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
+			!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) &&
+			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
+			return errBanned
+		}
+
+		if channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" {
+			return errRegisteredOnly
+		}
 	}
 
-	if !hasPrivs && chkey != "" && !utils.SecretTokensMatch(chkey, key) {
-		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
-		return
-	}
-
-	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded)
-	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
-		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
-		return
-	}
-
-	if !hasPrivs && channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
-		!isInvited &&
-		!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) {
-		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
-		return
-	}
-
-	if !hasPrivs && channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" && !isInvited {
-		rb.Add(nil, client.server.name, ERR_NEEDREGGEDNICK, details.nick, chname, client.t("You must be registered to join that channel"))
-		return
+	if joinErr := client.addChannel(channel, rb == nil); joinErr != nil {
+		return joinErr
 	}
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
@@ -753,10 +757,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.AddHistoryItem(histItem, details.account)
 	}
 
-	client.addChannel(channel, rb == nil)
-
 	if rb == nil {
-		return
+		return nil
 	}
 
 	var modestr string
@@ -799,6 +801,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	rb.Flush(true)
 
 	channel.autoReplayHistory(client, rb, message.Msgid)
+	return nil
 }
 
 func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {
@@ -1437,9 +1440,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		return
 	}
 
-	if channel.flags.HasMode(modes.InviteOnly) {
-		invitee.Invite(channel.NameCasefolded())
-	}
+	invitee.Invite(channel.NameCasefolded())
 
 	for _, member := range channel.Members() {
 		if member == inviter || member == invitee || !channel.ClientIsAtLeast(member, modes.Halfop) {

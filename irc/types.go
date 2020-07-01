@@ -69,4 +69,4 @@ func (members MemberSet) AnyHasMode(mode modes.Mode) bool {
 }
 
 // ChannelSet is a set of channels.
-type ChannelSet map[*Channel]bool
+type ChannelSet map[*Channel]empty
