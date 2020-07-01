@@ -1460,3 +1460,10 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, invitee.AwayMessage())
 	}
 }
+
+// data for RPL_LIST
+func (channel *Channel) listData() (memberCount int, name, topic string) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return len(channel.members), channel.name, channel.topic
+}

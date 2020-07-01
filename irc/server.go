@@ -970,26 +970,6 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 	return true
 }
 
-// RplList returns the RPL_LIST numeric for the given channel.
-func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
-	// get the correct number of channel members
-	var memberCount int
-	if target.HasMode(modes.Operator) || channel.hasClient(target) {
-		memberCount = len(channel.Members())
-	} else {
-		for _, member := range channel.Members() {
-			if !member.HasMode(modes.Invisible) {
-				memberCount++
-			}
-		}
-	}
-
-	// #704: some channels are kept around even with no members
-	if memberCount != 0 {
-		rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
-	}
-}
-
 var (
 	infoString1 = strings.Split(`      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄
 ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪

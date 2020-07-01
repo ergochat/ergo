@@ -1530,6 +1530,13 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 	}
 
+	nick := client.Nick()
+	rplList := func(channel *Channel) {
+		if members, name, topic := channel.listData(); members != 0 {
+			rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
+		}
+	}
+
 	clientIsOp := client.HasMode(modes.Operator)
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
@@ -1537,7 +1544,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel, rb)
+				rplList(channel)
 			}
 		}
 	} else {
@@ -1555,7 +1562,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel, rb)
+				rplList(channel)
 			}
 		}
 	}
