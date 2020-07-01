@@ -29,10 +29,13 @@ const (
 	initialAutoSize = 32
 )
 
-// a Tagmsg that consists entirely of transient tags is not stored
-var transientTags = map[string]bool{
-	"+draft/typing": true,
-	"+typing":       true, // future-proofing
+// a Tagmsg is only stored if it contains at least one of these tags
+// see https://github.com/ircv3/ircv3-specifications/pull/416
+var persistTags = []string{
+	"+draft/react",
+	"+react",
+	"+draft/persist",
+	"+persist",
 }
 
 // Item represents an event (e.g., a PRIVMSG or a JOIN) and its associated data
@@ -60,12 +63,12 @@ func (item *Item) HasMsgid(msgid string) bool {
 func (item *Item) IsStorable() bool {
 	switch item.Type {
 	case Tagmsg:
-		for name := range item.Tags {
-			if !transientTags[name] {
+		for _, persistTag := range persistTags {
+			if _, ok := item.Tags[persistTag]; ok {
 				return true
 			}
 		}
-		return false // all tags were blacklisted
+		return false
 	case Privmsg, Notice:
 		// don't store CTCP other than ACTION
 		return !item.Message.IsRestrictedCTCPMessage()
