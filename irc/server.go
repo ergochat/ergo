@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"unsafe"
 
 	"github.com/goshuirc/irc-go/ircfmt"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/history"
@@ -665,35 +665,6 @@ func (server *Server) setupPprofListener(config *Config) {
 		server.pprofServer = &ps
 		server.logger.Info("server", "Started pprof listener", server.pprofServer.Addr)
 	}
-}
-
-func (config *Config) loadMOTD() (err error) {
-	if config.Server.MOTD != "" {
-		file, err := os.Open(config.Server.MOTD)
-		if err == nil {
-			defer file.Close()
-
-			reader := bufio.NewReader(file)
-			for {
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					break
-				}
-				line = strings.TrimRight(line, "\r\n")
-
-				if config.Server.MOTDFormatting {
-					line = ircfmt.Unescape(line)
-				}
-
-				// "- " is the required prefix for MOTD, we just add it here to make
-				// bursting it out to clients easier
-				line = fmt.Sprintf("- %s", line)
-
-				config.Server.motdLines = append(config.Server.motdLines, line)
-			}
-		}
-	}
-	return
 }
 
 func (server *Server) loadDatastore(config *Config) error {

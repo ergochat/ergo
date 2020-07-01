@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -21,6 +22,9 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/goshuirc/irc-go/ircfmt"
+	"gopkg.in/yaml.v2"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
@@ -34,7 +38,6 @@ import (
 	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
-	"gopkg.in/yaml.v2"
 )
 
 // here's how this works: exported (capitalized) members of the config structs
@@ -1304,4 +1307,35 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	}
 	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded), false)
 	return
+}
+
+func (config *Config) loadMOTD() error {
+	if config.Server.MOTD != "" {
+		file, err := os.Open(config.Server.MOTD)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		contents, err := ioutil.ReadAll(file)
+		if err != nil {
+			return err
+		}
+
+		lines := bytes.Split(contents, []byte{'\n'})
+		for i, line := range lines {
+			lineToSend := string(bytes.TrimRight(line, "\r\n"))
+			if len(lineToSend) == 0 && i == len(lines)-1 {
+				// if the last line of the MOTD was properly terminated with \n,
+				// there's no need to send a blank line to clients
+				continue
+			}
+			if config.Server.MOTDFormatting {
+				lineToSend = ircfmt.Unescape(lineToSend)
+			}
+			// "- " is the required prefix for MOTD
+			lineToSend = fmt.Sprintf("- %s", lineToSend)
+			config.Server.motdLines = append(config.Server.motdLines, lineToSend)
+		}
+	}
+	return nil
 }
