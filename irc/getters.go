@@ -418,6 +418,14 @@ func (client *Client) detailsNoMutex() (result ClientDetails) {
 	return
 }
 
+func (client *Client) UpdateActive(session *Session) {
+	now := time.Now().UTC()
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.lastActive = now
+	session.lastActive = now
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
