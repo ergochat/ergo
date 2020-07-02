@@ -291,7 +291,7 @@ func (server *Server) playSTSBurst(session *Session) {
 	session.Send(nil, server.name, RPL_YOURHOST, nick, fmt.Sprintf("Your host is %[1]s, running version %[2]s", server.name, "oragono"))
 	session.Send(nil, server.name, RPL_CREATED, nick, fmt.Sprintf("This server was created %s", time.Time{}.Format(time.RFC1123)))
 	session.Send(nil, server.name, RPL_MYINFO, nick, server.name, "oragono", "o", "o", "o")
-	session.Send(nil, server.name, RPL_ISUPPORT, nick, "CASEMAPPING=ascii MODES")
+	session.Send(nil, server.name, RPL_ISUPPORT, nick, "CASEMAPPING=ascii", "are supported by this server")
 	session.Send(nil, server.name, ERR_NOMOTD, nick, "MOTD is unavailable")
 	for _, line := range server.Config().Server.STS.bannerLines {
 		session.Send(nil, server.name, "NOTICE", nick, line)
