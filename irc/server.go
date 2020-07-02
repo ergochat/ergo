@@ -41,7 +41,7 @@ var (
 
 	// whitelist of caps to serve on the STS-only listener. In particular,
 	// never advertise SASL, to discourage people from sending their passwords:
-	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.LabeledResponse, caps.Nope)
+	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.Batch, caps.LabeledResponse, caps.EchoMessage, caps.Nope)
 
 	// we only have standard channels for now. TODO: any updates to this
 	// will also need to be reflected in CasefoldChannel
@@ -214,7 +214,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	}
 
 	if c.isSTSOnly {
-		server.playRegistrationBurst(session)
+		server.playSTSBurst(session)
 		return true
 	}
 
@@ -285,6 +285,19 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	return false
 }
 
+func (server *Server) playSTSBurst(session *Session) {
+	nick := utils.SafeErrorParam(session.client.preregNick)
+	session.Send(nil, server.name, RPL_WELCOME, nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", nick))
+	session.Send(nil, server.name, RPL_YOURHOST, nick, fmt.Sprintf("Your host is %[1]s, running version %[2]s", server.name, "oragono"))
+	session.Send(nil, server.name, RPL_CREATED, nick, fmt.Sprintf("This server was created %s", time.Time{}.Format(time.RFC1123)))
+	session.Send(nil, server.name, RPL_MYINFO, nick, server.name, "oragono", "o", "o", "o")
+	session.Send(nil, server.name, RPL_ISUPPORT, nick, "CASEMAPPING=ascii")
+	session.Send(nil, server.name, ERR_NOMOTD, nick, "MOTD is unavailable")
+	for _, line := range server.Config().Server.STS.bannerLines {
+		session.Send(nil, server.name, "NOTICE", nick, line)
+	}
+}
+
 func (server *Server) playRegistrationBurst(session *Session) {
 	c := session.client
 	// continue registration
@@ -299,13 +312,6 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_YOURHOST, d.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
 	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
-
-	if c.isSTSOnly {
-		for _, line := range server.Config().Server.STS.bannerLines {
-			c.Notice(line)
-		}
-		return
-	}
 
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
