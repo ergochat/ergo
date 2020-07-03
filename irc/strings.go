@@ -1,6 +1,7 @@
 // Copyright (c) 2012-2014 Jeremy Latt
 // Copyright (c) 2014-2015 Edmund Huber
 // Copyright (c) 2016-2017 Daniel Oaks <daniel@danieloaks.net>
+// Copyright (c) 2020 Ene Alin Gabriel <zmeu@whitehat.ro>
 // released under the MIT license
 
 package irc
@@ -143,7 +144,7 @@ func CasefoldName(name string) (string, error) {
 	// # is a channel prefix
 	// ~&@%+ are channel membership prefixes
 	// - I feel like disallowing
-	if strings.ContainsAny(lowered, " ,*?.!@:") || strings.ContainsAny(string(lowered[0]), "#~&@%+-") {
+	if strings.ContainsAny(lowered, " ,*?.!@:<>()'\";$") || strings.ContainsAny(string(lowered[0]), "#~&@%+-") {
 		return "", errInvalidCharacter
 	}
 
