@@ -122,7 +122,6 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	accountName := client.accountName
 	settings := client.accountSettings
 	registered := client.registered
-	realname := client.realname
 	client.stateMutex.RUnlock()
 
 	// recompute always-on status, because client.alwaysOn is not set for unregistered clients
@@ -225,12 +224,6 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			client.server.stats.AddRegistered(invisible, operator)
 		}
 		session.autoreplayMissedSince = lastSeen
-		// XXX SetNames only changes names if they are unset, so the realname change only
-		// takes effect on first attach to an always-on client (good), but the user/ident
-		// change is always a no-op (bad). we could make user/ident act the same way as
-		// realname, but then we'd have to send CHGHOST and i don't want to deal with that
-		// for performance reasons
-		currentClient.SetNames("user", realname, true)
 		// successful reattach!
 		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {

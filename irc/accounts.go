@@ -39,7 +39,8 @@ const (
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 	keyAccountLastSeen         = "account.lastseen %s"
-	keyAccountModes            = "account.modes %s" // user modes for the always-on client as a string
+	keyAccountModes            = "account.modes %s"    // user modes for the always-on client as a string
+	keyAccountRealname         = "account.realname %s" // client realname stored as string
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -127,7 +128,13 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
 			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
-			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSeen(accountName), am.loadModes(accountName))
+			am.server.AddAlwaysOnClient(
+				account,
+				am.loadChannels(accountName),
+				am.loadLastSeen(accountName),
+				am.loadModes(accountName),
+				am.loadRealname(accountName),
+			)
 		}
 	}
 }
@@ -650,6 +657,30 @@ func (am *AccountManager) loadLastSeen(account string) (lastSeen map[string]time
 	return
 }
 
+func (am *AccountManager) saveRealname(account string, realname string) {
+	key := fmt.Sprintf(keyAccountRealname, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		if realname != "" {
+			tx.Set(key, realname, nil)
+		} else {
+			tx.Delete(key)
+		}
+		return nil
+	})
+}
+
+func (am *AccountManager) loadRealname(account string) (realname string) {
+	key := fmt.Sprintf(keyAccountRealname, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		realname, _ = tx.Get(key)
+		return nil
+	})
+	if realname == "" {
+		return ""
+	}
+	return
+}
+
 func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasPrivs bool) (err error) {
 	certfp, err = utils.NormalizeCertfp(certfp)
 	if err != nil {
@@ -873,6 +904,9 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		if method == NickEnforcementStrict {
 			am.server.RandomlyRename(currentClient)
 		}
+	}
+	if client.AlwaysOn() {
+		client.markDirty(IncludeRealname)
 	}
 	return nil
 }

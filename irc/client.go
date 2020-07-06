@@ -365,7 +365,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -386,6 +386,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		realIP:      utils.IPv4LoopbackAddress,
 
 		alwaysOn: true,
+		realname: realname,
 	}
 
 	client.SetMode(modes.TLS, true)
@@ -1707,6 +1708,7 @@ const (
 	IncludeChannels uint = 1 << iota
 	IncludeLastSeen
 	IncludeUserModes
+	IncludeRealname
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1777,6 +1779,9 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 			}
 		}
 		client.server.accounts.saveModes(account, uModes)
+	}
+	if (dirtyBits & IncludeRealname) != 0 {
+		client.server.accounts.saveRealname(account, client.realname)
 	}
 }
 

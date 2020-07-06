@@ -2514,6 +2514,11 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // SETNAME <realname>
 func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
+	if realname == "" {
+		rb.Add(nil, server.name, "FAIL", "SETNAME", "INVALID_REALNAME", client.t("Realname is not valid"))
+		return false
+	}
+
 	client.SetRealname(realname)
 	details := client.Details()
 
