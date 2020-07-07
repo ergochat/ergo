@@ -797,6 +797,14 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	}
 
+	if passphrase != "" {
+		cfPassphrase, err := Casefold(passphrase)
+		if err == nil && cfPassphrase == details.nickCasefolded {
+			nsNotice(rb, client.t("Usage: REGISTER <passphrase> [email]")) // #1179
+			return
+		}
+	}
+
 	if !nsLoginThrottleCheck(client, rb) {
 		return
 	}
