@@ -529,7 +529,7 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome {
+func (client *Client) isAuthorized(server *Server, config *Config, session *Session) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
 	if (config.Server.passwordBytes != nil) && session.passStatus != serverPassSuccessful && !(config.Accounts.SkipServerPassword && saslSent) {
@@ -540,7 +540,8 @@ func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
+	if !saslSent && (config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
+		!utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}
 	return authSuccess

@@ -124,6 +124,10 @@ func init() {
 			minParams: 1,
 			oper:      true,
 		},
+		"DEFCON": {
+			handler: defconHandler,
+			capabs:  []string{"defcon"},
+		},
 		"DEOPER": {
 			handler:   deoperHandler,
 			minParams: 0,

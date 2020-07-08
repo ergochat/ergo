@@ -759,6 +759,21 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	return false
 }
 
+func defconHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	if len(msg.Params) > 0 {
+		level, err := strconv.Atoi(msg.Params[0])
+		if err == nil && 1 <= level && level <= 5 {
+			server.SetDefcon(uint32(level))
+			server.snomasks.Send(sno.LocalAnnouncements, fmt.Sprintf("%s [%s] set DEFCON level to %d", client.Nick(), client.Oper().Name, level))
+		} else {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), msg.Command, client.t("Invalid DEFCON parameter"))
+			return false
+		}
+	}
+	rb.Notice(fmt.Sprintf(client.t("Current DEFCON level is %d"), server.Defcon()))
+	return false
+}
+
 // helper for parsing the reason args to DLINE and KLINE
 func getReasonsFromParams(params []string, currentArg int) (reason, operReason string) {
 	reason = "No reason given"
