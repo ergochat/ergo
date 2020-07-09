@@ -175,8 +175,8 @@ spam or other hostile activity. It has five levels, which are cumulative
 
 5: Normal operation
 4: No new account or channel registrations
-3: All channels are +R; no changes to vhosts
-2: No new unauthenticated connections
+3: All users are +R; no changes to vhosts
+2: No new unauthenticated connections; all channels are +R
 1: No new connections except from localhost or other trusted IPs`,
 	},
 	"deoper": {

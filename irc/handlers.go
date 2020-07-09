@@ -2067,6 +2067,10 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		tnick := tDetails.nick
 
 		details := client.Details()
+		if details.account == "" && server.Defcon() <= 3 {
+			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("Direct messages from unregistered users are temporarily restricted"))
+			return
+		}
 		nickMaskString := details.nickMask
 		accountName := details.accountName
 		var deliverySessions []*Session

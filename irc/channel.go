@@ -707,7 +707,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}
 
 		if details.account == "" &&
-			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 3) {
+			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) {
 			return errRegisteredOnly
 		}
 	}
