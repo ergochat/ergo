@@ -873,3 +873,18 @@ history:
         # allowing deletion of JSON export of an account's messages. this
         # may be needed for compliance with data privacy regulations.
         enable-account-indexing: false
+
+    # options to control storage of TAGMSG
+    tagmsg-storage:
+        # by default, should TAGMSG be stored?
+        default: false
+
+        # if `default` is false, store TAGMSG containing any of these tags:
+        whitelist:
+            - "+draft/react"
+            - "react"
+
+        # if `default` is true, don't store TAGMSG containing any of these tags:
+        #blacklist:
+        #    - "+draft/typing"
+        #    - "typing"

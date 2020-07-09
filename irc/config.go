@@ -612,6 +612,11 @@ type Config struct {
 			AllowIndividualDelete bool `yaml:"allow-individual-delete"`
 			EnableAccountIndexing bool `yaml:"enable-account-indexing"`
 		}
+		TagmsgStorage struct {
+			Default   bool
+			Whitelist []string
+			Blacklist []string
+		} `yaml:"tagmsg-storage"`
 	}
 
 	Filename string
@@ -1281,6 +1286,16 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 	}
 
 	return
+}
+
+// determine whether we need to resize / create / destroy
+// the in-memory history buffers:
+func (config *Config) historyChangedFrom(oldConfig *Config) bool {
+	return config.History.Enabled != oldConfig.History.Enabled ||
+		config.History.ChannelLength != oldConfig.History.ChannelLength ||
+		config.History.ClientLength != oldConfig.History.ClientLength ||
+		config.History.AutoresizeWindow != oldConfig.History.AutoresizeWindow ||
+		config.History.Persistent != oldConfig.History.Persistent
 }
 
 func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {

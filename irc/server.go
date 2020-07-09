@@ -546,7 +546,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			server.channels.loadRegisteredChannels(config)
 		}
 		// resize history buffers as needed
-		if oldConfig.History != config.History {
+		if config.historyChangedFrom(oldConfig) {
 			for _, channel := range server.channels.Channels() {
 				channel.resizeHistory(config)
 			}
