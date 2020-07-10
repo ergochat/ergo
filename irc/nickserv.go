@@ -423,8 +423,8 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		}
 	case "dm-history":
 		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
-		csNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
-		csNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
+		nsNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
+		nsNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
 
 	default:
 		nsNotice(rb, client.t("No such setting"))
