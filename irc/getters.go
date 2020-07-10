@@ -201,12 +201,6 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 	return
 }
 
-func (client *Client) SetExitedSnomaskSent() {
-	client.stateMutex.Lock()
-	client.exitedSnomaskSent = true
-	client.stateMutex.Unlock()
-}
-
 func (client *Client) AlwaysOn() (alwaysOn bool) {
 	client.stateMutex.Lock()
 	alwaysOn = client.alwaysOn

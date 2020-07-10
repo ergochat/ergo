@@ -59,7 +59,6 @@ type Client struct {
 	channels           ChannelSet
 	ctime              time.Time
 	destroyed          bool
-	exitedSnomaskSent  bool
 	modes              modes.ModeSet
 	hostname           string
 	invitedTo          StringSet
@@ -1281,7 +1280,6 @@ func (client *Client) destroy(session *Session) {
 	if saveLastSeen {
 		client.dirtyBits |= IncludeLastSeen
 	}
-	exitedSnomaskSent := client.exitedSnomaskSent
 
 	autoAway := false
 	var awayMessage string
@@ -1423,7 +1421,7 @@ func (client *Client) destroy(session *Session) {
 		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	}
 
-	if !exitedSnomaskSent && registered {
+	if registered {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 	}
 }

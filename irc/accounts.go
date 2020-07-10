@@ -1223,6 +1223,69 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	return
 }
 
+func (am *AccountManager) Suspend(accountName string) (err error) {
+	account, err := CasefoldName(accountName)
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	existsKey := fmt.Sprintf(keyAccountExists, account)
+	verifiedKey := fmt.Sprintf(keyAccountVerified, account)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get(existsKey)
+		if err != nil {
+			return errAccountDoesNotExist
+		}
+		_, err = tx.Delete(verifiedKey)
+		return err
+	})
+
+	if err == errAccountDoesNotExist {
+		return err
+	} else if err != nil {
+		am.server.logger.Error("internal", "couldn't persist suspension", account, err.Error())
+	} // keep going
+
+	am.Lock()
+	clients := am.accountToClients[account]
+	delete(am.accountToClients, account)
+	am.Unlock()
+
+	am.killClients(clients)
+	return nil
+}
+
+func (am *AccountManager) killClients(clients []*Client) {
+	for _, client := range clients {
+		client.Logout()
+		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
+		client.destroy(nil)
+	}
+}
+
+func (am *AccountManager) Unsuspend(account string) (err error) {
+	cfaccount, err := CasefoldName(account)
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	existsKey := fmt.Sprintf(keyAccountExists, cfaccount)
+	verifiedKey := fmt.Sprintf(keyAccountVerified, cfaccount)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get(existsKey)
+		if err != nil {
+			return errAccountDoesNotExist
+		}
+		tx.Set(verifiedKey, "1", nil)
+		return nil
+	})
+
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+	return nil
+}
+
 func (am *AccountManager) Unregister(account string, erase bool) error {
 	config := am.server.Config()
 	casefoldedAccount, err := CasefoldName(account)
@@ -1248,6 +1311,9 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 
 	var clients []*Client
+	defer func() {
+		am.killClients(clients)
+	}()
 
 	var registeredChannels []string
 	// on our way out, unregister all the account's channels and delete them from the db
@@ -1340,12 +1406,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		delete(am.nickToAccount, nick)
 		additionalSkel, _ := Skeleton(nick)
 		delete(am.skeletonToAccount, additionalSkel)
-	}
-	for _, client := range clients {
-		client.Logout()
-		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
-		// destroy acquires a semaphore so we can't call it while holding a lock
-		go client.destroy(nil)
 	}
 
 	if err != nil && !erase {

@@ -35,6 +35,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - Multiclient ("Bouncer")
     - History
     - IP cloaking
+    - Moderation
 - Frequently Asked Questions
 - IRC over TLS
 - Modes
@@ -361,6 +362,26 @@ IP cloaking is a way of balancing these concerns about abuse with concerns about
 Oragono supports cloaking, which is enabled by default (via the `server.ip-cloaking` section of the config). However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
 
 Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend on their IP address information at all, which is an option for deployments where privacy is a more pressing concern than abuse. Holders of registered accounts can also use the vhost system (for details, `/msg HostServ HELP`.)
+
+
+## Moderation
+
+Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have three principal tools for moderation:
+
+1. `/NICKSERV SUSPEND`, which disables a user account and disconnects all associated clients
+2. `/DLINE ANDKILL`, which bans an IP or CIDR and disconnects clients
+3. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
+
+See the `/HELP` (or `/HELPOP`) entries for these commands for more information, but here's a rough workflow for mitigating spam or other attacks:
+
+1. Subscribe to the `a` snomask to monitor for abusive registration attempts (this is set automatically in the default operator config, but can be added manually with `/mode mynick +s u`)
+2. Given abusive traffic from a nickname, identify whether they are using an account (this should be displayed in `/WHOIS` output)
+3. If they are using an account, suspend the account with `/NICKSERV SUSPEND`, which will disconnect them
+4. If they are not using an account, or if they're spamming new registrations from an IP, determine the IP (either from `/WHOIS` or from account registration notices) and temporarily `/DLINE` their IP
+5. When facing a flood of abusive registrations that cannot be stemmed with `/DLINE`, use `/DEFCON 4` to temporarily restrict registrations. (At `/DEFCON 2`, all new connections to the server will require SASL, but this will likely be disruptive to legitimate users as well.)
+
+For channel operators, as opposed to server operators, most traditional moderation tools should be effective. In particular, bans on cloaked hostnames (e.g., `/mode #chan +b *!*@98rgwnst3dahu.my.network`) should work as expected. With `force-nick-equals-account` enabled, channel operators can also ban nicknames (with `/mode #chan +b nick`, which Oragono automatically expands to `/mode #chan +b nick!*@*` as a way of banning an account.)
+
 
 -------------------------------------------------------------------------------------------
 
