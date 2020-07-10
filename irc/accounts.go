@@ -380,8 +380,8 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 
 	config := am.server.Config()
 
-	// final "is registration allowed" check, probably redundant:
-	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") {
+	// final "is registration allowed" check:
+	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") || am.server.Defcon() <= 4 {
 		return errFeatureDisabled
 	}
 
@@ -1639,6 +1639,11 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 	account, err = CasefoldName(account)
 	if err != nil || account == "" {
 		err = errAccountDoesNotExist
+		return
+	}
+
+	if am.server.Defcon() <= 3 {
+		err = errFeatureDisabled
 		return
 	}
 

@@ -37,6 +37,14 @@ func (server *Server) Languages() (lm *languages.Manager) {
 	return server.Config().languageManager
 }
 
+func (server *Server) Defcon() uint32 {
+	return atomic.LoadUint32(&server.defcon)
+}
+
+func (server *Server) SetDefcon(defcon uint32) {
+	atomic.StoreUint32(&server.defcon, defcon)
+}
+
 func (client *Client) Sessions() (sessions []*Session) {
 	client.stateMutex.RLock()
 	sessions = client.sessions

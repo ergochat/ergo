@@ -553,6 +553,7 @@ oper-classes:
             - "vhosts"
             - "chanreg"
             - "history"
+            - "defcon"
 
 # ircd operators
 opers:

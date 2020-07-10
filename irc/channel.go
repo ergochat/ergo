@@ -706,7 +706,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			return errBanned
 		}
 
-		if channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" {
+		if details.account == "" &&
+			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) {
 			return errRegisteredOnly
 		}
 	}

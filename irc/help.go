@@ -165,6 +165,20 @@ Provides various debugging commands for the IRCd. <option> can be one of:
 * PROFILEHEAP: Writes a memory profile.
 * CRASHSERVER: Crashes the server (for use in failover testing)`,
 	},
+	"defcon": {
+		oper: true,
+		text: `DEFCON [level]
+
+The DEFCON system can disable server features at runtime, to mitigate
+spam or other hostile activity. It has five levels, which are cumulative
+(i.e., level 3 includes all restrictions from level 4 and so on):
+
+5: Normal operation
+4: No new account or channel registrations
+3: All users are +R; no changes to vhosts
+2: No new unauthenticated connections; all channels are +R
+1: No new connections except from localhost or other trusted IPs`,
+	},
 	"deoper": {
 		oper: true,
 		text: `DEOPER

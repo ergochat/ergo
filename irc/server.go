@@ -80,6 +80,7 @@ type Server struct {
 	whoWas            WhoWasList
 	stats             Stats
 	semaphores        ServerSemaphores
+	defcon            uint32
 }
 
 // NewServer returns a new Oragono server.
@@ -91,6 +92,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		signals:      make(chan os.Signal, len(ServerExitSignals)),
+		defcon:       5,
 	}
 
 	server.clients.Initialize()
@@ -149,6 +151,12 @@ func (server *Server) Run() {
 }
 
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
+	if server.Defcon() == 1 {
+		if !(ipaddr.IsLoopback() || utils.IPInNets(ipaddr, server.Config().Server.secureNets)) {
+			return true, "New connections to this server are temporarily restricted"
+		}
+	}
+
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
@@ -220,7 +228,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	authOutcome := c.isAuthorized(server.Config(), session)
+	config := server.Config()
+	authOutcome := c.isAuthorized(server, config, session)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -270,7 +279,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// Apply default user modes (without updating the invisible counter)
 	// The number of invisible users will be updated by server.stats.Register
 	// if we're using default user mode +i.
-	for _, defaultMode := range server.Config().Accounts.defaultUserModes {
+	for _, defaultMode := range config.Accounts.defaultUserModes {
 		c.SetMode(defaultMode, true)
 	}
 
