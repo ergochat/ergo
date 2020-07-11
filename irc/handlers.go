@@ -2775,7 +2775,120 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return true
 }
 
-// WHO [<mask> [o]]
+const WhoFieldMinimum = int('a') // lowest rune value
+const WhoFieldMaximum = int('z')
+
+type WhoFields [WhoFieldMaximum - WhoFieldMinimum + 1]bool
+
+func (fields *WhoFields) Set(field rune) bool {
+	index := int(field)
+	if WhoFieldMinimum <= index && index <= WhoFieldMaximum {
+		fields[int(field)-WhoFieldMinimum] = true
+		return true
+	} else {
+		return false
+	}
+}
+func (fields *WhoFields) Has(field rune) bool {
+	return fields[int(field)-WhoFieldMinimum]
+}
+
+// rplWhoReply returns the WHO(X) reply between one user and another channel/user.
+// who format:
+// <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
+// whox format:
+// <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, isWhox bool, fields WhoFields, whoType string) {
+	params := []string{client.Nick()}
+
+	details := target.Details()
+
+	if fields.Has('t') {
+		params = append(params, whoType)
+	}
+	if fields.Has('c') {
+		fChannel := "*"
+		if channel != nil {
+			fChannel = channel.name
+		}
+		params = append(params, fChannel)
+	}
+	if fields.Has('u') {
+		params = append(params, details.username)
+	}
+	if fields.Has('i') {
+		fIP := "255.255.255.255"
+		if client.HasMode(modes.Operator) || client == target {
+			// you can only see a target's IP if they're you or you're an oper
+			fIP = target.IPString()
+		}
+		params = append(params, fIP)
+	}
+	if fields.Has('h') {
+		params = append(params, details.hostname)
+	}
+	if fields.Has('s') {
+		params = append(params, target.server.name)
+	}
+	if fields.Has('n') {
+		params = append(params, details.nick)
+	}
+	if fields.Has('f') { // "flags" (away + oper state + channel status prefix + bot)
+		var flags strings.Builder
+		if target.Away() {
+			flags.WriteRune('G') // Gone
+		} else {
+			flags.WriteRune('H') // Here
+		}
+
+		if target.HasMode(modes.Operator) {
+			flags.WriteRune('*')
+		}
+
+		if channel != nil {
+			flags.WriteString(channel.ClientPrefixes(target, false))
+		}
+
+		if target.HasMode(modes.Bot) {
+			flags.WriteRune('B')
+		}
+
+		params = append(params, flags.String())
+
+	}
+	if fields.Has('d') { // server hops from us to target
+		params = append(params, "0")
+	}
+	if fields.Has('l') {
+		params = append(params, fmt.Sprintf("%d", target.IdleSeconds()))
+	}
+	if fields.Has('a') {
+		fAccount := "0"
+		if details.accountName != "*" {
+			// WHOX uses "0" to mean "no account"
+			fAccount = details.accountName
+		}
+		params = append(params, fAccount)
+	}
+	if fields.Has('o') { // target's channel power level
+		//TODO: implement this
+		params = append(params, "0")
+	}
+	if fields.Has('r') {
+		params = append(params, details.realname)
+	}
+
+	numeric := RPL_WHOSPCRPL
+	if !isWhox {
+		numeric = RPL_WHOREPLY
+		// if this isn't WHOX, stick hops + realname at the end
+		params = append(params, "0 "+details.realname)
+	}
+
+	rb.Add(nil, client.server.name, numeric, params...)
+}
+
+// WHO <mask> [<filter>%<fields>,<type>]
 func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	mask := msg.Params[0]
 	var err error
@@ -2791,6 +2904,26 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("Mask isn't valid"))
 		return false
+	}
+
+	sFields := "cuhsnf"
+	whoType := "0"
+	isWhox := false
+	if len(msg.Params) > 1 && strings.Contains(msg.Params[1], "%") {
+		isWhox = true
+		whoxData := msg.Params[1]
+		fieldStart := strings.Index(whoxData, "%")
+		sFields = whoxData[fieldStart+1:]
+
+		typeIndex := strings.Index(sFields, ",")
+		if typeIndex > -1 && typeIndex < (len(sFields)-1) { // make sure there's , and a value after it
+			whoType = sFields[typeIndex+1:]
+			sFields = strings.ToLower(sFields[:typeIndex])
+		}
+	}
+	var fields WhoFields
+	for _, field := range sFields {
+		fields.Set(field)
 	}
 
 	//TODO(dan): is this used and would I put this param in the Modern doc?
@@ -2810,7 +2943,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			if !channel.flags.HasMode(modes.Secret) || isJoined || isOper {
 				for _, member := range channel.Members() {
 					if !member.HasMode(modes.Invisible) || isJoined || isOper {
-						client.rplWhoReply(channel, member, rb)
+						client.rplWhoReply(channel, member, rb, isWhox, fields, whoType)
 					}
 				}
 			}
@@ -2838,7 +2971,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 		for mclient := range server.clients.FindAll(mask) {
 			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
-				client.rplWhoReply(nil, mclient, rb)
+				client.rplWhoReply(nil, mclient, rb, isWhox, fields, whoType)
 			}
 		}
 	}
