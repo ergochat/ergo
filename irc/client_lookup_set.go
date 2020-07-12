@@ -122,6 +122,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	accountName := client.accountName
 	settings := client.accountSettings
 	registered := client.registered
+	realname := client.realname
 	client.stateMutex.RUnlock()
 
 	// recompute always-on status, because client.alwaysOn is not set for unregistered clients
@@ -224,6 +225,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			client.server.stats.AddRegistered(invisible, operator)
 		}
 		session.autoreplayMissedSince = lastSeen
+		// TODO: transition mechanism for #1065, clean this up eventually:
+		if currentClient.Realname() == "" {
+			currentClient.SetRealname(realname)
+		}
 		// successful reattach!
 		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {

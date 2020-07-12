@@ -430,6 +430,13 @@ func (client *Client) UpdateActive(session *Session) {
 	session.lastActive = now
 }
 
+func (client *Client) Realname() string {
+	client.stateMutex.RLock()
+	result := client.realname
+	client.stateMutex.RUnlock()
+	return result
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
