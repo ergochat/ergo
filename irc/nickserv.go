@@ -316,6 +316,24 @@ example with $bCERT ADD <account> <fingerprint>$b.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
 		},
+		"suspend": {
+			handler: nsSuspendHandler,
+			help: `Syntax: $bSUSPEND <nickname>$b
+
+SUSPEND disables an account and disconnects the associated clients.`,
+			helpShort: `$bSUSPEND$b disables an account and disconnects the clients`,
+			minParams: 1,
+			capabs:    []string{"accreg"},
+		},
+		"unsuspend": {
+			handler: nsUnsuspendHandler,
+			help: `Syntax: $bUNSUSPEND <nickname>$b
+
+UNSUSPEND reverses a previous SUSPEND, restoring access to the account.`,
+			helpShort: `$bUNSUSPEND$b restores access to a suspended account`,
+			minParams: 1,
+			capabs:    []string{"accreg"},
+		},
 	}
 )
 
@@ -1174,6 +1192,30 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 		nsNotice(rb, client.t("Try again later"))
 	default:
 		server.logger.Error("internal", "could not modify certificates:", err.Error())
+		nsNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func nsSuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.Suspend(params[0])
+	switch err {
+	case nil:
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), params[0]))
+	case errAccountDoesNotExist:
+		nsNotice(rb, client.t("No such account"))
+	default:
+		nsNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func nsUnsuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.Unsuspend(params[0])
+	switch err {
+	case nil:
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully un-suspended account %s"), params[0]))
+	case errAccountDoesNotExist:
+		nsNotice(rb, client.t("No such account"))
+	default:
 		nsNotice(rb, client.t("An error occurred"))
 	}
 }

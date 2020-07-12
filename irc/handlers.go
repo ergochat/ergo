@@ -83,7 +83,7 @@ func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
 	} else {
 		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, details.nick, details.accountName, client.t("Account created"))
 	}
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] from IP %s"), details.nickMask, details.accountName, rb.session.IP().String()))
 	sendSuccessfulAccountAuth(client, rb, forNS, false)
 }
 
@@ -867,7 +867,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
-	if !dlineMyself && hostNet.Contains(client.IP()) {
+	if !dlineMyself && hostNet.Contains(rb.session.IP()) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 		return false
 	}
@@ -906,24 +906,30 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	var killClient bool
 	if andKill {
-		var clientsToKill []*Client
+		var sessionsToKill []*Session
 		var killedClientNicks []string
 
 		for _, mcl := range server.clients.AllClients() {
-			if hostNet.Contains(mcl.IP()) {
-				clientsToKill = append(clientsToKill, mcl)
-				killedClientNicks = append(killedClientNicks, mcl.nick)
+			nickKilled := false
+			for _, session := range mcl.Sessions() {
+				if hostNet.Contains(session.IP()) {
+					sessionsToKill = append(sessionsToKill, session)
+					if !nickKilled {
+						killedClientNicks = append(killedClientNicks, mcl.Nick())
+						nickKilled = true
+					}
+				}
 			}
 		}
 
-		for _, mcl := range clientsToKill {
-			mcl.SetExitedSnomaskSent()
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
-			if mcl == client {
+		for _, session := range sessionsToKill {
+			mcl := session.client
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), session)
+			if session == rb.session {
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(nil)
+				mcl.destroy(session)
 			}
 		}
 
@@ -1296,14 +1302,15 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	target := server.clients.Get(nickname)
 	if target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(nickname), client.t("No such nick"))
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nickname), client.t("No such nick"))
 		return false
+	} else if target.AlwaysOn() {
+		rb.Add(nil, client.server.name, ERR_UNKNOWNERROR, client.Nick(), "KILL", fmt.Sprintf(client.t("Client %s is always-on and cannot be fully removed by /KILL; consider /NS SUSPEND instead"), target.Nick()))
 	}
 
 	quitMsg := fmt.Sprintf("Killed (%s (%s))", client.nick, comment)
 
 	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
-	target.SetExitedSnomaskSent()
 
 	target.Quit(quitMsg, nil)
 	target.destroy(nil)
@@ -1435,7 +1442,6 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for _, mcl := range clientsToKill {
-			mcl.SetExitedSnomaskSent()
 			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
