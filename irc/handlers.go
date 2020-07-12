@@ -2867,7 +2867,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 		}
 
 		if channel != nil {
-			flags.WriteString(channel.ClientPrefixes(target, false))
+			flags.WriteString(channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix)))
 		}
 
 		if target.HasMode(modes.Bot) {
