@@ -56,3 +56,33 @@ func TestUserMasks(t *testing.T) {
 		t.Error("failure to match")
 	}
 }
+
+func TestWhoFields(t *testing.T) {
+	var w whoxFields
+
+	if w.Has('a') {
+		t.Error("zero value of whoxFields must be empty")
+	}
+	w = w.Add('a')
+	if !w.Has('a') {
+		t.Error("failed to set and get")
+	}
+	if w.Has('A') {
+		t.Error("false positive")
+	}
+	if w.Has('o') {
+		t.Error("false positive")
+	}
+	w = w.Add('🐬')
+	if w.Has('🐬') {
+		t.Error("should not be able to set invalid who field")
+	}
+	w = w.Add('o')
+	if !w.Has('o') {
+		t.Error("failed to set and get")
+	}
+	w = w.Add('z')
+	if !w.Has('z') {
+		t.Error("failed to set and get")
+	}
+}
