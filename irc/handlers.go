@@ -2826,22 +2826,24 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return true
 }
 
-const WhoFieldMinimum = int('a') // lowest rune value
-const WhoFieldMaximum = int('z')
+type whoxFields uint32 // bitset to hold the WHOX field values, 'a' through 'z'
 
-type WhoFields [WhoFieldMaximum - WhoFieldMinimum + 1]bool
+func (fields whoxFields) Add(field rune) (result whoxFields) {
+	index := int(field) - int('a')
+	if 0 <= index && index < 26 {
+		return fields | (1 << index)
+	} else {
+		return fields
+	}
+}
 
-func (fields *WhoFields) Set(field rune) bool {
-	index := int(field)
-	if WhoFieldMinimum <= index && index <= WhoFieldMaximum {
-		fields[int(field)-WhoFieldMinimum] = true
-		return true
+func (fields whoxFields) Has(field rune) bool {
+	index := int(field) - int('a')
+	if 0 <= index && index < 26 {
+		return (fields & (1 << index)) != 0
 	} else {
 		return false
 	}
-}
-func (fields *WhoFields) Has(field rune) bool {
-	return fields[int(field)-WhoFieldMinimum]
 }
 
 // rplWhoReply returns the WHO(X) reply between one user and another channel/user.
@@ -2849,7 +2851,7 @@ func (fields *WhoFields) Has(field rune) bool {
 // <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
 // whox format:
 // <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, isWhox bool, fields WhoFields, whoType string) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, isWhox bool, fields whoxFields, whoType string) {
 	params := []string{client.Nick()}
 
 	details := target.Details()
@@ -2897,7 +2899,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 		}
 
 		if channel != nil {
-			flags.WriteString(channel.ClientPrefixes(target, false))
+			flags.WriteString(channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix)))
 		}
 
 		if target.HasMode(modes.Bot) {
@@ -2972,9 +2974,9 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			sFields = strings.ToLower(sFields[:typeIndex])
 		}
 	}
-	var fields WhoFields
+	var fields whoxFields
 	for _, field := range sFields {
-		fields.Set(field)
+		fields = fields.Add(field)
 	}
 
 	//TODO(dan): is this used and would I put this param in the Modern doc?
