@@ -675,9 +675,6 @@ func (am *AccountManager) loadRealname(account string) (realname string) {
 		realname, _ = tx.Get(key)
 		return nil
 	})
-	if realname == "" {
-		return ""
-	}
 	return
 }
 
