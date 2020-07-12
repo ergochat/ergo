@@ -646,7 +646,7 @@ func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryS
 }
 
 func (channel *Channel) AddHistoryItem(item history.Item, account string) (err error) {
-	if !item.IsStorable() {
+	if !itemIsStorable(&item, channel.server.Config()) {
 		return
 	}
 

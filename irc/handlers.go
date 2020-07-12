@@ -2132,7 +2132,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			AccountName: accountName,
 			Tags:        tags,
 		}
-		if !item.IsStorable() || !allowedPlusR {
+		if !itemIsStorable(&item, config) || !allowedPlusR {
 			return
 		}
 		targetedItem := item
@@ -2152,6 +2152,32 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			targetedItem.CfCorrespondent = ""
 			server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
 		}
+	}
+}
+
+func itemIsStorable(item *history.Item, config *Config) bool {
+	switch item.Type {
+	case history.Tagmsg:
+		if config.History.TagmsgStorage.Default {
+			for _, blacklistedTag := range config.History.TagmsgStorage.Blacklist {
+				if _, ok := item.Tags[blacklistedTag]; ok {
+					return false
+				}
+			}
+			return true
+		} else {
+			for _, whitelistedTag := range config.History.TagmsgStorage.Whitelist {
+				if _, ok := item.Tags[whitelistedTag]; ok {
+					return true
+				}
+			}
+			return false
+		}
+	case history.Privmsg, history.Notice:
+		// don't store CTCP other than ACTION
+		return !item.Message.IsRestrictedCTCPMessage()
+	default:
+		return true
 	}
 }
 
