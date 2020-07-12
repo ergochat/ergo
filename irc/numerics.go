@@ -86,6 +86,7 @@ const (
 	RPL_VERSION                   = "351"
 	RPL_WHOREPLY                  = "352"
 	RPL_NAMREPLY                  = "353"
+	RPL_WHOSPCRPL                 = "354"
 	RPL_LINKS                     = "364"
 	RPL_ENDOFLINKS                = "365"
 	RPL_ENDOFNAMES                = "366"

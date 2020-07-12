@@ -1240,6 +1240,7 @@ func (config *Config) generateISupport() (err error) {
 	if config.Server.Casemapping == CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
 	}
+	isupport.Add("WHOX", "")
 
 	err = isupport.RegenerateCachedReply()
 	return

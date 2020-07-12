@@ -441,35 +441,6 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	}
 }
 
-// rplWhoReply returns the WHO reply between one user and another channel/user.
-// <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
-// :<hopcount> <real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer) {
-	channelName := "*"
-	flags := ""
-
-	if target.Away() {
-		flags = "G"
-	} else {
-		flags = "H"
-	}
-	if target.HasMode(modes.Operator) {
-		flags += "*"
-	}
-
-	if channel != nil {
-		// TODO is this right?
-		flags += channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix))
-		channelName = channel.name
-	}
-	if target.HasMode(modes.Bot) {
-		flags += "B"
-	}
-	details := target.Details()
-	// hardcode a hopcount of 0 for now
-	rb.Add(nil, client.server.name, RPL_WHOREPLY, client.Nick(), channelName, details.username, details.hostname, client.server.name, details.nick, flags, "0 "+details.realname)
-}
-
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
 	server.logger.Info("server", "Attempting rehash")
