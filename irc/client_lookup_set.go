@@ -225,12 +225,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			client.server.stats.AddRegistered(invisible, operator)
 		}
 		session.autoreplayMissedSince = lastSeen
-		// XXX SetNames only changes names if they are unset, so the realname change only
-		// takes effect on first attach to an always-on client (good), but the user/ident
-		// change is always a no-op (bad). we could make user/ident act the same way as
-		// realname, but then we'd have to send CHGHOST and i don't want to deal with that
-		// for performance reasons
-		currentClient.SetNames("user", realname, true)
+		// TODO: transition mechanism for #1065, clean this up eventually:
+		if currentClient.Realname() == "" {
+			currentClient.SetRealname(realname)
+		}
 		// successful reattach!
 		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {

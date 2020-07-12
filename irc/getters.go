@@ -375,7 +375,11 @@ func (client *Client) SetMode(mode modes.Mode, on bool) bool {
 func (client *Client) SetRealname(realname string) {
 	client.stateMutex.Lock()
 	client.realname = realname
+	alwaysOn := client.alwaysOn
 	client.stateMutex.Unlock()
+	if alwaysOn {
+		client.markDirty(IncludeRealname)
+	}
 }
 
 func (client *Client) Channels() (result []*Channel) {
@@ -426,6 +430,13 @@ func (client *Client) UpdateActive(session *Session) {
 	defer client.stateMutex.Unlock()
 	client.lastActive = now
 	session.lastActive = now
+}
+
+func (client *Client) Realname() string {
+	client.stateMutex.RLock()
+	result := client.realname
+	client.stateMutex.RUnlock()
+	return result
 }
 
 func (channel *Channel) Name() string {
