@@ -2122,9 +2122,11 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 				rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToSend, command, tnick, message)
 			}
 		}
-		if histType != history.Notice && user.Away() {
+		if histType != history.Notice {
 			//TODO(dan): possibly implement cooldown of away notifications to users
-			rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, user.AwayMessage())
+			if away, awayMessage := user.Away(); away {
+				rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, awayMessage)
+			}
 		}
 
 		config := server.Config()
@@ -2742,7 +2744,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		if target.HasMode(modes.Operator) {
 			isOper = "*"
 		}
-		if target.Away() {
+		if away, _ := target.Away(); away {
 			isAway = "-"
 		} else {
 			isAway = "+"
@@ -2893,7 +2895,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 	}
 	if fields.Has('f') { // "flags" (away + oper state + channel status prefix + bot)
 		var flags strings.Builder
-		if target.Away() {
+		if away, _ := target.Away(); away {
 			flags.WriteRune('G') // Gone
 		} else {
 			flags.WriteRune('H') // Here
