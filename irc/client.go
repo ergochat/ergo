@@ -1054,27 +1054,30 @@ func (client *Client) ModeString() (str string) {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]bool) {
-	result = make(map[*Session]bool)
+func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]empty) {
+	result = make(map[*Session]empty)
 
 	// look at the client's own sessions
-	for _, session := range client.Sessions() {
-		if session.capabilities.HasAll(capabs...) {
-			result[session] = true
-		}
-	}
+	addFriendsToSet(result, client, capabs...)
 
 	for _, channel := range client.Channels() {
 		for _, member := range channel.Members() {
-			for _, session := range member.Sessions() {
-				if session.capabilities.HasAll(capabs...) {
-					result[session] = true
-				}
-			}
+			addFriendsToSet(result, member, capabs...)
 		}
 	}
 
 	return
+}
+
+// helper for Friends
+func addFriendsToSet(set map[*Session]empty, client *Client, capabs ...caps.Capability) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	for _, session := range client.sessions {
+		if session.capabilities.HasAll(capabs...) {
+			set[session] = empty{}
+		}
+	}
 }
 
 func (client *Client) SetOper(oper *Oper) {
