@@ -767,6 +767,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		modestr = fmt.Sprintf("+%v", givenMode)
 	}
 
+	isAway, awayMessage := client.Away()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session == rb.session {
@@ -782,6 +783,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			}
 			if givenMode != 0 {
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
+			}
+			if isAway && session.capabilities.Has(caps.AwayNotify) {
+				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
 			}
 		}
 	}
@@ -1458,8 +1462,8 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	tnick := invitee.Nick()
 	rb.Add(nil, inviter.server.name, RPL_INVITING, cnick, tnick, chname)
 	invitee.Send(nil, inviter.NickMaskString(), "INVITE", tnick, chname)
-	if invitee.Away() {
-		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, invitee.AwayMessage())
+	if away, awayMessage := invitee.Away(); away {
+		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, awayMessage)
 	}
 }
 

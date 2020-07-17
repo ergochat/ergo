@@ -185,9 +185,9 @@ func (client *Client) Hostname() string {
 	return client.hostname
 }
 
-func (client *Client) Away() (result bool) {
+func (client *Client) Away() (result bool, message string) {
 	client.stateMutex.Lock()
-	result = client.away
+	result, message = client.away, client.awayMessage
 	client.stateMutex.Unlock()
 	return
 }
