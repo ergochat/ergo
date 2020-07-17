@@ -315,7 +315,6 @@ type VHostConfig struct {
 		Channel  string
 		Cooldown custime.Duration
 	} `yaml:"user-requests"`
-	OfferList []string `yaml:"offer-list"`
 }
 
 type NickEnforcementMethod int
@@ -1084,12 +1083,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Accounts.VHosts.ValidRegexp == nil {
 		config.Accounts.VHosts.ValidRegexp = defaultValidVhostRegex
-	}
-
-	for _, vhost := range config.Accounts.VHosts.OfferList {
-		if !config.Accounts.VHosts.ValidRegexp.MatchString(vhost) {
-			return nil, fmt.Errorf("invalid offered vhost: %s", vhost)
-		}
 	}
 
 	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
