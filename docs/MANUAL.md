@@ -79,7 +79,7 @@ In addition to its unique features (integrated services and bouncer, comprehensi
 
 We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out". (Federation is [planned](https://github.com/oragono/oragono/issues/26) but is not scheduled for development in the near term.)
 
-Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file.
+Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file. See [Hashbang's implementation](https://github.com/hashbang/gitops/tree/master/ircd) for a "worked example".
 
 If you're interested in deploying Oragono at scale or for high availability, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
 
@@ -348,7 +348,11 @@ Unfortunately, client support for history playback is still patchy. In descendin
 
 1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
-1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`. Unfortunately, this feature will only work reliably if you are *not* using the multiclient functionality described in the above section --- you must be connecting with at most one client at a time.
+1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Oragono will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
+    - You can add it to your SASL username with an `@`, e.g., if your SASL username is `alice` you can send `alice@phone`
+    - You can add it in a similar way to your IRC protocol username ("ident"), e.g., `alice@phone`
+    - If login to user accounts via the `PASS` command is enabled on the server, you can provide it there, e.g., by sending `alice@phone:hunter2` as the server password
+1. If you only have one device, you can set your client to be always-on and furthermore `/msg NickServ set autoreplay-missed true`. This will replay missed messages, with the caveat that you must be connecting with at most one client at a time.
 1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
 1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
 

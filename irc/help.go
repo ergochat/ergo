@@ -51,6 +51,7 @@ Oragono supports the following channel modes:
   +R  |  Only registered users can join the channel.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
   +t  |  Only channel opers can modify the topic.
+  +E  |  Roleplaying commands are enabled in the channel.
   +C  |  Clients are blocked from sending CTCP messages in the channel.
 
 = Prefixes =
@@ -70,6 +71,8 @@ Oragono supports the following user modes:
   +R  |  User only accepts messages from other registered users. 
   +s  |  Server Notice Masks (see help with /HELPOP snomasks).
   +Z  |  User is connected via TLS.
+  +B  |  User is a bot.
+  +E  |  User can receive roleplaying commands.
   +T  |  User is blocked from sending CTCP messages.`
 	snomaskHelpText = `== Server Notice Masks ==
 
