@@ -11,7 +11,7 @@ This release contains several notable enhancements, as well as bug fixes:
 * WHOX support contributed by @jesopo (#938)
 * Authentication of users via external scripts (#1107)
 
-Many thanks to [@clukawski](https://github.com/clukawski) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@daurnimator](https://github.com/daurnimator), [@emersonveenstra](https://github.com/emersonveenstra), [@eskimo](https://github.com/eskimo), Geo-, [@happyhater](https://github.com/happyhater), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@LukeHoersten](https://github.com/LukeHoersten), [@mogad0n](https://github.com/mogad0n), r3m, and [@RyanSquared](https://github.com/RyanSquared) for reporting issues and helping test, and to our translators for contributing translations.
+Many thanks to [@clukawski](https://github.com/clukawski) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@daurnimator](https://github.com/daurnimator), [@emersonveenstra](https://github.com/emersonveenstra), [@eskimo](https://github.com/eskimo), Geo-, [@happyhater](https://github.com/happyhater), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@LukeHoersten](https://github.com/LukeHoersten), [@mogad0n](https://github.com/mogad0n), r3m, [@RyanSquared](https://github.com/RyanSquared), and savoyard for reporting issues and helping test, and to our translators for contributing translations.
 
 This release includes changes to the config file format, including one breaking change: `timeout` is no longer an acceptable value of `accounts.nick-reservation.method`. (If you were using it, we suggest `strict` as a replacement.) All other changes to the config file format are backwards compatible and do not require updating before restart.
 
@@ -52,6 +52,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Fixed incorrect `CHGHOST` lines sent to users during connection registration (#1125, thanks [@jesopo](https://github.com/jesopo)!)
 * Fixed a race condition where nicknames of signed-out users could remain in the channel names list (#1166, thanks [@eskimo](https://github.com/eskimo)!)
 * Fixed the last line of the MOTD being truncated in the absence of a terminating `\n` (#1167, thanks [@eskimo](https://github.com/eskimo)!)
+* Fixed `away-notify` lines not being sent on channel JOIN (#1198, thanks savoyard!)
 * Fixed incorrect source of some nickserv messages (#1185)
 * Fixed idle time being updated on non-PRIVMSG commands (thanks r3m and [@happyhater](https://github.com/happyhater)!)
 * Fixed `/NICKSERV UNREGISTER` and `/NICKSERV ERASE` not deleting stored user modes (#1157)
