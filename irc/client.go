@@ -1287,7 +1287,8 @@ func (client *Client) destroy(session *Session) {
 
 	autoAway := false
 	var awayMessage string
-	if alwaysOn && remainingSessions == 0 && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+	if alwaysOn && !client.away && remainingSessions == 0 &&
+		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 		autoAway = true
 		client.autoAway = true
 		client.away = true
