@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// Selector represents a parameter to a CHATHISTORY command;
-// at most one of Msgid or Time may be nonzero
+// Selector represents a parameter to a CHATHISTORY command
 type Selector struct {
 	Msgid string
 	Time  time.Time

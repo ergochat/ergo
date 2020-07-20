@@ -3131,7 +3131,12 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // ZNC <module> [params]
 func zncHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	zncModuleHandler(client, msg.Params[0], msg.Params[1:], rb)
+	params := msg.Params[1:]
+	// #1205: compatibility with Palaver, which sends `ZNC *playback :play ...`
+	if len(params) == 1 && strings.IndexByte(params[0], ' ') != -1 {
+		params = strings.Fields(params[0])
+	}
+	zncModuleHandler(client, msg.Params[0], params, rb)
 	return false
 }
 

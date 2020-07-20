@@ -53,6 +53,12 @@ func zncWireTimeToTime(str string) (result time.Time) {
 	return time.Unix(seconds, int64(fraction*1000000000)).UTC()
 }
 
+func timeToZncWireTime(t time.Time) (result string) {
+	secs := t.Unix()
+	nano := t.UnixNano() - (secs * 1000000000)
+	return fmt.Sprintf("%d.%d", secs, nano)
+}
+
 type zncPlaybackTimes struct {
 	start   time.Time
 	end     time.Time
@@ -77,12 +83,24 @@ func (z *zncPlaybackTimes) ValidFor(target string) bool {
 }
 
 // https://wiki.znc.in/Playback
+func zncPlaybackHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		return
+	}
+	switch strings.ToLower(params[0]) {
+	case "play":
+		zncPlaybackPlayHandler(client, command, params, rb)
+	case "list":
+		zncPlaybackListHandler(client, command, params, rb)
+	default:
+		return
+	}
+}
+
 // PRIVMSG *playback :play <target> [lower_bound] [upper_bound]
 // e.g., PRIVMSG *playback :play * 1558374442
-func zncPlaybackHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
+func zncPlaybackPlayHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
 	if len(params) < 2 || len(params) > 4 {
-		return
-	} else if strings.ToLower(params[0]) != "play" {
 		return
 	}
 	targetString := params[1]
@@ -123,6 +141,9 @@ func zncPlaybackHandler(client *Client, command string, params []string, rb *Res
 
 	if params[1] == "*" {
 		zncPlayPrivmsgs(client, rb, "*", start, end)
+	} else if params[1] == "*self" {
+		zncPlayPrivmsgs(client, rb, "*", start, end)
+		targets = make(StringSet) // XXX non-nil but empty channel set means "no channels"
 	} else {
 		targets = make(StringSet)
 		for _, targetName := range strings.Split(targetString, ",") {
@@ -167,5 +188,24 @@ func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, target string, after, b
 	items, _, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
 	if err == nil && len(items) != 0 {
 		client.replayPrivmsgHistory(rb, items, "", true)
+	}
+}
+
+// PRIVMSG *playback :list
+func zncPlaybackListHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
+	nick := client.Nick()
+	for _, channel := range client.Channels() {
+		_, sequence, err := client.server.GetHistorySequence(channel, client, "")
+		if err != nil {
+			client.server.logger.Error("internal", "couldn't get history sequence for ZNC list", err.Error())
+			continue
+		}
+		items, _, err := sequence.Between(history.Selector{}, history.Selector{}, 1) // i.e., LATEST * 1
+		if err != nil {
+			client.server.logger.Error("internal", "couldn't query history for ZNC list", err.Error())
+		} else if len(items) != 0 {
+			stamp := timeToZncWireTime(items[0].Message.Time)
+			rb.Add(nil, "*playback!znc@znc.in", "PRIVMSG", nick, fmt.Sprintf("%s 0 %s", channel.Name(), stamp))
+		}
 	}
 }
