@@ -139,15 +139,15 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	//     3.3  When the client sends a subsequent redundant JOIN line for those
 	//          channels; redundant JOIN is a complete no-op so we won't replay twice
 
+	playPrivmsgs := false
 	if params[1] == "*" {
-		zncPlayPrivmsgs(client, rb, "*", start, end)
-	} else if params[1] == "*self" {
-		zncPlayPrivmsgs(client, rb, "*", start, end)
-		targets = make(StringSet) // XXX non-nil but empty channel set means "no channels"
+		playPrivmsgs = true // XXX nil `targets` means "every channel"
 	} else {
 		targets = make(StringSet)
 		for _, targetName := range strings.Split(targetString, ",") {
-			if strings.HasPrefix(targetName, "#") {
+			if targetName == "*self" {
+				playPrivmsgs = true
+			} else if strings.HasPrefix(targetName, "#") {
 				if cfTarget, err := CasefoldChannel(targetName); err == nil {
 					targets.Add(cfTarget)
 				}
@@ -157,6 +157,10 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 				}
 			}
 		}
+	}
+
+	if playPrivmsgs {
+		zncPlayPrivmsgs(client, rb, "*", start, end)
 	}
 
 	rb.session.zncPlaybackTimes = &zncPlaybackTimes{
