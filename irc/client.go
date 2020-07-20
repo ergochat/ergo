@@ -1291,7 +1291,7 @@ func (client *Client) destroy(session *Session) {
 		autoAway = true
 		client.autoAway = true
 		client.away = true
-		awayMessage = config.languageManager.Translate(client.languages, `Disconnected from the server`)
+		awayMessage = config.languageManager.Translate(client.languages, `User is currently disconnected`)
 		client.awayMessage = awayMessage
 	}
 
