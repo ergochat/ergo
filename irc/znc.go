@@ -108,6 +108,8 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	now := time.Now().UTC()
 	var start, end time.Time
 	switch len(params) {
+	case 2:
+		// #1205: this should have the same semantics as `LATEST *`
 	case 3:
 		// #831: this should have the same semantics as `LATEST timestamp=qux`,
 		// or equivalently `BETWEEN timestamp=$now timestamp=qux`, as opposed to
