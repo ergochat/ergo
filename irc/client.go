@@ -1287,11 +1287,12 @@ func (client *Client) destroy(session *Session) {
 
 	autoAway := false
 	var awayMessage string
-	if alwaysOn && remainingSessions == 0 && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+	if alwaysOn && !client.away && remainingSessions == 0 &&
+		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 		autoAway = true
 		client.autoAway = true
 		client.away = true
-		awayMessage = config.languageManager.Translate(client.languages, `Disconnected from the server`)
+		awayMessage = config.languageManager.Translate(client.languages, `User is currently disconnected`)
 		client.awayMessage = awayMessage
 	}
 
