@@ -462,7 +462,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 	var finalSettings AccountSettings
 	var err error
 	switch strings.ToLower(params[0]) {
-	case "pass":
+	case "pass", "password":
 		nsNotice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
 	case "enforce":
