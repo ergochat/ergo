@@ -813,16 +813,19 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 	// autoreplay any messages as necessary
 	var items []history.Item
 
+	hasAutoreplayTimestamps := false
 	var start, end time.Time
 	if rb.session.zncPlaybackTimes.ValidFor(channel.NameCasefolded()) {
+		hasAutoreplayTimestamps = true
 		start, end = rb.session.zncPlaybackTimes.start, rb.session.zncPlaybackTimes.end
 	} else if !rb.session.autoreplayMissedSince.IsZero() {
 		// we already checked for history caps in `playReattachMessages`
+		hasAutoreplayTimestamps = true
 		start = time.Now().UTC()
 		end = rb.session.autoreplayMissedSince
 	}
 
-	if !start.IsZero() || !end.IsZero() {
+	if hasAutoreplayTimestamps {
 		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 		if seq != nil {
 			zncMax := channel.server.Config().History.ZNCMax
