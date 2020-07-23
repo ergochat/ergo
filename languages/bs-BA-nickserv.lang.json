@@ -6,7 +6,7 @@
   "$bCERT$b controls a user account's certificate fingerprints": "",
   "$bDM-HISTORY$b\n'dm-history' is only effective for always-on clients. It lets you control\nhow the history of your direct messages is stored. Your options are:\n1. 'off'        [no history]\n2. 'ephemeral'  [a limited amount of temporary history, not stored on disk]\n3. 'on'         [history stored in a permanent database, if available]\n4. 'default'    [use the server default]": "",
   "$bDROP$b de-links your current (or the given) nickname from your user account.": "",
-  "$bENFORCE$b\n'enforce' lets you specify a custom enforcement mechanism for your registered\nnicknames. Your options are:\n1. 'none'    [no enforcement, overriding the server default]\n              or else they will be renamed]\n2. 'strict'  [you must already be authenticated to use the nick]\n3. 'default' [use the server default]": "",
+  "$bENFORCE$b\n'enforce' lets you specify a custom enforcement mechanism for your registered\nnicknames. Your options are:\n1. 'none'    [no enforcement, overriding the server default]\n2. 'strict'  [you must already be authenticated to use the nick]\n3. 'default' [use the server default]": "",
   "$bERASE$b erases all records of an account, allowing reuse.": "",
   "$bGET$b queries the current values of your account settings": "",
   "$bGHOST$b reclaims your nickname.": "",
@@ -24,7 +24,9 @@
   "$bSASET$b modifies another user's account settings": "",
   "$bSESSIONS$b lists the sessions attached to a nickname.": "",
   "$bSET$b modifies your account settings": "",
+  "$bSUSPEND$b disables an account and disconnects the clients": "",
   "$bUNREGISTER$b lets you delete your user account.": "",
+  "$bUNSUSPEND$b restores access to a suspended account": "",
   "$bVERIFY$b lets you complete account registration.": "",
   "Insufficient privileges": "Nedovoljne privilegije",
   "Invalid parameters": "",
@@ -49,7 +51,9 @@
   "Syntax: $bSAREGISTER <username> [password]$b\n\nSAREGISTER registers an account on someone else's behalf.\nThis is for use in configurations that require SASL for all connections;\nan administrator can set use this command to set up user accounts.": "",
   "Syntax: $bSASET <account> <setting> <value>$b\n\nSASET modifies the values of someone else's account settings. For more\ninformation on the settings and their possible values, see HELP SET.": "",
   "Syntax: $bSESSIONS [nickname]$b\n\nSESSIONS lists information about the sessions currently attached, via\nthe server's multiclient functionality, to your nickname. An administrator\ncan use this command to list another user's sessions.": "",
+  "Syntax: $bSUSPEND <nickname>$b\n\nSUSPEND disables an account and disconnects the associated clients.": "",
   "Syntax: $bUNREGISTER <username> [code]$b\n\nUNREGISTER lets you delete your user account (or someone else's, if you're an\nIRC operator with the correct permissions). To prevent accidental\nunregistrations, a verification code is required; invoking the command without\na code will display the necessary code.": "Sintaksa: $bUNREGISTER <username> [code]$b\n\nUNREGISTER vam omogućuje da izbrišete svoj korisnički račun (ili tuđi, ako ste IRC operator s ispravnim ovlastima). Da bi se spriječilo slučajno poništavanje registracije, potreban je kontrolni kod; pozivanjem naredbe bez koda prikazat će se potreban kod.",
+  "Syntax: $bUNSUSPEND <nickname>$b\n\nUNSUSPEND reverses a previous SUSPEND, restoring access to the account.": "",
   "Syntax: $bVERIFY <username> <code>$b\n\nVERIFY lets you complete an account registration, if the server requires email\nor other verification.": "Sintaksa: $bVERIFY <username> <code>$b\n\nVERIFY omogućuje dovršetak registracije računa, ako poslužitelj (server) zahtijeva e-mail ili drugu provjeru.",
   "You're not logged into an account": "Niste prijavljeni na korisnički račun"
 }
