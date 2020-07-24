@@ -2042,7 +2042,8 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		_, isZNC := zncHandlers[lowercaseTarget]
 
 		if isService || isZNC {
-			rb.addEchoMessage(client.Details(), command, message, tags, target)
+			details := client.Details()
+			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message)
 			if histType != history.Privmsg {
 				return // NOTICE and TAGMSG to services are ignored
 			}
@@ -2108,7 +2109,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 
 		// the originating session may get an echo message:
-		rb.addEchoMessage(details, command, message, tags, tnick)
+		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
 		if histType != history.Notice {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			if away, awayMessage := user.Away(); away {

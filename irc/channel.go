@@ -1246,7 +1246,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	rb.addEchoMessage(details, command, message, clientOnlyTags, chname)
+	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
 	for _, member := range channel.Members() {
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
