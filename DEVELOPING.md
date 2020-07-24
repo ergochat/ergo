@@ -31,12 +31,21 @@ Develop branches are either used to work out implementation details in preperati
 1. Run `irctest` over it to make sure nothing's severely broken. Talk to the maintainers to find out which version of irctest to run.
 1. Run the `ircstress` chanflood benchmark to look for data races (enable race detection) and performance regressions (disable it).
 1. Update the changelog with new changes and write release notes.
-1. Update the version number `irc/constants.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
+1. Update the version number `irc/version.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
 1. Commit the new changelog and constants change.
 1. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 1. Build binaries using `make release`, upload release to Github including the changelog and binaries.
 1. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
-1. Make the appropriate announcements (Twitter, oragono.io/news)
+1. Make the appropriate announcements:
+    * For a release candidate:
+        1. the channel topic
+        1. any operators who may be interested
+    * For a production release:
+        1. everything applicable to a release candidate
+        1. Twitter
+        1. oragono.io/news
+        1. ircv3.net support tables, if applicable
+        1. other social media?
 
 Once it's built and released, you need to setup the new development version. To do so:
 

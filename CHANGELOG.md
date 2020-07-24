@@ -11,7 +11,7 @@ This release contains several notable enhancements, as well as bug fixes:
 * WHOX support contributed by @jesopo (#938)
 * Authentication of users via external scripts (#1107)
 
-Many thanks to [@clukawski](https://github.com/clukawski) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@daurnimator](https://github.com/daurnimator), [@emersonveenstra](https://github.com/emersonveenstra), [@eskimo](https://github.com/eskimo), Geo-, [@happyhater](https://github.com/happyhater), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@LukeHoersten](https://github.com/LukeHoersten), [@mogad0n](https://github.com/mogad0n), r3m, [@RyanSquared](https://github.com/RyanSquared), and savoyard for reporting issues and helping test, and to our translators for contributing translations.
+Many thanks to [@clukawski](https://github.com/clukawski) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@daurnimator](https://github.com/daurnimator), [@emersonveenstra](https://github.com/emersonveenstra), [@eskil](https://github.com/eskil), [@eskimo](https://github.com/eskimo), Geo-, [@happyhater](https://github.com/happyhater), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@kylef](https://github.com/kylef), [@LukeHoersten](https://github.com/LukeHoersten), [@mogad0n](https://github.com/mogad0n), r3m, [@RyanSquared](https://github.com/RyanSquared), savoyard, and [@wrmsr](https://github.com/wrmsr) for reporting issues and helping test, and to our translators for contributing translations.
 
 This release includes changes to the config file format, including one breaking change: `timeout` is no longer an acceptable value of `accounts.nick-reservation.method`. (If you were using it, we suggest `strict` as a replacement.) All other changes to the config file format are backwards compatible and do not require updating before restart.
 
@@ -33,7 +33,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * `login-via-pass-command: true` is now a recommended default (#1186)
 
 ### Added
-* Added support for [WHOX](https://github.com/ircv3/ircv3-specifications/issues/81), contributed by [@jesopo](https://github.com/jesopo) (thanks!)
+* Added support for [WHOX](https://github.com/ircv3/ircv3-specifications/issues/81), contributed by [@jesopo](https://github.com/jesopo) (#938, thanks!)
 * Added support for tracking missed messages across multiple devices; see the "history" section of the manual for details (#843, thanks [@jwheare](https://github.com/jwheare) and [@wrmsr](https://github.com/wrmsr)!)
 * Added `/NICKSERV SUSPEND` and `/NICKSERV UNSUSPEND` commands, allowing operators to suspend access to an abusive user account (#1135)
 * Added support for external authentication systems, via subprocess ("auth-script") invocation (#1107, thanks [@daurnimator](https://github.com/daurnimator)!)
@@ -44,12 +44,15 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Added support for the `+T` no-CTCP user mode (#1007, thanks [@clukawski](https://github.com/clukawski)!)
 * Added support for persisting the realname of always-on clients (#1065, thanks [@clukawski](https://github.com/clukawski)!)
 * Added a warning on incorrect arguments to `/NICKSERV REGISTER` (#1179, thanks [@LukeHoersten](https://github.com/LukeHoersten)!)
+* `/NICKSERV SET PASSWORD` now sends a warning (#1208)
 
 ### Fixed
 * Fixed channels with only invisible users not being displayed in `/LIST` output (#1161, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed `INVITE` not overriding a `+b` ban (#1168)
 * Fixed incorrect `CHGHOST` lines during authentication with `/NICKSERV IDENTIFY` under some circumstances (#1108, thanks Geo-!)
 * Fixed incorrect `CHGHOST` lines sent to users during connection registration (#1125, thanks [@jesopo](https://github.com/jesopo)!)
+* Fixed a number of issues affecting the `znc.in/playback` capability, in particular restoring compatibility with Palaver (#1205, thanks [@kylef](https://github.com/kylef)!)
+* Fixed interaction of auto-away with the regular `/AWAY` command (#1207)
 * Fixed a race condition where nicknames of signed-out users could remain in the channel names list (#1166, thanks [@eskimo](https://github.com/eskimo)!)
 * Fixed the last line of the MOTD being truncated in the absence of a terminating `\n` (#1167, thanks [@eskimo](https://github.com/eskimo)!)
 * Fixed `away-notify` lines not being sent on channel JOIN (#1198, thanks savoyard!)
@@ -65,7 +68,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * When using the multiclient feature, each client now has its own independent `MONITOR` list (#1053, thanks [@ajaspers](https://github.com/ajaspers)!)
 * `MONITOR L` now lists the nicknames in the form they were originally sent with `MONITOR +`, without casefolding (#1083)
 * We now send the traditional `445 ERR_SUMMONDISABLED` and `446 ERR_USERSDISABLED` in response to the `SUMMON` and `USERS` commands (#1078, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
-* RPL_ISUPPORT parameters with no values are now sent without an `=` (#1067, @1069, #1091, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf) and [@jesopo](https;//github.com/jesopo)!)
+* RPL_ISUPPORT parameters with no values are now sent without an `=` (#1067, #1069, #1091, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf) and [@jesopo](https;//github.com/jesopo)!)
 * TAGMSG storage is now controlled via the `history.tagmsg-storage` config block (#1172)
 * `/NICKSERV CERT ADD` with no argument now adds the user's current TLS certificate fingerprint, when applicable (#1059, thanks [@emersonveenstra](https://github.com/emersonveenstra)!)
 
