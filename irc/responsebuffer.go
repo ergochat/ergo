@@ -143,6 +143,23 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 	}
 }
 
+func (rb *ResponseBuffer) addEchoMessage(details ClientDetails, command string, message utils.SplitMessage, tags map[string]string, target string) {
+	if rb.session.capabilities.Has(caps.EchoMessage) {
+		hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
+		if command == "TAGMSG" {
+			if hasTagsCap {
+				rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, tags, command, target)
+			}
+		} else {
+			tagsToSend := tags
+			if !hasTagsCap {
+				tagsToSend = nil
+			}
+			rb.AddSplitMessageFromClient(details.nickMask, details.accountName, tagsToSend, command, target, message)
+		}
+	}
+}
+
 func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
 	if rb.batchID != "" {
 		// batch already initialized

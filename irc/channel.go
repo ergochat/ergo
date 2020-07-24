@@ -1246,44 +1246,19 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	if rb.session.capabilities.Has(caps.EchoMessage) {
-		var tagsToUse map[string]string
-		if rb.session.capabilities.Has(caps.MessageTags) {
-			tagsToUse = clientOnlyTags
-		}
-		if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-			rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
-		} else {
-			rb.AddSplitMessageFromClient(details.nickMask, details.accountName, tagsToUse, command, chname, message)
-		}
-	}
-	// send echo-message to other connected sessions
-	for _, session := range client.Sessions() {
-		if session == rb.session {
-			continue
-		}
-		var tagsToUse map[string]string
-		if session.capabilities.Has(caps.MessageTags) {
-			tagsToUse = clientOnlyTags
-		}
-		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
-			session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
-		} else if histType != history.Tagmsg {
-			session.sendSplitMsgFromClientInternal(false, details.nickMask, details.accountName, tagsToUse, command, chname, message)
-		}
-	}
+	rb.addEchoMessage(details, command, message, clientOnlyTags, chname)
 
 	for _, member := range channel.Members() {
-		// echo-message is handled above, so skip sending the msg to the user themselves as well
-		if member == client {
-			continue
-		}
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
 		}
 
 		for _, session := range member.Sessions() {
+			if session == rb.session {
+				continue // we already sent echo-message, if applicable
+			}
+
 			if isCTCP && session.isTor {
 				continue // #753
 			}
