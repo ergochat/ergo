@@ -203,7 +203,7 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 
 func (client *Client) AlwaysOn() (alwaysOn bool) {
 	client.stateMutex.Lock()
-	alwaysOn = client.alwaysOn
+	alwaysOn = client.registered && client.alwaysOn
 	client.stateMutex.Unlock()
 	return
 }
@@ -290,11 +290,8 @@ func (client *Client) Login(account ClientAccount) {
 	client.account = account.NameCasefolded
 	client.accountName = account.Name
 	client.accountSettings = account.Settings
-	// check `registered` to avoid incorrectly marking a temporary (pre-reattach),
-	// SASL'ing client as always-on
-	if client.registered {
-		client.alwaysOn = alwaysOn
-	}
+	// mark always-on here: it will not be respected until the client is registered
+	client.alwaysOn = alwaysOn
 	client.accountRegDate = account.RegisteredAt
 	return
 }
@@ -375,7 +372,7 @@ func (client *Client) SetMode(mode modes.Mode, on bool) bool {
 func (client *Client) SetRealname(realname string) {
 	client.stateMutex.Lock()
 	client.realname = realname
-	alwaysOn := client.alwaysOn
+	alwaysOn := client.registered && client.alwaysOn
 	client.stateMutex.Unlock()
 	if alwaysOn {
 		client.markDirty(IncludeRealname)
