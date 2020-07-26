@@ -53,6 +53,7 @@ This release includes a database change. If you have `datastore.autoupgrade` set
 * Fixed incorrect `CHGHOST` lines sent to users during connection registration (#1125, thanks [@jesopo](https://github.com/jesopo)!)
 * Fixed a number of issues affecting the `znc.in/playback` capability, in particular restoring compatibility with Palaver (#1205, thanks [@kylef](https://github.com/kylef)!)
 * Fixed interaction of auto-away with the regular `/AWAY` command (#1207)
+* Fixed an incorrect interaction between always-on and `/NS SAREGISTER` (#1216)
 * Fixed a race condition where nicknames of signed-out users could remain in the channel names list (#1166, thanks [@eskimo](https://github.com/eskimo)!)
 * Fixed the last line of the MOTD being truncated in the absence of a terminating `\n` (#1167, thanks [@eskimo](https://github.com/eskimo)!)
 * Fixed `away-notify` lines not being sent on channel JOIN (#1198, thanks savoyard!)
