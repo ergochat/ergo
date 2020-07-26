@@ -891,19 +891,34 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	if client != nil {
 		am.Login(client, clientAccount)
-	}
-	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
-	if method != NickEnforcementNone {
-		currentClient := am.server.clients.Get(casefoldedAccount)
-		if currentClient == nil || currentClient == client || currentClient.Account() == casefoldedAccount {
-			return nil
+		if client.AlwaysOn() {
+			client.markDirty(IncludeRealname)
 		}
-		if method == NickEnforcementStrict {
+	}
+	// we may need to do nick enforcement here:
+	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
+	if method == NickEnforcementStrict {
+		currentClient := am.server.clients.Get(casefoldedAccount)
+		if currentClient != nil && currentClient != client && currentClient.Account() != casefoldedAccount {
 			am.server.RandomlyRename(currentClient)
 		}
 	}
-	if client.AlwaysOn() {
-		client.markDirty(IncludeRealname)
+	// #1216: we may have created an always-on client
+	if client == nil {
+		config := am.server.Config()
+		if persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, PersistentUnspecified) {
+			accountData, err := am.LoadAccount(account)
+			if err != nil {
+				return err
+			}
+			am.server.AddAlwaysOnClient(
+				accountData,
+				nil,
+				nil,
+				config.Accounts.defaultUserModes,
+				"",
+			)
+		}
 	}
 	return nil
 }
