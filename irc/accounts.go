@@ -891,19 +891,17 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	if client != nil {
 		am.Login(client, clientAccount)
-	}
-	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
-	if method != NickEnforcementNone {
-		currentClient := am.server.clients.Get(casefoldedAccount)
-		if currentClient == nil || currentClient == client || currentClient.Account() == casefoldedAccount {
-			return nil
+		if client.AlwaysOn() {
+			client.markDirty(IncludeRealname)
 		}
-		if method == NickEnforcementStrict {
+	}
+	// we may need to do nick enforcement here:
+	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
+	if method == NickEnforcementStrict {
+		currentClient := am.server.clients.Get(casefoldedAccount)
+		if currentClient != nil && currentClient != client && currentClient.Account() != casefoldedAccount {
 			am.server.RandomlyRename(currentClient)
 		}
-	}
-	if client.AlwaysOn() {
-		client.markDirty(IncludeRealname)
 	}
 	return nil
 }
