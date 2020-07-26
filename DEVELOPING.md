@@ -50,7 +50,7 @@ Develop branches are either used to work out implementation details in preperati
 Once it's built and released, you need to setup the new development version. To do so:
 
 1. Ensure dependencies are up-to-date.
-1. In `irc/constants.go`, update the version number to `0.0.1-unreleased`, where `0.0.1` is the previous release number with the minor field incremented by one (for instance, `0.9.2` -> `0.9.3-unreleased`).
+1. Bump the version number in `irc/version.go`, typically by incrementing the second number in the 3-tuple, and add '-unreleased' (for instance, `2.2.0` -> `2.3.0-unreleased`).
 1. Commit the new version number and changelog with the message `"Setup v0.0.1-unreleased devel ver"`.
 
 **Unreleased changelog content**
