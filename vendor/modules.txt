@@ -58,7 +58,7 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.0.0-20200523222454-059865788121
+# golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
