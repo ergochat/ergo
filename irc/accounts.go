@@ -1590,7 +1590,6 @@ func (am *AccountManager) ModifyAccountSettings(account string, munger settingsM
 type VHostInfo struct {
 	ApprovedVHost   string
 	Enabled         bool
-	Forbidden       bool
 	RequestedVHost  string
 	RejectedVHost   string
 	RejectionReason string
@@ -1644,10 +1643,6 @@ func (am *AccountManager) VHostSet(account string, vhost string) (result VHostIn
 func (am *AccountManager) VHostRequest(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
-		if input.Forbidden {
-			err = errVhostsForbidden
-			return
-		}
 		// you can update your existing request, but if you were approved or rejected,
 		// you can't spam a new request
 		if output.RequestedVHost == "" {
@@ -1657,32 +1652,6 @@ func (am *AccountManager) VHostRequest(account string, vhost string, cooldown ti
 			return
 		}
 		output.RequestedVHost = vhost
-		output.RejectedVHost = ""
-		output.RejectionReason = ""
-		output.LastRequestTime = time.Now().UTC()
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
-func (am *AccountManager) VHostTake(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		if input.Forbidden {
-			err = errVhostsForbidden
-			return
-		}
-		// if you have a request pending, you can cancel it using take;
-		// otherwise, you're subject to the same throttling as if you were making a request
-		if output.RequestedVHost == "" {
-			err = output.checkThrottle(cooldown)
-		}
-		if err != nil {
-			return
-		}
-		output.ApprovedVHost = vhost
-		output.RequestedVHost = ""
 		output.RejectedVHost = ""
 		output.RejectionReason = ""
 		output.LastRequestTime = time.Now().UTC()
@@ -1729,16 +1698,6 @@ func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (result 
 	}
 
 	return am.performVHostChange(client.Account(), munger)
-}
-
-func (am *AccountManager) VHostForbid(account string, forbid bool) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		output.Forbidden = forbid
-		return
-	}
-
-	return am.performVHostChange(account, munger)
 }
 
 func (am *AccountManager) performVHostChange(account string, munger vhostMunger) (result VHostInfo, err error) {
@@ -1861,7 +1820,7 @@ func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	}
 
 	vhost := ""
-	if info.Enabled && !info.Forbidden {
+	if info.Enabled {
 		vhost = info.ApprovedVHost
 	}
 	oldNickmask := client.NickMaskString()

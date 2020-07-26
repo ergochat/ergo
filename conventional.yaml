@@ -451,10 +451,6 @@ accounts:
             # before they can request a new one.
             cooldown: 168h
 
-        # vhosts that users can take without approval, using `/HS TAKE`
-        offer-list:
-            #- "oragono.test"
-
     # modes that are set by default when a user connects
     # if unset, no user modes will be set by default
     # +i is invisible (a user's channels are hidden from whois replies)
