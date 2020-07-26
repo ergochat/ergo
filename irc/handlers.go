@@ -2041,18 +2041,17 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		service, isService := OragonoServices[lowercaseTarget]
 		_, isZNC := zncHandlers[lowercaseTarget]
 
-		if histType == history.Privmsg {
+		if isService || isZNC {
+			details := client.Details()
+			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message)
+			if histType != history.Privmsg {
+				return // NOTICE and TAGMSG to services are ignored
+			}
 			if isService {
 				servicePrivmsgHandler(service, server, client, message.Message, rb)
-				return
 			} else if isZNC {
 				zncPrivmsgHandler(client, lowercaseTarget, message.Message, rb)
-				return
 			}
-		}
-
-		// NOTICE and TAGMSG to services are ignored
-		if isService || isZNC {
 			return
 		}
 
@@ -2110,18 +2109,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 
 		// the originating session may get an echo message:
-		if rb.session.capabilities.Has(caps.EchoMessage) {
-			hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
-			if histType == history.Tagmsg && hasTagsCap {
-				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else {
-				tagsToSend := tags
-				if !hasTagsCap {
-					tagsToSend = nil
-				}
-				rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToSend, command, tnick, message)
-			}
-		}
+		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
 		if histType != history.Notice {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			if away, awayMessage := user.Away(); away {
