@@ -330,6 +330,8 @@ func (client *Client) SetAccountSettings(settings AccountSettings) {
 	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
 	if client.registered {
+		// only allow the client to become always-on if their nick equals their account name
+		alwaysOn = alwaysOn && client.nick == client.accountName
 		autoreplayMissedDisabled = (client.accountSettings.AutoreplayMissed && !settings.AutoreplayMissed)
 		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
