@@ -903,23 +903,6 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			am.server.RandomlyRename(currentClient)
 		}
 	}
-	// #1216: we may have created an always-on client
-	if client == nil {
-		config := am.server.Config()
-		if persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, PersistentUnspecified) {
-			accountData, err := am.LoadAccount(account)
-			if err != nil {
-				return err
-			}
-			am.server.AddAlwaysOnClient(
-				accountData,
-				nil,
-				nil,
-				config.Accounts.defaultUserModes,
-				"",
-			)
-		}
-	}
 	return nil
 }
 

@@ -1242,7 +1242,9 @@ func (client *Client) destroy(session *Session) {
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	registered := client.registered
-	alwaysOn := client.alwaysOn
+	// XXX a temporary (reattaching) client can be marked alwaysOn when it logs in,
+	// but then the session attaches to another client and we need to clean it up here
+	alwaysOn := registered && client.alwaysOn
 
 	var remainingSessions int
 	if session == nil {
