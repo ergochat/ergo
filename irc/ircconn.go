@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxReadQBytes = ircmsg.MaxlenTagsFromClient + 512 + 1024
+	maxReadQBytes = ircmsg.MaxlenTagsFromClient + MaxLineLen + 1024
 )
 
 var (

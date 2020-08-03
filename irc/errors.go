@@ -107,7 +107,6 @@ func (te *ThrottleError) Error() string {
 var (
 	ErrDatastorePathMissing    = errors.New("Datastore path missing")
 	ErrLimitsAreInsane         = errors.New("Limits aren't setup properly, check them and make them sane")
-	ErrLineLengthsTooSmall     = errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
 	ErrLoggerExcludeEmpty      = errors.New("Encountered logging type '-' with no type to exclude")
 	ErrLoggerFilenameMissing   = errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
 	ErrLoggerHasNoTypes        = errors.New("Logger has no types to log")
