@@ -102,18 +102,3 @@ type ThrottleError struct {
 func (te *ThrottleError) Error() string {
 	return fmt.Sprintf(`Please wait at least %v and try again`, te.Duration)
 }
-
-// Config Errors
-var (
-	ErrDatastorePathMissing    = errors.New("Datastore path missing")
-	ErrLimitsAreInsane         = errors.New("Limits aren't setup properly, check them and make them sane")
-	ErrLoggerExcludeEmpty      = errors.New("Encountered logging type '-' with no type to exclude")
-	ErrLoggerFilenameMissing   = errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
-	ErrLoggerHasNoTypes        = errors.New("Logger has no types to log")
-	ErrNetworkNameMissing      = errors.New("Network name missing")
-	ErrNoFingerprintOrPassword = errors.New("Fingerprint or password needs to be specified")
-	ErrNoListenersDefined      = errors.New("Server listening addresses missing")
-	ErrOperClassDependencies   = errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
-	ErrServerNameMissing       = errors.New("Server name missing")
-	ErrServerNameNotHostname   = errors.New("Server name must match the format of a hostname")
-)
