@@ -27,6 +27,9 @@ import (
 )
 
 const (
+	// maximum line length not including tags; don't change this for a public server
+	MaxLineLen = 512
+
 	// IdentTimeout is how long before our ident (username) check times out.
 	IdentTimeout         = time.Second + 500*time.Millisecond
 	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
@@ -185,8 +188,8 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 	s.fakelag.Unsuspend()
 
 	// heuristics to estimate how much data they used while fakelag was suspended
-	fakelagBill := (batch.lenBytes / 512) + 1
-	fakelagBillLines := (batch.message.LenLines() * 60) / 512
+	fakelagBill := (batch.lenBytes / MaxLineLen) + 1
+	fakelagBillLines := (batch.message.LenLines() * 60) / MaxLineLen
 	if fakelagBill < fakelagBillLines {
 		fakelagBill = fakelagBillLines
 	}
@@ -666,7 +669,7 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
-		msg, err := ircmsg.ParseLineStrict(line, true, 512)
+		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorLineTooLong {
@@ -1198,11 +1201,11 @@ func (client *Client) Quit(message string, session *Session) {
 		// #364: don't send QUIT lines to unregistered clients
 		if client.registered {
 			quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
-			finalData, _ = quitMsg.LineBytesStrict(false, 512)
+			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
 		}
 
 		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
-		errorMsgBytes, _ := errorMsg.LineBytesStrict(false, 512)
+		errorMsgBytes, _ := errorMsg.LineBytesStrict(false, MaxLineLen)
 		finalData = append(finalData, errorMsgBytes...)
 
 		sess.socket.SetFinalData(finalData)
@@ -1536,7 +1539,7 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 	}
 
 	// assemble message
-	line, err := message.LineBytesStrict(false, 512)
+	line, err := message.LineBytesStrict(false, MaxLineLen)
 	if err != nil {
 		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
 		session.client.server.logger.Error("internal", logline)

@@ -55,7 +55,7 @@ func (wc *webircConfig) Populate() (err error) {
 	}
 
 	if wc.Certfp == "" && wc.PasswordString == "" {
-		return ErrNoFingerprintOrPassword
+		return errors.New("webirc block has no certfp or password specified")
 	}
 
 	wc.allowedNets, err = utils.ParseNetList(wc.Hosts)

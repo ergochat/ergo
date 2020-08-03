@@ -640,7 +640,7 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 	lenOfLastOcs := -1
 	for {
 		if lenOfLastOcs == len(ocs) {
-			return nil, ErrOperClassDependencies
+			return nil, errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
 		}
 		lenOfLastOcs = len(ocs)
 
@@ -869,24 +869,24 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Filename = filename
 
 	if config.Network.Name == "" {
-		return nil, ErrNetworkNameMissing
+		return nil, errors.New("Network name missing")
 	}
 	if config.Server.Name == "" {
-		return nil, ErrServerNameMissing
+		return nil, errors.New("Server name missing")
 	}
 	if !utils.IsServerName(config.Server.Name) {
-		return nil, ErrServerNameNotHostname
+		return nil, errors.New("Server name must match the format of a hostname")
 	}
 	config.Server.nameCasefolded = strings.ToLower(config.Server.Name)
 	if config.Datastore.Path == "" {
-		return nil, ErrDatastorePathMissing
+		return nil, errors.New("Datastore path missing")
 	}
 	//dan: automagically fix identlen until a few releases in the future (from now, 0.12.0), being a newly-introduced limit
 	if config.Limits.IdentLen < 1 {
 		config.Limits.IdentLen = 20
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
-		return nil, ErrLimitsAreInsane
+		return nil, errors.New("One or more limits values are too low")
 	}
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
@@ -999,7 +999,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if methods["file"] && logConfig.Filename == "" {
-			return nil, ErrLoggerFilenameMissing
+			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
 		}
 		logConfig.MethodFile = methods["file"]
 		logConfig.MethodStdout = methods["stdout"]
@@ -1018,7 +1018,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				continue
 			}
 			if typeStr == "-" {
-				return nil, ErrLoggerExcludeEmpty
+				return nil, errors.New("Encountered logging type '-' with no type to exclude")
 			}
 			if typeStr[0] == '-' {
 				typeStr = typeStr[1:]
@@ -1028,7 +1028,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if len(logConfig.Types) < 1 {
-			return nil, ErrLoggerHasNoTypes
+			return nil, errors.New("Logger has no types to log")
 		}
 
 		newLogConfigs = append(newLogConfigs, logConfig)
