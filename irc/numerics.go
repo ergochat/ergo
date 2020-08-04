@@ -168,8 +168,6 @@ const (
 	ERR_CANNOTSENDRP              = "573"
 	RPL_WHOISSECURE               = "671"
 	RPL_YOURLANGUAGESARE          = "687"
-	ERR_CHANNAMEINUSE             = "692"
-	ERR_CANNOTRENAME              = "693"
 	ERR_INVALIDMODEPARAM          = "696"
 	ERR_LISTMODEALREADYSET        = "697"
 	ERR_LISTMODENOTSET            = "698"
