@@ -5,11 +5,13 @@ package irc
 
 import (
 	"testing"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 func TestGenerateBatchID(t *testing.T) {
 	var session Session
-	s := make(StringSet)
+	s := make(utils.StringSet)
 
 	count := 100000
 	for i := 0; i < count; i++ {

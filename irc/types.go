@@ -28,17 +28,6 @@ func (clients ClientSet) Has(client *Client) bool {
 	return ok
 }
 
-type StringSet map[string]empty
-
-func (s StringSet) Has(str string) bool {
-	_, ok := s[str]
-	return ok
-}
-
-func (s StringSet) Add(str string) {
-	s[str] = empty{}
-}
-
 // MemberSet is a set of members with modes.
 type MemberSet map[*Client]*modes.ModeSet
 

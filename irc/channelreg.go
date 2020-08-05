@@ -4,15 +4,16 @@
 package irc
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"encoding/json"
+	"github.com/tidwall/buntdb"
 
 	"github.com/oragono/oragono/irc/modes"
-	"github.com/tidwall/buntdb"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // this is exclusively the *persistence* layer for channel registration;
@@ -140,8 +141,8 @@ func (reg *ChannelRegistry) AllChannels() (result []string) {
 }
 
 // PurgedChannels returns the set of all casefolded channel names that have been purged
-func (reg *ChannelRegistry) PurgedChannels() (result map[string]empty) {
-	result = make(map[string]empty)
+func (reg *ChannelRegistry) PurgedChannels() (result utils.StringSet) {
+	result = make(utils.StringSet)
 
 	prefix := fmt.Sprintf(keyChannelPurged, "")
 	reg.server.store.View(func(tx *buntdb.Tx) error {
@@ -150,7 +151,7 @@ func (reg *ChannelRegistry) PurgedChannels() (result map[string]empty) {
 				return false
 			}
 			channel := strings.TrimPrefix(key, prefix)
-			result[channel] = empty{}
+			result.Add(channel)
 			return true
 		})
 	})

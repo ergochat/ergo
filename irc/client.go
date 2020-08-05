@@ -64,7 +64,7 @@ type Client struct {
 	destroyed          bool
 	modes              modes.ModeSet
 	hostname           string
-	invitedTo          StringSet
+	invitedTo          utils.StringSet
 	isSTSOnly          bool
 	languages          []string
 	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
@@ -1641,7 +1641,7 @@ func (client *Client) Invite(casefoldedChannel string) {
 	defer client.stateMutex.Unlock()
 
 	if client.invitedTo == nil {
-		client.invitedTo = make(StringSet)
+		client.invitedTo = make(utils.StringSet)
 	}
 
 	client.invitedTo.Add(casefoldedChannel)
