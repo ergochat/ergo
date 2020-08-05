@@ -453,9 +453,11 @@ func (channel *Channel) NameCasefolded() string {
 func (channel *Channel) Rename(name, nameCasefolded string) {
 	channel.stateMutex.Lock()
 	channel.name = name
-	channel.nameCasefolded = nameCasefolded
-	if channel.registeredFounder != "" {
-		channel.registeredTime = time.Now().UTC()
+	if channel.nameCasefolded != nameCasefolded {
+		channel.nameCasefolded = nameCasefolded
+		if channel.registeredFounder != "" {
+			channel.registeredTime = time.Now().UTC()
+		}
 	}
 	channel.stateMutex.Unlock()
 }

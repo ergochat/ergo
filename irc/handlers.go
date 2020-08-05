@@ -2421,8 +2421,7 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 }
 
 // RENAME <oldchan> <newchan> [<reason>]
-func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
-	result = false
+func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	oldName, newName := msg.Params[0], msg.Params[1]
 	var reason string
 	if 2 < len(msg.Params) {
@@ -2434,6 +2433,8 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(oldName), client.t("No such channel"))
 		return false
 	}
+	oldName = channel.Name()
+
 	if !(channel.ClientIsAtLeast(client, modes.ChannelOperator) || client.HasRoleCapabs("chanreg")) {
 		rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), oldName, client.t("You're not a channel operator"))
 		return false
@@ -2441,14 +2442,14 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	founder := channel.Founder()
 	if founder != "" && founder != client.Account() {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Only channel founders can change registered channels"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Only channel founders can change registered channels"))
 		return false
 	}
 
 	config := server.Config()
 	status, _ := channel.historyStatus(config)
 	if status == HistoryPersistent {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Channels with persistent history cannot be renamed"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Channels with persistent history cannot be renamed"))
 		return false
 	}
 
@@ -2457,9 +2458,9 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	if err == errInvalidChannelName {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err == errChannelNameInUse {
-		rb.Add(nil, server.name, ERR_CHANNAMEINUSE, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CHANNEL_NAME_IN_USE", oldName, utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err != nil {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
 	}
 	if err != nil {
 		return false
