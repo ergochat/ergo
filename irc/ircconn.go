@@ -124,16 +124,18 @@ func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 }
 
 func (wc IRCWSConn) ReadLine() (line []byte, err error) {
-	for {
-		var messageType int
-		messageType, line, err = wc.conn.ReadMessage()
-		// on empty message or non-text message, try again, block if necessary
-		if err != nil || (messageType == websocket.TextMessage && len(line) != 0) {
-			if err == websocket.ErrReadLimit {
-				err = errReadQ
-			}
-			return
+	messageType, line, err := wc.conn.ReadMessage()
+	if err == nil {
+		if messageType == websocket.TextMessage {
+			return line, nil
+		} else {
+			// for purposes of fakelag, treat non-text message as an empty line
+			return nil, nil
 		}
+	} else if err == websocket.ErrReadLimit {
+		return line, errReadQ
+	} else {
+		return line, err
 	}
 }
 
