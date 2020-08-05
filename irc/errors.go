@@ -73,13 +73,6 @@ var (
 	errRegisteredOnly                 = errors.New("Cannot join registered-only channel without an account")
 )
 
-// Socket Errors
-var (
-	errNoPeerCerts = errors.New("Client did not provide a certificate")
-	errNotTLS      = errors.New("Not a TLS connection")
-	errReadQ       = errors.New("ReadQ Exceeded")
-)
-
 // String Errors
 var (
 	errCouldNotStabilize = errors.New("Could not stabilize string while casefolding")

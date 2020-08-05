@@ -3,6 +3,7 @@ package irc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"net"
 	"unicode/utf8"
 
@@ -17,7 +18,8 @@ const (
 )
 
 var (
-	crlf = []byte{'\r', '\n'}
+	crlf     = []byte{'\r', '\n'}
+	errReadQ = errors.New("ReadQ Exceeded")
 )
 
 // IRCConn abstracts away the distinction between a regular
@@ -31,7 +33,7 @@ type IRCConn interface {
 	// these take an IRC line or lines, correctly terminated with CRLF:
 	WriteLine([]byte) error
 	WriteLines([][]byte) error
-	// this returns an IRC line without the terminating CRLF:
+	// this returns an IRC line, possibly terminated with CRLF, LF, or nothing:
 	ReadLine() (line []byte, err error)
 
 	Close() error
@@ -127,6 +129,9 @@ func (wc IRCWSConn) ReadLine() (line []byte, err error) {
 		messageType, line, err = wc.conn.ReadMessage()
 		// on empty message or non-text message, try again, block if necessary
 		if err != nil || (messageType == websocket.TextMessage && len(line) != 0) {
+			if err == websocket.ErrReadLimit {
+				err = errReadQ
+			}
 			return
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -62,7 +63,7 @@ func timeToZncWireTime(t time.Time) (result string) {
 type zncPlaybackTimes struct {
 	start   time.Time
 	end     time.Time
-	targets StringSet // nil for "*" (everything), otherwise the channel names
+	targets utils.StringSet // nil for "*" (everything), otherwise the channel names
 	setAt   time.Time
 }
 
@@ -122,7 +123,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 		end = zncWireTimeToTime(params[3])
 	}
 
-	var targets StringSet
+	var targets utils.StringSet
 	var nickTargets []string
 
 	// three cases:
@@ -145,7 +146,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	if params[1] == "*" {
 		playPrivmsgs = true // XXX nil `targets` means "every channel"
 	} else {
-		targets = make(StringSet)
+		targets = make(utils.StringSet)
 		for _, targetName := range strings.Split(targetString, ",") {
 			if targetName == "*self" {
 				playPrivmsgs = true
