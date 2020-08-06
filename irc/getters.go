@@ -235,20 +235,15 @@ func (client *Client) Oper() *Oper {
 	return client.oper
 }
 
-func (client *Client) Registered() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.registered
-}
-
-func (client *Client) SetRegistered() {
+func (client *Client) Registered() (result bool) {
 	// `registered` is only written from the client's own goroutine, but may be
 	// read from other goroutines; therefore, the client's own goroutine may read
 	// the value without synchronization, but must write it with synchronization,
 	// and other goroutines must read it with synchronization
-	client.stateMutex.Lock()
-	client.registered = true
-	client.stateMutex.Unlock()
+	client.stateMutex.RLock()
+	result = client.registered
+	client.stateMutex.RUnlock()
+	return
 }
 
 func (client *Client) RawHostname() (result string) {

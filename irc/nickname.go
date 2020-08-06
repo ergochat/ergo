@@ -91,13 +91,11 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		channel.AddHistoryItem(histItem, details.account)
 	}
 
-	if target.Registered() {
-		newCfnick := target.NickCasefolded()
-		if newCfnick != details.nickCasefolded {
-			client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
-			client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
-		}
-	} // else: these will be deferred to the end of registration (see #572)
+	newCfnick := target.NickCasefolded()
+	if newCfnick != details.nickCasefolded {
+		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
+		client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
+	}
 	return nil
 }
 

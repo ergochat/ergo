@@ -1124,14 +1124,21 @@ func (client *Client) SetVHost(vhost string) (updated bool) {
 	return
 }
 
-// updateNick updates `nick` and `nickCasefolded`.
-func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
+// SetNick gives the client a nickname and marks it as registered, if necessary
+func (client *Client) SetNick(nick, nickCasefolded, skeleton string) (success bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+	if client.destroyed {
+		return false
+	} else if !client.registered {
+		// XXX test this before setting it to avoid annoying the race detector
+		client.registered = true
+	}
 	client.nick = nick
 	client.nickCasefolded = nickCasefolded
 	client.skeleton = skeleton
 	client.updateNickMaskNoMutex()
+	return true
 }
 
 // updateNickMaskNoMutex updates the casefolded nickname and nickmask, not acquiring any mutexes.

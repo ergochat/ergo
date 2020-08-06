@@ -243,10 +243,12 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		return "", errNicknameInUse, false
 	}
 
+	if changeSuccess := client.SetNick(newNick, newCfNick, newSkeleton); !changeSuccess {
+		return "", errClientDestroyed, false
+	}
 	clients.removeInternal(client)
 	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
-	client.updateNick(newNick, newCfNick, newSkeleton)
 	return newNick, nil, false
 }
 

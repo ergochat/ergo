@@ -283,12 +283,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.SetMode(defaultMode, true)
 	}
 
-	// registration has succeeded:
-	c.SetRegistered()
-
 	// count new user in statistics
 	server.stats.Register(c.HasMode(modes.Invisible))
-	server.monitorManager.AlertAbout(c.Nick(), c.NickCasefolded(), true)
 
 	server.playRegistrationBurst(session)
 	return false
