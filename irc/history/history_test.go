@@ -241,17 +241,6 @@ func TestDisabledByResize(t *testing.T) {
 	assertEqual(len(items), 0, t)
 }
 
-func TestRoundUp(t *testing.T) {
-	assertEqual(roundUpToPowerOfTwo(2), 2, t)
-	assertEqual(roundUpToPowerOfTwo(3), 4, t)
-	assertEqual(roundUpToPowerOfTwo(64), 64, t)
-	assertEqual(roundUpToPowerOfTwo(65), 128, t)
-	assertEqual(roundUpToPowerOfTwo(100), 128, t)
-	assertEqual(roundUpToPowerOfTwo(1000), 1024, t)
-	assertEqual(roundUpToPowerOfTwo(1025), 2048, t)
-	assertEqual(roundUpToPowerOfTwo(269435457), 536870912, t)
-}
-
 func BenchmarkInsert(b *testing.B) {
 	buf := NewHistoryBuffer(1024, 0)
 	b.ResetTimer()

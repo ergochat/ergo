@@ -69,10 +69,6 @@ func (socket *Socket) Read() (string, error) {
 
 	if err == io.EOF {
 		socket.Close()
-		// process last message properly (such as ERROR/QUIT/etc), just fail next reads/writes
-		if line != "" {
-			err = nil
-		}
 	}
 
 	return line, err
