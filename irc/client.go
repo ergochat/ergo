@@ -989,20 +989,6 @@ func (client *Client) IdleSeconds() uint64 {
 	return uint64(client.IdleTime().Seconds())
 }
 
-// HasNick returns true if the client's nickname is set (used in registration).
-func (client *Client) HasNick() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.nick != "" && client.nick != "*"
-}
-
-// HasUsername returns true if the client's username is set (used in registration).
-func (client *Client) HasUsername() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.username != "" && client.username != "*"
-}
-
 // SetNames sets the client's ident and realname.
 func (client *Client) SetNames(username, realname string, fromIdent bool) error {
 	limit := client.server.Config().Limits.IdentLen
