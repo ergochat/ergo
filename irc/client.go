@@ -54,6 +54,9 @@ const (
 	DefaultTotalTimeout = 2*time.Minute + 30*time.Second
 	// Resumeable clients (clients who have negotiated caps.Resume) get longer:
 	ResumeableTotalTimeout = 3*time.Minute + 30*time.Second
+
+	// round off the ping interval by this much, see below:
+	PingCoalesceThreshold = time.Second
 )
 
 // ResumeDetails is a place to stash data at various stages of
@@ -811,7 +814,11 @@ func (session *Session) handleIdleTimeout() {
 	timeUntilDestroy := session.lastTouch.Add(totalTimeout).Sub(now)
 	timeUntilPing := session.lastTouch.Add(pingTimeout).Sub(now)
 	shouldDestroy := session.pingSent && timeUntilDestroy <= 0
-	shouldSendPing := !session.pingSent && timeUntilPing <= 0
+	// XXX this should really be time <= 0, but let's do some hacky timer coalescing:
+	// a typical idling client will do nothing other than respond immediately to our pings,
+	// so we'll PING at t=0, they'll respond at t=0.05, then we'll wake up at t=90 and find
+	// that we need to PING again at t=90.05. Rather than wake up again, just send it now:
+	shouldSendPing := !session.pingSent && timeUntilPing <= PingCoalesceThreshold
 	if !shouldDestroy {
 		if shouldSendPing {
 			session.pingSent = true
@@ -821,7 +828,7 @@ func (session *Session) handleIdleTimeout() {
 		// 2. the next time we would send PING (if they don't send any more lines)
 		// 3. the next time we would destroy (if they don't send any more lines)
 		nextTimeout := pingTimeout
-		if 0 < timeUntilPing && timeUntilPing < nextTimeout {
+		if PingCoalesceThreshold < timeUntilPing && timeUntilPing < nextTimeout {
 			nextTimeout = timeUntilPing
 		}
 		if 0 < timeUntilDestroy && timeUntilDestroy < nextTimeout {
