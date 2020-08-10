@@ -58,13 +58,6 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		exiting = server.tryRegister(client, session)
 	}
 
-	// most servers do this only for PING/PONG, but we'll do it for any command:
-	if client.registered {
-		// touch even if `exiting`, so we record the time of a QUIT accurately
-		session.idletimer.Touch()
-	}
-
-	// TODO: eliminate idletimer entirely in favor of this measurement
 	if client.registered {
 		client.Touch(session)
 	}

@@ -40,6 +40,25 @@ const (
 	lastSeenWriteInterval = time.Hour
 )
 
+const (
+	// RegisterTimeout is how long clients have to register before we disconnect them
+	RegisterTimeout = time.Minute
+	// DefaultIdleTimeout is how long without traffic before we send the client a PING
+	DefaultIdleTimeout = time.Minute + 30*time.Second
+	// For Tor clients, we send a PING at least every 30 seconds, as a workaround for this bug
+	// (single-onion circuits will close unless the client sends data once every 60 seconds):
+	// https://bugs.torproject.org/29665
+	TorIdleTimeout = time.Second * 30
+	// This is how long a client gets without sending any message, including the PONG to our
+	// PING, before we disconnect them:
+	DefaultTotalTimeout = 2*time.Minute + 30*time.Second
+	// Resumeable clients (clients who have negotiated caps.Resume) get longer:
+	ResumeableTotalTimeout = 3*time.Minute + 30*time.Second
+
+	// round off the ping interval by this much, see below:
+	PingCoalesceThreshold = time.Second
+)
+
 // ResumeDetails is a place to stash data at various stages of
 // the resume process: when handling the RESUME command itself,
 // when completing the registration, and when rejoining channels.
@@ -83,6 +102,7 @@ type Client struct {
 	realname           string
 	realIP             net.IP
 	registered         bool
+	registrationTimer  *time.Timer
 	resumeID           string
 	server             *Server
 	skeleton           string
@@ -123,7 +143,10 @@ type Session struct {
 	deviceID string
 
 	ctime      time.Time
-	lastActive time.Time
+	lastActive time.Time // last non-CTCP PRIVMSG sent; updates publicly visible idle time
+	lastTouch  time.Time // last line sent; updates timer for idle timeouts
+	idleTimer  *time.Timer
+	pingSent   bool // we sent PING to a putatively idle connection and we're waiting for PONG
 
 	socket      *Socket
 	realIP      net.IP
@@ -131,7 +154,6 @@ type Session struct {
 	rawHostname string
 	isTor       bool
 
-	idletimer            IdleTimer
 	fakelag              Fakelag
 	deferredFakelagCount int
 	destroyed            uint32
@@ -342,7 +364,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	}
 	client.sessions = []*Session{session}
 
-	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
 	if wConn.Secure {
@@ -363,6 +384,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		}
 	}
 
+	client.registrationTimer = time.AfterFunc(RegisterTimeout, client.handleRegisterTimeout)
 	server.stats.Add()
 	client.run(session)
 }
@@ -605,7 +627,7 @@ func (client *Client) run(session *Session) {
 
 	isReattach := client.Registered()
 	if isReattach {
-		session.idletimer.Touch()
+		client.Touch(session)
 		if session.resumeDetails != nil {
 			session.playResume()
 			session.resumeDetails = nil
@@ -739,6 +761,7 @@ func (client *Client) Touch(session *Session) {
 			client.lastSeenLastWrite = now
 		}
 	}
+	client.updateIdleTimer(session, now)
 	client.stateMutex.Unlock()
 	if markDirty {
 		client.markDirty(IncludeLastSeen)
@@ -760,6 +783,75 @@ func (client *Client) setLastSeen(now time.Time, deviceID string) {
 			}
 		}
 		delete(client.lastSeen, minClientId)
+	}
+}
+
+func (client *Client) updateIdleTimer(session *Session, now time.Time) {
+	session.lastTouch = now
+	session.pingSent = false
+
+	if session.idleTimer == nil {
+		pingTimeout := DefaultIdleTimeout
+		if session.isTor {
+			pingTimeout = TorIdleTimeout
+		}
+		session.idleTimer = time.AfterFunc(pingTimeout, session.handleIdleTimeout)
+	}
+}
+
+func (session *Session) handleIdleTimeout() {
+	totalTimeout := DefaultTotalTimeout
+	if session.capabilities.Has(caps.Resume) {
+		totalTimeout = ResumeableTotalTimeout
+	}
+	pingTimeout := DefaultIdleTimeout
+	if session.isTor {
+		pingTimeout = TorIdleTimeout
+	}
+
+	session.client.stateMutex.Lock()
+	now := time.Now()
+	timeUntilDestroy := session.lastTouch.Add(totalTimeout).Sub(now)
+	timeUntilPing := session.lastTouch.Add(pingTimeout).Sub(now)
+	shouldDestroy := session.pingSent && timeUntilDestroy <= 0
+	// XXX this should really be time <= 0, but let's do some hacky timer coalescing:
+	// a typical idling client will do nothing other than respond immediately to our pings,
+	// so we'll PING at t=0, they'll respond at t=0.05, then we'll wake up at t=90 and find
+	// that we need to PING again at t=90.05. Rather than wake up again, just send it now:
+	shouldSendPing := !session.pingSent && timeUntilPing <= PingCoalesceThreshold
+	if !shouldDestroy {
+		if shouldSendPing {
+			session.pingSent = true
+		}
+		// check in again at the minimum of these 3 possible intervals:
+		// 1. the ping timeout (assuming we PING and they reply immediately with PONG)
+		// 2. the next time we would send PING (if they don't send any more lines)
+		// 3. the next time we would destroy (if they don't send any more lines)
+		nextTimeout := pingTimeout
+		if PingCoalesceThreshold < timeUntilPing && timeUntilPing < nextTimeout {
+			nextTimeout = timeUntilPing
+		}
+		if 0 < timeUntilDestroy && timeUntilDestroy < nextTimeout {
+			nextTimeout = timeUntilDestroy
+		}
+		session.idleTimer.Stop()
+		session.idleTimer.Reset(nextTimeout)
+	}
+	session.client.stateMutex.Unlock()
+
+	if shouldDestroy {
+		session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
+		session.client.destroy(session)
+	} else if shouldSendPing {
+		session.Ping()
+	}
+}
+
+func (session *Session) stopIdleTimer() {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+	if session.idleTimer != nil {
+		session.idleTimer.Stop()
 	}
 }
 
@@ -1119,6 +1211,10 @@ func (client *Client) SetNick(nick, nickCasefolded, skeleton string) (success bo
 	} else if !client.registered {
 		// XXX test this before setting it to avoid annoying the race detector
 		client.registered = true
+		if client.registrationTimer != nil {
+			client.registrationTimer.Stop()
+			client.registrationTimer = nil
+		}
 	}
 	client.nick = nick
 	client.nickCasefolded = nickCasefolded
@@ -1294,6 +1390,11 @@ func (client *Client) destroy(session *Session) {
 		client.awayMessage = awayMessage
 	}
 
+	if client.registrationTimer != nil {
+		// unconditionally stop; if the client is still unregistered it must be destroyed
+		client.registrationTimer.Stop()
+	}
+
 	client.stateMutex.Unlock()
 
 	// XXX there is no particular reason to persist this state here rather than
@@ -1311,7 +1412,7 @@ func (client *Client) destroy(session *Session) {
 			// session has been attached to a new client; do not destroy it
 			continue
 		}
-		session.idletimer.Stop()
+		session.stopIdleTimer()
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
 		quitMessage = session.quitMessage
@@ -1691,6 +1792,11 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 		target = ""
 	}
 	return
+}
+
+func (client *Client) handleRegisterTimeout() {
+	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil)
+	client.destroy(nil)
 }
 
 func (client *Client) copyLastSeen() (result map[string]time.Time) {
