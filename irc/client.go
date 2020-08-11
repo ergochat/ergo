@@ -1635,8 +1635,9 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 	// assemble message
 	line, err := message.LineBytesStrict(false, MaxLineLen)
 	if err != nil {
-		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
-		session.client.server.logger.Error("internal", logline)
+		errorParams := []string{"Error assembling message for sending", err.Error(), message.Command}
+		errorParams = append(errorParams, message.Params...)
+		session.client.server.logger.Error("internal", errorParams...)
 
 		message = ircmsg.MakeMessage(nil, session.client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.LineBytesStrict(false, 0)
