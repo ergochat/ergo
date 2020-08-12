@@ -12,7 +12,7 @@ Oragono vendors all its dependencies. Because of this, Oragono is self-contained
 If you're upgrading the Go version used by Oragono, there are several places where it's hard-coded and must be changed:
 
 1. `.travis.yml`, which controls the version that our CI test suite uses to build and test the code (e.g., for a PR)
-2. `distrib/docker/Dockerfile`, which controls the version that the Oragono binaries in our Docker images are built with
+2. `Dockerfile`, which controls the version that the Oragono binaries in our Docker images are built with
 3. `go.mod`: this should be updated automatically by Go when you do module-related operations
 
 
