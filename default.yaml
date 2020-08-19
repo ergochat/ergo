@@ -141,10 +141,11 @@ server:
     # they cannot be relayed to websocket clients).
     enforce-utf8: true
 
-    # whether to look up user hostnames with reverse DNS.
-    # (disabling this will expose user IPs instead of hostnames;
-    # to make IP/hostname information private, see the ip-cloaking section)
-    lookup-hostnames: true
+    # whether to look up user hostnames with reverse DNS. there are 3 possibilities:
+    # 1. lookup-hostnames enabled, IP cloaking disabled; users will see each other's hostnames
+    # 2. lookup-hostnames disabled, IP cloaking disabled; users will see each other's numeric IPs
+    # 3. IP cloaking enabled; users will see cloaked hostnames (see the ip-cloaking section)
+    lookup-hostnames: false
     # whether to confirm hostname lookups using "forward-confirmed reverse DNS", i.e., for
     # any hostname returned from reverse DNS, resolve it back to an IP address and reject it
     # unless it matches the connecting IP
@@ -258,6 +259,7 @@ server:
     # DNS, users see fake domain names like pwbs2ui4377257x8.oragono. These names are
     # generated deterministically from the underlying IP address, but if the underlying
     # IP is not already known, it is infeasible to recover it from the cloaked name.
+    # If you disable this, you should probably enable lookup-hostnames in its place.
     ip-cloaking:
         # whether to enable IP cloaking
         enabled: true
