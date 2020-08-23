@@ -381,7 +381,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errAccountCreation
 	}
 
-	if restrictedCasefoldedNicks[casefoldedAccount] || restrictedSkeletons[skeleton] {
+	if restrictedCasefoldedNicks.Has(casefoldedAccount) || restrictedSkeletons.Has(skeleton) {
 		return errAccountAlreadyRegistered
 	}
 

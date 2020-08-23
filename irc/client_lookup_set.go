@@ -173,7 +173,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNicknameInvalid, false
 		}
 
-		if restrictedCasefoldedNicks[newCfNick] || restrictedSkeletons[newSkeleton] {
+		if restrictedCasefoldedNicks.Has(newCfNick) || restrictedSkeletons.Has(newSkeleton) {
 			return "", errNicknameInvalid, false
 		}
 

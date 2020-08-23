@@ -350,11 +350,11 @@ func initializeServices() {
 		if err != nil {
 			panic(err)
 		}
-		restrictedCasefoldedNicks[cfName] = true
+		restrictedCasefoldedNicks.Add(cfName)
 		skeleton, err := Skeleton(restrictedNickname)
 		if err != nil {
 			panic(err)
 		}
-		restrictedSkeletons[skeleton] = true
+		restrictedSkeletons.Add(skeleton)
 	}
 }
