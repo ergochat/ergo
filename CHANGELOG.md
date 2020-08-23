@@ -1,6 +1,39 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.3.0-rc1] - 2020-08-23
+
+We're pleased to be publishing the release candidate for 2.3.0 (the official release should follow in a week or so).
+
+This release contains primarily bug fixes, but includes one notable feature enhancement: a change contributed by [@hhirtz](https://github.com/hhirtz) that updates the `draft/rename` specification to correspond to the new (soon-to-be) published draft.
+
+Many thanks to [@hhirtz](https://github.com/hhirtz) for contributing patches, to [@bogdomania](https://github.com/bogdomania), [@jesopo](https://github.com/jesopo), [@kylef](https://github.com/kylef), [@Mitaka8](https://github.com/Mitaka8),and [@mogad0n](https://github.com/mogad0n) for reporting issues and helping test, and to our translators for contributing translations.
+
+This release includes no changes to the config file format or database changes.
+
+### Config changes
+* The recommended value of `lookup-hostnames` for configurations that cloak IPs (as has been the default since 2.1.0) is now `false` (#1228)
+
+### Security
+* Mitigated a potential DoS attack on websocket listeners (#1226)
+
+### Removed
+* Removed `/HOSTSERV OFFERLIST` and related commands; this functionality is superseded by IP cloaking (#1190)
+
+### Fixed
+* Fixed an edge case in handling no-op nick changes (#1242)
+* Fixed edge cases with users transitioning in and out of always-on status (#1218, #1219, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed a race condition related to the registration timeout (#1225, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed messages to services and `*playback` not receiving echo-message when applicable (#1204, thanks [@kylef](https://github.com/kylef)!)
+* Fixed a help string (#1237, thanks [@Mitaka8](https://github.com/Mitaka8)!)
+
+### Changed
+* Updated `draft/rename` implementation to the latest draft (#1223, thanks [@hhirtz](https://github.com/hhirtz)!)
+
+### Internal
+* Official release builds now use Go 1.15 (#1195)
+* `/INFO` now includes the Go version (#1234)
+
 ## [2.2.0] - 2020-07-26
 
 We're pleased to announce Oragono 2.2.0, a new stable release.

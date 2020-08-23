@@ -33,7 +33,7 @@ Develop branches are either used to work out implementation details in preperati
 1. Update the changelog with new changes and write release notes.
 1. Update the version number `irc/version.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
 1. Commit the new changelog and constants change.
-1. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
+1. Tag the release with `git tag --sign v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 1. Build binaries using `make release`, upload release to Github including the changelog and binaries.
 1. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
 1. Make the appropriate announcements:
