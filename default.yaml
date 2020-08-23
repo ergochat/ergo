@@ -843,7 +843,9 @@ history:
         # users to do session resumption / query history after disconnections.
         grace-period: 1h
 
-    # options to store history messages in a persistent database (currently only MySQL):
+    # options to store history messages in a persistent database (currently only MySQL).
+    # in order to enable any of this functionality, you must configure a MySQL server
+    # in the `datastore.mysql` section.
     persistent:
         enabled: false
 
