@@ -232,9 +232,6 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		// successful reattach!
 		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {
-		// see #1019: normally no-op nick changes are caught earlier, by performNickChange,
-		// but they are not detected there when force-guest-format is enabled (because
-		// the proposed nickname is e.g. alice and the current nickname is Guest-alice)
 		return "", errNoop, false
 	}
 	// analogous checks for skeletons
