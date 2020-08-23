@@ -30,9 +30,6 @@ var (
 func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) error {
 	currentNick := client.Nick()
 	details := target.Details()
-	if details.nick == nickname {
-		return nil
-	}
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
 
