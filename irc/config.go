@@ -1152,9 +1152,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if !config.History.Enabled || !config.History.Persistent.Enabled {
+		config.History.Persistent.Enabled = false
 		config.History.Persistent.UnregisteredChannels = false
 		config.History.Persistent.RegisteredChannels = PersistentDisabled
 		config.History.Persistent.DirectMessages = PersistentDisabled
+	}
+
+	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled {
+		return nil, fmt.Errorf("You must configure a MySQL server in order to enable persistent history")
 	}
 
 	if config.History.ZNCMax == 0 {

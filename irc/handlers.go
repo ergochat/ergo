@@ -1083,8 +1083,8 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("This is Oragono version %s."), SemVer))
 	if Commit != "" {
 		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was built from git hash %s."), Commit))
-		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was compiled using %s."), runtime.Version()))
 	}
+	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was compiled using %s."), runtime.Version()))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Oragono is released under the MIT license."))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
