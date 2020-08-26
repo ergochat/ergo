@@ -267,8 +267,7 @@ type AccountConfig struct {
 		Enabled                bool
 		AdditionalNickLimit    int `yaml:"additional-nick-limit"`
 		Method                 NickEnforcementMethod
-		AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
-		RenameTimeout          time.Duration `yaml:"rename-timeout"`
+		AllowCustomEnforcement bool `yaml:"allow-custom-enforcement"`
 		// RenamePrefix is the legacy field, GuestFormat is the new version
 		RenamePrefix           string `yaml:"rename-prefix"`
 		GuestFormat            string `yaml:"guest-nickname-format"`
