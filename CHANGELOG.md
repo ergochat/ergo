@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.3.0-rc2] - 2020-08-30
+
+Pre-release testing of 2.3.0-rc1 revealed serious bugs (#1251, #1252) that were introduced during the 2.3.0 development window. Accordingly, we're publishing a second release candidate for 2.3.0 that fixes these issues. We expect the official release of 2.3.0 next week; thanks for your patience.
+
+Thanks to [@mogad0n](https://github.com/mogad0n) for help testing 2.3.0-rc1!
+
 ## [2.3.0-rc1] - 2020-08-23
 
 We're pleased to be publishing the release candidate for 2.3.0 (the official release should follow in a week or so).
