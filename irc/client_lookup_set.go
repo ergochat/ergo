@@ -48,9 +48,8 @@ func (clients *ClientManager) Get(nick string) *Client {
 	return nil
 }
 
-func (clients *ClientManager) removeInternal(client *Client) (err error) {
+func (clients *ClientManager) removeInternal(client *Client, oldcfnick, oldskeleton string) (err error) {
 	// requires holding the writable Lock()
-	oldcfnick, oldskeleton := client.uniqueIdentifiers()
 	if oldcfnick == "*" || oldcfnick == "" {
 		return errNickMissing
 	}
@@ -88,7 +87,8 @@ func (clients *ClientManager) Remove(client *Client) error {
 	clients.Lock()
 	defer clients.Unlock()
 
-	return clients.removeInternal(client)
+	oldcfnick, oldskeleton := client.uniqueIdentifiers()
+	return clients.removeInternal(client, oldcfnick, oldskeleton)
 }
 
 // Handles a RESUME by attaching a session to a designated client. It is the
@@ -240,10 +240,11 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		return "", errNicknameInUse, false
 	}
 
+	formercfnick, formerskeleton := client.uniqueIdentifiers()
 	if changeSuccess := client.SetNick(newNick, newCfNick, newSkeleton); !changeSuccess {
 		return "", errClientDestroyed, false
 	}
-	clients.removeInternal(client)
+	clients.removeInternal(client, formercfnick, formerskeleton)
 	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
 	return newNick, nil, false
