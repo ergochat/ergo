@@ -129,7 +129,8 @@ func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config) 
 	if !client.registered {
 		return true
 	}
-	if performNickChange(client.server, client, client, rb.session, client.AccountName(), rb) != nil {
+	err := performNickChange(client.server, client, client, rb.session, client.AccountName(), rb)
+	if err != nil && err != errNoop {
 		client.server.accounts.Logout(client)
 		nsNotice(rb, client.t("A client is already using that account; try logging out and logging back in with SASL"))
 		return false
