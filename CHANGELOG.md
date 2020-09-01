@@ -1,19 +1,13 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.3.0-rc2] - 2020-08-30
+## [2.3.0] - 2020-09-06
 
-Pre-release testing of 2.3.0-rc1 revealed serious bugs (#1251, #1252) that were introduced during the 2.3.0 development window. Accordingly, we're publishing a second release candidate for 2.3.0 that fixes these issues. We expect the official release of 2.3.0 next week; thanks for your patience.
-
-Thanks to [@mogad0n](https://github.com/mogad0n) for help testing 2.3.0-rc1!
-
-## [2.3.0-rc1] - 2020-08-23
-
-We're pleased to be publishing the release candidate for 2.3.0 (the official release should follow in a week or so).
+We're pleased to announce Oragono 2.3.0, a new stable release.
 
 This release contains primarily bug fixes, but includes one notable feature enhancement: a change contributed by [@hhirtz](https://github.com/hhirtz) that updates the `draft/rename` specification to correspond to the new (soon-to-be) published draft.
 
-Many thanks to [@hhirtz](https://github.com/hhirtz) for contributing patches, to [@bogdomania](https://github.com/bogdomania), [@jesopo](https://github.com/jesopo), [@kylef](https://github.com/kylef), [@Mitaka8](https://github.com/Mitaka8),and [@mogad0n](https://github.com/mogad0n) for reporting issues and helping test, and to our translators for contributing translations.
+Many thanks to [@hhirtz](https://github.com/hhirtz) for contributing patches, to [@bogdomania](https://github.com/bogdomania), [@digitalcircuit](https://github.com/digitalcircuit), [@ivan-avalos](https://github.com/ivan-avalos), [@jesopo](https://github.com/jesopo), [@kylef](https://github.com/kylef), [@Mitaka8](https://github.com/Mitaka8), [@mogad0n](https://github.com/mogad0n), and [@ProgVal](https://github.com/ProgVal) for reporting issues and helping test, and to our translators for contributing translations.
 
 This release includes no changes to the config file format or database changes.
 
@@ -30,6 +24,8 @@ This release includes no changes to the config file format or database changes.
 * Fixed an edge case in handling no-op nick changes (#1242)
 * Fixed edge cases with users transitioning in and out of always-on status (#1218, #1219, thanks [@bogdomania](https://github.com/bogdomania)!)
 * Fixed a race condition related to the registration timeout (#1225, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed incorrectly formatted account tags on some messages (#1254, thanks [@digitalcircuit](https://github.com/digitalcircuit)!)
+* Improved checks for invalid config files (#1244, thanks [@ivan-avalos](https://github.com/ivan-avalos)!)
 * Fixed messages to services and `*playback` not receiving echo-message when applicable (#1204, thanks [@kylef](https://github.com/kylef)!)
 * Fixed a help string (#1237, thanks [@Mitaka8](https://github.com/Mitaka8)!)
 
