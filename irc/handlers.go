@@ -348,9 +348,9 @@ func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
 	details := client.Details()
 	for session := range client.Friends(caps.AwayNotify) {
 		if isAway {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
 		} else {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY")
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY")
 		}
 	}
 }
@@ -2568,7 +2568,7 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	// alert friends
 	now := time.Now().UTC()
 	for session := range client.Friends(caps.SetName) {
-		session.sendFromClientInternal(false, now, "", details.nickMask, details.account, nil, "SETNAME", details.realname)
+		session.sendFromClientInternal(false, now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
 	}
 
 	return false

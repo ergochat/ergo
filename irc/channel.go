@@ -785,7 +785,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
 			}
 			if isAway && session.capabilities.Has(caps.AwayNotify) {
-				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
+				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
 			}
 		}
 	}
