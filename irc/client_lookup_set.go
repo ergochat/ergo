@@ -28,14 +28,6 @@ func (clients *ClientManager) Initialize() {
 	clients.bySkeleton = make(map[string]*Client)
 }
 
-// Count returns how many clients are in the manager.
-func (clients *ClientManager) Count() int {
-	clients.RLock()
-	defer clients.RUnlock()
-	count := len(clients.byNick)
-	return count
-}
-
 // Get retrieves a client from the manager, if they exist.
 func (clients *ClientManager) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
@@ -259,21 +251,6 @@ func (clients *ClientManager) AllClients() (result []*Client) {
 		result[i] = client
 		i++
 	}
-	return
-}
-
-// AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (sessions []*Session) {
-	clients.RLock()
-	defer clients.RUnlock()
-	for _, client := range clients.byNick {
-		for _, session := range client.Sessions() {
-			if session.capabilities.HasAll(capabs...) {
-				sessions = append(sessions, session)
-			}
-		}
-	}
-
 	return
 }
 
