@@ -2383,7 +2383,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // PING [params...]
 func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	rb.Add(nil, server.name, "PONG", msg.Params...)
+	rb.Add(nil, server.name, "PONG", server.name, msg.Params[0])
 	return false
 }
 
