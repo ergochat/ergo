@@ -52,13 +52,13 @@ github.com/tidwall/tinyqueue
 # github.com/toorop/go-dkim v0.0.0-20200526084421-76378ae5207e
 ## explicit
 github.com/toorop/go-dkim
-# golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+# golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c
+# golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
