@@ -498,6 +498,7 @@ type Config struct {
 		lookupHostnames         bool
 		ForwardConfirmHostnames bool `yaml:"forward-confirm-hostnames"`
 		CheckIdent              bool `yaml:"check-ident"`
+		SuppressIdent           bool `yaml:"suppress-ident"`
 		MOTD                    string
 		motdLines               []string
 		MOTDFormatting          bool     `yaml:"motd-formatting"`
@@ -894,6 +895,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
 			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
 		}
+	}
+
+	if config.Server.CheckIdent && config.Server.SuppressIdent {
+		return nil, errors.New("Can't configure both check-ident and suppress-ident")
 	}
 
 	config.Server.supportedCaps = caps.NewCompleteSet()
