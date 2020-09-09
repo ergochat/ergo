@@ -485,6 +485,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("UTF-8 enforcement cannot be changed after launching the server, rehash aborted")
 		} else if oldConfig.Accounts.Multiclient.AlwaysOn != config.Accounts.Multiclient.AlwaysOn {
 			return fmt.Errorf("Default always-on setting cannot be changed after launching the server, rehash aborted")
+		} else if oldConfig.Server.Relaymsg.Enabled != config.Server.Relaymsg.Enabled {
+			return fmt.Errorf("Cannot enable or disable relaying after launching the server, rehash aborted")
+		} else if oldConfig.Server.Relaymsg.Separators != config.Server.Relaymsg.Separators {
+			return fmt.Errorf("Cannot change relaying separators after launching the server, rehash aborted")
 		}
 	}
 

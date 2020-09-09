@@ -94,6 +94,12 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
+        identifier="Relaymsg",
+        name="draft/relaymsg",
+        url="https://github.com/ircv3/ircv3-specifications/pull/417",
+        standard="proposed IRCv3",
+    ),
+    CapDef(
         identifier="Rename",
         name="draft/rename",
         url="https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md",

@@ -501,14 +501,19 @@ type Config struct {
 		SuppressIdent           bool `yaml:"suppress-ident"`
 		MOTD                    string
 		motdLines               []string
-		MOTDFormatting          bool     `yaml:"motd-formatting"`
-		ProxyAllowedFrom        []string `yaml:"proxy-allowed-from"`
-		proxyAllowedFromNets    []net.IPNet
-		WebIRC                  []webircConfig `yaml:"webirc"`
-		MaxSendQString          string         `yaml:"max-sendq"`
-		MaxSendQBytes           int
-		AllowPlaintextResume    bool `yaml:"allow-plaintext-resume"`
-		Compatibility           struct {
+		MOTDFormatting          bool `yaml:"motd-formatting"`
+		Relaymsg                struct {
+			Enabled            bool
+			Separators         string
+			AvailableToChanops bool `yaml:"available-to-chanops"`
+		}
+		ProxyAllowedFrom     []string `yaml:"proxy-allowed-from"`
+		proxyAllowedFromNets []net.IPNet
+		WebIRC               []webircConfig `yaml:"webirc"`
+		MaxSendQString       string         `yaml:"max-sendq"`
+		MaxSendQBytes        int
+		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
+		Compatibility        struct {
 			ForceTrailing      *bool `yaml:"force-trailing"`
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
@@ -1106,6 +1111,17 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
+	if config.Server.Relaymsg.Enabled {
+		for _, char := range protocolBreakingNameCharacters {
+			if strings.ContainsRune(config.Server.Relaymsg.Separators, char) {
+				return nil, fmt.Errorf("RELAYMSG separators cannot include the characters %s", protocolBreakingNameCharacters)
+			}
+		}
+		config.Server.capValues[caps.Relaymsg] = config.Server.Relaymsg.Separators
+	} else {
+		config.Server.supportedCaps.Disable(caps.Relaymsg)
+	}
+
 	config.Debug.recoverFromErrors = utils.BoolDefaultTrue(config.Debug.RecoverFromErrors)
 
 	// process operator definitions, store them to config.operators
@@ -1204,6 +1220,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 func (config *Config) getOutputPath(filename string) string {
 	return filepath.Join(config.Server.OutputPath, filename)
+}
+
+func (config *Config) isRelaymsgIdentifier(nick string) bool {
+	if !config.Server.Relaymsg.Enabled {
+		return false
+	}
+
+	for _, char := range config.Server.Relaymsg.Separators {
+		if strings.ContainsRune(nick, char) {
+			return true
+		}
+	}
+	return false
 }
 
 // setISupport sets up our RPL_ISUPPORT reply.
