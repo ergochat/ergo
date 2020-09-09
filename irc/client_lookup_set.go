@@ -165,12 +165,8 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNicknameInvalid, false
 		}
 
-		if config.Server.Relaying.Enabled {
-			for _, char := range config.Server.Relaying.Separators {
-				if strings.ContainsRune(newCfNick, char) {
-					return "", errNicknameInvalid, false
-				}
-			}
+		if config.isRelaymsgIdentifier(newNick) {
+			return "", errNicknameInvalid, false
 		}
 
 		if restrictedCasefoldedNicks.Has(newCfNick) || restrictedSkeletons.Has(newSkeleton) {

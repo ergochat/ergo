@@ -144,8 +144,8 @@ server:
     motd-formatting: true
 
     # relaying using the RELAYMSG command
-    relaying:
-        # is relaying enabled at all?
+    relaymsg:
+        # is relaymsg enabled at all?
         enabled: true
 
         # which character(s) are reserved for relayed nicks?

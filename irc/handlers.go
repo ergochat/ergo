@@ -2015,21 +2015,12 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		}
 
 		config := server.Config()
-		if config.Server.Relaying.Enabled {
-			var isForRelayClient bool
-			for _, char := range config.Server.Relaying.Separators {
-				if strings.ContainsRune(targetString, char) {
-					isForRelayClient = true
-					break
-				}
+		if config.isRelaymsgIdentifier(targetString) {
+			if histType == history.Privmsg {
+				rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot receive private messages"))
 			}
-			if isForRelayClient {
-				if histType == history.Privmsg {
-					rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), targetString, client.t("Relayed users cannot receive private messages"))
-				}
-				// TAGMSG/NOTICEs are intentionally silently dropped
-				continue
-			}
+			// TAGMSG/NOTICEs are intentionally silently dropped
+			continue
 		}
 
 		// each target gets distinct msgids
@@ -2443,8 +2434,8 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 // RELAYMSG <channel> <spoofed nick> :<message>
 func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
 	config := server.Config()
-	if !config.Server.Relaying.Enabled {
-		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_ENABLED", client.t("Relaying has been disabled"))
+	if !config.Server.Relaymsg.Enabled {
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_ENABLED", client.t("RELAYMSG has been disabled"))
 		return false
 	}
 
@@ -2454,7 +2445,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		return false
 	}
 
-	allowedToRelay := client.HasRoleCapabs("relaymsg-anywhere") || (config.Server.Relaying.AvailableToChanops && channel.ClientIsAtLeast(client, modes.ChannelOperator))
+	allowedToRelay := client.HasRoleCapabs("relaymsg-anywhere") || (config.Server.Relaymsg.AvailableToChanops && channel.ClientIsAtLeast(client, modes.ChannelOperator))
 	if !allowedToRelay {
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_PRIVED", client.t("You cannot relay messages to this channel"))
 		return false
@@ -2473,8 +2464,8 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", client.t("Invalid nickname"))
 		return false
 	}
-	if !strings.Contains(nick, "/") {
-		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", fmt.Sprintf(client.t("Relayed nicknames MUST contain the relaymsg separator %s"), "/"))
+	if !config.isRelaymsgIdentifier(nick) {
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", fmt.Sprintf(client.t("Relayed nicknames MUST contain a relaymsg separator from this set: %s"), config.Server.Relaymsg.Separators))
 		return false
 	}
 
@@ -2486,16 +2477,21 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 	// send msg
 	channelName := channel.Name()
+	relayTags := map[string]string{
+		"relaymsg": client.Nick(),
+	}
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			var tagsToUse map[string]string
 			if session.capabilities.Has(caps.Relaymsg) {
-				tagsToUse = map[string]string{
-					"relaymsg": client.Nick(),
-				}
+				tagsToUse = relayTags
 			}
 
-			session.sendSplitMsgFromClientInternal(false, nick, "", tagsToUse, "PRIVMSG", channelName, message)
+			if session == rb.session {
+				rb.AddSplitMessageFromClient(nick, "*", tagsToUse, "PRIVMSG", channelName, message)
+			} else {
+				session.sendSplitMsgFromClientInternal(false, nick, "*", tagsToUse, "PRIVMSG", channelName, message)
+			}
 		}
 	}
 	return false
