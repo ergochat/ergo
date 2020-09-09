@@ -556,6 +556,7 @@ oper-classes:
             - "local_unban"
             - "nofakelag"
             - "roleplay"
+            - "relaymsg-anywhere"
 
     # network operator
     "network-oper":
@@ -589,7 +590,6 @@ oper-classes:
             - "vhosts"
             - "chanreg"
             - "history"
-            - "relaymsg-anywhere"
             - "defcon"
 
 # ircd operators
@@ -776,7 +776,7 @@ fakelag:
 roleplay:
     # are roleplay commands enabled at all? (channels and clients still have to
     # opt in individually with the +E mode)
-    enabled: true
+    enabled: false
 
     # require the "roleplay" oper capability to send roleplay messages?
     require-oper: false
