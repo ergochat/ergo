@@ -1083,7 +1083,8 @@ func (client *Client) IdleSeconds() uint64 {
 
 // SetNames sets the client's ident and realname.
 func (client *Client) SetNames(username, realname string, fromIdent bool) error {
-	limit := client.server.Config().Limits.IdentLen
+	config := client.server.Config()
+	limit := config.Limits.IdentLen
 	if !fromIdent {
 		limit -= 1 // leave room for the prepended ~
 	}
@@ -1095,7 +1096,9 @@ func (client *Client) SetNames(username, realname string, fromIdent bool) error 
 		return errInvalidUsername
 	}
 
-	if !fromIdent {
+	if config.Server.SuppressIdent {
+		username = "~user"
+	} else if !fromIdent {
 		username = "~" + username
 	}
 
