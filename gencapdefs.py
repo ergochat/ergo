@@ -100,10 +100,10 @@ CAPDEFS = [
         standard="proposed IRCv3",
     ),
     CapDef(
-        identifier="Rename",
-        name="draft/rename",
-        url="https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md",
-        standard="proposed IRCv3",
+        identifier="ChannelRename",
+        name="draft/channel-rename",
+        url="https://ircv3.net/specs/extensions/channel-rename",
+        standard="draft IRCv3",
     ),
     CapDef(
         identifier="Resume",

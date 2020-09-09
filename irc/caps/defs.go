@@ -37,6 +37,10 @@ const (
 	// https://ircv3.net/specs/extensions/chghost-3.2.html
 	ChgHost Capability = iota
 
+	// ChannelRename is the draft IRCv3 capability named "draft/channel-rename":
+	// https://ircv3.net/specs/extensions/channel-rename
+	ChannelRename Capability = iota
+
 	// Chathistory is the proposed IRCv3 capability named "draft/chathistory":
 	// https://github.com/ircv3/ircv3-specifications/pull/393
 	Chathistory Capability = iota
@@ -56,10 +60,6 @@ const (
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
 	Relaymsg Capability = iota
-
-	// Rename is the proposed IRCv3 capability named "draft/rename":
-	// https://github.com/SaberUK/ircv3-specifications/blob/rename/extensions/rename.md
-	Rename Capability = iota
 
 	// Resume is the proposed IRCv3 capability named "draft/resume-0.5":
 	// https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md
@@ -131,12 +131,12 @@ var (
 		"batch",
 		"cap-notify",
 		"chghost",
+		"draft/channel-rename",
 		"draft/chathistory",
 		"draft/event-playback",
 		"draft/languages",
 		"draft/multiline",
 		"draft/relaymsg",
-		"draft/rename",
 		"draft/resume-0.5",
 		"echo-message",
 		"extended-join",
