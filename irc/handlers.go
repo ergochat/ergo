@@ -2554,7 +2554,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 				targetRb = NewResponseBuffer(mSession)
 				targetPrefix = mDetails.nickMask
 			}
-			if mSession.capabilities.Has(caps.Rename) {
+			if mSession.capabilities.Has(caps.ChannelRename) {
 				if reason != "" {
 					targetRb.Add(nil, clientPrefix, "RENAME", oldName, newName, reason)
 				} else {
