@@ -3,6 +3,7 @@ package irc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"net"
 	"unicode/utf8"
 
@@ -13,11 +14,12 @@ import (
 )
 
 const (
-	maxReadQBytes = ircmsg.MaxlenTagsFromClient + 512 + 1024
+	maxReadQBytes = ircmsg.MaxlenTagsFromClient + MaxLineLen + 1024
 )
 
 var (
-	crlf = []byte{'\r', '\n'}
+	crlf     = []byte{'\r', '\n'}
+	errReadQ = errors.New("ReadQ Exceeded")
 )
 
 // IRCConn abstracts away the distinction between a regular
@@ -31,7 +33,7 @@ type IRCConn interface {
 	// these take an IRC line or lines, correctly terminated with CRLF:
 	WriteLine([]byte) error
 	WriteLines([][]byte) error
-	// this returns an IRC line without the terminating CRLF:
+	// this returns an IRC line, possibly terminated with CRLF, LF, or nothing:
 	ReadLine() (line []byte, err error)
 
 	Close() error
@@ -76,7 +78,9 @@ func (cc *IRCStreamConn) ReadLine() (line []byte, err error) {
 	if isPrefix {
 		return nil, errReadQ
 	}
-	line = bytes.TrimSuffix(line, crlf)
+	if globalUtf8EnforcementSetting && !utf8.Valid(line) {
+		err = errInvalidUtf8
+	}
 	return
 }
 
@@ -101,9 +105,9 @@ func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
 
 func (wc IRCWSConn) WriteLine(buf []byte) (err error) {
 	buf = bytes.TrimSuffix(buf, crlf)
-	// there's not much we can do about this;
-	// silently drop the message
-	if !utf8.Valid(buf) {
+	if !globalUtf8EnforcementSetting && !utf8.Valid(buf) {
+		// there's not much we can do about this;
+		// silently drop the message
 		return nil
 	}
 	return wc.conn.WriteMessage(websocket.TextMessage, buf)
@@ -120,13 +124,18 @@ func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 }
 
 func (wc IRCWSConn) ReadLine() (line []byte, err error) {
-	for {
-		var messageType int
-		messageType, line, err = wc.conn.ReadMessage()
-		// on empty message or non-text message, try again, block if necessary
-		if err != nil || (messageType == websocket.TextMessage && len(line) != 0) {
-			return
+	messageType, line, err := wc.conn.ReadMessage()
+	if err == nil {
+		if messageType == websocket.TextMessage {
+			return line, nil
+		} else {
+			// for purposes of fakelag, treat non-text message as an empty line
+			return nil, nil
 		}
+	} else if err == websocket.ErrReadLimit {
+		return line, errReadQ
+	} else {
+		return line, err
 	}
 }
 

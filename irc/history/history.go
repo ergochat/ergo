@@ -29,12 +29,6 @@ const (
 	initialAutoSize = 32
 )
 
-// a Tagmsg that consists entirely of transient tags is not stored
-var transientTags = map[string]bool{
-	"+draft/typing": true,
-	"+typing":       true, // future-proofing
-}
-
 // Item represents an event (e.g., a PRIVMSG or a JOIN) and its associated data
 type Item struct {
 	Type ItemType
@@ -55,23 +49,6 @@ type Item struct {
 // HasMsgid tests whether a message has the message id `msgid`.
 func (item *Item) HasMsgid(msgid string) bool {
 	return item.Message.Msgid == msgid
-}
-
-func (item *Item) IsStorable() bool {
-	switch item.Type {
-	case Tagmsg:
-		for name := range item.Tags {
-			if !transientTags[name] {
-				return true
-			}
-		}
-		return false // all tags were blacklisted
-	case Privmsg, Notice:
-		// don't store CTCP other than ACTION
-		return !item.Message.IsRestrictedCTCPMessage()
-	default:
-		return true
-	}
 }
 
 type Predicate func(item *Item) (matches bool)

@@ -4,7 +4,6 @@
 package utils
 
 import (
-	"bytes"
 	"strings"
 	"time"
 )
@@ -98,7 +97,7 @@ func (sm *SplitMessage) Is512() bool {
 type TokenLineBuilder struct {
 	lineLen int
 	delim   string
-	buf     bytes.Buffer
+	buf     strings.Builder
 	result  []string
 }
 

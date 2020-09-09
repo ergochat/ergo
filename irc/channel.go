@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -447,7 +446,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 
 	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
 	var namesLines []string
-	var buffer bytes.Buffer
+	var buffer strings.Builder
 	if isJoined || !channel.flags.HasMode(modes.Secret) || isOper {
 		for _, target := range channel.Members() {
 			var nick string
@@ -538,6 +537,13 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 	} else {
 		return modes.Prefixes(isMultiPrefix)
 	}
+}
+
+func (channel *Channel) ClientStatus(client *Client) (present bool, cModes modes.Modes) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	modes, present := channel.members[client]
+	return present, modes.AllModes()
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
@@ -640,7 +646,7 @@ func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryS
 }
 
 func (channel *Channel) AddHistoryItem(item history.Item, account string) (err error) {
-	if !item.IsStorable() {
+	if !itemIsStorable(&item, channel.server.Config()) {
 		return
 	}
 
@@ -654,7 +660,7 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 }
 
 // Join joins the given client to this channel (if they can be joined).
-func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) {
+func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) error {
 	details := client.Details()
 
 	channel.stateMutex.RLock()
@@ -670,39 +676,44 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	if alreadyJoined {
 		// no message needs to be sent
-		return
+		return nil
 	}
 
-	// the founder can always join (even if they disabled auto +q on join);
-	// anyone who automatically receives halfop or higher can always join
-	hasPrivs := isSajoin || (founder != "" && founder == details.account) || (persistentMode != 0 && persistentMode != modes.Voice)
+	// 0. SAJOIN always succeeds
+	// 1. the founder can always join (even if they disabled auto +q on join)
+	// 2. anyone who automatically receives halfop or higher can always join
+	// 3. people invited with INVITE can join
+	hasPrivs := isSajoin || (founder != "" && founder == details.account) ||
+		(persistentMode != 0 && persistentMode != modes.Voice) ||
+		client.CheckInvited(chcfname)
+	if !hasPrivs {
+		if limit != 0 && chcount >= limit {
+			return errLimitExceeded
+		}
 
-	if !hasPrivs && limit != 0 && chcount >= limit {
-		rb.Add(nil, client.server.name, ERR_CHANNELISFULL, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "l"))
-		return
+		if chkey != "" && !utils.SecretTokensMatch(chkey, key) {
+			return errWrongChannelKey
+		}
+
+		if channel.flags.HasMode(modes.InviteOnly) &&
+			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
+			return errInviteOnly
+		}
+
+		if channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
+			!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) &&
+			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
+			return errBanned
+		}
+
+		if details.account == "" &&
+			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) {
+			return errRegisteredOnly
+		}
 	}
 
-	if !hasPrivs && chkey != "" && !utils.SecretTokensMatch(chkey, key) {
-		rb.Add(nil, client.server.name, ERR_BADCHANNELKEY, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "k"))
-		return
-	}
-
-	isInvited := client.CheckInvited(chcfname) || channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded)
-	if !hasPrivs && channel.flags.HasMode(modes.InviteOnly) && !isInvited {
-		rb.Add(nil, client.server.name, ERR_INVITEONLYCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "i"))
-		return
-	}
-
-	if !hasPrivs && channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
-		!isInvited &&
-		!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) {
-		rb.Add(nil, client.server.name, ERR_BANNEDFROMCHAN, details.nick, chname, fmt.Sprintf(client.t("Cannot join channel (+%s)"), "b"))
-		return
-	}
-
-	if !hasPrivs && channel.flags.HasMode(modes.RegisteredOnly) && details.account == "" && !isInvited {
-		rb.Add(nil, client.server.name, ERR_NEEDREGGEDNICK, details.nick, chname, client.t("You must be registered to join that channel"))
-		return
+	if joinErr := client.addChannel(channel, rb == nil); joinErr != nil {
+		return joinErr
 	}
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
@@ -747,10 +758,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		channel.AddHistoryItem(histItem, details.account)
 	}
 
-	client.addChannel(channel, rb == nil)
-
 	if rb == nil {
-		return
+		return nil
 	}
 
 	var modestr string
@@ -758,6 +767,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		modestr = fmt.Sprintf("+%v", givenMode)
 	}
 
+	isAway, awayMessage := client.Away()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session == rb.session {
@@ -773,6 +783,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			}
 			if givenMode != 0 {
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
+			}
+			if isAway && session.capabilities.Has(caps.AwayNotify) {
+				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
 			}
 		}
 	}
@@ -793,22 +806,26 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	rb.Flush(true)
 
 	channel.autoReplayHistory(client, rb, message.Msgid)
+	return nil
 }
 
 func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {
 	// autoreplay any messages as necessary
 	var items []history.Item
 
+	hasAutoreplayTimestamps := false
 	var start, end time.Time
 	if rb.session.zncPlaybackTimes.ValidFor(channel.NameCasefolded()) {
+		hasAutoreplayTimestamps = true
 		start, end = rb.session.zncPlaybackTimes.start, rb.session.zncPlaybackTimes.end
 	} else if !rb.session.autoreplayMissedSince.IsZero() {
 		// we already checked for history caps in `playReattachMessages`
+		hasAutoreplayTimestamps = true
 		start = time.Now().UTC()
 		end = rb.session.autoreplayMissedSince
 	}
 
-	if !start.IsZero() || !end.IsZero() {
+	if hasAutoreplayTimestamps {
 		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 		if seq != nil {
 			zncMax := channel.server.Config().History.ZNCMax
@@ -1229,44 +1246,19 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	if rb.session.capabilities.Has(caps.EchoMessage) {
-		var tagsToUse map[string]string
-		if rb.session.capabilities.Has(caps.MessageTags) {
-			tagsToUse = clientOnlyTags
-		}
-		if histType == history.Tagmsg && rb.session.capabilities.Has(caps.MessageTags) {
-			rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
-		} else {
-			rb.AddSplitMessageFromClient(details.nickMask, details.accountName, tagsToUse, command, chname, message)
-		}
-	}
-	// send echo-message to other connected sessions
-	for _, session := range client.Sessions() {
-		if session == rb.session {
-			continue
-		}
-		var tagsToUse map[string]string
-		if session.capabilities.Has(caps.MessageTags) {
-			tagsToUse = clientOnlyTags
-		}
-		if histType == history.Tagmsg && session.capabilities.Has(caps.MessageTags) {
-			session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
-		} else if histType != history.Tagmsg {
-			session.sendSplitMsgFromClientInternal(false, details.nickMask, details.accountName, tagsToUse, command, chname, message)
-		}
-	}
+	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
 	for _, member := range channel.Members() {
-		// echo-message is handled above, so skip sending the msg to the user themselves as well
-		if member == client {
-			continue
-		}
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG
 			continue
 		}
 
 		for _, session := range member.Sessions() {
+			if session == rb.session {
+				continue // we already sent echo-message, if applicable
+			}
+
 			if isCTCP && session.isTor {
 				continue // #753
 			}
@@ -1431,9 +1423,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		return
 	}
 
-	if channel.flags.HasMode(modes.InviteOnly) {
-		invitee.Invite(channel.NameCasefolded())
-	}
+	invitee.Invite(channel.NameCasefolded())
 
 	for _, member := range channel.Members() {
 		if member == inviter || member == invitee || !channel.ClientIsAtLeast(member, modes.Halfop) {
@@ -1450,7 +1440,14 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	tnick := invitee.Nick()
 	rb.Add(nil, inviter.server.name, RPL_INVITING, cnick, tnick, chname)
 	invitee.Send(nil, inviter.NickMaskString(), "INVITE", tnick, chname)
-	if invitee.Away() {
-		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, invitee.AwayMessage())
+	if away, awayMessage := invitee.Away(); away {
+		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, awayMessage)
 	}
+}
+
+// data for RPL_LIST
+func (channel *Channel) listData() (memberCount int, name, topic string) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return len(channel.members), channel.name, channel.topic
 }

@@ -244,7 +244,6 @@ SET modifies your account settings. The following settings are available:`,
 'enforce' lets you specify a custom enforcement mechanism for your registered
 nicknames. Your options are:
 1. 'none'    [no enforcement, overriding the server default]
-              or else they will be renamed]
 2. 'strict'  [you must already be authenticated to use the nick]
 3. 'default' [use the server default]`,
 
@@ -316,6 +315,24 @@ example with $bCERT ADD <account> <fingerprint>$b.`,
 			helpShort: `$bCERT$b controls a user account's certificate fingerprints`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,
+		},
+		"suspend": {
+			handler: nsSuspendHandler,
+			help: `Syntax: $bSUSPEND <nickname>$b
+
+SUSPEND disables an account and disconnects the associated clients.`,
+			helpShort: `$bSUSPEND$b disables an account and disconnects the clients`,
+			minParams: 1,
+			capabs:    []string{"accreg"},
+		},
+		"unsuspend": {
+			handler: nsUnsuspendHandler,
+			help: `Syntax: $bUNSUSPEND <nickname>$b
+
+UNSUSPEND reverses a previous SUSPEND, restoring access to the account.`,
+			helpShort: `$bUNSUSPEND$b restores access to a suspended account`,
+			minParams: 1,
+			capabs:    []string{"accreg"},
 		},
 	}
 )
@@ -424,8 +441,8 @@ func displaySetting(settingName string, settings AccountSettings, client *Client
 		}
 	case "dm-history":
 		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
-		csNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
-		csNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
+		nsNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
+		nsNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
 
 	default:
 		nsNotice(rb, client.t("No such setting"))
@@ -445,7 +462,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 	var finalSettings AccountSettings
 	var err error
 	switch strings.ToLower(params[0]) {
-	case "pass":
+	case "pass", "password":
 		nsNotice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
 	case "enforce":
@@ -649,14 +666,11 @@ func nsGroupHandler(server *Server, client *Client, command string, params []str
 }
 
 func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
-	client.stateMutex.Lock()
-	throttled, remainingTime := client.loginThrottle.Touch()
-	client.stateMutex.Unlock()
+	throttled, remainingTime := client.checkLoginThrottle()
 	if throttled {
 		nsNotice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
-		return false
 	}
-	return true
+	return !throttled
 }
 
 func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -685,9 +699,6 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	// try passphrase
 	if passphrase != "" {
-		if !nsLoginThrottleCheck(client, rb) {
-			return
-		}
 		err = server.accounts.AuthenticateByPassphrase(client, username, passphrase)
 		loginSuccessful = (err == nil)
 	}
@@ -801,6 +812,14 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 			return
 		} else {
 			passphrase = ""
+		}
+	}
+
+	if passphrase != "" {
+		cfPassphrase, err := Casefold(passphrase)
+		if err == nil && cfPassphrase == details.nickCasefolded {
+			nsNotice(rb, client.t("Usage: REGISTER <passphrase> [email]")) // #1179
+			return
 		}
 	}
 
@@ -1070,6 +1089,9 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		} else {
 			nsNotice(rb, fmt.Sprintf(client.t("Session %d:"), i+1))
 		}
+		if session.deviceID != "" {
+			nsNotice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
+		}
 		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
 		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
@@ -1095,6 +1117,8 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 			target, certfp = params[0], params[1]
 		} else if len(params) == 1 {
 			certfp = params[0]
+		} else if len(params) == 0 && verb == "add" && rb.session.certfp != "" {
+			certfp = rb.session.certfp // #1059
 		} else {
 			nsNotice(rb, client.t("Invalid parameters"))
 			return
@@ -1168,6 +1192,30 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 		nsNotice(rb, client.t("Try again later"))
 	default:
 		server.logger.Error("internal", "could not modify certificates:", err.Error())
+		nsNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func nsSuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.Suspend(params[0])
+	switch err {
+	case nil:
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), params[0]))
+	case errAccountDoesNotExist:
+		nsNotice(rb, client.t("No such account"))
+	default:
+		nsNotice(rb, client.t("An error occurred"))
+	}
+}
+
+func nsUnsuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.Unsuspend(params[0])
+	switch err {
+	case nil:
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully un-suspended account %s"), params[0]))
+	case errAccountDoesNotExist:
+		nsNotice(rb, client.t("No such account"))
+	default:
 		nsNotice(rb, client.t("An error occurred"))
 	}
 }

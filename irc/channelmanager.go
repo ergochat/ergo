@@ -5,6 +5,8 @@ package irc
 
 import (
 	"sync"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 type channelManagerEntry struct {
@@ -23,17 +25,17 @@ type ChannelManager struct {
 	sync.RWMutex // tier 2
 	// chans is the main data structure, mapping casefolded name -> *Channel
 	chans               map[string]*channelManagerEntry
-	chansSkeletons      StringSet // skeletons of *unregistered* chans
-	registeredChannels  StringSet // casefolds of registered chans
-	registeredSkeletons StringSet // skeletons of registered chans
-	purgedChannels      StringSet // casefolds of purged chans
+	chansSkeletons      utils.StringSet // skeletons of *unregistered* chans
+	registeredChannels  utils.StringSet // casefolds of registered chans
+	registeredSkeletons utils.StringSet // skeletons of registered chans
+	purgedChannels      utils.StringSet // casefolds of purged chans
 	server              *Server
 }
 
 // NewChannelManager returns a new ChannelManager.
 func (cm *ChannelManager) Initialize(server *Server) {
 	cm.chans = make(map[string]*channelManagerEntry)
-	cm.chansSkeletons = make(StringSet)
+	cm.chansSkeletons = make(utils.StringSet)
 	cm.server = server
 
 	cm.loadRegisteredChannels(server.Config())
@@ -47,8 +49,8 @@ func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
 	}
 
 	rawNames := cm.server.channelRegistry.AllChannels()
-	registeredChannels := make(StringSet, len(rawNames))
-	registeredSkeletons := make(StringSet, len(rawNames))
+	registeredChannels := make(utils.StringSet, len(rawNames))
+	registeredSkeletons := make(utils.StringSet, len(rawNames))
 	for _, name := range rawNames {
 		cfname, err := CasefoldChannel(name)
 		if err == nil {
@@ -130,11 +132,11 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 	}
 
 	channel.EnsureLoaded()
-	channel.Join(client, key, isSajoin, rb)
+	err = channel.Join(client, key, isSajoin, rb)
 
 	cm.maybeCleanup(channel, true)
 
-	return nil
+	return err
 }
 
 func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {
@@ -187,6 +189,10 @@ func (cm *ChannelManager) Cleanup(channel *Channel) {
 }
 
 func (cm *ChannelManager) SetRegistered(channelName string, account string) (err error) {
+	if cm.server.Defcon() <= 4 {
+		return errFeatureDisabled
+	}
+
 	var channel *Channel
 	cfname, err := CasefoldChannel(channelName)
 	if err != nil {
@@ -283,6 +289,14 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	cm.Lock()
 	defer cm.Unlock()
 
+	if newCfname == cfname {
+		entry := cm.chans[cfname]
+		if entry == nil || !entry.channel.IsLoaded() {
+			return errNoSuchChannel
+		}
+		entry.channel.Rename(newName, cfname)
+		return nil
+	}
 	if cm.chans[newCfname] != nil || cm.registeredChannels.Has(newCfname) {
 		return errChannelNameInUse
 	}

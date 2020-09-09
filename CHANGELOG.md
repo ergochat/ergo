@@ -1,6 +1,117 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.3.0] - 2020-09-06
+
+We're pleased to announce Oragono 2.3.0, a new stable release.
+
+This release contains primarily bug fixes, but includes one notable feature enhancement: a change contributed by [@hhirtz](https://github.com/hhirtz) that updates the `draft/rename` specification to correspond to the new (soon-to-be) published draft.
+
+Many thanks to [@hhirtz](https://github.com/hhirtz) for contributing patches, to [@bogdomania](https://github.com/bogdomania), [@digitalcircuit](https://github.com/digitalcircuit), [@ivan-avalos](https://github.com/ivan-avalos), [@jesopo](https://github.com/jesopo), [@kylef](https://github.com/kylef), [@Mitaka8](https://github.com/Mitaka8), [@mogad0n](https://github.com/mogad0n), and [@ProgVal](https://github.com/ProgVal) for reporting issues and helping test, and to our translators for contributing translations.
+
+This release includes no changes to the config file format or database changes.
+
+### Config changes
+* The recommended value of `lookup-hostnames` for configurations that cloak IPs (as has been the default since 2.1.0) is now `false` (#1228)
+
+### Security
+* Mitigated a potential DoS attack on websocket listeners (#1226)
+
+### Removed
+* Removed `/HOSTSERV OFFERLIST` and related commands; this functionality is superseded by IP cloaking (#1190)
+
+### Fixed
+* Fixed an edge case in handling no-op nick changes (#1242)
+* Fixed edge cases with users transitioning in and out of always-on status (#1218, #1219, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed a race condition related to the registration timeout (#1225, thanks [@hhirtz](https://github.com/hhirtz)!)
+* Fixed incorrectly formatted account tags on some messages (#1254, thanks [@digitalcircuit](https://github.com/digitalcircuit)!)
+* Improved checks for invalid config files (#1244, thanks [@ivan-avalos](https://github.com/ivan-avalos)!)
+* Fixed messages to services and `*playback` not receiving echo-message when applicable (#1204, thanks [@kylef](https://github.com/kylef)!)
+* Fixed a help string (#1237, thanks [@Mitaka8](https://github.com/Mitaka8)!)
+
+### Changed
+* Updated `draft/rename` implementation to the latest draft (#1223, thanks [@hhirtz](https://github.com/hhirtz)!)
+
+### Internal
+* Official release builds now use Go 1.15 (#1195)
+* `/INFO` now includes the Go version (#1234)
+
+## [2.2.0] - 2020-07-26
+
+We're pleased to announce Oragono 2.2.0, a new stable release.
+
+This release contains several notable enhancements, as well as bug fixes:
+
+* Support for tracking seen/missed messages across multiple devices (#843)
+* WHOX support contributed by @jesopo (#938)
+* Authentication of users via external scripts (#1107)
+
+Many thanks to [@clukawski](https://github.com/clukawski) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@daurnimator](https://github.com/daurnimator), [@emersonveenstra](https://github.com/emersonveenstra), [@eskil](https://github.com/eskil), [@eskimo](https://github.com/eskimo), Geo-, [@happyhater](https://github.com/happyhater), [@jesopo](https://github.com/jesopo), [@jwheare](https://github.com/jwheare), [@k4bek4be](https://github.com/k4bek4be), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@kylef](https://github.com/kylef), [@LukeHoersten](https://github.com/LukeHoersten), [@mogad0n](https://github.com/mogad0n), r3m, [@RyanSquared](https://github.com/RyanSquared), savoyard, and [@wrmsr](https://github.com/wrmsr) for reporting issues and helping test, and to our translators for contributing translations.
+
+This release includes changes to the config file format, including one breaking change: `timeout` is no longer an acceptable value of `accounts.nick-reservation.method`. (If you were using it, we suggest `strict` as a replacement.) All other changes to the config file format are backwards compatible and do not require updating before restart.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+### Removed
+* Timeout-based nickname enforcement has been removed. We recommend `strict` as the default enforcement method. Users who configured `timeout` for their account will be upgraded to `strict`. With `accounts.login-via-pass-command` enabled, clients lacking support for SASL can authenticate via the `PASS` (server password command) by sending `account_name:account_password` as the server password. (#1027)
+* Native support for LDAP has been removed. LDAP is now supported via the external [oragono-ldap](https://github.com/oragono/oragono-ldap) plugin; see its repository page for details. (#1142, #1107)
+
+### Config changes
+* Added `server.enforce-utf8`, controlling whether the server enforces that messages be valid UTF-8; a value of `true` for this is now the recommended default (#1151)
+* Added `history.tagmsg-storage` for configuring which TAGMSG are stored in history; if this is not configured, TAGMSG will not be stored (#1172)
+* All TLS certificate fingerprints in the config file are now named `certfp` instead of `fingerprint` (the old name of `fingerprint` is still accepted) (#1050, thanks [@RyanSquared](https://github.com/RyanSquared)!)
+* Added `accounts.auth-script` section for configuring external authentication scripts (#1107, thanks [@daurnimator](https://github.com/daurnimator)!)
+* Removed `accounts.ldap` section for configuring LDAP; LDAP is now available via the auth-script plugin interface (#1142)
+* Added `defcon` operator capability, allowing use of the new `/DEFCON` command (#328)
+* Default `awaylen`, `kicklen`, and `topiclen` limits now reflect the 512-character line limit (#1112, thanks [@k4bek4be](https://github.com/k4bek4be)!)
+* Added `extjwt` section for configuring the EXTJWT extension (#948, #1136)
+* `login-via-pass-command: true` is now a recommended default (#1186)
+
+### Added
+* Added support for [WHOX](https://github.com/ircv3/ircv3-specifications/issues/81), contributed by [@jesopo](https://github.com/jesopo) (#938, thanks!)
+* Added support for tracking missed messages across multiple devices; see the "history" section of the manual for details (#843, thanks [@jwheare](https://github.com/jwheare) and [@wrmsr](https://github.com/wrmsr)!)
+* Added `/NICKSERV SUSPEND` and `/NICKSERV UNSUSPEND` commands, allowing operators to suspend access to an abusive user account (#1135)
+* Added support for external authentication systems, via subprocess ("auth-script") invocation (#1107, thanks [@daurnimator](https://github.com/daurnimator)!)
+* Added the `/DEFCON` command, allowing operators to respond to spam or DoS attacks by disabling features at runtime without a rehash. (This feature requires that the operator have a newly defined capability, named `defcon`; this can be added to the appropriate oper blocks in the config file.) (#328, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Added support for the [EXTJWT](https://github.com/ircv3/ircv3-specifications/pull/341) draft extension, allowing Oragono to be integrated with other systems like Jitsi (#948, #1136)
+* Services (NickServ, ChanServ, etc.) now respond to CTCP VERSION messages (#1055, thanks [@jesopo](https://github.com/jesopo)!)
+* Added `BOT` ISUPPORT token, plus a `B` flag for bots in `352 RPL_WHOREPLY` (#1117)
+* Added support for the `+T` no-CTCP user mode (#1007, thanks [@clukawski](https://github.com/clukawski)!)
+* Added support for persisting the realname of always-on clients (#1065, thanks [@clukawski](https://github.com/clukawski)!)
+* Added a warning on incorrect arguments to `/NICKSERV REGISTER` (#1179, thanks [@LukeHoersten](https://github.com/LukeHoersten)!)
+* `/NICKSERV SET PASSWORD` now sends a warning (#1208)
+
+### Fixed
+* Fixed channels with only invisible users not being displayed in `/LIST` output (#1161, thanks [@bogdomania](https://github.com/bogdomania)!)
+* Fixed `INVITE` not overriding a `+b` ban (#1168)
+* Fixed incorrect `CHGHOST` lines during authentication with `/NICKSERV IDENTIFY` under some circumstances (#1108, thanks Geo-!)
+* Fixed incorrect `CHGHOST` lines sent to users during connection registration (#1125, thanks [@jesopo](https://github.com/jesopo)!)
+* Fixed a number of issues affecting the `znc.in/playback` capability, in particular restoring compatibility with Palaver (#1205, thanks [@kylef](https://github.com/kylef)!)
+* Fixed interaction of auto-away with the regular `/AWAY` command (#1207)
+* Fixed an incorrect interaction between always-on and `/NS SAREGISTER` (#1216)
+* Fixed a race condition where nicknames of signed-out users could remain in the channel names list (#1166, thanks [@eskimo](https://github.com/eskimo)!)
+* Fixed the last line of the MOTD being truncated in the absence of a terminating `\n` (#1167, thanks [@eskimo](https://github.com/eskimo)!)
+* Fixed `away-notify` lines not being sent on channel JOIN (#1198, thanks savoyard!)
+* Fixed incorrect source of some nickserv messages (#1185)
+* Fixed idle time being updated on non-PRIVMSG commands (thanks r3m and [@happyhater](https://github.com/happyhater)!)
+* Fixed `/NICKSERV UNREGISTER` and `/NICKSERV ERASE` not deleting stored user modes (#1157)
+
+### Security
+* Connections to an STS-only listener no longer reveal the exact server version or server creation time (#802, thanks [@csmith](https://github.com/csmith)!)
+
+### Changed
+* `/DLINE` now operates on individual client connections (#1135)
+* When using the multiclient feature, each client now has its own independent `MONITOR` list (#1053, thanks [@ajaspers](https://github.com/ajaspers)!)
+* `MONITOR L` now lists the nicknames in the form they were originally sent with `MONITOR +`, without casefolding (#1083)
+* We now send the traditional `445 ERR_SUMMONDISABLED` and `446 ERR_USERSDISABLED` in response to the `SUMMON` and `USERS` commands (#1078, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
+* RPL_ISUPPORT parameters with no values are now sent without an `=` (#1067, #1069, #1091, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf) and [@jesopo](https;//github.com/jesopo)!)
+* TAGMSG storage is now controlled via the `history.tagmsg-storage` config block (#1172)
+* `/NICKSERV CERT ADD` with no argument now adds the user's current TLS certificate fingerprint, when applicable (#1059, thanks [@emersonveenstra](https://github.com/emersonveenstra)!)
+
+### Internal
+* The config file containing recommended defaults is now named `default.yaml`, instead of `oragono.yaml` (#1130, thanks [@k4bek4be](https://github.com/k4bek4be)!)
+* The output of the `/INFO` command now includes the full git hash, when applicable (#1105)
+
 ## [2.1.0] - 2020-06-01
 We're pleased to announce Oragono 2.1.0, a new stable release.
 

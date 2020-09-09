@@ -105,6 +105,7 @@ const (
 	RegisteredOnly  Mode = 'R'
 	ServerNotice    Mode = 's'
 	TLS             Mode = 'Z'
+	UserNoCTCP      Mode = 'T'
 	UserRoleplaying Mode = 'E'
 	WallOps         Mode = 'w'
 )

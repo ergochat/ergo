@@ -25,7 +25,7 @@ const (
 type ResponseBuffer struct {
 	Label     string // label if this is a labeled response batch
 	batchID   string // ID of the labeled response batch, if one has been initiated
-	batchType string // type of the labeled response batch (possibly `history` or `chathistory`)
+	batchType string // type of the labeled response batch (currently either `labeled-response` or `chathistory`)
 
 	// stack of batch IDs of nested batches, which are handled separately
 	// from the underlying labeled-response batch. starting a new nested batch
@@ -143,6 +143,23 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 	}
 }
 
+func (rb *ResponseBuffer) addEchoMessage(tags map[string]string, nickMask, accountName, command, target string, message utils.SplitMessage) {
+	if rb.session.capabilities.Has(caps.EchoMessage) {
+		hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
+		if command == "TAGMSG" {
+			if hasTagsCap {
+				rb.AddFromClient(message.Time, message.Msgid, nickMask, accountName, tags, command, target)
+			}
+		} else {
+			tagsToSend := tags
+			if !hasTagsCap {
+				tagsToSend = nil
+			}
+			rb.AddSplitMessageFromClient(nickMask, accountName, tagsToSend, command, target, message)
+		}
+	}
+}
+
 func (rb *ResponseBuffer) sendBatchStart(blocking bool) {
 	if rb.batchID != "" {
 		// batch already initialized
@@ -200,9 +217,7 @@ func (rb *ResponseBuffer) EndNestedBatch(batchID string) {
 // supported by the client (`history`, `chathistory`, or no batch, in descending order).
 func (rb *ResponseBuffer) StartNestedHistoryBatch(params ...string) (batchID string) {
 	var batchType string
-	if rb.session.capabilities.Has(caps.EventPlayback) {
-		batchType = "history"
-	} else if rb.session.capabilities.Has(caps.Batch) {
+	if rb.session.capabilities.Has(caps.Batch) {
 		batchType = "chathistory"
 	}
 	if batchType != "" {

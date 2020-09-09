@@ -28,14 +28,6 @@ func (clients *ClientManager) Initialize() {
 	clients.bySkeleton = make(map[string]*Client)
 }
 
-// Count returns how many clients are in the manager.
-func (clients *ClientManager) Count() int {
-	clients.RLock()
-	defer clients.RUnlock()
-	count := len(clients.byNick)
-	return count
-}
-
 // Get retrieves a client from the manager, if they exist.
 func (clients *ClientManager) Get(nick string) *Client {
 	casefoldedName, err := CasefoldName(nick)
@@ -48,9 +40,8 @@ func (clients *ClientManager) Get(nick string) *Client {
 	return nil
 }
 
-func (clients *ClientManager) removeInternal(client *Client) (err error) {
+func (clients *ClientManager) removeInternal(client *Client, oldcfnick, oldskeleton string) (err error) {
 	// requires holding the writable Lock()
-	oldcfnick, oldskeleton := client.uniqueIdentifiers()
 	if oldcfnick == "*" || oldcfnick == "" {
 		return errNickMissing
 	}
@@ -88,7 +79,8 @@ func (clients *ClientManager) Remove(client *Client) error {
 	clients.Lock()
 	defer clients.Unlock()
 
-	return clients.removeInternal(client)
+	oldcfnick, oldskeleton := client.uniqueIdentifiers()
+	return clients.removeInternal(client, oldcfnick, oldskeleton)
 }
 
 // Handles a RESUME by attaching a session to a designated client. It is the
@@ -173,7 +165,6 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNicknameInvalid, false
 		}
 
-		config := client.server.Config()
 		if config.Server.Relaying.Enabled {
 			for _, char := range config.Server.Relaying.Separators {
 				if strings.ContainsRune(newCfNick, char) {
@@ -182,7 +173,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			}
 		}
 
-		if restrictedCasefoldedNicks[newCfNick] || restrictedSkeletons[newSkeleton] {
+		if restrictedCasefoldedNicks.Has(newCfNick) || restrictedSkeletons.Has(newSkeleton) {
 			return "", errNicknameInvalid, false
 		}
 
@@ -234,18 +225,13 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			client.server.stats.AddRegistered(invisible, operator)
 		}
 		session.autoreplayMissedSince = lastSeen
-		// XXX SetNames only changes names if they are unset, so the realname change only
-		// takes effect on first attach to an always-on client (good), but the user/ident
-		// change is always a no-op (bad). we could make user/ident act the same way as
-		// realname, but then we'd have to send CHGHOST and i don't want to deal with that
-		// for performance reasons
-		currentClient.SetNames("user", realname, true)
+		// TODO: transition mechanism for #1065, clean this up eventually:
+		if currentClient.Realname() == "" {
+			currentClient.SetRealname(realname)
+		}
 		// successful reattach!
 		return newNick, nil, back
 	} else if currentClient == client && currentClient.Nick() == newNick {
-		// see #1019: normally no-op nick changes are caught earlier, by performNickChange,
-		// but they are not detected there when force-guest-format is enabled (because
-		// the proposed nickname is e.g. alice and the current nickname is Guest-alice)
 		return "", errNoop, false
 	}
 	// analogous checks for skeletons
@@ -254,10 +240,13 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		return "", errNicknameInUse, false
 	}
 
-	clients.removeInternal(client)
+	formercfnick, formerskeleton := client.uniqueIdentifiers()
+	if changeSuccess := client.SetNick(newNick, newCfNick, newSkeleton); !changeSuccess {
+		return "", errClientDestroyed, false
+	}
+	clients.removeInternal(client, formercfnick, formerskeleton)
 	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
-	client.updateNick(newNick, newCfNick, newSkeleton)
 	return newNick, nil, false
 }
 
@@ -270,21 +259,6 @@ func (clients *ClientManager) AllClients() (result []*Client) {
 		result[i] = client
 		i++
 	}
-	return
-}
-
-// AllWithCaps returns all clients with the given capabilities.
-func (clients *ClientManager) AllWithCaps(capabs ...caps.Capability) (sessions []*Session) {
-	clients.RLock()
-	defer clients.RUnlock()
-	for _, client := range clients.byNick {
-		for _, session := range client.Sessions() {
-			if session.capabilities.HasAll(capabs...) {
-				sessions = append(sessions, session)
-			}
-		}
-	}
-
 	return
 }
 

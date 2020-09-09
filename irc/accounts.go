@@ -17,7 +17,6 @@ import (
 
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/email"
-	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -40,7 +39,8 @@ const (
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 	keyAccountLastSeen         = "account.lastseen %s"
-	keyAccountModes            = "account.modes %s" // user modes for the always-on client as a string
+	keyAccountModes            = "account.modes %s"    // user modes for the always-on client as a string
+	keyAccountRealname         = "account.realname %s" // client realname stored as string
 
 	keyVHostQueueAcctToId = "vhostQueue %s"
 	vhostRequestIdx       = "vhostQueue"
@@ -128,7 +128,13 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 		account, err := am.LoadAccount(accountName)
 		if err == nil && account.Verified &&
 			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
-			am.server.AddAlwaysOnClient(account, am.loadChannels(accountName), am.loadLastSeen(accountName), am.loadModes(accountName))
+			am.server.AddAlwaysOnClient(
+				account,
+				am.loadChannels(accountName),
+				am.loadLastSeen(accountName),
+				am.loadModes(accountName),
+				am.loadRealname(accountName),
+			)
 		}
 	}
 }
@@ -375,14 +381,14 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errAccountCreation
 	}
 
-	if restrictedCasefoldedNicks[casefoldedAccount] || restrictedSkeletons[skeleton] {
+	if restrictedCasefoldedNicks.Has(casefoldedAccount) || restrictedSkeletons.Has(skeleton) {
 		return errAccountAlreadyRegistered
 	}
 
 	config := am.server.Config()
 
-	// final "is registration allowed" check, probably redundant:
-	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") {
+	// final "is registration allowed" check:
+	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") || am.server.Defcon() <= 4 {
 		return errFeatureDisabled
 	}
 
@@ -617,11 +623,12 @@ func (am *AccountManager) loadModes(account string) (uModes modes.Modes) {
 	return
 }
 
-func (am *AccountManager) saveLastSeen(account string, lastSeen time.Time) {
+func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var val string
-	if !lastSeen.IsZero() {
-		val = strconv.FormatInt(lastSeen.UnixNano(), 10)
+	if len(lastSeen) != 0 {
+		text, _ := json.Marshal(lastSeen)
+		val = string(text)
 	}
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		if val != "" {
@@ -633,21 +640,41 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen time.Time) {
 	})
 }
 
-func (am *AccountManager) loadLastSeen(account string) (lastSeen time.Time) {
+func (am *AccountManager) loadLastSeen(account string) (lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountLastSeen, account)
 	var lsText string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		lsText, _ = tx.Get(key)
-		// XXX clear this on startup, because it's not clear when it's
-		// going to be overwritten, and restarting the server twice in a row
-		// could result in a large amount of duplicated history replay
-		tx.Delete(key)
 		return nil
 	})
-	lsNum, err := strconv.ParseInt(lsText, 10, 64)
-	if err == nil {
-		return time.Unix(0, lsNum).UTC()
+	if lsText == "" {
+		return nil
 	}
+	err := json.Unmarshal([]byte(lsText), &lastSeen)
+	if err != nil {
+		return nil
+	}
+	return
+}
+
+func (am *AccountManager) saveRealname(account string, realname string) {
+	key := fmt.Sprintf(keyAccountRealname, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		if realname != "" {
+			tx.Set(key, realname, nil)
+		} else {
+			tx.Delete(key)
+		}
+		return nil
+	})
+}
+
+func (am *AccountManager) loadRealname(account string) (realname string) {
+	key := fmt.Sprintf(keyAccountRealname, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		realname, _ = tx.Get(key)
+		return nil
+	})
 	return
 }
 
@@ -864,14 +891,15 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	}
 	if client != nil {
 		am.Login(client, clientAccount)
-	}
-	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
-	if method != NickEnforcementNone {
-		currentClient := am.server.clients.Get(casefoldedAccount)
-		if currentClient == nil || currentClient == client || currentClient.Account() == casefoldedAccount {
-			return nil
+		if client.AlwaysOn() {
+			client.markDirty(IncludeRealname)
 		}
-		if method == NickEnforcementStrict {
+	}
+	// we may need to do nick enforcement here:
+	_, method := am.EnforcementStatus(casefoldedAccount, skeleton)
+	if method == NickEnforcementStrict {
+		currentClient := am.server.clients.Get(casefoldedAccount)
+		if currentClient != nil && currentClient != client && currentClient.Account() != casefoldedAccount {
 			am.server.RandomlyRename(currentClient)
 		}
 	}
@@ -1052,6 +1080,10 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		}
 	}
 
+	if throttled, remainingTime := client.checkLoginThrottle(); throttled {
+		return &ThrottleError{remainingTime}
+	}
+
 	var account ClientAccount
 
 	defer func() {
@@ -1061,24 +1093,13 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	}()
 
 	config := am.server.Config()
-	if config.Accounts.LDAP.Enabled {
-		ldapConf := am.server.Config().Accounts.LDAP
-		err = ldap.CheckLDAPPassphrase(ldapConf, accountName, passphrase, am.server.logger)
-		if err != nil {
-			account, err = am.loadWithAutocreation(accountName, ldapConf.Autocreate)
-			return
-		}
-	}
-
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
 		output, err = CheckAuthScript(config.Accounts.AuthScript,
 			AuthScriptInput{AccountName: accountName, Passphrase: passphrase, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
-			return err
-		}
-		if output.Success {
+		} else if output.Success {
 			if output.AccountName != "" {
 				accountName = output.AccountName
 			}
@@ -1231,6 +1252,69 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	return
 }
 
+func (am *AccountManager) Suspend(accountName string) (err error) {
+	account, err := CasefoldName(accountName)
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	existsKey := fmt.Sprintf(keyAccountExists, account)
+	verifiedKey := fmt.Sprintf(keyAccountVerified, account)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get(existsKey)
+		if err != nil {
+			return errAccountDoesNotExist
+		}
+		_, err = tx.Delete(verifiedKey)
+		return err
+	})
+
+	if err == errAccountDoesNotExist {
+		return err
+	} else if err != nil {
+		am.server.logger.Error("internal", "couldn't persist suspension", account, err.Error())
+	} // keep going
+
+	am.Lock()
+	clients := am.accountToClients[account]
+	delete(am.accountToClients, account)
+	am.Unlock()
+
+	am.killClients(clients)
+	return nil
+}
+
+func (am *AccountManager) killClients(clients []*Client) {
+	for _, client := range clients {
+		client.Logout()
+		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
+		client.destroy(nil)
+	}
+}
+
+func (am *AccountManager) Unsuspend(account string) (err error) {
+	cfaccount, err := CasefoldName(account)
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+
+	existsKey := fmt.Sprintf(keyAccountExists, cfaccount)
+	verifiedKey := fmt.Sprintf(keyAccountVerified, cfaccount)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get(existsKey)
+		if err != nil {
+			return errAccountDoesNotExist
+		}
+		tx.Set(verifiedKey, "1", nil)
+		return nil
+	})
+
+	if err != nil {
+		return errAccountDoesNotExist
+	}
+	return nil
+}
+
 func (am *AccountManager) Unregister(account string, erase bool) error {
 	config := am.server.Config()
 	casefoldedAccount, err := CasefoldName(account)
@@ -1253,8 +1337,12 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
+	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 
 	var clients []*Client
+	defer func() {
+		am.killClients(clients)
+	}()
 
 	var registeredChannels []string
 	// on our way out, unregister all the account's channels and delete them from the db
@@ -1307,6 +1395,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
 		tx.Delete(lastSeenKey)
+		tx.Delete(modesKey)
 
 		_, err := tx.Delete(vhostQueueKey)
 		am.decrementVHostQueueCount(casefoldedAccount, err)
@@ -1346,12 +1435,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		delete(am.nickToAccount, nick)
 		additionalSkel, _ := Skeleton(nick)
 		delete(am.skeletonToAccount, additionalSkel)
-	}
-	for _, client := range clients {
-		client.Logout()
-		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
-		// destroy acquires a semaphore so we can't call it while holding a lock
-		go client.destroy(nil)
 	}
 
 	if err != nil && !erase {
@@ -1415,9 +1498,7 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 			AuthScriptInput{Certfp: certfp, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
-			return err
-		}
-		if output.Success && output.AccountName != "" {
+		} else if output.Success && output.AccountName != "" {
 			clientAccount, err = am.loadWithAutocreation(output.AccountName, config.Accounts.AuthScript.Autocreate)
 			return
 		}
@@ -1492,7 +1573,6 @@ func (am *AccountManager) ModifyAccountSettings(account string, munger settingsM
 type VHostInfo struct {
 	ApprovedVHost   string
 	Enabled         bool
-	Forbidden       bool
 	RequestedVHost  string
 	RejectedVHost   string
 	RejectionReason string
@@ -1546,10 +1626,6 @@ func (am *AccountManager) VHostSet(account string, vhost string) (result VHostIn
 func (am *AccountManager) VHostRequest(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
 	munger := func(input VHostInfo) (output VHostInfo, err error) {
 		output = input
-		if input.Forbidden {
-			err = errVhostsForbidden
-			return
-		}
 		// you can update your existing request, but if you were approved or rejected,
 		// you can't spam a new request
 		if output.RequestedVHost == "" {
@@ -1559,32 +1635,6 @@ func (am *AccountManager) VHostRequest(account string, vhost string, cooldown ti
 			return
 		}
 		output.RequestedVHost = vhost
-		output.RejectedVHost = ""
-		output.RejectionReason = ""
-		output.LastRequestTime = time.Now().UTC()
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
-func (am *AccountManager) VHostTake(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		if input.Forbidden {
-			err = errVhostsForbidden
-			return
-		}
-		// if you have a request pending, you can cancel it using take;
-		// otherwise, you're subject to the same throttling as if you were making a request
-		if output.RequestedVHost == "" {
-			err = output.checkThrottle(cooldown)
-		}
-		if err != nil {
-			return
-		}
-		output.ApprovedVHost = vhost
-		output.RequestedVHost = ""
 		output.RejectedVHost = ""
 		output.RejectionReason = ""
 		output.LastRequestTime = time.Now().UTC()
@@ -1633,20 +1683,15 @@ func (am *AccountManager) VHostSetEnabled(client *Client, enabled bool) (result 
 	return am.performVHostChange(client.Account(), munger)
 }
 
-func (am *AccountManager) VHostForbid(account string, forbid bool) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		output.Forbidden = forbid
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
 func (am *AccountManager) performVHostChange(account string, munger vhostMunger) (result VHostInfo, err error) {
 	account, err = CasefoldName(account)
 	if err != nil || account == "" {
 		err = errAccountDoesNotExist
+		return
+	}
+
+	if am.server.Defcon() <= 3 {
+		err = errFeatureDisabled
 		return
 	}
 
@@ -1758,12 +1803,12 @@ func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {
 	}
 
 	vhost := ""
-	if info.Enabled && !info.Forbidden {
+	if info.Enabled {
 		vhost = info.ApprovedVHost
 	}
 	oldNickmask := client.NickMaskString()
 	updated := client.SetVHost(vhost)
-	if updated {
+	if updated && client.Registered() {
 		// TODO: doing I/O here is kind of a kludge
 		client.sendChghost(oldNickmask, client.Hostname())
 	}

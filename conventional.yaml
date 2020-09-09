@@ -18,7 +18,7 @@ server:
         # This version of the config provides a public plaintext listener on
         # port 6667 for testing and compatibility with legacy applications.
         # We recommend disabling this listener in a production setting
-        # and replacing it with loopback-only listeners (see oragono.yaml):
+        # and replacing it with loopback-only listeners (see default.yaml):
         ":6667":
 
         # The standard SSL/TLS port for IRC is 6697. This will listen on all interfaces:
@@ -100,7 +100,7 @@ server:
 
     # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
     # channel names, account names, etc.), and how they are normalized for case.
-    # with the recommended default of 'precis', utf-8 identifiers that are "sane"
+    # with the recommended default of 'precis', UTF8 identifiers that are "sane"
     # (according to RFC 8265) are allowed, and the server additionally tries to protect
     # against confusable characters ("homoglyph attacks").
     # the other options are 'ascii' (traditional ASCII-only identifiers), and 'permissive',
@@ -109,6 +109,11 @@ server:
     # we recommend leaving this value at its default (changing it once the network is
     # already up and running is problematic).
     casemapping: "precis"
+
+    # enforce-utf8 controls whether the server allows non-UTF8 bytes in messages
+    # (as in traditional IRC) or preemptively discards non-UTF8 messages (since
+    # they cannot be relayed to websocket clients).
+    enforce-utf8: true
 
     # whether to look up user hostnames with reverse DNS.
     # (disabling this will expose user IPs instead of hostnames;
@@ -121,6 +126,10 @@ server:
 
     # use ident protocol to get usernames
     check-ident: true
+
+    # ignore the supplied user/ident string from the USER command; always set the value to
+    # `~user` (literally) instead. this can potentially reduce confusion and simplify bans.
+    suppress-ident: false
 
     # password to login to the server
     # generated using  "oragono genpasswd"
@@ -162,7 +171,7 @@ server:
         -
             # SHA-256 fingerprint of the TLS certificate the gateway must use to connect
             # (comment this out to use passwords only)
-            fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+            certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
             # password the gateway uses to connect, made with oragono genpasswd
             password: "$2a$04$abcdef0123456789abcdef0123456789abcdef0123456789abcde"
@@ -344,7 +353,7 @@ accounts:
     skip-server-password: false
 
     # enable login to accounts via the PASS command, e.g., PASS account:password
-    # this is sometimes useful for compatibility with old clients that don't support SASL
+    # this is useful for compatibility with old clients that don't support SASL
     login-via-pass-command: false
 
     # require-sasl controls whether clients are required to have accounts
@@ -367,8 +376,6 @@ accounts:
         additional-nick-limit: 2
 
         # method describes how nickname reservation is handled
-        #   timeout:  let the user change to the registered nickname, give them X seconds
-        #             to login and then rename them if they haven't done so
         #   strict:   don't let the user change to the registered nickname unless they're
         #             already logged-in using SASL or NickServ
         #   optional: no enforcement by default, but allow users to opt in to
@@ -381,9 +388,6 @@ accounts:
         # allow users to set their own nickname enforcement status, e.g.,
         # to opt out of strict enforcement
         allow-custom-enforcement: true
-
-        # rename-timeout - this is how long users have 'til they're renamed
-        rename-timeout: 30s
 
         # format for guest nicknames:
         # 1. these nicknames cannot be registered or reserved
@@ -459,50 +463,11 @@ accounts:
             # before they can request a new one.
             cooldown: 168h
 
-        # vhosts that users can take without approval, using `/HS TAKE`
-        offer-list:
-            #- "oragono.test"
-
     # modes that are set by default when a user connects
     # if unset, no user modes will be set by default
     # +i is invisible (a user's channels are hidden from whois replies)
     # see  /QUOTE HELP umodes  for more user modes
     # default-user-modes: +i
-
-    # support for deferring password checking to an external LDAP server
-    # you should probably ignore this section! consult the grafana docs for details:
-    # https://grafana.com/docs/grafana/latest/auth/ldap/
-    # you will probably want to set require-sasl and disable accounts.registration.enabled
-    # ldap:
-    #     enabled: true
-    #     # should we automatically create users if their LDAP login succeeds?
-    #     autocreate: true
-    #     # example configuration that works with Forum Systems's testing server:
-    #     # https://www.forumsys.com/tutorials/integration-how-to/ldap/online-ldap-test-server/
-    #     host: "ldap.forumsys.com"
-    #     port: 389
-    #     timeout: 30s
-    #     # example "single-bind" configuration, where we bind directly to the user's entry:
-    #     bind-dn: "uid=%s,dc=example,dc=com"
-    #     # example "admin bind" configuration, where we bind to an initial admin user,
-    #     # then search for the user's entry with a search filter:
-    #     #search-base-dns:
-    #     #    - "dc=example,dc=com"
-    #     #bind-dn: "cn=read-only-admin,dc=example,dc=com"
-    #     #bind-password: "password"
-    #     #search-filter: "(uid=%s)"
-    #     # example of requiring that users be in a particular group
-    #     # (note that this is an OR over the listed groups, not an AND):
-    #     #require-groups:
-    #     #    - "ou=mathematicians,dc=example,dc=com"
-    #     #group-search-filter-user-attribute: "dn"
-    #     #group-search-filter: "(uniqueMember=%s)"
-    #     #group-search-base-dns:
-    #     #    - "dc=example,dc=com"
-    #     # example of group membership testing via user attributes, as in AD
-    #     # or with OpenLDAP's "memberOf overlay" (overrides group-search-filter):
-    #     attributes:
-    #         member-of: "memberOf"
 
     # pluggable authentication mechanism, via subprocess invocation
     # see the manual for details on how to write an authentication plugin script
@@ -597,6 +562,7 @@ oper-classes:
             - "chanreg"
             - "history"
             - "relaymsg-anywhere"
+            - "defcon"
 
 # ircd operators
 opers:
@@ -623,7 +589,7 @@ opers:
         # if a SHA-256 certificate fingerprint is configured here, then it will be
         # required to /OPER. if you comment out the password hash above, then you can
         # /OPER without a password.
-        #fingerprint: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        #certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
         # if 'auto' is set (and no password hash is set), operator permissions will be
         # granted automatically as soon as you connect with the right fingerprint.
         #auto: true
@@ -793,6 +759,24 @@ roleplay:
     # add the real nickname, in parentheses, to the end of every roleplay message?
     add-suffix: true
 
+# external services can integrate with the ircd using JSON Web Tokens (https://jwt.io).
+# in effect, the server can sign a token attesting that the client is present on
+# the server, is a member of a particular channel, etc.
+extjwt:
+    # # default service config (for `EXTJWT #channel`).
+    # # expiration time for the token:
+    # expiration: 45s
+    # # you can configure tokens to be signed either with HMAC and a symmetric secret:
+    # secret: "65PHvk0K1_sM-raTsCEhatVkER_QD8a0zVV8gG2EWcI"
+    # # or with an RSA private key:
+    # #rsa-private-key-file: "extjwt.pem"
+
+    # # named services (for `EXTJWT #channel service_name`):
+    # services:
+    #     "jitsi":
+    #         expiration: 30s
+    #         secret: "qmamLKDuOzIzlO8XqsGGewei_At11lewh6jtKfSTbkg"
+
 # history message storage: this is used by CHATHISTORY, HISTORY, znc.in/playback,
 # various autoreplay features, and the resume extension
 history:
@@ -844,7 +828,9 @@ history:
         # users to do session resumption / query history after disconnections.
         grace-period: 1h
 
-    # options to store history messages in a persistent database (currently only MySQL):
+    # options to store history messages in a persistent database (currently only MySQL).
+    # in order to enable any of this functionality, you must configure a MySQL server
+    # in the `datastore.mysql` section.
     persistent:
         enabled: false
 
@@ -873,3 +859,18 @@ history:
         # allowing deletion of JSON export of an account's messages. this
         # may be needed for compliance with data privacy regulations.
         enable-account-indexing: false
+
+    # options to control storage of TAGMSG
+    tagmsg-storage:
+        # by default, should TAGMSG be stored?
+        default: false
+
+        # if `default` is false, store TAGMSG containing any of these tags:
+        whitelist:
+            - "+draft/react"
+            - "react"
+
+        # if `default` is true, don't store TAGMSG containing any of these tags:
+        #blacklist:
+        #    - "+draft/typing"
+        #    - "typing"

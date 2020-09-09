@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -21,20 +22,22 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/goshuirc/irc-go/ircfmt"
+	"gopkg.in/yaml.v2"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/cloaks"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/email"
 	"github.com/oragono/oragono/irc/isupport"
+	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/languages"
-	"github.com/oragono/oragono/irc/ldap"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/mysql"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
-	"gopkg.in/yaml.v2"
 )
 
 // here's how this works: exported (capitalized) members of the config structs
@@ -257,7 +260,6 @@ type AccountConfig struct {
 	} `yaml:"require-sasl"`
 	DefaultUserModes    *string `yaml:"default-user-modes"`
 	defaultUserModes    modes.Modes
-	LDAP                ldap.ServerConfig
 	LoginThrottling     ThrottleConfig `yaml:"login-throttling"`
 	SkipServerPassword  bool           `yaml:"skip-server-password"`
 	LoginViaPassCommand bool           `yaml:"login-via-pass-command"`
@@ -265,8 +267,7 @@ type AccountConfig struct {
 		Enabled                bool
 		AdditionalNickLimit    int `yaml:"additional-nick-limit"`
 		Method                 NickEnforcementMethod
-		AllowCustomEnforcement bool          `yaml:"allow-custom-enforcement"`
-		RenameTimeout          time.Duration `yaml:"rename-timeout"`
+		AllowCustomEnforcement bool `yaml:"allow-custom-enforcement"`
 		// RenamePrefix is the legacy field, GuestFormat is the new version
 		RenamePrefix           string `yaml:"rename-prefix"`
 		GuestFormat            string `yaml:"guest-nickname-format"`
@@ -313,7 +314,6 @@ type VHostConfig struct {
 		Channel  string
 		Cooldown custime.Duration
 	} `yaml:"user-requests"`
-	OfferList []string `yaml:"offer-list"`
 }
 
 type NickEnforcementMethod int
@@ -409,7 +409,8 @@ type OperConfig struct {
 	Vhost       string
 	WhoisLine   string `yaml:"whois-line"`
 	Password    string
-	Fingerprint string
+	Fingerprint *string // legacy name for certfp, #1050
+	Certfp      string
 	Auto        bool
 	Modes       string
 }
@@ -497,6 +498,7 @@ type Config struct {
 		lookupHostnames         bool
 		ForwardConfirmHostnames bool `yaml:"forward-confirm-hostnames"`
 		CheckIdent              bool `yaml:"check-ident"`
+		SuppressIdent           bool `yaml:"suppress-ident"`
 		MOTD                    string
 		motdLines               []string
 		MOTDFormatting          bool `yaml:"motd-formatting"`
@@ -524,6 +526,7 @@ type Config struct {
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
+		EnforceUtf8   bool   `yaml:"enforce-utf8"`
 		OutputPath    string `yaml:"output-path"`
 	}
 
@@ -534,6 +537,11 @@ type Config struct {
 		RequireOper    bool  `yaml:"require-oper"`
 		AddSuffix      *bool `yaml:"add-suffix"`
 		addSuffix      bool
+	}
+
+	Extjwt struct {
+		Default  jwt.JwtServiceConfig            `yaml:",inline"`
+		Services map[string]jwt.JwtServiceConfig `yaml:"services"`
 	}
 
 	Languages struct {
@@ -608,6 +616,11 @@ type Config struct {
 			AllowIndividualDelete bool `yaml:"allow-individual-delete"`
 			EnableAccountIndexing bool `yaml:"enable-account-indexing"`
 		}
+		TagmsgStorage struct {
+			Default   bool
+			Whitelist []string
+			Blacklist []string
+		} `yaml:"tagmsg-storage"`
 	}
 
 	Filename string
@@ -616,8 +629,8 @@ type Config struct {
 // OperClass defines an assembled operator class.
 type OperClass struct {
 	Title        string
-	WhoisLine    string    `yaml:"whois-line"`
-	Capabilities StringSet // map to make lookups much easier
+	WhoisLine    string          `yaml:"whois-line"`
+	Capabilities utils.StringSet // map to make lookups much easier
 }
 
 // OperatorClasses returns a map of assembled operator classes from the given config.
@@ -632,7 +645,7 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 	lenOfLastOcs := -1
 	for {
 		if lenOfLastOcs == len(ocs) {
-			return nil, ErrOperClassDependencies
+			return nil, errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
 		}
 		lenOfLastOcs = len(ocs)
 
@@ -655,7 +668,7 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// create new operclass
 			var oc OperClass
-			oc.Capabilities = make(StringSet)
+			oc.Capabilities = make(utils.StringSet)
 
 			// get inhereted info from other operclasses
 			if len(info.Extends) > 0 {
@@ -696,14 +709,14 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 // Oper represents a single assembled operator's config.
 type Oper struct {
-	Name        string
-	Class       *OperClass
-	WhoisLine   string
-	Vhost       string
-	Pass        []byte
-	Fingerprint string
-	Auto        bool
-	Modes       []modes.ModeChange
+	Name      string
+	Class     *OperClass
+	WhoisLine string
+	Vhost     string
+	Pass      []byte
+	Certfp    string
+	Auto      bool
+	Modes     []modes.ModeChange
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -725,15 +738,19 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 				return nil, fmt.Errorf("Oper %s has an invalid password hash: %s", oper.Name, err.Error())
 			}
 		}
-		if opConf.Fingerprint != "" {
-			oper.Fingerprint, err = utils.NormalizeCertfp(opConf.Fingerprint)
+		certfp := opConf.Certfp
+		if certfp == "" && opConf.Fingerprint != nil {
+			certfp = *opConf.Fingerprint
+		}
+		if certfp != "" {
+			oper.Certfp, err = utils.NormalizeCertfp(certfp)
 			if err != nil {
 				return nil, fmt.Errorf("Oper %s has an invalid fingerprint: %s", oper.Name, err.Error())
 			}
 		}
 		oper.Auto = opConf.Auto
 
-		if oper.Pass == nil && oper.Fingerprint == "" {
+		if oper.Pass == nil && oper.Certfp == "" {
 			return nil, fmt.Errorf("Oper %s has neither a password nor a fingerprint", name)
 		}
 
@@ -810,6 +827,29 @@ func (conf *Config) prepareListeners() (err error) {
 	return nil
 }
 
+func (config *Config) processExtjwt() (err error) {
+	// first process the default service, which may be disabled
+	err = config.Extjwt.Default.Postprocess()
+	if err != nil {
+		return
+	}
+	// now process the named services. it is an error if any is disabled
+	// also, normalize the service names to lowercase
+	services := make(map[string]jwt.JwtServiceConfig, len(config.Extjwt.Services))
+	for service, sConf := range config.Extjwt.Services {
+		err := sConf.Postprocess()
+		if err != nil {
+			return err
+		}
+		if !sConf.Enabled() {
+			return fmt.Errorf("no keys enabled for extjwt service %s", service)
+		}
+		services[strings.ToLower(service)] = sConf
+	}
+	config.Extjwt.Services = services
+	return nil
+}
+
 // LoadRawConfig loads the config without doing any consistency checks or postprocessing
 func LoadRawConfig(filename string) (config *Config, err error) {
 	data, err := ioutil.ReadFile(filename)
@@ -834,24 +874,24 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Filename = filename
 
 	if config.Network.Name == "" {
-		return nil, ErrNetworkNameMissing
+		return nil, errors.New("Network name missing")
 	}
 	if config.Server.Name == "" {
-		return nil, ErrServerNameMissing
+		return nil, errors.New("Server name missing")
 	}
 	if !utils.IsServerName(config.Server.Name) {
-		return nil, ErrServerNameNotHostname
+		return nil, errors.New("Server name must match the format of a hostname")
 	}
 	config.Server.nameCasefolded = strings.ToLower(config.Server.Name)
 	if config.Datastore.Path == "" {
-		return nil, ErrDatastorePathMissing
+		return nil, errors.New("Datastore path missing")
 	}
 	//dan: automagically fix identlen until a few releases in the future (from now, 0.12.0), being a newly-introduced limit
 	if config.Limits.IdentLen < 1 {
 		config.Limits.IdentLen = 20
 	}
 	if config.Limits.NickLen < 1 || config.Limits.ChannelLen < 2 || config.Limits.AwayLen < 1 || config.Limits.KickLen < 1 || config.Limits.TopicLen < 1 {
-		return nil, ErrLimitsAreInsane
+		return nil, errors.New("One or more limits values are too low")
 	}
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
@@ -860,6 +900,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
 			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
 		}
+	}
+
+	if config.Server.CheckIdent && config.Server.SuppressIdent {
+		return nil, errors.New("Can't configure both check-ident and suppress-ident")
 	}
 
 	config.Server.supportedCaps = caps.NewCompleteSet()
@@ -964,7 +1008,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if methods["file"] && logConfig.Filename == "" {
-			return nil, ErrLoggerFilenameMissing
+			return nil, errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
 		}
 		logConfig.MethodFile = methods["file"]
 		logConfig.MethodStdout = methods["stdout"]
@@ -983,7 +1027,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 				continue
 			}
 			if typeStr == "-" {
-				return nil, ErrLoggerExcludeEmpty
+				return nil, errors.New("Encountered logging type '-' with no type to exclude")
 			}
 			if typeStr[0] == '-' {
 				typeStr = typeStr[1:]
@@ -993,7 +1037,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			}
 		}
 		if len(logConfig.Types) < 1 {
-			return nil, ErrLoggerHasNoTypes
+			return nil, errors.New("Logger has no types to log")
 		}
 
 		newLogConfigs = append(newLogConfigs, logConfig)
@@ -1048,12 +1092,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Accounts.VHosts.ValidRegexp == nil {
 		config.Accounts.VHosts.ValidRegexp = defaultValidVhostRegex
-	}
-
-	for _, vhost := range config.Accounts.VHosts.OfferList {
-		if !config.Accounts.VHosts.ValidRegexp.MatchString(vhost) {
-			return nil, fmt.Errorf("invalid offered vhost: %s", vhost)
-		}
 	}
 
 	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
@@ -1134,9 +1172,14 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if !config.History.Enabled || !config.History.Persistent.Enabled {
+		config.History.Persistent.Enabled = false
 		config.History.Persistent.UnregisteredChannels = false
 		config.History.Persistent.RegisteredChannels = PersistentDisabled
 		config.History.Persistent.DirectMessages = PersistentDisabled
+	}
+
+	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled {
+		return nil, fmt.Errorf("You must configure a MySQL server in order to enable persistent history")
 	}
 
 	if config.History.ZNCMax == 0 {
@@ -1154,6 +1197,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if !utils.IsHostname(config.Server.Cloaks.Netname) {
 			return nil, fmt.Errorf("Invalid netname for cloaked hostnames: %s", config.Server.Cloaks.Netname)
 		}
+	}
+
+	err = config.processExtjwt()
+	if err != nil {
+		return nil, err
 	}
 
 	// now that all postprocessing is complete, regenerate ISUPPORT:
@@ -1193,6 +1241,9 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANTYPES", chanTypes)
 	isupport.Add("ELIST", "U")
 	isupport.Add("EXCEPTS", "")
+	if config.Extjwt.Default.Enabled() || len(config.Extjwt.Services) != 0 {
+		isupport.Add("EXTJWT", "1")
+	}
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
@@ -1212,6 +1263,7 @@ func (config *Config) generateISupport() (err error) {
 	if config.Server.Casemapping == CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
 	}
+	isupport.Add("WHOX", "")
 
 	err = isupport.RegenerateCachedReply()
 	return
@@ -1255,6 +1307,16 @@ func (config *Config) Diff(oldConfig *Config) (addedCaps, removedCaps *caps.Set)
 	return
 }
 
+// determine whether we need to resize / create / destroy
+// the in-memory history buffers:
+func (config *Config) historyChangedFrom(oldConfig *Config) bool {
+	return config.History.Enabled != oldConfig.History.Enabled ||
+		config.History.ChannelLength != oldConfig.History.ChannelLength ||
+		config.History.ClientLength != oldConfig.History.ClientLength ||
+		config.History.AutoresizeWindow != oldConfig.History.AutoresizeWindow ||
+		config.History.Persistent != oldConfig.History.Persistent
+}
+
 func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
 	if strings.Count(guestFormat, "?") != 0 || strings.Count(guestFormat, "*") != 1 {
 		err = errors.New("guest format must contain 1 '*' and no '?'s")
@@ -1279,4 +1341,35 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	}
 	folded, err = utils.CompileGlob(fmt.Sprintf("%s*%s", initialFolded, finalFolded), false)
 	return
+}
+
+func (config *Config) loadMOTD() error {
+	if config.Server.MOTD != "" {
+		file, err := os.Open(config.Server.MOTD)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		contents, err := ioutil.ReadAll(file)
+		if err != nil {
+			return err
+		}
+
+		lines := bytes.Split(contents, []byte{'\n'})
+		for i, line := range lines {
+			lineToSend := string(bytes.TrimRight(line, "\r\n"))
+			if len(lineToSend) == 0 && i == len(lines)-1 {
+				// if the last line of the MOTD was properly terminated with \n,
+				// there's no need to send a blank line to clients
+				continue
+			}
+			if config.Server.MOTDFormatting {
+				lineToSend = ircfmt.Unescape(lineToSend)
+			}
+			// "- " is the required prefix for MOTD
+			lineToSend = fmt.Sprintf("- %s", lineToSend)
+			config.Server.motdLines = append(config.Server.motdLines, lineToSend)
+		}
+	}
+	return nil
 }

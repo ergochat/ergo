@@ -12,7 +12,7 @@ Oragono vendors all its dependencies. Because of this, Oragono is self-contained
 If you're upgrading the Go version used by Oragono, there are several places where it's hard-coded and must be changed:
 
 1. `.travis.yml`, which controls the version that our CI test suite uses to build and test the code (e.g., for a PR)
-2. `distrib/docker/Dockerfile`, which controls the version that the Oragono binaries in our Docker images are built with
+2. `Dockerfile`, which controls the version that the Oragono binaries in our Docker images are built with
 3. `go.mod`: this should be updated automatically by Go when you do module-related operations
 
 
@@ -31,17 +31,26 @@ Develop branches are either used to work out implementation details in preperati
 1. Run `irctest` over it to make sure nothing's severely broken. Talk to the maintainers to find out which version of irctest to run.
 1. Run the `ircstress` chanflood benchmark to look for data races (enable race detection) and performance regressions (disable it).
 1. Update the changelog with new changes and write release notes.
-1. Update the version number `irc/constants.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
+1. Update the version number `irc/version.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).
 1. Commit the new changelog and constants change.
-1. Tag the release with `git tag v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
+1. Tag the release with `git tag --sign v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 1. Build binaries using `make release`, upload release to Github including the changelog and binaries.
 1. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
-1. Make the appropriate announcements (Twitter, oragono.io/news)
+1. Make the appropriate announcements:
+    * For a release candidate:
+        1. the channel topic
+        1. any operators who may be interested
+    * For a production release:
+        1. everything applicable to a release candidate
+        1. Twitter
+        1. oragono.io/news
+        1. ircv3.net support tables, if applicable
+        1. other social media?
 
 Once it's built and released, you need to setup the new development version. To do so:
 
 1. Ensure dependencies are up-to-date.
-1. In `irc/constants.go`, update the version number to `0.0.1-unreleased`, where `0.0.1` is the previous release number with the minor field incremented by one (for instance, `0.9.2` -> `0.9.3-unreleased`).
+1. Bump the version number in `irc/version.go`, typically by incrementing the second number in the 3-tuple, and add '-unreleased' (for instance, `2.2.0` -> `2.3.0-unreleased`).
 1. Commit the new version number and changelog with the message `"Setup v0.0.1-unreleased devel ver"`.
 
 **Unreleased changelog content**

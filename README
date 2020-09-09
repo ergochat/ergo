@@ -23,10 +23,9 @@ assorted IRCv3 support.
 
 Copy the example config file to ircd.yaml with a command like:
 
-    $ cp oragono.yaml ircd.yaml
+    $ cp default.yaml ircd.yaml
 
-Modify the config file as you like. In particular, the `connection-throttling` and
-`connection-limits` sections are working looking over and tuning for your network's needs.
+Modify the config file as you like.
 
 To generate passwords for opers and connect passwords, you can use this command:
 

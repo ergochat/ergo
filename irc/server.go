@@ -6,7 +6,6 @@
 package irc
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"unsafe"
 
 	"github.com/goshuirc/irc-go/ircfmt"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/history"
@@ -41,7 +41,7 @@ var (
 
 	// whitelist of caps to serve on the STS-only listener. In particular,
 	// never advertise SASL, to discourage people from sending their passwords:
-	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.LabeledResponse, caps.Nope)
+	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.Batch, caps.LabeledResponse, caps.EchoMessage, caps.Nope)
 
 	// we only have standard channels for now. TODO: any updates to this
 	// will also need to be reflected in CasefoldChannel
@@ -80,6 +80,7 @@ type Server struct {
 	whoWas            WhoWasList
 	stats             Stats
 	semaphores        ServerSemaphores
+	defcon            uint32
 }
 
 // NewServer returns a new Oragono server.
@@ -91,6 +92,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		signals:      make(chan os.Signal, len(ServerExitSignals)),
+		defcon:       5,
 	}
 
 	server.clients.Initialize()
@@ -116,6 +118,9 @@ func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
+		if client.AlwaysOn() {
+			client.Store(IncludeLastSeen)
+		}
 	}
 
 	if err := server.store.Close(); err != nil {
@@ -146,6 +151,12 @@ func (server *Server) Run() {
 }
 
 func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
+	if server.Defcon() == 1 {
+		if !(ipaddr.IsLoopback() || utils.IPInNets(ipaddr, server.Config().Server.secureNets)) {
+			return true, "New connections to this server are temporarily restricted"
+		}
+	}
+
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
@@ -211,13 +222,14 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	}
 
 	if c.isSTSOnly {
-		server.playRegistrationBurst(session)
+		server.playSTSBurst(session)
 		return true
 	}
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	authOutcome := c.isAuthorized(server.Config(), session)
+	config := server.Config()
+	authOutcome := c.isAuthorized(server, config, session)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -267,19 +279,28 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// Apply default user modes (without updating the invisible counter)
 	// The number of invisible users will be updated by server.stats.Register
 	// if we're using default user mode +i.
-	for _, defaultMode := range server.Config().Accounts.defaultUserModes {
+	for _, defaultMode := range config.Accounts.defaultUserModes {
 		c.SetMode(defaultMode, true)
 	}
 
-	// registration has succeeded:
-	c.SetRegistered()
-
 	// count new user in statistics
 	server.stats.Register(c.HasMode(modes.Invisible))
-	server.monitorManager.AlertAbout(c.Nick(), c.NickCasefolded(), true)
 
 	server.playRegistrationBurst(session)
 	return false
+}
+
+func (server *Server) playSTSBurst(session *Session) {
+	nick := utils.SafeErrorParam(session.client.preregNick)
+	session.Send(nil, server.name, RPL_WELCOME, nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", nick))
+	session.Send(nil, server.name, RPL_YOURHOST, nick, fmt.Sprintf("Your host is %[1]s, running version %[2]s", server.name, "oragono"))
+	session.Send(nil, server.name, RPL_CREATED, nick, fmt.Sprintf("This server was created %s", time.Time{}.Format(time.RFC1123)))
+	session.Send(nil, server.name, RPL_MYINFO, nick, server.name, "oragono", "o", "o", "o")
+	session.Send(nil, server.name, RPL_ISUPPORT, nick, "CASEMAPPING=ascii", "are supported by this server")
+	session.Send(nil, server.name, ERR_NOMOTD, nick, "MOTD is unavailable")
+	for _, line := range server.Config().Server.STS.bannerLines {
+		session.Send(nil, server.name, "NOTICE", nick, line)
+	}
 }
 
 func (server *Server) playRegistrationBurst(session *Session) {
@@ -296,13 +317,6 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_YOURHOST, d.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
 	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
-
-	if c.isSTSOnly {
-		for _, line := range server.Config().Server.STS.bannerLines {
-			c.Notice(line)
-		}
-		return
-	}
 
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
@@ -418,38 +432,9 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		}
 	}
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
-	if target.Away() {
-		rb.Add(nil, client.server.name, RPL_AWAY, cnick, tnick, target.AwayMessage())
+	if away, awayMessage := target.Away(); away {
+		rb.Add(nil, client.server.name, RPL_AWAY, cnick, tnick, awayMessage)
 	}
-}
-
-// rplWhoReply returns the WHO reply between one user and another channel/user.
-// <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ( "@" / "+" ) ]
-// :<hopcount> <real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer) {
-	channelName := "*"
-	flags := ""
-
-	if target.Away() {
-		flags = "G"
-	} else {
-		flags = "H"
-	}
-	if target.HasMode(modes.Operator) {
-		flags += "*"
-	}
-
-	if channel != nil {
-		// TODO is this right?
-		flags += channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix))
-		channelName = channel.name
-	}
-	if target.HasMode(modes.Bot) {
-		flags += "B"
-	}
-	details := target.Details()
-	// hardcode a hopcount of 0 for now
-	rb.Add(nil, client.server.name, RPL_WHOREPLY, client.Nick(), channelName, details.username, details.hostname, client.server.name, details.nick, flags, "0 "+details.realname)
 }
 
 // rehash reloads the config and applies the changes from the config file.
@@ -487,6 +472,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded
 		globalCasemappingSetting = config.Server.Casemapping
+		globalUtf8EnforcementSetting = config.Server.EnforceUtf8
 	} else {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
@@ -495,6 +481,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Datastore path cannot be changed after launching the server, rehash aborted")
 		} else if globalCasemappingSetting != config.Server.Casemapping {
 			return fmt.Errorf("Casemapping cannot be changed after launching the server, rehash aborted")
+		} else if globalUtf8EnforcementSetting != config.Server.EnforceUtf8 {
+			return fmt.Errorf("UTF-8 enforcement cannot be changed after launching the server, rehash aborted")
 		} else if oldConfig.Accounts.Multiclient.AlwaysOn != config.Accounts.Multiclient.AlwaysOn {
 			return fmt.Errorf("Default always-on setting cannot be changed after launching the server, rehash aborted")
 		} else if oldConfig.Server.Relaying.Enabled != config.Server.Relaying.Enabled {
@@ -538,7 +526,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			server.channels.loadRegisteredChannels(config)
 		}
 		// resize history buffers as needed
-		if oldConfig.History != config.History {
+		if config.historyChangedFrom(oldConfig) {
 			for _, channel := range server.channels.Channels() {
 				channel.resizeHistory(config)
 			}
@@ -663,35 +651,6 @@ func (server *Server) setupPprofListener(config *Config) {
 		server.pprofServer = &ps
 		server.logger.Info("server", "Started pprof listener", server.pprofServer.Addr)
 	}
-}
-
-func (config *Config) loadMOTD() (err error) {
-	if config.Server.MOTD != "" {
-		file, err := os.Open(config.Server.MOTD)
-		if err == nil {
-			defer file.Close()
-
-			reader := bufio.NewReader(file)
-			for {
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					break
-				}
-				line = strings.TrimRight(line, "\r\n")
-
-				if config.Server.MOTDFormatting {
-					line = ircfmt.Unescape(line)
-				}
-
-				// "- " is the required prefix for MOTD, we just add it here to make
-				// bursting it out to clients easier
-				line = fmt.Sprintf("- %s", line)
-
-				config.Server.motdLines = append(config.Server.motdLines, line)
-			}
-		}
-	}
-	return
 }
 
 func (server *Server) loadDatastore(config *Config) error {
@@ -966,26 +925,6 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 	}
 
 	return true
-}
-
-// RplList returns the RPL_LIST numeric for the given channel.
-func (target *Client) RplList(channel *Channel, rb *ResponseBuffer) {
-	// get the correct number of channel members
-	var memberCount int
-	if target.HasMode(modes.Operator) || channel.hasClient(target) {
-		memberCount = len(channel.Members())
-	} else {
-		for _, member := range channel.Members() {
-			if !member.HasMode(modes.Invisible) {
-				memberCount++
-			}
-		}
-	}
-
-	// #704: some channels are kept around even with no members
-	if memberCount != 0 {
-		rb.Add(nil, target.server.name, RPL_LIST, target.nick, channel.name, strconv.Itoa(memberCount), channel.topic)
-	}
 }
 
 var (

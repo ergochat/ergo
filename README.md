@@ -42,16 +42,17 @@ If you want to take a look at a running Oragono instance or test some client cod
 * [IRCv3 support](https://ircv3.net/software/servers.html)
 * a heavy focus on developing with [specifications](https://oragono.io/specs.html)
 
-## Installation
+## Quick start guide
 
-To go through the standard installation, download the latest release from this page: https://github.com/oragono/oragono/releases/latest
+Download the latest release from this page: https://github.com/oragono/oragono/releases/latest
 
 Extract it into a folder, then run the following commands:
 
 ```sh
-cp oragono.yaml ircd.yaml
-vim ircd.yaml  # modify the config file to your liking
+cp default.yaml ircd.yaml
+vim ircd.yaml   # modify the config file to your liking
 oragono mkcerts
+oragono run     # server should be ready to go!
 ```
 
 **Note:** See the [productionizing guide in our manual](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#productionizing) for recommendations on how to run a production network, including obtaining valid TLS certificates.
@@ -84,7 +85,7 @@ You'll need an [up-to-date distribution of the Go language for your OS and archi
 
 ## Configuration
 
-The default config file [`oragono.yaml`](oragono.yaml) helps walk you through what each option means and changes. The configuration's intended to be sparse, so if there are options missing it's either because that feature isn't written/configurable yet or because we don't think it should be configurable.
+The default config file [`default.yaml`](default.yaml) helps walk you through what each option means and changes.
 
 You can use the `--conf` parameter when launching Oragono to control where it looks for the config file. For instance: `oragono run --conf /path/to/ircd.yaml`. The configuration file also stores where the log, database, certificate, and other files are opened. Normally, all these files use relative paths, but you can change them to be absolute (such as `/var/log/ircd.log`) when running Oragono as a service.
 
@@ -101,14 +102,6 @@ oragono genpasswd
 ```
 
 With this, you receive a blob of text which you can plug into your configuration file.
-
-## Running
-
-After this, running the server is easy! Simply run the below command and you should see the relevant startup information pop up.
-
-```sh
-oragono run
-```
 
 ### How to register a channel
 

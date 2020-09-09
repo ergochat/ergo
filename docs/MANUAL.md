@@ -35,6 +35,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - Multiclient ("Bouncer")
     - History
     - IP cloaking
+    - Moderation
 - Frequently Asked Questions
 - IRC over TLS
 - Modes
@@ -78,7 +79,7 @@ In addition to its unique features (integrated services and bouncer, comprehensi
 
 We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out". (Federation is [planned](https://github.com/oragono/oragono/issues/26) but is not scheduled for development in the near term.)
 
-Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file.
+Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file. See [Hashbang's implementation](https://github.com/hashbang/gitops/tree/master/ircd) for a "worked example".
 
 If you're interested in deploying Oragono at scale or for high availability, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
 
@@ -97,7 +98,7 @@ To get started with Oragono on Windows:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) downloaded.
 1. Extract the zip file to a folder.
-1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
 1. Open up a `cmd.exe` window, then `cd` to where you have Oragono extracted.
 1. Run `oragono.exe mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
@@ -111,7 +112,7 @@ To get started with Oragono on macOS, Linux, or on a Raspberry Pi:
 
 1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) for your OS/distro downloaded.
 1. Extract the tar.gz file to a folder.
-1. Copy and rename `oragono.yaml` to `ircd.yaml`.
+1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
 1. Open up a Terminal window, then `cd` to where you have Oragono extracted.
 1. Run `./oragono mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
@@ -347,7 +348,11 @@ Unfortunately, client support for history playback is still patchy. In descendin
 
 1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
-1. If you are not using the multiclient functionality, but your client is set to be always-on (see the previous section for details), Oragono will remember the last time your client signed out. You can then set your account to replay only messages you missed with `/msg NickServ set autoreplay-missed on`. Unfortunately, this feature will only work reliably if you are *not* using the multiclient functionality described in the above section --- you must be connecting with at most one client at a time.
+1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Oragono will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
+    - You can add it to your SASL username with an `@`, e.g., if your SASL username is `alice` you can send `alice@phone`
+    - You can add it in a similar way to your IRC protocol username ("ident"), e.g., `alice@phone`
+    - If login to user accounts via the `PASS` command is enabled on the server, you can provide it there, e.g., by sending `alice@phone:hunter2` as the server password
+1. If you only have one device, you can set your client to be always-on and furthermore `/msg NickServ set autoreplay-missed true`. This will replay missed messages, with the caveat that you must be connecting with at most one client at a time.
 1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
 1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
 
@@ -361,6 +366,26 @@ IP cloaking is a way of balancing these concerns about abuse with concerns about
 Oragono supports cloaking, which is enabled by default (via the `server.ip-cloaking` section of the config). However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
 
 Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend on their IP address information at all, which is an option for deployments where privacy is a more pressing concern than abuse. Holders of registered accounts can also use the vhost system (for details, `/msg HostServ HELP`.)
+
+
+## Moderation
+
+Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have three principal tools for moderation:
+
+1. `/NICKSERV SUSPEND`, which disables a user account and disconnects all associated clients
+2. `/DLINE ANDKILL`, which bans an IP or CIDR and disconnects clients
+3. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
+
+See the `/HELP` (or `/HELPOP`) entries for these commands for more information, but here's a rough workflow for mitigating spam or other attacks:
+
+1. Subscribe to the `a` snomask to monitor for abusive registration attempts (this is set automatically in the default operator config, but can be added manually with `/mode mynick +s u`)
+2. Given abusive traffic from a nickname, identify whether they are using an account (this should be displayed in `/WHOIS` output)
+3. If they are using an account, suspend the account with `/NICKSERV SUSPEND`, which will disconnect them
+4. If they are not using an account, or if they're spamming new registrations from an IP, determine the IP (either from `/WHOIS` or from account registration notices) and temporarily `/DLINE` their IP
+5. When facing a flood of abusive registrations that cannot be stemmed with `/DLINE`, use `/DEFCON 4` to temporarily restrict registrations. (At `/DEFCON 2`, all new connections to the server will require SASL, but this will likely be disruptive to legitimate users as well.)
+
+For channel operators, as opposed to server operators, most traditional moderation tools should be effective. In particular, bans on cloaked hostnames (e.g., `/mode #chan +b *!*@98rgwnst3dahu.my.network`) should work as expected. With `force-nick-equals-account` enabled, channel operators can also ban nicknames (with `/mode #chan +b nick`, which Oragono automatically expands to `/mode #chan +b nick!*@*` as a way of banning an account.)
+
 
 -------------------------------------------------------------------------------------------
 

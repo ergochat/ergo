@@ -37,6 +37,14 @@ func (server *Server) Languages() (lm *languages.Manager) {
 	return server.Config().languageManager
 }
 
+func (server *Server) Defcon() uint32 {
+	return atomic.LoadUint32(&server.defcon)
+}
+
+func (server *Server) SetDefcon(defcon uint32) {
+	atomic.StoreUint32(&server.defcon, defcon)
+}
+
 func (client *Client) Sessions() (sessions []*Session) {
 	client.stateMutex.RLock()
 	sessions = client.sessions
@@ -62,6 +70,7 @@ type SessionData struct {
 	ip       net.IP
 	hostname string
 	certfp   string
+	deviceID string
 }
 
 func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
@@ -79,6 +88,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			ctime:    session.ctime,
 			hostname: session.rawHostname,
 			certfp:   session.certfp,
+			deviceID: session.deviceID,
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
@@ -102,8 +112,9 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	newSessions := make([]*Session, len(client.sessions)+1)
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session
-	if client.accountSettings.AutoreplayMissed {
-		lastSeen = client.lastSeen
+	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
+		lastSeen = client.lastSeen[session.deviceID]
+		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
 	client.sessions = newSessions
 	if client.autoAway {
@@ -174,9 +185,9 @@ func (client *Client) Hostname() string {
 	return client.hostname
 }
 
-func (client *Client) Away() (result bool) {
+func (client *Client) Away() (result bool, message string) {
 	client.stateMutex.Lock()
-	result = client.away
+	result, message = client.away, client.awayMessage
 	client.stateMutex.Unlock()
 	return
 }
@@ -190,15 +201,9 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 	return
 }
 
-func (client *Client) SetExitedSnomaskSent() {
-	client.stateMutex.Lock()
-	client.exitedSnomaskSent = true
-	client.stateMutex.Unlock()
-}
-
 func (client *Client) AlwaysOn() (alwaysOn bool) {
 	client.stateMutex.Lock()
-	alwaysOn = client.alwaysOn
+	alwaysOn = client.registered && client.alwaysOn
 	client.stateMutex.Unlock()
 	return
 }
@@ -230,20 +235,15 @@ func (client *Client) Oper() *Oper {
 	return client.oper
 }
 
-func (client *Client) Registered() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.registered
-}
-
-func (client *Client) SetRegistered() {
+func (client *Client) Registered() (result bool) {
 	// `registered` is only written from the client's own goroutine, but may be
 	// read from other goroutines; therefore, the client's own goroutine may read
 	// the value without synchronization, but must write it with synchronization,
 	// and other goroutines must read it with synchronization
-	client.stateMutex.Lock()
-	client.registered = true
-	client.stateMutex.Unlock()
+	client.stateMutex.RLock()
+	result = client.registered
+	client.stateMutex.RUnlock()
+	return
 }
 
 func (client *Client) RawHostname() (result string) {
@@ -285,11 +285,8 @@ func (client *Client) Login(account ClientAccount) {
 	client.account = account.NameCasefolded
 	client.accountName = account.Name
 	client.accountSettings = account.Settings
-	// check `registered` to avoid incorrectly marking a temporary (pre-reattach),
-	// SASL'ing client as always-on
-	if client.registered {
-		client.alwaysOn = alwaysOn
-	}
+	// mark always-on here: it will not be respected until the client is registered
+	client.alwaysOn = alwaysOn
 	client.accountRegDate = account.RegisteredAt
 	return
 }
@@ -324,17 +321,26 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
 	// we mark dirty if the client is transitioning to always-on
-	markDirty := false
+	var becameAlwaysOn, autoreplayMissedDisabled bool
 	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
-	client.accountSettings = settings
 	if client.registered {
-		markDirty = !client.alwaysOn && alwaysOn
+		// only allow the client to become always-on if their nick equals their account name
+		alwaysOn = alwaysOn && client.nick == client.accountName
+		autoreplayMissedDisabled = (client.accountSettings.AutoreplayMissed && !settings.AutoreplayMissed)
+		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
+		if autoreplayMissedDisabled {
+			// clear the lastSeen entry for the default session, but not for device IDs
+			delete(client.lastSeen, "")
+		}
 	}
+	client.accountSettings = settings
 	client.stateMutex.Unlock()
-	if markDirty {
+	if becameAlwaysOn {
 		client.markDirty(IncludeAllAttrs)
+	} else if autoreplayMissedDisabled {
+		client.markDirty(IncludeLastSeen)
 	}
 }
 
@@ -363,7 +369,11 @@ func (client *Client) SetMode(mode modes.Mode, on bool) bool {
 func (client *Client) SetRealname(realname string) {
 	client.stateMutex.Lock()
 	client.realname = realname
+	alwaysOn := client.registered && client.alwaysOn
 	client.stateMutex.Unlock()
+	if alwaysOn {
+		client.markDirty(IncludeRealname)
+	}
 }
 
 func (client *Client) Channels() (result []*Channel) {
@@ -408,6 +418,21 @@ func (client *Client) detailsNoMutex() (result ClientDetails) {
 	return
 }
 
+func (client *Client) UpdateActive(session *Session) {
+	now := time.Now().UTC()
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.lastActive = now
+	session.lastActive = now
+}
+
+func (client *Client) Realname() string {
+	client.stateMutex.RLock()
+	result := client.realname
+	client.stateMutex.RUnlock()
+	return result
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
@@ -423,9 +448,11 @@ func (channel *Channel) NameCasefolded() string {
 func (channel *Channel) Rename(name, nameCasefolded string) {
 	channel.stateMutex.Lock()
 	channel.name = name
-	channel.nameCasefolded = nameCasefolded
-	if channel.registeredFounder != "" {
-		channel.registeredTime = time.Now().UTC()
+	if channel.nameCasefolded != nameCasefolded {
+		channel.nameCasefolded = nameCasefolded
+		if channel.registeredFounder != "" {
+			channel.registeredTime = time.Now().UTC()
+		}
 	}
 	channel.stateMutex.Unlock()
 }

@@ -51,6 +51,8 @@ Oragono supports the following channel modes:
   +R  |  Only registered users can join the channel.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
   +t  |  Only channel opers can modify the topic.
+  +E  |  Roleplaying commands are enabled in the channel.
+  +C  |  Clients are blocked from sending CTCP messages in the channel.
 
 = Prefixes =
 
@@ -66,9 +68,12 @@ Oragono supports the following user modes:
   +a  |  User is marked as being away. This mode is set with the /AWAY command.
   +i  |  User is marked as invisible (their channels are hidden from whois replies).
   +o  |  User is an IRC operator.
-  +R  |  User only accepts messages from other registered users. 
+  +R  |  User only accepts messages from other registered users.
   +s  |  Server Notice Masks (see help with /HELPOP snomasks).
-  +Z  |  User is connected via TLS.`
+  +Z  |  User is connected via TLS.
+  +B  |  User is a bot.
+  +E  |  User can receive roleplaying commands.
+  +T  |  User is blocked from sending CTCP messages.`
 	snomaskHelpText = `== Server Notice Masks ==
 
 Oragono supports the following server notice masks for operators:
@@ -163,6 +168,20 @@ Provides various debugging commands for the IRCd. <option> can be one of:
 * PROFILEHEAP: Writes a memory profile.
 * CRASHSERVER: Crashes the server (for use in failover testing)`,
 	},
+	"defcon": {
+		oper: true,
+		text: `DEFCON [level]
+
+The DEFCON system can disable server features at runtime, to mitigate
+spam or other hostile activity. It has five levels, which are cumulative
+(i.e., level 3 includes all restrictions from level 4 and so on):
+
+5: Normal operation
+4: No new account or channel registrations
+3: All users are +R; no changes to vhosts
+2: No new unauthenticated connections; all channels are +R
+1: No new connections except from localhost or other trusted IPs`,
+	},
 	"deoper": {
 		oper: true,
 		text: `DEOPER
@@ -198,6 +217,11 @@ ON <server> specifies that the ban is to be set on that specific server.
 [reason] and [oper reason], if they exist, are separated by a vertical bar (|).
 
 If "DLINE LIST" is sent, the server sends back a list of our current DLINEs.`,
+	},
+	"extjwt": {
+		text: `EXTJWT <target> [service_name]
+
+Get a JSON Web Token for target (either * or a channel name).`,
 	},
 	"help": {
 		text: `HELP <argument>

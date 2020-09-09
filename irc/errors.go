@@ -8,6 +8,7 @@ package irc
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -57,7 +58,6 @@ var (
 	errBanned                         = errors.New("IP or nickmask banned")
 	errInvalidParams                  = utils.ErrInvalidParams
 	errNoVhost                        = errors.New(`You do not have an approved vhost`)
-	errVhostsForbidden                = errors.New(`An administrator has denied you the ability to use vhosts`)
 	errLimitExceeded                  = errors.New("Limit exceeded")
 	errNoop                           = errors.New("Action was a no-op")
 	errCASFailed                      = errors.New("Compare-and-swap update of database value failed")
@@ -65,13 +65,12 @@ var (
 	errCredsExternallyManaged         = errors.New("Credentials are externally managed and cannot be changed here")
 	errInvalidMultilineBatch          = errors.New("Invalid multiline batch")
 	errTimedOut                       = errors.New("Operation timed out")
-)
-
-// Socket Errors
-var (
-	errNoPeerCerts = errors.New("Client did not provide a certificate")
-	errNotTLS      = errors.New("Not a TLS connection")
-	errReadQ       = errors.New("ReadQ Exceeded")
+	errInvalidUtf8                    = errors.New("Message rejected for invalid utf8")
+	errClientDestroyed                = errors.New("Client was already destroyed")
+	errTooManyChannels                = errors.New("You have joined too many channels")
+	errWrongChannelKey                = errors.New("Cannot join password-protected channel without the password")
+	errInviteOnly                     = errors.New("Cannot join invite-only channel without an invite")
+	errRegisteredOnly                 = errors.New("Cannot join registered-only channel without an account")
 )
 
 // String Errors
@@ -89,18 +88,10 @@ func (ck *CertKeyError) Error() string {
 	return fmt.Sprintf("Invalid TLS cert/key pair: %v", ck.Err)
 }
 
-// Config Errors
-var (
-	ErrDatastorePathMissing    = errors.New("Datastore path missing")
-	ErrLimitsAreInsane         = errors.New("Limits aren't setup properly, check them and make them sane")
-	ErrLineLengthsTooSmall     = errors.New("Line lengths must be 512 or greater (check the linelen section under server->limits)")
-	ErrLoggerExcludeEmpty      = errors.New("Encountered logging type '-' with no type to exclude")
-	ErrLoggerFilenameMissing   = errors.New("Logging configuration specifies 'file' method but 'filename' is empty")
-	ErrLoggerHasNoTypes        = errors.New("Logger has no types to log")
-	ErrNetworkNameMissing      = errors.New("Network name missing")
-	ErrNoFingerprintOrPassword = errors.New("Fingerprint or password needs to be specified")
-	ErrNoListenersDefined      = errors.New("Server listening addresses missing")
-	ErrOperClassDependencies   = errors.New("OperClasses contains a looping dependency, or a class extends from a class that doesn't exist")
-	ErrServerNameMissing       = errors.New("Server name missing")
-	ErrServerNameNotHostname   = errors.New("Server name must match the format of a hostname")
-)
+type ThrottleError struct {
+	time.Duration
+}
+
+func (te *ThrottleError) Error() string {
+	return fmt.Sprintf(`Please wait at least %v and try again`, te.Duration)
+}

@@ -12,13 +12,12 @@ import (
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler         func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
-	oper            bool
-	usablePreReg    bool
-	leaveClientIdle bool // if true, leaves the client active time alone
-	allowedInBatch  bool // allowed in client-to-server batches
-	minParams       int
-	capabs          []string
+	handler        func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
+	oper           bool
+	usablePreReg   bool
+	allowedInBatch bool // allowed in client-to-server batches
+	minParams      int
+	capabs         []string
 }
 
 // Run runs this command with the given client/message.
@@ -59,15 +58,8 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 		exiting = server.tryRegister(client, session)
 	}
 
-	// most servers do this only for PING/PONG, but we'll do it for any command:
 	if client.registered {
-		// touch even if `exiting`, so we record the time of a QUIT accurately
-		session.idletimer.Touch()
-	}
-
-	// TODO: eliminate idletimer entirely in favor of this measurement
-	if client.registered {
-		client.Touch(!cmd.leaveClientIdle, session)
+		client.Touch(session)
 	}
 
 	return exiting
@@ -76,6 +68,11 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 // fake handler for unknown commands (see #994: this ensures the response tags are correct)
 var unknownCommand = Command{
 	handler:      unknownCommandHandler,
+	usablePreReg: true,
+}
+
+var invalidUtf8Command = Command{
+	handler:      invalidUtf8Handler,
 	usablePreReg: true,
 }
 
@@ -120,6 +117,10 @@ func init() {
 			minParams: 1,
 			oper:      true,
 		},
+		"DEFCON": {
+			handler: defconHandler,
+			capabs:  []string{"defcon"},
+		},
 		"DEOPER": {
 			handler:   deoperHandler,
 			minParams: 0,
@@ -129,6 +130,10 @@ func init() {
 			handler:   dlineHandler,
 			minParams: 1,
 			oper:      true,
+		},
+		"EXTJWT": {
+			handler:   extjwtHandler,
+			minParams: 1,
 		},
 		"HELP": {
 			handler:   helpHandler,
@@ -150,9 +155,8 @@ func init() {
 			minParams: 2,
 		},
 		"ISON": {
-			handler:         isonHandler,
-			minParams:       1,
-			leaveClientIdle: true,
+			handler:   isonHandler,
+			minParams: 1,
 		},
 		"JOIN": {
 			handler:   joinHandler,
@@ -234,16 +238,14 @@ func init() {
 			minParams:    1,
 		},
 		"PING": {
-			handler:         pingHandler,
-			usablePreReg:    true,
-			minParams:       1,
-			leaveClientIdle: true,
+			handler:      pingHandler,
+			usablePreReg: true,
+			minParams:    1,
 		},
 		"PONG": {
-			handler:         pongHandler,
-			usablePreReg:    true,
-			minParams:       1,
-			leaveClientIdle: true,
+			handler:      pongHandler,
+			usablePreReg: true,
+			minParams:    1,
 		},
 		"PRIVMSG": {
 			handler:        messageHandler,
@@ -344,9 +346,8 @@ func init() {
 			minParams:    4,
 		},
 		"WHO": {
-			handler:         whoHandler,
-			minParams:       1,
-			leaveClientIdle: true,
+			handler:   whoHandler,
+			minParams: 1,
 		},
 		"WHOIS": {
 			handler:   whoisHandler,

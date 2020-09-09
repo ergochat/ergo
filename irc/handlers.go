@@ -25,6 +25,7 @@ import (
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -82,7 +83,7 @@ func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
 	} else {
 		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, details.nick, details.accountName, client.t("Account created"))
 	}
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] from IP %s"), details.nickMask, details.accountName, rb.session.IP().String()))
 	sendSuccessfulAccountAuth(client, rb, forNS, false)
 }
 
@@ -236,6 +237,15 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		return false
 	}
 
+	// see #843: strip the device ID for the benefit of clients that don't
+	// distinguish user/ident from account name
+	if strudelIndex := strings.IndexByte(authcid, '@'); strudelIndex != -1 {
+		var deviceID string
+		authcid, deviceID = authcid[:strudelIndex], authcid[strudelIndex+1:]
+		if !client.registered {
+			rb.session.deviceID = deviceID
+		}
+	}
 	password := string(splitValue[2])
 	err := server.accounts.AuthenticateByPassphrase(client, authcid, password)
 	if err != nil {
@@ -251,6 +261,10 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 }
 
 func authErrorToMessage(server *Server, err error) (msg string) {
+	if throttled, ok := err.(*ThrottleError); ok {
+		return throttled.Error()
+	}
+
 	switch err {
 	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch:
 		return err.Error()
@@ -280,6 +294,15 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	}
 
 	if err == nil {
+		// see #843: strip the device ID for the benefit of clients that don't
+		// distinguish user/ident from account name
+		if strudelIndex := strings.IndexByte(authzid, '@'); strudelIndex != -1 {
+			var deviceID string
+			authzid, deviceID = authzid[:strudelIndex], authzid[strudelIndex+1:]
+			if !client.registered {
+				rb.session.deviceID = deviceID
+			}
+		}
 		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
 	}
 
@@ -325,9 +348,9 @@ func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
 	details := client.Details()
 	for session := range client.Friends(caps.AwayNotify) {
 		if isAway {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY", awayMessage)
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
 		} else {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.account, nil, "AWAY")
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY")
 		}
 	}
 }
@@ -736,6 +759,21 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	return false
 }
 
+func defconHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	if len(msg.Params) > 0 {
+		level, err := strconv.Atoi(msg.Params[0])
+		if err == nil && 1 <= level && level <= 5 {
+			server.SetDefcon(uint32(level))
+			server.snomasks.Send(sno.LocalAnnouncements, fmt.Sprintf("%s [%s] set DEFCON level to %d", client.Nick(), client.Oper().Name, level))
+		} else {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), msg.Command, client.t("Invalid DEFCON parameter"))
+			return false
+		}
+	}
+	rb.Notice(fmt.Sprintf(client.t("Current DEFCON level is %d"), server.Defcon()))
+	return false
+}
+
 // helper for parsing the reason args to DLINE and KLINE
 func getReasonsFromParams(params []string, currentArg int) (reason, operReason string) {
 	reason = "No reason given"
@@ -829,7 +867,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return false
 	}
 
-	if !dlineMyself && hostNet.Contains(client.IP()) {
+	if !dlineMyself && hostNet.Contains(rb.session.IP()) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("This ban matches you. To DLINE yourself, you must use the command:  /DLINE MYSELF <arguments>"))
 		return false
 	}
@@ -868,24 +906,30 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 
 	var killClient bool
 	if andKill {
-		var clientsToKill []*Client
+		var sessionsToKill []*Session
 		var killedClientNicks []string
 
 		for _, mcl := range server.clients.AllClients() {
-			if hostNet.Contains(mcl.IP()) {
-				clientsToKill = append(clientsToKill, mcl)
-				killedClientNicks = append(killedClientNicks, mcl.nick)
+			nickKilled := false
+			for _, session := range mcl.Sessions() {
+				if hostNet.Contains(session.IP()) {
+					sessionsToKill = append(sessionsToKill, session)
+					if !nickKilled {
+						killedClientNicks = append(killedClientNicks, mcl.Nick())
+						nickKilled = true
+					}
+				}
 			}
 		}
 
-		for _, mcl := range clientsToKill {
-			mcl.SetExitedSnomaskSent()
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
-			if mcl == client {
+		for _, session := range sessionsToKill {
+			mcl := session.client
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), session)
+			if session == rb.session {
 				killClient = true
 			} else {
 				// if mcl == client, we kill them below
-				mcl.destroy(nil)
+				mcl.destroy(session)
 			}
 		}
 
@@ -895,6 +939,73 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	}
 
 	return killClient
+}
+
+// EXTJWT <target> [service_name]
+func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	accountName := client.AccountName()
+	if accountName == "*" {
+		accountName = ""
+	}
+
+	claims := jwt.MapClaims{
+		"iss":     server.name,
+		"sub":     client.Nick(),
+		"account": accountName,
+		"umodes":  []string{},
+	}
+
+	if msg.Params[0] != "*" {
+		channel := server.channels.Get(msg.Params[0])
+		if channel == nil {
+			rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_CHANNEL", client.t("No such channel"))
+			return false
+		}
+
+		claims["channel"] = channel.Name()
+		claims["joined"] = 0
+		claims["cmodes"] = []string{}
+		if present, cModes := channel.ClientStatus(client); present {
+			claims["joined"] = 1
+			var modeStrings []string
+			for _, cMode := range cModes {
+				modeStrings = append(modeStrings, string(cMode))
+			}
+			claims["cmodes"] = modeStrings
+		}
+	}
+
+	config := server.Config()
+	var serviceName string
+	var sConfig jwt.JwtServiceConfig
+	if 1 < len(msg.Params) {
+		serviceName = strings.ToLower(msg.Params[1])
+		sConfig = config.Extjwt.Services[serviceName]
+	} else {
+		serviceName = "*"
+		sConfig = config.Extjwt.Default
+	}
+
+	if !sConfig.Enabled() {
+		rb.Add(nil, server.name, "FAIL", "EXTJWT", "NO_SUCH_SERVICE", client.t("No such service"))
+		return false
+	}
+
+	tokenString, err := sConfig.Sign(claims)
+
+	if err == nil {
+		maxTokenLength := 400
+
+		for maxTokenLength < len(tokenString) {
+			rb.Add(nil, server.name, "EXTJWT", msg.Params[0], serviceName, "*", tokenString[:maxTokenLength])
+			tokenString = tokenString[maxTokenLength:]
+		}
+		rb.Add(nil, server.name, "EXTJWT", msg.Params[0], serviceName, tokenString)
+	} else {
+		rb.Add(nil, server.name, "FAIL", "EXTJWT", "UNKNOWN_ERROR", client.t("Could not generate EXTJWT token"))
+	}
+
+	return false
 }
 
 // HELP [<query>]
@@ -973,6 +1084,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if Commit != "" {
 		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was built from git hash %s."), Commit))
 	}
+	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was compiled using %s."), runtime.Version()))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Oragono is released under the MIT license."))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
@@ -1052,15 +1164,9 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		keys = strings.Split(msg.Params[1], ",")
 	}
 
-	config := server.Config()
-	oper := client.Oper()
 	for i, name := range channels {
 		if name == "" {
 			continue // #679
-		}
-		if config.Channels.MaxChannelsPerClient <= client.NumChannels() && oper == nil {
-			rb.Add(nil, server.name, ERR_TOOMANYCHANNELS, client.Nick(), name, client.t("You have joined too many channels"))
-			return false
 		}
 		var key string
 		if len(keys) > i {
@@ -1075,18 +1181,35 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 }
 
 func sendJoinError(client *Client, name string, rb *ResponseBuffer, err error) {
-	var errMsg string
+	var code, errMsg, forbiddingMode string
 	switch err {
 	case errInsufficientPrivs:
-		errMsg = `Only server operators can create new channels`
+		code, errMsg = ERR_NOSUCHCHANNEL, `Only server operators can create new channels`
 	case errConfusableIdentifier:
-		errMsg = `That channel name is too close to the name of another channel`
+		code, errMsg = ERR_NOSUCHCHANNEL, `That channel name is too close to the name of another channel`
 	case errChannelPurged:
-		errMsg = err.Error()
+		code, errMsg = ERR_NOSUCHCHANNEL, err.Error()
+	case errTooManyChannels:
+		code, errMsg = ERR_TOOMANYCHANNELS, `You have joined too many channels`
+	case errLimitExceeded:
+		code, forbiddingMode = ERR_CHANNELISFULL, "l"
+	case errWrongChannelKey:
+		code, forbiddingMode = ERR_BADCHANNELKEY, "k"
+	case errInviteOnly:
+		code, forbiddingMode = ERR_INVITEONLYCHAN, "i"
+	case errBanned:
+		code, forbiddingMode = ERR_BANNEDFROMCHAN, "b"
+	case errRegisteredOnly:
+		code, errMsg = ERR_NEEDREGGEDNICK, `You must be registered to join that channel`
 	default:
-		errMsg = `No such channel`
+		code, errMsg = ERR_NOSUCHCHANNEL, `No such channel`
 	}
-	rb.Add(nil, client.server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(name), client.t(errMsg))
+	if forbiddingMode != "" {
+		errMsg = fmt.Sprintf(client.t("Cannot join channel (+%s)"), forbiddingMode)
+	} else {
+		errMsg = client.t(errMsg)
+	}
+	rb.Add(nil, client.server.name, code, client.Nick(), utils.SafeErrorParam(name), errMsg)
 }
 
 // SAJOIN [nick] #channel{,#channel}
@@ -1180,14 +1303,15 @@ func killHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	target := server.clients.Get(nickname)
 	if target == nil {
-		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(nickname), client.t("No such nick"))
+		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nickname), client.t("No such nick"))
 		return false
+	} else if target.AlwaysOn() {
+		rb.Add(nil, client.server.name, ERR_UNKNOWNERROR, client.Nick(), "KILL", fmt.Sprintf(client.t("Client %s is always-on and cannot be fully removed by /KILL; consider /NS SUSPEND instead"), target.Nick()))
 	}
 
 	quitMsg := fmt.Sprintf("Killed (%s (%s))", client.nick, comment)
 
 	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
-	target.SetExitedSnomaskSent()
 
 	target.Quit(quitMsg, nil)
 	target.destroy(nil)
@@ -1319,7 +1443,6 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		}
 
 		for _, mcl := range clientsToKill {
-			mcl.SetExitedSnomaskSent()
 			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
 			if mcl == client {
 				killClient = true
@@ -1440,6 +1563,13 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 	}
 
+	nick := client.Nick()
+	rplList := func(channel *Channel) {
+		if members, name, topic := channel.listData(); members != 0 {
+			rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
+		}
+	}
+
 	clientIsOp := client.HasMode(modes.Operator)
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
@@ -1447,7 +1577,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel, rb)
+				rplList(channel)
 			}
 		}
 	} else {
@@ -1465,7 +1595,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 				continue
 			}
 			if matcher.Matches(channel) {
-				client.RplList(channel, rb)
+				rplList(channel)
 			}
 		}
 	}
@@ -1632,11 +1762,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 
 	targets := strings.Split(msg.Params[1], ",")
 	for _, target := range targets {
-		cfnick, err := CasefoldName(target)
-		if err != nil {
-			continue
-		}
-		server.monitorManager.Remove(client, cfnick)
+		server.monitorManager.Remove(rb.session, target)
 	}
 
 	return false
@@ -1662,12 +1788,7 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 		}
 
 		// add target
-		casefoldedTarget, err := CasefoldName(target)
-		if err != nil {
-			continue
-		}
-
-		err = server.monitorManager.Add(client, casefoldedTarget, limits.MonitorEntries)
+		err := server.monitorManager.Add(rb.session, target, limits.MonitorEntries)
 		if err == errMonitorLimitExceeded {
 			rb.Add(nil, server.name, ERR_MONLISTFULL, client.Nick(), strconv.Itoa(limits.MonitorEntries), strings.Join(targets, ","))
 			break
@@ -1696,14 +1817,14 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb
 
 // MONITOR C
 func monitorClearHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	server.monitorManager.RemoveAll(client)
+	server.monitorManager.RemoveAll(rb.session)
 	return false
 }
 
 // MONITOR L
 func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	nick := client.Nick()
-	monitorList := server.monitorManager.List(client)
+	monitorList := server.monitorManager.List(rb.session)
 
 	var nickList []string
 	for _, cfnick := range monitorList {
@@ -1730,7 +1851,7 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 	var online []string
 	var offline []string
 
-	monitorList := server.monitorManager.List(client)
+	monitorList := server.monitorManager.List(rb.session)
 
 	for _, name := range monitorList {
 		currentNick := server.getCurrentNick(name)
@@ -1874,7 +1995,12 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	if rb.session.isTor && utils.IsRestrictedCTCPMessage(message) {
+	isCTCP := utils.IsRestrictedCTCPMessage(message)
+	if histType == history.Privmsg && !isCTCP {
+		client.UpdateActive(rb.session)
+	}
+
+	if rb.session.isTor && isCTCP {
 		// note that error replies are never sent for NOTICE
 		if histType != history.Notice {
 			rb.Notice(client.t("CTCP messages are disabled over Tor"))
@@ -1935,18 +2061,17 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		service, isService := OragonoServices[lowercaseTarget]
 		_, isZNC := zncHandlers[lowercaseTarget]
 
-		if histType == history.Privmsg {
+		if isService || isZNC {
+			details := client.Details()
+			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message)
+			if histType != history.Privmsg {
+				return // NOTICE and TAGMSG to services are ignored
+			}
 			if isService {
 				servicePrivmsgHandler(service, server, client, message.Message, rb)
-				return
 			} else if isZNC {
 				zncPrivmsgHandler(client, lowercaseTarget, message.Message, rb)
-				return
 			}
-		}
-
-		// NOTICE and TAGMSG to services are ignored
-		if isService || isZNC {
 			return
 		}
 
@@ -1957,10 +2082,20 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 			return
 		}
+
+		// Restrict CTCP message for target user with +T
+		if user.modes.HasMode(modes.UserNoCTCP) && message.IsRestrictedCTCPMessage() {
+			return
+		}
+
 		tDetails := user.Details()
 		tnick := tDetails.nick
 
 		details := client.Details()
+		if details.account == "" && server.Defcon() <= 3 {
+			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("Direct messages from unregistered users are temporarily restricted"))
+			return
+		}
 		nickMaskString := details.nickMask
 		accountName := details.accountName
 		var deliverySessions []*Session
@@ -1994,21 +2129,12 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 
 		// the originating session may get an echo message:
-		if rb.session.capabilities.Has(caps.EchoMessage) {
-			hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
-			if histType == history.Tagmsg && hasTagsCap {
-				rb.AddFromClient(message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
-			} else {
-				tagsToSend := tags
-				if !hasTagsCap {
-					tagsToSend = nil
-				}
-				rb.AddSplitMessageFromClient(nickMaskString, accountName, tagsToSend, command, tnick, message)
-			}
-		}
-		if histType != history.Notice && user.Away() {
+		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
+		if histType != history.Notice {
 			//TODO(dan): possibly implement cooldown of away notifications to users
-			rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, user.AwayMessage())
+			if away, awayMessage := user.Away(); away {
+				rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, awayMessage)
+			}
 		}
 
 		config := server.Config()
@@ -2022,7 +2148,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			AccountName: accountName,
 			Tags:        tags,
 		}
-		if !item.IsStorable() || !allowedPlusR {
+		if !itemIsStorable(&item, config) || !allowedPlusR {
 			return
 		}
 		targetedItem := item
@@ -2042,6 +2168,32 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			targetedItem.CfCorrespondent = ""
 			server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
 		}
+	}
+}
+
+func itemIsStorable(item *history.Item, config *Config) bool {
+	switch item.Type {
+	case history.Tagmsg:
+		if config.History.TagmsgStorage.Default {
+			for _, blacklistedTag := range config.History.TagmsgStorage.Blacklist {
+				if _, ok := item.Tags[blacklistedTag]; ok {
+					return false
+				}
+			}
+			return true
+		} else {
+			for _, whitelistedTag := range config.History.TagmsgStorage.Whitelist {
+				if _, ok := item.Tags[whitelistedTag]; ok {
+					return true
+				}
+			}
+			return false
+		}
+	case history.Privmsg, history.Notice:
+		// don't store CTCP other than ACTION
+		return !item.Message.IsRestrictedCTCPMessage()
+	default:
+		return true
 	}
 }
 
@@ -2093,8 +2245,8 @@ func operHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	var checkPassed, checkFailed, passwordFailed bool
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
-		if oper.Fingerprint != "" {
-			if oper.Fingerprint == rb.session.certfp {
+		if oper.Certfp != "" {
+			if oper.Certfp == rb.session.certfp {
 				checkPassed = true
 			} else {
 				checkFailed = true
@@ -2199,8 +2351,8 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
 	}
-	// only give them one try to run the PASS command (all code paths end with this
-	// variable being set):
+	// only give them one try to run the PASS command (if a server password is set,
+	// then all code paths end with this variable being set):
 	if rb.session.passStatus != serverPassUnsent {
 		return false
 	}
@@ -2211,18 +2363,17 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	if config.Accounts.LoginViaPassCommand {
 		colonIndex := strings.IndexByte(password, ':')
 		if colonIndex != -1 && client.Account() == "" {
-			// TODO consolidate all login throttle checks into AccountManager
-			throttled, _ := client.loginThrottle.Touch()
-			if !throttled {
-				account, accountPass := password[:colonIndex], password[colonIndex+1:]
-				err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
-				if err == nil {
-					sendSuccessfulAccountAuth(client, rb, false, true)
-					// login-via-pass-command entails that we do not need to check
-					// an actual server password (either no password or skip-server-password)
-					rb.session.passStatus = serverPassSuccessful
-					return false
-				}
+			account, accountPass := password[:colonIndex], password[colonIndex+1:]
+			if strudelIndex := strings.IndexByte(account, '@'); strudelIndex != -1 {
+				account, rb.session.deviceID = account[:strudelIndex], account[strudelIndex+1:]
+			}
+			err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
+			if err == nil {
+				sendSuccessfulAccountAuth(client, rb, false, true)
+				// login-via-pass-command entails that we do not need to check
+				// an actual server password (either no password or skip-server-password)
+				rb.session.passStatus = serverPassSuccessful
+				return false
 			}
 		}
 	}
@@ -2251,7 +2402,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // PING [params...]
 func pingHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	rb.Add(nil, server.name, "PONG", msg.Params...)
+	rb.Add(nil, server.name, "PONG", server.name, msg.Params[0])
 	return false
 }
 
@@ -2351,8 +2502,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 }
 
 // RENAME <oldchan> <newchan> [<reason>]
-func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (result bool) {
-	result = false
+func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	oldName, newName := msg.Params[0], msg.Params[1]
 	var reason string
 	if 2 < len(msg.Params) {
@@ -2364,6 +2514,8 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(oldName), client.t("No such channel"))
 		return false
 	}
+	oldName = channel.Name()
+
 	if !(channel.ClientIsAtLeast(client, modes.ChannelOperator) || client.HasRoleCapabs("chanreg")) {
 		rb.Add(nil, server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), oldName, client.t("You're not a channel operator"))
 		return false
@@ -2371,14 +2523,14 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	founder := channel.Founder()
 	if founder != "" && founder != client.Account() {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Only channel founders can change registered channels"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Only channel founders can change registered channels"))
 		return false
 	}
 
 	config := server.Config()
 	status, _ := channel.historyStatus(config)
 	if status == HistoryPersistent {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, newName, client.t("Channels with persistent history cannot be renamed"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Channels with persistent history cannot be renamed"))
 		return false
 	}
 
@@ -2387,9 +2539,9 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	if err == errInvalidChannelName {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err == errChannelNameInUse {
-		rb.Add(nil, server.name, ERR_CHANNAMEINUSE, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CHANNEL_NAME_IN_USE", oldName, utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err != nil {
-		rb.Add(nil, server.name, ERR_CANNOTRENAME, client.Nick(), oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
+		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
 	}
 	if err != nil {
 		return false
@@ -2485,13 +2637,18 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // SETNAME <realname>
 func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
+	if realname == "" {
+		rb.Add(nil, server.name, "FAIL", "SETNAME", "INVALID_REALNAME", client.t("Realname is not valid"))
+		return false
+	}
+
 	client.SetRealname(realname)
 	details := client.Details()
 
 	// alert friends
 	now := time.Now().UTC()
 	for session := range client.Friends(caps.SetName) {
-		session.sendFromClientInternal(false, now, "", details.nickMask, details.account, nil, "SETNAME", details.realname)
+		session.sendFromClientInternal(false, now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
 	}
 
 	return false
@@ -2601,6 +2758,22 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		return false
 	}
 
+	// #843: we accept either: `USER user:pass@clientid` or `USER user@clientid`
+	if strudelIndex := strings.IndexByte(username, '@'); strudelIndex != -1 {
+		username, rb.session.deviceID = username[:strudelIndex], username[strudelIndex+1:]
+		if colonIndex := strings.IndexByte(username, ':'); colonIndex != -1 {
+			var password string
+			username, password = username[:colonIndex], username[colonIndex+1:]
+			err := server.accounts.AuthenticateByPassphrase(client, username, password)
+			if err == nil {
+				sendSuccessfulAccountAuth(client, rb, false, true)
+			} else {
+				// this is wrong, but send something for debugging that will show up in a raw transcript
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed"))
+			}
+		}
+	}
+
 	err := client.SetNames(username, realname, false)
 	if err == errInvalidUsername {
 		// if client's using a unicode nick or something weird, let's just set 'em up with a stock username instead.
@@ -2641,7 +2814,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 		if target.HasMode(modes.Operator) {
 			isOper = "*"
 		}
-		if target.Away() {
+		if away, _ := target.Away(); away {
 			isAway = "-"
 		} else {
 			isAway = "+"
@@ -2712,7 +2885,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
 				continue
 			}
-			if info.Fingerprint != "" && info.Fingerprint != rb.session.certfp {
+			if info.Certfp != "" && info.Certfp != rb.session.certfp {
 				continue
 			}
 
@@ -2730,7 +2903,122 @@ func webircHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	return true
 }
 
-// WHO [<mask> [o]]
+type whoxFields uint32 // bitset to hold the WHOX field values, 'a' through 'z'
+
+func (fields whoxFields) Add(field rune) (result whoxFields) {
+	index := int(field) - int('a')
+	if 0 <= index && index < 26 {
+		return fields | (1 << index)
+	} else {
+		return fields
+	}
+}
+
+func (fields whoxFields) Has(field rune) bool {
+	index := int(field) - int('a')
+	if 0 <= index && index < 26 {
+		return (fields & (1 << index)) != 0
+	} else {
+		return false
+	}
+}
+
+// rplWhoReply returns the WHO(X) reply between one user and another channel/user.
+// who format:
+// <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
+// whox format:
+// <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, isWhox bool, fields whoxFields, whoType string) {
+	params := []string{client.Nick()}
+
+	details := target.Details()
+
+	if fields.Has('t') {
+		params = append(params, whoType)
+	}
+	if fields.Has('c') {
+		fChannel := "*"
+		if channel != nil {
+			fChannel = channel.name
+		}
+		params = append(params, fChannel)
+	}
+	if fields.Has('u') {
+		params = append(params, details.username)
+	}
+	if fields.Has('i') {
+		fIP := "255.255.255.255"
+		if client.HasMode(modes.Operator) || client == target {
+			// you can only see a target's IP if they're you or you're an oper
+			fIP = target.IPString()
+		}
+		params = append(params, fIP)
+	}
+	if fields.Has('h') {
+		params = append(params, details.hostname)
+	}
+	if fields.Has('s') {
+		params = append(params, target.server.name)
+	}
+	if fields.Has('n') {
+		params = append(params, details.nick)
+	}
+	if fields.Has('f') { // "flags" (away + oper state + channel status prefix + bot)
+		var flags strings.Builder
+		if away, _ := target.Away(); away {
+			flags.WriteRune('G') // Gone
+		} else {
+			flags.WriteRune('H') // Here
+		}
+
+		if target.HasMode(modes.Operator) {
+			flags.WriteRune('*')
+		}
+
+		if channel != nil {
+			flags.WriteString(channel.ClientPrefixes(target, rb.session.capabilities.Has(caps.MultiPrefix)))
+		}
+
+		if target.HasMode(modes.Bot) {
+			flags.WriteRune('B')
+		}
+
+		params = append(params, flags.String())
+
+	}
+	if fields.Has('d') { // server hops from us to target
+		params = append(params, "0")
+	}
+	if fields.Has('l') {
+		params = append(params, fmt.Sprintf("%d", target.IdleSeconds()))
+	}
+	if fields.Has('a') {
+		fAccount := "0"
+		if details.accountName != "*" {
+			// WHOX uses "0" to mean "no account"
+			fAccount = details.accountName
+		}
+		params = append(params, fAccount)
+	}
+	if fields.Has('o') { // target's channel power level
+		//TODO: implement this
+		params = append(params, "0")
+	}
+	if fields.Has('r') {
+		params = append(params, details.realname)
+	}
+
+	numeric := RPL_WHOSPCRPL
+	if !isWhox {
+		numeric = RPL_WHOREPLY
+		// if this isn't WHOX, stick hops + realname at the end
+		params = append(params, "0 "+details.realname)
+	}
+
+	rb.Add(nil, client.server.name, numeric, params...)
+}
+
+// WHO <mask> [<filter>%<fields>,<type>]
 func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	mask := msg.Params[0]
 	var err error
@@ -2746,6 +3034,26 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("Mask isn't valid"))
 		return false
+	}
+
+	sFields := "cuhsnf"
+	whoType := "0"
+	isWhox := false
+	if len(msg.Params) > 1 && strings.Contains(msg.Params[1], "%") {
+		isWhox = true
+		whoxData := msg.Params[1]
+		fieldStart := strings.Index(whoxData, "%")
+		sFields = whoxData[fieldStart+1:]
+
+		typeIndex := strings.Index(sFields, ",")
+		if typeIndex > -1 && typeIndex < (len(sFields)-1) { // make sure there's , and a value after it
+			whoType = sFields[typeIndex+1:]
+			sFields = strings.ToLower(sFields[:typeIndex])
+		}
+	}
+	var fields whoxFields
+	for _, field := range sFields {
+		fields = fields.Add(field)
 	}
 
 	//TODO(dan): is this used and would I put this param in the Modern doc?
@@ -2765,16 +3073,16 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			if !channel.flags.HasMode(modes.Secret) || isJoined || isOper {
 				for _, member := range channel.Members() {
 					if !member.HasMode(modes.Invisible) || isJoined || isOper {
-						client.rplWhoReply(channel, member, rb)
+						client.rplWhoReply(channel, member, rb, isWhox, fields, whoType)
 					}
 				}
 			}
 		}
 	} else {
 		// Construct set of channels the client is in.
-		userChannels := make(map[*Channel]bool)
+		userChannels := make(ChannelSet)
 		for _, channel := range client.Channels() {
-			userChannels[channel] = true
+			userChannels[channel] = empty{}
 		}
 
 		// Another client is a friend if they share at least one channel, or they are the same client.
@@ -2784,7 +3092,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 
 			for _, channel := range otherClient.Channels() {
-				if userChannels[channel] {
+				if _, present := userChannels[channel]; present {
 					return true
 				}
 			}
@@ -2793,7 +3101,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 		for mclient := range server.clients.FindAll(mask) {
 			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
-				client.rplWhoReply(nil, mclient, rb)
+				client.rplWhoReply(nil, mclient, rb, isWhox, fields, whoType)
 			}
 		}
 	}
@@ -2893,12 +3201,23 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // ZNC <module> [params]
 func zncHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	zncModuleHandler(client, msg.Params[0], msg.Params[1:], rb)
+	params := msg.Params[1:]
+	// #1205: compatibility with Palaver, which sends `ZNC *playback :play ...`
+	if len(params) == 1 && strings.IndexByte(params[0], ' ') != -1 {
+		params = strings.Fields(params[0])
+	}
+	zncModuleHandler(client, msg.Params[0], params, rb)
 	return false
 }
 
 // fake handler for unknown commands
 func unknownCommandHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), client.t("Unknown command"))
+	return false
+}
+
+// fake handler for invalid utf8
+func invalidUtf8Handler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, "FAIL", utils.SafeErrorParam(msg.Command), "INVALID_UTF8", client.t("Message rejected for containing invalid UTF-8"))
 	return false
 }

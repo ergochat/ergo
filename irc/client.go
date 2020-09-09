@@ -27,9 +27,36 @@ import (
 )
 
 const (
+	// maximum line length not including tags; don't change this for a public server
+	MaxLineLen = 512
+
 	// IdentTimeout is how long before our ident (username) check times out.
 	IdentTimeout         = time.Second + 500*time.Millisecond
 	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
+	// limit the number of device IDs a client can use, as a DoS mitigation
+	maxDeviceIDsPerClient = 64
+	// controls how often often we write an autoreplay-missed client's
+	// deviceid->lastseentime mapping to the database
+	lastSeenWriteInterval = time.Hour
+)
+
+const (
+	// RegisterTimeout is how long clients have to register before we disconnect them
+	RegisterTimeout = time.Minute
+	// DefaultIdleTimeout is how long without traffic before we send the client a PING
+	DefaultIdleTimeout = time.Minute + 30*time.Second
+	// For Tor clients, we send a PING at least every 30 seconds, as a workaround for this bug
+	// (single-onion circuits will close unless the client sends data once every 60 seconds):
+	// https://bugs.torproject.org/29665
+	TorIdleTimeout = time.Second * 30
+	// This is how long a client gets without sending any message, including the PONG to our
+	// PING, before we disconnect them:
+	DefaultTotalTimeout = 2*time.Minute + 30*time.Second
+	// Resumeable clients (clients who have negotiated caps.Resume) get longer:
+	ResumeableTotalTimeout = 3*time.Minute + 30*time.Second
+
+	// round off the ping interval by this much, see below:
+	PingCoalesceThreshold = time.Second
 )
 
 // ResumeDetails is a place to stash data at various stages of
@@ -54,14 +81,14 @@ type Client struct {
 	channels           ChannelSet
 	ctime              time.Time
 	destroyed          bool
-	exitedSnomaskSent  bool
 	modes              modes.ModeSet
 	hostname           string
-	invitedTo          map[string]bool
+	invitedTo          utils.StringSet
 	isSTSOnly          bool
 	languages          []string
-	lastActive         time.Time // last time they sent a command that wasn't PONG or similar
-	lastSeen           time.Time // last time they sent any kind of command
+	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
+	lastSeen           map[string]time.Time // maps device ID (including "") to time of last received command
+	lastSeenLastWrite  time.Time            // last time `lastSeen` was written to the datastore
 	loginThrottle      connection_limits.GenericThrottle
 	nick               string
 	nickCasefolded     string
@@ -75,6 +102,7 @@ type Client struct {
 	realname           string
 	realIP             net.IP
 	registered         bool
+	registrationTimer  *time.Timer
 	resumeID           string
 	server             *Server
 	skeleton           string
@@ -112,8 +140,13 @@ const (
 type Session struct {
 	client *Client
 
+	deviceID string
+
 	ctime      time.Time
-	lastActive time.Time
+	lastActive time.Time // last non-CTCP PRIVMSG sent; updates publicly visible idle time
+	lastTouch  time.Time // last line sent; updates timer for idle timeouts
+	idleTimer  *time.Timer
+	pingSent   bool // we sent PING to a putatively idle connection and we're waiting for PONG
 
 	socket      *Socket
 	realIP      net.IP
@@ -121,7 +154,6 @@ type Session struct {
 	rawHostname string
 	isTor       bool
 
-	idletimer            IdleTimer
 	fakelag              Fakelag
 	deferredFakelagCount int
 	destroyed            uint32
@@ -178,8 +210,8 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 	s.fakelag.Unsuspend()
 
 	// heuristics to estimate how much data they used while fakelag was suspended
-	fakelagBill := (batch.lenBytes / 512) + 1
-	fakelagBillLines := (batch.message.LenLines() * 60) / 512
+	fakelagBill := (batch.lenBytes / MaxLineLen) + 1
+	fakelagBillLines := (batch.message.LenLines() * 60) / MaxLineLen
 	if fakelagBill < fakelagBillLines {
 		fakelagBill = fakelagBillLines
 	}
@@ -299,7 +331,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
-		lastSeen:   now,
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
@@ -333,7 +364,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	}
 	client.sessions = []*Session{session}
 
-	session.idletimer.Initialize(session)
 	session.resetFakelag()
 
 	if wConn.Secure {
@@ -354,15 +384,16 @@ func (server *Server) RunClient(conn IRCConn) {
 		}
 	}
 
+	client.registrationTimer = time.AfterFunc(RegisterTimeout, client.handleRegisterTimeout)
 	server.stats.Add()
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen time.Time, uModes modes.Modes) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
 	now := time.Now().UTC()
 	config := server.Config()
-	if lastSeen.IsZero() {
-		lastSeen = now
+	if lastSeen == nil && account.Settings.AutoreplayMissed {
+		lastSeen = map[string]time.Time{"": now}
 	}
 
 	client := &Client{
@@ -379,6 +410,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		realIP:      utils.IPv4LoopbackAddress,
 
 		alwaysOn: true,
+		realname: realname,
 	}
 
 	client.SetMode(modes.TLS, true)
@@ -522,7 +554,7 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome {
+func (client *Client) isAuthorized(server *Server, config *Config, session *Session) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
 	if (config.Server.passwordBytes != nil) && session.passStatus != serverPassSuccessful && !(config.Accounts.SkipServerPassword && saslSent) {
@@ -533,7 +565,8 @@ func (client *Client) isAuthorized(config *Config, session *Session) AuthOutcome
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if config.Accounts.RequireSasl.Enabled && !saslSent && !utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
+	if !saslSent && (config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
+		!utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}
 	return authSuccess
@@ -594,7 +627,7 @@ func (client *Client) run(session *Session) {
 
 	isReattach := client.Registered()
 	if isReattach {
-		session.idletimer.Touch()
+		client.Touch(session)
 		if session.resumeDetails != nil {
 			session.playResume()
 			session.resumeDetails = nil
@@ -608,8 +641,11 @@ func (client *Client) run(session *Session) {
 	firstLine := !isReattach
 
 	for {
+		var invalidUtf8 bool
 		line, err := session.socket.Read()
-		if err != nil {
+		if err == errInvalidUtf8 {
+			invalidUtf8 = true // handle as normal, including labeling
+		} else if err != nil {
 			quitMessage := "connection closed"
 			if err == errReadQ {
 				quitMessage = "readQ exceeded"
@@ -655,7 +691,7 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
-		msg, err := ircmsg.ParseLineStrict(line, true, 512)
+		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorLineTooLong {
@@ -669,6 +705,8 @@ func (client *Client) run(session *Session) {
 		cmd, exists := Commands[msg.Command]
 		if !exists {
 			cmd = unknownCommand
+		} else if invalidUtf8 {
+			cmd = invalidUtf8Command
 		}
 
 		isExiting := cmd.Run(client.server, client, session, msg)
@@ -711,16 +749,109 @@ func (client *Client) playReattachMessages(session *Session) {
 //
 
 // Touch indicates that we received a line from the client (so the connection is healthy
-// at this time, modulo network latency and fakelag). `active` means not a PING or suchlike
-// (i.e. the user should be sitting in front of their client).
-func (client *Client) Touch(active bool, session *Session) {
+// at this time, modulo network latency and fakelag).
+func (client *Client) Touch(session *Session) {
+	var markDirty bool
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.lastSeen = now
-	if active {
-		client.lastActive = now
-		session.lastActive = now
+	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
+		client.setLastSeen(now, session.deviceID)
+		if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
+			markDirty = true
+			client.lastSeenLastWrite = now
+		}
+	}
+	client.updateIdleTimer(session, now)
+	client.stateMutex.Unlock()
+	if markDirty {
+		client.markDirty(IncludeLastSeen)
+	}
+}
+
+func (client *Client) setLastSeen(now time.Time, deviceID string) {
+	if client.lastSeen == nil {
+		client.lastSeen = make(map[string]time.Time)
+	}
+	client.lastSeen[deviceID] = now
+	// evict the least-recently-used entry if necessary
+	if maxDeviceIDsPerClient < len(client.lastSeen) {
+		var minLastSeen time.Time
+		var minClientId string
+		for deviceID, lastSeen := range client.lastSeen {
+			if minLastSeen.IsZero() || lastSeen.Before(minLastSeen) {
+				minClientId, minLastSeen = deviceID, lastSeen
+			}
+		}
+		delete(client.lastSeen, minClientId)
+	}
+}
+
+func (client *Client) updateIdleTimer(session *Session, now time.Time) {
+	session.lastTouch = now
+	session.pingSent = false
+
+	if session.idleTimer == nil {
+		pingTimeout := DefaultIdleTimeout
+		if session.isTor {
+			pingTimeout = TorIdleTimeout
+		}
+		session.idleTimer = time.AfterFunc(pingTimeout, session.handleIdleTimeout)
+	}
+}
+
+func (session *Session) handleIdleTimeout() {
+	totalTimeout := DefaultTotalTimeout
+	if session.capabilities.Has(caps.Resume) {
+		totalTimeout = ResumeableTotalTimeout
+	}
+	pingTimeout := DefaultIdleTimeout
+	if session.isTor {
+		pingTimeout = TorIdleTimeout
+	}
+
+	session.client.stateMutex.Lock()
+	now := time.Now()
+	timeUntilDestroy := session.lastTouch.Add(totalTimeout).Sub(now)
+	timeUntilPing := session.lastTouch.Add(pingTimeout).Sub(now)
+	shouldDestroy := session.pingSent && timeUntilDestroy <= 0
+	// XXX this should really be time <= 0, but let's do some hacky timer coalescing:
+	// a typical idling client will do nothing other than respond immediately to our pings,
+	// so we'll PING at t=0, they'll respond at t=0.05, then we'll wake up at t=90 and find
+	// that we need to PING again at t=90.05. Rather than wake up again, just send it now:
+	shouldSendPing := !session.pingSent && timeUntilPing <= PingCoalesceThreshold
+	if !shouldDestroy {
+		if shouldSendPing {
+			session.pingSent = true
+		}
+		// check in again at the minimum of these 3 possible intervals:
+		// 1. the ping timeout (assuming we PING and they reply immediately with PONG)
+		// 2. the next time we would send PING (if they don't send any more lines)
+		// 3. the next time we would destroy (if they don't send any more lines)
+		nextTimeout := pingTimeout
+		if PingCoalesceThreshold < timeUntilPing && timeUntilPing < nextTimeout {
+			nextTimeout = timeUntilPing
+		}
+		if 0 < timeUntilDestroy && timeUntilDestroy < nextTimeout {
+			nextTimeout = timeUntilDestroy
+		}
+		session.idleTimer.Stop()
+		session.idleTimer.Reset(nextTimeout)
+	}
+	session.client.stateMutex.Unlock()
+
+	if shouldDestroy {
+		session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
+		session.client.destroy(session)
+	} else if shouldSendPing {
+		session.Ping()
+	}
+}
+
+func (session *Session) stopIdleTimer() {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+	if session.idleTimer != nil {
+		session.idleTimer.Stop()
 	}
 }
 
@@ -950,23 +1081,10 @@ func (client *Client) IdleSeconds() uint64 {
 	return uint64(client.IdleTime().Seconds())
 }
 
-// HasNick returns true if the client's nickname is set (used in registration).
-func (client *Client) HasNick() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.nick != "" && client.nick != "*"
-}
-
-// HasUsername returns true if the client's username is set (used in registration).
-func (client *Client) HasUsername() bool {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.username != "" && client.username != "*"
-}
-
 // SetNames sets the client's ident and realname.
 func (client *Client) SetNames(username, realname string, fromIdent bool) error {
-	limit := client.server.Config().Limits.IdentLen
+	config := client.server.Config()
+	limit := config.Limits.IdentLen
 	if !fromIdent {
 		limit -= 1 // leave room for the prepended ~
 	}
@@ -978,7 +1096,9 @@ func (client *Client) SetNames(username, realname string, fromIdent bool) error 
 		return errInvalidUsername
 	}
 
-	if !fromIdent {
+	if config.Server.SuppressIdent {
+		username = "~user"
+	} else if !fromIdent {
 		username = "~" + username
 	}
 
@@ -1018,27 +1138,30 @@ func (client *Client) ModeString() (str string) {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]bool) {
-	result = make(map[*Session]bool)
+func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]empty) {
+	result = make(map[*Session]empty)
 
 	// look at the client's own sessions
-	for _, session := range client.Sessions() {
-		if session.capabilities.HasAll(capabs...) {
-			result[session] = true
-		}
-	}
+	addFriendsToSet(result, client, capabs...)
 
 	for _, channel := range client.Channels() {
 		for _, member := range channel.Members() {
-			for _, session := range member.Sessions() {
-				if session.capabilities.HasAll(capabs...) {
-					result[session] = true
-				}
-			}
+			addFriendsToSet(result, member, capabs...)
 		}
 	}
 
 	return
+}
+
+// helper for Friends
+func addFriendsToSet(set map[*Session]empty, client *Client, capabs ...caps.Capability) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	for _, session := range client.sessions {
+		if session.capabilities.HasAll(capabs...) {
+			set[session] = empty{}
+		}
+	}
 }
 
 func (client *Client) SetOper(oper *Oper) {
@@ -1082,14 +1205,25 @@ func (client *Client) SetVHost(vhost string) (updated bool) {
 	return
 }
 
-// updateNick updates `nick` and `nickCasefolded`.
-func (client *Client) updateNick(nick, nickCasefolded, skeleton string) {
+// SetNick gives the client a nickname and marks it as registered, if necessary
+func (client *Client) SetNick(nick, nickCasefolded, skeleton string) (success bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+	if client.destroyed {
+		return false
+	} else if !client.registered {
+		// XXX test this before setting it to avoid annoying the race detector
+		client.registered = true
+		if client.registrationTimer != nil {
+			client.registrationTimer.Stop()
+			client.registrationTimer = nil
+		}
+	}
 	client.nick = nick
 	client.nickCasefolded = nickCasefolded
 	client.skeleton = skeleton
 	client.updateNickMaskNoMutex()
+	return true
 }
 
 // updateNickMaskNoMutex updates the casefolded nickname and nickmask, not acquiring any mutexes.
@@ -1159,11 +1293,11 @@ func (client *Client) Quit(message string, session *Session) {
 		// #364: don't send QUIT lines to unregistered clients
 		if client.registered {
 			quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
-			finalData, _ = quitMsg.LineBytesStrict(false, 512)
+			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
 		}
 
 		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
-		errorMsgBytes, _ := errorMsg.LineBytesStrict(false, 512)
+		errorMsgBytes, _ := errorMsg.LineBytesStrict(false, MaxLineLen)
 		finalData = append(finalData, errorMsgBytes...)
 
 		sess.socket.SetFinalData(finalData)
@@ -1193,16 +1327,20 @@ func (client *Client) Quit(message string, session *Session) {
 func (client *Client) destroy(session *Session) {
 	config := client.server.Config()
 	var sessionsToDestroy []*Session
+	var saveLastSeen bool
 
 	client.stateMutex.Lock()
+
 	details := client.detailsNoMutex()
 	brbState := client.brbTimer.state
 	brbAt := client.brbTimer.brbAt
 	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	registered := client.registered
-	alwaysOn := client.alwaysOn
-	saveLastSeen := alwaysOn && client.accountSettings.AutoreplayMissed
+	// XXX a temporary (reattaching) client can be marked alwaysOn when it logs in,
+	// but then the session attaches to another client and we need to clean it up here
+	alwaysOn := registered && client.alwaysOn
+
 	var remainingSessions int
 	if session == nil {
 		sessionsToDestroy = client.sessions
@@ -1212,6 +1350,20 @@ func (client *Client) destroy(session *Session) {
 		sessionRemoved, remainingSessions = client.removeSession(session)
 		if sessionRemoved {
 			sessionsToDestroy = []*Session{session}
+		}
+	}
+
+	// save last seen if applicable:
+	if alwaysOn {
+		if client.accountSettings.AutoreplayMissed {
+			saveLastSeen = true
+		} else {
+			for _, session := range sessionsToDestroy {
+				if session.deviceID != "" {
+					saveLastSeen = true
+					break
+				}
+			}
 		}
 	}
 
@@ -1229,16 +1381,21 @@ func (client *Client) destroy(session *Session) {
 	if saveLastSeen {
 		client.dirtyBits |= IncludeLastSeen
 	}
-	exitedSnomaskSent := client.exitedSnomaskSent
 
 	autoAway := false
 	var awayMessage string
-	if alwaysOn && remainingSessions == 0 && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+	if alwaysOn && !client.away && remainingSessions == 0 &&
+		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 		autoAway = true
 		client.autoAway = true
 		client.away = true
-		awayMessage = config.languageManager.Translate(client.languages, `Disconnected from the server`)
+		awayMessage = config.languageManager.Translate(client.languages, `User is currently disconnected`)
 		client.awayMessage = awayMessage
+	}
+
+	if client.registrationTimer != nil {
+		// unconditionally stop; if the client is still unregistered it must be destroyed
+		client.registrationTimer.Stop()
 	}
 
 	client.stateMutex.Unlock()
@@ -1258,12 +1415,15 @@ func (client *Client) destroy(session *Session) {
 			// session has been attached to a new client; do not destroy it
 			continue
 		}
-		session.idletimer.Stop()
+		session.stopIdleTimer()
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
 		quitMessage = session.quitMessage
 		session.SetDestroyed()
 		session.socket.Close()
+
+		// clean up monitor state
+		client.server.monitorManager.RemoveAll(session)
 
 		// remove from connection limits
 		var source string
@@ -1330,8 +1490,6 @@ func (client *Client) destroy(session *Session) {
 	if registered {
 		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
 	}
-	// clean up monitor state
-	client.server.monitorManager.RemoveAll(client)
 
 	// clean up channels
 	// (note that if this is a reattach, client has no channels and therefore no friends)
@@ -1370,7 +1528,7 @@ func (client *Client) destroy(session *Session) {
 		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	}
 
-	if !exitedSnomaskSent && registered {
+	if registered {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
 	}
 }
@@ -1478,10 +1636,11 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 	}
 
 	// assemble message
-	line, err := message.LineBytesStrict(false, 512)
+	line, err := message.LineBytesStrict(false, MaxLineLen)
 	if err != nil {
-		logline := fmt.Sprintf("Error assembling message for sending: %v\n%s", err, debug.Stack())
-		session.client.server.logger.Error("internal", logline)
+		errorParams := []string{"Error assembling message for sending", err.Error(), message.Command}
+		errorParams = append(errorParams, message.Params...)
+		session.client.server.logger.Error("internal", errorParams...)
 
 		message = ircmsg.MakeMessage(nil, session.client.server.name, ERR_UNKNOWNERROR, "*", "Error assembling message for sending")
 		line, _ := message.LineBytesStrict(false, 0)
@@ -1543,15 +1702,24 @@ func (session *Session) Notice(text string) {
 
 // `simulated` is for the fake join of an always-on client
 // (we just read the channel name from the database, there's no need to write it back)
-func (client *Client) addChannel(channel *Channel, simulated bool) {
+func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
+	config := client.server.Config()
+
 	client.stateMutex.Lock()
-	client.channels[channel] = true
 	alwaysOn := client.alwaysOn
+	if client.destroyed {
+		err = errClientDestroyed
+	} else if client.oper == nil && len(client.channels) >= config.Channels.MaxChannelsPerClient {
+		err = errTooManyChannels
+	} else {
+		client.channels[channel] = empty{} // success
+	}
 	client.stateMutex.Unlock()
 
-	if alwaysOn && !simulated {
+	if err == nil && alwaysOn && !simulated {
 		client.markDirty(IncludeChannels)
 	}
+	return
 }
 
 func (client *Client) removeChannel(channel *Channel) {
@@ -1571,10 +1739,10 @@ func (client *Client) Invite(casefoldedChannel string) {
 	defer client.stateMutex.Unlock()
 
 	if client.invitedTo == nil {
-		client.invitedTo = make(map[string]bool)
+		client.invitedTo = make(utils.StringSet)
 	}
 
-	client.invitedTo[casefoldedChannel] = true
+	client.invitedTo.Add(casefoldedChannel)
 }
 
 // Checks that the client was invited to join a given channel
@@ -1582,7 +1750,7 @@ func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	invited = client.invitedTo[casefoldedChannel]
+	invited = client.invitedTo.Has(casefoldedChannel)
 	// joining an invited channel "uses up" your invite, so you can't rejoin on kick
 	delete(client.invitedTo, casefoldedChannel)
 	return
@@ -1595,13 +1763,19 @@ func (client *Client) attemptAutoOper(session *Session) {
 		return
 	}
 	for _, oper := range client.server.Config().operators {
-		if oper.Auto && oper.Pass == nil && oper.Fingerprint != "" && oper.Fingerprint == session.certfp {
+		if oper.Auto && oper.Pass == nil && oper.Certfp != "" && oper.Certfp == session.certfp {
 			rb := NewResponseBuffer(session)
 			applyOper(client, oper, rb)
 			rb.Send(true)
 			return
 		}
 	}
+}
+
+func (client *Client) checkLoginThrottle() (throttled bool, remainingTime time.Duration) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	return client.loginThrottle.Touch()
 }
 
 func (client *Client) historyStatus(config *Config) (status HistoryStatus, target string) {
@@ -1624,12 +1798,28 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 	return
 }
 
+func (client *Client) handleRegisterTimeout() {
+	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil)
+	client.destroy(nil)
+}
+
+func (client *Client) copyLastSeen() (result map[string]time.Time) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	result = make(map[string]time.Time, len(client.lastSeen))
+	for id, lastSeen := range client.lastSeen {
+		result[id] = lastSeen
+	}
+	return
+}
+
 // these are bit flags indicating what part of the client status is "dirty"
 // and needs to be read from memory and written to the db
 const (
 	IncludeChannels uint = 1 << iota
 	IncludeLastSeen
 	IncludeUserModes
+	IncludeRealname
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1651,7 +1841,7 @@ func (client *Client) wakeWriter() {
 
 func (client *Client) writeLoop() {
 	for {
-		client.performWrite()
+		client.performWrite(0)
 		client.writerSemaphore.Release()
 
 		client.stateMutex.RLock()
@@ -1664,12 +1854,11 @@ func (client *Client) writeLoop() {
 	}
 }
 
-func (client *Client) performWrite() {
+func (client *Client) performWrite(additionalDirtyBits uint) {
 	client.stateMutex.Lock()
-	dirtyBits := client.dirtyBits
+	dirtyBits := client.dirtyBits | additionalDirtyBits
 	client.dirtyBits = 0
 	account := client.account
-	lastSeen := client.lastSeen
 	client.stateMutex.Unlock()
 
 	if account == "" {
@@ -1686,7 +1875,7 @@ func (client *Client) performWrite() {
 		client.server.accounts.saveChannels(account, channelNames)
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
-		client.server.accounts.saveLastSeen(account, lastSeen)
+		client.server.accounts.saveLastSeen(account, client.copyLastSeen())
 	}
 	if (dirtyBits & IncludeUserModes) != 0 {
 		uModes := make(modes.Modes, 0, len(modes.SupportedUserModes))
@@ -1702,4 +1891,25 @@ func (client *Client) performWrite() {
 		}
 		client.server.accounts.saveModes(account, uModes)
 	}
+	if (dirtyBits & IncludeRealname) != 0 {
+		client.server.accounts.saveRealname(account, client.realname)
+	}
+}
+
+// Blocking store; see Channel.Store and Socket.BlockingWrite
+func (client *Client) Store(dirtyBits uint) (err error) {
+	defer func() {
+		client.stateMutex.Lock()
+		isDirty := client.dirtyBits != 0
+		client.stateMutex.Unlock()
+
+		if isDirty {
+			client.wakeWriter()
+		}
+	}()
+
+	client.writerSemaphore.Acquire()
+	defer client.writerSemaphore.Release()
+	client.performWrite(dirtyBits)
+	return nil
 }

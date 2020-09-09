@@ -23,16 +23,13 @@ var (
 		"MemoServ", "BotServ", "OperServ",
 	}
 
-	restrictedCasefoldedNicks = make(map[string]bool)
-	restrictedSkeletons       = make(map[string]bool)
+	restrictedCasefoldedNicks = make(utils.StringSet)
+	restrictedSkeletons       = make(utils.StringSet)
 )
 
 func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) error {
 	currentNick := client.Nick()
 	details := target.Details()
-	if details.nick == nickname {
-		return nil
-	}
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
 
@@ -91,13 +88,11 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		channel.AddHistoryItem(histItem, details.account)
 	}
 
-	if target.Registered() {
-		newCfnick := target.NickCasefolded()
-		if newCfnick != details.nickCasefolded {
-			client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
-			client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
-		}
-	} // else: these will be deferred to the end of registration (see #572)
+	newCfnick := target.NickCasefolded()
+	if newCfnick != details.nickCasefolded {
+		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
+		client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
+	}
 	return nil
 }
 
@@ -134,7 +129,8 @@ func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config) 
 	if !client.registered {
 		return true
 	}
-	if performNickChange(client.server, client, client, rb.session, client.AccountName(), rb) != nil {
+	err := performNickChange(client.server, client, client, rb.session, client.AccountName(), rb)
+	if err != nil && err != errNoop {
 		client.server.accounts.Logout(client)
 		nsNotice(rb, client.t("A client is already using that account; try logging out and logging back in with SASL"))
 		return false

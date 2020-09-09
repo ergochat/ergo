@@ -129,51 +129,6 @@ for the rejection.`,
 			maxParams:         2,
 			unsplitFinalParam: true,
 		},
-		"forbid": {
-			handler: hsForbidHandler,
-			help: `Syntax: $bFORBID <user>$b
-
-FORBID prevents a user from using any vhost, including ones on the offer list.`,
-			helpShort: `$bFORBID$b prevents a user from using vhosts.`,
-			capabs:    []string{"vhosts"},
-			enabled:   hostservEnabled,
-			minParams: 1,
-			maxParams: 1,
-		},
-		"permit": {
-			handler: hsForbidHandler,
-			help: `Syntax: $bPERMIT <user>$b
-
-PERMIT undoes FORBID, allowing the user to TAKE vhosts again.`,
-			helpShort: `$bPERMIT$b allows a user to use vhosts again.`,
-			capabs:    []string{"vhosts"},
-			enabled:   hostservEnabled,
-			minParams: 1,
-			maxParams: 1,
-		},
-		"offerlist": {
-			handler: hsOfferListHandler,
-			help: `Syntax: $bOFFERLIST$b
-
-OFFERLIST lists vhosts that can be chosen without requiring operator approval;
-to use one of the listed vhosts, take it with /HOSTSERV TAKE.`,
-			helpShort: `$bOFFERLIST$b lists vhosts that can be taken without operator approval.`,
-			enabled:   hostservEnabled,
-			minParams: 0,
-			maxParams: 0,
-		},
-		"take": {
-			handler: hsTakeHandler,
-			help: `Syntax: $bTAKE$b <vhost>
-
-TAKE sets your vhost to one of the vhosts in the server's offer list; to see
-the offered vhosts, use /HOSTSERV OFFERLIST.`,
-			helpShort:    `$bTAKE$b sets your vhost to one of the options from the offer list.`,
-			enabled:      hostservEnabled,
-			authRequired: true,
-			minParams:    1,
-			maxParams:    1,
-		},
 		"setcloaksecret": {
 			handler: hsSetCloakSecretHandler,
 			help: `Syntax: $bSETCLOAKSECRET$b <secret> [code]
@@ -238,8 +193,6 @@ func hsRequestHandler(server *Server, client *Client, command string, params []s
 	if err != nil {
 		if throttled, ok := err.(*vhostThrottleExceeded); ok {
 			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before making another request"), throttled.timeRemaining))
-		} else if err == errVhostsForbidden {
-			hsNotice(rb, client.t("An administrator has denied you the ability to use vhosts"))
 		} else {
 			hsNotice(rb, client.t("An error occurred"))
 		}
@@ -273,11 +226,6 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 			server.logger.Warning("internal", "error loading account info", accountName, err.Error())
 		}
 		hsNotice(rb, client.t("No such account"))
-		return
-	}
-
-	if account.VHost.Forbidden {
-		hsNotice(rb, client.t("An administrator has denied you the ability to use vhosts"))
 		return
 	}
 
@@ -379,70 +327,6 @@ func hsRejectHandler(server *Server, client *Client, command string, params []st
 				client.Send(nil, hsNickMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Your vhost request was rejected by an administrator. The reason given was: %s"), reason))
 			}
 		}
-	}
-}
-
-func hsForbidHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	user := params[0]
-	forbidden := command == "forbid"
-
-	_, err := server.accounts.VHostForbid(user, forbidden)
-	if err == errAccountDoesNotExist {
-		hsNotice(rb, client.t("No such account"))
-	} else if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
-	} else {
-		if forbidden {
-			hsNotice(rb, fmt.Sprintf(client.t("User %s is no longer allowed to use vhosts"), user))
-		} else {
-			hsNotice(rb, fmt.Sprintf(client.t("User %s is now allowed to use vhosts"), user))
-		}
-	}
-}
-
-func hsOfferListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	vhostConfig := server.Config().Accounts.VHosts
-	if len(vhostConfig.OfferList) == 0 {
-		if vhostConfig.UserRequests.Enabled {
-			hsNotice(rb, client.t("The server does not offer any vhosts, but you can request one with /HOSTSERV REQUEST"))
-		} else {
-			hsNotice(rb, client.t("The server does not offer any vhosts"))
-		}
-	} else {
-		hsNotice(rb, client.t("The following vhosts are available and can be chosen with /HOSTSERV TAKE:"))
-		for _, vhost := range vhostConfig.OfferList {
-			hsNotice(rb, vhost)
-		}
-	}
-}
-
-func hsTakeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	config := server.Config()
-	vhost := params[0]
-	found := false
-	for _, offered := range config.Accounts.VHosts.OfferList {
-		if offered == vhost {
-			found = true
-		}
-	}
-	if !found {
-		hsNotice(rb, client.t("That vhost isn't being offered by the server"))
-		return
-	}
-
-	account := client.Account()
-	_, err := server.accounts.VHostTake(account, vhost, time.Duration(config.Accounts.VHosts.UserRequests.Cooldown))
-	if err != nil {
-		if throttled, ok := err.(*vhostThrottleExceeded); ok {
-			hsNotice(rb, fmt.Sprintf(client.t("You must wait an additional %v before taking a vhost"), throttled.timeRemaining))
-		} else if err == errVhostsForbidden {
-			hsNotice(rb, client.t("An administrator has denied you the ability to use vhosts"))
-		} else {
-			hsNotice(rb, client.t("An error occurred"))
-		}
-	} else {
-		hsNotice(rb, client.t("Successfully set vhost"))
-		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Client %s (account %s) took vhost %s", client.Nick(), account, vhost))
 	}
 }
 

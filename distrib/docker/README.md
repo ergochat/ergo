@@ -8,9 +8,6 @@ The `latest` tag tracks the `stable` branch of Oragono, which contains
 the latest stable release. The `dev` tag tracks the master branch, which
 may by unstable and is not recommended for production.
 
-You can see other tags [on Docker Hub](https://hub.docker.com/r/oragono/oragono/tags)
-if you wish to run a specific version of Oragono.
-
 ## Quick start
 
 The Oragono docker image is designed to work out of the box - it comes with a
@@ -104,6 +101,6 @@ If you wish to manually build the docker image, you need to do so from
 the root of the Oragono repository (not the `distrib/docker` directory):
 
 ```shell
-docker build -f distrib/docker/Dockerfile .
+docker build .
 ```
 

@@ -110,9 +110,9 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		for _, session := range user.Sessions() {
 			session.sendSplitMsgFromClientInternal(false, source, "", nil, "PRIVMSG", tnick, splitMessage)
 		}
-		if user.Away() {
+		if away, awayMessage := user.Away(); away {
 			//TODO(dan): possibly implement cooldown of away notifications to users
-			rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, user.AwayMessage())
+			rb.Add(nil, server.name, RPL_AWAY, cnick, tnick, awayMessage)
 		}
 	}
 }

@@ -9,5 +9,7 @@
 name: "Nederlands"
 #code - this is what the language will be referred to in our list of languages
 code: "nl"
+#contributors - people who have contributed to this translation
+contributors: "Jan de Vries <example@example.com>"
 #incomplete - whether to mark this language as incomplete
 incomplete: true
