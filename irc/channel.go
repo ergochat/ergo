@@ -553,9 +553,12 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 	targetModes := channel.members[target]
 	channel.stateMutex.RUnlock()
 
-	if founder != "" && founder == client.Account() {
-		// #950: founder can kick or whatever without actually having the +q mode
-		return true
+	if founder != "" {
+		if founder == client.Account() {
+			return true // #950: founder can take any privileged action without actually having +q
+		} else if founder == target.Account() {
+			return false // conversely, only the founder can kick the founder
+		}
 	}
 
 	return channelUserModeHasPrivsOver(clientModes.HighestChannelUserMode(), targetModes.HighestChannelUserMode())
