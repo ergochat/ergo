@@ -282,13 +282,17 @@ type AccountConfig struct {
 	AuthScript  AuthScriptConfig `yaml:"auth-script"`
 }
 
-type AuthScriptConfig struct {
+type ScriptConfig struct {
 	Enabled     bool
 	Command     string
 	Args        []string
-	Autocreate  bool
 	Timeout     time.Duration
 	KillTimeout time.Duration `yaml:"kill-timeout"`
+}
+
+type AuthScriptConfig struct {
+	ScriptConfig `yaml:",inline"`
+	Autocreate   bool
 }
 
 // AccountRegistrationConfig controls account registration.
@@ -526,8 +530,9 @@ type Config struct {
 		supportedCaps *caps.Set
 		capValues     caps.Values
 		Casemapping   Casemapping
-		EnforceUtf8   bool   `yaml:"enforce-utf8"`
-		OutputPath    string `yaml:"output-path"`
+		EnforceUtf8   bool         `yaml:"enforce-utf8"`
+		OutputPath    string       `yaml:"output-path"`
+		IPCheckScript ScriptConfig `yaml:"ip-check-script"`
 	}
 
 	Roleplay struct {

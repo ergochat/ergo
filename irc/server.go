@@ -203,6 +203,30 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 	}
 }
 
+func (server *Server) checkIPScript(config *Config, ip net.IP) (status IPScriptResult, banMessage string) {
+	output, err := CheckIPBan(config.Server.IPCheckScript, ip)
+	if err != nil {
+		server.logger.Error("internal", "couldn't check IP ban script", ip.String(), err.Error())
+		return IPAccepted, ""
+	}
+
+	// TODO: currently no way to cache results other than IPBanned
+	if output.Result == IPBanned && output.CacheSeconds != 0 {
+		network, err := utils.NormalizedNetFromString(output.CacheNet)
+		if err != nil {
+			server.logger.Error("internal", "invalid dline net from IP ban script", ip.String(), output.CacheNet)
+		} else {
+			dlineDuration := time.Duration(output.CacheSeconds) * time.Second
+			err := server.dlines.AddNetwork(network, dlineDuration, output.BanMessage, "", "")
+			if err != nil {
+				server.logger.Error("internal", "couldn't set dline from IP ban script", ip.String(), err.Error())
+			}
+		}
+	}
+
+	return output.Result, output.BanMessage
+}
+
 //
 // server functionality
 //
@@ -212,6 +236,20 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	if session.resumeDetails != nil {
 		session.tryResume()
 		return // whether we succeeded or failed, either way `c` is not getting registered
+	}
+
+	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
+	// if we are here at all that means we have the final value of the IP
+	// TODO: consider moving hostname lookup up here too? unclear whether that actually
+	// affects handshake latency
+	config := server.Config()
+	if config.Server.IPCheckScript.Enabled && c.ipScriptStatus == IPNotChecked {
+		var banMessage string
+		c.ipScriptStatus, banMessage = server.checkIPScript(config, session.IP())
+		if c.ipScriptStatus == IPBanned {
+			c.Quit(fmt.Sprintf(c.t("You are banned from this server (%s)"), banMessage), nil)
+			return true
+		}
 	}
 
 	// try to complete registration normally
@@ -228,8 +266,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	config := server.Config()
-	authOutcome := c.isAuthorized(server, config, session)
+	authOutcome := c.isAuthorized(server, config, session, c.ipScriptStatus == IPRequireSASL)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:

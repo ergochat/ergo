@@ -1095,7 +1095,7 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 	config := am.server.Config()
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
-		output, err = CheckAuthScript(config.Accounts.AuthScript,
+		output, err = CheckAuthScript(config.Accounts.AuthScript.ScriptConfig,
 			AuthScriptInput{AccountName: accountName, Passphrase: passphrase, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
@@ -1494,7 +1494,7 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 	config := am.server.Config()
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
-		output, err = CheckAuthScript(config.Accounts.AuthScript,
+		output, err = CheckAuthScript(config.Accounts.AuthScript.ScriptConfig,
 			AuthScriptInput{Certfp: certfp, IP: client.IP().String()})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
