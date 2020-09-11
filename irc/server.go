@@ -204,7 +204,7 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 }
 
 func (server *Server) checkIPScript(config *Config, ip net.IP) (status IPScriptResult, banMessage string) {
-	output, err := CheckIPBan(config.Server.IPCheckScript, ip)
+	output, err := CheckIPBan(server.semaphores.IPCheckScript, config.Server.IPCheckScript, ip)
 	if err != nil {
 		server.logger.Error("internal", "couldn't check IP ban script", ip.String(), err.Error())
 		return IPAccepted, ""
@@ -526,6 +526,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot enable or disable relaying after launching the server, rehash aborted")
 		} else if oldConfig.Server.Relaymsg.Separators != config.Server.Relaymsg.Separators {
 			return fmt.Errorf("Cannot change relaying separators after launching the server, rehash aborted")
+		} else if oldConfig.Server.IPCheckScript.MaxConcurrency != config.Server.IPCheckScript.MaxConcurrency ||
+			oldConfig.Accounts.AuthScript.MaxConcurrency != config.Accounts.AuthScript.MaxConcurrency {
+			return fmt.Errorf("Cannot change max-concurrency for scripts after launching the server, rehash aborted")
 		}
 	}
 
@@ -549,6 +552,17 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// Translations
 	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	server.helpIndexManager.GenerateIndices(config.languageManager)
+
+	if initial {
+		maxIPConc := int(config.Server.IPCheckScript.MaxConcurrency)
+		if maxIPConc != 0 {
+			server.semaphores.IPCheckScript.Initialize(maxIPConc)
+		}
+		maxAuthConc := int(config.Accounts.AuthScript.MaxConcurrency)
+		if maxAuthConc != 0 {
+			server.semaphores.AuthScript.Initialize(maxAuthConc)
+		}
+	}
 
 	if oldConfig != nil {
 		// if certain features were enabled by rehash, we need to load the corresponding data

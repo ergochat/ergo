@@ -256,6 +256,8 @@ server:
         timeout: 9s
         # how long after the SIGTERM before we follow up with a SIGKILL:
         kill-timeout: 1s
+        # how many scripts are allowed to run at once? 0 for no limit:
+        max-concurrency: 128
 
     # IP cloaking hides users' IP addresses from other users and from channel admins
     # (but not from server admins), while still allowing channel admins to ban
@@ -497,6 +499,8 @@ accounts:
         timeout: 9s
         # how long after the SIGTERM before we follow up with a SIGKILL:
         kill-timeout: 1s
+        # how many scripts are allowed to run at once? 0 for no limit:
+        max-concurrency: 128
 
 # channel options
 channels:

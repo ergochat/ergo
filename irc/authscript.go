@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 // JSON-serializable input and output types for the script
@@ -23,7 +25,12 @@ type AuthScriptOutput struct {
 	Error       string `json:"error"`
 }
 
-func CheckAuthScript(config ScriptConfig, input AuthScriptInput) (output AuthScriptOutput, err error) {
+func CheckAuthScript(sem utils.Semaphore, config ScriptConfig, input AuthScriptInput) (output AuthScriptOutput, err error) {
+	if sem != nil {
+		sem.Acquire()
+		defer sem.Release()
+	}
+
 	inputBytes, err := json.Marshal(input)
 	if err != nil {
 		return
@@ -65,7 +72,12 @@ type IPScriptOutput struct {
 	Error        string `json:"error"`
 }
 
-func CheckIPBan(config ScriptConfig, addr net.IP) (output IPScriptOutput, err error) {
+func CheckIPBan(sem utils.Semaphore, config ScriptConfig, addr net.IP) (output IPScriptOutput, err error) {
+	if sem != nil {
+		sem.Acquire()
+		defer sem.Release()
+	}
+
 	inputBytes, err := json.Marshal(IPScriptInput{IP: addr.String()})
 	if err != nil {
 		return

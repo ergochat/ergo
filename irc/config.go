@@ -283,11 +283,12 @@ type AccountConfig struct {
 }
 
 type ScriptConfig struct {
-	Enabled     bool
-	Command     string
-	Args        []string
-	Timeout     time.Duration
-	KillTimeout time.Duration `yaml:"kill-timeout"`
+	Enabled        bool
+	Command        string
+	Args           []string
+	Timeout        time.Duration
+	KillTimeout    time.Duration `yaml:"kill-timeout"`
+	MaxConcurrency uint          `yaml:"max-concurrency"`
 }
 
 type AuthScriptConfig struct {
