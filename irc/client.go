@@ -96,6 +96,7 @@ type Client struct {
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	oper               *Oper
 	preregNick         string
+	ipPluginStatus     int
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	rawHostname        string
 	cloakedHostname    string
@@ -554,7 +555,7 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(server *Server, config *Config, session *Session) AuthOutcome {
+func (client *Client) isAuthorized(server *Server, config *Config, session *Session, forceRequireSASL bool) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
 	if (config.Server.passwordBytes != nil) && session.passStatus != serverPassSuccessful && !(config.Accounts.SkipServerPassword && saslSent) {
@@ -565,7 +566,8 @@ func (client *Client) isAuthorized(server *Server, config *Config, session *Sess
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if !saslSent && (config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
+	if !saslSent &&
+		(forceRequireSASL || config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
 		!utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}

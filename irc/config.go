@@ -528,6 +528,12 @@ type Config struct {
 		Casemapping   Casemapping
 		EnforceUtf8   bool   `yaml:"enforce-utf8"`
 		OutputPath    string `yaml:"output-path"`
+		IPCheckPlugin struct {
+			Enabled  bool
+			Path     string
+			InitArgs []string `yaml:"init-args"`
+		} `yaml:"ip-check-plugin"`
+		ipChecker IPChecker
 	}
 
 	Roleplay struct {

@@ -270,6 +270,12 @@ server:
             #     max-concurrent-connections: 128
             #     max-connections-per-window: 1024
 
+    # dynamically link against a plugin for checking IPs; see the manual for details
+    ip-check-plugin:
+        enabled: false
+        path: '/path/to/ipcheck.so'
+        init-args: ['/path/to/config/file']
+
     # IP cloaking hides users' IP addresses from other users and from channel admins
     # (but not from server admins), while still allowing channel admins to ban
     # offending IP addresses or networks. In place of hostnames derived from reverse

@@ -214,6 +214,24 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return // whether we succeeded or failed, either way `c` is not getting registered
 	}
 
+	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
+	// if we are here at all that means we have the final value of the IP
+	// TODO: consider moving hostname lookup up here too? unclear whether that actually
+	// affects handshake latency
+	config := server.Config()
+	if config.Server.ipChecker != nil && c.ipPluginStatus == IPPluginNotChecked {
+		status, banMsg, err := config.Server.ipChecker(session.IP())
+		if err != nil {
+			server.logger.Error("internal", "error checking ip plugin", session.IP().String(), err.Error())
+			status = IPPluginAccepted
+		}
+		c.ipPluginStatus = status
+		if status == IPPluginBanned {
+			c.Quit(fmt.Sprintf(c.t("You are banned from this server (%s)"), banMsg), nil)
+			return true
+		}
+	}
+
 	// try to complete registration normally
 	// XXX(#1057) username can be filled in by an ident query without the client
 	// having sent USER: check for both username and realname to ensure they did
@@ -228,8 +246,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
-	config := server.Config()
-	authOutcome := c.isAuthorized(server, config, session)
+	authOutcome := c.isAuthorized(server, config, session, c.ipPluginStatus == IPPluginRequireSASL)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -555,6 +572,18 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// but there's no data race because we haven't done SetConfig yet
 	if config.Server.Cloaks.Enabled {
 		config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
+	}
+
+	if config.Server.IPCheckPlugin.Enabled {
+		checker, err := LoadIPCheckPlugin(config.Server.IPCheckPlugin.Path, config.Server.IPCheckPlugin.InitArgs)
+		if err == nil {
+			config.Server.ipChecker = checker
+		} else {
+			server.logger.Error("rehash", "couldn't reload IP check plugin", err.Error())
+			config.Server.ipChecker = nil
+		}
+	} else {
+		config.Server.ipChecker = nil
 	}
 
 	// activate the new config
