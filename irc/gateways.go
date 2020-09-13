@@ -77,10 +77,11 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls boo
 	}
 	proxiedIP = proxiedIP.To16()
 
-	isBanned, banMsg := client.server.checkBans(proxiedIP)
+	isBanned, requireSASL, banMsg := client.server.checkBans(client.server.Config(), proxiedIP, true)
 	if isBanned {
 		return errBanned, banMsg
 	}
+	client.requireSASL = requireSASL
 	// successfully added a limiter entry for the proxied IP;
 	// remove the entry for the real IP if applicable (#197)
 	client.server.connectionLimiter.RemoveClient(session.realIP)

@@ -96,12 +96,12 @@ type Client struct {
 	nickMaskString     string // cache for nickmask string since it's used with lots of replies
 	oper               *Oper
 	preregNick         string
-	ipScriptStatus     IPScriptResult
 	proxiedIP          net.IP // actual remote IP if using the PROXY protocol
 	rawHostname        string
 	cloakedHostname    string
 	realname           string
 	realIP             net.IP
+	requireSASL        bool
 	registered         bool
 	registrationTimer  *time.Timer
 	resumeID           string
@@ -298,8 +298,9 @@ type ClientDetails struct {
 
 // RunClient sets up a new client and runs its goroutine.
 func (server *Server) RunClient(conn IRCConn) {
+	config := server.Config()
 	wConn := conn.UnderlyingConn()
-	var isBanned bool
+	var isBanned, requireSASL bool
 	var banMsg string
 	realIP := utils.AddrToIP(wConn.RemoteAddr())
 	var proxiedIP net.IP
@@ -314,7 +315,10 @@ func (server *Server) RunClient(conn IRCConn) {
 			proxiedIP = wConn.ProxiedIP
 			ipToCheck = proxiedIP
 		}
-		isBanned, banMsg = server.checkBans(ipToCheck)
+		// XXX only run the check script now if the IP cannot be replaced by PROXY or WEBIRC,
+		// otherwise we'll do it in ApplyProxiedIP.
+		checkScripts := config.Server.IPCheckScript.Enabled && !utils.IPInNets(realIP, config.Server.proxyAllowedFromNets)
+		isBanned, requireSASL, banMsg = server.checkBans(config, ipToCheck, checkScripts)
 	}
 
 	if isBanned {
@@ -328,7 +332,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
 
 	now := time.Now().UTC()
-	config := server.Config()
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
@@ -348,6 +351,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		nickMaskString: "*", // * is used until actual nick is given
 		realIP:         realIP,
 		proxiedIP:      proxiedIP,
+		requireSASL:    requireSASL,
 	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
