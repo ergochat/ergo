@@ -317,8 +317,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		}
 		// XXX only run the check script now if the IP cannot be replaced by PROXY or WEBIRC,
 		// otherwise we'll do it in ApplyProxiedIP.
-		checkScripts := config.Server.IPCheckScript.Enabled &&
-			(proxiedIP != nil || !utils.IPInNets(realIP, config.Server.proxyAllowedFromNets))
+		checkScripts := proxiedIP != nil || !utils.IPInNets(realIP, config.Server.proxyAllowedFromNets)
 		isBanned, requireSASL, banMsg = server.checkBans(config, ipToCheck, checkScripts)
 	}
 

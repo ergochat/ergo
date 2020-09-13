@@ -209,8 +209,10 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 		if output.Result == IPBanned {
 			// XXX roll back IP connection/throttling addition for the IP
 			server.connectionLimiter.RemoveClient(ipaddr)
+			server.logger.Info("connect-ip", "Rejected client due to ip-check-script", ipaddr.String())
 			return true, false, output.BanMessage
 		} else if output.Result == IPRequireSASL {
+			server.logger.Info("connect-ip", "Requiring SASL from client due to ip-check-script", ipaddr.String())
 			return false, true, ""
 		}
 	}
