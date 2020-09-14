@@ -101,6 +101,7 @@ type Client struct {
 	cloakedHostname    string
 	realname           string
 	realIP             net.IP
+	requireSASL        bool
 	registered         bool
 	registrationTimer  *time.Timer
 	resumeID           string
@@ -297,8 +298,9 @@ type ClientDetails struct {
 
 // RunClient sets up a new client and runs its goroutine.
 func (server *Server) RunClient(conn IRCConn) {
+	config := server.Config()
 	wConn := conn.UnderlyingConn()
-	var isBanned bool
+	var isBanned, requireSASL bool
 	var banMsg string
 	realIP := utils.AddrToIP(wConn.RemoteAddr())
 	var proxiedIP net.IP
@@ -313,7 +315,10 @@ func (server *Server) RunClient(conn IRCConn) {
 			proxiedIP = wConn.ProxiedIP
 			ipToCheck = proxiedIP
 		}
-		isBanned, banMsg = server.checkBans(ipToCheck)
+		// XXX only run the check script now if the IP cannot be replaced by PROXY or WEBIRC,
+		// otherwise we'll do it in ApplyProxiedIP.
+		checkScripts := proxiedIP != nil || !utils.IPInNets(realIP, config.Server.proxyAllowedFromNets)
+		isBanned, requireSASL, banMsg = server.checkBans(config, ipToCheck, checkScripts)
 	}
 
 	if isBanned {
@@ -327,7 +332,6 @@ func (server *Server) RunClient(conn IRCConn) {
 	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
 
 	now := time.Now().UTC()
-	config := server.Config()
 	// give them 1k of grace over the limit:
 	socket := NewSocket(conn, config.Server.MaxSendQBytes)
 	client := &Client{
@@ -347,6 +351,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		nickMaskString: "*", // * is used until actual nick is given
 		realIP:         realIP,
 		proxiedIP:      proxiedIP,
+		requireSASL:    requireSASL,
 	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
@@ -554,7 +559,7 @@ const (
 	authFailSaslRequired
 )
 
-func (client *Client) isAuthorized(server *Server, config *Config, session *Session) AuthOutcome {
+func (client *Client) isAuthorized(server *Server, config *Config, session *Session, forceRequireSASL bool) AuthOutcome {
 	saslSent := client.account != ""
 	// PASS requirement
 	if (config.Server.passwordBytes != nil) && session.passStatus != serverPassSuccessful && !(config.Accounts.SkipServerPassword && saslSent) {
@@ -565,7 +570,7 @@ func (client *Client) isAuthorized(server *Server, config *Config, session *Sess
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
-	if !saslSent && (config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
+	if !saslSent && (forceRequireSASL || config.Accounts.RequireSasl.Enabled || server.Defcon() <= 2) &&
 		!utils.IPInNets(session.IP(), config.Accounts.RequireSasl.exemptedNets) {
 		return authFailSaslRequired
 	}
