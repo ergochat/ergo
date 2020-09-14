@@ -101,6 +101,7 @@ type Client struct {
 	cloakedHostname    string
 	realname           string
 	realIP             net.IP
+	requireSASLMessage string
 	requireSASL        bool
 	registered         bool
 	registrationTimer  *time.Timer
@@ -352,6 +353,9 @@ func (server *Server) RunClient(conn IRCConn) {
 		realIP:         realIP,
 		proxiedIP:      proxiedIP,
 		requireSASL:    requireSASL,
+	}
+	if requireSASL {
+		client.requireSASLMessage = banMsg
 	}
 	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
