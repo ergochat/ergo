@@ -213,7 +213,7 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 			return true, false, output.BanMessage
 		} else if output.Result == IPRequireSASL {
 			server.logger.Info("connect-ip", "Requiring SASL from client due to ip-check-script", ipaddr.String())
-			return false, true, ""
+			return false, true, output.BanMessage
 		}
 	}
 
@@ -270,13 +270,17 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		quitMessage = c.t("Password incorrect")
 		c.Send(nil, server.name, ERR_PASSWDMISMATCH, "*", quitMessage)
 	case authFailSaslRequired, authFailTorSaslRequired:
-		quitMessage = c.t("You must log in with SASL to join this server")
+		quitMessage = c.requireSASLMessage
+		if quitMessage == "" {
+			quitMessage = c.t("You must log in with SASL to join this server")
+		}
 		c.Send(nil, c.server.name, "FAIL", "*", "ACCOUNT_REQUIRED", quitMessage)
 	}
 	if authOutcome != authSuccess {
 		c.Quit(quitMessage, nil)
 		return true
 	}
+	c.requireSASLMessage = ""
 
 	rb := NewResponseBuffer(session)
 	nickError := performNickChange(server, c, c, session, c.preregNick, rb)

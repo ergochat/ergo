@@ -82,6 +82,9 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls boo
 		return errBanned, banMsg
 	}
 	client.requireSASL = requireSASL
+	if requireSASL {
+		client.requireSASLMessage = banMsg
+	}
 	// successfully added a limiter entry for the proxied IP;
 	// remove the entry for the real IP if applicable (#197)
 	client.server.connectionLimiter.RemoveClient(session.realIP)
