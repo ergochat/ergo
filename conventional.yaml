@@ -243,6 +243,22 @@ server:
             #     max-concurrent-connections: 128
             #     max-connections-per-window: 1024
 
+    # pluggable IP ban mechanism, via subprocess invocation
+    # this can be used to check new connections against a DNSBL, for example
+    # see the manual for details on how to write an IP ban checking script
+    ip-check-script:
+        enabled: false
+        command: "/usr/local/bin/check-ip-ban"
+        # constant list of args to pass to the command; the actual query
+        # and result are transmitted over stdin/stdout:
+        args: []
+        # timeout for process execution, after which we send a SIGTERM:
+        timeout: 9s
+        # how long after the SIGTERM before we follow up with a SIGKILL:
+        kill-timeout: 1s
+        # how many scripts are allowed to run at once? 0 for no limit:
+        max-concurrency: 64
+
     # IP cloaking hides users' IP addresses from other users and from channel admins
     # (but not from server admins), while still allowing channel admins to ban
     # offending IP addresses or networks. In place of hostnames derived from reverse
@@ -483,6 +499,8 @@ accounts:
         timeout: 9s
         # how long after the SIGTERM before we follow up with a SIGKILL:
         kill-timeout: 1s
+        # how many scripts are allowed to run at once? 0 for no limit:
+        max-concurrency: 64
 
 # channel options
 channels:

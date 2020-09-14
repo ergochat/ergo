@@ -150,10 +150,10 @@ func (server *Server) Run() {
 	}
 }
 
-func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
+func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool) (banned bool, requireSASL bool, message string) {
 	if server.Defcon() == 1 {
 		if !(ipaddr.IsLoopback() || utils.IPInNets(ipaddr, server.Config().Server.secureNets)) {
-			return true, "New connections to this server are temporarily restricted"
+			return true, false, "New connections to this server are temporarily restricted"
 		}
 	}
 
@@ -161,7 +161,7 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	isBanned, info := server.dlines.CheckIP(ipaddr)
 	if isBanned {
 		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected by d-line", ipaddr))
-		return true, info.BanMessage("You are banned from this server (%s)")
+		return true, false, info.BanMessage("You are banned from this server (%s)")
 	}
 
 	// check connection limits
@@ -169,27 +169,55 @@ func (server *Server) checkBans(ipaddr net.IP) (banned bool, message string) {
 	if err == connection_limits.ErrLimitExceeded {
 		// too many connections from one client, tell the client and close the connection
 		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
-		return true, "Too many clients from your network"
+		return true, false, "Too many clients from your network"
 	} else if err == connection_limits.ErrThrottleExceeded {
-		duration := server.Config().Server.IPLimits.BanDuration
-		if duration == 0 {
-			return false, ""
+		duration := config.Server.IPLimits.BanDuration
+		if duration != 0 {
+			server.dlines.AddIP(ipaddr, duration, throttleMessage,
+				"Exceeded automated connection throttle", "auto.connection.throttler")
+			// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
+			// and once their temporary DLINE is finished they can fill up the throttler again
+			server.connectionLimiter.ResetThrottle(ipaddr)
 		}
-		server.dlines.AddIP(ipaddr, duration, throttleMessage, "Exceeded automated connection throttle", "auto.connection.throttler")
-		// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
-		// and once their temporary DLINE is finished they can fill up the throttler again
-		server.connectionLimiter.ResetThrottle(ipaddr)
-
-		// this might not show up properly on some clients, but our objective here is just to close it out before it has a load impact on us
 		server.logger.Info(
 			"connect-ip",
 			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
-		return true, throttleMessage
+		return true, false, throttleMessage
 	} else if err != nil {
 		server.logger.Warning("internal", "unexpected ban result", err.Error())
 	}
 
-	return false, ""
+	if checkScripts && config.Server.IPCheckScript.Enabled {
+		output, err := CheckIPBan(server.semaphores.IPCheckScript, config.Server.IPCheckScript, ipaddr)
+		if err != nil {
+			server.logger.Error("internal", "couldn't check IP ban script", ipaddr.String(), err.Error())
+			return false, false, ""
+		}
+		// TODO: currently no way to cache results other than IPBanned
+		if output.Result == IPBanned && output.CacheSeconds != 0 {
+			network, err := utils.NormalizedNetFromString(output.CacheNet)
+			if err != nil {
+				server.logger.Error("internal", "invalid dline net from IP ban script", ipaddr.String(), output.CacheNet)
+			} else {
+				dlineDuration := time.Duration(output.CacheSeconds) * time.Second
+				err := server.dlines.AddNetwork(network, dlineDuration, output.BanMessage, "", "")
+				if err != nil {
+					server.logger.Error("internal", "couldn't set dline from IP ban script", ipaddr.String(), err.Error())
+				}
+			}
+		}
+		if output.Result == IPBanned {
+			// XXX roll back IP connection/throttling addition for the IP
+			server.connectionLimiter.RemoveClient(ipaddr)
+			server.logger.Info("connect-ip", "Rejected client due to ip-check-script", ipaddr.String())
+			return true, false, output.BanMessage
+		} else if output.Result == IPRequireSASL {
+			server.logger.Info("connect-ip", "Requiring SASL from client due to ip-check-script", ipaddr.String())
+			return false, true, ""
+		}
+	}
+
+	return false, false, ""
 }
 
 func (server *Server) checkTorLimits() (banned bool, message string) {
@@ -214,6 +242,12 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return // whether we succeeded or failed, either way `c` is not getting registered
 	}
 
+	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
+	// if we are here at all that means we have the final value of the IP
+	if session.rawHostname == "" {
+		session.client.lookupHostname(session, false)
+	}
+
 	// try to complete registration normally
 	// XXX(#1057) username can be filled in by an ident query without the client
 	// having sent USER: check for both username and realname to ensure they did
@@ -229,7 +263,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// client MUST send PASS if necessary, or authenticate with SASL if necessary,
 	// before completing the other registration commands
 	config := server.Config()
-	authOutcome := c.isAuthorized(server, config, session)
+	authOutcome := c.isAuthorized(server, config, session, c.requireSASL)
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
@@ -242,12 +276,6 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	if authOutcome != authSuccess {
 		c.Quit(quitMessage, nil)
 		return true
-	}
-
-	// we have the final value of the IP address: do the hostname lookup
-	// (nickmask will be set below once nickname assignment succeeds)
-	if session.rawHostname == "" {
-		session.client.lookupHostname(session, false)
 	}
 
 	rb := NewResponseBuffer(session)
@@ -489,6 +517,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot enable or disable relaying after launching the server, rehash aborted")
 		} else if oldConfig.Server.Relaymsg.Separators != config.Server.Relaymsg.Separators {
 			return fmt.Errorf("Cannot change relaying separators after launching the server, rehash aborted")
+		} else if oldConfig.Server.IPCheckScript.MaxConcurrency != config.Server.IPCheckScript.MaxConcurrency ||
+			oldConfig.Accounts.AuthScript.MaxConcurrency != config.Accounts.AuthScript.MaxConcurrency {
+			return fmt.Errorf("Cannot change max-concurrency for scripts after launching the server, rehash aborted")
 		}
 	}
 
@@ -512,6 +543,17 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// Translations
 	server.logger.Debug("server", "Regenerating HELP indexes for new languages")
 	server.helpIndexManager.GenerateIndices(config.languageManager)
+
+	if initial {
+		maxIPConc := int(config.Server.IPCheckScript.MaxConcurrency)
+		if maxIPConc != 0 {
+			server.semaphores.IPCheckScript.Initialize(maxIPConc)
+		}
+		maxAuthConc := int(config.Accounts.AuthScript.MaxConcurrency)
+		if maxAuthConc != 0 {
+			server.semaphores.AuthScript.Initialize(maxAuthConc)
+		}
+	}
 
 	if oldConfig != nil {
 		// if certain features were enabled by rehash, we need to load the corresponding data

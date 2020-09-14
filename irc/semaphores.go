@@ -27,6 +27,8 @@ type ServerSemaphores struct {
 	// each distinct operation MUST have its own semaphore;
 	// methods that acquire a semaphore MUST NOT call methods that acquire another
 	ClientDestroy utils.Semaphore
+	IPCheckScript utils.Semaphore
+	AuthScript    utils.Semaphore
 }
 
 // Initialize initializes a set of server semaphores.
