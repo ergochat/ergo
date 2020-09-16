@@ -2194,15 +2194,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	fakeSource := msg.Params[1]
 	message := msg.Params[2:]
 
-	_, err := CasefoldName(fakeSource)
-	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
-		return false
-	}
-
-	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
-
-	sendRoleplayMessage(server, client, sourceString, target, false, message, rb)
+	sendRoleplayMessage(server, client, fakeSource, target, false, false, message, rb)
 
 	return false
 }
@@ -2212,15 +2204,8 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2:]
-	sourceString := fmt.Sprintf(npcNickMask, fakeSource, client.nick)
 
-	_, err := CasefoldName(fakeSource)
-	if err != nil {
-		client.Send(nil, client.server.name, ERR_CANNOTSENDRP, target, client.t("Fake source must be a valid nickname"))
-		return false
-	}
-
-	sendRoleplayMessage(server, client, sourceString, target, true, message, rb)
+	sendRoleplayMessage(server, client, fakeSource, target, false, true, message, rb)
 
 	return false
 }
@@ -2623,9 +2608,8 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	message := msg.Params[1:]
-	sourceString := fmt.Sprintf(sceneNickMask, client.nick)
 
-	sendRoleplayMessage(server, client, sourceString, target, false, message, rb)
+	sendRoleplayMessage(server, client, "", target, true, false, message, rb)
 
 	return false
 }
