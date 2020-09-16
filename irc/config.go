@@ -537,8 +537,7 @@ type Config struct {
 	}
 
 	Roleplay struct {
-		Enabled        *bool
-		enabled        bool
+		Enabled        bool
 		RequireChanops bool  `yaml:"require-chanops"`
 		RequireOper    bool  `yaml:"require-oper"`
 		AddSuffix      *bool `yaml:"add-suffix"`
@@ -1192,7 +1191,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.ZNCMax = config.History.ChathistoryMax
 	}
 
-	config.Roleplay.enabled = utils.BoolDefaultTrue(config.Roleplay.Enabled)
 	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)
 
 	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
@@ -1272,7 +1270,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("NETWORK", config.Network.Name)
 	isupport.Add("NICKLEN", strconv.Itoa(config.Limits.NickLen))
 	isupport.Add("PREFIX", "(qaohv)~&@%+")
-	if config.Roleplay.enabled {
+	if config.Roleplay.Enabled {
 		isupport.Add("RPCHAN", "E")
 		isupport.Add("RPUSER", "E")
 	}

@@ -18,7 +18,7 @@ const (
 
 func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, messageParts []string, rb *ResponseBuffer) {
 	config := server.Config()
-	if !config.Roleplay.enabled {
+	if !config.Roleplay.Enabled {
 		rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Roleplaying has been disabled by the server administrators"))
 		return
 	}
