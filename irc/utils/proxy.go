@@ -21,8 +21,24 @@ const (
 	maxProxyLineLen = 107
 )
 
+// XXX implement net.Error with a Temporary() method that returns true;
+// otherwise, ErrBadProxyLine will cause (*http.Server).Serve() to exit
+type proxyLineError struct{}
+
+func (p *proxyLineError) Error() string {
+	return "invalid PROXY line"
+}
+
+func (p *proxyLineError) Timeout() bool {
+	return false
+}
+
+func (p *proxyLineError) Temporary() bool {
+	return true
+}
+
 var (
-	ErrBadProxyLine = errors.New("invalid PROXY line")
+	ErrBadProxyLine error = &proxyLineError{}
 	// TODO(golang/go#4373): replace this with the stdlib ErrNetClosing
 	ErrNetClosing = errors.New("use of closed network connection")
 )
