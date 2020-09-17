@@ -4,7 +4,8 @@
 package irc
 
 import (
-	"bytes"
+	"fmt"
+	"strings"
 
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
@@ -16,9 +17,9 @@ const (
 	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
 
-func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isAction bool, messageParts []string, rb *ResponseBuffer) {
+func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isScene, isAction bool, messageParts []string, rb *ResponseBuffer) {
 	config := server.Config()
-	if !config.Roleplay.enabled {
+	if !config.Roleplay.Enabled {
 		rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Roleplaying has been disabled by the server administrators"))
 		return
 	}
@@ -27,12 +28,26 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		return
 	}
 
+	var sourceMask string
+	if isScene {
+		sourceMask = fmt.Sprintf(sceneNickMask, client.Nick())
+	} else {
+		cfSource, cfSourceErr := CasefoldName(source)
+		skelSource, skelErr := Skeleton(source)
+		if cfSourceErr != nil || skelErr != nil ||
+			restrictedCasefoldedNicks.Has(cfSource) || restrictedSkeletons.Has(skelSource) {
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Invalid roleplay name"))
+			return
+		}
+		sourceMask = fmt.Sprintf(npcNickMask, source, client.Nick())
+	}
+
 	// block attempts to send CTCP messages to Tor clients
 	if len(messageParts) > 0 && len(messageParts[0]) > 0 && messageParts[0][0] == '\x01' {
 		return
 	}
 
-	var buf bytes.Buffer
+	var buf strings.Builder
 	if isAction {
 		buf.WriteString("\x01ACTION ")
 	}
@@ -80,9 +95,9 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 				// of roleplay commands, so send them a copy whether they have echo-message
 				// or not
 				if rb.session == session {
-					rb.AddSplitMessageFromClient(source, "", nil, "PRIVMSG", targetString, splitMessage)
+					rb.AddSplitMessageFromClient(sourceMask, "", nil, "PRIVMSG", targetString, splitMessage)
 				} else {
-					session.sendSplitMsgFromClientInternal(false, source, "*", nil, "PRIVMSG", targetString, splitMessage)
+					session.sendSplitMsgFromClientInternal(false, sourceMask, "*", nil, "PRIVMSG", targetString, splitMessage)
 				}
 			}
 		}
@@ -90,7 +105,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		channel.AddHistoryItem(history.Item{
 			Type:    history.Privmsg,
 			Message: splitMessage,
-			Nick:    source,
+			Nick:    sourceMask,
 		}, client.Account())
 	} else {
 		target, err := CasefoldName(targetString)
@@ -108,7 +123,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		cnick := client.Nick()
 		tnick := user.Nick()
 		for _, session := range user.Sessions() {
-			session.sendSplitMsgFromClientInternal(false, source, "*", nil, "PRIVMSG", tnick, splitMessage)
+			session.sendSplitMsgFromClientInternal(false, sourceMask, "*", nil, "PRIVMSG", tnick, splitMessage)
 		}
 		if away, awayMessage := user.Away(); away {
 			//TODO(dan): possibly implement cooldown of away notifications to users
