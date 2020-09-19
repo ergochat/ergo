@@ -43,6 +43,23 @@ const nickservHelp = `NickServ lets you register, log in to, and manage an accou
 
 var (
 	nickservCommands = map[string]*serviceCommand{
+		"clients": {
+			handler: nsClientsHandler,
+			help: `Syntax: $bCLIENTS LIST [nickname]$b
+
+CLIENTS LIST shows information about the clients currently attached, via
+the server's multiclient functionality, to your nickname. An administrator
+can use this command to list another user's clients.
+
+Syntax: $bCLIENTS LOGOUT [nickname] [client_id/all]$b
+
+CLIENTS LOGOUT detaches a single client, or all other clients currently
+attached, via the server's multiclient functionality, to your nickname. An
+administrator can use this command to logout another user's clients.`,
+			helpShort: `$bCLIENTS$b can list and logout the sessions attached to a nickname.`,
+			enabled:   servCmdRequiresBouncerEnabled,
+			minParams: 1,
+		},
 		"drop": {
 			handler: nsDropHandler,
 			help: `Syntax: $bDROP [nickname]$b
@@ -150,14 +167,13 @@ an administrator can set use this command to set up user accounts.`,
 			minParams: 1,
 		},
 		"sessions": {
-			handler: nsSessionsHandler,
+			hidden:  true,
+			handler: nsClientsHandler,
 			help: `Syntax: $bSESSIONS [nickname]$b
 
-SESSIONS lists information about the sessions currently attached, via
-the server's multiclient functionality, to your nickname. An administrator
-can use this command to list another user's sessions.`,
-			helpShort: `$bSESSIONS$b lists the sessions attached to a nickname.`,
-			enabled:   servCmdRequiresBouncerEnabled,
+SESSIONS is an alias for $bCLIENTS LIST$b. See the help entry for $bCLIENTS$b
+for more information.`,
+			enabled: servCmdRequiresBouncerEnabled,
 		},
 		"unregister": {
 			handler: nsUnregisterHandler,
@@ -1065,9 +1081,30 @@ func nsEnforceHandler(server *Server, client *Client, command string, params []s
 	}
 }
 
-func nsSessionsHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	target := client
+func nsClientsHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var verb string
 
+	if command == "sessions" {
+		// Legacy "SESSIONS" command is an alias for CLIENTS LIST.
+		verb = "list"
+	} else if len(params) > 0 {
+		verb = strings.ToLower(params[0])
+		params = params[1:]
+	}
+
+	switch verb {
+	case "list":
+		nsClientsListHandler(server, client, params, rb)
+	case "logout":
+		nsClientsLogoutHandler(server, client, params, rb)
+	default:
+		nsNotice(rb, client.t("Invalid parameters"))
+		return
+	}
+}
+
+func nsClientsListHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
+	target := client
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
@@ -1082,12 +1119,12 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 	}
 
 	sessionData, currentIndex := target.AllSessionData(rb.session)
-	nsNotice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached session(s)"), target.Nick(), len(sessionData)))
+	nsNotice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached clients(s)"), target.Nick(), len(sessionData)))
 	for i, session := range sessionData {
 		if currentIndex == i {
-			nsNotice(rb, fmt.Sprintf(client.t("Session %d (currently attached session):"), i+1))
+			nsNotice(rb, fmt.Sprintf(client.t("Client %d (currently attached client):"), session.sessionID))
 		} else {
-			nsNotice(rb, fmt.Sprintf(client.t("Session %d:"), i+1))
+			nsNotice(rb, fmt.Sprintf(client.t("Client %d:"), session.sessionID))
 		}
 		if session.deviceID != "" {
 			nsNotice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
@@ -1098,6 +1135,61 @@ func nsSessionsHandler(server *Server, client *Client, command string, params []
 		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
 		if session.certfp != "" {
 			nsNotice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
+		}
+	}
+}
+
+func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
+	if len(params) < 1 {
+		nsNotice(rb, client.t("Missing client ID to logout (or \"all\")"))
+		return
+	}
+
+	target := client
+	if len(params) >= 2 {
+		// CLIENTS LOGOUT [nickname] [client ID]
+		target = server.clients.Get(params[0])
+		if target == nil {
+			nsNotice(rb, client.t("No such nick"))
+			return
+		}
+		// User must have "local_kill" privileges to logout other user sessions.
+		if target != client {
+			oper := client.Oper()
+			if oper == nil || !oper.Class.Capabilities.Has("local_kill") {
+				nsNotice(rb, client.t("Insufficient oper privs"))
+				return
+			}
+		}
+		params = params[1:]
+	}
+
+	var sessionToDestroy *Session // target.destroy(nil) will logout all sessions
+	if strings.ToLower(params[0]) != "all" {
+		sessionID, err := strconv.ParseInt(params[0], 10, 64)
+		if err != nil {
+			nsNotice(rb, client.t("Client ID to logout should be an integer (or \"all\")"))
+			return
+		}
+		// Find the client ID that the user requested to logout.
+		sessions := target.Sessions()
+		for _, session := range sessions {
+			if session.sessionID == sessionID {
+				sessionToDestroy = session
+			}
+		}
+		if sessionToDestroy == nil {
+			nsNotice(rb, client.t("Specified client ID does not exist"))
+			return
+		}
+	}
+
+	target.destroy(sessionToDestroy)
+	if (sessionToDestroy != nil && rb.session != sessionToDestroy) || client != target {
+		if sessionToDestroy != nil {
+			nsNotice(rb, client.t("Successfully logged out session"))
+		} else {
+			nsNotice(rb, client.t("Successfully logged out all sessions"))
 		}
 	}
 }
