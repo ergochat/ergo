@@ -74,8 +74,8 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		}
 
 		targetString = channel.Name()
-		if !channel.CanSpeak(client) {
-			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, targetString, client.t("Cannot send to channel"))
+		if canSpeak, mode := channel.CanSpeak(client); !canSpeak {
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, targetString, fmt.Sprintf(client.t("Cannot send to channel (+%s)"), mode))
 			return
 		}
 
