@@ -65,12 +65,13 @@ func (client *Client) GetSessionByResumeID(resumeID string) (result *Session) {
 }
 
 type SessionData struct {
-	ctime    time.Time
-	atime    time.Time
-	ip       net.IP
-	hostname string
-	certfp   string
-	deviceID string
+	ctime     time.Time
+	atime     time.Time
+	ip        net.IP
+	hostname  string
+	certfp    string
+	deviceID  string
+	sessionID int64
 }
 
 func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
@@ -84,11 +85,12 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			currentIndex = i
 		}
 		data[i] = SessionData{
-			atime:    session.lastActive,
-			ctime:    session.ctime,
-			hostname: session.rawHostname,
-			certfp:   session.certfp,
-			deviceID: session.deviceID,
+			atime:     session.lastActive,
+			ctime:     session.ctime,
+			hostname:  session.rawHostname,
+			certfp:    session.certfp,
+			deviceID:  session.deviceID,
+			sessionID: session.sessionID,
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
@@ -109,6 +111,8 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	}
 	// success, attach the new session to the client
 	session.client = client
+	session.sessionID = client.nextSessionID
+	client.nextSessionID++
 	newSessions := make([]*Session, len(client.sessions)+1)
 	copy(newSessions, client.sessions)
 	newSessions[len(newSessions)-1] = session

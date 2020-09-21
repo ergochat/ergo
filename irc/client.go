@@ -90,6 +90,7 @@ type Client struct {
 	lastSeen           map[string]time.Time // maps device ID (including "") to time of last received command
 	lastSeenLastWrite  time.Time            // last time `lastSeen` was written to the datastore
 	loginThrottle      connection_limits.GenericThrottle
+	nextSessionID      int64 // Incremented when a new session is established
 	nick               string
 	nickCasefolded     string
 	nickMaskCasefolded string
@@ -150,6 +151,7 @@ type Session struct {
 	idleTimer  *time.Timer
 	pingSent   bool // we sent PING to a putatively idle connection and we're waiting for PONG
 
+	sessionID   int64
 	socket      *Socket
 	realIP      net.IP
 	proxiedIP   net.IP
@@ -353,6 +355,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		realIP:         realIP,
 		proxiedIP:      proxiedIP,
 		requireSASL:    requireSASL,
+		nextSessionID:  1,
 	}
 	if requireSASL {
 		client.requireSASLMessage = banMsg
@@ -420,6 +423,8 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 		alwaysOn: true,
 		realname: realname,
+
+		nextSessionID: 1,
 	}
 
 	client.SetMode(modes.TLS, true)
