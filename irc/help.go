@@ -49,6 +49,7 @@ Oragono supports the following channel modes:
   +n  |  No-outside-messages mode, only users that are on the channel can send
       |  messages to it.
   +R  |  Only registered users can join the channel.
+  +M  |  Only registered or voiced users can speak in the channel.
   +s  |  Secret mode, channel won't show up in /LIST or whois replies.
   +t  |  Only channel opers can modify the topic.
   +E  |  Roleplaying commands are enabled in the channel.

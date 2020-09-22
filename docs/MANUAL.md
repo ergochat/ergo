@@ -654,6 +654,18 @@ To unset this mode:
 
     /MODE #test -R
 
+### +M - Only Registered Users Can Speak
+
+If this mode is set, only users that have logged into an account will be able to speak on the channel. If this is set and a regular, un-logged-in user tries to speak, they will be rejected. Users who have been voiced (+v) are excepted from this restriction.
+
+To set this mode:
+
+    /MODE #test +M
+
+To unset this mode:
+
+    /MODE #test -M
+
 ### +s - Secret
 
 If this mode is set, it means that your channel should be marked as 'secret'. Your channel won't show up in `/LIST` or `/WHOIS`, and non-members won't be able to see its members with `/NAMES` or `/WHO`.

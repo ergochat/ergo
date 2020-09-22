@@ -1188,22 +1188,25 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	channel.MarkDirty(IncludeTopic)
 }
 
-// CanSpeak returns true if the client can speak on this channel.
-func (channel *Channel) CanSpeak(client *Client) bool {
+// CanSpeak returns true if the client can speak on this channel, otherwise it returns false along with the channel mode preventing the client from speaking.
+func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
 	_, hasClient := channel.members[client]
 	if channel.flags.HasMode(modes.NoOutside) && !hasClient {
-		return false
+		return false, modes.NoOutside
 	}
 	if channel.flags.HasMode(modes.Moderated) && !channel.ClientIsAtLeast(client, modes.Voice) {
-		return false
+		return false, modes.Moderated
 	}
 	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" {
-		return false
+		return false, modes.RegisteredOnly
 	}
-	return true
+	if channel.flags.HasMode(modes.RegisteredOnlySpeak) && client.Account() == "" && !channel.ClientIsAtLeast(client, modes.Voice) {
+		return false, modes.RegisteredOnlySpeak
+	}
+	return true, modes.Mode('?')
 }
 
 func msgCommandToHistType(command string) (history.ItemType, error) {
@@ -1225,9 +1228,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		return
 	}
 
-	if !channel.CanSpeak(client) {
+	if canSpeak, mode := channel.CanSpeak(client); !canSpeak {
 		if histType != history.Notice {
-			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, client.Nick(), channel.Name(), client.t("Cannot send to channel"))
+			rb.Add(nil, client.server.name, ERR_CANNOTSENDTOCHAN, client.Nick(), channel.Name(), fmt.Sprintf(client.t("Cannot send to channel (+%s)"), mode))
 		}
 		return
 	}
