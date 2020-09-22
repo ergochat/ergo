@@ -1,4 +1,4 @@
-.PHONY: all install build release capdefs test smoke gofmt
+.PHONY: all install build release capdefs test smoke gofmt irctest
 
 GIT_COMMIT := $(shell git rev-parse HEAD 2> /dev/null)
 
@@ -39,3 +39,7 @@ smoke:
 
 gofmt:
 	./.check-gofmt.sh --fix
+
+irctest:
+	git submodule update --init
+	cd irctest && make integration
