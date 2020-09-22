@@ -84,7 +84,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		dispatchAwayNotify(session.client, false, "")
 	}
 
-	for _, channel := range client.Channels() {
+	for _, channel := range target.Channels() {
 		channel.AddHistoryItem(histItem, details.account)
 	}
 
