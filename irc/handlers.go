@@ -303,7 +303,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 				rb.session.deviceID = deviceID
 			}
 		}
-		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, authzid)
+		err = server.accounts.AuthenticateByCertificate(client, rb.session.certfp, rb.session.peerCerts, authzid)
 	}
 
 	if err != nil {

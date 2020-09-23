@@ -721,7 +721,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	// try certfp
 	if !loginSuccessful && rb.session.certfp != "" {
-		err = server.accounts.AuthenticateByCertFP(client, rb.session.certfp, "")
+		err = server.accounts.AuthenticateByCertificate(client, rb.session.certfp, rb.session.peerCerts, "")
 		loginSuccessful = (err == nil)
 	}
 

@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"crypto/x509"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -163,6 +164,7 @@ type Session struct {
 	destroyed            uint32
 
 	certfp     string
+	peerCerts  []*x509.Certificate
 	sasl       saslStatus
 	passStatus serverPassStatus
 
@@ -384,7 +386,7 @@ func (server *Server) RunClient(conn IRCConn) {
 
 	if wConn.Config.TLSConfig != nil {
 		// error is not useful to us here anyways so we can ignore it
-		session.certfp, _ = utils.GetCertFP(wConn.Conn, RegisterTimeout)
+		session.certfp, session.peerCerts, _ = utils.GetCertFP(wConn.Conn, RegisterTimeout)
 	}
 
 	if session.isTor {

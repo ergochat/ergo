@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
@@ -92,10 +93,10 @@ func NormalizeCertfp(certfp string) (result string, err error) {
 	return
 }
 
-func GetCertFP(conn net.Conn, handshakeTimeout time.Duration) (result string, err error) {
+func GetCertFP(conn net.Conn, handshakeTimeout time.Duration) (fingerprint string, peerCerts []*x509.Certificate, err error) {
 	tlsConn, isTLS := conn.(*tls.Conn)
 	if !isTLS {
-		return "", ErrNotTLS
+		return "", nil, ErrNotTLS
 	}
 
 	// ensure handshake is performed
@@ -104,16 +105,16 @@ func GetCertFP(conn net.Conn, handshakeTimeout time.Duration) (result string, er
 	tlsConn.SetDeadline(time.Time{})
 
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	peerCerts := tlsConn.ConnectionState().PeerCertificates
+	peerCerts = tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {
-		return "", ErrNoPeerCerts
+		return "", nil, ErrNoPeerCerts
 	}
 
 	rawCert := sha256.Sum256(peerCerts[0].Raw)
-	fingerprint := hex.EncodeToString(rawCert[:])
+	fingerprint = hex.EncodeToString(rawCert[:])
 
-	return fingerprint, nil
+	return fingerprint, peerCerts, nil
 }

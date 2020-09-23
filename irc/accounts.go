@@ -5,6 +5,7 @@ package irc
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -1466,7 +1467,7 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 	return unmarshalRegisteredChannels(channelStr)
 }
 
-func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid string) (err error) {
+func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp string, peerCerts []*x509.Certificate, authzid string) (err error) {
 	if certfp == "" {
 		return errAccountInvalidCredentials
 	}
@@ -1495,7 +1496,7 @@ func (am *AccountManager) AuthenticateByCertFP(client *Client, certfp, authzid s
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
 		output, err = CheckAuthScript(am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
-			AuthScriptInput{Certfp: certfp, IP: client.IP().String()})
+			AuthScriptInput{Certfp: certfp, IP: client.IP().String(), peerCerts: peerCerts})
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
 		} else if output.Success && output.AccountName != "" {
