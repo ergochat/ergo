@@ -4,7 +4,9 @@
 package irc
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 
@@ -13,9 +15,11 @@ import (
 
 // JSON-serializable input and output types for the script
 type AuthScriptInput struct {
-	AccountName string `json:"accountName,omitempty"`
-	Passphrase  string `json:"passphrase,omitempty"`
-	Certfp      string `json:"certfp,omitempty"`
+	AccountName string   `json:"accountName,omitempty"`
+	Passphrase  string   `json:"passphrase,omitempty"`
+	Certfp      string   `json:"certfp,omitempty"`
+	PeerCerts   []string `json:"peerCerts,omitempty"`
+	peerCerts   []*x509.Certificate
 	IP          string `json:"ip,omitempty"`
 }
 
@@ -29,6 +33,14 @@ func CheckAuthScript(sem utils.Semaphore, config ScriptConfig, input AuthScriptI
 	if sem != nil {
 		sem.Acquire()
 		defer sem.Release()
+	}
+
+	// PEM-encode the peer certificates before applying JSON
+	if len(input.peerCerts) != 0 {
+		input.PeerCerts = make([]string, len(input.peerCerts))
+		for i, cert := range input.peerCerts {
+			input.PeerCerts[i] = string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
+		}
 	}
 
 	inputBytes, err := json.Marshal(input)
