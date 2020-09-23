@@ -13,9 +13,6 @@ ADD . /go/src/github.com/oragono/oragono/
 run sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/oragono/oragono/default.yaml
 run sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/oragono/oragono/default.yaml
 
-# make sure submodules are up-to-date
-RUN git submodule update --init
-
 # compile
 RUN make
 
