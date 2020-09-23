@@ -1,0 +1,3 @@
+[submodule "irctest"]
+	path = irctest
+	url = https://github.com/oragono/irctest

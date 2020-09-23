@@ -1,5 +1,7 @@
 language: go
 
+dist: focal
+
 go:
     - "1.15.x"
 
@@ -8,6 +10,7 @@ before_install:
   - sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
 
 script:
-- make
+- make install
 - make test
 - make smoke
+- make irctest
