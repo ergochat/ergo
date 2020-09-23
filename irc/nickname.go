@@ -28,28 +28,57 @@ var (
 )
 
 func performNickChange(server *Server, client *Client, target *Client, session *Session, nickname string, rb *ResponseBuffer) error {
-	currentNick := client.Nick()
 	details := target.Details()
 	hadNick := details.nick != "*"
 	origNickMask := details.nickMask
+	isSanick := client != target
 
 	assignedNickname, err, back := client.server.clients.SetNick(target, session, nickname)
 	if err == errNicknameInUse {
-		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_NICKNAMEINUSE, details.nick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "NICKNAME_IN_USE", utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
+		}
 	} else if err == errNicknameReserved {
-		rb.Add(nil, server.name, ERR_NICKNAMEINUSE, currentNick, utils.SafeErrorParam(nickname), client.t("Nickname is reserved by a different account"))
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_NICKNAMEINUSE, details.nick, utils.SafeErrorParam(nickname), client.t("Nickname is reserved by a different account"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "NICKNAME_RESERVED", utils.SafeErrorParam(nickname), client.t("Nickname is reserved by a different account"))
+		}
 	} else if err == errNicknameInvalid {
-		rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, currentNick, utils.SafeErrorParam(nickname), client.t("Erroneous nickname"))
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_ERRONEUSNICKNAME, details.nick, utils.SafeErrorParam(nickname), client.t("Erroneous nickname"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "NICKNAME_INVALID", utils.SafeErrorParam(nickname), client.t("Erroneous nickname"))
+		}
 	} else if err == errNickAccountMismatch {
 		// this used to use ERR_NICKNAMEINUSE, but it displayed poorly in some clients;
 		// ERR_UNKNOWNERROR at least has a better chance of displaying our error text
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", client.t("You must use your account name as your nickname"))
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, "NICK", client.t("You must use your account name as your nickname"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "UNKNOWN_ERROR", utils.SafeErrorParam(nickname), client.t("This user's nickname and account name need to be equal"))
+		}
 	} else if err == errNickMissing {
-		rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, currentNick, client.t("No nickname given"))
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, details.nick, client.t("No nickname given"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "NICKNAME_INVALID", utils.SafeErrorParam(nickname), client.t("No nickname given"))
+		}
 	} else if err == errNoop {
-		// no message
+		if !isSanick {
+			// no message
+		} else {
+			rb.Add(nil, server.name, "NOTE", "SANICK", "NOOP", utils.SafeErrorParam(nickname), client.t("Client already had the desired nickname"))
+		}
 	} else if err != nil {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, currentNick, "NICK", fmt.Sprintf(client.t("Could not set or change nickname: %s"), err.Error()))
+		client.server.logger.Error("internal", "couldn't change nick", nickname, err.Error())
+		if !isSanick {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, "NICK", client.t("Could not set or change nickname"))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "SANICK", "UNKNOWN_ERROR", utils.SafeErrorParam(nickname), client.t("Could not set or change nickname"))
+		}
 	}
 	if err != nil {
 		return err

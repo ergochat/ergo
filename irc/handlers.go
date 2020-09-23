@@ -2594,10 +2594,10 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // SANICK <oldnick> <nickname>
 func sanickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	targetNick := strings.TrimSpace(msg.Params[0])
+	targetNick := msg.Params[0]
 	target := server.clients.Get(targetNick)
 	if target == nil {
-		rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, msg.Params[0], client.t("No such nick"))
+		rb.Add(nil, server.name, "FAIL", "SANICK", "NO_SUCH_NICKNAME", utils.SafeErrorParam(targetNick), client.t("No such nick"))
 		return false
 	}
 	performNickChange(server, client, target, nil, msg.Params[1], rb)
