@@ -1116,7 +1116,7 @@ func nsClientsListHandler(server *Server, client *Client, params []string, rb *R
 		}
 	}
 
-	sessionData, currentIndex := target.AllSessionData(rb.session)
+	sessionData, currentIndex := target.AllSessionData(rb.session, hasPrivs)
 	nsNotice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached clients(s)"), target.Nick(), len(sessionData)))
 	for i, session := range sessionData {
 		if currentIndex == i {
