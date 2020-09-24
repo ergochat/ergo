@@ -443,7 +443,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if tOper != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 	}
-	if client.HasMode(modes.Operator) || client == target {
+	if client == target || client.HasRoleCapabs("local_ban") {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
 	if target.HasMode(modes.TLS) {

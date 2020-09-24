@@ -1103,7 +1103,7 @@ func nsClientsHandler(server *Server, client *Client, command string, params []s
 
 func nsClientsListHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	target := client
-	hasPrivs := client.HasRoleCapabs("accreg")
+	hasPrivs := client.HasRoleCapabs("local_ban")
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
