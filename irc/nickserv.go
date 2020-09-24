@@ -12,7 +12,6 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
-	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -1099,20 +1098,19 @@ func nsClientsHandler(server *Server, client *Client, command string, params []s
 		nsClientsLogoutHandler(server, client, params, rb)
 	default:
 		nsNotice(rb, client.t("Invalid parameters"))
-		return
 	}
 }
 
 func nsClientsListHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	target := client
+	hasPrivs := client.HasRoleCapabs("accreg")
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
 			nsNotice(rb, client.t("No such nick"))
 			return
 		}
-		// same permissions check as RPL_WHOISACTUALLY for now:
-		if target != client && !client.HasMode(modes.Operator) {
+		if target != client && !hasPrivs {
 			nsNotice(rb, client.t("Command restricted"))
 			return
 		}
@@ -1131,6 +1129,9 @@ func nsClientsListHandler(server *Server, client *Client, params []string, rb *R
 		}
 		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
 		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
+		if hasPrivs {
+			nsNotice(rb, fmt.Sprintf(client.t("Connection:  %s"), session.connInfo))
+		}
 		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
 		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
 		if session.certfp != "" {
