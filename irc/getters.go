@@ -76,7 +76,7 @@ type SessionData struct {
 	sessionID int64
 }
 
-func (client *Client) AllSessionData(currentSession *Session) (data []SessionData, currentIndex int) {
+func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (data []SessionData, currentIndex int) {
 	currentIndex = -1
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -93,12 +93,14 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			certfp:    session.certfp,
 			deviceID:  session.deviceID,
 			sessionID: session.sessionID,
-			connInfo:  utils.DescribeConn(session.socket.conn.UnderlyingConn().Conn),
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
 		} else {
 			data[i].ip = session.realIP
+		}
+		if hasPrivs {
+			data[i].connInfo = utils.DescribeConn(session.socket.conn.UnderlyingConn().Conn)
 		}
 	}
 	return
