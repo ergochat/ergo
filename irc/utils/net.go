@@ -5,6 +5,7 @@
 package utils
 
 import (
+	"fmt"
 	"net"
 	"regexp"
 	"strings"
@@ -192,4 +193,12 @@ func HandleXForwardedFor(remoteAddr string, xForwardedFor string, whitelist []ne
 	// return either the last valid and trusted IP (which must be the origin),
 	// or nil:
 	return
+}
+
+func DescribeConn(conn net.Conn) string {
+	// XXX for unix domain sockets, this is not informative enough for an operator
+	// to determine who holds the other side of the connection. there seems to be
+	// no way to get either the correct file descriptor of the connection, or the
+	// udiag_ino from `man 7 sock_diag`. maybe there's something else we can do?
+	return fmt.Sprintf("%s <-> %s", conn.LocalAddr().String(), conn.RemoteAddr().String())
 }

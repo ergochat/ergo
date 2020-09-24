@@ -11,6 +11,7 @@ import (
 
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/modes"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 func (server *Server) Config() (config *Config) {
@@ -71,6 +72,7 @@ type SessionData struct {
 	hostname  string
 	certfp    string
 	deviceID  string
+	connInfo  string
 	sessionID int64
 }
 
@@ -91,6 +93,7 @@ func (client *Client) AllSessionData(currentSession *Session) (data []SessionDat
 			certfp:    session.certfp,
 			deviceID:  session.deviceID,
 			sessionID: session.sessionID,
+			connInfo:  utils.DescribeConn(session.socket.conn.UnderlyingConn().Conn),
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
