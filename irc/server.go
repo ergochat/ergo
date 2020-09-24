@@ -439,6 +439,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 	if whoischannels != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
+	rb.Add(nil, client.server.name, RPL_WHOISSERVER, cnick, tnick, client.server.name, Ver)
 	tOper := target.Oper()
 	if tOper != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
