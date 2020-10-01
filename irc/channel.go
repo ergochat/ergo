@@ -1228,9 +1228,6 @@ func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	if channel.flags.HasMode(modes.Moderated) && !channel.ClientIsAtLeast(client, modes.Voice) {
 		return false, modes.Moderated
 	}
-	if channel.flags.HasMode(modes.Auditorium) && !channel.ClientIsAtLeast(client, modes.Voice) {
-		return false, modes.Auditorium
-	}
 	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" {
 		return false, modes.RegisteredOnly
 	}
