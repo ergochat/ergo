@@ -54,6 +54,8 @@ Oragono supports the following channel modes:
   +t  |  Only channel opers can modify the topic.
   +E  |  Roleplaying commands are enabled in the channel.
   +C  |  Clients are blocked from sending CTCP messages in the channel.
+  +u  |  Auditorium mode: like +m, but JOIN, PART, QUIT, and NAMES are
+         also hidden from unvoiced clients.
 
 = Prefixes =
 
