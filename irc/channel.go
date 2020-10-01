@@ -439,7 +439,11 @@ func (channel *Channel) regenerateMembersCache() {
 
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
-	isJoined := channel.hasClient(client)
+	channel.stateMutex.RLock()
+	clientModes, isJoined := channel.members[client]
+	channel.stateMutex.RUnlock()
+	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
+		(!isJoined || clientModes.HighestChannelUserMode() == modes.Mode(0))
 	isOper := client.HasMode(modes.Operator)
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
@@ -462,6 +466,9 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 				continue
 			}
 			if !isJoined && target.HasMode(modes.Invisible) && !isOper {
+				continue
+			}
+			if respectAuditorium && modeSet.HighestChannelUserMode() == modes.Mode(0) {
 				continue
 			}
 			prefix := modeSet.Prefixes(isMultiPrefix)
@@ -517,15 +524,7 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 		return true
 	}
 
-	for _, mode := range modes.ChannelUserModes {
-		if clientModes.HasMode(mode) {
-			return true
-		}
-		if mode == permission {
-			break
-		}
-	}
-	return false
+	return clientModes.HighestChannelUserMode() != modes.Mode(0)
 }
 
 func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
@@ -748,8 +747,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}()
 
 	var message utils.SplitMessage
+	respectAuditorium := givenMode == modes.Mode(0) && channel.flags.HasMode(modes.Auditorium)
 	// no history item for fake persistent joins
-	if rb != nil {
+	if rb != nil && !respectAuditorium {
 		message = utils.MakeMessage("")
 		histItem := history.Item{
 			Type:        history.Join,
@@ -772,6 +772,14 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	isAway, awayMessage := client.Away()
 	for _, member := range channel.Members() {
+		if respectAuditorium {
+			channel.stateMutex.RLock()
+			memberModes, ok := channel.members[member]
+			channel.stateMutex.RUnlock()
+			if !ok || memberModes.HighestChannelUserMode() == modes.Mode(0) {
+				continue
+			}
+		}
 		for _, session := range member.Sessions() {
 			if session == rb.session {
 				continue
@@ -889,8 +897,12 @@ func (channel *Channel) playJoinForSession(session *Session) {
 
 // Part parts the given client from this channel, with the given message.
 func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer) {
-	chname := channel.Name()
-	if !channel.hasClient(client) {
+	channel.stateMutex.RLock()
+	chname := channel.name
+	clientModes, ok := channel.members[client]
+	channel.stateMutex.RUnlock()
+
+	if !ok {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), chname, client.t("You're not on that channel"))
 		return
 	}
@@ -905,7 +917,17 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	if message != "" {
 		params = append(params, message)
 	}
+	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
+		clientModes.HighestChannelUserMode() == modes.Mode(0)
 	for _, member := range channel.Members() {
+		if respectAuditorium {
+			channel.stateMutex.RLock()
+			memberModes, ok := channel.members[member]
+			channel.stateMutex.RUnlock()
+			if !ok || memberModes.HighestChannelUserMode() == modes.Mode(0) {
+				continue
+			}
+		}
 		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	}
 	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
@@ -915,12 +937,14 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		}
 	}
 
-	channel.AddHistoryItem(history.Item{
-		Type:        history.Part,
-		Nick:        details.nickMask,
-		AccountName: details.accountName,
-		Message:     splitMessage,
-	}, details.account)
+	if !respectAuditorium {
+		channel.AddHistoryItem(history.Item{
+			Type:        history.Part,
+			Nick:        details.nickMask,
+			AccountName: details.accountName,
+			Message:     splitMessage,
+		}, details.account)
+	}
 
 	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
@@ -951,20 +975,24 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 	// send join for old clients
 	chname := channel.Name()
 	details := session.client.Details()
-	for _, member := range channel.Members() {
-		for _, session := range member.Sessions() {
-			if session.capabilities.Has(caps.Resume) {
-				continue
-			}
+	// TODO: for now, skip this entirely for auditoriums,
+	// but really we should send it to voiced clients
+	if !channel.flags.HasMode(modes.Auditorium) {
+		for _, member := range channel.Members() {
+			for _, session := range member.Sessions() {
+				if session.capabilities.Has(caps.Resume) {
+					continue
+				}
 
-			if session.capabilities.Has(caps.ExtendedJoin) {
-				session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
-			} else {
-				session.Send(nil, details.nickMask, "JOIN", chname)
-			}
+				if session.capabilities.Has(caps.ExtendedJoin) {
+					session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+				} else {
+					session.Send(nil, details.nickMask, "JOIN", chname)
+				}
 
-			if 0 < len(oldModes) {
-				session.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
+				if 0 < len(oldModes) {
+					session.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
+				}
 			}
 		}
 	}
@@ -1199,6 +1227,9 @@ func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	}
 	if channel.flags.HasMode(modes.Moderated) && !channel.ClientIsAtLeast(client, modes.Voice) {
 		return false, modes.Moderated
+	}
+	if channel.flags.HasMode(modes.Auditorium) && !channel.ClientIsAtLeast(client, modes.Voice) {
+		return false, modes.Auditorium
 	}
 	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" {
 		return false, modes.RegisteredOnly
@@ -1449,6 +1480,30 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	if away, awayMessage := invitee.Away(); away {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, awayMessage)
 	}
+}
+
+// returns who the client can "see" in the channel, respecting the auditorium mode
+func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	clientModes := channel.members[client]
+	if clientModes == nil {
+		return // non-members have no friends
+	}
+	if !channel.flags.HasMode(modes.Auditorium) {
+		return channel.membersCache // default behavior for members
+	}
+	if clientModes.HighestChannelUserMode() != modes.Mode(0) {
+		return channel.membersCache // +v and up can see everyone in the auditorium
+	}
+	// without +v, your friends are those with +v and up
+	for member, memberModes := range channel.members {
+		if memberModes.HighestChannelUserMode() != modes.Mode(0) {
+			friends = append(friends, member)
+		}
+	}
+	return
 }
 
 // data for RPL_LIST

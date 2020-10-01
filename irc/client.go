@@ -934,7 +934,7 @@ func (session *Session) playResume() {
 	// work out how much time, if any, is not covered by history buffers
 	// assume that a persistent buffer covers the whole resume period
 	for _, channel := range client.Channels() {
-		for _, member := range channel.Members() {
+		for _, member := range channel.auditoriumFriends(client) {
 			friends.Add(member)
 		}
 		status, _ := channel.historyStatus(config)
@@ -1161,7 +1161,7 @@ func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]em
 	addFriendsToSet(result, client, capabs...)
 
 	for _, channel := range client.Channels() {
-		for _, member := range channel.Members() {
+		for _, member := range channel.auditoriumFriends(client) {
 			addFriendsToSet(result, member, capabs...)
 		}
 	}
@@ -1512,10 +1512,10 @@ func (client *Client) destroy(session *Session) {
 	friends := make(ClientSet)
 	channels = client.Channels()
 	for _, channel := range channels {
-		channel.Quit(client)
-		for _, member := range channel.Members() {
+		for _, member := range channel.auditoriumFriends(client) {
 			friends.Add(member)
 		}
+		channel.Quit(client)
 	}
 	friends.Remove(client)
 

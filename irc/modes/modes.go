@@ -22,7 +22,7 @@ var (
 	SupportedChannelModes = Modes{
 		BanMask, ChanRoleplaying, ExceptMask, InviteMask, InviteOnly, Key,
 		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, RegisteredOnlySpeak,
-		Secret, UserLimit, NoCTCP,
+		Secret, UserLimit, NoCTCP, Auditorium,
 	}
 )
 
@@ -112,6 +112,7 @@ const (
 
 // Channel Modes
 const (
+	Auditorium      Mode = 'u' // flag
 	BanMask         Mode = 'b' // arg
 	ChanRoleplaying Mode = 'E' // flag
 	ExceptMask      Mode = 'e' // arg

@@ -271,7 +271,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				applied = append(applied, change)
 			}
 
-		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying, modes.NoCTCP, modes.RegisteredOnlySpeak:
+		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying, modes.NoCTCP, modes.RegisteredOnlySpeak, modes.Auditorium:
 			if change.Op == modes.List {
 				continue
 			}
