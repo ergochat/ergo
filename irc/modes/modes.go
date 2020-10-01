@@ -16,6 +16,7 @@ var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
 		Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
+		UserNoCTCP,
 	}
 
 	// SupportedChannelModes are the channel modes that we support.
