@@ -546,7 +546,7 @@ oper-classes:
             - "local_unban"
             - "nofakelag"
             - "roleplay"
-            - "relaymsg-anywhere"
+            - "relaymsg"
 
     # network operator
     "network-oper":
