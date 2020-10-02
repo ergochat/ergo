@@ -524,7 +524,15 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 		return true
 	}
 
-	return clientModes.HighestChannelUserMode() != modes.Mode(0)
+	for _, mode := range modes.ChannelUserModes {
+		if clientModes.HasMode(mode) {
+			return true
+		}
+		if mode == permission {
+			break
+		}
+	}
+	return false
 }
 
 func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
