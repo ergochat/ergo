@@ -18,6 +18,7 @@ import (
 
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/email"
+	"github.com/oragono/oragono/irc/migrations"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/utils"
@@ -1047,15 +1048,33 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 
 	switch account.Credentials.Version {
 	case 0:
-		err = handleLegacyPasswordV0(am.server, accountName, account.Credentials, passphrase)
+		err = am.checkLegacyPassphrase(migrations.CheckOragonoPassphraseV0, accountName, account.Credentials.PassphraseHash, passphrase)
 	case 1:
 		if passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase)) != nil {
 			err = errAccountInvalidCredentials
 		}
+	case -1:
+		err = am.checkLegacyPassphrase(migrations.CheckAthemePassphrase, accountName, account.Credentials.PassphraseHash, passphrase)
 	default:
 		err = errAccountInvalidCredentials
 	}
 	return
+}
+
+func (am *AccountManager) checkLegacyPassphrase(check migrations.PassphraseCheck, account string, hash []byte, passphrase string) (err error) {
+	err = check(hash, []byte(passphrase))
+	if err != nil {
+		if err == migrations.ErrHashInvalid {
+			am.server.logger.Error("internal", "invalid legacy credentials for account", account)
+		}
+		return errAccountInvalidCredentials
+	}
+	// re-hash the passphrase with the latest algorithm
+	err = am.setPassword(account, passphrase, true)
+	if err != nil {
+		am.server.logger.Error("internal", "could not upgrade user password", err.Error())
+	}
+	return nil
 }
 
 func (am *AccountManager) loadWithAutocreation(accountName string, autocreate bool) (account ClientAccount, err error) {
@@ -1872,10 +1891,18 @@ var (
 	}
 )
 
+type CredentialsVersion int
+
+const (
+	CredentialsLegacy     CredentialsVersion = 0
+	CredentialsSHA3Bcrypt CredentialsVersion = 1
+	// negative numbers for migration
+	CredentialsAtheme = -1
+)
+
 // AccountCredentials stores the various methods for verifying accounts.
 type AccountCredentials struct {
-	Version        uint
-	PassphraseSalt []byte // legacy field, not used by v1 and later
+	Version        CredentialsVersion
 	PassphraseHash []byte
 	Certfps        []string
 }

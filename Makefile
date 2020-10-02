@@ -27,6 +27,7 @@ test:
 	cd irc/email && go test . && go vet .
 	cd irc/history && go test . && go vet .
 	cd irc/isupport && go test . && go vet .
+	cd irc/migrations && go test . && go vet .
 	cd irc/modes && go test . && go vet .
 	cd irc/mysql && go test . && go vet .
 	cd irc/passwd && go test . && go vet .

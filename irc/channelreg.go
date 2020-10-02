@@ -233,11 +233,11 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		info = RegisteredChannel{
 			Name:           name,
 			NameCasefolded: nameCasefolded,
-			RegisteredAt:   time.Unix(regTimeInt, 0).UTC(),
+			RegisteredAt:   time.Unix(0, regTimeInt).UTC(),
 			Founder:        founder,
 			Topic:          topic,
 			TopicSetBy:     topicSetBy,
-			TopicSetTime:   time.Unix(topicSetTimeInt, 0).UTC(),
+			TopicSetTime:   time.Unix(0, topicSetTimeInt).UTC(),
 			Key:            password,
 			Modes:          modeSlice,
 			Bans:           banlist,
@@ -273,11 +273,11 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 	if err == nil {
 		regTime, _ := tx.Get(fmt.Sprintf(keyChannelRegTime, key))
 		regTimeInt, _ := strconv.ParseInt(regTime, 10, 64)
-		registeredAt := time.Unix(regTimeInt, 0).UTC()
+		registeredAt := time.Unix(0, regTimeInt).UTC()
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, key))
 
 		// to see if we're deleting the right channel, confirm the founder and the registration time
-		if founder == info.Founder && registeredAt.Unix() == info.RegisteredAt.Unix() {
+		if founder == info.Founder && registeredAt == info.RegisteredAt {
 			for _, keyFmt := range channelKeyStrings {
 				tx.Delete(fmt.Sprintf(keyFmt, key))
 			}
@@ -339,13 +339,13 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 	if includeFlags&IncludeInitial != 0 {
 		tx.Set(fmt.Sprintf(keyChannelExists, channelKey), "1", nil)
 		tx.Set(fmt.Sprintf(keyChannelName, channelKey), channelInfo.Name, nil)
-		tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.Unix(), 10), nil)
+		tx.Set(fmt.Sprintf(keyChannelRegTime, channelKey), strconv.FormatInt(channelInfo.RegisteredAt.UnixNano(), 10), nil)
 		tx.Set(fmt.Sprintf(keyChannelFounder, channelKey), channelInfo.Founder, nil)
 	}
 
 	if includeFlags&IncludeTopic != 0 {
 		tx.Set(fmt.Sprintf(keyChannelTopic, channelKey), channelInfo.Topic, nil)
-		tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.Unix(), 10), nil)
+		tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.UnixNano(), 10), nil)
 		tx.Set(fmt.Sprintf(keyChannelTopicSetBy, channelKey), channelInfo.TopicSetBy, nil)
 	}
 

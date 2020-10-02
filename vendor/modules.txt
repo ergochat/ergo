@@ -1,6 +1,12 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
+# github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
+## explicit
+github.com/GehirnInc/crypt
+github.com/GehirnInc/crypt/common
+github.com/GehirnInc/crypt/internal
+github.com/GehirnInc/crypt/md5_crypt
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go
@@ -56,6 +62,7 @@ github.com/toorop/go-dkim
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
+golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f

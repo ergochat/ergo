@@ -96,6 +96,7 @@ func main() {
 Usage:
 	oragono initdb [--conf <filename>] [--quiet]
 	oragono upgradedb [--conf <filename>] [--quiet]
+	oragono importdb <database.json> [--conf <filename>] [--quiet]
 	oragono genpasswd [--conf <filename>] [--quiet]
 	oragono mkcerts [--conf <filename>] [--quiet]
 	oragono run [--conf <filename>] [--quiet] [--smoke]
@@ -155,7 +156,10 @@ Options:
 	}
 
 	if arguments["initdb"].(bool) {
-		irc.InitDB(config.Datastore.Path)
+		err = irc.InitDB(config.Datastore.Path)
+		if err != nil {
+			log.Fatal("Error while initializing db:", err.Error())
+		}
 		if !arguments["--quiet"].(bool) {
 			log.Println("database initialized: ", config.Datastore.Path)
 		}
@@ -166,6 +170,11 @@ Options:
 		}
 		if !arguments["--quiet"].(bool) {
 			log.Println("database upgraded: ", config.Datastore.Path)
+		}
+	} else if arguments["importdb"].(bool) {
+		err = irc.ImportDB(config, arguments["<database.json>"].(string))
+		if err != nil {
+			log.Fatal("Error while importing db:", err.Error())
 		}
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {

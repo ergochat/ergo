@@ -5,6 +5,7 @@
 package irc
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -23,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "12"
+	latestDbSchema = "14"
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -39,19 +40,26 @@ type SchemaChange struct {
 // maps an initial version to a schema change capable of upgrading it
 var schemaChanges map[string]SchemaChange
 
-// InitDB creates the database, implementing the `oragono initdb` command.
-func InitDB(path string) {
+func checkDBReadyForInit(path string) error {
 	_, err := os.Stat(path)
 	if err == nil {
-		log.Fatal("Datastore already exists (delete it manually to continue): ", path)
+		return fmt.Errorf("Datastore already exists (delete it manually to continue): %s", path)
 	} else if !os.IsNotExist(err) {
-		log.Fatal("Datastore path is inaccessible: ", err.Error())
+		return fmt.Errorf("Datastore path %s is inaccessible: %w", path, err)
+	}
+	return nil
+}
+
+// InitDB creates the database, implementing the `oragono initdb` command.
+func InitDB(path string) error {
+	if err := checkDBReadyForInit(path); err != nil {
+		return err
 	}
 
-	err = initializeDB(path)
-	if err != nil {
-		log.Fatal("Could not save datastore: ", err.Error())
+	if err := initializeDB(path); err != nil {
+		return fmt.Errorf("Could not save datastore: %w", err)
 	}
+	return nil
 }
 
 // internal database initialization code
@@ -686,6 +694,104 @@ func schemaChangeV11ToV12(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+type accountCredsLegacyV13 struct {
+	Version        CredentialsVersion
+	PassphraseHash []byte
+	Certfps        []string
+}
+
+// see #212 / #284. this packs the legacy salts into a single passphrase hash,
+// allowing legacy passphrases to be verified using the new API `checkLegacyPassphrase`.
+func schemaChangeV12ToV13(config *Config, tx *buntdb.Tx) error {
+	salt, err := tx.Get("crypto.salt")
+	if err != nil {
+		return nil // no change required
+	}
+	tx.Delete("crypto.salt")
+	rawSalt, err := base64.StdEncoding.DecodeString(salt)
+	if err != nil {
+		return nil // just throw away the creds at this point
+	}
+	prefix := "account.credentials "
+	var accounts []string
+	var credentials []accountCredsLegacyV13
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, prefix)
+
+		var credsOld accountCredsLegacyV9
+		err = json.Unmarshal([]byte(value), &credsOld)
+		if err != nil {
+			return true
+		}
+		// skip if these aren't legacy creds!
+		if credsOld.Version != 0 {
+			return true
+		}
+
+		var credsNew accountCredsLegacyV13
+		credsNew.Version = 0 // mark hash for migration
+		credsNew.Certfps = credsOld.Certfps
+		credsNew.PassphraseHash = append(credsNew.PassphraseHash, rawSalt...)
+		credsNew.PassphraseHash = append(credsNew.PassphraseHash, credsOld.PassphraseSalt...)
+		credsNew.PassphraseHash = append(credsNew.PassphraseHash, credsOld.PassphraseHash...)
+
+		accounts = append(accounts, account)
+		credentials = append(credentials, credsNew)
+		return true
+	})
+
+	for i, account := range accounts {
+		bytesOut, err := json.Marshal(credentials[i])
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set(prefix+account, string(bytesOut), nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// channel registration time and topic set time at nanosecond resolution
+func schemaChangeV13ToV14(config *Config, tx *buntdb.Tx) error {
+	prefix := "channel.registered.time "
+	var channels, times []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		channel := strings.TrimPrefix(key, prefix)
+		channels = append(channels, channel)
+		times = append(times, value)
+		return true
+	})
+
+	billion := int64(time.Second)
+	for i, channel := range channels {
+		regTime, err := strconv.ParseInt(times[i], 10, 64)
+		if err != nil {
+			log.Printf("corrupt registration time entry for %s: %v\n", channel, err)
+			continue
+		}
+		regTime = regTime * billion
+		tx.Set(prefix+channel, strconv.FormatInt(regTime, 10), nil)
+
+		topicTimeKey := "channel.topic.settime " + channel
+		topicSetAt, err := tx.Get(topicTimeKey)
+		if err == nil {
+			if setTime, err := strconv.ParseInt(topicSetAt, 10, 64); err == nil {
+				tx.Set(topicTimeKey, strconv.FormatInt(setTime*billion, 10), nil)
+			}
+		}
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -742,6 +848,16 @@ func init() {
 			InitialVersion: "11",
 			TargetVersion:  "12",
 			Changer:        schemaChangeV11ToV12,
+		},
+		{
+			InitialVersion: "12",
+			TargetVersion:  "13",
+			Changer:        schemaChangeV12ToV13,
+		},
+		{
+			InitialVersion: "13",
+			TargetVersion:  "14",
+			Changer:        schemaChangeV13ToV14,
 		},
 	}
 
