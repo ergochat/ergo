@@ -16,6 +16,7 @@ var (
 	// SupportedUserModes are the user modes that we actually support (modifying).
 	SupportedUserModes = Modes{
 		Bot, Invisible, Operator, RegisteredOnly, ServerNotice, UserRoleplaying,
+		UserNoCTCP,
 	}
 
 	// SupportedChannelModes are the channel modes that we support.
@@ -430,8 +431,10 @@ func (a ByCodepoint) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByCodepoint) Less(i, j int) bool { return a[i] < a[j] }
 
 func RplMyInfo() (param1, param2, param3 string) {
-	userModes := make(Modes, len(SupportedUserModes))
+	userModes := make(Modes, len(SupportedUserModes), len(SupportedUserModes)+1)
 	copy(userModes, SupportedUserModes)
+	// TLS is not in SupportedUserModes because it can't be modified
+	userModes = append(userModes, TLS)
 	sort.Sort(ByCodepoint(userModes))
 
 	channelModes := make(Modes, len(SupportedChannelModes)+len(ChannelUserModes))
