@@ -33,8 +33,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 	applied := make(modes.ModeChanges, 0)
 
 	for _, change := range changes {
-		switch change.Mode {
-		case modes.Bot, modes.Invisible, modes.WallOps, modes.UserRoleplaying, modes.Operator, modes.LocalOperator, modes.RegisteredOnly, modes.UserNoCTCP:
+		if change.Mode != modes.ServerNotice {
 			switch change.Op {
 			case modes.Add:
 				if (change.Mode == modes.Operator || change.Mode == modes.LocalOperator) && !(force && oper != nil) {
@@ -73,8 +72,8 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 					}
 				}
 			}
-
-		case modes.ServerNotice:
+		} else {
+			// server notices are weird
 			if !client.HasMode(modes.Operator) {
 				continue
 			}
@@ -98,8 +97,6 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 				applied = append(applied, change)
 			}
 		}
-
-		// can't do anything to TLS mode
 	}
 
 	if len(applied) != 0 {
@@ -271,15 +268,6 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				applied = append(applied, change)
 			}
 
-		case modes.InviteOnly, modes.Moderated, modes.NoOutside, modes.OpOnlyTopic, modes.RegisteredOnly, modes.Secret, modes.ChanRoleplaying, modes.NoCTCP, modes.RegisteredOnlySpeak:
-			if change.Op == modes.List {
-				continue
-			}
-
-			if channel.flags.SetMode(change.Mode, change.Op == modes.Add) {
-				applied = append(applied, change)
-			}
-
 		case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
 			if change.Op == modes.List {
 				continue
@@ -293,6 +281,16 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 			success, change := channel.applyModeToMember(client, change, rb)
 			if success {
+				applied = append(applied, change)
+			}
+
+		default:
+			// all channel modes with no args, e.g., InviteOnly, Secret
+			if change.Op == modes.List {
+				continue
+			}
+
+			if channel.flags.SetMode(change.Mode, change.Op == modes.Add) {
 				applied = append(applied, change)
 			}
 		}
