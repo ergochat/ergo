@@ -54,6 +54,8 @@ Oragono supports the following channel modes:
   +t  |  Only channel opers can modify the topic.
   +E  |  Roleplaying commands are enabled in the channel.
   +C  |  Clients are blocked from sending CTCP messages in the channel.
+  +u  |  Auditorium mode: JOIN, PART, QUIT, NAMES, and WHO are hidden
+         hidden from unvoiced clients.
 
 = Prefixes =
 
@@ -74,7 +76,7 @@ Oragono supports the following user modes:
   +Z  |  User is connected via TLS.
   +B  |  User is a bot.
   +E  |  User can receive roleplaying commands.
-  +T  |  User is blocked from sending CTCP messages.`
+  +T  |  CTCP messages to the user are blocked.`
 	snomaskHelpText = `== Server Notice Masks ==
 
 Oragono supports the following server notice masks for operators:

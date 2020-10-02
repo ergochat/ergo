@@ -3051,7 +3051,13 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		if channel != nil {
 			isJoined := channel.hasClient(client)
 			if !channel.flags.HasMode(modes.Secret) || isJoined || isOper {
-				for _, member := range channel.Members() {
+				var members []*Client
+				if isOper {
+					members = channel.Members()
+				} else {
+					members = channel.auditoriumFriends(client)
+				}
+				for _, member := range members {
 					if !member.HasMode(modes.Invisible) || isJoined || isOper {
 						client.rplWhoReply(channel, member, rb, isWhox, fields, whoType)
 					}
@@ -3072,6 +3078,9 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 			}
 
 			for _, channel := range otherClient.Channels() {
+				if channel.flags.HasMode(modes.Auditorium) {
+					return false // TODO this should respect +v etc.
+				}
 				if _, present := userChannels[channel]; present {
 					return true
 				}
