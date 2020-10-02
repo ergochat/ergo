@@ -442,9 +442,9 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
 	clientModes, isJoined := channel.members[client]
 	channel.stateMutex.RUnlock()
-	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
-		(!isJoined || clientModes.HighestChannelUserMode() == modes.Mode(0))
 	isOper := client.HasMode(modes.Operator)
+	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
+		(!isJoined || clientModes.HighestChannelUserMode() == modes.Mode(0))
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
