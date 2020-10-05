@@ -1675,10 +1675,14 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 	}
 
 	if blocking {
-		return session.socket.BlockingWrite(line)
+		err = session.socket.BlockingWrite(line)
 	} else {
-		return session.socket.Write(line)
+		err = session.socket.Write(line)
 	}
+	if err != nil {
+		session.client.server.logger.Info("quit", "send error to client", fmt.Sprintf("%s [%d]", session.client.Nick(), session.sessionID), err.Error())
+	}
+	return err
 }
 
 // Send sends an IRC line to the client.
