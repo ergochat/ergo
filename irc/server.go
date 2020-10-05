@@ -301,6 +301,9 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return false
 	}
 
+	// count new user in statistics (before checking KLINEs, see #1303)
+	server.stats.Register(c.HasMode(modes.Invisible))
+
 	// check KLINEs
 	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 	if isBanned {
@@ -314,9 +317,6 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	for _, defaultMode := range config.Accounts.defaultUserModes {
 		c.SetMode(defaultMode, true)
 	}
-
-	// count new user in statistics
-	server.stats.Register(c.HasMode(modes.Invisible))
 
 	server.playRegistrationBurst(session)
 	return false
