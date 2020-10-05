@@ -664,7 +664,6 @@ logging:
         #   server          server startup, rehash, and shutdown events
         #   accounts        account registration and authentication
         #   channels        channel creation and operations
-        #   commands        command calling and operations
         #   opers           oper actions, authentication, etc
         #   services        actions related to NickServ, ChanServ, etc.
         #   internal        unexpected runtime behavior, including potential bugs
