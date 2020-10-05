@@ -68,7 +68,7 @@ def convert(infile):
             set_at = int(parts[4])
             if 'amode' not in chdata:
                 chdata['amode'] = {}
-            if 'q' in flags:
+            if 'F' in flags:
                 # there can only be one founder
                 preexisting_founder, preexisting_set_at = channel_to_founder[chname]
                 if preexisting_founder is None or set_at < preexisting_set_at:
