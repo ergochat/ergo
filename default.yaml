@@ -341,6 +341,9 @@ accounts:
         # the `accreg` capability can still create accounts with `/NICKSERV SAREGISTER`
         enabled: true
 
+        # can users use the REGISTER command to register before fully connecting?
+        allow-before-connect: true
+
         # global throttle on new account creation
         throttling:
             enabled: true
@@ -355,28 +358,26 @@ accounts:
         # length of time a user has to verify their account before it can be re-registered
         verify-timeout: "32h"
 
-        # callbacks to allow
-        enabled-callbacks:
-            - none # no verification needed, will instantly register successfully
-
-        # example configuration for sending verification emails
-        # callbacks:
-        #     mailto:
-        #         sender: "admin@my.network"
-        #         require-tls: true
-        #         helo-domain: "my.network" # defaults to server name if unset
-        #         dkim:
-        #             domain: "my.network"
-        #             selector: "20200229"
-        #             key-file: "dkim.pem"
-        #         # to use an MTA/smarthost instead of sending email directly:
-        #         # mta:
-        #         #     server: localhost
-        #         #     port: 25
-        #         #     username: "admin"
-        #         #     password: "hunter2"
-        #         blacklist-regexes:
-        #         #    - ".*@mailinator.com"
+        # options for email verification of account registrations
+        email-verification:
+            enabled: false
+            sender: "admin@my.network"
+            require-tls: true
+            helo-domain: "my.network" # defaults to server name if unset
+            # options to enable DKIM signing of outgoing emails (recommended, but
+            # requires creating a DNS entry for the public key):
+            # dkim:
+            #     domain: "my.network"
+            #     selector: "20200229"
+            #     key-file: "dkim.pem"
+            # to use an MTA/smarthost instead of sending email directly:
+            # mta:
+            #     server: localhost
+            #     port: 25
+            #     username: "admin"
+            #     password: "hunter2"
+            blacklist-regexes:
+            #    - ".*@mailinator.com"
 
     # throttle account login attempts (to prevent either password guessing, or DoS
     # attacks on the server aimed at forcing repeated expensive bcrypt computations)

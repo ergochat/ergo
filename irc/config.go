@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -298,15 +297,18 @@ type AuthScriptConfig struct {
 
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
-	Enabled                bool
-	Throttling             ThrottleConfig
-	EnabledCallbacks       []string         `yaml:"enabled-callbacks"`
-	EnabledCredentialTypes []string         `yaml:"-"`
-	VerifyTimeout          custime.Duration `yaml:"verify-timeout"`
-	Callbacks              struct {
+	Enabled            bool
+	AllowBeforeConnect bool `yaml:"allow-before-connect"`
+	Throttling         ThrottleConfig
+	// new-style (v2.4 email verification config):
+	EmailVerification email.MailtoConfig `yaml:"email-verification"`
+	// old-style email verification config, with "callbacks":
+	LegacyEnabledCallbacks []string `yaml:"enabled-callbacks"`
+	LegacyCallbacks        struct {
 		Mailto email.MailtoConfig
-	}
-	BcryptCost uint `yaml:"bcrypt-cost"`
+	} `yaml:"callbacks"`
+	VerifyTimeout custime.Duration `yaml:"verify-timeout"`
+	BcryptCost    uint             `yaml:"bcrypt-cost"`
 }
 
 type VHostConfig struct {
@@ -1049,23 +1051,28 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Logging = newLogConfigs
 
-	// hardcode this for now
-	config.Accounts.Registration.EnabledCredentialTypes = []string{"passphrase", "certfp"}
-	mailtoEnabled := false
-	for i, name := range config.Accounts.Registration.EnabledCallbacks {
-		if name == "none" {
-			// we store "none" as "*" internally
-			config.Accounts.Registration.EnabledCallbacks[i] = "*"
-		} else if name == "mailto" {
-			mailtoEnabled = true
-		}
-	}
-	sort.Strings(config.Accounts.Registration.EnabledCallbacks)
-
-	if mailtoEnabled {
-		err := config.Accounts.Registration.Callbacks.Mailto.Postprocess(config.Server.Name)
+	if config.Accounts.Registration.EmailVerification.Enabled {
+		err := config.Accounts.Registration.EmailVerification.Postprocess(config.Server.Name)
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		// TODO: this processes the legacy "callback" config, clean this up in 2.5 or later
+		// TODO: also clean up the legacy "inline" MTA config format (from ee05a4324dfde)
+		mailtoEnabled := false
+		for _, name := range config.Accounts.Registration.LegacyEnabledCallbacks {
+			if name == "mailto" {
+				mailtoEnabled = true
+				break
+			}
+		}
+		if mailtoEnabled {
+			config.Accounts.Registration.EmailVerification = config.Accounts.Registration.LegacyCallbacks.Mailto
+			config.Accounts.Registration.EmailVerification.Enabled = true
+			err := config.Accounts.Registration.EmailVerification.Postprocess(config.Server.Name)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1102,6 +1109,24 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
 	if !config.Accounts.AuthenticationEnabled {
 		config.Server.supportedCaps.Disable(caps.SASL)
+	}
+
+	if !config.Accounts.Registration.Enabled {
+		config.Server.supportedCaps.Disable(caps.Register)
+	} else {
+		var registerValues []string
+		if config.Accounts.Registration.AllowBeforeConnect {
+			registerValues = append(registerValues, "before-connect")
+		}
+		if config.Accounts.Registration.EmailVerification.Enabled {
+			registerValues = append(registerValues, "email-required")
+		}
+		if config.Accounts.RequireSasl.Enabled {
+			registerValues = append(registerValues, "account-required")
+		}
+		if len(registerValues) != 0 {
+			config.Server.capValues[caps.Register] = strings.Join(registerValues, ",")
+		}
 	}
 
 	maxSendQBytes, err := bytefmt.ToBytes(config.Server.MaxSendQString)

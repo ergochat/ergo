@@ -256,6 +256,11 @@ func init() {
 			handler:   relaymsgHandler,
 			minParams: 3,
 		},
+		"REGISTER": {
+			handler:      registerHandler,
+			minParams:    2,
+			usablePreReg: true,
+		},
 		"RENAME": {
 			handler:   renameHandler,
 			minParams: 2,
@@ -335,6 +340,11 @@ func init() {
 		},
 		"USERS": {
 			handler: usersHandler,
+		},
+		"VERIFY": {
+			handler:      verifyHandler,
+			usablePreReg: true,
+			minParams:    2,
 		},
 		"VERSION": {
 			handler:   versionHandler,

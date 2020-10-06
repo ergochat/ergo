@@ -410,10 +410,22 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	// n.b. if ForceGuestFormat, then there's no concern, because you can't
 	// register a guest nickname anyway, and the actual registration system
 	// will prevent any double-register
-	if client != nil && config.Accounts.NickReservation.Enabled &&
-		!config.Accounts.NickReservation.ForceGuestFormat &&
-		client.NickCasefolded() != casefoldedAccount {
-		return errAccountMustHoldNick
+	if client != nil {
+		if client.registered {
+			if config.Accounts.NickReservation.Enabled &&
+				!config.Accounts.NickReservation.ForceGuestFormat &&
+				client.NickCasefolded() != casefoldedAccount {
+				return errAccountMustHoldNick
+			}
+		} else {
+			// XXX this is a REGISTER command from a client who hasn't completed the
+			// initial handshake ("connection registration"). Do SetNick with dryRun=true,
+			// testing whether they are able to claim the nick
+			_, nickAcquireError, _ := am.server.clients.SetNick(client, nil, account, true)
+			if !(nickAcquireError == nil || nickAcquireError == errNoop) {
+				return errAccountMustHoldNick
+			}
+		}
 	}
 
 	// can't register a guest nickname
@@ -763,7 +775,7 @@ func (am *AccountManager) dispatchCallback(client *Client, account string, callb
 }
 
 func (am *AccountManager) dispatchMailtoCallback(client *Client, account string, callbackValue string) (code string, err error) {
-	config := am.server.Config().Accounts.Registration.Callbacks.Mailto
+	config := am.server.Config().Accounts.Registration.EmailVerification
 	code = utils.GenerateSecretToken()
 
 	subject := config.VerifyMessageSubject

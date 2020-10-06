@@ -71,6 +71,7 @@ var (
 	errWrongChannelKey                = errors.New("Cannot join password-protected channel without the password")
 	errInviteOnly                     = errors.New("Cannot join invite-only channel without an invite")
 	errRegisteredOnly                 = errors.New("Cannot join registered-only channel without an account")
+	errValidEmailRequired             = errors.New("A valid email address is required for account registration")
 )
 
 // String Errors

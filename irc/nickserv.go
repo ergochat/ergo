@@ -853,24 +853,10 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		account = matches[1]
 	}
 
-	var callbackNamespace, callbackValue string
-	noneCallbackAllowed := false
-	for _, callback := range config.Accounts.Registration.EnabledCallbacks {
-		if callback == "*" {
-			noneCallbackAllowed = true
-		}
-	}
-	// XXX if ACC REGISTER allows registration with the `none` callback, then ignore
-	// any callback that was passed here (to avoid confusion in the case where the ircd
-	// has no mail server configured). otherwise, register using the provided callback:
-	if noneCallbackAllowed {
-		callbackNamespace = "*"
-	} else {
-		callbackNamespace, callbackValue = parseCallback(email, config.Accounts)
-		if callbackNamespace == "" || callbackValue == "" {
-			nsNotice(rb, client.t("Registration requires a valid e-mail address"))
-			return
-		}
+	callbackNamespace, callbackValue, validationErr := parseCallback(email, config)
+	if validationErr != nil {
+		nsNotice(rb, client.t("Registration requires a valid e-mail address"))
+		return
 	}
 
 	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, rb.session.certfp)

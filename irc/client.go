@@ -106,6 +106,7 @@ type Client struct {
 	requireSASLMessage string
 	requireSASL        bool
 	registered         bool
+	registerCmdSent    bool // already sent the draft/register command, can't send it again
 	registrationTimer  *time.Timer
 	resumeID           string
 	server             *Server
@@ -441,7 +442,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 	client.resizeHistory(config)
 
-	_, err, _ := server.clients.SetNick(client, nil, account.Name)
+	_, err, _ := server.clients.SetNick(client, nil, account.Name, false)
 	if err != nil {
 		server.logger.Error("internal", "could not establish always-on client", account.Name, err.Error())
 		return

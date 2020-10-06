@@ -177,6 +177,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/393",
         standard="proposed IRCv3",
     ),
+    CapDef(
+        identifier="Register",
+        name="draft/register",
+        url="https://gist.github.com/edk0/bf3b50fc219fd1bed1aa15d98bfb6495",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():
