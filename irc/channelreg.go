@@ -200,8 +200,11 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, channelKey))
 		topic, _ := tx.Get(fmt.Sprintf(keyChannelTopic, channelKey))
 		topicSetBy, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetBy, channelKey))
-		topicSetTime, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetTime, channelKey))
-		topicSetTimeInt, _ := strconv.ParseInt(topicSetTime, 10, 64)
+		var topicSetTime time.Time
+		topicSetTimeStr, _ := tx.Get(fmt.Sprintf(keyChannelTopicSetTime, channelKey))
+		if topicSetTimeInt, topicSetTimeErr := strconv.ParseInt(topicSetTimeStr, 10, 64); topicSetTimeErr == nil {
+			topicSetTime = time.Unix(0, topicSetTimeInt).UTC()
+		}
 		password, _ := tx.Get(fmt.Sprintf(keyChannelPassword, channelKey))
 		modeString, _ := tx.Get(fmt.Sprintf(keyChannelModes, channelKey))
 		userLimitString, _ := tx.Get(fmt.Sprintf(keyChannelUserLimit, channelKey))
@@ -237,7 +240,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			Founder:        founder,
 			Topic:          topic,
 			TopicSetBy:     topicSetBy,
-			TopicSetTime:   time.Unix(0, topicSetTimeInt).UTC(),
+			TopicSetTime:   topicSetTime,
 			Key:            password,
 			Modes:          modeSlice,
 			Bans:           banlist,
@@ -277,7 +280,7 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 		founder, _ := tx.Get(fmt.Sprintf(keyChannelFounder, key))
 
 		// to see if we're deleting the right channel, confirm the founder and the registration time
-		if founder == info.Founder && registeredAt == info.RegisteredAt {
+		if founder == info.Founder && registeredAt.Equal(info.RegisteredAt) {
 			for _, keyFmt := range channelKeyStrings {
 				tx.Delete(fmt.Sprintf(keyFmt, key))
 			}
@@ -345,7 +348,11 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 
 	if includeFlags&IncludeTopic != 0 {
 		tx.Set(fmt.Sprintf(keyChannelTopic, channelKey), channelInfo.Topic, nil)
-		tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), strconv.FormatInt(channelInfo.TopicSetTime.UnixNano(), 10), nil)
+		var topicSetTimeStr string
+		if !channelInfo.TopicSetTime.IsZero() {
+			topicSetTimeStr = strconv.FormatInt(channelInfo.TopicSetTime.UnixNano(), 10)
+		}
+		tx.Set(fmt.Sprintf(keyChannelTopicSetTime, channelKey), topicSetTimeStr, nil)
 		tx.Set(fmt.Sprintf(keyChannelTopicSetBy, channelKey), channelInfo.TopicSetBy, nil)
 	}
 
