@@ -624,6 +624,8 @@ opers:
         vhost: "n"
 
         # modes are the modes to auto-set upon opering-up
+        # in the default example, server notice masks are also set
+        # see /QUOTE HELP snomasks for server notice mask definitions
         modes: +is acjknoqtuxv
 
         # operators can be authenticated either by password (with the /OPER command),
