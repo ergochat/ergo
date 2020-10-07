@@ -873,7 +873,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 		}
 	} else {
 		// details could not be stored and relevant numerics have been dispatched, abort
-		message, _ := registrationErrorToMessageAndCode(err)
+		message := registrationErrorToMessage(err)
 		nsNotice(rb, client.t(message))
 	}
 }

@@ -60,19 +60,18 @@ func parseCallback(spec string, config *Config) (callbackNamespace string, callb
 	return
 }
 
-func registrationErrorToMessageAndCode(err error) (message, code string) {
-	// default responses: let's be risk-averse about displaying internal errors
-	// to the clients, especially for something as sensitive as accounts
-	code = "REG_UNSPECIFIED_ERROR"
-	message = `Could not register`
+func registrationErrorToMessage(err error) (message string) {
 	switch err {
-	case errAccountBadPassphrase:
-		code = "REG_INVALID_CREDENTIAL"
-		message = err.Error()
-	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled:
+	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled, errAccountBadPassphrase:
 		message = err.Error()
 	case errLimitExceeded:
 		message = `There have been too many registration attempts recently; try again later`
+	case errCallbackFailed:
+		message = `Could not dispatch verification email`
+	default:
+		// default response: let's be risk-averse about displaying internal errors
+		// to the clients, especially for something as sensitive as accounts
+		message = `Could not register`
 	}
 	return
 }
@@ -2460,7 +2459,6 @@ func registerHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 	case errAccountBadPassphrase:
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", client.t("Password was invalid"))
 	case errCallbackFailed:
-		// TODO detect this in NS REGISTER as well
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", client.t("Could not dispatch verification e-mail"))
 	default:
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", client.t("Could not register"))
