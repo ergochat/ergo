@@ -403,28 +403,17 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errLimitExceeded
 	}
 
-	// if nick reservation is enabled, you can only register your current nickname
-	// as an account; this prevents "land-grab" situations where someone else
-	// registers your nick out from under you and then NS GHOSTs you
-	// n.b. client is nil during a SAREGISTER
-	// n.b. if ForceGuestFormat, then there's no concern, because you can't
-	// register a guest nickname anyway, and the actual registration system
-	// will prevent any double-register
-	if client != nil {
-		if client.registered {
-			if config.Accounts.NickReservation.Enabled &&
-				!config.Accounts.NickReservation.ForceGuestFormat &&
-				client.NickCasefolded() != casefoldedAccount {
-				return errAccountMustHoldNick
-			}
-		} else {
-			// XXX this is a REGISTER command from a client who hasn't completed the
-			// initial handshake ("connection registration"). Do SetNick with dryRun=true,
-			// testing whether they are able to claim the nick
-			_, nickAcquireError, _ := am.server.clients.SetNick(client, nil, account, true)
-			if !(nickAcquireError == nil || nickAcquireError == errNoop) {
-				return errAccountMustHoldNick
-			}
+	// if nick reservation is enabled, don't let people reserve nicknames
+	// that they would not be eligible to take, e.g.,
+	// 1. a nickname that someone else is currently holding
+	// 2. a nickname confusable with an existing reserved nickname
+	// this has a lot of weird edge cases because of force-guest-format
+	// and the possibility of registering a nickname on an "unregistered connection"
+	// (i.e., pre-handshake).
+	if client != nil && config.Accounts.NickReservation.Enabled {
+		_, nickAcquireError, _ := am.server.clients.SetNick(client, nil, account, true)
+		if !(nickAcquireError == nil || nickAcquireError == errNoop) {
+			return errAccountMustHoldNick
 		}
 	}
 

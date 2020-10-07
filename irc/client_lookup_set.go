@@ -142,7 +142,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNickMissing, false
 		}
 
-		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
+		if account == "" && config.Accounts.NickReservation.ForceGuestFormat && !dryRun {
 			newCfNick, err = CasefoldName(newNick)
 			if err != nil {
 				return "", errNicknameInvalid, false
@@ -199,9 +199,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 	currentClient := clients.byNick[newCfNick]
 	// the client may just be changing case
-	if currentClient != nil && currentClient != client && session != nil {
+	if currentClient != nil && currentClient != client {
 		// these conditions forbid reattaching to an existing session:
-		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() {
+		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() ||
+			dryRun || session == nil {
 			return "", errNicknameInUse, false
 		}
 		// check TLS modes
