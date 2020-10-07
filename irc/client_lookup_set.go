@@ -104,7 +104,9 @@ func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err e
 }
 
 // SetNick sets a client's nickname, validating it against nicknames in use
-func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string) (setNick string, err error, returnedFromAway bool) {
+// XXX: dryRun validates a client's ability to claim a nick, without
+// actually claiming it
+func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string, dryRun bool) (setNick string, err error, returnedFromAway bool) {
 	config := client.server.Config()
 
 	var newCfNick, newSkeleton string
@@ -140,7 +142,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			return "", errNickMissing, false
 		}
 
-		if account == "" && config.Accounts.NickReservation.ForceGuestFormat {
+		if account == "" && config.Accounts.NickReservation.ForceGuestFormat && !dryRun {
 			newCfNick, err = CasefoldName(newNick)
 			if err != nil {
 				return "", errNicknameInvalid, false
@@ -197,9 +199,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 	currentClient := clients.byNick[newCfNick]
 	// the client may just be changing case
-	if currentClient != nil && currentClient != client && session != nil {
+	if currentClient != nil && currentClient != client {
 		// these conditions forbid reattaching to an existing session:
-		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() {
+		if registered || !bouncerAllowed || account == "" || account != currentClient.Account() ||
+			dryRun || session == nil {
 			return "", errNicknameInUse, false
 		}
 		// check TLS modes
@@ -234,6 +237,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	skeletonHolder := clients.bySkeleton[newSkeleton]
 	if skeletonHolder != nil && skeletonHolder != client {
 		return "", errNicknameInUse, false
+	}
+
+	if dryRun {
+		return "", nil, false
 	}
 
 	formercfnick, formerskeleton := client.uniqueIdentifiers()

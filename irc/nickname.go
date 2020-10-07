@@ -33,7 +33,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	origNickMask := details.nickMask
 	isSanick := client != target
 
-	assignedNickname, err, back := client.server.clients.SetNick(target, session, nickname)
+	assignedNickname, err, back := client.server.clients.SetNick(target, session, nickname, false)
 	if err == errNicknameInUse {
 		if !isSanick {
 			rb.Add(nil, server.name, ERR_NICKNAMEINUSE, details.nick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))

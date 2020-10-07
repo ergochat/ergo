@@ -31,6 +31,7 @@ type MailtoConfig struct {
 	// so server, port, etc. appear directly at top level
 	// XXX: see https://github.com/go-yaml/yaml/issues/63
 	MTAConfig            `yaml:",inline"`
+	Enabled              bool
 	Sender               string
 	HeloDomain           string `yaml:"helo-domain"`
 	RequireTLS           bool   `yaml:"require-tls"`

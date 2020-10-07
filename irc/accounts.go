@@ -403,17 +403,18 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return errLimitExceeded
 	}
 
-	// if nick reservation is enabled, you can only register your current nickname
-	// as an account; this prevents "land-grab" situations where someone else
-	// registers your nick out from under you and then NS GHOSTs you
-	// n.b. client is nil during a SAREGISTER
-	// n.b. if ForceGuestFormat, then there's no concern, because you can't
-	// register a guest nickname anyway, and the actual registration system
-	// will prevent any double-register
-	if client != nil && config.Accounts.NickReservation.Enabled &&
-		!config.Accounts.NickReservation.ForceGuestFormat &&
-		client.NickCasefolded() != casefoldedAccount {
-		return errAccountMustHoldNick
+	// if nick reservation is enabled, don't let people reserve nicknames
+	// that they would not be eligible to take, e.g.,
+	// 1. a nickname that someone else is currently holding
+	// 2. a nickname confusable with an existing reserved nickname
+	// this has a lot of weird edge cases because of force-guest-format
+	// and the possibility of registering a nickname on an "unregistered connection"
+	// (i.e., pre-handshake).
+	if client != nil && config.Accounts.NickReservation.Enabled {
+		_, nickAcquireError, _ := am.server.clients.SetNick(client, nil, account, true)
+		if !(nickAcquireError == nil || nickAcquireError == errNoop) {
+			return errAccountMustHoldNick
+		}
 	}
 
 	// can't register a guest nickname
@@ -763,7 +764,7 @@ func (am *AccountManager) dispatchCallback(client *Client, account string, callb
 }
 
 func (am *AccountManager) dispatchMailtoCallback(client *Client, account string, callbackValue string) (code string, err error) {
-	config := am.server.Config().Accounts.Registration.Callbacks.Mailto
+	config := am.server.Config().Accounts.Registration.EmailVerification
 	code = utils.GenerateSecretToken()
 
 	subject := config.VerifyMessageSubject

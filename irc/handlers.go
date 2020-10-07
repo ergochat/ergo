@@ -33,28 +33,30 @@ import (
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
-func parseCallback(spec string, config AccountConfig) (callbackNamespace string, callbackValue string) {
-	callback := strings.ToLower(spec)
-	if callback == "*" {
+func parseCallback(spec string, config *Config) (callbackNamespace string, callbackValue string, err error) {
+	// XXX if we don't require verification, ignore any callback that was passed here
+	// (to avoid confusion in the case where the ircd has no mail server configured)
+	if !config.Accounts.Registration.EmailVerification.Enabled {
 		callbackNamespace = "*"
-	} else if strings.Contains(callback, ":") {
-		callbackValues := strings.SplitN(callback, ":", 2)
-		callbackNamespace, callbackValue = callbackValues[0], callbackValues[1]
+		return
+	}
+	callback := strings.ToLower(spec)
+	if colonIndex := strings.IndexByte(callback, ':'); colonIndex != -1 {
+		callbackNamespace, callbackValue = callback[:colonIndex], callback[colonIndex+1:]
 	} else {
 		// "If a callback namespace is not ... provided, the IRC server MUST use mailto""
 		callbackNamespace = "mailto"
 		callbackValue = callback
 	}
 
-	// ensure the callback namespace is valid
-	// need to search callback list, maybe look at using a map later?
-	for _, name := range config.Registration.EnabledCallbacks {
-		if callbackNamespace == name {
-			return
+	if config.Accounts.Registration.EmailVerification.Enabled {
+		if callbackNamespace != "mailto" {
+			err = errValidEmailRequired
+		} else if strings.IndexByte(callbackValue, '@') < 1 {
+			err = errValidEmailRequired
 		}
 	}
-	// error value
-	callbackNamespace = ""
+
 	return
 }
 
@@ -2396,6 +2398,116 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 	client.Quit(reason, rb.session)
 	return true
+}
+
+// REGISTER < email | * > <password>
+func registerHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
+	config := server.Config()
+	if !config.Accounts.Registration.Enabled {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", client.t("Account registration is disabled"))
+		return
+	}
+	if !client.registered && !config.Accounts.Registration.AllowBeforeConnect {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", client.t("You must complete the connection before registering your account"))
+		return
+	}
+	if client.registerCmdSent || client.Account() != "" {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "ALREADY_REGISTERED", client.t("You have already registered or attempted to register"))
+		return
+	}
+
+	accountName := client.Nick()
+	if accountName == "*" {
+		accountName = client.preregNick
+	}
+	if accountName == "" || accountName == "*" {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", client.t("Username invalid or not given"))
+		return
+	}
+
+	callbackNamespace, callbackValue, err := parseCallback(msg.Params[0], config)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_EMAIL", client.t("A valid e-mail address is required"))
+		return
+	}
+
+	err = server.accounts.Register(client, accountName, callbackNamespace, callbackValue, msg.Params[1], rb.session.certfp)
+	switch err {
+	case nil:
+		if callbackNamespace == "*" {
+			err := server.accounts.Verify(client, accountName, "")
+			if err == nil {
+				if client.registered {
+					if !fixupNickEqualsAccount(client, rb, config) {
+						err = errNickAccountMismatch
+					}
+				}
+				if err == nil {
+					rb.Add(nil, server.name, "REGISTER", "SUCCESS", accountName, client.t("Account successfully registered"))
+					sendSuccessfulRegResponse(client, rb, true)
+				}
+			}
+			if err != nil {
+				server.logger.Error("internal", "accounts", "failed autoverification", accountName, err.Error())
+				rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", client.t("An error occurred"))
+			}
+		} else {
+			rb.Add(nil, server.name, "REGISTER", "VERIFICATION_REQUIRED", accountName, fmt.Sprintf(client.t("Account created, pending verification; verification code has been sent to %s"), callbackValue))
+			client.registerCmdSent = true
+		}
+	case errAccountAlreadyRegistered, errAccountAlreadyUnregistered, errAccountMustHoldNick:
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", client.t("Username is already registered or otherwise unavailable"))
+	case errAccountBadPassphrase:
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", client.t("Password was invalid"))
+	case errCallbackFailed:
+		// TODO detect this in NS REGISTER as well
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", client.t("Could not dispatch verification e-mail"))
+	default:
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", client.t("Could not register"))
+	}
+	return
+}
+
+// VERIFY <account> <code>
+func verifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) (exiting bool) {
+	config := server.Config()
+	if !config.Accounts.Registration.Enabled {
+		rb.Add(nil, server.name, "FAIL", "VERIFY", "DISALLOWED", client.t("Account registration is disabled"))
+		return
+	}
+	if !client.registered && !config.Accounts.Registration.AllowBeforeConnect {
+		rb.Add(nil, server.name, "FAIL", "VERIFY", "DISALLOWED", client.t("You must complete the connection before verifying your account"))
+		return
+	}
+	if client.Account() != "" {
+		rb.Add(nil, server.name, "FAIL", "VERIFY", "ALREADY_REGISTERED", client.t("You have already registered or attempted to register"))
+		return
+	}
+
+	accountName, verificationCode := msg.Params[0], msg.Params[1]
+	err := server.accounts.Verify(client, accountName, verificationCode)
+	if err == nil && client.registered {
+		if !fixupNickEqualsAccount(client, rb, config) {
+			err = errNickAccountMismatch
+		}
+	}
+	switch err {
+	case nil:
+		rb.Add(nil, server.name, "VERIFY", "SUCCESS", accountName, client.t("Account successfully registered"))
+		sendSuccessfulRegResponse(client, rb, true)
+	case errAccountVerificationInvalidCode:
+		rb.Add(nil, server.name, "FAIL", "VERIFY", "INVALID_CODE", client.t("Invalid verification code"))
+	default:
+		rb.Add(nil, server.name, "FAIL", "VERIFY", "UNKNOWN_ERROR", client.t("Failed to verify account"))
+	}
+
+	if err != nil && !client.registered {
+		// XXX pre-registration clients are exempt from fakelag;
+		// slow the client down to stop them spamming verify attempts
+		time.Sleep(time.Second)
+	}
+
+	return
 }
 
 // REHASH
