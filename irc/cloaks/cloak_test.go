@@ -104,3 +104,25 @@ func BenchmarkCloaks(b *testing.B) {
 		config.ComputeCloak(v6ip)
 	}
 }
+
+func TestAccountCloak(t *testing.T) {
+	config := cloakConfForTesting()
+
+	// just assert that we get all distinct values
+	assertEqual(config.ComputeAccountCloak("shivaram"), "8yu8kunudb45ztxm.oragono", t)
+	assertEqual(config.ComputeAccountCloak("dolph🐬n"), "hhgeqsvzeagv3wjw.oragono", t)
+	assertEqual(config.ComputeAccountCloak("SHIVARAM"), "bgx32x4r7qzih4uh.oragono", t)
+	assertEqual(config.ComputeAccountCloak("ed"), "j5autmgxtdjdyzf4.oragono", t)
+}
+
+func TestAccountCloakCollisions(t *testing.T) {
+	config := cloakConfForTesting()
+
+	v4ip := easyParseIP("97.97.97.97")
+	v4cloak := config.ComputeCloak(v4ip)
+	// "aaaa" is the same bytestring as 97.97.97.97
+	aaaacloak := config.ComputeAccountCloak("aaaa")
+	if v4cloak == aaaacloak {
+		t.Errorf("cloak collision between 97.97.97.97 and aaaa: %s", v4cloak)
+	}
+}

@@ -12,12 +12,13 @@ import (
 )
 
 type CloakConfig struct {
-	Enabled           bool
-	Netname           string
-	CidrLenIPv4       int    `yaml:"cidr-len-ipv4"`
-	CidrLenIPv6       int    `yaml:"cidr-len-ipv6"`
-	NumBits           int    `yaml:"num-bits"`
-	LegacySecretValue string `yaml:"secret"`
+	Enabled            bool
+	EnabledForAlwaysOn bool `yaml:"enabled-for-always-on"`
+	Netname            string
+	CidrLenIPv4        int    `yaml:"cidr-len-ipv4"`
+	CidrLenIPv6        int    `yaml:"cidr-len-ipv6"`
+	NumBits            int    `yaml:"num-bits"`
+	LegacySecretValue  string `yaml:"secret"`
 
 	secret   string
 	numBytes int
@@ -26,14 +27,10 @@ type CloakConfig struct {
 }
 
 func (cloakConfig *CloakConfig) Initialize() {
-	if !cloakConfig.Enabled {
-		return
-	}
-
 	// sanity checks:
 	numBits := cloakConfig.NumBits
 	if 0 == numBits {
-		numBits = 80
+		numBits = 64
 	} else if 256 < numBits {
 		numBits = 256
 	}
@@ -69,12 +66,30 @@ func (config *CloakConfig) ComputeCloak(ip net.IP) string {
 	} else {
 		masked = ip.Mask(config.ipv6Mask)
 	}
+	return config.macAndCompose(masked)
+}
+
+func (config *CloakConfig) macAndCompose(b []byte) string {
 	// SHA3(K || M):
 	// https://crypto.stackexchange.com/questions/17735/is-hmac-needed-for-a-sha-3-based-mac
-	input := make([]byte, len(config.secret)+len(masked))
+	input := make([]byte, len(config.secret)+len(b))
 	copy(input, config.secret[:])
-	copy(input[len(config.secret):], masked)
+	copy(input[len(config.secret):], b)
 	digest := sha3.Sum512(input)
 	b32digest := utils.B32Encoder.EncodeToString(digest[:config.numBytes])
 	return fmt.Sprintf("%s.%s", b32digest, config.Netname)
+}
+
+func (config *CloakConfig) ComputeAccountCloak(accountName string) string {
+	// XXX don't bother checking EnabledForAlwaysOn, since if it's disabled,
+	// we need to use the server name which we don't have
+	if config.NumBits == 0 || config.secret == "" {
+		return config.Netname
+	}
+
+	// pad with 16 initial bytes of zeroes, avoiding any possibility of collision
+	// with a masked IP that could be an input to ComputeCloak:
+	paddedAccountName := make([]byte, 16+len(accountName))
+	copy(paddedAccountName[16:], accountName[:])
+	return config.macAndCompose(paddedAccountName)
 }

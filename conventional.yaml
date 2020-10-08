@@ -269,6 +269,12 @@ server:
         # whether to enable IP cloaking
         enabled: false
 
+        # whether to use these cloak settings (specifically, `netname` and `num-bits`)
+        # to produce unique hostnames for always-on clients. you can enable this even if
+        # you disabled IP cloaking for normal clients above. if this is disabled,
+        # always-on clients will all have an identical hostname (the server name).
+        enabled-for-always-on: true
+
         # fake TLD at the end of the hostname, e.g., pwbs2ui4377257x8.irc
         # you may want to use your network name here
         netname: "irc"

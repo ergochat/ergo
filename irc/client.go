@@ -411,6 +411,11 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		lastSeen = map[string]time.Time{"": now}
 	}
 
+	hostname := server.name
+	if config.Server.Cloaks.EnabledForAlwaysOn {
+		hostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
+	}
+
 	client := &Client{
 		lastSeen:   lastSeen,
 		lastActive: now,
@@ -419,9 +424,8 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		languages:  server.Languages().Default(),
 		server:     server,
 
-		// TODO figure out how to set these on reattach?
 		username:    "~user",
-		rawHostname: server.name,
+		rawHostname: hostname,
 		realIP:      utils.IPv4LoopbackAddress,
 
 		alwaysOn: true,
