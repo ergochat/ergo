@@ -599,9 +599,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// now that the datastore is initialized, we can load the cloak secret from it
 	// XXX this modifies config after the initial load, which is naughty,
 	// but there's no data race because we haven't done SetConfig yet
-	if config.Server.Cloaks.Enabled {
-		config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
-	}
+	config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
 
 	// activate the new config
 	server.SetConfig(config)
