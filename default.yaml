@@ -628,7 +628,7 @@ opers:
         whois-line: is a server admin
 
         # custom hostname
-        vhost: "n"
+        vhost: "staff"
 
         # normally, operator status is visible to unprivileged users in WHO and WHOIS
         # responses. this can be disabled with 'hidden'. ('hidden' also causes the
