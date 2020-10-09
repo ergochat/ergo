@@ -439,9 +439,11 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 	if whoischannels != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
-	tOper := target.Oper()
-	if tOper.Visible(hasPrivs) {
-		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
+	if target.HasMode(modes.Operator) && operStatusVisible(client, target, hasPrivs) {
+		tOper := target.Oper()
+		if tOper != nil {
+			rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
+		}
 	}
 	if client == target || hasPrivs {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
