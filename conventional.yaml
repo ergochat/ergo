@@ -597,10 +597,15 @@ opers:
         class: "server-admin"
 
         # custom whois line
-        whois-line: is a cool dude
+        whois-line: is a server admin
 
         # custom hostname
         vhost: "n"
+
+        # normally, operator status is visible to unprivileged users in WHO and WHOIS
+        # responses. this can be disabled with 'hidden'. ('hidden' also causes the
+        # 'vhost' line above to be ignored.)
+        hidden: false
 
         # modes are the modes to auto-set upon opering-up
         modes: +is acjknoqtuxv

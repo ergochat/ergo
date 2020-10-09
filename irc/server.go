@@ -429,7 +429,7 @@ func (client *Client) WhoisChannelsNames(target *Client, multiPrefix bool) []str
 	return chstrs
 }
 
-func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
+func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuffer) {
 	cnick := client.Nick()
 	targetInfo := target.Details()
 	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nick, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
@@ -440,10 +440,10 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
 	tOper := target.Oper()
-	if tOper != nil {
+	if tOper.Visible(hasPrivs) {
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 	}
-	if client == target || client.HasRoleCapabs("local_ban") {
+	if client == target || hasPrivs {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
 	}
 	if target.HasMode(modes.TLS) {
@@ -456,7 +456,7 @@ func (client *Client) getWhoisOf(target *Client, rb *ResponseBuffer) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
 	}
 
-	if client == target || client.HasMode(modes.Operator) {
+	if client == target || hasPrivs {
 		for _, session := range target.Sessions() {
 			if session.certfp != "" {
 				rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), session.certfp))

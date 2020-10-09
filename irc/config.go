@@ -419,6 +419,7 @@ type OperConfig struct {
 	Fingerprint *string // legacy name for certfp, #1050
 	Certfp      string
 	Auto        bool
+	Hidden      bool
 	Modes       string
 }
 
@@ -723,7 +724,13 @@ type Oper struct {
 	Pass      []byte
 	Certfp    string
 	Auto      bool
+	Hidden    bool
 	Modes     []modes.ModeChange
+}
+
+// returns whether this is a publicly visible operator, for WHO/WHOIS purposes
+func (oper *Oper) Visible(hasPrivs bool) bool {
+	return oper != nil && (hasPrivs || !oper.Hidden)
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
@@ -756,6 +763,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 			}
 		}
 		oper.Auto = opConf.Auto
+		oper.Hidden = opConf.Hidden
 
 		if oper.Pass == nil && oper.Certfp == "" {
 			return nil, fmt.Errorf("Oper %s has neither a password nor a fingerprint", name)
