@@ -411,9 +411,9 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		lastSeen = map[string]time.Time{"": now}
 	}
 
-	hostname := server.name
+	rawHostname, cloakedHostname := server.name, ""
 	if config.Server.Cloaks.EnabledForAlwaysOn {
-		hostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
+		cloakedHostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
 	}
 
 	client := &Client{
@@ -424,9 +424,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		languages:  server.Languages().Default(),
 		server:     server,
 
-		username:    "~user",
-		rawHostname: hostname,
-		realIP:      utils.IPv4LoopbackAddress,
+		username:        "~user",
+		cloakedHostname: cloakedHostname,
+		rawHostname:     rawHostname,
+		realIP:          utils.IPv4LoopbackAddress,
 
 		alwaysOn: true,
 		realname: realname,
