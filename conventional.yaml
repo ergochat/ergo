@@ -597,13 +597,20 @@ opers:
         class: "server-admin"
 
         # custom whois line
-        whois-line: is a cool dude
+        whois-line: is a server admin
 
         # custom hostname
-        vhost: "n"
+        vhost: "staff"
 
-        # modes are the modes to auto-set upon opering-up
-        modes: +is acjknoqtuxv
+        # normally, operator status is visible to unprivileged users in WHO and WHOIS
+        # responses. this can be disabled with 'hidden'. ('hidden' also causes the
+        # 'vhost' line above to be ignored.)
+        hidden: false
+
+        # modes are modes to auto-set upon opering-up. uncomment this to automatically
+        # enable snomasks ("server notification masks" that alert you to server events;
+        # see `/quote help snomasks` while opered-up for more information):
+        #modes: +is acjknoqtuxv
 
         # operators can be authenticated either by password (with the /OPER command),
         # or by certificate fingerprint, or both. if a password hash is set, then a

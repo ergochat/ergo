@@ -1207,7 +1207,7 @@ func (client *Client) getVHostNoMutex() string {
 	// hostserv vhost OR operclass vhost OR nothing (i.e., normal rdns hostmask)
 	if client.vhost != "" {
 		return client.vhost
-	} else if client.oper != nil {
+	} else if client.oper != nil && !client.oper.Hidden {
 		return client.oper.Vhost
 	} else {
 		return ""

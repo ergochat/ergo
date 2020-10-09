@@ -3018,7 +3018,7 @@ func (fields whoxFields) Has(field rune) bool {
 // <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
 // whox format:
 // <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, isWhox bool, fields whoxFields, whoType string) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, hasPrivs, isWhox bool, fields whoxFields, whoType string) {
 	params := []string{client.Nick()}
 
 	details := target.Details()
@@ -3038,7 +3038,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 	}
 	if fields.Has('i') {
 		fIP := "255.255.255.255"
-		if client.HasMode(modes.Operator) || client == target {
+		if hasPrivs || client == target {
 			// you can only see a target's IP if they're you or you're an oper
 			fIP = target.IPString()
 		}
@@ -3061,7 +3061,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 			flags.WriteRune('H') // Here
 		}
 
-		if target.HasMode(modes.Operator) {
+		if target.HasMode(modes.Operator) && target.Oper().Visible(hasPrivs) {
 			flags.WriteRune('*')
 		}
 
@@ -3169,7 +3169,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 				}
 				for _, member := range members {
 					if !member.HasMode(modes.Invisible) || isJoined || isOper {
-						client.rplWhoReply(channel, member, rb, isWhox, fields, whoType)
+						client.rplWhoReply(channel, member, rb, isOper, isWhox, fields, whoType)
 					}
 				}
 			}
@@ -3200,7 +3200,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 		for mclient := range server.clients.FindAll(mask) {
 			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
-				client.rplWhoReply(nil, mclient, rb, isWhox, fields, whoType)
+				client.rplWhoReply(nil, mclient, rb, isOper, isWhox, fields, whoType)
 			}
 		}
 	}
@@ -3238,7 +3238,8 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return true
 	}
 
-	if client.HasMode(modes.Operator) {
+	hasPrivs := client.HasMode(modes.Operator) // TODO(#1176) figure out the right capab for this
+	if hasPrivs {
 		for _, mask := range strings.Split(masksString, ",") {
 			matches := server.clients.FindAll(mask)
 			if len(matches) == 0 && !handleService(mask) {
@@ -3246,7 +3247,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				continue
 			}
 			for mclient := range matches {
-				client.getWhoisOf(mclient, rb)
+				client.getWhoisOf(mclient, hasPrivs, rb)
 			}
 		}
 	} else {
@@ -3254,7 +3255,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		nick := strings.Split(masksString, ",")[0]
 		mclient := server.clients.Get(nick)
 		if mclient != nil {
-			client.getWhoisOf(mclient, rb)
+			client.getWhoisOf(mclient, hasPrivs, rb)
 		} else if !handleService(nick) {
 			rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(masksString), client.t("No such nick"))
 		}
