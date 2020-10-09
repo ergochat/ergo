@@ -2878,8 +2878,21 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	return false
 }
 
+// does `target` have an operator status that is visible to `client`?
+func operStatusVisible(client, target *Client, hasPrivs bool) bool {
+	targetOper := target.Oper()
+	if targetOper == nil {
+		return false
+	}
+	if client == target || hasPrivs {
+		return true
+	}
+	return !targetOper.Hidden
+}
+
 // USERHOST <nickname>{ <nickname>}
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	hasPrivs := client.HasMode(modes.Operator) // TODO(#1176) figure out the right capab for this
 	returnedClients := make(ClientSet)
 
 	var tl utils.TokenLineBuilder
@@ -2901,7 +2914,7 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 		var isOper, isAway string
 
-		if target.HasMode(modes.Operator) {
+		if operStatusVisible(client, target, hasPrivs) {
 			isOper = "*"
 		}
 		if away, _ := target.Away(); away {
@@ -3061,7 +3074,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 			flags.WriteRune('H') // Here
 		}
 
-		if target.HasMode(modes.Operator) && target.Oper().Visible(hasPrivs) {
+		if target.HasMode(modes.Operator) && operStatusVisible(client, target, hasPrivs) {
 			flags.WriteRune('*')
 		}
 

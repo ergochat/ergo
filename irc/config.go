@@ -728,11 +728,6 @@ type Oper struct {
 	Modes     []modes.ModeChange
 }
 
-// returns whether this is a publicly visible operator, for WHO/WHOIS purposes
-func (oper *Oper) Visible(hasPrivs bool) bool {
-	return oper != nil && (hasPrivs || !oper.Hidden)
-}
-
 // Operators returns a map of operator configs from the given OperClass and config.
 func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error) {
 	operators := make(map[string]*Oper)
