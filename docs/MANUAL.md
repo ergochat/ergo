@@ -511,6 +511,10 @@ In this section, we give an overview of the modes Oragono supports.
 
 These are the modes which can be set on you when you're connected.
 
+### +a - Away
+
+If this mode is set, you're marked as being away. This mode is set with the /AWAY command.
+
 ### +i - Invisible
 
 If this mode is set, you're marked as 'invisible'. This means that your channels won't be shown when users `/WHOIS` you (except for IRC operators, they can see all the channels you're in).
@@ -542,6 +546,18 @@ This is a special 'list mode'. If you're an IRC operator, this mode lets you see
 ### +Z - TLS
 
 This mode is automatically set if you're connecting using SSL/TLS. There's no way to set this yourself, and it's automatically set or not set when you connect to the server.
+
+### +T - No CTCPs
+
+If this mode is set, you will not recieve CTCP messages.
+
+To set this mode on yourself:
+
+    /mode dan +T
+
+To unset this mode and recieve CTCP messages:
+
+    /mode dan -T
 
 
 ## Channel Modes
