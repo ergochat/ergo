@@ -1,7 +1,7 @@
 
-          ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
-    ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
-     ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
+          ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄
+    ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪
+     ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
@@ -16,40 +16,46 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 
 # Table of Contents
 
-- Introduction
-    - Project Basics
-    - Scalability
-- Installing
-    - Windows
-    - macOS / Linux / Raspberry Pi
-    - Docker
-    - Becoming an operator
-    - Productionizing
-    - Upgrading
-- Features
-    - User Accounts
-        - Nickname reservation
-        - Email verification
-    - Channel Registration
-    - Language
-    - Multiclient ("Bouncer")
-    - History
-    - IP cloaking
-    - Moderation
-- Frequently Asked Questions
-- IRC over TLS
-- Modes
-    - User Modes
-    - Channel Modes
-    - Channel Prefixes
-    - Client certificates
-- Commands
-- Working with other software
-    - Kiwi IRC
-    - HOPM
-    - Tor
-    - External authentication systems
-- Acknowledgements
+- [Introduction](#introduction)
+    - [Project Basics](#project-basics)
+    - [Scalability](#scalability)
+- [Installing](#installing)
+    - [Windows](#windows)
+    - [macOS / Linux / Raspberry Pi](#macos--linux--raspberry-pi)
+    - [Docker](#docker)
+    - [Becoming an operator](#becoming-an-operator)
+    - [Productionizing](#productionizing)
+    - [Upgrading to a new version of Oragono](#upgrading-to-a-new-version-of-oragono)
+- [Features](#features)
+    - [User Accounts](#user-accounts)
+    - [Account/Nick Modes](#accountnick-modes)
+        - [Traditional / lenient mode](#tradiotional--lenient-mode)
+        - [Nick ownership](#nick-ownership)
+        - [SASL-only mode](#sasl-only-mode)
+        - [Email verification](#email-verification)
+    - [Channel Registration](#channel-registration)
+    - [Language](#language)
+    - [Multiclient ("Bouncer")](#multiclient-bouncer)
+    - [History](#history)
+    - [IP cloaking](#ip-cloaking)
+    - [Moderation](#moderation)
+- [Frequently Asked Questions](#frequently-asked-questions)
+- [IRC over TLS](#irc-over-tls)
+    - [Redirect from plaintext to TLS](#how-can-i-redirect-users-from-plaintext-to-tls)
+    - [Reverse proxies](#reverse-proxies)
+    - [Client certificates](#client-certificates)
+- [Modes](#modes)
+    - [User Modes](#user-modes)
+    - [Channel Modes](#channel-modes)
+    - [Channel Prefixes](#channel-prefixes)
+- [Commands](#commands)
+- [Working with other software](#working-with-other-software)
+    - [Kiwi IRC](#kiwi-irc)
+    - [HOPM](#hopm)
+    - [Tor](#tor)
+    - [ZNC](#znc)
+    - [External authentication systems](#external-authentication-systems)
+- [Acknowledgements](#acknowledgements)
 
 
 --------------------------------------------------------------------------------------------
