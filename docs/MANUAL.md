@@ -562,7 +562,7 @@ To unset this mode and recieve CTCP messages:
 
 ## Channel Modes
 
-These are the modes that can be set on channels when you're an oper!
+These are the modes that can be set on channels when you're a channel operator!
 
 ### +b - Ban
 
