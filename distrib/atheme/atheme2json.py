@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import json
 import logging
 import sys
@@ -5,6 +7,14 @@ from collections import defaultdict
 
 def to_unixnano(timestamp):
     return int(timestamp) * (10**9)
+
+# include/atheme/channels.h
+CMODE_FLAG_TO_MODE = {
+    0x001: 'i', # CMODE_INVITE
+    0x010: 'n', # CMODE_NOEXT
+    0x080: 's', # CMODE_SEC
+    0x100: 't', # CMODE_TOPIC
+}
 
 def convert(infile):
     out = {
@@ -17,8 +27,8 @@ def convert(infile):
     channel_to_founder = defaultdict(lambda: (None, None))
 
     for line in infile:
-        line = line.strip()
-        parts = line.split()
+        line = line.rstrip('\r\n')
+        parts = line.split(' ')
         category = parts[0]
         if category == 'MU':
             # user account
@@ -43,8 +53,23 @@ def convert(infile):
         elif category == 'MC':
             # channel registration
             # MC #mychannel 1600134478 1600467343 +v 272 0 0
+            # MC #NEWCHANNELTEST 1602270889 1602270974 +vg 1 0 0 jaeger4
             chname = parts[1]
-            out['channels'][chname].update({'name': chname, 'registeredAt': to_unixnano(parts[2])})
+            chdata = out['channels'][chname]
+            # XXX just give everyone +nt, regardless of lock status; they can fix it later
+            chdata.update({'name': chname, 'registeredAt': to_unixnano(parts[2])})
+            if parts[8] != '':
+                chdata['key'] = parts[8]
+            modes = {'n', 't'}
+            mlock_on, mlock_off = int(parts[5]), int(parts[6])
+            for flag, mode in CMODE_FLAG_TO_MODE.items():
+                if flag & mlock_on != 0:
+                    modes.add(mode)
+            for flag, mode in CMODE_FLAG_TO_MODE.items():
+                if flag & mlock_off != 0:
+                    modes.remove(mode)
+            chdata['modes'] = ''.join(modes)
+            chdata['limit'] = int(parts[7])
         elif category == 'MDC':
             # auxiliary data for a channel registration
             # MDC #mychannel private:topic:setter s
@@ -68,6 +93,7 @@ def convert(infile):
             set_at = int(parts[4])
             if 'amode' not in chdata:
                 chdata['amode'] = {}
+            # see libathemecore/flags.c: +o is op, +O is autoop, etc.
             if 'F' in flags:
                 # there can only be one founder
                 preexisting_founder, preexisting_set_at = channel_to_founder[chname]
@@ -75,15 +101,15 @@ def convert(infile):
                     chdata['founder'] = username
                     channel_to_founder[chname] = (username, set_at)
                 # but multiple people can receive the 'q' amode
-                chdata['amode'][username] = ord('q')
-            elif 'a' in flags:
-                chdata['amode'][username] = ord('a')
-            elif 'o' in flags:
-                chdata['amode'][username] = ord('o')
-            elif 'h' in flags:
-                chdata['amode'][username] = ord('h')
-            elif 'v' in flags:
-                chdata['amode'][username] = ord('v')
+                chdata['amode'][username] = 'q'
+            elif 'q' in flags:
+                chdata['amode'][username] = 'q'
+            elif 'o' in flags or 'O' in flags:
+                chdata['amode'][username] = 'o'
+            elif 'h' in flags or 'H' in flags:
+                chdata['amode'][username] = 'h'
+            elif 'v' in flags or 'V' in flags:
+                chdata['amode'][username] = 'v'
         else:
             pass
 
@@ -92,9 +118,6 @@ def convert(infile):
         founder = chdata.get('founder')
         if founder not in out['users']:
             raise ValueError("no user corresponding to channel founder", chname, chdata.get('founder'))
-        if 'registeredChannels' not in out['users'][founder]:
-            out['users'][founder]['registeredChannels'] = []
-        out['users'][founder]['registeredChannels'].append(chname)
 
     return out
 

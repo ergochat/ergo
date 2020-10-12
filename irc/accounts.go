@@ -1056,6 +1056,8 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 		}
 	case -1:
 		err = am.checkLegacyPassphrase(migrations.CheckAthemePassphrase, accountName, account.Credentials.PassphraseHash, passphrase)
+	case -2:
+		err = am.checkLegacyPassphrase(migrations.CheckAnopePassphrase, accountName, account.Credentials.PassphraseHash, passphrase)
 	default:
 		err = errAccountInvalidCredentials
 	}
@@ -1899,6 +1901,7 @@ const (
 	CredentialsSHA3Bcrypt CredentialsVersion = 1
 	// negative numbers for migration
 	CredentialsAtheme = -1
+	CredentialsAnope  = -2
 )
 
 // AccountCredentials stores the various methods for verifying accounts.
