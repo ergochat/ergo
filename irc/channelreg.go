@@ -358,11 +358,8 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 
 	if includeFlags&IncludeModes != 0 {
 		tx.Set(fmt.Sprintf(keyChannelPassword, channelKey), channelInfo.Key, nil)
-		modeStrings := make([]string, len(channelInfo.Modes))
-		for i, mode := range channelInfo.Modes {
-			modeStrings[i] = string(mode)
-		}
-		tx.Set(fmt.Sprintf(keyChannelModes, channelKey), strings.Join(modeStrings, ""), nil)
+		modeString := modes.Modes(channelInfo.Modes).String()
+		tx.Set(fmt.Sprintf(keyChannelModes, channelKey), modeString, nil)
 		tx.Set(fmt.Sprintf(keyChannelUserLimit, channelKey), strconv.Itoa(channelInfo.UserLimit), nil)
 	}
 

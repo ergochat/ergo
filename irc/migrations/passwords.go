@@ -9,12 +9,14 @@ import (
 	"crypto/sha512"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"hash"
 	"strconv"
 
 	"github.com/GehirnInc/crypt/md5_crypt"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -24,15 +26,18 @@ var (
 
 	hmacServerKeyText    = []byte("Server Key")
 	athemePBKDF2V2Prefix = []byte("$z")
+	athemeRawSHA1Prefix  = []byte("$rawsha1$")
 )
 
 type PassphraseCheck func(hash, passphrase []byte) (err error)
 
 func CheckAthemePassphrase(hash, passphrase []byte) (err error) {
-	if len(hash) < 60 {
-		return checkAthemePosixCrypt(hash, passphrase)
+	if bytes.HasPrefix(hash, athemeRawSHA1Prefix) {
+		return checkAthemeRawSha1(hash, passphrase)
 	} else if bytes.HasPrefix(hash, athemePBKDF2V2Prefix) {
 		return checkAthemePBKDF2V2(hash, passphrase)
+	} else if len(hash) < 60 {
+		return checkAthemePosixCrypt(hash, passphrase)
 	} else {
 		return checkAthemePBKDF2(hash, passphrase)
 	}
@@ -179,5 +184,98 @@ func checkAthemePBKDF2(hash, passphrase []byte) (err error) {
 		return nil
 	} else {
 		return ErrHashCheckFailed
+	}
+}
+
+func checkAthemeRawSha1(hash, passphrase []byte) (err error) {
+	return checkRawHash(hash[len(athemeRawSHA1Prefix):], passphrase, sha1.New())
+}
+
+func checkRawHash(expected, passphrase []byte, h hash.Hash) (err error) {
+	var rawExpected []byte
+	size := h.Size()
+	if len(expected) == 2*size {
+		rawExpected = make([]byte, h.Size())
+		_, err = hex.Decode(rawExpected, expected)
+		if err != nil {
+			return ErrHashInvalid
+		}
+	} else if len(expected) == size {
+		rawExpected = expected
+	} else {
+		return ErrHashInvalid
+	}
+
+	h.Write(passphrase)
+	hashedPassphrase := h.Sum(nil)
+	if subtle.ConstantTimeCompare(rawExpected, hashedPassphrase) == 1 {
+		return nil
+	} else {
+		return ErrHashCheckFailed
+	}
+}
+
+func checkAnopeEncSha256(hashBytes, ivBytes, passphrase []byte) (err error) {
+	if len(ivBytes) != 32 {
+		return ErrHashInvalid
+	}
+	// https://github.com/anope/anope/blob/2cf507ed662620d0b97c8484fbfbfa09265e86e1/modules/encryption/enc_sha256.cpp#L67
+	var iv [8]uint32
+	for i := 0; i < 8; i++ {
+		iv[i] = binary.BigEndian.Uint32(ivBytes[i*4 : (i+1)*4])
+	}
+	result := anopeSum256(passphrase, iv)
+	if subtle.ConstantTimeCompare(result[:], hashBytes) == 1 {
+		return nil
+	} else {
+		return ErrHashCheckFailed
+	}
+}
+
+func CheckAnopePassphrase(hash, passphrase []byte) (err error) {
+	pieces := bytes.Split(hash, []byte{':'})
+	if len(pieces) < 2 {
+		return ErrHashInvalid
+	}
+	switch string(pieces[0]) {
+	case "plain":
+		// base64, standard encoding
+		expectedPassphrase, err := base64.StdEncoding.DecodeString(string(pieces[1]))
+		if err != nil {
+			return ErrHashInvalid
+		}
+		if subtle.ConstantTimeCompare(passphrase, expectedPassphrase) == 1 {
+			return nil
+		} else {
+			return ErrHashCheckFailed
+		}
+	case "md5":
+		// raw MD5
+		return checkRawHash(pieces[1], passphrase, md5.New())
+	case "sha1":
+		// raw SHA-1
+		return checkRawHash(pieces[1], passphrase, sha1.New())
+	case "bcrypt":
+		if bcrypt.CompareHashAndPassword(pieces[1], passphrase) == nil {
+			return nil
+		} else {
+			return ErrHashCheckFailed
+		}
+	case "sha256":
+		// SHA-256 with an overridden IV
+		if len(pieces) != 3 {
+			return ErrHashInvalid
+		}
+		hashBytes, err := hex.DecodeString(string(pieces[1]))
+		if err != nil {
+			return ErrHashInvalid
+		}
+		ivBytes, err := hex.DecodeString(string(pieces[2]))
+		if err != nil {
+			return ErrHashInvalid
+		}
+		return checkAnopeEncSha256(hashBytes, ivBytes, passphrase)
+	default:
+		return ErrHashInvalid
 	}
 }

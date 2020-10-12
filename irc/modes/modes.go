@@ -89,11 +89,11 @@ func (changes ModeChanges) Strings() (result []string) {
 type Modes []Mode
 
 func (modes Modes) String() string {
-	strs := make([]string, len(modes))
-	for index, mode := range modes {
-		strs[index] = mode.String()
+	var builder strings.Builder
+	for _, m := range modes {
+		builder.WriteRune(rune(m))
 	}
-	return strings.Join(strs, "")
+	return builder.String()
 }
 
 // User Modes
