@@ -11,6 +11,18 @@ AnopeObject = namedtuple('AnopeObject', ('type', 'kv'))
 MASK_MAGIC_REGEX = re.compile(r'[*?!@]')
 
 def access_level_to_amode(level):
+    # https://wiki.anope.org/index.php/2.0/Modules/cs_xop
+    if level == 'QOP':
+        return 'q'
+    elif level == 'SOP':
+        return 'a'
+    elif level == 'AOP':
+        return 'o'
+    elif level == 'HOP':
+        return 'h'
+    elif level == 'VOP':
+        return 'v'
+
     try:
         level = int(level)
     except:
