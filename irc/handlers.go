@@ -550,25 +550,24 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 	var sequence history.Sequence
 	var err error
 	defer func() {
-		// successful responses are sent as a chathistory or history batch
-		if err == nil {
+		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
+		if unknown_command {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown command"))
+		} else if err == utils.ErrInvalidParams {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMS", msg.Params[0], client.t("Invalid parameters"))
+		} else if sequence == nil {
+			// send an empty batch as per the spec
+			batchID := rb.StartNestedHistoryBatch(utils.SafeErrorParam(target))
+			rb.EndNestedBatch(batchID)
+		} else if err != nil {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
+		} else {
+			// successful responses are sent as a chathistory or history batch
 			if channel != nil {
 				channel.replayHistoryItems(rb, items, false)
 			} else {
 				client.replayPrivmsgHistory(rb, items, target, true)
 			}
-			return
-		}
-
-		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
-		if unknown_command {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown command"))
-		} else if err == utils.ErrInvalidParams {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMETERS", msg.Params[0], client.t("Invalid parameters"))
-		} else if err != nil {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
-		} else if sequence == nil {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "NO_SUCH_CHANNEL", utils.SafeErrorParam(msg.Params[1]), client.t("No such channel"))
 		}
 	}()
 
