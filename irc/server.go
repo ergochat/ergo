@@ -301,6 +301,13 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return false
 	}
 
+	// Apply default user modes (without updating the invisible counter)
+	// The number of invisible users will be updated by server.stats.Register
+	// if we're using default user mode +i.
+	for _, defaultMode := range config.Accounts.defaultUserModes {
+		c.SetMode(defaultMode, true)
+	}
+
 	// count new user in statistics (before checking KLINEs, see #1303)
 	server.stats.Register(c.HasMode(modes.Invisible))
 
@@ -309,13 +316,6 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	if isBanned {
 		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
 		return true
-	}
-
-	// Apply default user modes (without updating the invisible counter)
-	// The number of invisible users will be updated by server.stats.Register
-	// if we're using default user mode +i.
-	for _, defaultMode := range config.Accounts.defaultUserModes {
-		c.SetMode(defaultMode, true)
 	}
 
 	server.playRegistrationBurst(session)
