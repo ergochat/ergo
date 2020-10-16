@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "15"
+	latestDbSchema = "16"
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -812,6 +812,29 @@ func schemaChangeV14ToV15(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1330: delete any stale realname records
+func schemaChangeV15ToV16(config *Config, tx *buntdb.Tx) error {
+	prefix := "account.realname "
+	verifiedPrefix := "account.verified "
+	var keys []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		acct := strings.TrimPrefix(key, prefix)
+		verifiedKey := verifiedPrefix + acct
+		_, verifiedErr := tx.Get(verifiedKey)
+		if verifiedErr != nil {
+			keys = append(keys, key)
+		}
+		return true
+	})
+	for _, key := range keys {
+		tx.Delete(key)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -883,6 +906,11 @@ func init() {
 			InitialVersion: "14",
 			TargetVersion:  "15",
 			Changer:        schemaChangeV14ToV15,
+		},
+		{
+			InitialVersion: "15",
+			TargetVersion:  "16",
+			Changer:        schemaChangeV15ToV16,
 		},
 	}
 
