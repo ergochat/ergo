@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "14"
+	latestDbSchema = "15"
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -792,6 +792,26 @@ func schemaChangeV13ToV14(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1327: delete any invalid klines
+func schemaChangeV14ToV15(config *Config, tx *buntdb.Tx) error {
+	prefix := "bans.klinev2 "
+	var keys []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		if key != strings.TrimSpace(key) {
+			keys = append(keys, key)
+		}
+		return true
+	})
+	// don't bother trying to fix these up
+	for _, key := range keys {
+		tx.Delete(key)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -858,6 +878,11 @@ func init() {
 			InitialVersion: "13",
 			TargetVersion:  "14",
 			Changer:        schemaChangeV13ToV14,
+		},
+		{
+			InitialVersion: "14",
+			TargetVersion:  "15",
+			Changer:        schemaChangeV14ToV15,
 		},
 	}
 
