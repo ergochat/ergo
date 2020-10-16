@@ -215,6 +215,7 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester("shivaram*", "shivaram*!*@*", nil)
 	tester("Shivaram*", "shivaram*!*@*", nil)
 	tester("*SHIVARAM*", "*shivaram*!*@*", nil)
+	tester("*SHIVARAM*   ", "*shivaram*!*@*", nil)
 }
 
 func validFoldTester(first, second string, equal bool, folder func(string) (string, error), t *testing.T) {

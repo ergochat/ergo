@@ -222,6 +222,7 @@ func realSkeleton(name string) (string, error) {
 // Shivaram@good-fortune -> *!shivaram@good-fortune
 // EDMUND -> edmund!*@*
 func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
+	userhost = strings.TrimSpace(userhost)
 	var nick, user, host string
 	bangIndex := strings.IndexByte(userhost, '!')
 	strudelIndex := strings.IndexByte(userhost, '@')
