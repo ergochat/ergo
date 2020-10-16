@@ -886,7 +886,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	if client != nil {
 		nick = client.Nick()
 	}
-	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
+	am.server.logger.Info("accounts", "client", nick, "registered account", account)
 	raw.Verified = true
 	clientAccount, err := am.deserializeRawAccount(raw, casefoldedAccount)
 	if err != nil {
