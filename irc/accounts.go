@@ -268,10 +268,18 @@ func (am *AccountManager) NickToAccount(nick string) string {
 	if err != nil {
 		return ""
 	}
+	skel, err := Skeleton(nick)
+	if err != nil {
+		return ""
+	}
 
 	am.RLock()
 	defer am.RUnlock()
-	return am.nickToAccount[cfnick]
+	account := am.nickToAccount[cfnick]
+	if account != "" {
+		return account
+	}
+	return am.skeletonToAccount[skel]
 }
 
 // given an account, combine stored enforcement method with the config settings
@@ -457,7 +465,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		defer am.serialCacheUpdateMutex.Unlock()
 
 		// can't register an account with the same name as a registered nick
-		if am.NickToAccount(casefoldedAccount) != "" {
+		if am.NickToAccount(account) != "" {
 			return errAccountAlreadyRegistered
 		}
 
@@ -946,7 +954,11 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 	account := client.Account()
 	if saUnreserve {
 		// unless this is a sadrop:
-		account = am.NickToAccount(cfnick)
+		account := func() string {
+			am.RLock()
+			defer am.RUnlock()
+			return am.nickToAccount[cfnick]
+		}()
 		if account == "" {
 			// nothing to do
 			return nil
