@@ -830,6 +830,34 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		am.serialCacheUpdateMutex.Lock()
 		defer am.serialCacheUpdateMutex.Unlock()
 
+		// do a final check for confusability (in case someone already verified
+		// a confusable identifier):
+		var unfoldedName string
+		err = am.server.store.View(func(tx *buntdb.Tx) error {
+			unfoldedName, err = tx.Get(accountNameKey)
+			return err
+		})
+		if err != nil {
+			err = errAccountDoesNotExist
+			return
+		}
+		skeleton, err = Skeleton(unfoldedName)
+		if err != nil {
+			err = errAccountDoesNotExist
+			return
+		}
+		err = func() error {
+			am.RLock()
+			defer am.RUnlock()
+			if _, ok := am.skeletonToAccount[skeleton]; ok {
+				return errConfusableIdentifier
+			}
+			return nil
+		}()
+		if err != nil {
+			return
+		}
+
 		err = am.server.store.Update(func(tx *buntdb.Tx) error {
 			raw, err = am.loadRawAccount(tx, casefoldedAccount)
 			if err == errAccountDoesNotExist {
@@ -878,7 +906,6 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		})
 
 		if err == nil {
-			skeleton, _ = Skeleton(raw.Name)
 			am.Lock()
 			am.nickToAccount[casefoldedAccount] = casefoldedAccount
 			am.skeletonToAccount[skeleton] = casefoldedAccount
