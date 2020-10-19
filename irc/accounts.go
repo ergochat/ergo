@@ -268,10 +268,18 @@ func (am *AccountManager) NickToAccount(nick string) string {
 	if err != nil {
 		return ""
 	}
+	skel, err := Skeleton(nick)
+	if err != nil {
+		return ""
+	}
 
 	am.RLock()
 	defer am.RUnlock()
-	return am.nickToAccount[cfnick]
+	account := am.nickToAccount[cfnick]
+	if account != "" {
+		return account
+	}
+	return am.skeletonToAccount[skel]
 }
 
 // given an account, combine stored enforcement method with the config settings
@@ -457,7 +465,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		defer am.serialCacheUpdateMutex.Unlock()
 
 		// can't register an account with the same name as a registered nick
-		if am.NickToAccount(casefoldedAccount) != "" {
+		if am.NickToAccount(account) != "" {
 			return errAccountAlreadyRegistered
 		}
 
@@ -822,6 +830,34 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		am.serialCacheUpdateMutex.Lock()
 		defer am.serialCacheUpdateMutex.Unlock()
 
+		// do a final check for confusability (in case someone already verified
+		// a confusable identifier):
+		var unfoldedName string
+		err = am.server.store.View(func(tx *buntdb.Tx) error {
+			unfoldedName, err = tx.Get(accountNameKey)
+			return err
+		})
+		if err != nil {
+			err = errAccountDoesNotExist
+			return
+		}
+		skeleton, err = Skeleton(unfoldedName)
+		if err != nil {
+			err = errAccountDoesNotExist
+			return
+		}
+		err = func() error {
+			am.RLock()
+			defer am.RUnlock()
+			if _, ok := am.skeletonToAccount[skeleton]; ok {
+				return errConfusableIdentifier
+			}
+			return nil
+		}()
+		if err != nil {
+			return
+		}
+
 		err = am.server.store.Update(func(tx *buntdb.Tx) error {
 			raw, err = am.loadRawAccount(tx, casefoldedAccount)
 			if err == errAccountDoesNotExist {
@@ -870,7 +906,6 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 		})
 
 		if err == nil {
-			skeleton, _ = Skeleton(raw.Name)
 			am.Lock()
 			am.nickToAccount[casefoldedAccount] = casefoldedAccount
 			am.skeletonToAccount[skeleton] = casefoldedAccount
@@ -886,7 +921,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	if client != nil {
 		nick = client.Nick()
 	}
-	am.server.logger.Info("accounts", "client", nick, "registered account", casefoldedAccount)
+	am.server.logger.Info("accounts", "client", nick, "registered account", account)
 	raw.Verified = true
 	clientAccount, err := am.deserializeRawAccount(raw, casefoldedAccount)
 	if err != nil {
@@ -946,7 +981,11 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 	account := client.Account()
 	if saUnreserve {
 		// unless this is a sadrop:
-		account = am.NickToAccount(cfnick)
+		account := func() string {
+			am.RLock()
+			defer am.RUnlock()
+			return am.nickToAccount[cfnick]
+		}()
 		if account == "" {
 			// nothing to do
 			return nil
