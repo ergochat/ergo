@@ -274,6 +274,7 @@ type AccountConfig struct {
 		guestRegexpFolded      *regexp.Regexp
 		ForceGuestFormat       bool `yaml:"force-guest-format"`
 		ForceNickEqualsAccount bool `yaml:"force-nick-equals-account"`
+		ForbidAnonNickChanges  bool `yaml:"forbid-anonymous-nick-changes"`
 	} `yaml:"nick-reservation"`
 	Multiclient MulticlientConfig
 	Bouncer     *MulticlientConfig // # handle old name for 'multiclient'
