@@ -433,6 +433,11 @@ accounts:
         # as equivalent for the purpose of ban/invite/exception lists.
         force-nick-equals-account: false
 
+        # parallel setting to force-nick-equals-account: if true, this forbids
+        # anonymous users (i.e., users not logged into an account) to change their
+        # nickname after the initial connection is complete
+        forbid-anon-nick-changes: false
+
     # multiclient controls whether oragono allows multiple connections to
     # attach to the same client/nickname identity; this is part of the
     # functionality traditionally provided by a bouncer like ZNC
