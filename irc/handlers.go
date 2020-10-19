@@ -1516,11 +1516,14 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 // LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
 func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	nick := client.Nick()
+	rb.Add(nil, server.name, RPL_LISTSTART, nick, "Channel", "Users  Name") // sic: RFC1459, #1335
+
 	config := server.Config()
 	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" && !client.HasMode(modes.Operator) {
 		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
+		rb.Add(nil, server.name, RPL_LISTEND, nick, client.t("End of LIST"))
 		csNotice(rb, fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
-		rb.Add(nil, server.name, RPL_LISTEND, client.Nick(), client.t("End of LIST"))
 		return false
 	}
 
@@ -1563,7 +1566,6 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		}
 	}
 
-	nick := client.Nick()
 	rplList := func(channel *Channel) {
 		if members, name, topic := channel.listData(); members != 0 {
 			rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
@@ -1590,7 +1592,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			channel := server.channels.Get(chname)
 			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret)) {
 				if len(chname) > 0 {
-					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
+					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, nick, utils.SafeErrorParam(chname), client.t("No such channel"))
 				}
 				continue
 			}
@@ -1599,7 +1601,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			}
 		}
 	}
-	rb.Add(nil, server.name, RPL_LISTEND, client.nick, client.t("End of LIST"))
+	rb.Add(nil, server.name, RPL_LISTEND, nick, client.t("End of LIST"))
 	return false
 }
 
