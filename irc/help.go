@@ -56,6 +56,8 @@ Oragono supports the following channel modes:
   +C  |  Clients are blocked from sending CTCP messages in the channel.
   +u  |  Auditorium mode: JOIN, PART, QUIT, NAMES, and WHO are hidden
          hidden from unvoiced clients.
+  +U  |  Op-moderated mode: messages from unprivileged clients are sent
+         only to channel operators.
 
 = Prefixes =
 
