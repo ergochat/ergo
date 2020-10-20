@@ -505,9 +505,9 @@ type Config struct {
 		STS                     STSConfig
 		LookupHostnames         *bool `yaml:"lookup-hostnames"`
 		lookupHostnames         bool
-		ForwardConfirmHostnames bool `yaml:"forward-confirm-hostnames"`
-		CheckIdent              bool `yaml:"check-ident"`
-		SuppressIdent           bool `yaml:"suppress-ident"`
+		ForwardConfirmHostnames bool   `yaml:"forward-confirm-hostnames"`
+		CheckIdent              bool   `yaml:"check-ident"`
+		CoerceIdent             string `yaml:"coerce-ident"`
 		MOTD                    string
 		motdLines               []string
 		MOTDFormatting          bool `yaml:"motd-formatting"`
@@ -913,8 +913,16 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 
-	if config.Server.CheckIdent && config.Server.SuppressIdent {
-		return nil, errors.New("Can't configure both check-ident and suppress-ident")
+	if config.Server.CoerceIdent != "" {
+		if config.Server.CheckIdent {
+			return nil, errors.New("Can't configure both check-ident and coerce-ident")
+		}
+		if config.Server.CoerceIdent[0] != '~' {
+			return nil, errors.New("coerce-ident value must start with a ~")
+		}
+		if !isIdent(config.Server.CoerceIdent[1:]) {
+			return nil, errors.New("coerce-ident must be valid as an IRC user/ident field")
+		}
 	}
 
 	config.Server.supportedCaps = caps.NewCompleteSet()

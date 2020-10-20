@@ -127,9 +127,10 @@ server:
     # use ident protocol to get usernames
     check-ident: true
 
-    # ignore the supplied user/ident string from the USER command; always set the value to
-    # `~user` (literally) instead. this can potentially reduce confusion and simplify bans.
-    suppress-ident: false
+    # ignore the supplied user/ident string from the USER command, always setting user/ident
+    # to the following literal value; this can potentially reduce confusion and simplify bans.
+    # the value must begin with a '~' character. comment out / omit to disable:
+    #coerce-ident: '~u'
 
     # password to login to the server
     # generated using  "oragono genpasswd"

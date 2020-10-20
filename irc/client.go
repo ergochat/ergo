@@ -416,6 +416,11 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		cloakedHostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
 	}
 
+	username := "~u"
+	if config.Server.CoerceIdent != "" {
+		username = config.Server.CoerceIdent
+	}
+
 	client := &Client{
 		lastSeen:   lastSeen,
 		lastActive: now,
@@ -424,7 +429,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 		languages:  server.Languages().Default(),
 		server:     server,
 
-		username:        "~user",
+		username:        username,
 		cloakedHostname: cloakedHostname,
 		rawHostname:     rawHostname,
 		realIP:          utils.IPv4LoopbackAddress,
@@ -1118,8 +1123,8 @@ func (client *Client) SetNames(username, realname string, fromIdent bool) error 
 		return errInvalidUsername
 	}
 
-	if config.Server.SuppressIdent {
-		username = "~user"
+	if config.Server.CoerceIdent != "" {
+		username = config.Server.CoerceIdent
 	} else if !fromIdent {
 		username = "~" + username
 	}
