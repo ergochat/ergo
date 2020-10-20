@@ -1287,12 +1287,24 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		chname = fmt.Sprintf("%s%s", modes.ChannelModePrefixes[minPrefixMode], chname)
 	}
 
+	if channel.flags.HasMode(modes.OpModerated) {
+		channel.stateMutex.RLock()
+		cuModes := channel.members[client]
+		channel.stateMutex.RUnlock()
+		if cuModes.HighestChannelUserMode() == modes.Mode(0) {
+			// max(statusmsg_minmode, halfop)
+			if minPrefixMode == modes.Mode(0) || minPrefixMode == modes.Voice {
+				minPrefixMode = modes.Halfop
+			}
+		}
+	}
+
 	// send echo-message
 	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
 	for _, member := range channel.Members() {
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
-			// STATUSMSG
+			// STATUSMSG or OpModerated
 			continue
 		}
 
@@ -1320,7 +1332,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		}
 	}
 
-	// #959: don't save STATUSMSG
+	// #959: don't save STATUSMSG (or OpModerated)
 	if minPrefixMode == modes.Mode(0) {
 		channel.AddHistoryItem(history.Item{
 			Type:        histType,
