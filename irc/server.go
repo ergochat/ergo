@@ -39,6 +39,9 @@ var (
 	// three final parameters of 004 RPL_MYINFO, enumerating our supported modes
 	rplMyInfo1, rplMyInfo2, rplMyInfo3 = modes.RplMyInfo()
 
+	// CHANMODES isupport token
+	chanmodesToken = modes.ChanmodesToken()
+
 	// whitelist of caps to serve on the STS-only listener. In particular,
 	// never advertise SASL, to discourage people from sending their passwords:
 	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.Batch, caps.LabeledResponse, caps.EchoMessage, caps.Nope)

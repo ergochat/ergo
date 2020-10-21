@@ -6,6 +6,7 @@
 package modes
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -449,4 +450,23 @@ func RplMyInfo() (param1, param2, param3 string) {
 	sort.Sort(ByCodepoint(channelParametrizedModes))
 
 	return userModes.String(), channelModes.String(), channelParametrizedModes.String()
+}
+
+func ChanmodesToken() (result string) {
+	// https://modern.ircdocs.horse#chanmodes-parameter
+	// type A: listable modes with parameters
+	A := Modes{BanMask, ExceptMask, InviteMask}
+	// type B: modes with parameters
+	B := Modes{Key}
+	// type C: modes that take a parameter only when set, never when unset
+	C := Modes{UserLimit}
+	// type D: modes without parameters
+	D := Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret, NoCTCP, RegisteredOnly, RegisteredOnlySpeak, Auditorium, OpModerated}
+
+	sort.Sort(ByCodepoint(A))
+	sort.Sort(ByCodepoint(B))
+	sort.Sort(ByCodepoint(C))
+	sort.Sort(ByCodepoint(D))
+
+	return fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
 }
