@@ -1298,6 +1298,7 @@ func (config *Config) generateISupport() (err error) {
 	if config.Extjwt.Default.Enabled() || len(config.Extjwt.Services) != 0 {
 		isupport.Add("EXTJWT", "1")
 	}
+	isupport.Add("EXTBAN", ",m")
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))

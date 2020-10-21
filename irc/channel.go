@@ -1227,22 +1227,36 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 // CanSpeak returns true if the client can speak on this channel, otherwise it returns false along with the channel mode preventing the client from speaking.
 func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	channel.stateMutex.RLock()
-	defer channel.stateMutex.RUnlock()
+	clientModes, hasClient := channel.members[client]
+	channel.stateMutex.RUnlock()
 
-	_, hasClient := channel.members[client]
-	if channel.flags.HasMode(modes.NoOutside) && !hasClient {
+	if !hasClient && channel.flags.HasMode(modes.NoOutside) {
+		// TODO: enforce regular +b bans on -n channels?
 		return false, modes.NoOutside
 	}
-	if channel.flags.HasMode(modes.Moderated) && !channel.ClientIsAtLeast(client, modes.Voice) {
+	if channel.isMuted(client) && clientModes.HighestChannelUserMode() == modes.Mode(0) {
+		return false, modes.BanMask
+	}
+	if channel.flags.HasMode(modes.Moderated) && clientModes.HighestChannelUserMode() == modes.Mode(0) {
 		return false, modes.Moderated
 	}
 	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" {
 		return false, modes.RegisteredOnly
 	}
-	if channel.flags.HasMode(modes.RegisteredOnlySpeak) && client.Account() == "" && !channel.ClientIsAtLeast(client, modes.Voice) {
+	if channel.flags.HasMode(modes.RegisteredOnlySpeak) && client.Account() == "" &&
+		clientModes.HighestChannelUserMode() != modes.Mode(0) {
 		return false, modes.RegisteredOnlySpeak
 	}
 	return true, modes.Mode('?')
+}
+
+func (channel *Channel) isMuted(client *Client) bool {
+	muteRe := channel.lists[modes.BanMask].MuteRegexp()
+	if muteRe == nil {
+		return false
+	}
+	nuh := client.NickMaskString()
+	return muteRe.MatchString(nuh) && !channel.lists[modes.ExceptMask].MatchMute(nuh)
 }
 
 func msgCommandToHistType(command string) (history.ItemType, error) {
