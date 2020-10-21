@@ -5,6 +5,7 @@ package modes
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -216,6 +217,15 @@ func TestHighestChannelUserMode(t *testing.T) {
 	set = nil
 	if set.HighestChannelUserMode() != Mode(0) {
 		t.Errorf("nil modeset should have the zero mode as highest channel-user mode")
+	}
+}
+
+func TestChanmodesToken(t *testing.T) {
+	tok := ChanmodesToken()
+	for _, mode := range SupportedChannelModes {
+		if strings.IndexRune(tok, rune(mode)) == -1 {
+			t.Errorf("+%s not included in ChanmodesToken()", mode)
+		}
 	}
 }
 

@@ -184,3 +184,14 @@ We also support grabbing translations directly from CrowdIn. To do this:
 4. Run `crowdin download`
 
 This will download a bunch of updated files and put them in the right place
+
+
+## Adding a mode
+
+When adding a mode, keep in mind the following places it may need to be referenced:
+
+1. The mode needs to be defined in the `irc/modes` subpackage
+1. It may need to be special-cased in `modes.RplMyInfo()`
+1. It may need to be added to the `CHANMODES` ISUPPORT token
+1. It may need special handling in `ApplyUserModeChanges` or `ApplyChannelModeChanges`
+1. It may need special persistence handling code
