@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -44,23 +43,14 @@ const (
 	keyAccountModes            = "account.modes %s"    // user modes for the always-on client as a string
 	keyAccountRealname         = "account.realname %s" // client realname stored as string
 
-	keyVHostQueueAcctToId = "vhostQueue %s"
-	vhostRequestIdx       = "vhostQueue"
-
 	maxCertfpsPerAccount = 5
 )
 
 // everything about accounts is persistent; therefore, the database is the authoritative
 // source of truth for all account information. anything on the heap is just a cache
 type AccountManager struct {
-	// XXX these are up here so they can be aligned to a 64-bit boundary, please forgive me
-	// autoincrementing ID for vhost requests:
-	vhostRequestID           uint64
-	vhostRequestPendingCount uint64
-
 	sync.RWMutex                      // tier 2
 	serialCacheUpdateMutex sync.Mutex // tier 3
-	vHostUpdateMutex       sync.Mutex // tier 3
 
 	server *Server
 	// track clients logged in to accounts
@@ -80,7 +70,6 @@ func (am *AccountManager) Initialize(server *Server) {
 
 	config := server.Config()
 	am.buildNickToAccountIndex(config)
-	am.initVHostRequestQueue(config)
 	am.createAlwaysOnClients(config)
 	am.resetRegisterThrottle(config)
 }
@@ -223,44 +212,6 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 		am.accountToMethod = accountToMethod
 		am.Unlock()
 	}
-}
-
-func (am *AccountManager) initVHostRequestQueue(config *Config) {
-	if !config.Accounts.VHosts.Enabled {
-		return
-	}
-
-	am.vHostUpdateMutex.Lock()
-	defer am.vHostUpdateMutex.Unlock()
-
-	// the db maps the account name to the autoincrementing integer ID of its request
-	// create an numerically ordered index on ID, so we can list the oldest requests
-	// finally, collect the integer id of the newest request and the total request count
-	var total uint64
-	var lastIDStr string
-	err := am.server.store.Update(func(tx *buntdb.Tx) error {
-		err := tx.CreateIndex(vhostRequestIdx, fmt.Sprintf(keyVHostQueueAcctToId, "*"), buntdb.IndexInt)
-		if err != nil {
-			return err
-		}
-		return tx.Descend(vhostRequestIdx, func(key, value string) bool {
-			if lastIDStr == "" {
-				lastIDStr = value
-			}
-			total++
-			return true
-		})
-	})
-
-	if err != nil {
-		am.server.logger.Error("internal", "could not create vhost queue index", err.Error())
-	}
-
-	lastID, _ := strconv.ParseUint(lastIDStr, 10, 64)
-	am.server.logger.Debug("services", fmt.Sprintf("vhost queue length is %d, autoincrementing id is %d", total, lastID))
-
-	atomic.StoreUint64(&am.vhostRequestID, lastID)
-	atomic.StoreUint64(&am.vhostRequestPendingCount, total)
 }
 
 func (am *AccountManager) NickToAccount(nick string) string {
@@ -1394,7 +1345,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
-	vhostQueueKey := fmt.Sprintf(keyVHostQueueAcctToId, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
@@ -1461,8 +1411,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(modesKey)
 		tx.Delete(realnameKey)
 
-		_, err := tx.Delete(vhostQueueKey)
-		am.decrementVHostQueueCount(casefoldedAccount, err)
 		return nil
 	})
 
@@ -1635,42 +1583,8 @@ func (am *AccountManager) ModifyAccountSettings(account string, munger settingsM
 
 // represents someone's status in hostserv
 type VHostInfo struct {
-	ApprovedVHost   string
-	Enabled         bool
-	RequestedVHost  string
-	RejectedVHost   string
-	RejectionReason string
-	LastRequestTime time.Time
-}
-
-// pair type, <VHostInfo, accountName>
-type PendingVHostRequest struct {
-	VHostInfo
-	Account string
-}
-
-type vhostThrottleExceeded struct {
-	timeRemaining time.Duration
-}
-
-func (vhe *vhostThrottleExceeded) Error() string {
-	return fmt.Sprintf("Wait at least %v and try again", vhe.timeRemaining)
-}
-
-func (vh *VHostInfo) checkThrottle(cooldown time.Duration) (err error) {
-	if cooldown == 0 {
-		return nil
-	}
-
-	now := time.Now().UTC()
-	elapsed := now.Sub(vh.LastRequestTime)
-	if elapsed > cooldown {
-		// success
-		vh.LastRequestTime = now
-		return nil
-	} else {
-		return &vhostThrottleExceeded{timeRemaining: cooldown - elapsed}
-	}
+	ApprovedVHost string
+	Enabled       bool
 }
 
 // callback type implementing the actual business logic of vhost operations
@@ -1681,52 +1595,6 @@ func (am *AccountManager) VHostSet(account string, vhost string) (result VHostIn
 		output = input
 		output.Enabled = true
 		output.ApprovedVHost = vhost
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
-func (am *AccountManager) VHostRequest(account string, vhost string, cooldown time.Duration) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		// you can update your existing request, but if you were approved or rejected,
-		// you can't spam a new request
-		if output.RequestedVHost == "" {
-			err = output.checkThrottle(cooldown)
-		}
-		if err != nil {
-			return
-		}
-		output.RequestedVHost = vhost
-		output.RejectedVHost = ""
-		output.RejectionReason = ""
-		output.LastRequestTime = time.Now().UTC()
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
-func (am *AccountManager) VHostApprove(account string) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		output.Enabled = true
-		output.ApprovedVHost = input.RequestedVHost
-		output.RequestedVHost = ""
-		output.RejectionReason = ""
-		return
-	}
-
-	return am.performVHostChange(account, munger)
-}
-
-func (am *AccountManager) VHostReject(account string, reason string) (result VHostInfo, err error) {
-	munger := func(input VHostInfo) (output VHostInfo, err error) {
-		output = input
-		output.RejectedVHost = output.RequestedVHost
-		output.RequestedVHost = ""
-		output.RejectionReason = reason
 		return
 	}
 
@@ -1759,9 +1627,6 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 		return
 	}
 
-	am.vHostUpdateMutex.Lock()
-	defer am.vHostUpdateMutex.Unlock()
-
 	clientAccount, err := am.LoadAccount(account)
 	if err != nil {
 		err = errAccountDoesNotExist
@@ -1784,25 +1649,9 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 	vhstr := string(vhtext)
 
 	key := fmt.Sprintf(keyAccountVHost, account)
-	queueKey := fmt.Sprintf(keyVHostQueueAcctToId, account)
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
-		if _, _, err := tx.Set(key, vhstr, nil); err != nil {
-			return err
-		}
-
-		// update request queue
-		if clientAccount.VHost.RequestedVHost == "" && result.RequestedVHost != "" {
-			id := atomic.AddUint64(&am.vhostRequestID, 1)
-			if _, _, err = tx.Set(queueKey, strconv.FormatUint(id, 10), nil); err != nil {
-				return err
-			}
-			atomic.AddUint64(&am.vhostRequestPendingCount, 1)
-		} else if clientAccount.VHost.RequestedVHost != "" && result.RequestedVHost == "" {
-			_, err = tx.Delete(queueKey)
-			am.decrementVHostQueueCount(account, err)
-		}
-
-		return nil
+		_, _, err := tx.Set(key, vhstr, nil)
+		return err
 	})
 
 	if err != nil {
@@ -1812,51 +1661,6 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 
 	am.applyVhostToClients(account, result)
 	return result, nil
-}
-
-// XXX annoying helper method for keeping the queue count in sync with the DB
-// `err` is the buntdb error returned from deleting the queue key
-func (am *AccountManager) decrementVHostQueueCount(account string, err error) {
-	if err == nil {
-		// successfully deleted a queue entry, do a 2's complement decrement:
-		atomic.AddUint64(&am.vhostRequestPendingCount, ^uint64(0))
-	} else if err != buntdb.ErrNotFound {
-		am.server.logger.Error("internal", "buntdb dequeue error", account, err.Error())
-	}
-}
-
-func (am *AccountManager) VHostListRequests(limit int) (requests []PendingVHostRequest, total int) {
-	am.vHostUpdateMutex.Lock()
-	defer am.vHostUpdateMutex.Unlock()
-
-	total = int(atomic.LoadUint64(&am.vhostRequestPendingCount))
-
-	prefix := fmt.Sprintf(keyVHostQueueAcctToId, "")
-	accounts := make([]string, 0, limit)
-	err := am.server.store.View(func(tx *buntdb.Tx) error {
-		return tx.Ascend(vhostRequestIdx, func(key, value string) bool {
-			accounts = append(accounts, strings.TrimPrefix(key, prefix))
-			return len(accounts) < limit
-		})
-	})
-
-	if err != nil {
-		am.server.logger.Error("internal", "couldn't traverse vhost queue", err.Error())
-		return
-	}
-
-	for _, account := range accounts {
-		accountInfo, err := am.LoadAccount(account)
-		if err == nil {
-			requests = append(requests, PendingVHostRequest{
-				Account:   account,
-				VHostInfo: accountInfo.VHost,
-			})
-		} else {
-			am.server.logger.Error("internal", "corrupt account", account, err.Error())
-		}
-	}
-	return
 }
 
 func (am *AccountManager) applyVHostInfo(client *Client, info VHostInfo) {

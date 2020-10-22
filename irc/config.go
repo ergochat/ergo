@@ -316,12 +316,7 @@ type VHostConfig struct {
 	Enabled        bool
 	MaxLength      int    `yaml:"max-length"`
 	ValidRegexpRaw string `yaml:"valid-regexp"`
-	ValidRegexp    *regexp.Regexp
-	UserRequests   struct {
-		Enabled  bool
-		Channel  string
-		Cooldown custime.Duration
-	} `yaml:"user-requests"`
+	validRegexp    *regexp.Regexp
 }
 
 type NickEnforcementMethod int
@@ -1109,13 +1104,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if rawRegexp != "" {
 		regexp, err := regexp.Compile(rawRegexp)
 		if err == nil {
-			config.Accounts.VHosts.ValidRegexp = regexp
+			config.Accounts.VHosts.validRegexp = regexp
 		} else {
 			log.Printf("invalid vhost regexp: %s\n", err.Error())
 		}
 	}
-	if config.Accounts.VHosts.ValidRegexp == nil {
-		config.Accounts.VHosts.ValidRegexp = defaultValidVhostRegex
+	if config.Accounts.VHosts.validRegexp == nil {
+		config.Accounts.VHosts.validRegexp = defaultValidVhostRegex
 	}
 
 	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"

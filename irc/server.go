@@ -570,9 +570,6 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		if !oldConfig.Accounts.NickReservation.Enabled {
 			server.accounts.buildNickToAccountIndex(config)
 		}
-		if !oldConfig.Accounts.VHosts.Enabled {
-			server.accounts.initVHostRequestQueue(config)
-		}
 		if !oldConfig.Channels.Registration.Enabled {
 			server.channels.loadRegisteredChannels(config)
 		}

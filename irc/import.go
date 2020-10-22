@@ -69,8 +69,8 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 	// produce a hardcoded version of the database schema
 	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
 	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
-	// version 14 db)
-	tx.Set(keySchemaVersion, "14", nil)
+	// db of the hardcoded version)
+	tx.Set(keySchemaVersion, "17", nil)
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 
 	for username, userInfo := range dbImport.Users {
