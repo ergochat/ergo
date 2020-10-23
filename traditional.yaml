@@ -1,4 +1,4 @@
-# This is the "conventional" or "mainstream" config file for Oragono.
+# This is the "traditional" or "mainstream" config file for Oragono.
 # It tries to replicate the behavior of other ircds, at the cost of not
 # taking full advantage of Oragono's features. This config is suitable for use
 # in IRCv3 conformance testing.
@@ -437,7 +437,7 @@ accounts:
         # parallel setting to force-nick-equals-account: if true, this forbids
         # anonymous users (i.e., users not logged into an account) to change their
         # nickname after the initial connection is complete
-        forbid-anon-nick-changes: false
+        forbid-anonymous-nick-changes: false
 
     # multiclient controls whether oragono allows multiple connections to
     # attach to the same client/nickname identity; this is part of the

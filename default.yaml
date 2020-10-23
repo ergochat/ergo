@@ -1,7 +1,7 @@
 # This is the default config file for Oragono.
 # It contains recommended defaults for all settings, including some behaviors
-# that differ from conventional ircds. See conventional.yaml for a config
-# with more "mainstream" behavior.
+# that differ from conventional ircd+services setups. See traditional.yaml
+# for a config with more "mainstream" behavior.
 #
 # If you are setting up a new oragono server, you should copy this file
 # to a new one named 'ircd.yaml', then read the whole file to see which
