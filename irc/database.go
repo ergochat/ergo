@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "16"
+	latestDbSchema = "17"
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -835,6 +835,24 @@ func schemaChangeV15ToV16(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1346: remove vhost request queue
+func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
+	prefix := "vhostQueue "
+	var keys []string
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		keys = append(keys, key)
+		return true
+	})
+
+	for _, key := range keys {
+		tx.Delete(key)
+	}
+	return nil
+}
+
 func init() {
 	allChanges := []SchemaChange{
 		{
@@ -911,6 +929,11 @@ func init() {
 			InitialVersion: "15",
 			TargetVersion:  "16",
 			Changer:        schemaChangeV15ToV16,
+		},
+		{
+			InitialVersion: "16",
+			TargetVersion:  "17",
+			Changer:        schemaChangeV16ToV17,
 		},
 	}
 
