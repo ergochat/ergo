@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -478,6 +479,8 @@ type TorListenersConfig struct {
 
 // Config defines the overall configuration.
 type Config struct {
+	AllowEnvironmentOverrides bool `yaml:"allow-environment-overrides"`
+
 	Network struct {
 		Name string
 	}
@@ -870,11 +873,125 @@ func LoadRawConfig(filename string) (config *Config, err error) {
 	return
 }
 
+// convert, e.g., "ALLOWED_ORIGINS" to "allowed-origins"
+func screamingSnakeToKebab(in string) (out string) {
+	var buf strings.Builder
+	for i := 0; i < len(in); i++ {
+		c := in[i]
+		switch {
+		case c == '_':
+			buf.WriteByte('-')
+		case 'A' <= c && c <= 'Z':
+			buf.WriteByte(c + ('a' - 'A'))
+		default:
+			buf.WriteByte(c)
+		}
+	}
+	return buf.String()
+}
+
+func isExported(field reflect.StructField) bool {
+	return field.PkgPath == "" // https://golang.org/pkg/reflect/#StructField
+}
+
+// errors caused by config overrides
+type configPathError struct {
+	name     string
+	desc     string
+	fatalErr error
+}
+
+func (ce *configPathError) Error() string {
+	if ce.fatalErr != nil {
+		return fmt.Sprintf("Couldn't apply config override `%s`: %s: %v", ce.name, ce.desc, ce.fatalErr)
+	}
+	return fmt.Sprintf("Couldn't apply config override `%s`: %s", ce.name, ce.desc)
+}
+
+func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *configPathError) {
+	equalIdx := strings.IndexByte(envPair, '=')
+	name, value := envPair[:equalIdx], envPair[equalIdx+1:]
+	if !strings.HasPrefix(name, "ORAGONO__") {
+		return false, nil
+	}
+	name = strings.TrimPrefix(name, "ORAGONO__")
+	pathComponents := strings.Split(name, "__")
+	for i, pathComponent := range pathComponents {
+		pathComponents[i] = screamingSnakeToKebab(pathComponent)
+	}
+
+	v := reflect.Indirect(reflect.ValueOf(config))
+	t := v.Type()
+	for _, component := range pathComponents {
+		if component == "" {
+			return false, &configPathError{name, "invalid", nil}
+		}
+		if v.Kind() != reflect.Struct {
+			return false, &configPathError{name, "index into non-struct", nil}
+		}
+		var nextField reflect.StructField
+		success := false
+		n := t.NumField()
+		// preferentially get a field with an exact yaml tag match,
+		// then fall back to case-insensitive comparison of field names
+		for i := 0; i < n; i++ {
+			field := t.Field(i)
+			if isExported(field) && field.Tag.Get("yaml") == component {
+				nextField = field
+				success = true
+				break
+			}
+		}
+		if !success {
+			for i := 0; i < n; i++ {
+				field := t.Field(i)
+				if isExported(field) && strings.ToLower(field.Name) == component {
+					nextField = field
+					success = true
+					break
+				}
+			}
+		}
+		if !success {
+			return false, &configPathError{name, fmt.Sprintf("couldn't resolve path component: `%s`", component), nil}
+		}
+		v = v.FieldByName(nextField.Name)
+		// dereference pointer field if necessary, initialize new value if necessary
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			v = reflect.Indirect(v)
+		}
+		t = v.Type()
+	}
+	yamlErr := yaml.Unmarshal([]byte(value), v.Addr().Interface())
+	if yamlErr != nil {
+		return false, &configPathError{name, "couldn't deserialize YAML", yamlErr}
+	}
+	return true, nil
+}
+
 // LoadConfig loads the given YAML configuration file.
 func LoadConfig(filename string) (config *Config, err error) {
 	config, err = LoadRawConfig(filename)
 	if err != nil {
 		return nil, err
+	}
+
+	if config.AllowEnvironmentOverrides {
+		for _, envPair := range os.Environ() {
+			applied, envErr := mungeFromEnvironment(config, envPair)
+			if envErr != nil {
+				if envErr.fatalErr != nil {
+					return nil, envErr
+				} else {
+					log.Println(envErr.Error())
+				}
+			} else if applied {
+				log.Printf("applied environment override: %s\n", envPair)
+			}
+		}
 	}
 
 	config.Filename = filename
