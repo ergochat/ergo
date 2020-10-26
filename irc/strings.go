@@ -15,6 +15,8 @@ import (
 	"golang.org/x/text/secure/precis"
 	"golang.org/x/text/unicode/norm"
 	"golang.org/x/text/width"
+
+	"github.com/oragono/oragono/irc/utils"
 )
 
 const (
@@ -270,7 +272,11 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 	if host != "*" {
 		host = strings.ToLower(host)
 	}
-	return fmt.Sprintf("%s!%s@%s", nick, user, host), nil
+	expanded = fmt.Sprintf("%s!%s@%s", nick, user, host)
+	if utils.SafeErrorParam(expanded) != expanded {
+		err = errInvalidCharacter
+	}
+	return
 }
 
 func foldASCII(str string) (result string, err error) {

@@ -193,7 +193,7 @@ func TestSkeleton(t *testing.T) {
 func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester := func(input, expected string, expectedErr error) {
 		out, err := CanonicalizeMaskWildcard(input)
-		if out != expected {
+		if expectedErr == nil && out != expected {
 			t.Errorf("expected %s to canonicalize to %s, instead %s", input, expected, out)
 		}
 		if err != expectedErr {
@@ -216,6 +216,10 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester("Shivaram*", "shivaram*!*@*", nil)
 	tester("*SHIVARAM*", "*shivaram*!*@*", nil)
 	tester("*SHIVARAM*   ", "*shivaram*!*@*", nil)
+
+	tester(":shivaram", "", errInvalidCharacter)
+	tester("shivaram!us er@host", "", errInvalidCharacter)
+	tester("shivaram!user@ho st", "", errInvalidCharacter)
 }
 
 func validFoldTester(first, second string, equal bool, folder func(string) (string, error), t *testing.T) {
