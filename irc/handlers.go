@@ -2737,7 +2737,7 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // SETNAME <realname>
 func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
-	if len(msg.Params) != 0 {
+	if len(msg.Params) != 1 {
 		// workaround for clients that turn unknown commands into raw IRC lines,
 		// so you can do `/setname Jane Doe` in the client and get the expected result
 		realname = strings.Join(msg.Params, " ")
