@@ -1524,6 +1524,22 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	}
 }
 
+// Uninvite rescinds a channel invitation, if the inviter can do so.
+func (channel *Channel) Uninvite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
+	if !channel.flags.HasMode(modes.InviteOnly) {
+		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "NOT_INVITE_ONLY", channel.Name(), inviter.t("Channel is not invite-only"))
+		return
+	}
+
+	if !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
+		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "NOT_PRIVED", channel.Name(), inviter.t("You're not a channel operator"))
+		return
+	}
+
+	invitee.Uninvite(channel.NameCasefolded())
+	rb.Add(nil, channel.server.name, "UNINVITE", invitee.Nick(), channel.Name())
+}
+
 // returns who the client can "see" in the channel, respecting the auditorium mode
 func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
 	channel.stateMutex.RLock()

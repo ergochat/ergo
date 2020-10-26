@@ -1113,7 +1113,9 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 }
 
 // INVITE <nickname> <channel>
+// UNINVITE <nickname> <channel>
 func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	invite := msg.Command == "INVITE"
 	nickname := msg.Params[0]
 	channelName := msg.Params[1]
 
@@ -1129,7 +1131,12 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		return false
 	}
 
-	channel.Invite(target, client, rb)
+	if invite {
+		channel.Invite(target, client, rb)
+	} else {
+		channel.Uninvite(target, client, rb)
+	}
+
 	return false
 }
 

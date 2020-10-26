@@ -1787,6 +1787,12 @@ func (client *Client) Invite(casefoldedChannel string, channelCreatedAt time.Tim
 	return
 }
 
+func (client *Client) Uninvite(casefoldedChannel string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	delete(client.invitedTo, casefoldedChannel)
+}
+
 // Checks that the client was invited to join a given channel
 func (client *Client) CheckInvited(casefoldedChannel string, createdTime time.Time) (invited bool) {
 	config := client.server.Config()
