@@ -324,6 +324,10 @@ func init() {
 			minParams: 1,
 			oper:      true,
 		},
+		"UNINVITE": {
+			handler:   inviteHandler,
+			minParams: 2,
+		},
 		"UNKLINE": {
 			handler:   unKLineHandler,
 			minParams: 1,

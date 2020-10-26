@@ -542,6 +542,11 @@ For example:
 Used in connection registration, sets your username and realname to the given
 values (though your username may also be looked up with Ident).`,
 	},
+	"uninvite": {
+		text: `UNINVITE <nickname> <channel>
+
+UNINVITE rescinds a channel invitation sent for an invite-only channel.`,
+	},
 	"users": {
 		text: `USERS [parameters]
 

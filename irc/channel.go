@@ -677,6 +677,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	chname := channel.name
 	chcfname := channel.nameCasefolded
 	founder := channel.registeredFounder
+	createdAt := channel.createdTime
 	chkey := channel.key
 	limit := channel.userLimit
 	chcount := len(channel.members)
@@ -695,7 +696,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	// 3. people invited with INVITE can join
 	hasPrivs := isSajoin || (founder != "" && founder == details.account) ||
 		(persistentMode != 0 && persistentMode != modes.Voice) ||
-		client.CheckInvited(chcfname)
+		client.CheckInvited(chcfname, createdAt)
 	if !hasPrivs {
 		if limit != 0 && chcount >= limit {
 			return errLimitExceeded
@@ -1475,23 +1476,33 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 // Invite invites the given client to the channel, if the inviter can do so.
 func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
-	chname := channel.Name()
-	if channel.flags.HasMode(modes.InviteOnly) && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), chname, inviter.t("You're not a channel operator"))
-		return
-	}
+	channel.stateMutex.RLock()
+	chname := channel.name
+	chcfname := channel.nameCasefolded
+	createdAt := channel.createdTime
+	_, inviterPresent := channel.members[inviter]
+	_, inviteePresent := channel.members[invitee]
+	channel.stateMutex.RUnlock()
 
-	if !channel.hasClient(inviter) {
+	if !inviterPresent {
 		rb.Add(nil, inviter.server.name, ERR_NOTONCHANNEL, inviter.Nick(), chname, inviter.t("You're not on that channel"))
 		return
 	}
 
-	if channel.hasClient(invitee) {
+	inviteOnly := channel.flags.HasMode(modes.InviteOnly)
+	if inviteOnly && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
+		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), chname, inviter.t("You're not a channel operator"))
+		return
+	}
+
+	if inviteePresent {
 		rb.Add(nil, inviter.server.name, ERR_USERONCHANNEL, inviter.Nick(), invitee.Nick(), chname, inviter.t("User is already on that channel"))
 		return
 	}
 
-	invitee.Invite(channel.NameCasefolded())
+	if inviteOnly {
+		invitee.Invite(chcfname, createdAt)
+	}
 
 	for _, member := range channel.Members() {
 		if member == inviter || member == invitee || !channel.ClientIsAtLeast(member, modes.Halfop) {
@@ -1511,6 +1522,22 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	if away, awayMessage := invitee.Away(); away {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, awayMessage)
 	}
+}
+
+// Uninvite rescinds a channel invitation, if the inviter can do so.
+func (channel *Channel) Uninvite(invitee *Client, inviter *Client, rb *ResponseBuffer) {
+	if !channel.flags.HasMode(modes.InviteOnly) {
+		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "NOT_INVITE_ONLY", channel.Name(), inviter.t("Channel is not invite-only"))
+		return
+	}
+
+	if !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
+		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "NOT_PRIVED", channel.Name(), inviter.t("You're not a channel operator"))
+		return
+	}
+
+	invitee.Uninvite(channel.NameCasefolded())
+	rb.Add(nil, channel.server.name, "UNINVITE", invitee.Nick(), channel.Name())
 }
 
 // returns who the client can "see" in the channel, respecting the auditorium mode
