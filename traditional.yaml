@@ -528,6 +528,10 @@ channels:
     # than this value will get an empty response to /LIST (a time period of 0 disables)
     list-delay: 0s
 
+    # INVITE to an invite-only channel expires after this amount of time
+    # (0 or omit for no expiration):
+    invite-expiration: 24h
+
 # operator classes
 oper-classes:
     # local operator

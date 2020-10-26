@@ -574,7 +574,8 @@ type Config struct {
 			OperatorOnly          bool `yaml:"operator-only"`
 			MaxChannelsPerAccount int  `yaml:"max-channels-per-account"`
 		}
-		ListDelay time.Duration `yaml:"list-delay"`
+		ListDelay        time.Duration    `yaml:"list-delay"`
+		InviteExpiration custime.Duration `yaml:"invite-expiration"`
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`

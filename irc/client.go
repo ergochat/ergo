@@ -84,7 +84,7 @@ type Client struct {
 	destroyed          bool
 	modes              modes.ModeSet
 	hostname           string
-	invitedTo          utils.StringSet
+	invitedTo          map[string]channelInvite
 	isSTSOnly          bool
 	languages          []string
 	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
@@ -1764,26 +1764,45 @@ func (client *Client) removeChannel(channel *Channel) {
 	}
 }
 
+type channelInvite struct {
+	channelCreatedAt time.Time
+	invitedAt        time.Time
+}
+
 // Records that the client has been invited to join an invite-only channel
-func (client *Client) Invite(casefoldedChannel string) {
+func (client *Client) Invite(casefoldedChannel string, channelCreatedAt time.Time) {
+	now := time.Now().UTC()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
 	if client.invitedTo == nil {
-		client.invitedTo = make(utils.StringSet)
+		client.invitedTo = make(map[string]channelInvite)
 	}
 
-	client.invitedTo.Add(casefoldedChannel)
+	client.invitedTo[casefoldedChannel] = channelInvite{
+		channelCreatedAt: channelCreatedAt,
+		invitedAt:        now,
+	}
+
+	return
 }
 
 // Checks that the client was invited to join a given channel
-func (client *Client) CheckInvited(casefoldedChannel string) (invited bool) {
+func (client *Client) CheckInvited(casefoldedChannel string, createdTime time.Time) (invited bool) {
+	config := client.server.Config()
+	expTime := time.Duration(config.Channels.InviteExpiration)
+	now := time.Now().UTC()
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	invited = client.invitedTo.Has(casefoldedChannel)
-	// joining an invited channel "uses up" your invite, so you can't rejoin on kick
-	delete(client.invitedTo, casefoldedChannel)
+	curInvite, ok := client.invitedTo[casefoldedChannel]
+	if ok {
+		// joining an invited channel "uses up" your invite, so you can't rejoin on kick
+		delete(client.invitedTo, casefoldedChannel)
+	}
+	invited = ok && (expTime == time.Duration(0) || now.Sub(curInvite.invitedAt) < expTime) &&
+		createdTime.Equal(curInvite.channelCreatedAt)
 	return
 }
 
