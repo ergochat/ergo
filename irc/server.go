@@ -390,15 +390,17 @@ func (server *Server) Lusers(client *Client, rb *ResponseBuffer) {
 	nick := client.Nick()
 	stats := server.stats.GetValues()
 
-	rb.Add(nil, server.name, RPL_LUSERCLIENT, nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), stats.Total-stats.Invisible, stats.Invisible, 1))
+	rb.Add(nil, server.name, RPL_LUSERCLIENT, nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), stats.Total-stats.Invisible, stats.Invisible, 5))
+	// rb.Add(nil, server.name, RPL_LUSEROP,nick, fmt.Sprintf(client.t("BNC Server: %[1]d Online and %[2]d Offline Bnc Users"), stats.BncON, stats.BncOFF-stats.BncON ))
 	rb.Add(nil, server.name, RPL_LUSEROP, nick, strconv.Itoa(stats.Operators), client.t("IRC Operators online"))
 	rb.Add(nil, server.name, RPL_LUSERUNKNOWN, nick, strconv.Itoa(stats.Unknown), client.t("unregistered connections"))
 	rb.Add(nil, server.name, RPL_LUSERCHANNELS, nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
-	rb.Add(nil, server.name, RPL_LUSERME, nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), stats.Total, 0))
+	rb.Add(nil, server.name, RPL_LUSERME, nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), stats.Total, 6))
 	total := strconv.Itoa(stats.Total)
 	max := strconv.Itoa(stats.Max)
-	rb.Add(nil, server.name, RPL_LOCALUSERS, nick, total, max, fmt.Sprintf(client.t("Current local users %[1]s, max %[2]s"), total, max))
-	rb.Add(nil, server.name, RPL_GLOBALUSERS, nick, total, max, fmt.Sprintf(client.t("Current global users %[1]s, max %[2]s"), total, max))
+	//  rb.Add(nil, server.name, RPL_LOCALUSERS, nick, total, max, fmt.Sprintf(client.t("Current local users %[1]s, max %[2]s"), total, max))
+	rb.Add(nil, server.name, RPL_GLOBALUSERS, nick,fmt.Sprintf(client.t("Current BNC users: %[1]d Online, %[2]d Offline "), stats.BncON, stats.BncOFF-stats.BncON))
+    rb.Add(nil, server.name, "NOTICE", nick, fmt.Sprintf(client.t("Highest connection count: %[1]s (%[2]s clients)"), total, max))
 }
 
 // MOTD serves the Message of the Day.
@@ -569,6 +571,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		// from the store
 		if !oldConfig.Accounts.NickReservation.Enabled {
 			server.accounts.buildNickToAccountIndex(config)
+		}
+		if !oldConfig.Accounts.VHosts.Enabled {
+			server.accounts.initVHostRequestQueue(config)
 		}
 		if !oldConfig.Channels.Registration.Enabled {
 			server.channels.loadRegisteredChannels(config)
