@@ -895,3 +895,7 @@ history:
         #blacklist:
         #    - "+draft/typing"
         #    - "typing"
+
+# whether to allow customization of the config at runtime using environment variables,
+# e.g., ORAGONO__SERVER__MAX_SENDQ=128k. see the manual for more details.
+allow-environment-overrides: true
