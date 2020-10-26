@@ -2730,6 +2730,11 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 // SETNAME <realname>
 func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
+	if len(msg.Params) != 0 {
+		// workaround for clients that turn unknown commands into raw IRC lines,
+		// so you can do `/setname Jane Doe` in the client and get the expected result
+		realname = strings.Join(msg.Params, " ")
+	}
 	if realname == "" {
 		rb.Add(nil, server.name, "FAIL", "SETNAME", "INVALID_REALNAME", client.t("Realname is not valid"))
 		return false
@@ -2740,10 +2745,13 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 	// alert friends
 	now := time.Now().UTC()
-	for session := range client.Friends(caps.SetName) {
+	friends := client.Friends(caps.SetName)
+	delete(friends, rb.session)
+	for session := range friends {
 		session.sendFromClientInternal(false, now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
 	}
-
+	// respond to the user unconditionally, even if they don't have the cap
+	rb.AddFromClient(now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
 	return false
 }
 
