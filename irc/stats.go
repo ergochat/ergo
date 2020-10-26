@@ -10,6 +10,8 @@ type StatsValues struct {
 	Max       int // high-water mark of registered clients
 	Invisible int
 	Operators int
+	BncOFF    int
+	BncON     int
 }
 
 // Stats tracks statistics for a running server
@@ -25,6 +27,12 @@ func (s *Stats) Add() {
 	s.Unknown += 1
 	s.mutex.Unlock()
 }
+func (s *Stats) AddBncCount() {
+	s.mutex.Lock()
+	s.Total += 1
+	s.BncOFF += 1
+	s.mutex.Unlock()
+}
 
 // Activates a registered client, e.g., for the initial attach to a persistent client
 func (s *Stats) AddRegistered(invisible, operator bool) {
@@ -35,8 +43,8 @@ func (s *Stats) AddRegistered(invisible, operator bool) {
 	if operator {
 		s.Operators += 1
 	}
-	s.Total += 1
-	s.setMax()
+	s.BncON += 1
+	// s.setMax()
 	s.mutex.Unlock()
 }
 
@@ -88,6 +96,20 @@ func (s *Stats) Remove(registered, invisible, operator bool) {
 	}
 	s.mutex.Unlock()
 }
+
+// This will decrease bcn stats, but will not remove user from Total Stats
+func (s *Stats) RemoveBnc(registered, invisible, operator bool) {
+	s.mutex.Lock()
+	if invisible {
+		s.Invisible -= 1
+	}
+	if operator {
+		s.Operators -= 1
+	}
+	s.BncON -= 1
+	s.mutex.Unlock()
+}
+
 
 // GetStats retrives total, invisible and oper count
 func (s *Stats) GetValues() (result StatsValues) {
