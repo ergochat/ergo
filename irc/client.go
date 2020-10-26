@@ -404,7 +404,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes, realname string, username string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -413,10 +413,12 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 	rawHostname, cloakedHostname := server.name, ""
 	if config.Server.Cloaks.EnabledForAlwaysOn {
-		cloakedHostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
+	cloakedHostname = config.Server.Cloaks.ComputeAccountCloak(account.Name)
+	// cloakedHostname = "bnc.user."+account.Name
+	
 	}
-
-	username := "~u"
+    
+	// username := account.username
 	if config.Server.CoerceIdent != "" {
 		username = config.Server.CoerceIdent
 	}
@@ -439,7 +441,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 
 		nextSessionID: 1,
 	}
-
+    alwaysOn := client.alwaysOn
+    if alwaysOn {
+	server.stats.AddBncCount()
+	}
 	client.SetMode(modes.TLS, true)
 	for _, m := range uModes {
 		client.SetMode(m, true)
@@ -1470,11 +1475,17 @@ func (client *Client) destroy(session *Session) {
 
 	// decrement stats if we have no more sessions, even if the client will not be destroyed
 	if shouldDecrement {
-		invisible := client.HasMode(modes.Invisible)
-		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
+	invisible := client.HasMode(modes.Invisible)
+	operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
+	alwaysOn := registered && client.alwaysOn
+	// if client is always on, will not be deducted form the Total Stats.
+	if alwaysOn {
+	client.server.stats.RemoveBnc(registered, invisible, operator)
+	} else {
+		
 		client.server.stats.Remove(registered, invisible, operator)
 	}
-
+}
 	if autoAway {
 		dispatchAwayNotify(client, true, awayMessage)
 	}
@@ -1924,6 +1935,8 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 	}
 	if (dirtyBits & IncludeRealname) != 0 {
 		client.server.accounts.saveRealname(account, client.realname)
+		client.server.accounts.saveUsername(account, client.username)
+	
 	}
 }
 
