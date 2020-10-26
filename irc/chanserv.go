@@ -36,6 +36,17 @@ this command if you're the founder of the channel.`,
 			enabled:      chanregEnabled,
 			minParams:    1,
 		},
+		"deop": {
+			handler: csDeopHandler,
+			help: `Syntax: $bDEOP #channel [nickname]$b
+
+DEOP removes the given nickname, or yourself, the channel admin. You can only use
+this command if you're the founder of the channel.`,
+			helpShort:    `$bDEOP$b removes the given user (or yourself) from a channel admin.`,
+			authRequired: true,
+			enabled:      chanregEnabled,
+			minParams:    1,
+		},
 		"register": {
 			handler: csRegisterHandler,
 			help: `Syntax: $bREGISTER #channel$b
@@ -183,6 +194,7 @@ func csNotice(rb *ResponseBuffer, text string) {
 	rb.Add(nil, chanservMask, "NOTICE", rb.target.Nick(), text)
 }
 
+
 func csAmodeHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	channelName := params[0]
 
@@ -311,6 +323,54 @@ func csOpHandler(server *Server, client *Client, command string, params []string
 	server.logger.Info("services", fmt.Sprintf("Client %s op'd [%s] in channel %s", client.Nick(), tnick, channelName))
 	server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] CS OP'd $c[grey][$r%s$c[grey]] in channel $c[grey][$r%s$c[grey]]"), client.NickMaskString(), tnick, channelName))
 }
+
+func csDeopHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	channelInfo := server.channels.Get(params[0])
+	if channelInfo == nil {
+		csNotice(rb, client.t("Channel does not exist"))
+		return
+	}
+	channelName := channelInfo.Name()
+
+	clientAccount := client.Account()
+	if clientAccount == "" || clientAccount != channelInfo.Founder() {
+		csNotice(rb, client.t("Only the channel founder can do this"))
+		return
+	}
+
+	var target *Client
+	if len(params) > 1 {
+		target = server.clients.Get(params[1])
+		if target == nil {
+			csNotice(rb, client.t("Could not find given client"))
+			return
+		}
+	} else {
+		target = client
+	}
+
+	// give them privs
+	givenMode := modes.ChannelOperator
+	if clientAccount == target.Account() {
+		givenMode = modes.ChannelFounder
+	}
+	applied, change := channelInfo.applyModeToMember(client,
+		modes.ModeChange{Mode: givenMode,
+			Op:  modes.Remove,
+			Arg: target.NickCasefolded(),
+		},
+		rb)
+	if applied {
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, chanservMask, "*", "", rb)
+	}
+
+	csNotice(rb, client.t("Successfully removed operator privileges"))
+	
+	tnick := target.Nick()
+	server.logger.Info("services", fmt.Sprintf("Client %s deop'd [%s] in channel %s", client.Nick(), tnick, channelName))
+	server.snomasks.Send(sno.LocalChannels, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] CS deOP'd $c[grey][$r%s$c[grey]] in channel $c[grey][$r%s$c[grey]]"), client.NickMaskString(), tnick, channelName))
+}
+
 
 func csRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if server.Config().Channels.Registration.OperatorOnly && !client.HasRoleCapabs("chanreg") {
