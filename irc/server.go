@@ -450,6 +450,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 	}
 	if client == target || hasPrivs {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
+		rb.Add(nil, client.server.name, RPL_WHOISMODES, cnick, tnick, fmt.Sprintf(client.t("is using modes +%s"), target.modes.String()))
 	}
 	if target.HasMode(modes.TLS) {
 		rb.Add(nil, client.server.name, RPL_WHOISSECURE, cnick, tnick, client.t("is using a secure connection"))
