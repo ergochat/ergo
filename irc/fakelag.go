@@ -90,10 +90,20 @@ func (fl *Fakelag) Touch() {
 		if elapsed > fl.config.Cooldown {
 			// let them burst again
 			fl.state = FakelagBursting
+			fl.burstCount = 1
 			return
 		}
-		// space them out by at least window/messagesperwindow
-		sleepDuration := time.Duration((int64(fl.config.Window) / int64(fl.config.MessagesPerWindow)) - int64(elapsed))
+		var sleepDuration time.Duration
+		if fl.config.MessagesPerWindow > 0 {
+			// space them out by at least window/messagesperwindow
+			sleepDuration = time.Duration((int64(fl.config.Window) / int64(fl.config.MessagesPerWindow)) - int64(elapsed))
+		} else {
+			// only burst messages are allowed: sleep until cooldown expires,
+			// then count this as a burst message
+			sleepDuration = time.Duration(int64(fl.config.Cooldown) - int64(elapsed))
+			fl.state = FakelagBursting
+			fl.burstCount = 1
+		}
 		if sleepDuration > 0 {
 			fl.sleepFunc(sleepDuration)
 			// the touch time should take into account the time we slept
