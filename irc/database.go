@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = 17
+	latestDbSchema = 18
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -854,6 +854,55 @@ func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1274: we used to suspend accounts by deleting their "verified" key,
+// now we save some metadata under a new key
+func schemaChangeV17ToV18(config *Config, tx *buntdb.Tx) error {
+	now := time.Now().UTC()
+
+	exists := "account.exists "
+	suspended := "account.suspended "
+	verif := "account.verified "
+	verifCode := "account.verificationcode "
+
+	var accounts []string
+
+	tx.AscendGreaterOrEqual("", exists, func(key, value string) bool {
+		if !strings.HasPrefix(key, exists) {
+			return false
+		}
+		account := strings.TrimPrefix(key, exists)
+		_, verifiedErr := tx.Get(verif + account)
+		_, verifCodeErr := tx.Get(verifCode + account)
+		if verifiedErr != nil && verifCodeErr != nil {
+			// verified key not present, but there's no code either,
+			// this is a suspension
+			accounts = append(accounts, account)
+		}
+		return true
+	})
+
+	type accountSuspensionV18 struct {
+		TimeCreated time.Time
+		Duration    time.Duration
+		OperName    string
+		Reason      string
+	}
+
+	for _, account := range accounts {
+		var sus accountSuspensionV18
+		sus.TimeCreated = now
+		sus.OperName = "*"
+		sus.Reason = "[unknown]"
+		susBytes, err := json.Marshal(sus)
+		if err != nil {
+			return err
+		}
+		tx.Set(suspended+account, string(susBytes), nil)
+	}
+
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -943,5 +992,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 16,
 		TargetVersion:  17,
 		Changer:        schemaChangeV16ToV17,
+	},
+	{
+		InitialVersion: 17,
+		TargetVersion:  18,
+		Changer:        schemaChangeV17ToV18,
 	},
 }
