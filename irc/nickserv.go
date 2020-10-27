@@ -6,12 +6,14 @@ package irc
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
+	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/passwd"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
@@ -333,19 +335,15 @@ example with $bCERT ADD <account> <fingerprint>$b.`,
 		},
 		"suspend": {
 			handler: nsSuspendHandler,
-			help: `Syntax: $bSUSPEND <nickname>$b
+			help: `Syntax: $bSUSPEND ADD <nickname> [DURATION duration] [reason]$b
+        $bSUSPEND DEL <nickname>$b
+        $bSUSPEND LIST$b
 
-SUSPEND disables an account and disconnects the associated clients.`,
-			helpShort: `$bSUSPEND$b disables an account and disconnects the clients`,
-			minParams: 1,
-			capabs:    []string{"accreg"},
-		},
-		"unsuspend": {
-			handler: nsUnsuspendHandler,
-			help: `Syntax: $bUNSUSPEND <nickname>$b
-
-UNSUSPEND reverses a previous SUSPEND, restoring access to the account.`,
-			helpShort: `$bUNSUSPEND$b restores access to a suspended account`,
+Suspending an account disables it (preventing new logins) and disconnects
+all associated clients. You can specify a time limit or a reason for
+the suspension. The $bDEL$b subcommand reverses a suspension, and the $bLIST$b
+command lists all current suspensions.`,
+			helpShort: `$bSUSPEND$b adds or removes an account suspension`,
 			minParams: 1,
 			capabs:    []string{"accreg"},
 		},
@@ -809,6 +807,9 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 	}
 	for _, channel := range server.accounts.ChannelsForAccount(accountName) {
 		nsNotice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
+	}
+	if account.Suspended != nil {
+		nsNotice(rb, suspensionToString(client, *account.Suspended))
 	}
 }
 
@@ -1276,10 +1277,52 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 }
 
 func nsSuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	err := server.accounts.Suspend(params[0])
+	subCmd := strings.ToLower(params[0])
+	params = params[1:]
+	switch subCmd {
+	case "add":
+		nsSuspendAddHandler(server, client, command, params, rb)
+	case "del", "delete", "remove":
+		nsSuspendRemoveHandler(server, client, command, params, rb)
+	case "list":
+		nsSuspendListHandler(server, client, command, params, rb)
+	default:
+		nsNotice(rb, client.t("Invalid parameters"))
+	}
+}
+
+func nsSuspendAddHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		nsNotice(rb, client.t("Invalid parameters"))
+		return
+	}
+
+	account := params[0]
+	params = params[1:]
+
+	var duration time.Duration
+	if 2 <= len(params) && strings.ToLower(params[0]) == "duration" {
+		var err error
+		cDuration, err := custime.ParseDuration(params[1])
+		if err != nil {
+			nsNotice(rb, client.t("Invalid time duration for NS SUSPEND"))
+			return
+		}
+		duration = time.Duration(cDuration)
+		params = params[2:]
+	}
+
+	var reason string
+	if len(params) != 0 {
+		reason = strings.Join(params, " ")
+	}
+
+	name := client.Oper().Name
+
+	err := server.accounts.Suspend(account, duration, name, reason)
 	switch err {
 	case nil:
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), params[0]))
+		nsNotice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), account))
 	case errAccountDoesNotExist:
 		nsNotice(rb, client.t("No such account"))
 	default:
@@ -1287,14 +1330,50 @@ func nsSuspendHandler(server *Server, client *Client, command string, params []s
 	}
 }
 
-func nsUnsuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSuspendRemoveHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		nsNotice(rb, client.t("Invalid parameters"))
+		return
+	}
+
 	err := server.accounts.Unsuspend(params[0])
 	switch err {
 	case nil:
 		nsNotice(rb, fmt.Sprintf(client.t("Successfully un-suspended account %s"), params[0]))
 	case errAccountDoesNotExist:
 		nsNotice(rb, client.t("No such account"))
+	case errNoop:
+		nsNotice(rb, client.t("Account was not suspended"))
 	default:
 		nsNotice(rb, client.t("An error occurred"))
 	}
+}
+
+// sort in reverse order of creation time
+type ByCreationTime []AccountSuspension
+
+func (a ByCreationTime) Len() int           { return len(a) }
+func (a ByCreationTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByCreationTime) Less(i, j int) bool { return a[i].TimeCreated.After(a[j].TimeCreated) }
+
+func nsSuspendListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	suspensions := server.accounts.ListSuspended()
+	sort.Sort(ByCreationTime(suspensions))
+	nsNotice(rb, fmt.Sprintf(client.t("There are %d active suspensions."), len(suspensions)))
+	for _, suspension := range suspensions {
+		nsNotice(rb, suspensionToString(client, suspension))
+	}
+}
+
+func suspensionToString(client *Client, suspension AccountSuspension) (result string) {
+	duration := client.t("indefinite")
+	if suspension.Duration != time.Duration(0) {
+		duration = suspension.Duration.String()
+	}
+	ts := suspension.TimeCreated.Format(time.RFC1123)
+	reason := client.t("No reason given.")
+	if suspension.Reason != "" {
+		reason = fmt.Sprintf(client.t("Reason: %s"), suspension.Reason)
+	}
+	return fmt.Sprintf(client.t("Account %s suspended at %s. Duration: %s. %s"), suspension.AccountName, ts, duration, reason)
 }

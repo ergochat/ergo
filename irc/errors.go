@@ -28,6 +28,7 @@ var (
 	errAccountAlreadyLoggedIn         = errors.New("You're already logged into an account")
 	errAccountTooManyNicks            = errors.New("Account has too many reserved nicks")
 	errAccountUnverified              = errors.New(`Account is not yet verified`)
+	errAccountSuspended               = errors.New(`Account has been suspended`)
 	errAccountVerificationFailed      = errors.New("Account verification failed")
 	errAccountVerificationInvalidCode = errors.New("Invalid account verification code")
 	errAccountUpdateFailed            = errors.New(`Error while updating your account information`)

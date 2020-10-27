@@ -40,8 +40,9 @@ const (
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 	keyAccountLastSeen         = "account.lastseen %s"
-	keyAccountModes            = "account.modes %s"    // user modes for the always-on client as a string
-	keyAccountRealname         = "account.realname %s" // client realname stored as string
+	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
+	keyAccountRealname         = "account.realname %s"  // client realname stored as string
+	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
 
 	maxCertfpsPerAccount = 5
 )
@@ -117,7 +118,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 
 	for _, accountName := range accounts {
 		account, err := am.LoadAccount(accountName)
-		if err == nil && account.Verified &&
+		if err == nil && (account.Verified && account.Suspended == nil) &&
 			persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, account.Settings.AlwaysOn) {
 			am.server.AddAlwaysOnClient(
 				account,
@@ -1035,6 +1036,9 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 	if !account.Verified {
 		err = errAccountUnverified
 		return
+	} else if account.Suspended != nil {
+		err = errAccountSuspended
+		return
 	}
 
 	switch account.Credentials.Version {
@@ -1230,6 +1234,15 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName str
 			am.server.logger.Warning("internal", "could not unmarshal settings for account", result.Name, e.Error())
 		}
 	}
+	if raw.Suspended != "" {
+		sus := new(AccountSuspension)
+		e := json.Unmarshal([]byte(raw.Suspended), sus)
+		if e != nil {
+			am.server.logger.Error("internal", "corrupt suspension data", result.Name, e.Error())
+		} else {
+			result.Suspended = sus
+		}
+	}
 	return
 }
 
@@ -1243,6 +1256,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
+	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
 
 	_, e := tx.Get(accountKey)
 	if e == buntdb.ErrNotFound {
@@ -1257,6 +1271,7 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	result.AdditionalNicks, _ = tx.Get(nicksKey)
 	result.VHost, _ = tx.Get(vhostKey)
 	result.Settings, _ = tx.Get(settingsKey)
+	result.Suspended, _ = tx.Get(suspendedKey)
 
 	if _, e = tx.Get(verifiedKey); e == nil {
 		result.Verified = true
@@ -1265,20 +1280,44 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	return
 }
 
-func (am *AccountManager) Suspend(accountName string) (err error) {
+type AccountSuspension struct {
+	AccountName string `json:"AccountName,omitempty"`
+	TimeCreated time.Time
+	Duration    time.Duration
+	OperName    string
+	Reason      string
+}
+
+func (am *AccountManager) Suspend(accountName string, duration time.Duration, operName, reason string) (err error) {
 	account, err := CasefoldName(accountName)
 	if err != nil {
 		return errAccountDoesNotExist
 	}
 
+	suspension := AccountSuspension{
+		TimeCreated: time.Now().UTC(),
+		Duration:    duration,
+		OperName:    operName,
+		Reason:      reason,
+	}
+	suspensionStr, err := json.Marshal(suspension)
+	if err != nil {
+		am.server.logger.Error("internal", "suspension json unserializable", err.Error())
+		return errAccountDoesNotExist
+	}
+
 	existsKey := fmt.Sprintf(keyAccountExists, account)
-	verifiedKey := fmt.Sprintf(keyAccountVerified, account)
+	suspensionKey := fmt.Sprintf(keyAccountSuspended, account)
+	var setOptions *buntdb.SetOptions
+	if duration != time.Duration(0) {
+		setOptions = &buntdb.SetOptions{Expires: true, TTL: duration}
+	}
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get(existsKey)
 		if err != nil {
 			return errAccountDoesNotExist
 		}
-		_, err = tx.Delete(verifiedKey)
+		_, _, err = tx.Set(suspensionKey, string(suspensionStr), setOptions)
 		return err
 	})
 
@@ -1293,7 +1332,13 @@ func (am *AccountManager) Suspend(accountName string) (err error) {
 	delete(am.accountToClients, account)
 	am.Unlock()
 
-	am.killClients(clients)
+	// kill clients, sending them the reason
+	suspension.AccountName = accountName
+	for _, client := range clients {
+		client.Logout()
+		client.Quit(suspensionToString(client, suspension), nil)
+		client.destroy(nil)
+	}
 	return nil
 }
 
@@ -1312,20 +1357,53 @@ func (am *AccountManager) Unsuspend(account string) (err error) {
 	}
 
 	existsKey := fmt.Sprintf(keyAccountExists, cfaccount)
-	verifiedKey := fmt.Sprintf(keyAccountVerified, cfaccount)
+	suspensionKey := fmt.Sprintf(keyAccountSuspended, account)
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get(existsKey)
 		if err != nil {
 			return errAccountDoesNotExist
 		}
-		tx.Set(verifiedKey, "1", nil)
+		_, err = tx.Delete(suspensionKey)
+		if err != nil {
+			return errNoop
+		}
 		return nil
 	})
 
-	if err != nil {
-		return errAccountDoesNotExist
+	return err
+}
+
+func (am *AccountManager) ListSuspended() (result []AccountSuspension) {
+	var names []string
+	var raw []string
+
+	prefix := fmt.Sprintf(keyAccountSuspended, "")
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		err := tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, prefix) {
+				return false
+			}
+			raw = append(raw, value)
+			cfname := strings.TrimPrefix(key, prefix)
+			name, _ := tx.Get(fmt.Sprintf(keyAccountName, cfname))
+			names = append(names, name)
+			return true
+		})
+		return err
+	})
+
+	result = make([]AccountSuspension, 0, len(raw))
+	for i := 0; i < len(raw); i++ {
+		var sus AccountSuspension
+		err := json.Unmarshal([]byte(raw[i]), &sus)
+		if err != nil {
+			am.server.logger.Error("internal", "corrupt data for suspension", names[i], err.Error())
+			continue
+		}
+		sus.AccountName = names[i]
+		result = append(result, sus)
 	}
-	return nil
+	return
 }
 
 func (am *AccountManager) Unregister(account string, erase bool) error {
@@ -1351,6 +1429,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 	realnameKey := fmt.Sprintf(keyAccountRealname, casefoldedAccount)
+	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1410,6 +1489,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(lastSeenKey)
 		tx.Delete(modesKey)
 		tx.Delete(realnameKey)
+		tx.Delete(suspendedKey)
 
 		return nil
 	})
@@ -1490,6 +1570,9 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 			return
 		} else if !clientAccount.Verified {
 			err = errAccountUnverified
+			return
+		} else if clientAccount.Suspended != nil {
+			err = errAccountSuspended
 			return
 		}
 		// TODO(#1109) clean this check up?
@@ -1882,6 +1965,7 @@ type ClientAccount struct {
 	RegisteredAt    time.Time
 	Credentials     AccountCredentials
 	Verified        bool
+	Suspended       *AccountSuspension
 	AdditionalNicks []string
 	VHost           VHostInfo
 	Settings        AccountSettings
@@ -1897,4 +1981,5 @@ type rawClientAccount struct {
 	AdditionalNicks string
 	VHost           string
 	Settings        string
+	Suspended       string
 }

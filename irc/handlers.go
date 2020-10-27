@@ -267,7 +267,7 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 	}
 
 	switch err {
-	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch:
+	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch, errAccountSuspended:
 		return err.Error()
 	default:
 		// don't expose arbitrary error messages to the user

@@ -857,7 +857,7 @@ func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
-			return result, true
+			return change, true
 		}
 	}
 	return
