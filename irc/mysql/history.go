@@ -142,7 +142,7 @@ func (mysql *MySQL) fixSchemas() (err error) {
 		return
 	} else if err == nil && schema != latestDbSchema {
 		// TODO figure out what to do about schema changes
-		return &utils.IncompatibleSchemaError{CurrentVersion: schema, RequiredVersion: latestDbSchema}
+		return fmt.Errorf("incompatible schema: got %s, expected %s", schema, latestDbSchema)
 	} else if err != nil {
 		return err
 	}

@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = "17"
+	latestDbSchema = 17
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -32,13 +32,10 @@ const (
 type SchemaChanger func(*Config, *buntdb.Tx) error
 
 type SchemaChange struct {
-	InitialVersion string // the change will take this version
-	TargetVersion  string // and transform it into this version
+	InitialVersion int // the change will take this version
+	TargetVersion  int // and transform it into this version
 	Changer        SchemaChanger
 }
-
-// maps an initial version to a schema change capable of upgrading it
-var schemaChanges map[string]SchemaChange
 
 func checkDBReadyForInit(path string) error {
 	_, err := os.Stat(path)
@@ -72,7 +69,7 @@ func initializeDB(path string) error {
 
 	err = store.Update(func(tx *buntdb.Tx) error {
 		// set schema version
-		tx.Set(keySchemaVersion, latestDbSchema, nil)
+		tx.Set(keySchemaVersion, strconv.Itoa(latestDbSchema), nil)
 		tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 		return nil
 	})
@@ -100,9 +97,12 @@ func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB,
 	}()
 
 	// read the current version string
-	var version string
-	err = db.View(func(tx *buntdb.Tx) error {
-		version, err = tx.Get(keySchemaVersion)
+	var version int
+	err = db.View(func(tx *buntdb.Tx) (err error) {
+		vStr, err := tx.Get(keySchemaVersion)
+		if err == nil {
+			version, err = strconv.Atoi(vStr)
+		}
 		return err
 	})
 	if err != nil {
@@ -130,11 +130,11 @@ func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB,
 	}
 }
 
-func performAutoUpgrade(currentVersion string, config *Config) (err error) {
+func performAutoUpgrade(currentVersion int, config *Config) (err error) {
 	path := config.Datastore.Path
-	log.Printf("attempting to auto-upgrade schema from version %s to %s\n", currentVersion, latestDbSchema)
+	log.Printf("attempting to auto-upgrade schema from version %d to %d\n", currentVersion, latestDbSchema)
 	timestamp := time.Now().UTC().Format("2006-01-02-15:04:05.000Z")
-	backupPath := fmt.Sprintf("%s.v%s.%s.bak", path, currentVersion, timestamp)
+	backupPath := fmt.Sprintf("%s.v%d.%s.bak", path, currentVersion, timestamp)
 	log.Printf("making a backup of current database at %s\n", backupPath)
 	err = utils.CopyFile(path, backupPath)
 	if err != nil {
@@ -164,29 +164,30 @@ func UpgradeDB(config *Config) (err error) {
 	}
 	defer store.Close()
 
-	var version string
+	var version int
 	err = store.Update(func(tx *buntdb.Tx) error {
 		for {
-			version, _ = tx.Get(keySchemaVersion)
-			change, schemaNeedsChange := schemaChanges[version]
-			if !schemaNeedsChange {
-				if version == latestDbSchema {
-					// success!
-					break
-				}
+			vStr, _ := tx.Get(keySchemaVersion)
+			version, _ = strconv.Atoi(vStr)
+			if version == latestDbSchema {
+				// success!
+				break
+			}
+			change, ok := getSchemaChange(version)
+			if !ok {
 				// unable to upgrade to the desired version, roll back
 				return &utils.IncompatibleSchemaError{CurrentVersion: version, RequiredVersion: latestDbSchema}
 			}
-			log.Println("attempting to update schema from version " + version)
+			log.Printf("attempting to update schema from version %d\n", version)
 			err := change.Changer(config, tx)
 			if err != nil {
 				return err
 			}
-			_, _, err = tx.Set(keySchemaVersion, change.TargetVersion, nil)
+			_, _, err = tx.Set(keySchemaVersion, strconv.Itoa(change.TargetVersion), nil)
 			if err != nil {
 				return err
 			}
-			log.Println("successfully updated schema to version " + change.TargetVersion)
+			log.Printf("successfully updated schema to version %d\n", change.TargetVersion)
 		}
 		return nil
 	})
@@ -853,93 +854,94 @@ func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
-func init() {
-	allChanges := []SchemaChange{
-		{
-			InitialVersion: "1",
-			TargetVersion:  "2",
-			Changer:        schemaChangeV1toV2,
-		},
-		{
-			InitialVersion: "2",
-			TargetVersion:  "3",
-			Changer:        schemaChangeV2ToV3,
-		},
-		{
-			InitialVersion: "3",
-			TargetVersion:  "4",
-			Changer:        schemaChangeV3ToV4,
-		},
-		{
-			InitialVersion: "4",
-			TargetVersion:  "5",
-			Changer:        schemaChangeV4ToV5,
-		},
-		{
-			InitialVersion: "5",
-			TargetVersion:  "6",
-			Changer:        schemaChangeV5ToV6,
-		},
-		{
-			InitialVersion: "6",
-			TargetVersion:  "7",
-			Changer:        schemaChangeV6ToV7,
-		},
-		{
-			InitialVersion: "7",
-			TargetVersion:  "8",
-			Changer:        schemaChangeV7ToV8,
-		},
-		{
-			InitialVersion: "8",
-			TargetVersion:  "9",
-			Changer:        schemaChangeV8ToV9,
-		},
-		{
-			InitialVersion: "9",
-			TargetVersion:  "10",
-			Changer:        schemaChangeV9ToV10,
-		},
-		{
-			InitialVersion: "10",
-			TargetVersion:  "11",
-			Changer:        schemaChangeV10ToV11,
-		},
-		{
-			InitialVersion: "11",
-			TargetVersion:  "12",
-			Changer:        schemaChangeV11ToV12,
-		},
-		{
-			InitialVersion: "12",
-			TargetVersion:  "13",
-			Changer:        schemaChangeV12ToV13,
-		},
-		{
-			InitialVersion: "13",
-			TargetVersion:  "14",
-			Changer:        schemaChangeV13ToV14,
-		},
-		{
-			InitialVersion: "14",
-			TargetVersion:  "15",
-			Changer:        schemaChangeV14ToV15,
-		},
-		{
-			InitialVersion: "15",
-			TargetVersion:  "16",
-			Changer:        schemaChangeV15ToV16,
-		},
-		{
-			InitialVersion: "16",
-			TargetVersion:  "17",
-			Changer:        schemaChangeV16ToV17,
-		},
-	}
-
-	// build the index
-	schemaChanges = make(map[string]SchemaChange)
+func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
-		schemaChanges[change.InitialVersion] = change
+		if initialVersion == change.InitialVersion {
+			return result, true
+		}
 	}
+	return
+}
+
+var allChanges = []SchemaChange{
+	{
+		InitialVersion: 1,
+		TargetVersion:  2,
+		Changer:        schemaChangeV1toV2,
+	},
+	{
+		InitialVersion: 2,
+		TargetVersion:  3,
+		Changer:        schemaChangeV2ToV3,
+	},
+	{
+		InitialVersion: 3,
+		TargetVersion:  4,
+		Changer:        schemaChangeV3ToV4,
+	},
+	{
+		InitialVersion: 4,
+		TargetVersion:  5,
+		Changer:        schemaChangeV4ToV5,
+	},
+	{
+		InitialVersion: 5,
+		TargetVersion:  6,
+		Changer:        schemaChangeV5ToV6,
+	},
+	{
+		InitialVersion: 6,
+		TargetVersion:  7,
+		Changer:        schemaChangeV6ToV7,
+	},
+	{
+		InitialVersion: 7,
+		TargetVersion:  8,
+		Changer:        schemaChangeV7ToV8,
+	},
+	{
+		InitialVersion: 8,
+		TargetVersion:  9,
+		Changer:        schemaChangeV8ToV9,
+	},
+	{
+		InitialVersion: 9,
+		TargetVersion:  10,
+		Changer:        schemaChangeV9ToV10,
+	},
+	{
+		InitialVersion: 10,
+		TargetVersion:  11,
+		Changer:        schemaChangeV10ToV11,
+	},
+	{
+		InitialVersion: 11,
+		TargetVersion:  12,
+		Changer:        schemaChangeV11ToV12,
+	},
+	{
+		InitialVersion: 12,
+		TargetVersion:  13,
+		Changer:        schemaChangeV12ToV13,
+	},
+	{
+		InitialVersion: 13,
+		TargetVersion:  14,
+		Changer:        schemaChangeV13ToV14,
+	},
+	{
+		InitialVersion: 14,
+		TargetVersion:  15,
+		Changer:        schemaChangeV14ToV15,
+	},
+	{
+		InitialVersion: 15,
+		TargetVersion:  16,
+		Changer:        schemaChangeV15ToV16,
+	},
+	{
+		InitialVersion: 16,
+		TargetVersion:  17,
+		Changer:        schemaChangeV16ToV17,
+	},
 }
