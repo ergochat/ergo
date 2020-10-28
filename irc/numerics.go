@@ -98,6 +98,7 @@ const (
 	RPL_ENDOFINFO                 = "374"
 	RPL_MOTDSTART                 = "375"
 	RPL_ENDOFMOTD                 = "376"
+	RPL_WHOISMODES                = "379"
 	RPL_YOUREOPER                 = "381"
 	RPL_REHASHING                 = "382"
 	RPL_YOURESERVICE              = "383"
