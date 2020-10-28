@@ -71,12 +71,12 @@ func SafeErrorParam(param string) string {
 }
 
 type IncompatibleSchemaError struct {
-	CurrentVersion  string
-	RequiredVersion string
+	CurrentVersion  int
+	RequiredVersion int
 }
 
 func (err *IncompatibleSchemaError) Error() string {
-	return fmt.Sprintf("Database requires update. Expected schema v%s, got v%s", err.RequiredVersion, err.CurrentVersion)
+	return fmt.Sprintf("Database requires update. Expected schema v%d, got v%d", err.RequiredVersion, err.CurrentVersion)
 }
 
 func NanoToTimestamp(nanotime int64) string {

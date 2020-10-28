@@ -15,6 +15,14 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 )
 
+const (
+	// produce a hardcoded version of the database schema
+	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
+	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
+	// db of the hardcoded version)
+	importDBSchemaVersion = 18
+)
+
 type userImport struct {
 	Name            string
 	Hash            string
@@ -66,11 +74,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		return fmt.Errorf("unsupported version of the db for import: version %d is required", requiredVersion)
 	}
 
-	// produce a hardcoded version of the database schema
-	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
-	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
-	// db of the hardcoded version)
-	tx.Set(keySchemaVersion, "17", nil)
+	tx.Set(keySchemaVersion, strconv.Itoa(importDBSchemaVersion), nil)
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 
 	for username, userInfo := range dbImport.Users {
