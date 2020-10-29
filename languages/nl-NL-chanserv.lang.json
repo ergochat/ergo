@@ -1,1 +1,6 @@
-{}
+{
+  "$bAMODE$b modifies persistent mode settings for channel members.": "$bAMODE$b wijzigt instellingen voor permanente modus voor kanaalleden.",
+  "$bCLEAR$b removes users or settings from a channel.": "$bCLEAR$b verwijdert gebruikers of instellingen van een kanaal.",
+  "$bDEOP$b removes the given user (or yourself) from a channel admin.": "$bDEOP$b verwijdert de opgegeven gebruiker (of jezelf) als een kanaalbeheerder.",
+  "$bGET$b queries the current values of a channel's settings": "$bGET$b vraagt de huidige waarden van de instellingen van een kanaal"
+}
