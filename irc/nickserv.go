@@ -343,7 +343,7 @@ Suspending an account disables it (preventing new logins) and disconnects
 all associated clients. You can specify a time limit or a reason for
 the suspension. The $bDEL$b subcommand reverses a suspension, and the $bLIST$b
 command lists all current suspensions.`,
-			helpShort: `$bSUSPEND$b adds or removes an account suspension`,
+			helpShort: `$bSUSPEND$b manages account suspensions`,
 			minParams: 1,
 			capabs:    []string{"accreg"},
 		},
@@ -1375,5 +1375,5 @@ func suspensionToString(client *Client, suspension AccountSuspension) (result st
 	if suspension.Reason != "" {
 		reason = fmt.Sprintf(client.t("Reason: %s"), suspension.Reason)
 	}
-	return fmt.Sprintf(client.t("Account %s suspended at %s. Duration: %s. %s"), suspension.AccountName, ts, duration, reason)
+	return fmt.Sprintf(client.t("Account %[1]s suspended at %[2]s. Duration: %[3]s. %[4]s"), suspension.AccountName, ts, duration, reason)
 }
