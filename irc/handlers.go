@@ -3049,7 +3049,7 @@ func (fields whoxFields) Has(field rune) bool {
 // <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
 // whox format:
 // <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, hasPrivs, isWhox bool, fields whoxFields, whoType string) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, hasPrivs, includeRFlag, isWhox bool, fields whoxFields, whoType string) {
 	params := []string{client.Nick()}
 
 	details := target.Details()
@@ -3102,6 +3102,10 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 
 		if target.HasMode(modes.Bot) {
 			flags.WriteRune('B')
+		}
+
+		if includeRFlag && details.account != "" {
+			flags.WriteRune('r')
 		}
 
 		params = append(params, flags.String())
@@ -3157,6 +3161,13 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		return false
 	}
 
+	// include the r flag only if nick and account are synonymous
+	config := server.Config()
+	includeRFlag := config.Accounts.NickReservation.Enabled &&
+		config.Accounts.NickReservation.Method == NickEnforcementStrict &&
+		!config.Accounts.NickReservation.AllowCustomEnforcement &&
+		config.Accounts.NickReservation.ForceNickEqualsAccount
+
 	sFields := "cuhsnf"
 	whoType := "0"
 	isWhox := false
@@ -3200,7 +3211,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 				}
 				for _, member := range members {
 					if !member.HasMode(modes.Invisible) || isJoined || isOper {
-						client.rplWhoReply(channel, member, rb, isOper, isWhox, fields, whoType)
+						client.rplWhoReply(channel, member, rb, isOper, includeRFlag, isWhox, fields, whoType)
 					}
 				}
 			}
@@ -3231,7 +3242,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 
 		for mclient := range server.clients.FindAll(mask) {
 			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
-				client.rplWhoReply(nil, mclient, rb, isOper, isWhox, fields, whoType)
+				client.rplWhoReply(nil, mclient, rb, isOper, includeRFlag, isWhox, fields, whoType)
 			}
 		}
 	}
