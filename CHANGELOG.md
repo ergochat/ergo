@@ -1,6 +1,84 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.4.0-rc1] - 2020-11-01
+
+We're pleased to be publishing the release candidate for 2.4.0 (the official release should follow in a week or so).
+
+This release includes a number of exciting enhancements and fixes. Here are some highlights:
+
+* Support for migrating an Anope or Atheme database to Oragono (#1042)
+* A pluggable system for validating external IPs, e.g., via DNSBLs (#68, thanks [@moortens](https://github.com/moortens)!)
+* [draft/relaymsg](https://github.com/ircv3/ircv3-specifications/pull/417), a new draft extension simplifying bridging with other chat systems (thanks [@jlu5](https://github.com/jlu5)!)
+* New moderation tools: `+u` ("auditorium", #1300), `+U` ("op-moderated", #1178), `+M` ("moderated-registered", #1182, thanks [@ajaspers](https://github.com/ajaspers)!), and `+b m:` (an extban for muting users, #307)
+
+This release includes changes to the config file format, including one breaking change: `roleplay.enabled` now defaults to false (the new recommended default) instead of true when unset. Other config changes are backwards compatible and do not require updating the file before upgrading.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+Many thanks to [@ajaspers](https://github.com/ajaspers), [@jesopo](https://github.com/jesopo), [@moortens](https://github.com/moortens), and [@RunBarryRun](https://github.com/RunBarryRun) for contributing patches, to [@csmith](https://github.com/csmith) for contributing code reviews, to [@ajaspers](https://github.com/ajaspers), [@Amiga60077](https://github.com/Amiga60077), [@bogdomania](https://github.com/bogdomania), [@csmith](https://github.com/csmith), [@edk0](https://github.com/edk0), [@eskimo](https://github.com/eskimo), [@jlu5](https://github.com/jlu5), [@jwheare](https://github.com/jwheare), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@Mitaka8](https://github.com/Mitaka8), [@mogad0n](https://github.com/mogad0n), [@RyanSquared](https://github.com/RyanSquared), and [@vertisan](https://github.com/vertisan) for reporting issues and helping test, and to our translators for contributing translations.
+
+### Config changes
+* Added `server.ip-cloaking.enabled-for-always-on`, which generates a unique hostname for each always-on client. The recommended default value of this field is `true` (#1312)
+* Added `server.coerce-ident`; if this is set to a string value, all user/ident fields supplied by clients are ignored and replaced with this value. The recommended default value of this field is `~u`. This simplifies bans. (#1340)
+* Simplified the config file format for email verification into a new `accounts.nick-reservation.email-verification` section. The old format (`callbacks`) is still accepted (#1075)
+* The recommended value of `roleplay.enabled` is now `false`; this field now defaults to false when unset (#1240, #1271)
+* Added `server.relaymsg` section for configuring the new `draft/relaymsg` capability; added the new `relaymsg` operator capability for exercising it (#1119)
+* Added `allow-environment-overrides` config variable, allowing config options to be overridden by environment variables. See the manual for more details. (#1049, thanks [@csmith](https://github.com/csmith)!)
+* Added `server.ip-check-script` for configuring IP check plugins (#68, #1267, thanks [@moortens](https://github.com/moortens)!)
+* Added `max-concurrency` restriction to `accounts.auth-script` section. The recommended default value is `64` (`0` or unset disable the restriction) (#1267)
+* Added `accounts.registration.allow-before-connect`; this allows the use of the new `REGISTER` command before connecting to the server (#1075)
+* Added `hidden` option in operator blocks: if set to `true`, operator status is hidden from commands like `WHOIS` that would otherwise display it (#1194)
+* Added `accounts.nick-reservation.forbid-anonymous-nick-changes`, which forbids anonymous users from changing their nicknames after initially connecting (#1337, thanks [@Amiga60077](https://github.com/Amiga60077)!)
+* Added `channels.invite-expiration`, allowing invites to `+i` channels to expire after a given amount of time (#1171)
+
+### Security
+* Added `/NICKSERV CLIENTS LOGOUT` command for disconnecting clients connected to a user account (#1072, #1272, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Disallowed the use of service nicknames during roleplaying (#1240, thanks [@Mitaka8](https://github.com/Mitaka8)!)
+* Improved security properties of `INVITE` for invite-only channels, including an `UNINVITE` command (#1171)
+
+### Removed
+* Removed the request queue system for HostServ, i.e., the `REQUEST`, `APPROVE`, and `REJECT` subcommands of `HOSTSERV` (#1346)
+
+### Fixed
+* `PONG` is now sent with the server name as the first parameter, matching the behavior of other ircds (#1249, thanks [@jesopo](https://github.com/jesopo)!)
+* It was not possible to set or unset the `+T` no-CTCP user mode; this has been fixed (#1299, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed edge cases with `/NICKSERV SAREGISTER` of confusable nicknames (#1322, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed websocket listeners with proxy-before-TLS enabled closing on invalid PROXY lines (#1269, thanks [@RyanSquared](https://github.com/RyanSquared)!)
+* Fixed error responses and history for SANICK (#1277, #1278, thanks [@eskimo](https://github.com/eskimo)!)
+* Ensured that stored realnames of always-on clients are deleted during account unregistration (#1330)
+* Whitespace is now stripped from KLINEs (#1327, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed incorrect `LUSERS` counts caused by KLINE (#1303, thanks [@mogad0n](https://github.com/mogad0n)!)
+* `CHATHISTORY` queries for invalid channels now get an empty batch instead of a `FAIL` (#1322)
+* `fakelag.messages-per-window = 0` no longer causes a panic (#861, thanks [@vertisan](https://github.com/vertisan)!)
+
+### Added
+* Added `oragono importdb` command for importing a converted Anope or Atheme database; see the manual for details (#1042)
+* Added support for the new [draft/relaymsg](https://github.com/ircv3/ircv3-specifications/pull/417) extension, which simplifies bridging IRC with other protocols relaymsg (#1119, thanks [@jlu5](https://github.com/jlu5)!)
+* Added `ip-check-script`, a scripting API for restricting access by client IP. We provide [oragono-dnsbl](https://github.com/oragono/oragono-dnsbl), an external script that can query DNSBLs for this purpose (#68, #1267, thanks [@moortens](https://github.com/moortens)!)
+* Added channel mode `+u`. This is an "auditorium" mode that prevents unprivileged users from seeing each other's `JOIN` and `PART` lines. It's useful for large public-announcement channels, possibly in conjunction with `+m` (#1300)
+* Added channel mode `+U`. This is an "op-moderated" mode; messages from unprivileged users are sent only to channel operators, who can then choose to grant them `+v`. (#1178)
+* Added a mute extban `+b m:`: users matching the ban expression (e.g., `+b m:*!*@j6dwi4vacx47y.irc`) will be able to join the channel, but will be unable to speak. (#307)
+* Added support for the new [draft/register](https://gist.github.com/edk0/bf3b50fc219fd1bed1aa15d98bfb6495) extension, which exposes a cleaner account registration API to clients (#1075, thanks [@edk0](https://github.com/edk0)!)
+* Added a `379 RPL_WHOISMODES` line to the `WHOIS` response, making it easier for operators to see other users' modes (#769, thanks [@Amiga60077](https://github.com/Amiga60077) and [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
+* Added `/CHANSERV DEOP` command for removing channel operator privileges (#361, thanks [@RunBarryRun](https://github.com/RunBarryRun)!)
+* Added `r` flag to `/WHO` responses for registered nicknames (#1366, thanks [@Amiga60077](https://github.com/Amiga60077)!)
+
+### Changed
+* Always-on clients now receive a user/ident of `~u` by default, instead of `~user`; this can be changed by setting the `coerce-ident` field (#1340)
+* `/NICKSERV SUSPEND` has been modified to take subcommands (`ADD`, `DEL`, and `LIST`); the `ADD` subcommand now accepts time duration and reason arguments. See `/msg NickServ HELP SUSPEND` for details. (#1274, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Only the channel founder can kick the channel founder, regardless of either party's modes (#1262)
+* `/NICKSERV SESSIONS` is now `/NICKSERV CLIENTS LIST`, but the old command is still accepted (#1272, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Improved `SETNAME` behavior for legacy clients (#1358, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf)!)
+* Halfops can set the channel topic (#1306)
+* Full client certificates are now passed to auth scripts. This allows for more flexible checks on certificates, including verification against an internal CA (#414)
+
+### Internal
+* Added a logline for debugging client disconnections (#1293)
+* Renamed `conventional.yaml` to `traditional.yaml` (#1350)
+* Integration tests are now run during CI (#1279)
+
+
 ## [2.3.0] - 2020-09-06
 
 We're pleased to announce Oragono 2.3.0, a new stable release.
