@@ -27,8 +27,8 @@ Develop branches are either used to work out implementation details in preperati
 
 ## Releasing a new version
 
+1. Ensure the tests pass, locally on travis (`make test`, `make smoke`, and `make irctest`)
 1. Test backwards compatibility guarantees. Get an example config file and an example database from the previous stable release. Make sure the current build still works with them (modulo anything explicitly called out in the changelog as a breaking change).
-1. Run `irctest` over it to make sure nothing's severely broken. Talk to the maintainers to find out which version of irctest to run.
 1. Run the `ircstress` chanflood benchmark to look for data races (enable race detection) and performance regressions (disable it).
 1. Update the changelog with new changes and write release notes.
 1. Update the version number `irc/version.go` (either change `-unreleased` to `-rc1`, or remove `-rc1`, as appropriate).

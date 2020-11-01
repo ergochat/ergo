@@ -40,7 +40,7 @@ If you want to take a look at a running Oragono instance or test some client cod
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
 * banning ips/nets and masks with `KLINE` and `DLINE`
 * [IRCv3 support](https://ircv3.net/software/servers.html)
-* a heavy focus on developing with [specifications](https://oragono.io/specs.html)
+* a focus on developing with [specifications](https://oragono.io/specs.html)
 
 ## Quick start guide
 

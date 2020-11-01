@@ -23,6 +23,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Windows](#windows)
     - [macOS / Linux / Raspberry Pi](#macos--linux--raspberry-pi)
     - [Docker](#docker)
+    - [Environment variables](#environment-variables)
     - [Becoming an operator](#becoming-an-operator)
     - [Productionizing](#productionizing)
     - [Upgrading to a new version of Oragono](#upgrading-to-a-new-version-of-oragono)
@@ -51,10 +52,12 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - [Commands](#commands)
 - [Working with other software](#working-with-other-software)
     - [Kiwi IRC](#kiwi-irc)
+    - [Migrating from Anope or Atheme](#migrating-from-anope-or-atheme)
     - [HOPM](#hopm)
     - [Tor](#tor)
     - [ZNC](#znc)
     - [External authentication systems](#external-authentication-systems)
+    - [DNSBLs and other IP checking systems](#dnsbls-and-other-ip-checking-systems)
 - [Acknowledgements](#acknowledgements)
 
 --------------------------------------------------------------------------------------------
@@ -134,6 +137,16 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
 
 For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
+
+
+# Environment variables
+
+Oragono can also be configured using environment variables, using the following technique:
+
+1. Find the "path" of the config variable you want to override in the YAML file, e.g., `server.websockets.allowed-origins`
+1. Convert each path component from "kebab case" to "screaming snake case", e.g., `SERVER`, `WEBSOCKETS`, and `ALLOWED_ORIGINS`.
+1. Prepend `ORAGONO` to the components, then join them all together using `__` as the separator, e.g., `ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS`.
+1. Set the environment variable of this name to a JSON (or YAML) value that will be deserialized into this config field, e.g., `export ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS='["https://irc.example.com", "https://chat.example.com"]'`
 
 
 ## Becoming an operator
@@ -716,6 +729,17 @@ If this mode is unset, anyone will be able to change the channel topic.
 
 This mode means that [client-to-client protocol](https://tools.ietf.org/id/draft-oakley-irc-ctcp-02.html) messages other than `ACTION` (`/me`) cannot be sent to the channel.
 
+### +u - Auditorium
+
+This mode means that `JOIN`, `PART`, and `QUIT` lines for unprivileged users (i.e., users without a channel prefix like `+v` or `+o`) re not sent to other unprivileged users. In conjunction with `+m`, this is suitable for "public announcements" channels.
+
+### +U - Op-Moderated
+
+This mode means that messages from unprivileged users are only sent to channel operators (who can then decide whether to grant the user `+v`).
+
+### +M - Registered-only speakers
+
+This mode means that unregistered users can join the channel, but only registered users can send messages to it.
 
 ## Channel Prefixes
 
@@ -777,7 +801,7 @@ We may add some additional notes here for specific commands down the line, but r
 
 Oragono should interoperate with most IRC-based software, including bots. If you have problems getting your preferred software to work with Oragono, feel free to report it to us. If the root cause is a bug in Oragono, we'll fix it.
 
-One exception is services frameworks like [Anope](https://github.com/anope/anope) or [Atheme](https://github.com/atheme/atheme); we have our own services implementations built directly into the server, and since we don't support federation, there's no place to plug in an alternative implementation.
+One exception is services frameworks like [Anope](https://github.com/anope/anope) or [Atheme](https://github.com/atheme/atheme); we have our own services implementations built directly into the server, and since we don't support federation, there's no place to plug in an alternative implementation. (If you are already using Anope or Atheme, we support migrating your database --- see below.)
 
 If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
 
@@ -814,6 +838,18 @@ then add the following `startupOptions` to Kiwi's `static/config.json` file (see
         "nick": "kiwi-n?"
     },
 ```
+
+## Migrating from Anope or Atheme
+
+You can import user and channel registrations from an Anope or Atheme database into a new Oragono database (not all features are supported). Use the following steps:
+
+1. Obtain the relevant migration tool from the latest stable release: [anope2json.py](https://github.com/oragono/oragono/blob/master/distrib/anope/anope2json.py) or [atheme2json.py](https://github.com/oragono/oragono/blob/master/distrib/anope/anope2json.py) respectively.
+1. Make a copy of your Anope or Atheme database file. (You may have to stop and start the services daemon to get it to commit all its changes.)
+1. Convert the database to JSON, e.g., with `python3 ./anope2json.py anope.db output.json`
+1. Copy your desired Oragono config to `./ircd.yaml` (make any desired edits)
+1. Run `oragono importdb ./output.json`
+1. Run `oragono mkcerts` if necessary to generate self-signed TLS certificates
+1. Run `oragono run` to bring up your new Oragono instance
 
 ## Hybrid Open Proxy Monitor (HOPM)
 
@@ -919,6 +955,7 @@ Oragono can be configured to call arbitrary scripts to authenticate users; see t
 * `accountName`: during passphrase-based authentication, this is a string, otherwise omitted
 * `passphrase`: during passphrase-based authentication, this is a string, otherwise omitted
 * `certfp`: during certfp-based authentication, this is a string, otherwise omitted
+* `peerCerts`: during certfp-based authentication, this is a list of the PEM-encoded peer certificates (starting from the leaf), otherwise omitted
 * `ip`: a string representation of the client's IP address
 
 The script must print a single line (`\n`-terminated) to its output and exit. This line must be a JSON dictionary with the following keys:
@@ -944,6 +981,19 @@ print(json.dumps({"success": success})
 
 Note that after a failed script invocation, Oragono will proceed to check the credentials against its local database.
 
+## DNSBLs and other IP checking systems
+
+Similarly, Oragono can be configured to call arbitrary scripts to validate user IPs. These scripts can either reject the connection, or require that the user log in with SASL. In particular, we provide an [oragono-dnsbl](https://github.com/oragono/oragono-dnsbl) plugin for querying DNSBLs.
+
+The API is similar to the auth-script API described above (one line of JSON in, one line of JSON out). The input is a JSON dictionary with the following keys:
+
+* `ip`: the IP in a standard human-readable notation, e.g., `1.1.1.1` or `2001::0db8`
+
+The output is a JSON dictionary with the following keys:
+
+* `result`: an integer indicating the result of the check (1 for "accepted", 2 for "banned", 3 for "SASL required")
+* `banMessage`: a message to send to the user indicating why they are banned
+* `error`, containing a human-readable description of the authentication error to be logged if applicable
 
 --------------------------------------------------------------------------------------------
 
