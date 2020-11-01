@@ -1256,7 +1256,7 @@ func (channel *Channel) isMuted(client *Client) bool {
 	if muteRe == nil {
 		return false
 	}
-	nuh := client.NickMaskString()
+	nuh := client.NickMaskCasefolded()
 	return muteRe.MatchString(nuh) && !channel.lists[modes.ExceptMask].MatchMute(nuh)
 }
 
