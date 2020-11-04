@@ -556,9 +556,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		} else if err == utils.ErrInvalidParams {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMS", msg.Params[0], client.t("Invalid parameters"))
 		} else if sequence == nil {
-			// send an empty batch as per the spec
-			batchID := rb.StartNestedHistoryBatch(utils.SafeErrorParam(target))
-			rb.EndNestedBatch(batchID)
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_TARGET", utils.SafeErrorParam(target), client.t("Messages could not be retrieved"))
 		} else if err != nil {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
 		} else {
