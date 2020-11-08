@@ -17,7 +17,7 @@ require (
 	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.1.4
-	github.com/toorop/go-dkim v0.0.0-20200526084421-76378ae5207e
+	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f // indirect
 	golang.org/x/text v0.3.3
