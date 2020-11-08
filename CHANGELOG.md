@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.4.0-rc1] - 2020-11-01
+## [2.4.0] - 2020-11-08
 
-We're pleased to be publishing the release candidate for 2.4.0 (the official release should follow in a week or so).
+We're pleased to announce Oragono 2.4.0, a new stable release.
 
 This release includes a number of exciting enhancements and fixes. Here are some highlights:
 
