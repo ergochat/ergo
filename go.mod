@@ -20,6 +20,6 @@ require (
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf // indirect
-	golang.org/x/text v0.3.3
+	golang.org/x/text v0.3.4
 	gopkg.in/yaml.v2 v2.3.0
 )
