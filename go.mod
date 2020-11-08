@@ -13,7 +13,7 @@ require (
 	github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
-	github.com/oragono/confusables v0.0.0-20190624102032-fe1cf31a24b0
+	github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.1.4

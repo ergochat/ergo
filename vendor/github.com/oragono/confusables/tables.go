@@ -5,13 +5,13 @@ package confusables
 // Following is the original header of the source confusables.txt file
 //
 // confusables.txt
-// Date: 2018-05-25, 00:12:52 GMT
-// © 2018 Unicode®, Inc.
+// Date: 2020-02-13, 01:38:49 GMT
+// © 2020 Unicode®, Inc.
 // Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 // For terms of use, see http://www.unicode.org/terms_of_use.html
 //
 // Unicode Security Mechanisms for UTS #39
-// Version: 11.0.0
+// Version: 13.0.0
 //
 // For documentation and usage, see http://www.unicode.org/reports/tr39
 //
@@ -858,6 +858,8 @@ var confusablesMap = map[rune]string{
 	0x000101A0: "\u2ce8",
 	0x00002669: "\U0001d158\U0001d165",
 	0x0000266A: "\U0001d158\U0001d165\U0001d16e",
+	0x000024EA: "\U0001f10d",
+	0x000021BA: "\U0001f10e",
 	0x000002D9: "\u0971",
 	0x00000D4E: "\u0971",
 	0x0000FF0D: "\u30fc",
@@ -880,6 +882,7 @@ var confusablesMap = map[rune]string{
 	0x00001174: "\u30fc\u4e28",
 	0x00003162: "\u30fc\u4e28",
 	0x00001197: "\u30fc\u4e28\u116e",
+	0x0001F10F: "$\u20e0",
 	0x000020A4: "\u00a3",
 	0x00003012: "\u20b8",
 	0x00003036: "\u20b8",
@@ -896,6 +899,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E4: "2",
 	0x0001D7EE: "2",
 	0x0001D7F8: "2",
+	0x0001FBF2: "2",
 	0x0000A75A: "2",
 	0x000001A7: "2",
 	0x000003E8: "2",
@@ -938,6 +942,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E5: "3",
 	0x0001D7EF: "3",
 	0x0001D7F9: "3",
+	0x0001FBF3: "3",
 	0x0000A7AB: "3",
 	0x0000021C: "3",
 	0x000001B7: "3",
@@ -964,6 +969,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E6: "4",
 	0x0001D7F0: "4",
 	0x0001D7FA: "4",
+	0x0001FBF4: "4",
 	0x000013CE: "4",
 	0x000118AF: "4",
 	0x000006F4: "\u0664",
@@ -980,6 +986,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E7: "5",
 	0x0001D7F1: "5",
 	0x0001D7FB: "5",
+	0x0001FBF5: "5",
 	0x000001BC: "5",
 	0x000118BB: "5",
 	0x00002464: "\u2784",
@@ -993,6 +1000,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E8: "6",
 	0x0001D7F2: "6",
 	0x0001D7FC: "6",
+	0x0001FBF6: "6",
 	0x00002CD2: "6",
 	0x00000431: "6",
 	0x000013EE: "6",
@@ -1011,6 +1019,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E9: "7",
 	0x0001D7F3: "7",
 	0x0001D7FD: "7",
+	0x0001FBF7: "7",
 	0x000104D2: "7",
 	0x000118C6: "7",
 	0x00002466: "\u2786",
@@ -1028,6 +1037,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7EA: "8",
 	0x0001D7F4: "8",
 	0x0001D7FE: "8",
+	0x0001FBF8: "8",
 	0x00000223: "8",
 	0x00000222: "8",
 	0x0001031A: "8",
@@ -1047,6 +1057,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7EB: "9",
 	0x0001D7F5: "9",
 	0x0001D7FF: "9",
+	0x0001FBF9: "9",
 	0x0000A76E: "9",
 	0x00002CCA: "9",
 	0x000118CC: "9",
@@ -1257,6 +1268,7 @@ var confusablesMap = map[rune]string{
 	0x000000A2: "c\u0338",
 	0x0000023C: "c\u0338",
 	0x000020A1: "C\u20eb",
+	0x0001F16E: "C\u20e0",
 	0x000000E7: "c\u0326",
 	0x000004AB: "c\u0326",
 	0x000000C7: "C\u0326",
@@ -1264,6 +1276,7 @@ var confusablesMap = map[rune]string{
 	0x00000187: "C'",
 	0x00002105: "c/o",
 	0x00002106: "c/u",
+	0x0001F16D: "\u33c4\t\u20dd",
 	0x000022F4: "\ua793",
 	0x0000025B: "\ua793",
 	0x000003B5: "\ua793",
@@ -1758,6 +1771,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E3: "l",
 	0x0001D7ED: "l",
 	0x0001D7F7: "l",
+	0x0001FBF1: "l",
 	0x00000049: "l",
 	0x0000FF29: "l",
 	0x00002160: "l",
@@ -2099,6 +2113,7 @@ var confusablesMap = map[rune]string{
 	0x0001D7E2: "O",
 	0x0001D7EC: "O",
 	0x0001D7F6: "O",
+	0x0001FBF0: "O",
 	0x0000FF2F: "O",
 	0x0001D40E: "O",
 	0x0001D442: "O",
@@ -5463,7 +5478,6 @@ var confusablesMap = map[rune]string{
 	0x00008127: "\u6718",
 	0x0000FA93: "\u671b",
 	0x0002F8D9: "\u671b",
-	0x0002F8DA: "\u6721",
 	0x00005E50: "\u3b3a",
 	0x00004420: "\u3b3b",
 	0x0002F989: "\U00023393",
@@ -5888,6 +5902,7 @@ var confusablesMap = map[rune]string{
 	0x0002F983: "\u8103",
 	0x0002F985: "\u813e",
 	0x0002F984: "\u440b",
+	0x0002F8DA: "\u6721",
 	0x0002F987: "\U000267a7",
 	0x0002F988: "\U000267b5",
 	0x00006726: "\u4443",
