@@ -100,6 +100,7 @@ func NewSigOptions() SigOptions {
 // Sign signs an email
 func Sign(email *[]byte, options SigOptions) error {
 	var privateKey *rsa.PrivateKey
+	var err error
 
 	// PrivateKey
 	if len(options.PrivateKey) == 0 {
@@ -109,11 +110,17 @@ func Sign(email *[]byte, options SigOptions) error {
 	if d == nil {
 		return ErrCandNotParsePrivateKey
 	}
-	key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
-	if err != nil {
-		return ErrCandNotParsePrivateKey
+
+	// try to parse it as PKCS1 otherwise try PKCS8
+	if key, err := x509.ParsePKCS1PrivateKey(d.Bytes); err != nil {
+		if key, err := x509.ParsePKCS8PrivateKey(d.Bytes); err != nil {
+			return ErrCandNotParsePrivateKey
+		} else {
+			privateKey = key.(*rsa.PrivateKey)
+		}
+	} else {
+		privateKey = key
 	}
-	privateKey = key
 
 	// Domain required
 	if options.Domain == "" {
