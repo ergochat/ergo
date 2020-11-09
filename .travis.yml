@@ -5,6 +5,11 @@ dist: focal
 go:
     - "1.15.x"
 
+branches:
+  only:
+  - master
+  - stable
+
 before_install:
   # https://github.com/travis-ci/travis-ci/issues/8361
   - sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
