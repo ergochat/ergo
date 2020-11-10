@@ -1443,6 +1443,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 				if matcher.MatchString(clientMask) {
 					clientsToKill = append(clientsToKill, mcl)
 					killedClientNicks = append(killedClientNicks, mcl.nick)
+					break
 				}
 			}
 		}
