@@ -300,6 +300,13 @@ func (client *Client) Login(account ClientAccount) {
 	return
 }
 
+func (client *Client) setAccountName(name string) {
+	// XXX this assumes validation elsewhere
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.accountName = name
+}
+
 func (client *Client) historyCutoff() (cutoff time.Time) {
 	client.stateMutex.Lock()
 	if client.account != "" {
