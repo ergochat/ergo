@@ -347,6 +347,17 @@ command lists all current suspensions.`,
 			minParams: 1,
 			capabs:    []string{"accreg"},
 		},
+		"rename": {
+			handler: nsRenameHandler,
+			help: `Syntax: $bRENAME <account> <newname>$b
+
+RENAME allows a server administrator to change the name of an account.
+Currently, you can only change the canonical casefolding of an account
+(e.g., you can change "Alice" to "alice", but not "Alice" to "Amanda").`,
+			helpShort: `$bRENAME$b renames an account`,
+			minParams: 2,
+			capabs:    []string{"accreg"},
+		},
 	}
 )
 
@@ -1376,4 +1387,24 @@ func suspensionToString(client *Client, suspension AccountSuspension) (result st
 		reason = fmt.Sprintf(client.t("Reason: %s"), suspension.Reason)
 	}
 	return fmt.Sprintf(client.t("Account %[1]s suspended at %[2]s. Duration: %[3]s. %[4]s"), suspension.AccountName, ts, duration, reason)
+}
+
+func nsRenameHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	oldName, newName := params[0], params[1]
+	err := server.accounts.Rename(oldName, newName)
+
+	if err != nil {
+		nsNotice(rb, fmt.Sprintf(client.t("Couldn't rename account: %s"), client.t(err.Error())))
+		return
+	}
+
+	nsNotice(rb, client.t("Successfully renamed account"))
+	if server.Config().Accounts.NickReservation.ForceNickEqualsAccount {
+		if curClient := server.clients.Get(oldName); curClient != nil {
+			renameErr := performNickChange(client.server, client, curClient, nil, newName, rb)
+			if renameErr != nil && renameErr != errNoop {
+				nsNotice(rb, fmt.Sprintf(client.t("Warning: could not rename affected client: %v"), err))
+			}
+		}
+	}
 }

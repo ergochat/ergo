@@ -1406,6 +1406,36 @@ func (am *AccountManager) ListSuspended() (result []AccountSuspension) {
 	return
 }
 
+// renames an account (within very restrictive limits); see #1380
+func (am *AccountManager) Rename(oldName, newName string) (err error) {
+	accountData, err := am.LoadAccount(oldName)
+	if err != nil {
+		return
+	}
+	newCfName, err := CasefoldName(newName)
+	if err != nil {
+		return errNicknameInvalid
+	}
+	if newCfName != accountData.NameCasefolded {
+		return errInvalidAccountRename
+	}
+	key := fmt.Sprintf(keyAccountName, accountData.NameCasefolded)
+	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, newName, nil)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	am.RLock()
+	defer am.RUnlock()
+	for _, client := range am.accountToClients[accountData.NameCasefolded] {
+		client.setAccountName(newName)
+	}
+	return nil
+}
+
 func (am *AccountManager) Unregister(account string, erase bool) error {
 	config := am.server.Config()
 	casefoldedAccount, err := CasefoldName(account)
