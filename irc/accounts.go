@@ -1350,14 +1350,14 @@ func (am *AccountManager) killClients(clients []*Client) {
 	}
 }
 
-func (am *AccountManager) Unsuspend(account string) (err error) {
-	cfaccount, err := CasefoldName(account)
+func (am *AccountManager) Unsuspend(accountName string) (err error) {
+	cfaccount, err := CasefoldName(accountName)
 	if err != nil {
 		return errAccountDoesNotExist
 	}
 
 	existsKey := fmt.Sprintf(keyAccountExists, cfaccount)
-	suspensionKey := fmt.Sprintf(keyAccountSuspended, account)
+	suspensionKey := fmt.Sprintf(keyAccountSuspended, cfaccount)
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get(existsKey)
 		if err != nil {
