@@ -820,6 +820,11 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		// don't send topic and names for a SAJOIN of a different client
 		channel.SendTopic(client, rb, false)
 		channel.Names(client, rb)
+	} else {
+		// ensure that SAJOIN sends a MODE line to the originating client, if applicable
+		if givenMode != 0 {
+			rb.Add(nil, client.server.name, "MODE", chname, modestr, details.nick)
+		}
 	}
 
 	// TODO #259 can be implemented as Flush(false) (i.e., nonblocking) while holding joinPartMutex
