@@ -972,11 +972,11 @@ Here is a toy example of an authentication script in Python that checks that the
 import sys, json
 
 raw_input = sys.stdin.readline()
-input = json.loads(b)
+input = json.loads(raw_input)
 account_name = input.get("accountName")
 passphrase = input.get("passphrase")
 success = bool(account_name) and bool(passphrase) and account_name == passphrase
-print(json.dumps({"success": success})
+print(json.dumps({"success": success}))
 ```
 
 Note that after a failed script invocation, Oragono will proceed to check the credentials against its local database.
