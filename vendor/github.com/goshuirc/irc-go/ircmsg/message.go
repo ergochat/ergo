@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -40,6 +41,8 @@ var (
 	// (the name references 417 ERR_INPUTTOOLONG; we reserve the right to return it
 	// for messages that exceed the non-tag length limit)
 	ErrorLineTooLong = errors.New("Line could not be parsed because a specified length limit was exceeded")
+	// ErrorInvalidTagContent indicates that a tag value was invalid
+	ErrorInvalidTagContent = errors.New("Line could not be parsed because it contained an invalid tag value")
 
 	ErrorCommandMissing = errors.New("IRC messages MUST have a command")
 	ErrorBadParam       = errors.New("Cannot have an empty param, a param with spaces, or a param that starts with ':' before the last parameter")
@@ -279,7 +282,15 @@ func (ircmsg *IrcMessage) parseTags(tags string) (err error) {
 		} else {
 			tagName, tagValue = tagPair[:equalsIndex], tagPair[equalsIndex+1:]
 		}
-		ircmsg.SetTag(tagName, UnescapeTagValue(tagValue))
+		// "Implementations [...] MUST NOT perform any validation that would
+		//  reject the message if an invalid tag key name is used."
+		if validateTagName(tagName) {
+			// "Tag values MUST be encoded as UTF8."
+			if !utf8.ValidString(tagValue) {
+				return ErrorInvalidTagContent
+			}
+			ircmsg.SetTag(tagName, UnescapeTagValue(tagValue))
+		}
 		// skip over the tag just processed, plus the delimiting ; if any
 		tags = tags[nextPos:]
 	}

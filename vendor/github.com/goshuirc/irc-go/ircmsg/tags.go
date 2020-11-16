@@ -73,3 +73,23 @@ func UnescapeTagValue(inString string) string {
 
 	return buf.String()
 }
+
+func validateTagName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	if name[0] == '+' {
+		name = name[1:]
+	}
+	if len(name) == 0 {
+		return false
+	}
+	// let's err on the side of leniency here; allow -./ (45-47) in any position
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if !(('-' <= c && c <= '/') || ('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')) {
+			return false
+		}
+	}
+	return true
+}
