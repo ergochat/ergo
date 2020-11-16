@@ -21,7 +21,7 @@ github.com/go-sql-driver/mysql
 # github.com/gorilla/websocket v1.4.2
 ## explicit
 github.com/gorilla/websocket
-# github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
+# github.com/goshuirc/irc-go v0.0.0-20201116034710-7e7b0985c4b5
 ## explicit
 github.com/goshuirc/irc-go/ircfmt
 github.com/goshuirc/irc-go/ircmsg

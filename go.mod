@@ -10,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/goshuirc/irc-go v0.0.0-20200311142257-57fd157327ac
+	github.com/goshuirc/irc-go v0.0.0-20201116034710-7e7b0985c4b5
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1
