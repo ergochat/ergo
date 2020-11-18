@@ -3,7 +3,6 @@
 
 package ircmsg
 
-import "bytes"
 import "strings"
 
 var (
@@ -39,7 +38,7 @@ func EscapeTagValue(inString string) string {
 // so you don't need to call it yourself after parsing a line.
 func UnescapeTagValue(inString string) string {
 	// buf.Len() == 0 is the fastpath where we have not needed to unescape any chars
-	var buf bytes.Buffer
+	var buf strings.Builder
 	remainder := inString
 	for {
 		backslashPos := strings.IndexByte(remainder, '\\')
