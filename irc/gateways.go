@@ -121,7 +121,7 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 		}
 	}()
 
-	ip, err := utils.ParseProxyLine(line)
+	ip, err := utils.ParseProxyLineV1(line)
 	if err != nil {
 		return err
 	}
