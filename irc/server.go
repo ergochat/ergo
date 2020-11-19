@@ -747,7 +747,7 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 func (server *Server) setupListeners(config *Config) (err error) {
 	logListener := func(addr string, config utils.ListenerConfig) {
 		server.logger.Info("listeners",
-			fmt.Sprintf("now listening on %s, tls=%t, tlsproxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.RequireProxy, config.Tor, config.WebSocket),
+			fmt.Sprintf("now listening on %s, tls=%t, proxy=%t, tor=%t, websocket=%t.", addr, (config.TLSConfig != nil), config.RequireProxy, config.Tor, config.WebSocket),
 		)
 	}
 
