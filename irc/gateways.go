@@ -121,9 +121,11 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 		}
 	}()
 
-	ip, err := utils.ParseProxyLine(line)
+	ip, err := utils.ParseProxyLineV1(line)
 	if err != nil {
 		return err
+	} else if ip == nil {
+		return nil
 	}
 
 	if utils.IPInNets(client.realIP, server.Config().Server.proxyAllowedFromNets) {

@@ -49,12 +49,13 @@ import (
 type TLSListenConfig struct {
 	Cert  string
 	Key   string
-	Proxy bool
+	Proxy bool // XXX: legacy key: it's preferred to specify this directly in listenerConfigBlock
 }
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
 type listenerConfigBlock struct {
 	TLS       TLSListenConfig
+	Proxy     bool
 	Tor       bool
 	STSOnly   bool `yaml:"sts-only"`
 	WebSocket bool
@@ -829,8 +830,8 @@ func (conf *Config) prepareListeners() (err error) {
 				return err
 			}
 			lconf.TLSConfig = tlsConfig
-			lconf.RequireProxy = block.TLS.Proxy
 		}
+		lconf.RequireProxy = block.TLS.Proxy || block.Proxy
 		lconf.WebSocket = block.WebSocket
 		conf.Server.trueListeners[addr] = lconf
 	}
