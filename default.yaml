@@ -53,9 +53,8 @@ server:
                 cert: fullchain.pem
                 key: privkey.pem
             # 'proxy' should typically be false. It's for cloud load balancers that
-            # always send PROXY headers ahead of the connection (e.g., a v1 header
-            # ahead of unterminated TLS, or a v2 binary header) that MUST be present
-            # and cannot be processed on an optional basis.
+            # always send a PROXY protocol header ahead of the connection. See the
+            # manual ("Reverse proxies") for more details.
             proxy: false
 
         # Example of a Unix domain socket for proxying:

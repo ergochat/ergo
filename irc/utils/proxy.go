@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// TODO: handle PROXY protocol v2 (the binary protocol)
-
 const (
 	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 	// "a 108-byte buffer is always enough to store all the line and a trailing zero

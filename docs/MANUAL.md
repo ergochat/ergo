@@ -497,10 +497,23 @@ Many clients do not have this support. However, you can designate port 6667 as a
 
 ## Reverse proxies
 
-You may want to configure a reverse proxy, such as nginx, for TLS termination --- for example, because you need to support versions of the TLS protocol that are not implemented natively by Go, or because you want to consolidate your certificate management into a single nginx instance. Oragono supports the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for preserving the end user's IP in this case. To configure a reverse proxy, use the following steps:
+Oragono supports the use of reverse proxies (such as nginx, or a Kubernetes [LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)) that sit between it and the client. In these deployments, the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) is used to pass the end user's IP through to Oragono. These proxies can be used to terminate TLS externally to Oragono, e.g., if you need to support versions of the TLS protocol that are not implemented natively by Go, or if you want to consolidate your certificate management into a single nginx instance.
 
-1. Add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
-1. Configure your reverse proxy to connect to an appropriate Oragono listener and send the PROXY line. In this [example nginx config](https://github.com/darwin-network/slash/commit/aae9ba08d70128eb4b700cade333fe824a53562d), nginx connects to Oragono via a Unix domain socket.
+The first step is to add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
+
+After that, there are two possibilities:
+
+* If you're using a proxy like nginx or stunnel that terminates TLS, then forwards a PROXY v1 (ASCII) header ahead of a plaintext connection, no further Oragono configuration is required. You need only configure your proxy to send the PROXY header. Here's an [example nginx config](https://github.com/oragono/testnet.oragono.io/blob/master/nginx_stream.conf).
+* If you're using a cloud load balancer that either sends a PROXY v1 header ahead of unterminated TLS (like [DigitalOcean](https://www.digitalocean.com/docs/networking/load-balancers/#proxy-protocol)) or sends a PROXY v2 (binary) header (like the [AWS "Network Load Balancer"](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol)), Oragono must be configured to expect a PROXY header ahead of the connection. Add `proxy: true` to the listener config block, e.g.,
+
+```yaml
+        ":6697":
+            tls:
+                cert: fullchain.pem
+                key: privkey.pem
+            proxy: true
+```
+
 
 ## Client certificates
 
