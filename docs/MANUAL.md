@@ -5,7 +5,7 @@
     ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
      ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-           Oragono IRCd Manual v2.1.0
+              Oragono IRCd Manual
               https://oragono.io/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
@@ -23,8 +23,9 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Windows](#windows)
     - [macOS / Linux / Raspberry Pi](#macos--linux--raspberry-pi)
     - [Docker](#docker)
-    - [Environment variables](#environment-variables)
     - [Becoming an operator](#becoming-an-operator)
+    - [Rehashing](#rehashing)
+    - [Environment variables](#environment-variables)
     - [Productionizing](#productionizing)
     - [Upgrading to a new version of Oragono](#upgrading-to-a-new-version-of-oragono)
 - [Features](#features)
@@ -139,7 +140,22 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
 
 
-# Environment variables
+## Becoming an operator
+
+Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Oragono instance is first to pick a strong, secure password, then "hash" it using the `oragono genpasswd` command (run `oragono genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
+
+
+## Rehashing
+
+The primary way of configuring Oragono is by modifying the configuration file. Most changes to the configuration file can be applied at runtime by "rehashing", i.e., reloading the configuration file without restarting the server process. This has the advantage of not disconnecting users. There are two ways to rehash Oragono:
+
+1. If you are an operator with the `rehash` capability, you can issue the `/REHASH` command (you may have to `/quote rehash`, depending on your client)
+1. You can send the `SIGHUP` signal to Oragono, e.g., via `killall -HUP oragono`
+
+Rehashing also reloads TLS certificates and the MOTD. Some configuration settings cannot be altered by rehash. You can monitor either the response to the `/REHASH` command, or the server logs, to see if your rehash was successful.
+
+
+## Environment variables
 
 Oragono can also be configured using environment variables, using the following technique:
 
@@ -148,10 +164,7 @@ Oragono can also be configured using environment variables, using the following 
 1. Prepend `ORAGONO` to the components, then join them all together using `__` as the separator, e.g., `ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS`.
 1. Set the environment variable of this name to a JSON (or YAML) value that will be deserialized into this config field, e.g., `export ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS='["https://irc.example.com", "https://chat.example.com"]'`
 
-
-## Becoming an operator
-
-Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Oragono instance is first to pick a strong, secure password, then "hash" it using the `oragono genpasswd` command (run `oragono genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
+However, settings that were overridden using this technique cannot be rehashed --- changing them will require restarting the server.
 
 
 ## Productionizing
