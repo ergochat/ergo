@@ -869,7 +869,7 @@ then add the following `startupOptions` to Kiwi's `static/config.json` file (see
 
 You can import user and channel registrations from an Anope or Atheme database into a new Oragono database (not all features are supported). Use the following steps:
 
-1. Obtain the relevant migration tool from the latest stable release: [anope2json.py](https://github.com/oragono/oragono/blob/master/distrib/anope/anope2json.py) or [atheme2json.py](https://github.com/oragono/oragono/blob/master/distrib/anope/anope2json.py) respectively.
+1. Obtain the relevant migration tool from the latest stable release: [anope2json.py](https://github.com/oragono/oragono/blob/master/distrib/anope/anope2json.py) or [atheme2json.py](https://github.com/oragono/oragono/blob/master/distrib/atheme/atheme2json.py) respectively.
 1. Make a copy of your Anope or Atheme database file. (You may have to stop and start the services daemon to get it to commit all its changes.)
 1. Convert the database to JSON, e.g., with `python3 ./anope2json.py anope.db output.json`
 1. Copy your desired Oragono config to `./ircd.yaml` (make any desired edits)
