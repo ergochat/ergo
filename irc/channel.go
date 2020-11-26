@@ -993,19 +993,19 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 	// but really we should send it to voiced clients
 	if !channel.flags.HasMode(modes.Auditorium) {
 		for _, member := range channel.Members() {
-			for _, session := range member.Sessions() {
-				if session.capabilities.Has(caps.Resume) {
+			for _, mSes := range member.Sessions() {
+				if mSes == session || mSes.capabilities.Has(caps.Resume) {
 					continue
 				}
 
-				if session.capabilities.Has(caps.ExtendedJoin) {
-					session.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+				if mSes.capabilities.Has(caps.ExtendedJoin) {
+					mSes.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 				} else {
-					session.Send(nil, details.nickMask, "JOIN", chname)
+					mSes.Send(nil, details.nickMask, "JOIN", chname)
 				}
 
 				if 0 < len(oldModes) {
-					session.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
+					mSes.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
 				}
 			}
 		}
