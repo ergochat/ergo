@@ -221,7 +221,9 @@ ON <server> specifies that the ban is to be set on that specific server.
 
 [reason] and [oper reason], if they exist, are separated by a vertical bar (|).
 
-If "DLINE LIST" is sent, the server sends back a list of our current DLINEs.`,
+If "DLINE LIST" is sent, the server sends back a list of our current DLINEs.
+
+To remove a DLINE, use the "UNDLINE" command.`,
 	},
 	"extjwt": {
 		text: `EXTJWT <target> [service_name]
@@ -308,7 +310,9 @@ ON <server> specifies that the ban is to be set on that specific server.
 
 [reason] and [oper reason], if they exist, are separated by a vertical bar (|).
 
-If "KLINE LIST" is sent, the server sends back a list of our current KLINEs.`,
+If "KLINE LIST" is sent, the server sends back a list of our current KLINEs.
+
+To remove a KLINE, use the "UNKLINE" command.`,
 	},
 	"language": {
 		text: `LANGUAGE <code>{ <code>}
