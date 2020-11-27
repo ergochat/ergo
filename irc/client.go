@@ -1551,8 +1551,12 @@ func (client *Client) destroy(session *Session) {
 	if quitMessage == "" {
 		quitMessage = "Exited"
 	}
+	var cache MessageCache
+	cache.Initialize(client.server, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
 	for friend := range friends {
-		friend.sendFromClientInternal(false, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
+		for _, session := range friend.Sessions() {
+			cache.Send(session)
+		}
 	}
 
 	if registered {
@@ -1567,7 +1571,7 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, 
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
 	} else {
 		if session.capabilities.Has(caps.Multiline) {
-			for _, msg := range session.composeMultilineBatch(nickmask, accountName, tags, command, target, message) {
+			for _, msg := range composeMultilineBatch(session.generateBatchID(), nickmask, accountName, tags, command, target, message) {
 				session.SendRawMessage(msg, blocking)
 			}
 		} else {
@@ -1614,12 +1618,11 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	return session.SendRawMessage(msg, blocking)
 }
 
-func (session *Session) composeMultilineBatch(fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IrcMessage) {
-	batchID := session.generateBatchID()
+func composeMultilineBatch(batchID, fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IrcMessage) {
 	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType, target)
 	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
 	batchStart.SetTag("msgid", message.Msgid)
-	if session.capabilities.Has(caps.AccountTag) && fromAccount != "*" {
+	if fromAccount != "*" {
 		batchStart.SetTag("account", fromAccount)
 	}
 	result = append(result, batchStart)
@@ -1680,6 +1683,10 @@ func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool)
 		return err
 	}
 
+	return session.sendBytes(line, blocking)
+}
+
+func (session *Session) sendBytes(line []byte, blocking bool) (err error) {
 	if session.client.server.logger.IsLoggingRawIO() {
 		logline := string(line[:len(line)-2]) // strip "\r\n"
 		session.client.server.logger.Debug("useroutput", session.client.Nick(), " ->", logline)

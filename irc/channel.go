@@ -779,6 +779,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		modestr = fmt.Sprintf("+%v", givenMode)
 	}
 
+	// cache the most common case (JOIN without extended-join)
+	var cache MessageCache
+	cache.Initialize(channel.server, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
 	isAway, awayMessage := client.Away()
 	for _, member := range channel.Members() {
 		if respectAuditorium {
@@ -799,7 +802,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			if session.capabilities.Has(caps.ExtendedJoin) {
 				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
 			} else {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
+				cache.Send(session)
 			}
 			if givenMode != 0 {
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
@@ -933,6 +936,8 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	}
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
 		clientModes.HighestChannelUserMode() == modes.Mode(0)
+	var cache MessageCache
+	cache.Initialize(channel.server, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	for _, member := range channel.Members() {
 		if respectAuditorium {
 			channel.stateMutex.RLock()
@@ -942,7 +947,9 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 				continue
 			}
 		}
-		member.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+		for _, session := range member.Sessions() {
+			cache.Send(session)
+		}
 	}
 	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	for _, session := range client.Sessions() {
@@ -1322,6 +1329,8 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	// send echo-message
 	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
+	var cache MessageCache
+	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, clientOnlyTags, command, chname, message)
 	for _, member := range channel.Members() {
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG or OpModerated
@@ -1337,18 +1346,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 				continue // #753
 			}
 
-			var tagsToUse map[string]string
-			if session.capabilities.Has(caps.MessageTags) {
-				tagsToUse = clientOnlyTags
-			} else if histType == history.Tagmsg {
-				continue
-			}
-
-			if histType == history.Tagmsg {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, tagsToUse, command, chname)
-			} else {
-				session.sendSplitMsgFromClientInternal(false, details.nickMask, details.accountName, tagsToUse, command, chname, message)
-			}
+			cache.Send(session)
 		}
 	}
 
