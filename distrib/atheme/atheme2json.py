@@ -65,8 +65,7 @@ def convert(infile):
             for flag, mode in CMODE_FLAG_TO_MODE.items():
                 if flag & mlock_on != 0:
                     modes.add(mode)
-            for flag, mode in CMODE_FLAG_TO_MODE.items():
-                if flag & mlock_off != 0:
+                elif flag & mlock_off != 0 and mode in modes:
                     modes.remove(mode)
             chdata['modes'] = ''.join(modes)
             chdata['limit'] = int(parts[7])
