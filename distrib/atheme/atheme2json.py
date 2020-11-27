@@ -67,7 +67,7 @@ def convert(infile):
                     modes.add(mode)
                 elif flag & mlock_off != 0 and mode in modes:
                     modes.remove(mode)
-            chdata['modes'] = ''.join(modes)
+            chdata['modes'] = ''.join(sorted(modes))
             chdata['limit'] = int(parts[7])
         elif category == 'MDC':
             # auxiliary data for a channel registration
