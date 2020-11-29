@@ -80,4 +80,14 @@ func TestSets(t *testing.T) {
 	if !BitsetGet(t3s, 0) || BitsetGet(t3s, 72) || !BitsetGet(t3s, 74) || BitsetGet(t3s, 71) {
 		t.Error("subtract doesn't work")
 	}
+
+	var tlocal testBitset
+	tlocals := tlocal[:]
+	BitsetCopyLocal(tlocals, t1s)
+	for i = 0; i < 128; i++ {
+		expected := (i != 72)
+		if BitsetGetLocal(tlocals, i) != expected {
+			t.Error("all bits should be set except 72")
+		}
+	}
 }

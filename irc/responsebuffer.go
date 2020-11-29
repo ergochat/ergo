@@ -127,7 +127,7 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 		}
 	} else {
 		if rb.session.capabilities.Has(caps.Multiline) {
-			batch := rb.session.composeMultilineBatch(fromNickMask, fromAccount, tags, command, target, message)
+			batch := composeMultilineBatch(rb.session.generateBatchID(), fromNickMask, fromAccount, tags, command, target, message)
 			rb.setNestedBatchTag(&batch[0])
 			rb.setNestedBatchTag(&batch[len(batch)-1])
 			rb.messages = append(rb.messages, batch...)

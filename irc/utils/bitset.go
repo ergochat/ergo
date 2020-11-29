@@ -17,6 +17,14 @@ func BitsetGet(set []uint32, position uint) bool {
 	return (block & (1 << bit)) != 0
 }
 
+// BitsetGetLocal returns whether a given bit of the bitset is set,
+// without synchronization.
+func BitsetGetLocal(set []uint32, position uint) bool {
+	idx := position / 32
+	bit := position % 32
+	return (set[idx] & (1 << bit)) != 0
+}
+
 // BitsetSet sets a given bit of the bitset to 0 or 1, returning whether it changed.
 func BitsetSet(set []uint32, position uint, on bool) (changed bool) {
 	idx := position / 32
@@ -76,6 +84,15 @@ func BitsetCopy(set []uint32, other []uint32) {
 	for i := 0; i < len(set); i++ {
 		data := atomic.LoadUint32(&other[i])
 		atomic.StoreUint32(&set[i], data)
+	}
+}
+
+// BitsetCopyLocal copies the contents of `other` over `set`,
+// without synchronizing the writes to `set`.
+func BitsetCopyLocal(set []uint32, other []uint32) {
+	for i := 0; i < len(set); i++ {
+		data := atomic.LoadUint32(&other[i])
+		set[i] = data
 	}
 }
 
