@@ -526,17 +526,18 @@ type Config struct {
 			forceTrailing      bool
 			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
 		}
-		isupport      isupport.List
-		IPLimits      connection_limits.LimiterConfig `yaml:"ip-limits"`
-		Cloaks        cloaks.CloakConfig              `yaml:"ip-cloaking"`
-		SecureNetDefs []string                        `yaml:"secure-nets"`
-		secureNets    []net.IPNet
-		supportedCaps *caps.Set
-		capValues     caps.Values
-		Casemapping   Casemapping
-		EnforceUtf8   bool         `yaml:"enforce-utf8"`
-		OutputPath    string       `yaml:"output-path"`
-		IPCheckScript ScriptConfig `yaml:"ip-check-script"`
+		isupport                 isupport.List
+		IPLimits                 connection_limits.LimiterConfig `yaml:"ip-limits"`
+		Cloaks                   cloaks.CloakConfig              `yaml:"ip-cloaking"`
+		SecureNetDefs            []string                        `yaml:"secure-nets"`
+		secureNets               []net.IPNet
+		supportedCaps            *caps.Set
+		capValues                caps.Values
+		Casemapping              Casemapping
+		EnforceUtf8              bool         `yaml:"enforce-utf8"`
+		OutputPath               string       `yaml:"output-path"`
+		IPCheckScript            ScriptConfig `yaml:"ip-check-script"`
+		OverrideServicesHostname string       `yaml:"override-services-hostname"`
 	}
 
 	Roleplay struct {

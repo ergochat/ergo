@@ -316,6 +316,19 @@ func makeServiceHelpTextGenerator(cmd string, banner string) func(*Client) strin
 	}
 }
 
+func overrideServicePrefixes(hostname string) error {
+	if hostname == "" {
+		return nil
+	}
+	if !utils.IsHostname(hostname) {
+		return fmt.Errorf("`%s` is an invalid services hostname", hostname)
+	}
+	for _, serv := range OragonoServices {
+		serv.prefix = fmt.Sprintf("%s!%s@%s", serv.Name, serv.Name, hostname)
+	}
+	return nil
+}
+
 func initializeServices() {
 	// this modifies the global Commands map,
 	// so it must be called from irc/commands.go's init()

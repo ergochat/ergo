@@ -530,6 +530,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		} else if oldConfig.Server.IPCheckScript.MaxConcurrency != config.Server.IPCheckScript.MaxConcurrency ||
 			oldConfig.Accounts.AuthScript.MaxConcurrency != config.Accounts.AuthScript.MaxConcurrency {
 			return fmt.Errorf("Cannot change max-concurrency for scripts after launching the server, rehash aborted")
+		} else if oldConfig.Server.OverrideServicesHostname != config.Server.OverrideServicesHostname {
+			return fmt.Errorf("Cannot change override-services-hostname after launching the server, rehash aborted")
 		}
 	}
 
@@ -562,6 +564,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		maxAuthConc := int(config.Accounts.AuthScript.MaxConcurrency)
 		if maxAuthConc != 0 {
 			server.semaphores.AuthScript.Initialize(maxAuthConc)
+		}
+
+		if err := overrideServicePrefixes(config.Server.OverrideServicesHostname); err != nil {
+			return err
 		}
 	}
 
