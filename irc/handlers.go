@@ -77,23 +77,23 @@ func registrationErrorToMessage(err error) (message string) {
 }
 
 // helper function to dispatch messages when a client successfully registers
-func sendSuccessfulRegResponse(client *Client, rb *ResponseBuffer, forNS bool) {
+func sendSuccessfulRegResponse(service *ircService, client *Client, rb *ResponseBuffer) {
 	details := client.Details()
-	if forNS {
-		nsNotice(rb, client.t("Account created"))
+	if service != nil {
+		service.Notice(rb, client.t("Account created"))
 	} else {
 		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, details.nick, details.accountName, client.t("Account created"))
 	}
 	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] from IP %s"), details.nickMask, details.accountName, rb.session.IP().String()))
-	sendSuccessfulAccountAuth(client, rb, forNS, false)
+	sendSuccessfulAccountAuth(service, client, rb, false)
 }
 
 // sendSuccessfulAccountAuth means that an account auth attempt completed successfully, and is used to dispatch messages.
-func sendSuccessfulAccountAuth(client *Client, rb *ResponseBuffer, forNS, forSASL bool) {
+func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *ResponseBuffer, forSASL bool) {
 	details := client.Details()
 
-	if forNS {
-		nsNotice(rb, fmt.Sprintf(client.t("You're now logged in as %s"), details.accountName))
+	if service != nil {
+		service.Notice(rb, fmt.Sprintf(client.t("You're now logged in as %s"), details.accountName))
 	} else {
 		//TODO(dan): some servers send this numeric even for NickServ logins iirc? to confirm and maybe do too
 		rb.Add(nil, client.server.name, RPL_LOGGEDIN, details.nick, details.nickMask, details.accountName, fmt.Sprintf(client.t("You are now logged in as %s"), details.accountName))
@@ -253,11 +253,11 @@ func authPlainHandler(server *Server, client *Client, mechanism string, value []
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
-	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
+	} else if !fixupNickEqualsAccount(client, rb, server.Config(), "") {
 		return false
 	}
 
-	sendSuccessfulAccountAuth(client, rb, false, true)
+	sendSuccessfulAccountAuth(nil, client, rb, true)
 	return false
 }
 
@@ -311,11 +311,11 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 		msg := authErrorToMessage(server, err)
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 		return false
-	} else if !fixupNickEqualsAccount(client, rb, server.Config()) {
+	} else if !fixupNickEqualsAccount(client, rb, server.Config(), "") {
 		return false
 	}
 
-	sendSuccessfulAccountAuth(client, rb, false, true)
+	sendSuccessfulAccountAuth(nil, client, rb, true)
 	return false
 }
 
@@ -1525,7 +1525,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	config := server.Config()
 	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" && !client.HasMode(modes.Operator) {
 		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
-		csNotice(rb, fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
+		rb.Notice(fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
 		rb.Add(nil, server.name, RPL_LISTEND, client.Nick(), client.t("End of LIST"))
 		return false
 	}
@@ -2355,7 +2355,7 @@ func passHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			}
 			err := server.accounts.AuthenticateByPassphrase(client, account, accountPass)
 			if err == nil {
-				sendSuccessfulAccountAuth(client, rb, false, true)
+				sendSuccessfulAccountAuth(nil, client, rb, true)
 				// login-via-pass-command entails that we do not need to check
 				// an actual server password (either no password or skip-server-password)
 				rb.session.passStatus = serverPassSuccessful
@@ -2446,13 +2446,13 @@ func registerHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 			err := server.accounts.Verify(client, accountName, "")
 			if err == nil {
 				if client.registered {
-					if !fixupNickEqualsAccount(client, rb, config) {
+					if !fixupNickEqualsAccount(client, rb, config, "") {
 						err = errNickAccountMismatch
 					}
 				}
 				if err == nil {
 					rb.Add(nil, server.name, "REGISTER", "SUCCESS", accountName, client.t("Account successfully registered"))
-					sendSuccessfulRegResponse(client, rb, true)
+					sendSuccessfulRegResponse(nil, client, rb)
 				}
 			}
 			if err != nil {
@@ -2494,14 +2494,14 @@ func verifyHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	accountName, verificationCode := msg.Params[0], msg.Params[1]
 	err := server.accounts.Verify(client, accountName, verificationCode)
 	if err == nil && client.registered {
-		if !fixupNickEqualsAccount(client, rb, config) {
+		if !fixupNickEqualsAccount(client, rb, config, "") {
 			err = errNickAccountMismatch
 		}
 	}
 	switch err {
 	case nil:
 		rb.Add(nil, server.name, "VERIFY", "SUCCESS", accountName, client.t("Account successfully registered"))
-		sendSuccessfulRegResponse(client, rb, true)
+		sendSuccessfulRegResponse(nil, client, rb)
 	case errAccountVerificationInvalidCode:
 		rb.Add(nil, server.name, "FAIL", "VERIFY", "INVALID_CODE", client.t("Invalid verification code"))
 	default:
@@ -2873,7 +2873,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 			username, password = username[:colonIndex], username[colonIndex+1:]
 			err := server.accounts.AuthenticateByPassphrase(client, username, password)
 			if err == nil {
-				sendSuccessfulAccountAuth(client, rb, false, true)
+				sendSuccessfulAccountAuth(nil, client, rb, true)
 			} else {
 				// this is wrong, but send something for debugging that will show up in a raw transcript
 				rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed"))

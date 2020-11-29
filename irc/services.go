@@ -20,7 +20,7 @@ import (
 type ircService struct {
 	Name           string
 	ShortName      string
-	prefix         string
+	prefix         string // NUH source of messages from this service
 	CommandAliases []string
 	Commands       map[string]*serviceCommand
 	HelpBanner     string
@@ -30,7 +30,7 @@ type ircService struct {
 type serviceCommand struct {
 	aliasOf           string   // marks this command as an alias of another
 	capabs            []string // oper capabs the given user has to have to access this command
-	handler           func(server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
+	handler           func(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer)
 	help              string
 	helpStrings       []string
 	helpShort         string
@@ -60,36 +60,47 @@ func lookupServiceCommand(commands map[string]*serviceCommand, command string) *
 	return nil
 }
 
-// all services, by lowercase name
-var OragonoServices = map[string]*ircService{
-	"nickserv": {
+var (
+	nickservService = &ircService{
 		Name:           "NickServ",
 		ShortName:      "NS",
 		CommandAliases: []string{"NICKSERV", "NS"},
 		Commands:       nickservCommands,
 		HelpBanner:     nickservHelp,
-	},
-	"chanserv": {
+	}
+	chanservService = &ircService{
 		Name:           "ChanServ",
 		ShortName:      "CS",
 		CommandAliases: []string{"CHANSERV", "CS"},
 		Commands:       chanservCommands,
 		HelpBanner:     chanservHelp,
-	},
-	"hostserv": {
+	}
+	hostservService = &ircService{
 		Name:           "HostServ",
 		ShortName:      "HS",
 		CommandAliases: []string{"HOSTSERV", "HS"},
 		Commands:       hostservCommands,
 		HelpBanner:     hostservHelp,
-	},
-	"histserv": {
+	}
+	histservService = &ircService{
 		Name:           "HistServ",
 		ShortName:      "HISTSERV",
 		CommandAliases: []string{"HISTSERV"},
 		Commands:       histservCommands,
 		HelpBanner:     histservHelp,
-	},
+	}
+)
+
+// all services, by lowercase name
+var OragonoServices = map[string]*ircService{
+	"nickserv": nickservService,
+	"chanserv": chanservService,
+	"hostserv": hostservService,
+	"histserv": histservService,
+}
+
+func (service *ircService) Notice(rb *ResponseBuffer, text string) {
+	rb.Add(nil, service.prefix, "NOTICE", rb.target.Nick(), text)
 }
 
 // all service commands at the protocol level, by uppercase command name
@@ -212,7 +223,7 @@ func serviceRunCommand(service *ircService, server *Server, client *Client, cmd 
 	if commandName == "help" {
 		serviceHelpHandler(service, server, client, params, rb)
 	} else {
-		cmd.handler(server, client, commandName, params, rb)
+		cmd.handler(service, server, client, commandName, params, rb)
 	}
 }
 
