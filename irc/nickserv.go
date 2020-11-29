@@ -36,10 +36,6 @@ func servCmdRequiresBouncerEnabled(config *Config) bool {
 	return config.Accounts.Multiclient.Enabled
 }
 
-const (
-	nsPrefix = "NickServ!NickServ@localhost"
-)
-
 const nickservHelp = `NickServ lets you register, log in to, and manage an account.`
 
 var (
@@ -361,14 +357,7 @@ Currently, you can only change the canonical casefolding of an account
 	}
 )
 
-// nsNotice sends the client a notice from NickServ
-func nsNotice(rb *ResponseBuffer, text string) {
-	// XXX i can't figure out how to use OragonoServices[servicename].prefix here
-	// without creating a compile-time initialization loop
-	rb.Add(nil, nsPrefix, "NOTICE", rb.target.Nick(), text)
-}
-
-func nsGetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsGetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var account string
 	if command == "saget" {
 		account = params[0]
@@ -379,101 +368,101 @@ func nsGetHandler(server *Server, client *Client, command string, params []strin
 
 	accountData, err := server.accounts.LoadAccount(account)
 	if err == errAccountDoesNotExist {
-		nsNotice(rb, client.t("No such account"))
+		service.Notice(rb, client.t("No such account"))
 		return
 	} else if err != nil {
-		nsNotice(rb, client.t("Error loading account data"))
+		service.Notice(rb, client.t("Error loading account data"))
 		return
 	}
 
-	displaySetting(params[0], accountData.Settings, client, rb)
+	displaySetting(service, params[0], accountData.Settings, client, rb)
 }
 
-func displaySetting(settingName string, settings AccountSettings, client *Client, rb *ResponseBuffer) {
+func displaySetting(service *ircService, settingName string, settings AccountSettings, client *Client, rb *ResponseBuffer) {
 	config := client.server.Config()
 	switch strings.ToLower(settingName) {
 	case "enforce":
 		storedValue := settings.NickEnforcement
 		serializedStoredValue := nickReservationToString(storedValue)
-		nsNotice(rb, fmt.Sprintf(client.t("Your stored nickname enforcement setting is: %s"), serializedStoredValue))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored nickname enforcement setting is: %s"), serializedStoredValue))
 		serializedActualValue := nickReservationToString(configuredEnforcementMethod(config, storedValue))
-		nsNotice(rb, fmt.Sprintf(client.t("Given current server settings, your nickname is enforced with: %s"), serializedActualValue))
+		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, your nickname is enforced with: %s"), serializedActualValue))
 	case "autoreplay-lines":
 		if settings.AutoreplayLines == nil {
-			nsNotice(rb, fmt.Sprintf(client.t("You will receive the server default of %d lines of autoreplayed history"), config.History.AutoreplayOnJoin))
+			service.Notice(rb, fmt.Sprintf(client.t("You will receive the server default of %d lines of autoreplayed history"), config.History.AutoreplayOnJoin))
 		} else {
-			nsNotice(rb, fmt.Sprintf(client.t("You will receive %d lines of autoreplayed history"), *settings.AutoreplayLines))
+			service.Notice(rb, fmt.Sprintf(client.t("You will receive %d lines of autoreplayed history"), *settings.AutoreplayLines))
 		}
 	case "replay-joins":
 		switch settings.ReplayJoins {
 		case ReplayJoinsCommandsOnly:
-			nsNotice(rb, client.t("You will see JOINs and PARTs in /HISTORY output, but not in autoreplay"))
+			service.Notice(rb, client.t("You will see JOINs and PARTs in /HISTORY output, but not in autoreplay"))
 		case ReplayJoinsAlways:
-			nsNotice(rb, client.t("You will see JOINs and PARTs in /HISTORY output and in autoreplay"))
+			service.Notice(rb, client.t("You will see JOINs and PARTs in /HISTORY output and in autoreplay"))
 		case ReplayJoinsNever:
-			nsNotice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
+			service.Notice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
 		}
 	case "multiclient":
 		if !config.Accounts.Multiclient.Enabled {
-			nsNotice(rb, client.t("This feature has been disabled by the server administrators"))
+			service.Notice(rb, client.t("This feature has been disabled by the server administrators"))
 		} else {
 			switch settings.AllowBouncer {
 			case MulticlientAllowedServerDefault:
 				if config.Accounts.Multiclient.AllowedByDefault {
-					nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account, but you can opt out"))
+					service.Notice(rb, client.t("Multiclient functionality is currently enabled for your account, but you can opt out"))
 				} else {
-					nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account, but you can opt in"))
+					service.Notice(rb, client.t("Multiclient functionality is currently disabled for your account, but you can opt in"))
 				}
 			case MulticlientDisallowedByUser:
-				nsNotice(rb, client.t("Multiclient functionality is currently disabled for your account"))
+				service.Notice(rb, client.t("Multiclient functionality is currently disabled for your account"))
 			case MulticlientAllowedByUser:
-				nsNotice(rb, client.t("Multiclient functionality is currently enabled for your account"))
+				service.Notice(rb, client.t("Multiclient functionality is currently enabled for your account"))
 			}
 		}
 	case "always-on":
 		stored := settings.AlwaysOn
 		actual := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, stored)
-		nsNotice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), persistentStatusToString(stored)))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), persistentStatusToString(stored)))
 		if actual {
-			nsNotice(rb, client.t("Given current server settings, your client is always-on"))
+			service.Notice(rb, client.t("Given current server settings, your client is always-on"))
 		} else {
-			nsNotice(rb, client.t("Given current server settings, your client is not always-on"))
+			service.Notice(rb, client.t("Given current server settings, your client is not always-on"))
 		}
 	case "autoreplay-missed":
 		stored := settings.AutoreplayMissed
 		if stored {
 			alwaysOn := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 			if alwaysOn {
-				nsNotice(rb, client.t("Autoreplay of missed messages is enabled"))
+				service.Notice(rb, client.t("Autoreplay of missed messages is enabled"))
 			} else {
-				nsNotice(rb, client.t("You have enabled autoreplay of missed messages, but you can't receive them because your client isn't set to always-on"))
+				service.Notice(rb, client.t("You have enabled autoreplay of missed messages, but you can't receive them because your client isn't set to always-on"))
 			}
 		} else {
-			nsNotice(rb, client.t("Your account is not configured to receive autoreplayed missed messages"))
+			service.Notice(rb, client.t("Your account is not configured to receive autoreplayed missed messages"))
 		}
 	case "auto-away":
 		stored := settings.AutoAway
 		alwaysOn := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 		actual := persistenceEnabled(config.Accounts.Multiclient.AutoAway, settings.AutoAway)
-		nsNotice(rb, fmt.Sprintf(client.t("Your stored auto-away setting is: %s"), persistentStatusToString(stored)))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored auto-away setting is: %s"), persistentStatusToString(stored)))
 		if actual && alwaysOn {
-			nsNotice(rb, client.t("Given current server settings, auto-away is enabled for your client"))
+			service.Notice(rb, client.t("Given current server settings, auto-away is enabled for your client"))
 		} else if actual && !alwaysOn {
-			nsNotice(rb, client.t("Because your client is not always-on, auto-away is disabled"))
+			service.Notice(rb, client.t("Because your client is not always-on, auto-away is disabled"))
 		} else if !actual {
-			nsNotice(rb, client.t("Given current server settings, auto-away is disabled for your client"))
+			service.Notice(rb, client.t("Given current server settings, auto-away is disabled for your client"))
 		}
 	case "dm-history":
 		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
-		nsNotice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
-		nsNotice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
+		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
 
 	default:
-		nsNotice(rb, client.t("No such setting"))
+		service.Notice(rb, client.t("No such setting"))
 	}
 }
 
-func nsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var account string
 	if command == "saset" {
 		account = params[0]
@@ -487,7 +476,7 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 	var err error
 	switch strings.ToLower(params[0]) {
 	case "pass", "password":
-		nsNotice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
+		service.Notice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
 	case "enforce":
 		var method NickEnforcementMethod
@@ -612,19 +601,19 @@ func nsSetHandler(server *Server, client *Client, command string, params []strin
 
 	switch err {
 	case nil:
-		nsNotice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(params[0], finalSettings, client, rb)
+		service.Notice(rb, client.t("Successfully changed your account settings"))
+		displaySetting(service, params[0], finalSettings, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
-		nsNotice(rb, client.t(err.Error()))
+		service.Notice(rb, client.t(err.Error()))
 	case errNickAccountMismatch:
-		nsNotice(rb, fmt.Sprintf(client.t("Your nickname must match your account name %s exactly to modify this setting. Try changing it with /NICK, or logging out and back in with the correct nickname."), client.AccountName()))
+		service.Notice(rb, fmt.Sprintf(client.t("Your nickname must match your account name %s exactly to modify this setting. Try changing it with /NICK, or logging out and back in with the correct nickname."), client.AccountName()))
 	default:
 		// unknown error
-		nsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	}
 }
 
-func nsDropHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsDropHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	sadrop := command == "sadrop"
 	var nick string
 	if len(params) > 0 {
@@ -635,28 +624,28 @@ func nsDropHandler(server *Server, client *Client, command string, params []stri
 
 	err := server.accounts.SetNickReserved(client, nick, sadrop, false)
 	if err == nil {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully ungrouped nick %s with your account"), nick))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully ungrouped nick %s with your account"), nick))
 	} else if err == errAccountNotLoggedIn {
-		nsNotice(rb, client.t("You're not logged into an account"))
+		service.Notice(rb, client.t("You're not logged into an account"))
 	} else if err == errAccountCantDropPrimaryNick {
-		nsNotice(rb, client.t("You can't ungroup your primary nickname (try unregistering your account instead)"))
+		service.Notice(rb, client.t("You can't ungroup your primary nickname (try unregistering your account instead)"))
 	} else {
-		nsNotice(rb, client.t("Could not ungroup nick"))
+		service.Notice(rb, client.t("Could not ungroup nick"))
 	}
 }
 
-func nsGhostHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsGhostHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	nick := params[0]
 
 	ghost := server.clients.Get(nick)
 	if ghost == nil {
-		nsNotice(rb, client.t("No such nick"))
+		service.Notice(rb, client.t("No such nick"))
 		return
 	} else if ghost == client {
-		nsNotice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
+		service.Notice(rb, client.t("You can't GHOST yourself (try /QUIT instead)"))
 		return
 	} else if ghost.AlwaysOn() {
-		nsNotice(rb, client.t("You can't GHOST an always-on client"))
+		service.Notice(rb, client.t("You can't GHOST an always-on client"))
 		return
 	}
 
@@ -667,7 +656,7 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 		authorized = (server.accounts.NickToAccount(nick) == account) || (ghost.Account() == account)
 	}
 	if !authorized {
-		nsNotice(rb, client.t("You don't own that nick"))
+		service.Notice(rb, client.t("You don't own that nick"))
 		return
 	}
 
@@ -675,31 +664,31 @@ func nsGhostHandler(server *Server, client *Client, command string, params []str
 	ghost.destroy(nil)
 }
 
-func nsGroupHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsGroupHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	nick := client.Nick()
 	err := server.accounts.SetNickReserved(client, nick, false, true)
 	if err == nil {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully grouped nick %s with your account"), nick))
 	} else if err == errAccountTooManyNicks {
-		nsNotice(rb, client.t("You have too many nicks reserved already (you can remove some with /NS DROP)"))
+		service.Notice(rb, client.t("You have too many nicks reserved already (you can remove some with /NS DROP)"))
 	} else if err == errNicknameReserved {
-		nsNotice(rb, client.t("That nickname is already reserved by someone else"))
+		service.Notice(rb, client.t("That nickname is already reserved by someone else"))
 	} else {
-		nsNotice(rb, client.t("Error reserving nickname"))
+		service.Notice(rb, client.t("Error reserving nickname"))
 	}
 }
 
-func nsLoginThrottleCheck(client *Client, rb *ResponseBuffer) (success bool) {
+func nsLoginThrottleCheck(service *ircService, client *Client, rb *ResponseBuffer) (success bool) {
 	throttled, remainingTime := client.checkLoginThrottle()
 	if throttled {
-		nsNotice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+		service.Notice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
 	}
 	return !throttled
 }
 
-func nsIdentifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsIdentifyHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if client.LoggedIntoAccount() {
-		nsNotice(rb, client.t("You're already logged into an account"))
+		service.Notice(rb, client.t("You're already logged into an account"))
 		return
 	}
 
@@ -735,7 +724,7 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 
 	nickFixupFailed := false
 	if loginSuccessful {
-		if !fixupNickEqualsAccount(client, rb, server.Config()) {
+		if !fixupNickEqualsAccount(client, rb, server.Config(), service.prefix) {
 			loginSuccessful = false
 			// fixupNickEqualsAccount sends its own error message, don't send another
 			nickFixupFailed = true
@@ -743,15 +732,15 @@ func nsIdentifyHandler(server *Server, client *Client, command string, params []
 	}
 
 	if loginSuccessful {
-		sendSuccessfulAccountAuth(client, rb, true, true)
+		sendSuccessfulAccountAuth(service, client, rb, true)
 	} else if !nickFixupFailed {
-		nsNotice(rb, fmt.Sprintf(client.t("Authentication failed: %s"), authErrorToMessage(server, err)))
+		service.Notice(rb, fmt.Sprintf(client.t("Authentication failed: %s"), authErrorToMessage(server, err)))
 	}
 }
 
-func nsListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsListHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if !client.HasRoleCapabs("accreg") {
-		nsNotice(rb, client.t("Insufficient privileges"))
+		service.Notice(rb, client.t("Insufficient privileges"))
 		return
 	}
 
@@ -760,26 +749,26 @@ func nsListHandler(server *Server, client *Client, command string, params []stri
 		var err error
 		searchRegex, err = regexp.Compile(params[0])
 		if err != nil {
-			nsNotice(rb, client.t("Invalid regex"))
+			service.Notice(rb, client.t("Invalid regex"))
 			return
 		}
 	}
 
-	nsNotice(rb, ircfmt.Unescape(client.t("*** $bNickServ LIST$b ***")))
+	service.Notice(rb, ircfmt.Unescape(client.t("*** $bNickServ LIST$b ***")))
 
 	nicks := server.accounts.AllNicks()
 	for _, nick := range nicks {
 		if searchRegex == nil || searchRegex.MatchString(nick) {
-			nsNotice(rb, fmt.Sprintf("    %s", nick))
+			service.Notice(rb, fmt.Sprintf("    %s", nick))
 		}
 	}
 
-	nsNotice(rb, ircfmt.Unescape(client.t("*** $bEnd of NickServ LIST$b ***")))
+	service.Notice(rb, ircfmt.Unescape(client.t("*** $bEnd of NickServ LIST$b ***")))
 }
 
-func nsInfoHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsInfoHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if !server.Config().Accounts.AuthenticationEnabled && !client.HasRoleCapabs("accreg") {
-		nsNotice(rb, client.t("This command has been disabled by the server administrators"))
+		service.Notice(rb, client.t("This command has been disabled by the server administrators"))
 		return
 	}
 
@@ -789,7 +778,7 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 		if server.Config().Accounts.NickReservation.Enabled {
 			accountName = server.accounts.NickToAccount(nick)
 			if accountName == "" {
-				nsNotice(rb, client.t("That nickname is not registered"))
+				service.Notice(rb, client.t("That nickname is not registered"))
 				return
 			}
 		} else {
@@ -798,33 +787,33 @@ func nsInfoHandler(server *Server, client *Client, command string, params []stri
 	} else {
 		accountName = client.Account()
 		if accountName == "" {
-			nsNotice(rb, client.t("You're not logged into an account"))
+			service.Notice(rb, client.t("You're not logged into an account"))
 			return
 		}
 	}
 
 	account, err := server.accounts.LoadAccount(accountName)
 	if err != nil || !account.Verified {
-		nsNotice(rb, client.t("Account does not exist"))
+		service.Notice(rb, client.t("Account does not exist"))
 		return
 	}
 
-	nsNotice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
+	service.Notice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
 	registeredAt := account.RegisteredAt.Format(time.RFC1123)
-	nsNotice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
+	service.Notice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
 	// TODO nicer formatting for this
 	for _, nick := range account.AdditionalNicks {
-		nsNotice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
+		service.Notice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
 	}
 	for _, channel := range server.accounts.ChannelsForAccount(accountName) {
-		nsNotice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
+		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
 	}
 	if account.Suspended != nil {
-		nsNotice(rb, suspensionToString(client, *account.Suspended))
+		service.Notice(rb, suspensionToString(client, *account.Suspended))
 	}
 }
 
-func nsRegisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsRegisterHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	details := client.Details()
 	passphrase := params[0]
 	var email string
@@ -835,7 +824,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	certfp := rb.session.certfp
 	if passphrase == "*" {
 		if certfp == "" {
-			nsNotice(rb, client.t("You must be connected with TLS and a client certificate to do this"))
+			service.Notice(rb, client.t("You must be connected with TLS and a client certificate to do this"))
 			return
 		} else {
 			passphrase = ""
@@ -845,12 +834,12 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	if passphrase != "" {
 		cfPassphrase, err := Casefold(passphrase)
 		if err == nil && cfPassphrase == details.nickCasefolded {
-			nsNotice(rb, client.t("Usage: REGISTER <passphrase> [email]")) // #1179
+			service.Notice(rb, client.t("Usage: REGISTER <passphrase> [email]")) // #1179
 			return
 		}
 	}
 
-	if !nsLoginThrottleCheck(client, rb) {
+	if !nsLoginThrottleCheck(service, client, rb) {
 		return
 	}
 
@@ -859,7 +848,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	if config.Accounts.NickReservation.ForceGuestFormat {
 		matches := config.Accounts.NickReservation.guestRegexp.FindStringSubmatch(account)
 		if matches == nil || len(matches) < 2 {
-			nsNotice(rb, client.t("Erroneous nickname"))
+			service.Notice(rb, client.t("Erroneous nickname"))
 			return
 		}
 		account = matches[1]
@@ -867,7 +856,7 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 
 	callbackNamespace, callbackValue, validationErr := parseCallback(email, config)
 	if validationErr != nil {
-		nsNotice(rb, client.t("Registration requires a valid e-mail address"))
+		service.Notice(rb, client.t("Registration requires a valid e-mail address"))
 		return
 	}
 
@@ -875,22 +864,22 @@ func nsRegisterHandler(server *Server, client *Client, command string, params []
 	if err == nil {
 		if callbackNamespace == "*" {
 			err = server.accounts.Verify(client, account, "")
-			if err == nil && fixupNickEqualsAccount(client, rb, config) {
-				sendSuccessfulRegResponse(client, rb, true)
+			if err == nil && fixupNickEqualsAccount(client, rb, config, service.prefix) {
+				sendSuccessfulRegResponse(service, client, rb)
 			}
 		} else {
 			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
 			message := fmt.Sprintf(messageTemplate, callbackValue)
-			nsNotice(rb, message)
+			service.Notice(rb, message)
 		}
 	} else {
 		// details could not be stored and relevant numerics have been dispatched, abort
 		message := registrationErrorToMessage(err)
-		nsNotice(rb, client.t(message))
+		service.Notice(rb, client.t(message))
 	}
 }
 
-func nsSaregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSaregisterHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var account, passphrase string
 	account = params[0]
 	if 1 < len(params) && params[1] != "*" {
@@ -908,14 +897,14 @@ func nsSaregisterHandler(server *Server, client *Client, command string, params 
 			server.logger.Error("services", "unknown error from saregister", err.Error())
 			errMsg = client.t("Could not register")
 		}
-		nsNotice(rb, errMsg)
+		service.Notice(rb, errMsg)
 	} else {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
 		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Operator $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] with SAREGISTER"), client.Oper().Name, account))
 	}
 }
 
-func nsUnregisterHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsUnregisterHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	erase := command == "erase"
 
 	username := params[0]
@@ -925,7 +914,7 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	}
 
 	if username == "" {
-		nsNotice(rb, client.t("You must specify an account"))
+		service.Notice(rb, client.t("You must specify an account"))
 		return
 	}
 
@@ -939,10 +928,10 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	} else {
 		account, err := server.accounts.LoadAccount(username)
 		if err == errAccountDoesNotExist {
-			nsNotice(rb, client.t("Invalid account name"))
+			service.Notice(rb, client.t("Invalid account name"))
 			return
 		} else if err != nil {
-			nsNotice(rb, client.t("Internal error"))
+			service.Notice(rb, client.t("Internal error"))
 			return
 		}
 		accountName = account.Name
@@ -950,34 +939,34 @@ func nsUnregisterHandler(server *Server, client *Client, command string, params 
 	}
 
 	if !(accountName == client.AccountName() || client.HasRoleCapabs("accreg")) {
-		nsNotice(rb, client.t("Insufficient oper privs"))
+		service.Notice(rb, client.t("Insufficient oper privs"))
 		return
 	}
 
 	expectedCode := utils.ConfirmationCode(accountName, registeredAt)
 	if expectedCode != verificationCode {
 		if erase {
-			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
 		} else {
-			nsNotice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
 		}
-		nsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
+		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
 		return
 	}
 
 	err := server.accounts.Unregister(accountName, erase)
 	if err == errAccountDoesNotExist {
-		nsNotice(rb, client.t(err.Error()))
+		service.Notice(rb, client.t(err.Error()))
 	} else if err != nil {
-		nsNotice(rb, client.t("Error while unregistering account"))
+		service.Notice(rb, client.t("Error while unregistering account"))
 	} else {
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), accountName))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully unregistered account %s"), accountName))
 		server.logger.Info("accounts", "client", client.Nick(), "unregistered account", accountName)
 		client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] unregistered account $c[grey][$r%s$c[grey]]"), client.NickMaskString(), accountName))
 	}
 }
 
-func nsVerifyHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsVerifyHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	username, code := params[0], params[1]
 	err := server.accounts.Verify(client, username, code)
 
@@ -992,16 +981,16 @@ func nsVerifyHandler(server *Server, client *Client, command string, params []st
 	}
 
 	if errorMessage != "" {
-		nsNotice(rb, client.t(errorMessage))
+		service.Notice(rb, client.t(errorMessage))
 		return
 	}
 
-	if fixupNickEqualsAccount(client, rb, server.Config()) {
-		sendSuccessfulRegResponse(client, rb, true)
+	if fixupNickEqualsAccount(client, rb, server.Config(), service.prefix) {
+		sendSuccessfulRegResponse(service, client, rb)
 	}
 }
 
-func nsPasswdHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsPasswdHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var target string
 	var newPassword string
 	var errorMessage string
@@ -1025,7 +1014,7 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 		} else if params[1] != params[2] {
 			errorMessage = `Passwords do not match`
 		} else {
-			if !nsLoginThrottleCheck(client, rb) {
+			if !nsLoginThrottleCheck(service, client, rb) {
 				return
 			}
 			accountData, err := server.accounts.LoadAccount(target)
@@ -1048,37 +1037,37 @@ func nsPasswdHandler(server *Server, client *Client, command string, params []st
 	}
 
 	if errorMessage != "" {
-		nsNotice(rb, client.t(errorMessage))
+		service.Notice(rb, client.t(errorMessage))
 		return
 	}
 
 	err := server.accounts.setPassword(target, newPassword, hasPrivs)
 	switch err {
 	case nil:
-		nsNotice(rb, client.t("Password changed"))
+		service.Notice(rb, client.t("Password changed"))
 	case errEmptyCredentials:
-		nsNotice(rb, client.t("You can't delete your password unless you add a certificate fingerprint"))
+		service.Notice(rb, client.t("You can't delete your password unless you add a certificate fingerprint"))
 	case errCredsExternallyManaged:
-		nsNotice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
+		service.Notice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
 	case errCASFailed:
-		nsNotice(rb, client.t("Try again later"))
+		service.Notice(rb, client.t("Try again later"))
 	default:
 		server.logger.Error("internal", "could not upgrade user password:", err.Error())
-		nsNotice(rb, client.t("Password could not be changed due to server error"))
+		service.Notice(rb, client.t("Password could not be changed due to server error"))
 	}
 }
 
-func nsEnforceHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsEnforceHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	newParams := []string{"enforce"}
 	if len(params) == 0 {
-		nsGetHandler(server, client, "get", newParams, rb)
+		nsGetHandler(service, server, client, "get", newParams, rb)
 	} else {
 		newParams = append(newParams, params[0])
-		nsSetHandler(server, client, "set", newParams, rb)
+		nsSetHandler(service, server, client, "set", newParams, rb)
 	}
 }
 
-func nsClientsHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsClientsHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var verb string
 
 	if command == "sessions" {
@@ -1091,56 +1080,56 @@ func nsClientsHandler(server *Server, client *Client, command string, params []s
 
 	switch verb {
 	case "list":
-		nsClientsListHandler(server, client, params, rb)
+		nsClientsListHandler(service, server, client, params, rb)
 	case "logout":
-		nsClientsLogoutHandler(server, client, params, rb)
+		nsClientsLogoutHandler(service, server, client, params, rb)
 	default:
-		nsNotice(rb, client.t("Invalid parameters"))
+		service.Notice(rb, client.t("Invalid parameters"))
 	}
 }
 
-func nsClientsListHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
+func nsClientsListHandler(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	target := client
 	hasPrivs := client.HasRoleCapabs("local_ban")
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
-			nsNotice(rb, client.t("No such nick"))
+			service.Notice(rb, client.t("No such nick"))
 			return
 		}
 		if target != client && !hasPrivs {
-			nsNotice(rb, client.t("Command restricted"))
+			service.Notice(rb, client.t("Command restricted"))
 			return
 		}
 	}
 
 	sessionData, currentIndex := target.AllSessionData(rb.session, hasPrivs)
-	nsNotice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached clients(s)"), target.Nick(), len(sessionData)))
+	service.Notice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d attached clients(s)"), target.Nick(), len(sessionData)))
 	for i, session := range sessionData {
 		if currentIndex == i {
-			nsNotice(rb, fmt.Sprintf(client.t("Client %d (currently attached client):"), session.sessionID))
+			service.Notice(rb, fmt.Sprintf(client.t("Client %d (currently attached client):"), session.sessionID))
 		} else {
-			nsNotice(rb, fmt.Sprintf(client.t("Client %d:"), session.sessionID))
+			service.Notice(rb, fmt.Sprintf(client.t("Client %d:"), session.sessionID))
 		}
 		if session.deviceID != "" {
-			nsNotice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
+			service.Notice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
 		}
-		nsNotice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
-		nsNotice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
+		service.Notice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
+		service.Notice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
 		if hasPrivs {
-			nsNotice(rb, fmt.Sprintf(client.t("Connection:  %s"), session.connInfo))
+			service.Notice(rb, fmt.Sprintf(client.t("Connection:  %s"), session.connInfo))
 		}
-		nsNotice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
-		nsNotice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
+		service.Notice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
+		service.Notice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
 		if session.certfp != "" {
-			nsNotice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
+			service.Notice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
 		}
 	}
 }
 
-func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb *ResponseBuffer) {
+func nsClientsLogoutHandler(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	if len(params) < 1 {
-		nsNotice(rb, client.t("Missing client ID to logout (or \"all\")"))
+		service.Notice(rb, client.t("Missing client ID to logout (or \"all\")"))
 		return
 	}
 
@@ -1149,14 +1138,14 @@ func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb 
 		// CLIENTS LOGOUT [nickname] [client ID]
 		target = server.clients.Get(params[0])
 		if target == nil {
-			nsNotice(rb, client.t("No such nick"))
+			service.Notice(rb, client.t("No such nick"))
 			return
 		}
 		// User must have "local_kill" privileges to logout other user sessions.
 		if target != client {
 			oper := client.Oper()
 			if oper == nil || !oper.Class.Capabilities.Has("local_kill") {
-				nsNotice(rb, client.t("Insufficient oper privs"))
+				service.Notice(rb, client.t("Insufficient oper privs"))
 				return
 			}
 		}
@@ -1167,7 +1156,7 @@ func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb 
 	if strings.ToLower(params[0]) != "all" {
 		sessionID, err := strconv.ParseInt(params[0], 10, 64)
 		if err != nil {
-			nsNotice(rb, client.t("Client ID to logout should be an integer (or \"all\")"))
+			service.Notice(rb, client.t("Client ID to logout should be an integer (or \"all\")"))
 			return
 		}
 		// Find the client ID that the user requested to logout.
@@ -1178,7 +1167,7 @@ func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb 
 			}
 		}
 		if sessionToDestroy == nil {
-			nsNotice(rb, client.t("Specified client ID does not exist"))
+			service.Notice(rb, client.t("Specified client ID does not exist"))
 			return
 		}
 	}
@@ -1186,14 +1175,14 @@ func nsClientsLogoutHandler(server *Server, client *Client, params []string, rb 
 	target.destroy(sessionToDestroy)
 	if (sessionToDestroy != nil && rb.session != sessionToDestroy) || client != target {
 		if sessionToDestroy != nil {
-			nsNotice(rb, client.t("Successfully logged out session"))
+			service.Notice(rb, client.t("Successfully logged out session"))
 		} else {
-			nsNotice(rb, client.t("Successfully logged out all sessions"))
+			service.Notice(rb, client.t("Successfully logged out all sessions"))
 		}
 	}
 }
 
-func nsCertHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsCertHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	verb := strings.ToLower(params[0])
 	params = params[1:]
 	var target, certfp string
@@ -1211,22 +1200,22 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 		} else if len(params) == 0 && verb == "add" && rb.session.certfp != "" {
 			certfp = rb.session.certfp // #1059
 		} else {
-			nsNotice(rb, client.t("Invalid parameters"))
+			service.Notice(rb, client.t("Invalid parameters"))
 			return
 		}
 	default:
-		nsNotice(rb, client.t("Invalid parameters"))
+		service.Notice(rb, client.t("Invalid parameters"))
 		return
 	}
 
 	hasPrivs := client.HasRoleCapabs("accreg")
 	if target != "" && !hasPrivs {
-		nsNotice(rb, client.t("Insufficient privileges"))
+		service.Notice(rb, client.t("Insufficient privileges"))
 		return
 	} else if target == "" {
 		target = client.Account()
 		if target == "" {
-			nsNotice(rb, client.t("You're not logged into an account"))
+			service.Notice(rb, client.t("You're not logged into an account"))
 			return
 		}
 	}
@@ -1236,16 +1225,16 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 	case "list":
 		accountData, err := server.accounts.LoadAccount(target)
 		if err == errAccountDoesNotExist {
-			nsNotice(rb, client.t("Account does not exist"))
+			service.Notice(rb, client.t("Account does not exist"))
 			return
 		} else if err != nil {
-			nsNotice(rb, client.t("An error occurred"))
+			service.Notice(rb, client.t("An error occurred"))
 			return
 		}
 		certfps := accountData.Credentials.Certfps
-		nsNotice(rb, fmt.Sprintf(client.t("There are %[1]d certificate fingerprint(s) authorized for account %[2]s."), len(certfps), accountData.Name))
+		service.Notice(rb, fmt.Sprintf(client.t("There are %[1]d certificate fingerprint(s) authorized for account %[2]s."), len(certfps), accountData.Name))
 		for i, certfp := range certfps {
-			nsNotice(rb, fmt.Sprintf("%d: %s", i+1, certfp))
+			service.Notice(rb, fmt.Sprintf("%d: %s", i+1, certfp))
 		}
 		return
 	case "add":
@@ -1257,54 +1246,54 @@ func nsCertHandler(server *Server, client *Client, command string, params []stri
 	switch err {
 	case nil:
 		if verb == "add" {
-			nsNotice(rb, client.t("Certificate fingerprint successfully added"))
+			service.Notice(rb, client.t("Certificate fingerprint successfully added"))
 		} else {
-			nsNotice(rb, client.t("Certificate fingerprint successfully removed"))
+			service.Notice(rb, client.t("Certificate fingerprint successfully removed"))
 		}
 	case errNoop:
 		if verb == "add" {
-			nsNotice(rb, client.t("That certificate fingerprint was already authorized"))
+			service.Notice(rb, client.t("That certificate fingerprint was already authorized"))
 		} else {
-			nsNotice(rb, client.t("Certificate fingerprint not found"))
+			service.Notice(rb, client.t("Certificate fingerprint not found"))
 		}
 	case errAccountDoesNotExist:
-		nsNotice(rb, client.t("Account does not exist"))
+		service.Notice(rb, client.t("Account does not exist"))
 	case errLimitExceeded:
-		nsNotice(rb, client.t("You already have too many certificate fingerprints"))
+		service.Notice(rb, client.t("You already have too many certificate fingerprints"))
 	case utils.ErrInvalidCertfp:
-		nsNotice(rb, client.t("Invalid certificate fingerprint"))
+		service.Notice(rb, client.t("Invalid certificate fingerprint"))
 	case errCertfpAlreadyExists:
-		nsNotice(rb, client.t("That certificate fingerprint is already associated with another account"))
+		service.Notice(rb, client.t("That certificate fingerprint is already associated with another account"))
 	case errEmptyCredentials:
-		nsNotice(rb, client.t("You can't remove all your certificate fingerprints unless you add a password"))
+		service.Notice(rb, client.t("You can't remove all your certificate fingerprints unless you add a password"))
 	case errCredsExternallyManaged:
-		nsNotice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
+		service.Notice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
 	case errCASFailed:
-		nsNotice(rb, client.t("Try again later"))
+		service.Notice(rb, client.t("Try again later"))
 	default:
 		server.logger.Error("internal", "could not modify certificates:", err.Error())
-		nsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	}
 }
 
-func nsSuspendHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSuspendHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	subCmd := strings.ToLower(params[0])
 	params = params[1:]
 	switch subCmd {
 	case "add":
-		nsSuspendAddHandler(server, client, command, params, rb)
+		nsSuspendAddHandler(service, server, client, command, params, rb)
 	case "del", "delete", "remove":
-		nsSuspendRemoveHandler(server, client, command, params, rb)
+		nsSuspendRemoveHandler(service, server, client, command, params, rb)
 	case "list":
-		nsSuspendListHandler(server, client, command, params, rb)
+		nsSuspendListHandler(service, server, client, command, params, rb)
 	default:
-		nsNotice(rb, client.t("Invalid parameters"))
+		service.Notice(rb, client.t("Invalid parameters"))
 	}
 }
 
-func nsSuspendAddHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSuspendAddHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if len(params) == 0 {
-		nsNotice(rb, client.t("Invalid parameters"))
+		service.Notice(rb, client.t("Invalid parameters"))
 		return
 	}
 
@@ -1316,7 +1305,7 @@ func nsSuspendAddHandler(server *Server, client *Client, command string, params 
 		var err error
 		cDuration, err := custime.ParseDuration(params[1])
 		if err != nil {
-			nsNotice(rb, client.t("Invalid time duration for NS SUSPEND"))
+			service.Notice(rb, client.t("Invalid time duration for NS SUSPEND"))
 			return
 		}
 		duration = time.Duration(cDuration)
@@ -1333,30 +1322,30 @@ func nsSuspendAddHandler(server *Server, client *Client, command string, params 
 	err := server.accounts.Suspend(account, duration, name, reason)
 	switch err {
 	case nil:
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), account))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully suspended account %s"), account))
 	case errAccountDoesNotExist:
-		nsNotice(rb, client.t("No such account"))
+		service.Notice(rb, client.t("No such account"))
 	default:
-		nsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	}
 }
 
-func nsSuspendRemoveHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSuspendRemoveHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if len(params) == 0 {
-		nsNotice(rb, client.t("Invalid parameters"))
+		service.Notice(rb, client.t("Invalid parameters"))
 		return
 	}
 
 	err := server.accounts.Unsuspend(params[0])
 	switch err {
 	case nil:
-		nsNotice(rb, fmt.Sprintf(client.t("Successfully un-suspended account %s"), params[0]))
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully un-suspended account %s"), params[0]))
 	case errAccountDoesNotExist:
-		nsNotice(rb, client.t("No such account"))
+		service.Notice(rb, client.t("No such account"))
 	case errNoop:
-		nsNotice(rb, client.t("Account was not suspended"))
+		service.Notice(rb, client.t("Account was not suspended"))
 	default:
-		nsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	}
 }
 
@@ -1367,12 +1356,12 @@ func (a ByCreationTime) Len() int           { return len(a) }
 func (a ByCreationTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByCreationTime) Less(i, j int) bool { return a[i].TimeCreated.After(a[j].TimeCreated) }
 
-func nsSuspendListHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsSuspendListHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	suspensions := server.accounts.ListSuspended()
 	sort.Sort(ByCreationTime(suspensions))
-	nsNotice(rb, fmt.Sprintf(client.t("There are %d active suspensions."), len(suspensions)))
+	service.Notice(rb, fmt.Sprintf(client.t("There are %d active suspensions."), len(suspensions)))
 	for _, suspension := range suspensions {
-		nsNotice(rb, suspensionToString(client, suspension))
+		service.Notice(rb, suspensionToString(client, suspension))
 	}
 }
 
@@ -1389,21 +1378,21 @@ func suspensionToString(client *Client, suspension AccountSuspension) (result st
 	return fmt.Sprintf(client.t("Account %[1]s suspended at %[2]s. Duration: %[3]s. %[4]s"), suspension.AccountName, ts, duration, reason)
 }
 
-func nsRenameHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsRenameHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	oldName, newName := params[0], params[1]
 	err := server.accounts.Rename(oldName, newName)
 
 	if err != nil {
-		nsNotice(rb, fmt.Sprintf(client.t("Couldn't rename account: %s"), client.t(err.Error())))
+		service.Notice(rb, fmt.Sprintf(client.t("Couldn't rename account: %s"), client.t(err.Error())))
 		return
 	}
 
-	nsNotice(rb, client.t("Successfully renamed account"))
+	service.Notice(rb, client.t("Successfully renamed account"))
 	if server.Config().Accounts.NickReservation.ForceNickEqualsAccount {
 		if curClient := server.clients.Get(oldName); curClient != nil {
 			renameErr := performNickChange(client.server, client, curClient, nil, newName, rb)
 			if renameErr != nil && renameErr != errNoop {
-				nsNotice(rb, fmt.Sprintf(client.t("Warning: could not rename affected client: %v"), err))
+				service.Notice(rb, fmt.Sprintf(client.t("Warning: could not rename affected client: %v"), err))
 			}
 		}
 	}

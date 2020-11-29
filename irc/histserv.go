@@ -18,7 +18,6 @@ import (
 
 const (
 	histservHelp = `HistServ provides commands related to history.`
-	histServMask = "HistServ!HistServ@localhost"
 )
 
 func histservEnabled(config *Config) bool {
@@ -83,24 +82,19 @@ CHATHISTORY.`,
 	}
 )
 
-// histNotice sends the client a notice from HistServ
-func histNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, histServMask, "NOTICE", rb.target.Nick(), text)
-}
-
-func histservForgetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func histservForgetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	accountName := server.accounts.AccountToAccountName(params[0])
 	if accountName == "" {
-		histNotice(rb, client.t("Could not look up account name, proceeding anyway"))
+		service.Notice(rb, client.t("Could not look up account name, proceeding anyway"))
 		accountName = params[0]
 	}
 
 	server.ForgetHistory(accountName)
 
-	histNotice(rb, fmt.Sprintf(client.t("Enqueued account %s for message deletion"), accountName))
+	service.Notice(rb, fmt.Sprintf(client.t("Enqueued account %s for message deletion"), accountName))
 }
 
-func histservDeleteHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func histservDeleteHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var target, msgid string
 	if len(params) == 1 {
 		msgid = params[0]
@@ -113,27 +107,27 @@ func histservDeleteHandler(server *Server, client *Client, command string, param
 	if !hasPrivs {
 		accountName = client.AccountName()
 		if !(server.Config().History.Retention.AllowIndividualDelete && accountName != "*") {
-			histNotice(rb, client.t("Insufficient privileges"))
+			service.Notice(rb, client.t("Insufficient privileges"))
 			return
 		}
 	}
 
 	err := server.DeleteMessage(target, msgid, accountName)
 	if err == nil {
-		histNotice(rb, client.t("Successfully deleted message"))
+		service.Notice(rb, client.t("Successfully deleted message"))
 	} else {
 		if hasPrivs {
-			histNotice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
+			service.Notice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
 		} else {
-			histNotice(rb, client.t("Could not delete message"))
+			service.Notice(rb, client.t("Could not delete message"))
 		}
 	}
 }
 
-func histservExportHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func histservExportHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	cfAccount, err := CasefoldName(params[0])
 	if err != nil {
-		histNotice(rb, client.t("Invalid account name"))
+		service.Notice(rb, client.t("Invalid account name"))
 		return
 	}
 
@@ -143,15 +137,15 @@ func histservExportHandler(server *Server, client *Client, command string, param
 	pathname := config.getOutputPath(filename)
 	outfile, err := os.Create(pathname)
 	if err != nil {
-		histNotice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
+		service.Notice(rb, fmt.Sprintf(client.t("Error opening export file: %v"), err))
 	} else {
-		histNotice(rb, fmt.Sprintf(client.t("Started exporting data for account %[1]s to file %[2]s"), cfAccount, filename))
+		service.Notice(rb, fmt.Sprintf(client.t("Started exporting data for account %[1]s to file %[2]s"), cfAccount, filename))
 	}
 
-	go histservExportAndNotify(server, cfAccount, outfile, filename, client.Nick())
+	go histservExportAndNotify(service, server, cfAccount, outfile, filename, client.Nick())
 }
 
-func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File, filename, alertNick string) {
+func histservExportAndNotify(service *ircService, server *Server, cfAccount string, outfile *os.File, filename, alertNick string) {
 	defer func() {
 		if r := recover(); r != nil {
 			server.logger.Error("history",
@@ -167,19 +161,19 @@ func histservExportAndNotify(server *Server, cfAccount string, outfile *os.File,
 
 	client := server.clients.Get(alertNick)
 	if client != nil && client.HasRoleCapabs("history") {
-		client.Send(nil, histServMask, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Data export for %[1]s completed and written to %[2]s"), cfAccount, filename))
+		client.Send(nil, service.prefix, "NOTICE", client.Nick(), fmt.Sprintf(client.t("Data export for %[1]s completed and written to %[2]s"), cfAccount, filename))
 	}
 }
 
-func histservPlayHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func histservPlayHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	items, _, err := easySelectHistory(server, client, params)
 	if err != nil {
-		histNotice(rb, client.t("Could not retrieve history"))
+		service.Notice(rb, client.t("Could not retrieve history"))
 		return
 	}
 
 	playMessage := func(timestamp time.Time, nick, message string) {
-		histNotice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), stripMaskFromNick(nick), message))
+		service.Notice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), stripMaskFromNick(nick), message))
 	}
 
 	for _, item := range items {
@@ -196,7 +190,7 @@ func histservPlayHandler(server *Server, client *Client, command string, params 
 		}
 	}
 
-	histNotice(rb, client.t("End of history playback"))
+	service.Notice(rb, client.t("End of history playback"))
 }
 
 // handles parameter parsing and history queries for /HISTORY and /HISTSERV PLAY

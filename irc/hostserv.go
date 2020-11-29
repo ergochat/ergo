@@ -16,7 +16,6 @@ import (
 const (
 	hostservHelp = `HostServ lets you manage your vhost (i.e., the string displayed
 in place of your client's hostname/IP).`
-	hsNickMask = "HostServ!HostServ@localhost"
 )
 
 var (
@@ -95,12 +94,7 @@ display the necessary code.`,
 	}
 )
 
-// hsNotice sends the client a notice from HostServ
-func hsNotice(rb *ResponseBuffer, text string) {
-	rb.Add(nil, hsNickMask, "NOTICE", rb.target.Nick(), text)
-}
-
-func hsOnOffHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func hsOnOffHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	enable := false
 	if command == "on" {
 		enable = true
@@ -108,28 +102,28 @@ func hsOnOffHandler(server *Server, client *Client, command string, params []str
 
 	_, err := server.accounts.VHostSetEnabled(client, enable)
 	if err == errNoVhost {
-		hsNotice(rb, client.t(err.Error()))
+		service.Notice(rb, client.t(err.Error()))
 	} else if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	} else if enable {
-		hsNotice(rb, client.t("Successfully enabled your vhost"))
+		service.Notice(rb, client.t("Successfully enabled your vhost"))
 	} else {
-		hsNotice(rb, client.t("Successfully disabled your vhost"))
+		service.Notice(rb, client.t("Successfully disabled your vhost"))
 	}
 }
 
-func hsStatusHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func hsStatusHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var accountName string
 	if len(params) > 0 {
 		if !client.HasRoleCapabs("vhosts") {
-			hsNotice(rb, client.t("Command restricted"))
+			service.Notice(rb, client.t("Command restricted"))
 			return
 		}
 		accountName = params[0]
 	} else {
 		accountName = client.Account()
 		if accountName == "" {
-			hsNotice(rb, client.t("You're not logged into an account"))
+			service.Notice(rb, client.t("You're not logged into an account"))
 			return
 		}
 	}
@@ -139,17 +133,17 @@ func hsStatusHandler(server *Server, client *Client, command string, params []st
 		if err != errAccountDoesNotExist {
 			server.logger.Warning("internal", "error loading account info", accountName, err.Error())
 		}
-		hsNotice(rb, client.t("No such account"))
+		service.Notice(rb, client.t("No such account"))
 		return
 	}
 
 	if account.VHost.ApprovedVHost != "" {
-		hsNotice(rb, fmt.Sprintf(client.t("Account %[1]s has vhost: %[2]s"), accountName, account.VHost.ApprovedVHost))
+		service.Notice(rb, fmt.Sprintf(client.t("Account %[1]s has vhost: %[2]s"), accountName, account.VHost.ApprovedVHost))
 		if !account.VHost.Enabled {
-			hsNotice(rb, client.t("This vhost is currently disabled, but can be enabled with /HS ON"))
+			service.Notice(rb, client.t("This vhost is currently disabled, but can be enabled with /HS ON"))
 		}
 	} else {
-		hsNotice(rb, fmt.Sprintf(client.t("Account %s has no vhost"), accountName))
+		service.Notice(rb, fmt.Sprintf(client.t("Account %s has no vhost"), accountName))
 	}
 }
 
@@ -164,14 +158,14 @@ func validateVhost(server *Server, vhost string, oper bool) error {
 	return nil
 }
 
-func hsSetHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func hsSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	user := params[0]
 	var vhost string
 
 	if command == "set" {
 		vhost = params[1]
 		if validateVhost(server, vhost, true) != nil {
-			hsNotice(rb, client.t("Invalid vhost"))
+			service.Notice(rb, client.t("Invalid vhost"))
 			return
 		}
 	}
@@ -179,22 +173,22 @@ func hsSetHandler(server *Server, client *Client, command string, params []strin
 
 	_, err := server.accounts.VHostSet(user, vhost)
 	if err != nil {
-		hsNotice(rb, client.t("An error occurred"))
+		service.Notice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
-		hsNotice(rb, client.t("Successfully set vhost"))
+		service.Notice(rb, client.t("Successfully set vhost"))
 	} else {
-		hsNotice(rb, client.t("Successfully cleared vhost"))
+		service.Notice(rb, client.t("Successfully cleared vhost"))
 	}
 }
 
-func hsSetCloakSecretHandler(server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func hsSetCloakSecretHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	secret := params[0]
 	expectedCode := utils.ConfirmationCode(secret, server.ctime)
 	if len(params) == 1 || params[1] != expectedCode {
-		hsNotice(rb, ircfmt.Unescape(client.t("$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b")))
-		hsNotice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/HS SETCLOAKSECRET %s %s", secret, expectedCode)))
+		service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: changing the cloak secret will invalidate stored ban/invite/exception lists.$b")))
+		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/HS SETCLOAKSECRET %s %s", secret, expectedCode)))
 		return
 	}
 	StoreCloakSecret(server.store, secret)
-	hsNotice(rb, client.t("Rotated the cloak secret; you must rehash or restart the server for it to take effect"))
+	service.Notice(rb, client.t("Rotated the cloak secret; you must rehash or restart the server for it to take effect"))
 }

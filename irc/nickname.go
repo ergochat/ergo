@@ -151,7 +151,7 @@ func (server *Server) RandomlyRename(client *Client) {
 // so we need to re-NICK automatically on every login event (IDENTIFY,
 // VERIFY, and a REGISTER that auto-verifies). if we can't get the nick
 // then we log them out (they will be able to reattach with SASL)
-func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config) (success bool) {
+func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config, source string) (success bool) {
 	if !config.Accounts.NickReservation.ForceNickEqualsAccount {
 		return true
 	}
@@ -161,7 +161,10 @@ func fixupNickEqualsAccount(client *Client, rb *ResponseBuffer, config *Config) 
 	err := performNickChange(client.server, client, client, rb.session, client.AccountName(), rb)
 	if err != nil && err != errNoop {
 		client.server.accounts.Logout(client)
-		nsNotice(rb, client.t("A client is already using that account; try logging out and logging back in with SASL"))
+		if source == "" {
+			source = client.server.name
+		}
+		rb.Add(nil, source, "NOTICE", client.t("A client is already using that account; try logging out and logging back in with SASL"))
 		return false
 	}
 	return true

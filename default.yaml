@@ -335,7 +335,11 @@ server:
     # oragono will write files to disk under certain circumstances, e.g.,
     # CPU profiling or data export. by default, these files will be written
     # to the working directory. set this to customize:
-    # output-path: "/home/oragono/out"
+    #output-path: "/home/oragono/out"
+
+    # the hostname used by "services", e.g., NickServ, defaults to "localhost",
+    # e.g., `NickServ!NickServ@localhost`. uncomment this to override:
+    #override-services-hostname: "example.network"
 
 # account options
 accounts:
