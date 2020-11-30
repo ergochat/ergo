@@ -344,6 +344,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	d := c.Details()
 	server.logger.Info("connect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
+	if d.account != "" {
+		server.sendLoginSnomask(d.nickMask, d.accountName)
+	}
 
 	// send welcome text
 	//NOTE(dan): we specifically use the NICK here instead of the nickmask
