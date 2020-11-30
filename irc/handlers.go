@@ -102,19 +102,24 @@ func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *Response
 		}
 	}
 
-	// dispatch account-notify
-	for friend := range client.Friends(caps.AccountNotify) {
-		if friend != rb.session {
-			friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
+	if client.Registered() {
+		// dispatch account-notify
+		for friend := range client.Friends(caps.AccountNotify) {
+			if friend != rb.session {
+				friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
+			}
 		}
+		if rb.session.capabilities.Has(caps.AccountNotify) {
+			rb.Add(nil, details.nickMask, "ACCOUNT", details.accountName)
+		}
+		client.server.sendLoginSnomask(details.nickMask, details.accountName)
 	}
-	if rb.session.capabilities.Has(caps.AccountNotify) {
-		rb.Add(nil, details.nickMask, "ACCOUNT", details.accountName)
-	}
-
-	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), details.nickMask, details.accountName))
 
 	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
+}
+
+func (server *Server) sendLoginSnomask(nickMask, accountName string) {
+	server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), nickMask, accountName))
 }
 
 // AUTHENTICATE [<mechanism>|<data>|*]
