@@ -1055,6 +1055,13 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	for _, item := range items {
 		var command string
 		switch item.Type {
+		case history.Invite:
+			if hasEventPlayback {
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "INVITE", item.Params[0])
+			} else {
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), stripMaskFromNick(item.Nick), item.Params[0]))
+			}
+			continue
 		case history.Privmsg:
 			command = "PRIVMSG"
 		case history.Notice:
@@ -1088,7 +1095,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 
 	rb.EndNestedBatch(batchID)
 	if !complete {
-		rb.Add(nil, "HistServ", "NOTICE", nick, client.t("Some additional message history may have been lost"))
+		rb.Add(nil, histservService.prefix, "NOTICE", nick, client.t("Some additional message history may have been lost"))
 	}
 }
 
@@ -1860,6 +1867,34 @@ func (client *Client) historyStatus(config *Config) (status HistoryStatus, targe
 		target = ""
 	}
 	return
+}
+
+func (client *Client) addHistoryItem(target *Client, item history.Item, details, tDetails *ClientDetails, config *Config) (err error) {
+	if !itemIsStorable(&item, config) {
+		return
+	}
+
+	item.Nick = details.nickMask
+	item.AccountName = details.accountName
+	targetedItem := item
+	targetedItem.Params[0] = tDetails.nick
+
+	cStatus, _ := client.historyStatus(config)
+	tStatus, _ := target.historyStatus(config)
+	// add to ephemeral history
+	if cStatus == HistoryEphemeral {
+		targetedItem.CfCorrespondent = tDetails.nickCasefolded
+		client.history.Add(targetedItem)
+	}
+	if tStatus == HistoryEphemeral && client != target {
+		item.CfCorrespondent = details.nickCasefolded
+		target.history.Add(item)
+	}
+	if cStatus == HistoryPersistent || tStatus == HistoryPersistent {
+		targetedItem.CfCorrespondent = ""
+		client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
+	}
+	return nil
 }
 
 func (client *Client) handleRegisterTimeout() {

@@ -23,6 +23,7 @@ const (
 	Tagmsg
 	Nick
 	Topic
+	Invite
 )
 
 const (

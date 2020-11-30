@@ -1507,24 +1507,33 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		invitee.Invite(chcfname, createdAt)
 	}
 
+	details := inviter.Details()
+	tDetails := invitee.Details()
+	tnick := invitee.Nick()
+	message := utils.MakeMessage("")
+	item := history.Item{
+		Type:    history.Invite,
+		Message: message,
+		Params:  [1]string{chname},
+	}
+
 	for _, member := range channel.Members() {
 		if member == inviter || member == invitee || !channel.ClientIsAtLeast(member, modes.Halfop) {
 			continue
 		}
 		for _, session := range member.Sessions() {
 			if session.capabilities.Has(caps.InviteNotify) {
-				session.Send(nil, inviter.NickMaskString(), "INVITE", invitee.Nick(), chname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "INVITE", tnick, chname)
 			}
 		}
 	}
 
-	cnick := inviter.Nick()
-	tnick := invitee.Nick()
-	rb.Add(nil, inviter.server.name, RPL_INVITING, cnick, tnick, chname)
-	invitee.Send(nil, inviter.NickMaskString(), "INVITE", tnick, chname)
+	rb.Add(nil, inviter.server.name, RPL_INVITING, details.nick, tnick, chname)
+	invitee.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "INVITE", tnick, chname)
 	if away, awayMessage := invitee.Away(); away {
-		rb.Add(nil, inviter.server.name, RPL_AWAY, cnick, tnick, awayMessage)
+		rb.Add(nil, inviter.server.name, RPL_AWAY, details.nick, tnick, awayMessage)
 	}
+	inviter.addHistoryItem(invitee, item, &details, &tDetails, channel.server.Config())
 }
 
 // Uninvite rescinds a channel invitation, if the inviter can do so.

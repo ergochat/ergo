@@ -2143,37 +2143,20 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 		}
 
+		if !allowedPlusR {
+			return
+		}
+
 		config := server.Config()
 		if !config.History.Enabled {
 			return
 		}
 		item := history.Item{
-			Type:        histType,
-			Message:     message,
-			Nick:        nickMaskString,
-			AccountName: accountName,
-			Tags:        tags,
+			Type:    histType,
+			Message: message,
+			Tags:    tags,
 		}
-		if !itemIsStorable(&item, config) || !allowedPlusR {
-			return
-		}
-		targetedItem := item
-		targetedItem.Params[0] = tnick
-		cStatus, _ := client.historyStatus(config)
-		tStatus, _ := user.historyStatus(config)
-		// add to ephemeral history
-		if cStatus == HistoryEphemeral {
-			targetedItem.CfCorrespondent = tDetails.nickCasefolded
-			client.history.Add(targetedItem)
-		}
-		if tStatus == HistoryEphemeral && client != user {
-			item.CfCorrespondent = details.nickCasefolded
-			user.history.Add(item)
-		}
-		if cStatus == HistoryPersistent || tStatus == HistoryPersistent {
-			targetedItem.CfCorrespondent = ""
-			server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
-		}
+		client.addHistoryItem(user, item, &details, &tDetails, config)
 	}
 }
 
