@@ -322,18 +322,6 @@ func (list *Buffer) next(index int) int {
 	}
 }
 
-// return n such that v <= n and n == 2**i for some i
-func roundUpToPowerOfTwo(v int) int {
-	// http://graphics.stanford.edu/~seander/bithacks.html
-	v -= 1
-	v |= v >> 1
-	v |= v >> 2
-	v |= v >> 4
-	v |= v >> 8
-	v |= v >> 16
-	return v + 1
-}
-
 func (list *Buffer) maybeExpand() {
 	if list.window == 0 {
 		return // autoresize is disabled
@@ -353,7 +341,7 @@ func (list *Buffer) maybeExpand() {
 		return // oldest element is old enough to overwrite
 	}
 
-	newSize := roundUpToPowerOfTwo(length + 1)
+	newSize := utils.RoundUpToPowerOfTwo(length + 1)
 	if list.maximumSize < newSize {
 		newSize = list.maximumSize
 	}
