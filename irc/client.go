@@ -1050,7 +1050,8 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	}
 	batchID = rb.StartNestedHistoryBatch(target)
 
-	allowTags := rb.session.capabilities.Has(caps.EventPlayback)
+	hasEventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
+	hasTags := rb.session.capabilities.Has(caps.MessageTags)
 	for _, item := range items {
 		var command string
 		switch item.Type {
@@ -1059,7 +1060,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		case history.Notice:
 			command = "NOTICE"
 		case history.Tagmsg:
-			if allowTags {
+			if hasEventPlayback {
 				command = "TAGMSG"
 			} else {
 				continue
@@ -1068,7 +1069,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 			continue
 		}
 		var tags map[string]string
-		if allowTags {
+		if hasTags {
 			tags = item.Tags
 		}
 		// XXX: Params[0] is the message target. if the source of this message is an in-memory
