@@ -172,16 +172,20 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 
 func (m *MessageCache) Send(session *Session) {
 	if m.fullTags != nil {
+		// Initialize() path:
 		if session.capabilities.Has(caps.MessageTags) {
 			session.sendBytes(m.fullTags, false)
-		} else if !(session.capabilities.Has(caps.ServerTime) || session.capabilities.Has(caps.AccountTag)) {
-			if m.plain != nil {
+		} else if m.plain != nil {
+			// plain == nil indicates a TAGMSG
+			if !(session.capabilities.Has(caps.ServerTime) || session.capabilities.Has(caps.AccountTag)) {
 				session.sendBytes(m.plain, false)
+			} else {
+				// slowpath
+				session.sendFromClientInternal(false, m.time, m.msgid, m.source, m.accountName, nil, m.command, m.params...)
 			}
-		} else {
-			session.sendFromClientInternal(false, m.time, m.msgid, m.source, m.accountName, nil, m.command, m.params...)
 		}
 	} else if m.fullTagsMultiline != nil {
+		// InitializeSplitMessage() path:
 		if session.capabilities.Has(caps.Multiline) {
 			for _, line := range m.fullTagsMultiline {
 				session.sendBytes(line, false)
@@ -191,6 +195,7 @@ func (m *MessageCache) Send(session *Session) {
 				session.sendBytes(line, false)
 			}
 		} else {
+			// slowpath
 			session.sendSplitMsgFromClientInternal(false, m.source, m.accountName, m.tags, m.command, m.target, m.splitMessage)
 		}
 	}
