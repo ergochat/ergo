@@ -1161,9 +1161,16 @@ func isonHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
 func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	// kill JOIN 0 requests
+	// #1417: allow `JOIN 0` with a confirmation code
 	if msg.Params[0] == "0" {
-		rb.Notice(client.t("JOIN 0 is not allowed"))
+		expectedCode := utils.ConfirmationCode("", rb.session.ctime)
+		if len(msg.Params) == 1 || msg.Params[1] != expectedCode {
+			rb.Notice(fmt.Sprintf(client.t("Warning: /JOIN 0 will remove you from all channels. To confirm, type: /JOIN 0 %s"), expectedCode))
+		} else {
+			for _, channel := range client.Channels() {
+				channel.Part(client, "", rb)
+			}
+		}
 		return false
 	}
 
