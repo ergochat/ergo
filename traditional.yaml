@@ -236,13 +236,23 @@ server:
             # - "192.168.1.1"
             # - "2001:0db8::/32"
 
-        # custom connection limits for certain IPs/networks. note that CIDR
-        # widths defined here override the default CIDR width --- the limit
-        # will apply to the entire CIDR no matter how large or small it is
+        # custom connection limits for certain IPs/networks.
         custom-limits:
-            # "8.8.0.0/16":
-            #     max-concurrent-connections: 128
-            #     max-connections-per-window: 1024
+            #"irccloud":
+            #    nets:
+            #        - "192.184.9.108"  # highgate.irccloud.com
+            #        - "192.184.9.110"  # ealing.irccloud.com
+            #        - "192.184.9.112"  # charlton.irccloud.com
+            #        - "192.184.10.118" # brockwell.irccloud.com
+            #        - "192.184.10.9"   # tooting.irccloud.com
+            #        - "192.184.8.73"   # hathersage.irccloud.com
+            #        - "192.184.8.103"  # stonehaven.irccloud.com
+            #        - "5.254.36.57"    # tinside.irccloud.com
+            #        - "5.254.36.56/29" # additional ipv4 net
+            #        - "2001:67c:2f08::/48"
+            #        - "2a03:5180:f::/64"
+            #    max-concurrent-connections: 2048
+            #    max-connections-per-window: 2048
 
     # pluggable IP ban mechanism, via subprocess invocation
     # this can be used to check new connections against a DNSBL, for example

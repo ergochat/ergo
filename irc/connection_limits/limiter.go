@@ -19,14 +19,17 @@ var (
 )
 
 type CustomLimitConfig struct {
+	Nets          []string
 	MaxConcurrent int `yaml:"max-concurrent-connections"`
 	MaxPerWindow  int `yaml:"max-connections-per-window"`
 }
 
 // tuples the key-value pair of a CIDR and its custom limit/throttle values
 type customLimit struct {
-	CustomLimitConfig
-	ipNet net.IPNet
+	name          string
+	maxConcurrent int
+	maxPerWindow  int
+	nets          []net.IPNet
 }
 
 // LimiterConfig controls the automated connection limits.
@@ -71,14 +74,29 @@ func (config *LimiterConfig) postprocess() (err error) {
 		return fmt.Errorf("Could not parse limiter exemption list: %v", err.Error())
 	}
 
-	for netStr, customLimitConf := range config.CustomLimits {
-		normalizedNet, err := utils.NormalizedNetFromString(netStr)
-		if err != nil {
-			return fmt.Errorf("Could not parse custom limit specification: %v", err.Error())
+	for identifier, customLimitConf := range config.CustomLimits {
+		nets := make([]net.IPNet, len(customLimitConf.Nets))
+		for i, netStr := range customLimitConf.Nets {
+			normalizedNet, err := utils.NormalizedNetFromString(netStr)
+			if err != nil {
+				return fmt.Errorf("Bad net %s in custom-limits block %s: %w", netStr, identifier, err)
+			}
+			nets[i] = normalizedNet
+		}
+		if len(customLimitConf.Nets) == 0 {
+			// see #1421: this is the legacy config format where the
+			// dictionary key of the block is a CIDR string
+			normalizedNet, err := utils.NormalizedNetFromString(identifier)
+			if err != nil {
+				return fmt.Errorf("Custom limit block %s has no defined nets", identifier)
+			}
+			nets = []net.IPNet{normalizedNet}
 		}
 		config.customLimits = append(config.customLimits, customLimit{
-			CustomLimitConfig: customLimitConf,
-			ipNet:             normalizedNet,
+			maxConcurrent: customLimitConf.MaxConcurrent,
+			maxPerWindow:  customLimitConf.MaxPerWindow,
+			name:          "*" + identifier,
+			nets:          nets,
 		})
 	}
 
@@ -105,8 +123,10 @@ type Limiter struct {
 func (cl *Limiter) addrToKey(addr net.IP) (key string, limit int, throttle int) {
 	// `key` will be a CIDR string like "8.8.8.8/32" or "2001:0db8::/32"
 	for _, custom := range cl.config.customLimits {
-		if custom.ipNet.Contains(addr) {
-			return custom.ipNet.String(), custom.MaxConcurrent, custom.MaxPerWindow
+		for _, net := range custom.nets {
+			if net.Contains(addr) {
+				return custom.name, custom.maxConcurrent, custom.maxPerWindow
+			}
 		}
 	}
 

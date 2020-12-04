@@ -32,7 +32,8 @@ var baseConfig = LimiterConfig{
 		Exempted: []string{"localhost"},
 
 		CustomLimits: map[string]CustomLimitConfig{
-			"8.8.0.0/16": {
+			"google": {
+				Nets:          []string{"8.8.0.0/16"},
 				MaxConcurrent: 128,
 				MaxPerWindow:  256,
 			},
@@ -57,7 +58,7 @@ func TestKeying(t *testing.T) {
 	assertEqual(maxWin, 8, t)
 
 	key, maxConc, maxWin = limiter.addrToKey(easyParseIP("8.8.4.4"))
-	assertEqual(key, "8.8.0.0/16", t)
+	assertEqual(key, "*google", t)
 	assertEqual(maxConc, 128, t)
 	assertEqual(maxWin, 256, t)
 }
