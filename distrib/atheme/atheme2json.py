@@ -24,12 +24,26 @@ def convert(infile):
         'channels': defaultdict(dict),
     }
 
+    # Translate channels owned by groups to being owned by the first founder of that group
+    # Otherwise the code crashes on networks using atheme's GroupServ
+    # Note: all group definitions precede channel access entries (token CA) by design, so it
+    # should be safe to read this in using one pass.
+    groups_to_user = {}
+
     channel_to_founder = defaultdict(lambda: (None, None))
 
     for line in infile:
         line = line.rstrip('\r\n')
         parts = line.split(' ')
         category = parts[0]
+        if category == 'GACL':
+            groupname = parts[1]
+            user = parts[2]
+            flags = parts[3]
+            # Pick the first founder
+            if groupname not in groups_to_user and 'F' in flags:
+                groups_to_user[groupname] = user
+
         if category == 'MU':
             # user account
             # MU AAAAAAAAB shivaram $1$hcspif$nCm4r3S14Me9ifsOPGuJT. user@example.com 1600134392 1600467343 +sC default
@@ -96,6 +110,16 @@ def convert(infile):
             if 'F' in flags:
                 # there can only be one founder
                 preexisting_founder, preexisting_set_at = channel_to_founder[chname]
+                # If the username starts with "!", it's actually a GroupServ group.
+                if username.startswith('!'):
+                    try:
+                        group_founder = groups_to_user[username]
+                        print(f"WARNING: flattening GroupServ group founder {username} on {chname} to first group founder {group_founder}")
+                    except KeyError as e:
+                        raise ValueError(f"Got channel {chname} owned by group {username} that has no founder?")
+                    else:
+                        username = group_founder
+
                 if preexisting_founder is None or set_at < preexisting_set_at:
                     chdata['founder'] = username
                     channel_to_founder[chname] = (username, set_at)
@@ -103,6 +127,8 @@ def convert(infile):
                 chdata['amode'][username] = 'q'
             elif 'q' in flags:
                 chdata['amode'][username] = 'q'
+            elif 'a' in flags:
+                chdata['amode'][username] = 'a'
             elif 'o' in flags or 'O' in flags:
                 chdata['amode'][username] = 'o'
             elif 'h' in flags or 'H' in flags:
