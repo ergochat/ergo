@@ -404,7 +404,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToModes map[string]string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -463,10 +463,15 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, chnames []string,
 	// XXX set this last to avoid confusing SetNick:
 	client.registered = true
 
-	for _, chname := range chnames {
+	for chname, modeStr := range channelToModes {
 		// XXX we're using isSajoin=true, to make these joins succeed even without channel key
 		// this is *probably* ok as long as the persisted memberships are accurate
 		server.channels.Join(client, chname, "", true, nil)
+		if channel := server.channels.Get(chname); channel != nil {
+			channel.setModesForClient(client, modeStr)
+		} else {
+			server.logger.Error("internal", "could not create channel", chname)
+		}
 	}
 
 	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
@@ -1967,11 +1972,12 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 
 	if (dirtyBits & IncludeChannels) != 0 {
 		channels := client.Channels()
-		channelNames := make([]string, len(channels))
-		for i, channel := range channels {
-			channelNames[i] = channel.Name()
+		channelToModes := make(map[string]string, len(channels))
+		for _, channel := range channels {
+			chname, modes := channel.nameAndModes(client)
+			channelToModes[chname] = modes
 		}
-		client.server.accounts.saveChannels(account, channelNames)
+		client.server.accounts.saveChannels(account, channelToModes)
 	}
 	if (dirtyBits & IncludeLastSeen) != 0 {
 		client.server.accounts.saveLastSeen(account, client.copyLastSeen())

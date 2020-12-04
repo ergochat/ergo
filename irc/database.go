@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = 18
+	latestDbSchema = 19
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -903,6 +903,66 @@ func schemaChangeV17ToV18(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1345: persist the channel-user modes of always-on clients
+func schemaChangeV18To19(config *Config, tx *buntdb.Tx) error {
+	channelToAmodesCache := make(map[string]map[string]modes.Mode)
+	joinedto := "account.joinedto "
+	var accounts []string
+	var channels [][]string
+	tx.AscendGreaterOrEqual("", joinedto, func(key, value string) bool {
+		if !strings.HasPrefix(key, joinedto) {
+			return false
+		}
+		accounts = append(accounts, strings.TrimPrefix(key, joinedto))
+		var ch []string
+		if value != "" {
+			ch = strings.Split(value, ",")
+		}
+		channels = append(channels, ch)
+		return true
+	})
+
+	for i := 0; i < len(accounts); i++ {
+		account := accounts[i]
+		channels := channels[i]
+		tx.Delete(joinedto + account)
+		newValue := make(map[string]string, len(channels))
+		for _, channel := range channels {
+			chcfname, err := CasefoldChannel(channel)
+			if err != nil {
+				continue
+			}
+			// get amodes from the channelToAmodesCache, fill if necessary
+			amodes, ok := channelToAmodesCache[chcfname]
+			if !ok {
+				amodeStr, _ := tx.Get("channel.accounttoumode " + chcfname)
+				if amodeStr != "" {
+					jErr := json.Unmarshal([]byte(amodeStr), &amodes)
+					if jErr != nil {
+						log.Printf("error retrieving amodes for %s: %v\n", channel, jErr)
+						amodes = nil
+					}
+				}
+				// setting/using the nil value here is ok
+				channelToAmodesCache[chcfname] = amodes
+			}
+			if mode, ok := amodes[account]; ok {
+				newValue[channel] = string(mode)
+			} else {
+				newValue[channel] = ""
+			}
+		}
+		newValueBytes, jErr := json.Marshal(newValue)
+		if jErr != nil {
+			log.Printf("couldn't serialize new mode values for v19: %v\n", jErr)
+			continue
+		}
+		tx.Set("account.channeltomodes "+account, string(newValueBytes), nil)
+	}
+
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -997,5 +1057,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 17,
 		TargetVersion:  18,
 		Changer:        schemaChangeV17ToV18,
+	},
+	{
+		InitialVersion: 18,
+		TargetVersion:  19,
+		Changer:        schemaChangeV18To19,
 	},
 }

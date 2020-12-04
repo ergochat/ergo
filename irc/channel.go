@@ -553,6 +553,30 @@ func (channel *Channel) ClientStatus(client *Client) (present bool, cModes modes
 	return present, modes.AllModes()
 }
 
+// helper for persisting channel-user modes for always-on clients;
+// return the channel name and all channel-user modes for a client
+func (channel *Channel) nameAndModes(client *Client) (chname string, modeStr string) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	chname = channel.name
+	modeStr = channel.members[client].String()
+	return
+}
+
+// overwrite any existing channel-user modes with the stored ones
+func (channel *Channel) setModesForClient(client *Client, modeStr string) {
+	newModes := modes.NewModeSet()
+	for _, mode := range modeStr {
+		newModes.SetMode(modes.Mode(mode), true)
+	}
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	if _, ok := channel.members[client]; !ok {
+		return
+	}
+	channel.members[client] = newModes
+}
+
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
 	founder := channel.registeredFounder
@@ -1382,6 +1406,9 @@ func (channel *Channel) applyModeToMember(client *Client, change modes.ModeChang
 
 	if !exists {
 		rb.Add(nil, client.server.name, ERR_USERNOTINCHANNEL, client.Nick(), channel.Name(), client.t("They aren't on that channel"))
+	}
+	if applied {
+		target.markDirty(IncludeChannels)
 	}
 	return
 }

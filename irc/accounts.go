@@ -38,11 +38,13 @@ const (
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
-	keyAccountJoinedChannels   = "account.joinedto %s" // channels a persistent client has joined
 	keyAccountLastSeen         = "account.lastseen %s"
 	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
 	keyAccountRealname         = "account.realname %s"  // client realname stored as string
 	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
+	// for an always-on client, a map of channel names they're in to their current modes
+	// (not to be confused with their amodes, which a non-always-on client can have):
+	keyAccountChannelToModes = "account.channeltomodes %s"
 
 	maxCertfpsPerAccount = 5
 )
@@ -542,24 +544,34 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 	return err
 }
 
-func (am *AccountManager) saveChannels(account string, channels []string) {
-	channelsStr := strings.Join(channels, ",")
-	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+func (am *AccountManager) saveChannels(account string, channelToModes map[string]string) {
+	j, err := json.Marshal(channelToModes)
+	if err != nil {
+		am.server.logger.Error("internal", "couldn't marshal channel-to-modes", account, err.Error())
+		return
+	}
+	jStr := string(j)
+	key := fmt.Sprintf(keyAccountChannelToModes, account)
 	am.server.store.Update(func(tx *buntdb.Tx) error {
-		tx.Set(key, channelsStr, nil)
+		tx.Set(key, jStr, nil)
 		return nil
 	})
 }
 
-func (am *AccountManager) loadChannels(account string) (channels []string) {
-	key := fmt.Sprintf(keyAccountJoinedChannels, account)
+func (am *AccountManager) loadChannels(account string) (channelToModes map[string]string) {
+	key := fmt.Sprintf(keyAccountChannelToModes, account)
 	var channelsStr string
 	am.server.store.View(func(tx *buntdb.Tx) error {
 		channelsStr, _ = tx.Get(key)
 		return nil
 	})
-	if channelsStr != "" {
-		return strings.Split(channelsStr, ",")
+	if channelsStr == "" {
+		return nil
+	}
+	err := json.Unmarshal([]byte(channelsStr), &channelToModes)
+	if err != nil {
+		am.server.logger.Error("internal", "couldn't marshal channel-to-modes", account, err.Error())
+		return nil
 	}
 	return
 }
@@ -1454,7 +1466,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
-	joinedChannelsKey := fmt.Sprintf(keyAccountJoinedChannels, casefoldedAccount)
+	joinedChannelsKey := fmt.Sprintf(keyAccountChannelToModes, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)

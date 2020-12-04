@@ -211,9 +211,9 @@ func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
 }
 
 func (client *Client) AlwaysOn() (alwaysOn bool) {
-	client.stateMutex.Lock()
+	client.stateMutex.RLock()
 	alwaysOn = client.registered && client.alwaysOn
-	client.stateMutex.Unlock()
+	client.stateMutex.RUnlock()
 	return
 }
 
