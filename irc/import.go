@@ -53,17 +53,18 @@ type databaseImport struct {
 	Channels map[string]channelImport
 }
 
-func serializeAmodes(raw map[string]string) (result []byte, err error) {
+func serializeAmodes(raw map[string]string, validCfUsernames utils.StringSet) (result []byte, err error) {
 	processed := make(map[string]int, len(raw))
 	for accountName, mode := range raw {
 		if len(mode) != 1 {
 			return nil, fmt.Errorf("invalid mode %s for account %s", mode, accountName)
 		}
 		cfname, err := CasefoldName(accountName)
-		if err != nil {
-			return nil, fmt.Errorf("invalid amode recipient %s: %w", accountName, err)
+		if err != nil || !validCfUsernames.Has(cfname) {
+			log.Printf("skipping invalid amode recipient %s\n", accountName)
+		} else {
+			processed[cfname] = int(mode[0])
 		}
-		processed[cfname] = int(mode[0])
 	}
 	result, err = json.Marshal(processed)
 	return
@@ -77,6 +78,8 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 
 	tx.Set(keySchemaVersion, strconv.Itoa(importDBSchemaVersion), nil)
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
+
+	cfUsernames := make(utils.StringSet)
 
 	for username, userInfo := range dbImport.Users {
 		cfUsername, err := CasefoldName(username)
@@ -118,6 +121,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		for _, certfp := range certfps {
 			tx.Set(fmt.Sprintf(keyCertToAccount, certfp), cfUsername, nil)
 		}
+		cfUsernames.Add(cfUsername)
 	}
 
 	for chname, chInfo := range dbImport.Channels {
@@ -149,7 +153,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 			tx.Set(fmt.Sprintf(keyChannelTopicSetBy, cfchname), chInfo.TopicSetBy, nil)
 		}
 		if len(chInfo.Amode) != 0 {
-			m, err := serializeAmodes(chInfo.Amode)
+			m, err := serializeAmodes(chInfo.Amode, cfUsernames)
 			if err == nil {
 				tx.Set(fmt.Sprintf(keyChannelAccountToUMode, cfchname), string(m), nil)
 			} else {
