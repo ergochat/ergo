@@ -127,6 +127,8 @@ def convert(infile):
                 chdata['amode'][username] = 'q'
             elif 'q' in flags:
                 chdata['amode'][username] = 'q'
+            elif 'a' in flags:
+                chdata['amode'][username] = 'a'
             elif 'o' in flags or 'O' in flags:
                 chdata['amode'][username] = 'o'
             elif 'h' in flags or 'H' in flags:
