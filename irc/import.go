@@ -30,6 +30,7 @@ type userImport struct {
 	RegisteredAt    int64 `json:"registeredAt"`
 	Vhost           string
 	AdditionalNicks []string `json:"additionalNicks"`
+	Certfps         []string
 }
 
 type channelImport struct {
@@ -83,9 +84,19 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 			log.Printf("invalid username %s: %v", username, err)
 			continue
 		}
+		var certfps []string
+		for _, certfp := range userInfo.Certfps {
+			normalizedCertfp, err := utils.NormalizeCertfp(certfp)
+			if err == nil {
+				certfps = append(certfps, normalizedCertfp)
+			} else {
+				log.Printf("invalid certfp %s for %s\n", username, certfp)
+			}
+		}
 		credentials := AccountCredentials{
 			Version:        credsType,
 			PassphraseHash: []byte(userInfo.Hash),
+			Certfps:        certfps,
 		}
 		marshaledCredentials, err := json.Marshal(&credentials)
 		if err != nil {
@@ -103,6 +114,9 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		}
 		if len(userInfo.AdditionalNicks) != 0 {
 			tx.Set(fmt.Sprintf(keyAccountAdditionalNicks, cfUsername), marshalReservedNicks(userInfo.AdditionalNicks), nil)
+		}
+		for _, certfp := range certfps {
+			tx.Set(fmt.Sprintf(keyCertToAccount, certfp), cfUsername, nil)
 		}
 	}
 
