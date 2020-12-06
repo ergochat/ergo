@@ -576,10 +576,11 @@ channels:
 
 # operator classes
 oper-classes:
-    # local operator
-    "local-oper":
+    # chat moderator: can ban/unban users from the server, join channels,
+    # fix mode issues and sort out vhosts.
+    "chat-moderator":
         # title shown in WHOIS
-        title: Local Operator
+        title: Chat Moderator
 
         # capability names
         capabilities:
@@ -589,50 +590,36 @@ oper-classes:
             - "nofakelag"
             - "roleplay"
             - "relaymsg"
+            - "vhosts"
+            - "sajoin"
+            - "samode"
 
-    # network operator
-    "network-oper":
-        # title shown in WHOIS
-        title: Network Operator
-
-        # oper class this extends from
-        extends: "local-oper"
-
-        # capability names
-        capabilities:
-            - "remote_kill"
-            - "remote_ban"
-            - "remote_unban"
-
-    # server admin
+    # server admin: has full control of the ircd, including nickname and
+    # channel registrations
     "server-admin":
         # title shown in WHOIS
         title: Server Admin
 
         # oper class this extends from
-        extends: "local-oper"
+        extends: "chat-moderator"
 
         # capability names
         capabilities:
             - "rehash"
-            - "die"
             - "accreg"
-            - "sajoin"
-            - "samode"
-            - "vhosts"
             - "chanreg"
             - "history"
             - "defcon"
 
 # ircd operators
 opers:
-    # operator named 'admin'; log in with /OPER admin [password]
+    # default operator named 'admin'; log in with /OPER admin <password>
     admin:
         # which capabilities this oper has access to
         class: "server-admin"
 
         # custom whois line
-        whois-line: is a server admin
+        whois-line: is the server administrator
 
         # custom hostname
         vhost: "staff"
@@ -660,6 +647,13 @@ opers:
         # if 'auto' is set (and no password hash is set), operator permissions will be
         # granted automatically as soon as you connect with the right fingerprint.
         #auto: true
+
+    # example of a moderator named 'alice'
+    # (log in with /OPER alice <password>):
+    #alice:
+    #    class: "chat-moderator"
+    #    whois-line: "can help with moderation issues!"
+    #    password: "$2a$04$0123456789abcdef0123456789abcdef0123456789abcdef01234"
 
 # logging, takes inspiration from Insp
 logging:
