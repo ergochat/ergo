@@ -91,7 +91,7 @@ def convert(infile):
             chname = parts[1]
             category = parts[2]
             if category == 'private:topic:text':
-                out['channels'][chname]['topic'] = parts[3]
+                out['channels'][chname]['topic'] = line.split(maxsplit=3)[3]
             elif category == 'private:topic:setter':
                 out['channels'][chname]['topicSetBy'] = parts[3]
             elif category == 'private:topic:ts':
@@ -115,7 +115,7 @@ def convert(infile):
                     try:
                         group_founder = groups_to_user[username]
                         print(f"WARNING: flattening GroupServ group founder {username} on {chname} to first group founder {group_founder}")
-                    except KeyError as e:
+                    except KeyError:
                         raise ValueError(f"Got channel {chname} owned by group {username} that has no founder?")
                     else:
                         username = group_founder
