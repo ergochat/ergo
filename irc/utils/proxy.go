@@ -54,6 +54,7 @@ type ListenerConfig struct {
 	Tor       bool
 	STSOnly   bool
 	WebSocket bool
+	HideSTS   bool
 }
 
 // read a PROXY header (either v1 or v2), ensuring we don't read anything beyond

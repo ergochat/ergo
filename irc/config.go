@@ -59,6 +59,7 @@ type listenerConfigBlock struct {
 	Tor       bool
 	STSOnly   bool `yaml:"sts-only"`
 	WebSocket bool
+	HideSTS   bool `yaml:"hide-sts"`
 }
 
 type PersistentStatus uint
@@ -532,6 +533,7 @@ type Config struct {
 		SecureNetDefs            []string                        `yaml:"secure-nets"`
 		secureNets               []net.IPNet
 		supportedCaps            *caps.Set
+		supportedCapsWithoutSTS  *caps.Set
 		capValues                caps.Values
 		Casemapping              Casemapping
 		EnforceUtf8              bool         `yaml:"enforce-utf8"`
@@ -834,6 +836,7 @@ func (conf *Config) prepareListeners() (err error) {
 		}
 		lconf.RequireProxy = block.TLS.Proxy || block.Proxy
 		lconf.WebSocket = block.WebSocket
+		lconf.HideSTS = block.HideSTS
 		conf.Server.trueListeners[addr] = lconf
 	}
 	return nil
@@ -1370,6 +1373,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
+
+	// #1428: Tor listeners should never see STS
+	config.Server.supportedCapsWithoutSTS = caps.NewSet()
+	config.Server.supportedCapsWithoutSTS.Union(config.Server.supportedCaps)
+	config.Server.supportedCapsWithoutSTS.Disable(caps.STS)
 
 	return config, nil
 }

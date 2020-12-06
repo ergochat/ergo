@@ -159,6 +159,7 @@ type Session struct {
 	proxiedIP   net.IP
 	rawHostname string
 	isTor       bool
+	hideSTS     bool
 
 	fakelag              Fakelag
 	deferredFakelagCount int
@@ -376,6 +377,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		realIP:     realIP,
 		proxiedIP:  proxiedIP,
 		isTor:      wConn.Config.Tor,
+		hideSTS:    wConn.Config.Tor || wConn.Config.HideSTS,
 	}
 	client.sessions = []*Session{session}
 
