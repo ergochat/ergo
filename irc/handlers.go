@@ -442,6 +442,8 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	supportedCaps := config.Server.supportedCaps
 	if client.isSTSOnly {
 		supportedCaps = stsOnlyCaps
+	} else if rb.session.hideSTS {
+		supportedCaps = config.Server.supportedCapsWithoutSTS
 	}
 
 	badCaps := false
