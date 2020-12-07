@@ -2,8 +2,11 @@
 
 import json
 import logging
+import re
 import sys
 from collections import defaultdict
+
+MASK_MAGIC_REGEX = re.compile(r'[*?!@]')
 
 def to_unixnano(timestamp):
     return int(timestamp) * (10**9)
@@ -100,6 +103,8 @@ def convert(infile):
             # channel access lists
             # CA #mychannel shivaram +AFORafhioqrstv 1600134478 shivaram
             chname, username, flags, set_at = parts[1], parts[2], parts[3], int(parts[4])
+            if MASK_MAGIC_REGEX.search(username):
+                continue
             chname = parts[1]
             chdata = out['channels'][chname]
             flags = parts[3]
