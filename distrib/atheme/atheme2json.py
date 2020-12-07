@@ -27,11 +27,7 @@ def convert(infile):
         'channels': defaultdict(dict),
     }
 
-    # Translate channels owned by groups to being owned by the first founder of that group
-    # Otherwise the code crashes on networks using atheme's GroupServ
-    # Note: all group definitions precede channel access entries (token CA) by design, so it
-    # should be safe to read this in using one pass.
-    groups_to_user = {}
+    group_to_founders = defaultdict(list)
 
     channel_to_founder = defaultdict(lambda: (None, None))
 
@@ -39,15 +35,16 @@ def convert(infile):
         line = line.rstrip('\r\n')
         parts = line.split(' ')
         category = parts[0]
+
         if category == 'GACL':
+            # Note: all group definitions precede channel access entries (token CA) by design, so it
+            # should be safe to read this in using one pass.
             groupname = parts[1]
             user = parts[2]
             flags = parts[3]
-            # Pick the first founder
-            if groupname not in groups_to_user and 'F' in flags:
-                groups_to_user[groupname] = user
-
-        if category == 'MU':
+            if 'F' in flags:
+                group_to_founders[groupname].append(user)
+        elif category == 'MU':
             # user account
             # MU AAAAAAAAB shivaram $1$hcspif$nCm4r3S14Me9ifsOPGuJT. user@example.com 1600134392 1600467343 +sC default
             name = parts[2]
@@ -60,9 +57,7 @@ def convert(infile):
             username, groupednick = parts[1], parts[2]
             if username != groupednick:
                 user = out['users'][username]
-                if 'additionalNicks' not in user:
-                    user['additionalNicks'] = []
-                user['additionalNicks'].append(groupednick)
+                user.setdefault('additionalnicks', []).append(groupednick)
         elif category == 'MDU':
             if parts[2] == 'private:usercloak':
                 username = parts[1]
@@ -111,18 +106,19 @@ def convert(infile):
                 chdata['amode'] = {}
             # see libathemecore/flags.c: +o is op, +O is autoop, etc.
             if 'F' in flags:
-                # there can only be one founder
-                preexisting_founder, preexisting_set_at = channel_to_founder[chname]
                 # If the username starts with "!", it's actually a GroupServ group.
                 if username.startswith('!'):
-                    try:
-                        group_founder = groups_to_user[username]
-                        print(f"WARNING: flattening GroupServ group founder {username} on {chname} to first group founder {group_founder}")
-                    except KeyError:
-                        raise ValueError(f"Got channel {chname} owned by group {username} that has no founder?")
-                    else:
-                        username = group_founder
-
+                    group_founders = group_to_founders.get(username)
+                    if not group_founders:
+                        # skip this and warn about it later
+                        continue
+                    # attempt to promote the first group founder to channel founder
+                    username = group_founders[0]
+                    # but everyone gets the +q flag
+                    for founder in group_founders:
+                        chdata['amode'][founder] = 'q'
+                # there can only be one founder
+                preexisting_founder, preexisting_set_at = channel_to_founder[chname]
                 if preexisting_founder is None or set_at < preexisting_set_at:
                     chdata['founder'] = username
                     channel_to_founder[chname] = (username, set_at)
