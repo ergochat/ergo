@@ -2548,7 +2548,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 
 	allowedToRelay := client.HasRoleCapabs("relaymsg") || (config.Server.Relaymsg.AvailableToChanops && channel.ClientIsAtLeast(client, modes.ChannelOperator))
 	if !allowedToRelay {
-		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_PRIVED", client.t("You cannot relay messages to this channel"))
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "PRIVS_NEEDED", client.t("You cannot relay messages to this channel"))
 		return false
 	}
 
