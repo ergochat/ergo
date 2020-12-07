@@ -2,8 +2,11 @@
 
 import json
 import logging
+import re
 import sys
 from collections import defaultdict
+
+MASK_MAGIC_REGEX = re.compile(r'[*?!@]')
 
 def to_unixnano(timestamp):
     return int(timestamp) * (10**9)
@@ -100,6 +103,8 @@ def convert(infile):
             # channel access lists
             # CA #mychannel shivaram +AFORafhioqrstv 1600134478 shivaram
             chname, username, flags, set_at = parts[1], parts[2], parts[3], int(parts[4])
+            if MASK_MAGIC_REGEX.search(username):
+                continue
             chname = parts[1]
             chdata = out['channels'][chname]
             flags = parts[3]
@@ -135,14 +140,31 @@ def convert(infile):
                 chdata['amode'][username] = 'h'
             elif 'v' in flags or 'V' in flags:
                 chdata['amode'][username] = 'v'
+            elif 'S' in flags:
+                # take the first entry as the successor
+                if not chdata.get('successor'):
+                    chdata['successor'] = username
         else:
             pass
 
     # do some basic integrity checks
+    def validate_user(name):
+        if not name:
+            return False
+        return bool(out['users'].get(name))
+
+    invalid_channels = []
+
     for chname, chdata in out['channels'].items():
-        founder = chdata.get('founder')
-        if founder not in out['users']:
-            raise ValueError("no user corresponding to channel founder", chname, chdata.get('founder'))
+        if not validate_user(chdata.get('founder')):
+            if validate_user(chdata.get('successor')):
+                chdata['founder'] = chdata['successor']
+            else:
+                invalid_channels.append(chname)
+
+    for chname in invalid_channels:
+        logging.warning("Unable to find a valid founder for channel %s, discarding it", chname)
+        del out['channels'][chname]
 
     return out
 
