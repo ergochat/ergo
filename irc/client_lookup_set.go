@@ -117,6 +117,10 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	realname := client.realname
 	client.stateMutex.RUnlock()
 
+	if newNick != accountName && strings.ContainsAny(newNick, disfavoredNameCharacters) {
+		return "", errNicknameInvalid, false
+	}
+
 	// recompute always-on status, because client.alwaysOn is not set for unregistered clients
 	var alwaysOn, useAccountName bool
 	if account != "" {
