@@ -1571,7 +1571,7 @@ func (channel *Channel) Uninvite(invitee *Client, inviter *Client, rb *ResponseB
 	}
 
 	if !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
-		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "NOT_PRIVED", channel.Name(), inviter.t("You're not a channel operator"))
+		rb.Add(nil, channel.server.name, "FAIL", "UNINVITE", "PRIVS_NEEDED", channel.Name(), inviter.t("You're not a channel operator"))
 		return
 	}
 
