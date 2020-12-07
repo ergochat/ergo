@@ -113,7 +113,16 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		tx.Set(fmt.Sprintf(keyAccountCredentials, cfUsername), string(marshaledCredentials), nil)
 		tx.Set(fmt.Sprintf(keyAccountRegTime, cfUsername), strconv.FormatInt(userInfo.RegisteredAt, 10), nil)
 		if userInfo.Vhost != "" {
-			tx.Set(fmt.Sprintf(keyAccountVHost, cfUsername), userInfo.Vhost, nil)
+			vhinfo := VHostInfo{
+				Enabled:       true,
+				ApprovedVHost: userInfo.Vhost,
+			}
+			vhBytes, err := json.Marshal(vhinfo)
+			if err == nil {
+				tx.Set(fmt.Sprintf(keyAccountVHost, cfUsername), string(vhBytes), nil)
+			} else {
+				log.Printf("couldn't serialize vhost for %s: %v\n", username, err)
+			}
 		}
 		if len(userInfo.AdditionalNicks) != 0 {
 			tx.Set(fmt.Sprintf(keyAccountAdditionalNicks, cfUsername), marshalReservedNicks(userInfo.AdditionalNicks), nil)

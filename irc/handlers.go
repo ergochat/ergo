@@ -3262,11 +3262,16 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	handleService := func(nick string) bool {
 		cfnick, _ := CasefoldName(nick)
 		service, ok := OragonoServices[cfnick]
+		hostname := "localhost"
+		config := server.Config()
+		if config.Server.OverrideServicesHostname != "" {
+			hostname = config.Server.OverrideServicesHostname
+		}
 		if !ok {
 			return false
 		}
 		clientNick := client.Nick()
-		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, "localhost", "*", fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name))
+		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, hostname, "*", fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name))
 		// #1080:
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, clientNick, service.Name, client.t("is a network service"))
 		// hehe
