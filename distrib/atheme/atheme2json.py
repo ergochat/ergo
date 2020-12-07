@@ -6,7 +6,7 @@ import re
 import sys
 from collections import defaultdict
 
-MASK_MAGIC_REGEX = re.compile(r'[*?!@]')
+MASK_MAGIC_REGEX = re.compile(r'[*?!@$]')
 
 def to_unixnano(timestamp):
     return int(timestamp) * (10**9)
@@ -103,8 +103,6 @@ def convert(infile):
             # channel access lists
             # CA #mychannel shivaram +AFORafhioqrstv 1600134478 shivaram
             chname, username, flags, set_at = parts[1], parts[2], parts[3], int(parts[4])
-            if MASK_MAGIC_REGEX.search(username):
-                continue
             chname = parts[1]
             chdata = out['channels'][chname]
             flags = parts[3]
@@ -130,7 +128,16 @@ def convert(infile):
                     channel_to_founder[chname] = (username, set_at)
                 # but multiple people can receive the 'q' amode
                 chdata['amode'][username] = 'q'
-            elif 'q' in flags:
+                continue
+            if MASK_MAGIC_REGEX.search(username):
+                # ignore groups, masks, etc. for any field other than founder
+                continue
+            # record the first appearing successor, if necessary
+            if 'S' in flags:
+                if not chdata.get('successor'):
+                    chdata['successor'] = username
+            # finally, handle amodes
+            if 'q' in flags:
                 chdata['amode'][username] = 'q'
             elif 'a' in flags:
                 chdata['amode'][username] = 'a'
@@ -140,10 +147,6 @@ def convert(infile):
                 chdata['amode'][username] = 'h'
             elif 'v' in flags or 'V' in flags:
                 chdata['amode'][username] = 'v'
-            elif 'S' in flags:
-                # take the first entry as the successor
-                if not chdata.get('successor'):
-                    chdata['successor'] = username
         else:
             pass
 
