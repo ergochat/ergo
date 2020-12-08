@@ -80,13 +80,24 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 
 	cfUsernames := make(utils.StringSet)
+	skeletonToUsername := make(map[string]string)
+	warnSkeletons := false
 
 	for username, userInfo := range dbImport.Users {
 		cfUsername, err := CasefoldName(username)
-		if err != nil {
-			log.Printf("invalid username %s: %v", username, err)
+		skeleton, skErr := Skeleton(username)
+		if err != nil || skErr != nil {
+			log.Printf("invalid username %s: %v\n", username, err)
 			continue
 		}
+
+		if existingSkelUser, ok := skeletonToUsername[skeleton]; ok {
+			log.Printf("Users %s and %s have confusable nicknames; this may render one or both accounts unusable\n", username, existingSkelUser)
+			warnSkeletons = true
+		} else {
+			skeletonToUsername[skeleton] = username
+		}
+
 		var certfps []string
 		for _, certfp := range userInfo.Certfps {
 			normalizedCertfp, err := utils.NormalizeCertfp(certfp)
@@ -103,7 +114,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		}
 		marshaledCredentials, err := json.Marshal(&credentials)
 		if err != nil {
-			log.Printf("invalid credentials for %s: %v", username, err)
+			log.Printf("invalid credentials for %s: %v\n", username, err)
 			continue
 		}
 		tx.Set(fmt.Sprintf(keyAccountExists, cfUsername), "1", nil)
@@ -176,6 +187,11 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		if chInfo.Limit > 0 {
 			tx.Set(fmt.Sprintf(keyChannelUserLimit, cfchname), strconv.Itoa(chInfo.Limit), nil)
 		}
+	}
+
+	if warnSkeletons {
+		log.Printf("NOTE: you may be able to avoid confusability issues by changing the server casemapping setting to `ascii`\n")
+		log.Printf("However, this will prevent the use of non-ASCII Unicode characters in nicknames\n")
 	}
 
 	return nil
