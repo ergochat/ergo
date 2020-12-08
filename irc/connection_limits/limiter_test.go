@@ -4,9 +4,12 @@
 package connection_limits
 
 import (
+	"crypto/md5"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/oragono/oragono/irc/flatip"
 )
 
 func easyParseIP(ipstr string) (result net.IP) {
@@ -15,6 +18,11 @@ func easyParseIP(ipstr string) (result net.IP) {
 		panic(ipstr)
 	}
 	return
+}
+
+func easyParseFlat(ipstr string) (result flatip.IP) {
+	r1 := easyParseIP(ipstr)
+	return flatip.FromNetIP(r1)
 }
 
 var baseConfig = LimiterConfig{
@@ -47,18 +55,23 @@ func TestKeying(t *testing.T) {
 	var limiter Limiter
 	limiter.ApplyConfig(&config)
 
-	key, maxConc, maxWin := limiter.addrToKey(easyParseIP("1.1.1.1"))
-	assertEqual(key, "1.1.1.1/32", t)
+	// an ipv4 /32 looks like a /128 to us after applying the 4-in-6 mapping
+	key, maxConc, maxWin := limiter.addrToKey(easyParseFlat("1.1.1.1"))
+	assertEqual(key.prefixLen, uint8(128), t)
+	assertEqual(key.maskedIP[12:], []byte{1, 1, 1, 1}, t)
 	assertEqual(maxConc, 4, t)
 	assertEqual(maxWin, 8, t)
 
-	key, maxConc, maxWin = limiter.addrToKey(easyParseIP("2607:5301:201:3100::7426"))
-	assertEqual(key, "2607:5301:201:3100::/64", t)
+	testIPv6 := easyParseFlat("2607:5301:201:3100::7426")
+	key, maxConc, maxWin = limiter.addrToKey(testIPv6)
+	assertEqual(key.prefixLen, uint8(64), t)
+	assertEqual(key.maskedIP[:], []byte(easyParseIP("2607:5301:201:3100::")), t)
 	assertEqual(maxConc, 4, t)
 	assertEqual(maxWin, 8, t)
 
-	key, maxConc, maxWin = limiter.addrToKey(easyParseIP("8.8.4.4"))
-	assertEqual(key, "*google", t)
+	key, maxConc, maxWin = limiter.addrToKey(easyParseFlat("8.8.4.4"))
+	assertEqual(key.prefixLen, uint8(0), t)
+	assertEqual([16]byte(key.maskedIP), md5.Sum([]byte("google")), t)
 	assertEqual(maxConc, 128, t)
 	assertEqual(maxWin, 256, t)
 }
