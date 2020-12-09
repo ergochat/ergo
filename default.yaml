@@ -116,10 +116,11 @@ server:
 
     websockets:
         # Restrict the origin of WebSocket connections by matching the "Origin" HTTP
-        # header. This settings makes oragono reject every WebSocket connection,
-        # except when it originates from one of the hosts in this list. Use this to
-        # prevent malicious websites from making their visitors connect to oragono
-        # without their knowledge. An empty list means that there are no restrictions.
+        # header. This setting causes oragono to reject websocket connections unless
+        # they originate from a page on one of the whitelisted websites in this list.
+        # This prevents malicious websites from making their visitors connect to your
+        # oragono instance without their knowledge. An empty list means there are no
+        # restrictions.
         allowed-origins:
             # - "https://oragono.io"
             # - "https://*.oragono.io"
@@ -136,9 +137,9 @@ server:
     # already up and running is problematic).
     casemapping: "precis"
 
-    # enforce-utf8 controls whether the server allows non-UTF8 bytes in messages
-    # (as in traditional IRC) or preemptively discards non-UTF8 messages (since
-    # they cannot be relayed to websocket clients).
+    # enforce-utf8 controls whether the server will preemptively discard non-UTF8
+    # messages (since they cannot be relayed to websocket clients), or will allow
+    # them and relay them to non-websocket clients (as in traditional IRC).
     enforce-utf8: true
 
     # whether to look up user hostnames with reverse DNS. there are 3 possibilities:
@@ -185,8 +186,8 @@ server:
         available-to-chanops: true
 
     # IPs/CIDRs the PROXY command can be used from
-    # this should be restricted to localhost (127.0.0.1/8, ::1/128, and unix sockets),
-    # unless you have a good reason. you should also add these addresses to the
+    # This should be restricted to localhost (127.0.0.1/8, ::1/128, and unix sockets).
+    # Unless you have a good reason. you should also add these addresses to the
     # connection limits and throttling exemption lists.
     proxy-allowed-from:
         - localhost
@@ -439,13 +440,11 @@ accounts:
         additional-nick-limit: 2
 
         # method describes how nickname reservation is handled
-        #   strict:   don't let the user change to the registered nickname unless they're
-        #             already logged-in using SASL or NickServ
+        #   strict:   users must already be logged in to their account (via
+        #             SASL, PASS account:password, or /NickServ IDENTIFY)
+        #             in order to use their reserved nickname(s)
         #   optional: no enforcement by default, but allow users to opt in to
         #             the enforcement level of their choice
-        #
-        # 'optional' matches the behavior of other NickServs, but 'strict' is
-        # preferable if all your users can enable SASL.
         method: strict
 
         # allow users to set their own nickname enforcement status, e.g.,
