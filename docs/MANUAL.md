@@ -31,10 +31,11 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - [Features](#features)
     - [User Accounts](#user-accounts)
     - [Account/Nick Modes](#accountnick-modes)
-        - [Traditional / lenient mode](#tradiotional--lenient-mode)
-        - [Nick ownership](#nick-ownership)
+        - [Nick equals account](#nick-equals-account)
+        - [Lenient nick reservation](#lenient-nick-reservation)
+        - [No nick reservation](#no-nick-reservation)
         - [SASL-only mode](#sasl-only-mode)
-        - [Email verification](#email-verification)
+    - [Email verification](#email-verification)
     - [Channel Registration](#channel-registration)
     - [Language](#language)
     - [Multiclient ("Bouncer")](#multiclient-bouncer)
@@ -251,7 +252,39 @@ Once you've registered, you'll need to setup SASL to login (or use NickServ IDEN
 
 Oragono supports several different modes of operation with respect to accounts and nicknames.
 
-### Traditional / lenient mode
+### Nick equals account
+
+In this mode (the default), registering an account gives you privileges over the use of the account name as a nickname. The server will then enforce several invariants with regard to your nickname:
+
+1. Only you can use your nickname, i.e., clients cannot use your nickname unless they are logged into your account
+1. You must use your nickname, i.e., if you are logged into your account, then the server will require you to use your account name as your nickname
+1. If you unregister your account, your nickname will be permanently unreclaimable (thus preventing people from impersonating you)
+
+As an end user, if you want to change your nickname, you can register a new account and transfer any channel ownerships to it using `/msg ChanServ transfer`.
+
+To enable this mode as the server operator, set the following configs (note that they are already set in `default.yaml`):
+
+* `accounts.registration.enabled = true`
+* `accounts.authentication-enabled = true`
+* `accounts.nick-reservation.enabled = true`
+* `accounts.nick-reservation.method = strict`
+* `accounts.nick-reservation.allow-custom-enforcement = false`
+* `accounts.nick-reservation.force-nick-equals-account = true`
+
+### Lenient nick reservation
+
+In this mode (implemented in the `traditional.yaml` config file example), nickname reservation is available, but end users must opt into it using `/msg NickServ set enforce strict`. Moreover, you need not use your nickname; even while logged in to your account, you can change nicknames to anything that is not reserved by another user. You can reserve some of your alternate nicknames using `/msg NickServ group`.
+
+To enable this mode as the server operator, set the following configs (they are set in `traditional.yaml`):
+
+* `accounts.registration.enabled = true`
+* `accounts.authentication-enabled = true`
+* `accounts.nick-reservation.enabled = true`
+* `accounts.nick-reservation.method = optional`
+* `accounts.nick-reservation.allow-custom-enforcement = true`
+* `accounts.nick-reservation.force-nick-equals-account = false`
+
+### No nick reservation
 
 This makes Oragono's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
 
@@ -261,55 +294,34 @@ To enable this mode, set the following configs:
 * `accounts.authentication-enabled = true`
 * `accounts.nick-reservation.enabled = false`
 
-### Nick ownership
-
-In this mode (the default), registering an account gives you privileges over the use of that account as a nickname. The server will then help you to enforce control over your nickname(s). No one will be able to use your nickname unless they are logged into your account.
-
-To enable this mode, set the following configs:
-
-* `accounts.registration.enabled = true`
-* `accounts.authentication-enabled = true`
-* `accounts.nick-reservation.enabled = true`
-* `accounts.nick-reservation.method = strict`
-
-The following additional configs may be of interest:
-
-* `accounts.nick-reservation.force-nick-equals-account = true` ; this allows nicknames to be treated as account names for most purposes, including for controlling access to channels (see the discussion of private channels below)
-
 ### SASL-only mode
 
 This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Oragono to be deployed facing the public Internet, with fine-grained control over who can log in.
 
 In this mode, clients must have a valid account to connect, so they cannot register their own accounts. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg NickServ help saregister`.) To bootstrap this process, you can make an initial connection from localhost, which is exempt (by default) from the requirement, or temporarily add your own IP to the exemption list. You can also use a more permissive configuration for bootstrapping, then switch to this one once you have your account. Another possibility is permanently exempting an internal network, e.g., `10.0.0.0/8`, that only trusted people can access.
 
-To enable this mode, set the following configs:
+To enable this mode, use the configs from the "nick equals account" section (i.e., start from `default.yaml`) and make these modifications:
 
 * `accounts.registration.enabled = false`
-* `accounts.authentication-enabled = true`
 * `accounts.require-sasl.enabled = true`
-* `accounts.nick-reservation.enabled = true`
-* `accounts.nick-reservation.method = strict`
-* `accounts.nick-reservation.force-nick-equals-account = true`
 
-### Email verification
+## Email verification
 
 By default, account registrations complete immediately and do not require a verification step. However, like other service frameworks, Oragono's NickServ can be configured to require email verification of registrations. The main challenge here is to prevent your emails from being marked as spam, which you can do by configuring [SPF](https://en.wikipedia.org/wiki/Sender_Policy_Framework), [DKIM](https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail), and [DMARC](https://en.wikipedia.org/wiki/DMARC). For example, this configuration (when added to the `accounts.registration` section) enables email verification, with the emails being signed with a DKIM key and sent directly from Oragono:
 
 ```yaml
-        enabled-callbacks:
-            - mailto
-
-        callbacks:
-            mailto:
-                sender: "admin@my.network"
-                require-tls: true
-                dkim:
-                    domain: "my.network"
-                    selector: "20200525"
-                    key-file: "dkim-private-20200525.pem"
+        email-verification:
+            enabled: true
+            sender: "admin@my.network"
+            require-tls: true
+            helo-domain: "my.network" # defaults to server name if unset
+            dkim:
+                domain: "my.network"
+                selector: "20200229"
+                key-file: "dkim.pem"
 ```
 
-You must create the corresponding TXT record `20200525._domainkey.my.network` to hold your public key. You can also use an MTA ("relay" or "smarthost") to send the email, in which case DKIM signing can be deferred to the MTA; see the example config for details.
+You must create the corresponding TXT record `20200229._domainkey.my.network` to hold your public key. You can also use an MTA ("relay" or "smarthost") to send the email, in which case DKIM signing can be deferred to the MTA; see the example config for details.
 
 
 ## Channel Registration
