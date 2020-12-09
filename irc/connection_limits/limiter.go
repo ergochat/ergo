@@ -7,7 +7,6 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
@@ -48,8 +47,7 @@ type rawLimiterConfig struct {
 
 	Throttle     bool
 	Window       time.Duration
-	MaxPerWindow int           `yaml:"max-connections-per-window"`
-	BanDuration  time.Duration `yaml:"throttle-ban-duration"`
+	MaxPerWindow int `yaml:"max-connections-per-window"`
 
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
@@ -126,44 +124,49 @@ type Limiter struct {
 
 // addrToKey canonicalizes `addr` to a string key, and returns
 // the relevant connection limit and throttle max-per-window values
-func (cl *Limiter) addrToKey(flat flatip.IP) (key limiterKey, limit int, throttle int) {
+func (cl *Limiter) addrToKey(addr flatip.IP) (key limiterKey, limit int, throttle int) {
 	for _, custom := range cl.config.customLimits {
 		for _, net := range custom.nets {
-			if net.Contains(flat) {
+			if net.Contains(addr) {
 				return limiterKey{maskedIP: custom.name, prefixLen: 0}, custom.maxConcurrent, custom.maxPerWindow
 			}
 		}
 	}
 
 	var prefixLen int
-	if flat.IsIPv4() {
+	if addr.IsIPv4() {
 		prefixLen = cl.config.CidrLenIPv4
-		flat = flat.Mask(prefixLen, 32)
+		addr = addr.Mask(prefixLen, 32)
 		prefixLen += 96
 	} else {
 		prefixLen = cl.config.CidrLenIPv6
-		flat = flat.Mask(prefixLen, 128)
+		addr = addr.Mask(prefixLen, 128)
 	}
 
-	return limiterKey{maskedIP: flat, prefixLen: uint8(prefixLen)}, cl.config.MaxConcurrent, cl.config.MaxPerWindow
+	return limiterKey{maskedIP: addr, prefixLen: uint8(prefixLen)}, cl.config.MaxConcurrent, cl.config.MaxPerWindow
 }
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
-func (cl *Limiter) AddClient(addr net.IP) error {
-	flat := flatip.FromNetIP(addr)
-
+func (cl *Limiter) AddClient(addr flatip.IP) error {
 	cl.Lock()
 	defer cl.Unlock()
 
 	// we don't track populations for exempted addresses or nets - this is by design
-	if flatip.IPInNets(flat, cl.config.exemptedNets) {
+	if flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return nil
 	}
 
-	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(flat)
+	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
 
-	// XXX check throttle first; if we checked limit first and then checked throttle,
-	// we'd have to decrement the limit on an unsuccessful throttle check
+	// check limiter
+	var count int
+	if cl.config.Count {
+		count = cl.limiter[addrString] + 1
+		if count > maxConcurrent {
+			return ErrLimitExceeded
+		}
+	}
+
 	if cl.config.Throttle {
 		details := cl.throttler[addrString] // retrieve mutable throttle state from the map
 		// add in constant state to process the limiting operation
@@ -175,16 +178,13 @@ func (cl *Limiter) AddClient(addr net.IP) error {
 		throttled, _ := g.Touch()                    // actually check the limit
 		cl.throttler[addrString] = g.ThrottleDetails // store modified mutable state
 		if throttled {
+			// back out the limiter add
 			return ErrThrottleExceeded
 		}
 	}
 
-	// now check limiter
+	// success, record in limiter
 	if cl.config.Count {
-		count := cl.limiter[addrString] + 1
-		if count > maxConcurrent {
-			return ErrLimitExceeded
-		}
 		cl.limiter[addrString] = count
 	}
 
@@ -192,17 +192,15 @@ func (cl *Limiter) AddClient(addr net.IP) error {
 }
 
 // RemoveClient removes the given address from our population
-func (cl *Limiter) RemoveClient(addr net.IP) {
-	flat := flatip.FromNetIP(addr)
-
+func (cl *Limiter) RemoveClient(addr flatip.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.config.Count || flatip.IPInNets(flat, cl.config.exemptedNets) {
+	if !cl.config.Count || flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return
 	}
 
-	addrString, _, _ := cl.addrToKey(flat)
+	addrString, _, _ := cl.addrToKey(addr)
 	count := cl.limiter[addrString]
 	count -= 1
 	if count < 0 {
@@ -212,17 +210,15 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 }
 
 // ResetThrottle resets the throttle count for an IP
-func (cl *Limiter) ResetThrottle(addr net.IP) {
-	flat := flatip.FromNetIP(addr)
-
+func (cl *Limiter) ResetThrottle(addr flatip.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.config.Throttle || flatip.IPInNets(flat, cl.config.exemptedNets) {
+	if !cl.config.Throttle || flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return
 	}
 
-	addrString, _, _ := cl.addrToKey(flat)
+	addrString, _, _ := cl.addrToKey(addr)
 	delete(cl.throttler, addrString)
 }
 

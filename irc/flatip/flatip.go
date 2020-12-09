@@ -1,5 +1,6 @@
 // Copyright 2020 Shivaram Lingamneni <slingamn@cs.stanford.edu>
 // Copyright 2009 The Go Authors
+// Released under the MIT license
 
 package flatip
 
@@ -13,6 +14,8 @@ var (
 	v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
 
 	IPv6loopback = IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	IPv6zero     = IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	IPv4zero     = IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0, 0, 0, 0}
 
 	ErrInvalidIPString = errors.New("String could not be interpreted as an IP address")
 )
@@ -20,8 +23,8 @@ var (
 // packed versions of net.IP and net.IPNet; these are pure value types,
 // so they can be compared with == and used as map keys.
 
-// IP is the 128-bit representation of the IPv6 address, using the 4-in-6 mapping
-// if necessary:
+// IP is a 128-bit representation of an IP address, using the 4-in-6 mapping
+// to represent IPv4 addresses.
 type IP [16]byte
 
 // IPNet is a IP network. In a valid value, all bits after PrefixLen are zeroes.
@@ -93,6 +96,10 @@ func (ip IP) IsLoopback() bool {
 	} else {
 		return ip == IPv6loopback
 	}
+}
+
+func (ip IP) IsUnspecified() bool {
+	return ip == IPv4zero || ip == IPv6zero
 }
 
 func rawCidrMask(length int) (m IP) {
@@ -176,6 +183,13 @@ func (cidr IPNet) String() string {
 	return ipnet.String()
 }
 
+// IsZero tests whether ipnet is the zero value of an IPNet, 0::0/0.
+// Although this is a valid subnet, it can still be used as a sentinel
+// value in some contexts.
+func (ipnet IPNet) IsZero() bool {
+	return ipnet == IPNet{}
+}
+
 // ParseCIDR parses a string representation of an IP network in CIDR notation,
 // then returns it as an IPNet (along with the original, unmasked address).
 func ParseCIDR(netstr string) (ip IP, ipnet IPNet, err error) {
@@ -185,33 +199,4 @@ func ParseCIDR(netstr string) (ip IP, ipnet IPNet, err error) {
 		return
 	}
 	return FromNetIP(nip), FromNetIPNet(*nipnet), nil
-}
-
-// begin ad-hoc utilities
-
-// ParseToNormalizedNet attempts to interpret a string either as an IP
-// network in CIDR notation, returning an IPNet, or as an IP address,
-// returning an IPNet that contains only that address.
-func ParseToNormalizedNet(netstr string) (ipnet IPNet, err error) {
-	_, ipnet, err = ParseCIDR(netstr)
-	if err == nil {
-		return
-	}
-	ip, err := ParseIP(netstr)
-	if err == nil {
-		ipnet.IP = ip
-		ipnet.PrefixLen = 128
-	}
-	return
-}
-
-// IPInNets is a convenience function for testing whether an IP is contained
-// in any member of a slice of IPNet's.
-func IPInNets(addr IP, nets []IPNet) bool {
-	for _, net := range nets {
-		if net.Contains(addr) {
-			return true
-		}
-	}
-	return false
 }

@@ -4,7 +4,6 @@
 package connection_limits
 
 import (
-	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -83,7 +82,7 @@ func makeTestThrottler(v4len, v6len int) *Limiter {
 
 func TestConnectionThrottle(t *testing.T) {
 	throttler := makeTestThrottler(32, 64)
-	addr := net.ParseIP("8.8.8.8")
+	addr := easyParseIP("8.8.8.8")
 
 	for i := 0; i < 3; i += 1 {
 		err := throttler.AddClient(addr)
@@ -97,14 +96,14 @@ func TestConnectionThrottleIPv6(t *testing.T) {
 	throttler := makeTestThrottler(32, 64)
 
 	var err error
-	err = throttler.AddClient(net.ParseIP("2001:0db8::1"))
+	err = throttler.AddClient(easyParseIP("2001:0db8::1"))
 	assertEqual(err, nil, t)
-	err = throttler.AddClient(net.ParseIP("2001:0db8::2"))
+	err = throttler.AddClient(easyParseIP("2001:0db8::2"))
 	assertEqual(err, nil, t)
-	err = throttler.AddClient(net.ParseIP("2001:0db8::3"))
+	err = throttler.AddClient(easyParseIP("2001:0db8::3"))
 	assertEqual(err, nil, t)
 
-	err = throttler.AddClient(net.ParseIP("2001:0db8::4"))
+	err = throttler.AddClient(easyParseIP("2001:0db8::4"))
 	assertEqual(err, ErrThrottleExceeded, t)
 }
 
@@ -112,13 +111,13 @@ func TestConnectionThrottleIPv4(t *testing.T) {
 	throttler := makeTestThrottler(24, 64)
 
 	var err error
-	err = throttler.AddClient(net.ParseIP("192.168.1.101"))
+	err = throttler.AddClient(easyParseIP("192.168.1.101"))
 	assertEqual(err, nil, t)
-	err = throttler.AddClient(net.ParseIP("192.168.1.102"))
+	err = throttler.AddClient(easyParseIP("192.168.1.102"))
 	assertEqual(err, nil, t)
-	err = throttler.AddClient(net.ParseIP("192.168.1.103"))
+	err = throttler.AddClient(easyParseIP("192.168.1.103"))
 	assertEqual(err, nil, t)
 
-	err = throttler.AddClient(net.ParseIP("192.168.1.104"))
+	err = throttler.AddClient(easyParseIP("192.168.1.104"))
 	assertEqual(err, ErrThrottleExceeded, t)
 }

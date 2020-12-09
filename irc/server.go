@@ -23,6 +23,7 @@ import (
 
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
+	"github.com/oragono/oragono/irc/flatip"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/logger"
 	"github.com/oragono/oragono/irc/modes"
@@ -160,31 +161,23 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 		}
 	}
 
+	flat := flatip.FromNetIP(ipaddr)
+
 	// check DLINEs
-	isBanned, info := server.dlines.CheckIP(ipaddr)
+	isBanned, info := server.dlines.CheckIP(flat)
 	if isBanned {
-		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected by d-line", ipaddr))
+		server.logger.Info("connect-ip", "Client rejected by d-line", ipaddr.String())
 		return true, false, info.BanMessage("You are banned from this server (%s)")
 	}
 
 	// check connection limits
-	err := server.connectionLimiter.AddClient(ipaddr)
+	err := server.connectionLimiter.AddClient(flat)
 	if err == connection_limits.ErrLimitExceeded {
 		// too many connections from one client, tell the client and close the connection
-		server.logger.Info("connect-ip", fmt.Sprintf("Client from %v rejected for connection limit", ipaddr))
+		server.logger.Info("connect-ip", "Client rejected for connection limit", ipaddr.String())
 		return true, false, "Too many clients from your network"
 	} else if err == connection_limits.ErrThrottleExceeded {
-		duration := config.Server.IPLimits.BanDuration
-		if duration != 0 {
-			server.dlines.AddIP(ipaddr, duration, throttleMessage,
-				"Exceeded automated connection throttle", "auto.connection.throttler")
-			// they're DLINE'd for 15 minutes or whatever, so we can reset the connection throttle now,
-			// and once their temporary DLINE is finished they can fill up the throttler again
-			server.connectionLimiter.ResetThrottle(ipaddr)
-		}
-		server.logger.Info(
-			"connect-ip",
-			fmt.Sprintf("Client from %v exceeded connection throttle, d-lining for %v", ipaddr, duration))
+		server.logger.Info("connect-ip", "Client exceeded connection throttle", ipaddr.String())
 		return true, false, throttleMessage
 	} else if err != nil {
 		server.logger.Warning("internal", "unexpected ban result", err.Error())
@@ -211,7 +204,7 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 		}
 		if output.Result == IPBanned {
 			// XXX roll back IP connection/throttling addition for the IP
-			server.connectionLimiter.RemoveClient(ipaddr)
+			server.connectionLimiter.RemoveClient(flat)
 			server.logger.Info("connect-ip", "Rejected client due to ip-check-script", ipaddr.String())
 			return true, false, output.BanMessage
 		} else if output.Result == IPRequireSASL {

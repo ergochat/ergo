@@ -226,8 +226,7 @@ func (dm *DLineManager) RemoveIP(addr net.IP) error {
 }
 
 // CheckIP returns whether or not an IP address was banned, and how long it is banned for.
-func (dm *DLineManager) CheckIP(netAddr net.IP) (isBanned bool, info IPBanInfo) {
-	addr := flatip.FromNetIP(netAddr)
+func (dm *DLineManager) CheckIP(addr flatip.IP) (isBanned bool, info IPBanInfo) {
 	if addr.IsLoopback() {
 		return // #671
 	}
