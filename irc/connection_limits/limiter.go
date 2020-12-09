@@ -4,12 +4,13 @@
 package connection_limits
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
+	"github.com/oragono/oragono/irc/flatip"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -26,10 +27,15 @@ type CustomLimitConfig struct {
 
 // tuples the key-value pair of a CIDR and its custom limit/throttle values
 type customLimit struct {
-	name          string
+	name          [16]byte
 	maxConcurrent int
 	maxPerWindow  int
-	nets          []net.IPNet
+	nets          []flatip.IPNet
+}
+
+type limiterKey struct {
+	maskedIP  flatip.IP
+	prefixLen uint8 // 0 for the fake nets we generate for custom limits
 }
 
 // LimiterConfig controls the automated connection limits.
@@ -41,8 +47,7 @@ type rawLimiterConfig struct {
 
 	Throttle     bool
 	Window       time.Duration
-	MaxPerWindow int           `yaml:"max-connections-per-window"`
-	BanDuration  time.Duration `yaml:"throttle-ban-duration"`
+	MaxPerWindow int `yaml:"max-connections-per-window"`
 
 	CidrLenIPv4 int `yaml:"cidr-len-ipv4"`
 	CidrLenIPv6 int `yaml:"cidr-len-ipv6"`
@@ -55,9 +60,7 @@ type rawLimiterConfig struct {
 type LimiterConfig struct {
 	rawLimiterConfig
 
-	ipv4Mask     net.IPMask
-	ipv6Mask     net.IPMask
-	exemptedNets []net.IPNet
+	exemptedNets []flatip.IPNet
 	customLimits []customLimit
 }
 
@@ -69,15 +72,19 @@ func (config *LimiterConfig) UnmarshalYAML(unmarshal func(interface{}) error) (e
 }
 
 func (config *LimiterConfig) postprocess() (err error) {
-	config.exemptedNets, err = utils.ParseNetList(config.Exempted)
+	exemptedNets, err := utils.ParseNetList(config.Exempted)
 	if err != nil {
 		return fmt.Errorf("Could not parse limiter exemption list: %v", err.Error())
 	}
+	config.exemptedNets = make([]flatip.IPNet, len(exemptedNets))
+	for i, exempted := range exemptedNets {
+		config.exemptedNets[i] = flatip.FromNetIPNet(exempted)
+	}
 
 	for identifier, customLimitConf := range config.CustomLimits {
-		nets := make([]net.IPNet, len(customLimitConf.Nets))
+		nets := make([]flatip.IPNet, len(customLimitConf.Nets))
 		for i, netStr := range customLimitConf.Nets {
-			normalizedNet, err := utils.NormalizedNetFromString(netStr)
+			normalizedNet, err := flatip.ParseToNormalizedNet(netStr)
 			if err != nil {
 				return fmt.Errorf("Bad net %s in custom-limits block %s: %w", netStr, identifier, err)
 			}
@@ -86,22 +93,19 @@ func (config *LimiterConfig) postprocess() (err error) {
 		if len(customLimitConf.Nets) == 0 {
 			// see #1421: this is the legacy config format where the
 			// dictionary key of the block is a CIDR string
-			normalizedNet, err := utils.NormalizedNetFromString(identifier)
+			normalizedNet, err := flatip.ParseToNormalizedNet(identifier)
 			if err != nil {
 				return fmt.Errorf("Custom limit block %s has no defined nets", identifier)
 			}
-			nets = []net.IPNet{normalizedNet}
+			nets = []flatip.IPNet{normalizedNet}
 		}
 		config.customLimits = append(config.customLimits, customLimit{
 			maxConcurrent: customLimitConf.MaxConcurrent,
 			maxPerWindow:  customLimitConf.MaxPerWindow,
-			name:          "*" + identifier,
+			name:          md5.Sum([]byte(identifier)),
 			nets:          nets,
 		})
 	}
-
-	config.ipv4Mask = net.CIDRMask(config.CidrLenIPv4, 32)
-	config.ipv6Mask = net.CIDRMask(config.CidrLenIPv6, 128)
 
 	return nil
 }
@@ -113,53 +117,56 @@ type Limiter struct {
 	config *LimiterConfig
 
 	// IP/CIDR -> count of clients connected from there:
-	limiter map[string]int
+	limiter map[limiterKey]int
 	// IP/CIDR -> throttle state:
-	throttler map[string]ThrottleDetails
+	throttler map[limiterKey]ThrottleDetails
 }
 
 // addrToKey canonicalizes `addr` to a string key, and returns
 // the relevant connection limit and throttle max-per-window values
-func (cl *Limiter) addrToKey(addr net.IP) (key string, limit int, throttle int) {
-	// `key` will be a CIDR string like "8.8.8.8/32" or "2001:0db8::/32"
+func (cl *Limiter) addrToKey(addr flatip.IP) (key limiterKey, limit int, throttle int) {
 	for _, custom := range cl.config.customLimits {
 		for _, net := range custom.nets {
 			if net.Contains(addr) {
-				return custom.name, custom.maxConcurrent, custom.maxPerWindow
+				return limiterKey{maskedIP: custom.name, prefixLen: 0}, custom.maxConcurrent, custom.maxPerWindow
 			}
 		}
 	}
 
-	var ipNet net.IPNet
-	addrv4 := addr.To4()
-	if addrv4 != nil {
-		ipNet = net.IPNet{
-			IP:   addrv4.Mask(cl.config.ipv4Mask),
-			Mask: cl.config.ipv4Mask,
-		}
+	var prefixLen int
+	if addr.IsIPv4() {
+		prefixLen = cl.config.CidrLenIPv4
+		addr = addr.Mask(prefixLen, 32)
+		prefixLen += 96
 	} else {
-		ipNet = net.IPNet{
-			IP:   addr.Mask(cl.config.ipv6Mask),
-			Mask: cl.config.ipv6Mask,
-		}
+		prefixLen = cl.config.CidrLenIPv6
+		addr = addr.Mask(prefixLen, 128)
 	}
-	return ipNet.String(), cl.config.MaxConcurrent, cl.config.MaxPerWindow
+
+	return limiterKey{maskedIP: addr, prefixLen: uint8(prefixLen)}, cl.config.MaxConcurrent, cl.config.MaxPerWindow
 }
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
-func (cl *Limiter) AddClient(addr net.IP) error {
+func (cl *Limiter) AddClient(addr flatip.IP) error {
 	cl.Lock()
 	defer cl.Unlock()
 
 	// we don't track populations for exempted addresses or nets - this is by design
-	if utils.IPInNets(addr, cl.config.exemptedNets) {
+	if flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return nil
 	}
 
 	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
 
-	// XXX check throttle first; if we checked limit first and then checked throttle,
-	// we'd have to decrement the limit on an unsuccessful throttle check
+	// check limiter
+	var count int
+	if cl.config.Count {
+		count = cl.limiter[addrString] + 1
+		if count > maxConcurrent {
+			return ErrLimitExceeded
+		}
+	}
+
 	if cl.config.Throttle {
 		details := cl.throttler[addrString] // retrieve mutable throttle state from the map
 		// add in constant state to process the limiting operation
@@ -171,16 +178,13 @@ func (cl *Limiter) AddClient(addr net.IP) error {
 		throttled, _ := g.Touch()                    // actually check the limit
 		cl.throttler[addrString] = g.ThrottleDetails // store modified mutable state
 		if throttled {
+			// back out the limiter add
 			return ErrThrottleExceeded
 		}
 	}
 
-	// now check limiter
+	// success, record in limiter
 	if cl.config.Count {
-		count := cl.limiter[addrString] + 1
-		if count > maxConcurrent {
-			return ErrLimitExceeded
-		}
 		cl.limiter[addrString] = count
 	}
 
@@ -188,11 +192,11 @@ func (cl *Limiter) AddClient(addr net.IP) error {
 }
 
 // RemoveClient removes the given address from our population
-func (cl *Limiter) RemoveClient(addr net.IP) {
+func (cl *Limiter) RemoveClient(addr flatip.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.config.Count || utils.IPInNets(addr, cl.config.exemptedNets) {
+	if !cl.config.Count || flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return
 	}
 
@@ -206,11 +210,11 @@ func (cl *Limiter) RemoveClient(addr net.IP) {
 }
 
 // ResetThrottle resets the throttle count for an IP
-func (cl *Limiter) ResetThrottle(addr net.IP) {
+func (cl *Limiter) ResetThrottle(addr flatip.IP) {
 	cl.Lock()
 	defer cl.Unlock()
 
-	if !cl.config.Throttle || utils.IPInNets(addr, cl.config.exemptedNets) {
+	if !cl.config.Throttle || flatip.IPInNets(addr, cl.config.exemptedNets) {
 		return
 	}
 
@@ -224,10 +228,10 @@ func (cl *Limiter) ApplyConfig(config *LimiterConfig) {
 	defer cl.Unlock()
 
 	if cl.limiter == nil {
-		cl.limiter = make(map[string]int)
+		cl.limiter = make(map[limiterKey]int)
 	}
 	if cl.throttler == nil {
-		cl.throttler = make(map[string]ThrottleDetails)
+		cl.throttler = make(map[limiterKey]ThrottleDetails)
 	}
 
 	cl.config = config

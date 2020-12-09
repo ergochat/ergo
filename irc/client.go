@@ -21,6 +21,7 @@ import (
 	ident "github.com/oragono/go-ident"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
+	"github.com/oragono/oragono/irc/flatip"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
@@ -1477,7 +1478,7 @@ func (client *Client) destroy(session *Session) {
 			if session.proxiedIP != nil {
 				ip = session.proxiedIP
 			}
-			client.server.connectionLimiter.RemoveClient(ip)
+			client.server.connectionLimiter.RemoveClient(flatip.FromNetIP(ip))
 			source = ip.String()
 		}
 		client.server.logger.Info("connect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))

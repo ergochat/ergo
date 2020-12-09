@@ -24,6 +24,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
+	"github.com/oragono/oragono/irc/flatip"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/jwt"
 	"github.com/oragono/oragono/irc/modes"
@@ -2797,6 +2798,11 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 
 	// get host
 	hostString := msg.Params[0]
+
+	// TODO(#1447) consolidate this into the "unban" command
+	if flatip, ipErr := flatip.ParseIP(hostString); ipErr == nil {
+		server.connectionLimiter.ResetThrottle(flatip)
+	}
 
 	// check host
 	hostNet, err := utils.NormalizedNetFromString(hostString)

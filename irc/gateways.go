@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 
+	"github.com/oragono/oragono/irc/flatip"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -87,7 +88,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls boo
 	}
 	// successfully added a limiter entry for the proxied IP;
 	// remove the entry for the real IP if applicable (#197)
-	client.server.connectionLimiter.RemoveClient(session.realIP)
+	client.server.connectionLimiter.RemoveClient(flatip.FromNetIP(session.realIP))
 
 	// given IP is sane! override the client's current IP
 	client.server.logger.Info("connect-ip", "Accepted proxy IP for client", proxiedIP.String())

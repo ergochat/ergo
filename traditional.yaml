@@ -220,9 +220,6 @@ server:
         window: 10m
         # maximum number of new connections per IP/CIDR within the given duration
         max-connections-per-window: 32
-        # how long to ban offenders for. after banning them, the number of connections is
-        # reset, which lets you use /UNDLINE to unban people
-        throttle-ban-duration: 10m
 
         # how wide the CIDR should be for IPv4 (a /32 is a fully specified IPv4 address)
         cidr-len-ipv4: 32
