@@ -40,6 +40,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Language](#language)
     - [Multiclient ("Bouncer")](#multiclient-bouncer)
     - [History](#history)
+    - [Persistent history with MySQL](#persistent-history-with-mysql)
     - [IP cloaking](#ip-cloaking)
     - [Moderation](#moderation)
 - [Frequently Asked Questions](#frequently-asked-questions)
@@ -398,6 +399,30 @@ Unfortunately, client support for history playback is still patchy. In descendin
 1. If you only have one device, you can set your client to be always-on and furthermore `/msg NickServ set autoreplay-missed true`. This will replay missed messages, with the caveat that you must be connecting with at most one client at a time.
 1. You can manually request history using `/history #channel 1h` (the parameter is either a message count or a time duration). (Depending on your client, you may need to use `/QUOTE history` instead.)
 1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
+
+
+## Persistent history with MySQL
+
+On most Linux and POSIX systems, it's straightforward to set up MySQL (or MariaDB) as a backend for persistent history. This increases the amount of history that can be stored, and ensures that message data will be retained on server restart (you can still use the configuration options to set a time limit for retention). Here's a quick start guide for Ubuntu based on [Digital Ocean's documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04):
+
+1. Install the `mysql-server` package
+1. Run `mysql_secure_installation` as root; this corrects some insecure package defaults
+1. Connect to your new MySQL server as root with `mysql --user root`
+1. In the MySQL prompt, create a new `oragono` user (substitute a strong password of your own for `hunter2`): `CREATE USER 'oragono'@'localhost' IDENTIFIED BY 'hunter2';`
+1. Create the database that history will be stored in: `CREATE DATABASE oragono_history;`
+1. Grant privileges on the database to the new user: `GRANT ALL PRIVILEGES ON oragono_history.* to 'oragono'@'localhost';`
+1. Enable persistent history in your Oragono config file. At a minimum, you must set `history.persistent.enabled = true`. You may want to modify the other options under `history.persistent` and `history`.
+1. Configure Oragono to talk to MySQL (again, substitute the strong password you chose previously for `hunter2`):
+
+```yaml
+    mysql:
+        enabled: true
+        socket-path: "/var/run/mysqld/mysqld.sock"
+        user: "oragono"
+        password: "hunter2"
+        history-database: "oragono_history"
+        timeout: 3s
+```
 
 
 ## IP cloaking
