@@ -315,6 +315,7 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	if registered {
 		delete(cm.registeredChannels, cfname)
 		if oldSkeleton, err := Skeleton(info.Name); err == nil {
+			delete(cm.chansSkeletons, oldSkeleton)
 			delete(cm.registeredSkeletons, oldSkeleton)
 		}
 		cm.registeredChannels.Add(newCfname)
@@ -323,7 +324,6 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 		delete(cm.chansSkeletons, entry.skeleton)
 		cm.chansSkeletons.Add(newSkeleton)
 		entry.skeleton = newSkeleton
-		cm.chans[cfname] = entry
 	}
 	entry.channel.Rename(newName, newCfname)
 	return nil
