@@ -1537,11 +1537,10 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	details := inviter.Details()
 	tDetails := invitee.Details()
 	tnick := invitee.Nick()
-	message := utils.MakeMessage("")
+	message := utils.MakeMessage(chname)
 	item := history.Item{
 		Type:    history.Invite,
 		Message: message,
-		Params:  [1]string{chname},
 	}
 
 	for _, member := range channel.Members() {

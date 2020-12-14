@@ -1058,16 +1058,28 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	}
 	batchID = rb.StartNestedHistoryBatch(target)
 
+	isSelfMessage := func(item *history.Item) bool {
+		// XXX: Params[0] is the message target. if the source of this message is an in-memory
+		// buffer, then it's "" for an incoming message and the recipient's nick for an outgoing
+		// message. if the source of the message is mysql, then mysql only sees one copy of the
+		// message, and it's the version with the recipient's nick filled in. so this is an
+		// incoming message if Params[0] (the recipient's nick) equals the client's nick:
+		return item.Params[0] != "" && item.Params[0] != nick
+	}
+
 	hasEventPlayback := rb.session.capabilities.Has(caps.EventPlayback)
 	hasTags := rb.session.capabilities.Has(caps.MessageTags)
 	for _, item := range items {
 		var command string
 		switch item.Type {
 		case history.Invite:
+			if isSelfMessage(&item) {
+				continue
+			}
 			if hasEventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "INVITE", item.Params[0])
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "INVITE", nick, item.Message.Message)
 			} else {
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), stripMaskFromNick(item.Nick), item.Params[0]))
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), stripMaskFromNick(item.Nick), item.Message.Message))
 			}
 			continue
 		case history.Privmsg:
@@ -1087,12 +1099,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		if hasTags {
 			tags = item.Tags
 		}
-		// XXX: Params[0] is the message target. if the source of this message is an in-memory
-		// buffer, then it's "" for an incoming message and the recipient's nick for an outgoing
-		// message. if the source of the message is mysql, then mysql only sees one copy of the
-		// message, and it's the version with the recipient's nick filled in. so this is an
-		// incoming message if Params[0] (the recipient's nick) equals the client's nick:
-		if item.Params[0] == "" || item.Params[0] == nick {
+		if !isSelfMessage(&item) {
 			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
 		} else {
 			// this message was sent *from* the client to another nick; the target is item.Params[0]
