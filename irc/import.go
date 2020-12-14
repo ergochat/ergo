@@ -44,6 +44,7 @@ type channelImport struct {
 	Modes        string
 	Key          string
 	Limit        int
+	Forward      string
 }
 
 type databaseImport struct {
@@ -186,6 +187,11 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		}
 		if chInfo.Limit > 0 {
 			tx.Set(fmt.Sprintf(keyChannelUserLimit, cfchname), strconv.Itoa(chInfo.Limit), nil)
+		}
+		if chInfo.Forward != "" {
+			if _, err := CasefoldChannel(chInfo.Forward); err == nil {
+				tx.Set(fmt.Sprintf(keyChannelForward, cfchname), chInfo.Forward, nil)
+			}
 		}
 	}
 

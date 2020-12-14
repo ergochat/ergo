@@ -35,6 +35,7 @@ const (
 	keyChannelAccountToUMode = "channel.accounttoumode %s"
 	keyChannelUserLimit      = "channel.userlimit %s"
 	keyChannelSettings       = "channel.settings %s"
+	keyChannelForward        = "channel.forward %s"
 
 	keyChannelPurged = "channel.purged %s"
 )
@@ -56,6 +57,7 @@ var (
 		keyChannelAccountToUMode,
 		keyChannelUserLimit,
 		keyChannelSettings,
+		keyChannelForward,
 	}
 )
 
@@ -94,6 +96,8 @@ type RegisteredChannel struct {
 	Modes []modes.Mode
 	// Key represents the channel key / password
 	Key string
+	// Forward is the forwarding/overflow (+f) channel
+	Forward string
 	// UserLimit is the user limit (0 for no limit)
 	UserLimit int
 	// AccountToUMode maps user accounts to their persistent channel modes (e.g., +q, +h)
@@ -208,6 +212,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 		password, _ := tx.Get(fmt.Sprintf(keyChannelPassword, channelKey))
 		modeString, _ := tx.Get(fmt.Sprintf(keyChannelModes, channelKey))
 		userLimitString, _ := tx.Get(fmt.Sprintf(keyChannelUserLimit, channelKey))
+		forward, _ := tx.Get(fmt.Sprintf(keyChannelForward, channelKey))
 		banlistString, _ := tx.Get(fmt.Sprintf(keyChannelBanlist, channelKey))
 		exceptlistString, _ := tx.Get(fmt.Sprintf(keyChannelExceptlist, channelKey))
 		invitelistString, _ := tx.Get(fmt.Sprintf(keyChannelInvitelist, channelKey))
@@ -249,6 +254,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 			AccountToUMode: accountToUMode,
 			UserLimit:      int(userLimit),
 			Settings:       settings,
+			Forward:        forward,
 		}
 		return nil
 	})
@@ -361,6 +367,7 @@ func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredCha
 		modeString := modes.Modes(channelInfo.Modes).String()
 		tx.Set(fmt.Sprintf(keyChannelModes, channelKey), modeString, nil)
 		tx.Set(fmt.Sprintf(keyChannelUserLimit, channelKey), strconv.Itoa(channelInfo.UserLimit), nil)
+		tx.Set(fmt.Sprintf(keyChannelForward, channelKey), channelInfo.Forward, nil)
 	}
 
 	if includeFlags&IncludeLists != 0 {

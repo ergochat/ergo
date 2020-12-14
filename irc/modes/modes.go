@@ -24,7 +24,7 @@ var (
 	SupportedChannelModes = Modes{
 		BanMask, ChanRoleplaying, ExceptMask, InviteMask, InviteOnly, Key,
 		Moderated, NoOutside, OpOnlyTopic, RegisteredOnly, RegisteredOnlySpeak,
-		Secret, UserLimit, NoCTCP, Auditorium, OpModerated,
+		Secret, UserLimit, NoCTCP, Auditorium, OpModerated, Forward,
 	}
 )
 
@@ -130,6 +130,7 @@ const (
 	UserLimit           Mode = 'l' // flag arg
 	NoCTCP              Mode = 'C' // flag
 	OpModerated         Mode = 'U' // flag
+	Forward             Mode = 'f' // flag arg
 )
 
 var (
@@ -277,7 +278,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				} else {
 					continue
 				}
-			case UserLimit:
+			case UserLimit, Forward:
 				// don't require value when removing
 				if change.Op == Add {
 					if len(params) > skipArgs {
@@ -445,7 +446,7 @@ func RplMyInfo() (param1, param2, param3 string) {
 	sort.Sort(ByCodepoint(channelModes))
 
 	// XXX enumerate these by hand, i can't see any way to DRY this
-	channelParametrizedModes := Modes{BanMask, ExceptMask, InviteMask, Key, UserLimit}
+	channelParametrizedModes := Modes{BanMask, ExceptMask, InviteMask, Key, UserLimit, Forward}
 	channelParametrizedModes = append(channelParametrizedModes, ChannelUserModes...)
 	sort.Sort(ByCodepoint(channelParametrizedModes))
 
@@ -459,7 +460,7 @@ func ChanmodesToken() (result string) {
 	// type B: modes with parameters
 	B := Modes{Key}
 	// type C: modes that take a parameter only when set, never when unset
-	C := Modes{UserLimit}
+	C := Modes{UserLimit, Forward}
 	// type D: modes without parameters
 	D := Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret, NoCTCP, RegisteredOnly, RegisteredOnlySpeak, Auditorium, OpModerated}
 

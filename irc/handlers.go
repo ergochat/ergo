@@ -1192,9 +1192,16 @@ func joinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		if len(keys) > i {
 			key = keys[i]
 		}
-		err := server.channels.Join(client, name, key, false, rb)
+		err, forward := server.channels.Join(client, name, key, false, rb)
 		if err != nil {
-			sendJoinError(client, name, rb, err)
+			if forward != "" {
+				rb.Add(nil, server.name, ERR_LINKCHANNEL, client.Nick(), utils.SafeErrorParam(name), forward, client.t("Forwarding to another channel"))
+				name = forward
+				err, _ = server.channels.Join(client, name, key, false, rb)
+			}
+			if err != nil {
+				sendJoinError(client, name, rb, err)
+			}
 		}
 	}
 	return false
@@ -1255,7 +1262,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 	channels := strings.Split(channelString, ",")
 	for _, chname := range channels {
-		err := server.channels.Join(target, chname, "", true, rb)
+		err, _ := server.channels.Join(target, chname, "", true, rb)
 		if err != nil {
 			sendJoinError(client, chname, rb, err)
 		}
