@@ -975,7 +975,7 @@ func (session *Session) playResume() {
 	if privmsgSeq != nil {
 		privmsgs, _, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
 		for _, item := range privmsgs {
-			sender := server.clients.Get(stripMaskFromNick(item.Nick))
+			sender := server.clients.Get(NUHToNick(item.Nick))
 			if sender != nil {
 				friends.Add(sender)
 			}
@@ -1079,7 +1079,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 			if hasEventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "INVITE", nick, item.Message.Message)
 			} else {
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), stripMaskFromNick(item.Nick), item.Message.Message))
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), NUHToNick(item.Nick), item.Message.Message))
 			}
 			continue
 		case history.Privmsg:

@@ -173,7 +173,7 @@ func histservPlayHandler(service *ircService, server *Server, client *Client, co
 	}
 
 	playMessage := func(timestamp time.Time, nick, message string) {
-		service.Notice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), stripMaskFromNick(nick), message))
+		service.Notice(rb, fmt.Sprintf("%s <%s> %s", timestamp.Format("15:04:05"), NUHToNick(nick), message))
 	}
 
 	for _, item := range items {

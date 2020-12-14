@@ -1073,14 +1073,6 @@ func (channel *Channel) replayHistoryForResume(session *Session, after time.Time
 	rb.Send(true)
 }
 
-func stripMaskFromNick(nickMask string) (nick string) {
-	index := strings.Index(nickMask, "!")
-	if index == -1 {
-		return nickMask
-	}
-	return nickMask[0:index]
-}
-
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
 	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()
@@ -1103,7 +1095,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 	defer rb.EndNestedBatch(batchID)
 
 	for _, item := range items {
-		nick := stripMaskFromNick(item.Nick)
+		nick := NUHToNick(item.Nick)
 		switch item.Type {
 		case history.Privmsg:
 			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "PRIVMSG", chname, item.Message)

@@ -308,3 +308,11 @@ func foldPermissive(str string) (result string, err error) {
 	str = norm.NFD.String(str)
 	return str, nil
 }
+
+// Reduce, e.g., `alice!~u@host` to `alice`
+func NUHToNick(nuh string) (nick string) {
+	if idx := strings.IndexByte(nuh, '!'); idx != -1 {
+		return nuh[0:idx]
+	}
+	return nuh
+}
