@@ -596,7 +596,7 @@ func (client *Client) isAuthorized(server *Server, config *Config, session *Sess
 		return authFailPass
 	}
 	// Tor connections may be required to authenticate with SASL
-	if session.isTor && config.Server.TorListeners.RequireSasl && !saslSent {
+	if session.isTor && !saslSent && (config.Server.TorListeners.RequireSasl || server.Defcon() <= 4) {
 		return authFailTorSaslRequired
 	}
 	// finally, enforce require-sasl
