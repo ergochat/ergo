@@ -476,7 +476,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		// so try as hard as possible to get the response to fit on one line.
 		// :server.name CAP * LS * :<tokens>
 		// 1           7         4
-		maxLen := 510 - 1 - len(server.name) - 7 - len(subCommand) - 4
+		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 7 - len(subCommand) - 4
 		capLines := cset.Strings(version, values, maxLen)
 		for i, capStr := range capLines {
 			if version >= caps.Cap302 && i < len(capLines)-1 {
