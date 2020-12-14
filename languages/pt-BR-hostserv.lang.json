@@ -1,1 +1,7 @@
-{}
+{
+  "$bDEL$b deletes a user's vhost.": "$bDEL$b exclui o vhost de um usuário.",
+  "$bOFF$b disables your vhost, if you have one approved.": "$bOFF$b desativa seu vhost, caso você tenha um aprovado.",
+  "$bON$b enables your vhost, if you have one approved.": "$bON$b ativa seu vhost, caso você tenha um aprovado.",
+  "$bSET$b sets a user's vhost.": "$bSET$b define o vhost de um usuário.",
+  "$bSETCLOAKSECRET$b modifies the IP cloaking secret.": "$bSETCLOAKSECRET$b modifica o segredo de IP cloaking."
+}
