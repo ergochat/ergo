@@ -529,6 +529,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot change max-concurrency for scripts after launching the server, rehash aborted")
 		} else if oldConfig.Server.OverrideServicesHostname != config.Server.OverrideServicesHostname {
 			return fmt.Errorf("Cannot change override-services-hostname after launching the server, rehash aborted")
+		} else if !oldConfig.Datastore.MySQL.Enabled && config.Datastore.MySQL.Enabled {
+			return fmt.Errorf("Cannot enable MySQL after launching the server, rehash aborted")
 		}
 	}
 
