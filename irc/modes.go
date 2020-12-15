@@ -12,6 +12,7 @@ import (
 
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
+	"github.com/oragono/oragono/irc/utils"
 )
 
 var (
@@ -254,6 +255,28 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				applied = append(applied, change)
 			}
 
+		case modes.Forward:
+			switch change.Op {
+			case modes.Add:
+				ch := client.server.channels.Get(change.Arg)
+				if ch == nil {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("No such channel")))
+				} else if ch == channel {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("You can't forward a channel to itself")))
+				} else {
+					if !ch.ClientIsAtLeast(client, modes.ChannelOperator) {
+						rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, details.nick, ch.Name(), client.t("You must be a channel operator in the channel you are forwarding to"))
+					} else {
+						change.Arg = ch.Name()
+						channel.setForward(change.Arg)
+						applied = append(applied, change)
+					}
+				}
+			case modes.Remove:
+				channel.setForward("")
+				applied = append(applied, change)
+			}
+
 		case modes.Key:
 			switch change.Op {
 			case modes.Add:
@@ -302,7 +325,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		case modes.BanMask, modes.ExceptMask, modes.InviteMask:
 			includeFlags |= IncludeLists
 		case modes.ChannelFounder, modes.ChannelAdmin, modes.ChannelOperator, modes.Halfop, modes.Voice:
-			// these are never persisted currently, but might be in the future (see discussion on #729)
+			// these are persisted on the client object, via (*Channel).applyModeToMember
 		default:
 			includeFlags |= IncludeModes
 		}

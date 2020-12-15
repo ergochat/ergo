@@ -28,6 +28,7 @@ type Channel struct {
 	flags             modes.ModeSet
 	lists             map[modes.Mode]*UserMaskSet
 	key               string
+	forward           string
 	members           MemberSet
 	membersCache      []*Client // allow iteration over channel members without holding the lock
 	name              string
@@ -133,6 +134,7 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	channel.key = chanReg.Key
 	channel.userLimit = chanReg.UserLimit
 	channel.settings = chanReg.Settings
+	channel.forward = chanReg.Forward
 
 	for _, mode := range chanReg.Modes {
 		channel.flags.SetMode(mode, true)
@@ -163,6 +165,7 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 
 	if includeFlags&IncludeModes != 0 {
 		info.Key = channel.key
+		info.Forward = channel.forward
 		info.Modes = channel.flags.AllModes()
 		info.UserLimit = channel.userLimit
 	}
@@ -612,20 +615,27 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 	isMember := hasPrivs || channel.members[client] != nil
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
+	showForward := channel.forward != ""
 
-	mods := "+"
+	var mods strings.Builder
+	mods.WriteRune('+')
 
 	// flags with args
 	if showKey {
-		mods += modes.Key.String()
+		mods.WriteRune(rune(modes.Key))
 	}
 	if showUserLimit {
-		mods += modes.UserLimit.String()
+		mods.WriteRune(rune(modes.UserLimit))
+	}
+	if showForward {
+		mods.WriteRune(rune(modes.Forward))
 	}
 
-	mods += channel.flags.String()
+	for _, m := range channel.flags.AllModes() {
+		mods.WriteRune(rune(m))
+	}
 
-	result = []string{mods}
+	result = []string{mods.String()}
 
 	// args for flags with args: The order must match above to keep
 	// positional arguments in place.
@@ -634,6 +644,9 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 	}
 	if showUserLimit {
 		result = append(result, strconv.Itoa(channel.userLimit))
+	}
+	if showForward {
+		result = append(result, channel.forward)
 	}
 
 	return
@@ -694,7 +707,7 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 }
 
 // Join joins the given client to this channel (if they can be joined).
-func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) error {
+func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) (joinErr error, forward string) {
 	details := client.Details()
 
 	channel.stateMutex.RLock()
@@ -707,11 +720,12 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	chcount := len(channel.members)
 	_, alreadyJoined := channel.members[client]
 	persistentMode := channel.accountToUMode[details.account]
+	forward = channel.forward
 	channel.stateMutex.RUnlock()
 
 	if alreadyJoined {
 		// no message needs to be sent
-		return nil
+		return nil, ""
 	}
 
 	// 0. SAJOIN always succeeds
@@ -723,32 +737,33 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		client.CheckInvited(chcfname, createdAt)
 	if !hasPrivs {
 		if limit != 0 && chcount >= limit {
-			return errLimitExceeded
+			return errLimitExceeded, forward
 		}
 
 		if chkey != "" && !utils.SecretTokensMatch(chkey, key) {
-			return errWrongChannelKey
+			return errWrongChannelKey, forward
 		}
 
 		if channel.flags.HasMode(modes.InviteOnly) &&
 			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
-			return errInviteOnly
+			return errInviteOnly, forward
 		}
 
 		if channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
 			!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) &&
 			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
-			return errBanned
+			// do not forward people who are banned:
+			return errBanned, ""
 		}
 
 		if details.account == "" &&
 			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) {
-			return errRegisteredOnly
+			return errRegisteredOnly, forward
 		}
 	}
 
 	if joinErr := client.addChannel(channel, rb == nil); joinErr != nil {
-		return joinErr
+		return joinErr, ""
 	}
 
 	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
@@ -795,7 +810,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	}
 
 	if rb == nil {
-		return nil
+		return nil, ""
 	}
 
 	var modestr string
@@ -858,7 +873,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	rb.Flush(true)
 
 	channel.autoReplayHistory(client, rb, message.Msgid)
-	return nil
+	return nil, ""
 }
 
 func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, skipMsgid string) {

@@ -517,3 +517,9 @@ func (channel *Channel) SetSettings(settings ChannelSettings) {
 	channel.stateMutex.Unlock()
 	channel.MarkDirty(IncludeSettings)
 }
+
+func (channel *Channel) setForward(forward string) {
+	channel.stateMutex.Lock()
+	channel.forward = forward
+	channel.stateMutex.Unlock()
+}

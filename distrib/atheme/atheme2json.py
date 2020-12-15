@@ -94,6 +94,13 @@ def convert(infile):
                 out['channels'][chname]['topicSetBy'] = parts[3]
             elif category == 'private:topic:ts':
                 out['channels'][chname]['topicSetAt'] = to_unixnano(parts[3])
+            elif category == 'private:mlockext':
+                # the channel forward mode is +L on insp/unreal, +f on charybdis
+                # charybdis has a +L ("large banlist") taking no argument
+                # and unreal has a +f ("flood limit") taking two colon-delimited numbers,
+                # so check for an argument that starts with a #
+                if parts[3].startswith('L#') or parts[3].startswith('f#'):
+                    out['channels'][chname]['forward'] = parts[3][1:]
         elif category == 'CA':
             # channel access lists
             # CA #mychannel shivaram +AFORafhioqrstv 1600134478 shivaram
