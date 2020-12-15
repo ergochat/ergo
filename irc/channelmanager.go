@@ -106,7 +106,7 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 				return nil, errInsufficientPrivs
 			}
 			// enforce confusables
-			if cm.chansSkeletons.Has(skeleton) || (!registered && cm.registeredSkeletons.Has(skeleton)) {
+			if !registered && (cm.chansSkeletons.Has(skeleton) || cm.registeredSkeletons.Has(skeleton)) {
 				return nil, errConfusableIdentifier
 			}
 			entry = &channelManagerEntry{
@@ -219,10 +219,13 @@ func (cm *ChannelManager) SetRegistered(channelName string, account string) (err
 	if err != nil {
 		return err
 	}
+	// transfer the skeleton from chansSkeletons to registeredSkeletons
+	skeleton := entry.skeleton
+	delete(cm.chansSkeletons, skeleton)
+	entry.skeleton = ""
+	cm.chans[cfname] = entry
 	cm.registeredChannels.Add(cfname)
-	if skel, err := Skeleton(channel.Name()); err == nil {
-		cm.registeredSkeletons.Add(skel)
-	}
+	cm.registeredSkeletons.Add(skeleton)
 	return nil
 }
 
@@ -252,8 +255,12 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 	if entry != nil {
 		entry.channel.SetUnregistered(account)
 		delete(cm.registeredChannels, cfname)
+		// transfer the skeleton from registeredSkeletons to chansSkeletons
 		if skel, err := Skeleton(entry.channel.Name()); err == nil {
 			delete(cm.registeredSkeletons, skel)
+			cm.chansSkeletons.Add(skel)
+			entry.skeleton = skel
+			cm.chans[cfname] = entry
 		}
 	}
 	return nil
@@ -261,7 +268,7 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 
 // Rename renames a channel (but does not notify the members)
 func (cm *ChannelManager) Rename(name string, newName string) (err error) {
-	cfname, err := CasefoldChannel(name)
+	oldCfname, err := CasefoldChannel(name)
 	if err != nil {
 		return errNoSuchChannel
 	}
@@ -289,41 +296,44 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	cm.Lock()
 	defer cm.Unlock()
 
-	if newCfname == cfname {
-		entry := cm.chans[cfname]
-		if entry == nil || !entry.channel.IsLoaded() {
-			return errNoSuchChannel
-		}
-		entry.channel.Rename(newName, cfname)
-		return nil
-	}
-	if cm.chans[newCfname] != nil || cm.registeredChannels.Has(newCfname) {
-		return errChannelNameInUse
-	}
-	if cm.chansSkeletons.Has(newSkeleton) || cm.registeredSkeletons.Has(newSkeleton) {
-		return errChannelNameInUse
-	}
-	entry := cm.chans[cfname]
+	entry := cm.chans[oldCfname]
 	if entry == nil || !entry.channel.IsLoaded() {
 		return errNoSuchChannel
 	}
 	channel = entry.channel
 	info = channel.ExportRegistration(IncludeInitial)
 	registered := info.Founder != ""
-	delete(cm.chans, cfname)
+
+	oldSkeleton, err := Skeleton(info.Name)
+	if err != nil {
+		return errNoSuchChannel // ugh
+	}
+
+	if newCfname != oldCfname {
+		if cm.chans[newCfname] != nil || cm.registeredChannels.Has(newCfname) {
+			return errChannelNameInUse
+		}
+	}
+
+	if oldSkeleton != newSkeleton {
+		if cm.chansSkeletons.Has(newSkeleton) || cm.registeredSkeletons.Has(newSkeleton) {
+			return errConfusableIdentifier
+		}
+	}
+
+	delete(cm.chans, oldCfname)
+	if !registered {
+		entry.skeleton = newSkeleton
+	}
 	cm.chans[newCfname] = entry
 	if registered {
-		delete(cm.registeredChannels, cfname)
-		if oldSkeleton, err := Skeleton(info.Name); err == nil {
-			delete(cm.registeredSkeletons, oldSkeleton)
-		}
+		delete(cm.registeredChannels, oldCfname)
 		cm.registeredChannels.Add(newCfname)
+		delete(cm.registeredSkeletons, oldSkeleton)
 		cm.registeredSkeletons.Add(newSkeleton)
 	} else {
-		delete(cm.chansSkeletons, entry.skeleton)
+		delete(cm.chansSkeletons, oldSkeleton)
 		cm.chansSkeletons.Add(newSkeleton)
-		entry.skeleton = newSkeleton
-		cm.chans[cfname] = entry
 	}
 	entry.channel.Rename(newName, newCfname)
 	return nil
