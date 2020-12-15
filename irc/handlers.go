@@ -2643,7 +2643,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	err := server.channels.Rename(oldName, newName)
 	if err == errInvalidChannelName {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(newName), client.t(err.Error()))
-	} else if err == errChannelNameInUse {
+	} else if err == errChannelNameInUse || err == errConfusableIdentifier {
 		rb.Add(nil, server.name, "FAIL", "RENAME", "CHANNEL_NAME_IN_USE", oldName, utils.SafeErrorParam(newName), client.t(err.Error()))
 	} else if err != nil {
 		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Cannot rename channel"))
