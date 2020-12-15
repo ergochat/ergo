@@ -114,27 +114,18 @@ To cancel a pending transfer, transfer the channel to yourself.`,
 		},
 		"purge": {
 			handler: csPurgeHandler,
-			help: `Syntax: $bPURGE #channel [reason]$b
+			help: `Syntax: $bPURGE <ADD | DEL | LIST> #channel [code] [reason]$b
 
-PURGE blacklists a channel from the server, making it impossible to join
+PURGE ADD blacklists a channel from the server, making it impossible to join
 or otherwise interact with the channel. If the channel currently has members,
 they will be kicked from it. PURGE may also be applied preemptively to
-channels that do not currently have members.`,
+channels that do not currently have members. A purge can be undone with
+PURGE DEL. To list purged channels, use PURGE LIST.`,
 			helpShort:         `$bPURGE$b blacklists a channel from the server.`,
 			capabs:            []string{"chanreg"},
 			minParams:         1,
-			maxParams:         2,
+			maxParams:         3,
 			unsplitFinalParam: true,
-		},
-		"unpurge": {
-			handler: csUnpurgeHandler,
-			help: `Syntax: $bUNPURGE #channel$b
-
-UNPURGE removes any blacklisting of a channel that was previously
-set using PURGE.`,
-			helpShort: `$bUNPURGE$b undoes a previous PURGE command.`,
-			capabs:    []string{"chanreg"},
-			minParams: 1,
 		},
 		"list": {
 			handler: csListHandler,
@@ -587,19 +578,53 @@ func csPurgeHandler(service *ircService, server *Server, client *Client, command
 		return // should be impossible because you need oper capabs for this
 	}
 
+	switch strings.ToLower(params[0]) {
+	case "add":
+		csPurgeAddHandler(service, client, params[1:], oper.Name, rb)
+	case "del", "remove":
+		csPurgeDelHandler(service, client, params[1:], oper.Name, rb)
+	case "list":
+		csPurgeListHandler(service, client, rb)
+	default:
+		service.Notice(rb, client.t("Invalid parameters"))
+	}
+}
+
+func csPurgeAddHandler(service *ircService, client *Client, params []string, operName string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		service.Notice(rb, client.t("Invalid parameters"))
+		return
+	}
+
 	chname := params[0]
+	params = params[1:]
+	channel := client.server.channels.Get(chname) // possibly nil
+	var ctime time.Time
+	if channel != nil {
+		chname = channel.Name()
+		ctime = channel.Ctime()
+	}
+	code := utils.ConfirmationCode(chname, ctime)
+
+	if len(params) == 0 || params[0] != code {
+		service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: you are about to empty this channel and remove it from the server.$b")))
+		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/CS PURGE ADD %s %s", chname, code)))
+		return
+	}
+	params = params[1:]
+
 	var reason string
 	if 1 < len(params) {
 		reason = params[1]
 	}
+
 	purgeRecord := ChannelPurgeRecord{
-		Oper:     oper.Name,
+		Oper:     operName,
 		PurgedAt: time.Now().UTC(),
 		Reason:   reason,
 	}
-	switch server.channels.Purge(chname, purgeRecord) {
+	switch client.server.channels.Purge(chname, purgeRecord) {
 	case nil:
-		channel := server.channels.Get(chname)
 		if channel != nil { // channel need not exist to be purged
 			for _, target := range channel.Members() {
 				channel.Kick(client, target, "Cleared by ChanServ", rb, true)
@@ -613,15 +638,28 @@ func csPurgeHandler(service *ircService, server *Server, client *Client, command
 	}
 }
 
-func csUnpurgeHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func csPurgeDelHandler(service *ircService, client *Client, params []string, operName string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		service.Notice(rb, client.t("Invalid parameters"))
+		return
+	}
+
 	chname := params[0]
-	switch server.channels.Unpurge(chname) {
+	switch client.server.channels.Unpurge(chname) {
 	case nil:
 		service.Notice(rb, fmt.Sprintf(client.t("Successfully unpurged channel %s from the server"), chname))
 	case errNoSuchChannel:
 		service.Notice(rb, fmt.Sprintf(client.t("Channel %s wasn't previously purged from the server"), chname))
 	default:
 		service.Notice(rb, client.t("An error occurred"))
+	}
+}
+
+func csPurgeListHandler(service *ircService, client *Client, rb *ResponseBuffer) {
+	l := client.server.channels.ListPurged()
+	service.Notice(rb, fmt.Sprintf(client.t("There are %d purged channel(s)."), len(l)))
+	for i, c := range l {
+		service.Notice(rb, fmt.Sprintf("%d: %s", i+1, c))
 	}
 }
 

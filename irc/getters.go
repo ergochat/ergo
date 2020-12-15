@@ -523,3 +523,10 @@ func (channel *Channel) setForward(forward string) {
 	channel.forward = forward
 	channel.stateMutex.Unlock()
 }
+
+func (channel *Channel) Ctime() (ctime time.Time) {
+	channel.stateMutex.RLock()
+	ctime = channel.createdTime
+	channel.stateMutex.RUnlock()
+	return
+}
