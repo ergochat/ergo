@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/oragono/oragono/irc/utils"
@@ -404,4 +405,15 @@ func (cm *ChannelManager) Unpurge(chname string) (err error) {
 		return errNoSuchChannel
 	}
 	return nil
+}
+
+func (cm *ChannelManager) ListPurged() (result []string) {
+	cm.RLock()
+	result = make([]string, 0, len(cm.purgedChannels))
+	for c := range cm.purgedChannels {
+		result = append(result, c)
+	}
+	cm.RUnlock()
+	sort.Strings(result)
+	return
 }
