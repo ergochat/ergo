@@ -18,6 +18,18 @@
   "$bMULTICLIENT$b\nIf 'multiclient' is enabled and you are already logged in and using a nick, a\nsecond client of yours that authenticates with SASL and requests the same nick\nis allowed to attach to the nick as well (this is comparable to the behavior\nof IRC \"bouncers\" like ZNC). Your options are 'on' (allow this behavior),\n'off' (disallow it), and 'default' (use the server default value).": "$bMULTICLIENT$b\nSe 'multiclient' estivar ativado e o usuário autenticado e usando um apelido,\né permitido a um segundo client que autentique com SASL associar o\nmesmo apelido (isto é comparável ao comportamentodos IRC \"bouncers\"\ncomo ZNC). Suas opções são 'on' (permitir este comportamento),\n'off' (proibir) e 'default' (usar a configuração padrão definida no servidor).",
   "$bPASSWD$b lets you change your password.": "$bPASSWD$b permite alterar a senha.",
   "$bREGISTER$b lets you register a user account.": "$bREGISTER$b permite cadastrar uma conta.",
+  "$bREPLAY-JOINS$b\n'replay-joins' controls whether replayed channel history will include\nlines for join and part. This provides more information about the context of\nmessages, but may be spammy. Your options are 'always', 'never', and the default\nof 'commands-only' (the messages will be replayed in /HISTORY output, but not\nduring autoreplay).": "$bREPLAY-JOINS$b\n'replay-joins' controla se as mensagens de histórico exibidas mostraão linhas\nsobre saída e entra de usuários. As linhas informam mais contexto das mensagens,\nmas podem ser excessivas. Suas opções são 'always' (sempre), 'never' (nunca) e o padrão,\n''commands-only' (as linhas são exibidas na saída do comando /HISTORY, mas não\ndurante a exibição automática.",
+  "$bSADROP$b forcibly de-links the given nickname from its user account.": "$bSADROP$b forçadamente dissocia o apelido informado de sua conta de usuário.",
+  "$bSAGET$b queries the current values of another user's account settings": "$bSAGET$b consulta os calores atuais de configuração de uma conta de usuário.",
+  "$bSAREGISTER$b registers an account on someone else's behalf.": "$bSAREGISTER$b registrar uma conta em nome de outra pessoa.",
+  "$bSASET$b modifies another user's account settings": "$bSASET$b modifica configurações da conta de outro usuário.",
+  "$bSET$b modifies your account settings": "$bSET$b modifica as configurações da sua conta.",
+  "$bSUSPEND$b manages account suspensions": "$bSUSPEND$b gerencia suspensão de contas.",
+  "$bUNREGISTER$b lets you delete your user account.": "$bUNREGISTER$b permite excluir sua conta de usuário.",
+  "$bVERIFY$b lets you complete account registration.": "$bVERIFY$b permite completar o registro de conta.",
+  "NickServ lets you register, log in to, and manage an account.": "NickServ permite registrar, entrar com, ou gerenciar uma conta.",
   "Password incorrect": "Senha incorreta",
+  "Passwords do not match": "As senhas não correspondem",
+  "Syntax $bSET <setting> <value>$b\n\nSET modifies your account settings. The following settings are available:": "Sintaxe $bSET <setting> <value>$b\n\nSET modifica configurações da sua conta. Os seguintes parâmetros estão disponíveis:",
   "You're not logged into an account": "Você não está logado em uma conta"
 }
