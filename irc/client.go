@@ -237,7 +237,7 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 }
 
 // sets the session quit message, if there isn't one already
-func (sd *Session) SetQuitMessage(message string) (set bool) {
+func (sd *Session) setQuitMessage(message string) (set bool) {
 	if message == "" {
 		message = "Connection closed"
 	}
@@ -441,6 +441,11 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToModes ma
 		realname: realname,
 
 		nextSessionID: 1,
+	}
+
+	if client.checkAlwaysOnExpirationNoMutex(config) {
+		server.logger.Debug("accounts", "always-on client not created due to expiration", account.Name)
+		return
 	}
 
 	client.SetMode(modes.TLS, true)
@@ -789,14 +794,16 @@ func (client *Client) Touch(session *Session) {
 	var markDirty bool
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
-	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
-		client.setLastSeen(now, session.deviceID)
-		if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
-			markDirty = true
-			client.lastSeenLastWrite = now
+	if client.registered {
+		client.updateIdleTimer(session, now)
+		if client.alwaysOn {
+			client.setLastSeen(now, session.deviceID)
+			if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
+				markDirty = true
+				client.lastSeenLastWrite = now
+			}
 		}
 	}
-	client.updateIdleTimer(session, now)
 	client.stateMutex.Unlock()
 	if markDirty {
 		client.markDirty(IncludeLastSeen)
@@ -1364,7 +1371,7 @@ func (client *Client) Quit(message string, session *Session) {
 	}
 
 	for _, session := range sessions {
-		if session.SetQuitMessage(message) {
+		if session.setQuitMessage(message) {
 			setFinalData(session)
 		}
 	}
@@ -1378,6 +1385,7 @@ func (client *Client) destroy(session *Session) {
 	config := client.server.Config()
 	var sessionsToDestroy []*Session
 	var saveLastSeen bool
+	var quitMessage string
 
 	client.stateMutex.Lock()
 
@@ -1390,6 +1398,13 @@ func (client *Client) destroy(session *Session) {
 	// XXX a temporary (reattaching) client can be marked alwaysOn when it logs in,
 	// but then the session attaches to another client and we need to clean it up here
 	alwaysOn := registered && client.alwaysOn
+	// if we hit always-on-expiration, confirm the expiration and then proceed as though
+	// always-on is disabled:
+	if alwaysOn && session == nil && client.checkAlwaysOnExpirationNoMutex(config) {
+		quitMessage = "Timed out due to inactivity"
+		alwaysOn = false
+		client.alwaysOn = false
+	}
 
 	var remainingSessions int
 	if session == nil {
@@ -1459,7 +1474,6 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	// destroy all applicable sessions:
-	var quitMessage string
 	for _, session := range sessionsToDestroy {
 		if session.client != client {
 			// session has been attached to a new client; do not destroy it
@@ -1468,7 +1482,7 @@ func (client *Client) destroy(session *Session) {
 		session.stopIdleTimer()
 		// send quit/error message to client if they haven't been sent already
 		client.Quit("", session)
-		quitMessage = session.quitMessage
+		quitMessage = session.quitMessage // doesn't need synch, we already detached
 		session.SetDestroyed()
 		session.socket.Close()
 
@@ -1506,13 +1520,7 @@ func (client *Client) destroy(session *Session) {
 		return
 	}
 
-	splitQuitMessage := utils.MakeMessage(quitMessage)
-	quitItem := history.Item{
-		Type:        history.Quit,
-		Nick:        details.nickMask,
-		AccountName: details.accountName,
-		Message:     splitQuitMessage,
-	}
+	var quitItem history.Item
 	var channels []*Channel
 	// use a defer here to avoid writing to mysql while holding the destroy semaphore:
 	defer func() {
@@ -1573,6 +1581,13 @@ func (client *Client) destroy(session *Session) {
 	}
 	if quitMessage == "" {
 		quitMessage = "Exited"
+	}
+	splitQuitMessage := utils.MakeMessage(quitMessage)
+	quitItem = history.Item{
+		Type:        history.Quit,
+		Nick:        details.nickMask,
+		AccountName: details.accountName,
+		Message:     splitQuitMessage,
 	}
 	var cache MessageCache
 	cache.Initialize(client.server, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
