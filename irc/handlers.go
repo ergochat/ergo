@@ -2587,7 +2587,10 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *
 	// send msg
 	channelName := channel.Name()
 	relayTags := map[string]string{
-		"relaymsg": client.Nick(),
+		caps.RelaymsgTagName: client.Nick(),
+	}
+	for t, v := range msg.ClientOnlyTags() {
+		relayTags[t] = v
 	}
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
