@@ -58,6 +58,8 @@ const (
 	// More draft names associated with draft/multiline:
 	MultilineBatchType = "draft/multiline"
 	MultilineConcatTag = "draft/multiline-concat"
+	// draft/relaymsg:
+	RelaymsgTagName = "draft/relaymsg"
 )
 
 func init() {
