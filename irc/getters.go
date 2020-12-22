@@ -337,26 +337,19 @@ func (client *Client) AccountSettings() (result AccountSettings) {
 
 func (client *Client) SetAccountSettings(settings AccountSettings) {
 	// we mark dirty if the client is transitioning to always-on
-	var becameAlwaysOn, autoreplayMissedDisabled bool
+	var becameAlwaysOn bool
 	alwaysOn := persistenceEnabled(client.server.Config().Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 	client.stateMutex.Lock()
 	if client.registered {
 		// only allow the client to become always-on if their nick equals their account name
 		alwaysOn = alwaysOn && client.nick == client.accountName
-		autoreplayMissedDisabled = (client.accountSettings.AutoreplayMissed && !settings.AutoreplayMissed)
 		becameAlwaysOn = (!client.alwaysOn && alwaysOn)
 		client.alwaysOn = alwaysOn
-		if autoreplayMissedDisabled {
-			// clear the lastSeen entry for the default session, but not for device IDs
-			delete(client.lastSeen, "")
-		}
 	}
 	client.accountSettings = settings
 	client.stateMutex.Unlock()
 	if becameAlwaysOn {
 		client.markDirty(IncludeAllAttrs)
-	} else if autoreplayMissedDisabled {
-		client.markDirty(IncludeLastSeen)
 	}
 }
 
@@ -447,6 +440,29 @@ func (client *Client) Realname() string {
 	result := client.realname
 	client.stateMutex.RUnlock()
 	return result
+}
+
+func (client *Client) IsExpiredAlwaysOn(config *Config) (result bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	return client.checkAlwaysOnExpirationNoMutex(config)
+}
+
+func (client *Client) checkAlwaysOnExpirationNoMutex(config *Config) (result bool) {
+	if !(client.registered && client.alwaysOn) {
+		return false
+	}
+	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
+	if deadline == 0 {
+		return false
+	}
+	now := time.Now()
+	for _, ts := range client.lastSeen {
+		if now.Sub(ts) < deadline {
+			return false
+		}
+	}
+	return true
 }
 
 func (channel *Channel) Name() string {

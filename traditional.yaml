@@ -472,6 +472,10 @@ accounts:
         # whether to mark always-on clients away when they have no active connections:
         auto-away: "opt-in"
 
+        # QUIT always-on clients from the server if they go this long without connecting
+        # (use 0 or omit for no expiration):
+        #always-on-expiration: 90d
+
     # vhosts controls the assignment of vhosts (strings displayed in place of the user's
     # hostname/IP) by the HostServ service
     vhosts:

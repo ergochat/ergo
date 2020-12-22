@@ -12,6 +12,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,10 @@ import (
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
+)
+
+const (
+	alwaysOnExpirationPollPeriod = time.Hour
 )
 
 var (
@@ -113,6 +118,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.signals, ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
+
+	time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
 
 	return server, nil
 }
@@ -224,6 +231,31 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 		return true, "Exceeded connection throttle for the Tor network"
 	default:
 		return false, ""
+	}
+}
+
+func (server *Server) handleAlwaysOnExpirations() {
+	defer func() {
+		if r := recover(); r != nil {
+			server.logger.Error("internal",
+				fmt.Sprintf("Panic in always-on cleanup: %v\n%s", r, debug.Stack()))
+		}
+		// either way, reschedule
+		time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
+	}()
+
+	config := server.Config()
+	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
+	if deadline == 0 {
+		return
+	}
+	server.logger.Info("accounts", "Checking always-on clients for expiration")
+	for _, client := range server.clients.AllClients() {
+		if client.IsExpiredAlwaysOn(config) {
+			// TODO save the channels list, use it for autojoin if/when they return?
+			server.logger.Info("accounts", "Expiring always-on client", client.AccountName())
+			client.destroy(nil)
+		}
 	}
 }
 

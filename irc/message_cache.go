@@ -154,8 +154,11 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 		}
 
 		// we need to send the same batch ID to all recipient sessions;
-		// use a uuidv4-alike to ensure that it won't collide
-		batch := composeMultilineBatch(utils.GenerateSecretToken(), nickmask, accountName, tags, command, target, message)
+		// ensure it doesn't collide. a half-sized token has 64 bits of entropy,
+		// so a collision isn't expected until there are on the order of 2**32
+		// concurrent batches being relayed:
+		batchID := utils.GenerateSecretToken()[:utils.SecretTokenLength/2]
+		batch := composeMultilineBatch(batchID, nickmask, accountName, tags, command, target, message)
 		m.fullTagsMultiline = make([][]byte, len(batch))
 		for i, msg := range batch {
 			if forceTrailing {

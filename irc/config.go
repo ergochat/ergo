@@ -223,10 +223,11 @@ func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) 
 }
 
 type MulticlientConfig struct {
-	Enabled          bool
-	AllowedByDefault bool             `yaml:"allowed-by-default"`
-	AlwaysOn         PersistentStatus `yaml:"always-on"`
-	AutoAway         PersistentStatus `yaml:"auto-away"`
+	Enabled            bool
+	AllowedByDefault   bool             `yaml:"allowed-by-default"`
+	AlwaysOn           PersistentStatus `yaml:"always-on"`
+	AutoAway           PersistentStatus `yaml:"auto-away"`
+	AlwaysOnExpiration custime.Duration `yaml:"always-on-expiration"`
 }
 
 type throttleConfig struct {
