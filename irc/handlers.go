@@ -1041,7 +1041,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 			client.sendHelp(argument, client.t(helpHandler.text), rb)
 		}
 	} else {
-		rb.Add(nil, server.name, ERR_HELPNOTFOUND, utils.SafeErrorParam(argument), client.t("Help not found"))
+		rb.Add(nil, server.name, ERR_HELPNOTFOUND, client.Nick(), strings.ToUpper(utils.SafeErrorParam(argument)), client.t("Help not found"))
 	}
 
 	return false
