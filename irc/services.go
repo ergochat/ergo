@@ -235,14 +235,14 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		rb.Add(nil, service.prefix, "NOTICE", nick, notice)
 	}
 
-	sendNotice(ircfmt.Unescape(fmt.Sprintf("*** $b%s HELP$b ***", service.Name)))
+	sendNotice(fmt.Sprintf(ircfmt.Unescape("*** $b%s HELP$b ***"), service.Name))
 
 	if len(params) == 0 {
 		helpBannerLines := strings.Split(client.t(service.HelpBanner), "\n")
 		helpBannerLines = append(helpBannerLines, []string{
 			"",
 			client.t("To see in-depth help for a specific command, try:"),
-			ircfmt.Unescape(fmt.Sprintf(client.t("    $b/msg %s HELP <command>$b"), service.Name)),
+			fmt.Sprintf(ircfmt.Unescape(client.t("    $b/msg %s HELP <command>$b")), service.Name),
 			"",
 			client.t("Here are the commands you can use:"),
 		}...)
@@ -262,7 +262,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 				continue
 			}
 
-			shownHelpLines = append(shownHelpLines, ircfmt.Unescape("    "+client.t(commandInfo.helpShort)))
+			shownHelpLines = append(shownHelpLines, "    "+ircfmt.Unescape(client.t(commandInfo.helpShort)))
 		}
 
 		if disabledCommands {
@@ -301,7 +301,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		}
 	}
 
-	sendNotice(ircfmt.Unescape(fmt.Sprintf(client.t("*** $bEnd of %s HELP$b ***"), service.Name)))
+	sendNotice(fmt.Sprintf(ircfmt.Unescape(client.t("*** $bEnd of %s HELP$b ***")), service.Name))
 }
 
 func makeServiceHelpTextGenerator(cmd string, banner string) func(*Client) string {

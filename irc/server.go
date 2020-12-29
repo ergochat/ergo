@@ -488,7 +488,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 		rb.Add(nil, client.server.name, RPL_WHOISACCOUNT, cnick, tnick, targetInfo.accountName, client.t("is logged in as"))
 	}
 	if target.HasMode(modes.Bot) {
-		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, ircfmt.Unescape(fmt.Sprintf(client.t("is a $bBot$b on %s"), client.server.Config().Network.Name)))
+		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, fmt.Sprintf(ircfmt.Unescape(client.t("is a $bBot$b on %s")), client.server.Config().Network.Name))
 	}
 
 	if client == target || hasPrivs {
