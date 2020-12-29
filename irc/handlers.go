@@ -1015,15 +1015,16 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 }
 
 // HELP [<query>]
+// HELPOP [<query>]
 func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
-
-	if len(argument) < 1 {
+	if len(msg.Params) == 0 {
 		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
 
 Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 		return false
 	}
+
+	argument := strings.ToLower(strings.TrimSpace(msg.Params[0]))
 
 	// handle index
 	if argument == "index" {
@@ -1035,14 +1036,12 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 
 	if exists && (!helpHandler.oper || (helpHandler.oper && client.HasMode(modes.Operator))) {
 		if helpHandler.textGenerator != nil {
-			client.sendHelp(strings.ToUpper(argument), helpHandler.textGenerator(client), rb)
+			client.sendHelp(argument, helpHandler.textGenerator(client), rb)
 		} else {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text), rb)
+			client.sendHelp(argument, client.t(helpHandler.text), rb)
 		}
 	} else {
-		args := msg.Params
-		args = append(args, client.t("Help not found"))
-		rb.Add(nil, server.name, ERR_HELPNOTFOUND, args...)
+		rb.Add(nil, server.name, ERR_HELPNOTFOUND, utils.SafeErrorParam(argument), client.t("Help not found"))
 	}
 
 	return false
