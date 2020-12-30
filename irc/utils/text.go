@@ -132,3 +132,14 @@ func (t *TokenLineBuilder) Lines() (result []string) {
 	}
 	return
 }
+
+// BuildTokenLines is a convenience to apply TokenLineBuilder to a predetermined
+// slice of tokens.
+func BuildTokenLines(lineLen int, tokens []string, delim string) []string {
+	var tl TokenLineBuilder
+	tl.Initialize(lineLen, delim)
+	for _, arg := range tokens {
+		tl.Add(arg)
+	}
+	return tl.Lines()
+}

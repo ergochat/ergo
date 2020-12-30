@@ -1864,7 +1864,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		nickList = append(nickList, replynick)
 	}
 
-	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
+	for _, line := range utils.BuildTokenLines(maxLastArgLength, nickList, ",") {
 		rb.Add(nil, server.name, RPL_MONLIST, nick, line)
 	}
 
@@ -1890,12 +1890,12 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 	}
 
 	if len(online) > 0 {
-		for _, line := range utils.ArgsToStrings(maxLastArgLength, online, ",") {
+		for _, line := range utils.BuildTokenLines(maxLastArgLength, online, ",") {
 			rb.Add(nil, server.name, RPL_MONONLINE, client.Nick(), line)
 		}
 	}
 	if len(offline) > 0 {
-		for _, line := range utils.ArgsToStrings(maxLastArgLength, offline, ",") {
+		for _, line := range utils.BuildTokenLines(maxLastArgLength, offline, ",") {
 			rb.Add(nil, server.name, RPL_MONOFFLINE, client.Nick(), line)
 		}
 	}
