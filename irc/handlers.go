@@ -1015,15 +1015,16 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 }
 
 // HELP [<query>]
+// HELPOP [<query>]
 func helpHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	argument := strings.ToLower(strings.TrimSpace(strings.Join(msg.Params, " ")))
-
-	if len(argument) < 1 {
+	if len(msg.Params) == 0 {
 		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
 
 Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 		return false
 	}
+
+	argument := strings.ToLower(strings.TrimSpace(msg.Params[0]))
 
 	// handle index
 	if argument == "index" {
@@ -1035,14 +1036,12 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 
 	if exists && (!helpHandler.oper || (helpHandler.oper && client.HasMode(modes.Operator))) {
 		if helpHandler.textGenerator != nil {
-			client.sendHelp(strings.ToUpper(argument), helpHandler.textGenerator(client), rb)
+			client.sendHelp(argument, helpHandler.textGenerator(client), rb)
 		} else {
-			client.sendHelp(strings.ToUpper(argument), client.t(helpHandler.text), rb)
+			client.sendHelp(argument, client.t(helpHandler.text), rb)
 		}
 	} else {
-		args := msg.Params
-		args = append(args, client.t("Help not found"))
-		rb.Add(nil, server.name, ERR_HELPNOTFOUND, args...)
+		rb.Add(nil, server.name, ERR_HELPNOTFOUND, client.Nick(), strings.ToUpper(utils.SafeErrorParam(argument)), client.t("Help not found"))
 	}
 
 	return false
@@ -1865,7 +1864,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IrcMessage, r
 		nickList = append(nickList, replynick)
 	}
 
-	for _, line := range utils.ArgsToStrings(maxLastArgLength, nickList, ",") {
+	for _, line := range utils.BuildTokenLines(maxLastArgLength, nickList, ",") {
 		rb.Add(nil, server.name, RPL_MONLIST, nick, line)
 	}
 
@@ -1891,12 +1890,12 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IrcMessage,
 	}
 
 	if len(online) > 0 {
-		for _, line := range utils.ArgsToStrings(maxLastArgLength, online, ",") {
+		for _, line := range utils.BuildTokenLines(maxLastArgLength, online, ",") {
 			rb.Add(nil, server.name, RPL_MONONLINE, client.Nick(), line)
 		}
 	}
 	if len(offline) > 0 {
-		for _, line := range utils.ArgsToStrings(maxLastArgLength, offline, ",") {
+		for _, line := range utils.BuildTokenLines(maxLastArgLength, offline, ",") {
 			rb.Add(nil, server.name, RPL_MONOFFLINE, client.Nick(), line)
 		}
 	}

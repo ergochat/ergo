@@ -35,3 +35,11 @@ func TestTokenLineBuilder(t *testing.T) {
 		t.Errorf("text incorrectly split into lines: %s instead of %s", joined, monteCristo)
 	}
 }
+
+func TestBuildTokenLines(t *testing.T) {
+	val := BuildTokenLines(512, []string{"a", "b", "c"}, ",")
+	assertEqual(val, []string{"a,b,c"}, t)
+
+	val = BuildTokenLines(10, []string{"abcd", "efgh", "ijkl"}, ",")
+	assertEqual(val, []string{"abcd,efgh", "ijkl"}, t)
+}
