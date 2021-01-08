@@ -102,7 +102,7 @@ var (
 		"default":     "99",
 	}
 
-	bracketedExpr = regexp.MustCompile(`^\[.*\]`)
+	bracketedExpr = regexp.MustCompile(`^\[.*?\]`)
 	colourDigits  = regexp.MustCompile(`^[0-9]{1,2}$`)
 )
 
