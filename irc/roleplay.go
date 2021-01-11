@@ -62,6 +62,9 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 		buf.WriteString(client.Nick())
 		buf.WriteString(")")
 	}
+	if isAction {
+		buf.WriteString("\x01")
+	}
 
 	splitMessage := utils.MakeMessage(buf.String())
 
