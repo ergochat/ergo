@@ -1041,6 +1041,21 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 
 func (am *AccountManager) checkPassphrase(accountName, passphrase string) (account ClientAccount, err error) {
 	account, err = am.LoadAccount(accountName)
+	// #1476: if grouped nicks are allowed, attempt to interpret accountName as a grouped nick
+	if err == errAccountDoesNotExist && !am.server.Config().Accounts.NickReservation.ForceNickEqualsAccount {
+		cfnick, cfErr := CasefoldName(accountName)
+		if cfErr != nil {
+			return
+		}
+		accountName = func() string {
+			am.RLock()
+			defer am.RUnlock()
+			return am.nickToAccount[cfnick]
+		}()
+		if accountName != "" {
+			account, err = am.LoadAccount(accountName)
+		}
+	}
 	if err != nil {
 		return
 	}
