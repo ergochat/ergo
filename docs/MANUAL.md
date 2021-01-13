@@ -981,21 +981,21 @@ Tor provides end-to-end encryption for onion services, so there's no need to ena
 
 The second way is to run Oragono as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Oragono side:
 
-* Oragono should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/oragono.sock`.
+* Oragono should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/oragono_tor_sock`.
 * In this mode, it is especially important that all operator passwords are strong and all operators are trusted (operators have a larger attack surface to deanonymize the server).
 * Onion services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Oragono should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Oragono has not been thoroughly audited against such deanonymization attacks --- therefore, Oragono should be deployed with additional sandboxing to protect against this:
   * Oragono should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Oragono's systemd unit file.
   * Since the loopback adapters are local to a specific network namespace, and the Tor daemon will run in the root namespace, Tor will be unable to connect to Oragono over loopback TCP. Instead, Oragono must listen on a named Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which restrict which sockets it can access. Below is a recipe for configuring this with the official Tor packages for Debian:
 
 1. Create a directory with `0777` permissions such as `/hidden_service_sockets`.
-1. Configure Oragono to listen on `/hidden_service_sockets/oragono.sock`, and add this socket to `server.tor-listeners.listeners`.
+1. Configure Oragono to listen on `/hidden_service_sockets/oragono_tor_sock`, with `tor: true`.
 1. Ensure that Oragono has no direct network access as described above, e.g., with `PrivateNetwork=true`.
 1. Next, modify Tor's apparmor profile so that it can connect to this socket, by adding the line `  /hidden_service_sockets/** rw,` to `/etc/apparmor.d/local/system_tor`.
 1. Finally, configure Tor with:
 
 ````
 HiddenServiceDir /var/lib/tor/oragono_hidden_service
-HiddenServicePort 6667 unix:/hidden_service_sockets/oragono.sock
+HiddenServicePort 6667 unix:/hidden_service_sockets/oragono_tor_sock
 # DO NOT enable HiddenServiceNonAnonymousMode
 ````
 
