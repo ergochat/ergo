@@ -837,6 +837,9 @@ func (conf *Config) prepareListeners() (err error) {
 		}
 		lconf.RequireProxy = block.TLS.Proxy || block.Proxy
 		lconf.WebSocket = block.WebSocket
+		if lconf.WebSocket && !conf.Server.EnforceUtf8 {
+			return fmt.Errorf("enabling a websocket listener requires the use of server.enforce-utf8")
+		}
 		lconf.HideSTS = block.HideSTS
 		conf.Server.trueListeners[addr] = lconf
 	}
@@ -1445,6 +1448,9 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
 	if config.Server.Casemapping == CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
+	}
+	if config.Server.EnforceUtf8 {
+		isupport.Add("UTF8ONLY", "")
 	}
 	isupport.Add("WHOX", "")
 

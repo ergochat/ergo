@@ -19,8 +19,9 @@ const (
 )
 
 var (
-	crlf     = []byte{'\r', '\n'}
-	errReadQ = errors.New("ReadQ Exceeded")
+	crlf               = []byte{'\r', '\n'}
+	errReadQ           = errors.New("ReadQ Exceeded")
+	errWSBinaryMessage = errors.New("WebSocket binary messages are unsupported")
 )
 
 // IRCConn abstracts away the distinction between a regular
@@ -148,11 +149,7 @@ func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
 
 func (wc IRCWSConn) WriteLine(buf []byte) (err error) {
 	buf = bytes.TrimSuffix(buf, crlf)
-	if !globalUtf8EnforcementSetting && !utf8.Valid(buf) {
-		// there's not much we can do about this;
-		// silently drop the message
-		return nil
-	}
+	// #1483: if we have websockets at all, then we're enforcing utf8
 	return wc.conn.WriteMessage(websocket.TextMessage, buf)
 }
 
@@ -172,8 +169,7 @@ func (wc IRCWSConn) ReadLine() (line []byte, err error) {
 		if messageType == websocket.TextMessage {
 			return line, nil
 		} else {
-			// for purposes of fakelag, treat non-text message as an empty line
-			return nil, nil
+			return nil, errWSBinaryMessage
 		}
 	} else if err == websocket.ErrReadLimit {
 		return line, errReadQ
