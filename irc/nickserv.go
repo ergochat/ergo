@@ -995,17 +995,21 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 	var newPassword string
 	var errorMessage string
 
-	hasPrivs := client.HasRoleCapabs("accreg")
+	var oper *Oper
 
 	switch len(params) {
 	case 2:
-		if !hasPrivs {
+		oper = client.Oper()
+		if !oper.HasRoleCapab("accreg") {
 			errorMessage = `Insufficient privileges`
 		} else {
 			target, newPassword = params[0], params[1]
 			if newPassword == "*" {
 				newPassword = ""
 			}
+			message := fmt.Sprintf("Operator %s ran NS PASSWD for account %s", oper.Name, target)
+			server.snomasks.Send(sno.LocalOpers, message)
+			server.logger.Info("opers", message)
 		}
 	case 3:
 		target = client.Account()
@@ -1041,7 +1045,7 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		return
 	}
 
-	err := server.accounts.setPassword(target, newPassword, hasPrivs)
+	err := server.accounts.setPassword(target, newPassword, oper != nil)
 	switch err {
 	case nil:
 		service.Notice(rb, client.t("Password changed"))
@@ -1144,7 +1148,7 @@ func nsClientsLogoutHandler(service *ircService, server *Server, client *Client,
 		// User must have "kill" privileges to logout other user sessions.
 		if target != client {
 			oper := client.Oper()
-			if oper == nil || !oper.Class.Capabilities.Has("kill") {
+			if oper.HasRoleCapab("kill") {
 				service.Notice(rb, client.t("Insufficient oper privs"))
 				return
 			}

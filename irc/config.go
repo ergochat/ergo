@@ -733,6 +733,10 @@ type Oper struct {
 	Modes     []modes.ModeChange
 }
 
+func (oper *Oper) HasRoleCapab(capab string) bool {
+	return oper != nil && oper.Class.Capabilities.Has(capab)
+}
+
 // Operators returns a map of operator configs from the given OperClass and config.
 func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error) {
 	operators := make(map[string]*Oper)

@@ -826,7 +826,7 @@ func formatBanForListing(client *Client, key string, info IPBanInfo) string {
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("ban") {
+	if !oper.HasRoleCapab("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -1273,6 +1273,10 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		}
 	}
 
+	message := fmt.Sprintf("Operator %s ran SAJOIN %s", client.Oper().Name, strings.Join(msg.Params, " "))
+	server.snomasks.Send(sno.LocalOpers, message)
+	server.logger.Info("opers", message)
+
 	channels := strings.Split(channelString, ",")
 	for _, chname := range channels {
 		err, _ := server.channels.Join(target, chname, "", true, rb)
@@ -1364,7 +1368,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("ban") {
+	if !oper.HasRoleCapab("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -1735,6 +1739,12 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 			rb.Add(nil, server.name, ERR_USERSDONTMATCH, cDetails.nick, client.t("Can't view modes for other users"))
 		}
 		return false
+	}
+
+	if msg.Command == "SAMODE" {
+		message := fmt.Sprintf("Operator %s ran SAMODE %s", client.Oper().Name, strings.Join(msg.Params, " "))
+		server.snomasks.Send(sno.LocalOpers, message)
+		server.logger.Info("opers", message)
 	}
 
 	// applied mode changes
@@ -2307,6 +2317,7 @@ func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 		copy(modeChanges[1:], oper.Modes)
 		applied := ApplyUserModeChanges(client, modeChanges, true, oper)
 
+		client.server.logger.Info("opers", details.nick, "opered up as", oper.Name)
 		client.server.snomasks.Send(sno.LocalOpers, fmt.Sprintf(ircfmt.Unescape("Client opered up $c[grey][$r%s$c[grey], $r%s$c[grey]]"), newDetails.nickMask, oper.Name))
 
 		rb.Broadcast(nil, client.server.name, RPL_YOUREOPER, details.nick, client.t("You are now an IRC operator"))
@@ -2814,7 +2825,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("ban") {
+	if !oper.HasRoleCapab("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -2853,7 +2864,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("ban") {
+	if !oper.HasRoleCapab("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
