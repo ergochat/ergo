@@ -452,11 +452,11 @@ func (client *Client) Realname() string {
 func (client *Client) IsExpiredAlwaysOn(config *Config) (result bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
-	return client.checkAlwaysOnExpirationNoMutex(config)
+	return client.checkAlwaysOnExpirationNoMutex(config, false)
 }
 
-func (client *Client) checkAlwaysOnExpirationNoMutex(config *Config) (result bool) {
-	if !(client.registered && client.alwaysOn) {
+func (client *Client) checkAlwaysOnExpirationNoMutex(config *Config, ignoreRegistration bool) (result bool) {
+	if !((client.registered || ignoreRegistration) && client.alwaysOn) {
 		return false
 	}
 	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
