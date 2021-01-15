@@ -686,9 +686,12 @@ func (client *Client) run(session *Session) {
 		if err == errInvalidUtf8 {
 			invalidUtf8 = true // handle as normal, including labeling
 		} else if err != nil {
-			quitMessage := "connection closed"
-			if err == errReadQ {
-				quitMessage = "readQ exceeded"
+			var quitMessage string
+			switch err {
+			case errReadQ, errWSBinaryMessage:
+				quitMessage = err.Error()
+			default:
+				quitMessage = "connection closed"
 			}
 			client.Quit(quitMessage, session)
 			// since the client did not actually send us a QUIT,
