@@ -307,6 +307,13 @@ func (client *Client) setAccountName(name string) {
 	client.accountName = name
 }
 
+func (client *Client) setCloakedHostname(cloak string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.cloakedHostname = cloak
+	client.updateNickMaskNoMutex()
+}
+
 func (client *Client) historyCutoff() (cutoff time.Time) {
 	client.stateMutex.Lock()
 	if client.account != "" {

@@ -116,6 +116,20 @@ func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *Response
 		client.server.sendLoginSnomask(details.nickMask, details.accountName)
 	}
 
+	// #1479: for Tor clients, replace the hostname with the always-on cloak here
+	// (for normal clients, this would discard the IP-based cloak, but with Tor
+	// there's no such concern)
+	if rb.session.isTor {
+		config := client.server.Config()
+		if config.Server.Cloaks.EnabledForAlwaysOn {
+			cloakedHostname := config.Server.Cloaks.ComputeAccountCloak(details.accountName)
+			client.setCloakedHostname(cloakedHostname)
+			if client.registered {
+				client.sendChghost(details.nickMask, client.Hostname())
+			}
+		}
+	}
+
 	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
 }
 
