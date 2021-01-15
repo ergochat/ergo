@@ -443,7 +443,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToModes ma
 		nextSessionID: 1,
 	}
 
-	if client.checkAlwaysOnExpirationNoMutex(config) {
+	if client.checkAlwaysOnExpirationNoMutex(config, true) {
 		server.logger.Debug("accounts", "always-on client not created due to expiration", account.Name)
 		return
 	}
@@ -1403,7 +1403,7 @@ func (client *Client) destroy(session *Session) {
 	alwaysOn := registered && client.alwaysOn
 	// if we hit always-on-expiration, confirm the expiration and then proceed as though
 	// always-on is disabled:
-	if alwaysOn && session == nil && client.checkAlwaysOnExpirationNoMutex(config) {
+	if alwaysOn && session == nil && client.checkAlwaysOnExpirationNoMutex(config, false) {
 		quitMessage = "Timed out due to inactivity"
 		alwaysOn = false
 		client.alwaysOn = false
