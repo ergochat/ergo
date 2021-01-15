@@ -170,7 +170,7 @@ func init() {
 			handler:   killHandler,
 			minParams: 1,
 			oper:      true,
-			capabs:    []string{"local_kill"}, //TODO(dan): when we have S2S, this will be checked in the command handler itself
+			capabs:    []string{"kill"},
 		},
 		"KLINE": {
 			handler:   klineHandler,

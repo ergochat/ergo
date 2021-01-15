@@ -930,9 +930,8 @@ oper-classes:
 
         # capability names
         capabilities:
-        - "local_kill"
-        - "local_ban"
-        - "local_unban"
+        - "kill"
+        - "ban"
         - "nofakelag"
 
 # ircd operators

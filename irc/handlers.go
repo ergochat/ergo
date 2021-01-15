@@ -826,7 +826,7 @@ func formatBanForListing(client *Client, key string, info IPBanInfo) string {
 func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("local_ban") {
+	if oper == nil || !oper.Class.Capabilities.Has("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -1364,7 +1364,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("local_ban") {
+	if oper == nil || !oper.Class.Capabilities.Has("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -2814,7 +2814,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("local_unban") {
+	if oper == nil || !oper.Class.Capabilities.Has("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
@@ -2853,7 +2853,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
-	if oper == nil || !oper.Class.Capabilities.Has("local_unban") {
+	if oper == nil || !oper.Class.Capabilities.Has("ban") {
 		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}

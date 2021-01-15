@@ -649,7 +649,7 @@ type OperClass struct {
 // OperatorClasses returns a map of assembled operator classes from the given config.
 func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 	fixupCapability := func(capab string) string {
-		return strings.TrimPrefix(capab, "oper:") // #868
+		return strings.TrimPrefix(strings.TrimPrefix(capab, "oper:"), "local_") // #868, #1442
 	}
 
 	ocs := make(map[string]*OperClass)

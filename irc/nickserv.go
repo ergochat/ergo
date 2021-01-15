@@ -1090,7 +1090,7 @@ func nsClientsHandler(service *ircService, server *Server, client *Client, comma
 
 func nsClientsListHandler(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	target := client
-	hasPrivs := client.HasRoleCapabs("local_ban")
+	hasPrivs := client.HasRoleCapabs("ban")
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
@@ -1141,10 +1141,10 @@ func nsClientsLogoutHandler(service *ircService, server *Server, client *Client,
 			service.Notice(rb, client.t("No such nick"))
 			return
 		}
-		// User must have "local_kill" privileges to logout other user sessions.
+		// User must have "kill" privileges to logout other user sessions.
 		if target != client {
 			oper := client.Oper()
-			if oper == nil || !oper.Class.Capabilities.Has("local_kill") {
+			if oper == nil || !oper.Class.Capabilities.Has("kill") {
 				service.Notice(rb, client.t("Insufficient oper privs"))
 				return
 			}
