@@ -103,15 +103,16 @@ oragono genpasswd
 
 With this, you receive a blob of text which you can plug into your configuration file.
 
-### How to register a channel
+### Nickname and channel registration
 
-1. Register your account with `/NS REGISTER <password>`
-2. Join the channel with `/join #channel`
-3. Register the channel with `/CS REGISTER #channel`
+Oragono relies heavily on user accounts to enable its distinctive features (such as allowing multiple clients per nickname). As a user, you can register your current nickname as an account using `/msg NickServ register <password>`. Once you have done so, you should [enable SASL in your clients](https://freenode.net/kb/answer/sasl), ensuring that you will be automatically logged into your account on each connection. This will prevent [problems claiming your registered nickname](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#nick-equals-account).
+
+Once you have registered your nickname, you can use it to register channels:
+
+1. Join the channel with `/join #channel`
+2. Register the channel with `/CS REGISTER #channel`
 
 After this, your channel will remember the fact that you're the owner, the topic, and any modes set on it!
-
-Make sure to setup [SASL](https://freenode.net/kb/answer/sasl) in your client to automatically login to your account when you next join the server.
 
 
 # Credits
