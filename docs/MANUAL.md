@@ -261,6 +261,8 @@ In this mode (the default), registering an account gives you privileges over the
 1. You must use your nickname, i.e., if you are logged into your account, then the server will require you to use your account name as your nickname
 1. If you unregister your account, your nickname will be permanently unreclaimable (thus preventing people from impersonating you)
 
+In this mode, it is very important that end users authenticate to their accounts as part of the initial IRC handshake (traditionally referred to as "connection registration"); otherwise they will not be able to use their registered nicknames. The preferred mechanism for this is [SASL](https://freenode.net/kb/answer/sasl), which is supported by most modern clients. As a fallback, this can also be done via the `PASS` (server password) command; set the "server password" field of the client to `AzureDiamond:hunter2`, where `AzureDiamond` is the account name and `hunter2` is the account password.
+
 As an end user, if you want to change your nickname, you can register a new account and transfer any channel ownerships to it using `/msg ChanServ transfer`.
 
 To enable this mode as the server operator, set the following configs (note that they are already set in `default.yaml`):
