@@ -3,7 +3,7 @@
   "$bOFF$b disables your vhost, if you have one approved.": "$bOFF$b desativa seu vhost, caso você tenha um aprovado.",
   "$bON$b enables your vhost, if you have one approved.": "$bON$b ativa seu vhost, caso você tenha um aprovado.",
   "$bSET$b sets a user's vhost.": "$bSET$b define o vhost de um usuário.",
-  "$bSETCLOAKSECRET$b modifies the IP cloaking secret.": "$bSETCLOAKSECRET$b modifica o segredo de capa e IP.",
+  "$bSETCLOAKSECRET$b modifies the IP cloaking secret.": "$bSETCLOAKSECRET$b modifica o segredo de IP cloaking.",
   "$bSTATUS$b shows your vhost and request status.": "$bSTATUS$b mostra seu vhost e o status da requisição.",
   "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "HostServ permite gerenciar seu vhost (o texto exibido no lugar do nome/IP do seu client).",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Sintaxe: $bDEL <user>$b\n\nDEL exclui o vhost de um usuário.",
