@@ -175,6 +175,17 @@ SET modifies a channel's settings. The following settings are available:`,
 			enabled:   chanregEnabled,
 			minParams: 3,
 		},
+		"howtoban": {
+			handler:   csHowToBanHandler,
+			helpShort: `$bHOWTOBAN$b suggests the best available way of banning a user`,
+			help: `Syntax: $bHOWTOBAN #channel <nick>
+
+The best way to ban a user from a channel will depend on how they are
+connected to the server. $bHOWTOBAN$b suggests a ban command that will
+(ideally) prevent the user from returning to the channel.`,
+			enabled:   chanregEnabled,
+			minParams: 2,
+		},
 	}
 )
 
@@ -807,5 +818,85 @@ func csSetHandler(service *ircService, server *Server, client *Client, command s
 	default:
 		server.logger.Error("internal", "CS SET error:", err.Error())
 		service.Notice(rb, client.t("An error occurred"))
+	}
+}
+
+func csHowToBanHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	success := false
+	defer func() {
+		if success {
+			service.Notice(rb, client.t("Note that if the user is currently in the channel, you must /KICK them after you ban them"))
+		}
+	}()
+
+	chname, nick := params[0], params[1]
+	channel := server.channels.Get(chname)
+	if channel == nil {
+		service.Notice(rb, client.t("No such channel"))
+		return
+	}
+
+	if !channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("samode") {
+		service.Notice(rb, client.t("Insufficient privileges"))
+		return
+	}
+
+	var details WhoWas
+	target := server.clients.Get(nick)
+	if target == nil {
+		whowasList := server.whoWas.Find(nick, 1)
+		if len(whowasList) == 0 {
+			service.Notice(rb, client.t("No such nick"))
+			return
+		}
+		service.Notice(rb, fmt.Sprintf(client.t("Warning: %s is not currently connected to the server. Using WHOWAS data, which may be inaccurate:"), nick))
+		details = whowasList[0]
+	} else {
+		details = target.Details().WhoWas
+	}
+
+	if details.account != "" {
+		if channel.getAmode(details.account) != modes.Mode(0) {
+			service.Notice(rb, fmt.Sprintf(client.t("Warning: account %s currently has a persistent channel privilege granted with CS AMODE. If this mode is not removed, bans will not be respected"), details.accountName))
+			return
+		} else if details.account == channel.Founder() {
+			service.Notice(rb, fmt.Sprintf(client.t("Warning: account %s is the channel founder and cannot be banned"), details.accountName))
+			return
+		}
+	}
+
+	config := server.Config()
+	if !config.Server.Cloaks.EnabledForAlwaysOn {
+		service.Notice(rb, client.t("Warning: server.ip-cloaking.enabled-for-always-on is disabled. This reduces the precision of channel bans."))
+	}
+
+	if details.account != "" {
+		if config.Accounts.NickReservation.ForceNickEqualsAccount || target.AlwaysOn() {
+			service.Notice(rb, fmt.Sprintf(client.t("User %[1]s is authenticated and can be banned by nickname: /MODE %[2]s +b %[3]s!*@*"), details.nick, channel.Name(), details.nick))
+			success = true
+			return
+		}
+	}
+
+	ban := fmt.Sprintf("*!*@%s", strings.ToLower(details.hostname))
+	banRe, err := utils.CompileGlob(ban, false)
+	if err != nil {
+		server.logger.Error("internal", "couldn't compile ban regex", ban, err.Error())
+		service.Notice(rb, "An error occurred")
+		return
+	}
+	var collateralDamage []string
+	for _, mcl := range channel.Members() {
+		if mcl != target && banRe.MatchString(mcl.NickMaskCasefolded()) {
+			collateralDamage = append(collateralDamage, mcl.Nick())
+		}
+	}
+	service.Notice(rb, fmt.Sprintf(client.t("User %[1]s can be banned by hostname: /MODE %[2]s +b %[3]s"), details.nick, channel.Name(), ban))
+	success = true
+	if len(collateralDamage) != 0 {
+		service.Notice(rb, fmt.Sprintf(client.t("Warning: this ban will affect %d other users:"), len(collateralDamage)))
+		for _, line := range utils.BuildTokenLines(400, collateralDamage, " ") {
+			service.Notice(rb, line)
+		}
 	}
 }

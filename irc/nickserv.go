@@ -1361,11 +1361,16 @@ func (a ByCreationTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByCreationTime) Less(i, j int) bool { return a[i].TimeCreated.After(a[j].TimeCreated) }
 
 func nsSuspendListHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	suspensions := server.accounts.ListSuspended()
+	listAccountSuspensions(client, rb, service.prefix)
+}
+
+func listAccountSuspensions(client *Client, rb *ResponseBuffer, source string) {
+	suspensions := client.server.accounts.ListSuspended()
 	sort.Sort(ByCreationTime(suspensions))
-	service.Notice(rb, fmt.Sprintf(client.t("There are %d active suspensions."), len(suspensions)))
+	nick := client.Nick()
+	rb.Add(nil, source, "NOTICE", nick, fmt.Sprintf(client.t("There are %d active account suspensions."), len(suspensions)))
 	for _, suspension := range suspensions {
-		service.Notice(rb, suspensionToString(client, suspension))
+		rb.Add(nil, source, "NOTICE", nick, suspensionToString(client, suspension))
 	}
 }
 

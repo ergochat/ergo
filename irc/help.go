@@ -521,6 +521,19 @@ Shows the time of the current, or the given, server.`,
 If [topic] is given, sets the topic in the channel to that. If [topic] is not
 given, views the current topic on the channel.`,
 	},
+	"uban": {
+		text: `UBAN <subcommand> [arguments]
+
+Oragono's "unified ban" system. Accepts the following subcommands:
+
+1. UBAN ADD <target> [DURATION <duration>] [REASON...]
+2. UBAN DEL <target>
+3. UBAN LIST
+4. UBAN INFO <target>
+
+<target> may be an IP, a CIDR, a nickmask with wildcards, or the name of an
+account to suspend.`,
+	},
 	"undline": {
 		oper: true,
 		text: `UNDLINE <ip>/<net>

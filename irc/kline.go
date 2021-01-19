@@ -189,6 +189,17 @@ func (km *KLineManager) RemoveMask(mask string) error {
 	return km.unpersistKLine(mask)
 }
 
+func (km *KLineManager) ContainsMask(mask string) (isBanned bool, info IPBanInfo) {
+	km.RLock()
+	defer km.RUnlock()
+
+	klineInfo, isBanned := km.entries[mask]
+	if isBanned {
+		info = klineInfo.Info
+	}
+	return
+}
+
 // CheckMasks returns whether or not the hostmask(s) are banned, and how long they are banned for.
 func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info IPBanInfo) {
 	km.RLock()

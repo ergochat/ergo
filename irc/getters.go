@@ -314,6 +314,12 @@ func (client *Client) setCloakedHostname(cloak string) {
 	client.updateNickMaskNoMutex()
 }
 
+func (client *Client) CloakedHostname() string {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	return client.cloakedHostname
+}
+
 func (client *Client) historyCutoff() (cutoff time.Time) {
 	client.stateMutex.Lock()
 	if client.account != "" {
@@ -552,4 +558,10 @@ func (channel *Channel) Ctime() (ctime time.Time) {
 	ctime = channel.createdTime
 	channel.stateMutex.RUnlock()
 	return
+}
+
+func (channel *Channel) getAmode(cfaccount string) (result modes.Mode) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.accountToUMode[cfaccount]
 }

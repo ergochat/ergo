@@ -906,7 +906,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		operName = server.name
 	}
 
-	err = server.dlines.AddNetwork(hostNet, duration, reason, operReason, operName)
+	err = server.dlines.AddNetwork(flatip.FromNetIPNet(hostNet), duration, reason, operReason, operName)
 
 	if err != nil {
 		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))
@@ -2833,13 +2833,8 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 	// get host
 	hostString := msg.Params[0]
 
-	// TODO(#1447) consolidate this into the "unban" command
-	if flatip, ipErr := flatip.ParseIP(hostString); ipErr == nil {
-		server.connectionLimiter.ResetThrottle(flatip)
-	}
-
 	// check host
-	hostNet, err := utils.NormalizedNetFromString(hostString)
+	hostNet, err := flatip.ParseToNormalizedNet(hostString)
 
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
@@ -2853,7 +2848,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *R
 		return false
 	}
 
-	hostString = utils.NetToNormalizedString(hostNet)
+	hostString = hostNet.String()
 	rb.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
 	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
 	return false

@@ -183,6 +183,16 @@ func (cidr IPNet) String() string {
 	return ipnet.String()
 }
 
+// HumanReadableString returns a string representation of an IPNet;
+// if the network contains only a single IP address, it returns
+// a representation of that address.
+func (cidr IPNet) HumanReadableString() string {
+	if cidr.PrefixLen == 128 {
+		return cidr.IP.String()
+	}
+	return cidr.String()
+}
+
 // IsZero tests whether ipnet is the zero value of an IPNet, 0::0/0.
 // Although this is a valid subnet, it can still be used as a sentinel
 // value in some contexts.

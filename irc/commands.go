@@ -319,6 +319,11 @@ func init() {
 			handler:   topicHandler,
 			minParams: 1,
 		},
+		"UBAN": {
+			handler:   ubanHandler,
+			minParams: 1,
+			capabs:    []string{"ban"},
+		},
 		"UNDLINE": {
 			handler:   unDLineHandler,
 			minParams: 1,
