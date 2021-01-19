@@ -152,16 +152,8 @@ func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *Resp
 	case ubanNickmask:
 		ubanAddNickmask(client, target, duration, operReason, rb)
 	case ubanNick:
-		account := target.nickOrMask
-		err := client.server.accounts.Suspend(account, duration, client.Oper().Name, "UBAN")
-		switch err {
-		case nil:
-			rb.Notice(fmt.Sprintf(client.t("Successfully suspended account %s"), account))
-		case errAccountDoesNotExist:
-			rb.Notice(client.t("No such account"))
-		default:
-			rb.Notice(client.t("An error occurred"))
-		}
+		ubanAddAccount(client, target, duration, operReason, rb)
+
 	}
 	return false
 }
@@ -224,6 +216,31 @@ func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, 
 			rb.Notice(line)
 		}
 		rb.Notice(client.t("You can suspend their accounts instead; try /UBAN ADD <nickname>"))
+	}
+}
+
+func ubanAddAccount(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) {
+	account := target.nickOrMask
+	// TODO this doesn't enumerate all sessions if ForceNickEqualsAccount is disabled
+	var sessionData []SessionData
+	if mcl := client.server.clients.Get(account); mcl != nil {
+		sessionData, _ = mcl.AllSessionData(nil, true)
+	}
+
+	err := client.server.accounts.Suspend(account, duration, client.Oper().Name, operReason)
+	switch err {
+	case nil:
+		rb.Notice(fmt.Sprintf(client.t("Successfully suspended account %s"), account))
+		if len(sessionData) != 0 {
+			rb.Notice(fmt.Sprintf(client.t("Disconnected %d client(s) associated with the account, using the following IPs:"), len(sessionData)))
+			for i, d := range sessionData {
+				rb.Notice(fmt.Sprintf("%d. %s", i+1, d.ip.String()))
+			}
+		}
+	case errAccountDoesNotExist:
+		rb.Notice(client.t("No such account"))
+	default:
+		rb.Notice(client.t("An error occurred"))
 	}
 }
 
