@@ -162,8 +162,14 @@ func (server *Server) Run() {
 }
 
 func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool) (banned bool, requireSASL bool, message string) {
+	// #671: do not enforce bans against loopback, as a failsafe
+	// note that this function is not used for Tor connections (checkTorLimits is used instead)
+	if ipaddr.IsLoopback() {
+		return
+	}
+
 	if server.Defcon() == 1 {
-		if !(ipaddr.IsLoopback() || utils.IPInNets(ipaddr, server.Config().Server.secureNets)) {
+		if !utils.IPInNets(ipaddr, server.Config().Server.secureNets) {
 			return true, false, "New connections to this server are temporarily restricted"
 		}
 	}
@@ -198,7 +204,7 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 		}
 		// TODO: currently no way to cache results other than IPBanned
 		if output.Result == IPBanned && output.CacheSeconds != 0 {
-			network, err := utils.NormalizedNetFromString(output.CacheNet)
+			network, err := flatip.ParseToNormalizedNet(output.CacheNet)
 			if err != nil {
 				server.logger.Error("internal", "invalid dline net from IP ban script", ipaddr.String(), output.CacheNet)
 			} else {
@@ -339,11 +345,13 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// count new user in statistics (before checking KLINEs, see #1303)
 	server.stats.Register(c.HasMode(modes.Invisible))
 
-	// check KLINEs
-	isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
-	if isBanned {
-		c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-		return true
+	// check KLINEs (#671: ignore KLINEs for loopback connections)
+	if !session.IP().IsLoopback() || session.isTor {
+		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
+		if isBanned {
+			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+			return true
+		}
 	}
 
 	server.playRegistrationBurst(session)

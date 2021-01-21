@@ -292,6 +292,9 @@ type WhoWas struct {
 	username       string
 	hostname       string
 	realname       string
+	// technically not required for WHOWAS:
+	account     string
+	accountName string
 }
 
 // ClientDetails is a standard set of details about a client
@@ -300,8 +303,6 @@ type ClientDetails struct {
 
 	nickMask           string
 	nickMaskCasefolded string
-	account            string
-	accountName        string
 }
 
 // RunClient sets up a new client and runs its goroutine.

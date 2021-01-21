@@ -995,17 +995,21 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 	var newPassword string
 	var errorMessage string
 
-	hasPrivs := client.HasRoleCapabs("accreg")
+	var oper *Oper
 
 	switch len(params) {
 	case 2:
-		if !hasPrivs {
+		oper = client.Oper()
+		if !oper.HasRoleCapab("accreg") {
 			errorMessage = `Insufficient privileges`
 		} else {
 			target, newPassword = params[0], params[1]
 			if newPassword == "*" {
 				newPassword = ""
 			}
+			message := fmt.Sprintf("Operator %s ran NS PASSWD for account %s", oper.Name, target)
+			server.snomasks.Send(sno.LocalOpers, message)
+			server.logger.Info("opers", message)
 		}
 	case 3:
 		target = client.Account()
@@ -1041,7 +1045,7 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		return
 	}
 
-	err := server.accounts.setPassword(target, newPassword, hasPrivs)
+	err := server.accounts.setPassword(target, newPassword, oper != nil)
 	switch err {
 	case nil:
 		service.Notice(rb, client.t("Password changed"))
@@ -1090,7 +1094,7 @@ func nsClientsHandler(service *ircService, server *Server, client *Client, comma
 
 func nsClientsListHandler(service *ircService, server *Server, client *Client, params []string, rb *ResponseBuffer) {
 	target := client
-	hasPrivs := client.HasRoleCapabs("local_ban")
+	hasPrivs := client.HasRoleCapabs("ban")
 	if 0 < len(params) {
 		target = server.clients.Get(params[0])
 		if target == nil {
@@ -1141,10 +1145,10 @@ func nsClientsLogoutHandler(service *ircService, server *Server, client *Client,
 			service.Notice(rb, client.t("No such nick"))
 			return
 		}
-		// User must have "local_kill" privileges to logout other user sessions.
+		// User must have "kill" privileges to logout other user sessions.
 		if target != client {
 			oper := client.Oper()
-			if oper == nil || !oper.Class.Capabilities.Has("local_kill") {
+			if oper.HasRoleCapab("kill") {
 				service.Notice(rb, client.t("Insufficient oper privs"))
 				return
 			}
@@ -1357,11 +1361,16 @@ func (a ByCreationTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByCreationTime) Less(i, j int) bool { return a[i].TimeCreated.After(a[j].TimeCreated) }
 
 func nsSuspendListHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	suspensions := server.accounts.ListSuspended()
+	listAccountSuspensions(client, rb, service.prefix)
+}
+
+func listAccountSuspensions(client *Client, rb *ResponseBuffer, source string) {
+	suspensions := client.server.accounts.ListSuspended()
 	sort.Sort(ByCreationTime(suspensions))
-	service.Notice(rb, fmt.Sprintf(client.t("There are %d active suspensions."), len(suspensions)))
+	nick := client.Nick()
+	rb.Add(nil, source, "NOTICE", nick, fmt.Sprintf(client.t("There are %d active account suspensions."), len(suspensions)))
 	for _, suspension := range suspensions {
-		service.Notice(rb, suspensionToString(client, suspension))
+		rb.Add(nil, source, "NOTICE", nick, suspensionToString(client, suspension))
 	}
 }
 

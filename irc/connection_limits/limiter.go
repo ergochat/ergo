@@ -209,6 +209,38 @@ func (cl *Limiter) RemoveClient(addr flatip.IP) {
 	cl.limiter[addrString] = count
 }
 
+type LimiterStatus struct {
+	Exempt bool
+
+	Count    int
+	MaxCount int
+
+	Throttle         int
+	MaxPerWindow     int
+	ThrottleDuration time.Duration
+}
+
+func (cl *Limiter) Status(addr flatip.IP) (status LimiterStatus) {
+	cl.Lock()
+	defer cl.Unlock()
+
+	if flatip.IPInNets(addr, cl.config.exemptedNets) {
+		status.Exempt = true
+		return
+	}
+
+	status.ThrottleDuration = cl.config.Window
+
+	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
+	status.MaxCount = maxConcurrent
+	status.MaxPerWindow = maxPerWindow
+
+	status.Count = cl.limiter[addrString]
+	status.Throttle = cl.throttler[addrString].Count
+
+	return
+}
+
 // ResetThrottle resets the throttle count for an IP
 func (cl *Limiter) ResetThrottle(addr flatip.IP) {
 	cl.Lock()

@@ -6,13 +6,11 @@ package irc
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -48,7 +46,11 @@ func (info IPBanInfo) TimeLeft() string {
 
 // BanMessage returns the ban message.
 func (info IPBanInfo) BanMessage(message string) string {
-	message = fmt.Sprintf(message, info.Reason)
+	reason := info.Reason
+	if reason == "" {
+		reason = "No reason given"
+	}
+	message = fmt.Sprintf(message, reason)
 	if info.Duration != 0 {
 		message += fmt.Sprintf(" [%s]", info.TimeLeft())
 	}
@@ -86,14 +88,14 @@ func (dm *DLineManager) AllBans() map[string]IPBanInfo {
 	defer dm.RUnlock()
 
 	for key, info := range dm.networks {
-		allb[key.String()] = info
+		allb[key.HumanReadableString()] = info
 	}
 
 	return allb
 }
 
 // AddNetwork adds a network to the blocked list.
-func (dm *DLineManager) AddNetwork(network net.IPNet, duration time.Duration, reason, operReason, operName string) error {
+func (dm *DLineManager) AddNetwork(network flatip.IPNet, duration time.Duration, reason, operReason, operName string) error {
 	dm.persistenceMutex.Lock()
 	defer dm.persistenceMutex.Unlock()
 
@@ -110,8 +112,7 @@ func (dm *DLineManager) AddNetwork(network net.IPNet, duration time.Duration, re
 	return dm.persistDline(id, info)
 }
 
-func (dm *DLineManager) addNetworkInternal(network net.IPNet, info IPBanInfo) (id flatip.IPNet) {
-	flatnet := flatip.FromNetIPNet(network)
+func (dm *DLineManager) addNetworkInternal(flatnet flatip.IPNet, info IPBanInfo) (id flatip.IPNet) {
 	id = flatnet
 
 	var timeLeft time.Duration
@@ -193,11 +194,11 @@ func (dm *DLineManager) unpersistDline(id flatip.IPNet) error {
 }
 
 // RemoveNetwork removes a network from the blocked list.
-func (dm *DLineManager) RemoveNetwork(network net.IPNet) error {
+func (dm *DLineManager) RemoveNetwork(network flatip.IPNet) error {
 	dm.persistenceMutex.Lock()
 	defer dm.persistenceMutex.Unlock()
 
-	id := flatip.FromNetIPNet(network)
+	id := network
 
 	present := func() bool {
 		dm.Lock()
@@ -215,22 +216,8 @@ func (dm *DLineManager) RemoveNetwork(network net.IPNet) error {
 	return dm.unpersistDline(id)
 }
 
-// AddIP adds an IP address to the blocked list.
-func (dm *DLineManager) AddIP(addr net.IP, duration time.Duration, reason, operReason, operName string) error {
-	return dm.AddNetwork(utils.NormalizeIPToNet(addr), duration, reason, operReason, operName)
-}
-
-// RemoveIP removes an IP address from the blocked list.
-func (dm *DLineManager) RemoveIP(addr net.IP) error {
-	return dm.RemoveNetwork(utils.NormalizeIPToNet(addr))
-}
-
 // CheckIP returns whether or not an IP address was banned, and how long it is banned for.
 func (dm *DLineManager) CheckIP(addr flatip.IP) (isBanned bool, info IPBanInfo) {
-	if addr.IsLoopback() {
-		return // #671
-	}
-
 	dm.RLock()
 	defer dm.RUnlock()
 
@@ -257,7 +244,7 @@ func (dm *DLineManager) loadFromDatastore() {
 			key = strings.TrimPrefix(key, dlinePrefix)
 
 			// load addr/net
-			hostNet, err := utils.NormalizedNetFromString(key)
+			hostNet, err := flatip.ParseToNormalizedNet(key)
 			if err != nil {
 				dm.server.logger.Error("internal", "bad dline cidr", err.Error())
 				return true

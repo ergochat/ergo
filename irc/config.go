@@ -649,7 +649,7 @@ type OperClass struct {
 // OperatorClasses returns a map of assembled operator classes from the given config.
 func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 	fixupCapability := func(capab string) string {
-		return strings.TrimPrefix(capab, "oper:") // #868
+		return strings.TrimPrefix(strings.TrimPrefix(capab, "oper:"), "local_") // #868, #1442
 	}
 
 	ocs := make(map[string]*OperClass)
@@ -731,6 +731,10 @@ type Oper struct {
 	Auto      bool
 	Hidden    bool
 	Modes     []modes.ModeChange
+}
+
+func (oper *Oper) HasRoleCapab(capab string) bool {
+	return oper != nil && oper.Class.Capabilities.Has(capab)
 }
 
 // Operators returns a map of operator configs from the given OperClass and config.
