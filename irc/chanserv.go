@@ -171,6 +171,16 @@ SET modifies a channel's settings. The following settings are available:`,
 2. 'ephemeral'  [a limited amount of temporary history, not stored on disk]
 3. 'on'         [history stored in a permanent database, if available]
 4. 'default'    [use the server default]`,
+				`$bQUERY-CUTOFF$b
+'query-cutoff' lets you restrict how much channel history can be retrieved
+by unprivileged users. Your options are:
+1. 'none'               [no restrictions]
+2. 'registration-time'  [users can view history from after their account was
+                         registered, plus a grace period]
+3. 'join-time'          [users can biew history from after they joined the
+                         channel; note that history will be effectively
+                         unavailable to clients that are not always-on]
+4. 'default'            [use the server default]`,
 			},
 			enabled:   chanregEnabled,
 			minParams: 3,
@@ -329,7 +339,7 @@ func csDeopHandler(service *ircService, server *Server, client *Client, command 
 		target = client
 	}
 
-	present, cumodes := channel.ClientStatus(target)
+	present, _, cumodes := channel.ClientStatus(target)
 	if !present || len(cumodes) == 0 {
 		service.Notice(rb, client.t("Target has no privileges to remove"))
 		return
@@ -745,6 +755,13 @@ func displayChannelSetting(service *ircService, settingName string, settings Cha
 		effectiveValue := historyEnabled(config.History.Persistent.RegisteredChannels, settings.History)
 		service.Notice(rb, fmt.Sprintf(client.t("The stored channel history setting is: %s"), historyStatusToString(settings.History)))
 		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, the channel history setting is: %s"), historyStatusToString(effectiveValue)))
+	case "query-cutoff":
+		effectiveValue := settings.QueryCutoff
+		if effectiveValue == HistoryCutoffDefault {
+			effectiveValue = config.History.Restrictions.queryCutoff
+		}
+		service.Notice(rb, fmt.Sprintf(client.t("The stored channel history query cutoff setting is: %s"), historyCutoffToString(settings.QueryCutoff)))
+		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, the channel history query cutoff setting is: %s"), historyCutoffToString(effectiveValue)))
 	default:
 		service.Notice(rb, client.t("Invalid params"))
 	}
@@ -788,6 +805,13 @@ func csSetHandler(service *ircService, server *Server, client *Client, command s
 		}
 		channel.SetSettings(settings)
 		channel.resizeHistory(server.Config())
+	case "query-cutoff":
+		settings.QueryCutoff, err = historyCutoffFromString(value)
+		if err != nil {
+			err = errInvalidParams
+			break
+		}
+		channel.SetSettings(settings)
 	}
 
 	switch err {

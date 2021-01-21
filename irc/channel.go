@@ -20,7 +20,8 @@ import (
 )
 
 type ChannelSettings struct {
-	History HistoryStatus
+	History     HistoryStatus
+	QueryCutoff HistoryCutoff
 }
 
 // Channel represents a channel that clients can join.
@@ -109,7 +110,7 @@ func (channel *Channel) IsLoaded() bool {
 }
 
 func (channel *Channel) resizeHistory(config *Config) {
-	status, _ := channel.historyStatus(config)
+	status, _, _ := channel.historyStatus(config)
 	if status == HistoryEphemeral {
 		channel.history.Resize(config.History.ChannelLength, time.Duration(config.History.AutoresizeWindow))
 	} else {
@@ -443,11 +444,11 @@ func (channel *Channel) regenerateMembersCache() {
 // Names sends the list of users joined to the channel to the given client.
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
-	clientModes, isJoined := channel.members[client]
+	clientData, isJoined := channel.members[client]
 	channel.stateMutex.RUnlock()
 	isOper := client.HasMode(modes.Operator)
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
-		(!isJoined || clientModes.HighestChannelUserMode() == modes.Mode(0))
+		(!isJoined || clientData.modes.HighestChannelUserMode() == modes.Mode(0))
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
@@ -463,8 +464,9 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 				nick = target.Nick()
 			}
 			channel.stateMutex.RLock()
-			modeSet := channel.members[target]
+			memberData, _ := channel.members[target]
 			channel.stateMutex.RUnlock()
+			modeSet := memberData.modes
 			if modeSet == nil {
 				continue
 			}
@@ -519,7 +521,7 @@ func channelUserModeHasPrivsOver(clientMode modes.Mode, targetMode modes.Mode) b
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
 func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
 	channel.stateMutex.RLock()
-	clientModes := channel.members[client]
+	memberData := channel.members[client]
 	founder := channel.registeredFounder
 	channel.stateMutex.RUnlock()
 
@@ -528,7 +530,7 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 	}
 
 	for _, mode := range modes.ChannelUserModes {
-		if clientModes.HasMode(mode) {
+		if memberData.modes.HasMode(mode) {
 			return true
 		}
 		if mode == permission {
@@ -541,35 +543,37 @@ func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) b
 func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
-	modes, present := channel.members[client]
+	memberData, present := channel.members[client]
 	if !present {
 		return ""
 	} else {
-		return modes.Prefixes(isMultiPrefix)
+		return memberData.modes.Prefixes(isMultiPrefix)
 	}
 }
 
-func (channel *Channel) ClientStatus(client *Client) (present bool, cModes modes.Modes) {
+func (channel *Channel) ClientStatus(client *Client) (present bool, joinTimeSecs int64, cModes modes.Modes) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
-	modes, present := channel.members[client]
-	return present, modes.AllModes()
+	memberData, present := channel.members[client]
+	return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
 }
 
 // helper for persisting channel-user modes for always-on clients;
 // return the channel name and all channel-user modes for a client
-func (channel *Channel) nameAndModes(client *Client) (chname string, modeStr string) {
+func (channel *Channel) alwaysOnStatus(client *Client) (chname string, status alwaysOnChannelStatus) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	chname = channel.name
-	modeStr = channel.members[client].String()
+	data := channel.members[client]
+	status.Modes = data.modes.String()
+	status.JoinTime = data.joinTime
 	return
 }
 
 // overwrite any existing channel-user modes with the stored ones
-func (channel *Channel) setModesForClient(client *Client, modeStr string) {
+func (channel *Channel) setMemberStatus(client *Client, status alwaysOnChannelStatus) {
 	newModes := modes.NewModeSet()
-	for _, mode := range modeStr {
+	for _, mode := range status.Modes {
 		newModes.SetMode(modes.Mode(mode), true)
 	}
 	channel.stateMutex.Lock()
@@ -577,14 +581,17 @@ func (channel *Channel) setModesForClient(client *Client, modeStr string) {
 	if _, ok := channel.members[client]; !ok {
 		return
 	}
-	channel.members[client] = newModes
+	memberData := channel.members[client]
+	memberData.modes = newModes
+	memberData.joinTime = status.JoinTime
+	channel.members[client] = memberData
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
 	founder := channel.registeredFounder
-	clientModes := channel.members[client]
-	targetModes := channel.members[target]
+	clientModes := channel.members[client].modes
+	targetModes := channel.members[target].modes
 	channel.stateMutex.RUnlock()
 
 	if founder != "" {
@@ -612,7 +619,7 @@ func (channel *Channel) modeStrings(client *Client) (result []string) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
-	isMember := hasPrivs || channel.members[client] != nil
+	isMember := hasPrivs || channel.members.Has(client)
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 	showForward := channel.forward != ""
@@ -660,18 +667,38 @@ func (channel *Channel) IsEmpty() bool {
 
 // figure out where history is being stored: persistent, ephemeral, or neither
 // target is only needed if we're doing persistent history
-func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, target string) {
+func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, target string, restrictions HistoryCutoff) {
 	if !config.History.Enabled {
-		return HistoryDisabled, ""
+		return HistoryDisabled, "", HistoryCutoffNone
 	}
 
 	channel.stateMutex.RLock()
 	target = channel.nameCasefolded
-	historyStatus := channel.settings.History
+	settings := channel.settings
 	registered := channel.registeredFounder != ""
 	channel.stateMutex.RUnlock()
 
-	return channelHistoryStatus(config, registered, historyStatus), target
+	restrictions = settings.QueryCutoff
+	if restrictions == HistoryCutoffDefault {
+		restrictions = config.History.Restrictions.queryCutoff
+	}
+
+	return channelHistoryStatus(config, registered, settings.History), target, restrictions
+}
+
+func (channel *Channel) joinTimeCutoff(client *Client) (present bool, cutoff time.Time) {
+	account := client.Account()
+
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	if data, ok := channel.members[client]; ok {
+		present = true
+		// report a cutoff of zero, i.e., no restriction, if the user is privileged
+		if !((account != "" && account == channel.registeredFounder) || data.modes.HasMode(modes.ChannelFounder) || data.modes.HasMode(modes.ChannelAdmin) || data.modes.HasMode(modes.ChannelOperator)) {
+			cutoff = time.Unix(0, data.joinTime)
+		}
+	}
+	return
 }
 
 func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryStatus) (result HistoryStatus) {
@@ -697,7 +724,7 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 		return
 	}
 
-	status, target := channel.historyStatus(channel.server.Config())
+	status, target, _ := channel.historyStatus(channel.server.Config())
 	if status == HistoryPersistent {
 		err = channel.server.historyDB.AddChannelItem(target, item, account)
 	} else if status == HistoryEphemeral {
@@ -785,7 +812,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 				givenMode = persistentMode
 			}
 			if givenMode != 0 {
-				channel.members[client].SetMode(givenMode, true)
+				channel.members[client].modes.SetMode(givenMode, true)
 			}
 		}()
 
@@ -825,9 +852,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	for _, member := range channel.Members() {
 		if respectAuditorium {
 			channel.stateMutex.RLock()
-			memberModes, ok := channel.members[member]
+			memberData, ok := channel.members[member]
 			channel.stateMutex.RUnlock()
-			if !ok || memberModes.HighestChannelUserMode() == modes.Mode(0) {
+			if !ok || memberData.modes.HighestChannelUserMode() == modes.Mode(0) {
 				continue
 			}
 		}
@@ -955,7 +982,7 @@ func (channel *Channel) playJoinForSession(session *Session) {
 func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
 	chname := channel.name
-	clientModes, ok := channel.members[client]
+	clientData, ok := channel.members[client]
 	channel.stateMutex.RUnlock()
 
 	if !ok {
@@ -974,15 +1001,15 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		params = append(params, message)
 	}
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
-		clientModes.HighestChannelUserMode() == modes.Mode(0)
+		clientData.modes.HighestChannelUserMode() == modes.Mode(0)
 	var cache MessageCache
 	cache.Initialize(channel.server, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
 	for _, member := range channel.Members() {
 		if respectAuditorium {
 			channel.stateMutex.RLock()
-			memberModes, ok := channel.members[member]
+			memberData, ok := channel.members[member]
 			channel.stateMutex.RUnlock()
-			if !ok || memberModes.HighestChannelUserMode() == modes.Mode(0) {
+			if !ok || memberData.modes.HighestChannelUserMode() == modes.Mode(0) {
 				continue
 			}
 		}
@@ -1022,12 +1049,12 @@ func (channel *Channel) Resume(session *Session, timestamp time.Time) {
 
 func (channel *Channel) resumeAndAnnounce(session *Session) {
 	channel.stateMutex.RLock()
-	modeSet := channel.members[session.client]
+	memberData, found := channel.members[session.client]
 	channel.stateMutex.RUnlock()
-	if modeSet == nil {
+	if !found {
 		return
 	}
-	oldModes := modeSet.String()
+	oldModes := memberData.modes.String()
 	if 0 < len(oldModes) {
 		oldModes = "+" + oldModes
 	}
@@ -1271,8 +1298,9 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 // CanSpeak returns true if the client can speak on this channel, otherwise it returns false along with the channel mode preventing the client from speaking.
 func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	channel.stateMutex.RLock()
-	clientModes, hasClient := channel.members[client]
+	memberData, hasClient := channel.members[client]
 	channel.stateMutex.RUnlock()
+	clientModes := memberData.modes
 
 	if !hasClient && channel.flags.HasMode(modes.NoOutside) {
 		// TODO: enforce regular +b bans on -n channels?
@@ -1347,9 +1375,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 
 	if channel.flags.HasMode(modes.OpModerated) {
 		channel.stateMutex.RLock()
-		cuModes := channel.members[client]
+		cuData := channel.members[client]
 		channel.stateMutex.RUnlock()
-		if cuModes.HighestChannelUserMode() == modes.Mode(0) {
+		if cuData.modes.HighestChannelUserMode() == modes.Mode(0) {
 			// max(statusmsg_minmode, halfop)
 			if minPrefixMode == modes.Mode(0) || minPrefixMode == modes.Voice {
 				minPrefixMode = modes.Halfop
@@ -1402,9 +1430,9 @@ func (channel *Channel) applyModeToMember(client *Client, change modes.ModeChang
 	change.Arg = target.Nick()
 
 	channel.stateMutex.Lock()
-	modeset, exists := channel.members[target]
+	memberData, exists := channel.members[target]
 	if exists {
-		if modeset.SetMode(change.Mode, change.Op == modes.Add) {
+		if memberData.modes.SetMode(change.Mode, change.Op == modes.Add) {
 			applied = true
 			result = change
 		}
@@ -1590,19 +1618,19 @@ func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
-	clientModes := channel.members[client]
-	if clientModes == nil {
+	clientData, found := channel.members[client]
+	if !found {
 		return // non-members have no friends
 	}
 	if !channel.flags.HasMode(modes.Auditorium) {
 		return channel.membersCache // default behavior for members
 	}
-	if clientModes.HighestChannelUserMode() != modes.Mode(0) {
+	if clientData.modes.HighestChannelUserMode() != modes.Mode(0) {
 		return channel.membersCache // +v and up can see everyone in the auditorium
 	}
 	// without +v, your friends are those with +v and up
-	for member, memberModes := range channel.members {
-		if memberModes.HighestChannelUserMode() != modes.Mode(0) {
+	for member, memberData := range channel.members {
+		if memberData.modes.HighestChannelUserMode() != modes.Mode(0) {
 			friends = append(friends, member)
 		}
 	}

@@ -878,13 +878,18 @@ history:
         # (and will eventually be deleted from persistent storage, if that's enabled)
         expire-time: 1w
 
-        # if this is set, logged-in users cannot retrieve messages older than their
-        # account registration date, and logged-out users cannot retrieve messages
-        # older than their sign-on time (modulo grace-period, see below):
-        enforce-registration-date: false
+        # this restricts access to channel history (it can be overridden by channel
+        # owners). options are: 'none' (no restrictions), 'registration-time'
+        # (logged-in users cannot retrieve messages older than their account
+        # registration date, and anonymous users cannot retrieve messages older than
+        # their sign-on time, modulo the grace-period described below), and
+        # 'join-time' (users cannot retrieve messages older than the time they
+        # joined the channel, so only always-on clients can view history).
+        query-cutoff: 'none'
 
-        # but if this is set, you can retrieve messages that are up to `grace-period`
-        # older than the above cutoff time. this is recommended to allow logged-out
+        # if query-cutoff is set to 'registration-time', this allows retrieval
+        # of messages that are up to 'grace-period' older than the above cutoff.
+        # if you use 'registration-time', this is recommended to allow logged-out
         # users to do session resumption / query history after disconnections.
         grace-period: 1h
 

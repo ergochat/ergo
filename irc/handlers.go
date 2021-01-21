@@ -985,8 +985,8 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 		claims["channel"] = channel.Name()
 		claims["joined"] = 0
 		claims["cmodes"] = []string{}
-		if present, cModes := channel.ClientStatus(client); present {
-			claims["joined"] = 1
+		if present, joinTimeSecs, cModes := channel.ClientStatus(client); present {
+			claims["joined"] = joinTimeSecs
 			var modeStrings []string
 			for _, cMode := range cModes {
 				modeStrings = append(modeStrings, string(cMode))
@@ -2649,7 +2649,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 	}
 
 	config := server.Config()
-	status, _ := channel.historyStatus(config)
+	status, _, _ := channel.historyStatus(config)
 	if status == HistoryPersistent {
 		rb.Add(nil, server.name, "FAIL", "RENAME", "CANNOT_RENAME", oldName, utils.SafeErrorParam(newName), client.t("Channels with persistent history cannot be renamed"))
 		return false

@@ -850,6 +850,7 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	var status HistoryStatus
 	var target, correspondent string
 	var hist *history.Buffer
+	restriction := HistoryCutoffNone
 	channel = providedChannel
 	if channel == nil {
 		if strings.HasPrefix(query, "#") {
@@ -859,12 +860,15 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 			}
 		}
 	}
+	var joinTimeCutoff time.Time
 	if channel != nil {
-		if !channel.hasClient(client) {
+		if present, cutoff := channel.joinTimeCutoff(client); present {
+			joinTimeCutoff = cutoff
+		} else {
 			err = errInsufficientPrivs
 			return
 		}
-		status, target = channel.historyStatus(config)
+		status, target, restriction = channel.historyStatus(config)
 		switch status {
 		case HistoryEphemeral:
 			hist = &channel.history
@@ -896,15 +900,20 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 		cutoff = time.Now().UTC().Add(-time.Duration(config.History.Restrictions.ExpireTime))
 	}
 	// #836: registration date cutoff is always enforced for DMs
-	if config.History.Restrictions.EnforceRegistrationDate || channel == nil {
+	// either way, take the later of the two cutoffs
+	if restriction == HistoryCutoffRegistrationTime || channel == nil {
 		regCutoff := client.historyCutoff()
-		// take the later of the two cutoffs
 		if regCutoff.After(cutoff) {
 			cutoff = regCutoff
 		}
+	} else if restriction == HistoryCutoffJoinTime {
+		if joinTimeCutoff.After(cutoff) {
+			cutoff = joinTimeCutoff
+		}
 	}
+
 	// #836 again: grace period is never applied to DMs
-	if !cutoff.IsZero() && channel != nil {
+	if !cutoff.IsZero() && channel != nil && restriction != HistoryCutoffJoinTime {
 		cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
 	}
 
@@ -958,7 +967,7 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 		if target[0] == '#' {
 			channel := server.channels.Get(target)
 			if channel != nil {
-				if status, _ := channel.historyStatus(config); status == HistoryEphemeral {
+				if status, _, _ := channel.historyStatus(config); status == HistoryEphemeral {
 					hist = &channel.history
 				}
 			}

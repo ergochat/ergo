@@ -407,7 +407,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToModes map[string]string, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -471,12 +471,12 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToModes ma
 	// XXX set this last to avoid confusing SetNick:
 	client.registered = true
 
-	for chname, modeStr := range channelToModes {
+	for chname, status := range channelToStatus {
 		// XXX we're using isSajoin=true, to make these joins succeed even without channel key
 		// this is *probably* ok as long as the persisted memberships are accurate
 		server.channels.Join(client, chname, "", true, nil)
 		if channel := server.channels.Get(chname); channel != nil {
-			channel.setModesForClient(client, modeStr)
+			channel.setMemberStatus(client, status)
 		} else {
 			server.logger.Error("internal", "could not create channel", chname)
 		}
@@ -966,7 +966,7 @@ func (session *Session) playResume() {
 		for _, member := range channel.auditoriumFriends(client) {
 			friends.Add(member)
 		}
-		status, _ := channel.historyStatus(config)
+		status, _, _ := channel.historyStatus(config)
 		if status == HistoryEphemeral {
 			lastDiscarded := channel.history.LastDiscarded()
 			if oldestLostMessage.Before(lastDiscarded) {
@@ -2000,10 +2000,10 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 
 	if (dirtyBits & IncludeChannels) != 0 {
 		channels := client.Channels()
-		channelToModes := make(map[string]string, len(channels))
+		channelToModes := make(map[string]alwaysOnChannelStatus, len(channels))
 		for _, channel := range channels {
-			chname, modes := channel.nameAndModes(client)
-			channelToModes[chname] = modes
+			chname, status := channel.alwaysOnStatus(client)
+			channelToModes[chname] = status
 		}
 		client.server.accounts.saveChannels(account, channelToModes)
 	}
