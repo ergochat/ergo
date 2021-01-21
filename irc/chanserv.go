@@ -860,7 +860,7 @@ func csHowToBanHandler(service *ircService, server *Server, client *Client, comm
 		return
 	}
 
-	if !channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("samode") {
+	if !(channel.ClientIsAtLeast(client, modes.Operator) || client.HasRoleCapabs("samode")) {
 		service.Notice(rb, client.t("Insufficient privileges"))
 		return
 	}
