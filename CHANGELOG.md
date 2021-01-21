@@ -1,6 +1,80 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.5.0-rc1] - 2021-01-24
+
+We're pleased to be publishing the release candidate for 2.5.0 (the official release should follow in a week or so).
+
+This release includes enhancements based on the needs of real-world operators, as well as bug fixes. Highlights include:
+
+* `UBAN`, a new "unified ban" system for server operators, with a corresponding `CHANSERV HOWTOBAN` command for channel operators (#1447)
+* A new forwarding/overflow channel mode `+f` (#1260)
+* Support for PROXY protocol v2 (#1389)
+
+This release includes changes to the config file format, including two breaking changes. One is fairly significant: enabling a websocket listener now requires the use of `server.enforce-utf8`, as has been the recommended default since 2.2.0 (so continuing to accept legacy non-UTF-8 content will require disabling websockets). The other is that the "unban" operator capability has been removed (it is now included in the "ban" capability). Other config changes are backwards compatible and do not require updating the file before upgrading.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Oragono. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+Many thanks to [@jlu5](https://github.com/jlu5), [@kylef](https://github.com/kylef) and [@Mikaela](https://github.com/Mikaela) for contributing patches, to [@bogdomania](https://github.com/bogdomania), [@eskimo](https://github.com/eskimo), [@happyhater](https://github.com/happyhater), [@jlu5](https://github.com/jlu5), [@kylef](https://github.com/kylef), [@LukeHoersten](https://github.com/LukeHoersten), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@robinlemon](https://github.com/robinlemon), and [@vertisan](https://github.com/vertisan) for reporting issues and helping test, and to our translators for contributing translations.
+
+### Config changes
+* Enabling websockets now requires `server.enforce-utf8 = true` (#1483)
+* `proxy` is now a top-level field of the listener config block; in particular, the PROXY protocol (v1 or v2) can now be required ahead of a plaintext connection. The field is still accepted in its legacy position (inside the `tls` block). (#1389, thanks [@robinlemon](https://github.com/robinlemon)!)
+* Added `accounts.multiclient.always-on-expiration`, allowing always-on clients to be timed out for inactivity (#810, thanks [@bogdomania](https://github.com/bogdomania)!)
+* `local_` prefixes have been stripped from operator capability names, so that, e.g., `local_ban` is now just `ban`. The old names are still accepted. (#1442)
+* The `local_unban` operator capability has been removed (unbanning is now contained in the `ban` permission). (#1442)
+* The recommended value of `accounts.bcrypt-cost` is now `4`, the minimum acceptable value (#1497)
+* `server.ip-limits.custom-limits` now accepts networks that contain multiple CIDRs; the old syntax is still accepted (#1421, thanks [@Mikaela](https://github.com/Mikaela)!
+* A new field, `history.restrictions.query-cutoff`, generalizes the old `history.restrictions.enforce-registration-date` (the old field is still accepted) (#1490, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added `server.override-services-hostname`, allowing the hostname of NickServ, ChanServ, etc. to be overridden (#1407, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added a boolean `hide-sts` key to the listener block; this can be used to hide the STS CAP when the listener is secured at layer 3 or 4 (e.g., by a VPN or an E2E mixnet). It will still be necessary to add the relevant IPs to `secure-nets`. (#1428, thanks [@Mikaela](https://github.com/Mikaela)!)
+
+### Security
+* Improved validation of names and encodings for client-only tags (#1385)
+* Improved auditability of sensitive operator actions (#1443, thanks [@mogad0n](https://github.com/mogad0n)!)
+* `DEFCON 4` and lower now require Tor users to authenticate with SASL (#1450)
+
+### Fixed
+* Fixed `NS UNSUSPEND` requiring the casefolded / lowercase version of the account name (#1382, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed client-only tags in direct (user-to-user) `PRIVMSG` not being replayed (#1411)
+* Fixed many bugs in import of Anope and Atheme databases (#1403, #1423, #1424, #1431, #1435, #1439, #1444, thanks [@jlu5](https://github.com/jlu5), [@kylef](https://github.com/kylef), and [@Mikaela](https://github.com/Mikaela)!)
+* Fixed case-handling bugs in `RENAME` (i.e., channel rename) (#1456, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed incorrect processing of color code escapes in MOTD files (#1467, thanks [@mogad0n](https://github.com/mogad0n)!)
+* STS is no longer advertised to Tor clients (#1428, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed HELP/HELPOP numerics not including the nick as an argument (#1472, thanks [@kylef](https://github.com/kylef)!)
+* Made connection registration snomasks less confusing (#1396, thanks [@eskimo](https://github.com/eskimo)!)
+* Fixed duplicated nicks in `KLINE` response (#1379, thanks [@mogad0n](https://github.com/mogad0n)!)
+* The `RELAYMSG` tag name is now `draft/relaymsg`, conforming to the amended draft specification (#1468, thanks [@jlu5](https://github.com/jlu5)!)
+* Fixed `SAJOIN` not sending a `MODE` line to the originating client (#1383, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Improved consistency of message sources sent by `CS AMODE` (#1383, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed duplicated `JOIN` line sent to some clients using the `draft/resume-0.5` extension (#1397, thanks [@kylef](https://github.com/kylef)!)
+* Added a warning that MySQL cannot be enabled by rehash (#1452, thanks [@Mikaela](https://github.com/Mikaela)!)
+
+### Changed
+* Channel-user modes (e.g., `+o`, `+v`) of always-on clients are now persisted in the database (#1345)
+* `/CHANSERV PURGE` now takes `ADD`, `DEL`, and `LIST` subcommands; the separate `UNPURGE` command has been removed; `PURGE ADD` now requires a confirmation code (#1294, thanks [@mogad0n](https://github.com/mogad0n)!)
+* The characters `<`, `>`, `'`, `"`, and `;` are no longer allowed in nicknames (previously registered account names containing these characters are still accepted) (#1436, thanks [@happyhater](https://github.com/happyhater)!)
+* Authenticated clients from Tor now receive their (account-unique) always-on cloaked hostname; this allows channel operators to ban unauthenticated Tor users by banning `*!*@tor-network.onion` (#1479, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Included the network name in the human-readable final parameter of `001 RPL_WELCOME` (#1410)
+* `RELAYMSG` can now take client-only tags (#1470)
+* WebSocket listeners will attempt to negotiate the `text.ircv3.net` [subprotocol](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers#subprotocols); negotiating this is optional for clients (#1483)
+
+### Added
+* Added `UBAN`, a new command giving server operators a unified interface to D-LINEs (IP bans), K-LINEs (NUH mask bans, which are now deprecated), and account suspensions (`NS SUSPEND`) (#1447)
+* Added `CHANSERV HOWTOBAN`, a ChanServ subcommand that helps channel operators choose an appropriate ban (#1447)
+* Added a new channel mode `+f`; users who cannot join the channel due to `+i` or `+l` will be forwarded to the channel specified by `+f`. (#1260)
+* Added support for the PROXY protocol v2 (#1389, thanks [@robinlemon](https://github.com/robinlemon)!)
+* Added support for `/JOIN 0` (part all channels), requiring a confirmation code (#1417, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added support for grouped nicknames as SASL usernames (#1476, thanks [@eskimo](https://github.com/eskimo)!)
+* Added history support for `INVITE` (#1409, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added a new channel setting accessible via `/CS SET`: `history-cutoff`, allowing the channel owner more fine-grained control over who can see history (#1490, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added the `UTF8ONLY` ISUPPORT token, allowing the server to advertise to clients that only UTF-8 content is accepted (#1483)
+* Added `/NICKSERV RENAME`, an operator-only command that can change the case of an account name (#1380, thanks [@LukeHoersten](https://github.com/LukeHoersten)!)
+
+### Internal
+* Added caching for serialized messages (#1387)
+* Improved memory efficiency of line reading (#1231)
+
 ## [2.4.0] - 2020-11-08
 
 We're pleased to announce Oragono 2.4.0, a new stable release.
