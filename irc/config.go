@@ -62,6 +62,45 @@ type listenerConfigBlock struct {
 	HideSTS   bool `yaml:"hide-sts"`
 }
 
+type HistoryCutoff uint
+
+const (
+	HistoryCutoffDefault HistoryCutoff = iota
+	HistoryCutoffNone
+	HistoryCutoffRegistrationTime
+	HistoryCutoffJoinTime
+)
+
+func historyCutoffToString(restriction HistoryCutoff) string {
+	switch restriction {
+	case HistoryCutoffDefault:
+		return "default"
+	case HistoryCutoffNone:
+		return "none"
+	case HistoryCutoffRegistrationTime:
+		return "registration-time"
+	case HistoryCutoffJoinTime:
+		return "join-time"
+	default:
+		return ""
+	}
+}
+
+func historyCutoffFromString(str string) (result HistoryCutoff, err error) {
+	switch strings.ToLower(str) {
+	case "default":
+		return HistoryCutoffDefault, nil
+	case "none", "disabled", "off", "false":
+		return HistoryCutoffNone, nil
+	case "registration-time":
+		return HistoryCutoffRegistrationTime, nil
+	case "join-time":
+		return HistoryCutoffJoinTime, nil
+	default:
+		return HistoryCutoffDefault, errInvalidParams
+	}
+}
+
 type PersistentStatus uint
 
 const (
@@ -615,9 +654,12 @@ type Config struct {
 		ChathistoryMax   int              `yaml:"chathistory-maxmessages"`
 		ZNCMax           int              `yaml:"znc-maxmessages"`
 		Restrictions     struct {
-			ExpireTime              custime.Duration `yaml:"expire-time"`
-			EnforceRegistrationDate bool             `yaml:"enforce-registration-date"`
-			GracePeriod             custime.Duration `yaml:"grace-period"`
+			ExpireTime custime.Duration `yaml:"expire-time"`
+			// legacy key, superceded by QueryCutoff:
+			EnforceRegistrationDate_ bool   `yaml:"enforce-registration-date"`
+			QueryCutoff              string `yaml:"query-cutoff"`
+			queryCutoff              HistoryCutoff
+			GracePeriod              custime.Duration `yaml:"grace-period"`
 		}
 		Persistent struct {
 			Enabled              bool
@@ -1356,6 +1398,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.History.ZNCMax == 0 {
 		config.History.ZNCMax = config.History.ChathistoryMax
+	}
+
+	if config.History.Restrictions.QueryCutoff != "" {
+		config.History.Restrictions.queryCutoff, err = historyCutoffFromString(config.History.Restrictions.QueryCutoff)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value of history.query-restrictions: %w", err)
+		}
+	} else {
+		if config.History.Restrictions.EnforceRegistrationDate_ {
+			config.History.Restrictions.queryCutoff = HistoryCutoffRegistrationTime
+		} else {
+			config.History.Restrictions.queryCutoff = HistoryCutoffNone
+		}
 	}
 
 	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)

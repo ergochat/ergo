@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = 19
+	latestDbSchema = 20
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -963,6 +963,51 @@ func schemaChangeV18To19(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1490: start tracking join times for always-on clients
+func schemaChangeV19To20(config *Config, tx *buntdb.Tx) error {
+	type joinData struct {
+		Modes    string
+		JoinTime int64
+	}
+
+	var accounts []string
+	var data []string
+
+	now := time.Now().UnixNano()
+
+	prefix := "account.channeltomodes "
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		accounts = append(accounts, strings.TrimPrefix(key, prefix))
+		data = append(data, value)
+		return true
+	})
+
+	for i, account := range accounts {
+		var existingMap map[string]string
+		err := json.Unmarshal([]byte(data[i]), &existingMap)
+		if err != nil {
+			return err
+		}
+		newMap := make(map[string]joinData)
+		for channel, modeStr := range existingMap {
+			newMap[channel] = joinData{
+				Modes:    modeStr,
+				JoinTime: now,
+			}
+		}
+		serialized, err := json.Marshal(newMap)
+		if err != nil {
+			return err
+		}
+		tx.Set(prefix+account, string(serialized), nil)
+	}
+
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -1062,5 +1107,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 18,
 		TargetVersion:  19,
 		Changer:        schemaChangeV18To19,
+	},
+	{
+		InitialVersion: 19,
+		TargetVersion:  20,
+		Changer:        schemaChangeV19To20,
 	},
 }

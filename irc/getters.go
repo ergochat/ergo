@@ -528,7 +528,7 @@ func (channel *Channel) Founder() string {
 
 func (channel *Channel) HighestUserMode(client *Client) (result modes.Mode) {
 	channel.stateMutex.RLock()
-	clientModes := channel.members[client]
+	clientModes := channel.members[client].modes
 	channel.stateMutex.RUnlock()
 	return clientModes.HighestChannelUserMode()
 }

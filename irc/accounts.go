@@ -544,7 +544,12 @@ func (am *AccountManager) setPassword(account string, password string, hasPrivs 
 	return err
 }
 
-func (am *AccountManager) saveChannels(account string, channelToModes map[string]string) {
+type alwaysOnChannelStatus struct {
+	Modes    string
+	JoinTime int64
+}
+
+func (am *AccountManager) saveChannels(account string, channelToModes map[string]alwaysOnChannelStatus) {
 	j, err := json.Marshal(channelToModes)
 	if err != nil {
 		am.server.logger.Error("internal", "couldn't marshal channel-to-modes", account, err.Error())
@@ -558,7 +563,7 @@ func (am *AccountManager) saveChannels(account string, channelToModes map[string
 	})
 }
 
-func (am *AccountManager) loadChannels(account string) (channelToModes map[string]string) {
+func (am *AccountManager) loadChannels(account string) (channelToModes map[string]alwaysOnChannelStatus) {
 	key := fmt.Sprintf(keyAccountChannelToModes, account)
 	var channelsStr string
 	am.server.store.View(func(tx *buntdb.Tx) error {
