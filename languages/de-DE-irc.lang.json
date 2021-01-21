@@ -77,7 +77,6 @@
   "Invalid mode change": "Ungültige Mode Änderung",
   "Invalid parameters. For usage, do /msg %[1]s HELP %[2]s": "Ungültige Parameter. Für eine Beschreibung sende /msg %[1]s HELP %[2]s",
   "Invalid vhost": "Ungültiger vHost",
-  "JOIN 0 is not allowed": "JOIN 0 ist nicht erlaubt",
   "Language %s is not supported by this server": "Sprache %s wird von diesem Server nicht unterstützt",
   "Language preferences have been set": "Sprache wurde geändert",
   "Last active: %s": "Kann Nick-Name: %s nicht setzen oder ändern",
