@@ -16,15 +16,24 @@ import (
 	"github.com/oragono/oragono/irc/utils"
 )
 
-func consumeDuration(params []string, rb *ResponseBuffer) (duration time.Duration, remainingParams []string, err error) {
+func consumeDuration(params []string, rb *ResponseBuffer) (duration time.Duration, requireSASL bool, remainingParams []string, err error) {
 	remainingParams = params
-	if 2 <= len(remainingParams) && strings.ToLower(remainingParams[0]) == "duration" {
-		duration, err = custime.ParseDuration(remainingParams[1])
-		if err != nil {
-			rb.Notice(rb.session.client.t("Invalid time duration for NS SUSPEND"))
-			return
+	for {
+		if duration == 0 && 2 <= len(remainingParams) && strings.ToLower(remainingParams[0]) == "duration" {
+			duration, err = custime.ParseDuration(remainingParams[1])
+			if err != nil {
+				rb.Notice(rb.session.client.t("Invalid time duration for NS SUSPEND"))
+				return
+			}
+			remainingParams = remainingParams[2:]
+			continue
 		}
-		remainingParams = remainingParams[2:]
+		if !requireSASL && 1 <= len(remainingParams) && strings.ToLower(remainingParams[0]) == "require-sasl" {
+			requireSASL = true
+			remainingParams = remainingParams[1:]
+			continue
+		}
+		break
 	}
 	return
 }
@@ -139,7 +148,7 @@ func sessionsForCIDR(server *Server, cidr flatip.IPNet, exclude *Session) (sessi
 }
 
 func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *ResponseBuffer) bool {
-	duration, params, err := consumeDuration(params, rb)
+	duration, requireSASL, params, err := consumeDuration(params, rb)
 	if err != nil {
 		return false
 	}
@@ -148,7 +157,7 @@ func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *Resp
 
 	switch target.banType {
 	case ubanCIDR:
-		ubanAddCIDR(client, target, duration, operReason, rb)
+		ubanAddCIDR(client, target, duration, requireSASL, operReason, rb)
 	case ubanNickmask:
 		ubanAddNickmask(client, target, duration, operReason, rb)
 	case ubanNick:
@@ -158,8 +167,8 @@ func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *Resp
 	return false
 }
 
-func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) {
-	err := client.server.dlines.AddNetwork(target.cidr, duration, "", operReason, client.Oper().Name)
+func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requireSASL bool, operReason string, rb *ResponseBuffer) {
+	err := client.server.dlines.AddNetwork(target.cidr, duration, requireSASL, "", operReason, client.Oper().Name)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully added UBAN for %s"), target.cidr.HumanReadableString()))
 	} else {

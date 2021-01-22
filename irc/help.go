@@ -518,13 +518,13 @@ given, views the current topic on the channel.`,
 
 Oragono's "unified ban" system. Accepts the following subcommands:
 
-1. UBAN ADD <target> [DURATION <duration>] [REASON...]
+1. UBAN ADD <target> [REQUIRE-SASL] [DURATION <duration>] [REASON...]
 2. UBAN DEL <target>
 3. UBAN LIST
 4. UBAN INFO <target>
 
 <target> may be an IP, a CIDR, a nickmask with wildcards, or the name of an
-account to suspend.`,
+account to suspend. Note that REQUIRE-SASL is only valid for IP and CIDR bans.`,
 	},
 	"undline": {
 		oper: true,

@@ -179,8 +179,13 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 	// check DLINEs
 	isBanned, info := server.dlines.CheckIP(flat)
 	if isBanned {
-		server.logger.Info("connect-ip", "Client rejected by d-line", ipaddr.String())
-		return true, false, info.BanMessage("You are banned from this server (%s)")
+		if info.RequireSASL {
+			server.logger.Info("connect-ip", "Requiring SASL from client due to d-line", ipaddr.String())
+			return false, true, info.BanMessage("You must authenticate with SASL to connect from this IP (%s)")
+		} else {
+			server.logger.Info("connect-ip", "Client rejected by d-line", ipaddr.String())
+			return true, false, info.BanMessage("You are banned from this server (%s)")
+		}
 	}
 
 	// check connection limits
@@ -202,14 +207,14 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 			server.logger.Error("internal", "couldn't check IP ban script", ipaddr.String(), err.Error())
 			return false, false, ""
 		}
-		// TODO: currently no way to cache results other than IPBanned
-		if output.Result == IPBanned && output.CacheSeconds != 0 {
+		// TODO: currently no way to cache IPAccepted
+		if (output.Result == IPBanned || output.Result == IPRequireSASL) && output.CacheSeconds != 0 {
 			network, err := flatip.ParseToNormalizedNet(output.CacheNet)
 			if err != nil {
 				server.logger.Error("internal", "invalid dline net from IP ban script", ipaddr.String(), output.CacheNet)
 			} else {
 				dlineDuration := time.Duration(output.CacheSeconds) * time.Second
-				err := server.dlines.AddNetwork(network, dlineDuration, output.BanMessage, "", "")
+				err := server.dlines.AddNetwork(network, dlineDuration, output.Result == IPRequireSASL, output.BanMessage, "", "")
 				if err != nil {
 					server.logger.Error("internal", "couldn't set dline from IP ban script", ipaddr.String(), err.Error())
 				}
