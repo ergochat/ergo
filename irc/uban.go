@@ -303,13 +303,12 @@ func ubanInfoHandler(client *Client, target ubanTarget, params []string, rb *Res
 
 func ubanInfoCIDR(client *Client, target ubanTarget, rb *ResponseBuffer) {
 	if target.cidr.PrefixLen == 128 {
-		status := client.server.connectionLimiter.Status(target.cidr.IP)
-		str := target.cidr.IP.String()
+		netName, status := client.server.connectionLimiter.Status(target.cidr.IP)
 		if status.Exempt {
-			rb.Notice(fmt.Sprintf(client.t("IP %s is exempt from connection limits"), str))
+			rb.Notice(fmt.Sprintf(client.t("IP %s is exempt from connection limits"), target.cidr.IP.String()))
 		} else {
-			rb.Notice(fmt.Sprintf(client.t("IP %[1]s has %[2]d active connections out of a maximum of %[3]d"), str, status.Count, status.MaxCount))
-			rb.Notice(fmt.Sprintf(client.t("IP %[1]s has had %[2]d connection attempts in the past %[3]v, out of a maximum of %[4]d"), str, status.Throttle, status.ThrottleDuration, status.MaxPerWindow))
+			rb.Notice(fmt.Sprintf(client.t("Network %[1]s has %[2]d active connections out of a maximum of %[3]d"), netName, status.Count, status.MaxCount))
+			rb.Notice(fmt.Sprintf(client.t("Network %[1]s has had %[2]d connection attempts in the past %[3]v, out of a maximum of %[4]d"), netName, status.Throttle, status.ThrottleDuration, status.MaxPerWindow))
 		}
 	}
 
@@ -364,14 +363,21 @@ func ubanInfoNick(client *Client, target ubanTarget, rb *ResponseBuffer) {
 	mcl := client.server.clients.Get(target.nickOrMask)
 	if mcl != nil {
 		details := mcl.Details()
+		sessions := mcl.Sessions()
+		ip := mcl.IP()
+		sendIPBanWarning := false
 		if details.account == "" {
-			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is unauthenticated and connected from %[2]s"), details.nick, mcl.IP().String()))
+			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is unauthenticated and connected from %[2]s"), details.nick, ip.String()))
+			sendIPBanWarning = true
 		} else {
 			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is logged into account %[2]s and has %[3]d active clients (see /NICKSERV CLIENTS LIST %[4]s for more info"), details.nick, details.accountName, len(mcl.Sessions()), details.nick))
-			ip := mcl.IP()
-			if !ip.IsLoopback() {
-				rb.Notice(fmt.Sprintf(client.t("Client %[1]s is associated with IP %[2]s; you can ban this IP with /UBAN ADD"), details.nick, ip.String()))
+			if !ip.IsLoopback() && len(sessions) == 1 {
+				rb.Notice(fmt.Sprintf(client.t("Client %[1]s is associated with IP %[2]s"), details.nick, ip.String()))
+				sendIPBanWarning = true
 			}
+		}
+		if sendIPBanWarning {
+			rb.Notice(client.t("Warning: banning this IP or a network that contains it may affect other users. Use /UBAN INFO on the candidate IP or network for more information."))
 		}
 	} else {
 		rb.Notice(fmt.Sprintf(client.t("No client is currently using that nickname")))

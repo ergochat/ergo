@@ -28,6 +28,7 @@ type CustomLimitConfig struct {
 // tuples the key-value pair of a CIDR and its custom limit/throttle values
 type customLimit struct {
 	name          [16]byte
+	customID      string // operator-configured identifier for a custom net
 	maxConcurrent int
 	maxPerWindow  int
 	nets          []flatip.IPNet
@@ -103,6 +104,7 @@ func (config *LimiterConfig) postprocess() (err error) {
 			maxConcurrent: customLimitConf.MaxConcurrent,
 			maxPerWindow:  customLimitConf.MaxPerWindow,
 			name:          md5.Sum([]byte(identifier)),
+			customID:      identifier,
 			nets:          nets,
 		})
 	}
@@ -124,11 +126,11 @@ type Limiter struct {
 
 // addrToKey canonicalizes `addr` to a string key, and returns
 // the relevant connection limit and throttle max-per-window values
-func (cl *Limiter) addrToKey(addr flatip.IP) (key limiterKey, limit int, throttle int) {
+func (cl *Limiter) addrToKey(addr flatip.IP) (key limiterKey, customID string, limit int, throttle int) {
 	for _, custom := range cl.config.customLimits {
 		for _, net := range custom.nets {
 			if net.Contains(addr) {
-				return limiterKey{maskedIP: custom.name, prefixLen: 0}, custom.maxConcurrent, custom.maxPerWindow
+				return limiterKey{maskedIP: custom.name, prefixLen: 0}, custom.customID, custom.maxConcurrent, custom.maxPerWindow
 			}
 		}
 	}
@@ -143,7 +145,7 @@ func (cl *Limiter) addrToKey(addr flatip.IP) (key limiterKey, limit int, throttl
 		addr = addr.Mask(prefixLen, 128)
 	}
 
-	return limiterKey{maskedIP: addr, prefixLen: uint8(prefixLen)}, cl.config.MaxConcurrent, cl.config.MaxPerWindow
+	return limiterKey{maskedIP: addr, prefixLen: uint8(prefixLen)}, "", cl.config.MaxConcurrent, cl.config.MaxPerWindow
 }
 
 // AddClient adds a client to our population if possible. If we can't, throws an error instead.
@@ -156,7 +158,7 @@ func (cl *Limiter) AddClient(addr flatip.IP) error {
 		return nil
 	}
 
-	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
+	addrString, _, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
 
 	// check limiter
 	var count int
@@ -200,7 +202,7 @@ func (cl *Limiter) RemoveClient(addr flatip.IP) {
 		return
 	}
 
-	addrString, _, _ := cl.addrToKey(addr)
+	addrString, _, _, _ := cl.addrToKey(addr)
 	count := cl.limiter[addrString]
 	count -= 1
 	if count < 0 {
@@ -220,7 +222,7 @@ type LimiterStatus struct {
 	ThrottleDuration time.Duration
 }
 
-func (cl *Limiter) Status(addr flatip.IP) (status LimiterStatus) {
+func (cl *Limiter) Status(addr flatip.IP) (netName string, status LimiterStatus) {
 	cl.Lock()
 	defer cl.Unlock()
 
@@ -231,12 +233,20 @@ func (cl *Limiter) Status(addr flatip.IP) (status LimiterStatus) {
 
 	status.ThrottleDuration = cl.config.Window
 
-	addrString, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
+	limiterKey, customID, maxConcurrent, maxPerWindow := cl.addrToKey(addr)
 	status.MaxCount = maxConcurrent
 	status.MaxPerWindow = maxPerWindow
 
-	status.Count = cl.limiter[addrString]
-	status.Throttle = cl.throttler[addrString].Count
+	status.Count = cl.limiter[limiterKey]
+	status.Throttle = cl.throttler[limiterKey].Count
+
+	netName = customID
+	if netName == "" {
+		netName = flatip.IPNet{
+			IP:        limiterKey.maskedIP,
+			PrefixLen: limiterKey.prefixLen,
+		}.String()
+	}
 
 	return
 }
@@ -250,7 +260,7 @@ func (cl *Limiter) ResetThrottle(addr flatip.IP) {
 		return
 	}
 
-	addrString, _, _ := cl.addrToKey(addr)
+	addrString, _, _, _ := cl.addrToKey(addr)
 	delete(cl.throttler, addrString)
 }
 

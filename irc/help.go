@@ -107,14 +107,6 @@ For instance, this would set the kill, oper, account and xline snomasks on dan:
 // Help contains the help strings distributed with the IRCd.
 var Help = map[string]HelpEntry{
 	// Commands
-	"acc": {
-		text: `ACC LS
-ACC REGISTER <accountname> [callback_namespace:]<callback> [cred_type] :<credential>
-ACC VERIFY <accountname> <auth_code>
-
-Used in account registration. See the relevant specs for more info:
-https://oragono.io/specs.html`,
-	},
 	"ambiance": {
 		text: `AMBIANCE <target> <text to be sent>
 
