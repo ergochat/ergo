@@ -818,7 +818,11 @@ func formatBanForListing(client *Client, key string, info IPBanInfo) string {
 	if info.Duration != 0 {
 		desc = fmt.Sprintf("%s [%s]", desc, info.TimeLeft())
 	}
-	return fmt.Sprintf(client.t("Ban - %[1]s - added by %[2]s - %[3]s"), key, info.OperName, desc)
+	banType := "Ban"
+	if info.RequireSASL {
+		banType = "SASL required"
+	}
+	return fmt.Sprintf(client.t("%[1]s - %[2]s - added by %[3]s - %[4]s"), banType, key, info.OperName, desc)
 }
 
 // DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
@@ -906,7 +910,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		operName = server.name
 	}
 
-	err = server.dlines.AddNetwork(flatip.FromNetIPNet(hostNet), duration, reason, operReason, operName)
+	err = server.dlines.AddNetwork(flatip.FromNetIPNet(hostNet), duration, false, reason, operReason, operName)
 
 	if err != nil {
 		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new D-LINE: %s"), err.Error()))

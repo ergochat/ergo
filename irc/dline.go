@@ -20,6 +20,8 @@ const (
 
 // IPBanInfo holds info about an IP/net ban.
 type IPBanInfo struct {
+	// RequireSASL indicates a "soft" ban; connections are allowed but they must SASL
+	RequireSASL bool
 	// Reason is the ban reason.
 	Reason string `json:"reason"`
 	// OperReason is an oper ban reason.
@@ -95,12 +97,13 @@ func (dm *DLineManager) AllBans() map[string]IPBanInfo {
 }
 
 // AddNetwork adds a network to the blocked list.
-func (dm *DLineManager) AddNetwork(network flatip.IPNet, duration time.Duration, reason, operReason, operName string) error {
+func (dm *DLineManager) AddNetwork(network flatip.IPNet, duration time.Duration, requireSASL bool, reason, operReason, operName string) error {
 	dm.persistenceMutex.Lock()
 	defer dm.persistenceMutex.Unlock()
 
 	// assemble ban info
 	info := IPBanInfo{
+		RequireSASL: requireSASL,
 		Reason:      reason,
 		OperReason:  operReason,
 		OperName:    operName,
