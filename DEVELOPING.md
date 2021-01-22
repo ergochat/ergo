@@ -1,6 +1,6 @@
 # Developing Oragono
 
-This is just a bunch of tips and tricks we keep in mind while developing Oragono. If you wanna help develop as well, they might also be worth keeping in mind!
+This is a guide to modifying Oragono's code. If you're just trying to run your own Oragono, or use one, you shouldn't need to worry about these issues.
 
 
 ## Golang issues

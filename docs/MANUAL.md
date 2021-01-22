@@ -142,6 +142,11 @@ If you're using Arch Linux, you can also install the [`oragono` package](https:/
 For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
 
 
+## Building from source
+
+You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once you have that, just clone the repository and run `make build`. If everything goes well, you should now have an executable named `oragono` in the base directory of the project.
+
+
 ## Becoming an operator
 
 Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Oragono instance is first to pick a strong, secure password, then "hash" it using the `oragono genpasswd` command (run `oragono genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
@@ -440,21 +445,20 @@ Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend 
 
 ## Moderation
 
-Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have three principal tools for moderation:
+Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for moderation:
 
-1. `/NICKSERV SUSPEND`, which disables a user account and disconnects all associated clients
-2. `/DLINE ANDKILL`, which bans an IP or CIDR and disconnects clients
-3. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
+1. `/UBAN`, which can disable user accounts and/or ban offending IPs and networks
+2. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
 
 See the `/HELP` (or `/HELPOP`) entries for these commands for more information, but here's a rough workflow for mitigating spam or other attacks:
 
 1. Subscribe to the `a` snomask to monitor for abusive registration attempts (this is set automatically in the default operator config, but can be added manually with `/mode mynick +s u`)
-2. Given abusive traffic from a nickname, identify whether they are using an account (this should be displayed in `/WHOIS` output)
-3. If they are using an account, suspend the account with `/NICKSERV SUSPEND`, which will disconnect them
-4. If they are not using an account, or if they're spamming new registrations from an IP, determine the IP (either from `/WHOIS` or from account registration notices) and temporarily `/DLINE` their IP
+2. Given abusive traffic from a nickname, use `/UBAN INFO <nickname>` to find out information about their connection
+3. If they are using an account, suspend the account with `/UBAN ADD <account>`, which will disconnect them
+4. If they are not using an account, or if they're spamming new registrations from an IP, you can add a temporary ban on their IP/network with `/UBAN ADD <ip | network>`
 5. When facing a flood of abusive registrations that cannot be stemmed with `/DLINE`, use `/DEFCON 4` to temporarily restrict registrations. (At `/DEFCON 2`, all new connections to the server will require SASL, but this will likely be disruptive to legitimate users as well.)
 
-For channel operators, as opposed to server operators, most traditional moderation tools should be effective. In particular, bans on cloaked hostnames (e.g., `/mode #chan +b *!*@98rgwnst3dahu.my.network`) should work as expected. With `force-nick-equals-account` enabled, channel operators can also ban nicknames (with `/mode #chan +b nick`, which Oragono automatically expands to `/mode #chan +b nick!*@*` as a way of banning an account.)
+For channel operators, `/msg ChanServ HOWTOBAN #channel nickname` will provide similar information about the best way to ban a user from a channel.
 
 
 -------------------------------------------------------------------------------------------

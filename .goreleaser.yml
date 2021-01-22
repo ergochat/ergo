@@ -47,7 +47,7 @@ archives:
       - oragono.motd
       - default.yaml
       - traditional.yaml
-      - docs/*
+      - docs/MANUAL.md
       - languages/*.yaml
       - languages/*.json
       - languages/*.md
