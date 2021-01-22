@@ -131,8 +131,11 @@ func ubanHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 	}
 }
 
-func sessionsForCIDR(server *Server, cidr flatip.IPNet, exclude *Session) (sessions []*Session, nicks []string) {
+func sessionsForCIDR(server *Server, cidr flatip.IPNet, exclude *Session, requireSASL bool) (sessions []*Session, nicks []string) {
 	for _, client := range server.clients.AllClients() {
+		if requireSASL && client.Account() != "" {
+			continue
+		}
 		for _, session := range client.Sessions() {
 			seen := false
 			if session != exclude && cidr.Contains(flatip.FromNetIP(session.IP())) {
@@ -177,7 +180,7 @@ func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requ
 		return
 	}
 
-	sessions, nicks := sessionsForCIDR(client.server, target.cidr, rb.session)
+	sessions, nicks := sessionsForCIDR(client.server, target.cidr, rb.session, requireSASL)
 	for _, session := range sessions {
 		session.client.Quit("You have been banned from this server", session)
 		session.client.destroy(session)
@@ -329,7 +332,7 @@ func ubanInfoCIDR(client *Client, target ubanTarget, rb *ResponseBuffer) {
 		rb.Notice(fmt.Sprintf(client.t("There is no active IP ban against %s"), str))
 	}
 
-	sessions, nicks := sessionsForCIDR(client.server, target.cidr, nil)
+	sessions, nicks := sessionsForCIDR(client.server, target.cidr, nil, false)
 	if len(sessions) != 0 {
 		rb.Notice(fmt.Sprintf(client.t("There are %[1]d active client(s) from %[2]s, associated with %[3]d nickname(s):"), len(sessions), target.cidr.String(), len(nicks)))
 		for _, line := range utils.BuildTokenLines(400, nicks, " ") {
