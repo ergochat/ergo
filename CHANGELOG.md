@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.5.0-rc1] - 2021-01-24
+## [2.5.0] - 2021-01-31
 
-We're pleased to be publishing the release candidate for 2.5.0 (the official release should follow in a week or so).
+We're pleased to announce Oragono 2.5.0, a new stable release.
 
 This release includes enhancements based on the needs of real-world operators, as well as bug fixes. Highlights include:
 
