@@ -252,7 +252,9 @@ If you want to use a TLS client certificate instead of a password to authenticat
 
     /NS REGISTER *
 
-Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+Once you've registered, you'll need to set up SASL to login. One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+
+If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 
 ## Account/Nick Modes
 
@@ -445,7 +447,12 @@ Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend 
 
 ## Moderation
 
-Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for moderation:
+Oragono shares some server operator moderation tools with other ircds. In particular:
+
+1. `/SAMODE` can be used to grant or remove channel privileges. For example, to create an operator in a channel that has no operators: `/SAMODE #channel +o nickname`
+2. `/SAJOIN` lets operators join channels despite restrictions, or forcibly join another user to a channel. For example, `/SAJOIN #channel` or `/SAJOIN nickname #channel`.
+
+However, Oragono's multiclient and always-on features mean that abuse prevention (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for abuse prevention:
 
 1. `/UBAN`, which can disable user accounts and/or ban offending IPs and networks
 2. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
@@ -504,7 +511,7 @@ We recommend that server administrators set the following recommended defaults:
 1. `nick-reservation-method: strict`
 1. `force-nick-equals-account: true`
 
-These settings imply that any registered account name can be treated as synonymous with a nickname; anyone using the nickname is necessarily logged into the account, and anyone logged intot he account is necessarily using the nickname.
+These settings imply that any registered account name can be treated as synonymous with a nickname; anyone using the nickname is necessarily logged into the account, and anyone logged into the account is necessarily using the nickname.
 
 Under these circumstances, users can follow the following steps:
 
