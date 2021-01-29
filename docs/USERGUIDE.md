@@ -53,7 +53,7 @@ Oragono differs in many ways from conventional IRC servers. If you're *not* fami
 * Oragono integrates a "bouncer" into the server. In particular:
     * Oragono stores message history for later retrieval.
     * You can be "present" on the server (joined to channels, able to receive DMs) without having an active client connection to the server.
-    * Conversely, you can use multiple clients to view / control the same presence (nickname) on the server
+    * Conversely, you can use multiple clients to view / control the same presence (nickname) on the server, as long as you authenticate with SASL when connecting.
 * Oragono integrates "services" into the server.  In particular:
     * Nicknames are strictly reserved: once you've registered your nickname, you must log in in order to use it. Consequently, SASL is more important when using Oragono than in other systems.
     * All properties of registered channels are protected without the need for `ChanServ` to be joined to the channel.

@@ -488,21 +488,16 @@ There are two ways to make suggestions, either:
 
 ## Why can't I oper?
 
-If you try to oper unsuccessfully, Oragono will disconnect you from the network. Here's some important things to try if you find yourself unable to oper:
+If you try to oper unsuccessfully, Oragono will disconnect you from the network. If you're unable to oper, here are some things to double-check:
 
-1. Have you generated the config-file password blob with `oragono genpasswd`?
-2. Have you restarted Oragono to make sure the new password has taken effect?
-3. If all else fails, can you get raw protocol output from Oragono for evaluation?
+1. Did you correctly generate the hashed password with `oragono genpasswd`?
+1. Did you add the password hash to the correct config file, then save the file?
+1. Did you rehash or restart Oragono after saving the file?
 
-So, first off you'll want to make sure you've stored the password correctly. In the config file, all passwords are bcrypted. Basically, you run `oragono genpasswd`, type your actual password in, and then receive a config file blob back. Put that blob into the config file, and then use the actual password in your IRC client.
+The config file accepts hashed passwords, not plaintext passwords. You must run `oragono genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
-After that, try restarting Oragono to see if that improves things. Even if you've already done so or already rehashed, a proper restart can sometimes help things. Make sure your config file is saved before restarting the server.
+After that, you must rehash or restart Oragono to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
 
-If both of those have failed, it might be worth getting us to look at the raw lines and see what's up.
-
-If you're familiar with getting this output through your client (e.g. in weechat it's `/server raw`) then you can do so that way, or use [ircdog](https://github.com/goshuirc/ircdog).
-
-Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
 ## How do I make a private channel?
 
