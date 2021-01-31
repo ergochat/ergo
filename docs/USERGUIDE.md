@@ -58,6 +58,7 @@ Oragono differs in many ways from conventional IRC servers. If you're *not* fami
     * Nicknames are strictly reserved: once you've registered your nickname, you must log in in order to use it. Consequently, SASL is more important when using Oragono than in other systems.
     * All properties of registered channels are protected without the need for `ChanServ` to be joined to the channel.
 * Oragono "cloaks", i.e., cryptographically scrambles, end user IPs so that they are not displayed publicly.
+* By default, the user/ident field is inoperative in Oragono: it is always set to `~u`, regardless of the `USER` command or the client's support for identd. This is because it is not in general a reliable or trustworthy way to distinguish users coming from the same IP. Oragono's integrated bouncer features should reduce the need for shared shell hosts and hosted bouncers (one of the main remaining use cases for identd).
 * By default, Oragono is only accessible via TLS.
 
 # Account registration
