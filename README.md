@@ -38,7 +38,7 @@ If you want to take a look at a running Oragono instance or test some client cod
 * ident lookups for usernames
 * automated client connection limits
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
-* banning ips/nets and masks with `KLINE` and `DLINE`
+* `UBAN`, a unified ban system that can target IPs, networks, masks, and registered accounts (`KLINE` and `DLINE` are also supported)
 * [IRCv3 support](https://ircv3.net/software/servers.html)
 * a focus on developing with [specifications](https://oragono.io/specs.html)
 
