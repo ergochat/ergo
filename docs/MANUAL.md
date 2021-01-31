@@ -252,7 +252,9 @@ If you want to use a TLS client certificate instead of a password to authenticat
 
     /NS REGISTER *
 
-Once you've registered, you'll need to setup SASL to login (or use NickServ IDENTIFY). One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+Once you've registered, you'll need to set up SASL to login. One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+
+If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 
 ## Account/Nick Modes
 
@@ -397,7 +399,7 @@ Oragono supports two methods of storing history, an in-memory buffer with a conf
 
 Unfortunately, client support for history playback is still patchy. In descending order of support:
 
-1. The [IRCv3 chathistory specification](https://github.com/ircv3/ircv3-specifications/pull/393/) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
+1. The [IRCv3 chathistory specification](https://ircv3.net/specs/extensions/chathistory) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
 1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Oragono will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
     - You can add it to your SASL username with an `@`, e.g., if your SASL username is `alice` you can send `alice@phone`
@@ -445,7 +447,12 @@ Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend 
 
 ## Moderation
 
-Oragono's multiclient and always-on features mean that moderation (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for moderation:
+Oragono shares some server operator moderation tools with other ircds. In particular:
+
+1. `/SAMODE` can be used to grant or remove channel privileges. For example, to create an operator in a channel that has no operators: `/SAMODE #channel +o nickname`
+2. `/SAJOIN` lets operators join channels despite restrictions, or forcibly join another user to a channel. For example, `/SAJOIN #channel` or `/SAJOIN nickname #channel`.
+
+However, Oragono's multiclient and always-on features mean that abuse prevention (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for abuse prevention:
 
 1. `/UBAN`, which can disable user accounts and/or ban offending IPs and networks
 2. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
@@ -481,21 +488,16 @@ There are two ways to make suggestions, either:
 
 ## Why can't I oper?
 
-If you try to oper unsuccessfully, Oragono will disconnect you from the network. Here's some important things to try if you find yourself unable to oper:
+If you try to oper unsuccessfully, Oragono will disconnect you from the network. If you're unable to oper, here are some things to double-check:
 
-1. Have you generated the config-file password blob with `oragono genpasswd`?
-2. Have you restarted Oragono to make sure the new password has taken effect?
-3. If all else fails, can you get raw protocol output from Oragono for evaluation?
+1. Did you correctly generate the hashed password with `oragono genpasswd`?
+1. Did you add the password hash to the correct config file, then save the file?
+1. Did you rehash or restart Oragono after saving the file?
 
-So, first off you'll want to make sure you've stored the password correctly. In the config file, all passwords are bcrypted. Basically, you run `oragono genpasswd`, type your actual password in, and then receive a config file blob back. Put that blob into the config file, and then use the actual password in your IRC client.
+The config file accepts hashed passwords, not plaintext passwords. You must run `oragono genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
-After that, try restarting Oragono to see if that improves things. Even if you've already done so or already rehashed, a proper restart can sometimes help things. Make sure your config file is saved before restarting the server.
+After that, you must rehash or restart Oragono to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
 
-If both of those have failed, it might be worth getting us to look at the raw lines and see what's up.
-
-If you're familiar with getting this output through your client (e.g. in weechat it's `/server raw`) then you can do so that way, or use [ircdog](https://github.com/goshuirc/ircdog).
-
-Otherwise, in the Oragono config file, you'll want to enable raw line logging by removing `-userinput -useroutput` under the `logging` section. Once you start up your server, connect, fail to oper and get disconnected, you'll see a bunch of input/output lines in Ora's log file. Remove your password from those logs and pass them our way.
 
 ## How do I make a private channel?
 
@@ -504,7 +506,7 @@ We recommend that server administrators set the following recommended defaults:
 1. `nick-reservation-method: strict`
 1. `force-nick-equals-account: true`
 
-These settings imply that any registered account name can be treated as synonymous with a nickname; anyone using the nickname is necessarily logged into the account, and anyone logged intot he account is necessarily using the nickname.
+These settings imply that any registered account name can be treated as synonymous with a nickname; anyone using the nickname is necessarily logged into the account, and anyone logged into the account is necessarily using the nickname.
 
 Under these circumstances, users can follow the following steps:
 

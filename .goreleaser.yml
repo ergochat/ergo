@@ -48,6 +48,7 @@ archives:
       - default.yaml
       - traditional.yaml
       - docs/MANUAL.md
+      - docs/USERGUIDE.md
       - languages/*.yaml
       - languages/*.json
       - languages/*.md

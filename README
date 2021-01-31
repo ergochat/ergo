@@ -7,14 +7,19 @@
 
 -----------------------------------------------------------------------------------------------
 
-Oragono is a modern IRC server written in Go. It's designed to be simple to setup
-and use, and to provide the majority of features that IRC users expect today.
+Oragono is a modern IRC server written in Go. Its core design principles are:
 
-It includes features such as UTF-8 nicks and channel names, client accounts and SASL, and other
-assorted IRCv3 support.
+* Being simple to set up and use
+* Combining the features of an ircd, a services framework, and a bouncer:
+  * Integrated account management
+  * History storage
+  * Bouncer functionality
+* Bleeding-edge IRCv3 support
+* Highly customizable via a rehashable (runtime-reloadable) YAML config
 
                                      https://oragono.io/
                               https://github.com/oragono/oragono
+                                     #oragono on Freenode
 
 -----------------------------------------------------------------------------------------------
 
@@ -25,32 +30,29 @@ Copy the example config file to ircd.yaml with a command like:
 
     $ cp default.yaml ircd.yaml
 
-Modify the config file as you like.
+Modify the config file as needed (the recommendations at the top may be helpful).
 
 To generate passwords for opers and connect passwords, you can use this command:
 
     $ oragono genpasswd
 
-Run these commands in order -- these will setup each section of the server:
+If you need to generate self-signed TLS certificates, use this command:
 
     $ oragono mkcerts
+
+You are now ready to start Oragono!
+
     $ oragono run
 
-And you should now be running Oragono!
-
+For further instructions, consult the manual. A copy of the manual should be
+included in your release under `docs/MANUAL.md`. Or you can view it on the
+Web: https://oragono.io/manual.html
 
 === Updating ===
 
-If you're updating from a previous version of Oragono, checkout the CHANGELOG for a shortlist
+If you're updating from a previous version of Oragono, check out the CHANGELOG for a list
 of important changes you'll want to take a look at. The change log details config changes,
 fixes, new features and anything else you'll want to be aware of!
-
-If there's been a database update, you can run this command to upgrade it manually:
-
-    $ oragono upgradedb
-
-Otherwise, just starting the server will run an automagic backup and upgrade.
-
 
 === Credits ===
 
