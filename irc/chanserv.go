@@ -76,7 +76,7 @@ invoking the command without a code will display the necessary code.`,
 			help: `Syntax: $bAMODE #channel [mode change] [account]$b
 
 AMODE lists or modifies persistent mode settings that affect channel members.
-For example, $bAMODE #channel +o dan$b grants the the holder of the "dan"
+For example, $bAMODE #channel +o dan$b grants the holder of the "dan"
 account the +o operator mode every time they join #channel. To list current
 accounts and modes, use $bAMODE #channel$b. Note that users are always
 referenced by their registered account names, not their nicknames.`,
