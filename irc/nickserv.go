@@ -1148,7 +1148,7 @@ func nsClientsLogoutHandler(service *ircService, server *Server, client *Client,
 		// User must have "kill" privileges to logout other user sessions.
 		if target != client {
 			oper := client.Oper()
-			if oper.HasRoleCapab("kill") {
+			if !oper.HasRoleCapab("kill") {
 				service.Notice(rb, client.t("Insufficient oper privs"))
 				return
 			}
