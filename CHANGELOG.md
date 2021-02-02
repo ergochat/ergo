@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.5.1] - 2021-02-02
+
+Oragono 2.5.1 is a bugfix release that fixes a significant security issue. We apologize for the oversight.
+
+This release includes no changes to the config file format or the database.
+
+Many thanks to [@xnaas](https://github.com/xnaas) for reporting the issue.
+
+### Security
+* Fix an incorrect permissions check in NickServ (#1520, thanks [@xnaas](https://github.com/xnaas)!)
+
 ## [2.5.0] - 2021-01-31
 
 We're pleased to announce Oragono 2.5.0, a new stable release.
