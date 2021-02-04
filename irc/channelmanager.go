@@ -39,9 +39,9 @@ func (cm *ChannelManager) Initialize(server *Server) {
 	cm.chansSkeletons = make(utils.StringSet)
 	cm.server = server
 
-	cm.loadRegisteredChannels(server.Config())
 	// purging should work even if registration is disabled
 	cm.purgedChannels = cm.server.channelRegistry.PurgedChannels()
+	cm.loadRegisteredChannels(server.Config())
 }
 
 func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
@@ -49,23 +49,48 @@ func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
 		return
 	}
 
+	var newChannels []*Channel
+	var collisions []string
+	defer func() {
+		for _, ch := range newChannels {
+			ch.EnsureLoaded()
+			cm.server.logger.Debug("channels", "initialized registered channel", ch.Name())
+		}
+		for _, collision := range collisions {
+			cm.server.logger.Warning("channels", "registered channel collides with existing channel", collision)
+		}
+	}()
+
 	rawNames := cm.server.channelRegistry.AllChannels()
-	registeredChannels := make(utils.StringSet, len(rawNames))
-	registeredSkeletons := make(utils.StringSet, len(rawNames))
+
+	cm.Lock()
+	defer cm.Unlock()
+
+	cm.registeredChannels = make(utils.StringSet, len(rawNames))
+	cm.registeredSkeletons = make(utils.StringSet, len(rawNames))
 	for _, name := range rawNames {
 		cfname, err := CasefoldChannel(name)
 		if err == nil {
-			registeredChannels.Add(cfname)
+			cm.registeredChannels.Add(cfname)
 		}
 		skeleton, err := Skeleton(name)
 		if err == nil {
-			registeredSkeletons.Add(skeleton)
+			cm.registeredSkeletons.Add(skeleton)
+		}
+
+		if !cm.purgedChannels.Has(cfname) {
+			if _, ok := cm.chans[cfname]; !ok {
+				ch := NewChannel(cm.server, name, cfname, true)
+				cm.chans[cfname] = &channelManagerEntry{
+					channel:      ch,
+					pendingJoins: 0,
+				}
+				newChannels = append(newChannels, ch)
+			} else {
+				collisions = append(collisions, name)
+			}
 		}
 	}
-	cm.Lock()
-	defer cm.Unlock()
-	cm.registeredChannels = registeredChannels
-	cm.registeredSkeletons = registeredSkeletons
 }
 
 // Get returns an existing channel with name equivalent to `name`, or nil
@@ -366,12 +391,28 @@ func (cm *ChannelManager) Purge(chname string, record ChannelPurgeRecord) (err e
 	if err != nil {
 		return errInvalidChannelName
 	}
+	skel, err := Skeleton(chname)
+	if err != nil {
+		return errInvalidChannelName
+	}
 
 	cm.Lock()
 	cm.purgedChannels.Add(chname)
+	entry := cm.chans[chname]
+	if entry != nil {
+		delete(cm.chans, chname)
+		if entry.channel.Founder() != "" {
+			delete(cm.registeredSkeletons, skel)
+		} else {
+			delete(cm.chansSkeletons, skel)
+		}
+	}
 	cm.Unlock()
 
 	cm.server.channelRegistry.PurgeChannel(chname, record)
+	if entry != nil {
+		entry.channel.Purge("")
+	}
 	return nil
 }
 
