@@ -820,31 +820,31 @@ Users on a channel can have different permission levels, which are represented b
 
 This prefix means that the given user is the founder of the channel. For example, if `~dan` is on a channel it means that **dan** founded the channel. The 'founder' prefix only appears on channels that are registered.
 
-Founders are able to do anything, and have complete administrative control of the channel.
+Founders have complete administrative control of the channel. They can take any action and modify anyone else's privileges.
 
 ### +a (&) - Admin
 
 This prefix means that the given user is an admin on the channel. For example, if `&tom` is on a channel, then **tom** is an admin on it. The 'admin' prefix only appears on channels that are registered.
 
-Admins can do anything channel operators can do, and they also cannot get kicked by other chanops or admins.
+Admins have the same moderation privileges as channel operators (see below), but they can't be kicked or demoted by other admins or channel operators.
 
 ### +o (@) - Channel Operator
 
 This prefix means that the given user is an operator on the channel (chanop, for short). For example, if `@ruby` is on a channel, then **ruby** is an op.
 
-Chanops are the regular type of channel moderators. They can set the topic, change modes, ban/kick users, etc.
+Chanops are the default type of channel moderators. They can change the channel modes, ban/kick users, and add or remove chanop (or lower) privileges from users.
 
 ### +h (%) - Halfop
 
 This prefix means that the given user is a halfop on the channel (half-operator). For example, if `%twi` is on a channel, then **twi** is a halfop.
 
-Halfops can do some of what channel operators can do, and can't do other things. They can help moderate a channel.
+Halfops have some moderation privileges: they can kick users (but not ban them), change the channel topic, and grant voice privileges (see below).
 
 ### +v (+) - Voice
 
 This prefix means that the given user is 'voiced' on the channel. For example, if `+faust` is on a channel, then **faust** is voiced on that channel.
 
-Voiced users can speak when the channel has `+m - Moderated` mode enabled. They get no other special privs or any moderation abilities.
+Voiced users can speak when the channel has `+m` (moderated) mode enabled. They get no other special privileges or any moderation abilities.
 
 
 --------------------------------------------------------------------------------------------
