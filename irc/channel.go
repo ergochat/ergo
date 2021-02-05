@@ -1250,7 +1250,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		return
 	}
 
-	if channel.flags.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.ChannelOperator) {
+	if channel.flags.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.Halfop) {
 		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You're not a channel operator"))
 		return
 	}
