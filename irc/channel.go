@@ -210,8 +210,6 @@ func (channel *Channel) MarkDirty(dirtyBits uint) {
 // ChannelManager's lock (that way, no one can join and make the channel dirty again
 // between this method exiting and the actual deletion).
 func (channel *Channel) IsClean() bool {
-	config := channel.server.Config()
-
 	if !channel.writerSemaphore.TryAcquire() {
 		// a database write (which may fail) is in progress, the channel cannot be cleaned up
 		return false
@@ -223,13 +221,8 @@ func (channel *Channel) IsClean() bool {
 	if len(channel.members) != 0 {
 		return false
 	}
-	if channel.registeredFounder == "" {
-		return true
-	}
-	// a registered channel must be fully written to the DB,
-	// and not set to ephemeral history (#704)
-	return channel.dirtyBits == 0 &&
-		channelHistoryStatus(config, true, channel.settings.History) != HistoryEphemeral
+	// see #1507 and #704 among others; registered channels should never be removed
+	return channel.registeredFounder == ""
 }
 
 func (channel *Channel) wakeWriter() {
@@ -793,7 +786,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		return joinErr, ""
 	}
 
-	client.server.logger.Debug("join", fmt.Sprintf("%s joined channel %s", details.nick, chname))
+	client.server.logger.Debug("channels", fmt.Sprintf("%s joined channel %s", details.nick, chname))
 
 	givenMode := func() (givenMode modes.Mode) {
 		channel.joinPartMutex.Lock()
@@ -1033,7 +1026,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 		}, details.account)
 	}
 
-	client.server.logger.Debug("part", fmt.Sprintf("%s left channel %s", details.nick, chname))
+	client.server.logger.Debug("channels", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
 
 // Resume is called after a successful global resume to:
@@ -1537,6 +1530,32 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 	channel.AddHistoryItem(histItem, details.account)
 
 	channel.Quit(target)
+}
+
+// handle a purge: kick everyone off the channel, clean up all the pointers between
+// *Channel and *Client
+func (channel *Channel) Purge(source string) {
+	if source == "" {
+		source = channel.server.name
+	}
+
+	channel.stateMutex.Lock()
+	chname := channel.name
+	members := channel.membersCache
+	channel.membersCache = nil
+	channel.members = make(MemberSet)
+	// TODO try to prevent Purge racing against (pending) Join?
+	channel.stateMutex.Unlock()
+
+	now := time.Now().UTC()
+	for _, member := range members {
+		tnick := member.Nick()
+		msgid := utils.GenerateSecretToken()
+		for _, session := range member.Sessions() {
+			session.sendFromClientInternal(false, now, msgid, source, "*", nil, "KICK", chname, tnick, member.t("This channel has been purged by the server administrators and cannot be used"))
+		}
+		member.removeChannel(channel)
+	}
 }
 
 // Invite invites the given client to the channel, if the inviter can do so.

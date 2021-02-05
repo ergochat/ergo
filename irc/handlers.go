@@ -1614,9 +1614,8 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 
 	nick := client.Nick()
 	rplList := func(channel *Channel) {
-		if members, name, topic := channel.listData(); members != 0 {
-			rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
-		}
+		members, name, topic := channel.listData()
+		rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
 	}
 
 	clientIsOp := client.HasMode(modes.Operator)
