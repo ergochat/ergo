@@ -565,6 +565,7 @@ oper-classes:
             - "vhosts"
             - "sajoin"
             - "samode"
+            - "snomasks"
 
     # server admin: has full control of the ircd, including nickname and
     # channel registrations

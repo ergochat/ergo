@@ -222,7 +222,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		}
 		if numSessions == 1 {
 			invisible := currentClient.HasMode(modes.Invisible)
-			operator := currentClient.HasMode(modes.Operator) || currentClient.HasMode(modes.LocalOperator)
+			operator := currentClient.HasMode(modes.Operator)
 			client.server.stats.AddRegistered(invisible, operator)
 		}
 		session.autoreplayMissedSince = lastSeen

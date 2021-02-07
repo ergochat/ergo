@@ -101,7 +101,6 @@ func (modes Modes) String() string {
 const (
 	Bot             Mode = 'B'
 	Invisible       Mode = 'i'
-	LocalOperator   Mode = 'O'
 	Operator        Mode = 'o'
 	Restricted      Mode = 'r'
 	RegisteredOnly  Mode = 'R'
