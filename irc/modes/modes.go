@@ -212,12 +212,10 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 			// put arg into modechange if needed
 			switch Mode(mode) {
 			case ServerNotice:
-				// always require arg
+				// arg is optional for ServerNotice (we accept bare `-s`)
 				if len(params) > skipArgs {
 					change.Arg = params[skipArgs]
 					skipArgs++
-				} else {
-					continue
 				}
 			}
 

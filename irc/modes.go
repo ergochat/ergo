@@ -75,30 +75,28 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 			}
 		} else {
 			// server notices are weird
-			if !client.HasMode(modes.Operator) {
+			if !client.HasMode(modes.Operator) || change.Op == modes.List {
 				continue
 			}
-			var masks []sno.Mask
-			if change.Op == modes.Add || change.Op == modes.Remove {
-				var newArg string
-				for _, char := range change.Arg {
-					mask := sno.Mask(char)
-					if sno.ValidMasks[mask] {
-						masks = append(masks, mask)
-						newArg += string(char)
-					}
-				}
-				change.Arg = newArg
-			}
-			if change.Op == modes.Add {
+
+			currentMasks := client.server.snomasks.MasksEnabled(client)
+			addMasks, removeMasks, newArg := sno.EvaluateSnomaskChanges(change.Op == modes.Add, change.Arg, currentMasks)
+
+			success := false
+			if len(addMasks) != 0 {
 				oper := client.Oper()
 				// #1176: require special operator privileges to subscribe to snomasks
 				if oper.HasRoleCapab("snomasks") || oper.HasRoleCapab("ban") {
-					client.server.snomasks.AddMasks(client, masks...)
-					applied = append(applied, change)
+					success = true
+					client.server.snomasks.AddMasks(client, addMasks...)
 				}
-			} else if change.Op == modes.Remove {
-				client.server.snomasks.RemoveMasks(client, masks...)
+			}
+			if len(removeMasks) != 0 {
+				success = true
+				client.server.snomasks.RemoveMasks(client, removeMasks...)
+			}
+			if success {
+				change.Arg = newArg
 				applied = append(applied, change)
 			}
 		}
