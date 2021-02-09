@@ -288,10 +288,11 @@ func csOpHandler(service *ircService, server *Server, client *Client, command st
 		return
 	}
 	channelName := channelInfo.Name()
+	founder := channelInfo.Founder()
 
 	clientAccount := client.Account()
-	if clientAccount == "" || clientAccount != channelInfo.Founder() {
-		service.Notice(rb, client.t("Only the channel founder can do this"))
+	if clientAccount == "" {
+		service.Notice(rb, client.t("You're not logged into an account"))
 		return
 	}
 
@@ -306,11 +307,26 @@ func csOpHandler(service *ircService, server *Server, client *Client, command st
 		target = client
 	}
 
-	// give them privs
-	givenMode := modes.ChannelOperator
-	if clientAccount == target.Account() {
-		givenMode = modes.ChannelFounder
+	var givenMode modes.Mode
+	if target == client {
+		if clientAccount == founder {
+			givenMode = modes.ChannelFounder
+		} else {
+			givenMode = channelInfo.getAmode(clientAccount)
+			if givenMode == modes.Mode(0) {
+				service.Notice(rb, client.t("You don't have any stored privileges on that channel"))
+				return
+			}
+		}
+	} else {
+		if clientAccount == founder {
+			givenMode = modes.ChannelOperator
+		} else {
+			service.Notice(rb, client.t("Only the channel founder can do this"))
+			return
+		}
 	}
+
 	applied, change := channelInfo.applyModeToMember(client,
 		modes.ModeChange{Mode: givenMode,
 			Op:  modes.Add,
