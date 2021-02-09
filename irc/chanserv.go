@@ -177,7 +177,7 @@ by unprivileged users. Your options are:
 1. 'none'               [no restrictions]
 2. 'registration-time'  [users can view history from after their account was
                          registered, plus a grace period]
-3. 'join-time'          [users can biew history from after they joined the
+3. 'join-time'          [users can view history from after they joined the
                          channel; note that history will be effectively
                          unavailable to clients that are not always-on]
 4. 'default'            [use the server default]`,
