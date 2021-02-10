@@ -15,6 +15,38 @@ func assertEqual(supplied, expected interface{}, t *testing.T) {
 	}
 }
 
+func TestParseUserModeChanges(t *testing.T) {
+	emptyUnknown := make(map[rune]bool)
+	changes, unknown := ParseUserModeChanges("+i")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Add, Mode: Invisible}}, t)
+
+	// no-op change to sno
+	changes, unknown = ParseUserModeChanges("+is")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Add, Mode: Invisible}, ModeChange{Op: Add, Mode: ServerNotice}}, t)
+
+	// add snomasks
+	changes, unknown = ParseUserModeChanges("+is", "ac")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Add, Mode: Invisible}, ModeChange{Op: Add, Mode: ServerNotice, Arg: "ac"}}, t)
+
+	// remove snomasks
+	changes, unknown = ParseUserModeChanges("+s", "-cx")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Add, Mode: ServerNotice, Arg: "-cx"}}, t)
+
+	// remove all snomasks (arg is parsed but has no meaning)
+	changes, unknown = ParseUserModeChanges("-is", "ac")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Remove, Mode: Invisible}, ModeChange{Op: Remove, Mode: ServerNotice, Arg: "ac"}}, t)
+
+	// remove all snomasks
+	changes, unknown = ParseUserModeChanges("-is")
+	assertEqual(unknown, emptyUnknown, t)
+	assertEqual(changes, ModeChanges{ModeChange{Op: Remove, Mode: Invisible}, ModeChange{Op: Remove, Mode: ServerNotice}}, t)
+}
+
 func TestIssue874(t *testing.T) {
 	emptyUnknown := make(map[rune]bool)
 	modes, unknown := ParseChannelModeChanges("+k")

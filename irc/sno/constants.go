@@ -7,6 +7,8 @@ package sno
 // Mask is a type of server notice mask.
 type Mask rune
 
+type Masks []Mask
+
 // Notice mask types
 const (
 	LocalAnnouncements Mask = 'a'
@@ -18,8 +20,8 @@ const (
 	LocalQuits         Mask = 'q'
 	Stats              Mask = 't'
 	LocalAccounts      Mask = 'u'
-	LocalXline         Mask = 'x'
 	LocalVhosts        Mask = 'v'
+	LocalXline         Mask = 'x'
 )
 
 var (
@@ -39,17 +41,17 @@ var (
 	}
 
 	// ValidMasks contains the snomasks that we support.
-	ValidMasks = map[Mask]bool{
-		LocalAnnouncements: true,
-		LocalConnects:      true,
-		LocalChannels:      true,
-		LocalKills:         true,
-		LocalNicks:         true,
-		LocalOpers:         true,
-		LocalQuits:         true,
-		Stats:              true,
-		LocalAccounts:      true,
-		LocalXline:         true,
-		LocalVhosts:        true,
+	ValidMasks = []Mask{
+		LocalAnnouncements,
+		LocalConnects,
+		LocalChannels,
+		LocalKills,
+		LocalNicks,
+		LocalOpers,
+		LocalQuits,
+		Stats,
+		LocalAccounts,
+		LocalVhosts,
+		LocalXline,
 	}
 )

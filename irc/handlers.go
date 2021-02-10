@@ -757,10 +757,6 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		rb.Notice(fmt.Sprintf("CPU profiling stopped"))
 
 	case "CRASHSERVER":
-		if !client.HasRoleCapabs("rehash") {
-			rb.Notice(client.t("You must have rehash permissions in order to execute DEBUG CRASHSERVER"))
-			return false
-		}
 		code := utils.ConfirmationCode(server.name, server.ctime)
 		if len(msg.Params) == 1 || msg.Params[1] != code {
 			rb.Notice(fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/DEBUG CRASHSERVER %s", code)))
@@ -1293,6 +1289,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Re
 
 // KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
 func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	hasPrivs := client.HasRoleCapabs("samode")
 	channels := strings.Split(msg.Params[0], ",")
 	users := strings.Split(msg.Params[1], ",")
 	if (len(channels) != len(users)) && (len(users) != 1) {
@@ -1336,7 +1333,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		if comment == "" {
 			comment = kick.nick
 		}
-		channel.Kick(client, target, comment, rb, false)
+		channel.Kick(client, target, comment, rb, hasPrivs)
 	}
 	return false
 }
@@ -1618,7 +1615,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Resp
 		rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
 	}
 
-	clientIsOp := client.HasMode(modes.Operator)
+	clientIsOp := client.HasRoleCapabs("sajoin")
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
 			if !clientIsOp && channel.flags.HasMode(modes.Secret) {
@@ -1775,7 +1772,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		rb.Add(nil, cDetails.nickMask, "MODE", args...)
 	} else if hasPrivs {
 		rb.Add(nil, server.name, RPL_UMODEIS, targetNick, target.ModeString())
-		if target.HasMode(modes.LocalOperator) || target.HasMode(modes.Operator) {
+		if target.HasMode(modes.Operator) {
 			masks := server.snomasks.String(target)
 			if 0 < len(masks) {
 				rb.Add(nil, server.name, RPL_SNOMASKIS, targetNick, masks, client.t("Server notice masks"))
@@ -1959,7 +1956,7 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 	success := false
 	channel := server.channels.Get(chname)
 	if channel != nil {
-		if !channel.flags.HasMode(modes.Secret) || channel.hasClient(client) || client.HasMode(modes.Operator) {
+		if !channel.flags.HasMode(modes.Secret) || channel.hasClient(client) || client.HasRoleCapabs("sajoin") {
 			channel.Names(client, rb)
 			success = true
 		}
@@ -2338,6 +2335,10 @@ func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 
 // DEOPER
 func deoperHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+	if client.Oper() == nil {
+		rb.Notice(client.t("Insufficient oper privs"))
+		return false
+	}
 	// pretend they sent /MODE $nick -o
 	fakeModeMsg := ircmsg.MakeMessage(nil, "", "MODE", client.Nick(), "-o")
 	return umodeHandler(server, client, fakeModeMsg, rb)
@@ -2944,7 +2945,7 @@ func operStatusVisible(client, target *Client, hasPrivs bool) bool {
 
 // USERHOST <nickname>{ <nickname>}
 func userhostHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
-	hasPrivs := client.HasMode(modes.Operator) // TODO(#1176) figure out the right capab for this
+	hasPrivs := client.HasMode(modes.Operator)
 	returnedClients := make(ClientSet)
 
 	var tl utils.TokenLineBuilder
@@ -3083,7 +3084,7 @@ func (fields whoxFields) Has(field rune) bool {
 // <channel> <user> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] :<hopcount> <real name>
 // whox format:
 // <type> <channel> <user> <ip> <host> <server> <nick> <H|G>[*][~|&|@|%|+][B] <hops> <idle> <account> <rank> :<real name>
-func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, hasPrivs, includeRFlag, isWhox bool, fields whoxFields, whoType string) {
+func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *ResponseBuffer, canSeeIPs, canSeeOpers, includeRFlag, isWhox bool, fields whoxFields, whoType string) {
 	params := []string{client.Nick()}
 
 	details := target.Details()
@@ -3103,7 +3104,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 	}
 	if fields.Has('i') {
 		fIP := "255.255.255.255"
-		if hasPrivs || client == target {
+		if canSeeIPs || client == target {
 			// you can only see a target's IP if they're you or you're an oper
 			fIP = target.IPString()
 		}
@@ -3126,7 +3127,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 			flags.WriteRune('H') // Here
 		}
 
-		if target.HasMode(modes.Operator) && operStatusVisible(client, target, hasPrivs) {
+		if target.HasMode(modes.Operator) && operStatusVisible(client, target, canSeeOpers) {
 			flags.WriteRune('*')
 		}
 
@@ -3229,23 +3230,23 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 	//	operatorOnly = true
 	//}
 
-	isOper := client.HasMode(modes.Operator)
+	oper := client.Oper()
+	hasPrivs := oper.HasRoleCapab("sajoin")
+	canSeeIPs := oper.HasRoleCapab("ban")
 	if mask[0] == '#' {
-		// TODO implement wildcard matching
-		//TODO(dan): ^ only for opers
 		channel := server.channels.Get(mask)
 		if channel != nil {
 			isJoined := channel.hasClient(client)
-			if !channel.flags.HasMode(modes.Secret) || isJoined || isOper {
+			if !channel.flags.HasMode(modes.Secret) || isJoined || hasPrivs {
 				var members []*Client
-				if isOper {
+				if hasPrivs {
 					members = channel.Members()
 				} else {
 					members = channel.auditoriumFriends(client)
 				}
 				for _, member := range members {
-					if !member.HasMode(modes.Invisible) || isJoined || isOper {
-						client.rplWhoReply(channel, member, rb, isOper, includeRFlag, isWhox, fields, whoType)
+					if !member.HasMode(modes.Invisible) || isJoined || hasPrivs {
+						client.rplWhoReply(channel, member, rb, canSeeIPs, oper != nil, includeRFlag, isWhox, fields, whoType)
 					}
 				}
 			}
@@ -3275,8 +3276,8 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Respo
 		}
 
 		for mclient := range server.clients.FindAll(mask) {
-			if isOper || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
-				client.rplWhoReply(nil, mclient, rb, isOper, includeRFlag, isWhox, fields, whoType)
+			if hasPrivs || !mclient.HasMode(modes.Invisible) || isFriend(mclient) {
+				client.rplWhoReply(nil, mclient, rb, canSeeIPs, oper != nil, includeRFlag, isWhox, fields, whoType)
 			}
 		}
 	}
@@ -3319,7 +3320,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *Res
 		return true
 	}
 
-	hasPrivs := client.HasMode(modes.Operator) // TODO(#1176) figure out the right capab for this
+	hasPrivs := client.HasRoleCapabs("samode")
 	if hasPrivs {
 		for _, mask := range strings.Split(masksString, ",") {
 			matches := server.clients.FindAll(mask)

@@ -459,15 +459,13 @@ func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
 	rb.Add(nil, server.name, RPL_ENDOFMOTD, client.nick, client.t("End of MOTD command"))
 }
 
-// WhoisChannelsNames returns the common channel names between two users.
-func (client *Client) WhoisChannelsNames(target *Client, multiPrefix bool) []string {
+func (client *Client) whoisChannelsNames(target *Client, multiPrefix bool, hasPrivs bool) []string {
 	var chstrs []string
+	targetInvis := target.HasMode(modes.Invisible)
 	for _, channel := range target.Channels() {
-		// channel is secret and the target can't see it
-		if !client.HasMode(modes.Operator) {
-			if (target.HasMode(modes.Invisible) || channel.flags.HasMode(modes.Secret)) && !channel.hasClient(client) {
-				continue
-			}
+		if !hasPrivs && (targetInvis || channel.flags.HasMode(modes.Secret)) && !channel.hasClient(client) {
+			// client can't see *this* channel membership
+			continue
 		}
 		chstrs = append(chstrs, channel.ClientPrefixes(target, multiPrefix)+channel.name)
 	}
@@ -475,23 +473,26 @@ func (client *Client) WhoisChannelsNames(target *Client, multiPrefix bool) []str
 }
 
 func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuffer) {
+	oper := client.Oper()
 	cnick := client.Nick()
 	targetInfo := target.Details()
 	rb.Add(nil, client.server.name, RPL_WHOISUSER, cnick, targetInfo.nick, targetInfo.username, targetInfo.hostname, "*", targetInfo.realname)
 	tnick := targetInfo.nick
 
-	whoischannels := client.WhoisChannelsNames(target, rb.session.capabilities.Has(caps.MultiPrefix))
+	whoischannels := client.whoisChannelsNames(target, rb.session.capabilities.Has(caps.MultiPrefix), oper.HasRoleCapab("sajoin"))
 	if whoischannels != nil {
 		rb.Add(nil, client.server.name, RPL_WHOISCHANNELS, cnick, tnick, strings.Join(whoischannels, " "))
 	}
-	if target.HasMode(modes.Operator) && operStatusVisible(client, target, hasPrivs) {
+	if target.HasMode(modes.Operator) && operStatusVisible(client, target, oper != nil) {
 		tOper := target.Oper()
 		if tOper != nil {
 			rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, cnick, tnick, tOper.WhoisLine)
 		}
 	}
-	if client == target || hasPrivs {
+	if client == target || oper.HasRoleCapab("ban") {
 		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
+	}
+	if client == target || oper.HasRoleCapab("samode") {
 		rb.Add(nil, client.server.name, RPL_WHOISMODES, cnick, tnick, fmt.Sprintf(client.t("is using modes +%s"), target.modes.String()))
 	}
 	if target.HasMode(modes.TLS) {
@@ -504,7 +505,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, fmt.Sprintf(ircfmt.Unescape(client.t("is a $bBot$b on %s")), client.server.Config().Network.Name))
 	}
 
-	if client == target || hasPrivs {
+	if client == target || oper.HasRoleCapab("ban") {
 		for _, session := range target.Sessions() {
 			if session.certfp != "" {
 				rb.Add(nil, client.server.name, RPL_WHOISCERTFP, cnick, tnick, fmt.Sprintf(client.t("has client certificate fingerprint %s"), session.certfp))

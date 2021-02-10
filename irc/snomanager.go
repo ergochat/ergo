@@ -24,11 +24,6 @@ func (m *SnoManager) AddMasks(client *Client, masks ...sno.Mask) {
 	defer m.sendListMutex.Unlock()
 
 	for _, mask := range masks {
-		// confirm mask is valid
-		if !sno.ValidMasks[mask] {
-			continue
-		}
-
 		currentClientList := m.sendLists[mask]
 
 		if currentClientList == nil {
@@ -101,19 +96,23 @@ func (m *SnoManager) Send(mask sno.Mask, content string) {
 	}
 }
 
-// String returns the snomasks currently enabled.
-func (m *SnoManager) String(client *Client) string {
+// MasksEnabled returns the snomasks currently enabled.
+func (m *SnoManager) MasksEnabled(client *Client) (result sno.Masks) {
 	m.sendListMutex.RLock()
 	defer m.sendListMutex.RUnlock()
 
-	var masks string
 	for mask, clients := range m.sendLists {
 		for c := range clients {
 			if c == client {
-				masks += string(mask)
+				result = append(result, mask)
 				break
 			}
 		}
 	}
-	return masks
+	return
+}
+
+func (m *SnoManager) String(client *Client) string {
+	masks := m.MasksEnabled(client)
+	return masks.String()
 }

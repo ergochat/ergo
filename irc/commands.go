@@ -7,13 +7,11 @@ package irc
 
 import (
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/modes"
 )
 
 // Command represents a command accepted from a client.
 type Command struct {
 	handler        func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
-	oper           bool
 	usablePreReg   bool
 	allowedInBatch bool // allowed in client-to-server batches
 	minParams      int
@@ -30,10 +28,6 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 
 		if !client.registered && !cmd.usablePreReg {
 			rb.Add(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
-			return false
-		}
-		if cmd.oper && !client.HasMode(modes.Operator) {
-			rb.Add(nil, server.name, ERR_NOPRIVILEGES, client.Nick(), client.t("Permission Denied - You're not an IRC operator"))
 			return false
 		}
 		if len(cmd.capabs) > 0 && !client.HasRoleCapabs(cmd.capabs...) {
@@ -115,7 +109,7 @@ func init() {
 		"DEBUG": {
 			handler:   debugHandler,
 			minParams: 1,
-			oper:      true,
+			capabs:    []string{"rehash"},
 		},
 		"DEFCON": {
 			handler: defconHandler,
@@ -124,12 +118,11 @@ func init() {
 		"DEOPER": {
 			handler:   deoperHandler,
 			minParams: 0,
-			oper:      true,
 		},
 		"DLINE": {
 			handler:   dlineHandler,
 			minParams: 1,
-			oper:      true,
+			capabs:    []string{"ban"},
 		},
 		"EXTJWT": {
 			handler:   extjwtHandler,
@@ -169,13 +162,12 @@ func init() {
 		"KILL": {
 			handler:   killHandler,
 			minParams: 1,
-			oper:      true,
 			capabs:    []string{"kill"},
 		},
 		"KLINE": {
 			handler:   klineHandler,
 			minParams: 1,
-			oper:      true,
+			capabs:    []string{"ban"},
 		},
 		"LANGUAGE": {
 			handler:      languageHandler,
@@ -278,7 +270,7 @@ func init() {
 		"SANICK": {
 			handler:   sanickHandler,
 			minParams: 2,
-			oper:      true,
+			capabs:    []string{"samode"},
 		},
 		"SAMODE": {
 			handler:   modeHandler,
@@ -308,7 +300,6 @@ func init() {
 		"REHASH": {
 			handler:   rehashHandler,
 			minParams: 0,
-			oper:      true,
 			capabs:    []string{"rehash"},
 		},
 		"TIME": {
@@ -327,7 +318,7 @@ func init() {
 		"UNDLINE": {
 			handler:   unDLineHandler,
 			minParams: 1,
-			oper:      true,
+			capabs:    []string{"ban"},
 		},
 		"UNINVITE": {
 			handler:   inviteHandler,
@@ -336,7 +327,7 @@ func init() {
 		"UNKLINE": {
 			handler:   unKLineHandler,
 			minParams: 1,
-			oper:      true,
+			capabs:    []string{"ban"},
 		},
 		"USER": {
 			handler:      userHandler,

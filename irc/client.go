@@ -1512,7 +1512,7 @@ func (client *Client) destroy(session *Session) {
 	// decrement stats if we have no more sessions, even if the client will not be destroyed
 	if shouldDecrement {
 		invisible := client.HasMode(modes.Invisible)
-		operator := client.HasMode(modes.LocalOperator) || client.HasMode(modes.Operator)
+		operator := client.HasMode(modes.Operator)
 		client.server.stats.Remove(registered, invisible, operator)
 	}
 

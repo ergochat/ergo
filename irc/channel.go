@@ -439,7 +439,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
 	clientData, isJoined := channel.members[client]
 	channel.stateMutex.RUnlock()
-	isOper := client.HasMode(modes.Operator)
+	isOper := client.HasRoleCapabs("sajoin")
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
 		(!isJoined || clientData.modes.HighestChannelUserMode() == modes.Mode(0))
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
@@ -607,7 +607,7 @@ func (channel *Channel) hasClient(client *Client) bool {
 
 // <mode> <mode params>
 func (channel *Channel) modeStrings(client *Client) (result []string) {
-	hasPrivs := client.HasMode(modes.Operator)
+	hasPrivs := client.HasRoleCapabs("sajoin")
 
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
@@ -1245,12 +1245,12 @@ func (channel *Channel) SendTopic(client *Client, rb *ResponseBuffer, sendNoTopi
 
 // SetTopic sets the topic of this channel, if the client is allowed to do so.
 func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffer) {
-	if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
+	if !channel.hasClient(client) {
 		rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
 		return
 	}
 
-	if channel.flags.HasMode(modes.OpOnlyTopic) && !channel.ClientIsAtLeast(client, modes.Halfop) {
+	if channel.flags.HasMode(modes.OpOnlyTopic) && !(channel.ClientIsAtLeast(client, modes.Halfop) || client.HasRoleCapabs("samode")) {
 		rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You're not a channel operator"))
 		return
 	}
@@ -1487,10 +1487,6 @@ func (channel *Channel) Quit(client *Client) {
 
 func (channel *Channel) Kick(client *Client, target *Client, comment string, rb *ResponseBuffer, hasPrivs bool) {
 	if !hasPrivs {
-		if !(client.HasMode(modes.Operator) || channel.hasClient(client)) {
-			rb.Add(nil, client.server.name, ERR_NOTONCHANNEL, client.Nick(), channel.Name(), client.t("You're not on that channel"))
-			return
-		}
 		if !channel.ClientHasPrivsOver(client, target) {
 			rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, client.Nick(), channel.Name(), client.t("You don't have enough channel privileges"))
 			return
