@@ -22,6 +22,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - [Account registration](#account-registration)
 - [Channel registration](#channel-registration)
 - [Always-on](#always-on)
+- [Multiclient](#multiclient)
 - [History](#history)
 
 --------------------------------------------------------------------------------------------
@@ -92,6 +93,10 @@ By default, if you lose your connection to the IRC server, you are no longer pre
 ```
 /msg NickServ set always-on true
 ```
+
+# Multiclient
+
+Oragono natively supports attaching multiple clients to the same nickname (this normally requires the use of an external bouncer, like ZNC or Weechat's "relay" functionality). To use this feature, simply authenticate with SASL (or the PASS workaround, if necessary) when connecting. In the recommended configuration of Oragono, you will receive the nickname associated with your account, even if you have other clients already using it.
 
 # History
 
