@@ -96,7 +96,7 @@ By default, if you lose your connection to the IRC server, you are no longer pre
 
 # Multiclient
 
-Oragono natively supports attaching multiple clients to the same nickname (this normally requires the use of an external bouncer, like ZNC or Weechat's "relay" functionality). To use this feature, simply authenticate with SASL (or the PASS workaround, if necessary) when connecting. In the recommended configuration of Oragono, you will receive the nickname associated with your account, even if you have other clients already using it.
+Oragono natively supports attaching multiple clients to the same nickname (this normally requires the use of an external bouncer, like ZNC or WeeChat's "relay" functionality). To use this feature, simply authenticate with SASL (or the PASS workaround, if necessary) when connecting. In the recommended configuration of Oragono, you will receive the nickname associated with your account, even if you have other clients already using it.
 
 # History
 
