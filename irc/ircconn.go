@@ -6,12 +6,12 @@ package irc
 import (
 	"bytes"
 	"errors"
-	"io"
 	"net"
 	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircreader"
 
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -23,7 +23,6 @@ const (
 
 var (
 	crlf               = []byte{'\r', '\n'}
-	errReadQ           = errors.New("ReadQ Exceeded")
 	errWSBinaryMessage = errors.New("WebSocket binary messages are unsupported")
 )
 
@@ -48,17 +47,14 @@ type IRCConn interface {
 type IRCStreamConn struct {
 	conn *utils.WrappedConn
 
-	buf        []byte
-	start      int // start of valid (i.e., read but not yet consumed) data in the buffer
-	end        int // end of valid data in the buffer
-	searchFrom int // start of valid data in the buffer not yet searched for \n
-	eof        bool
+	reader ircreader.IRCReader
 }
 
 func NewIRCStreamConn(conn *utils.WrappedConn) *IRCStreamConn {
-	return &IRCStreamConn{
-		conn: conn,
-	}
+	var c IRCStreamConn
+	c.conn = conn
+	c.reader.Initialize(conn.Conn, initialBufferSize, maxReadQBytes)
+	return &c
 }
 
 func (cc *IRCStreamConn) UnderlyingConn() *utils.WrappedConn {
@@ -78,56 +74,13 @@ func (cc *IRCStreamConn) WriteLines(buffers [][]byte) (err error) {
 }
 
 func (cc *IRCStreamConn) ReadLine() ([]byte, error) {
-	for {
-		// try to find a terminated line in the buffered data already read
-		nlidx := bytes.IndexByte(cc.buf[cc.searchFrom:cc.end], '\n')
-		if nlidx != -1 {
-			// got a complete line
-			line := cc.buf[cc.start : cc.searchFrom+nlidx]
-			cc.start = cc.searchFrom + nlidx + 1
-			cc.searchFrom = cc.start
-			if globalUtf8EnforcementSetting && !utf8.Valid(line) {
-				return line, errInvalidUtf8
-			} else {
-				return line, nil
-			}
-		}
-
-		if cc.start == 0 && len(cc.buf) == maxReadQBytes {
-			return nil, errReadQ // out of space, can't expand or slide
-		}
-
-		if cc.eof {
-			return nil, io.EOF
-		}
-
-		if len(cc.buf) < maxReadQBytes && (len(cc.buf)-(cc.end-cc.start) < initialBufferSize/2) {
-			// allocate a new buffer, copy any remaining data
-			newLen := utils.RoundUpToPowerOfTwo(len(cc.buf) + 1)
-			if newLen > maxReadQBytes {
-				newLen = maxReadQBytes
-			} else if newLen < initialBufferSize {
-				newLen = initialBufferSize
-			}
-			newBuf := make([]byte, newLen)
-			copy(newBuf, cc.buf[cc.start:cc.end])
-			cc.buf = newBuf
-		} else if cc.start != 0 {
-			// slide remaining data back to the front of the buffer
-			copy(cc.buf, cc.buf[cc.start:cc.end])
-		}
-		cc.end = cc.end - cc.start
-		cc.start = 0
-
-		cc.searchFrom = cc.end
-		n, err := cc.conn.Read(cc.buf[cc.end:])
-		cc.end += n
-		if n != 0 && err == io.EOF {
-			// we may have received new \n-terminated lines, try to parse them
-			cc.eof = true
-		} else if err != nil {
-			return nil, err
-		}
+	line, err := cc.reader.ReadLine()
+	if err != nil {
+		return nil, err
+	} else if globalUtf8EnforcementSetting && !utf8.Valid(line) {
+		return line, errInvalidUtf8
+	} else {
+		return line, nil
 	}
 }
 
@@ -175,7 +128,7 @@ func (wc IRCWSConn) ReadLine() (line []byte, err error) {
 			return nil, errWSBinaryMessage
 		}
 	} else if err == websocket.ErrReadLimit {
-		return line, errReadQ
+		return line, ircreader.ErrReadQ
 	} else {
 		return line, err
 	}

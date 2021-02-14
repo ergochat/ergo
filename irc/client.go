@@ -18,7 +18,9 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircreader"
 	ident "github.com/oragono/go-ident"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/connection_limits"
 	"github.com/oragono/oragono/irc/flatip"
@@ -689,7 +691,7 @@ func (client *Client) run(session *Session) {
 		} else if err != nil {
 			var quitMessage string
 			switch err {
-			case errReadQ, errWSBinaryMessage:
+			case ircreader.ErrReadQ, errWSBinaryMessage:
 				quitMessage = err.Error()
 			default:
 				quitMessage = "connection closed"
