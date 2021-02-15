@@ -99,7 +99,6 @@
   "Password could not be changed due to server error": "Das Passwort konnte wegen einem Server Error nicht geändert werden",
   "Password incorrect": "Passwort falsch",
   "Permission Denied": "Keine Berechtigung",
-  "Permission Denied - You're not an IRC operator": "Keine Berechtigung - Du bist kein IRC Operator",
   "Please wait at least %v and try again": "Bitte warte mindestens %v und versuch es erneut",
   "Registered at: %s": "Registriert am: %s",
   "Registered channel: %s": "Registrierter Channel: %s",

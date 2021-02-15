@@ -14,7 +14,6 @@
   "Added temporary (%[1]s) K-Line for %[2]s": "Dodano tymczasowe (%[1]s) K-Line dla %[2]s",
   "Additional grouped nick: %s": "Dodatkowe zgrupowany nick: %s",
   "Authentication successful": "Uwierzytelnienie zakończone pomyślnie",
-  "Ban - %[1]s - added by %[2]s - %[3]s": "Ban - %[1]s - dodany przez %[2]s - %[3]s",
   "Cannot join channel (+%s)": "Nie można dołączyć do kanału (+%s)",
   "is logged in as": "jest zalogowany jako"
 }
