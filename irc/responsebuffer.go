@@ -36,14 +36,14 @@ type ResponseBuffer struct {
 	// nested batch.)
 	nestedBatches []string
 
-	messages  []ircmsg.IrcMessage
+	messages  []ircmsg.IRCMessage
 	finalized bool
 	target    *Client
 	session   *Session
 }
 
 // GetLabel returns the label from the given message.
-func GetLabel(msg ircmsg.IrcMessage) string {
+func GetLabel(msg ircmsg.IRCMessage) string {
 	_, value := msg.GetTag(caps.LabelTagName)
 	return value
 }
@@ -57,7 +57,7 @@ func NewResponseBuffer(session *Session) *ResponseBuffer {
 	}
 }
 
-func (rb *ResponseBuffer) AddMessage(msg ircmsg.IrcMessage) {
+func (rb *ResponseBuffer) AddMessage(msg ircmsg.IRCMessage) {
 	if rb.finalized {
 		rb.target.server.logger.Error("internal", "message added to finalized ResponseBuffer, undefined behavior")
 		debug.PrintStack()
@@ -72,7 +72,7 @@ func (rb *ResponseBuffer) AddMessage(msg ircmsg.IrcMessage) {
 	rb.messages = append(rb.messages, msg)
 }
 
-func (rb *ResponseBuffer) setNestedBatchTag(msg *ircmsg.IrcMessage) {
+func (rb *ResponseBuffer) setNestedBatchTag(msg *ircmsg.IRCMessage) {
 	if 0 < len(rb.nestedBatches) {
 		msg.SetTag("batch", rb.nestedBatches[len(rb.nestedBatches)-1])
 	}
@@ -86,7 +86,7 @@ func (rb *ResponseBuffer) Add(tags map[string]string, prefix string, command str
 // Broadcast adds a standard new message to our queue, then sends an unlabeled copy
 // to all other sessions.
 func (rb *ResponseBuffer) Broadcast(tags map[string]string, prefix string, command string, params ...string) {
-	// can't reuse the IrcMessage object because of tag pollution :-\
+	// can't reuse the IRCMessage object because of tag pollution :-\
 	rb.Add(tags, prefix, command, params...)
 	for _, session := range rb.session.client.Sessions() {
 		if session != rb.session {
