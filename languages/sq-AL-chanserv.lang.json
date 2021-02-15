@@ -1,1 +1,6 @@
-{}
+{
+  "$bAMODE$b modifies persistent mode settings for channel members.": "$bAMODE$b Ndryshimet e cilësimeve do të aplikohen në vazhdim për të gjithë anëtarët e kanalit.",
+  "$bCLEAR$b removes users or settings from a channel.": "$bCLEAR$b fshien cilësimet nga përdoruesi apo kanali.",
+  "$bDEOP$b removes the given user (or yourself) from a channel admin.": "$bDEOP$b largon (vetëveten) apo përdoruesin nga administrimi i kanalit.",
+  "$bGET$b queries the current values of a channel's settings": "$bGET$b vlerat aktuale për cilësimet e kanalit"
+}
