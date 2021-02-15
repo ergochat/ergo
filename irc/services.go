@@ -116,7 +116,7 @@ HELP returns information on the given command.`,
 }
 
 // generic handler for IRC commands like `/NICKSERV INFO`
-func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool {
+func serviceCmdHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
 	service, ok := oragonoServicesByCommandAlias[msg.Command]
 	if !ok {
 		server.logger.Warning("internal", "can't handle unrecognized service", msg.Command)

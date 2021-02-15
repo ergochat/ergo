@@ -27,7 +27,7 @@ func init() {
 // EscapeTagValue takes a value, and returns an escaped message tag value.
 //
 // This function is automatically used when lines are created from an
-// IrcMessage, so you don't need to call it yourself before creating a line.
+// IRCMessage, so you don't need to call it yourself before creating a line.
 func EscapeTagValue(inString string) string {
 	return valtoescape.Replace(inString)
 }

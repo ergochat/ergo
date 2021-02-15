@@ -1662,7 +1662,7 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	return session.SendRawMessage(msg, blocking)
 }
 
-func composeMultilineBatch(batchID, fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IrcMessage) {
+func composeMultilineBatch(batchID, fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.IRCMessage) {
 	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType, target)
 	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
 	batchStart.SetTag("msgid", message.Msgid)
@@ -1702,7 +1702,7 @@ var (
 )
 
 // SendRawMessage sends a raw message to the client.
-func (session *Session) SendRawMessage(message ircmsg.IrcMessage, blocking bool) error {
+func (session *Session) SendRawMessage(message ircmsg.IRCMessage, blocking bool) error {
 	// use dumb hack to force the last param to be a trailing param if required
 	config := session.client.server.Config()
 	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] {
@@ -1764,7 +1764,7 @@ func (session *Session) Send(tags map[string]string, prefix string, command stri
 	return session.SendRawMessage(msg, false)
 }
 
-func (session *Session) setTimeTag(msg *ircmsg.IrcMessage, serverTime time.Time) {
+func (session *Session) setTimeTag(msg *ircmsg.IRCMessage, serverTime time.Time) {
 	if session.capabilities.Has(caps.ServerTime) && !msg.HasTag("time") {
 		if serverTime.IsZero() {
 			serverTime = time.Now()

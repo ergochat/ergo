@@ -11,7 +11,7 @@ import (
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler        func(server *Server, client *Client, msg ircmsg.IrcMessage, rb *ResponseBuffer) bool
+	handler        func(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool
 	usablePreReg   bool
 	allowedInBatch bool // allowed in client-to-server batches
 	minParams      int
@@ -19,7 +19,7 @@ type Command struct {
 }
 
 // Run runs this command with the given client/message.
-func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.IrcMessage) (exiting bool) {
+func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.IRCMessage) (exiting bool) {
 	rb := NewResponseBuffer(session)
 	rb.Label = GetLabel(msg)
 
