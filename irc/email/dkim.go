@@ -6,7 +6,7 @@ package email
 import (
 	"errors"
 	dkim "github.com/toorop/go-dkim"
-	"io/ioutil"
+	"os"
 )
 
 var (
@@ -25,7 +25,7 @@ func (dkim *DKIMConfig) Postprocess() (err error) {
 		if dkim.Selector == "" || dkim.KeyFile == "" {
 			return ErrMissingFields
 		}
-		dkim.keyBytes, err = ioutil.ReadFile(dkim.KeyFile)
+		dkim.keyBytes, err = os.ReadFile(dkim.KeyFile)
 		if err != nil {
 			return err
 		}

@@ -6,7 +6,7 @@ package languages
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -72,7 +72,7 @@ func NewManager(enabled bool, path string, defaultLang string) (lm *Manager, err
 }
 
 func (lm *Manager) loadData(path string) (err error) {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return
 	}
@@ -93,7 +93,7 @@ func (lm *Manager) loadData(path string) (err error) {
 
 		// load, e.g., `zh-CN.lang.yaml`
 		var data []byte
-		data, err = ioutil.ReadFile(filepath.Join(path, name))
+		data, err = os.ReadFile(filepath.Join(path, name))
 		if err != nil {
 			return
 		}
@@ -117,7 +117,7 @@ func (lm *Manager) loadData(path string) (err error) {
 		translations := make(map[string]string)
 		for _, translationSuffix := range stringsFileSuffixes {
 			stringsFilePath := filepath.Join(path, prefix+translationSuffix)
-			data, err = ioutil.ReadFile(stringsFilePath)
+			data, err = os.ReadFile(stringsFilePath)
 			if err != nil {
 				continue // skip missing paths
 			}

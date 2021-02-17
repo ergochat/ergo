@@ -100,7 +100,7 @@ func (nl *NetListener) serve() {
 			} else {
 				nl.server.logger.Error("internal", "invalid connection type", nl.addr)
 			}
-		} else if err == utils.ErrNetClosing {
+		} else if err == net.ErrClosed {
 			return
 		} else {
 			nl.server.logger.Error("internal", "accept error", nl.addr, err.Error())

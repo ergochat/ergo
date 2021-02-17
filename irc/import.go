@@ -6,8 +6,8 @@ package irc
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/tidwall/buntdb"
@@ -215,7 +215,7 @@ func doImportDB(config *Config, dbImport databaseImport, tx *buntdb.Tx) (err err
 }
 
 func ImportDB(config *Config, infile string) (err error) {
-	data, err := ioutil.ReadFile(infile)
+	data, err := os.ReadFile(infile)
 	if err != nil {
 		return
 	}

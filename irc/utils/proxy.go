@@ -6,7 +6,6 @@ package utils
 import (
 	"crypto/tls"
 	"encoding/binary"
-	"errors"
 	"io"
 	"net"
 	"strings"
@@ -39,8 +38,6 @@ func (p *proxyLineError) Temporary() bool {
 
 var (
 	ErrBadProxyLine error = &proxyLineError{}
-	// TODO(golang/go#4373): replace this with the stdlib ErrNetClosing
-	ErrNetClosing = errors.New("use of closed network connection")
 )
 
 // ListenerConfig is all the information about how to process
@@ -253,7 +250,7 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 		if err == nil {
 			conn.Close()
 		}
-		err = ErrNetClosing
+		err = net.ErrClosed
 	}
 	if err != nil {
 		return nil, err
