@@ -10,7 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -34,7 +34,7 @@ func (t *JwtServiceConfig) Postprocess() (err error) {
 	t.secretBytes = []byte(t.Secret)
 	t.Secret = ""
 	if t.RSAPrivateKeyFile != "" {
-		keyBytes, err := ioutil.ReadFile(t.RSAPrivateKeyFile)
+		keyBytes, err := os.ReadFile(t.RSAPrivateKeyFile)
 		if err != nil {
 			return err
 		}

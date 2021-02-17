@@ -1,5 +1,5 @@
 ## build Oragono
-FROM golang:1.15-alpine AS build-env
+FROM golang:1.16-alpine AS build-env
 
 RUN apk add --no-cache git make curl sed
 

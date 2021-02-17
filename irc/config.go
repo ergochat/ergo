@@ -10,7 +10,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -917,7 +917,7 @@ func (config *Config) processExtjwt() (err error) {
 
 // LoadRawConfig loads the config without doing any consistency checks or postprocessing
 func LoadRawConfig(filename string) (config *Config, err error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -1598,7 +1598,7 @@ func (config *Config) loadMOTD() error {
 			return err
 		}
 		defer file.Close()
-		contents, err := ioutil.ReadAll(file)
+		contents, err := io.ReadAll(file)
 		if err != nil {
 			return err
 		}
