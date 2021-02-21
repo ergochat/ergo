@@ -203,7 +203,9 @@ func zncPlaybackListHandler(client *Client, command string, params []string, rb 
 	nick := client.Nick()
 	for _, channel := range client.Channels() {
 		_, sequence, err := client.server.GetHistorySequence(channel, client, "")
-		if err != nil {
+		if sequence == nil {
+			continue
+		} else if err != nil {
 			client.server.logger.Error("internal", "couldn't get history sequence for ZNC list", err.Error())
 			continue
 		}
