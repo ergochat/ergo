@@ -419,7 +419,8 @@ func (ircmsg *IRCMessage) line(tagLimit, clientOnlyTagDataLimit, serverAddedTagD
 	buf.WriteString("\r\n")
 
 	result := buf.Bytes()
-	if bytes.IndexByte(result, '\x00') != -1 {
+	toValidate := result[:len(result)-2]
+	if bytes.IndexByte(toValidate, '\x00') != -1 || bytes.IndexByte(toValidate, '\r') != -1 || bytes.IndexByte(toValidate, '\n') != -1 {
 		return nil, ErrorLineContainsBadChar
 	}
 	return result, nil
