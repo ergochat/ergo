@@ -45,4 +45,4 @@ gofmt:
 
 irctest:
 	git submodule update --init
-	cd irctest && make integration
+	cd irctest && make oragono
