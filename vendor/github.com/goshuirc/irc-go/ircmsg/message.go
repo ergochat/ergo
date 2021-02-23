@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"errors"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
@@ -41,8 +40,8 @@ var (
 	// (the name references 417 ERR_INPUTTOOLONG; we reserve the right to return it
 	// for messages that exceed the non-tag length limit)
 	ErrorLineTooLong = errors.New("Line could not be parsed because a specified length limit was exceeded")
-	// ErrorInvalidTagContent indicates that a tag value was invalid
-	ErrorInvalidTagContent = errors.New("Line could not be parsed because it contained an invalid tag value")
+	// ErrorInvalidTagContent indicates that a tag name or value was invalid
+	ErrorInvalidTagContent = errors.New("Line could not be processed because it contained an invalid tag name or value")
 
 	ErrorCommandMissing = errors.New("IRC messages MUST have a command")
 	ErrorBadParam       = errors.New("Cannot have an empty param, a param with spaces, or a param that starts with ':' before the last parameter")
@@ -168,19 +167,12 @@ func trimInitialSpaces(str string) string {
 }
 
 func parseLine(line string, maxTagDataLength int, truncateLen int) (ircmsg IRCMessage, err error) {
-	if strings.IndexByte(line, '\x00') != -1 {
-		err = ErrorLineContainsBadChar
-		return
-	}
-
-	// trim to the first appearance of either '\r' or '\n':
-	lineEnd := strings.IndexByte(line, '\r')
-	newlineIndex := strings.IndexByte(line, '\n')
-	if newlineIndex != -1 && (lineEnd == -1 || newlineIndex < lineEnd) {
-		lineEnd = newlineIndex
-	}
-	if lineEnd != -1 {
-		line = line[:lineEnd]
+	// remove either \n or \r\n from the end of the line:
+	line = strings.TrimSuffix(line, "\n")
+	line = strings.TrimSuffix(line, "\r")
+	// now validate for the 3 forbidden bytes:
+	if strings.IndexByte(line, '\x00') != -1 || strings.IndexByte(line, '\n') != -1 || strings.IndexByte(line, '\r') != -1 {
+		return ircmsg, ErrorLineContainsBadChar
 	}
 
 	if len(line) < 1 {
@@ -285,8 +277,7 @@ func (ircmsg *IRCMessage) parseTags(tags string) (err error) {
 		// "Implementations [...] MUST NOT perform any validation that would
 		//  reject the message if an invalid tag key name is used."
 		if validateTagName(tagName) {
-			// "Tag values MUST be encoded as UTF8."
-			if !utf8.ValidString(tagValue) {
+			if !validateTagValue(tagValue) {
 				return ErrorInvalidTagContent
 			}
 			ircmsg.SetTag(tagName, UnescapeTagValue(tagValue))
@@ -356,10 +347,14 @@ func (ircmsg *IRCMessage) line(tagLimit, clientOnlyTagDataLimit, serverAddedTagD
 	// write the tags, computing the budgets for client-only tags and regular tags
 	var lenRegularTags, lenClientOnlyTags, lenTags int
 	if 0 < len(ircmsg.tags) || 0 < len(ircmsg.clientOnlyTags) {
+		var tagError error
 		buf.WriteByte('@')
 		firstTag := true
 		writeTags := func(tags map[string]string) {
 			for tag, val := range tags {
+				if !(validateTagName(tag) && validateTagValue(val)) {
+					tagError = ErrorInvalidTagContent
+				}
 				if !firstTag {
 					buf.WriteByte(';') // delimiter
 				}
@@ -380,6 +375,9 @@ func (ircmsg *IRCMessage) line(tagLimit, clientOnlyTagDataLimit, serverAddedTagD
 			lenClientOnlyTags -= 1
 		}
 		buf.WriteByte(' ')
+		if tagError != nil {
+			return nil, tagError
+		}
 	}
 	lenTags = buf.Len()
 

@@ -3,7 +3,10 @@
 
 package ircmsg
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 var (
 	// valtoescape replaces real characters with message tag escapes.
@@ -73,6 +76,7 @@ func UnescapeTagValue(inString string) string {
 	return buf.String()
 }
 
+// https://ircv3.net/specs/extensions/message-tags.html#rules-for-naming-message-tags
 func validateTagName(name string) bool {
 	if len(name) == 0 {
 		return false
@@ -91,4 +95,9 @@ func validateTagName(name string) bool {
 		}
 	}
 	return true
+}
+
+// "Tag values MUST be encoded as UTF8."
+func validateTagValue(value string) bool {
+	return utf8.ValidString(value)
 }
