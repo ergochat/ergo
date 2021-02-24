@@ -38,7 +38,8 @@ Develop branches are either used to work out implementation details in preperati
 1. Smoke-test a built binary locally
 1. Point of no return: `git push origin master --tags` (this publishes the tag; any fixes after this will require a new point release)
 1. Publish the release on GitHub (Releases -> "Draft a new release"); use the new tag, post the changelog entries, upload the binaries
-1. If it's a proper release (i.e. not an alpha/beta), merge the updates into the `stable` branch.
+1. Update the `irctest_stable` branch with the new changes (this may be a force push).
+1. If it's a production release (as opposed to a release candidate), update the `stable` branch with the new changes. (This may be a force push in the event that stable contained a backport. This is fine because all stable releases and release candidates are tagged.)
 1. Make the appropriate announcements:
     * For a release candidate:
         1. the channel topic
