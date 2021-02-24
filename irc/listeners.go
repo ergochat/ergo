@@ -166,7 +166,7 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return false
 		},
-		Subprotocols: []string{"text.ircv3.net"},
+		Subprotocols: []string{"text.ircv3.net", "binary.ircv3.net"},
 	}
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)

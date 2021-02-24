@@ -691,7 +691,7 @@ func (client *Client) run(session *Session) {
 		} else if err != nil {
 			var quitMessage string
 			switch err {
-			case ircreader.ErrReadQ, errWSBinaryMessage:
+			case ircreader.ErrReadQ:
 				quitMessage = err.Error()
 			default:
 				quitMessage = "connection closed"

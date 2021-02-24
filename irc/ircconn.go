@@ -5,7 +5,6 @@ package irc
 
 import (
 	"bytes"
-	"errors"
 	"net"
 	"unicode/utf8"
 
@@ -22,8 +21,7 @@ const (
 )
 
 var (
-	crlf               = []byte{'\r', '\n'}
-	errWSBinaryMessage = errors.New("WebSocket binary messages are unsupported")
+	crlf = []byte{'\r', '\n'}
 )
 
 // IRCConn abstracts away the distinction between a regular
@@ -90,11 +88,13 @@ func (cc *IRCStreamConn) Close() (err error) {
 
 // IRCWSConn is an IRCConn over a websocket.
 type IRCWSConn struct {
-	conn *websocket.Conn
+	conn   *websocket.Conn
+	binary bool
 }
 
 func NewIRCWSConn(conn *websocket.Conn) IRCWSConn {
-	return IRCWSConn{conn: conn}
+	binary := conn.Subprotocol() == "binary.ircv3.net"
+	return IRCWSConn{conn: conn, binary: binary}
 }
 
 func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
@@ -106,7 +106,11 @@ func (wc IRCWSConn) UnderlyingConn() *utils.WrappedConn {
 func (wc IRCWSConn) WriteLine(buf []byte) (err error) {
 	buf = bytes.TrimSuffix(buf, crlf)
 	// #1483: if we have websockets at all, then we're enforcing utf8
-	return wc.conn.WriteMessage(websocket.TextMessage, buf)
+	messageType := websocket.TextMessage
+	if wc.binary {
+		messageType = websocket.BinaryMessage
+	}
+	return wc.conn.WriteMessage(messageType, buf)
 }
 
 func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
@@ -122,11 +126,12 @@ func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 func (wc IRCWSConn) ReadLine() (line []byte, err error) {
 	messageType, line, err := wc.conn.ReadMessage()
 	if err == nil {
-		if messageType == websocket.TextMessage {
-			return line, nil
-		} else {
-			return nil, errWSBinaryMessage
+		if messageType == websocket.BinaryMessage && globalUtf8EnforcementSetting {
+			if !utf8.Valid(line) {
+				return line, errInvalidUtf8
+			}
 		}
+		return line, nil
 	} else if err == websocket.ErrReadLimit {
 		return line, ircreader.ErrReadQ
 	} else {
