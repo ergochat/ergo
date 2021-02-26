@@ -126,10 +126,8 @@ func (wc IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 func (wc IRCWSConn) ReadLine() (line []byte, err error) {
 	messageType, line, err := wc.conn.ReadMessage()
 	if err == nil {
-		if messageType == websocket.BinaryMessage && globalUtf8EnforcementSetting {
-			if !utf8.Valid(line) {
-				return line, errInvalidUtf8
-			}
+		if messageType == websocket.BinaryMessage && !utf8.Valid(line) {
+			return line, errInvalidUtf8
 		}
 		return line, nil
 	} else if err == websocket.ErrReadLimit {
