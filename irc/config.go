@@ -162,6 +162,8 @@ func (ps *PersistentStatus) UnmarshalYAML(unmarshal func(interface{}) error) err
 			result = PersistentDisabled
 		}
 		*ps = result
+	} else {
+		err = fmt.Errorf("invalid value `%s` for server persistence status: %w", orig, err)
 	}
 	return err
 }
@@ -416,6 +418,8 @@ func (nr *NickEnforcementMethod) UnmarshalYAML(unmarshal func(interface{}) error
 	method, err := nickReservationFromString(orig)
 	if err == nil {
 		*nr = method
+	} else {
+		err = fmt.Errorf("invalid value `%s` for nick enforcement method: %w", orig, err)
 	}
 	return err
 }
