@@ -77,7 +77,7 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 golang.org/x/term
-# golang.org/x/text v0.3.4
+# golang.org/x/text v0.3.5
 ## explicit
 golang.org/x/text/cases
 golang.org/x/text/internal
