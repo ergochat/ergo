@@ -19,7 +19,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/grect"
 	"github.com/tidwall/match"
-	"github.com/tidwall/rtree"
+	"github.com/tidwall/rtred"
 )
 
 var (
@@ -248,7 +248,7 @@ func (db *DB) Load(rd io.Reader) error {
 // b-tree/r-tree context for itself.
 type index struct {
 	btr     *btree.BTree                           // contains the items
-	rtr     *rtree.RTree                           // contains the items
+	rtr     *rtred.RTree                           // contains the items
 	name    string                                 // name of the index
 	pattern string                                 // a required key pattern
 	less    func(a, b string) bool                 // less comparison function
@@ -289,7 +289,7 @@ func (idx *index) clearCopy() *index {
 		nidx.btr = btree.New(lessCtx(nidx))
 	}
 	if nidx.rect != nil {
-		nidx.rtr = rtree.New(nidx)
+		nidx.rtr = rtred.New(nidx)
 	}
 	return nidx
 }
@@ -301,7 +301,7 @@ func (idx *index) rebuild() {
 		idx.btr = btree.New(lessCtx(idx))
 	}
 	if idx.rect != nil {
-		idx.rtr = rtree.New(idx)
+		idx.rtr = rtred.New(idx)
 	}
 	// iterate through all keys and fill the index
 	btreeAscend(idx.db.keys, func(item interface{}) bool {
@@ -861,7 +861,7 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 				if strings.ToLower(parts[3]) != "ex" {
 					return ErrInvalid
 				}
-				ex, err := strconv.ParseInt(parts[4], 10, 64)
+				ex, err := strconv.ParseUint(parts[4], 10, 64)
 				if err != nil {
 					return err
 				}
@@ -1390,7 +1390,9 @@ func (tx *Tx) Set(key, value string, opts *SetOptions) (previousValue string,
 			// create a rollback entry with a nil value. A nil value indicates
 			// that the entry should be deleted on rollback. When the value is
 			// *not* nil, that means the entry should be reverted.
-			tx.wc.rollbackItems[key] = nil
+			if _, ok := tx.wc.rollbackItems[key]; !ok {
+				tx.wc.rollbackItems[key] = nil
+			}
 		} else {
 			// A previous item already exists in the database. Let's create a
 			// rollback entry with the item as the value. We need to check the
@@ -1822,7 +1824,7 @@ func (tx *Tx) Nearby(index, bounds string,
 		return nil
 	}
 	// // wrap a rtree specific iterator around the user-defined iterator.
-	iter := func(item rtree.Item, dist float64) bool {
+	iter := func(item rtred.Item, dist float64) bool {
 		dbi := item.(*dbItem)
 		return iterator(dbi.key, dbi.val, dist)
 	}
@@ -1860,7 +1862,7 @@ func (tx *Tx) Intersects(index, bounds string,
 		return nil
 	}
 	// wrap a rtree specific iterator around the user-defined iterator.
-	iter := func(item rtree.Item) bool {
+	iter := func(item rtred.Item) bool {
 		dbi := item.(*dbItem)
 		return iterator(dbi.key, dbi.val)
 	}

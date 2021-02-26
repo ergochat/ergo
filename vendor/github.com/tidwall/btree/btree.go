@@ -4,6 +4,8 @@
 
 package btree
 
+//tinygen:T interface{}
+
 const maxItems = 255
 const minItems = maxItems * 40 / 100
 
