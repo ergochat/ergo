@@ -2443,32 +2443,34 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 
 // REGISTER < email | * > <password>
 func registerHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) (exiting bool) {
-	config := server.Config()
-	if !config.Accounts.Registration.Enabled {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", client.t("Account registration is disabled"))
-		return
-	}
-	if !client.registered && !config.Accounts.Registration.AllowBeforeConnect {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", client.t("You must complete the connection before registering your account"))
-		return
-	}
-	if client.registerCmdSent || client.Account() != "" {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "ALREADY_REGISTERED", client.t("You have already registered or attempted to register"))
-		return
-	}
-
 	accountName := client.Nick()
 	if accountName == "*" {
 		accountName = client.preregNick
 	}
-	if accountName == "" || accountName == "*" {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", client.t("Username invalid or not given"))
+	// check that accountName is valid as a non-final parameter;
+	// this is necessary for us to be valid and it will prevent us from emitting invalid error lines
+	if accountName == "*" || accountName != utils.SafeErrorParam(accountName) {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", accountName, client.t("Username invalid or not given"))
+		return
+	}
+
+	config := server.Config()
+	if !config.Accounts.Registration.Enabled {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", accountName, client.t("Account registration is disabled"))
+		return
+	}
+	if !client.registered && !config.Accounts.Registration.AllowBeforeConnect {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "COMPLETE_CONNECTION_REQUIRED", accountName, client.t("You must complete the connection before registering your account"))
+		return
+	}
+	if client.registerCmdSent || client.Account() != "" {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "ALREADY_REGISTERED", accountName, client.t("You have already registered or attempted to register"))
 		return
 	}
 
 	callbackNamespace, callbackValue, err := parseCallback(msg.Params[0], config)
 	if err != nil {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_EMAIL", client.t("A valid e-mail address is required"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_EMAIL", accountName, client.t("A valid e-mail address is required"))
 		return
 	}
 
@@ -2497,13 +2499,13 @@ func registerHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *
 			client.registerCmdSent = true
 		}
 	case errAccountAlreadyRegistered, errAccountAlreadyUnregistered, errAccountMustHoldNick:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", client.t("Username is already registered or otherwise unavailable"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", accountName, client.t("Username is already registered or otherwise unavailable"))
 	case errAccountBadPassphrase:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", client.t("Password was invalid"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", accountName, client.t("Password was invalid"))
 	case errCallbackFailed:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", client.t("Could not dispatch verification e-mail"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", accountName, client.t("Could not dispatch verification e-mail"))
 	default:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", client.t("Could not register"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", accountName, client.t("Could not register"))
 	}
 	return
 }
