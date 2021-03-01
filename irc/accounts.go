@@ -479,7 +479,11 @@ func validatePassphrase(passphrase string) error {
 	if passphrase == "*" {
 		return errAccountBadPassphrase
 	}
-	// for now, just enforce that spaces are not allowed
+	// validate that the passphrase contains no spaces, and furthermore is valid as a
+	// non-final IRC parameter. we already checked that it is nonempty:
+	if passphrase[0] == ':' {
+		return errAccountBadPassphrase
+	}
 	for _, r := range passphrase {
 		if unicode.IsSpace(r) {
 			return errAccountBadPassphrase
