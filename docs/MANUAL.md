@@ -473,10 +473,8 @@ For channel operators, `/msg ChanServ HOWTOBAN #channel nickname` will provide s
 
 # Frequently Asked Questions
 
-Some troubleshooting, some general questions about the project! This should help answer any sorta queries you have.
 
-
-## I have a suggestion
+## How do I submit a suggestion?
 
 Awesome! We love getting new suggestions for features, ways to improve the server and the tooling around it, everything.
 
@@ -497,6 +495,30 @@ If you try to oper unsuccessfully, Oragono will disconnect you from the network.
 The config file accepts hashed passwords, not plaintext passwords. You must run `oragono genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
 After that, you must rehash or restart Oragono to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
+
+
+## Why is Oragono ignoring my ident response / USER command?
+
+The default/recommended configuration of Oragono does not query remote ident servers, and furthermore ignores any user/ident sent with the `USER` command. All user/ident fields are set to a constant `~u`. There are a few reasons for this:
+
+1. Remote ident lookups slow down connection initiation and pose privacy and security concerns (since they transmit usernames over the Internet in plaintext).
+2. Ignoring user/ident simplifies bans; in general, a channel ban in Oragono should target either the nickname or the hostname. As a channel operator, `/msg ChanServ HOWTOBAN #channel nick` will recommend a way of banning any given user.
+3. Ident is commonly used to distinguish users connecting from the same trusted shell host or shared bouncer. This is less important with Oragono, which can act as a bouncer itself.
+4. Because of limitations of the IRC protocol, every character of the user/ident field counts against the maximum size of a message that can be sent.
+
+As an operator, you can modify this behavior if desired; see the `check-ident` and `coerce-ident` settings in the config file.
+
+
+## Why can't I change nicknames?
+
+The default/recommended configuration of Oragono does not allow authenticated users to change their nicknames; an authenticated user must use their account name as their nickname. There are a few reasons for this:
+
+1. Assigning a consistent nickname prevents certain "split-brain" scenarios that break Oragono's "multiclient" functionality. In brief, if two clients are connecting to the same account/identity, but only one of them issues a `/NICK` command, and then one of them subsequently loses and regains its connection to the server, they "break apart": they will have separate identities and channel memberships on the network, and it's difficult to bring them back together again.
+2. The use of a consistent nickname reduces the possibility of edge cases in history playback.
+3. The use of a consistent nickname simplifies offline messaging (which is a first-class concept for always-on clients).
+4. Oragono eliminates the cases in conventional IRC servers that necessitate nickname changes. In particular, you can always claim your nickname, even if the server is still waiting for an old client to time out, and you can connect arbitrarily many clients to the same nickname.
+
+As an operator, you can disable this behavior using the `force-nick-equals-account` setting, but this is discouraged because it has no effect on always-on clients; always-on clients must use their account names as their nicknames regardless of this setting.
 
 
 ## How do I make a private channel?
