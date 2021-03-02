@@ -26,7 +26,8 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Becoming an operator](#becoming-an-operator)
     - [Rehashing](#rehashing)
     - [Environment variables](#environment-variables)
-    - [Productionizing](#productionizing)
+    - [Productionizing with systemd](#productionizing-with-systemd)
+    - [Using valid TLS certificates](#using-valid-tls-certificates)
     - [Upgrading to a new version of Oragono](#upgrading-to-a-new-version-of-oragono)
 - [Features](#features)
     - [User Accounts](#user-accounts)
@@ -174,7 +175,7 @@ Oragono can also be configured using environment variables, using the following 
 However, settings that were overridden using this technique cannot be rehashed --- changing them will require restarting the server.
 
 
-## Productionizing
+## Productionizing with systemd
 
 The recommended way to operate oragono as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures oragono's loglines (sent to stderr in the default configuration) and writes them to the system journal.
 
@@ -188,6 +189,12 @@ The only major distribution that currently packages Oragono is Arch Linux; the a
     1. `systemctl enable oragono.service`
     1. `systemctl start oragono.service`
     1. Confirm that the service started correctly with `systemctl status oragono.service`
+
+
+On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP oragono` or `pkill -HUP oragono`.
+
+
+## Using valid TLS certificates
 
 The other major hurdle for productionizing (but one well worth the effort) is obtaining valid TLS certificates for your domain, if you haven't already done so:
 
@@ -210,8 +217,6 @@ systemctl reload oragono.service
 Executing this script manually will install the certificates for the first time and perform a rehash, enabling them.
 
 If you are using Certbot 0.29.0 or higher, you can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file).
-
-On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP oragono` or `pkill -HUP oragono`.
 
 
 ## Upgrading to a new version of Oragono
