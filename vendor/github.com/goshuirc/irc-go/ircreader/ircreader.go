@@ -66,8 +66,12 @@ func (cc *IRCReader) ReadLine() ([]byte, error) {
 			return line, nil
 		}
 
-		if cc.start == 0 && len(cc.buf) == cc.maxSize {
-			return nil, ErrReadQ // out of space, can't expand or slide
+		// are we out of space? we can read more if any of these are true:
+		// 1. cc.start != 0, so we can slide the existing data back
+		// 2. cc.end < len(cc.buf), so we can read data into the end of the buffer
+		// 3. len(cc.buf) < cc.maxSize, so we can grow the buffer
+		if cc.start == 0 && cc.end == len(cc.buf) && len(cc.buf) == cc.maxSize {
+			return nil, ErrReadQ
 		}
 
 		if cc.eof {
