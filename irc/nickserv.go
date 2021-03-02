@@ -222,6 +222,9 @@ indicate an empty password, use * instead.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 2,
 		},
+		"password": {
+			aliasOf: "passwd",
+		},
 		"get": {
 			handler: nsGetHandler,
 			help: `Syntax: $bGET <setting>$b
