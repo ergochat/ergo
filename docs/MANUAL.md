@@ -781,9 +781,11 @@ This mode is enabled by default, and means that only users who are joined to the
 
 If this mode is unset, users who aren't on your channel can send messages to it. This can be useful with, for example, GitHub or notification bots if you want them to send messages to your channel but don't want them to clutter your channel with by joining and leaving it.
 
-### +R - Registered Only
+### +R - Only Registered Users Can Join or Speak
 
 If this mode is set, only users that have logged into an account will be able to join and speak on the channel. If this is set and a regular, un-logged-in user tries to join, they will be rejected.
+
+Unregistered users already joined to the channel will no longer be able to send messages to it, but they will not be kicked automatically. If they leave, they would not be allowed to rejoin.
 
 To set this mode:
 
@@ -795,7 +797,7 @@ To unset this mode:
 
 ### +M - Only Registered Users Can Speak
 
-If this mode is set, only users that have logged into an account will be able to speak on the channel. If this is set and a regular, un-logged-in user tries to speak, they will be rejected. Users who have been voiced (+v) are excepted from this restriction.
+If this mode is set, only users that have logged into an account will be able to speak on the channel. Unregistered users may still join the channel, unless they are restricted from doing so by another channel mode like +R. When an unregistered user tries to speak, they will be rejected. Users who have been voiced (+v) are excepted from this restriction.
 
 To set this mode:
 
@@ -834,10 +836,6 @@ This mode means that `JOIN`, `PART`, and `QUIT` lines for unprivileged users (i.
 ### +U - Op-Moderated
 
 This mode means that messages from unprivileged users are only sent to channel operators (who can then decide whether to grant the user `+v`).
-
-### +M - Registered-only speakers
-
-This mode means that unregistered users can join the channel, but only registered users can send messages to it.
 
 ## Channel Prefixes
 
