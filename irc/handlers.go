@@ -2142,15 +2142,15 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("Direct messages from unregistered users are temporarily restricted"))
 			return
 		}
+		// restrict messages appropriately when +R is set
+		if details.account == "" && user.HasMode(modes.RegisteredOnly) {
+			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("You must be registered to send a direct message to this user"))
+			return
+		}
 		nickMaskString := details.nickMask
 		accountName := details.accountName
 		var deliverySessions []*Session
-		// restrict messages appropriately when +R is set
-		// intentionally make the sending user think the message went through fine
-		allowedPlusR := details.account != "" || !user.HasMode(modes.RegisteredOnly)
-		if allowedPlusR {
-			deliverySessions = append(deliverySessions, user.Sessions()...)
-		}
+		deliverySessions = append(deliverySessions, user.Sessions()...)
 		// all sessions of the sender, except the originating session, get a copy as well:
 		if client != user {
 			for _, session := range client.Sessions() {
@@ -2181,10 +2181,6 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			if away, awayMessage := user.Away(); away {
 				rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, awayMessage)
 			}
-		}
-
-		if !allowedPlusR {
-			return
 		}
 
 		config := server.Config()
