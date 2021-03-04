@@ -919,6 +919,7 @@ then the following location block in your nginx config (this proxies only `/webi
 ```
 	location /webirc {
 		proxy_pass http://127.0.0.1:8067;
+		proxy_read_timeout 600s;
 		proxy_http_version 1.1;
 		proxy_set_header Upgrade $http_upgrade;
 		proxy_set_header Connection "Upgrade";
