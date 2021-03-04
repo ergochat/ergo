@@ -18,7 +18,7 @@ github.com/docopt/docopt-go
 github.com/go-sql-driver/mysql
 # github.com/go-test/deep v1.0.6
 ## explicit
-# github.com/gorilla/websocket v1.4.2
+# github.com/gorilla/websocket v1.4.2 => github.com/oragono/websocket v1.4.2-oragono1
 ## explicit
 github.com/gorilla/websocket
 # github.com/goshuirc/irc-go v0.0.0-20210301225436-2c4b83d64847
@@ -90,3 +90,4 @@ golang.org/x/text/width
 # gopkg.in/yaml.v2 v2.3.0
 ## explicit
 gopkg.in/yaml.v2
+# github.com/gorilla/websocket => github.com/oragono/websocket v1.4.2-oragono1
