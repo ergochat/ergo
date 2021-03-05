@@ -54,7 +54,7 @@ func addAllTags(msg *ircmsg.IRCMessage, tags map[string]string, serverTime time.
 }
 
 func (m *MessageCache) handleErr(server *Server, err error) bool {
-	if err != nil {
+	if !(err == nil || err == ircmsg.ErrorBodyTooLong) {
 		server.logger.Error("internal", "Error assembling message for sending", err.Error())
 		// blank these out so Send will be a no-op
 		m.fullTags = nil

@@ -235,6 +235,13 @@ server:
         # this works around that bug, allowing them to use SASL.
         send-unprefixed-sasl: true
 
+        # traditionally, IRC servers will truncate and send messages that are
+        # too long to be relayed intact. this behavior can be disabled by setting
+        # allow-truncation to false, in which case Oragono will reject the message
+        # and return an error to the client. (note that this option defaults to true
+        # when unset.)
+        allow-truncation: false
+
     # IP-based DoS protection
     ip-limits:
         # whether to limit the total number of concurrent connections per IP/CIDR

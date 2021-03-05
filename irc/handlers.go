@@ -1981,6 +1981,43 @@ func nickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 	return false
 }
 
+// check whether a PRIVMSG or NOTICE is too long to be relayed without truncation
+func validateLineLen(msgType history.ItemType, source, target, payload string) (ok bool) {
+	// :source PRIVMSG #target :payload\r\n
+	// 1: initial colon on prefix
+	// 1: space between prefix and command
+	// 1: space between command and target (first parameter)
+	// 1: space between target and payload (second parameter)
+	// 1: colon to send the payload as a trailing (we force trailing for PRIVMSG and NOTICE)
+	// 2: final \r\n
+	limit := MaxLineLen - 7
+	limit -= len(source)
+	switch msgType {
+	case history.Privmsg:
+		limit -= 7
+	case history.Notice:
+		limit -= 6
+	default:
+		return true
+	}
+	limit -= len(payload)
+	return limit >= 0
+}
+
+// check validateLineLen for an entire SplitMessage (which may consist of multiple lines)
+func validateSplitMessageLen(msgType history.ItemType, source, target string, message utils.SplitMessage) (ok bool) {
+	if message.Is512() {
+		return validateLineLen(msgType, source, target, message.Message)
+	} else {
+		for _, messagePair := range message.Split {
+			if !validateLineLen(msgType, source, target, messagePair.Message) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // helper to store a batched PRIVMSG in the session object
 func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IRCMessage, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
 	var errorCode, errorMessage string
@@ -2033,7 +2070,6 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 		return false
 	}
 
-	cnick := client.Nick()
 	clientOnlyTags := msg.ClientOnlyTags()
 	if histType == history.Tagmsg && len(clientOnlyTags) == 0 {
 		// nothing to do
@@ -2046,7 +2082,7 @@ func messageHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 		message = msg.Params[1]
 	}
 	if histType != history.Tagmsg && message == "" {
-		rb.Add(nil, server.name, ERR_NOTEXTTOSEND, cnick, client.t("No text to send"))
+		rb.Add(nil, server.name, ERR_NOTEXTTOSEND, client.Nick(), client.t("No text to send"))
 		return false
 	}
 
@@ -2146,6 +2182,14 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		if details.account == "" && user.HasMode(modes.RegisteredOnly) {
 			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("You must be registered to send a direct message to this user"))
 			return
+		}
+		if !client.server.Config().Server.Compatibility.allowTruncation {
+			if !validateSplitMessageLen(histType, client.NickMaskString(), tnick, message) {
+				rb.Add(nil, server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Line too long to be relayed without truncation"))
+				// TODO(#1577) remove this logline:
+				client.server.logger.Debug("internal", "rejected truncation-requiring channel message from client", details.nick)
+				return
+			}
 		}
 		nickMaskString := details.nickMask
 		accountName := details.accountName

@@ -569,7 +569,9 @@ type Config struct {
 		Compatibility        struct {
 			ForceTrailing      *bool `yaml:"force-trailing"`
 			forceTrailing      bool
-			SendUnprefixedSasl bool `yaml:"send-unprefixed-sasl"`
+			SendUnprefixedSasl bool  `yaml:"send-unprefixed-sasl"`
+			AllowTruncation    *bool `yaml:"allow-truncation"`
+			allowTruncation    bool
 		}
 		isupport                 isupport.List
 		IPLimits                 connection_limits.LimiterConfig `yaml:"ip-limits"`
@@ -1378,6 +1380,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	config.Server.Compatibility.forceTrailing = utils.BoolDefaultTrue(config.Server.Compatibility.ForceTrailing)
+	config.Server.Compatibility.allowTruncation = utils.BoolDefaultTrue(config.Server.Compatibility.AllowTruncation)
 
 	config.loadMOTD()
 
