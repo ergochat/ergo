@@ -1361,6 +1361,15 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	details := client.Details()
 	chname := channel.Name()
 
+	if !client.server.Config().Server.Compatibility.allowTruncation {
+		if !validateSplitMessageLen(histType, details.nickMask, chname, message) {
+			rb.Add(nil, client.server.name, ERR_INPUTTOOLONG, details.nick, client.t("Line too long to be relayed without truncation"))
+			// TODO(#1577) remove this logline:
+			client.server.logger.Debug("internal", "rejected truncation-requiring DM from client", details.nick)
+			return
+		}
+	}
+
 	// STATUSMSG targets are prefixed with the supplied min-prefix, e.g., @#channel
 	if minPrefixMode != modes.Mode(0) {
 		chname = fmt.Sprintf("%s%s", modes.ChannelModePrefixes[minPrefixMode], chname)

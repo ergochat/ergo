@@ -10,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/goshuirc/irc-go v0.0.0-20210301225436-2c4b83d64847
+	github.com/goshuirc/irc-go v0.0.0-20210304031553-cf78e9176f96
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1
@@ -24,4 +24,4 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 )
 
-replace github.com/gorilla/websocket  => github.com/oragono/websocket v1.4.2-oragono1
+replace github.com/gorilla/websocket => github.com/oragono/websocket v1.4.2-oragono1

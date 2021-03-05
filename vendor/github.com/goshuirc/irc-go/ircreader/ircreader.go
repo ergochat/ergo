@@ -63,6 +63,10 @@ func (cc *IRCReader) ReadLine() ([]byte, error) {
 			line := cc.buf[cc.start : cc.searchFrom+nlidx]
 			cc.start = cc.searchFrom + nlidx + 1
 			cc.searchFrom = cc.start
+			// treat \r\n as the line terminator if it was present
+			if 0 < len(line) && line[len(line)-1] == '\r' {
+				line = line[:len(line)-1]
+			}
 			return line, nil
 		}
 

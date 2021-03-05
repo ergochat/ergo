@@ -740,8 +740,13 @@ func (client *Client) run(session *Session) {
 		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
-		} else if err == ircmsg.ErrorLineTooLong {
+		} else if err == ircmsg.ErrorTagsTooLong {
+			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line contained excess tag data"))
+			continue
+		} else if err == ircmsg.ErrorBodyTooLong && !client.server.Config().Server.Compatibility.allowTruncation {
 			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
+			// TODO(#1577) remove this logline:
+			client.server.logger.Debug("internal", "rejected MaxLineLen-exceeding line from client", client.Nick())
 			continue
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)
@@ -1711,7 +1716,7 @@ func (session *Session) SendRawMessage(message ircmsg.IRCMessage, blocking bool)
 
 	// assemble message
 	line, err := message.LineBytesStrict(false, MaxLineLen)
-	if err != nil {
+	if !(err == nil || err == ircmsg.ErrorBodyTooLong) {
 		errorParams := []string{"Error assembling message for sending", err.Error(), message.Command}
 		errorParams = append(errorParams, message.Params...)
 		session.client.server.logger.Error("internal", errorParams...)
