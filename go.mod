@@ -23,3 +23,5 @@ require (
 	golang.org/x/text v0.3.4
 	gopkg.in/yaml.v2 v2.3.0
 )
+
+replace github.com/gorilla/websocket  => github.com/oragono/websocket v1.4.2-oragono1
