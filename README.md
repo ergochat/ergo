@@ -55,7 +55,7 @@ oragono mkcerts
 oragono run     # server should be ready to go!
 ```
 
-**Note:** See the [productionizing guide in our manual](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#productionizing) for recommendations on how to run a production network, including obtaining valid TLS certificates.
+**Note:** See the [productionizing guide in our manual](https://github.com/oragono/oragono/blob/master/docs/MANUAL.md#productionizing-with-systemd) for recommendations on how to run a production network, including obtaining valid TLS certificates.
 
 ### Platform Packages
 
