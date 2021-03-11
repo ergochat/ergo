@@ -42,6 +42,8 @@ github.com/goshuirc/irc-go v0.0.0-20210301225436-2c4b83d64847 h1:MmsZRpAsMxyw0P5
 github.com/goshuirc/irc-go v0.0.0-20210301225436-2c4b83d64847/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
 github.com/goshuirc/irc-go v0.0.0-20210304031553-cf78e9176f96 h1:sihI3HsrJWyS4MtBmxh5W4gDZD34SWodkWyUvJltswY=
 github.com/goshuirc/irc-go v0.0.0-20210304031553-cf78e9176f96/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
+github.com/goshuirc/irc-go v0.0.0-20210311004346-ea7a188a73fe h1:5UsPgeXJBkFgJK3Ml0nj6ljasjd26xiUxALnDJHmipE=
+github.com/goshuirc/irc-go v0.0.0-20210311004346-ea7a188a73fe/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
