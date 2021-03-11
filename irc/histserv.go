@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -102,21 +103,31 @@ func histservDeleteHandler(service *ircService, server *Server, client *Client, 
 		target, msgid = params[0], params[1]
 	}
 
+	// operators can delete; if individual delete is allowed, a chanop or
+	// the message author can delete
 	accountName := "*"
-	hasPrivs := client.HasRoleCapabs("history")
-	if !hasPrivs {
-		accountName = client.AccountName()
-		if !(server.Config().History.Retention.AllowIndividualDelete && accountName != "*") {
-			service.Notice(rb, client.t("Insufficient privileges"))
-			return
+	isChanop := false
+	isOper := client.HasRoleCapabs("history")
+	if !isOper {
+		if server.Config().History.Retention.AllowIndividualDelete {
+			channel := server.channels.Get(target)
+			if channel != nil && channel.ClientIsAtLeast(client, modes.Operator) {
+				isChanop = true
+			} else {
+				accountName = client.AccountName()
+			}
 		}
+	}
+	if !isOper && !isChanop && accountName == "*" {
+		service.Notice(rb, client.t("Insufficient privileges"))
+		return
 	}
 
 	err := server.DeleteMessage(target, msgid, accountName)
 	if err == nil {
 		service.Notice(rb, client.t("Successfully deleted message"))
 	} else {
-		if hasPrivs {
+		if isOper {
 			service.Notice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
 		} else {
 			service.Notice(rb, client.t("Could not delete message"))
