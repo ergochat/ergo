@@ -2647,6 +2647,10 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", fmt.Sprintf(client.t("Relayed nicknames MUST contain a relaymsg separator from this set: %s"), config.Server.Relaymsg.Separators))
 		return false
 	}
+	if channel.relayNickMuted(nick) {
+		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "BANNED", fmt.Sprintf(client.t("%s is banned from relaying to the channel"), nick))
+		return false
+	}
 
 	channel.AddHistoryItem(history.Item{
 		Type:    history.Privmsg,

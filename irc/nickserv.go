@@ -425,7 +425,7 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 	case "always-on":
 		stored := settings.AlwaysOn
 		actual := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, stored)
-		service.Notice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), persistentStatusToString(stored)))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), userPersistentStatusToString(stored)))
 		if actual {
 			service.Notice(rb, client.t("Given current server settings, your client is always-on"))
 		} else {
@@ -447,7 +447,7 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 		stored := settings.AutoAway
 		alwaysOn := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, settings.AlwaysOn)
 		actual := persistenceEnabled(config.Accounts.Multiclient.AutoAway, settings.AutoAway)
-		service.Notice(rb, fmt.Sprintf(client.t("Your stored auto-away setting is: %s"), persistentStatusToString(stored)))
+		service.Notice(rb, fmt.Sprintf(client.t("Your stored auto-away setting is: %s"), userPersistentStatusToString(stored)))
 		if actual && alwaysOn {
 			service.Notice(rb, client.t("Given current server settings, auto-away is enabled for your client"))
 		} else if actual && !alwaysOn {
@@ -463,6 +463,15 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 	default:
 		service.Notice(rb, client.t("No such setting"))
 	}
+}
+
+func userPersistentStatusToString(status PersistentStatus) string {
+	// #1544: "mandatory" as a user setting should display as "enabled"
+	result := persistentStatusToString(status)
+	if result == "mandatory" {
+		result = "enabled"
+	}
+	return result
 }
 
 func nsSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
