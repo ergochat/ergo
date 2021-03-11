@@ -579,7 +579,12 @@ func csTransferHandler(service *ircService, server *Server, client *Client, comm
 			service.Notice(rb, fmt.Sprintf(client.t("Cancelled pending transfer of channel %s"), chname))
 		}
 	} else {
-		service.Notice(rb, client.t("Could not transfer channel"))
+		switch err {
+		case errChannelNotOwnedByAccount:
+			service.Notice(rb, client.t("You don't own that channel"))
+		default:
+			service.Notice(rb, client.t("Could not transfer channel"))
+		}
 	}
 }
 
