@@ -138,7 +138,7 @@ func (server *Server) sendLoginSnomask(nickMask, accountName string) {
 }
 
 // AUTHENTICATE [<mechanism>|<data>|*]
-func authenticateHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	session := rb.session
 	config := server.Config()
 	details := client.Details()
@@ -340,7 +340,7 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 }
 
 // AWAY [<message>]
-func awayHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var isAway bool
 	var awayMessage string
 	if len(msg.Params) > 0 {
@@ -377,7 +377,7 @@ func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
 }
 
 // BATCH {+,-}reference-tag type [params...]
-func batchHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	tag := msg.Params[0]
 	fail := false
 	sendErrors := rb.session.batch.command != "NOTICE"
@@ -421,7 +421,7 @@ func batchHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // BRB [message]
-func brbHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func brbHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	success, duration := client.brbTimer.Enable()
 	if !success {
 		rb.Add(nil, server.name, "FAIL", "BRB", "CANNOT_BRB", client.t("Your client does not support BRB"))
@@ -446,7 +446,7 @@ func brbHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Respo
 }
 
 // CAP <subcmd> [<caps>]
-func capHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	details := client.Details()
 	subCommand := strings.ToUpper(msg.Params[0])
 	toAdd := caps.NewSet()
@@ -564,7 +564,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Respo
 // e.g., CHATHISTORY #ircv3 AFTER id=ytNBbt565yt4r3err3 10
 // CHATHISTORY <target> BETWEEN <query> <query> <direction> [<limit>]
 // e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
-func chathistoryHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) (exiting bool) {
+func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	var items []history.Item
 	unknown_command := false
 	var target string
@@ -702,7 +702,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.IRCMessage, r
 }
 
 // DEBUG <subcmd>
-func debugHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func debugHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	param := strings.ToUpper(msg.Params[0])
 
 	switch param {
@@ -775,7 +775,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 	return false
 }
 
-func defconHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func defconHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if len(msg.Params) > 0 {
 		level, err := strconv.Atoi(msg.Params[0])
 		if err == nil && 1 <= level && level <= 5 {
@@ -823,7 +823,7 @@ func formatBanForListing(client *Client, key string, info IPBanInfo) string {
 
 // DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
 // DLINE LIST
-func dlineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func dlineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
 	if !oper.HasRoleCapab("ban") {
@@ -962,7 +962,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // EXTJWT <target> [service_name]
-func extjwtHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func extjwtHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	accountName := client.AccountName()
 	if accountName == "*" {
 		accountName = ""
@@ -1030,7 +1030,7 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 
 // HELP [<query>]
 // HELPOP [<query>]
-func helpHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func helpHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if len(msg.Params) == 0 {
 		client.sendHelp("HELPOP", client.t(`HELPOP <argument>
 
@@ -1065,7 +1065,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 // e.g., HISTORY #ubuntu 10
 // HISTORY me 15
 // HISTORY #darwin 1h
-func historyHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	config := server.Config()
 	if !config.History.Enabled {
 		rb.Notice(client.t("This command has been disabled by the server administrators"))
@@ -1093,7 +1093,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 }
 
 // INFO
-func infoHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func infoHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
 	// we do the below so that the human-readable lines in info can be translated.
 	for _, line := range infoString1 {
@@ -1133,7 +1133,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 
 // INVITE <nickname> <channel>
 // UNINVITE <nickname> <channel>
-func inviteHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func inviteHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	invite := msg.Command == "INVITE"
 	nickname := msg.Params[0]
 	channelName := msg.Params[1]
@@ -1160,7 +1160,7 @@ func inviteHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // ISON <nick>{ <nick>}
-func isonHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func isonHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var nicks = msg.Params
 
 	ison := make([]string, 0, len(msg.Params))
@@ -1176,7 +1176,7 @@ func isonHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
-func joinHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func joinHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// #1417: allow `JOIN 0` with a confirmation code
 	if msg.Params[0] == "0" {
 		expectedCode := utils.ConfirmationCode("", rb.session.ctime)
@@ -1253,7 +1253,7 @@ func sendJoinError(client *Client, name string, rb *ResponseBuffer, err error) {
 }
 
 // SAJOIN [nick] #channel{,#channel}
-func sajoinHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func sajoinHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var target *Client
 	var channelString string
 	if strings.HasPrefix(msg.Params[0], "#") {
@@ -1288,7 +1288,7 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
-func kickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	hasPrivs := client.HasRoleCapabs("samode")
 	channels := strings.Split(msg.Params[0], ",")
 	users := strings.Split(msg.Params[1], ",")
@@ -1339,7 +1339,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // KILL <nickname> <comment>
-func killHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func killHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nickname := msg.Params[0]
 	comment := "<no reason supplied>"
 	if len(msg.Params) > 1 {
@@ -1365,7 +1365,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 
 // KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
 // KLINE LIST
-func klineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func klineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
@@ -1507,7 +1507,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // LANGUAGE <code>{ <code>}
-func languageHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func languageHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
 	alreadyDoneLanguages := make(map[string]bool)
 	var appliedLanguages []string
@@ -1561,7 +1561,7 @@ func languageHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *
 }
 
 // LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
-func listHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	config := server.Config()
 	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" && !client.HasMode(modes.Operator) {
 		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
@@ -1649,13 +1649,13 @@ func listHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // LUSERS [<mask> [<server>]]
-func lusersHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func lusersHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	server.Lusers(client, rb)
 	return false
 }
 
 // MODE <target> [<modestring> [<mode arguments>...]]
-func modeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func modeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if 0 < len(msg.Params[0]) && msg.Params[0][0] == '#' {
 		return cmodeHandler(server, client, msg, rb)
 	}
@@ -1663,7 +1663,7 @@ func modeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // MODE <channel> [<modestring> [<mode arguments>...]]
-func cmodeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func cmodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	channel := server.channels.Get(msg.Params[0])
 
 	if channel == nil {
@@ -1721,7 +1721,7 @@ func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, a
 }
 
 // MODE <client> [<modestring> [<mode arguments>...]]
-func umodeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func umodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	cDetails := client.Details()
 	target := server.clients.Get(msg.Params[0])
 	if target == nil {
@@ -1793,7 +1793,7 @@ func (server *Server) getCurrentNick(nick string) (result string) {
 }
 
 // MONITOR <subcmd> [params...]
-func monitorHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	handler, exists := monitorSubcommands[strings.ToLower(msg.Params[0])]
 
 	if !exists {
@@ -1805,7 +1805,7 @@ func monitorHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 }
 
 // MONITOR - <target>{,<target>}
-func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if len(msg.Params) < 2 {
 		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
@@ -1820,7 +1820,7 @@ func monitorRemoveHandler(server *Server, client *Client, msg ircmsg.IRCMessage,
 }
 
 // MONITOR + <target>{,<target>}
-func monitorAddHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorAddHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if len(msg.Params) < 2 {
 		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
 		return false
@@ -1867,13 +1867,13 @@ func monitorAddHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb
 }
 
 // MONITOR C
-func monitorClearHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorClearHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	server.monitorManager.RemoveAll(rb.session)
 	return false
 }
 
 // MONITOR L
-func monitorListHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorListHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
 	monitorList := server.monitorManager.List(rb.session)
 
@@ -1898,7 +1898,7 @@ func monitorListHandler(server *Server, client *Client, msg ircmsg.IRCMessage, r
 }
 
 // MONITOR S
-func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func monitorStatusHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var online []string
 	var offline []string
 
@@ -1928,13 +1928,13 @@ func monitorStatusHandler(server *Server, client *Client, msg ircmsg.IRCMessage,
 }
 
 // MOTD
-func motdHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func motdHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	server.MOTD(client, rb)
 	return false
 }
 
 // NAMES [<channel>{,<channel>} [target]]
-func namesHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func namesHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var channels []string
 	if len(msg.Params) > 0 {
 		channels = strings.Split(msg.Params[0], ",")
@@ -1968,7 +1968,7 @@ func namesHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // NICK <nickname>
-func nickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func nickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if client.registered {
 		if client.account == "" && server.Config().Accounts.NickReservation.ForbidAnonNickChanges {
 			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), client.t("You may not change your nickname"))
@@ -2019,7 +2019,7 @@ func validateSplitMessageLen(msgType history.ItemType, source, target string, me
 }
 
 // helper to store a batched PRIVMSG in the session object
-func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IRCMessage, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
+func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.Message, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
 	var errorCode, errorMessage string
 	defer func() {
 		if errorCode != "" {
@@ -2059,7 +2059,7 @@ func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.IRCMessage,
 // NOTICE <target>{,<target>} <message>
 // PRIVMSG <target>{,<target>} <message>
 // TAGMSG <target>{,<target>}
-func messageHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func messageHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	histType, err := msgCommandToHistType(msg.Command)
 	if err != nil {
 		return false
@@ -2267,7 +2267,7 @@ func itemIsStorable(item *history.Item, config *Config) bool {
 }
 
 // NPC <target> <sourcenick> <message>
-func npcHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func npcHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2:]
@@ -2278,7 +2278,7 @@ func npcHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Respo
 }
 
 // NPCA <target> <sourcenick> <message>
-func npcaHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func npcaHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	fakeSource := msg.Params[1]
 	message := msg.Params[2:]
@@ -2289,7 +2289,7 @@ func npcaHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // OPER <name> [password]
-func operHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if client.HasMode(modes.Operator) {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "OPER", client.t("You're already opered-up!"))
 		return false
@@ -2374,7 +2374,7 @@ func applyOper(client *Client, oper *Oper, rb *ResponseBuffer) {
 }
 
 // DEOPER
-func deoperHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func deoperHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if client.Oper() == nil {
 		rb.Notice(client.t("Insufficient oper privs"))
 		return false
@@ -2385,7 +2385,7 @@ func deoperHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // PART <channel>{,<channel>} [<reason>]
-func partHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func partHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	channels := strings.Split(msg.Params[0], ",")
 	var reason string
 	if len(msg.Params) > 1 {
@@ -2405,7 +2405,7 @@ func partHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // PASS <password>
-func passHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func passHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if client.registered {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.nick, client.t("You may not reregister"))
 		return false
@@ -2460,19 +2460,19 @@ func passHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // PING [params...]
-func pingHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func pingHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, "PONG", server.name, msg.Params[0])
 	return false
 }
 
 // PONG [params...]
-func pongHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func pongHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// client gets touched when they send this command, so we don't need to do anything
 	return false
 }
 
 // QUIT [<reason>]
-func quitHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func quitHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	reason := "Quit"
 	if len(msg.Params) > 0 {
 		reason += ": " + msg.Params[0]
@@ -2482,7 +2482,7 @@ func quitHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Resp
 }
 
 // REGISTER < email | * > <password>
-func registerHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) (exiting bool) {
+func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	accountName := client.Nick()
 	if accountName == "*" {
 		accountName = client.preregNick
@@ -2551,7 +2551,7 @@ func registerHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *
 }
 
 // VERIFY <account> <code>
-func verifyHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) (exiting bool) {
+func verifyHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	config := server.Config()
 	if !config.Accounts.Registration.Enabled {
 		rb.Add(nil, server.name, "FAIL", "VERIFY", "DISALLOWED", client.t("Account registration is disabled"))
@@ -2593,7 +2593,7 @@ func verifyHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // REHASH
-func rehashHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func rehashHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
 	server.logger.Info("server", "REHASH command used by", nick)
 	err := server.rehash()
@@ -2611,7 +2611,7 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // RELAYMSG <channel> <spoofed nick> :<message>
-func relaymsgHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) (result bool) {
+func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (result bool) {
 	config := server.Config()
 	if !config.Server.Relaymsg.Enabled {
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "NOT_ENABLED", client.t("RELAYMSG has been disabled"))
@@ -2680,7 +2680,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *
 }
 
 // RENAME <oldchan> <newchan> [<reason>]
-func renameHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func renameHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	oldName, newName := msg.Params[0], msg.Params[1]
 	var reason string
 	if 2 < len(msg.Params) {
@@ -2766,7 +2766,7 @@ func renameHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // RESUME <token> [timestamp]
-func resumeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func resumeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	details := ResumeDetails{
 		PresentedToken: msg.Params[0],
 	}
@@ -2790,7 +2790,7 @@ func resumeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // SANICK <oldnick> <nickname>
-func sanickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func sanickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	targetNick := msg.Params[0]
 	target := server.clients.Get(targetNick)
 	if target == nil {
@@ -2802,7 +2802,7 @@ func sanickHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // SCENE <target> <message>
-func sceneHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func sceneHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	target := msg.Params[0]
 	message := msg.Params[1:]
 
@@ -2812,7 +2812,7 @@ func sceneHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // SETNAME <realname>
-func setnameHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func setnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	realname := msg.Params[0]
 	if len(msg.Params) != 1 {
 		// workaround for clients that turn unknown commands into raw IRC lines,
@@ -2840,19 +2840,19 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 }
 
 // SUMMON [parameters]
-func summonHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func summonHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, ERR_SUMMONDISABLED, client.Nick(), client.t("SUMMON has been disabled"))
 	return false
 }
 
 // TIME
-func timeHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func timeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
 	return false
 }
 
 // TOPIC <channel> [<topic>]
-func topicHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func topicHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	channel := server.channels.Get(msg.Params[0])
 	if channel == nil {
 		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
@@ -2868,7 +2868,7 @@ func topicHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // UNDLINE <ip>|<net>
-func unDLineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func unDLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
 	if !oper.HasRoleCapab("ban") {
@@ -2901,7 +2901,7 @@ func unDLineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 }
 
 // UNKLINE <mask>
-func unKLineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func unKLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	details := client.Details()
 	// check oper permissions
 	oper := client.Oper()
@@ -2931,7 +2931,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *R
 }
 
 // USER <username> * 0 <realname>
-func userHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func userHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if client.registered {
 		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.Nick(), client.t("You may not reregister"))
 		return false
@@ -2986,7 +2986,7 @@ func operStatusVisible(client, target *Client, hasPrivs bool) bool {
 }
 
 // USERHOST <nickname>{ <nickname>}
-func userhostHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func userhostHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	hasPrivs := client.HasMode(modes.Operator)
 	returnedClients := make(ClientSet)
 
@@ -3034,20 +3034,20 @@ func userhostHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *
 }
 
 // USERS [parameters]
-func usersHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func usersHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, ERR_USERSDISABLED, client.Nick(), client.t("USERS has been disabled"))
 	return false
 }
 
 // VERSION
-func versionHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func versionHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_VERSION, client.nick, Ver, server.name)
 	server.RplISupport(client, rb)
 	return false
 }
 
 // WEBIRC <password> <gateway> <hostname> <ip> [:flag1 flag2=x flag3]
-func webircHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// only allow unregistered clients to use this command
 	if client.registered || client.proxiedIP != nil {
 		return false
@@ -3221,7 +3221,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 }
 
 // WHO <mask> [<filter>%<fields>,<type>]
-func whoHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	mask := msg.Params[0]
 	var err error
 	if mask == "" {
@@ -3329,7 +3329,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Respo
 }
 
 // WHOIS [<target>] <mask>{,<mask>}
-func whoisHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func whoisHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var masksString string
 	//var target string
 
@@ -3390,7 +3390,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Res
 }
 
 // WHOWAS <nickname> [<count> [<server>]]
-func whowasHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func whowasHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nicknames := strings.Split(msg.Params[0], ",")
 
 	// 0 means "all the entries", as does a negative number
@@ -3424,7 +3424,7 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Re
 }
 
 // ZNC <module> [params]
-func zncHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func zncHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	params := msg.Params[1:]
 	// #1205: compatibility with Palaver, which sends `ZNC *playback :play ...`
 	if len(params) == 1 && strings.IndexByte(params[0], ' ') != -1 {
@@ -3435,13 +3435,13 @@ func zncHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *Respo
 }
 
 // fake handler for unknown commands
-func unknownCommandHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func unknownCommandHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), client.t("Unknown command"))
 	return false
 }
 
 // fake handler for invalid utf8
-func invalidUtf8Handler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func invalidUtf8Handler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, "FAIL", utils.SafeErrorParam(msg.Command), "INVALID_UTF8", client.t("Message rejected for containing invalid UTF-8"))
 	return false
 }

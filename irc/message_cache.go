@@ -42,7 +42,7 @@ type MessageCache struct {
 	splitMessage utils.SplitMessage
 }
 
-func addAllTags(msg *ircmsg.IRCMessage, tags map[string]string, serverTime time.Time, msgid, accountName string) {
+func addAllTags(msg *ircmsg.Message, tags map[string]string, serverTime time.Time, msgid, accountName string) {
 	msg.UpdateTags(tags)
 	msg.SetTag("time", serverTime.Format(IRCv3TimestampFormat))
 	if accountName != "*" {
@@ -73,7 +73,7 @@ func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid st
 	m.command = command
 	m.params = params
 
-	var msg ircmsg.IRCMessage
+	var msg ircmsg.Message
 	config := server.Config()
 	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[command] {
 		msg.ForceTrailing()
@@ -110,7 +110,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 
 	if message.Is512() {
 		isTagmsg := command == "TAGMSG"
-		var msg ircmsg.IRCMessage
+		var msg ircmsg.Message
 		if forceTrailing {
 			msg.ForceTrailing()
 		}
@@ -136,7 +136,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 			return
 		}
 	} else {
-		var msg ircmsg.IRCMessage
+		var msg ircmsg.Message
 		if forceTrailing {
 			msg.ForceTrailing()
 		}

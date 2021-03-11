@@ -45,7 +45,7 @@ type IRCConn interface {
 type IRCStreamConn struct {
 	conn *utils.WrappedConn
 
-	reader ircreader.IRCReader
+	reader ircreader.Reader
 }
 
 func NewIRCStreamConn(conn *utils.WrappedConn) *IRCStreamConn {
