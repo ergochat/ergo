@@ -153,10 +153,8 @@ func (server *Server) Run() {
 			return
 
 		case <-server.rehashSignal:
-			go func() {
-				server.logger.Info("server", "Rehashing due to SIGHUP")
-				server.rehash()
-			}()
+			server.logger.Info("server", "Rehashing due to SIGHUP")
+			go server.rehash()
 		}
 	}
 }
@@ -520,13 +518,23 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
+	// #1570; this needs its own panic handling because it can be invoked via SIGHUP
+	defer func() {
+		if r := recover(); r != nil {
+			if server.Config().Debug.recoverFromErrors {
+				server.logger.Error("internal",
+					fmt.Sprintf("Panic during rehash: %v\n%s", r, debug.Stack()))
+			} else {
+				panic(r)
+			}
+		}
+	}()
+
 	server.logger.Info("server", "Attempting rehash")
 
 	// only let one REHASH go on at a time
 	server.rehashMutex.Lock()
 	defer server.rehashMutex.Unlock()
-
-	server.logger.Debug("server", "Got rehash lock")
 
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
