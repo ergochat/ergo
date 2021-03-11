@@ -10,7 +10,7 @@ import (
 )
 
 /*
-IRCReader is an optimized line reader for IRC lines containing tags;
+Reader is an optimized line reader for IRC lines containing tags;
 most IRC lines will not approach the maximum line length (8191 bytes
 of tag data, plus 512 bytes of message data), so we want a buffered
 reader that can start with a smaller buffer and expand if necessary,
@@ -21,7 +21,7 @@ var (
 	ErrReadQ = errors.New("readQ exceeded (read too many bytes without terminating newline)")
 )
 
-type IRCReader struct {
+type Reader struct {
 	conn io.Reader
 
 	initialSize int
@@ -34,17 +34,17 @@ type IRCReader struct {
 	eof        bool
 }
 
-// Returns a new *IRCReader with sane buffer size limits.
-func NewIRCReader(conn io.Reader) *IRCReader {
-	var reader IRCReader
+// Returns a new *Reader with sane buffer size limits.
+func NewIRCReader(conn io.Reader) *Reader {
+	var reader Reader
 	reader.Initialize(conn, 512, 8192+1024)
 	return &reader
 }
 
-// "Placement new" for an IRCReader; initializes it with custom buffer size
+// "Placement new" for a Reader; initializes it with custom buffer size
 // limits.
-func (cc *IRCReader) Initialize(conn io.Reader, initialSize, maxSize int) {
-	*cc = IRCReader{}
+func (cc *Reader) Initialize(conn io.Reader, initialSize, maxSize int) {
+	*cc = Reader{}
 	cc.conn = conn
 	cc.initialSize = initialSize
 	cc.maxSize = maxSize
@@ -54,7 +54,7 @@ func (cc *IRCReader) Initialize(conn io.Reader, initialSize, maxSize int) {
 // or \r\n as the line terminator (but not \r in isolation). Passes through
 // errors from the underlying connection. Returns ErrReadQ if the buffer limit
 // was exceeded without a terminating \n.
-func (cc *IRCReader) ReadLine() ([]byte, error) {
+func (cc *Reader) ReadLine() ([]byte, error) {
 	for {
 		// try to find a terminated line in the buffered data already read
 		nlidx := bytes.IndexByte(cc.buf[cc.searchFrom:cc.end], '\n')

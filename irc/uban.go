@@ -98,7 +98,7 @@ func parseUbanTarget(param string) (target ubanTarget, err error) {
 }
 
 // UBAN <subcommand> [target] [DURATION <duration>] [reason...]
-func ubanHandler(server *Server, client *Client, msg ircmsg.IRCMessage, rb *ResponseBuffer) bool {
+func ubanHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	subcommand := strings.ToLower(msg.Params[0])
 	params := msg.Params[1:]
 	var target ubanTarget
