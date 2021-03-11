@@ -1324,6 +1324,12 @@ func (channel *Channel) isMuted(client *Client) bool {
 	return muteRe.MatchString(nuh) && !channel.lists[modes.ExceptMask].MatchMute(nuh)
 }
 
+func (channel *Channel) relayNickMuted(relayNick string) bool {
+	relayNUH := fmt.Sprintf("%s!*@*", relayNick)
+	return channel.lists[modes.BanMask].MatchMute(relayNUH) &&
+		!channel.lists[modes.ExceptMask].MatchMute(relayNUH)
+}
+
 func msgCommandToHistType(command string) (history.ItemType, error) {
 	switch command {
 	case "PRIVMSG":
