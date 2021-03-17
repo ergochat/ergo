@@ -45,6 +45,7 @@ type Item struct {
 	// an incoming or outgoing message). this lets us emulate the "query buffer" functionality
 	// required by CHATHISTORY:
 	CfCorrespondent string
+	IsBot           bool `json:"IsBot,omitempty"`
 }
 
 // HasMsgid tests whether a message has the message id `msgid`.

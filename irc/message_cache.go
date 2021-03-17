@@ -35,6 +35,7 @@ type MessageCache struct {
 	tags        map[string]string
 	source      string
 	command     string
+	isBot       bool
 
 	params []string
 
@@ -42,7 +43,7 @@ type MessageCache struct {
 	splitMessage utils.SplitMessage
 }
 
-func addAllTags(msg *ircmsg.Message, tags map[string]string, serverTime time.Time, msgid, accountName string) {
+func addAllTags(msg *ircmsg.Message, tags map[string]string, serverTime time.Time, msgid, accountName string, isBot bool) {
 	msg.UpdateTags(tags)
 	msg.SetTag("time", serverTime.Format(IRCv3TimestampFormat))
 	if accountName != "*" {
@@ -50,6 +51,9 @@ func addAllTags(msg *ircmsg.Message, tags map[string]string, serverTime time.Tim
 	}
 	if msgid != "" {
 		msg.SetTag("msgid", msgid)
+	}
+	if isBot {
+		msg.SetTag(caps.BotTagName, "")
 	}
 }
 
@@ -64,11 +68,12 @@ func (m *MessageCache) handleErr(server *Server, err error) bool {
 	return false
 }
 
-func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid string, nickmask, accountName string, tags map[string]string, command string, params ...string) (err error) {
+func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid string, nickmask, accountName string, isBot bool, tags map[string]string, command string, params ...string) (err error) {
 	m.time = serverTime
 	m.msgid = msgid
 	m.source = nickmask
 	m.accountName = accountName
+	m.isBot = isBot
 	m.tags = tags
 	m.command = command
 	m.params = params
@@ -87,7 +92,7 @@ func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid st
 		return
 	}
 
-	addAllTags(&msg, tags, serverTime, msgid, accountName)
+	addAllTags(&msg, tags, serverTime, msgid, accountName, isBot)
 	m.fullTags, err = msg.LineBytesStrict(false, MaxLineLen)
 	if m.handleErr(server, err) {
 		return
@@ -95,11 +100,12 @@ func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid st
 	return
 }
 
-func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) (err error) {
+func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountName string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) (err error) {
 	m.time = message.Time
 	m.msgid = message.Msgid
 	m.source = nickmask
 	m.accountName = accountName
+	m.isBot = isBot
 	m.tags = tags
 	m.command = command
 	m.target = target
@@ -130,7 +136,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 			}
 		}
 
-		addAllTags(&msg, tags, message.Time, message.Msgid, accountName)
+		addAllTags(&msg, tags, message.Time, message.Msgid, accountName, isBot)
 		m.fullTags, err = msg.LineBytesStrict(false, MaxLineLen)
 		if m.handleErr(server, err) {
 			return
@@ -158,7 +164,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 		// so a collision isn't expected until there are on the order of 2**32
 		// concurrent batches being relayed:
 		batchID := utils.GenerateSecretToken()[:utils.SecretTokenLength/2]
-		batch := composeMultilineBatch(batchID, nickmask, accountName, tags, command, target, message)
+		batch := composeMultilineBatch(batchID, nickmask, accountName, isBot, tags, command, target, message)
 		m.fullTagsMultiline = make([][]byte, len(batch))
 		for i, msg := range batch {
 			if forceTrailing {
@@ -184,7 +190,7 @@ func (m *MessageCache) Send(session *Session) {
 				session.sendBytes(m.plain, false)
 			} else {
 				// slowpath
-				session.sendFromClientInternal(false, m.time, m.msgid, m.source, m.accountName, nil, m.command, m.params...)
+				session.sendFromClientInternal(false, m.time, m.msgid, m.source, m.accountName, m.isBot, nil, m.command, m.params...)
 			}
 		}
 	} else if m.fullTagsMultiline != nil {
@@ -199,7 +205,7 @@ func (m *MessageCache) Send(session *Session) {
 			}
 		} else {
 			// slowpath
-			session.sendSplitMsgFromClientInternal(false, m.source, m.accountName, m.tags, m.command, m.target, m.splitMessage)
+			session.sendSplitMsgFromClientInternal(false, m.source, m.accountName, m.isBot, m.tags, m.command, m.target, m.splitMessage)
 		}
 	}
 }

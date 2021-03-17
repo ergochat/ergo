@@ -1095,9 +1095,9 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 				continue
 			}
 			if hasEventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "INVITE", nick, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "INVITE", nick, item.Message.Message)
 			} else {
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), NUHToNick(item.Nick), item.Message.Message))
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), NUHToNick(item.Nick), item.Message.Message))
 			}
 			continue
 		case history.Privmsg:
@@ -1118,11 +1118,11 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 			tags = item.Tags
 		}
 		if !isSelfMessage(&item) {
-			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, tags, command, nick, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.IsBot, tags, command, nick, item.Message)
 		} else {
 			// this message was sent *from* the client to another nick; the target is item.Params[0]
 			// substitute client's current nickmask in case client changed nick
-			rb.AddSplitMessageFromClient(details.nickMask, item.AccountName, tags, command, item.Params[0], item.Message)
+			rb.AddSplitMessageFromClient(details.nickMask, item.AccountName, item.IsBot, tags, command, item.Params[0], item.Message)
 		}
 	}
 
@@ -1244,8 +1244,9 @@ func (client *Client) SetOper(oper *Oper) {
 // this is annoying to do correctly
 func (client *Client) sendChghost(oldNickMask string, vhost string) {
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	for fClient := range client.Friends(caps.ChgHost) {
-		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, details.accountName, nil, "CHGHOST", details.username, vhost)
+		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, details.accountName, isBot, nil, "CHGHOST", details.username, vhost)
 	}
 }
 
@@ -1594,14 +1595,16 @@ func (client *Client) destroy(session *Session) {
 		quitMessage = "Exited"
 	}
 	splitQuitMessage := utils.MakeMessage(quitMessage)
+	isBot := client.HasMode(modes.Bot)
 	quitItem = history.Item{
 		Type:        history.Quit,
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     splitQuitMessage,
+		IsBot:       isBot,
 	}
 	var cache MessageCache
-	cache.Initialize(client.server, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, nil, "QUIT", quitMessage)
+	cache.Initialize(client.server, splitQuitMessage.Time, splitQuitMessage.Msgid, details.nickMask, details.accountName, isBot, nil, "QUIT", quitMessage)
 	for friend := range friends {
 		for _, session := range friend.Sessions() {
 			cache.Send(session)
@@ -1615,12 +1618,12 @@ func (client *Client) destroy(session *Session) {
 
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
-func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, tags map[string]string, command, target string, message utils.SplitMessage) {
+func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) {
 	if message.Is512() {
-		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, tags, command, target, message.Message)
+		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, isBot, tags, command, target, message.Message)
 	} else {
 		if session.capabilities.Has(caps.Multiline) {
-			for _, msg := range composeMultilineBatch(session.generateBatchID(), nickmask, accountName, tags, command, target, message) {
+			for _, msg := range composeMultilineBatch(session.generateBatchID(), nickmask, accountName, isBot, tags, command, target, message) {
 				session.SendRawMessage(msg, blocking)
 			}
 		} else {
@@ -1634,24 +1637,13 @@ func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, 
 					msgidSent = true
 					msgid = message.Msgid
 				}
-				session.sendFromClientInternal(blocking, message.Time, msgid, nickmask, accountName, tags, command, target, messagePair.Message)
+				session.sendFromClientInternal(blocking, message.Time, msgid, nickmask, accountName, isBot, tags, command, target, messagePair.Message)
 			}
 		}
 	}
 }
 
-// Sends a line with `nickmask` as the prefix, adding `time` and `account` tags if supported
-func (client *Client) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags map[string]string, command string, params ...string) (err error) {
-	for _, session := range client.Sessions() {
-		err_ := session.sendFromClientInternal(blocking, serverTime, msgid, nickmask, accountName, tags, command, params...)
-		if err_ != nil {
-			err = err_
-		}
-	}
-	return
-}
-
-func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, tags map[string]string, command string, params ...string) (err error) {
+func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Time, msgid string, nickmask, accountName string, isBot bool, tags map[string]string, command string, params ...string) (err error) {
 	msg := ircmsg.MakeMessage(tags, nickmask, command, params...)
 	// attach account-tag
 	if session.capabilities.Has(caps.AccountTag) && accountName != "*" {
@@ -1663,16 +1655,23 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 	}
 	// attach server-time
 	session.setTimeTag(&msg, serverTime)
+	// attach bot tag
+	if isBot && session.capabilities.Has(caps.MessageTags) {
+		msg.SetTag(caps.BotTagName, "")
+	}
 
 	return session.SendRawMessage(msg, blocking)
 }
 
-func composeMultilineBatch(batchID, fromNickMask, fromAccount string, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.Message) {
+func composeMultilineBatch(batchID, fromNickMask, fromAccount string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.Message) {
 	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType, target)
 	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
 	batchStart.SetTag("msgid", message.Msgid)
 	if fromAccount != "*" {
 		batchStart.SetTag("account", fromAccount)
+	}
+	if isBot {
+		batchStart.SetTag(caps.BotTagName, "")
 	}
 	result = append(result, batchStart)
 

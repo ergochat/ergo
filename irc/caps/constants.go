@@ -60,6 +60,8 @@ const (
 	MultilineConcatTag = "draft/multiline-concat"
 	// draft/relaymsg:
 	RelaymsgTagName = "draft/relaymsg"
+	// BOT mode: https://github.com/ircv3/ircv3-specifications/pull/439
+	BotTagName = "draft/bot"
 )
 
 func init() {
