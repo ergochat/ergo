@@ -1288,6 +1288,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     message,
+		IsBot:       isBot,
 	}, details.account)
 
 	channel.MarkDirty(IncludeTopic)
@@ -1370,6 +1371,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	chname := channel.Name()
 
 	if !client.server.Config().Server.Compatibility.allowTruncation {
@@ -1402,7 +1404,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
 	var cache MessageCache
-	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, client.HasMode(modes.Bot), clientOnlyTags, command, chname, message)
+	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, isBot, clientOnlyTags, command, chname, message)
 	for _, member := range channel.Members() {
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG or OpModerated
@@ -1430,6 +1432,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
 			Tags:        clientOnlyTags,
+			IsBot:       isBot,
 		}, details.account)
 	}
 }
