@@ -1140,6 +1140,11 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 		if session.certfp != "" {
 			service.Notice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
 		}
+		for _, capStr := range session.caps {
+			if capStr != "" {
+				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:  %s"), capStr))
+			}
+		}
 	}
 }
 

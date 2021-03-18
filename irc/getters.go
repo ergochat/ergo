@@ -9,6 +9,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/languages"
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/utils"
@@ -74,6 +75,7 @@ type SessionData struct {
 	deviceID  string
 	connInfo  string
 	sessionID int64
+	caps      []string
 }
 
 func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (data []SessionData, currentIndex int) {
@@ -102,6 +104,7 @@ func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (da
 		if hasPrivs {
 			data[i].connInfo = utils.DescribeConn(session.socket.conn.UnderlyingConn().Conn)
 		}
+		data[i].caps = session.capabilities.Strings(caps.Cap302, nil, 300)
 	}
 	return
 }
