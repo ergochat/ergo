@@ -107,6 +107,7 @@ func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (da
 }
 
 func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time, back bool) {
+	config := client.server.Config()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -126,11 +127,12 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
 	client.sessions = newSessions
-	if client.autoAway {
-		back = true
-		client.autoAway = false
-		client.away = false
+	// TODO(#1551) there should be a cap to opt out of this behavior on a session
+	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 		client.awayMessage = ""
+		if len(client.sessions) == 1 {
+			back = true
+		}
 	}
 	return true, len(client.sessions), lastSeen, back
 }
@@ -196,18 +198,52 @@ func (client *Client) Hostname() string {
 
 func (client *Client) Away() (result bool, message string) {
 	client.stateMutex.Lock()
-	result, message = client.away, client.awayMessage
+	message = client.awayMessage
 	client.stateMutex.Unlock()
+	result = client.awayMessage != ""
 	return
 }
 
-func (client *Client) SetAway(away bool, awayMessage string) (changed bool) {
+func (session *Session) SetAway(awayMessage string) {
+	client := session.client
+	config := client.server.Config()
+
 	client.stateMutex.Lock()
-	changed = away != client.away
-	client.away = away
-	client.awayMessage = awayMessage
-	client.stateMutex.Unlock()
+	defer client.stateMutex.Unlock()
+
+	session.awayMessage = awayMessage
+	session.awayAt = time.Now().UTC()
+
+	autoAway := client.registered && client.alwaysOn && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)
+	if autoAway {
+		client.setAutoAwayNoMutex(config)
+	} else {
+		client.awayMessage = awayMessage
+	}
 	return
+}
+
+func (client *Client) setAutoAwayNoMutex(config *Config) {
+	// aggregate the away statuses of the individual sessions:
+	var globalAwayState string
+	var awaySetAt time.Time
+	for _, cSession := range client.sessions {
+		if cSession.awayMessage == "" {
+			// a session is active, we are not auto-away
+			client.awayMessage = ""
+			return
+		} else if cSession.awayAt.After(awaySetAt) {
+			// choose the latest available away message from any session
+			globalAwayState = cSession.awayMessage
+			awaySetAt = cSession.awayAt
+		}
+	}
+	if awaySetAt.IsZero() {
+		// no sessions, enable auto-away
+		client.awayMessage = config.languageManager.Translate(client.languages, `User is currently disconnected`)
+	} else {
+		client.awayMessage = globalAwayState
+	}
 }
 
 func (client *Client) AlwaysOn() (alwaysOn bool) {
@@ -267,12 +303,6 @@ func (client *Client) AwayMessage() (result string) {
 	result = client.awayMessage
 	client.stateMutex.RUnlock()
 	return
-}
-
-func (client *Client) SetAwayMessage(message string) {
-	client.stateMutex.Lock()
-	client.awayMessage = message
-	client.stateMutex.Unlock()
 }
 
 func (client *Client) Account() string {

@@ -352,7 +352,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		}
 	}
 
-	client.SetAway(isAway, awayMessage)
+	rb.session.SetAway(awayMessage)
 
 	if isAway {
 		rb.Add(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
@@ -439,7 +439,7 @@ func brbHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 
 	if len(client.Sessions()) == 1 {
 		// true BRB
-		client.SetAway(true, message)
+		rb.session.SetAway(message)
 	}
 
 	return true
