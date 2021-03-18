@@ -92,15 +92,16 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			return
 		}
 
+		isBot := client.HasMode(modes.Bot)
 		for _, member := range channel.Members() {
 			for _, session := range member.Sessions() {
 				// see discussion on #865: clients do not understand how to do local echo
 				// of roleplay commands, so send them a copy whether they have echo-message
 				// or not
 				if rb.session == session {
-					rb.AddSplitMessageFromClient(sourceMask, "", nil, "PRIVMSG", targetString, splitMessage)
+					rb.AddSplitMessageFromClient(sourceMask, "*", isBot, nil, "PRIVMSG", targetString, splitMessage)
 				} else {
-					session.sendSplitMsgFromClientInternal(false, sourceMask, "*", nil, "PRIVMSG", targetString, splitMessage)
+					session.sendSplitMsgFromClientInternal(false, sourceMask, "*", isBot, nil, "PRIVMSG", targetString, splitMessage)
 				}
 			}
 		}
@@ -125,8 +126,9 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 
 		cnick := client.Nick()
 		tnick := user.Nick()
+		isBot := client.HasMode(modes.Bot)
 		for _, session := range user.Sessions() {
-			session.sendSplitMsgFromClientInternal(false, sourceMask, "*", nil, "PRIVMSG", tnick, splitMessage)
+			session.sendSplitMsgFromClientInternal(false, sourceMask, "*", isBot, nil, "PRIVMSG", tnick, splitMessage)
 		}
 		if away, awayMessage := user.Away(); away {
 			//TODO(dan): possibly implement cooldown of away notifications to users

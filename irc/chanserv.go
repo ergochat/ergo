@@ -271,7 +271,7 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 				if member.Account() == change.Arg {
 					applied, change := channel.applyModeToMember(client, change, rb)
 					if applied {
-						announceCmodeChanges(channel, modes.ModeChanges{change}, server.name, "*", "", rb)
+						announceCmodeChanges(channel, modes.ModeChanges{change}, server.name, "*", "", false, rb)
 					}
 				}
 			}
@@ -334,7 +334,7 @@ func csOpHandler(service *ircService, server *Server, client *Client, command st
 		},
 		rb)
 	if applied {
-		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, server.name, "*", "", rb)
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, server.name, "*", "", false, rb)
 	}
 
 	service.Notice(rb, client.t("Successfully granted operator privileges"))
@@ -386,7 +386,8 @@ func csDeopHandler(service *ircService, server *Server, client *Client, command 
 	// the changes as coming from chanserv
 	applied := channel.ApplyChannelModeChanges(client, false, modeChanges, rb)
 	details := client.Details()
-	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, rb)
+	isBot := client.HasMode(modes.Bot)
+	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, isBot, rb)
 
 	if len(applied) == 0 {
 		return
@@ -437,7 +438,7 @@ func csRegisterHandler(service *ircService, server *Server, client *Client, comm
 		},
 		rb)
 	if applied {
-		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, service.prefix, "*", "", rb)
+		announceCmodeChanges(channelInfo, modes.ModeChanges{change}, service.prefix, "*", "", false, rb)
 	}
 }
 

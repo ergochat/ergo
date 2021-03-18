@@ -729,6 +729,7 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 // Join joins the given client to this channel (if they can be joined).
 func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *ResponseBuffer) (joinErr error, forward string) {
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 
 	channel.stateMutex.RLock()
 	chname := channel.name
@@ -824,6 +825,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
 			Message:     message,
+			IsBot:       isBot,
 		}
 		histItem.Params[0] = details.realname
 		channel.AddHistoryItem(histItem, details.account)
@@ -840,7 +842,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	// cache the most common case (JOIN without extended-join)
 	var cache MessageCache
-	cache.Initialize(channel.server, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
+	cache.Initialize(channel.server, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "JOIN", chname)
 	isAway, awayMessage := client.Away()
 	for _, member := range channel.Members() {
 		if respectAuditorium {
@@ -859,7 +861,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 				continue
 			}
 			if session.capabilities.Has(caps.ExtendedJoin) {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "JOIN", chname, details.accountName, details.realname)
 			} else {
 				cache.Send(session)
 			}
@@ -867,15 +869,15 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 				session.Send(nil, client.server.name, "MODE", chname, modestr, details.nick)
 			}
 			if isAway && session.capabilities.Has(caps.AwayNotify) {
-				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
+				session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY", awayMessage)
 			}
 		}
 	}
 
 	if rb.session.capabilities.Has(caps.ExtendedJoin) {
-		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname, details.accountName, details.realname)
+		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "JOIN", chname, details.accountName, details.realname)
 	} else {
-		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "JOIN", chname)
+		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "JOIN", chname)
 	}
 
 	if rb.session.client == client {
@@ -988,6 +990,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	splitMessage := utils.MakeMessage(message)
 
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	params := make([]string, 1, 2)
 	params[0] = chname
 	if message != "" {
@@ -996,7 +999,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) &&
 		clientData.modes.HighestChannelUserMode() == modes.Mode(0)
 	var cache MessageCache
-	cache.Initialize(channel.server, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+	cache.Initialize(channel.server, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, isBot, nil, "PART", params...)
 	for _, member := range channel.Members() {
 		if respectAuditorium {
 			channel.stateMutex.RLock()
@@ -1010,10 +1013,10 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 			cache.Send(session)
 		}
 	}
-	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+	rb.AddFromClient(splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, isBot, nil, "PART", params...)
 	for _, session := range client.Sessions() {
 		if session != rb.session {
-			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, nil, "PART", params...)
+			session.sendFromClientInternal(false, splitMessage.Time, splitMessage.Msgid, details.nickMask, details.accountName, isBot, nil, "PART", params...)
 		}
 	}
 
@@ -1023,6 +1026,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
 			Message:     splitMessage,
+			IsBot:       isBot,
 		}, details.account)
 	}
 
@@ -1133,19 +1137,19 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		nick := NUHToNick(item.Nick)
 		switch item.Type {
 		case history.Privmsg:
-			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "PRIVMSG", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.IsBot, item.Tags, "PRIVMSG", chname, item.Message)
 		case history.Notice:
-			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "NOTICE", chname, item.Message)
+			rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.IsBot, item.Tags, "NOTICE", chname, item.Message)
 		case history.Tagmsg:
 			if eventPlayback {
-				rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.Tags, "TAGMSG", chname, item.Message)
+				rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.IsBot, item.Tags, "TAGMSG", chname, item.Message)
 			}
 		case history.Join:
 			if eventPlayback {
 				if extendedJoin {
-					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "JOIN", chname, item.AccountName, item.Params[0])
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "JOIN", chname, item.AccountName, item.Params[0])
 				} else {
-					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "JOIN", chname)
+					rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "JOIN", chname)
 				}
 			} else {
 				if !playJoinsAsPrivmsg {
@@ -1157,48 +1161,48 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				} else {
 					message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
 				}
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Part:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "PART", chname, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "PART", chname, item.Message.Message)
 			} else {
 				if !playJoinsAsPrivmsg {
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Kick:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "KICK", chname, item.Params[0], item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "KICK", chname, item.Params[0], item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Quit:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "QUIT", item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "QUIT", item.Message.Message)
 			} else {
 				if !playJoinsAsPrivmsg {
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Nick:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "NICK", item.Params[0])
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "NICK", item.Params[0])
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Topic:
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "TOPIC", chname, item.Message.Message)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "TOPIC", chname, item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s set the channel topic to: %[2]s"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Mode:
 			params := make([]string, len(item.Message.Split)+1)
@@ -1207,10 +1211,10 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				params[i+1] = pair.Message
 			}
 			if eventPlayback {
-				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, nil, "MODE", params...)
+				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "MODE", params...)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s set channel modes: %[2]s"), nick, strings.Join(params[1:], " "))
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		}
 	}
@@ -1268,12 +1272,13 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	channel.stateMutex.Unlock()
 
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	message := utils.MakeMessage(topic)
-	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "TOPIC", chname, topic)
+	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "TOPIC", chname, topic)
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session != rb.session {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "TOPIC", chname, topic)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "TOPIC", chname, topic)
 			}
 		}
 	}
@@ -1283,6 +1288,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     message,
+		IsBot:       isBot,
 	}, details.account)
 
 	channel.MarkDirty(IncludeTopic)
@@ -1365,6 +1371,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	chname := channel.Name()
 
 	if !client.server.Config().Server.Compatibility.allowTruncation {
@@ -1397,7 +1404,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
 
 	var cache MessageCache
-	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, clientOnlyTags, command, chname, message)
+	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, isBot, clientOnlyTags, command, chname, message)
 	for _, member := range channel.Members() {
 		if minPrefixMode != modes.Mode(0) && !channel.ClientIsAtLeast(member, minPrefixMode) {
 			// STATUSMSG or OpModerated
@@ -1425,6 +1432,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			Nick:        details.nickMask,
 			AccountName: details.accountName,
 			Tags:        clientOnlyTags,
+			IsBot:       isBot,
 		}, details.account)
 	}
 }
@@ -1519,23 +1527,25 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 
 	message := utils.MakeMessage(comment)
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 
 	targetNick := target.Nick()
 	chname := channel.Name()
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			if session != rb.session {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "KICK", chname, targetNick, comment)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "KICK", chname, targetNick, comment)
 			}
 		}
 	}
-	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, nil, "KICK", chname, targetNick, comment)
+	rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "KICK", chname, targetNick, comment)
 
 	histItem := history.Item{
 		Type:        history.Kick,
 		Nick:        details.nickMask,
 		AccountName: details.accountName,
 		Message:     message,
+		IsBot:       isBot,
 	}
 	histItem.Params[0] = targetNick
 	channel.AddHistoryItem(histItem, details.account)
@@ -1563,7 +1573,7 @@ func (channel *Channel) Purge(source string) {
 		tnick := member.Nick()
 		msgid := utils.GenerateSecretToken()
 		for _, session := range member.Sessions() {
-			session.sendFromClientInternal(false, now, msgid, source, "*", nil, "KICK", chname, tnick, member.t("This channel has been purged by the server administrators and cannot be used"))
+			session.sendFromClientInternal(false, now, msgid, source, "*", false, nil, "KICK", chname, tnick, member.t("This channel has been purged by the server administrators and cannot be used"))
 		}
 		member.removeChannel(channel)
 	}
@@ -1600,6 +1610,7 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	}
 
 	details := inviter.Details()
+	isBot := inviter.HasMode(modes.Bot)
 	tDetails := invitee.Details()
 	tnick := invitee.Nick()
 	message := utils.MakeMessage(chname)
@@ -1614,13 +1625,15 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		}
 		for _, session := range member.Sessions() {
 			if session.capabilities.Has(caps.InviteNotify) {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "INVITE", tnick, chname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "INVITE", tnick, chname)
 			}
 		}
 	}
 
 	rb.Add(nil, inviter.server.name, RPL_INVITING, details.nick, tnick, chname)
-	invitee.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, nil, "INVITE", tnick, chname)
+	for _, iSession := range invitee.Sessions() {
+		iSession.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "INVITE", tnick, chname)
+	}
 	if away, awayMessage := invitee.Away(); away {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, details.nick, tnick, awayMessage)
 	}

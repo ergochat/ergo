@@ -11,6 +11,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/oragono/oragono/irc/history"
+	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 )
@@ -84,12 +85,14 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		return err
 	}
 
+	isBot := !isSanick && client.HasMode(modes.Bot)
 	message := utils.MakeMessage("")
 	histItem := history.Item{
 		Type:        history.Nick,
 		Nick:        origNickMask,
 		AccountName: details.accountName,
 		Message:     message,
+		IsBot:       isBot,
 	}
 	histItem.Params[0] = assignedNickname
 
@@ -101,10 +104,10 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 			target.server.snomasks.Send(sno.LocalNicks, fmt.Sprintf(ircfmt.Unescape("Operator %s changed nickname of $%s$r to %s"), client.Nick(), details.nick, assignedNickname))
 		}
 		target.server.whoWas.Append(details.WhoWas)
-		rb.AddFromClient(message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", assignedNickname)
+		rb.AddFromClient(message.Time, message.Msgid, origNickMask, details.accountName, isBot, nil, "NICK", assignedNickname)
 		for session := range target.Friends() {
 			if session != rb.session {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, nil, "NICK", assignedNickname)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, isBot, nil, "NICK", assignedNickname)
 			}
 		}
 	}

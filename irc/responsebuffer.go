@@ -96,7 +96,7 @@ func (rb *ResponseBuffer) Broadcast(tags map[string]string, prefix string, comma
 }
 
 // AddFromClient adds a new message from a specific client to our queue.
-func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMask string, fromAccount string, tags map[string]string, command string, params ...string) {
+func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMask string, fromAccount string, isBot bool, tags map[string]string, command string, params ...string) {
 	msg := ircmsg.MakeMessage(nil, fromNickMask, command, params...)
 	if rb.session.capabilities.Has(caps.MessageTags) {
 		msg.UpdateTags(tags)
@@ -107,8 +107,13 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 		msg.SetTag("account", fromAccount)
 	}
 	// attach message-id
-	if len(msgid) > 0 && rb.session.capabilities.Has(caps.MessageTags) {
-		msg.SetTag("msgid", msgid)
+	if rb.session.capabilities.Has(caps.MessageTags) {
+		if len(msgid) != 0 {
+			msg.SetTag("msgid", msgid)
+		}
+		if isBot {
+			msg.SetTag(caps.BotTagName, "")
+		}
 	}
 	// attach server-time
 	rb.session.setTimeTag(&msg, time)
@@ -117,17 +122,17 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 }
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
-func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, tags map[string]string, command string, target string, message utils.SplitMessage) {
+func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, isBot bool, tags map[string]string, command string, target string, message utils.SplitMessage) {
 	if message.Is512() {
 		if message.Message == "" {
 			// XXX this is a TAGMSG
-			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target)
+			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, isBot, tags, command, target)
 		} else {
-			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, tags, command, target, message.Message)
+			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, isBot, tags, command, target, message.Message)
 		}
 	} else {
 		if rb.session.capabilities.Has(caps.Multiline) {
-			batch := composeMultilineBatch(rb.session.generateBatchID(), fromNickMask, fromAccount, tags, command, target, message)
+			batch := composeMultilineBatch(rb.session.generateBatchID(), fromNickMask, fromAccount, isBot, tags, command, target, message)
 			rb.setNestedBatchTag(&batch[0])
 			rb.setNestedBatchTag(&batch[len(batch)-1])
 			rb.messages = append(rb.messages, batch...)
@@ -137,25 +142,26 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 				if i == 0 {
 					msgid = message.Msgid
 				}
-				rb.AddFromClient(message.Time, msgid, fromNickMask, fromAccount, tags, command, target, messagePair.Message)
+				rb.AddFromClient(message.Time, msgid, fromNickMask, fromAccount, isBot, tags, command, target, messagePair.Message)
 			}
 		}
 	}
 }
 
 func (rb *ResponseBuffer) addEchoMessage(tags map[string]string, nickMask, accountName, command, target string, message utils.SplitMessage) {
+	// TODO fix isBot here
 	if rb.session.capabilities.Has(caps.EchoMessage) {
 		hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
 		if command == "TAGMSG" {
 			if hasTagsCap {
-				rb.AddFromClient(message.Time, message.Msgid, nickMask, accountName, tags, command, target)
+				rb.AddFromClient(message.Time, message.Msgid, nickMask, accountName, false, tags, command, target)
 			}
 		} else {
 			tagsToSend := tags
 			if !hasTagsCap {
 				tagsToSend = nil
 			}
-			rb.AddSplitMessageFromClient(nickMask, accountName, tagsToSend, command, target, message)
+			rb.AddSplitMessageFromClient(nickMask, accountName, false, tagsToSend, command, target, message)
 		}
 	}
 }

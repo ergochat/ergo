@@ -367,11 +367,12 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
 	// dispatch away-notify
 	details := client.Details()
+	isBot := client.HasMode(modes.Bot)
 	for session := range client.Friends(caps.AwayNotify) {
 		if isAway {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY", awayMessage)
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY", awayMessage)
 		} else {
-			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, nil, "AWAY")
+			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY")
 		}
 	}
 }
@@ -1689,12 +1690,13 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	// process mode changes, include list operations (an empty set of changes does a list)
 	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
 	details := client.Details()
-	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, rb)
+	isBot := client.HasMode(modes.Bot)
+	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, isBot, rb)
 
 	return false
 }
 
-func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, accountName, account string, rb *ResponseBuffer) {
+func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, accountName, account string, isBot bool, rb *ResponseBuffer) {
 	// send out changes
 	if len(applied) > 0 {
 		message := utils.MakeMessage("")
@@ -1703,11 +1705,11 @@ func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, a
 			message.Split = append(message.Split, utils.MessagePair{Message: changeString})
 		}
 		args := append([]string{channel.name}, changeStrings...)
-		rb.AddFromClient(message.Time, message.Msgid, source, accountName, nil, "MODE", args...)
+		rb.AddFromClient(message.Time, message.Msgid, source, accountName, isBot, nil, "MODE", args...)
 		for _, member := range channel.Members() {
 			for _, session := range member.Sessions() {
 				if session != rb.session {
-					session.sendFromClientInternal(false, message.Time, message.Msgid, source, accountName, nil, "MODE", args...)
+					session.sendFromClientInternal(false, message.Time, message.Msgid, source, accountName, isBot, nil, "MODE", args...)
 				}
 			}
 		}
@@ -1716,6 +1718,7 @@ func announceCmodeChanges(channel *Channel, applied modes.ModeChanges, source, a
 			Nick:        source,
 			AccountName: accountName,
 			Message:     message,
+			IsBot:       isBot,
 		}, account)
 	}
 }
@@ -2204,17 +2207,18 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 		}
 
+		isBot := client.HasMode(modes.Bot)
 		for _, session := range deliverySessions {
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
 			// don't send TAGMSG at all if they don't have the tags cap
 			if histType == history.Tagmsg && hasTagsCap {
-				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, tags, command, tnick)
+				session.sendFromClientInternal(false, message.Time, message.Msgid, nickMaskString, accountName, isBot, tags, command, tnick)
 			} else if histType != history.Tagmsg && !(session.isTor && message.IsRestrictedCTCPMessage()) {
 				tagsToSend := tags
 				if !hasTagsCap {
 					tagsToSend = nil
 				}
-				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, tagsToSend, command, tnick, message)
+				session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, isBot, tagsToSend, command, tnick, message)
 			}
 		}
 
@@ -2674,9 +2678,9 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			}
 
 			if session == rb.session {
-				rb.AddSplitMessageFromClient(nick, "*", tagsToUse, "PRIVMSG", channelName, message)
+				rb.AddSplitMessageFromClient(nick, "*", false, tagsToUse, "PRIVMSG", channelName, message)
 			} else {
-				session.sendSplitMsgFromClientInternal(false, nick, "*", tagsToUse, "PRIVMSG", channelName, message)
+				session.sendSplitMsgFromClientInternal(false, nick, "*", false, tagsToUse, "PRIVMSG", channelName, message)
 			}
 		}
 	}
@@ -2835,11 +2839,12 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 	now := time.Now().UTC()
 	friends := client.Friends(caps.SetName)
 	delete(friends, rb.session)
+	isBot := client.HasMode(modes.Bot)
 	for session := range friends {
-		session.sendFromClientInternal(false, now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
+		session.sendFromClientInternal(false, now, "", details.nickMask, details.accountName, isBot, nil, "SETNAME", details.realname)
 	}
 	// respond to the user unconditionally, even if they don't have the cap
-	rb.AddFromClient(now, "", details.nickMask, details.accountName, nil, "SETNAME", details.realname)
+	rb.AddFromClient(now, "", details.nickMask, details.accountName, isBot, nil, "SETNAME", details.realname)
 	return false
 }
 
