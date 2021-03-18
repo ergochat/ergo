@@ -22,6 +22,9 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/goshuirc/irc-go/ircutils"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/flatip"
@@ -30,7 +33,6 @@ import (
 	"github.com/oragono/oragono/irc/modes"
 	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
@@ -346,10 +348,7 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	if len(msg.Params) > 0 {
 		isAway = true
 		awayMessage = msg.Params[0]
-		awayLen := server.Config().Limits.AwayLen
-		if len(awayMessage) > awayLen {
-			awayMessage = awayMessage[:awayLen]
-		}
+		awayMessage = ircutils.TruncateUTF8Safe(awayMessage, server.Config().Limits.AwayLen)
 	}
 
 	rb.session.SetAway(awayMessage)
