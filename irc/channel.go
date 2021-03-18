@@ -13,6 +13,8 @@ import (
 
 	"sync"
 
+	"github.com/goshuirc/irc-go/ircutils"
+
 	"github.com/oragono/oragono/irc/caps"
 	"github.com/oragono/oragono/irc/history"
 	"github.com/oragono/oragono/irc/modes"
@@ -1259,10 +1261,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		return
 	}
 
-	topicLimit := client.server.Config().Limits.TopicLen
-	if len(topic) > topicLimit {
-		topic = topic[:topicLimit]
-	}
+	topic = ircutils.TruncateUTF8Safe(topic, client.server.Config().Limits.TopicLen)
 
 	channel.stateMutex.Lock()
 	chname := channel.name
@@ -1520,10 +1519,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		return
 	}
 
-	kicklimit := channel.server.Config().Limits.KickLen
-	if len(comment) > kicklimit {
-		comment = comment[:kicklimit]
-	}
+	comment = ircutils.TruncateUTF8Safe(comment, channel.server.Config().Limits.KickLen)
 
 	message := utils.MakeMessage(comment)
 	details := client.Details()
