@@ -487,7 +487,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 	}
 
 	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-		client.awayMessage = client.t("User is currently disconnected")
+		client.setAutoAwayNoMutex(config)
 	}
 }
 
