@@ -21,11 +21,12 @@ github.com/go-sql-driver/mysql
 # github.com/gorilla/websocket v1.4.2 => github.com/oragono/websocket v1.4.2-oragono1
 ## explicit
 github.com/gorilla/websocket
-# github.com/goshuirc/irc-go v0.0.0-20210311004346-ea7a188a73fe
+# github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef
 ## explicit
 github.com/goshuirc/irc-go/ircfmt
 github.com/goshuirc/irc-go/ircmsg
 github.com/goshuirc/irc-go/ircreader
+github.com/goshuirc/irc-go/ircutils
 # github.com/onsi/ginkgo v1.12.0
 ## explicit
 # github.com/onsi/gomega v1.9.0
