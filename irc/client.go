@@ -78,8 +78,6 @@ type Client struct {
 	accountName        string // display name of the account: uncasefolded, '*' if not logged in
 	accountRegDate     time.Time
 	accountSettings    AccountSettings
-	away               bool
-	autoAway           bool
 	awayMessage        string
 	brbTimer           BrbTimer
 	channels           ChannelSet
@@ -176,6 +174,9 @@ type Session struct {
 	batchCounter uint32
 
 	quitMessage string
+
+	awayMessage string
+	awayAt      time.Time
 
 	capabilities caps.Set
 	capState     caps.State
@@ -486,9 +487,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 	}
 
 	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-		client.autoAway = true
-		client.away = true
-		client.awayMessage = client.t("User is currently disconnected")
+		client.setAutoAwayNoMutex(config)
 	}
 }
 
@@ -675,7 +674,7 @@ func (client *Client) run(session *Session) {
 			session.playResume()
 			session.resumeDetails = nil
 			client.brbTimer.Disable()
-			client.SetAway(false, "") // clear BRB message if any
+			session.SetAway("") // clear BRB message if any
 		} else {
 			client.playReattachMessages(session)
 		}
@@ -1459,15 +1458,13 @@ func (client *Client) destroy(session *Session) {
 		client.dirtyBits |= IncludeLastSeen
 	}
 
-	autoAway := false
+	becameAutoAway := false
 	var awayMessage string
-	if alwaysOn && !client.away && remainingSessions == 0 &&
-		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-		autoAway = true
-		client.autoAway = true
-		client.away = true
-		awayMessage = config.languageManager.Translate(client.languages, `User is currently disconnected`)
-		client.awayMessage = awayMessage
+	if alwaysOn && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+		wasAway := client.awayMessage != ""
+		client.setAutoAwayNoMutex(config)
+		awayMessage = client.awayMessage
+		becameAutoAway = !wasAway && awayMessage != ""
 	}
 
 	if client.registrationTimer != nil {
@@ -1524,7 +1521,7 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.Remove(registered, invisible, operator)
 	}
 
-	if autoAway {
+	if becameAutoAway {
 		dispatchAwayNotify(client, true, awayMessage)
 	}
 

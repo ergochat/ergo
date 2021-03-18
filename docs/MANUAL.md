@@ -621,10 +621,6 @@ In this section, we give an overview of the modes Oragono supports.
 
 These are the modes which can be set on you when you're connected.
 
-### +a - Away
-
-If this mode is set, you're marked as being away. This mode is set with the /AWAY command.
-
 ### +i - Invisible
 
 If this mode is set, you're marked as 'invisible'. This means that your channels won't be shown when users `/WHOIS` you (except for IRC operators, they can see all the channels you're in).
