@@ -16,7 +16,8 @@ require (
 	github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/stretchr/testify v1.4.0 // indirect
-	github.com/tidwall/buntdb v1.1.4
+	github.com/tidwall/buntdb v1.2.3
+	github.com/tidwall/rtree v0.0.0-20201027154624-32188eeb08a8 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf // indirect

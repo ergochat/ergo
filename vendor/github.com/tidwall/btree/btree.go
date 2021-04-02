@@ -4,35 +4,39 @@
 
 package btree
 
+import "sync"
+
 const maxItems = 255
 const minItems = maxItems * 40 / 100
 
+type cow struct {
+	_ int // it cannot be an empty struct
+}
+
 type node struct {
+	cow      *cow
 	leaf     bool
 	numItems int16
 	items    [maxItems]interface{}
 	children *[maxItems + 1]*node
 }
 
-type justaLeaf struct {
-	leaf     bool
-	numItems int16
-	items    [maxItems]interface{}
-}
-
 // BTree is an ordered set items
 type BTree struct {
+	mu     *sync.RWMutex
+	cow    *cow
 	root   *node
 	length int
 	less   func(a, b interface{}) bool
 	lnode  *node
 }
 
-func newNode(leaf bool) *node {
+func (tr *BTree) newNode(leaf bool) *node {
 	n := &node{leaf: leaf}
 	if !leaf {
 		n.children = new([maxItems + 1]*node)
 	}
+	n.cow = tr.cow
 	return n
 }
 
@@ -48,6 +52,7 @@ func New(less func(a, b interface{}) bool) *BTree {
 		panic("nil less")
 	}
 	tr := new(BTree)
+	tr.mu = new(sync.RWMutex)
 	tr.less = less
 	return tr
 }
@@ -85,8 +90,7 @@ func (n *node) find(key interface{}, less func(a, b interface{}) bool,
 			high = mid - 1
 		}
 	}
-	if low > 0 && !less(n.items[low-1], key) &&
-		!less(key, n.items[low-1]) {
+	if low > 0 && !less(n.items[low-1], key) {
 		index = low - 1
 		found = true
 	} else {
@@ -109,22 +113,29 @@ func (tr *BTree) SetHint(item interface{}, hint *PathHint) (prev interface{}) {
 	if item == nil {
 		panic("nil item")
 	}
+	tr.mu.Lock()
+	prev = tr.setHint(item, hint)
+	tr.mu.Unlock()
+	return prev
+}
+
+func (tr *BTree) setHint(item interface{}, hint *PathHint) (prev interface{}) {
 	if tr.root == nil {
-		tr.root = newNode(true)
+		tr.root = tr.newNode(true)
 		tr.root.items[0] = item
 		tr.root.numItems = 1
 		tr.length = 1
 		return
 	}
-	prev = tr.root.set(item, tr.less, hint, 0)
+	prev = tr.nodeSet(&tr.root, item, tr.less, hint, 0)
 	if prev != nil {
 		return prev
 	}
 	tr.lnode = nil
 	if tr.root.numItems == maxItems {
-		n := tr.root
-		right, median := n.split()
-		tr.root = newNode(false)
+		n := tr.cowLoad(&tr.root)
+		right, median := tr.nodeSplit(n)
+		tr.root = tr.newNode(false)
 		tr.root.children[0] = n
 		tr.root.items[0] = median
 		tr.root.children[1] = right
@@ -139,8 +150,8 @@ func (tr *BTree) Set(item interface{}) (prev interface{}) {
 	return tr.SetHint(item, nil)
 }
 
-func (n *node) split() (right *node, median interface{}) {
-	right = newNode(n.leaf)
+func (tr *BTree) nodeSplit(n *node) (right *node, median interface{}) {
+	right = tr.newNode(n.leaf)
 	median = n.items[maxItems/2]
 	copy(right.items[:maxItems/2], n.items[maxItems/2+1:])
 	if !n.leaf {
@@ -159,9 +170,30 @@ func (n *node) split() (right *node, median interface{}) {
 	return right, median
 }
 
-func (n *node) set(item interface{}, less func(a, b interface{}) bool,
-	hint *PathHint, depth int,
+//go:noinline
+func (tr *BTree) copy(n *node) *node {
+	n2 := *n
+	n2.cow = tr.cow
+	copy(n2.items[:], n.items[:])
+	if n.children != nil {
+		n2.children = new([maxItems + 1]*node)
+		copy(n2.children[:], n.children[:])
+	}
+	return &n2
+}
+
+// cowLoad loaded the provide node and, if needed, performs a copy-on-write.
+func (tr *BTree) cowLoad(cn **node) *node {
+	if (*cn).cow != tr.cow {
+		*cn = tr.copy(*cn)
+	}
+	return *cn
+}
+
+func (tr *BTree) nodeSet(cn **node, item interface{},
+	less func(a, b interface{}) bool, hint *PathHint, depth int,
 ) (prev interface{}) {
+	n := tr.cowLoad(cn)
 	i, found := n.find(item, less, hint, depth)
 	if found {
 		prev = n.items[i]
@@ -174,12 +206,12 @@ func (n *node) set(item interface{}, less func(a, b interface{}) bool,
 		n.numItems++
 		return nil
 	}
-	prev = n.children[i].set(item, less, hint, depth+1)
+	prev = tr.nodeSet(&n.children[i], item, less, hint, depth+1)
 	if prev != nil {
 		return prev
 	}
 	if n.children[i].numItems == maxItems {
-		right, median := n.children[i].split()
+		right, median := tr.nodeSplit(n.children[i])
 		copy(n.children[i+1:], n.children[i:])
 		copy(n.items[i+1:], n.items[i:])
 		n.items[i] = median
@@ -216,6 +248,8 @@ func (tr *BTree) Get(key interface{}) interface{} {
 
 // GetHint gets a value for key using a path hint
 func (tr *BTree) GetHint(key interface{}, hint *PathHint) interface{} {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root == nil || key == nil {
 		return nil
 	}
@@ -246,10 +280,17 @@ func (tr *BTree) Delete(key interface{}) interface{} {
 
 // DeleteHint deletes a value for a key using a path hint
 func (tr *BTree) DeleteHint(key interface{}, hint *PathHint) interface{} {
+	tr.mu.Lock()
+	prev := tr.deleteHint(key, hint)
+	tr.mu.Unlock()
+	return prev
+}
+
+func (tr *BTree) deleteHint(key interface{}, hint *PathHint) interface{} {
 	if tr.root == nil || key == nil {
 		return nil
 	}
-	prev := tr.root.delete(false, key, tr.less, hint, 0)
+	prev := tr.delete(&tr.root, false, key, tr.less, hint, 0)
 	if prev == nil {
 		return nil
 	}
@@ -264,9 +305,10 @@ func (tr *BTree) DeleteHint(key interface{}, hint *PathHint) interface{} {
 	return prev
 }
 
-func (n *node) delete(max bool, key interface{},
+func (tr *BTree) delete(cn **node, max bool, key interface{},
 	less func(a, b interface{}) bool, hint *PathHint, depth int,
 ) interface{} {
+	n := tr.cowLoad(cn)
 	var i int16
 	var found bool
 	if max {
@@ -290,74 +332,79 @@ func (n *node) delete(max bool, key interface{},
 	if found {
 		if max {
 			i++
-			prev = n.children[i].delete(true, "", less, nil, 0)
+			prev = tr.delete(&n.children[i], true, "", less, nil, 0)
 		} else {
 			prev = n.items[i]
-			maxItem := n.children[i].delete(true, "", less, nil, 0)
+			maxItem := tr.delete(&n.children[i], true, "", less, nil, 0)
 			n.items[i] = maxItem
 		}
 	} else {
-		prev = n.children[i].delete(max, key, less, hint, depth+1)
+		prev = tr.delete(&n.children[i], max, key, less, hint, depth+1)
 	}
 	if prev == nil {
 		return nil
 	}
-	if n.children[i].numItems < minItems {
-		if i == n.numItems {
-			i--
+	if n.children[i].numItems >= minItems {
+		return prev
+	}
+
+	// merge / rebalance nodes
+	if i == n.numItems {
+		i--
+	}
+	n.children[i] = tr.cowLoad(&n.children[i])
+	n.children[i+1] = tr.cowLoad(&n.children[i+1])
+	if n.children[i].numItems+n.children[i+1].numItems+1 < maxItems {
+		// merge left + item + right
+		n.children[i].items[n.children[i].numItems] = n.items[i]
+		copy(n.children[i].items[n.children[i].numItems+1:],
+			n.children[i+1].items[:n.children[i+1].numItems])
+		if !n.children[0].leaf {
+			copy(n.children[i].children[n.children[i].numItems+1:],
+				n.children[i+1].children[:n.children[i+1].numItems+1])
 		}
-		if n.children[i].numItems+n.children[i+1].numItems+1 < maxItems {
-			// merge left + item + right
-			n.children[i].items[n.children[i].numItems] = n.items[i]
-			copy(n.children[i].items[n.children[i].numItems+1:],
-				n.children[i+1].items[:n.children[i+1].numItems])
-			if !n.children[0].leaf {
-				copy(n.children[i].children[n.children[i].numItems+1:],
-					n.children[i+1].children[:n.children[i+1].numItems+1])
-			}
-			n.children[i].numItems += n.children[i+1].numItems + 1
-			copy(n.items[i:], n.items[i+1:n.numItems])
-			copy(n.children[i+1:], n.children[i+2:n.numItems+1])
-			n.items[n.numItems] = nil
-			n.children[n.numItems+1] = nil
-			n.numItems--
-		} else if n.children[i].numItems > n.children[i+1].numItems {
-			// move left -> right
-			copy(n.children[i+1].items[1:],
-				n.children[i+1].items[:n.children[i+1].numItems])
-			if !n.children[0].leaf {
-				copy(n.children[i+1].children[1:],
-					n.children[i+1].children[:n.children[i+1].numItems+1])
-			}
-			n.children[i+1].items[0] = n.items[i]
-			if !n.children[0].leaf {
-				n.children[i+1].children[0] =
-					n.children[i].children[n.children[i].numItems]
-			}
-			n.children[i+1].numItems++
-			n.items[i] = n.children[i].items[n.children[i].numItems-1]
-			n.children[i].items[n.children[i].numItems-1] = nil
-			if !n.children[0].leaf {
-				n.children[i].children[n.children[i].numItems] = nil
-			}
-			n.children[i].numItems--
-		} else {
-			// move right -> left
-			n.children[i].items[n.children[i].numItems] = n.items[i]
-			if !n.children[0].leaf {
-				n.children[i].children[n.children[i].numItems+1] =
-					n.children[i+1].children[0]
-			}
-			n.children[i].numItems++
-			n.items[i] = n.children[i+1].items[0]
-			copy(n.children[i+1].items[:],
-				n.children[i+1].items[1:n.children[i+1].numItems])
-			if !n.children[0].leaf {
-				copy(n.children[i+1].children[:],
-					n.children[i+1].children[1:n.children[i+1].numItems+1])
-			}
-			n.children[i+1].numItems--
+		n.children[i].numItems += n.children[i+1].numItems + 1
+		copy(n.items[i:], n.items[i+1:n.numItems])
+		copy(n.children[i+1:], n.children[i+2:n.numItems+1])
+		n.items[n.numItems] = nil
+		n.children[n.numItems+1] = nil
+		n.numItems--
+	} else if n.children[i].numItems > n.children[i+1].numItems {
+		// move left -> right
+		copy(n.children[i+1].items[1:],
+			n.children[i+1].items[:n.children[i+1].numItems])
+		if !n.children[0].leaf {
+			copy(n.children[i+1].children[1:],
+				n.children[i+1].children[:n.children[i+1].numItems+1])
 		}
+		n.children[i+1].items[0] = n.items[i]
+		if !n.children[0].leaf {
+			n.children[i+1].children[0] =
+				n.children[i].children[n.children[i].numItems]
+		}
+		n.children[i+1].numItems++
+		n.items[i] = n.children[i].items[n.children[i].numItems-1]
+		n.children[i].items[n.children[i].numItems-1] = nil
+		if !n.children[0].leaf {
+			n.children[i].children[n.children[i].numItems] = nil
+		}
+		n.children[i].numItems--
+	} else {
+		// move right -> left
+		n.children[i].items[n.children[i].numItems] = n.items[i]
+		if !n.children[0].leaf {
+			n.children[i].children[n.children[i].numItems+1] =
+				n.children[i+1].children[0]
+		}
+		n.children[i].numItems++
+		n.items[i] = n.children[i+1].items[0]
+		copy(n.children[i+1].items[:],
+			n.children[i+1].items[1:n.children[i+1].numItems])
+		if !n.children[0].leaf {
+			copy(n.children[i+1].children[:],
+				n.children[i+1].children[1:n.children[i+1].numItems+1])
+		}
+		n.children[i+1].numItems--
 	}
 	return prev
 }
@@ -366,6 +413,8 @@ func (n *node) delete(max bool, key interface{},
 // Pass nil for pivot to scan all item in ascending order
 // Return false to stop iterating
 func (tr *BTree) Ascend(pivot interface{}, iter func(item interface{}) bool) {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root == nil {
 		return
 	}
@@ -427,6 +476,8 @@ func (n *node) reverse(iter func(item interface{}) bool) bool {
 // Pass nil for pivot to scan all item in descending order
 // Return false to stop iterating
 func (tr *BTree) Descend(pivot interface{}, iter func(item interface{}) bool) {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root == nil {
 		return
 	}
@@ -467,6 +518,12 @@ func (tr *BTree) Load(item interface{}) interface{} {
 	if item == nil {
 		panic("nil item")
 	}
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	// Load does not need a cowGrid because the Copy operation sets the
+	// lnode to nil.
+
 	if tr.lnode != nil && tr.lnode.numItems < maxItems-2 {
 		if tr.less(tr.lnode.items[tr.lnode.numItems-1], item) {
 			tr.lnode.items[tr.lnode.numItems] = item
@@ -475,7 +532,7 @@ func (tr *BTree) Load(item interface{}) interface{} {
 			return nil
 		}
 	}
-	prev := tr.Set(item)
+	prev := tr.setHint(item, nil)
 	if prev != nil {
 		return prev
 	}
@@ -493,6 +550,8 @@ func (tr *BTree) Load(item interface{}) interface{} {
 // Min returns the minimum item in tree.
 // Returns nil if the tree has no items.
 func (tr *BTree) Min() interface{} {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root == nil {
 		return nil
 	}
@@ -508,6 +567,8 @@ func (tr *BTree) Min() interface{} {
 // Max returns the maximum item in tree.
 // Returns nil if the tree has no items.
 func (tr *BTree) Max() interface{} {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root == nil {
 		return nil
 	}
@@ -523,53 +584,65 @@ func (tr *BTree) Max() interface{} {
 // PopMin removes the minimum item in tree and returns it.
 // Returns nil if the tree has no items.
 func (tr *BTree) PopMin() interface{} {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
 	if tr.root == nil {
 		return nil
 	}
 	tr.lnode = nil
-	n := tr.root
+	n := tr.cowLoad(&tr.root)
 	for {
 		if n.leaf {
 			item := n.items[0]
 			if n.numItems == minItems {
-				return tr.Delete(item)
+				return tr.deleteHint(item, nil)
 			}
 			copy(n.items[:], n.items[1:])
 			n.items[n.numItems-1] = nil
 			n.numItems--
 			tr.length--
+			if tr.length == 0 {
+				tr.root = nil
+			}
 			return item
 		}
-		n = n.children[0]
+		n = tr.cowLoad(&n.children[0])
 	}
 }
 
 // PopMax removes the minimum item in tree and returns it.
 // Returns nil if the tree has no items.
 func (tr *BTree) PopMax() interface{} {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
 	if tr.root == nil {
 		return nil
 	}
 	tr.lnode = nil
-	n := tr.root
+	n := tr.cowLoad(&tr.root)
 	for {
 		if n.leaf {
 			item := n.items[n.numItems-1]
 			if n.numItems == minItems {
-				return tr.Delete(item)
+				return tr.deleteHint(item, nil)
 			}
 			n.items[n.numItems-1] = nil
 			n.numItems--
 			tr.length--
+			if tr.length == 0 {
+				tr.root = nil
+			}
 			return item
 		}
-		n = n.children[n.numItems]
+		n = tr.cowLoad(&n.children[n.numItems])
 	}
 }
 
 // Height returns the height of the tree.
 // Returns zero if tree has no items.
 func (tr *BTree) Height() int {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	var height int
 	if tr.root != nil {
 		n := tr.root
@@ -587,6 +660,8 @@ func (tr *BTree) Height() int {
 // Walk iterates over all items in tree, in order.
 // The items param will contain one or more items.
 func (tr *BTree) Walk(iter func(item []interface{})) {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
 	if tr.root != nil {
 		tr.root.walk(iter)
 	}
@@ -602,4 +677,17 @@ func (n *node) walk(iter func(item []interface{})) {
 		}
 		n.children[n.numItems].walk(iter)
 	}
+}
+
+// Copy the tree. This operation is very fast because it only performs a
+// shadowed copy.
+func (tr *BTree) Copy() *BTree {
+	tr.mu.Lock()
+	tr.lnode = nil
+	tr.cow = new(cow)
+	tr2 := *tr
+	tr2.mu = new(sync.RWMutex)
+	tr2.cow = new(cow)
+	tr.mu.Unlock()
+	return &tr2
 }

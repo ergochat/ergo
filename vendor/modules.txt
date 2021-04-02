@@ -39,23 +39,25 @@ github.com/oragono/confusables
 github.com/oragono/go-ident
 # github.com/stretchr/testify v1.4.0
 ## explicit
-# github.com/tidwall/btree v0.2.2
+# github.com/tidwall/btree v0.4.2
 github.com/tidwall/btree
-# github.com/tidwall/buntdb v1.1.4
+# github.com/tidwall/buntdb v1.2.3
 ## explicit
 github.com/tidwall/buntdb
-# github.com/tidwall/gjson v1.6.1
+# github.com/tidwall/gjson v1.7.4
 github.com/tidwall/gjson
-# github.com/tidwall/grect v0.0.0-20161006141115-ba9a043346eb
+# github.com/tidwall/grect v0.1.1
 github.com/tidwall/grect
-# github.com/tidwall/match v1.0.1
+# github.com/tidwall/match v1.0.3
 github.com/tidwall/match
-# github.com/tidwall/pretty v1.0.2
+# github.com/tidwall/pretty v1.1.0
 github.com/tidwall/pretty
+# github.com/tidwall/rtred v0.1.2
+github.com/tidwall/rtred
+github.com/tidwall/rtred/base
 # github.com/tidwall/rtree v0.0.0-20201027154624-32188eeb08a8
-github.com/tidwall/rtree
-github.com/tidwall/rtree/base
-# github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563
+## explicit
+# github.com/tidwall/tinyqueue v0.1.1
 github.com/tidwall/tinyqueue
 # github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 ## explicit
