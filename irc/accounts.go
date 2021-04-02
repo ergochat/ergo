@@ -614,7 +614,7 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.
 		text, _ := json.Marshal(lastSeen)
 		val = string(text)
 	}
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	err := am.server.store.Update(func(tx *buntdb.Tx) error {
 		if val != "" {
 			tx.Set(key, val, nil)
 		} else {
@@ -622,6 +622,9 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.
 		}
 		return nil
 	})
+	if err != nil {
+		am.server.logger.Error("internal", "error persisting lastSeen", account, err.Error())
+	}
 }
 
 func (am *AccountManager) loadLastSeen(account string) (lastSeen map[string]time.Time) {

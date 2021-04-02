@@ -19,7 +19,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/grect"
 	"github.com/tidwall/match"
-	"github.com/tidwall/rtree"
+	"github.com/tidwall/rtred"
 )
 
 var (
@@ -69,7 +69,6 @@ type DB struct {
 	keys      *btree.BTree      // a tree of all item ordered by key
 	exps      *btree.BTree      // a tree of items ordered by expiration
 	idxs      map[string]*index // the index trees.
-	exmgr     bool              // indicates that expires manager is running.
 	flushes   int               // a count of the number of disk flushes
 	closed    bool              // set when the database has been closed
 	config    Config            // the database configuration
@@ -134,9 +133,6 @@ type Config struct {
 type exctx struct {
 	db *DB
 }
-
-// Default number of btree degrees
-const btreeDegrees = 64
 
 // Open opens a database at the provided path.
 // If the file does not exist then it will be created automatically.
@@ -241,14 +237,15 @@ func (db *DB) Load(rd io.Reader) error {
 		// cannot load into databases that persist to disk
 		return ErrPersistenceActive
 	}
-	return db.readLoad(rd, time.Now())
+	_, err := db.readLoad(rd, time.Now())
+	return err
 }
 
 // index represents a b-tree or r-tree index and also acts as the
 // b-tree/r-tree context for itself.
 type index struct {
 	btr     *btree.BTree                           // contains the items
-	rtr     *rtree.RTree                           // contains the items
+	rtr     *rtred.RTree                           // contains the items
 	name    string                                 // name of the index
 	pattern string                                 // a required key pattern
 	less    func(a, b string) bool                 // less comparison function
@@ -289,7 +286,7 @@ func (idx *index) clearCopy() *index {
 		nidx.btr = btree.New(lessCtx(nidx))
 	}
 	if nidx.rect != nil {
-		nidx.rtr = rtree.New(nidx)
+		nidx.rtr = rtred.New(nidx)
 	}
 	return nidx
 }
@@ -301,7 +298,7 @@ func (idx *index) rebuild() {
 		idx.btr = btree.New(lessCtx(idx))
 	}
 	if idx.rect != nil {
-		idx.rtr = rtree.New(idx)
+		idx.rtr = rtred.New(idx)
 	}
 	// iterate through all keys and fill the index
 	btreeAscend(idx.db.keys, func(item interface{}) bool {
@@ -755,46 +752,65 @@ func (db *DB) Shrink() error {
 	}()
 }
 
-var errValidEOF = errors.New("valid eof")
-
 // readLoad reads from the reader and loads commands into the database.
 // modTime is the modified time of the reader, should be no greater than
 // the current time.Now().
-func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
+// Returns the number of bytes of the last command read and the error if any.
+func (db *DB) readLoad(rd io.Reader, modTime time.Time) (n int64, err error) {
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+	totalSize := int64(0)
 	data := make([]byte, 4096)
 	parts := make([]string, 0, 8)
 	r := bufio.NewReader(rd)
 	for {
+		// peek at the first byte. If it's a 'nul' control character then
+		// ignore it and move to the next byte.
+		c, err := r.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return totalSize, err
+		}
+		if c == 0 {
+			// ignore nul control characters
+			n += 1
+			continue
+		}
+		if err := r.UnreadByte(); err != nil {
+			return totalSize, err
+		}
+
 		// read a single command.
 		// first we should read the number of parts that the of the command
+		cmdByteSize := int64(0)
 		line, err := r.ReadBytes('\n')
 		if err != nil {
-			if len(line) > 0 {
-				// got an eof but also data. this should be an unexpected eof.
-				return io.ErrUnexpectedEOF
-			}
-			if err == io.EOF {
-				break
-			}
-			return err
+			return totalSize, err
 		}
 		if line[0] != '*' {
-			return ErrInvalid
+			return totalSize, ErrInvalid
 		}
+		cmdByteSize += int64(len(line))
+
 		// convert the string number to and int
 		var n int
 		if len(line) == 4 && line[len(line)-2] == '\r' {
 			if line[1] < '0' || line[1] > '9' {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
 			n = int(line[1] - '0')
 		} else {
 			if len(line) < 5 || line[len(line)-2] != '\r' {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
 			for i := 1; i < len(line)-2; i++ {
 				if line[i] < '0' || line[i] > '9' {
-					return ErrInvalid
+					return totalSize, ErrInvalid
 				}
 				n = n*10 + int(line[i]-'0')
 			}
@@ -805,25 +821,26 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 			// read the number of bytes of the part.
 			line, err := r.ReadBytes('\n')
 			if err != nil {
-				return err
+				return totalSize, err
 			}
 			if line[0] != '$' {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
+			cmdByteSize += int64(len(line))
 			// convert the string number to and int
 			var n int
 			if len(line) == 4 && line[len(line)-2] == '\r' {
 				if line[1] < '0' || line[1] > '9' {
-					return ErrInvalid
+					return totalSize, ErrInvalid
 				}
 				n = int(line[1] - '0')
 			} else {
 				if len(line) < 5 || line[len(line)-2] != '\r' {
-					return ErrInvalid
+					return totalSize, ErrInvalid
 				}
 				for i := 1; i < len(line)-2; i++ {
 					if line[i] < '0' || line[i] > '9' {
-						return ErrInvalid
+						return totalSize, ErrInvalid
 					}
 					n = n*10 + int(line[i]-'0')
 				}
@@ -837,13 +854,14 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 				data = make([]byte, dataln)
 			}
 			if _, err = io.ReadFull(r, data[:n+2]); err != nil {
-				return err
+				return totalSize, err
 			}
 			if data[n] != '\r' || data[n+1] != '\n' {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
 			// copy string
 			parts = append(parts, string(data[:n]))
+			cmdByteSize += int64(n + 2)
 		}
 		// finished reading the command
 
@@ -855,15 +873,15 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 			(parts[0][2] == 't' || parts[0][2] == 'T') {
 			// SET
 			if len(parts) < 3 || len(parts) == 4 || len(parts) > 5 {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
 			if len(parts) == 5 {
 				if strings.ToLower(parts[3]) != "ex" {
-					return ErrInvalid
+					return totalSize, ErrInvalid
 				}
-				ex, err := strconv.ParseInt(parts[4], 10, 64)
+				ex, err := strconv.ParseUint(parts[4], 10, 64)
 				if err != nil {
-					return err
+					return totalSize, err
 				}
 				now := time.Now()
 				dur := (time.Duration(ex) * time.Second) - now.Sub(modTime)
@@ -885,7 +903,7 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 			(parts[0][2] == 'l' || parts[0][2] == 'L') {
 			// DEL
 			if len(parts) != 2 {
-				return ErrInvalid
+				return totalSize, ErrInvalid
 			}
 			db.deleteFromDatabase(&dbItem{key: parts[1]})
 		} else if (parts[0][0] == 'f' || parts[0][0] == 'F') &&
@@ -894,10 +912,10 @@ func (db *DB) readLoad(rd io.Reader, modTime time.Time) error {
 			db.exps = btree.New(lessCtx(&exctx{db}))
 			db.idxs = make(map[string]*index)
 		} else {
-			return ErrInvalid
+			return totalSize, ErrInvalid
 		}
+		totalSize += cmdByteSize
 	}
-	return nil
 }
 
 // load reads entries from the append only database file and fills the database.
@@ -910,10 +928,20 @@ func (db *DB) load() error {
 	if err != nil {
 		return err
 	}
-	if err := db.readLoad(db.file, fi.ModTime()); err != nil {
-		return err
+	n, err := db.readLoad(db.file, fi.ModTime())
+	if err != nil {
+		if err == io.ErrUnexpectedEOF {
+			// The db file has ended mid-command, which is allowed but the
+			// data file should be truncated to the end of the last valid
+			// command
+			if err := db.file.Truncate(n); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
-	pos, err := db.file.Seek(0, 2)
+	pos, err := db.file.Seek(n, 0)
 	if err != nil {
 		return err
 	}
@@ -1148,7 +1176,25 @@ func (tx *Tx) Commit() error {
 		// Flushing the buffer only once per transaction.
 		// If this operation fails then the write did failed and we must
 		// rollback.
-		if _, err = tx.db.file.Write(tx.db.buf); err != nil {
+		var n int
+		n, err = tx.db.file.Write(tx.db.buf)
+		if err != nil {
+			if n > 0 {
+				// There was a partial write to disk.
+				// We are possibly out of disk space.
+				// Delete the partially written bytes from the data file by
+				// seeking to the previously known position and performing
+				// a truncate operation.
+				// At this point a syscall failure is fatal and the process
+				// should be killed to avoid corrupting the file.
+				pos, err := tx.db.file.Seek(-int64(n), 1)
+				if err != nil {
+					panic(err)
+				}
+				if err := tx.db.file.Truncate(pos); err != nil {
+					panic(err)
+				}
+			}
 			tx.rollbackInner()
 		}
 		if tx.db.config.SyncPolicy == Always {
@@ -1216,7 +1262,7 @@ func appendBulkString(buf []byte, s string) []byte {
 // writeSetTo writes an item as a single SET record to the a bufio Writer.
 func (dbi *dbItem) writeSetTo(buf []byte) []byte {
 	if dbi.opts != nil && dbi.opts.ex {
-		ex := dbi.opts.exat.Sub(time.Now()) / time.Second
+		ex := time.Until(dbi.opts.exat) / time.Second
 		buf = appendArray(buf, 5)
 		buf = appendBulkString(buf, "set")
 		buf = appendBulkString(buf, dbi.key)
@@ -1390,7 +1436,9 @@ func (tx *Tx) Set(key, value string, opts *SetOptions) (previousValue string,
 			// create a rollback entry with a nil value. A nil value indicates
 			// that the entry should be deleted on rollback. When the value is
 			// *not* nil, that means the entry should be reverted.
-			tx.wc.rollbackItems[key] = nil
+			if _, ok := tx.wc.rollbackItems[key]; !ok {
+				tx.wc.rollbackItems[key] = nil
+			}
 		} else {
 			// A previous item already exists in the database. Let's create a
 			// rollback entry with the item as the value. We need to check the
@@ -1481,7 +1529,7 @@ func (tx *Tx) TTL(key string) (time.Duration, error) {
 	} else if item.opts == nil || !item.opts.ex {
 		return -1, nil
 	}
-	dur := item.opts.exat.Sub(time.Now())
+	dur := time.Until(item.opts.exat)
 	if dur < 0 {
 		return 0, ErrNotFound
 	}
@@ -1822,7 +1870,7 @@ func (tx *Tx) Nearby(index, bounds string,
 		return nil
 	}
 	// // wrap a rtree specific iterator around the user-defined iterator.
-	iter := func(item rtree.Item, dist float64) bool {
+	iter := func(item rtred.Item, dist float64) bool {
 		dbi := item.(*dbItem)
 		return iterator(dbi.key, dbi.val, dist)
 	}
@@ -1860,7 +1908,7 @@ func (tx *Tx) Intersects(index, bounds string,
 		return nil
 	}
 	// wrap a rtree specific iterator around the user-defined iterator.
-	iter := func(item rtree.Item) bool {
+	iter := func(item rtred.Item) bool {
 		dbi := item.(*dbItem)
 		return iterator(dbi.key, dbi.val)
 	}

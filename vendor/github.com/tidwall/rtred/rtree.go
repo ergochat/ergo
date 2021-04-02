@@ -1,10 +1,10 @@
-package rtree
+package rtred
 
 import (
 	"math"
 	"sync"
 
-	"github.com/tidwall/rtree/base"
+	"github.com/tidwall/rtred/base"
 )
 
 type Iterator func(item Item) bool
