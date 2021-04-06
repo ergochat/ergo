@@ -990,7 +990,7 @@ func (session *Session) playResume() {
 	}
 	_, privmsgSeq, _ := server.GetHistorySequence(nil, client, "*")
 	if privmsgSeq != nil {
-		privmsgs, _, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
+		privmsgs, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
 		for _, item := range privmsgs {
 			sender := server.clients.Get(NUHToNick(item.Nick))
 			if sender != nil {
@@ -1055,10 +1055,10 @@ func (session *Session) playResume() {
 	// replay direct PRIVSMG history
 	if !timestamp.IsZero() && privmsgSeq != nil {
 		after := history.Selector{Time: timestamp}
-		items, complete, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
+		items, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
 		if len(items) != 0 {
 			rb := NewResponseBuffer(session)
-			client.replayPrivmsgHistory(rb, items, "", complete)
+			client.replayPrivmsgHistory(rb, items, "")
 			rb.Send(true)
 		}
 	}
@@ -1066,7 +1066,7 @@ func (session *Session) playResume() {
 	session.resumeDetails = nil
 }
 
-func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string, complete bool) {
+func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string) {
 	var batchID string
 	details := client.Details()
 	nick := details.nick
@@ -1126,9 +1126,6 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	}
 
 	rb.EndNestedBatch(batchID)
-	if !complete {
-		rb.Add(nil, histservService.prefix, "NOTICE", nick, client.t("Some additional message history may have been lost"))
-	}
 }
 
 // IdleTime returns how long this client's been idle.

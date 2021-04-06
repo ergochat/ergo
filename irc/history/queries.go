@@ -17,15 +17,17 @@ type Selector struct {
 // it encapsulates restrictions such as registration time cutoffs, or
 // only looking at a single "query buffer" (DMs with a particular correspondent)
 type Sequence interface {
-	Between(start, end Selector, limit int) (results []Item, complete bool, err error)
+	Between(start, end Selector, limit int) (results []Item, err error)
 	Around(start Selector, limit int) (results []Item, err error)
+
+	ListCorrespondents(start, end Selector, limit int) (results []CorrespondentListing, err error)
 }
 
 // This is a bad, slow implementation of CHATHISTORY AROUND using the BETWEEN semantics
 func GenericAround(seq Sequence, start Selector, limit int) (results []Item, err error) {
 	var halfLimit int
 	halfLimit = (limit + 1) / 2
-	initialResults, _, err := seq.Between(Selector{}, start, halfLimit)
+	initialResults, err := seq.Between(Selector{}, start, halfLimit)
 	if err != nil {
 		return
 	} else if len(initialResults) == 0 {
@@ -34,7 +36,7 @@ func GenericAround(seq Sequence, start Selector, limit int) (results []Item, err
 		return
 	}
 	newStart := Selector{Time: initialResults[0].Message.Time}
-	results, _, err = seq.Between(newStart, Selector{}, limit)
+	results, err = seq.Between(newStart, Selector{}, limit)
 	return
 }
 

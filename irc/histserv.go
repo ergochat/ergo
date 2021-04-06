@@ -238,12 +238,12 @@ func easySelectHistory(server *Server, client *Client, params []string) (items [
 	}
 
 	if duration == 0 {
-		items, _, err = sequence.Between(history.Selector{}, history.Selector{}, limit)
+		items, err = sequence.Between(history.Selector{}, history.Selector{}, limit)
 	} else {
 		now := time.Now().UTC()
 		start := history.Selector{Time: now}
 		end := history.Selector{Time: now.Add(-duration)}
-		items, _, err = sequence.Between(start, end, limit)
+		items, err = sequence.Between(start, end, limit)
 	}
 	return
 }
