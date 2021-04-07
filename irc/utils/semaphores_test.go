@@ -10,8 +10,7 @@ import (
 
 func TestTryAcquire(t *testing.T) {
 	count := 3
-	var sem Semaphore
-	sem.Initialize(count)
+	sem := NewSemaphore(count)
 
 	for i := 0; i < count; i++ {
 		assertEqual(sem.TryAcquire(), true, t)
@@ -24,8 +23,7 @@ func TestTryAcquire(t *testing.T) {
 }
 
 func TestAcquireWithTimeout(t *testing.T) {
-	var sem Semaphore
-	sem.Initialize(1)
+	sem := NewSemaphore(1)
 
 	assertEqual(sem.TryAcquire(), true, t)
 
