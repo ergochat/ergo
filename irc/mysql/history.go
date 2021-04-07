@@ -905,7 +905,7 @@ func (mysql *MySQL) betweenTimestamps(ctx context.Context, target, correspondent
 	return
 }
 
-func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target string, after, before, cutoff time.Time, limit int) (results []history.CorrespondentListing, err error) {
+func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target string, after, before, cutoff time.Time, limit int) (results []history.TargetListing, err error) {
 	after, before, ascending := history.MinMaxAsc(after, before, cutoff)
 	direction := "ASC"
 	if !ascending {
@@ -941,9 +941,9 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 		if err != nil {
 			return
 		}
-		results = append(results, history.CorrespondentListing{
-			CfCorrespondent: correspondent,
-			Time:            time.Unix(0, nanotime),
+		results = append(results, history.TargetListing{
+			CfName: correspondent,
+			Time:   time.Unix(0, nanotime),
 		})
 	}
 
@@ -951,6 +951,54 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 		history.ReverseCorrespondents(results)
 	}
 
+	return
+}
+
+func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetListing, err error) {
+	if mysql.db == nil {
+		return
+	}
+
+	if len(cfchannels) == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
+	defer cancel()
+
+	var queryBuf strings.Builder
+	args := make([]interface{}, 0, len(results))
+	// https://dev.mysql.com/doc/refman/8.0/en/group-by-optimization.html
+	// this should be a "loose index scan"
+	queryBuf.WriteString(`SELECT sequence.target, MAX(sequence.nanotime) FROM sequence
+		WHERE sequence.target IN (`)
+	for i, chname := range cfchannels {
+		if i != 0 {
+			queryBuf.WriteString(", ")
+		}
+		queryBuf.WriteByte('?')
+		args = append(args, chname)
+	}
+	queryBuf.WriteString(") GROUP BY sequence.target;")
+
+	rows, err := mysql.db.QueryContext(ctx, queryBuf.String(), args...)
+	if mysql.logError("could not query channel listings", err) {
+		return
+	}
+	defer rows.Close()
+
+	var target string
+	var nanotime int64
+	for rows.Next() {
+		err = rows.Scan(&target, &nanotime)
+		if mysql.logError("could not scan channel listings", err) {
+			return
+		}
+		results = append(results, history.TargetListing{
+			CfName: target,
+			Time:   time.Unix(0, nanotime),
+		})
+	}
 	return
 }
 
@@ -998,7 +1046,7 @@ func (s *mySQLHistorySequence) Around(start history.Selector, limit int) (result
 	return history.GenericAround(s, start, limit)
 }
 
-func (seq *mySQLHistorySequence) ListCorrespondents(start, end history.Selector, limit int) (results []history.CorrespondentListing, err error) {
+func (seq *mySQLHistorySequence) ListCorrespondents(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), seq.mysql.getTimeout())
 	defer cancel()
 
@@ -1009,6 +1057,14 @@ func (seq *mySQLHistorySequence) ListCorrespondents(start, end history.Selector,
 	results, err = seq.mysql.listCorrespondentsInternal(ctx, seq.target, startTime, endTime, seq.cutoff, limit)
 	seq.mysql.logError("could not read correspondents", err)
 	return
+}
+
+func (seq *mySQLHistorySequence) Cutoff() time.Time {
+	return seq.cutoff
+}
+
+func (seq *mySQLHistorySequence) Ephemeral() bool {
+	return false
 }
 
 func (mysql *MySQL) MakeSequence(target, correspondent string, cutoff time.Time) history.Sequence {

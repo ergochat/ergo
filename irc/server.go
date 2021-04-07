@@ -1017,6 +1017,13 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 	return
 }
 
+func (server *Server) UnfoldName(cfname string) (name string) {
+	if strings.HasPrefix(cfname, "#") {
+		return server.channels.UnfoldName(cfname)
+	}
+	return server.clients.UnfoldNick(cfname)
+}
+
 // elistMatcher takes and matches ELIST conditions
 type elistMatcher struct {
 	MinClientsActive bool

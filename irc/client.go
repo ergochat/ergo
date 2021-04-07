@@ -1931,6 +1931,43 @@ func (client *Client) addHistoryItem(target *Client, item history.Item, details,
 	return nil
 }
 
+func (client *Client) listTargets(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
+	var base, extras []history.TargetListing
+	var chcfnames []string
+	for _, channel := range client.Channels() {
+		_, seq, err := client.server.GetHistorySequence(channel, client, "")
+		if seq == nil || err != nil {
+			continue
+		}
+		if seq.Ephemeral() {
+			items, err := seq.Between(history.Selector{}, history.Selector{}, 1)
+			if err == nil && len(items) != 0 {
+				extras = append(extras, history.TargetListing{
+					Time:   items[0].Message.Time,
+					CfName: channel.NameCasefolded(),
+				})
+			}
+		} else {
+			chcfnames = append(chcfnames, channel.NameCasefolded())
+		}
+	}
+	persistentExtras, err := client.server.historyDB.ListChannels(chcfnames)
+	if err == nil && len(persistentExtras) != 0 {
+		extras = append(extras, persistentExtras...)
+	}
+
+	_, cSeq, err := client.server.GetHistorySequence(nil, client, "*")
+	if err == nil && cSeq != nil {
+		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
+		if err == nil {
+			base = correspondents
+		}
+	}
+
+	results = history.MergeTargets(base, extras, start.Time, end.Time, limit)
+	return results, nil
+}
+
 func (client *Client) handleRegisterTimeout() {
 	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil)
 	client.destroy(nil)

@@ -20,7 +20,14 @@ type Sequence interface {
 	Between(start, end Selector, limit int) (results []Item, err error)
 	Around(start Selector, limit int) (results []Item, err error)
 
-	ListCorrespondents(start, end Selector, limit int) (results []CorrespondentListing, err error)
+	ListCorrespondents(start, end Selector, limit int) (results []TargetListing, err error)
+
+	// this are weird hacks that violate the encapsulation of Sequence to some extent;
+	// Cutoff() returns the cutoff time for other code to use (it returns the zero time
+	// if none is set), and Ephemeral() returns whether the backing store is in-memory
+	// or a persistent database.
+	Cutoff() time.Time
+	Ephemeral() bool
 }
 
 // This is a bad, slow implementation of CHATHISTORY AROUND using the BETWEEN semantics

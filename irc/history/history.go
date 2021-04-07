@@ -48,11 +48,6 @@ type Item struct {
 	IsBot           bool   `json:"IsBot,omitempty"`
 }
 
-type CorrespondentListing struct {
-	CfCorrespondent string
-	Time            time.Time
-}
-
 // HasMsgid tests whether a message has the message id `msgid`.
 func (item *Item) HasMsgid(msgid string) bool {
 	return item.Message.Msgid == msgid
@@ -61,13 +56,6 @@ func (item *Item) HasMsgid(msgid string) bool {
 type Predicate func(item *Item) (matches bool)
 
 func Reverse(results []Item) {
-	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
-		results[i], results[j] = results[j], results[i]
-	}
-}
-
-func ReverseCorrespondents(results []CorrespondentListing) {
-	// lol, generics when?
 	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 		results[i], results[j] = results[j], results[i]
 	}
@@ -214,7 +202,7 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 }
 
 // returns all correspondents, in reverse time order
-func (list *Buffer) allCorrespondents() (results []CorrespondentListing) {
+func (list *Buffer) allCorrespondents() (results []TargetListing) {
 	seen := make(utils.StringSet)
 
 	list.RLock()
@@ -231,9 +219,9 @@ func (list *Buffer) allCorrespondents() (results []CorrespondentListing) {
 	for {
 		if !seen.Has(list.buffer[pos].CfCorrespondent) {
 			seen.Add(list.buffer[pos].CfCorrespondent)
-			results = append(results, CorrespondentListing{
-				CfCorrespondent: list.buffer[pos].CfCorrespondent,
-				Time:            list.buffer[pos].Message.Time,
+			results = append(results, TargetListing{
+				CfName: list.buffer[pos].CfCorrespondent,
+				Time:   list.buffer[pos].Message.Time,
 			})
 		}
 
@@ -245,8 +233,8 @@ func (list *Buffer) allCorrespondents() (results []CorrespondentListing) {
 	return
 }
 
-// implement LISTCORRESPONDENTS
-func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, limit int) (results []CorrespondentListing, err error) {
+// list DM correspondents, as one input to CHATHISTORY TARGETS
+func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, limit int) (results []TargetListing, err error) {
 	after := start.Time
 	before := end.Time
 	after, before, ascending := MinMaxAsc(after, before, cutoff)
@@ -316,8 +304,16 @@ func (seq *bufferSequence) Around(start Selector, limit int) (results []Item, er
 	return GenericAround(seq, start, limit)
 }
 
-func (seq *bufferSequence) ListCorrespondents(start, end Selector, limit int) (results []CorrespondentListing, err error) {
+func (seq *bufferSequence) ListCorrespondents(start, end Selector, limit int) (results []TargetListing, err error) {
 	return seq.list.listCorrespondents(start, end, seq.cutoff, limit)
+}
+
+func (seq *bufferSequence) Cutoff() time.Time {
+	return seq.cutoff
+}
+
+func (seq *bufferSequence) Ephemeral() bool {
+	return true
 }
 
 // you must be holding the read lock to call this
