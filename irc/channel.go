@@ -61,15 +61,15 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channe
 	config := s.Config()
 
 	channel := &Channel{
-		createdTime:    time.Now().UTC(), // may be overwritten by applyRegInfo
-		members:        make(MemberSet),
-		name:           name,
-		nameCasefolded: casefoldedName,
-		server:         s,
+		createdTime:     time.Now().UTC(), // may be overwritten by applyRegInfo
+		members:         make(MemberSet),
+		name:            name,
+		nameCasefolded:  casefoldedName,
+		server:          s,
+		writerSemaphore: utils.NewSemaphore(1),
 	}
 
 	channel.initializeLists()
-	channel.writerSemaphore.Initialize(1)
 	channel.history.Initialize(0, 0)
 
 	if !registered {

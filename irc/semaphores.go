@@ -37,5 +37,5 @@ func (serversem *ServerSemaphores) Initialize() {
 	if capacity > MaxServerSemaphoreCapacity {
 		capacity = MaxServerSemaphoreCapacity
 	}
-	serversem.ClientDestroy.Initialize(capacity)
+	serversem.ClientDestroy = utils.NewSemaphore(capacity)
 }

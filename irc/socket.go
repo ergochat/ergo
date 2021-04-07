@@ -40,10 +40,10 @@ type Socket struct {
 // NewSocket returns a new Socket.
 func NewSocket(conn IRCConn, maxSendQBytes int) *Socket {
 	result := Socket{
-		conn:          conn,
-		maxSendQBytes: maxSendQBytes,
+		conn:            conn,
+		maxSendQBytes:   maxSendQBytes,
+		writerSemaphore: utils.NewSemaphore(1),
 	}
-	result.writerSemaphore.Initialize(1)
 	return &result
 }
 

@@ -612,11 +612,11 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	if initial {
 		maxIPConc := int(config.Server.IPCheckScript.MaxConcurrency)
 		if maxIPConc != 0 {
-			server.semaphores.IPCheckScript.Initialize(maxIPConc)
+			server.semaphores.IPCheckScript = utils.NewSemaphore(maxIPConc)
 		}
 		maxAuthConc := int(config.Accounts.AuthScript.MaxConcurrency)
 		if maxAuthConc != 0 {
-			server.semaphores.AuthScript.Initialize(maxAuthConc)
+			server.semaphores.AuthScript = utils.NewSemaphore(maxAuthConc)
 		}
 
 		if err := overrideServicePrefixes(config.Server.OverrideServicesHostname); err != nil {

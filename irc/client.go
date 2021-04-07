@@ -356,20 +356,20 @@ func (server *Server) RunClient(conn IRCConn) {
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
 		},
-		server:         server,
-		accountName:    "*",
-		nick:           "*", // * is used until actual nick is given
-		nickCasefolded: "*",
-		nickMaskString: "*", // * is used until actual nick is given
-		realIP:         realIP,
-		proxiedIP:      proxiedIP,
-		requireSASL:    requireSASL,
-		nextSessionID:  1,
+		server:          server,
+		accountName:     "*",
+		nick:            "*", // * is used until actual nick is given
+		nickCasefolded:  "*",
+		nickMaskString:  "*", // * is used until actual nick is given
+		realIP:          realIP,
+		proxiedIP:       proxiedIP,
+		requireSASL:     requireSASL,
+		nextSessionID:   1,
+		writerSemaphore: utils.NewSemaphore(1),
 	}
 	if requireSASL {
 		client.requireSASLMessage = banMsg
 	}
-	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
 	client.brbTimer.Initialize(client)
 	session := &Session{
@@ -445,6 +445,8 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 		realname: realname,
 
 		nextSessionID: 1,
+
+		writerSemaphore: utils.NewSemaphore(1),
 	}
 
 	if client.checkAlwaysOnExpirationNoMutex(config, true) {
@@ -456,7 +458,6 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 	for _, m := range uModes {
 		client.SetMode(m, true)
 	}
-	client.writerSemaphore.Initialize(1)
 	client.history.Initialize(0, 0)
 	client.brbTimer.Initialize(client)
 
