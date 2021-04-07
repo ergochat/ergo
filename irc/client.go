@@ -990,7 +990,7 @@ func (session *Session) playResume() {
 	}
 	_, privmsgSeq, _ := server.GetHistorySequence(nil, client, "*")
 	if privmsgSeq != nil {
-		privmsgs, _, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
+		privmsgs, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
 		for _, item := range privmsgs {
 			sender := server.clients.Get(NUHToNick(item.Nick))
 			if sender != nil {
@@ -1055,10 +1055,10 @@ func (session *Session) playResume() {
 	// replay direct PRIVSMG history
 	if !timestamp.IsZero() && privmsgSeq != nil {
 		after := history.Selector{Time: timestamp}
-		items, complete, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
+		items, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
 		if len(items) != 0 {
 			rb := NewResponseBuffer(session)
-			client.replayPrivmsgHistory(rb, items, "", complete)
+			client.replayPrivmsgHistory(rb, items, "")
 			rb.Send(true)
 		}
 	}
@@ -1066,7 +1066,7 @@ func (session *Session) playResume() {
 	session.resumeDetails = nil
 }
 
-func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string, complete bool) {
+func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string) {
 	var batchID string
 	details := client.Details()
 	nick := details.nick
@@ -1126,9 +1126,6 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	}
 
 	rb.EndNestedBatch(batchID)
-	if !complete {
-		rb.Add(nil, histservService.prefix, "NOTICE", nick, client.t("Some additional message history may have been lost"))
-	}
 }
 
 // IdleTime returns how long this client's been idle.
@@ -1932,6 +1929,43 @@ func (client *Client) addHistoryItem(target *Client, item history.Item, details,
 		client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
 	}
 	return nil
+}
+
+func (client *Client) listTargets(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
+	var base, extras []history.TargetListing
+	var chcfnames []string
+	for _, channel := range client.Channels() {
+		_, seq, err := client.server.GetHistorySequence(channel, client, "")
+		if seq == nil || err != nil {
+			continue
+		}
+		if seq.Ephemeral() {
+			items, err := seq.Between(history.Selector{}, history.Selector{}, 1)
+			if err == nil && len(items) != 0 {
+				extras = append(extras, history.TargetListing{
+					Time:   items[0].Message.Time,
+					CfName: channel.NameCasefolded(),
+				})
+			}
+		} else {
+			chcfnames = append(chcfnames, channel.NameCasefolded())
+		}
+	}
+	persistentExtras, err := client.server.historyDB.ListChannels(chcfnames)
+	if err == nil && len(persistentExtras) != 0 {
+		extras = append(extras, persistentExtras...)
+	}
+
+	_, cSeq, err := client.server.GetHistorySequence(nil, client, "*")
+	if err == nil && cSeq != nil {
+		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
+		if err == nil {
+			base = correspondents
+		}
+	}
+
+	results = history.MergeTargets(base, extras, start.Time, end.Time, limit)
+	return results, nil
 }
 
 func (client *Client) handleRegisterTimeout() {

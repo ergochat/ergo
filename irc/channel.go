@@ -920,7 +920,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 		if seq != nil {
 			zncMax := channel.server.Config().History.ZNCMax
-			items, _, _ = seq.Between(history.Selector{Time: start}, history.Selector{Time: end}, zncMax)
+			items, _ = seq.Between(history.Selector{Time: start}, history.Selector{Time: end}, zncMax)
 		}
 	} else if !rb.session.HasHistoryCaps() {
 		var replayLimit int
@@ -937,7 +937,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 		if 0 < replayLimit {
 			_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 			if seq != nil {
-				items, _, _ = seq.Between(history.Selector{}, history.Selector{}, replayLimit)
+				items, _ = seq.Between(history.Selector{}, history.Selector{}, replayLimit)
 			}
 		}
 	}
@@ -1097,19 +1097,14 @@ func (channel *Channel) resumeAndAnnounce(session *Session) {
 
 func (channel *Channel) replayHistoryForResume(session *Session, after time.Time, before time.Time) {
 	var items []history.Item
-	var complete bool
 	afterS, beforeS := history.Selector{Time: after}, history.Selector{Time: before}
 	_, seq, _ := channel.server.GetHistorySequence(channel, session.client, "")
 	if seq != nil {
-		items, complete, _ = seq.Between(afterS, beforeS, channel.server.Config().History.ZNCMax)
+		items, _ = seq.Between(afterS, beforeS, channel.server.Config().History.ZNCMax)
 	}
 	rb := NewResponseBuffer(session)
 	if len(items) != 0 {
 		channel.replayHistoryItems(rb, items, false)
-	}
-	if !complete && !session.resumeDetails.HistoryIncomplete {
-		// warn here if we didn't warn already
-		rb.Add(nil, histservService.prefix, "NOTICE", channel.Name(), session.client.t("Some additional message history may have been lost"))
 	}
 	rb.Send(true)
 }

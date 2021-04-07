@@ -44,8 +44,8 @@ type Item struct {
 	// for a DM, this is the casefolded nickname of the other party (whether this is
 	// an incoming or outgoing message). this lets us emulate the "query buffer" functionality
 	// required by CHATHISTORY:
-	CfCorrespondent string
-	IsBot           bool `json:"IsBot,omitempty"`
+	CfCorrespondent string `json:"CfCorrespondent,omitempty"`
+	IsBot           bool   `json:"IsBot,omitempty"`
 }
 
 // HasMsgid tests whether a message has the message id `msgid`.
@@ -201,6 +201,78 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 	return list.matchInternal(satisfies, ascending, limit), complete, nil
 }
 
+// returns all correspondents, in reverse time order
+func (list *Buffer) allCorrespondents() (results []TargetListing) {
+	seen := make(utils.StringSet)
+
+	list.RLock()
+	defer list.RUnlock()
+	if list.start == -1 || len(list.buffer) == 0 {
+		return
+	}
+
+	// XXX traverse in reverse order, so we get the latest timestamp
+	// of any message sent to/from the correspondent
+	pos := list.prev(list.end)
+	stop := list.start
+
+	for {
+		if !seen.Has(list.buffer[pos].CfCorrespondent) {
+			seen.Add(list.buffer[pos].CfCorrespondent)
+			results = append(results, TargetListing{
+				CfName: list.buffer[pos].CfCorrespondent,
+				Time:   list.buffer[pos].Message.Time,
+			})
+		}
+
+		if pos == stop {
+			break
+		}
+		pos = list.prev(pos)
+	}
+	return
+}
+
+// list DM correspondents, as one input to CHATHISTORY TARGETS
+func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, limit int) (results []TargetListing, err error) {
+	after := start.Time
+	before := end.Time
+	after, before, ascending := MinMaxAsc(after, before, cutoff)
+
+	correspondents := list.allCorrespondents()
+	if len(correspondents) == 0 {
+		return
+	}
+
+	// XXX allCorrespondents returns results in reverse order,
+	// so if we're ascending, we actually go backwards
+	var i int
+	if ascending {
+		i = len(correspondents) - 1
+	} else {
+		i = 0
+	}
+
+	for 0 <= i && i < len(correspondents) && (limit == 0 || len(results) < limit) {
+		if (after.IsZero() || correspondents[i].Time.After(after)) &&
+			(before.IsZero() || correspondents[i].Time.Before(before)) {
+			results = append(results, correspondents[i])
+		}
+
+		if ascending {
+			i--
+		} else {
+			i++
+		}
+	}
+
+	if !ascending {
+		ReverseCorrespondents(results)
+	}
+
+	return
+}
+
 // implements history.Sequence, emulating a single history buffer (for a channel,
 // a single user's DMs, or a DM conversation)
 type bufferSequence struct {
@@ -223,12 +295,25 @@ func (list *Buffer) MakeSequence(correspondent string, cutoff time.Time) Sequenc
 	}
 }
 
-func (seq *bufferSequence) Between(start, end Selector, limit int) (results []Item, complete bool, err error) {
-	return seq.list.betweenHelper(start, end, seq.cutoff, seq.pred, limit)
+func (seq *bufferSequence) Between(start, end Selector, limit int) (results []Item, err error) {
+	results, _, err = seq.list.betweenHelper(start, end, seq.cutoff, seq.pred, limit)
+	return
 }
 
 func (seq *bufferSequence) Around(start Selector, limit int) (results []Item, err error) {
 	return GenericAround(seq, start, limit)
+}
+
+func (seq *bufferSequence) ListCorrespondents(start, end Selector, limit int) (results []TargetListing, err error) {
+	return seq.list.listCorrespondents(start, end, seq.cutoff, limit)
+}
+
+func (seq *bufferSequence) Cutoff() time.Time {
+	return seq.cutoff
+}
+
+func (seq *bufferSequence) Ephemeral() bool {
+	return true
 }
 
 // you must be holding the read lock to call this

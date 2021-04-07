@@ -458,3 +458,13 @@ func (cm *ChannelManager) ListPurged() (result []string) {
 	sort.Strings(result)
 	return
 }
+
+func (cm *ChannelManager) UnfoldName(cfname string) (result string) {
+	cm.RLock()
+	entry := cm.chans[cfname]
+	cm.RUnlock()
+	if entry != nil && entry.channel.IsLoaded() {
+		return entry.channel.Name()
+	}
+	return cfname
+}

@@ -566,27 +566,34 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 // e.g., CHATHISTORY #ircv3 BETWEEN timestamp=YYYY-MM-DDThh:mm:ss.sssZ timestamp=YYYY-MM-DDThh:mm:ss.sssZ + 100
 func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	var items []history.Item
-	unknown_command := false
 	var target string
 	var channel *Channel
 	var sequence history.Sequence
 	var err error
+	var listTargets bool
+	var targets []history.TargetListing
 	defer func() {
 		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
-		if unknown_command {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown command"))
-		} else if err == utils.ErrInvalidParams {
+		if err == utils.ErrInvalidParams {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMS", msg.Params[0], client.t("Invalid parameters"))
-		} else if sequence == nil {
+		} else if !listTargets && sequence == nil {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_TARGET", utils.SafeErrorParam(target), client.t("Messages could not be retrieved"))
 		} else if err != nil {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
 		} else {
 			// successful responses are sent as a chathistory or history batch
-			if channel != nil {
+			if listTargets {
+				batchID := rb.StartNestedBatch("draft/chathistory-targets")
+				defer rb.EndNestedBatch(batchID)
+				for _, target := range targets {
+					name := server.UnfoldName(target.CfName)
+					rb.Add(nil, server.name, "CHATHISTORY", "TARGETS", name,
+						target.Time.Format(IRCv3TimestampFormat))
+				}
+			} else if channel != nil {
 				channel.replayHistoryItems(rb, items, false)
 			} else {
-				client.replayPrivmsgHistory(rb, items, target, true)
+				client.replayPrivmsgHistory(rb, items, target)
 			}
 		}
 	}()
@@ -598,6 +605,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	}
 	preposition := strings.ToLower(msg.Params[0])
 	target = msg.Params[1]
+	listTargets = (preposition == "targets")
 
 	parseQueryParam := func(param string) (msgid string, timestamp time.Time, err error) {
 		if param == "*" && (preposition == "before" || preposition == "between") {
@@ -632,24 +640,25 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		return
 	}
 
-	channel, sequence, err = server.GetHistorySequence(nil, client, target)
-	if err != nil || sequence == nil {
-		return
-	}
-
 	roundUp := func(endpoint time.Time) (result time.Time) {
 		return endpoint.Truncate(time.Millisecond).Add(time.Millisecond)
 	}
 
+	paramPos := 2
 	var start, end history.Selector
 	var limit int
 	switch preposition {
+	case "targets":
+		// use the same selector parsing as BETWEEN,
+		// except that we have no target so we have one fewer parameter
+		paramPos = 1
+		fallthrough
 	case "between":
-		start.Msgid, start.Time, err = parseQueryParam(msg.Params[2])
+		start.Msgid, start.Time, err = parseQueryParam(msg.Params[paramPos])
 		if err != nil {
 			return
 		}
-		end.Msgid, end.Time, err = parseQueryParam(msg.Params[3])
+		end.Msgid, end.Time, err = parseQueryParam(msg.Params[paramPos+1])
 		if err != nil {
 			return
 		}
@@ -662,7 +671,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 				end.Time = roundUp(end.Time)
 			}
 		}
-		limit = parseHistoryLimit(4)
+		limit = parseHistoryLimit(paramPos + 2)
 	case "before", "after", "around":
 		start.Msgid, start.Time, err = parseQueryParam(msg.Params[2])
 		if err != nil {
@@ -689,14 +698,22 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		}
 		limit = parseHistoryLimit(3)
 	default:
-		unknown_command = true
+		err = utils.ErrInvalidParams
 		return
 	}
 
-	if preposition == "around" {
-		items, err = sequence.Around(start, limit)
+	if listTargets {
+		targets, err = client.listTargets(start, end, limit)
 	} else {
-		items, _, err = sequence.Between(start, end, limit)
+		channel, sequence, err = server.GetHistorySequence(nil, client, target)
+		if err != nil || sequence == nil {
+			return
+		}
+		if preposition == "around" {
+			items, err = sequence.Around(start, limit)
+		} else {
+			items, err = sequence.Between(start, end, limit)
+		}
 	}
 	return
 }
@@ -1086,7 +1103,7 @@ func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 		if channel != nil {
 			channel.replayHistoryItems(rb, items, false)
 		} else {
-			client.replayPrivmsgHistory(rb, items, "", true)
+			client.replayPrivmsgHistory(rb, items, "")
 		}
 	}
 	return false

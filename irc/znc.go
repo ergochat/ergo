@@ -16,6 +16,8 @@ import (
 const (
 	// #829, also see "Case 2" in the "three cases" below:
 	zncPlaybackCommandExpiration = time.Second * 30
+
+	zncPrefix = "*playback!znc@znc.in"
 )
 
 type zncCommandHandler func(client *Client, command string, params []string, rb *ResponseBuffer)
@@ -192,29 +194,24 @@ func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, target string, after, b
 		return
 	}
 	zncMax := client.server.Config().History.ZNCMax
-	items, _, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
+	items, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
 	if err == nil && len(items) != 0 {
-		client.replayPrivmsgHistory(rb, items, "", true)
+		client.replayPrivmsgHistory(rb, items, "")
 	}
 }
 
 // PRIVMSG *playback :list
 func zncPlaybackListHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
+	limit := client.server.Config().History.ChathistoryMax
+	correspondents, err := client.listTargets(history.Selector{}, history.Selector{}, limit)
+	if err != nil {
+		client.server.logger.Error("internal", "couldn't get history for ZNC list", err.Error())
+		return
+	}
 	nick := client.Nick()
-	for _, channel := range client.Channels() {
-		_, sequence, err := client.server.GetHistorySequence(channel, client, "")
-		if sequence == nil {
-			continue
-		} else if err != nil {
-			client.server.logger.Error("internal", "couldn't get history sequence for ZNC list", err.Error())
-			continue
-		}
-		items, _, err := sequence.Between(history.Selector{}, history.Selector{}, 1) // i.e., LATEST * 1
-		if err != nil {
-			client.server.logger.Error("internal", "couldn't query history for ZNC list", err.Error())
-		} else if len(items) != 0 {
-			stamp := timeToZncWireTime(items[0].Message.Time)
-			rb.Add(nil, "*playback!znc@znc.in", "PRIVMSG", nick, fmt.Sprintf("%s 0 %s", channel.Name(), stamp))
-		}
+	for _, correspondent := range correspondents {
+		stamp := timeToZncWireTime(correspondent.Time)
+		unfoldedTarget := client.server.UnfoldName(correspondent.CfName)
+		rb.Add(nil, zncPrefix, "PRIVMSG", nick, fmt.Sprintf("%s 0 %s", unfoldedTarget, stamp))
 	}
 }
