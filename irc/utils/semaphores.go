@@ -5,8 +5,6 @@ package utils
 
 import (
 	"context"
-	"log"
-	"runtime/debug"
 	"time"
 )
 
@@ -67,15 +65,7 @@ func (semaphore *Semaphore) AcquireWithContext(ctx context.Context) (acquired bo
 	return
 }
 
-// Release releases a semaphore. It never blocks. (This is not a license
-// to program spurious releases.)
+// Release releases a semaphore.
 func (semaphore *Semaphore) Release() {
-	select {
-	case <-(*semaphore):
-		// good
-	default:
-		// spurious release
-		log.Printf("spurious semaphore release (full to capacity %d)", cap(*semaphore))
-		debug.PrintStack()
-	}
+	<-(*semaphore)
 }
