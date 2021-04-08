@@ -1530,6 +1530,7 @@ func (config *Config) generateISupport() (err error) {
 		isupport.Add("EXTJWT", "1")
 	}
 	isupport.Add("EXTBAN", ",m")
+	isupport.Add("FORWARD", "f")
 	isupport.Add("INVEX", "")
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
