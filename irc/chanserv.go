@@ -79,7 +79,9 @@ AMODE lists or modifies persistent mode settings that affect channel members.
 For example, $bAMODE #channel +o dan$b grants the holder of the "dan"
 account the +o operator mode every time they join #channel. To list current
 accounts and modes, use $bAMODE #channel$b. Note that users are always
-referenced by their registered account names, not their nicknames.`,
+referenced by their registered account names, not their nicknames.
+The permissions hierarchy for adding and removing modes is the same as in
+the ordinary /MODE command.`,
 			helpShort: `$bAMODE$b modifies persistent mode settings for channel members.`,
 			enabled:   chanregEnabled,
 			minParams: 1,
