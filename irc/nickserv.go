@@ -817,11 +817,18 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	for _, nick := range account.AdditionalNicks {
 		service.Notice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
 	}
-	for _, channel := range server.accounts.ChannelsForAccount(accountName) {
-		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
-	}
+	listRegisteredChannels(service, accountName, rb)
 	if account.Suspended != nil {
 		service.Notice(rb, suspensionToString(client, *account.Suspended))
+	}
+}
+
+func listRegisteredChannels(service *ircService, accountName string, rb *ResponseBuffer) {
+	client := rb.session.client
+	channels := client.server.accounts.ChannelsForAccount(accountName)
+	service.Notice(rb, fmt.Sprintf(client.t("You have %d registered channel(s)."), len(channels)))
+	for _, channel := range rb.session.client.server.accounts.ChannelsForAccount(accountName) {
+		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
 	}
 }
 

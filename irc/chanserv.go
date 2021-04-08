@@ -144,7 +144,6 @@ If no regex is provided, all registered channels are returned.`,
 INFO displays info about a registered channel.`,
 			helpShort: `$bINFO$b displays info about a registered channel.`,
 			enabled:   chanregEnabled,
-			minParams: 1,
 		},
 		"get": {
 			handler: csGetHandler,
@@ -743,6 +742,12 @@ func csListHandler(service *ircService, server *Server, client *Client, command 
 }
 
 func csInfoHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		// #765
+		listRegisteredChannels(service, client.Account(), rb)
+		return
+	}
+
 	chname, err := CasefoldChannel(params[0])
 	if err != nil {
 		service.Notice(rb, client.t("Invalid channel name"))
