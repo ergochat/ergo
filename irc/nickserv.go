@@ -968,6 +968,8 @@ func nsUnregisterHandler(service *ircService, server *Server, client *Client, co
 			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
 		} else {
 			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bNote that an unregistered account name remains reserved and cannot be re-registered.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bIf you are having problems with your account, contact an administrator.$b")))
 		}
 		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
 		return
