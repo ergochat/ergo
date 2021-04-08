@@ -79,7 +79,9 @@ AMODE lists or modifies persistent mode settings that affect channel members.
 For example, $bAMODE #channel +o dan$b grants the holder of the "dan"
 account the +o operator mode every time they join #channel. To list current
 accounts and modes, use $bAMODE #channel$b. Note that users are always
-referenced by their registered account names, not their nicknames.`,
+referenced by their registered account names, not their nicknames.
+The permissions hierarchy for adding and removing modes is the same as in
+the ordinary /MODE command.`,
 			helpShort: `$bAMODE$b modifies persistent mode settings for channel members.`,
 			enabled:   chanregEnabled,
 			minParams: 1,
@@ -144,7 +146,6 @@ If no regex is provided, all registered channels are returned.`,
 INFO displays info about a registered channel.`,
 			helpShort: `$bINFO$b displays info about a registered channel.`,
 			enabled:   chanregEnabled,
-			minParams: 1,
 		},
 		"get": {
 			handler: csGetHandler,
@@ -743,6 +744,12 @@ func csListHandler(service *ircService, server *Server, client *Client, command 
 }
 
 func csInfoHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if len(params) == 0 {
+		// #765
+		listRegisteredChannels(service, client.Account(), rb)
+		return
+	}
+
 	chname, err := CasefoldChannel(params[0])
 	if err != nil {
 		service.Notice(rb, client.t("Invalid channel name"))

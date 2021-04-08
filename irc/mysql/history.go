@@ -395,7 +395,7 @@ func (mysql *MySQL) deleteCorrespondents(ctx context.Context, threshold int64) {
 		mysql.logError("error deleting correspondents", err)
 	} else {
 		count, err := result.RowsAffected()
-		if err != nil {
+		if !mysql.logError("error deleting correspondents", err) {
 			mysql.logger.Debug(fmt.Sprintf("deleted %d correspondents entries", count))
 		}
 	}

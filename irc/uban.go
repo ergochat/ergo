@@ -13,6 +13,7 @@ import (
 
 	"github.com/oragono/oragono/irc/custime"
 	"github.com/oragono/oragono/irc/flatip"
+	"github.com/oragono/oragono/irc/sno"
 	"github.com/oragono/oragono/irc/utils"
 )
 
@@ -160,18 +161,64 @@ func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *Resp
 
 	switch target.banType {
 	case ubanCIDR:
-		ubanAddCIDR(client, target, duration, requireSASL, operReason, rb)
+		err = ubanAddCIDR(client, target, duration, requireSASL, operReason, rb)
 	case ubanNickmask:
-		ubanAddNickmask(client, target, duration, operReason, rb)
+		err = ubanAddNickmask(client, target, duration, operReason, rb)
 	case ubanNick:
-		ubanAddAccount(client, target, duration, operReason, rb)
-
+		err = ubanAddAccount(client, target, duration, operReason, rb)
+	}
+	if err == nil {
+		announceUban(client, true, target, duration, requireSASL, operReason)
 	}
 	return false
 }
 
-func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requireSASL bool, operReason string, rb *ResponseBuffer) {
-	err := client.server.dlines.AddNetwork(target.cidr, duration, requireSASL, "", operReason, client.Oper().Name)
+func announceUban(client *Client, add bool, target ubanTarget, duration time.Duration, requireSASL bool, operReason string) {
+	oper := client.Oper()
+	if oper == nil {
+		return
+	}
+	operName := oper.Name
+
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "Operator %s", operName)
+
+	if add {
+		buf.WriteString(" added")
+	} else {
+		buf.WriteString(" removed")
+	}
+	switch target.banType {
+	case ubanCIDR:
+		buf.WriteString(" an IP-based")
+	case ubanNickmask:
+		buf.WriteString(" a NUH-mask")
+	case ubanNick:
+		buf.WriteString(" an account suspension")
+	}
+	buf.WriteString(" UBAN against ")
+	switch target.banType {
+	case ubanCIDR:
+		buf.WriteString(target.cidr.String())
+	case ubanNickmask, ubanNick:
+		buf.WriteString(target.nickOrMask)
+	}
+	if duration != 0 {
+		fmt.Fprintf(&buf, " [duration: %v]", duration)
+	}
+	if requireSASL {
+		buf.WriteString(" [require-SASL]")
+	}
+	if operReason != "" {
+		fmt.Fprintf(&buf, " [reason: %s]", operReason)
+	}
+	line := buf.String()
+	client.server.snomasks.Send(sno.LocalXline, line)
+	client.server.logger.Info("opers", line)
+}
+
+func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requireSASL bool, operReason string, rb *ResponseBuffer) (err error) {
+	err = client.server.dlines.AddNetwork(target.cidr, duration, requireSASL, "", operReason, client.Oper().Name)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully added UBAN for %s"), target.cidr.HumanReadableString()))
 	} else {
@@ -192,10 +239,11 @@ func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requ
 			rb.Notice(line)
 		}
 	}
+	return
 }
 
-func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) {
-	err := client.server.klines.AddMask(target.nickOrMask, duration, "", operReason, client.Oper().Name)
+func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) (err error) {
+	err = client.server.klines.AddMask(target.nickOrMask, duration, "", operReason, client.Oper().Name)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully added UBAN for %s"), target.nickOrMask))
 	} else {
@@ -229,9 +277,10 @@ func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, 
 		}
 		rb.Notice(client.t("You can suspend their accounts instead; try /UBAN ADD <nickname>"))
 	}
+	return
 }
 
-func ubanAddAccount(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) {
+func ubanAddAccount(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) (err error) {
 	account := target.nickOrMask
 	// TODO this doesn't enumerate all sessions if ForceNickEqualsAccount is disabled
 	var sessionData []SessionData
@@ -239,7 +288,7 @@ func ubanAddAccount(client *Client, target ubanTarget, duration time.Duration, o
 		sessionData, _ = mcl.AllSessionData(nil, true)
 	}
 
-	err := client.server.accounts.Suspend(account, duration, client.Oper().Name, operReason)
+	err = client.server.accounts.Suspend(account, duration, client.Oper().Name, operReason)
 	switch err {
 	case nil:
 		rb.Notice(fmt.Sprintf(client.t("Successfully suspended account %s"), account))
@@ -254,6 +303,7 @@ func ubanAddAccount(client *Client, target ubanTarget, duration time.Duration, o
 	default:
 		rb.Notice(client.t("An error occurred"))
 	}
+	return
 }
 
 func ubanDelHandler(client *Client, target ubanTarget, params []string, rb *ResponseBuffer) bool {
@@ -276,6 +326,7 @@ func ubanDelHandler(client *Client, target ubanTarget, params []string, rb *Resp
 	}
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully removed ban on %s"), targetString))
+		announceUban(client, false, target, 0, false, "")
 	} else {
 		rb.Notice(fmt.Sprintf(client.t("Could not remove ban: %v"), err))
 	}

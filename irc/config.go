@@ -8,6 +8,7 @@ package irc
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -54,12 +55,15 @@ type TLSListenConfig struct {
 
 // This is the YAML-deserializable type of the value of the `Server.Listeners` map
 type listenerConfigBlock struct {
-	TLS       TLSListenConfig
-	Proxy     bool
-	Tor       bool
-	STSOnly   bool `yaml:"sts-only"`
-	WebSocket bool
-	HideSTS   bool `yaml:"hide-sts"`
+	// normal TLS configuration, with a single certificate:
+	TLS TLSListenConfig
+	// SNI configuration, with multiple certificates:
+	TLSCertificates []TLSListenConfig `yaml:"tls-certificates"`
+	Proxy           bool
+	Tor             bool
+	STSOnly         bool `yaml:"sts-only"`
+	WebSocket       bool
+	HideSTS         bool `yaml:"hide-sts"`
 }
 
 type HistoryCutoff uint
@@ -536,11 +540,10 @@ type Config struct {
 		passwordBytes  []byte
 		Name           string
 		nameCasefolded string
-		// Listeners is the new style for configuring listeners:
-		Listeners    map[string]listenerConfigBlock
-		UnixBindMode os.FileMode        `yaml:"unix-bind-mode"`
-		TorListeners TorListenersConfig `yaml:"tor-listeners"`
-		WebSockets   struct {
+		Listeners      map[string]listenerConfigBlock
+		UnixBindMode   os.FileMode        `yaml:"unix-bind-mode"`
+		TorListeners   TorListenersConfig `yaml:"tor-listeners"`
+		WebSockets     struct {
 			AllowedOrigins       []string `yaml:"allowed-origins"`
 			allowedOriginRegexps []*regexp.Regexp
 		}
@@ -845,13 +848,30 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 	return operators, nil
 }
 
-func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Config, err error) {
-	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
-	if err != nil {
-		return nil, &CertKeyError{Err: err}
+func loadTlsConfig(config listenerConfigBlock) (tlsConfig *tls.Config, err error) {
+	var certificates []tls.Certificate
+	if len(config.TLSCertificates) != 0 {
+		// SNI configuration with multiple certificates
+		for _, certPairConf := range config.TLSCertificates {
+			cert, err := loadCertWithLeaf(certPairConf.Cert, certPairConf.Key)
+			if err != nil {
+				return nil, err
+			}
+			certificates = append(certificates, cert)
+		}
+	} else if config.TLS.Cert != "" {
+		// normal configuration with one certificate
+		cert, err := loadCertWithLeaf(config.TLS.Cert, config.TLS.Key)
+		if err != nil {
+			return nil, err
+		}
+		certificates = append(certificates, cert)
+	} else {
+		// plaintext!
+		return nil, nil
 	}
 	clientAuth := tls.RequestClientCert
-	if webSocket {
+	if config.WebSocket {
 		// if Chrome receives a server request for a client certificate
 		// on a websocket connection, it will immediately disconnect:
 		// https://bugs.chromium.org/p/chromium/issues/detail?id=329884
@@ -859,10 +879,24 @@ func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Confi
 		clientAuth = tls.NoClientCert
 	}
 	result := tls.Config{
-		Certificates: []tls.Certificate{cert},
+		Certificates: certificates,
 		ClientAuth:   clientAuth,
 	}
 	return &result, nil
+}
+
+func loadCertWithLeaf(certFile, keyFile string) (cert tls.Certificate, err error) {
+	// LoadX509KeyPair: "On successful return, Certificate.Leaf will be nil because
+	// the parsed form of the certificate is not retained." tls.Config:
+	// "Note: if there are multiple Certificates, and they don't have the
+	// optional field Leaf set, certificate selection will incur a significant
+	// per-handshake performance cost."
+	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return
+	}
+	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+	return
 }
 
 // prepareListeners populates Config.Server.trueListeners
@@ -880,12 +914,9 @@ func (conf *Config) prepareListeners() (err error) {
 		if lconf.STSOnly && !conf.Server.STS.Enabled {
 			return fmt.Errorf("%s is configured as a STS-only listener, but STS is disabled", addr)
 		}
-		if block.TLS.Cert != "" {
-			tlsConfig, err := loadTlsConfig(block.TLS, block.WebSocket)
-			if err != nil {
-				return err
-			}
-			lconf.TLSConfig = tlsConfig
+		lconf.TLSConfig, err = loadTlsConfig(block)
+		if err != nil {
+			return &CertKeyError{Err: err}
 		}
 		lconf.RequireProxy = block.TLS.Proxy || block.Proxy
 		lconf.WebSocket = block.WebSocket

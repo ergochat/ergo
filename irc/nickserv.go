@@ -817,11 +817,18 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	for _, nick := range account.AdditionalNicks {
 		service.Notice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
 	}
-	for _, channel := range server.accounts.ChannelsForAccount(accountName) {
-		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
-	}
+	listRegisteredChannels(service, accountName, rb)
 	if account.Suspended != nil {
 		service.Notice(rb, suspensionToString(client, *account.Suspended))
+	}
+}
+
+func listRegisteredChannels(service *ircService, accountName string, rb *ResponseBuffer) {
+	client := rb.session.client
+	channels := client.server.accounts.ChannelsForAccount(accountName)
+	service.Notice(rb, fmt.Sprintf(client.t("You have %d registered channel(s)."), len(channels)))
+	for _, channel := range rb.session.client.server.accounts.ChannelsForAccount(accountName) {
+		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
 	}
 }
 
@@ -961,6 +968,8 @@ func nsUnregisterHandler(service *ircService, server *Server, client *Client, co
 			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: erasing this account will allow it to be re-registered; consider UNREGISTER instead.$b")))
 		} else {
 			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bNote that an unregistered account name remains reserved and cannot be re-registered.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bIf you are having problems with your account, contact an administrator.$b")))
 		}
 		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
 		return

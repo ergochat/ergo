@@ -49,6 +49,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Redirect from plaintext to TLS](#how-can-i-redirect-users-from-plaintext-to-tls)
     - [Reverse proxies](#reverse-proxies)
     - [Client certificates](#client-certificates)
+    - [SNI](#sni)
 - [Modes](#modes)
     - [User Modes](#user-modes)
     - [Channel Modes](#channel-modes)
@@ -606,6 +607,20 @@ Oragono supports authenticating to user accounts via TLS client certificates. Th
 
 Client certificates are not supported over websockets due to a [Chrome bug](https://bugs.chromium.org/p/chromium/issues/detail?id=329884).
 
+## SNI
+
+Oragono supports [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication); this is useful if you have multiple domain names for your server, with different certificates covering different domain names. Configure your TLS listener like this:
+
+```yaml
+        ":6697":
+            tls-certificates:
+                -
+                    cert: cert1.pem
+                    key:  key1.pem
+                -
+                    cert: cert2.pem
+                    key:  key2.pem
+```
 
 --------------------------------------------------------------------------------------------
 
