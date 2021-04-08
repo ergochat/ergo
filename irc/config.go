@@ -8,6 +8,7 @@ package irc
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -846,7 +847,7 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 }
 
 func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Config, err error) {
-	cert, err := tls.LoadX509KeyPair(config.Cert, config.Key)
+	cert, err := loadCertWithLeaf(config.Cert, config.Key)
 	if err != nil {
 		return nil, &CertKeyError{Err: err}
 	}
@@ -863,6 +864,20 @@ func loadTlsConfig(config TLSListenConfig, webSocket bool) (tlsConfig *tls.Confi
 		ClientAuth:   clientAuth,
 	}
 	return &result, nil
+}
+
+func loadCertWithLeaf(certFile, keyFile string) (cert tls.Certificate, err error) {
+	// LoadX509KeyPair: "On successful return, Certificate.Leaf will be nil because
+	// the parsed form of the certificate is not retained." tls.Config:
+	// "Note: if there are multiple Certificates, and they don't have the
+	// optional field Leaf set, certificate selection will incur a significant
+	// per-handshake performance cost."
+	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return
+	}
+	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+	return
 }
 
 // prepareListeners populates Config.Server.trueListeners
