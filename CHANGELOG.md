@@ -1,6 +1,73 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.6.0-rc1] - 2021-04-11
+
+We're pleased to be publishing the release candidate for 2.6.0 (the official release should follow in a week or so).
+
+This release has some user-facing enhancements, but is primarily focused on fixing bugs and advancing the state of IRCv3 standardization (by publishing a release that implements the latest drafts). Some highlights:
+
+* A new CHATHISTORY API for listing direct message conversations (#1592)
+* The latest proposal for IRC-over-websockets, which should be backwards-compatible with existing clients (#1588)
+* The latest specification for the bot usermode (`+B` in our implementation) (#1562)
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
+
+This release includes no changes to the embedded database format. If you are using MySQL for history storage, it adds a new table; this change is backwards and forwards-compatible and does not require any manual intervention.
+
+If you are using nginx as a reverse proxy for IRC-over-websockets, previous documentation did not recommend increasing `proxy_read_timeout`; the default value of `60s` is too low and can lead to user disconnections. The current recommended value is `proxy_read_timeout 600s;`; see the manual for an example configuration.
+
+Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://github.com/Mikaela) for contributing patches, to [@aster1sk](https://github.com/aster1sk), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo),  [@hhirtz](https://github.com/hhirtz), [@jwheare](https://github.com/jwheare), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@kylef](https://github.com/kylef), [@jlu5](https://github.com/jlu5), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@ProgVal](https://github.com/ProgVal), and [@szlend](https://github.com/szlend) for reporting issues and helping test, and to our translators for contributing translations.
+
+### Config changes
+* Listeners now support multiple TLS certificates for use with SNI; see the manual for details (#875, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added `server.compatibility.allow-truncation`, controlling whether the server accepts messages that are too long to be relayed intact; this value defaults to `true` when unset (#1596, thanks [@kylef](https://github.com/kylef)!)
+* Added new `snomasks` operator capability; operators must have either the `ban` or `snomasks` capability to subscribe to additional snomasks (#1176)
+
+### Security
+* Fixed several edge cases where Oragono might relay invalid UTF8 despite the `UTF8ONLY` guarantee, or to a text-mode websocket client (#1575, #1596, thanks [@ProgVal](https://github.com/ProgVal)!)
+* All operator privilege checks now use the capabilities system, making it easier to define operators with restricted powers (#1176)
+* Adding and removing bans with `UBAN` now produces snomasks and audit loglines (#1518, thanks [@mogad0n](https://github.com/mogad0n)!)
+
+### Fixed
+* Fixed an edge case in line buffering that could result in client disconnections (#1572, thanks [@ProgVal](https://github.com/ProgVal)!)
+* Upgraded buntdb, our embedded database library, fixing an edge case that could cause data corruption (#1603, thanks [@Mikaela](https://github.com/Mikaela), [@tidwall](https://github.com/tidwall)!)
+* Improved compatibility with the published `draft/register` specification (#1568, thanks [@ProgVal](https://github.com/ProgVal)!)
+* `433 ERR_NICKNAMEINUSE` is no longer sent when a fully connected ("registered") client fails to claim a reserved nickname, fixing a bad interaction with some client software (#1594, thanks [@ProgVal](https://github.com/ProgVal)!)
+* Fixed `znc.in/playback` commands causing client disconnections when history is disabled (#1552, thanks [@szlend](https://github.com/szlend)!)
+* Fixed syntactically invalid `696 ERR_INVALIDMODEPARAM` response for invalid channel keys (#1563, thanks [@ProgVal](https://github.com/ProgVal)!)
+* User-set nickserv settings now display as "enabled" instead of "mandatory" (#1544, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Improved error messages for some invalid configuration cases (#1559, thanks [@aster1sk](https://github.com/aster1sk)!)
+* Improved `CS TRANSFER` error messages (#1534, thanks burning!)
+* Handle panics caused when rehashing with SIGHUP (#1570)
+
+### Changed
+* Registered channels will always appear in `/LIST` output, even with no members (#1507)
+* In the new recommended default configuration, Oragono will preemptively reject messages that are too long to be relayed to clients without truncation. This is controlled by the config variable `server.compatibility.allow-truncation`; this field defaults to `true` when unset, preserving the legacy behavior for older config files (#1586, thanks [@kylef](https://github.com/kylef)!)
+* Auto-away behavior now respects individual clients; the user is not considered away unless all clients are away or disconnected (#1531, thanks [@kylef](https://github.com/kylef)!)
+* Direct messages rejected due to the `+R` registered-only usermode now produce an error message (#1064, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@ajaspers](https://github.com/ajaspers)!)
+* RELAYMSG identifiers now respect bans and mutes (#1502)
+* If end user message deletion is enabled, channel operators can now delete channel messages (#1565, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Halfops can change the channel topic (#1523)
+* Snomask add/remove syntax now matches other ircds more closely (#1074)
+* `CS OP` will regrant your channel `AMODE`, in case you removed it (#1516, #1307, thanks [@jlu5](https://github.com/jlu5)!)
+* User passwords may no longer begin with `:` (#1571)
+* Improved documentation of `CS AMODE` and `NS UNREGISTER` (#1524, #1545, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Disabling history disables history-related CAPs (#1549)
+
+### Added
+* Implemented the new [CHATHISTORY TARGETS](https://github.com/ircv3/ircv3-specifications/pull/450) API for listing direct message conversations (#1592, thanks [@emersion](https://github.com/emersion), [@hhirtz](https://github.com/hhirtz), [@jwheare](https://github.com/jwheare), [@kylef](https://github.com/kylef)!)
+* Implemented the new [IRC-over-websockets draft](https://github.com/ircv3/ircv3-specifications/pull/342), adding support for binary websockets and subprotocol negotiation (#1588, thanks [@jwheare](https://github.com/jwheare)!)
+* Implemented the new [bot mode spec](https://github.com/ircv3/ircv3-specifications/pull/439) (#1562)
+* Implemented the new [forward mode spec](https://github.com/ircv3/ircv3-specifications/pull/440) (#1612, thanks [@ProgVal](https://github.com/ProgVal)!)
+* `WARN NICK ACCOUNT_REQUIRED` is sent on failed attempts to claim a reserved nickname (#1599)
+* `NS CLIENTS LIST` displays enabled client capabilities (#1576)
+* `CS INFO` with no arguments lists your registered channels (#765)
+* `NS PASSWORD` is now accepted as an alias for `NS PASSWD` (#1547)
+
+### Internal
+* Upgraded to Go 1.16 (#1510)
+
 ## [2.5.1] - 2021-02-02
 
 Oragono 2.5.1 is a bugfix release that fixes a significant security issue. We apologize for the oversight.
