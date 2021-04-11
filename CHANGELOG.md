@@ -8,7 +8,7 @@ We're pleased to be publishing the release candidate for 2.6.0 (the official rel
 This release has some user-facing enhancements, but is primarily focused on fixing bugs and advancing the state of IRCv3 standardization (by publishing a release that implements the latest drafts). Some highlights:
 
 * A new CHATHISTORY API for listing direct message conversations (#1592)
-* The latest proposal for IRC-over-websockets, which should be backwards-compatible with existing clients (#1588)
+* The latest proposal for IRC-over-websockets, which should be backwards-compatible with existing clients (#1558)
 * The latest specification for the bot usermode (`+B` in our implementation) (#1562)
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
@@ -17,7 +17,7 @@ This release includes no changes to the embedded database format. If you are usi
 
 If you are using nginx as a reverse proxy for IRC-over-websockets, previous documentation did not recommend increasing `proxy_read_timeout`; the default value of `60s` is too low and can lead to user disconnections. The current recommended value is `proxy_read_timeout 600s;`; see the manual for an example configuration.
 
-Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://github.com/Mikaela) for contributing patches, to [@aster1sk](https://github.com/aster1sk), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo),  [@hhirtz](https://github.com/hhirtz), [@jwheare](https://github.com/jwheare), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@kylef](https://github.com/kylef), [@jlu5](https://github.com/jlu5), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@ProgVal](https://github.com/ProgVal), and [@szlend](https://github.com/szlend) for reporting issues and helping test, and to our translators for contributing translations.
+Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://github.com/Mikaela) for contributing patches, to [@aster1sk](https://github.com/aster1sk), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo),  [@hhirtz](https://github.com/hhirtz), [@jlu5](https://github.com/jlu5), [@jwheare](https://github.com/jwheare), [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@kylef](https://github.com/kylef), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@ProgVal](https://github.com/ProgVal), and [@szlend](https://github.com/szlend) for reporting issues and helping test, and to our translators for contributing translations.
 
 ### Config changes
 * Listeners now support multiple TLS certificates for use with SNI; see the manual for details (#875, thanks [@Mikaela](https://github.com/Mikaela)!)
@@ -43,7 +43,7 @@ Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://g
 
 ### Changed
 * Registered channels will always appear in `/LIST` output, even with no members (#1507)
-* In the new recommended default configuration, Oragono will preemptively reject messages that are too long to be relayed to clients without truncation. This is controlled by the config variable `server.compatibility.allow-truncation`; this field defaults to `true` when unset, preserving the legacy behavior for older config files (#1586, thanks [@kylef](https://github.com/kylef)!)
+* In the new recommended default configuration, Oragono will preemptively reject messages that are too long to be relayed to clients without truncation. This is controlled by the config variable `server.compatibility.allow-truncation`; this field defaults to `true` when unset, preserving the legacy behavior for older config files (#1577, #1586, thanks [@kylef](https://github.com/kylef)!)
 * Auto-away behavior now respects individual clients; the user is not considered away unless all clients are away or disconnected (#1531, thanks [@kylef](https://github.com/kylef)!)
 * Direct messages rejected due to the `+R` registered-only usermode now produce an error message (#1064, thanks [@KoraggKnightWolf](https://github.com/KoraggKnightWolf), [@ajaspers](https://github.com/ajaspers)!)
 * RELAYMSG identifiers now respect bans and mutes (#1502)
@@ -57,10 +57,10 @@ Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://g
 
 ### Added
 * Implemented the new [CHATHISTORY TARGETS](https://github.com/ircv3/ircv3-specifications/pull/450) API for listing direct message conversations (#1592, thanks [@emersion](https://github.com/emersion), [@hhirtz](https://github.com/hhirtz), [@jwheare](https://github.com/jwheare), [@kylef](https://github.com/kylef)!)
-* Implemented the new [IRC-over-websockets draft](https://github.com/ircv3/ircv3-specifications/pull/342), adding support for binary websockets and subprotocol negotiation (#1588, thanks [@jwheare](https://github.com/jwheare)!)
+* Implemented the new [IRC-over-websockets draft](https://github.com/ircv3/ircv3-specifications/pull/342), adding support for binary websockets and subprotocol negotiation (#1558, thanks [@jwheare](https://github.com/jwheare)!)
 * Implemented the new [bot mode spec](https://github.com/ircv3/ircv3-specifications/pull/439) (#1562)
 * Implemented the new [forward mode spec](https://github.com/ircv3/ircv3-specifications/pull/440) (#1612, thanks [@ProgVal](https://github.com/ProgVal)!)
-* `WARN NICK ACCOUNT_REQUIRED` is sent on failed attempts to claim a reserved nickname (#1599)
+* `WARN NICK ACCOUNT_REQUIRED` is sent on failed attempts to claim a reserved nickname (#1594)
 * `NS CLIENTS LIST` displays enabled client capabilities (#1576)
 * `CS INFO` with no arguments lists your registered channels (#765)
 * `NS PASSWORD` is now accepted as an alias for `NS PASSWD` (#1547)

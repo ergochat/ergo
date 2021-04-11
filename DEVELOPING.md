@@ -44,6 +44,7 @@ Develop branches are either used to work out implementation details in preperati
     * For a release candidate:
         1. the channel topic
         1. any operators who may be interested
+        1. update the testnet
     * For a production release:
         1. everything applicable to a release candidate
         1. Twitter
