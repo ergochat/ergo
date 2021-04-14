@@ -622,6 +622,8 @@ Oragono supports [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication); th
                     key:  key2.pem
 ```
 
+If multiple certificates are applicable, or the client does not send SNI, the server will offer the first applicable certificate in the list.
+
 --------------------------------------------------------------------------------------------
 
 
