@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
-## [2.6.0-rc1] - 2021-04-11
+## [2.6.0] - 2021-04-18
 
-We're pleased to be publishing the release candidate for 2.6.0 (the official release should follow in a week or so).
+We're pleased to announce Oragono 2.6.0, a new stable release.
 
 This release has some user-facing enhancements, but is primarily focused on fixing bugs and advancing the state of IRCv3 standardization (by publishing a release that implements the latest drafts). Some highlights:
 
