@@ -21,7 +21,7 @@ Many thanks to [@ajaspers](https://github.com/ajaspers) and [@Mikaela](https://g
 
 ### Config changes
 * Listeners now support multiple TLS certificates for use with SNI; see the manual for details (#875, thanks [@Mikaela](https://github.com/Mikaela)!)
-* Added `server.compatibility.allow-truncation`, controlling whether the server accepts messages that are too long to be relayed intact; this value defaults to `true` when unset (#1596, thanks [@kylef](https://github.com/kylef)!)
+* Added `server.compatibility.allow-truncation`, controlling whether the server accepts messages that are too long to be relayed intact; this value defaults to `true` when unset (#1577, #1586, thanks [@kylef](https://github.com/kylef)!)
 * Added new `snomasks` operator capability; operators must have either the `ban` or `snomasks` capability to subscribe to additional snomasks (#1176)
 
 ### Security
