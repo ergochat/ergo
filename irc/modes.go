@@ -32,6 +32,9 @@ var (
 // to confirm that the client actually has a valid operclass)
 func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool, oper *Oper) modes.ModeChanges {
 	applied := make(modes.ModeChanges, 0)
+	// #1617: if the user is offline, they are not counted in LUSERS,
+	// so don't modify the LUSERS stats for +i or +o.
+	present := len(client.Sessions()) != 0
 
 	for _, change := range changes {
 		if change.Mode != modes.ServerNotice {
@@ -42,9 +45,9 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 				}
 
 				if client.SetMode(change.Mode, true) {
-					if change.Mode == modes.Invisible {
+					if change.Mode == modes.Invisible && present {
 						client.server.stats.ChangeInvisible(1)
-					} else if change.Mode == modes.Operator {
+					} else if change.Mode == modes.Operator && present {
 						client.server.stats.ChangeOperators(1)
 					}
 					applied = append(applied, change)
@@ -53,11 +56,13 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 			case modes.Remove:
 				var removedSnomasks string
 				if client.SetMode(change.Mode, false) {
-					if change.Mode == modes.Invisible {
+					if change.Mode == modes.Invisible && present {
 						client.server.stats.ChangeInvisible(-1)
 					} else if change.Mode == modes.Operator {
 						removedSnomasks = client.server.snomasks.String(client)
-						client.server.stats.ChangeOperators(-1)
+						if present {
+							client.server.stats.ChangeOperators(-1)
+						}
 						applyOper(client, nil, nil)
 						if removedSnomasks != "" {
 							client.server.snomasks.RemoveClient(client)
@@ -86,7 +91,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 			if len(addMasks) != 0 {
 				oper := client.Oper()
 				// #1176: require special operator privileges to subscribe to snomasks
-				if oper.HasRoleCapab("snomasks") || oper.HasRoleCapab("ban") {
+				if force || oper.HasRoleCapab("snomasks") || oper.HasRoleCapab("ban") {
 					success = true
 					client.server.snomasks.AddMasks(client, addMasks...)
 				}

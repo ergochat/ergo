@@ -59,6 +59,7 @@ type listenerConfigBlock struct {
 	TLS TLSListenConfig
 	// SNI configuration, with multiple certificates:
 	TLSCertificates []TLSListenConfig `yaml:"tls-certificates"`
+	MinTLSVersion   string            `yaml:"min-tls-version"`
 	Proxy           bool
 	Tor             bool
 	STSOnly         bool `yaml:"sts-only"`
@@ -881,8 +882,27 @@ func loadTlsConfig(config listenerConfigBlock) (tlsConfig *tls.Config, err error
 	result := tls.Config{
 		Certificates: certificates,
 		ClientAuth:   clientAuth,
+		MinVersion:   tlsMinVersionFromString(config.MinTLSVersion),
 	}
 	return &result, nil
+}
+
+func tlsMinVersionFromString(version string) uint16 {
+	version = strings.ToLower(version)
+	version = strings.TrimPrefix(version, "v")
+	switch version {
+	case "1", "1.0":
+		return tls.VersionTLS10
+	case "1.1":
+		return tls.VersionTLS11
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
+	default:
+		// tls package will fill in a sane value, currently 1.0
+		return 0
+	}
 }
 
 func loadCertWithLeaf(certFile, keyFile string) (cert tls.Certificate, err error) {
@@ -1475,11 +1495,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	err = config.generateISupport()
 	if err != nil {
 		return nil, err
-	}
-
-	err = config.prepareListeners()
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
 	}
 
 	// #1428: Tor listeners should never see STS
