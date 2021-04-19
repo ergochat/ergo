@@ -745,8 +745,6 @@ func (client *Client) run(session *Session) {
 			continue
 		} else if err == ircmsg.ErrorBodyTooLong && !client.server.Config().Server.Compatibility.allowTruncation {
 			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
-			// TODO(#1577) remove this logline:
-			client.server.logger.Debug("internal", "rejected MaxLineLen-exceeding line from client", client.Nick())
 			continue
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)

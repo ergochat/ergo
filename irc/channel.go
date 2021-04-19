@@ -1371,8 +1371,6 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	if !client.server.Config().Server.Compatibility.allowTruncation {
 		if !validateSplitMessageLen(histType, details.nickMask, chname, message) {
 			rb.Add(nil, client.server.name, ERR_INPUTTOOLONG, details.nick, client.t("Line too long to be relayed without truncation"))
-			// TODO(#1577) remove this logline:
-			client.server.logger.Debug("internal", "rejected truncation-requiring DM from client", details.nick)
 			return
 		}
 	}
