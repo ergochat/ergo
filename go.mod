@@ -7,7 +7,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef
