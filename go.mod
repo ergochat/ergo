@@ -19,8 +19,7 @@ require (
 	github.com/tidwall/buntdb v1.2.3
 	github.com/tidwall/rtree v0.0.0-20201027154624-32188eeb08a8 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf // indirect
+	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.4
 	gopkg.in/yaml.v2 v2.3.0
 )
