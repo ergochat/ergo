@@ -20,7 +20,7 @@ require (
 	github.com/tidwall/rtree v0.0.0-20201027154624-32188eeb08a8 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
-	golang.org/x/text v0.3.4
+	golang.org/x/text v0.3.6
 	gopkg.in/yaml.v2 v2.3.0
 )
 
