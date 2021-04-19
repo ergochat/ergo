@@ -58,6 +58,8 @@ server:
             # always send a PROXY protocol header ahead of the connection. See the
             # manual ("Reverse proxies") for more details.
             proxy: false
+            # set the minimum TLS version:
+            min-tls-version: 1.2
 
         # Example of a Unix domain socket for proxying:
         # "/tmp/oragono_sock":
