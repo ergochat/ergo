@@ -1497,11 +1497,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, err
 	}
 
-	err = config.prepareListeners()
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare listeners: %v", err)
-	}
-
 	// #1428: Tor listeners should never see STS
 	config.Server.supportedCapsWithoutSTS = caps.NewSet()
 	config.Server.supportedCapsWithoutSTS.Union(config.Server.supportedCaps)
