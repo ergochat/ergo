@@ -2205,8 +2205,6 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		if !client.server.Config().Server.Compatibility.allowTruncation {
 			if !validateSplitMessageLen(histType, client.NickMaskString(), tnick, message) {
 				rb.Add(nil, server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Line too long to be relayed without truncation"))
-				// TODO(#1577) remove this logline:
-				client.server.logger.Debug("internal", "rejected truncation-requiring channel message from client", details.nick)
 				return
 			}
 		}
