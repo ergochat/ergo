@@ -1080,7 +1080,7 @@ Get an explanation of <argument>, or "index" for a list of help topics.`), rb)
 
 // HISTORY <target> [<limit>]
 // e.g., HISTORY #ubuntu 10
-// HISTORY me 15
+// HISTORY alice 15
 // HISTORY #darwin 1h
 func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	config := server.Config()

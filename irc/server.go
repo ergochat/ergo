@@ -862,6 +862,10 @@ func (server *Server) setupListeners(config *Config) (err error) {
 // we may already know the channel we're querying, or we may have
 // to look it up via a string query. This function is responsible for
 // privilege checking.
+// XXX: call this with providedChannel==nil and query=="" to get a sequence
+// suitable for ListCorrespondents (i.e., this function is still used to
+// decide whether the ringbuf or mysql is authoritative about the client's
+// message history).
 func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, query string) (channel *Channel, sequence history.Sequence, err error) {
 	config := server.Config()
 	// 4 cases: {persistent, ephemeral} x {normal, conversation}
@@ -901,7 +905,7 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 		}
 	} else {
 		status, target = client.historyStatus(config)
-		if query != "*" {
+		if query != "" {
 			correspondent, err = CasefoldName(query)
 			if err != nil {
 				return
