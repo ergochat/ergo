@@ -176,6 +176,10 @@ func (cm *ChannelManager) maybeCleanup(channel *Channel, afterJoin bool) {
 		return
 	}
 
+	cm.maybeCleanupInternal(cfname, entry, afterJoin)
+}
+
+func (cm *ChannelManager) maybeCleanupInternal(cfname string, entry *channelManagerEntry, afterJoin bool) {
 	if afterJoin {
 		entry.pendingJoins -= 1
 	}
@@ -288,6 +292,9 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 			entry.skeleton = skel
 			cm.chans[cfname] = entry
 		}
+		// #1619: if the channel has 0 members and was only being retained
+		// because it was registered, clean it up:
+		cm.maybeCleanupInternal(cfname, entry, false)
 	}
 	return nil
 }
