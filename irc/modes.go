@@ -86,7 +86,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 			if len(addMasks) != 0 {
 				oper := client.Oper()
 				// #1176: require special operator privileges to subscribe to snomasks
-				if oper.HasRoleCapab("snomasks") || oper.HasRoleCapab("ban") {
+				if force || oper.HasRoleCapab("snomasks") || oper.HasRoleCapab("ban") {
 					success = true
 					client.server.snomasks.AddMasks(client, addMasks...)
 				}
