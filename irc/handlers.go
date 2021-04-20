@@ -2157,6 +2157,27 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			return
 		}
 		channel.SendSplitMessage(command, lowestPrefix, tags, client, message, rb)
+	} else if target[0] == '$' && len(target) > 2 && client.Oper().HasRoleCapab("massmessage") {
+		details := client.Details()
+		matcher, err := utils.CompileGlob(target[1:], false)
+		if err != nil {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, command, client.t("Erroneous target"))
+			return
+		}
+
+		nickMaskString := details.nickMask
+		accountName := details.accountName
+		isBot := client.HasMode(modes.Bot)
+		for _, tClient := range server.clients.AllClients() {
+			if matcher.MatchString(fmt.Sprintf("$%s", tClient.server.name)) ||    // $$servername
+				matcher.MatchString(fmt.Sprintf("#%s", tClient.Hostname())) { // $#hostname
+
+				tnick := tClient.Details().nick
+				for _, session := range tClient.Sessions() {
+					session.sendSplitMsgFromClientInternal(false, nickMaskString, accountName, isBot, nil, command, tnick, message)
+				}
+			}
+		}
 	} else {
 		lowercaseTarget := strings.ToLower(target)
 		service, isService := OragonoServices[lowercaseTarget]
