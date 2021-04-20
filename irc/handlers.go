@@ -2169,7 +2169,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		accountName := details.accountName
 		isBot := client.HasMode(modes.Bot)
 		for _, tClient := range server.clients.AllClients() {
-			if (target[1] == '$' && matcher.MatchString(tClient.server.name)) ||    // $$servername
+			if (target[1] == '$' && matcher.MatchString(tClient.server.name)) || // $$servername
 				(target[1] == '#' && matcher.MatchString(tClient.Hostname())) { // $#hostname
 
 				tnick := tClient.Nick()
