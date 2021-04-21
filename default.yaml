@@ -622,6 +622,7 @@ oper-classes:
             - "chanreg"
             - "history"
             - "defcon"
+            - "massmessage"
 
 # ircd operators
 opers:
