@@ -826,7 +826,7 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 func listRegisteredChannels(service *ircService, accountName string, rb *ResponseBuffer) {
 	client := rb.session.client
 	channels := client.server.accounts.ChannelsForAccount(accountName)
-	service.Notice(rb, fmt.Sprintf(client.t("You have %d registered channel(s)."), len(channels)))
+	service.Notice(rb, fmt.Sprintf(client.t("Account %s has %d registered channel(s)."), accountName, len(channels)))
 	for _, channel := range rb.session.client.server.accounts.ChannelsForAccount(accountName) {
 		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
 	}
