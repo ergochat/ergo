@@ -9,7 +9,6 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/oragono/oragono/irc/history"
@@ -71,7 +70,7 @@ the request of the account holder.`,
 			help: `Syntax: $bPLAY <target> [limit]$b
 
 PLAY plays back history messages, rendering them into direct messages from
-HistServ. 'target' is a channel name (or 'me' for direct messages), and 'limit'
+HistServ. 'target' is a channel name or nickname to query, and 'limit'
 is a message count or a time duration. Note that message playback may be
 incomplete or degraded, relative to direct playback from /HISTORY or
 CHATHISTORY.`,
@@ -206,11 +205,7 @@ func histservPlayHandler(service *ircService, server *Server, client *Client, co
 
 // handles parameter parsing and history queries for /HISTORY and /HISTSERV PLAY
 func easySelectHistory(server *Server, client *Client, params []string) (items []history.Item, channel *Channel, err error) {
-	target := params[0]
-	if strings.ToLower(target) == "me" {
-		target = "*"
-	}
-	channel, sequence, err := server.GetHistorySequence(nil, client, target)
+	channel, sequence, err := server.GetHistorySequence(nil, client, params[0])
 
 	if sequence == nil || err != nil {
 		return nil, nil, errNoSuchChannel

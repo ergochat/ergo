@@ -18,6 +18,8 @@ const (
 	zncPlaybackCommandExpiration = time.Second * 30
 
 	zncPrefix = "*playback!znc@znc.in"
+
+	maxDMTargetsForAutoplay = 128
 )
 
 type zncCommandHandler func(client *Client, command string, params []string, rb *ResponseBuffer)
@@ -150,9 +152,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	} else {
 		targets = make(utils.StringSet)
 		for _, targetName := range strings.Split(targetString, ",") {
-			if targetName == "*self" {
-				playPrivmsgs = true
-			} else if strings.HasPrefix(targetName, "#") {
+			if strings.HasPrefix(targetName, "#") {
 				if cfTarget, err := CasefoldChannel(targetName); err == nil {
 					targets.Add(cfTarget)
 				}
@@ -165,7 +165,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	}
 
 	if playPrivmsgs {
-		zncPlayPrivmsgs(client, rb, "*", start, end)
+		zncPlayPrivmsgs(client, rb, "", start, end)
 	}
 
 	rb.session.zncPlaybackTimes = &zncPlaybackTimes{
@@ -188,13 +188,13 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	}
 }
 
-func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, target string, after, before time.Time) {
+func zncPlayPrivmsgs(client *Client, rb *ResponseBuffer, target string, start, end time.Time) {
 	_, sequence, _ := client.server.GetHistorySequence(nil, client, target)
 	if sequence == nil {
 		return
 	}
 	zncMax := client.server.Config().History.ZNCMax
-	items, err := sequence.Between(history.Selector{Time: after}, history.Selector{Time: before}, zncMax)
+	items, err := client.privmsgsBetween(start, end, maxDMTargetsForAutoplay, zncMax)
 	if err == nil && len(items) != 0 {
 		client.replayPrivmsgHistory(rb, items, "")
 	}

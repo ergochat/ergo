@@ -987,16 +987,6 @@ func (session *Session) playResume() {
 			oldestLostMessage = lastDiscarded
 		}
 	}
-	_, privmsgSeq, _ := server.GetHistorySequence(nil, client, "*")
-	if privmsgSeq != nil {
-		privmsgs, _ := privmsgSeq.Between(history.Selector{}, history.Selector{}, config.History.ClientLength)
-		for _, item := range privmsgs {
-			sender := server.clients.Get(NUHToNick(item.Nick))
-			if sender != nil {
-				friends.Add(sender)
-			}
-		}
-	}
 
 	timestamp := session.resumeDetails.Timestamp
 	gap := oldestLostMessage.Sub(timestamp)
@@ -1052,7 +1042,8 @@ func (session *Session) playResume() {
 	}
 
 	// replay direct PRIVSMG history
-	if !timestamp.IsZero() && privmsgSeq != nil {
+	_, privmsgSeq, err := server.GetHistorySequence(nil, client, "")
+	if !timestamp.IsZero() && err == nil && privmsgSeq != nil {
 		after := history.Selector{Time: timestamp}
 		items, _ := privmsgSeq.Between(after, history.Selector{}, config.History.ZNCMax)
 		if len(items) != 0 {
@@ -1955,7 +1946,7 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 		extras = append(extras, persistentExtras...)
 	}
 
-	_, cSeq, err := client.server.GetHistorySequence(nil, client, "*")
+	_, cSeq, err := client.server.GetHistorySequence(nil, client, "")
 	if err == nil && cSeq != nil {
 		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
 		if err == nil {
@@ -1965,6 +1956,31 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 
 	results = history.MergeTargets(base, extras, start.Time, end.Time, limit)
 	return results, nil
+}
+
+// latest PRIVMSG from all DM targets
+func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit, messageLimit int) (results []history.Item, err error) {
+	start := history.Selector{Time: startTime}
+	end := history.Selector{Time: endTime}
+	targets, err := client.listTargets(start, end, targetLimit)
+	if err != nil {
+		return
+	}
+	for _, target := range targets {
+		if strings.HasPrefix(target.CfName, "#") {
+			continue
+		}
+		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName)
+		if err == nil && seq != nil {
+			items, err := seq.Between(start, end, messageLimit)
+			if err == nil {
+				results = append(results, items...)
+			} else {
+				client.server.logger.Error("internal", "error querying privmsg history", client.Nick(), target.CfName, err.Error())
+			}
+		}
+	}
+	return
 }
 
 func (client *Client) handleRegisterTimeout() {
