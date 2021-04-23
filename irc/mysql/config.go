@@ -17,6 +17,8 @@ type Config struct {
 	Password        string
 	HistoryDatabase string `yaml:"history-database"`
 	Timeout         time.Duration
+	MaxConns        int           `yaml:"max-conns"`
+	ConnMaxLifetime time.Duration `yaml:"conn-max-lifetime"`
 
 	// XXX these are copied from elsewhere in the config:
 	ExpireTime           time.Duration
