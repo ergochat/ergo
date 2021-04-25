@@ -2528,8 +2528,9 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	}
 	// check that accountName is valid as a non-final parameter;
 	// this is necessary for us to be valid and it will prevent us from emitting invalid error lines
-	if accountName == "*" || accountName != utils.SafeErrorParam(accountName) {
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", accountName, client.t("Username invalid or not given"))
+	nickErrorParam := utils.SafeErrorParam(accountName)
+	if accountName == "*" || accountName != nickErrorParam {
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", nickErrorParam, client.t("Username invalid or not given"))
 		return
 	}
 
