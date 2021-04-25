@@ -1299,6 +1299,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	config.Accounts.defaultUserModes = ParseDefaultUserModes(config.Accounts.DefaultUserModes)
 
+	if config.Server.Password != "" {
+		config.Server.passwordBytes, err = decodeLegacyPasswordHash(config.Server.Password)
+		if err != nil {
+			return nil, err
+		}
+		if config.Accounts.LoginViaPassCommand && !config.Accounts.SkipServerPassword {
+			return nil, errors.New("Using a server password and login-via-pass-command requires skip-server-password as well")
+		}
+		// #1634: accounts.registration.allow-before-connect is an auth bypass
+		// for configurations that start from default and then enable server.password
+		config.Accounts.Registration.AllowBeforeConnect = false
+	}
+
 	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse require-sasl exempted nets: %v", err.Error())
@@ -1388,16 +1401,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	// parse default channel modes
 	config.Channels.defaultModes = ParseDefaultChannelModes(config.Channels.DefaultModes)
-
-	if config.Server.Password != "" {
-		config.Server.passwordBytes, err = decodeLegacyPasswordHash(config.Server.Password)
-		if err != nil {
-			return nil, err
-		}
-		if config.Accounts.LoginViaPassCommand && !config.Accounts.SkipServerPassword {
-			return nil, errors.New("Using a server password and login-via-pass-command requires skip-server-password as well")
-		}
-	}
 
 	if config.Accounts.Registration.BcryptCost == 0 {
 		config.Accounts.Registration.BcryptCost = passwd.DefaultCost

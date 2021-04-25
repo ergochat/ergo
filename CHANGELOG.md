@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Oragono will be documented in this file.
 
+## [2.6.1] - 2021-04-26
+
+Oragono 2.6.1 is a bugfix release, fixing a security issue that is critical for some private server configurations. We regret the oversight.
+
+The issue affects two classes of server configuration:
+
+1. Private servers that use `server.password` (i.e., the `PASS` command) for protection. If `accounts.registration.allow-before-connect` is enabled, the `REGISTER` command can be used to bypass authentication. Affected operators should set this field to `false`, or upgrade to 2.6.1, which disallows the insecure configuration. (If the field does not appear in the configuration file, the configuration is secure since the value defaults to false when unset.)
+2. Private servers that use `accounts.require-sasl` for protection. If these servers do not additionally set `accounts.registration.enabled` to `false`, the `REGISTER` command can potentially be used to bypass authentication. Affected operators should set `accounts.registration.enabled` to false; this recommendation appeared in the operator manual but was not emphasized sufficiently. (Configurations that require SASL but allow open registration are potentially valid, e.g., in the case of public servers that require everyone to use a registered account; accordingly, Oragono 2.6.1 continues to permit such configurations.)
+
+This release includes no changes to the config file format or the database.
+
+Many thanks to [@ajaspers](https://github.com/ajaspers) for reporting the issue.
+
+### Security
+* Fixed and documented potential authentication bypasses via the `REGISTER` command (#1634, thanks [@ajaspers](https://github.com/ajaspers)!)
+
 ## [2.6.0] - 2021-04-18
 
 We're pleased to announce Oragono 2.6.0, a new stable release.
