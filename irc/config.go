@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -1481,6 +1482,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
 	config.Datastore.MySQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
+	if config.Datastore.MySQL.MaxConns == 0 {
+		// #1622: not putting an upper limit on the number of MySQL connections is
+		// potentially dangerous. as a naive heuristic, assume they're running on the
+		// same machine:
+		config.Datastore.MySQL.MaxConns = runtime.NumCPU()
+	}
 
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {

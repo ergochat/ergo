@@ -100,6 +100,14 @@ func (m *MySQL) Open() (err error) {
 		return err
 	}
 
+	if m.config.MaxConns != 0 {
+		m.db.SetMaxOpenConns(m.config.MaxConns)
+		m.db.SetMaxIdleConns(m.config.MaxConns)
+	}
+	if m.config.ConnMaxLifetime != 0 {
+		m.db.SetConnMaxLifetime(m.config.ConnMaxLifetime)
+	}
+
 	err = m.fixSchemas()
 	if err != nil {
 		return err

@@ -721,6 +721,9 @@ datastore:
         password: "hunter2"
         history-database: "oragono_history"
         timeout: 3s
+        max-conns: 4
+        # this may be necessary to prevent middleware from closing your connections:
+        #conn-max-lifetime: 180s
 
 # languages config
 languages:
