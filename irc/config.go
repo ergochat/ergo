@@ -1333,6 +1333,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.Registration.AllowBeforeConnect = false
 	}
 
+	if config.Accounts.RequireSasl.Enabled {
+		// minor gotcha: Tor listeners will typically be loopback and
+		// therefore exempted from require-sasl. if require-sasl is enabled
+		// for non-Tor (non-local) connections, enable it for Tor as well:
+		config.Server.TorListeners.RequireSasl = true
+	}
 	config.Accounts.RequireSasl.exemptedNets, err = utils.ParseNetList(config.Accounts.RequireSasl.Exempted)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse require-sasl exempted nets: %v", err.Error())
