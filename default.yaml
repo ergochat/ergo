@@ -435,7 +435,10 @@ accounts:
     # require-sasl controls whether clients are required to have accounts
     # (and sign into them using SASL) to connect to the server
     require-sasl:
-        # if this is enabled, all clients must authenticate with SASL while connecting
+        # if this is enabled, all clients must authenticate with SASL while connecting.
+        # WARNING: for a private server, you MUST set accounts.registration.enabled
+        # to false as well, in order to prevent non-administrators from registering
+        # accounts.
         enabled: false
 
         # IPs/CIDRs which are exempted from the account requirement
