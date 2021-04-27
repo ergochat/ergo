@@ -716,6 +716,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 
 	// we are now open for business
 	err = server.setupListeners(config)
+	// send other config warnings
+	if config.Accounts.RequireSasl.Enabled && config.Accounts.Registration.Enabled {
+		server.logger.Warning("server", "Warning: although require-sasl is enabled, users can still register accounts. If your server is not intended to be public, you must set accounts.registration.enabled to false.")
+	}
 
 	if !initial {
 		// push new info to all of our clients
@@ -852,7 +856,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 	}
 
 	if publicPlaintextListener != "" {
-		server.logger.Warning("listeners", fmt.Sprintf("Your server is configured with public plaintext listener %s. Consider disabling it for improved security and privacy.", publicPlaintextListener))
+		server.logger.Warning("listeners", fmt.Sprintf("Warning: your server is configured with public plaintext listener %s. Consider disabling it for improved security and privacy.", publicPlaintextListener))
 	}
 
 	return
