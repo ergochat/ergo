@@ -189,7 +189,6 @@
   "SASL authentication failed: authcid and authzid should be the same": "Autenticazione SASL fallita: authcid e authzid dovrebbero essere gli stessi",
   "SASL message too long": "Messaggio SASL troppo lungo",
   "Server notice masks": "Server notice masks",
-  "Some additional message history may have been lost": "Potrebbe essere andata persa una parte aggiuntiva della cronologia dei messaggi",
   "Successfully accepted ownership of channel %s": "Accettata con successo la proprietà del canale %s",
   "Successfully changed the channel settings": "Sono state cambiate le impostazioni del canale con successo",
   "Successfully changed your account settings": "Sono state cambiate le impostazioni dell'account con successo",
