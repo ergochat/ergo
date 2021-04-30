@@ -132,7 +132,6 @@
   "SASL authentication failed: authcid and authzid should be the same": "SASL provjera autentičnosti nije uspjela: authcid i authzid trebali bi biti isti",
   "SASL message too long": "SASL poruka preduga",
   "Server notice masks": "Maske za obavijesti poslužitelja",
-  "Some additional message history may have been lost": "Moguće je da jeizgubljena neka dodatna povijest poruka",
   "Successfully cleared vhost": "Uspješno izbrisan vhost",
   "Successfully disabled your vhost": "Vaš vhost je uspješno onemogućen",
   "Successfully enabled your vhost": "Vaš vhost je uspješno omogućen",
