@@ -819,9 +819,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	var message utils.SplitMessage
 	respectAuditorium := givenMode == modes.Mode(0) && channel.flags.HasMode(modes.Auditorium)
+	message = utils.MakeMessage("")
 	// no history item for fake persistent joins
 	if rb != nil && !respectAuditorium {
-		message = utils.MakeMessage("")
 		histItem := history.Item{
 			Type:        history.Join,
 			Nick:        details.nickMask,
