@@ -54,18 +54,6 @@ func (client *Client) Sessions() (sessions []*Session) {
 	return
 }
 
-func (client *Client) GetSessionByResumeID(resumeID string) (result *Session) {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-
-	for _, session := range client.sessions {
-		if session.resumeID == resumeID {
-			return session
-		}
-	}
-	return
-}
-
 type SessionData struct {
 	ctime     time.Time
 	atime     time.Time
@@ -155,12 +143,6 @@ func (client *Client) removeSession(session *Session) (success bool, length int)
 	client.sessions = sessions
 	length = len(sessions)
 	return
-}
-
-func (session *Session) SetResumeID(resumeID string) {
-	session.client.stateMutex.Lock()
-	session.resumeID = resumeID
-	session.client.stateMutex.Unlock()
 }
 
 func (client *Client) Nick() string {
@@ -263,18 +245,6 @@ func (client *Client) uniqueIdentifiers() (nickCasefolded string, skeleton strin
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	return client.nickCasefolded, client.skeleton
-}
-
-func (client *Client) ResumeID() string {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	return client.resumeID
-}
-
-func (client *Client) SetResumeID(id string) {
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	client.resumeID = id
 }
 
 func (client *Client) Oper() *Oper {

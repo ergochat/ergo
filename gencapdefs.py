@@ -106,12 +106,6 @@ CAPDEFS = [
         standard="draft IRCv3",
     ),
     CapDef(
-        identifier="Resume",
-        name="draft/resume-0.5",
-        url="https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md",
-        standard="proposed IRCv3",
-    ),
-    CapDef(
         identifier="SASL",
         name="sasl",
         url="https://ircv3.net/specs/extensions/sasl-3.2.html",

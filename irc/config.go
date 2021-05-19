@@ -570,7 +570,6 @@ type Config struct {
 		WebIRC               []webircConfig `yaml:"webirc"`
 		MaxSendQString       string         `yaml:"max-sendq"`
 		MaxSendQBytes        int
-		AllowPlaintextResume bool `yaml:"allow-plaintext-resume"`
 		Compatibility        struct {
 			ForceTrailing      *bool `yaml:"force-trailing"`
 			forceTrailing      bool
