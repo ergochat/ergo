@@ -130,14 +130,6 @@ longer away.`,
 BATCH initiates an IRCv3 client-to-server batch. You should never need to
 issue this command manually.`,
 	},
-	"brb": {
-		text: `BRB [message]
-
-Disconnects you from the server, while instructing the server to keep you
-present for a short time window. During this window, you can either resume
-or reattach to your nickname. If [message] is sent, it is used as your away
-message (and as your quit message if you don't return in time).`,
-	},
 	"cap": {
 		text: `CAP <subcommand> [:<capabilities>]
 
@@ -495,12 +487,6 @@ Registers an account in accordance with the draft/register capability.`,
 		text: `REHASH
 
 Reloads the config file and updates TLS certificates on listeners`,
-	},
-	"resume": {
-		text: `RESUME <oldnick> [timestamp]
-
-Sent before registration has completed, this indicates that the client wants to
-resume their old connection <oldnick>.`,
 	},
 	"time": {
 		text: `TIME [server]
