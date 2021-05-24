@@ -554,6 +554,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.nameCasefolded = config.Server.nameCasefolded
 		globalCasemappingSetting = config.Server.Casemapping
 		globalUtf8EnforcementSetting = config.Server.EnforceUtf8
+		MaxLineLen = config.Server.MaxLineLen
 	} else {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
@@ -577,6 +578,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot change override-services-hostname after launching the server, rehash aborted")
 		} else if !oldConfig.Datastore.MySQL.Enabled && config.Datastore.MySQL.Enabled {
 			return fmt.Errorf("Cannot enable MySQL after launching the server, rehash aborted")
+		} else if oldConfig.Server.MaxLineLen != config.Server.MaxLineLen {
+			return fmt.Errorf("Cannot change max-line-len after launching the server, rehash aborted")
 		}
 	}
 

@@ -590,6 +590,7 @@ type Config struct {
 		OutputPath               string       `yaml:"output-path"`
 		IPCheckScript            ScriptConfig `yaml:"ip-check-script"`
 		OverrideServicesHostname string       `yaml:"override-services-hostname"`
+		MaxLineLen               int          `yaml:"max-line-len"`
 	}
 
 	Roleplay struct {
@@ -1131,6 +1132,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Limits.RegistrationMessages == 0 {
 		config.Limits.RegistrationMessages = 1024
+	}
+	if config.Server.MaxLineLen < DefaultMaxLineLen {
+		config.Server.MaxLineLen = DefaultMaxLineLen
 	}
 	if config.Datastore.MySQL.Enabled {
 		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {

@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	// maximum line length not including tags; don't change this for a public server
-	MaxLineLen = 512
+	// maximum IRC line length, not including tags
+	DefaultMaxLineLen = 512
 
 	// IdentTimeout is how long before our ident (username) check times out.
 	IdentTimeout         = time.Second + 500*time.Millisecond
@@ -59,6 +59,10 @@ const (
 
 	// round off the ping interval by this much, see below:
 	PingCoalesceThreshold = time.Second
+)
+
+var (
+	MaxLineLen = DefaultMaxLineLen
 )
 
 // Client is an IRC client.
