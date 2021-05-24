@@ -1,4 +1,5 @@
 {
+  "$bALWAYS-ON$b\n'always-on' controls whether your nickname/identity will remain active\neven while you are disconnected from the server. Your options are 'true',\n'false', and 'default' (use the server default value).": "$bALWAYS-ON$b\n'always-on' controls whether your nickname/identity will remain active\neven while you are disconnected from the server. Your options are 'true',\n'false', and 'default' (use the server default value).",
   "Insufficient privileges": "Privilegios Insuficientes",
   "Password incorrect": "Contraseña incorrecta",
   "Syntax: $bDROP [nickname]$b\n\nDROP de-links the given (or your current) nickname from your user account.": "Sintaxis: $bDROP[apodo]$b\n\nDROP desvincula el nombre de usuario dado (o el actual) de su cuenta de usuario.",
