@@ -16,13 +16,17 @@ import (
 )
 
 const (
-	maxReadQBytes     = ircmsg.MaxlenTagsFromClient + MaxLineLen + 1024
 	initialBufferSize = 1024
 )
 
 var (
 	crlf = []byte{'\r', '\n'}
 )
+
+// maximum total length, in bytes, of a single IRC message:
+func maxReadQBytes() int {
+	return ircmsg.MaxlenTagsFromClient + MaxLineLen + 1024
+}
 
 // IRCConn abstracts away the distinction between a regular
 // net.Conn (which includes both raw TCP and TLS) and a websocket.
@@ -51,7 +55,7 @@ type IRCStreamConn struct {
 func NewIRCStreamConn(conn *utils.WrappedConn) *IRCStreamConn {
 	var c IRCStreamConn
 	c.conn = conn
-	c.reader.Initialize(conn.Conn, initialBufferSize, maxReadQBytes)
+	c.reader.Initialize(conn.Conn, initialBufferSize, maxReadQBytes())
 	return &c
 }
 

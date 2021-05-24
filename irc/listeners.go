@@ -185,7 +185,7 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 	confirmProxyData(wConn, remoteAddr, xff, xfp, config)
 
 	// avoid a DoS attack from buffering excessively large messages:
-	conn.SetReadLimit(maxReadQBytes)
+	conn.SetReadLimit(int64(maxReadQBytes()))
 
 	go wl.server.RunClient(NewIRCWSConn(conn))
 }
