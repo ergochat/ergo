@@ -334,7 +334,7 @@ server:
 
     # in a "closed-loop" system where you control the server and all the clients,
     # you may want to increase the maximum (non-tag) length of an IRC line from
-    # the default value of 512. do not do this on a public server:
+    # the default value of 512. DO NOT change this on a public server:
     # max-line-len: 512
 
 # account options
