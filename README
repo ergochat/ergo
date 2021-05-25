@@ -7,7 +7,7 @@
 
 -----------------------------------------------------------------------------------------------
 
-Oragono is a modern IRC server written in Go. Its core design principles are:
+Ergo is a modern IRC server written in Go. Its core design principles are:
 
 * Being simple to set up and use
 * Combining the features of an ircd, a services framework, and a bouncer:
@@ -17,9 +17,9 @@ Oragono is a modern IRC server written in Go. Its core design principles are:
 * Bleeding-edge IRCv3 support
 * Highly customizable via a rehashable (runtime-reloadable) YAML config
 
-                                     https://oragono.io/
-                              https://github.com/oragono/oragono
-                                     #oragono on Freenode
+                                     https://ergo.chat/
+                              https://github.com/ergochat/ergo
+                          #ergo on irc.ergo.chat or irc.libera.chat
 
 -----------------------------------------------------------------------------------------------
 
@@ -34,23 +34,23 @@ Modify the config file as needed (the recommendations at the top may be helpful)
 
 To generate passwords for opers and connect passwords, you can use this command:
 
-    $ oragono genpasswd
+    $ ergo genpasswd
 
 If you need to generate self-signed TLS certificates, use this command:
 
-    $ oragono mkcerts
+    $ ergo mkcerts
 
-You are now ready to start Oragono!
+You are now ready to start Ergo!
 
-    $ oragono run
+    $ ergo run
 
 For further instructions, consult the manual. A copy of the manual should be
 included in your release under `docs/MANUAL.md`. Or you can view it on the
-Web: https://oragono.io/manual.html
+Web: https://ergo.chat/manual.html
 
 === Updating ===
 
-If you're updating from a previous version of Oragono, check out the CHANGELOG for a list
+If you're updating from a previous version of Ergo, check out the CHANGELOG for a list
 of important changes you'll want to take a look at. The change log details config changes,
 fixes, new features and anything else you'll want to be aware of!
 

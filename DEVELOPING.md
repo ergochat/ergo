@@ -1,18 +1,18 @@
-# Developing Oragono
+# Developing Ergo
 
-This is a guide to modifying Oragono's code. If you're just trying to run your own Oragono, or use one, you shouldn't need to worry about these issues.
+This is a guide to modifying Ergo's code. If you're just trying to run your own Ergo, or use one, you shouldn't need to worry about these issues.
 
 
 ## Golang issues
 
 You should use the [latest distribution of the Go language for your OS and architecture](https://golang.org/dl/). (If `uname -m` on your Raspberry Pi reports `armv7l`, use the `armv6l` distribution of Go; if it reports v8, you may be able to use the `arm64` distribution.)
 
-Oragono vendors all its dependencies. Because of this, Oragono is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies.
+Ergo vendors all its dependencies. Because of this, Ergo is self-contained and you should not need to fetch any dependencies with `go get`. Doing so is not recommended, since it may fetch incompatible versions of the dependencies.
 
-If you're upgrading the Go version used by Oragono, there are several places where it's hard-coded and must be changed:
+If you're upgrading the Go version used by Ergo, there are several places where it's hard-coded and must be changed:
 
 1. `.travis.yml`, which controls the version that our CI test suite uses to build and test the code (e.g., for a PR)
-2. `Dockerfile`, which controls the version that the Oragono binaries in our Docker images are built with
+2. `Dockerfile`, which controls the version that the Ergo binaries in our Docker images are built with
 3. `go.mod`: this should be updated automatically by Go when you do module-related operations
 
 
@@ -40,7 +40,7 @@ Develop branches are either used to work out implementation details in preperati
 1. Publish the release on GitHub (Releases -> "Draft a new release"); use the new tag, post the changelog entries, upload the binaries
 1. Update the `irctest_stable` branch with the new changes (this may be a force push).
 1. If it's a production release (as opposed to a release candidate), update the `stable` branch with the new changes. (This may be a force push in the event that stable contained a backport. This is fine because all stable releases and release candidates are tagged.)
-1. Similarly, for a production release, update the `irctest_stable` branch (this is the branch used by upstream irctest to integration-test against Oragono).
+1. Similarly, for a production release, update the `irctest_stable` branch (this is the branch used by upstream irctest to integration-test against Ergo).
 1. Make the appropriate announcements:
     * For a release candidate:
         1. the channel topic
@@ -49,7 +49,7 @@ Develop branches are either used to work out implementation details in preperati
     * For a production release:
         1. everything applicable to a release candidate
         1. Twitter
-        1. oragono.io/news
+        1. ergo.chat/news
         1. ircv3.net support tables, if applicable
         1. other social media?
 
@@ -63,7 +63,7 @@ Once it's built and released, you need to setup the new development version. To 
 
 ```md
 ## Unreleased
-New release of Oragono!
+New release of Ergo!
 
 ### Config Changes
 
@@ -78,17 +78,6 @@ New release of Oragono!
 ### Fixed
 ```
 
-
-
-## Fuzzing and Testing
-
-Fuzzing can be useful. We don't have testing done inside the IRCd itself, but this fuzzer I've written works alright and has helped shake out various bugs: [irc_fuzz.py](https://gist.github.com/DanielOaks/63ae611039cdf591dfa4).
-
-In addition, I've got the beginnings of a stress-tester here which is useful:
-https://github.com/DanielOaks/irc-stress-test
-
-As well, there's a decent set of 'tests' here, which I like to run Oragono through now and then:
-https://github.com/DanielOaks/irctest
 
 
 ## Debugging
@@ -107,12 +96,12 @@ To debug a hang, the best thing to do is to get a stack trace. The easiest way t
 
     $ kill -ABRT <procid>
 
-This will kill Oragono and print out a stack trace for you to take a look at.
+This will kill Ergo and print out a stack trace for you to take a look at.
 
 
 ## Concurrency design
 
-Oragono involves a fair amount of shared state. Here are some of the main points:
+Ergo involves a fair amount of shared state. Here are some of the main points:
 
 1. Each client has a separate goroutine that listens for incoming messages and synchronously processes them.
 1. All sends to clients are asynchronous; `client.Send` appends the message to a queue, which is then processed on a separate goroutine. It is always safe to call `client.Send`.

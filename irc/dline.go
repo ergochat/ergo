@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oragono/oragono/irc/flatip"
+	"github.com/ergochat/ergo/irc/flatip"
 	"github.com/tidwall/buntdb"
 )
 

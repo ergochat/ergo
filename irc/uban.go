@@ -11,10 +11,10 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 
-	"github.com/oragono/oragono/irc/custime"
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/custime"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 func consumeDuration(params []string, rb *ResponseBuffer) (duration time.Duration, requireSASL bool, remainingParams []string, err error) {

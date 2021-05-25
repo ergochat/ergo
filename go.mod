@@ -1,4 +1,4 @@
-module github.com/oragono/oragono
+module github.com/ergochat/ergo
 
 go 1.16
 

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 type channelManagerEntry struct {

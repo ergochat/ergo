@@ -3,8 +3,8 @@ package mysql
 import (
 	"encoding/json"
 
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // 123 / '{' is the magic number that means JSON;

@@ -1,5 +1,5 @@
 # Changelog
-All notable changes to Oragono will be documented in this file.
+All notable changes to Ergo will be documented in this file.
 
 ## [2.6.1] - 2021-04-26
 

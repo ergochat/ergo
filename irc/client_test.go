@@ -6,7 +6,7 @@ package irc
 import (
 	"testing"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 func TestGenerateBatchID(t *testing.T) {

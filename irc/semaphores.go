@@ -5,7 +5,7 @@ package irc
 import (
 	"runtime"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // See #237 for context. Operations that might allocate large amounts of temporary

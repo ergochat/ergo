@@ -22,15 +22,15 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/mysql"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/connection_limits"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/logger"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/mysql"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 
@@ -356,9 +356,9 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 func (server *Server) playSTSBurst(session *Session) {
 	nick := utils.SafeErrorParam(session.client.preregNick)
 	session.Send(nil, server.name, RPL_WELCOME, nick, fmt.Sprintf("Welcome to the Internet Relay Network %s", nick))
-	session.Send(nil, server.name, RPL_YOURHOST, nick, fmt.Sprintf("Your host is %[1]s, running version %[2]s", server.name, "oragono"))
+	session.Send(nil, server.name, RPL_YOURHOST, nick, fmt.Sprintf("Your host is %[1]s, running version %[2]s", server.name, "ergo"))
 	session.Send(nil, server.name, RPL_CREATED, nick, fmt.Sprintf("This server was created %s", time.Time{}.Format(time.RFC1123)))
-	session.Send(nil, server.name, RPL_MYINFO, nick, server.name, "oragono", "o", "o", "o")
+	session.Send(nil, server.name, RPL_MYINFO, nick, server.name, "ergo", "o", "o", "o")
 	session.Send(nil, server.name, RPL_ISUPPORT, nick, "CASEMAPPING=ascii", "are supported by this server")
 	session.Send(nil, server.name, ERR_NOMOTD, nick, "MOTD is unavailable")
 	for _, line := range server.Config().Server.STS.bannerLines {
@@ -1059,8 +1059,8 @@ var (
 ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
  ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-         https://oragono.io/
-   https://github.com/oragono/oragono
+         https://ergo.chat/
+   https://github.com/ergochat/ergo
    https://crowdin.com/project/oragono
 `, "\n")
 	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>

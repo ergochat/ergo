@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # exclude vendor/
-SOURCES="./oragono.go ./irc"
+SOURCES="./ergo.go ./irc"
 
 if [ "$1" = "--fix" ]; then
 	exec gofmt -s -w $SOURCES

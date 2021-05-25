@@ -10,7 +10,7 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 const (

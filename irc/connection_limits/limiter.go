@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (

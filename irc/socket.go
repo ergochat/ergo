@@ -9,7 +9,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (

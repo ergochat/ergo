@@ -9,9 +9,9 @@ import (
 	"errors"
 	"net"
 
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (

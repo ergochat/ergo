@@ -16,10 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/logger"
+	"github.com/ergochat/ergo/irc/utils"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/utils"
 )
 
 var (

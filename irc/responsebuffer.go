@@ -7,9 +7,9 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/utils"
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/utils"
 )
 
 const (

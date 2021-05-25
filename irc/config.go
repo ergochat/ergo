@@ -27,19 +27,19 @@ import (
 	"github.com/goshuirc/irc-go/ircfmt"
 	"gopkg.in/yaml.v2"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/cloaks"
-	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/custime"
-	"github.com/oragono/oragono/irc/email"
-	"github.com/oragono/oragono/irc/isupport"
-	"github.com/oragono/oragono/irc/jwt"
-	"github.com/oragono/oragono/irc/languages"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/mysql"
-	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/cloaks"
+	"github.com/ergochat/ergo/irc/connection_limits"
+	"github.com/ergochat/ergo/irc/custime"
+	"github.com/ergochat/ergo/irc/email"
+	"github.com/ergochat/ergo/irc/isupport"
+	"github.com/ergochat/ergo/irc/jwt"
+	"github.com/ergochat/ergo/irc/languages"
+	"github.com/ergochat/ergo/irc/logger"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/mysql"
+	"github.com/ergochat/ergo/irc/passwd"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // here's how this works: exported (capitalized) members of the config structs
@@ -1025,10 +1025,13 @@ func (ce *configPathError) Error() string {
 func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *configPathError) {
 	equalIdx := strings.IndexByte(envPair, '=')
 	name, value := envPair[:equalIdx], envPair[equalIdx+1:]
-	if !strings.HasPrefix(name, "ORAGONO__") {
+	if strings.HasPrefix(name, "ERGO__") {
+		name = strings.TrimPrefix(name, "ERGO__")
+	} else if strings.HasPrefix(name, "ORAGONO__") {
+		name = strings.TrimPrefix(name, "ORAGONO__")
+	} else {
 		return false, nil
 	}
-	name = strings.TrimPrefix(name, "ORAGONO__")
 	pathComponents := strings.Split(name, "__")
 	for i, pathComponent := range pathComponents {
 		pathComponents[i] = screamingSnakeToKebab(pathComponent)

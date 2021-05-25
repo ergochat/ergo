@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oragono/oragono/irc/flatip"
+	"github.com/ergochat/ergo/irc/flatip"
 )
 
 func easyParseIP(ipstr string) (result flatip.IP) {

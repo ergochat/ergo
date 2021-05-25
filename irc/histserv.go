@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 const (
