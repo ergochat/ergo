@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/oragono/oragono/irc/smtp"
+	"github.com/ergochat/ergo/irc/smtp"
 )
 
 var (

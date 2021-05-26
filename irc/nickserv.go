@@ -13,10 +13,10 @@ import (
 
 	"github.com/goshuirc/irc-go/ircfmt"
 
-	"github.com/oragono/oragono/irc/custime"
-	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/custime"
+	"github.com/ergochat/ergo/irc/passwd"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // "enabled" callbacks for specific nickserv commands

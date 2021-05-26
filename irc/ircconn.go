@@ -12,7 +12,7 @@ import (
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/goshuirc/irc-go/ircreader"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 const (

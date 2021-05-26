@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 
 	"github.com/tidwall/buntdb"
 )

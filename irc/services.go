@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/utils"
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/oragono/oragono/irc/utils"
 )
 
 // defines an IRC service, e.g., NICKSERV

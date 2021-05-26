@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // JSON-serializable input and output types for the script

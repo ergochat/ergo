@@ -15,12 +15,12 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/email"
-	"github.com/oragono/oragono/irc/migrations"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/passwd"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/connection_limits"
+	"github.com/ergochat/ergo/irc/email"
+	"github.com/ergochat/ergo/irc/migrations"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/passwd"
+	"github.com/ergochat/ergo/irc/utils"
 	"github.com/tidwall/buntdb"
 )
 

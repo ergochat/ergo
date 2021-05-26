@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (

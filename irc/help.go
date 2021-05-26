@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oragono/oragono/irc/languages"
+	"github.com/ergochat/ergo/irc/languages"
 )
 
 // HelpEntryType represents the different sorts of help entries that can exist.
@@ -37,7 +37,7 @@ type HelpEntry struct {
 var (
 	cmodeHelpText = `== Channel Modes ==
 
-Oragono supports the following channel modes:
+Ergo supports the following channel modes:
 
   +b  |  Client masks that are banned from the channel (e.g. *!*@127.0.0.1)
   +e  |  Client masks that are exempted from bans.
@@ -68,7 +68,7 @@ Oragono supports the following channel modes:
   +v (+)  |  Voice channel mode.`
 	umodeHelpText = `== User Modes ==
 
-Oragono supports the following user modes:
+Ergo supports the following user modes:
 
   +a  |  User is marked as being away. This mode is set with the /AWAY command.
   +i  |  User is marked as invisible (their channels are hidden from whois replies).
@@ -81,7 +81,7 @@ Oragono supports the following user modes:
   +T  |  CTCP messages to the user are blocked.`
 	snomaskHelpText = `== Server Notice Masks ==
 
-Oragono supports the following server notice masks for operators:
+Ergo supports the following server notice masks for operators:
 
   a  |  Local announcements.
   c  |  Local client connections.
@@ -502,7 +502,7 @@ given, views the current topic on the channel.`,
 	"uban": {
 		text: `UBAN <subcommand> [arguments]
 
-Oragono's "unified ban" system. Accepts the following subcommands:
+Ergo's "unified ban" system. Accepts the following subcommands:
 
 1. UBAN ADD <target> [REQUIRE-SASL] [DURATION <duration>] [REASON...]
 2. UBAN DEL <target>
@@ -638,15 +638,15 @@ for direct use by end users.`,
 	"casemapping": {
 		text: `RPL_ISUPPORT CASEMAPPING
 
-Oragono supports an experimental unicode casemapping designed for extended
+Ergo supports an experimental unicode casemapping designed for extended
 Unicode support. This casemapping is based off RFC 7613 and the draft rfc7613
-casemapping spec here: https://oragono.io/specs.html`,
+casemapping spec here: https://ergo.chat/specs.html`,
 		helpType: ISupportHelpEntry,
 	},
 	"prefix": {
 		text: `RPL_ISUPPORT PREFIX
 
-Oragono supports the following channel membership prefixes:
+Ergo supports the following channel membership prefixes:
 
   +q (~)  |  Founder channel mode.
   +a (&)  |  Admin channel mode.

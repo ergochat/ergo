@@ -9,10 +9,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/languages"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/languages"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 func (server *Server) Config() (config *Config) {

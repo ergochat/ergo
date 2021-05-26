@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
 )
 
 const chanservHelp = `ChanServ lets you register and manage channels.`

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/oragono/oragono/irc/modes"
+	"github.com/ergochat/ergo/irc/modes"
 )
 
 func TestParseDefaultChannelModes(t *testing.T) {

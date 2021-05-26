@@ -1,17 +1,17 @@
-# This is the "traditional" or "mainstream" config file for Oragono.
+# This is the "traditional" or "mainstream" config file for Ergo.
 # It tries to replicate the behavior of other ircds, at the cost of not
-# taking full advantage of Oragono's features. This config is suitable for use
+# taking full advantage of Ergo's features. This config is suitable for use
 # in IRCv3 conformance testing.
 
 # network configuration
 network:
     # name of the network
-    name: OragonoTest
+    name: ErgoTest
 
 # server configuration
 server:
     # server name
-    name: oragono.test
+    name: ergo.test
 
     # addresses to listen on
     listeners:
@@ -36,12 +36,12 @@ server:
             # min-tls-version: 1.2
 
         # Example of a Unix domain socket for proxying:
-        # "/tmp/oragono_sock":
+        # "/tmp/ergo_sock":
 
         # Example of a Tor listener: any connection that comes in on this listener will
         # be considered a Tor connection. It is strongly recommended that this listener
         # *not* be on a public interface --- it should be on 127.0.0.0/8 or unix domain:
-        # "/hidden_service_sockets/oragono_tor_sock":
+        # "/hidden_service_sockets/ergo_tor_sock":
         #     tor: true
 
         # Example of a WebSocket listener:
@@ -94,14 +94,14 @@ server:
 
     websockets:
         # Restrict the origin of WebSocket connections by matching the "Origin" HTTP
-        # header. This setting causes oragono to reject websocket connections unless
+        # header. This setting causes ergo to reject websocket connections unless
         # they originate from a page on one of the whitelisted websites in this list.
         # This prevents malicious websites from making their visitors connect to your
-        # oragono instance without their knowledge. An empty list means there are no
+        # ergo instance without their knowledge. An empty list means there are no
         # restrictions.
         allowed-origins:
-            # - "https://oragono.io"
-            # - "https://*.oragono.io"
+            # - "https://ergo.chat"
+            # - "https://*.ergo.chat"
 
     # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
     # channel names, account names, etc.), and how they are normalized for case.
@@ -137,13 +137,12 @@ server:
     # the value must begin with a '~' character. comment out / omit to disable:
     #coerce-ident: '~u'
 
-    # password to login to the server
-    # generated using  "oragono genpasswd"
-    #password: ""
+    # password to login to the server, generated using `ergo genpasswd`:
+    #password: "$2a$04$0123456789abcdef0123456789abcdef0123456789abcdef01234"
 
     # motd filename
     # if you change the motd, you should move it to ircd.motd
-    motd: oragono.motd
+    motd: ergo.motd
 
     # motd formatting codes
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
@@ -179,7 +178,7 @@ server:
             # (comment this out to use passwords only)
             certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
-            # password the gateway uses to connect, made with oragono genpasswd
+            # password the gateway uses to connect, made with `ergo genpasswd`
             password: "$2a$04$abcdef0123456789abcdef0123456789abcdef0123456789abcde"
 
             # IPs/CIDRs that can use this webirc command
@@ -201,7 +200,7 @@ server:
     compatibility:
         # many clients require that the final parameter of certain messages be an
         # RFC1459 trailing parameter, i.e., prefixed with :, whether or not this is
-        # actually required. this forces Oragono to send those parameters
+        # actually required. this forces Ergo to send those parameters
         # as trailings. this is recommended unless you're testing clients for conformance;
         # defaults to true when unset for that reason.
         force-trailing: true
@@ -214,7 +213,7 @@ server:
 
         # traditionally, IRC servers will truncate and send messages that are
         # too long to be relayed intact. this behavior can be disabled by setting
-        # allow-truncation to false, in which case Oragono will reject the message
+        # allow-truncation to false, in which case Ergo will reject the message
         # and return an error to the client. (note that this option defaults to true
         # when unset.)
         allow-truncation: true
@@ -282,7 +281,7 @@ server:
     # IP cloaking hides users' IP addresses from other users and from channel admins
     # (but not from server admins), while still allowing channel admins to ban
     # offending IP addresses or networks. In place of hostnames derived from reverse
-    # DNS, users see fake domain names like pwbs2ui4377257x8.oragono. These names are
+    # DNS, users see fake domain names like pwbs2ui4377257x8.irc. These names are
     # generated deterministically from the underlying IP address, but if the underlying
     # IP is not already known, it is infeasible to recover it from the cloaked name.
     ip-cloaking:
@@ -323,10 +322,10 @@ server:
     secure-nets:
         # - "10.0.0.0/8"
 
-    # oragono will write files to disk under certain circumstances, e.g.,
+    # Ergo will write files to disk under certain circumstances, e.g.,
     # CPU profiling or data export. by default, these files will be written
     # to the working directory. set this to customize:
-    #output-path: "/home/oragono/out"
+    #output-path: "/home/ergo/out"
 
     # the hostname used by "services", e.g., NickServ, defaults to "localhost",
     # e.g., `NickServ!NickServ@localhost`. uncomment this to override:
@@ -469,7 +468,7 @@ accounts:
         # nickname after the initial connection is complete
         forbid-anonymous-nick-changes: false
 
-    # multiclient controls whether oragono allows multiple connections to
+    # multiclient controls whether Ergo allows multiple connections to
     # attach to the same client/nickname identity; this is part of the
     # functionality traditionally provided by a bouncer like ZNC
     multiclient:
@@ -630,7 +629,7 @@ opers:
         # operators can be authenticated either by password (with the /OPER command),
         # or by certificate fingerprint, or both. if a password hash is set, then a
         # password is required to oper up (e.g., /OPER dan mypassword). to generate
-        # the hash, use `oragono genpasswd`.
+        # the hash, use `ergo genpasswd`.
         password: "$2a$04$0123456789abcdef0123456789abcdef0123456789abcdef01234"
 
         # if a SHA-256 certificate fingerprint is configured here, then it will be
@@ -691,7 +690,7 @@ logging:
 
 # debug options
 debug:
-    # when enabled, oragono will attempt to recover from certain kinds of
+    # when enabled, Ergo will attempt to recover from certain kinds of
     # client-triggered runtime errors that would normally crash the server.
     # this makes the server more resilient to DoS, but could result in incorrect
     # behavior. deployments that would prefer to "start from scratch", e.g., by
@@ -722,9 +721,9 @@ datastore:
         port: 3306
         # if socket-path is set, it will be used instead of host:port
         #socket-path: "/var/run/mysqld/mysqld.sock"
-        user: "oragono"
+        user: "ergo"
         password: "hunter2"
-        history-database: "oragono_history"
+        history-database: "ergo_history"
         timeout: 3s
         max-conns: 4
         # this may be necessary to prevent middleware from closing your connections:
@@ -937,5 +936,5 @@ history:
         #    - "typing"
 
 # whether to allow customization of the config at runtime using environment variables,
-# e.g., ORAGONO__SERVER__MAX_SENDQ=128k. see the manual for more details.
+# e.g., ERGO__SERVER__MAX_SENDQ=128k. see the manual for more details.
 allow-environment-overrides: true

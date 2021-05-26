@@ -95,7 +95,7 @@ _testmain.go
 *.out
 
 
-### Oragono ###
+### custom ###
 /_site/
 /.vscode/*
 /ircd*
@@ -103,10 +103,10 @@ _testmain.go
 /web.*
 /ssl.*
 /tls.*
-/oragono
+/ergo
 /build/*
 _test
-oragono.prof
-oragono.mprof
+ergo.prof
+ergo.mprof
 /dist
 *.pem

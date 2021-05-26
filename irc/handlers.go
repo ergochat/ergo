@@ -25,14 +25,14 @@ import (
 	"github.com/goshuirc/irc-go/ircutils"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/custime"
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/jwt"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/custime"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/jwt"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
@@ -710,7 +710,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		rb.Notice(fmt.Sprintf("num goroutines: %d", count))
 
 	case "PROFILEHEAP":
-		profFile := server.Config().getOutputPath("oragono.mprof")
+		profFile := server.Config().getOutputPath("ergo.mprof")
 		file, err := os.Create(profFile)
 		if err != nil {
 			rb.Notice(fmt.Sprintf("error: %s", err))
@@ -721,7 +721,7 @@ func debugHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		rb.Notice(fmt.Sprintf("written to %s", profFile))
 
 	case "STARTCPUPROFILE":
-		profFile := server.Config().getOutputPath("oragono.prof")
+		profFile := server.Config().getOutputPath("ergo.prof")
 		file, err := os.Create(profFile)
 		if err != nil {
 			rb.Notice(fmt.Sprintf("error: %s", err))
@@ -1082,13 +1082,13 @@ func infoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	for _, line := range infoString1 {
 		rb.Add(nil, server.name, RPL_INFO, nick, line)
 	}
-	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("This is Oragono version %s."), SemVer))
+	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("This is Ergo version %s."), SemVer))
 	if Commit != "" {
 		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was built from git hash %s."), Commit))
 	}
 	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was compiled using %s."), runtime.Version()))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
-	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Oragono is released under the MIT license."))
+	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Ergo is released under the MIT license."))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Core Developers:"))
 	for _, line := range infoString2 {
@@ -1099,7 +1099,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, server.name, RPL_INFO, nick, line)
 	}
 	rb.Add(nil, server.name, RPL_INFO, nick, client.t("For a more complete list of contributors, see our changelog:"))
-	rb.Add(nil, server.name, RPL_INFO, nick, "    https://github.com/oragono/oragono/blob/master/CHANGELOG.md")
+	rb.Add(nil, server.name, RPL_INFO, nick, "    https://github.com/ergochat/ergo/blob/master/CHANGELOG.md")
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	// show translators for languages other than good ole' regular English
 	tlines := server.Languages().Translators()

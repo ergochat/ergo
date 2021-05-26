@@ -13,12 +13,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/docopt/docopt-go"
-	"github.com/oragono/oragono/irc"
-	"github.com/oragono/oragono/irc/logger"
-	"github.com/oragono/oragono/irc/mkcerts"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
+
+	"github.com/docopt/docopt-go"
+	"github.com/ergochat/ergo/irc"
+	"github.com/ergochat/ergo/irc/logger"
+	"github.com/ergochat/ergo/irc/mkcerts"
 )
 
 // set via linker flags, either by make or by goreleaser:
@@ -47,7 +48,7 @@ func fileDoesNotExist(file string) bool {
 	return false
 }
 
-// implements the `oragono mkcerts` command
+// implements the `ergo mkcerts` command
 func doMkcerts(configFile string, quiet bool) {
 	config, err := irc.LoadRawConfig(configFile)
 	if err != nil {
@@ -78,7 +79,7 @@ func doMkcerts(configFile string, quiet bool) {
 		if !(fileDoesNotExist(cert) && fileDoesNotExist(key)) {
 			log.Fatalf("Preexisting TLS cert and/or key files: %s %s", cert, key)
 		}
-		err := mkcerts.CreateCert("Oragono", host, cert, key)
+		err := mkcerts.CreateCert("Ergo", host, cert, key)
 		if err == nil {
 			if !quiet {
 				log.Printf("  Certificate created at %s : %s\n", cert, key)
@@ -92,16 +93,16 @@ func doMkcerts(configFile string, quiet bool) {
 
 func main() {
 	irc.SetVersionString(version, commit)
-	usage := `oragono.
+	usage := `ergo.
 Usage:
-	oragono initdb [--conf <filename>] [--quiet]
-	oragono upgradedb [--conf <filename>] [--quiet]
-	oragono importdb <database.json> [--conf <filename>] [--quiet]
-	oragono genpasswd [--conf <filename>] [--quiet]
-	oragono mkcerts [--conf <filename>] [--quiet]
-	oragono run [--conf <filename>] [--quiet] [--smoke]
-	oragono -h | --help
-	oragono --version
+	ergo initdb [--conf <filename>] [--quiet]
+	ergo upgradedb [--conf <filename>] [--quiet]
+	ergo importdb <database.json> [--conf <filename>] [--quiet]
+	ergo genpasswd [--conf <filename>] [--quiet]
+	ergo mkcerts [--conf <filename>] [--quiet]
+	ergo run [--conf <filename>] [--quiet] [--smoke]
+	ergo -h | --help
+	ergo --version
 Options:
 	--conf <filename>  Configuration file to use [default: ircd.yaml].
 	--quiet            Don't show startup/shutdown lines.
@@ -183,7 +184,7 @@ Options:
 
 		// warning if running a non-final version
 		if strings.Contains(irc.Ver, "unreleased") {
-			logman.Warning("server", "You are currently running an unreleased beta version of Oragono that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://oragono.io/downloads.html and run that instead.")
+			logman.Warning("server", "You are currently running an unreleased beta version of Ergo that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://ergo.chat/downloads.html and run that instead.")
 		}
 
 		server, err := irc.NewServer(config, logman)
@@ -193,7 +194,7 @@ Options:
 		}
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", "Server running")
-			defer logman.Info("server", fmt.Sprintf("Oragono v%s exiting", irc.SemVer))
+			defer logman.Info("server", fmt.Sprintf("%s exiting", irc.Ver))
 		}
 		if !arguments["--smoke"].(bool) {
 			server.Run()

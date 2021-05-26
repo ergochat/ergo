@@ -21,13 +21,13 @@ import (
 	"github.com/goshuirc/irc-go/ircreader"
 	ident "github.com/oragono/go-ident"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/connection_limits"
-	"github.com/oragono/oragono/irc/flatip"
-	"github.com/oragono/oragono/irc/history"
-	"github.com/oragono/oragono/irc/modes"
-	"github.com/oragono/oragono/irc/sno"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/connection_limits"
+	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 const (

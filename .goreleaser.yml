@@ -1,9 +1,9 @@
 # .goreleaser.yml
 # Build customization
-project_name: oragono
+project_name: ergo
 builds:
-  - main: oragono.go
-    binary: oragono
+  - main: ergo.go
+    binary: ergo
     goos:
       - freebsd
       - windows
@@ -44,7 +44,7 @@ archives:
     files:
       - README
       - CHANGELOG.md
-      - oragono.motd
+      - ergo.motd
       - default.yaml
       - traditional.yaml
       - docs/MANUAL.md

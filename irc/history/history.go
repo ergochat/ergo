@@ -4,7 +4,7 @@
 package history
 
 import (
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 	"sync"
 	"time"
 )

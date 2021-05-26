@@ -37,12 +37,12 @@ test:
 	./.check-gofmt.sh
 
 smoke:
-	oragono mkcerts --conf ./default.yaml || true
-	oragono run --conf ./default.yaml --smoke
+	ergo mkcerts --conf ./default.yaml || true
+	ergo run --conf ./default.yaml --smoke
 
 gofmt:
 	./.check-gofmt.sh --fix
 
 irctest:
 	git submodule update --init
-	cd irctest && make oragono
+	cd irctest && make ergo

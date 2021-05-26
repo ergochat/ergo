@@ -8,8 +8,8 @@ import (
 
 	"github.com/goshuirc/irc-go/ircmsg"
 
-	"github.com/oragono/oragono/irc/caps"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // MessageCache caches serialized IRC messages.

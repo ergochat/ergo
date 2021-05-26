@@ -19,12 +19,12 @@ func TestEnvironmentOverrides(t *testing.T) {
 	env := []string{
 		`USER=shivaram`,        // unrelated var
 		`ORAGONO_USER=oragono`, // this should be ignored as well
-		`ORAGONO__NETWORK__NAME=example.com`,
+		`ERGO__NETWORK__NAME=example.com`,
 		`ORAGONO__SERVER__COMPATIBILITY__FORCE_TRAILING=false`,
 		`ORAGONO__SERVER__COERCE_IDENT="~user"`,
-		`ORAGONO__SERVER__MOTD=short.motd.txt`,
+		`ERGO__SERVER__MOTD=short.motd.txt`,
 		`ORAGONO__ACCOUNTS__NICK_RESERVATION__ENABLED=true`,
-		`ORAGONO__ACCOUNTS__DEFAULT_USER_MODES="+iR"`,
+		`ERGO__ACCOUNTS__DEFAULT_USER_MODES="+iR"`,
 		`ORAGONO__SERVER__IP_CLOAKING={"enabled": true, "enabled-for-always-on": true, "netname": "irc", "cidr-len-ipv4": 32, "cidr-len-ipv6": 64, "num-bits": 64}`,
 	}
 	for _, envPair := range env {

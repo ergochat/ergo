@@ -8,7 +8,7 @@ package irc
 import (
 	"time"
 
-	"github.com/oragono/oragono/irc/modes"
+	"github.com/ergochat/ergo/irc/modes"
 )
 
 type empty struct{}

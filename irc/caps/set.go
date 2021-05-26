@@ -5,7 +5,7 @@ package caps
 
 import (
 	"fmt"
-	"github.com/oragono/oragono/irc/utils"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // Set holds a set of enabled capabilities.
