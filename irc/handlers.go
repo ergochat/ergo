@@ -2658,13 +2658,19 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		return false
 	}
 
+	details := client.Details()
 	// #1647: we need to publish a full NUH. send ~u (or the configured alternative)
 	// as the user/ident, and send the relayer's hostname as the hostname:
 	ident := config.Server.CoerceIdent
 	if ident == "" {
 		ident = "~u"
 	}
-	hostname := client.Hostname()
+	// #1661: if the bot has its own account, use the account cloak,
+	// otherwise fall back to the hostname (which may be IP-derived)
+	hostname := details.hostname
+	if details.accountName != "" {
+		hostname = config.Server.Cloaks.ComputeAccountCloak(details.accountName)
+	}
 	nuh := fmt.Sprintf("%s!%s@%s", nick, ident, hostname)
 
 	channel.AddHistoryItem(history.Item{
@@ -2675,9 +2681,8 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	// 3 possibilities for tags:
 	// no tags, the relaymsg tag only, or the relaymsg tag together with all client-only tags
-	cnick := client.Nick()
 	relayTag := map[string]string{
-		caps.RelaymsgTagName: cnick,
+		caps.RelaymsgTagName: details.nick,
 	}
 	clientOnlyTags := msg.ClientOnlyTags()
 	var fullTags map[string]string
@@ -2685,7 +2690,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		fullTags = relayTag
 	} else {
 		fullTags = make(map[string]string, 1+len(clientOnlyTags))
-		fullTags[caps.RelaymsgTagName] = cnick
+		fullTags[caps.RelaymsgTagName] = details.nick
 		for t, v := range clientOnlyTags {
 			fullTags[t] = v
 		}
