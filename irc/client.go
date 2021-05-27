@@ -16,10 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	ident "github.com/ergochat/go-ident"
 	"github.com/goshuirc/irc-go/ircfmt"
 	"github.com/goshuirc/irc-go/ircmsg"
 	"github.com/goshuirc/irc-go/ircreader"
-	ident "github.com/oragono/go-ident"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
