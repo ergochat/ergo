@@ -725,6 +725,16 @@ This means that **bob** will always be able to join, even if he's connecting fro
 
 For everything else, this mode acts like the `+b - Ban` mode.
 
+### +f - Forward
+
+This channel mode takes another channel as its parameter. Users who are unable to join this channel are forwarded to the provided channel instead.
+
+You need be a channel operator in both channels in order to set this mode.
+
+    /MODE #test +f #foo
+
+This means that users who attempt to join `#test`, but cannot due to another channel mode like `+i` or `+l`, will be forwarded to `#foo` instead.
+
 ### +i - Invite-Only
 
 If this channel mode is set on a channel, users will only be able to join if someone has `/INVITE`'d them first.
