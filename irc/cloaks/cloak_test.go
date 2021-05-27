@@ -126,3 +126,11 @@ func TestAccountCloakCollisions(t *testing.T) {
 		t.Errorf("cloak collision between 97.97.97.97 and aaaa: %s", v4cloak)
 	}
 }
+
+func BenchmarkAccountCloaks(b *testing.B) {
+	config := cloakConfForTesting()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		config.ComputeAccountCloak("shivaram")
+	}
+}
