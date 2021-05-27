@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/oragono/confusables"
+	"github.com/ergochat/confusables"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/secure/precis"
 	"golang.org/x/text/unicode/norm"

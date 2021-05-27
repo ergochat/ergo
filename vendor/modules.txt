@@ -13,12 +13,18 @@ github.com/dgrijalva/jwt-go
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 ## explicit
 github.com/docopt/docopt-go
+# github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
+## explicit
+github.com/ergochat/confusables
+# github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775
+## explicit
+github.com/ergochat/go-ident
 # github.com/go-sql-driver/mysql v1.6.0
 ## explicit
 github.com/go-sql-driver/mysql
 # github.com/go-test/deep v1.0.6
 ## explicit
-# github.com/gorilla/websocket v1.4.2 => github.com/oragono/websocket v1.4.2-oragono1
+# github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
 ## explicit
 github.com/gorilla/websocket
 # github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef
@@ -33,10 +39,8 @@ github.com/goshuirc/irc-go/ircutils
 ## explicit
 # github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1
 ## explicit
-github.com/oragono/confusables
 # github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 ## explicit
-github.com/oragono/go-ident
 # github.com/stretchr/testify v1.4.0
 ## explicit
 # github.com/tidwall/btree v0.4.2
@@ -95,4 +99,4 @@ golang.org/x/text/width
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit
 gopkg.in/yaml.v2
-# github.com/gorilla/websocket => github.com/oragono/websocket v1.4.2-oragono1
+# github.com/gorilla/websocket => github.com/ergochat/websocket v1.4.2-oragono1
