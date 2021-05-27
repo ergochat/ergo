@@ -2658,31 +2658,54 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		return false
 	}
 
+	// #1647: we need to publish a full NUH. send ~u (or the configured alternative)
+	// as the user/ident, and send the relayer's hostname as the hostname:
+	ident := config.Server.CoerceIdent
+	if ident == "" {
+		ident = "~u"
+	}
+	hostname := client.Hostname()
+	nuh := fmt.Sprintf("%s!%s@%s", nick, ident, hostname)
+
 	channel.AddHistoryItem(history.Item{
 		Type:    history.Privmsg,
 		Message: message,
-		Nick:    nick,
+		Nick:    nuh,
 	}, "")
 
-	// send msg
+	// 3 possibilities for tags:
+	// no tags, the relaymsg tag only, or the relaymsg tag together with all client-only tags
+	cnick := client.Nick()
+	relayTag := map[string]string{
+		caps.RelaymsgTagName: cnick,
+	}
+	clientOnlyTags := msg.ClientOnlyTags()
+	var fullTags map[string]string
+	if len(clientOnlyTags) == 0 {
+		fullTags = relayTag
+	} else {
+		fullTags = make(map[string]string, 1+len(clientOnlyTags))
+		fullTags[caps.RelaymsgTagName] = cnick
+		for t, v := range clientOnlyTags {
+			fullTags[t] = v
+		}
+	}
+
+	// actually send the message
 	channelName := channel.Name()
-	relayTags := map[string]string{
-		caps.RelaymsgTagName: client.Nick(),
-	}
-	for t, v := range msg.ClientOnlyTags() {
-		relayTags[t] = v
-	}
 	for _, member := range channel.Members() {
 		for _, session := range member.Sessions() {
 			var tagsToUse map[string]string
-			if session.capabilities.Has(caps.Relaymsg) {
-				tagsToUse = relayTags
+			if session.capabilities.Has(caps.MessageTags) {
+				tagsToUse = fullTags
+			} else if session.capabilities.Has(caps.Relaymsg) {
+				tagsToUse = relayTag
 			}
 
 			if session == rb.session {
-				rb.AddSplitMessageFromClient(nick, "*", false, tagsToUse, "PRIVMSG", channelName, message)
+				rb.AddSplitMessageFromClient(nuh, "*", false, tagsToUse, "PRIVMSG", channelName, message)
 			} else {
-				session.sendSplitMsgFromClientInternal(false, nick, "*", false, tagsToUse, "PRIVMSG", channelName, message)
+				session.sendSplitMsgFromClientInternal(false, nuh, "*", false, tagsToUse, "PRIVMSG", channelName, message)
 			}
 		}
 	}
