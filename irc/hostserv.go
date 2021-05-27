@@ -53,9 +53,9 @@ OFF disables your vhost, if you have one approved.`,
 			handler: hsStatusHandler,
 			help: `Syntax: $bSTATUS [user]$b
 
-STATUS displays your current vhost, if any, and the status of your most recent
-request for a new one. A server operator can view someone else's status.`,
-			helpShort: `$bSTATUS$b shows your vhost and request status.`,
+STATUS displays your current vhost, if any, and whether it is enabled or
+disabled. A server operator can view someone else's status.`,
+			helpShort: `$bSTATUS$b shows your vhost status.`,
 			enabled:   hostservEnabled,
 		},
 		"set": {
