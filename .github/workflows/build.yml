@@ -1,0 +1,32 @@
+name: "build"
+
+on:
+  pull_request:
+    branches:
+      - "master"
+      - "stable"
+  push:
+    branches:
+      - "master"
+      - "stable"
+
+jobs:
+  build:
+    runs-on: "ubuntu-20.04"
+    steps:
+      - name: "checkout repository"
+        uses: "actions/checkout@v2"
+      - name: "setup go"
+        uses: "actions/setup-go@v2"
+        with:
+          go-version: "1.16.4"
+      - name: "install python3-pytest"
+        run: "sudo apt install -y python3-pytest"
+      - name: "make install"
+        run: "make install"
+      - name: "make test"
+        run: "make test"
+      - name: "make smoke"
+        run: "make smoke"
+      - name: "make irctest"
+        run: "make irctest"
