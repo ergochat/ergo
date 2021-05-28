@@ -10,6 +10,6 @@ name: "Español"
 #code - this is what the language will be referred to in our list of languages
 code: "es"
 #contributors - people who have contributed to this translation
-contributors: "Mauropek\nUnLokitoFeliz <unlokitofeliz@gmail.com>"
+contributors: "Mauropek\nUnLokitoFeliz <unlokitofeliz@gmail.com>\nRené Montes <contacto@partidopirata.com.ar>"
 #incomplete - whether to mark this language as incomplete
 incomplete: true
