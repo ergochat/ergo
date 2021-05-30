@@ -747,7 +747,7 @@ func (client *Client) playReattachMessages(session *Session) {
 	}
 	if !session.autoreplayMissedSince.IsZero() && !hasHistoryCaps {
 		rb := NewResponseBuffer(session)
-		zncPlayPrivmsgs(client, rb, "", time.Now().UTC(), session.autoreplayMissedSince)
+		zncPlayPrivmsgsFromAll(client, rb, time.Now().UTC(), session.autoreplayMissedSince)
 		rb.Send(true)
 	}
 	session.autoreplayMissedSince = time.Time{}
