@@ -11,10 +11,10 @@ Ergo is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC da
 
 ---
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/oragono/oragono)](https://goreportcard.com/report/github.com/oragono/oragono)
-[![Build Status](https://travis-ci.com/oragono/oragono.svg?branch=master)](https://travis-ci.com/oragono/oragono)
-[![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/oragono/oragono/releases/latest)
-[![Crowdin](https://d322cqt584bo4o.cloudfront.net/oragono/localized.svg)](https://crowdin.com/project/oragono)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ergochat/ergo)](https://goreportcard.com/report/github.com/ergochat/ergo)
+[![build](https://github.com/ergochat/ergo/actions/workflows/build.yml/badge.svg)](https://github.com/ergochat/ergo/actions/workflows/build.yml)
+[![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/ergochat/ergo/releases/latest)
+[![Crowdin](https://d322cqt584bo4o.cloudfront.net/ergochat/localized.svg)](https://crowdin.com/project/ergochat)
 
 If you want to take a look at a running Ergo instance or test some client code, feel free to play with [testnet.ergo.chat](https://testnet.ergo.chat/) (TLS on port 6697 or plaintext on port 6667).
 
@@ -31,7 +31,7 @@ If you want to take a look at a running Ergo instance or test some client code, 
 * updating server config and TLS certificates on-the-fly (rehashing)
 * SASL authentication
 * LDAP support
-* supports [multiple languages](https://crowdin.com/project/oragono) (you can also set a default language for your network)
+* supports [multiple languages](https://crowdin.com/project/ergochat) (you can also set a default language for your network)
 * advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, and running as a Tor hidden service)
 * an extensible privilege system for IRC operators
 * ident lookups for usernames
@@ -64,9 +64,9 @@ Some platforms/distros also have Oragono packages maintained for them:
 
 ### Using Docker
 
-A Dockerfile and example docker-compose recipe are available in the `distrib/docker` directory. Oragono is automatically published
+A Dockerfile and example docker-compose recipe are available in the `distrib/docker` directory. Ergo is automatically published
 to Docker Hub at [oragono/oragono](https://hub.docker.com/r/oragono/oragono). For more information, see the distrib/docker
-[README file](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
+[README file](https://github.com/ergochat/ergo/blob/master/distrib/docker/README.md).
 
 ### From Source
 
