@@ -1061,8 +1061,9 @@ var (
 		"            __/ |      ",
 		"           |___/       ",
 		"",
-		"    https://ergo.chat/",
+		"https://ergo.chat/ ",
 		"https://github.com/ergochat/ergo ",
+		"",
 	}
 	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
     Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
