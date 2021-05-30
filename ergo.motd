@@ -1,11 +1,12 @@
+      ___ _ __ __ _  ___  
+     / _ \ '__/ _` |/ _ \ 
+    |  __/ | | (_| | (_) |
+     \___|_|  \__, |\___/ 
+               __/ |      
+              |___/     
 
-      ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
-▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
- ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
-▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
- ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
 
-This is the default Oragono MOTD.
+This is the default Ergo MOTD.
 
 
 If motd-formatting is enabled in the config file, you can use the dollarsign character to
