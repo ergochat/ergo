@@ -109,6 +109,7 @@ func (m *SnoManager) MasksEnabled(client *Client) (result sno.Masks) {
 			}
 		}
 	}
+	result.Sort()
 	return
 }
 

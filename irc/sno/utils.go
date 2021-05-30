@@ -4,6 +4,7 @@
 package sno
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -32,6 +33,10 @@ func (masks Masks) Contains(mask Mask) bool {
 		}
 	}
 	return false
+}
+
+func (masks Masks) Sort() {
+	sort.Slice(masks, func(i, j int) bool { return masks[i] < masks[j] })
 }
 
 // Evaluate changes to snomasks made with MODE. There are several cases:
