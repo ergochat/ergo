@@ -1,12 +1,13 @@
+      ___ _ __ __ _  ___  
+     / _ \ '__/ _` |/ _ \ 
+    |  __/ | | (_| | (_) |
+     \___|_|  \__, |\___/ 
+               __/ |      
+              |___/     
 
-          ▄▄▄   ▄▄▄·  ▄▄ •        ▐ ▄       
-    ▪     ▀▄ █·▐█ ▀█ ▐█ ▀ ▪▪     •█▌▐█▪     
-     ▄█▀▄ ▐▀▀▄ ▄█▀▀█ ▄█ ▀█▄ ▄█▀▄▪▐█▐▐▌ ▄█▀▄ 
-    ▐█▌.▐▌▐█•█▌▐█ ▪▐▌▐█▄▪▐█▐█▌ ▐▌██▐█▌▐█▌.▐▌
-     ▀█▄▀▪.▀  ▀ ▀  ▀ ·▀▀▀▀  ▀█▄▀ ▀▀ █▪ ▀█▄▀▪
+       Ergo IRCd Manual
+      https://ergo.chat/
 
-              Oragono IRCd Manual
-              https://oragono.io/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
 
@@ -28,7 +29,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Environment variables](#environment-variables)
     - [Productionizing with systemd](#productionizing-with-systemd)
     - [Using valid TLS certificates](#using-valid-tls-certificates)
-    - [Upgrading to a new version of Oragono](#upgrading-to-a-new-version-of-oragono)
+    - [Upgrading to a new version of Ergo](#upgrading-to-a-new-version-of-ergo)
 - [Features](#features)
     - [User Accounts](#user-accounts)
     - [Account/Nick Modes](#accountnick-modes)
@@ -70,31 +71,31 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 
 # Introduction
 
-This document goes over the Oragono IRC server, how to get it running and how to use it once it is up and running!
+This document goes over the Ergo IRC server, how to get it running and how to use it once it is up and running!
 
-If you have any suggestions, issues or questions, feel free to submit an issue on our [GitHub repo](https://github.com/oragono/oragono/) or ask in our channel [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono).
+If you have any suggestions, issues or questions, feel free to submit an issue on our [GitHub repo](https://github.com/ergochat/ergo) or ask in our channel [`#ergo` on irc.ergo.chat](ircs://irc.ergo.chat:6697/#ergo) or [`#ergo` on irc.libera.chat](ircs://irc.libera.chat:6697/#ergo).
 
 
 ## Project Basics
 
-Oragono is an ircd written "from scratch" in the [Go](https://en.wikipedia.org/wiki/Go_%28programming_language%29) language, i.e., it [shares no code](https://github.com/grawity/irc-docs/blob/master/family-tree.txt) with the original ircd implementation or any other major ircd. It began as [ergonomadic](https://github.com/jlatt/ergonomadic), which was developed by Jeremy Latt between 2012 and 2014. In 2016, Daniel Oaks forked the project under its current name Oragono, in order to prototype [IRCv3](https://ircv3.net/) features and for use as a reference implementation of the [Modern IRC specification](https://modern.ircdocs.horse). Oragono 1.0.0 was released in February 2019, and as of 2020 the project is under active development by multiple contributors.
+Ergo is an ircd written "from scratch" in the [Go](https://en.wikipedia.org/wiki/Go_%28programming_language%29) language, i.e., it [shares no code](https://github.com/grawity/irc-docs/blob/master/family-tree.txt) with the original ircd implementation or any other major ircd. It began as [ergonomadic](https://github.com/jlatt/ergonomadic), which was developed by Jeremy Latt between 2012 and 2014. In 2016, Daniel Oaks forked the project under the name Oragono, in order to prototype [IRCv3](https://ircv3.net/) features and for use as a reference implementation of the [Modern IRC specification](https://modern.ircdocs.horse). Oragono 1.0.0 was released in February 2019; the project switched to its current name of Ergo in June 2021.
 
-Oragono's core design goals are:
+Ergo's core design goals are:
 
 * Being simple to set up and use
 * Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
 * Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
 * Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
 
-In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Oragono also strives for feature parity with other major servers. Oragono is a mature project with multiple communities using it as a day-to-day chat server --- we encourage you to consider it for your organization or community!
+In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Ergo also strives for feature parity with other major servers. Ergo is a mature project with multiple communities using it as a day-to-day chat server --- we encourage you to consider it for your organization or community!
 
 ## Scalability
 
-We believe Oragono should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Oragono does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Oragono is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out". (Federation is [planned](https://github.com/oragono/oragono/issues/26) but is not scheduled for development in the near term.)
+We believe Ergo should scale comfortably to 10,000 clients and 2,000 clients per channel, making it suitable for small to medium-sized teams and communities. Ergo does not currently support server-to-server linking (federation), meaning that all clients must connect to the same instance. However, since Ergo is implemented in Go, it is reasonably effective at distributing work across multiple cores on a single server; in other words, it should "scale up" rather than "scaling out". (Horizontal scalability is [planned](https://github.com/ergochat/ergo/issues/1532) but is not scheduled for development in the near term.)
 
-Even though it runs as a single instance, Oragono can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file. See [Hashbang's implementation](https://github.com/hashbang/gitops/tree/master/ircd) for a "worked example".
+Even though it runs as a single instance, Ergo can be deployed for high availability (i.e., with no single point of failure) using Kubernetes. This technique uses a k8s [LoadBalancer](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/) to receive external traffic and a [Volume](https://kubernetes.io/docs/concepts/storage/volumes/) to store the embedded database file. See [Hashbang's implementation](https://github.com/hashbang/gitops/tree/master/ircd) for a "worked example".
 
-If you're interested in deploying Oragono at scale or for high availability, or want performance tuning advice, come find us on [`#oragono` on freenode](ircs://irc.freenode.net:6697/#oragono), we're very interested in what our software can do!
+If you're interested in deploying Ergo at scale or for high availability, or want performance tuning advice, come find us on [`#ergo` on Libera](ircs://irc.libera.chat:6697/#ergo), we're very interested in what our software can do!
 
 
 --------------------------------------------------------------------------------------------
@@ -102,42 +103,40 @@ If you're interested in deploying Oragono at scale or for high availability, or 
 
 # Installing
 
-In this section, we'll explain how to install and use the Oragono IRC server.
+In this section, we'll explain how to install and use the Ergo IRC server.
 
 
 ## Windows
 
-To get started with Oragono on Windows:
+To get started with Ergo on Windows:
 
-1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) downloaded.
+1. Make sure you have the [latest release](https://github.com/ergochat/ergo/releases/latest) downloaded.
 1. Extract the zip file to a folder.
 1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
-1. Open up a `cmd.exe` window, then `cd` to where you have Oragono extracted.
-1. Run `oragono.exe mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
+1. Open up a `cmd.exe` window, then `cd` to where you have Ergo extracted.
+1. Run `ergo mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
 
-To start the server, type `oragono.exe run` and hit enter, and the server should start!
+To start the server, type `ergo run` and hit enter, and the server should start!
 
 
 ## macOS / Linux / Raspberry Pi
 
-To get started with Oragono on macOS, Linux, or on a Raspberry Pi:
+To get started with Ergo on macOS, Linux, or on a Raspberry Pi:
 
-1. Make sure you have the [latest release](https://github.com/oragono/oragono/releases/latest) for your OS/distro downloaded.
+1. Make sure you have the [latest release](https://github.com/ergochat/ergo/releases/latest) for your OS/distro downloaded.
 1. Extract the tar.gz file to a folder.
 1. Copy and rename `default.yaml` to `ircd.yaml`.
 1. Open up `ircd.yaml` using any text editor, and then save it once you're happy.
-1. Open up a Terminal window, then `cd` to where you have Oragono extracted.
-1. Run `./oragono mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
+1. Open up a Terminal window, then `cd` to where you have Ergo extracted.
+1. Run `./ergo mkcerts` if you want to generate new self-signed SSL/TLS certificates (note that you can't enable STS if you use self-signed certs).
 
-To start the server, type `./oragono run` and hit enter, and the server should be ready to use!
-
-If you're using Arch Linux, you can also install the [`oragono` package](https://aur.archlinux.org/packages/oragono/) from the AUR.
+To start the server, type `./ergo run` and hit enter, and the server should be ready to use!
 
 
 ## Docker
 
-1. Pull the latest version of Oragono: `docker pull oragono/oragono:latest`
+1. Pull the latest version of Ergo: `docker pull oragono/oragono:latest`
 1. Create a volume for persistent data: `docker volume create oragono-data`
 1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
 
@@ -146,27 +145,27 @@ For further information and a sample docker-compose file see the separate [Docke
 
 ## Building from source
 
-You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once you have that, just clone the repository and run `make build`. If everything goes well, you should now have an executable named `oragono` in the base directory of the project.
+You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once you have that, just clone the repository and run `make build`. If everything goes well, you should now have an executable named `ergo` in the base directory of the project.
 
 
 ## Becoming an operator
 
-Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Oragono instance is first to pick a strong, secure password, then "hash" it using the `oragono genpasswd` command (run `oragono genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
+Many administrative actions on an IRC server are performed "in-band" as IRC commands sent from a client. The client in question must be an IRC operator ("oper", "ircop"). The easiest way to become an operator on your new Ergo instance is first to pick a strong, secure password, then "hash" it using the `ergo genpasswd` command (run `ergo genpasswd` from the command line, then enter your password twice), then copy the resulting hash into the `opers` section of your `ircd.yaml` file. Then you can become an operator by issuing the IRC command: `/oper admin mysecretpassword`.
 
 
 ## Rehashing
 
-The primary way of configuring Oragono is by modifying the configuration file. Most changes to the configuration file can be applied at runtime by "rehashing", i.e., reloading the configuration file without restarting the server process. This has the advantage of not disconnecting users. There are two ways to rehash Oragono:
+The primary way of configuring Ergo is by modifying the configuration file. Most changes to the configuration file can be applied at runtime by "rehashing", i.e., reloading the configuration file without restarting the server process. This has the advantage of not disconnecting users. There are two ways to rehash Ergo:
 
 1. If you are an operator with the `rehash` capability, you can issue the `/REHASH` command (you may have to `/quote rehash`, depending on your client)
-1. You can send the `SIGHUP` signal to Oragono, e.g., via `killall -HUP oragono`
+1. You can send the `SIGHUP` signal to Ergo, e.g., via `killall -HUP ergo`
 
 Rehashing also reloads TLS certificates and the MOTD. Some configuration settings cannot be altered by rehash. You can monitor either the response to the `/REHASH` command, or the server logs, to see if your rehash was successful.
 
 
 ## Environment variables
 
-Oragono can also be configured using environment variables, using the following technique:
+Ergo can also be configured using environment variables, using the following technique:
 
 1. Find the "path" of the config variable you want to override in the YAML file, e.g., `server.websockets.allowed-origins`
 1. Convert each path component from "kebab case" to "screaming snake case", e.g., `SERVER`, `WEBSOCKETS`, and `ALLOWED_ORIGINS`.
@@ -178,21 +177,21 @@ However, settings that were overridden using this technique cannot be rehashed -
 
 ## Productionizing with systemd
 
-The recommended way to operate oragono as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures oragono's loglines (sent to stderr in the default configuration) and writes them to the system journal.
+The recommended way to operate ergo as a service on Linux is via systemd. This provides a standard interface for starting, stopping, and rehashing (via `systemctl reload`) the service. It also captures ergo's loglines (sent to stderr in the default configuration) and writes them to the system journal.
 
-The only major distribution that currently packages Oragono is Arch Linux; the aforementioned AUR package includes a systemd unit file. However, it should be fairly straightforward to set up a productionized Oragono on any Linux distribution. Here's a quickstart guide for Debian/Ubuntu:
+The only major distribution that currently packages Ergo is Arch Linux; the aforementioned AUR package includes a systemd unit file. However, it should be fairly straightforward to set up a productionized Ergo on any Linux distribution. Here's a quickstart guide for Debian/Ubuntu:
 
-1. Create a dedicated, unprivileged role user who will own the oragono process and all its associated files: `adduser --system --group oragono`. This user now has a home directory at `/home/oragono`. To prevent other users from viewing Oragono's configuration file, database, and certificates, restrict the permissions on the home directory: `chmod 0700 /home/oragono`.
-1. Copy the executable binary `oragono`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`fullchain.pem` and `privkey.pem`) to `/home/oragono`. (If you don't have an `ircd.db`, it will be auto-created as `/home/oragono/ircd.db` on first launch.) Ensure that they are all owned by the new oragono role user: `sudo chown oragono:oragono /home/oragono/*`. Ensure that the configuration file logs to stderr.
-1. Install our example [oragono.service](https://github.com/oragono/oragono/blob/master/distrib/systemd/oragono.service) file to `/etc/systemd/system/oragono.service`.
+1. Create a dedicated, unprivileged role user who will own the ergo process and all its associated files: `adduser --system --group ergo`. This user now has a home directory at `/home/ergo`. To prevent other users from viewing Ergo's configuration file, database, and certificates, restrict the permissions on the home directory: `chmod 0700 /home/ergo`.
+1. Copy the executable binary `ergo`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`fullchain.pem` and `privkey.pem`) to `/home/ergo`. (If you don't have an `ircd.db`, it will be auto-created as `/home/ergo/ircd.db` on first launch.) Ensure that they are all owned by the new ergo role user: `sudo chown ergo:ergo /home/ergo/*`. Ensure that the configuration file logs to stderr.
+1. Install our example [ergo.service](https://github.com/ergochat/ergo/blob/master/distrib/systemd/ergo.service) file to `/etc/systemd/system/ergo.service`.
 1. Enable and start the new service with the following commands:
     1. `systemctl daemon-reload`
-    1. `systemctl enable oragono.service`
-    1. `systemctl start oragono.service`
-    1. Confirm that the service started correctly with `systemctl status oragono.service`
+    1. `systemctl enable ergo.service`
+    1. `systemctl start ergo.service`
+    1. Confirm that the service started correctly with `systemctl status ergo.service`
 
 
-On a non-systemd system, oragono can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP oragono` or `pkill -HUP oragono`.
+On a non-systemd system, ergo can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP ergo` or `pkill -HUP ergo`.
 
 
 ## Using valid TLS certificates
@@ -200,7 +199,7 @@ On a non-systemd system, oragono can be configured to log to a file and used [lo
 The other major hurdle for productionizing (but one well worth the effort) is obtaining valid TLS certificates for your domain, if you haven't already done so:
 
 1. The simplest way to get valid TLS certificates is from [Let's Encrypt](https://letsencrypt.org/) with [Certbot](https://certbot.eff.org/). The correct procedure will depend on whether you are already running a web server on port 80. If you are, follow the guides on the Certbot website; if you aren't, you can use `certbot certonly --standalone --preferred-challenges http -d example.com` (replace `example.com` with your domain).
-1. At this point, you should have certificates available at `/etc/letsencrypt/live/example.com` (replacing `example.com` with your domain). You should serve `fullchain.pem` as the certificate and `privkey.pem` as its private key. However, these files are owned by root and the private key is not readable by the oragono role user, so you won't be able to use them directly in their current locations. You can write a post-renewal hook for certbot to make copies of these certificates accessible to the oragono role user. For example, install the following script as `/etc/letsencrypt/renewal-hooks/post/install-oragono-certificates`, again replacing `example.com` with your domain name, and chmod it 0755:
+1. At this point, you should have certificates available at `/etc/letsencrypt/live/example.com` (replacing `example.com` with your domain). You should serve `fullchain.pem` as the certificate and `privkey.pem` as its private key. However, these files are owned by root and the private key is not readable by the ergo role user, so you won't be able to use them directly in their current locations. You can write a post-renewal hook for certbot to make copies of these certificates accessible to the ergo role user. For example, install the following script as `/etc/letsencrypt/renewal-hooks/post/install-ergo-certificates`, again replacing `example.com` with your domain name, and chmod it 0755:
 
 ````bash
 #!/bin/bash
@@ -208,29 +207,29 @@ The other major hurdle for productionizing (but one well worth the effort) is ob
 set -eu
 
 umask 077
-cp /etc/letsencrypt/live/example.com/fullchain.pem /home/oragono/
-cp /etc/letsencrypt/live/example.com/privkey.pem /home/oragono/
-chown oragono:oragono /home/oragono/*.pem
-# rehash oragono, which will reload the certificates:
-systemctl reload oragono.service
+cp /etc/letsencrypt/live/example.com/fullchain.pem /home/ergo/
+cp /etc/letsencrypt/live/example.com/privkey.pem /home/ergo/
+chown ergo:ergo /home/ergo/*.pem
+# rehash ergo, which will reload the certificates:
+systemctl reload ergo.service
 ````
 
 Executing this script manually will install the certificates for the first time and perform a rehash, enabling them.
 
-If you are using Certbot 0.29.0 or higher, you can also change the ownership of the files under `/etc/letsencrypt` so that the oragono user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file).
+If you are using Certbot 0.29.0 or higher, you can also change the ownership of the files under `/etc/letsencrypt` so that the ergo user can read them, as described in the [UnrealIRCd documentation](https://www.unrealircd.org/docs/Setting_up_certbot_for_use_with_UnrealIRCd#Tweaking_permissions_on_the_key_file).
 
 
-## Upgrading to a new version of Oragono
+## Upgrading to a new version of Ergo
 
-As long as you are using official releases or release candidates of Oragono, any backwards-incompatible changes should be described in the changelog.
+As long as you are using official releases or release candidates of Ergo, any backwards-incompatible changes should be described in the changelog.
 
-In general, the config file format should be fully backwards and forwards compatible. Unless otherwise noted, no config file changes should be necessary when upgrading Oragono. However, the "config changes" section of the changelog will typically describe new sections that can be added to your config to enable new functionality, as well as changes in the recommended values of certain fields.
+In general, the config file format should be fully backwards and forwards compatible. Unless otherwise noted, no config file changes should be necessary when upgrading Ergo. However, the "config changes" section of the changelog will typically describe new sections that can be added to your config to enable new functionality, as well as changes in the recommended values of certain fields.
 
 The database is versioned; upgrades that involve incompatible changes to the database require updating the database. If you have `datastore.autoupgrade` enabled in your config, the database will be backed up and upgraded when you restart your server when required. Otherwise, you can apply upgrades manually:
 
 1. Stop your server
 1. Make a backup of your database file
-1. Run `oragono upgradedb` (from the same working directory and with the same arguments that you would use when running `oragono run`)
+1. Run `ergo upgradedb` (from the same working directory and with the same arguments that you would use when running `ergo run`)
 1. Start the server again
 
 If you want to run our master branch as opposed to our releases, come find us in our channel and we can guide you around any potential pitfalls.
@@ -241,12 +240,12 @@ If you want to run our master branch as opposed to our releases, come find us in
 
 # Features
 
-In this section, we'll explain and go through using various features of the Oragono IRC server.
+In this section, we'll explain and go through using various features of the Ergo IRC server.
 
 
 ## User Accounts
 
-In most IRC servers you can use `NickServ` to register an account. You can do the same thing with Oragono, by default, with no other software needed!
+In most IRC servers you can use `NickServ` to register an account. You can do the same thing with Ergo, by default, with no other software needed!
 
 To register an account, use:
 
@@ -264,7 +263,7 @@ If your client doesn't support SASL, you can typically use the "server password"
 
 ## Account/Nick Modes
 
-Oragono supports several different modes of operation with respect to accounts and nicknames.
+Ergo supports several different modes of operation with respect to accounts and nicknames.
 
 ### Nick equals account
 
@@ -302,7 +301,7 @@ To enable this mode as the server operator, set the following configs (they are 
 
 ### No nick reservation
 
-This makes Oragono's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
+This makes Ergo's services act similar to Quakenet's Q bot. In this mode, users cannot own or reserve nicknames. In other words, there is no connection between account names and nicknames. Anyone can use any nickname (as long as it's not already in use by another running client). However, accounts are still useful: they can be used to register channels (see below), and some IRCv3-capable clients (with the `account-tag` or `extended-join` capabilities) may be able to take advantage of them.
 
 To enable this mode, set the following configs:
 
@@ -312,7 +311,7 @@ To enable this mode, set the following configs:
 
 ### SASL-only mode
 
-This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Oragono to be deployed facing the public Internet, with fine-grained control over who can log in.
+This mode is comparable to Slack, Mattermost, or similar products intended as internal chat servers for an organization or team. In this mode, clients cannot connect to the server unless they log in with SASL as part of the initial handshake. This allows Ergo to be deployed facing the public Internet, with fine-grained control over who can log in.
 
 In this mode, clients must not be allowed to register their own accounts, so user-initiated account registration must be disabled. Accordingly, an operator must do the initial account creation, using the `SAREGISTER` command of NickServ. (For more details, `/msg NickServ help saregister`.) To bootstrap this process, you can make an initial connection from localhost, which is exempt (by default) from the requirement, or temporarily add your own IP to the exemption list. You can also use a more permissive configuration for bootstrapping, then switch to this one once you have your account. Another possibility is permanently exempting an internal network, e.g., `10.0.0.0/8`, that only trusted people can access.
 
@@ -323,7 +322,7 @@ To enable this mode, use the configs from the "nick equals account" section (i.e
 
 ## Email verification
 
-By default, account registrations complete immediately and do not require a verification step. However, like other service frameworks, Oragono's NickServ can be configured to require email verification of registrations. The main challenge here is to prevent your emails from being marked as spam, which you can do by configuring [SPF](https://en.wikipedia.org/wiki/Sender_Policy_Framework), [DKIM](https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail), and [DMARC](https://en.wikipedia.org/wiki/DMARC). For example, this configuration (when added to the `accounts.registration` section) enables email verification, with the emails being signed with a DKIM key and sent directly from Oragono:
+By default, account registrations complete immediately and do not require a verification step. However, like other service frameworks, Ergo's NickServ can be configured to require email verification of registrations. The main challenge here is to prevent your emails from being marked as spam, which you can do by configuring [SPF](https://en.wikipedia.org/wiki/Sender_Policy_Framework), [DKIM](https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail), and [DMARC](https://en.wikipedia.org/wiki/DMARC). For example, this configuration (when added to the `accounts.registration` section) enables email verification, with the emails being signed with a DKIM key and sent directly from Ergo:
 
 ```yaml
         email-verification:
@@ -355,7 +354,7 @@ If your friends have registered accounts, you can automatically grant them opera
 
 ## Language
 
-Oragono supports multiple languages! Specifically, once you connect you're able to get server messages in other languages (messages from other users will still be in their original languages, though).
+Ergo supports multiple languages! Specifically, once you connect you're able to get server messages in other languages (messages from other users will still be in their original languages, though).
 
 To see which languages are supported, run this command:
 
@@ -390,24 +389,24 @@ Our language and translation functionality is very early, so feel free to let us
 
 ## Multiclient ("Bouncer")
 
-Traditionally, every connection to an IRC server is separate must use a different nickname. [Bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by letting multiple clients connect to a single nickname. With Oragono, if the server is configured to allow it, multiple clients can share a single nickname without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then use the same nickname during connection registration (while connecting to the server) – once you've logged-in, you can't share another nickname.
+Traditionally, every connection to an IRC server is separate must use a different nickname. [Bouncers](https://en.wikipedia.org/wiki/BNC_%28software%29#IRC) are used to work around this, by letting multiple clients connect to a single nickname. With Ergo, if the server is configured to allow it, multiple clients can share a single nickname without needing a bouncer. To use this feature, both connections must authenticate with SASL to the same user account and then use the same nickname during connection registration (while connecting to the server) – once you've logged-in, you can't share another nickname.
 
 To enable this functionality, set `accounts.multiclient.enabled` to `true`. Setting `accounts.multiclient.allowed-by-default` to `true` will allow this for everyone. If `allowed-by-default` is `false` (but `enabled` is still `true`), users can opt in to shared connections using `/msg NickServ SET multiclient true`.
 
 You can see a list of your active sessions and their idle times with `/msg NickServ sessions` (network operators can use `/msg NickServ sessions nickname` to see another user's sessions).
 
-Oragono now supports "always-on clients" that remain present on the server (holding their nickname, subscribed to channels, able to receive DMs, etc.) even when no actual clients are connected. To enable this as a server operator, set `accounts.multiclient.always-on` to either `opt-in`, `opt-out`, or `mandatory`. To enable or disable it as a client (if the server setting is `opt-in` or `opt-out` respectively), use `/msg NickServ set always-on true` (or `false`).
+Ergo now supports "always-on clients" that remain present on the server (holding their nickname, subscribed to channels, able to receive DMs, etc.) even when no actual clients are connected. To enable this as a server operator, set `accounts.multiclient.always-on` to either `opt-in`, `opt-out`, or `mandatory`. To enable or disable it as a client (if the server setting is `opt-in` or `opt-out` respectively), use `/msg NickServ set always-on true` (or `false`).
 
 
 ## History
 
-Oragono supports two methods of storing history, an in-memory buffer with a configurable maximum number of messages, and persistent history stored in MySQL (with no fixed limits on message capacity). To enable in-memory history, configure `history.enabled` and associated settings in the `history` section. To enable persistent history, enter your MySQL server information in `datastore.mysql` and then enable persistent history storage in `history.persistent`.
+Ergo supports two methods of storing history, an in-memory buffer with a configurable maximum number of messages, and persistent history stored in MySQL (with no fixed limits on message capacity). To enable in-memory history, configure `history.enabled` and associated settings in the `history` section. To enable persistent history, enter your MySQL server information in `datastore.mysql` and then enable persistent history storage in `history.persistent`.
 
 Unfortunately, client support for history playback is still patchy. In descending order of support:
 
 1. The [IRCv3 chathistory specification](https://ircv3.net/specs/extensions/chathistory) offers the most fine-grained control over history replay. It is supported by [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client (see the "ZNC" section below).
-1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Oragono will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
+1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Ergo will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
     - You can add it to your SASL username with an `@`, e.g., if your SASL username is `alice` you can send `alice@phone`
     - You can add it in a similar way to your IRC protocol username ("ident"), e.g., `alice@phone`
     - If login to user accounts via the `PASS` command is enabled on the server, you can provide it there, e.g., by sending `alice@phone:hunter2` as the server password
@@ -423,19 +422,19 @@ On most Linux and POSIX systems, it's straightforward to set up MySQL (or MariaD
 1. Install the `mysql-server` package
 1. Run `mysql_secure_installation` as root; this corrects some insecure package defaults
 1. Connect to your new MySQL server as root with `mysql --user root`
-1. In the MySQL prompt, create a new `oragono` user (substitute a strong password of your own for `hunter2`): `CREATE USER 'oragono'@'localhost' IDENTIFIED BY 'hunter2';`
-1. Create the database that history will be stored in: `CREATE DATABASE oragono_history;`
-1. Grant privileges on the database to the new user: `GRANT ALL PRIVILEGES ON oragono_history.* to 'oragono'@'localhost';`
-1. Enable persistent history in your Oragono config file. At a minimum, you must set `history.persistent.enabled = true`. You may want to modify the other options under `history.persistent` and `history`.
-1. Configure Oragono to talk to MySQL (again, substitute the strong password you chose previously for `hunter2`):
+1. In the MySQL prompt, create a new `ergo` user (substitute a strong password of your own for `hunter2`): `CREATE USER 'ergo'@'localhost' IDENTIFIED BY 'hunter2';`
+1. Create the database that history will be stored in: `CREATE DATABASE ergo_history;`
+1. Grant privileges on the database to the new user: `GRANT ALL PRIVILEGES ON ergo_history.* to 'ergo'@'localhost';`
+1. Enable persistent history in your Ergo config file. At a minimum, you must set `history.persistent.enabled = true`. You may want to modify the other options under `history.persistent` and `history`.
+1. Configure Ergo to talk to MySQL (again, substitute the strong password you chose previously for `hunter2`):
 
 ```yaml
     mysql:
         enabled: true
         socket-path: "/var/run/mysqld/mysqld.sock"
-        user: "oragono"
+        user: "ergo"
         password: "hunter2"
-        history-database: "oragono_history"
+        history-database: "ergo_history"
         timeout: 3s
 ```
 
@@ -446,19 +445,19 @@ Unlike many other chat and web platforms, IRC traditionally exposes the user's I
 
 IP cloaking is a way of balancing these concerns about abuse with concerns about user privacy. With cloaking, the user's IP address is deterministically "scrambled", typically via a cryptographic [MAC](https://en.wikipedia.org/wiki/Message_authentication_code), to form a "cloaked" hostname that replaces the usual reverse-DNS-based hostname. Users cannot reverse the scrambling to learn each other's IPs, but can ban a scrambled address the same way they would ban a regular hostname.
 
-Oragono supports cloaking, which is enabled by default (via the `server.ip-cloaking` section of the config). However, Oragono's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
+Ergo supports cloaking, which is enabled by default (via the `server.ip-cloaking` section of the config). However, Ergo's cloaking behavior differs from other IRC software. Rather than scrambling each of the 4 bytes of the IPv4 address (or each 2-byte pair of the 8 such pairs of the IPv6 address) separately, the server administrator configures a CIDR length (essentially, a fixed number of most-significant-bits of the address). The CIDR (i.e., only the most significant portion of the address) is then scrambled atomically to produce the cloaked hostname. This errs on the side of user privacy, since knowing the cloaked hostname for one CIDR tells you nothing about the cloaked hostnames of other CIDRs --- the scheme reveals only whether two users are coming from the same CIDR. We suggest using 32-bit CIDRs for IPv4 (i.e., the whole address) and 64-bit CIDRs for IPv6, since these are the typical assignments made by ISPs to individual customers.
 
 Setting `server.ip-cloaking.num-bits` to 0 gives users cloaks that don't depend on their IP address information at all, which is an option for deployments where privacy is a more pressing concern than abuse. Holders of registered accounts can also use the vhost system (for details, `/msg HostServ HELP`.)
 
 
 ## Moderation
 
-Oragono shares some server operator moderation tools with other ircds. In particular:
+Ergo shares some server operator moderation tools with other ircds. In particular:
 
 1. `/SAMODE` can be used to grant or remove channel privileges. For example, to create an operator in a channel that has no operators: `/SAMODE #channel +o nickname`
 2. `/SAJOIN` lets operators join channels despite restrictions, or forcibly join another user to a channel. For example, `/SAJOIN #channel` or `/SAJOIN nickname #channel`.
 
-However, Oragono's multiclient and always-on features mean that abuse prevention (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for abuse prevention:
+However, Ergo's multiclient and always-on features mean that abuse prevention (at the server operator level) requires different techniques than a traditional IRC network. Server operators have two principal tools for abuse prevention:
 
 1. `/UBAN`, which can disable user accounts and/or ban offending IPs and networks
 2. `/DEFCON`, which can impose emergency restrictions on user activity in response to attacks
@@ -486,30 +485,30 @@ Awesome! We love getting new suggestions for features, ways to improve the serve
 
 There are two ways to make suggestions, either:
 
-- Submit an issue on our [bug tracker](https://github.com/oragono/oragono/issues).
-- Talk to us in the `#oragono` channel on Freenode.
+- Submit an issue on our [bug tracker](https://github.com/ergochat/ergo/issues).
+- Talk to us in the `#ergo` channel on irc.ergo.chat or irc.libera.chat.
 
 
 ## Why can't I oper?
 
-If you try to oper unsuccessfully, Oragono will disconnect you from the network. If you're unable to oper, here are some things to double-check:
+If you try to oper unsuccessfully, Ergo will disconnect you from the network. If you're unable to oper, here are some things to double-check:
 
-1. Did you correctly generate the hashed password with `oragono genpasswd`?
+1. Did you correctly generate the hashed password with `ergo genpasswd`?
 1. Did you add the password hash to the correct config file, then save the file?
-1. Did you rehash or restart Oragono after saving the file?
+1. Did you rehash or restart Ergo after saving the file?
 
-The config file accepts hashed passwords, not plaintext passwords. You must run `oragono genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
+The config file accepts hashed passwords, not plaintext passwords. You must run `ergo genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
-After that, you must rehash or restart Oragono to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
+After that, you must rehash or restart Ergo to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
 
 
-## Why is Oragono ignoring my ident response / USER command?
+## Why is Ergo ignoring my ident response / USER command?
 
-The default/recommended configuration of Oragono does not query remote ident servers, and furthermore ignores any user/ident sent with the `USER` command. All user/ident fields are set to a constant `~u`. There are a few reasons for this:
+The default/recommended configuration of Ergo does not query remote ident servers, and furthermore ignores any user/ident sent with the `USER` command. All user/ident fields are set to a constant `~u`. There are a few reasons for this:
 
 1. Remote ident lookups slow down connection initiation and pose privacy and security concerns (since they transmit usernames over the Internet in plaintext).
-2. Ignoring user/ident simplifies bans; in general, a channel ban in Oragono should target either the nickname or the hostname. As a channel operator, `/msg ChanServ HOWTOBAN #channel nick` will recommend a way of banning any given user.
-3. Ident is commonly used to distinguish users connecting from the same trusted shell host or shared bouncer. This is less important with Oragono, which can act as a bouncer itself.
+2. Ignoring user/ident simplifies bans; in general, a channel ban in Ergo should target either the nickname or the hostname. As a channel operator, `/msg ChanServ HOWTOBAN #channel nick` will recommend a way of banning any given user.
+3. Ident is commonly used to distinguish users connecting from the same trusted shell host or shared bouncer. This is less important with Ergo, which can act as a bouncer itself.
 4. Because of limitations of the IRC protocol, every character of the user/ident field counts against the maximum size of a message that can be sent.
 
 As an operator, you can modify this behavior if desired; see the `check-ident` and `coerce-ident` settings in the config file.
@@ -517,12 +516,12 @@ As an operator, you can modify this behavior if desired; see the `check-ident` a
 
 ## Why can't I change nicknames?
 
-The default/recommended configuration of Oragono does not allow authenticated users to change their nicknames; an authenticated user must use their account name as their nickname. There are a few reasons for this:
+The default/recommended configuration of Ergo does not allow authenticated users to change their nicknames; an authenticated user must use their account name as their nickname. There are a few reasons for this:
 
-1. Assigning a consistent nickname prevents certain "split-brain" scenarios that break Oragono's "multiclient" functionality. In brief, if two clients are connecting to the same account/identity, but only one of them issues a `/NICK` command, and then one of them subsequently loses and regains its connection to the server, they "break apart": they will have separate identities and channel memberships on the network, and it's difficult to bring them back together again.
+1. Assigning a consistent nickname prevents certain "split-brain" scenarios that break Ergo's "multiclient" functionality. In brief, if two clients are connecting to the same account/identity, but only one of them issues a `/NICK` command, and then one of them subsequently loses and regains its connection to the server, they "break apart": they will have separate identities and channel memberships on the network, and it's difficult to bring them back together again.
 2. The use of a consistent nickname reduces the possibility of edge cases in history playback.
 3. The use of a consistent nickname simplifies offline messaging (which is a first-class concept for always-on clients).
-4. Oragono eliminates the cases in conventional IRC servers that necessitate nickname changes. In particular, you can always claim your nickname, even if the server is still waiting for an old client to time out, and you can connect arbitrarily many clients to the same nickname.
+4. Ergo eliminates the cases in conventional IRC servers that necessitate nickname changes. In particular, you can always claim your nickname, even if the server is still waiting for an old client to time out, and you can connect arbitrarily many clients to the same nickname.
 
 As an operator, you can disable this behavior using the `force-nick-equals-account` setting, but this is discouraged because it has no effect on always-on clients; always-on clients must use their account names as their nicknames regardless of this setting.
 
@@ -583,14 +582,14 @@ Many clients do not have this support. However, you can designate port 6667 as a
 
 ## Reverse proxies
 
-Oragono supports the use of reverse proxies (such as nginx, or a Kubernetes [LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)) that sit between it and the client. In these deployments, the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) is used to pass the end user's IP through to Oragono. These proxies can be used to terminate TLS externally to Oragono, e.g., if you need to support versions of the TLS protocol that are not implemented natively by Go, or if you want to consolidate your certificate management into a single nginx instance.
+Ergo supports the use of reverse proxies (such as nginx, or a Kubernetes [LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)) that sit between it and the client. In these deployments, the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) is used to pass the end user's IP through to Ergo. These proxies can be used to terminate TLS externally to Ergo, e.g., if you need to support versions of the TLS protocol that are not implemented natively by Go, or if you want to consolidate your certificate management into a single nginx instance.
 
 The first step is to add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
 
 After that, there are two possibilities:
 
-* If you're using a proxy like nginx or stunnel that terminates TLS, then forwards a PROXY v1 (ASCII) header ahead of a plaintext connection, no further Oragono configuration is required. You need only configure your proxy to send the PROXY header. Here's an [example nginx config](https://github.com/oragono/testnet.oragono.io/blob/master/nginx_stream.conf).
-* If you're using a cloud load balancer that either sends a PROXY v1 header ahead of unterminated TLS (like [DigitalOcean](https://www.digitalocean.com/docs/networking/load-balancers/#proxy-protocol)) or sends a PROXY v2 (binary) header (like the [AWS "Network Load Balancer"](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol)), Oragono must be configured to expect a PROXY header ahead of the connection. Add `proxy: true` to the listener config block, e.g.,
+* If you're using a proxy like nginx or stunnel that terminates TLS, then forwards a PROXY v1 (ASCII) header ahead of a plaintext connection, no further Ergo configuration is required. You need only configure your proxy to send the PROXY header. Here's an [example nginx config](https://github.com/ergochat/testnet.ergo.chat/blob/master/nginx_stream.conf).
+* If you're using a cloud load balancer that either sends a PROXY v1 header ahead of unterminated TLS (like [DigitalOcean](https://www.digitalocean.com/docs/networking/load-balancers/#proxy-protocol)) or sends a PROXY v2 (binary) header (like the [AWS "Network Load Balancer"](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol)), Ergo must be configured to expect a PROXY header ahead of the connection. Add `proxy: true` to the listener config block, e.g.,
 
 ```yaml
         ":6697":
@@ -603,13 +602,13 @@ After that, there are two possibilities:
 
 ## Client certificates
 
-Oragono supports authenticating to user accounts via TLS client certificates. The end user must enable the client certificate in their client and also enable SASL with the `EXTERNAL` method. To register an account using only a client certificate for authentication, connect with the client certificate and use `/NS REGISTER *` (or `/NS REGISTER * email@example.com` if email verification is enabled on the server). To add a client certificate to an existing account, obtain the SHA-256 fingerprint of the certificate (either by connecting with it and looking at your own `/WHOIS` response, in particular the `276 RPL_WHOISCERTFP` line, or using the openssl command `openssl x509 -noout -fingerprint -sha256 -in example_client_cert.pem`), then use the `/NS CERT` command).
+Ergo supports authenticating to user accounts via TLS client certificates. The end user must enable the client certificate in their client and also enable SASL with the `EXTERNAL` method. To register an account using only a client certificate for authentication, connect with the client certificate and use `/NS REGISTER *` (or `/NS REGISTER * email@example.com` if email verification is enabled on the server). To add a client certificate to an existing account, obtain the SHA-256 fingerprint of the certificate (either by connecting with it and looking at your own `/WHOIS` response, in particular the `276 RPL_WHOISCERTFP` line, or using the openssl command `openssl x509 -noout -fingerprint -sha256 -in example_client_cert.pem`), then use the `/NS CERT` command).
 
 Client certificates are not supported over websockets due to a [Chrome bug](https://bugs.chromium.org/p/chromium/issues/detail?id=329884).
 
 ## SNI
 
-Oragono supports [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication); this is useful if you have multiple domain names for your server, with different certificates covering different domain names. Configure your TLS listener like this:
+Ergo supports [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication); this is useful if you have multiple domain names for your server, with different certificates covering different domain names. Configure your TLS listener like this:
 
 ```yaml
         ":6697":
@@ -631,7 +630,7 @@ If multiple certificates are applicable, or the client does not send SNI, the se
 
 On IRC, you can set modes on users and on channels. Modes are basically extra information that changes how users and channels work.
 
-In this section, we give an overview of the modes Oragono supports.
+In this section, we give an overview of the modes Ergo supports.
 
 
 ## User Modes
@@ -900,9 +899,9 @@ Voiced users can speak when the channel has `+m` (moderated) mode enabled. They 
 
 # Commands
 
-The best place to look for command help is on a running copy or Oragono itself!
+The best place to look for command help is on a running copy or Ergo itself!
 
-To see the integrated command help, simply spin up a copy of Oragono and then run this command:
+To see the integrated command help, simply spin up a copy of Ergo and then run this command:
 
     /HELPOP <command>
 
@@ -918,7 +917,7 @@ We may add some additional notes here for specific commands down the line, but r
 
 # Working with other software
 
-Oragono should interoperate with most IRC-based software, including bots. If you have problems getting your preferred software to work with Oragono, feel free to report it to us. If the root cause is a bug in Oragono, we'll fix it.
+Ergo should interoperate with most IRC-based software, including bots. If you have problems getting your preferred software to work with Ergo, feel free to report it to us. If the root cause is a bug in Ergo, we'll fix it.
 
 One exception is services frameworks like [Anope](https://github.com/anope/anope) or [Atheme](https://github.com/atheme/atheme); we have our own services implementations built directly into the server, and since we don't support federation, there's no place to plug in an alternative implementation. (If you are already using Anope or Atheme, we support migrating your database --- see below.)
 
@@ -926,16 +925,16 @@ If you're looking for a bot that supports modern IRCv3 features, check out [bitb
 
 ## Kiwi IRC
 
-[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client with excellent IRCv3 support. In particular, it is the only major client to fully support Oragono's server-side history features. For a demonstration of these features, see the [Oragono testnet](https://testnet.oragono.io/kiwi).
+[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client with excellent IRCv3 support. In particular, it is the only major client to fully support Ergo's server-side history features. For a demonstration of these features, see the [Ergo testnet](https://testnet.ergo.chat/kiwi).
 
-Current versions of Kiwi are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. This frontend can connect directly to Oragono, using Oragono's support for native websockets. For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Oragono. For example, configure the following listener in ircd.yaml:
+Current versions of Kiwi are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. This frontend can connect directly to Ergo, using Ergo's support for native websockets. For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Ergo. For example, configure the following listener in ircd.yaml:
 
 ```yaml
         "127.0.0.1:8067":
             websocket: true
 ```
 
-then the following location block in your nginx config (this proxies only `/webirc` on your server to Oragono's websocket listener):
+then the following location block in your nginx config (this proxies only `/webirc` on your server to Ergo's websocket listener):
 
 ```
 	location /webirc {
@@ -949,7 +948,7 @@ then the following location block in your nginx config (this proxies only `/webi
 	}
 ```
 
-then add the following `startupOptions` to Kiwi's `static/config.json` file (see the [Oragono testnet's config.json](https://testnet.oragono.io/kiwi/static/config.json) for a fully functional example):
+then add the following `startupOptions` to Kiwi's `static/config.json` file (see the [Ergo testnet's config.json](https://testnet.ergo.chat/kiwi/static/config.json) for a fully functional example):
 
 ```
     "startupOptions" : {
@@ -961,19 +960,19 @@ then add the following `startupOptions` to Kiwi's `static/config.json` file (see
 
 ## Migrating from Anope or Atheme
 
-You can import user and channel registrations from an Anope or Atheme database into a new Oragono database (not all features are supported). Use the following steps:
+You can import user and channel registrations from an Anope or Atheme database into a new Ergo database (not all features are supported). Use the following steps:
 
-1. Obtain the relevant migration tool from the latest stable release: [anope2json.py](https://github.com/oragono/oragono/blob/stable/distrib/anope/anope2json.py) or [atheme2json.py](https://github.com/oragono/oragono/blob/stable/distrib/atheme/atheme2json.py) respectively.
+1. Obtain the relevant migration tool from the latest stable release: [anope2json.py](https://github.com/ergochat/ergo/blob/stable/distrib/anope/anope2json.py) or [atheme2json.py](https://github.com/ergochat/ergo/blob/stable/distrib/atheme/atheme2json.py) respectively.
 1. Make a copy of your Anope or Atheme database file. (You may have to stop and start the services daemon to get it to commit all its changes.)
 1. Convert the database to JSON, e.g., with `python3 ./anope2json.py anope.db output.json`
-1. Copy your desired Oragono config to `./ircd.yaml` (make any desired edits)
-1. Run `oragono importdb ./output.json`
-1. Run `oragono mkcerts` if necessary to generate self-signed TLS certificates
-1. Run `oragono run` to bring up your new Oragono instance
+1. Copy your desired Ergo config to `./ircd.yaml` (make any desired edits)
+1. Run `ergo importdb ./output.json`
+1. Run `ergo mkcerts` if necessary to generate self-signed TLS certificates
+1. Run `ergo run` to bring up your new Ergo instance
 
 ## Hybrid Open Proxy Monitor (HOPM)
 
-[hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with oragono, add operator blocks like this to your oragono config file, which grant hopm the necessary privileges:
+[hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with Ergo, add operator blocks like this to your Ergo config file, which grant hopm the necessary privileges:
 
 ````yaml
 # operator classes
@@ -1003,28 +1002,28 @@ opers:
         modes: +is c
 
         # password to login with /OPER command
-        # generated using  "oragono genpasswd"
+        # generated using  "ergo genpasswd"
         password: "$2a$04$JmsYDY6kX3/wwyK3ao0L7.aGJEto0Xm4DyL6/6zOmCpzeweIb8kdO"
 ````
 
 Then configure hopm like this:
 
 ````
-/* oragono */
+/* ergo */
 connregex = ".+-.+CONNECT.+-.+ Client Connected \\[([^ ]+)\\] \\[u:([^ ]+)\\] \\[h:([^ ]+)\\] \\[ip:([^ ]+)\\] .+";
 
-/* A DLINE example for oragono */
+/* A DLINE example for ergo */
 kline = "DLINE ANDKILL 2h %i :Open proxy found on your host.";
 ````
 
 ## Tor
 
-Oragono has code support for adding an .onion address to an IRC server, or operating an IRC server as a Tor onion service ("hidden service"). This is subtle, so you should be familiar with the [Tor Project](https://www.torproject.org/) and the concept of an [onion service](https://www.torproject.org/docs/tor-onion-service.html.en).
+Ergo has code support for adding an .onion address to an IRC server, or operating an IRC server as a Tor onion service ("hidden service"). This is subtle, so you should be familiar with the [Tor Project](https://www.torproject.org/) and the concept of an [onion service](https://www.torproject.org/docs/tor-onion-service.html.en).
 
-There are two possible ways to serve Oragono over Tor. One is to add a .onion address to a server that also serves non-Tor clients, and whose IP address is public information. This is relatively straightforward. Add a separate listener, for example `127.0.0.2:6668`, to Oragono's `server.listeners`, then configure it with `tor: true`. Then configure Tor like this:
+There are two possible ways to serve Ergo over Tor. One is to add a .onion address to a server that also serves non-Tor clients, and whose IP address is public information. This is relatively straightforward. Add a separate listener, for example `127.0.0.2:6668`, to Ergo's `server.listeners`, then configure it with `tor: true`. Then configure Tor like this:
 
 ````
-HiddenServiceDir /var/lib/tor/oragono_hidden_service
+HiddenServiceDir /var/lib/tor/ergo_hidden_service
 HiddenServicePort 6667 127.0.0.2:6668
 
 # these are optional, but can be used to speed up the circuits in the case
@@ -1033,25 +1032,25 @@ HiddenServiceNonAnonymousMode 1
 HiddenServiceSingleHopMode 1
 ````
 
-Tor provides end-to-end encryption for onion services, so there's no need to enable TLS in Oragono for the listener (`127.0.0.2:6668` in this example). Doing so is not recommended, given the difficulty in obtaining a TLS certificate valid for an .onion address.
+Tor provides end-to-end encryption for onion services, so there's no need to enable TLS in Ergo for the listener (`127.0.0.2:6668` in this example). Doing so is not recommended, given the difficulty in obtaining a TLS certificate valid for an .onion address.
 
-The second way is to run Oragono as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Oragono side:
+The second way is to run Ergo as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Ergo side:
 
-* Oragono should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/oragono_tor_sock`.
+* Ergo should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/ergo_tor_sock`.
 * In this mode, it is especially important that all operator passwords are strong and all operators are trusted (operators have a larger attack surface to deanonymize the server).
-* Onion services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Oragono should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Oragono has not been thoroughly audited against such deanonymization attacks --- therefore, Oragono should be deployed with additional sandboxing to protect against this:
-  * Oragono should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Oragono's systemd unit file.
-  * Since the loopback adapters are local to a specific network namespace, and the Tor daemon will run in the root namespace, Tor will be unable to connect to Oragono over loopback TCP. Instead, Oragono must listen on a named Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which restrict which sockets it can access. Below is a recipe for configuring this with the official Tor packages for Debian:
+* Onion services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Ergo should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Ergo has not been thoroughly audited against such deanonymization attacks --- therefore, Ergo should be deployed with additional sandboxing to protect against this:
+  * Ergo should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Ergo's systemd unit file.
+  * Since the loopback adapters are local to a specific network namespace, and the Tor daemon will run in the root namespace, Tor will be unable to connect to Ergo over loopback TCP. Instead, Ergo must listen on a named Unix domain socket that the Tor daemon can connect to. However, distributions typically package Tor with its own hardening profiles, which restrict which sockets it can access. Below is a recipe for configuring this with the official Tor packages for Debian:
 
 1. Create a directory with `0777` permissions such as `/hidden_service_sockets`.
-1. Configure Oragono to listen on `/hidden_service_sockets/oragono_tor_sock`, with `tor: true`.
-1. Ensure that Oragono has no direct network access as described above, e.g., with `PrivateNetwork=true`.
+1. Configure Ergo to listen on `/hidden_service_sockets/ergo_tor_sock`, with `tor: true`.
+1. Ensure that Ergo has no direct network access as described above, e.g., with `PrivateNetwork=true`.
 1. Next, modify Tor's apparmor profile so that it can connect to this socket, by adding the line `  /hidden_service_sockets/** rw,` to `/etc/apparmor.d/local/system_tor`.
 1. Finally, configure Tor with:
 
 ````
-HiddenServiceDir /var/lib/tor/oragono_hidden_service
-HiddenServicePort 6667 unix:/hidden_service_sockets/oragono_tor_sock
+HiddenServiceDir /var/lib/tor/ergo_hidden_service
+HiddenServicePort 6667 unix:/hidden_service_sockets/ergo_tor_sock
 # DO NOT enable HiddenServiceNonAnonymousMode
 ````
 
@@ -1063,13 +1062,13 @@ Instructions on how client software should connect to an .onion address are outs
 
 ## ZNC
 
-ZNC 1.6.x (still pretty common in distros that package old versions of IRC software) has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Oragono supports a compatibility mode that works around this to let ZNC complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
+ZNC 1.6.x (still pretty common in distros that package old versions of IRC software) has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Ergo supports a compatibility mode that works around this to let ZNC complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
 
-Oragono can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
+Ergo can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
 
 ## External authentication systems
 
-Oragono can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Oragono will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON dictionary with the following keys:
+Ergo can be configured to call arbitrary scripts to authenticate users; see the `auth-script` section of the config. The API for these scripts is as follows: Ergo will invoke the script with a configurable set of arguments, then send it the authentication data as JSON on the first line (`\n`-terminated) of stdin. The input is a JSON dictionary with the following keys:
 
 * `accountName`: during passphrase-based authentication, this is a string, otherwise omitted
 * `passphrase`: during passphrase-based authentication, this is a string, otherwise omitted
@@ -1098,11 +1097,11 @@ success = bool(account_name) and bool(passphrase) and account_name == passphrase
 print(json.dumps({"success": success}))
 ```
 
-Note that after a failed script invocation, Oragono will proceed to check the credentials against its local database.
+Note that after a failed script invocation, Ergo will proceed to check the credentials against its local database.
 
 ## DNSBLs and other IP checking systems
 
-Similarly, Oragono can be configured to call arbitrary scripts to validate user IPs. These scripts can either reject the connection, or require that the user log in with SASL. In particular, we provide an [oragono-dnsbl](https://github.com/oragono/oragono-dnsbl) plugin for querying DNSBLs.
+Similarly, Ergo can be configured to call arbitrary scripts to validate user IPs. These scripts can either reject the connection, or require that the user log in with SASL. In particular, we provide an [oragono-dnsbl](https://github.com/oragono/oragono-dnsbl) plugin for querying DNSBLs.
 
 The API is similar to the auth-script API described above (one line of JSON in, one line of JSON out). The input is a JSON dictionary with the following keys:
 
@@ -1119,11 +1118,11 @@ The output is a JSON dictionary with the following keys:
 
 # Acknowledgements
 
-Oragono's past and present maintainers and core contributors are:
+Ergo's past and present maintainers and core contributors are:
 
 * Jeremy Latt (2012-2014)
 * Edmund Huber (2014-2015)
 * Daniel Oaks (2016-present)
 * Shivaram Lingamneni (2017-present)
 
-In addition, Oragono has benefited tremendously from its community of contributors, users, and translators, not to mention collaborations with the wider IRCv3 community. There are too many people to name here --- but we try to credit people for individual contributions in the changelog, please reach out to us if we forgot you :-)
+In addition, Ergo has benefited tremendously from its community of contributors, users, and translators, not to mention collaborations with the wider IRCv3 community. There are too many people to name here --- but we try to credit people for individual contributions in the changelog, please reach out to us if we forgot you :-)

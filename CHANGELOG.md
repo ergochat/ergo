@@ -1,6 +1,48 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.7.0-rc1] - 2021-05-30
+
+We're pleased to be publishing Ergo 2.7.0-rc1, our first release candidate under our new name of Ergo. This release contains bug fixes and minor enhancements.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. This release includes no changes to the database format.
+
+Because the name of the executable has changed from `oragono` to `ergo` (`ergo.exe` on Windows), you may need to update your system configuration (e.g., scripts or systemd unit files that reference the executable).
+
+Many thanks to [@ajaspers](https://github.com/ajaspers) and [@jesopo](https://github.com/jesopo) for contributing patches, to [@ajaspers](https://github.com/ajaspers), [@ChrisTX](https://github.com/ChrisTX), [@emersion](https://github.com/emersion), [@jwheare](https://github.com/jwheare), [@kylef](https://github.com/kylef), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), and [@ProgVal](https://github.com/ProgVal) for reporting issues and helping test, and to our translators for contributing translations.
+
+### Changed
+* The project was renamed from "Oragono" to "Ergo" (#897, thanks to everyone who contributed feedback or voted in the poll)
+
+### Config changes
+* Entries in `server.listeners` now take a new key, `min-tls-version`, that can be used to set the minimum required TLS version; the recommended default value is `1.2` (#1611, thanks [@ChrisTX](https://github.com/ChrisTX)!)
+* Added `max-conns` (maximum connection count) and `max-conn-lifetime` (maximum lifetime of a connection before it is cycled) to `datastore.mysql` (#1622)
+* Added `massmessage` operator capability to allow sending NOTICEs to all connected users (#1153, #1629, thanks [@jesopo](https://github.com/jesopo)!)
+
+### Security
+* If `require-sasl.enabled` is set to `true`, `tor-listeners.require-sasl` will be automatically set to `true` as well (#1636)
+* It is now possible to set the minimum required TLS version, using the `min-tls-version` key in listener configuration
+* Configurations that require SASL but allow user registration now produce a warning (#1637)
+
+### Added:
+* Operators with the correct permissions can now send "mass messages", e.g. `/NOTICE $$*` will send a `NOTICE` to all users (#1153, #1629, thanks [@jesopo](https://github.com/jesopo)!)
+* Operators can now extend the maximum (non-tags) length of the IRC line using the `server.max-line-len` configuration key. This is not recommended for use outside of "closed-circuit" deployments where IRC operators have full control of all client software. (#1651)
+
+### Fixed
+* `RELAYMSG` now sends a full NUH ("nick-user-host"), instead of only the relay nickname, as the message source (#1647, thanks [@ProgVal](https://github.com/ProgVal), [@jwheare](https://github.com/jwheare), and [@Mikaela](https://github.com/Mikaela)!)
+* Fixed a case where channels would remain visible in `/LIST` after unregistration (#1619, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed incorrect tags on `JOIN` lines in `+u` ("auditorium") channels (#1642)
+* Fixed an issue where LUSERS counts could get out of sync (#1617)
+* It was impossible to add a restricted set of snomasks to an operator's permissions; this has been fixed (#1618)
+* Fixed incorrect language in `NS INFO` responses (#1627, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed a case where the `REGISTER` command would emit an invalid error message (#1633, thanks [@ajaspers](https://github.com/ajaspers)!)
+
+### Removed
+* Removed the `draft/resume-0.5` capability, and the associated `RESUME` and `BRB` commands (#1624)
+
+### Internal
+* Optimized MySQL storage of direct messages (#1615)
+
 ## [2.6.1] - 2021-04-26
 
 Oragono 2.6.1 is a bugfix release, fixing a security issue that is critical for some private server configurations. We regret the oversight.
