@@ -36,6 +36,7 @@ Many thanks to [@ajaspers](https://github.com/ajaspers) and [@jesopo](https://gi
 * It was impossible to add a restricted set of snomasks to an operator's permissions; this has been fixed (#1618)
 * Fixed incorrect language in `NS INFO` responses (#1627, thanks [@ajaspers](https://github.com/ajaspers)!)
 * Fixed a case where the `REGISTER` command would emit an invalid error message (#1633, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed snomasks displaying in a nondeterministic order (#1669, thanks [@Mikaela](https://github.com/Mikaela)!)
 
 ### Removed
 * Removed the `draft/resume-0.5` capability, and the associated `RESUME` and `BRB` commands (#1624)
