@@ -120,9 +120,10 @@ server:
     # them and relay them to non-websocket clients (as in traditional IRC).
     enforce-utf8: true
 
-    # whether to look up user hostnames with reverse DNS.
-    # (disabling this will expose user IPs instead of hostnames;
-    # to make IP/hostname information private, see the ip-cloaking section)
+    # whether to look up user hostnames with reverse DNS. there are 3 possibilities:
+    # 1. [enabled here] lookup-hostnames enabled, IP cloaking disabled; users will see each other's hostnames
+    # 2. lookup-hostnames disabled, IP cloaking disabled; users will see each other's numeric IPs
+    # 3. IP cloaking enabled; users will see cloaked hostnames
     lookup-hostnames: true
     # whether to confirm hostname lookups using "forward-confirmed reverse DNS", i.e., for
     # any hostname returned from reverse DNS, resolve it back to an IP address and reject it
@@ -428,6 +429,8 @@ accounts:
         enabled: true
 
         # how many nicknames, in addition to the account name, can be reserved?
+        # (note that additional nicks are unusable under force-nick-equals-account
+        # or if the client is always-on)
         additional-nick-limit: 2
 
         # method describes how nickname reservation is handled
@@ -671,7 +674,6 @@ logging:
         #   server          server startup, rehash, and shutdown events
         #   accounts        account registration and authentication
         #   channels        channel creation and operations
-        #   commands        command calling and operations
         #   opers           oper actions, authentication, etc
         #   services        actions related to NickServ, ChanServ, etc.
         #   internal        unexpected runtime behavior, including potential bugs
@@ -883,9 +885,10 @@ history:
         # joined the channel, so only always-on clients can view history).
         query-cutoff: 'none'
 
-        # but if this is set, you can retrieve messages that are up to `grace-period`
-        # older than the above cutoff time. this is recommended to allow logged-out
-        # users to do session resumption / query history after disconnections.
+        # if query-cutoff is set to 'registration-time', this allows retrieval
+        # of messages that are up to 'grace-period' older than the above cutoff.
+        # if you use 'registration-time', this is recommended to allow logged-out
+        # users to query history after disconnections.
         grace-period: 1h
 
     # options to store history messages in a persistent database (currently only MySQL).

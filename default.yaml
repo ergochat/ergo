@@ -456,7 +456,9 @@ accounts:
         enabled: true
 
         # how many nicknames, in addition to the account name, can be reserved?
-        additional-nick-limit: 2
+        # (note that additional nicks are unusable under force-nick-equals-account
+        # or if the client is always-on)
+        additional-nick-limit: 0
 
         # method describes how nickname reservation is handled
         #   strict:   users must already be logged in to their account (via
@@ -913,7 +915,7 @@ history:
         # if query-cutoff is set to 'registration-time', this allows retrieval
         # of messages that are up to 'grace-period' older than the above cutoff.
         # if you use 'registration-time', this is recommended to allow logged-out
-        # users to do session resumption / query history after disconnections.
+        # users to query history after disconnections.
         grace-period: 1h
 
     # options to store history messages in a persistent database (currently only MySQL).
