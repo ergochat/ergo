@@ -80,6 +80,7 @@ type Server struct {
 	rehashMutex       sync.Mutex // tier 4
 	rehashSignal      chan os.Signal
 	pprofServer       *http.Server
+	resumeManager     ResumeManager
 	signals           chan os.Signal
 	snomasks          SnoManager
 	store             *buntdb.DB
@@ -105,6 +106,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 
 	server.clients.Initialize()
 	server.semaphores.Initialize()
+	server.resumeManager.Initialize(server)
 	server.whoWas.Initialize(config.Limits.WhowasEntries)
 	server.monitorManager.Initialize()
 	server.snomasks.Initialize()
@@ -271,6 +273,12 @@ func (server *Server) handleAlwaysOnExpirations() {
 //
 
 func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
+	// if the session just sent us a RESUME line, try to resume
+	if session.resumeDetails != nil {
+		session.tryResume()
+		return // whether we succeeded or failed, either way `c` is not getting registered
+	}
+
 	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
 	// if we are here at all that means we have the final value of the IP
 	if session.rawHostname == "" {

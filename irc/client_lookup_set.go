@@ -81,6 +81,26 @@ func (clients *ClientManager) Remove(client *Client) error {
 	return clients.removeInternal(client, oldcfnick, oldskeleton)
 }
 
+// Handles a RESUME by attaching a session to a designated client. It is the
+// caller's responsibility to verify that the resume is allowed (checking tokens,
+// TLS status, etc.) before calling this.
+func (clients *ClientManager) Resume(oldClient *Client, session *Session) (err error) {
+	clients.Lock()
+	defer clients.Unlock()
+
+	cfnick := oldClient.NickCasefolded()
+	if _, ok := clients.byNick[cfnick]; !ok {
+		return errNickMissing
+	}
+
+	success, _, _, _ := oldClient.AddSession(session)
+	if !success {
+		return errNickMissing
+	}
+
+	return nil
+}
+
 // SetNick sets a client's nickname, validating it against nicknames in use
 // XXX: dryRun validates a client's ability to claim a nick, without
 // actually claiming it

@@ -93,6 +93,10 @@ func init() {
 			minParams:      1,
 			allowedInBatch: true,
 		},
+		"BRB": {
+			handler:   brbHandler,
+			minParams: 0,
+		},
 		"CAP": {
 			handler:      capHandler,
 			usablePreReg: true,
@@ -252,6 +256,11 @@ func init() {
 		"RENAME": {
 			handler:   renameHandler,
 			minParams: 2,
+		},
+		"RESUME": {
+			handler:      resumeHandler,
+			usablePreReg: true,
+			minParams:    1,
 		},
 		"SAJOIN": {
 			handler:   sajoinHandler,

@@ -1035,6 +1035,80 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	client.server.logger.Debug("channels", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
 
+// Resume is called after a successful global resume to:
+// 1. Replace the old client with the new in the channel's data structures
+// 2. Send JOIN and MODE lines to channel participants (including the new client)
+// 3. Replay missed message history to the client
+func (channel *Channel) Resume(session *Session, timestamp time.Time) {
+	channel.resumeAndAnnounce(session)
+	if !timestamp.IsZero() {
+		channel.replayHistoryForResume(session, timestamp, time.Time{})
+	}
+}
+
+func (channel *Channel) resumeAndAnnounce(session *Session) {
+	channel.stateMutex.RLock()
+	memberData, found := channel.members[session.client]
+	channel.stateMutex.RUnlock()
+	if !found {
+		return
+	}
+	oldModes := memberData.modes.String()
+	if 0 < len(oldModes) {
+		oldModes = "+" + oldModes
+	}
+
+	// send join for old clients
+	chname := channel.Name()
+	details := session.client.Details()
+	// TODO: for now, skip this entirely for auditoriums,
+	// but really we should send it to voiced clients
+	if !channel.flags.HasMode(modes.Auditorium) {
+		for _, member := range channel.Members() {
+			for _, mSes := range member.Sessions() {
+				if mSes == session || mSes.capabilities.Has(caps.Resume) {
+					continue
+				}
+
+				if mSes.capabilities.Has(caps.ExtendedJoin) {
+					mSes.Send(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
+				} else {
+					mSes.Send(nil, details.nickMask, "JOIN", chname)
+				}
+
+				if 0 < len(oldModes) {
+					mSes.Send(nil, channel.server.name, "MODE", chname, oldModes, details.nick)
+				}
+			}
+		}
+	}
+
+	rb := NewResponseBuffer(session)
+	// use blocking i/o to synchronize with the later history replay
+	if rb.session.capabilities.Has(caps.ExtendedJoin) {
+		rb.Add(nil, details.nickMask, "JOIN", channel.name, details.accountName, details.realname)
+	} else {
+		rb.Add(nil, details.nickMask, "JOIN", channel.name)
+	}
+	channel.SendTopic(session.client, rb, false)
+	channel.Names(session.client, rb)
+	rb.Send(true)
+}
+
+func (channel *Channel) replayHistoryForResume(session *Session, after time.Time, before time.Time) {
+	var items []history.Item
+	afterS, beforeS := history.Selector{Time: after}, history.Selector{Time: before}
+	_, seq, _ := channel.server.GetHistorySequence(channel, session.client, "")
+	if seq != nil {
+		items, _ = seq.Between(afterS, beforeS, channel.server.Config().History.ZNCMax)
+	}
+	rb := NewResponseBuffer(session)
+	if len(items) != 0 {
+		channel.replayHistoryItems(rb, items, false)
+	}
+	rb.Send(true)
+}
+
 func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
 	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()

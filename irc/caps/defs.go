@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 27
+	numCapabs = 28
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -64,6 +64,10 @@ const (
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
 	Relaymsg Capability = iota
+
+	// Resume is the proposed IRCv3 capability named "draft/resume-0.5":
+	// https://github.com/DanielOaks/ircv3-specifications/blob/master+resume/extensions/resume.md
+	Resume Capability = iota
 
 	// EchoMessage is the IRCv3 capability named "echo-message":
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
@@ -138,6 +142,7 @@ var (
 		"draft/multiline",
 		"draft/register",
 		"draft/relaymsg",
+		"draft/resume-0.5",
 		"echo-message",
 		"extended-join",
 		"invite-notify",
