@@ -1259,6 +1259,9 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName str
 		return
 	}
 	result.AdditionalNicks = unmarshalReservedNicks(raw.AdditionalNicks)
+	if strings.HasPrefix(raw.Callback, "mailto:") {
+		result.Email = strings.TrimPrefix(raw.Callback, "mailto:")
+	}
 	result.Verified = raw.Verified
 	if raw.VHost != "" {
 		e := json.Unmarshal([]byte(raw.VHost), &result.VHost)
@@ -2032,6 +2035,7 @@ type ClientAccount struct {
 	Name            string
 	NameCasefolded  string
 	RegisteredAt    time.Time
+	Email           string
 	Credentials     AccountCredentials
 	Verified        bool
 	Suspended       *AccountSuspension

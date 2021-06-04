@@ -813,6 +813,13 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	service.Notice(rb, fmt.Sprintf(client.t("Account: %s"), account.Name))
 	registeredAt := account.RegisteredAt.Format(time.RFC1123)
 	service.Notice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
+
+	if account.Name == client.AccountName() || client.HasRoleCapabs("accreg") {
+		if account.Email != "" {
+			service.Notice(rb, fmt.Sprintf(client.t("Email address: %s"), account.Email))
+		}
+	}
+
 	// TODO nicer formatting for this
 	for _, nick := range account.AdditionalNicks {
 		service.Notice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
