@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.7.0-rc1] - 2021-05-30
+## [2.7.0] - 2021-06-07
 
-We're pleased to be publishing Ergo 2.7.0-rc1, our first release candidate under our new name of Ergo. This release contains bug fixes and minor enhancements.
+We're pleased to be publishing Ergo 2.7.0, our first official release under our new name of Ergo. This release contains bug fixes and minor enhancements.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. This release includes no changes to the database format.
 
