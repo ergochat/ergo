@@ -1,46 +1,36 @@
-## build Ergo
+## build ergo binary
 FROM golang:1.16-alpine AS build-env
 
-RUN apk add --no-cache git make curl sed
+RUN apk add -U --force-refresh --no-cache --purge --clean-protected -l -u make
 
-# copy ergo
-RUN mkdir -p /go/src/github.com/ergochat/ergo
+# copy ergo source
 WORKDIR /go/src/github.com/ergochat/ergo
-ADD . /go/src/github.com/ergochat/ergo/
+COPY . .
 
 # modify default config file so that it doesn't die on IPv6
 # and so it can be exposed via 6667 by default
-run sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/ergochat/ergo/default.yaml
-run sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/ergochat/ergo/default.yaml
+RUN sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/ergochat/ergo/default.yaml && \
+    sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/ergochat/ergo/default.yaml
 
 # compile
 RUN make
 
-
-
-## run Ergo
-FROM alpine:3.9
+## build ergo container
+FROM alpine:3.13
 
 # metadata
-LABEL maintainer="daniel@danieloaks.net"
-LABEL description="Ergo is a modern, experimental IRC server written in Go"
-
-# install latest updates and configure alpine
-RUN apk update
-RUN apk upgrade
-RUN mkdir /lib/modules
+LABEL maintainer="Daniel Oaks <daniel@danieloaks.net>,Daniel Thamdrup <dallemon@protonmail.com>" \
+      description="Ergo is a modern, experimental IRC server written in Go"
 
 # standard ports listened on
 EXPOSE 6667/tcp 6697/tcp
 
-# oragono itself
-RUN mkdir -p /ircd-bin
-COPY --from=build-env /go/bin/ergo /ircd-bin
+# ergo itself
+COPY --from=build-env /go/bin/ergo \
+                      /go/src/github.com/ergochat/ergo/default.yaml \
+                      /go/src/github.com/ergochat/ergo/distrib/docker/run.sh \
+                      /ircd-bin/
 COPY --from=build-env /go/src/github.com/ergochat/ergo/languages /ircd-bin/languages/
-COPY --from=build-env /go/src/github.com/ergochat/ergo/default.yaml /ircd-bin/default.yaml
-
-COPY distrib/docker/run.sh /ircd-bin/run.sh
-RUN chmod +x /ircd-bin/run.sh
 
 # running volume holding config file, db, certs
 VOLUME /ircd
