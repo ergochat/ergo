@@ -1,8 +1,8 @@
-version: "3.2"
+version: "3.8"
 
 services:
-  oragono:
-    image: oragono/oragono:latest
+  ergo:
+    image: ergochat/ergo:latest
     ports:
       - "6667:6667/tcp"
       - "6697:6697/tcp"

@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# start in right dir
-cd /ircd
-
 # make config file
 if [ ! -f "/ircd/ircd.yaml" ]; then
     awk '{gsub(/path: languages/,"path: /ircd-bin/languages")}1' /ircd-bin/default.yaml > /tmp/ircd.yaml

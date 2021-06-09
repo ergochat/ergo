@@ -58,14 +58,14 @@ ergo run     # server should be ready to go!
 
 ### Platform Packages
 
-Some platforms/distros also have Oragono packages maintained for them:
+Some platforms/distros also have Ergo packages maintained for them:
 
 * Arch Linux [AUR](https://aur.archlinux.org/packages/oragono/) - Maintained by [Sean Enck (@enckse)](https://github.com/enckse).
 
 ### Using Docker
 
 A Dockerfile and example docker-compose recipe are available in the `distrib/docker` directory. Ergo is automatically published
-to Docker Hub at [oragono/oragono](https://hub.docker.com/r/oragono/oragono). For more information, see the distrib/docker
+to Docker Hub at [ergochat/ergo](https://hub.docker.com/r/ergochat/ergo). For more information, see the distrib/docker
 [README file](https://github.com/ergochat/ergo/blob/master/distrib/docker/README.md).
 
 ### From Source
