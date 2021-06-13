@@ -336,7 +336,9 @@ By default, account registrations complete immediately and do not require a veri
                 key-file: "dkim.pem"
 ```
 
-You must create the corresponding TXT record `20200229._domainkey.my.network` to hold your public key. You can also use an MTA ("relay" or "smarthost") to send the email, in which case DKIM signing can be deferred to the MTA; see the example config for details.
+You must create the corresponding TXT record `20200229._domainkey.my.network` to hold your public key.
+
+You can also use an external SMTP server ("MTA", "relay", or "smarthost") to send the email, in which case DKIM signing can be deferred to that server; see the `mta` section of the example config for details.
 
 
 ## Channel Registration
