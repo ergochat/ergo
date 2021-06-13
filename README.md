@@ -104,7 +104,7 @@ With this, you receive a blob of text which you can plug into your configuration
 
 ### Nickname and channel registration
 
-Ergo relies heavily on user accounts to enable its distinctive features (such as allowing multiple clients per nickname). As a user, you can register your current nickname as an account using `/msg NickServ register <password>`. Once you have done so, you should [enable SASL in your clients](https://freenode.net/kb/answer/sasl), ensuring that you will be automatically logged into your account on each connection. This will prevent [problems claiming your registered nickname](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#nick-equals-account).
+Ergo relies heavily on user accounts to enable its distinctive features (such as allowing multiple clients per nickname). As a user, you can register your current nickname as an account using `/msg NickServ register <password>`. Once you have done so, you should [enable SASL in your clients](https://libera.chat/guides/sasl), ensuring that you will be automatically logged into your account on each connection. This will prevent [problems claiming your registered nickname](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#nick-equals-account).
 
 Once you have registered your nickname, you can use it to register channels:
 

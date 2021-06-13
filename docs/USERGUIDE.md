@@ -72,7 +72,7 @@ Although (as in other IRC systems) basic chat functionality is available without
 
 This registers your current nickname as your account name, with the password `mySecretPassword` (replace this with your own secret password!)
 
-Once you have registered your account, you must configure SASL in your client, so that you will be logged in automatically on each connection. [Freenode's SASL guide](https://freenode.net/kb/answer/sasl) covers most popular clients.
+Once you have registered your account, you must configure SASL in your client, so that you will be logged in automatically on each connection. [libera.chat's SASL guide](https://libera.chat/guides/sasl) covers most popular clients.
 
 If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 

@@ -257,7 +257,7 @@ If you want to use a TLS client certificate instead of a password to authenticat
 
     /NS REGISTER *
 
-Once you've registered, you'll need to set up SASL to login. One of the more complete SASL instruction pages is Freenode's page [here](https://freenode.net/kb/answer/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
+Once you've registered, you'll need to set up SASL to login. One of the more complete SASL instruction pages is libera.chat's page [here](https://libera.chat/guides/sasl). Open up that page, find your IRC client and then setup SASL with your chosen username and password!
 
 If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 
@@ -273,7 +273,7 @@ In this mode (the default), registering an account gives you privileges over the
 1. You must use your nickname, i.e., if you are logged into your account, then the server will require you to use your account name as your nickname
 1. If you unregister your account, your nickname will be permanently unreclaimable (thus preventing people from impersonating you)
 
-In this mode, it is very important that end users authenticate to their accounts as part of the initial IRC handshake (traditionally referred to as "connection registration"); otherwise they will not be able to use their registered nicknames. The preferred mechanism for this is [SASL](https://freenode.net/kb/answer/sasl), which is supported by most modern clients. As a fallback, this can also be done via the `PASS` (server password) command; set the "server password" field of the client to `AzureDiamond:hunter2`, where `AzureDiamond` is the account name and `hunter2` is the account password.
+In this mode, it is very important that end users authenticate to their accounts as part of the initial IRC handshake (traditionally referred to as "connection registration"); otherwise they will not be able to use their registered nicknames. The preferred mechanism for this is [SASL](https://libera.chat/guides/sasl), which is supported by most modern clients. As a fallback, this can also be done via the `PASS` (server password) command; set the "server password" field of the client to `AzureDiamond:hunter2`, where `AzureDiamond` is the account name and `hunter2` is the account password.
 
 As an end user, if you want to change your nickname, you can register a new account and transfer any channel ownerships to it using `/msg ChanServ transfer`.
 
