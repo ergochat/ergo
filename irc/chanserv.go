@@ -29,7 +29,7 @@ var (
 			help: `Syntax: $bOP #channel [nickname]$b
 
 OP makes the given nickname, or yourself, a channel admin. You can only use
-this command if you're the founder of the channel.`,
+this command if you're a founder or in the AMODEs of the channel.`,
 			helpShort:    `$bOP$b makes the given user (or yourself) a channel admin.`,
 			authRequired: true,
 			enabled:      chanregEnabled,
