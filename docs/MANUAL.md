@@ -544,6 +544,12 @@ Under these circumstances, users can follow the following steps:
 
 Similarly, for a public channel (one without `+i`), users can ban nick/account names with `/mode #example +b bob`. (To restrict the channel to users with valid accounts, set it to registered-only with `/mode #example +R`.)
 
+
+## How do I send an announcement to all connected users?
+
+Ergo supports a simplified form of the "global notice" or "wallops" capabilities found in other ircds. With the `massmessage` operator capability, you can `/NOTICE $$* text of your announcement`, and it will be sent to all connected users. If you have human-readable hostnames enabled (in the default/recommended configuration they are not), you can also `/NOTICE $#wild*card.host.name`.
+
+
 -------------------------------------------------------------------------------------------
 
 
