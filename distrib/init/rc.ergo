@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Init script for the ergo IRCd
+# Created 14/06/2021 by georg@lysergic.dev
+# Desgigned for and tested on Slackware -current
+# Depends on `daemon` (installable using slackpkg)
+# In its stock configuration ergo will be jailed to /opt/ergo - all paths are relative from there. Consider this in your ergo configuration file (i.e. certificate, database and log locations)
+
+NAME=ergo
+DIR=/opt/ergo
+ERGO=/ergo
+DAEMONIZER=/usr/bin/daemon
+CONFIG=ircd.yaml
+USER=ergo
+GROUP=ergo
+
+daemon_start() {
+	$DAEMONIZER -n $NAME -v -- chroot --userspec=$USER --groups=$USER -- $DIR $ERGO run --conf $CONFIG
+}
+
+daemon_stop() {
+	$DAEMONIZER --stop -n $NAME -v
+}
+
+daemon_restart() {
+	$DAEMONIZER --restart -n $NAME -v
+}
+
+daemon_reload() {
+	$DAEMONIZER --signal=SIGHUP -n $NAME -v
+}
+
+daemon_status() {
+	$DAEMONIZER --running -n $NAME -v
+}
+
+case "$1" in
+	start)
+		daemon_start
+		;;
+	stop)
+		daemon_stop
+		;;
+	restart)
+		daemon_restart
+		;;
+	reload)
+		daemon_reload
+		;;
+	status)
+		daemon_status
+		;;
+	*)
+		echo "Source: https://github.com/ergochat/ergo"
+		echo "Usage: $0 {start|stop|restart|reload|status}"
+		exit 1
+esac
