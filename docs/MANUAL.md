@@ -191,7 +191,7 @@ The only major distribution that currently packages Ergo is Arch Linux; the afor
     1. Confirm that the service started correctly with `systemctl status ergo.service`
 
 
-On a non-systemd system, ergo can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP ergo` or `pkill -HUP ergo`.
+On a non-systemd system, ergo can be configured to log to a file and used [logrotate(8)](https://linux.die.net/man/8/logrotate), since it will reopen its log files (as well as rehashing the config file) upon receiving a SIGHUP. To rehash manually outside the context of log rotation, you can use `killall -HUP ergo` or `pkill -HUP ergo`. See [distrib/init](https://github.com/ergochat/ergo/tree/master/distrib/init) for init scripts and related tools for non-systemd systems.
 
 
 ## Using valid TLS certificates
