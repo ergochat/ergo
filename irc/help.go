@@ -45,7 +45,7 @@ Ergo supports the following channel modes:
   +i  |  Invite-only mode, only invited clients can join the channel.
   +k  |  Key required when joining the channel.
   +l  |  Client join limit for the channel.
-  +f  |  Users who are unable to join this channel (due to +i or +l) are forwarded
+  +f  |  Users who are unable to join this channel (due to another mode) are forwarded
          to the provided channel instead.
   +m  |  Moderated mode, only privileged clients can talk on the channel.
   +n  |  No-outside-messages mode, only users that are on the channel can send
