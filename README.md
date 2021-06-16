@@ -41,6 +41,11 @@ If you want to take a look at a running Ergo instance or test some client code, 
 * [IRCv3 support](https://ircv3.net/software/servers.html)
 * a focus on developing with [specifications](https://ergo.chat/specs.html)
 
+For more detailed information on Ergo's functionality, see:
+
+* [MANUAL.md, the operator manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md)
+* [USERGUIDE.md, the guide for end users](https://github.com/ergochat/ergo/blob/stable/docs/USERGUIDE.md)
+
 ## Quick start guide
 
 Download the latest release from this page: https://github.com/ergochat/ergo/releases/latest
@@ -54,7 +59,7 @@ ergo mkcerts
 ergo run     # server should be ready to go!
 ```
 
-**Note:** See the [productionizing guide in our manual](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#productionizing-with-systemd) for recommendations on how to run a production network, including obtaining valid TLS certificates.
+**Note:** See the [productionizing guide in our manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md#productionizing-with-systemd) for recommendations on how to run a production network, including obtaining valid TLS certificates.
 
 ### Platform Packages
 
@@ -76,7 +81,7 @@ You can also install this repo and use that instead! However, keep some things i
 
 The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network.
 
-The `stable` branch contains the latest release. You can run this for a production version without any trouble.
+The `stable` branch contains the latest release, suitable for use in production.
 
 #### Building
 
@@ -104,7 +109,7 @@ With this, you receive a blob of text which you can plug into your configuration
 
 ### Nickname and channel registration
 
-Ergo relies heavily on user accounts to enable its distinctive features (such as allowing multiple clients per nickname). As a user, you can register your current nickname as an account using `/msg NickServ register <password>`. Once you have done so, you should [enable SASL in your clients](https://freenode.net/kb/answer/sasl), ensuring that you will be automatically logged into your account on each connection. This will prevent [problems claiming your registered nickname](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#nick-equals-account).
+Ergo relies heavily on user accounts to enable its distinctive features (such as allowing multiple clients per nickname). As a user, you can register your current nickname as an account using `/msg NickServ register <password>`. Once you have done so, you should [enable SASL in your clients](https://libera.chat/guides/sasl), ensuring that you will be automatically logged into your account on each connection. This will prevent [problems claiming your registered nickname](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#nick-equals-account).
 
 Once you have registered your nickname, you can use it to register channels:
 
