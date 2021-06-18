@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/bytefmt"
-	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/ergochat/irc-go/ircfmt"
 	"gopkg.in/yaml.v2"
 
 	"github.com/ergochat/ergo/irc/caps"

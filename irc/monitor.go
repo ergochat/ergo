@@ -6,7 +6,7 @@ package irc
 import (
 	"sync"
 
-	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/ergochat/irc-go/ircmsg"
 )
 
 // MonitorManager keeps track of who's monitoring which nicks.

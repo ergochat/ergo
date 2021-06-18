@@ -13,7 +13,7 @@ import (
 
 	"sync"
 
-	"github.com/goshuirc/irc-go/ircutils"
+	"github.com/ergochat/irc-go/ircutils"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/history"

@@ -6,7 +6,7 @@
 package irc
 
 import (
-	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/ergochat/irc-go/ircmsg"
 )
 
 // Command represents a command accepted from a client.

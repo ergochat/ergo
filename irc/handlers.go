@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircfmt"
-	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/goshuirc/irc-go/ircutils"
+	"github.com/ergochat/irc-go/ircfmt"
+	"github.com/ergochat/irc-go/ircmsg"
+	"github.com/ergochat/irc-go/ircutils"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ergochat/ergo/irc/caps"

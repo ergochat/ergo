@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/ergochat/irc-go/ircfmt"
 
 	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/passwd"
