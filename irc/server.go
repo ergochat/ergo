@@ -20,7 +20,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/goshuirc/irc-go/ircfmt"
+	"github.com/ergochat/irc-go/ircfmt"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"

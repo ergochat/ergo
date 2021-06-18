@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircmsg"
+	"github.com/ergochat/irc-go/ircmsg"
 
 	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/flatip"

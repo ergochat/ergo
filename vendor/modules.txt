@@ -19,6 +19,12 @@ github.com/ergochat/confusables
 # github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775
 ## explicit
 github.com/ergochat/go-ident
+# github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce
+## explicit
+github.com/ergochat/irc-go/ircfmt
+github.com/ergochat/irc-go/ircmsg
+github.com/ergochat/irc-go/ircreader
+github.com/ergochat/irc-go/ircutils
 # github.com/go-sql-driver/mysql v1.6.0
 ## explicit
 github.com/go-sql-driver/mysql
@@ -29,10 +35,6 @@ github.com/go-sql-driver/mysql
 github.com/gorilla/websocket
 # github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef
 ## explicit
-github.com/goshuirc/irc-go/ircfmt
-github.com/goshuirc/irc-go/ircmsg
-github.com/goshuirc/irc-go/ircreader
-github.com/goshuirc/irc-go/ircutils
 # github.com/onsi/ginkgo v1.12.0
 ## explicit
 # github.com/onsi/gomega v1.9.0

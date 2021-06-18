@@ -9,10 +9,11 @@ require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775
+	github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef
+	github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef // indirect
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/oragono/confusables v0.0.0-20201108231250-4ab98ab61fb1 // indirect
