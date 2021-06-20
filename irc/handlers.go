@@ -3429,7 +3429,7 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			for _, whoWas := range results {
 				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nick, whoWas.username, whoWas.hostname, "*", whoWas.realname)
 				if canSeeIP {
-					rb.Add(nil, server.name, RPL_WHOWASIP, cnick, whoWas.nick, fmt.Sprintf(client.t("was connecting from %s"), utils.IPStringToHostname(whoWas.realIP.String())))
+					rb.Add(nil, server.name, RPL_WHOWASIP, cnick, whoWas.nick, fmt.Sprintf(client.t("was connecting from %s"), utils.IPStringToHostname(whoWas.ip.String())))
 				}
 			}
 		}

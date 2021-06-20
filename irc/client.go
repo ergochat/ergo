@@ -269,7 +269,7 @@ type WhoWas struct {
 	username       string
 	hostname       string
 	realname       string
-	realIP         net.IP
+	ip             net.IP
 	// technically not required for WHOWAS:
 	account     string
 	accountName string
