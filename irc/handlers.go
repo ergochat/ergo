@@ -3422,9 +3422,6 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	//}
 	cnick := client.Nick()
 	for _, nickname := range nicknames {
-		if len(nickname) == 0 {
-			continue
-		}
 		results := server.whoWas.Find(nickname, count)
 		if len(results) == 0 {
 			rb.Add(nil, server.name, ERR_WASNOSUCHNICK, cnick, utils.SafeErrorParam(nickname), client.t("There was no such nickname"))
