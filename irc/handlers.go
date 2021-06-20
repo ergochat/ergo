@@ -3416,11 +3416,8 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			count = 0
 		}
 	}
-	//var target string
-	//if len(msg.Params) > 2 {
-	//	target = msg.Params[2]
-	//}
 	cnick := client.Nick()
+	canSeeIP := client.Oper().HasRoleCapab("ban")
 	for _, nickname := range nicknames {
 		if len(nickname) == 0 {
 			continue
@@ -3431,6 +3428,9 @@ func whowasHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		} else {
 			for _, whoWas := range results {
 				rb.Add(nil, server.name, RPL_WHOWASUSER, cnick, whoWas.nick, whoWas.username, whoWas.hostname, "*", whoWas.realname)
+				if canSeeIP {
+					rb.Add(nil, server.name, RPL_WHOWASIP, cnick, whoWas.nick, fmt.Sprintf(client.t("was connecting from %s"), utils.IPStringToHostname(whoWas.realIP.String())))
+				}
 			}
 		}
 		rb.Add(nil, server.name, RPL_ENDOFWHOWAS, cnick, utils.SafeErrorParam(nickname), client.t("End of WHOWAS"))

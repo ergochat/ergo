@@ -436,6 +436,7 @@ func (client *Client) detailsNoMutex() (result ClientDetails) {
 	result.username = client.username
 	result.hostname = client.hostname
 	result.realname = client.realname
+	result.realIP = client.getIPNoMutex()
 	result.nickMask = client.nickMaskString
 	result.nickMaskCasefolded = client.nickMaskCasefolded
 	result.account = client.account
