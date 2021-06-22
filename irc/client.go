@@ -269,6 +269,7 @@ type WhoWas struct {
 	username       string
 	hostname       string
 	realname       string
+	ip             net.IP
 	// technically not required for WHOWAS:
 	account     string
 	accountName string
@@ -598,6 +599,10 @@ func (client *Client) IP() net.IP {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
+	return client.getIPNoMutex()
+}
+
+func (client *Client) getIPNoMutex() net.IP {
 	if client.proxiedIP != nil {
 		return client.proxiedIP
 	}

@@ -168,6 +168,7 @@ const (
 	ERR_USERSDONTMATCH            = "502"
 	ERR_HELPNOTFOUND              = "524"
 	ERR_CANNOTSENDRP              = "573"
+	RPL_WHOWASIP                  = "652"
 	RPL_WHOISSECURE               = "671"
 	RPL_YOURLANGUAGESARE          = "687"
 	ERR_INVALIDMODEPARAM          = "696"
