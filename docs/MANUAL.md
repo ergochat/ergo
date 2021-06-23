@@ -1009,7 +1009,6 @@ By default the fields upon browsing to your gamja instance are empty. You can se
                 	"url": "wss://example.com/socket",
                 	"autojoin": "#channel1,#channel2",
                 	"auth": "optional",
-                	"ping": 60
         	}
 	}
 ```
