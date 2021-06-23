@@ -58,6 +58,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
 - [Commands](#commands)
 - [Working with other software](#working-with-other-software)
     - [Kiwi IRC](#kiwi-irc)
+    - [gamja](#gamja)
     - [Migrating from Anope or Atheme](#migrating-from-anope-or-atheme)
     - [HOPM](#hopm)
     - [Tor](#tor)
@@ -1000,7 +1001,7 @@ Add the following block to your nginx config / your nginx server block, and, if 
 
 The location you serve your gamja static files at can be adjusted at will, however the reverse proxy to the WebIRC listener needs to be served at `/socket`.
 
-By default the fields upon browsing to your gamja instance are empty. You can set default values by creating a config.json in your gamja root:
+By default the fields upon browsing to your gamja instance are empty. You can set default values by creating a `config.json` file in your gamja root:
 
 ```
 	{
