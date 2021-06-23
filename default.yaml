@@ -654,7 +654,7 @@ opers:
         # modes are modes to auto-set upon opering-up. uncomment this to automatically
         # enable snomasks ("server notification masks" that alert you to server events;
         # see `/quote help snomasks` while opered-up for more information):
-        #modes: +is acjknoqtuxv
+        #modes: +is acdjknoqtuxv
 
         # operators can be authenticated either by password (with the /OPER command),
         # or by certificate fingerprint, or both. if a password hash is set, then a

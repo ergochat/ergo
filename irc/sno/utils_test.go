@@ -17,14 +17,14 @@ func assertEqual(supplied, expected interface{}, t *testing.T) {
 
 func TestEvaluateSnomaskChanges(t *testing.T) {
 	add, remove, newArg := EvaluateSnomaskChanges(true, "*", nil)
-	assertEqual(add, Masks{'a', 'c', 'j', 'k', 'n', 'o', 'q', 't', 'u', 'v', 'x'}, t)
+	assertEqual(add, Masks{'a', 'c', 'd', 'j', 'k', 'n', 'o', 'q', 't', 'u', 'v', 'x'}, t)
 	assertEqual(len(remove), 0, t)
-	assertEqual(newArg, "+acjknoqtuvx", t)
+	assertEqual(newArg, "+acdjknoqtuvx", t)
 
 	add, remove, newArg = EvaluateSnomaskChanges(true, "*", Masks{'a', 'u'})
-	assertEqual(add, Masks{'c', 'j', 'k', 'n', 'o', 'q', 't', 'v', 'x'}, t)
+	assertEqual(add, Masks{'c', 'd', 'j', 'k', 'n', 'o', 'q', 't', 'v', 'x'}, t)
 	assertEqual(len(remove), 0, t)
-	assertEqual(newArg, "+cjknoqtvx", t)
+	assertEqual(newArg, "+cdjknoqtvx", t)
 
 	add, remove, newArg = EvaluateSnomaskChanges(true, "-a", Masks{'a', 'u'})
 	assertEqual(len(add), 0, t)
