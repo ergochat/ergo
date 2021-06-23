@@ -999,7 +999,7 @@ Add the following block to your nginx config / your nginx server block, and, if 
         }	
 ```
 
-The location you serve your gamja static files at can be adjusted at will, however the reverse proxy to the WebIRC listener needs to be served at `/socket`.
+The location you serve your gamja static files at can be adjusted at will, however the reverse proxy to the WebIRC listener needs to be served at `/socket` by default. To override it, specify a different path in the `config.json` (see below), or provide users with a URL the websocket location is specified in (?server=/socket). This might be handy if you followed the Kiwi instructions above, and already have a `/webirc` location.
 
 By default the fields upon browsing to your gamja instance are empty. You can set default values by creating a `config.json` file in your gamja root:
 
