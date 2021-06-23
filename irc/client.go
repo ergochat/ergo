@@ -1227,6 +1227,7 @@ func (client *Client) destroy(session *Session) {
 	} else {
 		sessionRemoved, remainingSessions = client.removeSession(session)
 		if sessionRemoved {
+			client.server.snomasks.Send(sno.LocalDisconnects, fmt.Sprint(ircfmt.Unescape("Client session disconnected for [%s] [h:%s] [ip:%s]$r"), client.accountName, session.rawHostname, session.realIP))
 			sessionsToDestroy = []*Session{session}
 		}
 	}
