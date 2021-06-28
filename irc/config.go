@@ -747,6 +747,9 @@ func (conf *Config) OperatorClasses() (map[string]*OperClass, error) {
 
 			// add our own info
 			oc.Title = info.Title
+			if oc.Title == "" {
+				oc.Title = "IRC operator"
+			}
 			for _, capab := range info.Capabilities {
 				oc.Capabilities.Add(fixupCapability(capab))
 			}
