@@ -815,7 +815,7 @@ If this mode is unset, users who aren't on your channel can send messages to it.
 
 If this mode is set, only users that have logged into an account will be able to join and speak on the channel. If this is set and a regular, un-logged-in user tries to join, they will be rejected.
 
-Unregistered users already joined to the channel will no longer be able to send messages to it, but they will not be kicked automatically. If they leave, they would not be allowed to rejoin.
+Unregistered users already joined to the channel will not be kicked automatically. They will no longer be able to send messages to the channel, unless they have been voiced (+v). If they leave, they would not be allowed to rejoin.
 
 To set this mode:
 
