@@ -232,7 +232,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				} else if err != nil {
 					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
 				} else {
-					rb.Add(nil, client.server.name, ERR_LISTMODEALREADYSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list already contains %[2]s"), chname, mask))
+					rb.Add(nil, client.server.name, ERR_LISTMODEALREADYSET, details.nick, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list already contains %[2]s"), chname, mask))
 				}
 
 			case modes.Remove:
@@ -244,7 +244,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				} else if err != nil {
 					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
 				} else {
-					rb.Add(nil, client.server.name, ERR_LISTMODENOTSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list does not contain %[2]s"), chname, mask))
+					rb.Add(nil, client.server.name, ERR_LISTMODENOTSET, details.nick, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list does not contain %[2]s"), chname, mask))
 				}
 			}
 
