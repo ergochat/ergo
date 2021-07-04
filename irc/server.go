@@ -531,6 +531,7 @@ func (server *Server) rehash() error {
 	defer server.rehashMutex.Unlock()
 
 	sdnotify.Reloading()
+	defer sdnotify.Ready()
 
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
@@ -716,11 +717,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// we are now ready to receive connections:
 	err = server.setupListeners(config)
 
-	if err == nil {
-		// we are now open for business
-		if initial {
-			server.logger.Info("server", "Server running")
-		}
+	if initial && err == nil {
+		server.logger.Info("server", "Server running")
 		sdnotify.Ready()
 	}
 
