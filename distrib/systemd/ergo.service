@@ -8,13 +8,14 @@ After=network.target
 # After=network.target mysql.service
 
 [Service]
-Type=simple
+Type=notify
 User=ergo
 WorkingDirectory=/home/ergo
 ExecStart=/home/ergo/ergo run --conf /home/ergo/ircd.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 LimitNOFILE=1048576
+NotifyAccess=main
 # Uncomment this for a hidden service:
 # PrivateNetwork=true
 

@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/ergochat/irc-go/ircfmt"
+	"github.com/okzk/sdnotify"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -124,6 +125,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 
 // Shutdown shuts down the server.
 func (server *Server) Shutdown() {
+	sdnotify.Stopping()
+
 	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
@@ -528,6 +531,8 @@ func (server *Server) rehash() error {
 	server.rehashMutex.Lock()
 	defer server.rehashMutex.Unlock()
 
+	sdnotify.Reloading()
+
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
 		server.logger.Error("server", "failed to load config file", err.Error())
@@ -709,12 +714,14 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.logger.Info("server", "Proxied IPs will be accepted from", strings.Join(config.Server.ProxyAllowedFrom, ", "))
 	}
 
-	// we are now open for business
 	err = server.setupListeners(config)
 	// send other config warnings
 	if config.Accounts.RequireSasl.Enabled && config.Accounts.Registration.Enabled {
 		server.logger.Warning("server", "Warning: although require-sasl is enabled, users can still register accounts. If your server is not intended to be public, you must set accounts.registration.enabled to false.")
 	}
+
+	// we are now open for business
+	sdnotify.Ready()
 
 	if !initial {
 		// push new info to all of our clients
