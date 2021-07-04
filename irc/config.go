@@ -830,6 +830,9 @@ func (conf *Config) Operators(oc map[string]*OperClass) (map[string]*Oper, error
 		}
 
 		oper.Vhost = opConf.Vhost
+		if oper.Vhost != "" && !conf.Accounts.VHosts.validRegexp.MatchString(oper.Vhost) {
+			return nil, fmt.Errorf("Oper %s has an invalid vhost: `%s`", name, oper.Vhost)
+		}
 		class, exists := oc[opConf.Class]
 		if !exists {
 			return nil, fmt.Errorf("Could not load operator [%s] - they use operclass [%s] which does not exist", name, opConf.Class)
