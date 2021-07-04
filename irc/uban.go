@@ -255,9 +255,10 @@ func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, 
 	var killed []string
 	var alwaysOn []string
 	for _, mcl := range client.server.clients.AllClients() {
-		if mcl != client && target.matcher.MatchString(client.NickMaskCasefolded()) {
+		if mcl != client && target.matcher.MatchString(mcl.NickMaskCasefolded()) {
 			if !mcl.AlwaysOn() {
 				killed = append(killed, mcl.Nick())
+				mcl.Quit("You have been banned from this server", nil)
 				mcl.destroy(nil)
 			} else {
 				alwaysOn = append(alwaysOn, mcl.Nick())
