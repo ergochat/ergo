@@ -577,7 +577,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		if err == utils.ErrInvalidParams {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMS", msg.Params[0], client.t("Invalid parameters"))
 		} else if !listTargets && sequence == nil {
-			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_TARGET", utils.SafeErrorParam(target), client.t("Messages could not be retrieved"))
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_TARGET", msg.Params[0], utils.SafeErrorParam(target), client.t("Messages could not be retrieved"))
 		} else if err != nil {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("Messages could not be retrieved"))
 		} else {
