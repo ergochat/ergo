@@ -192,10 +192,6 @@ Options:
 			logman.Error("server", fmt.Sprintf("Could not load server: %s", err.Error()))
 			os.Exit(1)
 		}
-		if !arguments["--quiet"].(bool) {
-			logman.Info("server", "Server running")
-			defer logman.Info("server", fmt.Sprintf("%s exiting", irc.Ver))
-		}
 		if !arguments["--smoke"].(bool) {
 			server.Run()
 		}
