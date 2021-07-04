@@ -13,6 +13,7 @@ type Masks []Mask
 const (
 	LocalAnnouncements Mask = 'a'
 	LocalConnects      Mask = 'c'
+	LocalDisconnects   Mask = 'd'
 	LocalChannels      Mask = 'j'
 	LocalKills         Mask = 'k'
 	LocalNicks         Mask = 'n'
@@ -29,6 +30,7 @@ var (
 	NoticeMaskNames = map[Mask]string{
 		LocalAnnouncements: "ANNOUNCEMENT",
 		LocalConnects:      "CONNECT",
+		LocalDisconnects:   "DISCONNECT",
 		LocalChannels:      "CHANNEL",
 		LocalKills:         "KILL",
 		LocalNicks:         "NICK",
@@ -44,6 +46,7 @@ var (
 	ValidMasks = []Mask{
 		LocalAnnouncements,
 		LocalConnects,
+		LocalDisconnects,
 		LocalChannels,
 		LocalKills,
 		LocalNicks,
