@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/ergochat/irc-go/ircfmt"
+	"github.com/okzk/sdnotify"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -80,7 +81,7 @@ type Server struct {
 	rehashMutex       sync.Mutex // tier 4
 	rehashSignal      chan os.Signal
 	pprofServer       *http.Server
-	signals           chan os.Signal
+	exitSignals       chan os.Signal
 	snomasks          SnoManager
 	store             *buntdb.DB
 	historyDB         mysql.MySQL
@@ -99,7 +100,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		listeners:    make(map[string]IRCListener),
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
-		signals:      make(chan os.Signal, len(ServerExitSignals)),
+		exitSignals:  make(chan os.Signal, len(ServerExitSignals)),
 		defcon:       5,
 	}
 
@@ -114,7 +115,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	}
 
 	// Attempt to clean up when receiving these signals.
-	signal.Notify(server.signals, ServerExitSignals...)
+	signal.Notify(server.exitSignals, ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
 	time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
@@ -124,6 +125,9 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 
 // Shutdown shuts down the server.
 func (server *Server) Shutdown() {
+	sdnotify.Stopping()
+	server.logger.Info("server", "Stopping server")
+
 	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
@@ -137,19 +141,17 @@ func (server *Server) Shutdown() {
 	}
 
 	server.historyDB.Close()
+	server.logger.Info("server", fmt.Sprintf("%s exiting", Ver))
 }
 
 // Run starts the server.
 func (server *Server) Run() {
-	// defer closing db/store
-	defer server.store.Close()
+	defer server.Shutdown()
 
 	for {
 		select {
-		case <-server.signals:
-			server.Shutdown()
+		case <-server.exitSignals:
 			return
-
 		case <-server.rehashSignal:
 			server.logger.Info("server", "Rehashing due to SIGHUP")
 			go server.rehash()
@@ -528,6 +530,9 @@ func (server *Server) rehash() error {
 	server.rehashMutex.Lock()
 	defer server.rehashMutex.Unlock()
 
+	sdnotify.Reloading()
+	defer sdnotify.Ready()
+
 	config, err := LoadConfig(server.configFilename)
 	if err != nil {
 		server.logger.Error("server", "failed to load config file", err.Error())
@@ -709,11 +714,12 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.logger.Info("server", "Proxied IPs will be accepted from", strings.Join(config.Server.ProxyAllowedFrom, ", "))
 	}
 
-	// we are now open for business
+	// we are now ready to receive connections:
 	err = server.setupListeners(config)
-	// send other config warnings
-	if config.Accounts.RequireSasl.Enabled && config.Accounts.Registration.Enabled {
-		server.logger.Warning("server", "Warning: although require-sasl is enabled, users can still register accounts. If your server is not intended to be public, you must set accounts.registration.enabled to false.")
+
+	if initial && err == nil {
+		server.logger.Info("server", "Server running")
+		sdnotify.Ready()
 	}
 
 	if !initial {
@@ -727,6 +733,11 @@ func (server *Server) applyConfig(config *Config) (err error) {
 				sClient.Notice(sClient.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 			}
 		}
+	}
+
+	// send other config warnings
+	if config.Accounts.RequireSasl.Enabled && config.Accounts.Registration.Enabled {
+		server.logger.Warning("server", "Warning: although require-sasl is enabled, users can still register accounts. If your server is not intended to be public, you must set accounts.registration.enabled to false.")
 	}
 
 	return err
