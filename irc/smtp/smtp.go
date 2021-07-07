@@ -24,6 +24,11 @@ import (
 	"net"
 	"net/textproto"
 	"strings"
+	"time"
+)
+
+var (
+	ErrTimedOut = errors.New("Timed out")
 )
 
 // A Client represents a client connection to an SMTP server.
@@ -48,10 +53,24 @@ type Client struct {
 
 // Dial returns a new Client connected to an SMTP server at addr.
 // The addr must include a port, as in "mail.example.com:smtp".
-func Dial(addr string) (*Client, error) {
-	conn, err := net.Dial("tcp", addr)
+func Dial(addr string, timeout time.Duration) (*Client, error) {
+	var conn net.Conn
+	var err error
+	start := time.Now()
+	if timeout == 0 {
+		conn, err = net.Dial("tcp", addr)
+	} else {
+		conn, err = net.DialTimeout("tcp", addr, timeout)
+	}
 	if err != nil {
 		return nil, err
+	}
+	if timeout != 0 {
+		remaining := timeout - time.Since(start)
+		if remaining <= 0 {
+			return nil, ErrTimedOut
+		}
+		conn.SetDeadline(time.Now().Add(remaining))
 	}
 	host, _, _ := net.SplitHostPort(addr)
 	return NewClient(conn, host)
@@ -316,8 +335,8 @@ var testHookStartTLS func(*tls.Config) // nil, except for tests
 // attachments (see the mime/multipart package), or other mail
 // functionality. Higher-level packages exist outside of the standard
 // library.
-// XXX: modified in Oragono to add `requireTLS` and `heloDomain` arguments
-func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS bool) error {
+// XXX: modified in Ergo to add `requireTLS`, `heloDomain`, and `timeout` arguments
+func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS bool, timeout time.Duration) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
@@ -326,7 +345,7 @@ func SendMail(addr string, a Auth, heloDomain string, from string, to []string, 
 			return err
 		}
 	}
-	c, err := Dial(addr)
+	c, err := Dial(addr, timeout)
 	if err != nil {
 		return err
 	}

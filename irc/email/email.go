@@ -9,6 +9,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ergochat/ergo/irc/smtp"
 )
@@ -40,6 +41,7 @@ type MailtoConfig struct {
 	MTAReal              MTAConfig `yaml:"mta"`
 	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
 	blacklistRegexes     []*regexp.Regexp
+	Timeout              time.Duration
 }
 
 func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
@@ -126,5 +128,5 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 		addr = fmt.Sprintf("%s:smtp", mx)
 	}
 
-	return smtp.SendMail(addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg, config.RequireTLS)
+	return smtp.SendMail(addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg, config.RequireTLS, config.Timeout)
 }
