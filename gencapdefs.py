@@ -172,10 +172,10 @@ CAPDEFS = [
         standard="proposed IRCv3",
     ),
     CapDef(
-        identifier="Register",
-        name="draft/register",
-        url="https://gist.github.com/edk0/bf3b50fc219fd1bed1aa15d98bfb6495",
-        standard="proposed IRCv3",
+        identifier="AccountRegistration",
+        name="draft/account-registration",
+        url="https://github.com/ircv3/ircv3-specifications/pull/435",
+        standard="draft IRCv3",
     ),
 ]
 
