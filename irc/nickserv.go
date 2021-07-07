@@ -1083,6 +1083,8 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		service.Notice(rb, client.t("Your account credentials are managed externally and cannot be changed here"))
 	case errCASFailed:
 		service.Notice(rb, client.t("Try again later"))
+	case errAccountDoesNotExist:
+		service.Notice(rb, client.t("Account does not exist"))
 	default:
 		server.logger.Error("internal", "could not upgrade user password:", err.Error())
 		service.Notice(rb, client.t("Password could not be changed due to server error"))
