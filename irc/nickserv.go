@@ -900,7 +900,7 @@ func nsRegisterHandler(service *ircService, server *Server, client *Client, comm
 		}
 	} else {
 		// details could not be stored and relevant numerics have been dispatched, abort
-		message := registrationErrorToMessage(err)
+		message := registrationErrorToMessage(config, client, err)
 		service.Notice(rb, client.t(message))
 	}
 }

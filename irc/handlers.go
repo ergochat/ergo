@@ -63,14 +63,16 @@ func parseCallback(spec string, config *Config) (callbackNamespace string, callb
 	return
 }
 
-func registrationErrorToMessage(err error) (message string) {
+func registrationErrorToMessage(config *Config, client *Client, err error) (message string) {
+	if emailError := registrationCallbackErrorText(config, client, err); emailError != "" {
+		return emailError
+	}
+
 	switch err {
 	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled, errAccountBadPassphrase:
 		message = err.Error()
 	case errLimitExceeded:
 		message = `There have been too many registration attempts recently; try again later`
-	case errCallbackFailed:
-		message = `Could not dispatch verification email`
 	default:
 		// default response: let's be risk-averse about displaying internal errors
 		// to the clients, especially for something as sensitive as accounts
@@ -2548,10 +2550,12 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", accountName, client.t("Username is already registered or otherwise unavailable"))
 	case errAccountBadPassphrase:
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", accountName, client.t("Password was invalid"))
-	case errCallbackFailed:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", accountName, client.t("Could not dispatch verification e-mail"))
 	default:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", accountName, client.t("Could not register"))
+		if emailError := registrationCallbackErrorText(config, client, err); emailError != "" {
+			rb.Add(nil, server.name, "FAIL", "REGISTER", "UNACCEPTABLE_EMAIL", accountName, emailError)
+		} else {
+			rb.Add(nil, server.name, "FAIL", "REGISTER", "UNKNOWN_ERROR", accountName, client.t("Could not register"))
+		}
 	}
 	return
 }
