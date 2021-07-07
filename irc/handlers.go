@@ -2486,12 +2486,21 @@ func quitHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	return true
 }
 
-// REGISTER < email | * > <password>
+// REGISTER < account | * > < email | * > <password>
 func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	accountName := client.Nick()
 	if accountName == "*" {
 		accountName = client.preregNick
 	}
+
+	switch msg.Params[0] {
+	case "*", accountName:
+		// ok
+	default:
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "ACCOUNTNAME_MUST_BE_NICK", utils.SafeErrorParam(msg.Params[0]), client.t("You may only register your nickname as your account name"))
+		return
+	}
+
 	// check that accountName is valid as a non-final parameter;
 	// this is necessary for us to be valid and it will prevent us from emitting invalid error lines
 	nickErrorParam := utils.SafeErrorParam(accountName)
@@ -2514,13 +2523,13 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		return
 	}
 
-	callbackNamespace, callbackValue, err := parseCallback(msg.Params[0], config)
+	callbackNamespace, callbackValue, err := parseCallback(msg.Params[1], config)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_EMAIL", accountName, client.t("A valid e-mail address is required"))
 		return
 	}
 
-	err = server.accounts.Register(client, accountName, callbackNamespace, callbackValue, msg.Params[1], rb.session.certfp)
+	err = server.accounts.Register(client, accountName, callbackNamespace, callbackValue, msg.Params[2], rb.session.certfp)
 	switch err {
 	case nil:
 		if callbackNamespace == "*" {

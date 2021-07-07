@@ -1385,7 +1385,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if !config.Accounts.Registration.Enabled {
-		config.Server.supportedCaps.Disable(caps.Register)
+		config.Server.supportedCaps.Disable(caps.AccountRegistration)
 	} else {
 		var registerValues []string
 		if config.Accounts.Registration.AllowBeforeConnect {
@@ -1398,7 +1398,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			registerValues = append(registerValues, "account-required")
 		}
 		if len(registerValues) != 0 {
-			config.Server.capValues[caps.Register] = strings.Join(registerValues, ",")
+			config.Server.capValues[caps.AccountRegistration] = strings.Join(registerValues, ",")
 		}
 	}
 

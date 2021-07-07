@@ -246,7 +246,7 @@ func init() {
 		},
 		"REGISTER": {
 			handler:      registerHandler,
-			minParams:    2,
+			minParams:    3,
 			usablePreReg: true,
 		},
 		"RENAME": {

@@ -37,6 +37,10 @@ const (
 	// https://ircv3.net/specs/extensions/chghost-3.2.html
 	ChgHost Capability = iota
 
+	// AccountRegistration is the draft IRCv3 capability named "draft/account-registration":
+	// https://github.com/ircv3/ircv3-specifications/pull/435
+	AccountRegistration Capability = iota
+
 	// ChannelRename is the draft IRCv3 capability named "draft/channel-rename":
 	// https://ircv3.net/specs/extensions/channel-rename
 	ChannelRename Capability = iota
@@ -56,10 +60,6 @@ const (
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
-
-	// Register is the proposed IRCv3 capability named "draft/register":
-	// https://gist.github.com/edk0/bf3b50fc219fd1bed1aa15d98bfb6495
-	Register Capability = iota
 
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
@@ -131,12 +131,12 @@ var (
 		"batch",
 		"cap-notify",
 		"chghost",
+		"draft/account-registration",
 		"draft/channel-rename",
 		"draft/chathistory",
 		"draft/event-playback",
 		"draft/languages",
 		"draft/multiline",
-		"draft/register",
 		"draft/relaymsg",
 		"echo-message",
 		"extended-join",
