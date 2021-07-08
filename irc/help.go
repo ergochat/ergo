@@ -87,6 +87,7 @@ Ergo supports the following server notice masks for operators:
 
   a  |  Local announcements.
   c  |  Local client connections.
+  d  |  Local client disconnects.
   j  |  Local channel actions.
   k  |  Local kills.
   n  |  Local nick changes.
