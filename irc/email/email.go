@@ -9,13 +9,14 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ergochat/ergo/irc/smtp"
 )
 
 var (
 	ErrBlacklistedAddress = errors.New("Email address is blacklisted")
-	ErrInvalidAddress     = errors.New("Email address is blacklisted")
+	ErrInvalidAddress     = errors.New("Email address is invalid")
 	ErrNoMXRecord         = errors.New("Couldn't resolve MX record")
 )
 
@@ -40,6 +41,7 @@ type MailtoConfig struct {
 	MTAReal              MTAConfig `yaml:"mta"`
 	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
 	blacklistRegexes     []*regexp.Regexp
+	Timeout              time.Duration
 }
 
 func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
@@ -73,6 +75,11 @@ func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
 	return config.DKIM.Postprocess()
 }
 
+// are we sending email directly, as opposed to deferring to an MTA?
+func (config *MailtoConfig) DirectSendingEnabled() bool {
+	return config.MTAReal.Server == ""
+}
+
 // get the preferred MX record hostname, "" on error
 func lookupMX(domain string) (server string) {
 	var minPref uint16
@@ -104,7 +111,7 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 
 	var addr string
 	var auth smtp.Auth
-	if config.MTAReal.Server != "" {
+	if !config.DirectSendingEnabled() {
 		addr = fmt.Sprintf("%s:%d", config.MTAReal.Server, config.MTAReal.Port)
 		if config.MTAReal.Username != "" && config.MTAReal.Password != "" {
 			auth = smtp.PlainAuth("", config.MTAReal.Username, config.MTAReal.Password, config.MTAReal.Server)
@@ -121,5 +128,5 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 		addr = fmt.Sprintf("%s:smtp", mx)
 	}
 
-	return smtp.SendMail(addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg, config.RequireTLS)
+	return smtp.SendMail(addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg, config.RequireTLS, config.Timeout)
 }

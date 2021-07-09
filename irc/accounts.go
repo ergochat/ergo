@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/ergochat/irc-go/ircutils"
+
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/email"
 	"github.com/ergochat/ergo/irc/migrations"
@@ -460,12 +462,34 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	code, err := am.dispatchCallback(client, account, callbackNamespace, callbackValue)
 	if err != nil {
 		am.Unregister(casefoldedAccount, true)
-		return errCallbackFailed
+		return &registrationCallbackError{underlying: err}
 	} else {
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
 			_, _, err = tx.Set(verificationCodeKey, code, setOptions)
 			return err
 		})
+	}
+}
+
+type registrationCallbackError struct {
+	underlying error
+}
+
+func (r *registrationCallbackError) Error() string {
+	return `Account verification could not be sent`
+}
+
+func registrationCallbackErrorText(config *Config, client *Client, err error) string {
+	if callbackErr, ok := err.(*registrationCallbackError); ok {
+		// only expose a user-visible error if we are doing direct sending
+		if config.Accounts.Registration.EmailVerification.DirectSendingEnabled() {
+			errorText := ircutils.SanitizeText(callbackErr.underlying.Error(), 350)
+			return fmt.Sprintf(client.t("Could not dispatch registration e-mail: %s"), errorText)
+		} else {
+			return client.t("Could not dispatch registration e-mail")
+		}
+	} else {
+		return ""
 	}
 }
 

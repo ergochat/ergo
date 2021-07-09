@@ -386,6 +386,7 @@ accounts:
             #     password: "hunter2"
             blacklist-regexes:
             #    - ".*@mailinator.com"
+            timeout: 60s
 
     # throttle account login attempts (to prevent either password guessing, or DoS
     # attacks on the server aimed at forcing repeated expensive bcrypt computations)
