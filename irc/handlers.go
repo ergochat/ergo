@@ -1273,7 +1273,9 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 }
 
 // KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
-// The number of channels must be either 1 or equal to the number of users
+// RFC 2812 requires the number of channels to be either 1 or equal to
+// the number of users.
+// Addditionally, we support multiple channels and a single user.
 func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	hasPrivs := client.HasRoleCapabs("samode")
 	channels := strings.Split(msg.Params[0], ",")
@@ -1287,16 +1289,31 @@ func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		channel string
 		nick    string
 	}
-	kicks := make([]kickCmd, 0, len(users))
-	channel := channels[0]
-	for index, user := range users {
-		if len(channels) > 1 {
-			channel = channels[index]
+	var kicks []kickCmd
+	if len(users) == 1 {
+		kicks = make([]kickCmd, 0, len(channels))
+		// Single user, possibly multiple channels
+		user := users[0]
+		for _, channel := range channels {
+			if channel == "" {
+				continue // #679
+			}
+			kicks = append(kicks, kickCmd{channel, user})
 		}
-		if channel == "" {
-			continue // #679
+	} else {
+		// Multiple users, either a single channel or as many channels
+		// as users.
+		kicks = make([]kickCmd, 0, len(users))
+		channel := channels[0]
+		for index, user := range users {
+			if len(channels) > 1 {
+				channel = channels[index]
+			}
+			if channel == "" {
+				continue // #679
+			}
+			kicks = append(kicks, kickCmd{channel, user})
 		}
-		kicks = append(kicks, kickCmd{channel, user})
 	}
 
 	var comment string
