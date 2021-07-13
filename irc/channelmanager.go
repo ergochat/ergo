@@ -320,9 +320,11 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	defer func() {
 		if channel != nil && info.Founder != "" {
 			channel.Store(IncludeAllAttrs)
-			// we just flushed the channel under its new name, therefore this delete
-			// cannot be overwritten by a write to the old name:
-			cm.server.channelRegistry.Delete(info)
+			if oldCfname != newCfname {
+				// we just flushed the channel under its new name, therefore this delete
+				// cannot be overwritten by a write to the old name:
+				cm.server.channelRegistry.Delete(info)
+			}
 		}
 	}()
 
