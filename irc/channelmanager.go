@@ -117,12 +117,13 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 		return errNoSuchChannel, ""
 	}
 
-	channel, err := func() (*Channel, error) {
+	channel, err, newChannel := func() (*Channel, error, bool) {
+		var newChannel bool
 		cm.Lock()
 		defer cm.Unlock()
 
 		if cm.purgedChannels.Has(casefoldedName) {
-			return nil, errChannelPurged
+			return nil, errChannelPurged, false
 		}
 		entry := cm.chans[casefoldedName]
 		if entry == nil {
@@ -130,11 +131,11 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 			// enforce OpOnlyCreation
 			if !registered && server.Config().Channels.OpOnlyCreation &&
 				!(isSajoin || client.HasRoleCapabs("chanreg")) {
-				return nil, errInsufficientPrivs
+				return nil, errInsufficientPrivs, false
 			}
 			// enforce confusables
 			if !registered && (cm.chansSkeletons.Has(skeleton) || cm.registeredSkeletons.Has(skeleton)) {
-				return nil, errConfusableIdentifier
+				return nil, errConfusableIdentifier, false
 			}
 			entry = &channelManagerEntry{
 				channel:      NewChannel(server, name, casefoldedName, registered),
@@ -149,9 +150,10 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 				entry.skeleton = skeleton
 			}
 			cm.chans[casefoldedName] = entry
+			newChannel = true
 		}
 		entry.pendingJoins += 1
-		return entry.channel, nil
+		return entry.channel, nil, newChannel
 	}()
 
 	if err != nil {
@@ -159,7 +161,7 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 	}
 
 	channel.EnsureLoaded()
-	err, forward = channel.Join(client, key, isSajoin, rb)
+	err, forward = channel.Join(client, key, isSajoin || newChannel, rb)
 
 	cm.maybeCleanup(channel, true)
 
