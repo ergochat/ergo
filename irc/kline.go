@@ -13,6 +13,7 @@ import (
 
 	"github.com/tidwall/buntdb"
 
+	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -81,6 +82,20 @@ func (km *KLineManager) AddMask(mask string, duration time.Duration, reason, ope
 	return km.persistKLine(mask, info)
 }
 
+func announceKlineExpire(mask string, km *KLineManager, info *IPBanInfo) {
+	timeCreated := info.TimeCreated.Format(time.RFC1123)
+	operName := info.OperName
+
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "UBAN expiring for NUH-mask: [%s] set on [%s] [added by: %s]", mask, timeCreated, operName)
+	if info.OperReason != "" {
+		fmt.Fprintf(&buf, " [reason: %s]", info.OperReason)
+	}
+	line := buf.String()
+	km.server.snomasks.Send(sno.LocalXline, line)
+	km.server.logger.Info("opers", line)
+}
+
 func (km *KLineManager) addMaskInternal(mask string, info IPBanInfo) {
 	re, err := utils.CompileGlob(mask, false)
 	// this is validated externally and shouldn't fail regardless
@@ -114,9 +129,9 @@ func (km *KLineManager) addMaskInternal(mask string, info IPBanInfo) {
 	// set up new expiration timer
 	timeCreated := info.TimeCreated
 	processExpiration := func() {
+		announceKlineExpire(mask, km, &info)
 		km.Lock()
 		defer km.Unlock()
-
 		maskBan, ok := km.entries[mask]
 		if ok && maskBan.Info.TimeCreated.Equal(timeCreated) {
 			delete(km.entries, mask)

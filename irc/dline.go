@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/sno"
 	"github.com/tidwall/buntdb"
 )
 
@@ -115,6 +116,19 @@ func (dm *DLineManager) AddNetwork(network flatip.IPNet, duration time.Duration,
 	return dm.persistDline(id, info)
 }
 
+func announceDlineExpire(flatnet flatip.IPNet, dm *DLineManager, info *IPBanInfo) {
+	timeCreated := info.TimeCreated.Format(time.RFC1123)
+	operName := info.OperName
+
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "UBAN expiring for IP/CIDR: [%s] set on [%s] [added by: %s]", flatnet.HumanReadableString(), timeCreated, operName)
+	if info.OperReason != "" {
+		fmt.Fprintf(&buf, " [reason: %s]", info.OperReason)
+	}
+	line := buf.String()
+	dm.server.snomasks.Send(sno.LocalXline, line)
+	dm.server.logger.Info("opers", line)
+}
 func (dm *DLineManager) addNetworkInternal(flatnet flatip.IPNet, info IPBanInfo) (id flatip.IPNet) {
 	id = flatnet
 
@@ -140,6 +154,7 @@ func (dm *DLineManager) addNetworkInternal(flatnet flatip.IPNet, info IPBanInfo)
 	// set up new expiration timer
 	timeCreated := info.TimeCreated
 	processExpiration := func() {
+		announceDlineExpire(flatnet, dm, &info)
 		dm.Lock()
 		defer dm.Unlock()
 
