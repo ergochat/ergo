@@ -6,6 +6,8 @@ package irc
 import (
 	"sync"
 
+	"github.com/ergochat/ergo/irc/caps"
+
 	"github.com/ergochat/irc-go/ircmsg"
 )
 
@@ -21,6 +23,17 @@ type MonitorManager struct {
 func (mm *MonitorManager) Initialize() {
 	mm.watching = make(map[*Session]map[string]string)
 	mm.watchedby = make(map[string]map[*Session]empty)
+}
+
+// AddMonitors adds clients using extended-monitor monitoring `client`'s nick to the passed user set.
+func (manager *MonitorManager) AddMonitors(users map[*Session]empty, cfnick string, capabs ...caps.Capability) {
+	manager.RLock()
+	defer manager.RUnlock()
+	for session := range manager.watchedby[cfnick] {
+		if session.capabilities.Has(caps.ExtendedMonitor) && session.capabilities.HasAll(capabs...) {
+			users[session] = empty{}
+		}
+	}
 }
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
