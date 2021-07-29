@@ -9,7 +9,6 @@ github.com/GehirnInc/crypt/internal
 github.com/GehirnInc/crypt/md5_crypt
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
-github.com/dgrijalva/jwt-go
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 ## explicit
 github.com/docopt/docopt-go
@@ -30,6 +29,9 @@ github.com/ergochat/irc-go/ircutils
 github.com/go-sql-driver/mysql
 # github.com/go-test/deep v1.0.6
 ## explicit
+# github.com/golang-jwt/jwt v3.2.1+incompatible
+## explicit
+github.com/golang-jwt/jwt
 # github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
 ## explicit
 github.com/gorilla/websocket
