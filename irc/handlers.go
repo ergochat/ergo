@@ -166,6 +166,12 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 
 	// start new sasl session
 	if session.sasl.mechanism == "" {
+		throttled, remainingTime := client.loginThrottle.Touch()
+		if throttled {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+			return false
+		}
+
 		mechanism := strings.ToUpper(msg.Params[0])
 		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
 
@@ -244,12 +250,6 @@ func authPlainHandler(server *Server, client *Client, session *Session, value []
 		}
 	} else {
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: Invalid auth blob"))
-		return false
-	}
-
-	throttled, remainingTime := client.loginThrottle.Touch()
-	if throttled {
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
 		return false
 	}
 
@@ -347,12 +347,6 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 
 	// first message? if so, initialize the SCRAM conversation
 	if session.sasl.scramConv == nil {
-		throttled, remainingTime := client.loginThrottle.Touch()
-		if throttled {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
-			continueAuth = false
-			return false
-		}
 		session.sasl.scramConv = server.accounts.NewScramConversation()
 	}
 
