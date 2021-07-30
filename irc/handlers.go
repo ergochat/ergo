@@ -220,19 +220,8 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 	}
 
 	// call actual handler
-	handler, handlerExists := EnabledSaslMechanisms[session.sasl.mechanism]
-
-	// like 100% not required, but it's good to be safe I guess
-	if !handlerExists {
-		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
-		session.sasl.Clear()
-		return false
-	}
-
-	// let the SASL handler do its thing
-	exiting := handler(server, client, session, data, rb)
-
-	return exiting
+	handler := EnabledSaslMechanisms[session.sasl.mechanism]
+	return handler(server, client, session, data, rb)
 }
 
 // AUTHENTICATE PLAIN
