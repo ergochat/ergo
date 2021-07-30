@@ -63,6 +63,7 @@ var (
 	errCASFailed                      = errors.New("Compare-and-swap update of database value failed")
 	errEmptyCredentials               = errors.New("No more credentials are approved")
 	errCredsExternallyManaged         = errors.New("Credentials are externally managed and cannot be changed here")
+	errNoSCRAMCredentials             = errors.New("SCRAM credentials are not initialized for this account; consult the user guide")
 	errInvalidMultilineBatch          = errors.New("Invalid multiline batch")
 	errTimedOut                       = errors.New("Operation timed out")
 	errInvalidUtf8                    = errors.New("Message rejected for invalid utf8")

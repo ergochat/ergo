@@ -5,6 +5,7 @@ package irc
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"unicode"
 
 	"github.com/ergochat/irc-go/ircutils"
+	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/email"
@@ -517,8 +519,8 @@ func validatePassphrase(passphrase string) error {
 }
 
 // changes the password for an account
-func (am *AccountManager) setPassword(account string, password string, hasPrivs bool) (err error) {
-	cfAccount, err := CasefoldName(account)
+func (am *AccountManager) setPassword(accountName string, password string, hasPrivs bool) (err error) {
+	cfAccount, err := CasefoldName(accountName)
 	if err != nil {
 		return errAccountDoesNotExist
 	}
@@ -1912,9 +1914,10 @@ func (am *AccountManager) Logout(client *Client) {
 var (
 	// EnabledSaslMechanisms contains the SASL mechanisms that exist and that we support.
 	// This can be moved to some other data structure/place if we need to load/unload mechs later.
-	EnabledSaslMechanisms = map[string]func(*Server, *Client, string, []byte, *ResponseBuffer) bool{
-		"PLAIN":    authPlainHandler,
-		"EXTERNAL": authExternalHandler,
+	EnabledSaslMechanisms = map[string]func(*Server, *Client, *Session, []byte, *ResponseBuffer) bool{
+		"PLAIN":         authPlainHandler,
+		"EXTERNAL":      authExternalHandler,
+		"SCRAM-SHA-256": authScramHandler,
 	}
 )
 
@@ -1933,6 +1936,12 @@ type AccountCredentials struct {
 	Version        CredentialsVersion
 	PassphraseHash []byte
 	Certfps        []string
+	SCRAMCreds     struct {
+		Salt      []byte
+		Iters     int
+		StoredKey []byte
+		ServerKey []byte
+	}
 }
 
 func (ac *AccountCredentials) Empty() bool {
@@ -1964,7 +1973,45 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 		return errAccountBadPassphrase
 	}
 
+	// we can pass an empty account name because it won't actually be incorporated
+	// into the credentials; it's just a quirk of the xdg-go/scram API that the way
+	// to produce server credentials is to call NewClient* and then GetStoredCredentials
+	scramClient, err := scram.SHA256.NewClientUnprepped("", passphrase, "")
+	if err != nil {
+		return errAccountBadPassphrase
+	}
+	salt := make([]byte, 16)
+	rand.Read(salt)
+	// xdg-go/scram says: "Clients have a default minimum PBKDF2 iteration count of 4096."
+	minIters := 4096
+	scramCreds := scramClient.GetStoredCredentials(scram.KeyFactors{Salt: string(salt), Iters: minIters})
+	ac.SCRAMCreds.Salt = salt
+	ac.SCRAMCreds.Iters = minIters
+	ac.SCRAMCreds.StoredKey = scramCreds.StoredKey
+	ac.SCRAMCreds.ServerKey = scramCreds.ServerKey
+
 	return nil
+}
+
+func (am *AccountManager) NewScramConversation() *scram.ServerConversation {
+	server, _ := scram.SHA256.NewServer(am.lookupSCRAMCreds)
+	return server.NewConversation()
+}
+
+func (am *AccountManager) lookupSCRAMCreds(accountName string) (creds scram.StoredCredentials, err error) {
+	acct, err := am.LoadAccount(accountName)
+	if err != nil {
+		return
+	}
+	if acct.Credentials.SCRAMCreds.Iters == 0 {
+		err = errNoSCRAMCredentials
+		return
+	}
+	creds.Salt = string(acct.Credentials.SCRAMCreds.Salt)
+	creds.Iters = acct.Credentials.SCRAMCreds.Iters
+	creds.StoredKey = acct.Credentials.SCRAMCreds.StoredKey
+	creds.ServerKey = acct.Credentials.SCRAMCreds.ServerKey
+	return
 }
 
 func (ac *AccountCredentials) AddCertfp(certfp string) (err error) {

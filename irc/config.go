@@ -1379,7 +1379,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.VHosts.validRegexp = defaultValidVhostRegex
 	}
 
-	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL"
+	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL,SCRAM-SHA-256"
 	if !config.Accounts.AuthenticationEnabled {
 		config.Server.supportedCaps.Disable(caps.SASL)
 	}

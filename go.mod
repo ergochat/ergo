@@ -19,9 +19,12 @@ require (
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.2.3
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
+	github.com/xdg-go/scram v1.0.2
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.6
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 replace github.com/gorilla/websocket => github.com/ergochat/websocket v1.4.2-oragono1
+
+replace github.com/xdg-go/scram => github.com/ergochat/scram v1.0.2-ergo1

@@ -211,6 +211,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 	var err error
 	if session.sasl.value != "+" {
 		data, err = base64.StdEncoding.DecodeString(session.sasl.value)
+		session.sasl.value = ""
 		if err != nil {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 			session.sasl.Clear()
@@ -229,14 +230,15 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 	}
 
 	// let the SASL handler do its thing
-	exiting := handler(server, client, session.sasl.mechanism, data, rb)
-	session.sasl.Clear()
+	exiting := handler(server, client, session, data, rb)
 
 	return exiting
 }
 
 // AUTHENTICATE PLAIN
-func authPlainHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
+func authPlainHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
+	defer session.sasl.Clear()
+
 	splitValue := bytes.Split(value, []byte{'\000'})
 
 	// PLAIN has separate "authorization ID" (which user you want to become)
@@ -301,7 +303,9 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 }
 
 // AUTHENTICATE EXTERNAL
-func authExternalHandler(server *Server, client *Client, mechanism string, value []byte, rb *ResponseBuffer) bool {
+func authExternalHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
+	defer session.sasl.Clear()
+
 	if rb.session.certfp == "" {
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
 		return false
@@ -340,6 +344,64 @@ func authExternalHandler(server *Server, client *Client, mechanism string, value
 	}
 
 	sendSuccessfulAccountAuth(nil, client, rb, true)
+	return false
+}
+
+// AUTHENTICATE SCRAM-SHA-256
+func authScramHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
+	continueAuth := true
+	defer func() {
+		if !continueAuth {
+			session.sasl.Clear()
+		}
+	}()
+
+	// first message? if so, initialize the SCRAM conversation
+	if session.sasl.scramConv == nil {
+		throttled, remainingTime := client.loginThrottle.Touch()
+		if throttled {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+			continueAuth = false
+			return false
+		}
+		session.sasl.scramConv = server.accounts.NewScramConversation()
+	}
+
+	// wait for a final AUTHENTICATE + from the client to conclude authentication
+	if session.sasl.scramConv.Done() {
+		continueAuth = false
+		if session.sasl.scramConv.Valid() {
+			accountName := session.sasl.scramConv.Username()
+			authzid := session.sasl.scramConv.AuthzID()
+			if authzid != "" && authzid != accountName {
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
+				return false
+			}
+			account, err := server.accounts.LoadAccount(accountName)
+			if err == nil {
+				server.accounts.Login(client, account)
+				if fixupNickEqualsAccount(client, rb, server.Config(), "") {
+					sendSuccessfulAccountAuth(nil, client, rb, true)
+				}
+			} else {
+				server.logger.Error("internal", "SCRAM succeeded but couldn't load account", accountName, err.Error())
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+			}
+		} else {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
+		}
+		return false
+	}
+
+	response, err := session.sasl.scramConv.Step(string(value))
+	if err == nil {
+		rb.Add(nil, server.name, "AUTHENTICATE", base64.StdEncoding.EncodeToString([]byte(response)))
+	} else {
+		continueAuth = false
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), err.Error())
+		return false
+	}
+
 	return false
 }
 
