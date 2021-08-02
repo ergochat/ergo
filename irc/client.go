@@ -20,6 +20,7 @@ import (
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircreader"
+	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -116,6 +117,7 @@ type Client struct {
 type saslStatus struct {
 	mechanism string
 	value     string
+	scramConv *scram.ServerConversation
 }
 
 func (s *saslStatus) Clear() {
