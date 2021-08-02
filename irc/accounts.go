@@ -1113,6 +1113,11 @@ func (am *AccountManager) checkPassphrase(accountName, passphrase string) (accou
 		if passwd.CompareHashAndPassword(account.Credentials.PassphraseHash, []byte(passphrase)) != nil {
 			err = errAccountInvalidCredentials
 		}
+		if err == nil && account.Credentials.SCRAMCreds.Iters == 0 {
+			// XXX: if the account was created prior to 2.8, it doesn't have SCRAM credentials;
+			// since we temporarily have access to a valid plaintext password, create them:
+			am.rehashPassword(account.Name, passphrase)
+		}
 	case -1:
 		err = am.checkLegacyPassphrase(migrations.CheckAthemePassphrase, accountName, account.Credentials.PassphraseHash, passphrase)
 	case -2:
@@ -1132,11 +1137,15 @@ func (am *AccountManager) checkLegacyPassphrase(check migrations.PassphraseCheck
 		return errAccountInvalidCredentials
 	}
 	// re-hash the passphrase with the latest algorithm
-	err = am.setPassword(account, passphrase, true)
-	if err != nil {
-		am.server.logger.Error("internal", "could not upgrade user password", err.Error())
-	}
+	am.rehashPassword(account, passphrase)
 	return nil
+}
+
+func (am *AccountManager) rehashPassword(accountName, passphrase string) {
+	err := am.setPassword(accountName, passphrase, true)
+	if err != nil {
+		am.server.logger.Error("internal", "could not upgrade user password", accountName, err.Error())
+	}
 }
 
 func (am *AccountManager) loadWithAutocreation(accountName string, autocreate bool) (account ClientAccount, err error) {
