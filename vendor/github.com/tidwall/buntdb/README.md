@@ -3,7 +3,6 @@
     src="logo.png"
     width="307" height="150" border="0" alt="BuntDB">
 <br>
-<a href="https://goreportcard.com/report/github.com/tidwall/buntdb"><img src="https://goreportcard.com/badge/github.com/tidwall/buntdb?style=flat-square" alt="Go Report Card"></a>
 <a href="https://godoc.org/github.com/tidwall/buntdb"><img src="https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square" alt="Godoc"></a>
 <a href="https://github.com/tidwall/buntdb/blob/master/LICENSE"><img src="https://img.shields.io/github/license/tidwall/buntdb.svg?style=flat-square" alt="LICENSE"></a>
 </p>
@@ -28,7 +27,6 @@ Features
 - Flexible [iteration](#iterating) of data; ascending, descending, and ranges
 - [Durable append-only file](#append-only-file) format for persistence
 - Option to evict old items with an [expiration](#data-expiration) TTL
-- Tight codebase, under 2K loc using the `cloc` command
 - ACID semantics with locking [transactions](#transactions) that support rollbacks
 
 
@@ -457,8 +455,9 @@ Any index can be put in descending order by wrapping it's less function with `bu
 
 ```go
 db.CreateIndex("last_name_age", "*",
-buntdb.IndexJSON("name.last"),
-buntdb.Desc(buntdb.IndexJSON("age")))
+    buntdb.IndexJSON("name.last"),
+    buntdb.Desc(buntdb.IndexJSON("age")),
+)
 ```
 
 This will create a multi value index where the last name is ascending and the age is descending.
