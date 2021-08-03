@@ -747,9 +747,11 @@ func (client *Client) run(session *Session) {
 		} else if err == ircmsg.ErrorTagsTooLong {
 			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line contained excess tag data"))
 			continue
-		} else if err == ircmsg.ErrorBodyTooLong && !client.server.Config().Server.Compatibility.allowTruncation {
-			session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
-			continue
+		} else if err == ircmsg.ErrorBodyTooLong {
+			if !client.server.Config().Server.Compatibility.allowTruncation {
+				session.Send(nil, client.server.name, ERR_INPUTTOOLONG, client.Nick(), client.t("Input line too long"))
+				continue
+			} // else: proceed with the truncated line
 		} else if err != nil {
 			client.Quit(client.t("Received malformed line"), session)
 			break
