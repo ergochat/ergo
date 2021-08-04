@@ -2008,6 +2008,11 @@ func (am *AccountManager) NewScramConversation() *scram.ServerConversation {
 }
 
 func (am *AccountManager) lookupSCRAMCreds(accountName string) (creds scram.StoredCredentials, err error) {
+	// strip client ID if present:
+	if strudelIndex := strings.IndexByte(accountName, '@'); strudelIndex != -1 {
+		accountName = accountName[:strudelIndex]
+	}
+
 	acct, err := am.LoadAccount(accountName)
 	if err != nil {
 		return

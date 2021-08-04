@@ -354,20 +354,27 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 	if session.sasl.scramConv.Done() {
 		continueAuth = false
 		if session.sasl.scramConv.Valid() {
-			accountName := session.sasl.scramConv.Username()
+			authcid := session.sasl.scramConv.Username()
+			if strudelIndex := strings.IndexByte(authcid, '@'); strudelIndex != -1 {
+				var deviceID string
+				authcid, deviceID = authcid[:strudelIndex], authcid[strudelIndex+1:]
+				if !client.registered {
+					rb.session.deviceID = deviceID
+				}
+			}
 			authzid := session.sasl.scramConv.AuthzID()
-			if authzid != "" && authzid != accountName {
+			if authzid != "" && authzid != authcid {
 				rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed: authcid and authzid should be the same"))
 				return false
 			}
-			account, err := server.accounts.LoadAccount(accountName)
+			account, err := server.accounts.LoadAccount(authcid)
 			if err == nil {
 				server.accounts.Login(client, account)
 				if fixupNickEqualsAccount(client, rb, server.Config(), "") {
 					sendSuccessfulAccountAuth(nil, client, rb, true)
 				}
 			} else {
-				server.logger.Error("internal", "SCRAM succeeded but couldn't load account", accountName, err.Error())
+				server.logger.Error("internal", "SCRAM succeeded but couldn't load account", authcid, err.Error())
 				rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
 			}
 		} else {
