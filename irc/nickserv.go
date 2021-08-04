@@ -50,9 +50,9 @@ can use this command to list another user's clients.
 
 Syntax: $bCLIENTS LOGOUT [nickname] [client_id/all]$b
 
-CLIENTS LOGOUT detaches a single client, or all other clients currently
-attached, via the server's multiclient functionality, to your nickname. An
-administrator can use this command to logout another user's clients.`,
+CLIENTS LOGOUT detaches a single client, or all clients currently attached
+to your nickname. An administrator can use this command to logout another
+user's clients.`,
 			helpShort: `$bCLIENTS$b can list and logout the sessions attached to a nickname.`,
 			enabled:   servCmdRequiresBouncerEnabled,
 			minParams: 1,
