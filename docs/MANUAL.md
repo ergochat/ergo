@@ -721,6 +721,14 @@ To view the bans that exist on the channel, you can do this instead:
 
     /MODE #test b
 
+#### Extended Bans
+
+Users can be muted rather than banned by prefixing a ban mask with `m:`. This prevents matching users from speaking in the channel, without kicking them or preventing them from joining the channel. For example, to mute a user named **bob** in the channel #test:
+
+    /MODE #test +b m:bob!*@*
+
+The mute can be removed with `-b` instead of `+b`.
+
 ### +e - Ban-Exempt
 
 With this channel mode, you can change who's allowed to bypass bans. For example, let's say you set these modes on the channel:
