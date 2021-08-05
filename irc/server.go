@@ -373,7 +373,14 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	// continue registration
 	d := c.Details()
 	server.logger.Info("connect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
-	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
+	var buf strings.Builder
+	buf.WriteString("Client connected")
+	if session.deviceID != "" {
+		fmt.Fprintf(&buf, " from [d:%s]", session.deviceID)
+	}
+	fmt.Fprintf(&buf, " [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname)
+	line := buf.String()
+	server.snomasks.Send(sno.LocalConnects, ircfmt.Unescape(line))
 	if d.account != "" {
 		server.sendLoginSnomask(d.nickMask, d.accountName)
 	}

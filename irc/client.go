@@ -1315,8 +1315,16 @@ func (client *Client) destroy(session *Session) {
 			client.server.connectionLimiter.RemoveClient(flatip.FromNetIP(ip))
 			source = ip.String()
 		}
+		// generate disconn sno
+		var buf strings.Builder
+		fmt.Fprintf(&buf, "Client session disconnected for [a:%s]", details.accountName)
+		if session.deviceID != "" {
+			fmt.Fprintf(&buf, " [d:%s]", session.deviceID)
+		}
+		fmt.Fprintf(&buf, " [h:%s] [ip:%s]", session.rawHostname, source)
+		line := buf.String()
 		if !shouldDestroy {
-			client.server.snomasks.Send(sno.LocalDisconnects, fmt.Sprintf(ircfmt.Unescape("Client session disconnected for [a:%s] [h:%s] [ip:%s]"), details.accountName, session.rawHostname, source))
+			client.server.snomasks.Send(sno.LocalDisconnects, ircfmt.Unescape(line))
 		}
 		client.server.logger.Info("connect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
 	}
