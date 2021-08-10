@@ -230,7 +230,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 					appliedChange.Arg = maskAdded
 					applied = append(applied, appliedChange)
 				} else if err != nil {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
 				} else {
 					rb.Add(nil, client.server.name, ERR_LISTMODEALREADYSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list already contains %[2]s"), chname, mask))
 				}
@@ -242,7 +242,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 					appliedChange.Arg = maskRemoved
 					applied = append(applied, appliedChange)
 				} else if err != nil {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(mask), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), mask))
 				} else {
 					rb.Add(nil, client.server.name, ERR_LISTMODENOTSET, chname, mask, string(change.Mode), fmt.Sprintf(client.t("Channel %[1]s list does not contain %[2]s"), chname, mask))
 				}
@@ -267,9 +267,9 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case modes.Add:
 				ch := client.server.channels.Get(change.Arg)
 				if ch == nil {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("No such channel")))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("No such channel")))
 				} else if ch == channel {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("You can't forward a channel to itself")))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("You can't forward a channel to itself")))
 				} else {
 					if !ch.ClientIsAtLeast(client, modes.ChannelOperator) {
 						rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, details.nick, ch.Name(), client.t("You must be a channel operator in the channel you are forwarding to"))
@@ -291,7 +291,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 					channel.setKey(change.Arg)
 					applied = append(applied, change)
 				} else {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), change.Arg))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("Invalid mode %[1]s parameter: %[2]s"), string(change.Mode), change.Arg))
 				}
 			case modes.Remove:
 				channel.setKey("")
