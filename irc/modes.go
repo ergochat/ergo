@@ -148,11 +148,7 @@ func ParseDefaultUserModes(rawModes *string) modes.Modes {
 
 // #1021: channel key must be valid as a non-final parameter
 func validateChannelKey(key string) bool {
-	// empty string is valid in this context because it unsets the mode
-	if len(key) == 0 {
-		return true
-	}
-	return key[0] != ':' && strings.IndexByte(key, ' ') == -1
+	return key != "" && key[0] != ':' && strings.IndexByte(key, ' ') == -1
 }
 
 // ApplyChannelModeChanges applies a given set of mode changes.
