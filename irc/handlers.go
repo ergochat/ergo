@@ -1334,6 +1334,9 @@ func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	if len(msg.Params) > 2 {
 		comment = msg.Params[2]
 	}
+	if comment == "" {
+		comment = client.Nick()
+	}
 	for _, kick := range kicks {
 		channel := server.channels.Get(kick.channel)
 		if channel == nil {
@@ -1345,10 +1348,6 @@ func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		if target == nil {
 			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(kick.nick), client.t("No such nick"))
 			continue
-		}
-
-		if comment == "" {
-			comment = kick.nick
 		}
 		channel.Kick(client, target, comment, rb, hasPrivs)
 	}
