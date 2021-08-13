@@ -3011,7 +3011,7 @@ func userHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 	username, realname := msg.Params[0], msg.Params[3]
 	if len(realname) == 0 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), client.t("Not enough parameters"))
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "USER", client.t("Not enough parameters"))
 		return false
 	}
 
