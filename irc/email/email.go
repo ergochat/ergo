@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/smtp"
 )
 
@@ -42,6 +43,11 @@ type MailtoConfig struct {
 	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
 	blacklistRegexes     []*regexp.Regexp
 	Timeout              time.Duration
+	PasswordReset        struct {
+		Enabled  bool
+		Cooldown custime.Duration
+		Timeout  custime.Duration
+	} `yaml:"password-reset"`
 }
 
 func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {

@@ -387,6 +387,13 @@ accounts:
             blacklist-regexes:
             #    - ".*@mailinator.com"
             timeout: 60s
+            # email-based password reset:
+            password-reset:
+                enabled: false
+                # time before we allow resending the email
+                cooldown: 1h
+                # time for which a password reset code is valid
+                timeout: 1d
 
     # throttle account login attempts (to prevent either password guessing, or DoS
     # attacks on the server aimed at forcing repeated expensive bcrypt computations)
