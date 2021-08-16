@@ -1114,29 +1114,16 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		}
 	case 3:
 		target = client.Account()
+		newPassword = params[1]
 		if target == "" {
 			errorMessage = `You're not logged into an account`
-		} else if params[1] != params[2] {
+		} else if newPassword != params[2] {
 			errorMessage = `Passwords do not match`
 		} else {
 			if !nsLoginThrottleCheck(service, client, rb) {
 				return
 			}
 			errorMessage = nsConfirmPassword(server, target, params[0])
-			accountData, err := server.accounts.LoadAccount(target)
-			if err != nil {
-				errorMessage = `You're not logged into an account`
-			} else {
-				hash := accountData.Credentials.PassphraseHash
-				if hash != nil && passwd.CompareHashAndPassword(hash, []byte(params[0])) != nil {
-					errorMessage = `Password incorrect`
-				} else {
-					newPassword = params[1]
-					if newPassword == "*" {
-						newPassword = ""
-					}
-				}
-			}
 		}
 	default:
 		errorMessage = `Invalid parameters`

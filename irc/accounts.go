@@ -902,7 +902,9 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
 			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
 			tx.Set(credentialsKey, raw.Credentials, nil)
-			tx.Set(settingsKey, raw.Credentials, nil)
+			if settingsStr, settingsErr := tx.Get(settingsKey); settingsErr == nil {
+				tx.Set(settingsKey, settingsStr, nil)
+			}
 
 			var creds AccountCredentials
 			// XXX we shouldn't do (de)serialization inside the txn,
