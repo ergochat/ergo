@@ -986,8 +986,6 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 		return errValidEmailRequired
 	}
 
-	// TODO: touch the registration throttle here?
-
 	record := PasswordResetRecord{
 		TimeCreated: time.Now().UTC(),
 		Code:        utils.GenerateSecretToken(),
@@ -1041,7 +1039,10 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 	fmt.Fprintf(&message, "/MSG NickServ RESETPASS %s %s <new_password>\r\n", account.Name, record.Code)
 
 	err = email.SendMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, message.Bytes())
-	if err != nil {
+	if err == nil {
+		am.server.logger.Info("services",
+			fmt.Sprintf("client %s sent a password reset email for account %s", client.Nick(), account.Name))
+	} else {
 		am.server.logger.Error("internal", "Failed to dispatch e-mail to", account.Settings.Email, err.Error())
 	}
 	return

@@ -1484,10 +1484,16 @@ func suspensionToString(client *Client, suspension AccountSuspension) (result st
 }
 
 func nsSendpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+
+	account := params[0]
 	var message string
-	err := server.accounts.NsSendpass(client, params[0])
+	err := server.accounts.NsSendpass(client, account)
 	switch err {
 	case nil:
+		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf("Client %s sent a password reset for account %s", client.Nick(), account))
 		message = `Successfully sent password reset email`
 	case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended:
 		message = err.Error()
@@ -1503,6 +1509,10 @@ func nsSendpassHandler(service *ircService, server *Server, client *Client, comm
 }
 
 func nsResetpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+
 	var message string
 	err := server.accounts.NsResetpass(client, params[0], params[1], params[2])
 	switch err {
