@@ -335,18 +335,18 @@ information on the settings and their possible values, see HELP SET.`,
 
 SENDPASS sends a password reset email to the email address associated with
 the target account. The reset code in the email can then be used with the
-$bSETPASS$b command.`,
+$bRESETPASS$b command.`,
 			helpShort: `$bSENDPASS$b initiates an email-based password reset`,
 			enabled:   servCmdRequiresEmailReset,
 			minParams: 1,
 		},
-		"setpass": {
-			handler: nsSetpassHandler,
-			help: `Syntax: $bSETPASS <account> <code> <password>$b
+		"resetpass": {
+			handler: nsResetpassHandler,
+			help: `Syntax: $bRESETPASS <account> <code> <password>$b
 
-SETPASS resets an account password, using a reset code that was emailed as
+RESETPASS resets an account password, using a reset code that was emailed as
 the result of a previous $bSENDPASS$b command.`,
-			helpShort: `$bSETPASS$b completes an email-based password reset`,
+			helpShort: `$bRESETPASS$b completes an email-based password reset`,
 			enabled:   servCmdRequiresEmailReset,
 			minParams: 3,
 		},
@@ -1515,9 +1515,9 @@ func nsSendpassHandler(service *ircService, server *Server, client *Client, comm
 	rb.Notice(client.t(message))
 }
 
-func nsSetpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+func nsResetpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var message string
-	err := server.accounts.NsSetpass(client, params[0], params[1], params[2])
+	err := server.accounts.NsResetpass(client, params[0], params[1], params[2])
 	switch err {
 	case nil:
 		message = `Successfully reset account password`
@@ -1526,7 +1526,7 @@ func nsSetpassHandler(service *ircService, server *Server, client *Client, comma
 	case errAccountInvalidCredentials:
 		message = `Code did not match`
 	default:
-		server.logger.Error("services", "error in NS SETPASS", err.Error())
+		server.logger.Error("services", "error in NS RESETPASS", err.Error())
 		message = `An error occurred`
 	}
 	rb.Notice(client.t(message))

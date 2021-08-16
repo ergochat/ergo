@@ -1036,7 +1036,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 	message.WriteString("\r\n")
 	message.WriteString(client.t("Otherwise, to reset your password, issue the following command (replace <new_password> with your desired password):"))
 	message.WriteString("\r\n")
-	fmt.Fprintf(&message, "/MSG NickServ SETPASS %s %s <new_password>\r\n", account.Name, record.Code)
+	fmt.Fprintf(&message, "/MSG NickServ RESETPASS %s %s <new_password>\r\n", account.Name, record.Code)
 
 	err = email.SendMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, message.Bytes())
 	if err != nil {
@@ -1046,7 +1046,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 
 }
 
-func (am *AccountManager) NsSetpass(client *Client, accountName, code, password string) (err error) {
+func (am *AccountManager) NsResetpass(client *Client, accountName, code, password string) (err error) {
 	if validatePassphrase(password) != nil {
 		return errAccountBadPassphrase
 	}
