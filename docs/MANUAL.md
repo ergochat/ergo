@@ -183,7 +183,7 @@ The only major distribution that currently packages Ergo is Arch Linux; the afor
 
 1. Create a dedicated, unprivileged role user who will own the ergo process and all its associated files: `adduser --system --group ergo`. This user now has a home directory at `/home/ergo`. To prevent other users from viewing Ergo's configuration file, database, and certificates, restrict the permissions on the home directory: `chmod 0700 /home/ergo`.
 1. Copy the executable binary `ergo`, the config file `ircd.yaml`, the database `ircd.db`, and the self-signed TLS certificate (`fullchain.pem` and `privkey.pem`) to `/home/ergo`. (If you don't have an `ircd.db`, it will be auto-created as `/home/ergo/ircd.db` on first launch.) Ensure that they are all owned by the new ergo role user: `sudo chown ergo:ergo /home/ergo/*`. Ensure that the configuration file logs to stderr.
-1. Install our example [ergo.service](https://github.com/ergochat/ergo/blob/master/distrib/systemd/ergo.service) file to `/etc/systemd/system/ergo.service`.
+1. Install our example [ergo.service](https://github.com/ergochat/ergo/blob/stable/distrib/systemd/ergo.service) file to `/etc/systemd/system/ergo.service`.
 1. Enable and start the new service with the following commands:
     1. `systemctl daemon-reload`
     1. `systemctl enable ergo.service`
