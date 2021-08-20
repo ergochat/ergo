@@ -1,6 +1,6 @@
 module github.com/ergochat/ergo
 
-go 1.16
+go 1.17
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
@@ -23,6 +23,19 @@ require (
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/text v0.3.6
 	gopkg.in/yaml.v2 v2.4.0
+)
+
+require (
+	github.com/tidwall/btree v0.6.0 // indirect
+	github.com/tidwall/gjson v1.8.0 // indirect
+	github.com/tidwall/grect v0.1.2 // indirect
+	github.com/tidwall/match v1.0.3 // indirect
+	github.com/tidwall/pretty v1.1.0 // indirect
+	github.com/tidwall/rtred v0.1.2 // indirect
+	github.com/tidwall/tinyqueue v0.1.1 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
 )
 
 replace github.com/gorilla/websocket => github.com/ergochat/websocket v1.4.2-oragono1
