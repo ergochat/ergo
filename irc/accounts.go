@@ -4,7 +4,6 @@
 package irc
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/json"
@@ -46,6 +45,7 @@ const (
 	keyAccountRealname         = "account.realname %s"  // client realname stored as string
 	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
 	keyAccountPwReset          = "account.pwreset %s"
+	keyAccountEmailChange      = "account.emailchange %s"
 	// for an always-on client, a map of channel names they're in to their current modes
 	// (not to be confused with their amodes, which a non-always-on client can have):
 	keyAccountChannelToModes = "account.channeltomodes %s"
@@ -790,15 +790,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, account string,
 		subject = fmt.Sprintf(client.t("Verify your account on %s"), am.server.name)
 	}
 
-	var message bytes.Buffer
-	fmt.Fprintf(&message, "From: %s\r\n", config.Sender)
-	fmt.Fprintf(&message, "To: %s\r\n", callbackValue)
-	if config.DKIM.Domain != "" {
-		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), config.DKIM.Domain)
-	}
-	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
-	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
-	message.WriteString("\r\n") // blank line: end headers, begin message body
+	message := email.ComposeMail(config, callbackValue, subject)
 	fmt.Fprintf(&message, client.t("Account: %s"), account)
 	message.WriteString("\r\n")
 	fmt.Fprintf(&message, client.t("Verification code: %s"), code)
@@ -964,6 +956,104 @@ func (am *AccountManager) SARegister(account, passphrase string) (err error) {
 	return
 }
 
+type EmailChangeRecord struct {
+	TimeCreated time.Time
+	Code        string
+	Email       string
+}
+
+func (am *AccountManager) NsSetEmail(client *Client, emailAddr string) (err error) {
+	casefoldedAccount := client.Account()
+	if casefoldedAccount == "" {
+		return errAccountNotLoggedIn
+	}
+
+	if am.touchRegisterThrottle() {
+		am.server.logger.Warning("accounts", "global registration throttle exceeded by client changing email", client.Nick())
+		return errLimitExceeded
+	}
+
+	config := am.server.Config()
+	record := EmailChangeRecord{
+		TimeCreated: time.Now().UTC(),
+		Code:        utils.GenerateSecretToken(),
+		Email:       emailAddr,
+	}
+	recordKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	recordBytes, _ := json.Marshal(record)
+	recordVal := string(recordBytes)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		recStr, recErr := tx.Get(recordKey)
+		if recErr == nil && recStr != "" {
+			var existing PasswordResetRecord
+			jErr := json.Unmarshal([]byte(recStr), &existing)
+			cooldown := time.Duration(config.Accounts.Registration.EmailVerification.PasswordReset.Cooldown)
+			if jErr == nil && time.Since(existing.TimeCreated) < cooldown {
+				err = errLimitExceeded
+				return nil
+			}
+		}
+		tx.Set(recordKey, recordVal, nil)
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	message := email.ComposeMail(config.Accounts.Registration.EmailVerification,
+		emailAddr,
+		fmt.Sprintf(client.t("Verify your change of e-mail address on %s"), am.server.name))
+	message.WriteString(fmt.Sprintf(client.t("To confirm your change of e-mail address on %s, issue the following command:"), am.server.name))
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, "/MSG NickServ VERIFYEMAIL %s\r\n", record.Code)
+
+	err = email.SendMail(config.Accounts.Registration.EmailVerification, emailAddr, message.Bytes())
+	if err == nil {
+		am.server.logger.Info("services",
+			fmt.Sprintf("email change verification sent for account %s", casefoldedAccount))
+		return
+	} else {
+		am.server.logger.Error("internal", "Failed to dispatch e-mail change verification to", emailAddr, err.Error())
+		return &registrationCallbackError{err}
+	}
+}
+
+func (am *AccountManager) NsVerifyEmail(client *Client, code string) (err error) {
+	casefoldedAccount := client.Account()
+	if casefoldedAccount == "" {
+		return errAccountNotLoggedIn
+	}
+
+	var record EmailChangeRecord
+	success := false
+	key := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		rawStr, err := tx.Get(key)
+		if err == nil && rawStr != "" {
+			err := json.Unmarshal([]byte(rawStr), &record)
+			if err == nil && utils.SecretTokensMatch(record.Code, code) {
+				success = true
+				tx.Delete(key)
+			}
+		}
+		return nil
+	})
+
+	if !success {
+		return errAccountVerificationInvalidCode
+	}
+
+	munger := func(in AccountSettings) (out AccountSettings, err error) {
+		out = in
+		out.Email = record.Email
+		return
+	}
+
+	_, err = am.ModifyAccountSettings(casefoldedAccount, munger)
+	return
+}
+
 func (am *AccountManager) NsSendpass(client *Client, accountName string) (err error) {
 	config := am.server.Config()
 	if !(config.Accounts.Registration.EmailVerification.Enabled && config.Accounts.Registration.EmailVerification.PasswordReset.Enabled) {
@@ -1015,26 +1105,15 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 	}
 
 	subject := fmt.Sprintf(client.t("Reset your password on %s"), am.server.name)
-
-	var message bytes.Buffer
-	fmt.Fprintf(&message, "From: %s\r\n", config.Accounts.Registration.EmailVerification.Sender)
-	fmt.Fprintf(&message, "To: %s\r\n", account.Settings.Email)
-	// TODO move this to the email sender?
-	dkimDomain := config.Accounts.Registration.EmailVerification.DKIM.Domain
-	if dkimDomain != "" {
-		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), dkimDomain)
-	}
-	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
-	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
-	message.WriteString("\r\n") // blank line: end headers, begin message body
+	message := email.ComposeMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, subject)
 	fmt.Fprintf(&message, client.t("We received a request to reset your password on %s for account: %s"), am.server.name, account.Name)
 	message.WriteString("\r\n")
 	fmt.Fprintf(&message, client.t("If you did not initiate this request, you can safely ignore this message."))
 	message.WriteString("\r\n")
 	message.WriteString("\r\n")
-	message.WriteString(client.t("Otherwise, to reset your password, issue the following command (replace <new_password> with your desired password):"))
+	message.WriteString(client.t("Otherwise, to reset your password, issue the following command (replace `new_password` with your desired password):"))
 	message.WriteString("\r\n")
-	fmt.Fprintf(&message, "/MSG NickServ RESETPASS %s %s <new_password>\r\n", account.Name, record.Code)
+	fmt.Fprintf(&message, "/MSG NickServ RESETPASS %s %s new_password\r\n", account.Name, record.Code)
 
 	err = email.SendMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, message.Bytes())
 	if err == nil {
@@ -1666,6 +1745,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	realnameKey := fmt.Sprintf(keyAccountRealname, casefoldedAccount)
 	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
 	pwResetKey := fmt.Sprintf(keyAccountPwReset, casefoldedAccount)
+	emailChangeKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1726,6 +1806,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(realnameKey)
 		tx.Delete(suspendedKey)
 		tx.Delete(pwResetKey)
+		tx.Delete(emailChangeKey)
 
 		return nil
 	})

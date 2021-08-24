@@ -389,6 +389,12 @@ Currently, you can only change the canonical casefolding of an account
 			minParams: 2,
 			capabs:    []string{"accreg"},
 		},
+		"verifyemail": {
+			handler:      nsVerifyEmailHandler,
+			authRequired: true,
+			minParams:    1,
+			hidden:       true,
+		},
 	}
 )
 
@@ -522,10 +528,17 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 		account = client.Account()
 	}
 
+	key := strings.ToLower(params[0])
+	// unprivileged NS SET EMAIL is different because it requires a confirmation
+	if !privileged && key == "email" {
+		nsSetEmailHandler(service, client, params, rb)
+		return
+	}
+
 	var munger settingsMunger
 	var finalSettings AccountSettings
 	var err error
-	switch strings.ToLower(params[0]) {
+	switch key {
 	case "pass", "password":
 		service.Notice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
@@ -644,20 +657,6 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 		}
 	case "email":
 		newValue := params[1]
-		if !privileged {
-			if !nsLoginThrottleCheck(service, client, rb) {
-				return
-			}
-			var password string
-			if len(params) > 2 {
-				password = params[2]
-			}
-			errorMessage := nsConfirmPassword(server, account, password)
-			if errorMessage != "" {
-				service.Notice(rb, client.t(errorMessage))
-				return
-			}
-		}
 		munger = func(in AccountSettings) (out AccountSettings, err error) {
 			out = in
 			out.Email = newValue
@@ -674,13 +673,62 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 	switch err {
 	case nil:
 		service.Notice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(service, params[0], finalSettings, client, rb)
+		displaySetting(service, key, finalSettings, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
 		service.Notice(rb, client.t(err.Error()))
 	case errNickAccountMismatch:
 		service.Notice(rb, fmt.Sprintf(client.t("Your nickname must match your account name %s exactly to modify this setting. Try changing it with /NICK, or logging out and back in with the correct nickname."), client.AccountName()))
 	default:
 		// unknown error
+		service.Notice(rb, client.t("An error occurred"))
+	}
+}
+
+// handle unprivileged NS SET EMAIL, which sends a confirmation code
+func nsSetEmailHandler(service *ircService, client *Client, params []string, rb *ResponseBuffer) {
+	config := client.server.Config()
+	if !config.Accounts.Registration.EmailVerification.Enabled {
+		rb.Notice(client.t("E-mail verification is disabled"))
+		return
+	}
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+	var password string
+	if len(params) > 2 {
+		password = params[2]
+	}
+	account := client.Account()
+	errorMessage := nsConfirmPassword(client.server, account, password)
+	if errorMessage != "" {
+		service.Notice(rb, client.t(errorMessage))
+		return
+	}
+	err := client.server.accounts.NsSetEmail(client, params[1])
+	switch err {
+	case nil:
+		service.Notice(rb, client.t("Check your e-mail for instructions on how to confirm your change of address"))
+	case errLimitExceeded:
+		service.Notice(rb, client.t("Try again later"))
+	default:
+		// if appropriate, show the client the error from the attempted email sending
+		if rErr := registrationCallbackErrorText(config, client, err); rErr != "" {
+			service.Notice(rb, rErr)
+		} else {
+			service.Notice(rb, client.t("An error occurred"))
+		}
+	}
+}
+
+func nsVerifyEmailHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.NsVerifyEmail(client, params[0])
+	switch err {
+	case nil:
+		service.Notice(rb, client.t("Successfully changed your account settings"))
+		displaySetting(service, "email", client.AccountSettings(), client, rb)
+	case errAccountVerificationInvalidCode:
+		service.Notice(rb, client.t(err.Error()))
+	default:
 		service.Notice(rb, client.t("An error occurred"))
 	}
 }
