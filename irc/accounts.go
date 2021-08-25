@@ -892,7 +892,6 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			tx.Set(accountKey, "1", nil)
 			tx.Set(accountNameKey, raw.Name, nil)
 			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
-			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
 			tx.Set(credentialsKey, raw.Credentials, nil)
 			tx.Set(settingsKey, raw.Settings, nil)
 
@@ -974,6 +973,9 @@ func (am *AccountManager) NsSetEmail(client *Client, emailAddr string) (err erro
 	}
 
 	config := am.server.Config()
+	if !config.Accounts.Registration.EmailVerification.Enabled {
+		return errFeatureDisabled // redundant check, just in case
+	}
 	record := EmailChangeRecord{
 		TimeCreated: time.Now().UTC(),
 		Code:        utils.GenerateSecretToken(),
@@ -1028,13 +1030,16 @@ func (am *AccountManager) NsVerifyEmail(client *Client, code string) (err error)
 	var record EmailChangeRecord
 	success := false
 	key := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	ttl := time.Duration(am.server.Config().Accounts.Registration.VerifyTimeout)
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		rawStr, err := tx.Get(key)
 		if err == nil && rawStr != "" {
 			err := json.Unmarshal([]byte(rawStr), &record)
-			if err == nil && utils.SecretTokensMatch(record.Code, code) {
-				success = true
-				tx.Delete(key)
+			if err == nil {
+				if (ttl == 0 || time.Since(record.TimeCreated) < ttl) && utils.SecretTokensMatch(record.Code, code) {
+					success = true
+					tx.Delete(key)
+				}
 			}
 		}
 		return nil
@@ -2150,17 +2155,19 @@ const (
 	CredentialsAnope  = -2
 )
 
+type SCRAMCreds struct {
+	Salt      []byte
+	Iters     int
+	StoredKey []byte
+	ServerKey []byte
+}
+
 // AccountCredentials stores the various methods for verifying accounts.
 type AccountCredentials struct {
 	Version        CredentialsVersion
 	PassphraseHash []byte
 	Certfps        []string
-	SCRAMCreds     struct {
-		Salt      []byte
-		Iters     int
-		StoredKey []byte
-		ServerKey []byte
-	}
+	SCRAMCreds
 }
 
 func (ac *AccountCredentials) Empty() bool {
@@ -2180,6 +2187,7 @@ func (ac *AccountCredentials) Serialize() (result string, err error) {
 func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) (err error) {
 	if passphrase == "" {
 		ac.PassphraseHash = nil
+		ac.SCRAMCreds = SCRAMCreds{}
 		return nil
 	}
 
@@ -2204,10 +2212,12 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 	// xdg-go/scram says: "Clients have a default minimum PBKDF2 iteration count of 4096."
 	minIters := 4096
 	scramCreds := scramClient.GetStoredCredentials(scram.KeyFactors{Salt: string(salt), Iters: minIters})
-	ac.SCRAMCreds.Salt = salt
-	ac.SCRAMCreds.Iters = minIters
-	ac.SCRAMCreds.StoredKey = scramCreds.StoredKey
-	ac.SCRAMCreds.ServerKey = scramCreds.ServerKey
+	ac.SCRAMCreds = SCRAMCreds{
+		Salt:      salt,
+		Iters:     minIters,
+		StoredKey: scramCreds.StoredKey,
+		ServerKey: scramCreds.ServerKey,
+	}
 
 	return nil
 }

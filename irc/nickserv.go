@@ -1163,6 +1163,9 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 	case 3:
 		target = client.Account()
 		newPassword = params[1]
+		if newPassword == "*" {
+			newPassword = ""
+		}
 		if target == "" {
 			errorMessage = `You're not logged into an account`
 		} else if newPassword != params[2] {
