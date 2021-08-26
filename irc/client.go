@@ -613,11 +613,7 @@ func (client *Client) getIPNoMutex() net.IP {
 
 // IPString returns the IP address of this client as a string.
 func (client *Client) IPString() string {
-	ip := client.IP().String()
-	if 0 < len(ip) && ip[0] == ':' {
-		ip = "0" + ip
-	}
-	return ip
+	return utils.IPStringToHostname(client.IP().String())
 }
 
 // t returns the translated version of the given string, based on the languages configured by the client.
