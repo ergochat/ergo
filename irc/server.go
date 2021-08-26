@@ -482,7 +482,8 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 		}
 	}
 	if client == target || oper.HasRoleCapab("ban") {
-		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, target.RawHostname()), target.IPString(), client.t("Actual user@host, Actual IP"))
+		ip, hostname := target.getWhoisActually()
+		rb.Add(nil, client.server.name, RPL_WHOISACTUALLY, cnick, tnick, fmt.Sprintf("%s@%s", targetInfo.username, hostname), utils.IPStringToHostname(ip.String()), client.t("Actual user@host, Actual IP"))
 	}
 	if client == target || oper.HasRoleCapab("samode") {
 		rb.Add(nil, client.server.name, RPL_WHOISMODES, cnick, tnick, fmt.Sprintf(client.t("is using modes +%s"), target.modes.String()))

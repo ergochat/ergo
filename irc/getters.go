@@ -145,6 +145,17 @@ func (client *Client) removeSession(session *Session) (success bool, length int)
 	return
 }
 
+// #1650: show an arbitrarily chosen session IP and hostname in RPL_WHOISACTUALLY
+func (client *Client) getWhoisActually() (ip net.IP, hostname string) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	for _, session := range client.sessions {
+		return session.IP(), session.rawHostname
+	}
+	return utils.IPv4LoopbackAddress, client.server.name
+}
+
 func (client *Client) Nick() string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
