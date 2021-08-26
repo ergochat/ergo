@@ -36,6 +36,11 @@ func servCmdRequiresBouncerEnabled(config *Config) bool {
 	return config.Accounts.Multiclient.Enabled
 }
 
+func servCmdRequiresEmailReset(config *Config) bool {
+	return config.Accounts.Registration.EmailVerification.Enabled &&
+		config.Accounts.Registration.EmailVerification.PasswordReset.Enabled
+}
+
 const nickservHelp = `NickServ lets you register, log in to, and manage an account.`
 
 var (
@@ -302,6 +307,12 @@ how the history of your direct messages is stored. Your options are:
 'auto-away' is only effective for always-on clients. If enabled, you will
 automatically be marked away when all your sessions are disconnected, and
 automatically return from away when you connect again.`,
+				`$bEMAIL$b
+'email' controls the e-mail address associated with your account (if the
+server operator allows it, this address can be used for password resets).
+As an additional security measure, if you have a password set, you must
+provide it as an additional argument to $bSET$b, for example,
+SET EMAIL test@example.com hunter2`,
 			},
 			authRequired: true,
 			enabled:      servCmdRequiresAuthEnabled,
@@ -317,6 +328,27 @@ information on the settings and their possible values, see HELP SET.`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 3,
 			capabs:    []string{"accreg"},
+		},
+		"sendpass": {
+			handler: nsSendpassHandler,
+			help: `Syntax: $bSENDPASS <account>$b
+
+SENDPASS sends a password reset email to the email address associated with
+the target account. The reset code in the email can then be used with the
+$bRESETPASS$b command.`,
+			helpShort: `$bSENDPASS$b initiates an email-based password reset`,
+			enabled:   servCmdRequiresEmailReset,
+			minParams: 1,
+		},
+		"resetpass": {
+			handler: nsResetpassHandler,
+			help: `Syntax: $bRESETPASS <account> <code> <password>$b
+
+RESETPASS resets an account password, using a reset code that was emailed as
+the result of a previous $bSENDPASS$b command.`,
+			helpShort: `$bRESETPASS$b completes an email-based password reset`,
+			enabled:   servCmdRequiresEmailReset,
+			minParams: 3,
 		},
 		"cert": {
 			handler: nsCertHandler,
@@ -356,6 +388,12 @@ Currently, you can only change the canonical casefolding of an account
 			helpShort: `$bRENAME$b renames an account`,
 			minParams: 2,
 			capabs:    []string{"accreg"},
+		},
+		"verifyemail": {
+			handler:      nsVerifyEmailHandler,
+			authRequired: true,
+			minParams:    1,
+			hidden:       true,
 		},
 	}
 )
@@ -459,7 +497,12 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 		effectiveValue := historyEnabled(config.History.Persistent.DirectMessages, settings.DMHistory)
 		service.Notice(rb, fmt.Sprintf(client.t("Your stored direct message history setting is: %s"), historyStatusToString(settings.DMHistory)))
 		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, your direct message history setting is: %s"), historyStatusToString(effectiveValue)))
-
+	case "email":
+		if settings.Email != "" {
+			service.Notice(rb, fmt.Sprintf(client.t("Your stored e-mail address is: %s"), settings.Email))
+		} else {
+			service.Notice(rb, client.t("You have no stored e-mail address"))
+		}
 	default:
 		service.Notice(rb, client.t("No such setting"))
 	}
@@ -475,18 +518,27 @@ func userPersistentStatusToString(status PersistentStatus) string {
 }
 
 func nsSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	var privileged bool
 	var account string
 	if command == "saset" {
+		privileged = true
 		account = params[0]
 		params = params[1:]
 	} else {
 		account = client.Account()
 	}
 
+	key := strings.ToLower(params[0])
+	// unprivileged NS SET EMAIL is different because it requires a confirmation
+	if !privileged && key == "email" {
+		nsSetEmailHandler(service, client, params, rb)
+		return
+	}
+
 	var munger settingsMunger
 	var finalSettings AccountSettings
 	var err error
-	switch strings.ToLower(params[0]) {
+	switch key {
 	case "pass", "password":
 		service.Notice(rb, client.t("To change a password, use the PASSWD command. For details, /msg NickServ HELP PASSWD"))
 		return
@@ -603,6 +655,13 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 				return
 			}
 		}
+	case "email":
+		newValue := params[1]
+		munger = func(in AccountSettings) (out AccountSettings, err error) {
+			out = in
+			out.Email = newValue
+			return
+		}
 	default:
 		err = errInvalidParams
 	}
@@ -614,13 +673,62 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 	switch err {
 	case nil:
 		service.Notice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(service, params[0], finalSettings, client, rb)
+		displaySetting(service, key, finalSettings, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
 		service.Notice(rb, client.t(err.Error()))
 	case errNickAccountMismatch:
 		service.Notice(rb, fmt.Sprintf(client.t("Your nickname must match your account name %s exactly to modify this setting. Try changing it with /NICK, or logging out and back in with the correct nickname."), client.AccountName()))
 	default:
 		// unknown error
+		service.Notice(rb, client.t("An error occurred"))
+	}
+}
+
+// handle unprivileged NS SET EMAIL, which sends a confirmation code
+func nsSetEmailHandler(service *ircService, client *Client, params []string, rb *ResponseBuffer) {
+	config := client.server.Config()
+	if !config.Accounts.Registration.EmailVerification.Enabled {
+		rb.Notice(client.t("E-mail verification is disabled"))
+		return
+	}
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+	var password string
+	if len(params) > 2 {
+		password = params[2]
+	}
+	account := client.Account()
+	errorMessage := nsConfirmPassword(client.server, account, password)
+	if errorMessage != "" {
+		service.Notice(rb, client.t(errorMessage))
+		return
+	}
+	err := client.server.accounts.NsSetEmail(client, params[1])
+	switch err {
+	case nil:
+		service.Notice(rb, client.t("Check your e-mail for instructions on how to confirm your change of address"))
+	case errLimitExceeded:
+		service.Notice(rb, client.t("Try again later"))
+	default:
+		// if appropriate, show the client the error from the attempted email sending
+		if rErr := registrationCallbackErrorText(config, client, err); rErr != "" {
+			service.Notice(rb, rErr)
+		} else {
+			service.Notice(rb, client.t("An error occurred"))
+		}
+	}
+}
+
+func nsVerifyEmailHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	err := server.accounts.NsVerifyEmail(client, params[0])
+	switch err {
+	case nil:
+		service.Notice(rb, client.t("Successfully changed your account settings"))
+		displaySetting(service, "email", client.AccountSettings(), client, rb)
+	case errAccountVerificationInvalidCode:
+		service.Notice(rb, client.t(err.Error()))
+	default:
 		service.Notice(rb, client.t("An error occurred"))
 	}
 }
@@ -815,8 +923,8 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	service.Notice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
 
 	if account.Name == client.AccountName() || client.HasRoleCapabs("accreg") {
-		if account.Email != "" {
-			service.Notice(rb, fmt.Sprintf(client.t("Email address: %s"), account.Email))
+		if account.Settings.Email != "" {
+			service.Notice(rb, fmt.Sprintf(client.t("Email address: %s"), account.Settings.Email))
 		}
 	}
 
@@ -1018,6 +1126,19 @@ func nsVerifyHandler(service *ircService, server *Server, client *Client, comman
 	}
 }
 
+func nsConfirmPassword(server *Server, account, passphrase string) (errorMessage string) {
+	accountData, err := server.accounts.LoadAccount(account)
+	if err != nil {
+		errorMessage = `You're not logged into an account`
+	} else {
+		hash := accountData.Credentials.PassphraseHash
+		if hash != nil && passwd.CompareHashAndPassword(hash, []byte(passphrase)) != nil {
+			errorMessage = `Password incorrect`
+		}
+	}
+	return
+}
+
 func nsPasswdHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var target string
 	var newPassword string
@@ -1041,28 +1162,19 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		}
 	case 3:
 		target = client.Account()
+		newPassword = params[1]
+		if newPassword == "*" {
+			newPassword = ""
+		}
 		if target == "" {
 			errorMessage = `You're not logged into an account`
-		} else if params[1] != params[2] {
+		} else if newPassword != params[2] {
 			errorMessage = `Passwords do not match`
 		} else {
 			if !nsLoginThrottleCheck(service, client, rb) {
 				return
 			}
-			accountData, err := server.accounts.LoadAccount(target)
-			if err != nil {
-				errorMessage = `You're not logged into an account`
-			} else {
-				hash := accountData.Credentials.PassphraseHash
-				if hash != nil && passwd.CompareHashAndPassword(hash, []byte(params[0])) != nil {
-					errorMessage = `Password incorrect`
-				} else {
-					newPassword = params[1]
-					if newPassword == "*" {
-						newPassword = ""
-					}
-				}
-			}
+			errorMessage = nsConfirmPassword(server, target, params[0])
 		}
 	default:
 		errorMessage = `Invalid parameters`
@@ -1420,6 +1532,52 @@ func suspensionToString(client *Client, suspension AccountSuspension) (result st
 		reason = fmt.Sprintf(client.t("Reason: %s"), suspension.Reason)
 	}
 	return fmt.Sprintf(client.t("Account %[1]s suspended at %[2]s. Duration: %[3]s. %[4]s"), suspension.AccountName, ts, duration, reason)
+}
+
+func nsSendpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+
+	account := params[0]
+	var message string
+	err := server.accounts.NsSendpass(client, account)
+	switch err {
+	case nil:
+		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf("Client %s sent a password reset for account %s", client.Nick(), account))
+		message = `Successfully sent password reset email`
+	case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended:
+		message = err.Error()
+	case errValidEmailRequired:
+		message = `That account is not associated with an email address`
+	case errLimitExceeded:
+		message = `Try again later`
+	default:
+		server.logger.Error("services", "error in NS SENDPASS", err.Error())
+		message = `An error occurred`
+	}
+	rb.Notice(client.t(message))
+}
+
+func nsResetpassHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	if !nsLoginThrottleCheck(service, client, rb) {
+		return
+	}
+
+	var message string
+	err := server.accounts.NsResetpass(client, params[0], params[1], params[2])
+	switch err {
+	case nil:
+		message = `Successfully reset account password`
+	case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended, errAccountBadPassphrase:
+		message = err.Error()
+	case errAccountInvalidCredentials:
+		message = `Code did not match`
+	default:
+		server.logger.Error("services", "error in NS RESETPASS", err.Error())
+		message = `An error occurred`
+	}
+	rb.Notice(client.t(message))
 }
 
 func nsRenameHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {

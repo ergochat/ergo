@@ -354,7 +354,14 @@ func SendMail(addr string, a Auth, heloDomain string, from string, to []string, 
 		return err
 	}
 	if ok, _ := c.Extension("STARTTLS"); ok {
-		config := &tls.Config{ServerName: c.serverName}
+		var config *tls.Config
+		if requireTLS {
+			config = &tls.Config{ServerName: c.serverName}
+		} else {
+			// if TLS isn't a hard requirement, don't verify the certificate either,
+			// since a MITM attacker could just remove the STARTTLS advertisement
+			config = &tls.Config{InsecureSkipVerify: true}
+		}
 		if testHookStartTLS != nil {
 			testHookStartTLS(config)
 		}

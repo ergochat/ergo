@@ -4,7 +4,6 @@
 package irc
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/json"
@@ -32,7 +31,6 @@ const (
 	keyAccountExists           = "account.exists %s"
 	keyAccountVerified         = "account.verified %s"
 	keyAccountUnregistered     = "account.unregistered %s"
-	keyAccountCallback         = "account.callback %s"
 	keyAccountVerificationCode = "account.verificationcode %s"
 	keyAccountName             = "account.name %s" // stores the 'preferred name' of the account, not casemapped
 	keyAccountRegTime          = "account.registered.time %s"
@@ -46,6 +44,8 @@ const (
 	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
 	keyAccountRealname         = "account.realname %s"  // client realname stored as string
 	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
+	keyAccountPwReset          = "account.pwreset %s"
+	keyAccountEmailChange      = "account.emailchange %s"
 	// for an always-on client, a map of channel names they're in to their current modes
 	// (not to be confused with their amodes, which a non-always-on client can have):
 	keyAccountChannelToModes = "account.channeltomodes %s"
@@ -391,10 +391,10 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
-	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
+	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
 	var creds AccountCredentials
@@ -409,8 +409,16 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		return err
 	}
 
+	var settingsStr string
+	if callbackNamespace == "mailto" {
+		settings := AccountSettings{Email: callbackValue}
+		j, err := json.Marshal(settings)
+		if err == nil {
+			settingsStr = string(j)
+		}
+	}
+
 	registeredTimeStr := strconv.FormatInt(time.Now().UnixNano(), 10)
-	callbackSpec := fmt.Sprintf("%s:%s", callbackNamespace, callbackValue)
 
 	var setOptions *buntdb.SetOptions
 	ttl := time.Duration(config.Accounts.Registration.VerifyTimeout)
@@ -449,7 +457,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			tx.Set(accountNameKey, account, setOptions)
 			tx.Set(registeredTimeKey, registeredTimeStr, setOptions)
 			tx.Set(credentialsKey, credStr, setOptions)
-			tx.Set(callbackKey, callbackSpec, setOptions)
+			tx.Set(settingsKey, settingsStr, setOptions)
 			if certfp != "" {
 				tx.Set(certFPKey, casefoldedAccount, setOptions)
 			}
@@ -782,15 +790,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, account string,
 		subject = fmt.Sprintf(client.t("Verify your account on %s"), am.server.name)
 	}
 
-	var message bytes.Buffer
-	fmt.Fprintf(&message, "From: %s\r\n", config.Sender)
-	fmt.Fprintf(&message, "To: %s\r\n", callbackValue)
-	if config.DKIM.Domain != "" {
-		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), config.DKIM.Domain)
-	}
-	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
-	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
-	message.WriteString("\r\n") // blank line: end headers, begin message body
+	message := email.ComposeMail(config, callbackValue, subject)
 	fmt.Fprintf(&message, client.t("Account: %s"), account)
 	message.WriteString("\r\n")
 	fmt.Fprintf(&message, client.t("Verification code: %s"), code)
@@ -823,8 +823,8 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
-	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
+	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 
 	var raw rawClientAccount
 
@@ -892,8 +892,8 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 			tx.Set(accountKey, "1", nil)
 			tx.Set(accountNameKey, raw.Name, nil)
 			tx.Set(registeredTimeKey, raw.RegisteredAt, nil)
-			tx.Set(callbackKey, raw.Callback, nil)
 			tx.Set(credentialsKey, raw.Credentials, nil)
+			tx.Set(settingsKey, raw.Settings, nil)
 
 			var creds AccountCredentials
 			// XXX we shouldn't do (de)serialization inside the txn,
@@ -953,6 +953,214 @@ func (am *AccountManager) SARegister(account, passphrase string) (err error) {
 		err = am.Verify(nil, account, "")
 	}
 	return
+}
+
+type EmailChangeRecord struct {
+	TimeCreated time.Time
+	Code        string
+	Email       string
+}
+
+func (am *AccountManager) NsSetEmail(client *Client, emailAddr string) (err error) {
+	casefoldedAccount := client.Account()
+	if casefoldedAccount == "" {
+		return errAccountNotLoggedIn
+	}
+
+	if am.touchRegisterThrottle() {
+		am.server.logger.Warning("accounts", "global registration throttle exceeded by client changing email", client.Nick())
+		return errLimitExceeded
+	}
+
+	config := am.server.Config()
+	if !config.Accounts.Registration.EmailVerification.Enabled {
+		return errFeatureDisabled // redundant check, just in case
+	}
+	record := EmailChangeRecord{
+		TimeCreated: time.Now().UTC(),
+		Code:        utils.GenerateSecretToken(),
+		Email:       emailAddr,
+	}
+	recordKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	recordBytes, _ := json.Marshal(record)
+	recordVal := string(recordBytes)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(recordKey, recordVal, nil)
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	message := email.ComposeMail(config.Accounts.Registration.EmailVerification,
+		emailAddr,
+		fmt.Sprintf(client.t("Verify your change of e-mail address on %s"), am.server.name))
+	message.WriteString(fmt.Sprintf(client.t("To confirm your change of e-mail address on %s, issue the following command:"), am.server.name))
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, "/MSG NickServ VERIFYEMAIL %s\r\n", record.Code)
+
+	err = email.SendMail(config.Accounts.Registration.EmailVerification, emailAddr, message.Bytes())
+	if err == nil {
+		am.server.logger.Info("services",
+			fmt.Sprintf("email change verification sent for account %s", casefoldedAccount))
+		return
+	} else {
+		am.server.logger.Error("internal", "Failed to dispatch e-mail change verification to", emailAddr, err.Error())
+		return &registrationCallbackError{err}
+	}
+}
+
+func (am *AccountManager) NsVerifyEmail(client *Client, code string) (err error) {
+	casefoldedAccount := client.Account()
+	if casefoldedAccount == "" {
+		return errAccountNotLoggedIn
+	}
+
+	var record EmailChangeRecord
+	success := false
+	key := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	ttl := time.Duration(am.server.Config().Accounts.Registration.VerifyTimeout)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		rawStr, err := tx.Get(key)
+		if err == nil && rawStr != "" {
+			err := json.Unmarshal([]byte(rawStr), &record)
+			if err == nil {
+				if (ttl == 0 || time.Since(record.TimeCreated) < ttl) && utils.SecretTokensMatch(record.Code, code) {
+					success = true
+					tx.Delete(key)
+				}
+			}
+		}
+		return nil
+	})
+
+	if !success {
+		return errAccountVerificationInvalidCode
+	}
+
+	munger := func(in AccountSettings) (out AccountSettings, err error) {
+		out = in
+		out.Email = record.Email
+		return
+	}
+
+	_, err = am.ModifyAccountSettings(casefoldedAccount, munger)
+	return
+}
+
+func (am *AccountManager) NsSendpass(client *Client, accountName string) (err error) {
+	config := am.server.Config()
+	if !(config.Accounts.Registration.EmailVerification.Enabled && config.Accounts.Registration.EmailVerification.PasswordReset.Enabled) {
+		return errFeatureDisabled
+	}
+
+	account, err := am.LoadAccount(accountName)
+	if err != nil {
+		return err
+	}
+	if !account.Verified {
+		return errAccountUnverified
+	}
+	if account.Suspended != nil {
+		return errAccountSuspended
+	}
+	if account.Settings.Email == "" {
+		return errValidEmailRequired
+	}
+
+	record := PasswordResetRecord{
+		TimeCreated: time.Now().UTC(),
+		Code:        utils.GenerateSecretToken(),
+	}
+	recordKey := fmt.Sprintf(keyAccountPwReset, account.NameCasefolded)
+	recordBytes, _ := json.Marshal(record)
+	recordVal := string(recordBytes)
+
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		recStr, recErr := tx.Get(recordKey)
+		if recErr == nil && recStr != "" {
+			var existing PasswordResetRecord
+			jErr := json.Unmarshal([]byte(recStr), &existing)
+			cooldown := time.Duration(config.Accounts.Registration.EmailVerification.PasswordReset.Cooldown)
+			if jErr == nil && time.Since(existing.TimeCreated) < cooldown {
+				err = errLimitExceeded
+				return nil
+			}
+		}
+		tx.Set(recordKey, recordVal, &buntdb.SetOptions{
+			Expires: true,
+			TTL:     time.Duration(config.Accounts.Registration.EmailVerification.PasswordReset.Timeout),
+		})
+		return nil
+	})
+
+	if err != nil {
+		return
+	}
+
+	subject := fmt.Sprintf(client.t("Reset your password on %s"), am.server.name)
+	message := email.ComposeMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, subject)
+	fmt.Fprintf(&message, client.t("We received a request to reset your password on %s for account: %s"), am.server.name, account.Name)
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, client.t("If you did not initiate this request, you can safely ignore this message."))
+	message.WriteString("\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(client.t("Otherwise, to reset your password, issue the following command (replace `new_password` with your desired password):"))
+	message.WriteString("\r\n")
+	fmt.Fprintf(&message, "/MSG NickServ RESETPASS %s %s new_password\r\n", account.Name, record.Code)
+
+	err = email.SendMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, message.Bytes())
+	if err == nil {
+		am.server.logger.Info("services",
+			fmt.Sprintf("client %s sent a password reset email for account %s", client.Nick(), account.Name))
+	} else {
+		am.server.logger.Error("internal", "Failed to dispatch e-mail to", account.Settings.Email, err.Error())
+	}
+	return
+
+}
+
+func (am *AccountManager) NsResetpass(client *Client, accountName, code, password string) (err error) {
+	if validatePassphrase(password) != nil {
+		return errAccountBadPassphrase
+	}
+	account, err := am.LoadAccount(accountName)
+	if err != nil {
+		return
+	}
+	if !account.Verified {
+		return errAccountUnverified
+	}
+	if account.Suspended != nil {
+		return errAccountSuspended
+	}
+
+	success := false
+	key := fmt.Sprintf(keyAccountPwReset, account.NameCasefolded)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		rawStr, err := tx.Get(key)
+		if err == nil && rawStr != "" {
+			var record PasswordResetRecord
+			err := json.Unmarshal([]byte(rawStr), &record)
+			if err == nil && utils.SecretTokensMatch(record.Code, code) {
+				success = true
+				tx.Delete(key)
+			}
+		}
+		return nil
+	})
+
+	if success {
+		return am.setPassword(accountName, password, true)
+	} else {
+		return errAccountInvalidCredentials
+	}
+}
+
+type PasswordResetRecord struct {
+	TimeCreated time.Time
+	Code        string
 }
 
 func marshalReservedNicks(nicks []string) string {
@@ -1294,9 +1502,6 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName str
 		return
 	}
 	result.AdditionalNicks = unmarshalReservedNicks(raw.AdditionalNicks)
-	if strings.HasPrefix(raw.Callback, "mailto:") {
-		result.Email = strings.TrimPrefix(raw.Callback, "mailto:")
-	}
 	result.Verified = raw.Verified
 	if raw.VHost != "" {
 		e := json.Unmarshal([]byte(raw.VHost), &result.VHost)
@@ -1329,7 +1534,6 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
-	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
 	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
@@ -1344,7 +1548,6 @@ func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string
 	result.Name, _ = tx.Get(accountNameKey)
 	result.RegisteredAt, _ = tx.Get(registeredTimeKey)
 	result.Credentials, _ = tx.Get(credentialsKey)
-	result.Callback, _ = tx.Get(callbackKey)
 	result.AdditionalNicks, _ = tx.Get(nicksKey)
 	result.VHost, _ = tx.Get(vhostKey)
 	result.Settings, _ = tx.Get(settingsKey)
@@ -1524,7 +1727,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
 	credentialsKey := fmt.Sprintf(keyAccountCredentials, casefoldedAccount)
-	callbackKey := fmt.Sprintf(keyAccountCallback, casefoldedAccount)
 	verificationCodeKey := fmt.Sprintf(keyAccountVerificationCode, casefoldedAccount)
 	verifiedKey := fmt.Sprintf(keyAccountVerified, casefoldedAccount)
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
@@ -1537,6 +1739,8 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 	realnameKey := fmt.Sprintf(keyAccountRealname, casefoldedAccount)
 	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
+	pwResetKey := fmt.Sprintf(keyAccountPwReset, casefoldedAccount)
+	emailChangeKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1582,7 +1786,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(accountNameKey)
 		tx.Delete(verifiedKey)
 		tx.Delete(registeredTimeKey)
-		tx.Delete(callbackKey)
 		tx.Delete(verificationCodeKey)
 		tx.Delete(settingsKey)
 		rawNicks, _ = tx.Get(nicksKey)
@@ -1597,6 +1800,8 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(modesKey)
 		tx.Delete(realnameKey)
 		tx.Delete(suspendedKey)
+		tx.Delete(pwResetKey)
+		tx.Delete(emailChangeKey)
 
 		return nil
 	})
@@ -1940,17 +2145,19 @@ const (
 	CredentialsAnope  = -2
 )
 
+type SCRAMCreds struct {
+	Salt      []byte
+	Iters     int
+	StoredKey []byte
+	ServerKey []byte
+}
+
 // AccountCredentials stores the various methods for verifying accounts.
 type AccountCredentials struct {
 	Version        CredentialsVersion
 	PassphraseHash []byte
 	Certfps        []string
-	SCRAMCreds     struct {
-		Salt      []byte
-		Iters     int
-		StoredKey []byte
-		ServerKey []byte
-	}
+	SCRAMCreds
 }
 
 func (ac *AccountCredentials) Empty() bool {
@@ -1970,6 +2177,7 @@ func (ac *AccountCredentials) Serialize() (result string, err error) {
 func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) (err error) {
 	if passphrase == "" {
 		ac.PassphraseHash = nil
+		ac.SCRAMCreds = SCRAMCreds{}
 		return nil
 	}
 
@@ -1994,10 +2202,12 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 	// xdg-go/scram says: "Clients have a default minimum PBKDF2 iteration count of 4096."
 	minIters := 4096
 	scramCreds := scramClient.GetStoredCredentials(scram.KeyFactors{Salt: string(salt), Iters: minIters})
-	ac.SCRAMCreds.Salt = salt
-	ac.SCRAMCreds.Iters = minIters
-	ac.SCRAMCreds.StoredKey = scramCreds.StoredKey
-	ac.SCRAMCreds.ServerKey = scramCreds.ServerKey
+	ac.SCRAMCreds = SCRAMCreds{
+		Salt:      salt,
+		Iters:     minIters,
+		StoredKey: scramCreds.StoredKey,
+		ServerKey: scramCreds.ServerKey,
+	}
 
 	return nil
 }
@@ -2112,6 +2322,7 @@ type AccountSettings struct {
 	AutoreplayMissed bool
 	DMHistory        HistoryStatus
 	AutoAway         PersistentStatus
+	Email            string
 }
 
 // ClientAccount represents a user account.
@@ -2120,7 +2331,6 @@ type ClientAccount struct {
 	Name            string
 	NameCasefolded  string
 	RegisteredAt    time.Time
-	Email           string
 	Credentials     AccountCredentials
 	Verified        bool
 	Suspended       *AccountSuspension
@@ -2134,7 +2344,6 @@ type rawClientAccount struct {
 	Name            string
 	RegisteredAt    string
 	Credentials     string
-	Callback        string
 	Verified        bool
 	AdditionalNicks string
 	VHost           string

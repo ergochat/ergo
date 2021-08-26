@@ -121,7 +121,9 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		tx.Set(fmt.Sprintf(keyAccountExists, cfUsername), "1", nil)
 		tx.Set(fmt.Sprintf(keyAccountVerified, cfUsername), "1", nil)
 		tx.Set(fmt.Sprintf(keyAccountName, cfUsername), userInfo.Name, nil)
-		tx.Set(fmt.Sprintf(keyAccountCallback, cfUsername), "mailto:"+userInfo.Email, nil)
+		settings := AccountSettings{Email: userInfo.Email}
+		settingsBytes, _ := json.Marshal(settings)
+		tx.Set(fmt.Sprintf(keyAccountSettings, cfUsername), string(settingsBytes), nil)
 		tx.Set(fmt.Sprintf(keyAccountCredentials, cfUsername), string(marshaledCredentials), nil)
 		tx.Set(fmt.Sprintf(keyAccountRegTime, cfUsername), strconv.FormatInt(userInfo.RegisteredAt, 10), nil)
 		if userInfo.Vhost != "" {

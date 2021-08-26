@@ -4,6 +4,7 @@
 package email
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -11,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/smtp"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (
@@ -42,6 +45,11 @@ type MailtoConfig struct {
 	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
 	blacklistRegexes     []*regexp.Regexp
 	Timeout              time.Duration
+	PasswordReset        struct {
+		Enabled  bool
+		Cooldown custime.Duration
+		Timeout  custime.Duration
+	} `yaml:"password-reset"`
 }
 
 func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
@@ -93,6 +101,19 @@ func lookupMX(domain string) (server string) {
 		}
 	}
 	return
+}
+
+func ComposeMail(config MailtoConfig, recipient, subject string) (message bytes.Buffer) {
+	fmt.Fprintf(&message, "From: %s\r\n", config.Sender)
+	fmt.Fprintf(&message, "To: %s\r\n", recipient)
+	dkimDomain := config.DKIM.Domain
+	if dkimDomain != "" {
+		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), dkimDomain)
+	}
+	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
+	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
+	message.WriteString("\r\n") // blank line: end headers, begin message body
+	return message
 }
 
 func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {

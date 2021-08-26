@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = 20
+	latestDbSchema = 21
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -1008,6 +1008,57 @@ func schemaChangeV19To20(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #734: move the email address into the settings object,
+// giving people a way to change it
+func schemaChangeV20To21(config *Config, tx *buntdb.Tx) error {
+	type accountSettingsv21 struct {
+		AutoreplayLines  *int
+		NickEnforcement  NickEnforcementMethod
+		AllowBouncer     MulticlientAllowedSetting
+		ReplayJoins      ReplayJoinsSetting
+		AlwaysOn         PersistentStatus
+		AutoreplayMissed bool
+		DMHistory        HistoryStatus
+		AutoAway         PersistentStatus
+		Email            string
+	}
+	var accounts []string
+	var emails []string
+	callbackPrefix := "account.callback "
+	tx.AscendGreaterOrEqual("", callbackPrefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, callbackPrefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, callbackPrefix)
+		if _, err := tx.Get("account.verified " + account); err != nil {
+			return true
+		}
+		if strings.HasPrefix(value, "mailto:") {
+			accounts = append(accounts, account)
+			emails = append(emails, strings.TrimPrefix(value, "mailto:"))
+		}
+		return true
+	})
+	for i, account := range accounts {
+		var settings accountSettingsv21
+		email := emails[i]
+		settingsKey := "account.settings " + account
+		settingsStr, err := tx.Get(settingsKey)
+		if err == nil && settingsStr != "" {
+			json.Unmarshal([]byte(settingsStr), &settings)
+		}
+		settings.Email = email
+		settingsBytes, err := json.Marshal(settings)
+		if err != nil {
+			log.Printf("couldn't marshal settings for %s: %v\n", account, err)
+		} else {
+			tx.Set(settingsKey, string(settingsBytes), nil)
+		}
+		tx.Delete(callbackPrefix + account)
+	}
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -1112,5 +1163,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 19,
 		TargetVersion:  20,
 		Changer:        schemaChangeV19To20,
+	},
+	{
+		InitialVersion: 20,
+		TargetVersion:  21,
+		Changer:        schemaChangeV20To21,
 	},
 }
