@@ -303,6 +303,7 @@ func (t *ThrottleConfig) UnmarshalYAML(unmarshal func(interface{}) error) (err e
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
+	AdvertiseSCRAM        bool `yaml:"advertise-scram"` // undocumented, see #1782
 	RequireSasl           struct {
 		Enabled      bool
 		Exempted     []string
@@ -1379,7 +1380,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.VHosts.validRegexp = defaultValidVhostRegex
 	}
 
-	config.Server.capValues[caps.SASL] = "PLAIN,EXTERNAL,SCRAM-SHA-256"
+	saslCapValue := "PLAIN,EXTERNAL,SCRAM-SHA-256"
+	// TODO(#1782) clean this up:
+	if !config.Accounts.AdvertiseSCRAM {
+		saslCapValue = "PLAIN,EXTERNAL"
+	}
+	config.Server.capValues[caps.SASL] = saslCapValue
 	if !config.Accounts.AuthenticationEnabled {
 		config.Server.supportedCaps.Disable(caps.SASL)
 	}
