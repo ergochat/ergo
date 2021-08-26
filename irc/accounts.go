@@ -985,16 +985,6 @@ func (am *AccountManager) NsSetEmail(client *Client, emailAddr string) (err erro
 	recordBytes, _ := json.Marshal(record)
 	recordVal := string(recordBytes)
 	am.server.store.Update(func(tx *buntdb.Tx) error {
-		recStr, recErr := tx.Get(recordKey)
-		if recErr == nil && recStr != "" {
-			var existing PasswordResetRecord
-			jErr := json.Unmarshal([]byte(recStr), &existing)
-			cooldown := time.Duration(config.Accounts.Registration.EmailVerification.PasswordReset.Cooldown)
-			if jErr == nil && time.Since(existing.TimeCreated) < cooldown {
-				err = errLimitExceeded
-				return nil
-			}
-		}
 		tx.Set(recordKey, recordVal, nil)
 		return nil
 	})
