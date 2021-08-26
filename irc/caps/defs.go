@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 27
+	numCapabs = 28
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -52,6 +52,10 @@ const (
 	// EventPlayback is the proposed IRCv3 capability named "draft/event-playback":
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
+
+	// ExtendedMonitor is the draft IRCv3 capability named "draft/extended-monitor":
+	// https://github.com/ircv3/ircv3-specifications/pull/466
+	ExtendedMonitor Capability = iota
 
 	// Languages is the proposed IRCv3 capability named "draft/languages":
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
@@ -135,6 +139,7 @@ var (
 		"draft/channel-rename",
 		"draft/chathistory",
 		"draft/event-playback",
+		"draft/extended-monitor",
 		"draft/languages",
 		"draft/multiline",
 		"draft/relaymsg",

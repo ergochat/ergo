@@ -177,6 +177,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/435",
         standard="draft IRCv3",
     ),
+    CapDef(
+        identifier="ExtendedMonitor",
+        name="draft/extended-monitor",
+        url="https://github.com/ircv3/ircv3-specifications/pull/466",
+        standard="draft IRCv3",
+    ),
 ]
 
 def validate_defs():
