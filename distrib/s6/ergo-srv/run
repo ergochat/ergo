@@ -1,0 +1,4 @@
+#!/usr/bin/execlineb -P
+fdmove -c 2 1
+execline-cd /opt/ergo
+s6-setuidgid ergo ./ergo run
