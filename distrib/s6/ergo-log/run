@@ -1,0 +1,9 @@
+#!/usr/bin/execlineb -P
+envfile /etc/s6/config/ergo.conf
+importas -sCiu DIRECTIVES DIRECTIVES
+ifelse { test -w /var/log } {
+	foreground { install -d -o s6log -g s6log /var/log/ergo }
+	s6-setuidgid s6log exec -c s6-log -d3 -b -- ${DIRECTIVES} /var/log/ergo
+}
+foreground { install -d -o s6log -g s6log /run/log/ergo }
+s6-setuidgid s6log exec -c s6-log -d3 -b -- ${DIRECTIVES} /run/log/ergo

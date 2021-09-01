@@ -1,0 +1,8 @@
+This directory contains s6 srv and log services for ergo.
+
+These services expect that ergo is installed to /opt/ergo,
+and an ergo system user that owns /opt/ergo.
+
+To install:
+	cp -r ergo-srv ergo-log /etc/s6/sv/
+	cp ergo.conf /etc/s6/config/
