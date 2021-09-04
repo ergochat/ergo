@@ -250,6 +250,10 @@ In most IRC servers you can use `NickServ` to register an account. You can do th
 To register an account, use:
 
     /NS REGISTER <password>
+or 
+```
+/msg NickServ REGISTER <password>
+```
 
 This is the way to go if you want to use a regular password. `<password>` is your password, your current nickname will become your username. Your password cannot contain spaces, but make sure to use a strong one anyway.
 

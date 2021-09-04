@@ -76,6 +76,14 @@ Once you have registered your account, you must configure SASL in your client, s
 
 If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 
+# Logging with registered nick
+
+Once you've registered a nick, you can use the following to login:
+```
+/msg NickServ identify <nick> <password>
+```
+Please note that, you unlike other softwares, you cannot first `/nick <nick>` and identify with a password.
+
 # Channel registration
 
 Once you've registered your nickname, you can use it to register channels. By default, channels are ephemeral; they go away when there are no longer any users in the channel, or when the server is restarted. Registering a channel gives you permanent control over it, and ensures that its settings will persist. To register a channel, send a message to `ChanServ`:
