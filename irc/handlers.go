@@ -3531,7 +3531,15 @@ func zncHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 
 // fake handler for unknown commands
 func unknownCommandHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), client.t("Unknown command"))
+	var message string
+	if strings.HasPrefix(msg.Command, "/") {
+		message = fmt.Sprintf(client.t("Unknown command; if you are using /QUOTE, the correct syntax is /QUOTE %s, not /QUOTE %s"),
+			strings.TrimPrefix(msg.Command, "/"), msg.Command)
+	} else {
+		message = client.t("Unknown command")
+	}
+
+	rb.Add(nil, server.name, ERR_UNKNOWNCOMMAND, client.Nick(), utils.SafeErrorParam(msg.Command), message)
 	return false
 }
 
