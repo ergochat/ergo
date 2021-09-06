@@ -85,7 +85,7 @@ Ergo's core design goals are:
 * Being simple to set up and use
 * Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
 * Bleeding-edge [IRCv3 support](http://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
-* Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
+* High customizability via a rehashable (i.e., reloadable at runtime) YAML config
 
 In addition to its unique features (integrated services and bouncer, comprehensive internationalization), Ergo also strives for feature parity with other major servers. Ergo is a mature project with multiple communities using it as a day-to-day chat server --- we encourage you to consider it for your organization or community!
 

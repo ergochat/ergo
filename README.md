@@ -5,7 +5,7 @@ Ergo (formerly known as Oragono) is a modern IRC server written in Go. Its core 
 * Being simple to set up and use
 * Combining the features of an ircd, a services framework, and a bouncer (integrated account management, history storage, and bouncer functionality)
 * Bleeding-edge [IRCv3 support](https://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
-* Highly customizable via a rehashable (i.e., reloadable at runtime) YAML config
+* High customizability via a rehashable (i.e., reloadable at runtime) YAML config
 
 Ergo is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC daemon <3
 

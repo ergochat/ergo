@@ -14,7 +14,7 @@ Ergo is a modern IRC server written in Go. Its core design principles are:
   * History storage
   * Bouncer functionality
 * Bleeding-edge IRCv3 support
-* Highly customizable via a rehashable (runtime-reloadable) YAML config
+* High customizability via a rehashable (i.e., reloadable at runtime) YAML config
 
                                      https://ergo.chat/
                               https://github.com/ergochat/ergo
