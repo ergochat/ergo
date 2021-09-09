@@ -1,12 +1,11 @@
-      ___ _ __ __ _  ___  
-     / _ \ '__/ _` |/ _ \ 
-    |  __/ | | (_| | (_) |
-     \___|_|  \__, |\___/ 
-               __/ |      
-              |___/     
+         __ __  ______ ___  ______ ___ 
+      __/ // /_/ ____/ __ \/ ____/ __ \
+     /_  // __/ __/ / /_/ / / __/ / / /
+    /_  // __/ /___/ _, _/ /_/ / /_/ / 
+     /_//_/ /_____/_/ |_|\____/\____/  
 
-     Ergo IRCd User Guide
-      https://ergo.chat/
+             Ergo IRCd Manual
+            https://ergo.chat/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
 
