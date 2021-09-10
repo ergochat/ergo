@@ -250,6 +250,10 @@ To register an account, use:
 
     /NS REGISTER <password>
 
+or
+
+    /msg nickserv register <password>
+
 This is the way to go if you want to use a regular password. `<password>` is your password, your current nickname will become your username. Your password cannot contain spaces, but make sure to use a strong one anyway.
 
 If you want to use a TLS client certificate instead of a password to authenticate (`SASL EXTERNAL`), then you can use the command below to do so. (If you're not sure what this is, don't worry – just use the above password method to register an account.)
