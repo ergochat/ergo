@@ -35,7 +35,7 @@ const (
 	// #1436: we discovered that these characters are problematic,
 	// so we're disallowing them in new nicks/account names, but allowing
 	// previously registered names
-	disfavoredNameCharacters = `<>'";`
+	disfavoredNameCharacters = `<>'";#`
 )
 
 var (
