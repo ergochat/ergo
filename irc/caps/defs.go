@@ -73,6 +73,10 @@ const (
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
 	EchoMessage Capability = iota
 
+	// Nope is the Ergo vendor capability named "ergo.chat/nope":
+	// https://ergo.chat/nope
+	Nope Capability = iota
+
 	// ExtendedJoin is the IRCv3 capability named "extended-join":
 	// https://ircv3.net/specs/extensions/extended-join-3.1.html
 	ExtendedJoin Capability = iota
@@ -92,10 +96,6 @@ const (
 	// MultiPrefix is the IRCv3 capability named "multi-prefix":
 	// https://ircv3.net/specs/extensions/multi-prefix-3.1.html
 	MultiPrefix Capability = iota
-
-	// Nope is the Oragono vendor capability named "oragono.io/nope":
-	// https://oragono.io/nope
-	Nope Capability = iota
 
 	// SASL is the IRCv3 capability named "sasl":
 	// https://ircv3.net/specs/extensions/sasl-3.2.html
@@ -144,12 +144,12 @@ var (
 		"draft/multiline",
 		"draft/relaymsg",
 		"echo-message",
+		"ergo.chat/nope",
 		"extended-join",
 		"invite-notify",
 		"labeled-response",
 		"message-tags",
 		"multi-prefix",
-		"oragono.io/nope",
 		"sasl",
 		"server-time",
 		"setname",
