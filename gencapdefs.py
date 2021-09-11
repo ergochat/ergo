@@ -88,6 +88,18 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
+        identifier="Metadata",
+        name="draft/metadata",
+        url="https://github.com/DanielOaks/ircv3-specifications/blob/metadata/core/metadata.md",
+        standard="draft IRCv3",
+    ),
+    CapDef(
+        identifier="MetadataNotify",
+        name="metadata-notify",
+        url="https://github.com/DanielOaks/ircv3-specifications/blob/metadata/core/metadata.md",
+        standard="draft IRCv3",
+    ),
+    CapDef(
         identifier="MultiPrefix",
         name="multi-prefix",
         url="https://ircv3.net/specs/extensions/multi-prefix-3.1.html",
