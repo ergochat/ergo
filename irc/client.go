@@ -20,7 +20,6 @@ import (
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircreader"
-	"github.com/soroushj/menge"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -176,7 +175,7 @@ type Session struct {
 	capVersion   caps.Version
 
 	stateMutex             sync.RWMutex // tier 1
-	subscribedMetadataKeys menge.StringSet
+	subscribedMetadataKeys utils.StringSet
 
 	registrationMessages int
 
@@ -363,7 +362,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		proxiedIP:              proxiedIP,
 		isTor:                  wConn.Config.Tor,
 		hideSTS:                wConn.Config.Tor || wConn.Config.HideSTS,
-		subscribedMetadataKeys: menge.NewStringSet(),
+		subscribedMetadataKeys: make(utils.StringSet),
 	}
 	client.sessions = []*Session{session}
 

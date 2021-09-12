@@ -1737,7 +1737,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				continue
 			}
 
-			if len(rb.session.subscribedMetadataKeys)+len(addedKeys) > config.MaxSubs {
+			if rb.session.subscribedMetadataKeys.Size() > config.MaxSubs {
 				rb.Add(nil, server.name, ERR_METADATATOOMANYSUBS, client.nick, key)
 				break
 			}
@@ -1754,8 +1754,8 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			}
 
 			addedKeys = append(addedKeys, key)
+			rb.session.subscribedMetadataKeys.Add(key)
 		}
-		rb.session.subscribedMetadataKeys.Add(addedKeys...)
 
 		if len(addedKeys) > 0 {
 			rb.Add(nil, server.name, RPL_METADATASUBOK, client.nick, strings.Join(addedKeys, " "))
@@ -1779,8 +1779,8 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			}
 
 			removedKeys = append(removedKeys, key)
+			rb.session.subscribedMetadataKeys.Remove(key)
 		}
-		rb.session.subscribedMetadataKeys.Remove(removedKeys...)
 
 		if len(removedKeys) > 0 {
 			rb.Add(nil, server.name, RPL_METADATAUNSUBOK, client.nick, strings.Join(removedKeys, " "))
@@ -1792,7 +1792,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		defer rb.session.stateMutex.RUnlock()
 		if rb.session.subscribedMetadataKeys.Size() > 0 {
 			//TODO: loop and return subscriptions with multiple numerics if we need to
-			rb.Add(nil, server.name, RPL_METADATASUBS, client.nick, strings.Join(rb.session.subscribedMetadataKeys.AsSlice(), " "))
+			rb.Add(nil, server.name, RPL_METADATASUBS, client.nick, strings.Join(rb.session.subscribedMetadataKeys.Keys(), " "))
 		}
 		rb.Add(nil, server.name, RPL_METADATAEND, client.nick, "end of metadata")
 	}

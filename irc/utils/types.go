@@ -15,3 +15,22 @@ func (s StringSet) Has(str string) bool {
 func (s StringSet) Add(str string) {
 	s[str] = empty{}
 }
+
+func (s StringSet) Remove(str string) {
+	_, ok := s[str]
+	if ok {
+		delete(s, str)
+	}
+}
+
+func (s StringSet) Size() int {
+	return len(s)
+}
+
+func (s StringSet) Keys() (keys []string) {
+	for key := range s {
+		keys = append(keys, key)
+	}
+
+	return keys
+}
