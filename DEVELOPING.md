@@ -25,6 +25,16 @@ For either particularly broken or particularly WiP changes, we work on them in a
 Develop branches are either used to work out implementation details in preperation for a cleaned-up version, for half-written ideas we want to continue persuing, or for stuff that we just don't want on `master` yet for whatever reason.
 
 
+## Updating dependencies
+
+Ergo vendors all dependencies using `go mod vendor`. To update a dependency, or add a new one:
+
+1. `go get -v bazbat.com/path/to/dependency` ; this downloads the new dependency
+2. `go mod vendor` ; this writes the dependency's source files to the `vendor/` directory
+3. `git add go.mod go.sum vendor/` ; this stages all relevant changes to the vendor directory, including file deletions. Take care that spurious changes (such as editor swapfiles) aren't added.
+4. `git commit`
+
+
 ## Releasing a new version
 
 1. Ensure the tests pass, locally on travis (`make test`, `make smoke`, and `make irctest`)
