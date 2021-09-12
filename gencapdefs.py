@@ -155,9 +155,9 @@ CAPDEFS = [
     ),
     CapDef(
         identifier="Nope",
-        name="oragono.io/nope",
-        url="https://oragono.io/nope",
-        standard="Oragono vendor",
+        name="ergo.chat/nope",
+        url="https://ergo.chat/nope",
+        standard="Ergo vendor",
     ),
     CapDef(
         identifier="Multiline",
