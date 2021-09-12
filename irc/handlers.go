@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
@@ -1706,6 +1707,95 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 // LUSERS [<mask> [<server>]]
 func lusersHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	server.Lusers(client, rb)
+	return false
+}
+
+// METADATA <Target> <Subcommand> [<Param 1> ... [<Param n>]]
+func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	// target := msg.Params[0]
+	subCommand := strings.ToUpper(msg.Params[1])
+
+	config := server.Config().Metadata
+
+	//TODO: do this once when the server boots?
+	keyNameMatcher, _ := regexp.Compile(`^[a-z0-9_.-][a-z0-9_.\-:]*$`)
+
+	switch subCommand {
+	// these subcommands affect the client itself, or other targets
+	//
+
+	// these subcommands affect the current session
+	//
+	case "SUB":
+		var addedKeys []string
+
+		rb.session.stateMutex.Lock()
+		defer rb.session.stateMutex.Unlock()
+		for i, key := range msg.Params {
+			if i < 2 {
+				// skip target and subcommand
+				continue
+			}
+
+			if len(rb.session.subscribedMetadataKeys)+len(addedKeys) > config.MaxSubs {
+				rb.Add(nil, server.name, ERR_METADATATOOMANYSUBS, client.nick, key)
+				break
+			}
+
+			if !keyNameMatcher.MatchString(key) {
+				rb.Add(nil, server.name, ERR_KEYINVALID, client.nick, key)
+				continue
+			}
+
+			// see if key is restricted
+			if client.Oper() == nil && (config.Users.RestrictedKeysMatcher.MatchString(key) || config.Channels.RestrictedKeysMatcher.MatchString(key)) {
+				rb.Add(nil, server.name, ERR_KEYNOPERMISSION, client.nick, "*", key, "permission denied")
+				// still let the user subscribe to the key, don't continue on to the next one
+			}
+
+			addedKeys = append(addedKeys, key)
+		}
+		rb.session.subscribedMetadataKeys.Add(addedKeys...)
+
+		if len(addedKeys) > 0 {
+			rb.Add(nil, server.name, RPL_METADATASUBOK, client.nick, strings.Join(addedKeys, " "))
+		}
+		rb.Add(nil, server.name, RPL_METADATAEND, client.nick, "end of metadata")
+
+	case "UNSUB":
+		var removedKeys []string
+
+		rb.session.stateMutex.Lock()
+		defer rb.session.stateMutex.Unlock()
+		for i, key := range msg.Params {
+			if i < 2 {
+				// skip target and subcommand
+				continue
+			}
+
+			if !keyNameMatcher.MatchString(key) {
+				rb.Add(nil, server.name, ERR_KEYINVALID, client.nick, key)
+				continue
+			}
+
+			removedKeys = append(removedKeys, key)
+		}
+		rb.session.subscribedMetadataKeys.Remove(removedKeys...)
+
+		if len(removedKeys) > 0 {
+			rb.Add(nil, server.name, RPL_METADATAUNSUBOK, client.nick, strings.Join(removedKeys, " "))
+		}
+		rb.Add(nil, server.name, RPL_METADATAEND, client.nick, "end of metadata")
+
+	case "SUBS":
+		rb.session.stateMutex.RLock()
+		defer rb.session.stateMutex.RUnlock()
+		if rb.session.subscribedMetadataKeys.Size() > 0 {
+			//TODO: loop and return subscriptions with multiple numerics if we need to
+			rb.Add(nil, server.name, RPL_METADATASUBS, client.nick, strings.Join(rb.session.subscribedMetadataKeys.AsSlice(), " "))
+		}
+		rb.Add(nil, server.name, RPL_METADATAEND, client.nick, "end of metadata")
+	}
 	return false
 }
 

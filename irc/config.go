@@ -300,6 +300,38 @@ func (t *ThrottleConfig) UnmarshalYAML(unmarshal func(interface{}) error) (err e
 	return
 }
 
+type MetadataKeyConfig struct {
+	AllowedKeys           []string `yaml:"allowed-keys"`
+	AllowedKeysMatcher    *regexp.Regexp
+	BlockedKeys           []string `yaml:"blocked-keys"`
+	BlockedKeysMatcher    *regexp.Regexp
+	RestrictedKeys        []string `yaml:"restricted-keys"`
+	RestrictedKeysMatcher *regexp.Regexp
+}
+
+func (mkc *MetadataKeyConfig) compileMatchers() (err error) {
+	mkc.AllowedKeysMatcher, err = utils.CompileMasks(mkc.AllowedKeys)
+	if err != nil {
+		err = errors.New("allowed-keys")
+	}
+	mkc.BlockedKeysMatcher, err = utils.CompileMasks(mkc.BlockedKeys)
+	if err != nil {
+		err = errors.New("blocked-keys")
+	}
+	mkc.RestrictedKeysMatcher, err = utils.CompileMasks(mkc.RestrictedKeys)
+	if err != nil {
+		err = errors.New("restricted-keys")
+	}
+	return err
+}
+
+type MetadataConfig struct {
+	MaxKeys  int `yaml:"max-keys"`
+	MaxSubs  int `yaml:"max-subs"`
+	Users    MetadataKeyConfig
+	Channels MetadataKeyConfig
+}
+
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
@@ -620,6 +652,8 @@ type Config struct {
 		AutoUpgrade bool
 		MySQL       mysql.Config
 	}
+
+	Metadata MetadataConfig
 
 	Accounts AccountConfig
 
@@ -1226,6 +1260,26 @@ func LoadConfig(filename string) (config *Config, err error) {
 			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
 		}
 		config.Server.capValues[caps.Multiline] = multilineCapValue
+	}
+
+	// confirm that we don't have both allowed and blocked metadata keys set
+	config.Server.capValues[caps.Metadata] = fmt.Sprintf("maxsub=%d,maxkey=%d", config.Metadata.MaxSubs, config.Metadata.MaxKeys)
+
+	if len(config.Metadata.Users.AllowedKeys) > 0 && len(config.Metadata.Users.BlockedKeys) > 0 {
+		return nil, errors.New("You can only set either allowed-keys or blocked-keys in metadata.users, not both")
+	}
+	if len(config.Metadata.Channels.AllowedKeys) > 0 && len(config.Metadata.Channels.BlockedKeys) > 0 {
+		return nil, errors.New("You can only set either allowed-keys or blocked-keys in metadata.channels, not both")
+	}
+
+	err = config.Metadata.Users.compileMatchers()
+	if err != nil {
+		return nil, fmt.Errorf("Could not compile metadata.users.%s", err.Error())
+	}
+
+	err = config.Metadata.Channels.compileMatchers()
+	if err != nil {
+		return nil, fmt.Errorf("Could not compile metadata.channels.%s", err.Error())
 	}
 
 	// handle legacy name 'bouncer' for 'multiclient' section:

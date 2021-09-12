@@ -348,6 +348,14 @@ Lists all the nicknames you are currently monitoring.
     MONITOR S
 Lists whether each nick in your MONITOR list is online or offline.`,
 	},
+	"metadata": {
+		text: `METADATA <target> <subcmd>
+
+Lets you add metadata to yourself and channels, as well as subscribe
+to metadata changes. The subcommands are:
+
+//TODO`,
+	},
 	"motd": {
 		text: `MOTD [server]
 

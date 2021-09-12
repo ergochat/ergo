@@ -178,6 +178,10 @@ func init() {
 			handler:   lusersHandler,
 			minParams: 0,
 		},
+		"METADATA": {
+			handler:   metadataHandler,
+			minParams: 2,
+		},
 		"MODE": {
 			handler:   modeHandler,
 			minParams: 1,

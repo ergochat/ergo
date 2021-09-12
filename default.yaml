@@ -364,6 +364,50 @@ server:
     # the default value of 512. DO NOT change this on a public server:
     # max-line-len: 512
 
+# metadata options
+metadata:
+    # maximum number of keys users can have set.
+    # this excludes admin-set keys which users cannot set or view
+    max-keys: 16
+
+    # maximum number of keys users can subscribe to at one time.
+    # opers can subscribe to more than this though
+    max-subs: 16
+
+    users:
+        # uncomment this if you ONLY want these keys to be settable
+        # allowed-keys:
+        #     - avatar
+        #     - color
+        #     - display-name
+        #     - homepage
+        #     - status
+
+        # uncomment this if you want all BUT these keys to be settable
+        # blocked-keys:
+        #     - example-bad-key
+        #     - another-bad-example
+
+        # these keys are restricted to opers
+        restricted-keys:
+            - admin:*
+            - server:*
+
+    channels:
+        # uncomment this if you ONLY want these keys to be settable
+        # allowed-keys:
+        #     - url
+
+        # uncomment this if you want all BUT these keys to be settable
+        # blocked-keys:
+        #     - example-bad-key
+        #     - another-bad-example
+
+        # these keys are restricted to opers
+        restricted-keys:
+            - admin:*
+            - server:*
+
 # account options
 accounts:
     # is account authentication enabled, i.e., can users log into existing accounts?

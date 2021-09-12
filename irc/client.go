@@ -20,6 +20,7 @@ import (
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircreader"
+	"github.com/soroushj/menge"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -173,6 +174,9 @@ type Session struct {
 	capabilities caps.Set
 	capState     caps.State
 	capVersion   caps.Version
+
+	stateMutex             sync.RWMutex // tier 1
+	subscribedMetadataKeys menge.StringSet
 
 	registrationMessages int
 
@@ -349,16 +353,17 @@ func (server *Server) RunClient(conn IRCConn) {
 	}
 	client.history.Initialize(config.History.ClientLength, time.Duration(config.History.AutoresizeWindow))
 	session := &Session{
-		client:     client,
-		socket:     socket,
-		capVersion: caps.Cap301,
-		capState:   caps.NoneState,
-		ctime:      now,
-		lastActive: now,
-		realIP:     realIP,
-		proxiedIP:  proxiedIP,
-		isTor:      wConn.Config.Tor,
-		hideSTS:    wConn.Config.Tor || wConn.Config.HideSTS,
+		client:                 client,
+		socket:                 socket,
+		capVersion:             caps.Cap301,
+		capState:               caps.NoneState,
+		ctime:                  now,
+		lastActive:             now,
+		realIP:                 realIP,
+		proxiedIP:              proxiedIP,
+		isTor:                  wConn.Config.Tor,
+		hideSTS:                wConn.Config.Tor || wConn.Config.HideSTS,
+		subscribedMetadataKeys: menge.NewStringSet(),
 	}
 	client.sessions = []*Session{session}
 
