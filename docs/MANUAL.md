@@ -56,7 +56,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Channel Prefixes](#channel-prefixes)
 - [Commands](#commands)
 - [Working with other software](#working-with-other-software)
-    - [Kiwi IRC](#kiwi-irc)
+    - [Kiwi IRC and Gamja](#kiwi-irc-and-gamja)
     - [Migrating from Anope or Atheme](#migrating-from-anope-or-atheme)
     - [HOPM](#hopm)
     - [Tor](#tor)
@@ -942,11 +942,11 @@ One exception is services frameworks like [Anope](https://github.com/anope/anope
 
 If you're looking for a bot that supports modern IRCv3 features, check out [bitbot](https://github.com/jesopo/bitbot/)!
 
-## Kiwi IRC
+## Kiwi IRC and Gamja
 
-[Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) is a web-based IRC client with excellent IRCv3 support. In particular, it is the only major client to fully support Ergo's server-side history features. For a demonstration of these features, see the [Ergo testnet](https://testnet.ergo.chat/kiwi).
+We recommend two web-based clients for use with Ergo: [Kiwi IRC](https://github.com/kiwiirc/kiwiirc/) and [Gamja](https://git.sr.ht/~emersion/gamja). Both clients are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. They can connect directly to Ergo, using Ergo's support for native websockets. Both clients support Ergo's server-side history features; for a demonstration, see the Ergo testnet (click [here for Kiwi](https://testnet.ergo.chat/kiwi/) or [here for Gamja](https://testnet.ergo.chat/gamja)).
 
-Current versions of Kiwi are 100% static files (HTML and Javascript), running entirely in the end user's browser without the need for a separate server-side backend. This frontend can connect directly to Ergo, using Ergo's support for native websockets. For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Ergo. For example, configure the following listener in ircd.yaml:
+For best interoperability with firewalls, you should run an externally facing web server on port 443 that can serve both the static files and the websocket path, then have it reverse-proxy the websocket path to Ergo. For example, configure the following listener in ircd.yaml:
 
 ```yaml
         "127.0.0.1:8067":
@@ -975,6 +975,18 @@ then add the following `startupOptions` to Kiwi's `static/config.json` file (see
         "channel": "#chat",
         "nick": "kiwi-n?"
     },
+```
+
+or with Gamja, create a new `config.json` (in the base directory of the Gamja install, alongside Gamja's `index.html`) file along these lines:
+
+```
+{
+        "server": {
+                "url": "wss://domain.example.com/webirc",
+                "autojoin": "#chat",
+                "auth": "optional"
+        }
+}
 ```
 
 ## Migrating from Anope or Atheme
