@@ -488,40 +488,19 @@ func (client *Client) lookupHostname(session *Session, overwrite bool) {
 	if session.proxiedIP != nil {
 		ip = session.proxiedIP
 	}
-	ipString := ip.String()
 
-	var hostname, candidate string
+	var hostname string
+	lookupSuccessful := false
 	if config.Server.lookupHostnames {
 		session.Notice("*** Looking up your hostname...")
-
-		names, err := net.LookupAddr(ipString)
-		if err == nil && 0 < len(names) {
-			candidate = strings.TrimSuffix(names[0], ".")
-		}
-		if utils.IsHostname(candidate) {
-			if config.Server.ForwardConfirmHostnames {
-				addrs, err := net.LookupHost(candidate)
-				if err == nil {
-					for _, addr := range addrs {
-						if addr == ipString {
-							hostname = candidate // successful forward confirmation
-							break
-						}
-					}
-				}
-			} else {
-				hostname = candidate
-			}
-		}
-	}
-
-	if hostname != "" {
-		session.Notice("*** Found your hostname")
-	} else {
-		if config.Server.lookupHostnames {
+		hostname, lookupSuccessful = utils.LookupHostname(ip, config.Server.ForwardConfirmHostnames)
+		if lookupSuccessful {
+			session.Notice("*** Found your hostname")
+		} else {
 			session.Notice("*** Couldn't look up your hostname")
 		}
-		hostname = utils.IPStringToHostname(ipString)
+	} else {
+		hostname = utils.IPStringToHostname(ip.String())
 	}
 
 	session.rawHostname = hostname

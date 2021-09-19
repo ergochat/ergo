@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -156,12 +155,7 @@ func histservExportHandler(service *ircService, server *Server, client *Client, 
 }
 
 func histservExportAndNotify(service *ircService, server *Server, cfAccount string, outfile *os.File, filename, alertNick string) {
-	defer func() {
-		if r := recover(); r != nil {
-			server.logger.Error("history",
-				fmt.Sprintf("Panic in history export routine: %v\n%s", r, debug.Stack()))
-		}
-	}()
+	defer server.HandlePanic()
 
 	defer outfile.Close()
 	writer := bufio.NewWriter(outfile)

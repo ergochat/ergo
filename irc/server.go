@@ -12,7 +12,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -245,13 +244,11 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 
 func (server *Server) handleAlwaysOnExpirations() {
 	defer func() {
-		if r := recover(); r != nil {
-			server.logger.Error("internal",
-				fmt.Sprintf("Panic in always-on cleanup: %v\n%s", r, debug.Stack()))
-		}
-		// either way, reschedule
+		// reschedule whether or not there was a panic
 		time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
 	}()
+
+	defer server.HandlePanic()
 
 	config := server.Config()
 	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
@@ -514,16 +511,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
 	// #1570; this needs its own panic handling because it can be invoked via SIGHUP
-	defer func() {
-		if r := recover(); r != nil {
-			if server.Config().Debug.recoverFromErrors {
-				server.logger.Error("internal",
-					fmt.Sprintf("Panic during rehash: %v\n%s", r, debug.Stack()))
-			} else {
-				panic(r)
-			}
-		}
-	}()
+	defer server.HandlePanic()
 
 	server.logger.Info("server", "Attempting rehash")
 
@@ -745,10 +733,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 }
 
 func (server *Server) setupPprofListener(config *Config) {
-	pprofListener := ""
-	if config.Debug.PprofListener != nil {
-		pprofListener = *config.Debug.PprofListener
-	}
+	pprofListener := config.Debug.PprofListener
 	if server.pprofServer != nil {
 		if pprofListener == "" || (pprofListener != server.pprofServer.Addr) {
 			server.logger.Info("server", "Stopping pprof listener", server.pprofServer.Addr)

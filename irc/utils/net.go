@@ -193,3 +193,37 @@ func HandleXForwardedFor(remoteAddr string, xForwardedFor string, whitelist []ne
 	// or nil:
 	return
 }
+
+// LookupHostname does an (optionally reverse-confirmed) hostname lookup
+// suitable for use as an IRC hostname. It falls back to a string
+// representation of the IP address (again suitable for use as an IRC
+// hostname).
+func LookupHostname(ip net.IP, forwardConfirm bool) (hostname string, lookupSuccessful bool) {
+	ipString := ip.String()
+	var candidate string
+	names, err := net.LookupAddr(ipString)
+	if err == nil && 0 < len(names) {
+		candidate = strings.TrimSuffix(names[0], ".")
+	}
+	if IsHostname(candidate) {
+		if forwardConfirm {
+			addrs, err := net.LookupHost(candidate)
+			if err == nil {
+				for _, addr := range addrs {
+					if forwardIP := net.ParseIP(addr); ip.Equal(forwardIP) {
+						hostname = candidate // successful forward confirmation
+						break
+					}
+				}
+			}
+		} else {
+			hostname = candidate
+		}
+	}
+
+	if hostname != "" {
+		return hostname, true
+	} else {
+		return IPStringToHostname(ipString), false
+	}
+}
