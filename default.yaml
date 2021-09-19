@@ -215,10 +215,6 @@ server:
                 # - "192.168.1.1"
                 # - "192.168.10.1/24"
 
-    # allow use of the RESUME extension over plaintext connections:
-    # do not enable this unless the ircd is only accessible over internal networks
-    allow-plaintext-resume: false
-
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold bursts of channel/direct messages
     max-sendq: 96k
