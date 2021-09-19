@@ -4,7 +4,7 @@
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
 
-package irc
+package utils
 
 import (
 	"os"
