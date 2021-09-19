@@ -733,10 +733,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 }
 
 func (server *Server) setupPprofListener(config *Config) {
-	pprofListener := ""
-	if config.Debug.PprofListener != nil {
-		pprofListener = *config.Debug.PprofListener
-	}
+	pprofListener := config.Debug.PprofListener
 	if server.pprofServer != nil {
 		if pprofListener == "" || (pprofListener != server.pprofServer.Addr) {
 			server.logger.Info("server", "Stopping pprof listener", server.pprofServer.Addr)
