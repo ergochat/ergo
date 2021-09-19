@@ -99,7 +99,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		listeners:    make(map[string]IRCListener),
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
-		exitSignals:  make(chan os.Signal, len(ServerExitSignals)),
+		exitSignals:  make(chan os.Signal, len(utils.ServerExitSignals)),
 		defcon:       5,
 	}
 
@@ -114,7 +114,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	}
 
 	// Attempt to clean up when receiving these signals.
-	signal.Notify(server.exitSignals, ServerExitSignals...)
+	signal.Notify(server.exitSignals, utils.ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
 	time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
