@@ -1741,8 +1741,16 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 			return false
 		}
 	}
+
+	isSamode := msg.Command == "SAMODE"
+	if isSamode {
+		message := fmt.Sprintf("Operator %s ran SAMODE %s", client.Oper().Name, strings.Join(msg.Params, " "))
+		server.snomasks.Send(sno.LocalOpers, message)
+		server.logger.Info("opers", message)
+	}
+
 	// process mode changes, include list operations (an empty set of changes does a list)
-	applied := channel.ApplyChannelModeChanges(client, msg.Command == "SAMODE", changes, rb)
+	applied := channel.ApplyChannelModeChanges(client, isSamode, changes, rb)
 	details := client.Details()
 	isBot := client.HasMode(modes.Bot)
 	announceCmodeChanges(channel, applied, details.nickMask, details.accountName, details.account, isBot, rb)
