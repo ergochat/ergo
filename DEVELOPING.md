@@ -18,11 +18,9 @@ If you're upgrading the Go version used by Ergo, there are several places where 
 
 ## Branches
 
-The `master` branch should be kept relatively runnable. It might be a bit broken or contain some bad commits now and then, but the pre-release checks should weed those out before users see them.
+The recommended workflow for development is to create a new branch starting from the current `master`. Even though `master` is not recommended for production use, we strive to keep it in a usable state. Starting from `master` increases the likelihood that your patches will be accepted.
 
-For either particularly broken or particularly WiP changes, we work on them in a `develop` branch. The normal branch naming is `develop+feature[.version]`. For example, when first developing 'cloaking', you may use the branch `develop+cloaks`. If you need to create a new branch to work on it (a second version of the implementation, for example), you could use `develop+cloaks.2`, and so on.
-
-Develop branches are either used to work out implementation details in preperation for a cleaned-up version, for half-written ideas we want to continue persuing, or for stuff that we just don't want on `master` yet for whatever reason.
+Long-running feature branches that aren't ready for merge into `master` may be maintained under a `devel+` prefix, e.g. `devel+metadata` for a feature branch implementing the IRCv3 METADATA extension.
 
 
 ## Updating dependencies

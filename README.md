@@ -75,13 +75,11 @@ to Docker Hub at [ergochat/ergo](https://hub.docker.com/r/ergochat/ergo). For mo
 
 ### From Source
 
-You can also install this repo and use that instead! However, keep some things in mind if you go that way:
+You can also clone this repository and build from source. Typical deployments should use the `stable` branch, which points to the latest stable release. In general, `stable` should coincide with the latest published tag that is not designated as a beta or release candidate (for example, `v2.7.0-rc1` was an unstable release candidate and `v2.7.0` was the corresponding stable release), so you can also identify the latest stable release tag on the [releases page](https://github.com/ergochat/ergo/releases) and build that.
 
-`devel` branches are intentionally unstable, containing fixes that may not work, and they may be rebased or reworked extensively.
+The `master` branch is not recommended for production use since it may contain bugs, and because the forwards compatibility guarantees for the config file and the database that apply to releases do not apply to master. That is to say, running master may result in changes to your database that end up being incompatible with future versions of Ergo.
 
-The `master` branch _should_ usually be stable, but may contain database changes that either have not been finalised or not had database upgrade code written yet. Don't run `master` on a live production network.
-
-The `stable` branch contains the latest release, suitable for use in production.
+For information on contributing to Ergo, see [DEVELOPING.md](https://github.com/ergochat/ergo/blob/master/DEVELOPING.md).
 
 #### Building
 
