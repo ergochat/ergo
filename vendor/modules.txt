@@ -42,23 +42,23 @@ github.com/okzk/sdnotify
 ## explicit
 # github.com/stretchr/testify v1.4.0
 ## explicit
-# github.com/tidwall/btree v0.6.0
+# github.com/tidwall/btree v0.6.1
 ## explicit; go 1.16
 github.com/tidwall/btree
-# github.com/tidwall/buntdb v1.2.6
+# github.com/tidwall/buntdb v1.2.7
 ## explicit; go 1.16
 github.com/tidwall/buntdb
-# github.com/tidwall/gjson v1.8.0
+# github.com/tidwall/gjson v1.10.2
 ## explicit; go 1.12
 github.com/tidwall/gjson
-# github.com/tidwall/grect v0.1.2
+# github.com/tidwall/grect v0.1.3
 ## explicit; go 1.15
 github.com/tidwall/grect
-# github.com/tidwall/match v1.0.3
+# github.com/tidwall/match v1.1.1
 ## explicit; go 1.15
 github.com/tidwall/match
-# github.com/tidwall/pretty v1.1.0
-## explicit
+# github.com/tidwall/pretty v1.2.0
+## explicit; go 1.16
 github.com/tidwall/pretty
 # github.com/tidwall/rtred v0.1.2
 ## explicit; go 1.15

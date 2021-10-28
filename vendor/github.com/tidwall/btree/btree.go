@@ -296,7 +296,38 @@ func (n *node) scan(iter func(item interface{}) bool) bool {
 
 // Get a value for key
 func (tr *BTree) Get(key interface{}) interface{} {
-	return tr.GetHint(key, nil)
+	// This operation is basically the same as calling:
+	//     return tr.GetHint(key, nil)
+	// But here we inline the bsearch to avoid the hint logic and extra
+	// function call.
+	if tr.rlock() {
+		defer tr.runlock()
+	}
+	if tr.root == nil || key == nil {
+		return nil
+	}
+	depth := 0
+	n := tr.root
+	for {
+		low := int16(0)
+		high := n.numItems - 1
+		for low <= high {
+			mid := low + ((high+1)-low)/2
+			if !tr.less(key, n.items[mid]) {
+				low = mid + 1
+			} else {
+				high = mid - 1
+			}
+		}
+		if low > 0 && !tr.less(n.items[low-1], key) {
+			return n.items[low-1]
+		}
+		if n.leaf {
+			return nil
+		}
+		n = n.children[low]
+		depth++
+	}
 }
 
 // GetHint gets a value for key using a path hint
@@ -310,14 +341,14 @@ func (tr *BTree) GetHint(key interface{}, hint *PathHint) interface{} {
 	depth := 0
 	n := tr.root
 	for {
-		i, found := n.find(key, tr.less, hint, depth)
+		index, found := n.find(key, tr.less, hint, depth)
 		if found {
-			return n.items[i]
+			return n.items[index]
 		}
 		if n.leaf {
 			return nil
 		}
-		n = n.children[i]
+		n = n.children[index]
 		depth++
 	}
 }
