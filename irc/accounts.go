@@ -503,8 +503,8 @@ func registrationCallbackErrorText(config *Config, client *Client, err error) st
 	}
 }
 
-// validatePassphrase checks whether a passphrase is allowed by our rules
-func validatePassphrase(passphrase string) error {
+// ValidatePassphrase checks whether a passphrase is allowed by our rules
+func ValidatePassphrase(passphrase string) error {
 	// sanity check the length
 	if len(passphrase) == 0 || len(passphrase) > 300 {
 		return errAccountBadPassphrase
@@ -1122,7 +1122,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 }
 
 func (am *AccountManager) NsResetpass(client *Client, accountName, code, password string) (err error) {
-	if validatePassphrase(password) != nil {
+	if ValidatePassphrase(password) != nil {
 		return errAccountBadPassphrase
 	}
 	account, err := am.LoadAccount(accountName)
@@ -2181,7 +2181,7 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 		return nil
 	}
 
-	if validatePassphrase(passphrase) != nil {
+	if ValidatePassphrase(passphrase) != nil {
 		return errAccountBadPassphrase
 	}
 
