@@ -15,7 +15,7 @@ const (
 )
 
 func betweenTimestamps(buf *Buffer, start, end time.Time, limit int) (result []Item, complete bool) {
-	result, complete, _ = buf.betweenHelper(Selector{Time: start}, Selector{Time: end}, time.Time{}, nil, limit)
+	result, complete, _ = buf.betweenHelper(Selector{Time: start}, Selector{Time: end}, time.Time{}, nil, limit, 0)
 	return
 }
 
@@ -45,7 +45,7 @@ func TestEmptyBuffer(t *testing.T) {
 	})
 	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 1 {
-		t.Error("should be able to store items in a nonempty buffer")
+		t.Errorf("should be able to store items in a nonempty buffer: expected %d, got %d", 1, len(since))
 	}
 	if !complete {
 		t.Error("results should be complete")

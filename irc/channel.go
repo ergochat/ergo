@@ -917,7 +917,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 	}
 
 	if hasAutoreplayTimestamps {
-		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
+		_, seq, _ := channel.server.GetHistorySequence(channel, client, "", 0)
 		if seq != nil {
 			zncMax := channel.server.Config().History.ZNCMax
 			items, _ = seq.Between(history.Selector{Time: start}, history.Selector{Time: end}, zncMax)
@@ -935,7 +935,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 			replayLimit = channel.server.Config().History.AutoreplayOnJoin
 		}
 		if 0 < replayLimit {
-			_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
+			_, seq, _ := channel.server.GetHistorySequence(channel, client, "", 0)
 			if seq != nil {
 				items, _ = seq.Between(history.Selector{}, history.Selector{}, replayLimit)
 			}
@@ -1084,7 +1084,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				} else {
 					message = fmt.Sprintf(client.t("%[1]s [account: %[2]s] joined the channel"), nick, item.AccountName)
 				}
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Part:
 			if eventPlayback {
@@ -1094,14 +1094,14 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s left the channel (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Kick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "KICK", chname, item.Params[0], item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s kicked %[2]s (%[3]s)"), nick, item.Params[0], item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Quit:
 			if eventPlayback {
@@ -1111,21 +1111,21 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 					continue // #474
 				}
 				message := fmt.Sprintf(client.t("%[1]s quit (%[2]s)"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Nick:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "NICK", item.Params[0])
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s changed nick to %[2]s"), nick, item.Params[0])
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Topic:
 			if eventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "TOPIC", chname, item.Message.Message)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s set the channel topic to: %[2]s"), nick, item.Message.Message)
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		case history.Mode:
 			params := make([]string, len(item.Message.Split)+1)
@@ -1137,7 +1137,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "MODE", params...)
 			} else {
 				message := fmt.Sprintf(client.t("%[1]s set channel modes: %[2]s"), nick, strings.Join(params[1:], " "))
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, message)
 			}
 		}
 	}

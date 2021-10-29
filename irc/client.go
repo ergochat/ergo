@@ -883,7 +883,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 			if hasEventPlayback {
 				rb.AddFromClient(item.Message.Time, item.Message.Msgid, item.Nick, item.AccountName, item.IsBot, nil, "INVITE", nick, item.Message.Message)
 			} else {
-				rb.AddFromClient(item.Message.Time, utils.MungeSecretToken(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), NUHToNick(item.Nick), item.Message.Message))
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s invited you to channel %[2]s"), NUHToNick(item.Nick), item.Message.Message))
 			}
 			continue
 		case history.Privmsg:
@@ -1713,7 +1713,7 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 	var base, extras []history.TargetListing
 	var chcfnames []string
 	for _, channel := range client.Channels() {
-		_, seq, err := client.server.GetHistorySequence(channel, client, "")
+		_, seq, err := client.server.GetHistorySequence(channel, client, "", 0)
 		if seq == nil || err != nil {
 			continue
 		}
@@ -1734,7 +1734,7 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 		extras = append(extras, persistentExtras...)
 	}
 
-	_, cSeq, err := client.server.GetHistorySequence(nil, client, "")
+	_, cSeq, err := client.server.GetHistorySequence(nil, client, "", 0)
 	if err == nil && cSeq != nil {
 		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
 		if err == nil {
@@ -1758,7 +1758,7 @@ func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit,
 		if strings.HasPrefix(target.CfName, "#") {
 			continue
 		}
-		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName)
+		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName, 0)
 		if err == nil && seq != nil {
 			items, err := seq.Between(start, end, messageLimit)
 			if err == nil {
