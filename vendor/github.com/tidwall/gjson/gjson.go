@@ -64,6 +64,9 @@ type Result struct {
 	Num float64
 	// Index of raw value in original json, zero means index unknown
 	Index int
+	// Indexes of all the elements that match on a path containing the '#'
+	// query character.
+	Indexes []int
 }
 
 // String returns a string representation of the value.
@@ -186,14 +189,15 @@ func (t Result) Time() time.Time {
 }
 
 // Array returns back an array of values.
-// If the result represents a non-existent value, then an empty array will be
-// returned. If the result is not a JSON array, the return value will be an
+// If the result represents a null value or is non-existent, then an empty
+// array will be returned.
+// If the result is not a JSON array, the return value will be an
 // array containing one result.
 func (t Result) Array() []Result {
 	if t.Type == Null {
 		return []Result{}
 	}
-	if t.Type != JSON {
+	if !t.IsArray() {
 		return []Result{t}
 	}
 	r := t.arrayOrMap('[', false)
@@ -281,7 +285,8 @@ func (t Result) ForEach(iterator func(key, value Result) bool) {
 	}
 }
 
-// Map returns back an map of values. The result should be a JSON array.
+// Map returns back a map of values. The result should be a JSON object.
+// If the result is not a JSON object, the return value will be an empty map.
 func (t Result) Map() map[string]Result {
 	if t.Type != JSON {
 		return map[string]Result{}
@@ -584,7 +589,7 @@ func tostr(json string) (raw string, str string) {
 							continue
 						}
 					}
-					break
+					return json[:i+1], unescape(json[1:i])
 				}
 			}
 			var ret string
@@ -756,7 +761,7 @@ func parseArrayPath(path string) (r arrayPathResult) {
 						// bad query, end now
 						break
 					}
-					if len(value) > 2 && value[0] == '"' &&
+					if len(value) >= 2 && value[0] == '"' &&
 						value[len(value)-1] == '"' {
 						value = value[1 : len(value)-1]
 						if vesc {
@@ -1085,9 +1090,9 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 		}
 		if rp.wild {
 			if kesc {
-				pmatch = match.Match(unescape(key), rp.part)
+				pmatch = matchLimit(unescape(key), rp.part)
 			} else {
-				pmatch = match.Match(key, rp.part)
+				pmatch = matchLimit(key, rp.part)
 			}
 		} else {
 			if kesc {
@@ -1098,6 +1103,7 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 		}
 		hit = pmatch && !rp.more
 		for ; i < len(c.json); i++ {
+			var num bool
 			switch c.json[i] {
 			default:
 				continue
@@ -1145,15 +1151,13 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 						return i, true
 					}
 				}
-			case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				i, val = parseNumber(c.json, i)
-				if hit {
-					c.value.Raw = val
-					c.value.Type = Number
-					c.value.Num, _ = strconv.ParseFloat(val, 64)
-					return i, true
+			case 'n':
+				if i+1 < len(c.json) && c.json[i+1] != 'u' {
+					num = true
+					break
 				}
-			case 't', 'f', 'n':
+				fallthrough
+			case 't', 'f':
 				vc := c.json[i]
 				i, val = parseLiteral(c.json, i)
 				if hit {
@@ -1166,12 +1170,33 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 					}
 					return i, true
 				}
+			case '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+				'i', 'I', 'N':
+				num = true
+			}
+			if num {
+				i, val = parseNumber(c.json, i)
+				if hit {
+					c.value.Raw = val
+					c.value.Type = Number
+					c.value.Num, _ = strconv.ParseFloat(val, 64)
+					return i, true
+				}
 			}
 			break
 		}
 	}
 	return i, false
 }
+
+// matchLimit will limit the complexity of the match operation to avoid ReDos
+// attacks from arbritary inputs.
+// See the github.com/tidwall/match.MatchLimit function for more information.
+func matchLimit(str, pattern string) bool {
+	matched, _ := match.MatchLimit(str, pattern, 10000)
+	return matched
+}
+
 func queryMatches(rp *arrayPathResult, value Result) bool {
 	rpv := rp.query.value
 	if len(rpv) > 0 && rpv[0] == '~' {
@@ -1209,9 +1234,9 @@ func queryMatches(rp *arrayPathResult, value Result) bool {
 		case ">=":
 			return value.Str >= rpv
 		case "%":
-			return match.Match(value.Str, rpv)
+			return matchLimit(value.Str, rpv)
 		case "!%":
-			return !match.Match(value.Str, rpv)
+			return !matchLimit(value.Str, rpv)
 		}
 	case Number:
 		rpvn, _ := strconv.ParseFloat(rpv, 64)
@@ -1261,6 +1286,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 	var alog []int
 	var partidx int
 	var multires []byte
+	var queryIndexes []int
 	rp := parseArrayPath(path)
 	if !rp.arrch {
 		n, ok := parseUint(rp.part)
@@ -1281,6 +1307,10 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 				multires = append(multires, '[')
 			}
 		}
+		var tmp parseContext
+		tmp.value = qval
+		fillIndex(c.json, &tmp)
+		parentIndex := tmp.value.Index
 		var res Result
 		if qval.Type == JSON {
 			res = qval.Get(rp.query.path)
@@ -1312,6 +1342,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 						multires = append(multires, ',')
 					}
 					multires = append(multires, raw...)
+					queryIndexes = append(queryIndexes, res.Index+parentIndex)
 				}
 			} else {
 				c.value = res
@@ -1338,6 +1369,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 			} else {
 				ch = c.json[i]
 			}
+			var num bool
 			switch ch {
 			default:
 				continue
@@ -1420,26 +1452,13 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 						return i, true
 					}
 				}
-			case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				i, val = parseNumber(c.json, i)
-				if rp.query.on {
-					var qval Result
-					qval.Raw = val
-					qval.Type = Number
-					qval.Num, _ = strconv.ParseFloat(val, 64)
-					if procQuery(qval) {
-						return i, true
-					}
-				} else if hit {
-					if rp.alogok {
-						break
-					}
-					c.value.Raw = val
-					c.value.Type = Number
-					c.value.Num, _ = strconv.ParseFloat(val, 64)
-					return i, true
+			case 'n':
+				if i+1 < len(c.json) && c.json[i+1] != 'u' {
+					num = true
+					break
 				}
-			case 't', 'f', 'n':
+				fallthrough
+			case 't', 'f':
 				vc := c.json[i]
 				i, val = parseLiteral(c.json, i)
 				if rp.query.on {
@@ -1467,6 +1486,9 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 					}
 					return i, true
 				}
+			case '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+				'i', 'I', 'N':
+				num = true
 			case ']':
 				if rp.arrch && rp.part == "#" {
 					if rp.alogok {
@@ -1476,6 +1498,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 							c.pipe = right
 							c.piped = true
 						}
+						var indexes = make([]int, 0, 64)
 						var jsons = make([]byte, 0, 64)
 						jsons = append(jsons, '[')
 						for j, k := 0, 0; j < len(alog); j++ {
@@ -1490,6 +1513,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 							}
 							if idx < len(c.json) && c.json[idx] != ']' {
 								_, res, ok := parseAny(c.json, idx, true)
+								parentIndex := res.Index
 								if ok {
 									res := res.Get(rp.alogkey)
 									if res.Exists() {
@@ -1501,6 +1525,8 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 											raw = res.String()
 										}
 										jsons = append(jsons, []byte(raw)...)
+										indexes = append(indexes,
+											res.Index+parentIndex)
 										k++
 									}
 								}
@@ -1509,6 +1535,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 						jsons = append(jsons, ']')
 						c.value.Type = JSON
 						c.value.Raw = string(jsons)
+						c.value.Indexes = indexes
 						return i + 1, true
 					}
 					if rp.alogok {
@@ -1524,8 +1551,9 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 				if !c.value.Exists() {
 					if len(multires) > 0 {
 						c.value = Result{
-							Raw:  string(append(multires, ']')),
-							Type: JSON,
+							Raw:     string(append(multires, ']')),
+							Type:    JSON,
+							Indexes: queryIndexes,
 						}
 					} else if rp.query.all {
 						c.value = Result{
@@ -1535,6 +1563,26 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 					}
 				}
 				return i + 1, false
+			}
+			if num {
+				i, val = parseNumber(c.json, i)
+				if rp.query.on {
+					var qval Result
+					qval.Raw = val
+					qval.Type = Number
+					qval.Num, _ = strconv.ParseFloat(val, 64)
+					if procQuery(qval) {
+						return i, true
+					}
+				} else if hit {
+					if rp.alogok {
+						break
+					}
+					c.value.Raw = val
+					c.value.Type = Number
+					c.value.Num, _ = strconv.ParseFloat(val, 64)
+					return i, true
+				}
 			}
 			break
 		}
@@ -1806,6 +1854,7 @@ func Get(json, path string) Result {
 					if len(path) > 0 && (path[0] == '|' || path[0] == '.') {
 						res := Get(rjson, path[1:])
 						res.Index = 0
+						res.Indexes = nil
 						return res
 					}
 					return Parse(rjson)
@@ -2046,11 +2095,15 @@ func parseAny(json string, i int, hit bool) (int, Result, bool) {
 				res.Raw = val
 				res.Type = JSON
 			}
-			return i, res, true
+			var tmp parseContext
+			tmp.value = res
+			fillIndex(json, &tmp)
+			return i, tmp.value, true
 		}
 		if json[i] <= ' ' {
 			continue
 		}
+		var num bool
 		switch json[i] {
 		case '"':
 			i++
@@ -2070,15 +2123,13 @@ func parseAny(json string, i int, hit bool) (int, Result, bool) {
 				}
 			}
 			return i, res, true
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			i, val = parseNumber(json, i)
-			if hit {
-				res.Raw = val
-				res.Type = Number
-				res.Num, _ = strconv.ParseFloat(val, 64)
+		case 'n':
+			if i+1 < len(json) && json[i+1] != 'u' {
+				num = true
+				break
 			}
-			return i, res, true
-		case 't', 'f', 'n':
+			fallthrough
+		case 't', 'f':
 			vc := json[i]
 			i, val = parseLiteral(json, i)
 			if hit {
@@ -2091,7 +2142,20 @@ func parseAny(json string, i int, hit bool) (int, Result, bool) {
 				}
 				return i, res, true
 			}
+		case '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+			'i', 'I', 'N':
+			num = true
 		}
+		if num {
+			i, val = parseNumber(json, i)
+			if hit {
+				res.Raw = val
+				res.Type = Number
+				res.Num, _ = strconv.ParseFloat(val, 64)
+			}
+			return i, res, true
+		}
+
 	}
 	return i, res, false
 }
@@ -2455,7 +2519,8 @@ func parseInt(s string) (n int64, ok bool) {
 // safeInt validates a given JSON number
 // ensures it lies within the minimum and maximum representable JSON numbers
 func safeInt(f float64) (n int64, ok bool) {
-	//  https://tc39.es/ecma262/#sec-number.min_safe_integer || https://tc39.es/ecma262/#sec-number.max_safe_integer
+	// https://tc39.es/ecma262/#sec-number.min_safe_integer
+	// https://tc39.es/ecma262/#sec-number.max_safe_integer
 	if f < -9007199254740991 || f > 9007199254740991 {
 		return 0, false
 	}
@@ -2534,6 +2599,8 @@ var modifiers = map[string]func(json, arg string) string{
 	"flatten": modFlatten,
 	"join":    modJoin,
 	"valid":   modValid,
+	"keys":    modKeys,
+	"values":  modValues,
 }
 
 // AddModifier binds a custom modifier command to the GJSON syntax.
@@ -2688,6 +2755,58 @@ func modFlatten(json, arg string) string {
 	})
 	out = append(out, ']')
 	return bytesString(out)
+}
+
+// @keys extracts the keys from an object.
+//  {"first":"Tom","last":"Smith"} -> ["first","last"]
+func modKeys(json, arg string) string {
+	v := Parse(json)
+	if !v.Exists() {
+		return "[]"
+	}
+	obj := v.IsObject()
+	var out strings.Builder
+	out.WriteByte('[')
+	var i int
+	v.ForEach(func(key, _ Result) bool {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		if obj {
+			out.WriteString(key.Raw)
+		} else {
+			out.WriteString("null")
+		}
+		i++
+		return true
+	})
+	out.WriteByte(']')
+	return out.String()
+}
+
+// @values extracts the values from an object.
+//   {"first":"Tom","last":"Smith"} -> ["Tom","Smith"]
+func modValues(json, arg string) string {
+	v := Parse(json)
+	if !v.Exists() {
+		return "[]"
+	}
+	if v.IsArray() {
+		return json
+	}
+	var out strings.Builder
+	out.WriteByte('[')
+	var i int
+	v.ForEach(func(_, value Result) bool {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(value.Raw)
+		i++
+		return true
+	})
+	out.WriteByte(']')
+	return out.String()
 }
 
 // @join multiple objects into a single object.

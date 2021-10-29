@@ -17,7 +17,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
-	github.com/tidwall/buntdb v1.2.6
+	github.com/tidwall/buntdb v1.2.7
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	github.com/xdg-go/scram v1.0.2
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
@@ -26,11 +26,11 @@ require (
 )
 
 require (
-	github.com/tidwall/btree v0.6.0 // indirect
-	github.com/tidwall/gjson v1.8.0 // indirect
-	github.com/tidwall/grect v0.1.2 // indirect
-	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.1.0 // indirect
+	github.com/tidwall/btree v0.6.1 // indirect
+	github.com/tidwall/gjson v1.10.2 // indirect
+	github.com/tidwall/grect v0.1.3 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
