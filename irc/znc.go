@@ -189,7 +189,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 }
 
 func zncPlayPrivmsgsFrom(client *Client, rb *ResponseBuffer, target string, start, end time.Time) {
-	_, sequence, err := client.server.GetHistorySequence(nil, client, target)
+	_, sequence, err := client.server.GetHistorySequence(nil, client, target, 0)
 	if sequence == nil || err != nil {
 		return
 	}
