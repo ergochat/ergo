@@ -73,7 +73,7 @@ You can use the `/rehash` command to make Ergo reload its config, or
 send it the HUP signal:
 
 ```shell
-docker kill -HUP ergo
+docker kill -s SIGHUP ergo
 ```
 
 ## Using custom TLS certificates
