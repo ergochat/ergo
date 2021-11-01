@@ -196,7 +196,7 @@ func zncPlayPrivmsgsFrom(client *Client, rb *ResponseBuffer, target string, star
 	zncMax := client.server.Config().History.ZNCMax
 	items, err := sequence.Between(history.Selector{Time: start}, history.Selector{Time: end}, zncMax)
 	if err == nil && len(items) != 0 {
-		client.replayPrivmsgHistory(rb, items, target)
+		client.replayPrivmsgHistory(rb, items, target, false)
 	}
 }
 
@@ -204,7 +204,7 @@ func zncPlayPrivmsgsFromAll(client *Client, rb *ResponseBuffer, start, end time.
 	zncMax := client.server.Config().History.ZNCMax
 	items, err := client.privmsgsBetween(start, end, maxDMTargetsForAutoplay, zncMax)
 	if err == nil && len(items) != 0 {
-		client.replayPrivmsgHistory(rb, items, "")
+		client.replayPrivmsgHistory(rb, items, "", false)
 	}
 }
 

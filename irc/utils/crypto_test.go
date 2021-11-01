@@ -47,38 +47,9 @@ func TestTokenCompare(t *testing.T) {
 	}
 }
 
-func TestMunging(t *testing.T) {
-	count := 131072
-	set := make(map[string]bool)
-	var token string
-	for i := 0; i < count; i++ {
-		token = GenerateSecretToken()
-		set[token] = true
-	}
-	// all tokens generated thus far should be unique
-	assertEqual(len(set), count, t)
-
-	// iteratively munge the last generated token an additional `count` times
-	mungedToken := token
-	for i := 0; i < count; i++ {
-		mungedToken = MungeSecretToken(mungedToken)
-		assertEqual(len(mungedToken), len(token), t)
-		set[mungedToken] = true
-	}
-	// munged tokens should not collide with generated tokens, or each other
-	assertEqual(len(set), count*2, t)
-}
-
 func BenchmarkGenerateSecretToken(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		GenerateSecretToken()
-	}
-}
-
-func BenchmarkMungeSecretToken(b *testing.B) {
-	t := GenerateSecretToken()
-	for i := 0; i < b.N; i++ {
-		t = MungeSecretToken(t)
 	}
 }
 

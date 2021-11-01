@@ -611,9 +611,9 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 						target.Time.Format(IRCv3TimestampFormat))
 				}
 			} else if channel != nil {
-				channel.replayHistoryItems(rb, items, false)
+				channel.replayHistoryItems(rb, items, true)
 			} else {
-				client.replayPrivmsgHistory(rb, items, target)
+				client.replayPrivmsgHistory(rb, items, target, true)
 			}
 		}
 	}()
@@ -640,7 +640,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		}
 		identifier, value := strings.ToLower(pieces[0]), pieces[1]
 		if identifier == "msgid" {
-			msgid, err = value, nil
+			msgid, err = history.NormalizeMsgid(value), nil
 			return
 		} else if identifier == "timestamp" {
 			timestamp, err = time.Parse(IRCv3TimestampFormat, value)
@@ -1122,9 +1122,9 @@ func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	if len(items) != 0 {
 		if channel != nil {
-			channel.replayHistoryItems(rb, items, false)
+			channel.replayHistoryItems(rb, items, true)
 		} else {
-			client.replayPrivmsgHistory(rb, items, "")
+			client.replayPrivmsgHistory(rb, items, "", true)
 		}
 	}
 	return false
