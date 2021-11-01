@@ -42,6 +42,29 @@ func GenerateSecretToken() string {
 	return B32Encoder.EncodeToString(buf[:])
 }
 
+// "munge" a secret token to a new value. requirements:
+// 1. MUST be roughly as unlikely to collide with `GenerateSecretToken` outputs
+// as those outputs are with each other
+// 2. SHOULD be deterministic (motivation: if a JOIN line has msgid x,
+// create a deterministic msgid y for the fake HistServ PRIVMSG that "replays" it)
+// 3. SHOULD be in the same "namespace" as `GenerateSecretToken` outputs
+// (same length and character set)
+func MungeSecretToken(token string) (result string) {
+	bytes, err := B32Encoder.DecodeString(token)
+	if err != nil {
+		// this should never happen
+		return GenerateSecretToken()
+	}
+	// add 1 with carrying
+	for i := len(bytes) - 1; 0 <= i; i -= 1 {
+		bytes[i] += 1
+		if bytes[i] != 0 {
+			break
+		} // else: overflow, carry to the next place
+	}
+	return B32Encoder.EncodeToString(bytes)
+}
+
 // securely check if a supplied token matches a stored token
 func SecretTokensMatch(storedToken string, suppliedToken string) bool {
 	// XXX fix a potential gotcha: if the stored token is uninitialized,

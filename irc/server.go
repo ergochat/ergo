@@ -862,7 +862,7 @@ func (server *Server) setupListeners(config *Config) (err error) {
 // suitable for ListCorrespondents (i.e., this function is still used to
 // decide whether the ringbuf or mysql is authoritative about the client's
 // message history).
-func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, query string, excludeFlags history.ExcludeFlags) (channel *Channel, sequence history.Sequence, err error) {
+func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, query string) (channel *Channel, sequence history.Sequence, err error) {
 	config := server.Config()
 	// 4 cases: {persistent, ephemeral} x {normal, conversation}
 	// with ephemeral history, target is implicit in the choice of `hist`,
@@ -940,9 +940,9 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	}
 
 	if hist != nil {
-		sequence = hist.MakeSequence(correspondent, cutoff, excludeFlags)
+		sequence = hist.MakeSequence(correspondent, cutoff)
 	} else if target != "" {
-		sequence = server.historyDB.MakeSequence(target, correspondent, cutoff, excludeFlags)
+		sequence = server.historyDB.MakeSequence(target, correspondent, cutoff)
 	}
 	return
 }

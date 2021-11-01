@@ -640,7 +640,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		}
 		identifier, value := strings.ToLower(pieces[0]), pieces[1]
 		if identifier == "msgid" {
-			msgid, err = history.NormalizeMsgid(value), nil
+			msgid, err = value, nil
 			return
 		} else if identifier == "timestamp" {
 			timestamp, err = time.Parse(IRCv3TimestampFormat, value)
@@ -725,17 +725,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	if listTargets {
 		targets, err = client.listTargets(start, end, limit)
 	} else {
-		// see #1676; for CHATHISTORY we need to make the paging window as exact as possible,
-		// hence filtering out undisplayable messages on the backend, in order to send a full
-		// paging window if possible
-		var flags history.ExcludeFlags
-		if !rb.session.capabilities.Has(caps.EventPlayback) {
-			flags |= history.ExcludeTagmsg
-		}
-		if client.AccountSettings().ReplayJoins == ReplayJoinsNever {
-			flags |= history.ExcludeJoins
-		}
-		channel, sequence, err = server.GetHistorySequence(nil, client, target, flags)
+		channel, sequence, err = server.GetHistorySequence(nil, client, target)
 		if err != nil || sequence == nil {
 			return
 		}

@@ -53,17 +53,6 @@ func (item *Item) HasMsgid(msgid string) bool {
 	return item.Message.Msgid == msgid
 }
 
-func (item *Item) IsExcluded(excludeFlags ExcludeFlags) bool {
-	switch item.Type {
-	case Tagmsg:
-		return excludeFlags&ExcludeTagmsg != 0
-	case Join, Part, Quit:
-		return excludeFlags&ExcludeJoins != 0
-	default:
-		return false
-	}
-}
-
 type Predicate func(item *Item) (matches bool)
 
 func Reverse(results []Item) {
@@ -166,7 +155,7 @@ func (list *Buffer) lookup(msgid string) (result Item, found bool) {
 // with an indication of whether the results are complete or are missing items
 // because some of that period was discarded. A zero value of `before` is considered
 // higher than all other times.
-func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Predicate, limit int, excludeFlags ExcludeFlags) (results []Item, complete bool, err error) {
+func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Predicate, limit int) (results []Item, complete bool, err error) {
 	var ascending bool
 
 	defer func() {
@@ -206,8 +195,7 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 	satisfies := func(item *Item) bool {
 		return (after.IsZero() || item.Message.Time.After(after)) &&
 			(before.IsZero() || item.Message.Time.Before(before)) &&
-			(pred == nil || pred(item)) &&
-			!item.IsExcluded(excludeFlags)
+			(pred == nil || pred(item))
 	}
 
 	return list.matchInternal(satisfies, ascending, limit), complete, nil
@@ -291,10 +279,9 @@ type bufferSequence struct {
 	list   *Buffer
 	pred   Predicate
 	cutoff time.Time
-	flags  ExcludeFlags
 }
 
-func (list *Buffer) MakeSequence(correspondent string, cutoff time.Time, flags ExcludeFlags) Sequence {
+func (list *Buffer) MakeSequence(correspondent string, cutoff time.Time) Sequence {
 	var pred Predicate
 	if correspondent != "" {
 		pred = func(item *Item) bool {
@@ -305,12 +292,11 @@ func (list *Buffer) MakeSequence(correspondent string, cutoff time.Time, flags E
 		list:   list,
 		pred:   pred,
 		cutoff: cutoff,
-		flags:  flags,
 	}
 }
 
 func (seq *bufferSequence) Between(start, end Selector, limit int) (results []Item, err error) {
-	results, _, err = seq.list.betweenHelper(start, end, seq.cutoff, seq.pred, limit, seq.flags)
+	results, _, err = seq.list.betweenHelper(start, end, seq.cutoff, seq.pred, limit)
 	return
 }
 
@@ -391,7 +377,7 @@ func (list *Buffer) Delete(predicate Predicate) (count int) {
 // latest returns the items most recently added, up to `limit`. If `limit` is 0,
 // it returns all items.
 func (list *Buffer) latest(limit int) (results []Item) {
-	results, _, _ = list.betweenHelper(Selector{}, Selector{}, time.Time{}, nil, limit, 0)
+	results, _, _ = list.betweenHelper(Selector{}, Selector{}, time.Time{}, nil, limit)
 	return
 }
 

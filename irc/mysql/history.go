@@ -40,10 +40,6 @@ const (
 	keySchemaMinorVersion = "db.minorversion"
 	cleanupRowLimit       = 50
 	cleanupPauseTime      = 10 * time.Minute
-
-	// if we don't fill the pagination window due to exclusions,
-	// retry with an expanded window at most this many times
-	maxPaginationRetries = 3
 )
 
 type e struct{}
@@ -1037,18 +1033,9 @@ type mySQLHistorySequence struct {
 	target        string
 	correspondent string
 	cutoff        time.Time
-	excludeFlags  history.ExcludeFlags
 }
 
 func (s *mySQLHistorySequence) Between(start, end history.Selector, limit int) (results []history.Item, err error) {
-	if s.excludeFlags == 0 {
-		return s.baseBetween(start, end, limit)
-	} else {
-		return s.betweenWithRetries(start, end, limit)
-	}
-}
-
-func (s *mySQLHistorySequence) baseBetween(start, end history.Selector, limit int) (results []history.Item, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.mysql.getTimeout())
 	defer cancel()
 
@@ -1071,45 +1058,7 @@ func (s *mySQLHistorySequence) baseBetween(start, end history.Selector, limit in
 	return results, err
 }
 
-func (s *mySQLHistorySequence) betweenWithRetries(start, end history.Selector, limit int) (results []history.Item, err error) {
-	applyExclusions := func(currentResults []history.Item, excludeFlags history.ExcludeFlags, trueLimit int) (filteredResults []history.Item) {
-		filteredResults = make([]history.Item, 0, len(currentResults))
-		for _, item := range currentResults {
-			if !item.IsExcluded(excludeFlags) {
-				filteredResults = append(filteredResults, item)
-			}
-			if len(filteredResults) == trueLimit {
-				break
-			}
-		}
-		return
-	}
-
-	i := 1
-	for {
-		currentLimit := limit * i
-		currentResults, err := s.baseBetween(start, end, currentLimit)
-		if err != nil {
-			return nil, err
-		}
-		results = applyExclusions(currentResults, s.excludeFlags, limit)
-		// we're done in any of these three cases:
-		// (1) we filled the window (2) we ran out of results on the backend (3) we can't retry anymore
-		if len(results) == limit || len(currentResults) < currentLimit || i == maxPaginationRetries {
-			return results, nil
-		}
-		i++
-	}
-}
-
 func (s *mySQLHistorySequence) Around(start history.Selector, limit int) (results []history.Item, err error) {
-	// temporarily clear the exclude flags when running GenericAround, since we don't care about
-	// the exactness of the paging window at all
-	oldExcludeFlags := s.excludeFlags
-	s.excludeFlags = 0
-	defer func() {
-		s.excludeFlags = oldExcludeFlags
-	}()
 	return history.GenericAround(s, start, limit)
 }
 
@@ -1134,12 +1083,11 @@ func (seq *mySQLHistorySequence) Ephemeral() bool {
 	return false
 }
 
-func (mysql *MySQL) MakeSequence(target, correspondent string, cutoff time.Time, excludeFlags history.ExcludeFlags) history.Sequence {
+func (mysql *MySQL) MakeSequence(target, correspondent string, cutoff time.Time) history.Sequence {
 	return &mySQLHistorySequence{
 		target:        target,
 		correspondent: correspondent,
 		mysql:         mysql,
 		cutoff:        cutoff,
-		excludeFlags:  excludeFlags,
 	}
 }
