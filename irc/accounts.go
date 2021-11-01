@@ -177,13 +177,13 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 				}
 			}
 
-			if rawPrefs, err := tx.Get(fmt.Sprintf(keyAccountSettings, account)); err == nil {
+			if rawPrefs, err := tx.Get(fmt.Sprintf(keyAccountSettings, account)); err == nil && rawPrefs != "" {
 				var prefs AccountSettings
 				err := json.Unmarshal([]byte(rawPrefs), &prefs)
 				if err == nil && prefs.NickEnforcement != NickEnforcementOptional {
 					accountToMethod[account] = prefs.NickEnforcement
 				} else if err != nil {
-					am.server.logger.Error("internal", "corrupt account creds", account)
+					am.server.logger.Error("internal", "corrupt account settings", account, err.Error())
 				}
 			}
 
