@@ -284,8 +284,8 @@ default.`,
 				`$bREPLAY-JOINS$b
 'replay-joins' controls whether replayed channel history will include
 lines for join and part. This provides more information about the context of
-messages, but may be spammy. Your options are 'always', 'never', and the default
-of 'commands-only' (the messages will be replayed in /HISTORY output, but not
+messages, but may be spammy. Your options are 'always' and the default of
+'commands-only' (the messages will be replayed in CHATHISTORY output, but not
 during autoreplay).`,
 				`$bALWAYS-ON$b
 'always-on' controls whether your nickname/identity will remain active
@@ -440,8 +440,6 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 			service.Notice(rb, client.t("You will see JOINs and PARTs in /HISTORY output, but not in autoreplay"))
 		case ReplayJoinsAlways:
 			service.Notice(rb, client.t("You will see JOINs and PARTs in /HISTORY output and in autoreplay"))
-		case ReplayJoinsNever:
-			service.Notice(rb, client.t("You will not see JOINs and PARTs in /HISTORY output or in autoreplay"))
 		}
 	case "multiclient":
 		if !config.Accounts.Multiclient.Enabled {
