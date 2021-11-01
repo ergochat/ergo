@@ -419,12 +419,18 @@ func (server *Server) RplISupport(client *Client, rb *ResponseBuffer) {
 
 func (server *Server) Lusers(client *Client, rb *ResponseBuffer) {
 	nick := client.Nick()
-	stats := server.stats.GetValues()
+	config := server.Config()
+	var stats StatsValues
+	var numChannels int
+	if !config.Server.SuppressLusers || client.HasRoleCapabs("ban") {
+		stats = server.stats.GetValues()
+		numChannels = server.channels.Len()
+	}
 
 	rb.Add(nil, server.name, RPL_LUSERCLIENT, nick, fmt.Sprintf(client.t("There are %[1]d users and %[2]d invisible on %[3]d server(s)"), stats.Total-stats.Invisible, stats.Invisible, 1))
 	rb.Add(nil, server.name, RPL_LUSEROP, nick, strconv.Itoa(stats.Operators), client.t("IRC Operators online"))
 	rb.Add(nil, server.name, RPL_LUSERUNKNOWN, nick, strconv.Itoa(stats.Unknown), client.t("unregistered connections"))
-	rb.Add(nil, server.name, RPL_LUSERCHANNELS, nick, strconv.Itoa(server.channels.Len()), client.t("channels formed"))
+	rb.Add(nil, server.name, RPL_LUSERCHANNELS, nick, strconv.Itoa(numChannels), client.t("channels formed"))
 	rb.Add(nil, server.name, RPL_LUSERME, nick, fmt.Sprintf(client.t("I have %[1]d clients and %[2]d servers"), stats.Total, 0))
 	total := strconv.Itoa(stats.Total)
 	max := strconv.Itoa(stats.Max)

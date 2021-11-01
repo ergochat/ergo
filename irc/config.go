@@ -592,6 +592,7 @@ type Config struct {
 		IPCheckScript            ScriptConfig `yaml:"ip-check-script"`
 		OverrideServicesHostname string       `yaml:"override-services-hostname"`
 		MaxLineLen               int          `yaml:"max-line-len"`
+		SuppressLusers           bool         `yaml:"suppress-lusers"`
 	}
 
 	Roleplay struct {
