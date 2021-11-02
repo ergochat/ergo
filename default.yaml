@@ -360,6 +360,10 @@ server:
     # the default value of 512. DO NOT change this on a public server:
     # max-line-len: 512
 
+    # send all 0's as the LUSERS (user counts) output to non-operators; potentially useful
+    # if you don't want to publicize how popular the server is
+    suppress-lusers: false
+
 # account options
 accounts:
     # is account authentication enabled, i.e., can users log into existing accounts?
