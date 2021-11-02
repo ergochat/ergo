@@ -917,7 +917,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 	}
 
 	if hasAutoreplayTimestamps {
-		_, seq, _ := channel.server.GetHistorySequence(channel, client, "", 0)
+		_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 		if seq != nil {
 			zncMax := channel.server.Config().History.ZNCMax
 			items, _ = seq.Between(history.Selector{Time: start}, history.Selector{Time: end}, zncMax)
@@ -935,7 +935,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 			replayLimit = channel.server.Config().History.AutoreplayOnJoin
 		}
 		if 0 < replayLimit {
-			_, seq, _ := channel.server.GetHistorySequence(channel, client, "", 0)
+			_, seq, _ := channel.server.GetHistorySequence(channel, client, "")
 			if seq != nil {
 				items, _ = seq.Between(history.Selector{}, history.Selector{}, replayLimit)
 			}
@@ -952,7 +952,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 		}
 	}
 	if 0 < numItems {
-		channel.replayHistoryItems(rb, items, true)
+		channel.replayHistoryItems(rb, items, false)
 		rb.Flush(true)
 	}
 }
@@ -1035,7 +1035,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	client.server.logger.Debug("channels", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
 
-func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, autoreplay bool) {
+func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, chathistoryCommand bool) {
 	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()
 	client := rb.target
@@ -1043,13 +1043,15 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 	extendedJoin := rb.session.capabilities.Has(caps.ExtendedJoin)
 	var playJoinsAsPrivmsg bool
 	if !eventPlayback {
-		switch client.AccountSettings().ReplayJoins {
-		case ReplayJoinsCommandsOnly:
-			playJoinsAsPrivmsg = !autoreplay
-		case ReplayJoinsAlways:
+		if chathistoryCommand {
 			playJoinsAsPrivmsg = true
-		case ReplayJoinsNever:
-			playJoinsAsPrivmsg = false
+		} else {
+			switch client.AccountSettings().ReplayJoins {
+			case ReplayJoinsCommandsOnly:
+				playJoinsAsPrivmsg = false
+			case ReplayJoinsAlways:
+				playJoinsAsPrivmsg = true
+			}
 		}
 	}
 
@@ -1066,6 +1068,9 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		case history.Tagmsg:
 			if eventPlayback {
 				rb.AddSplitMessageFromClient(item.Nick, item.AccountName, item.IsBot, item.Tags, "TAGMSG", chname, item.Message)
+			} else if chathistoryCommand {
+				// #1676, we have to send something here or else it breaks pagination
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", chname, fmt.Sprintf(client.t("%s sent a TAGMSG"), nick))
 			}
 		case history.Join:
 			if eventPlayback {

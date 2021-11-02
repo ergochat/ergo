@@ -853,7 +853,7 @@ func (session *Session) Ping() {
 	session.Send(nil, "", "PING", session.client.Nick())
 }
 
-func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string) {
+func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.Item, target string, chathistoryCommand bool) {
 	var batchID string
 	details := client.Details()
 	nick := details.nick
@@ -893,10 +893,15 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 		case history.Tagmsg:
 			if hasEventPlayback && hasTags {
 				command = "TAGMSG"
+			} else if chathistoryCommand {
+				// #1676: send something for TAGMSG; we can't discard it entirely
+				// because it'll break pagination
+				rb.AddFromClient(item.Message.Time, history.HistservMungeMsgid(item.Message.Msgid), histservService.prefix, "*", false, nil, "PRIVMSG", fmt.Sprintf(client.t("%[1]s sent you a TAGMSG"), NUHToNick(item.Nick)))
 			} else {
 				continue
 			}
 		default:
+			// see #1676, this shouldn't happen
 			continue
 		}
 		var tags map[string]string
@@ -1713,7 +1718,7 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 	var base, extras []history.TargetListing
 	var chcfnames []string
 	for _, channel := range client.Channels() {
-		_, seq, err := client.server.GetHistorySequence(channel, client, "", 0)
+		_, seq, err := client.server.GetHistorySequence(channel, client, "")
 		if seq == nil || err != nil {
 			continue
 		}
@@ -1734,7 +1739,7 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 		extras = append(extras, persistentExtras...)
 	}
 
-	_, cSeq, err := client.server.GetHistorySequence(nil, client, "", 0)
+	_, cSeq, err := client.server.GetHistorySequence(nil, client, "")
 	if err == nil && cSeq != nil {
 		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
 		if err == nil {
@@ -1758,7 +1763,7 @@ func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit,
 		if strings.HasPrefix(target.CfName, "#") {
 			continue
 		}
-		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName, 0)
+		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName)
 		if err == nil && seq != nil {
 			items, err := seq.Between(start, end, messageLimit)
 			if err == nil {

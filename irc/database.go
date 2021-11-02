@@ -24,7 +24,7 @@ const (
 	// 'version' of the database schema
 	keySchemaVersion = "db.version"
 	// latest schema of the db
-	latestDbSchema = 21
+	latestDbSchema = 22
 
 	keyCloakSecret = "crypto.cloak_secret"
 )
@@ -1059,6 +1059,56 @@ func schemaChangeV20To21(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// #1676: we used to have ReplayJoinsNever, now it's desupported
+func schemaChangeV21To22(config *Config, tx *buntdb.Tx) error {
+	type accountSettingsv22 struct {
+		AutoreplayLines  *int
+		NickEnforcement  NickEnforcementMethod
+		AllowBouncer     MulticlientAllowedSetting
+		ReplayJoins      ReplayJoinsSetting
+		AlwaysOn         PersistentStatus
+		AutoreplayMissed bool
+		DMHistory        HistoryStatus
+		AutoAway         PersistentStatus
+		Email            string
+	}
+
+	var accounts []string
+	var serializedSettings []string
+	settingsPrefix := "account.settings "
+	tx.AscendGreaterOrEqual("", settingsPrefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, settingsPrefix) {
+			return false
+		}
+		account := strings.TrimPrefix(key, settingsPrefix)
+		if _, err := tx.Get("account.verified " + account); err != nil {
+			return true
+		}
+		var settings accountSettingsv22
+		err := json.Unmarshal([]byte(value), &settings)
+		if err != nil {
+			log.Printf("error (v21-22) processing settings for %s: %v\n", account, err)
+			return true
+		}
+		// if necessary, change ReplayJoinsNever (2) to ReplayJoinsCommandsOnly (0)
+		if settings.ReplayJoins == ReplayJoinsSetting(2) {
+			settings.ReplayJoins = ReplayJoinsSetting(0)
+			if b, err := json.Marshal(settings); err == nil {
+				accounts = append(accounts, account)
+				serializedSettings = append(serializedSettings, string(b))
+			} else {
+				log.Printf("error (v21-22) processing settings for %s: %v\n", account, err)
+			}
+		}
+		return true
+	})
+
+	for i, account := range accounts {
+		tx.Set(settingsPrefix+account, serializedSettings[i], nil)
+	}
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -1168,5 +1218,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 20,
 		TargetVersion:  21,
 		Changer:        schemaChangeV20To21,
+	},
+	{
+		InitialVersion: 21,
+		TargetVersion:  22,
+		Changer:        schemaChangeV21To22,
 	},
 }

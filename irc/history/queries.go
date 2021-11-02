@@ -8,13 +8,6 @@ import (
 	"time"
 )
 
-type ExcludeFlags uint
-
-const (
-	ExcludeTagmsg ExcludeFlags = 1 << iota
-	ExcludeJoins
-)
-
 // Selector represents a parameter to a CHATHISTORY command
 type Selector struct {
 	Msgid string

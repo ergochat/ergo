@@ -199,7 +199,7 @@ func histservPlayHandler(service *ircService, server *Server, client *Client, co
 
 // handles parameter parsing and history queries for /HISTORY and /HISTSERV PLAY
 func easySelectHistory(server *Server, client *Client, params []string) (items []history.Item, channel *Channel, err error) {
-	channel, sequence, err := server.GetHistorySequence(nil, client, params[0], 0)
+	channel, sequence, err := server.GetHistorySequence(nil, client, params[0])
 
 	if sequence == nil || err != nil {
 		return nil, nil, errNoSuchChannel

@@ -939,7 +939,7 @@ history:
         # if `default` is false, store TAGMSG containing any of these tags:
         whitelist:
             - "+draft/react"
-            - "react"
+            - "+react"
 
         # if `default` is true, don't store TAGMSG containing any of these tags:
         #blacklist:

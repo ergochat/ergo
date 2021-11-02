@@ -611,9 +611,9 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 						target.Time.Format(IRCv3TimestampFormat))
 				}
 			} else if channel != nil {
-				channel.replayHistoryItems(rb, items, false)
+				channel.replayHistoryItems(rb, items, true)
 			} else {
-				client.replayPrivmsgHistory(rb, items, target)
+				client.replayPrivmsgHistory(rb, items, target, true)
 			}
 		}
 	}()
@@ -725,17 +725,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	if listTargets {
 		targets, err = client.listTargets(start, end, limit)
 	} else {
-		// see #1676; for CHATHISTORY we need to make the paging window as exact as possible,
-		// hence filtering out undisplayable messages on the backend, in order to send a full
-		// paging window if possible
-		var flags history.ExcludeFlags
-		if !rb.session.capabilities.Has(caps.EventPlayback) {
-			flags |= history.ExcludeTagmsg
-		}
-		if client.AccountSettings().ReplayJoins == ReplayJoinsNever {
-			flags |= history.ExcludeJoins
-		}
-		channel, sequence, err = server.GetHistorySequence(nil, client, target, flags)
+		channel, sequence, err = server.GetHistorySequence(nil, client, target)
 		if err != nil || sequence == nil {
 			return
 		}
@@ -1132,9 +1122,9 @@ func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	if len(items) != 0 {
 		if channel != nil {
-			channel.replayHistoryItems(rb, items, false)
+			channel.replayHistoryItems(rb, items, true)
 		} else {
-			client.replayPrivmsgHistory(rb, items, "")
+			client.replayPrivmsgHistory(rb, items, "", true)
 		}
 	}
 	return false
