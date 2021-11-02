@@ -1,0 +1,37 @@
+name: 'ghcr'
+
+on:
+  push:
+    branches:
+      - "master"
+      - "stable"
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: 'Build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Build:checkout"
+        uses: actions/checkout@v2
+      - name: "Build:meta"
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ghcr.io/ergochat/ergo           
+      - name: "Build:login"
+        uses: docker/login-action@v1
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 'Build:dockerimage'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
