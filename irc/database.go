@@ -1080,6 +1080,9 @@ func schemaChangeV21To22(config *Config, tx *buntdb.Tx) error {
 		if !strings.HasPrefix(key, settingsPrefix) {
 			return false
 		}
+		if value == "" {
+			return true
+		}
 		account := strings.TrimPrefix(key, settingsPrefix)
 		if _, err := tx.Get("account.verified " + account); err != nil {
 			return true

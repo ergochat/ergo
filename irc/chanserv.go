@@ -541,13 +541,11 @@ func csTransferHandler(service *ircService, server *Server, client *Client, comm
 	chname = regInfo.Name
 	account := client.Account()
 	isFounder := account != "" && account == regInfo.Founder
-	var oper *Oper
-	if !isFounder {
-		oper = client.Oper()
-		if !oper.HasRoleCapab("chanreg") {
-			service.Notice(rb, client.t("Insufficient privileges"))
-			return
-		}
+	oper := client.Oper()
+	hasPrivs := oper.HasRoleCapab("chanreg")
+	if !isFounder && !hasPrivs {
+		service.Notice(rb, client.t("Insufficient privileges"))
+		return
 	}
 	target := params[1]
 	targetAccount, err := server.accounts.LoadAccount(params[1])
@@ -569,7 +567,7 @@ func csTransferHandler(service *ircService, server *Server, client *Client, comm
 		server.snomasks.Send(sno.LocalOpers, message)
 		server.logger.Info("opers", message)
 	}
-	status, err := channel.Transfer(client, target, oper != nil)
+	status, err := channel.Transfer(client, target, hasPrivs)
 	if err == nil {
 		switch status {
 		case channelTransferComplete:
