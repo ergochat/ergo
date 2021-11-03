@@ -7,7 +7,7 @@ import "fmt"
 
 const (
 	// SemVer is the semantic version of Ergo.
-	SemVer = "2.7.0-resume1"
+	SemVer = "2.7.0-resume2"
 )
 
 var (
