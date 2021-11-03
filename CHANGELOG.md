@@ -1,6 +1,74 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.8.0-rc1] - 2021-11-03
+
+We're pleased to be publishing the release candidate for 2.8.0 (the official release should follow in a week or so).
+
+This release contains many fixes and enhancements, plus one major user-facing feature: user-initiated password resets via e-mail (#734).
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+
+As part of this release, our official Docker images will move from Docker Hub to [the GitHub Container Registry at ghcr.io](https://ghcr.io); more details will be forthcoming with the final release.
+
+Many thanks to [@ajaspers](https://github.com/ajaspers), [@delthas](https://github.com/delthas), [@mogad0n](https://github.com/mogad0n), [@majiru](https://github.com/majiru), [@ProgVal](https://github.com/ProgVal), and [@tacerus](https://github.com/tacerus) for contributing patches, to [@ajaspers](https://github.com/ajaspers) for contributing code review, to [@ajaspers](https://github.com/ajaspers), [@cxxboy](https://github.com/cxxboy), [@dallemon](https://github.com/dallemon), [@emersion](https://github.com/emersion), [@erikh](https://github.com/erikh), [@eskimo](https://github.com/eskimo), [@jwheare](https://github.com/jwheare), [@kylef](https://github.com/kylef), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@MystaraTheGreat](https://github.com/MystaraTheGreat), [@ProgVal](https://github.com/ProgVal), [@tacerus](https://github.com/tacerus), [@tamiko](https://github.com/tamiko), and [@xnaas](https://github.com/xnaas) for reporting issues and helping test, and to our translators for contributing translations.
+
+### Config changes
+* Added `accounts.registration.email-verification.password-reset` block to configure e-mail-based password reset (#734, #1779)
+* Added `accounts.registration.email-verification.timeout` to impose a timeout on e-mail sending; the recommended default value is `60s` (60 seconds) (#1741)
+* Added `server.suppress-lusers` to allow hiding the LUSERS counts (#1802, thanks [@eskimo](https://github.com/eskimo)!)
+
+### Security
+* Added `accounts.registration.email-verification.timeout` to impose a timeout on e-mail sending; the recommended default value is `60s` (60 seconds) (#1741)
+
+### Added
+* Added user-initiated password resets via email (#734). This requires e-mail verification of accounts, and must additionally be enabled explicitly: see the `email-verification` block in `default.yaml` for more information.
+* Added the `draft/extended-monitor` capability (#1761, thanks [@delthas](https://github.com/delthas)!)
+* When doing direct sending of verification emails, make email delivery failures directly visible to the end user (#1659, #1741, thanks [@tacerus](https://github.com/tacerus)!)
+* For operators, `NS INFO` now shows the user's email address (you can also view your own address) (#1677, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Operators with the appropriate permissions will now see IPs in `/WHOWAS` output (#1702, thanks [@ajaspers](https://github.com/ajaspers)!)
+* Added the `+s d` snomask, for operators to receive information about session disconnections that do not result in a full QUIT (#1709, #1728, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Added support for the `SCRAM-SHA-256` SASL authentication mechanism (#175). This mechanism is not currently advertised in `CAP LS` output because IRCCloud handles it incorrectly. We also [recommend against using SCRAM because of its lack of genuine security benefits](https://gist.github.com/slingamn/3f2fed196df5ef14d1316a1ffa9d59f8).
+* `/UBAN LIST` output now includes the time the ban was created (#1725, #1755, thanks [@Mikaela](https://github.com/Mikaela) and [@mogad0n](https://github.com/mogad0n)!)
+* Added support for running as a `Type=notify` systemd service (#1733)
+* Added a warning to help users detect incorrect uses of `/QUOTE` (#1530)
+
+### Fixed
+* The `+M` (only registered users can speak) channel mode did not work; this has been fixed (#1696, thanks [@Mikaela](https://github.com/Mikaela)!)
+* A channel `/RENAME` that only changed the case of the channel would delete the channel registration; this has been fixed (#1751, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed `allow-truncation: true` not actually allowing truncation of overlong lines (#1766, thanks [@tacerus](https://github.com/tacerus)!)
+* Fixed several pagination bugs in `CHATHISTORY` (#1676, thanks [@emersion](https://github.com/emersion)!)
+* Fixed support for kicking multiple users from a channel on the same line, the `TARGMAX` 005 parameter that advertises this, and the default kick message (#1748, #1777, #1776), thanks [@ProgVal](https://github.com/ProgVal)!)
+* Fixed `/SAMODE` on a channel not producing a snomask (#1787, thanks [@mogad0n](https://github.com/mogad0n), [@ajaspers](https://github.com/ajaspers)!)
+* Fixed parameters sent with `697 ERR_LISTMODEALREADYSET` and `698 ERR_LISTMODENOTSET` (#1727, thanks [@kylef](https://github.com/kylef)!)
+* Fixed parameter sent with `696 ERR_INVALIDMODEPARAM` (#1773, thanks [@kylef](https://github.com/kylef)!)
+* Fixed handling of channel mode `+k` with an empty parameter (#1774, #1775, thanks [@ProgVal](https://github.com/ProgVal)!)
+* `WHOWAS` with an empty string as the parameter now produces an appropriate error response (#1703, thanks [@kylef](https://github.com/kylef)!)
+* Fixed error response to an empty realname on the `USER` line (#1778, thanks [@ProgVal](https://github.com/ProgVal)!)
+* Fixed `/UBAN ADD` of a NUH mask (i.e. a k-line) not killing affected clients (#1736, thanks [@mogad0n](https://github.com/mogad0n)!)
+* Fixed buggy behavior when `+i` is configured as a default mode for channels (#1756, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed issues with `channels.operator-only-creation` not respecting `/SAJOIN` or always-on clients (#1757)
+* Protocol-breaking operator vhosts are now disallowed during config validation (#1722)
+* Fixed error message associated with `/NS PASSWD` on a nonexistent account (#1738, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed an incorrect `CHATHISTORY` fail message (#1731, thanks [@ProgVal](https://github.com/ProgVal)!)
+* Fixed a panic on an invalid configuration case (#1714, thanks [@erikh](https://github.com/erikh)!)
+
+### Changed
+* Upgraded the `draft/register` capability to the latest [`draft/account-registration`](https://github.com/ircv3/ircv3-specifications/pull/435) iteration (#1740)
+* Unregistered users with `+v` or higher can now speak in `+R` (registered-only) channels (#1715, thanks [@Mikaela](https://github.com/Mikaela) and [@ajaspers](https://github.com/ajaspers)!)
+* For always-on clients with at least one active connection, `338 RPL_WHOISACTUALLY` now displays an arbitrarily chosen client IP address (#1650, thanks [@MystaraTheGreat](https://github.com/MystaraTheGreat)!)
+* `#` can no longer be used in new account names and nicknames, or as the RELAYMSG separator (#1679)
+* The `oragono.io/nope` capability was renamed to `ergo.chat/nope` (#1793)
+
+### Internal
+* We have a cool new logo!
+* Official builds now use Go 1.17 (#1781)
+* Official Docker containers are now at [ghcr.io/ergochat/ergo](https://ghcr.io/ergochat/ergo) (#1808)
+* Added a traditional SysV init script (#1691, thanks [@tacerus](https://github.com/tacerus)!)
+* Added an s6 init script (#1786, thanks [@majiru](https://github.com/majiru)!)
+
 ## [2.7.0] - 2021-06-07
 
 We're pleased to be publishing Ergo 2.7.0, our first official release under our new name of Ergo. This release contains bug fixes and minor enhancements.
