@@ -9,7 +9,7 @@ This release contains many fixes and enhancements, plus one major user-facing fe
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
 
-This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `oragono upgradedb` (see the manual for complete instructions).
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `ergo upgradedb` (see the manual for complete instructions).
 
 As part of this release, our official Docker images will move from Docker Hub to [the GitHub Container Registry at ghcr.io](https://ghcr.io); more details will be forthcoming with the final release.
 
