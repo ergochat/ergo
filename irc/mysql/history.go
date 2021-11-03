@@ -1043,14 +1043,22 @@ func (s *mySQLHistorySequence) Between(start, end history.Selector, limit int) (
 	if start.Msgid != "" {
 		startTime, _, _, err = s.mysql.lookupMsgid(ctx, start.Msgid, false)
 		if err != nil {
-			return nil, err
+			if err == sql.ErrNoRows {
+				return nil, nil
+			} else {
+				return nil, err
+			}
 		}
 	}
 	endTime := end.Time
 	if end.Msgid != "" {
 		endTime, _, _, err = s.mysql.lookupMsgid(ctx, end.Msgid, false)
 		if err != nil {
-			return nil, err
+			if err == sql.ErrNoRows {
+				return nil, nil
+			} else {
+				return nil, err
+			}
 		}
 	}
 
