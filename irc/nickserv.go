@@ -1130,8 +1130,12 @@ func nsConfirmPassword(server *Server, account, passphrase string) (errorMessage
 		errorMessage = `You're not logged into an account`
 	} else {
 		hash := accountData.Credentials.PassphraseHash
-		if hash != nil && passwd.CompareHashAndPassword(hash, []byte(passphrase)) != nil {
-			errorMessage = `Password incorrect`
+		if hash != nil {
+			if passphrase == "" {
+				errorMessage = `You must supply a password`
+			} else if passwd.CompareHashAndPassword(hash, []byte(passphrase)) != nil {
+				errorMessage = `Password incorrect`
+			}
 		}
 	}
 	return
