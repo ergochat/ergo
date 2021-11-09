@@ -267,12 +267,12 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 				} else if ch == channel {
 					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("You can't forward a channel to itself")))
 				} else {
-					if !ch.ClientIsAtLeast(client, modes.ChannelOperator) {
-						rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, details.nick, ch.Name(), client.t("You must be a channel operator in the channel you are forwarding to"))
-					} else {
+					if isSamode || ch.ClientIsAtLeast(client, modes.ChannelOperator) {
 						change.Arg = ch.Name()
 						channel.setForward(change.Arg)
 						applied = append(applied, change)
+					} else {
+						rb.Add(nil, client.server.name, ERR_CHANOPRIVSNEEDED, details.nick, ch.Name(), client.t("You must be a channel operator in the channel you are forwarding to"))
 					}
 				}
 			case modes.Remove:
