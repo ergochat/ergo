@@ -354,12 +354,13 @@ the result of a previous $bSENDPASS$b command.`,
 			handler: nsCertHandler,
 			help: `Syntax: $bCERT <LIST | ADD | DEL> [account] [certfp]$b
 
-CERT examines or modifies the TLS certificate fingerprints that can be used to
-log into an account. Specifically, $bCERT LIST$b lists the authorized
-fingerprints, $bCERT ADD <fingerprint>$b adds a new fingerprint, and
+CERT examines or modifies the SHA-256 TLS certificate fingerprints that can
+be used to log into an account. Specifically, $bCERT LIST$b lists the
+authorized fingerprints, $bCERT ADD <fingerprint>$b adds a new fingerprint, and
 $bCERT DEL <fingerprint>$b removes a fingerprint. If you're an IRC operator
 with the correct permissions, you can act on another user's account, for
-example with $bCERT ADD <account> <fingerprint>$b.`,
+example with $bCERT ADD <account> <fingerprint>$b. See the operator manual
+for instructions on how to compute the fingerprint.`,
 			helpShort: `$bCERT$b controls a user account's certificate fingerprints`,
 			enabled:   servCmdRequiresAuthEnabled,
 			minParams: 1,

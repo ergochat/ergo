@@ -1,11 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.8.0-rc1] - 2021-11-03
+## [2.8.0] - 2021-11-14
 
-We're pleased to be publishing the release candidate for 2.8.0 (the official release should follow in a week or so).
-
-This release contains many fixes and enhancements, plus one major user-facing feature: user-initiated password resets via e-mail (#734).
+We're pleased to be publishing Ergo 2.8.0. This release contains many fixes and enhancements, plus one major user-facing feature: user-initiated password resets via e-mail (#734).
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
 
@@ -42,6 +40,7 @@ Many thanks to [@ajaspers](https://github.com/ajaspers), [@delthas](https://gith
 * Fixed several pagination bugs in `CHATHISTORY` (#1676, thanks [@emersion](https://github.com/emersion)!)
 * Fixed support for kicking multiple users from a channel on the same line, the `TARGMAX` 005 parameter that advertises this, and the default kick message (#1748, #1777, #1776), thanks [@ProgVal](https://github.com/ProgVal)!)
 * Fixed `/SAMODE` on a channel not producing a snomask (#1787, thanks [@mogad0n](https://github.com/mogad0n), [@ajaspers](https://github.com/ajaspers)!)
+* Adding `+f` to a channel with `SAMODE` used to require channel operator privileges on the receiving channel; this has been fixed (#1825, thanks [@Mikaela](https://github.com/Mikaela)!)
 * Fixed parameters sent with `697 ERR_LISTMODEALREADYSET` and `698 ERR_LISTMODENOTSET` (#1727, thanks [@kylef](https://github.com/kylef)!)
 * Fixed parameter sent with `696 ERR_INVALIDMODEPARAM` (#1773, thanks [@kylef](https://github.com/kylef)!)
 * Fixed handling of channel mode `+k` with an empty parameter (#1774, #1775, thanks [@ProgVal](https://github.com/ProgVal)!)
@@ -61,6 +60,9 @@ Many thanks to [@ajaspers](https://github.com/ajaspers), [@delthas](https://gith
 * For always-on clients with at least one active connection, `338 RPL_WHOISACTUALLY` now displays an arbitrarily chosen client IP address (#1650, thanks [@MystaraTheGreat](https://github.com/MystaraTheGreat)!)
 * `#` can no longer be used in new account names and nicknames, or as the RELAYMSG separator (#1679)
 * The `oragono.io/nope` capability was renamed to `ergo.chat/nope` (#1793)
+
+### Removed
+* `never` is no longer accepted as a value of the `replay-joins` NickServ setting (`/NS SET replay-joins`); user accounts which enabled this setting have been reverted to the default value of `commands-only` (#1676)
 
 ### Internal
 * We have a cool new logo!

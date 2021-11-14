@@ -75,6 +75,8 @@ Once you have registered your account, you must configure SASL in your client, s
 
 If your client doesn't support SASL, you can typically use the "server password" (`PASS`) field in your client to log into your account automatically when connecting. Set the server password to `accountname:accountpassword`, where `accountname` is your account name and `accountpassword` is your account password.
 
+For information on how to use a client certificate for authentication, see the [operator manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md#client-certificates).
+
 # Channel registration
 
 Once you've registered your nickname, you can use it to register channels. By default, channels are ephemeral; they go away when there are no longer any users in the channel, or when the server is restarted. Registering a channel gives you permanent control over it, and ensures that its settings will persist. To register a channel, send a message to `ChanServ`:
