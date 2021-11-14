@@ -5,28 +5,36 @@ builds:
   - main: ergo.go
     binary: ergo
     goos:
-      - freebsd
+      - linux
       - windows
       - darwin
-      - linux
+      - freebsd
+      - openbsd
+      - plan9
     goarch:
-      - "386"
       - amd64
       - arm
       - arm64
     goarm:
       - 6
-      - 7
     ignore:
       - goos: windows
         goarch: arm
+      - goos: windows
+        goarch: arm64
       - goos: darwin
         goarch: arm
-      - goos: darwin
-        goarch: 386
       - goos: freebsd
         goarch: arm
       - goos: freebsd
+        goarch: arm64
+      - goos: openbsd
+        goarch: arm
+      - goos: openbsd
+        goarch: arm64
+      - goos: plan9
+        goarch: arm
+      - goos: plan9
         goarch: arm64
     flags:
       - -trimpath
@@ -44,6 +52,7 @@ archives:
     files:
       - README
       - CHANGELOG.md
+      - LICENSE
       - ergo.motd
       - default.yaml
       - traditional.yaml
