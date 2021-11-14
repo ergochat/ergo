@@ -576,7 +576,12 @@ channels:
     # (0 or omit for no expiration):
     invite-expiration: 24h
 
-# operator classes
+# operator classes:
+# an operator has a single "class" (defining a privilege level), which can include
+# multiple "capabilities" (defining privileged actions they can take). all
+# currently available operator capabilities are associated with either the
+# 'chat-moderator' class (less privileged) or the 'server-admin' class (full
+# privileges) below: you can mix and match to create new classes.
 oper-classes:
     # chat moderator: can ban/unban users from the server, join channels,
     # fix mode issues and sort out vhosts.
@@ -586,15 +591,15 @@ oper-classes:
 
         # capability names
         capabilities:
-            - "kill"
-            - "ban"
-            - "nofakelag"
-            - "roleplay"
-            - "relaymsg"
-            - "vhosts"
-            - "sajoin"
-            - "samode"
-            - "snomasks"
+            - "kill"      # disconnect user sessions
+            - "ban"       # ban IPs, CIDRs, and NUH masks ("d-line" and "k-line")
+            - "nofakelag" # remove "fakelag" restrictions on rate of message sending
+            - "relaymsg"  # use RELAYMSG in any channel (see the 'relaymsg' config block)
+            - "vhosts"    # add and remove vhosts from users
+            - "sajoin"    # join arbitrary channels, including private channels
+            - "samode"    # modify arbitrary channel and user modes
+            - "snomasks"  # subscribe to arbitrary server notice masks
+            - "roleplay"  # use the (deprecated) roleplay commands in any channel
 
     # server admin: has full control of the ircd, including nickname and
     # channel registrations
@@ -607,12 +612,12 @@ oper-classes:
 
         # capability names
         capabilities:
-            - "rehash"
-            - "accreg"
-            - "chanreg"
-            - "history"
-            - "defcon"
-            - "massmessage"
+            - "rehash"       # rehash the server, i.e. reload the config at runtime
+            - "accreg"       # modify arbitrary account registrations
+            - "chanreg"      # modify arbitrary channel registrations
+            - "history"      # modify or delete history messages
+            - "defcon"       # use the DEFCON command (restrict server capabilities)
+            - "massmessage"  # message all users on the server
 
 # ircd operators
 opers:
