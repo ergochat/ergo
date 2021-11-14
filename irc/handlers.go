@@ -3295,12 +3295,15 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 
 // WHO <mask> [<filter>%<fields>,<type>]
 func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	mask := msg.Params[0]
-	var err error
-	if mask == "" {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
+	origMask := utils.SafeErrorParam(msg.Params[0])
+	if origMask != msg.Params[0] {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("First param must be a mask or channel"))
 		return false
-	} else if mask[0] == '#' {
+	}
+
+	mask := origMask
+	var err error
+	if mask[0] == '#' {
 		mask, err = CasefoldChannel(msg.Params[0])
 	} else {
 		mask, err = CanonicalizeMaskWildcard(mask)
@@ -3397,7 +3400,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
-	rb.Add(nil, server.name, RPL_ENDOFWHO, client.nick, mask, client.t("End of WHO list"))
+	rb.Add(nil, server.name, RPL_ENDOFWHO, client.nick, origMask, client.t("End of WHO list"))
 	return false
 }
 
