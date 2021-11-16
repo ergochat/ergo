@@ -27,7 +27,7 @@ github.com/ergochat/irc-go/ircutils
 github.com/go-sql-driver/mysql
 # github.com/go-test/deep v1.0.6
 ## explicit; go 1.13
-# github.com/golang-jwt/jwt v3.2.1+incompatible
+# github.com/golang-jwt/jwt v3.2.2+incompatible
 ## explicit
 github.com/golang-jwt/jwt
 # github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
@@ -76,15 +76,15 @@ github.com/xdg-go/pbkdf2
 # github.com/xdg-go/scram v1.0.2 => github.com/ergochat/scram v1.0.2-ergo1
 ## explicit; go 1.11
 github.com/xdg-go/scram
-# golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
-## explicit; go 1.11
+# golang.org/x/crypto v0.0.0-20211115234514-b4de73f9ece8
+## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
-## explicit; go 1.12
+# golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
+## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
@@ -93,8 +93,8 @@ golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 ## explicit; go 1.11
 golang.org/x/term
-# golang.org/x/text v0.3.6
-## explicit; go 1.11
+# golang.org/x/text v0.3.7
+## explicit; go 1.17
 golang.org/x/text/cases
 golang.org/x/text/internal
 golang.org/x/text/internal/language
