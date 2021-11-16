@@ -2678,7 +2678,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	message := utils.MakeMessage(rawMessage)
 
 	nick := msg.Params[1]
-	_, err := CasefoldName(nick)
+	cfnick, err := CasefoldName(nick)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", client.t("Invalid nickname"))
 		return false
@@ -2687,7 +2687,7 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "INVALID_NICK", fmt.Sprintf(client.t("Relayed nicknames MUST contain a relaymsg separator from this set: %s"), config.Server.Relaymsg.Separators))
 		return false
 	}
-	if channel.relayNickMuted(nick) {
+	if channel.relayNickMuted(cfnick) {
 		rb.Add(nil, server.name, "FAIL", "RELAYMSG", "BANNED", fmt.Sprintf(client.t("%s is banned from relaying to the channel"), nick))
 		return false
 	}
