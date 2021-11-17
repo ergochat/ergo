@@ -43,9 +43,10 @@ Ergo vendors all dependencies using `go mod vendor`. To update a dependency, or 
 1. Commit the new changelog and constants change.
 1. Tag the release with `git tag --sign v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 1. Build binaries using `make release`
+1. Sign the checksums file with `gpg --detach-sig --default-key`
 1. Smoke-test a built binary locally
 1. Point of no return: `git push origin master --tags` (this publishes the tag; any fixes after this will require a new point release)
-1. Publish the release on GitHub (Releases -> "Draft a new release"); use the new tag, post the changelog entries, upload the binaries
+1. Publish the release on GitHub (Releases -> "Draft a new release"); use the new tag, post the changelog entries, upload the binaries, the checksums file, and the signature of the checksums file
 1. Update the `irctest_stable` branch with the new changes (this may be a force push).
 1. If it's a production release (as opposed to a release candidate), update the `stable` branch with the new changes. (This may be a force push in the event that stable contained a backport. This is fine because all stable releases and release candidates are tagged.)
 1. Similarly, for a production release, update the `irctest_stable` branch (this is the branch used by upstream irctest to integration-test against Ergo).
