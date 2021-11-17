@@ -3328,12 +3328,15 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 
 // WHO <mask> [<filter>%<fields>,<type>]
 func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	mask := msg.Params[0]
-	var err error
-	if mask == "" {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, "WHO", client.t("First param must be a mask or channel"))
+	origMask := utils.SafeErrorParam(msg.Params[0])
+	if origMask != msg.Params[0] {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), "WHO", client.t("First param must be a mask or channel"))
 		return false
-	} else if mask[0] == '#' {
+	}
+
+	mask := origMask
+	var err error
+	if mask[0] == '#' {
 		mask, err = CasefoldChannel(msg.Params[0])
 	} else {
 		mask, err = CanonicalizeMaskWildcard(mask)
@@ -3371,12 +3374,18 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		fields = fields.Add(field)
 	}
 
-	//TODO(dan): is this used and would I put this param in the Modern doc?
-	// if not, can we remove it?
-	//var operatorOnly bool
-	//if len(msg.Params) > 1 && msg.Params[1] == "o" {
-	//	operatorOnly = true
-	//}
+	// successfully parsed query, ensure we send the success response:
+	defer func() {
+		rb.Add(nil, server.name, RPL_ENDOFWHO, client.Nick(), origMask, client.t("End of WHO list"))
+	}()
+
+	// XXX #1730: https://datatracker.ietf.org/doc/html/rfc1459#section-4.5.1
+	// 'If the "o" parameter is passed only operators are returned according to
+	// the name mask supplied.'
+	// see discussion on #1730, we just return no results in this case.
+	if len(msg.Params) > 1 && msg.Params[1] == "o" {
+		return false
+	}
 
 	oper := client.Oper()
 	hasPrivs := oper.HasRoleCapab("sajoin")
@@ -3430,7 +3439,6 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
-	rb.Add(nil, server.name, RPL_ENDOFWHO, client.nick, mask, client.t("End of WHO list"))
 	return false
 }
 

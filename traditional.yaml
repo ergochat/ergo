@@ -626,16 +626,15 @@ opers:
         # which capabilities this oper has access to
         class: "server-admin"
 
-        # custom whois line
+        # traditionally, operator status is visible to unprivileged users in
+        # WHO and WHOIS responses. this can be disabled with 'hidden'.
+        hidden: false
+
+        # custom whois line (if `hidden` is enabled, visible only to other operators)
         whois-line: is the server administrator
 
-        # custom hostname
+        # custom hostname (ignored if `hidden` is enabled)
         vhost: "staff"
-
-        # normally, operator status is visible to unprivileged users in WHO and WHOIS
-        # responses. this can be disabled with 'hidden'. ('hidden' also causes the
-        # 'vhost' line above to be ignored.)
-        hidden: false
 
         # modes are modes to auto-set upon opering-up. uncomment this to automatically
         # enable snomasks ("server notification masks" that alert you to server events;
