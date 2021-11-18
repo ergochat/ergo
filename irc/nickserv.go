@@ -377,7 +377,7 @@ the suspension. The $bDEL$b subcommand reverses a suspension, and the $bLIST$b
 command lists all current suspensions.`,
 			helpShort: `$bSUSPEND$b manages account suspensions`,
 			minParams: 1,
-			capabs:    []string{"accreg"},
+			capabs:    []string{"ban"},
 		},
 		"rename": {
 			handler: nsRenameHandler,
