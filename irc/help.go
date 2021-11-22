@@ -183,7 +183,7 @@ DEOPER removes the IRCop privileges granted to you by a successful /OPER.`,
 	},
 	"dline": {
 		oper: true,
-		text: `DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net> [ON <server>] [reason [| oper reason]]
+		text: `DLINE [ANDKILL] [MYSELF] [duration] <ip>/<net>/<nick> [ON <server>] [reason [| oper reason]]
 DLINE LIST
 
 Bans an IP address or network from connecting to the server. If the duration is
@@ -204,6 +204,9 @@ from. If "MYSELF" is not given, trying to DLINE yourself will result in an error
 <net> is specified in typical CIDR notation. For example:
 	127.0.0.1/8
 	8.8.8.8/24
+
+Note that if you instead type the nickname of a user who is currently logged in, their IP
+address will automatically be d-lined.
 
 ON <server> specifies that the ban is to be set on that specific server.
 
@@ -273,7 +276,7 @@ supplied.`,
 	},
 	"kline": {
 		oper: true,
-		text: `KLINE [ANDKILL] [MYSELF] [duration] <mask> [ON <server>] [reason [| oper reason]]
+		text: `KLINE [ANDKILL] [MYSELF] [duration] <mask>/<nick> [ON <server>] [reason [| oper reason]]
 KLINE LIST
 
 Bans a mask from connecting to the server. If the duration is given then only for that
@@ -293,6 +296,9 @@ from. If "MYSELF" is not given, trying to KLINE yourself will result in an error
 <mask> is specified in typical IRC format. For example:
 	dan
 	dan!5*@127.*
+
+Note that if you instead type the nickname of a user who is currently logged in, their mask
+will automatically be k-lined.
 
 ON <server> specifies that the ban is to be set on that specific server.
 
