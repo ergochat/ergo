@@ -37,7 +37,7 @@ func NewUserMaskSet() *UserMaskSet {
 
 // Add adds the given mask to this set.
 func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (maskAdded string, err error) {
-	casefoldedMask, err := CanonicalizeMaskWildcard(mask)
+	casefoldedMask, err := CanonicalizeMaskWildcard(mask, false, nil)
 	if err != nil {
 		return
 	}
@@ -68,7 +68,7 @@ func (set *UserMaskSet) Add(mask, creatorNickmask, creatorAccount string) (maskA
 
 // Remove removes the given mask from this set.
 func (set *UserMaskSet) Remove(mask string) (maskRemoved string, err error) {
-	mask, err = CanonicalizeMaskWildcard(mask)
+	mask, err = CanonicalizeMaskWildcard(mask, false, nil)
 	if err != nil {
 		return
 	}

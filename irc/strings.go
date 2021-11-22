@@ -228,7 +228,8 @@ func realSkeleton(name string) (string, error) {
 // maps a nickmask fragment to an expanded, casefolded wildcard:
 // Shivaram@good-fortune -> *!shivaram@good-fortune
 // EDMUND -> edmund!*@*
-func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
+func CanonicalizeMaskWildcard(userhost string, convertNickToHostname bool, server *Server) (expanded string, err error) {
+	// NOTE: To utilize this function as it was before, call it as so: `CanonicalizeMaskWildcard(userhost, false, nil)`
 	userhost = strings.TrimSpace(userhost)
 	var nick, user, host string
 	bangIndex := strings.IndexByte(userhost, '!')
@@ -248,7 +249,17 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 		user = userhost[:strudelIndex]
 		host = userhost[strudelIndex+1:]
 	} else if bangIndex == -1 && strudelIndex == -1 {
-		nick = userhost
+		if convertNickToHostname {
+			// TODO: derive reverse DNS or IP address from user with this nickname
+			client := server.clients.Get(userhost)
+			if client == nil {
+				//invalid nickname/client not found
+				return "", errNicknameInvalid
+			}
+			_, host = client.getWhoisActually()
+		} else {
+			nick = userhost
+		}
 	} else {
 		// shouldn't be possible
 		return "", errInvalidParams

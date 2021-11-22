@@ -921,8 +921,18 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	hostNet, err := utils.NormalizedNetFromString(hostString)
 
 	if err != nil {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
-		return false
+		// Attempt to find a client with a nickname equal to hostString,
+		// and if that succeeds, substitute that ip address.
+		findClient := server.clients.Get(hostString)
+		if findClient != nil {
+			//Valid nickname found
+			clientIP, _ := findClient.getWhoisActually()
+			hostNet = utils.NormalizeIPToNet(clientIP)
+		} else {
+			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address, CIDR network, or nickname"))
+
+			return false
+		}
 	}
 
 	if !dlineMyself && hostNet.Contains(rb.session.IP()) {
@@ -1478,7 +1488,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	currentArg++
 
 	// check mask
-	mask, err = CanonicalizeMaskWildcard(mask)
+	mask, err = CanonicalizeMaskWildcard(mask, true, server)
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
 		return false
@@ -3018,7 +3028,7 @@ func unKLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	// get host
 	mask := msg.Params[0]
-	mask, err := CanonicalizeMaskWildcard(mask)
+	mask, err := CanonicalizeMaskWildcard(mask, false, nil)
 	if err != nil {
 		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
 		return false
@@ -3339,7 +3349,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	if mask[0] == '#' {
 		mask, err = CasefoldChannel(msg.Params[0])
 	} else {
-		mask, err = CanonicalizeMaskWildcard(mask)
+		mask, err = CanonicalizeMaskWildcard(mask, false, nil)
 	}
 
 	if err != nil {

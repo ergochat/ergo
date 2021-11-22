@@ -72,7 +72,7 @@ func parseUbanTarget(param string) (target ubanTarget, err error) {
 	}
 
 	if strings.IndexByte(param, '!') != -1 || strings.IndexByte(param, '@') != -1 {
-		canonicalized, cErr := CanonicalizeMaskWildcard(param)
+		canonicalized, cErr := CanonicalizeMaskWildcard(param, false, nil)
 		if cErr != nil {
 			err = errInvalidParams
 			return

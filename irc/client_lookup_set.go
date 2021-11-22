@@ -268,7 +268,7 @@ func (clients *ClientManager) AllWithCapsNotify(capabs ...caps.Capability) (sess
 func (clients *ClientManager) FindAll(userhost string) (set ClientSet) {
 	set = make(ClientSet)
 
-	userhost, err := CanonicalizeMaskWildcard(userhost)
+	userhost, err := CanonicalizeMaskWildcard(userhost, false, nil)
 	if err != nil {
 		return set
 	}

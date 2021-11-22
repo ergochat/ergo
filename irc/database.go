@@ -488,7 +488,7 @@ func schemaChangeV6ToV7(config *Config, tx *buntdb.Tx) error {
 		}
 		newCookedValue := make(map[string]maskInfoV7)
 		for _, mask := range masks {
-			normalizedMask, err := CanonicalizeMaskWildcard(mask)
+			normalizedMask, err := CanonicalizeMaskWildcard(mask, false, nil)
 			if err != nil {
 				continue
 			}
