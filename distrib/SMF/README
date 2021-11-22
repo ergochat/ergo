@@ -1,0 +1,26 @@
+Created 22/11/2021 by georg@lysergic.dev.
+
+This directory contains Service Management Facility service files for ergo.
+These files should be compatible with current OpenSolaris / Illumos based operating systems. Tested on OpenIndiana.
+
+Prerequesites:
+	- ergo binary located at /opt/ergo/ergo
+	- ergo configuration located at /opt/ergo/ircd.yaml (hardcoded)
+	- ergo languages located at /opt/ergo/languages (to be compatible with default.yaml - you may adjust this path or disable languages in your custom ircd.yaml)
+	- ergo certificate and key located at /opt/ergo/fullchain.pem /opt/ergo/privkey.pem (to be compatible with default.yaml - you may adjust these paths in your custom ircd.yaml)
+	- `ergo` role user and `ergo` role group owning all of the above
+
+Installation:
+	- cp ergo.xml /lib/svc/manifest/network/
+	- cp ergo /lib/svc/method/
+	- svcadm restart manifest-import
+
+Usage:
+	- svcadm enable ergo (Start)
+	- tail /var/svc/log/network-ergo:default.log (Check ergo log and SMF output)
+	- svcs ergo (Check status)
+	- svcadm refresh ergo (Reload manifest and ergo configuration)
+	- svcadm disable ergo (Stop)
+
+Notes:
+	- Does not support multiple instances - spawns instance :default
