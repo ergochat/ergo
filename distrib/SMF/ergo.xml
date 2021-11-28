@@ -1,0 +1,48 @@
+<?xml version='1.0'?>
+<!DOCTYPE service_bundle SYSTEM '/usr/share/lib/xml/dtd/service_bundle.dtd.1'>
+<service_bundle type='manifest' name='ergo'>
+  <service name='network/ergo' type='service' version='0'>
+    <create_default_instance enabled="true"/>
+    <single_instance/>
+    <dependency name='fs-local' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/system/filesystem/local'/>
+    </dependency>
+    <dependency name='fs-autofs' grouping='optional_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/system/filesystem/autofs'/>
+    </dependency>
+    <dependency name='net-loopback' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/network/loopback'/>
+    </dependency>
+    <dependency name='net-physical' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/network/physical'/>
+    </dependency>
+    <dependency name='config_data' grouping='require_all' restart_on='restart' type='path'>
+      <service_fmri value='file://localhost/opt/ergo/ircd.yaml'/>
+    </dependency>
+    <method_context working_directory="/opt/ergo">
+      <method_credential user='ergo' group='ergo' />
+    </method_context>
+    <exec_method name='start' type='method' exec='/lib/svc/method/ergo start' timeout_seconds='20'>
+      <method_context security_flags='aslr'/>
+    </exec_method>
+    <exec_method name='stop' type='method' exec='/lib/svc/method/ergo stop' timeout_seconds='20'/>
+    <exec_method name='refresh' type='method' exec='/lib/svc/method/ergo refresh' timeout_seconds='20'/>
+    <property_group name='general' type='framework'>
+      <propval name='action_authorization' type='astring' value='solaris.smf.manage.ergo'/>
+    </property_group>
+    <property_group name='startd' type='framework'>
+    <propval name='ignore_error' type='astring' value='core,signal'/>
+    <propval name='duration' type='astring' value='child'/>
+    </property_group>
+    <stability value='Unstable'/>
+    <template>
+      <common_name>
+        <loctext xml:lang='C'>IRC server</loctext>
+      </common_name>
+      <documentation>
+        <doc_link name='ergo-manual' uri='https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md'/>
+        <doc_link name='ergo-userguide' uri='https://github.com/ergochat/ergo/blob/master/docs/USERGUIDE.md'/>
+      </documentation>
+    </template>
+  </service>
+</service_bundle>

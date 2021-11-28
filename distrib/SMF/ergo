@@ -1,0 +1,26 @@
+#!/sbin/sh
+#
+# SMF method script for ergo - used by manifest file ergo.xml
+# Created 22/11/2021 by georg@lysergic.dev
+
+. /lib/svc/share/smf_include.sh
+
+case $1 in
+'start')
+        exec /opt/ergo/ergo run --conf /opt/ergo/ircd.yaml
+        ;;
+
+'refresh' )
+        exec pkill -1 -U ergo -x ergo
+        ;;
+'stop' )
+        exec pkill -U ergo -x ergo
+        ;;
+
+*)
+        echo "Usage: $0 { start | refresh | stop }"
+        exit 1
+        ;;
+esac
+
+exit $?
