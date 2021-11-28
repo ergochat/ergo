@@ -1,12 +1,14 @@
 # Ergo Docker
 
 This folder holds Ergo's Dockerfile and related materials. Ergo
-is published automatically to Docker Hub at
-[ergochat/ergo](https://hub.docker.com/r/ergochat/ergo).
+is published automatically to the GitHub Container Repository at
+[ghcr.io/ergochat/ergo](https://ghcr.io/ergochat/ergo).
 
-The `latest` tag tracks the `stable` branch of Ergo, which contains
-the latest stable release. The `dev` tag tracks the master branch, which
-may by unstable and is not recommended for production.
+Most users should use either the `stable` tag (corresponding to the
+`stable` branch in git, which tracks the latest stable release), or
+a tag corresponding to a tagged version (e.g. `v2.8.0`). The `master`
+tag corresponds to the `master` branch, which is not recommended for
+production use. The `latest` tag is not recommended.
 
 ## Quick start
 
@@ -16,7 +18,7 @@ certificates. To get a working ircd, all you need to do is run the image and
 expose the ports:
 
 ```shell
-docker run --name ergo -d -p 6667:6667 -p 6697:6697 ergochat/ergo:tag
+docker run --name ergo -d -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 This will start Ergo and listen on ports 6667 (plain text) and 6697 (TLS).
@@ -46,14 +48,14 @@ For example, to create a new docker volume and then mount it:
 
 ```shell
 docker volume create ergo-data
-docker run -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ergochat/ergo:tag
+docker run -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 Or to mount a folder from your host machine:
 
 ```shell
 mkdir ergo-data
-docker run -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ergochat/ergo:tag
+docker run -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 ## Customising the config
