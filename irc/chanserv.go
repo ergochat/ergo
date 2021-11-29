@@ -681,6 +681,7 @@ func csPurgeAddHandler(service *ircService, client *Client, params []string, ope
 			}
 		}
 		service.Notice(rb, fmt.Sprintf(client.t("Successfully purged channel %s from the server"), chname))
+		client.server.snomasks.Send(sno.LocalChannels, fmt.Sprintf("Operator %s purged channel %s [reason: %s]", operName, chname, reason))
 	case errInvalidChannelName:
 		service.Notice(rb, fmt.Sprintf(client.t("Can't purge invalid channel %s"), chname))
 	default:
@@ -698,6 +699,7 @@ func csPurgeDelHandler(service *ircService, client *Client, params []string, ope
 	switch client.server.channels.Unpurge(chname) {
 	case nil:
 		service.Notice(rb, fmt.Sprintf(client.t("Successfully unpurged channel %s from the server"), chname))
+		client.server.snomasks.Send(sno.LocalChannels, fmt.Sprintf("Operator %s removed purge of channel %s", operName, chname))
 	case errNoSuchChannel:
 		service.Notice(rb, fmt.Sprintf(client.t("Channel %s wasn't previously purged from the server"), chname))
 	default:
