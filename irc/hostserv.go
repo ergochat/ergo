@@ -10,6 +10,7 @@ import (
 
 	"github.com/ergochat/irc-go/ircfmt"
 
+	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -159,6 +160,7 @@ func validateVhost(server *Server, vhost string, oper bool) error {
 }
 
 func hsSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	oper := client.Oper()
 	user := params[0]
 	var vhost string
 
@@ -176,8 +178,10 @@ func hsSetHandler(service *ircService, server *Server, client *Client, command s
 		service.Notice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
 		service.Notice(rb, client.t("Successfully set vhost"))
+		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %s set vhost %s on account %s", oper.Name, user, vhost))
 	} else {
 		service.Notice(rb, client.t("Successfully cleared vhost"))
+		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %s cleared vhost on account %s", oper.Name, user))
 	}
 }
 
