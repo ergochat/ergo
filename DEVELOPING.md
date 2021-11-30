@@ -23,6 +23,18 @@ The recommended workflow for development is to create a new branch starting from
 Long-running feature branches that aren't ready for merge into `master` may be maintained under a `devel+` prefix, e.g. `devel+metadata` for a feature branch implementing the IRCv3 METADATA extension.
 
 
+## Workflow
+
+We have two test suites:
+
+1. `make test`, which runs some relatively shallow unit tests, checks `go vet`, and does some other internal consistency checks
+1. `make irctest`, which runs the [irctest](https://github.com/ProgVal/irctest) integration test suite
+
+Barring special circumstances, both must pass for a PR to be accepted. irctest will test the `ergo` binary visible on `$PATH`; make sure your development version is the one being tested. (If you have `~/go/bin` on your `$PATH`, a successful `make install` will accomplish this.)
+
+The project style is [gofmt](https://go.dev/blog/gofmt); it is enforced by `make test`. You can fix any style issues automatically by running `make gofmt`.
+
+
 ## Updating dependencies
 
 Ergo vendors all dependencies using `go mod vendor`. To update a dependency, or add a new one:
