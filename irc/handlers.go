@@ -81,6 +81,10 @@ func registrationErrorToMessage(config *Config, client *Client, err error) (mess
 	return
 }
 
+func announcePendingReg(client *Client, rb *ResponseBuffer, accountName string) {
+	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] attempted to register account $c[grey][$r%s$c[grey]] from IP %s, pending verification"), client.Nick(), accountName, rb.session.IP().String()))
+}
+
 // helper function to dispatch messages when a client successfully registers
 func sendSuccessfulRegResponse(service *ircService, client *Client, rb *ResponseBuffer) {
 	details := client.Details()
@@ -2632,6 +2636,7 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		} else {
 			rb.Add(nil, server.name, "REGISTER", "VERIFICATION_REQUIRED", accountName, fmt.Sprintf(client.t("Account created, pending verification; verification code has been sent to %s"), callbackValue))
 			client.registerCmdSent = true
+			announcePendingReg(client, rb, accountName)
 		}
 	case errAccountAlreadyRegistered, errAccountAlreadyUnregistered, errAccountMustHoldNick:
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", accountName, client.t("Username is already registered or otherwise unavailable"))
