@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"github.com/ergochat/irc-go/ircutils"
+	"github.com/tidwall/buntdb"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -24,7 +25,6 @@ import (
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
-	"github.com/tidwall/buntdb"
 )
 
 const (
