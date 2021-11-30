@@ -445,7 +445,7 @@ func ubanInfoNick(client *Client, target ubanTarget, rb *ResponseBuffer) {
 			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is unauthenticated and connected from %[2]s"), details.nick, ip.String()))
 			sendIPBanWarning = true
 		} else {
-			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is logged into account %[2]s and has %[3]d active clients (see /NICKSERV CLIENTS LIST %[4]s for more info"), details.nick, details.accountName, len(mcl.Sessions()), details.nick))
+			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is logged into account %[2]s and has %[3]d active clients (see /NICKSERV CLIENTS LIST %[4]s for more info)"), details.nick, details.accountName, len(mcl.Sessions()), details.nick))
 			if !ip.IsLoopback() && len(sessions) == 1 {
 				rb.Notice(fmt.Sprintf(client.t("Client %[1]s is associated with IP %[2]s"), details.nick, ip.String()))
 				sendIPBanWarning = true
