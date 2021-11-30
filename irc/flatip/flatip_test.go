@@ -2,8 +2,10 @@ package flatip
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -84,6 +86,38 @@ func doMaskingTest(ip net.IP, t *testing.T) {
 			t.Errorf("Masking %s with %d/%d; expected %s, got %s", ip.String(), i, netLen, netMasked.String(), masked.String())
 		}
 	}
+}
+
+func assertEqual(found, expected interface{}) {
+	if !reflect.DeepEqual(found, expected) {
+		panic(fmt.Sprintf("expected %#v, found %#v", expected, found))
+	}
+}
+
+func TestSize(t *testing.T) {
+	_, net, err := ParseCIDR("8.8.8.8/24")
+	if err != nil {
+		panic(err)
+	}
+	ones, bits := net.Size()
+	assertEqual(ones, 24)
+	assertEqual(bits, 32)
+
+	_, net, err = ParseCIDR("2001::0db8/64")
+	if err != nil {
+		panic(err)
+	}
+	ones, bits = net.Size()
+	assertEqual(ones, 64)
+	assertEqual(bits, 128)
+
+	_, net, err = ParseCIDR("2001::0db8/96")
+	if err != nil {
+		panic(err)
+	}
+	ones, bits = net.Size()
+	assertEqual(ones, 96)
+	assertEqual(bits, 128)
 }
 
 func TestMasking(t *testing.T) {
