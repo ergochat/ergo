@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"github.com/ergochat/irc-go/ircutils"
+	"github.com/tidwall/buntdb"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -24,7 +25,6 @@ import (
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
-	"github.com/tidwall/buntdb"
 )
 
 const (
@@ -474,6 +474,8 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		am.Unregister(casefoldedAccount, true)
 		return &registrationCallbackError{underlying: err}
 	} else {
+		am.server.logger.Info("accounts",
+			fmt.Sprintf("nickname %s registered account %s, pending verification", client.Nick(), account))
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
 			_, _, err = tx.Set(verificationCodeKey, code, setOptions)
 			return err

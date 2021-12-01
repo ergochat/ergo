@@ -366,7 +366,14 @@ func ubanInfoHandler(client *Client, target ubanTarget, params []string, rb *Res
 }
 
 func ubanInfoCIDR(client *Client, target ubanTarget, rb *ResponseBuffer) {
-	if target.cidr.PrefixLen == 128 {
+	config := client.server.Config()
+	// show connection limiter/throttler state if this CIDR is entirely
+	// contained in a single limiter/throttler bucket:
+	ones, bits := target.cidr.Size()
+	showLimiter := (bits == 32 && ones >= config.Server.IPLimits.CidrLenIPv4) ||
+		(bits == 128 && ones >= config.Server.IPLimits.CidrLenIPv6)
+	sendMaskWarning := (bits == 128 && ones > config.Server.IPLimits.CidrLenIPv6)
+	if showLimiter {
 		netName, status := client.server.connectionLimiter.Status(target.cidr.IP)
 		if status.Exempt {
 			rb.Notice(fmt.Sprintf(client.t("IP %s is exempt from connection limits"), target.cidr.IP.String()))
@@ -390,6 +397,10 @@ func ubanInfoCIDR(client *Client, target ubanTarget, rb *ResponseBuffer) {
 		for _, line := range utils.BuildTokenLines(400, nicks, " ") {
 			rb.Notice(line)
 		}
+	}
+	if sendMaskWarning {
+		rb.Notice(fmt.Sprintf(client.t("Note: try evaluating a wider IPv6 CIDR like %s/%d"),
+			target.cidr.IP.String(), config.Server.IPLimits.CidrLenIPv6))
 	}
 }
 
@@ -434,7 +445,7 @@ func ubanInfoNick(client *Client, target ubanTarget, rb *ResponseBuffer) {
 			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is unauthenticated and connected from %[2]s"), details.nick, ip.String()))
 			sendIPBanWarning = true
 		} else {
-			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is logged into account %[2]s and has %[3]d active clients (see /NICKSERV CLIENTS LIST %[4]s for more info"), details.nick, details.accountName, len(mcl.Sessions()), details.nick))
+			rb.Notice(fmt.Sprintf(client.t("Client %[1]s is logged into account %[2]s and has %[3]d active clients (see /NICKSERV CLIENTS LIST %[4]s for more info)"), details.nick, details.accountName, len(mcl.Sessions()), details.nick))
 			if !ip.IsLoopback() && len(sessions) == 1 {
 				rb.Notice(fmt.Sprintf(client.t("Client %[1]s is associated with IP %[2]s"), details.nick, ip.String()))
 				sendIPBanWarning = true

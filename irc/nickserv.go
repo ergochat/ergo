@@ -1004,6 +1004,7 @@ func nsRegisterHandler(service *ircService, server *Server, client *Client, comm
 			messageTemplate := client.t("Account created, pending verification; verification code has been sent to %s")
 			message := fmt.Sprintf(messageTemplate, callbackValue)
 			service.Notice(rb, message)
+			announcePendingReg(client, rb, account)
 		}
 	} else {
 		// details could not be stored and relevant numerics have been dispatched, abort
