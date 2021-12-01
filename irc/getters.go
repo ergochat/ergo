@@ -48,10 +48,11 @@ func (server *Server) SetDefcon(defcon uint32) {
 }
 
 func (client *Client) Sessions() (sessions []*Session) {
-	client.stateMutex.RLock()
-	sessions = client.sessions
-	client.stateMutex.RUnlock()
-	return
+	ptr := atomic.LoadPointer(&client.sessions)
+	if ptr == nil {
+		return nil
+	}
+	return *((*[]*Session)(ptr))
 }
 
 type SessionData struct {
@@ -67,12 +68,14 @@ type SessionData struct {
 }
 
 func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (data []SessionData, currentIndex int) {
-	currentIndex = -1
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
-	data = make([]SessionData, len(client.sessions))
-	for i, session := range client.sessions {
+	currentIndex = -1
+	sessions := client.Sessions()
+
+	data = make([]SessionData, len(sessions))
+	for i, session := range sessions {
 		if session == currentSession {
 			currentIndex = i
 		}
@@ -107,40 +110,49 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 		return
 	}
 	// success, attach the new session to the client
+	sessions := client.Sessions()
 	session.client = client
 	session.sessionID = client.nextSessionID
 	client.nextSessionID++
-	newSessions := make([]*Session, len(client.sessions)+1)
-	copy(newSessions, client.sessions)
+	newSessions := make([]*Session, len(sessions)+1)
+	copy(newSessions, sessions)
 	newSessions[len(newSessions)-1] = session
 	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		lastSeen = client.lastSeen[session.deviceID]
 		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
-	client.sessions = newSessions
+	client.setSessions(newSessions)
 	// TODO(#1551) there should be a cap to opt out of this behavior on a session
 	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 		client.awayMessage = ""
-		if len(client.sessions) == 1 {
+		if len(newSessions) == 1 {
 			back = true
 		}
 	}
-	return true, len(client.sessions), lastSeen, back
+	return true, len(newSessions), lastSeen, back
+}
+
+func (client *Client) setSessions(sessions []*Session) {
+	// must be called while holding stateMutex.Lock()
+	sessionsPtr := new([]*Session)
+	(*sessionsPtr) = sessions
+	atomic.StorePointer(&client.sessions, unsafe.Pointer(sessionsPtr))
 }
 
 func (client *Client) removeSession(session *Session) (success bool, length int) {
-	if len(client.sessions) == 0 {
+	oldSessions := client.Sessions()
+	if len(oldSessions) == 0 {
 		return
 	}
-	sessions := make([]*Session, 0, len(client.sessions)-1)
-	for _, currentSession := range client.sessions {
+	sessions := make([]*Session, 0, len(oldSessions)-1)
+	for _, currentSession := range oldSessions {
 		if session == currentSession {
 			success = true
 		} else {
 			sessions = append(sessions, currentSession)
 		}
 	}
-	client.sessions = sessions
+	client.setSessions(sessions)
 	length = len(sessions)
 	return
 }
@@ -150,7 +162,7 @@ func (client *Client) getWhoisActually() (ip net.IP, hostname string) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
-	for _, session := range client.sessions {
+	for _, session := range client.Sessions() {
 		return session.IP(), session.rawHostname
 	}
 	return utils.IPv4LoopbackAddress, client.server.name
@@ -223,7 +235,7 @@ func (client *Client) setAutoAwayNoMutex(config *Config) {
 	// aggregate the away statuses of the individual sessions:
 	var globalAwayState string
 	var awaySetAt time.Time
-	for _, cSession := range client.sessions {
+	for _, cSession := range client.Sessions() {
 		if cSession.awayMessage == "" {
 			// a session is active, we are not auto-away
 			client.awayMessage = ""

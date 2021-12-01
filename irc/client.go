@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	ident "github.com/ergochat/go-ident"
 	"github.com/ergochat/irc-go/ircfmt"
@@ -104,7 +105,7 @@ type Client struct {
 	registrationTimer  *time.Timer
 	server             *Server
 	skeleton           string
-	sessions           []*Session
+	sessions           unsafe.Pointer
 	stateMutex         sync.RWMutex // tier 1
 	alwaysOn           bool
 	username           string
@@ -360,7 +361,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		isTor:      wConn.Config.Tor,
 		hideSTS:    wConn.Config.Tor || wConn.Config.HideSTS,
 	}
-	client.sessions = []*Session{session}
+	client.setSessions([]*Session{session})
 
 	session.resetFakelag()
 
@@ -1018,9 +1019,7 @@ func (client *Client) FriendsMonitors(capabs ...caps.Capability) (result map[*Se
 
 // helper for Friends
 func addFriendsToSet(set map[*Session]empty, client *Client, capabs ...caps.Capability) {
-	client.stateMutex.RLock()
-	defer client.stateMutex.RUnlock()
-	for _, session := range client.sessions {
+	for _, session := range client.Sessions() {
 		if session.capabilities.HasAll(capabs...) {
 			set[session] = empty{}
 		}
@@ -1174,7 +1173,7 @@ func (client *Client) Quit(message string, session *Session) {
 	if session != nil {
 		sessions = []*Session{session}
 	} else {
-		sessions = client.sessions
+		sessions = client.Sessions()
 	}
 
 	for _, session := range sessions {
@@ -1213,8 +1212,8 @@ func (client *Client) destroy(session *Session) {
 
 	var remainingSessions int
 	if session == nil {
-		sessionsToDestroy = client.sessions
-		client.sessions = nil
+		sessionsToDestroy = client.Sessions()
+		client.setSessions(nil)
 		remainingSessions = 0
 	} else {
 		sessionRemoved, remainingSessions = client.removeSession(session)
@@ -1241,7 +1240,7 @@ func (client *Client) destroy(session *Session) {
 	shouldDestroy := !client.destroyed && remainingSessions == 0 && !alwaysOn
 	// decrement stats on a true destroy, or for the removal of the last connected session
 	// of an always-on client
-	shouldDecrement := shouldDestroy || (alwaysOn && len(sessionsToDestroy) != 0 && len(client.sessions) == 0)
+	shouldDecrement := shouldDestroy || (alwaysOn && len(sessionsToDestroy) != 0 && len(client.Sessions()) == 0)
 	if shouldDestroy {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
