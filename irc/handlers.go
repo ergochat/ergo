@@ -283,7 +283,7 @@ func sendAuthErrorResponse(client *Client, rb *ResponseBuffer, err error) {
 	msg := authErrorToMessage(client.server, err)
 	rb.Add(nil, client.server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 	if err == errAccountUnverified {
-		rb.Add(nil, client.server.name, "FAIL", "AUTHENTICATE", "VERIFICATION_REQUIRED", "*", client.t(err.Error()))
+		rb.Add(nil, client.server.name, "NOTE", "AUTHENTICATE", "VERIFICATION_REQUIRED", "*", client.t(err.Error()))
 	}
 }
 
