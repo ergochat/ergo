@@ -135,11 +135,11 @@ To start the server, type `./ergo run` and hit enter, and the server should be r
 
 ## Docker
 
-1. Pull the latest version of Ergo: `docker pull oragono/oragono:latest`
-1. Create a volume for persistent data: `docker volume create oragono-data`
-1. Run the container, exposing the default ports: `docker run -d --name oragono -v oragono-data:/ircd-data -p 6667:6667 -p 6697:6697 oragono/oragono:latest`
+1. Pull the latest version of Ergo: `docker pull ghcr.io/ergochat/ergo:stable`
+1. Create a volume for persistent data: `docker volume create ergo-data`
+1. Run the container, exposing the default ports: `docker run -d --name ergo -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable`
 
-For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/oragono/oragono/blob/master/distrib/docker/README.md).
+For further information and a sample docker-compose file see the separate [Docker documentation](https://github.com/ergochat/ergo/blob/master/distrib/docker/README.md).
 
 
 ## Building from source
@@ -170,8 +170,8 @@ Ergo can also be configured using environment variables, using the following tec
 
 1. Find the "path" of the config variable you want to override in the YAML file, e.g., `server.websockets.allowed-origins`
 1. Convert each path component from "kebab case" to "screaming snake case", e.g., `SERVER`, `WEBSOCKETS`, and `ALLOWED_ORIGINS`.
-1. Prepend `ORAGONO` to the components, then join them all together using `__` as the separator, e.g., `ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS`.
-1. Set the environment variable of this name to a JSON (or YAML) value that will be deserialized into this config field, e.g., `export ORAGONO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS='["https://irc.example.com", "https://chat.example.com"]'`
+1. Prepend `ERGO` to the components, then join them all together using `__` as the separator, e.g., `ERGO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS`.
+1. Set the environment variable of this name to a JSON (or YAML) value that will be deserialized into this config field, e.g., `export ERGO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS='["https://irc.example.com", "https://chat.example.com"]'`
 
 However, settings that were overridden using this technique cannot be rehashed --- changing them will require restarting the server.
 
@@ -1134,7 +1134,7 @@ Note that after a failed script invocation, Ergo will proceed to check the crede
 
 ## DNSBLs and other IP checking systems
 
-Similarly, Ergo can be configured to call arbitrary scripts to validate user IPs. These scripts can either reject the connection, or require that the user log in with SASL. In particular, we provide an [oragono-dnsbl](https://github.com/oragono/oragono-dnsbl) plugin for querying DNSBLs.
+Similarly, Ergo can be configured to call arbitrary scripts to validate user IPs. These scripts can either reject the connection, or require that the user log in with SASL. In particular, we provide an [ergo-dnsbl](https://github.com/ergochat/ergo-dnsbl) plugin for querying DNSBLs.
 
 The API is similar to the auth-script API described above (one line of JSON in, one line of JSON out). The input is a JSON dictionary with the following keys:
 

@@ -1,7 +1,7 @@
 # Ergo Docker
 
-This folder holds Ergo's Dockerfile and related materials. Ergo
-is published automatically to the GitHub Container Registry at
+This folder holds Ergo's Docker compose file. The Dockerfile is in the root 
+directory. Ergo is published automatically to the GitHub Container Registry at
 [ghcr.io/ergochat/ergo](https://ghcr.io/ergochat/ergo).
 
 Most users should use either the `stable` tag (corresponding to the

@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   ergo:
-    image: ergochat/ergo:latest
+    image: ghcr.io/ergochat/ergo:stable
     ports:
       - "6667:6667/tcp"
       - "6697:6697/tcp"
