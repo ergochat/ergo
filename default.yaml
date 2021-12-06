@@ -572,9 +572,10 @@ accounts:
 # channel options
 channels:
     # modes that are set when new channels are created
-    # +n is no-external-messages and +t is op-only-topic
+    # +n is no-external-messages, +t is op-only-topic,
+    # +C is no CTCPs (besides ACTION)
     # see  /QUOTE HELP cmodes  for more channel modes
-    default-modes: +nt
+    default-modes: +ntC
 
     # how many channels can a client be in at once?
     max-channels-per-client: 100
