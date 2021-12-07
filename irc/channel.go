@@ -1236,10 +1236,6 @@ func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	if channel.flags.HasMode(modes.Moderated) && clientModes.HighestChannelUserMode() == modes.Mode(0) {
 		return false, modes.Moderated
 	}
-	if channel.flags.HasMode(modes.RegisteredOnly) && client.Account() == "" &&
-		clientModes.HighestChannelUserMode() == modes.Mode(0) {
-		return false, modes.RegisteredOnly
-	}
 	if channel.flags.HasMode(modes.RegisteredOnlySpeak) && client.Account() == "" &&
 		clientModes.HighestChannelUserMode() == modes.Mode(0) {
 		return false, modes.RegisteredOnlySpeak
