@@ -824,11 +824,11 @@ This mode is enabled by default, and means that only users who are joined to the
 
 If this mode is unset, users who aren't on your channel can send messages to it. This can be useful with, for example, GitHub or notification bots if you want them to send messages to your channel but don't want them to clutter your channel with by joining and leaving it.
 
-### +R - Only Registered Users Can Join or Speak
+### +R - Only Registered Users Can Join
 
-If this mode is set, only users that have logged into an account will be able to join and speak on the channel. If this is set and a regular, un-logged-in user tries to join, they will be rejected.
+If this mode is set, only users that have logged into an account will be able to join the channel. If this is set and a regular, un-logged-in user tries to join, they will be rejected.
 
-Unregistered users already joined to the channel will not be kicked automatically. They will no longer be able to send messages to the channel, unless they have been voiced (+v). If they leave, they would not be allowed to rejoin.
+Unregistered users already joined to the channel will not be kicked automatically. They will still be able to speak, unless they are restricted from doing so by another channel mode like +M.  If they leave, they will not be allowed to rejoin.
 
 To set this mode:
 
