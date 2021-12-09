@@ -97,8 +97,14 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	realname := client.realname
 	client.stateMutex.RUnlock()
 
-	if newNick != accountName && strings.ContainsAny(newNick, disfavoredNameCharacters) {
-		return "", errNicknameInvalid, false
+	// these restrictions have grandfather exceptions for nicknames registered
+	// on previous versions of Ergo:
+	if newNick != accountName {
+		// can't contain "disfavored" characters like <, or start with a $ because
+		// it collides with the massmessage mask syntax:
+		if strings.ContainsAny(newNick, disfavoredNameCharacters) || strings.HasPrefix(newNick, "$") {
+			return "", errNicknameInvalid, false
+		}
 	}
 
 	// recompute always-on status, because client.alwaysOn is not set for unregistered clients
