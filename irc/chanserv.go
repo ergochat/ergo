@@ -270,9 +270,13 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 			// #729: apply change to current membership
 			for _, member := range channel.Members() {
 				if member.Account() == change.Arg {
-					applied, change := channel.applyModeToMember(client, change, rb)
+					// applyModeToMember takes the nickname, not the account name,
+					// so translate:
+					modeChange := change
+					modeChange.Arg = member.Nick()
+					applied, modeChange := channel.applyModeToMember(client, modeChange, rb)
 					if applied {
-						announceCmodeChanges(channel, modes.ModeChanges{change}, server.name, "*", "", false, rb)
+						announceCmodeChanges(channel, modes.ModeChanges{modeChange}, server.name, "*", "", false, rb)
 					}
 				}
 			}
