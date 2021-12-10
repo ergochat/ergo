@@ -46,8 +46,17 @@ def to_unixnano(timestamp):
 def file_to_objects(infile):
     result = []
     obj = None
-    for line in infile:
-        pieces = line.rstrip('\r\n').split(' ', maxsplit=2)
+    while True:
+        line = infile.readline()
+        if not line:
+            break
+        line = line.rstrip(b'\r\n')
+        try:
+            line = line.decode('utf-8')
+        except UnicodeDecodeError:
+            line = line.decode('utf-8', 'replace')
+            logging.warning("line contained invalid utf8 data " + line)
+        pieces = line.split(' ', maxsplit=2)
         if len(pieces) == 0:
             logging.warning("skipping blank line in db")
             continue
@@ -58,6 +67,9 @@ def file_to_objects(infile):
             obj = AnopeObject(pieces[1], {})
         elif pieces[0] == 'DATA':
             obj.kv[pieces[1]] = pieces[2]
+        elif pieces[0] == 'ID':
+            # not sure what these do?
+            continue
         else:
             raise ValueError("unknown command found in anope db", pieces[0])
     return result
@@ -167,7 +179,7 @@ def convert(infile):
 def main():
     if len(sys.argv) != 3:
         raise Exception("Usage: anope2json.py anope.db output.json")
-    with open(sys.argv[1]) as infile:
+    with open(sys.argv[1], 'rb') as infile:
         output = convert(infile)
         with open(sys.argv[2], 'w') as outfile:
             json.dump(output, outfile)
