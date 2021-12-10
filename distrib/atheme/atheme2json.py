@@ -31,8 +31,16 @@ def convert(infile):
 
     channel_to_founder = defaultdict(lambda: (None, None))
 
-    for line in infile:
-        line = line.rstrip('\r\n')
+    while True:
+        line = infile.readline()
+        if not line:
+            break
+        line = line.rstrip(b'\r\n')
+        try:
+            line = line.decode('utf-8')
+        except UnicodeDecodeError:
+            line = line.decode('utf-8', 'replace')
+            logging.warning("line contained invalid utf8 data " + line)
         parts = line.split(' ')
         category = parts[0]
 
@@ -177,7 +185,7 @@ def convert(infile):
 def main():
     if len(sys.argv) != 3:
         raise Exception("Usage: atheme2json.py atheme_db output.json")
-    with open(sys.argv[1]) as infile:
+    with open(sys.argv[1], 'rb') as infile:
         output = convert(infile)
         with open(sys.argv[2], 'w') as outfile:
             json.dump(output, outfile)
