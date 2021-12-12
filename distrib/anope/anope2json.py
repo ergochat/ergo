@@ -87,17 +87,14 @@ ANOPE_MODENAME_TO_MODE = {
 # verify that a certfp appears to be a hex-encoded SHA-256 fingerprint;
 # if it's anything else, silently ignore it
 def validate_certfps(certobj):
-    certobj = certobj.split()
     certfps = []
-    for fingerprint in certobj:
+    for fingerprint in certobj.split():
         try:
             dec = binascii.unhexlify(fingerprint)
         except:
             continue
         if len(dec) == 32:
             certfps.append(fingerprint)
-        else:
-            continue
     return certfps
 
 def convert(infile):
