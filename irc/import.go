@@ -20,7 +20,7 @@ const (
 	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
 	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
 	// db of the hardcoded version)
-	importDBSchemaVersion = 19
+	importDBSchemaVersion = 22
 )
 
 type userImport struct {
