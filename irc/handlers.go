@@ -3275,9 +3275,9 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 		}
 		params = append(params, fAccount)
 	}
-	if fields.Has('o') { // target's channel power level
-		//TODO: implement this
-		params = append(params, "0")
+	if fields.Has('o') {
+		// channel oplevel, not implemented
+		params = append(params, "*")
 	}
 	if fields.Has('r') {
 		params = append(params, details.realname)
