@@ -86,15 +86,19 @@ ANOPE_MODENAME_TO_MODE = {
 
 # verify that a certfp appears to be a hex-encoded SHA-256 fingerprint;
 # if it's anything else, silently ignore it
-def validate_certfp(enc):
-    try:
-        dec = binascii.unhexlify(enc)
-    except:
-        return None
-    if len(dec) == 32:
-        return enc.lower()
-    else:
-        return None
+def validate_certfps(certobj):
+    certobj = certobj.split()
+    certfps = []
+    for fingerprint in certobj:
+        try:
+            dec = binascii.unhexlify(fingerprint)
+        except:
+            continue
+        if len(dec) == 32:
+            certfps.append(fingerprint)
+        else:
+            continue
+    return certfps
 
 def convert(infile):
     out = {
@@ -114,12 +118,7 @@ def convert(infile):
             userdata = {'name': username, 'hash': obj.kv['pass'], 'email': obj.kv['email']}
             certobj = obj.kv.get('cert')
             if certobj:
-                certobj = certobj.split()
-                userdata['certfps'] = list()
-                for cert in certobj:
-                    certfp = validate_certfp(cert)
-                    if certfp:
-                        userdata['certfps'].append(certfp)
+                userdata['certfps'] = validate_certfps(certobj)
             out['users'][username] = userdata
         elif obj.type == 'NickAlias':
             username = obj.kv['nc']
