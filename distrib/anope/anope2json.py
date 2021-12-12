@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-import re
+import binascii
 import json
 import logging
+import re
 import sys
 from collections import defaultdict, namedtuple
 
@@ -83,6 +84,18 @@ ANOPE_MODENAME_TO_MODE = {
     'SECRET': 's',
 }
 
+# verify that a certfp appears to be a hex-encoded SHA-256 fingerprint;
+# if it's anything else, silently ignore it
+def validate_certfp(enc):
+    try:
+        dec = binascii.unhexlify(enc)
+    except:
+        return None
+    if len(dec) == 32:
+        return enc.lower()
+    else:
+        return None
+
 def convert(infile):
     out = {
         'version': 1,
@@ -99,6 +112,9 @@ def convert(infile):
         if obj.type == 'NickCore':
             username = obj.kv['display']
             userdata = {'name': username, 'hash': obj.kv['pass'], 'email': obj.kv['email']}
+            certfp = validate_certfp(obj.kv.get('cert'))
+            if certfp:
+                userdata['certfps'] = [certfp]
             out['users'][username] = userdata
         elif obj.type == 'NickAlias':
             username = obj.kv['nc']
