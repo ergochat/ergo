@@ -242,5 +242,7 @@ func ImportDB(config *Config, infile string) (err error) {
 		return doImportDB(config, dbImport, tx)
 	}
 
-	return db.Update(performImport)
+	err = db.Update(performImport)
+	db.Close()
+	return
 }
