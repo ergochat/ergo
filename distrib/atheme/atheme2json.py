@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import binascii
 import json
 import logging
 import re
@@ -18,6 +19,14 @@ CMODE_FLAG_TO_MODE = {
     0x080: 's', # CMODE_SEC
     0x100: 't', # CMODE_TOPIC
 }
+
+# attempt to interpret certfp as a hex-encoded SHA-256 fingerprint
+def validate_certfp(certfp):
+    try:
+        dec = binascii.unhexlify(certfp)
+    except:
+        return False
+    return len(dec) == 32
 
 def convert(infile):
     out = {
@@ -70,6 +79,11 @@ def convert(infile):
             if parts[2] == 'private:usercloak':
                 username = parts[1]
                 out['users'][username]['vhost'] = parts[3]
+        elif category == 'MCFP':
+            username, certfp = parts[1], parts[2]
+            if validate_certfp(certfp):
+                user = out['users'][username]
+                user.setdefault('certfps', []).append(certfp.lower())
         elif category == 'MC':
             # channel registration
             # MC #mychannel 1600134478 1600467343 +v 272 0 0
