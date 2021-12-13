@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-import re
+import binascii
 import json
 import logging
+import re
 import sys
 from collections import defaultdict, namedtuple
 
@@ -83,6 +84,19 @@ ANOPE_MODENAME_TO_MODE = {
     'SECRET': 's',
 }
 
+# verify that a certfp appears to be a hex-encoded SHA-256 fingerprint;
+# if it's anything else, silently ignore it
+def validate_certfps(certobj):
+    certfps = []
+    for fingerprint in certobj.split():
+        try:
+            dec = binascii.unhexlify(fingerprint)
+        except:
+            continue
+        if len(dec) == 32:
+            certfps.append(fingerprint)
+    return certfps
+
 def convert(infile):
     out = {
         'version': 1,
@@ -99,6 +113,9 @@ def convert(infile):
         if obj.type == 'NickCore':
             username = obj.kv['display']
             userdata = {'name': username, 'hash': obj.kv['pass'], 'email': obj.kv['email']}
+            certobj = obj.kv.get('cert')
+            if certobj:
+                userdata['certfps'] = validate_certfps(certobj)
             out['users'][username] = userdata
         elif obj.type == 'NickAlias':
             username = obj.kv['nc']
