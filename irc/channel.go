@@ -780,7 +780,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}
 
 		if details.account == "" &&
-			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) {
+			(channel.flags.HasMode(modes.RegisteredOnly) || channel.server.Defcon() <= 2) &&
+			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
 			return errRegisteredOnly, forward
 		}
 	}
