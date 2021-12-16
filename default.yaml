@@ -349,7 +349,7 @@ server:
     # acquire a flock(2) or similar on this path, to prevent multiple instances
     # of Ergo from starting concurrently. this is relative to the working directory;
     # depending on your setup, you may want to use an absolute path instead:
-    flock-file: "ircd.flock"
+    flock-file: "ircd.lock"
 
     # Ergo will write files to disk under certain circumstances, e.g.,
     # CPU profiling or data export. by default, these files will be written
