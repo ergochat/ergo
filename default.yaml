@@ -346,6 +346,11 @@ server:
     secure-nets:
         # - "10.0.0.0/8"
 
+    # acquire a flock(2) or similar on this path, to prevent multiple instances
+    # of Ergo from starting concurrently. this is relative to the working directory;
+    # depending on your setup, you may want to use an absolute path instead:
+    flock-file: "ircd.flock"
+
     # Ergo will write files to disk under certain circumstances, e.g.,
     # CPU profiling or data export. by default, these files will be written
     # to the working directory. set this to customize:

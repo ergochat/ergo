@@ -25,6 +25,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
+require github.com/gofrs/flock v0.8.1
+
 require (
 	github.com/tidwall/btree v0.6.1 // indirect
 	github.com/tidwall/gjson v1.10.2 // indirect

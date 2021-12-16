@@ -25,6 +25,7 @@ import (
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/flock"
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
@@ -88,6 +89,7 @@ type Server struct {
 	whoWas            WhoWasList
 	stats             Stats
 	semaphores        ServerSemaphores
+	flock             flock.Flocker
 	defcon            uint32
 }
 
@@ -584,6 +586,18 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	}
 
 	server.logger.Info("server", "Using config file", server.configFilename)
+
+	if initial {
+		if config.Server.FlockFile != "" {
+			server.flock, err = flock.TryAcquireFlock(config.Server.FlockFile)
+			if err != nil {
+				return fmt.Errorf("failed to acquire flock on %s: %w",
+					config.Server.FlockFile, err)
+			}
+		}
+		// flock is never released until quit, even under rehash
+		// save the pointer so it doesn't get GC'ed
+	}
 
 	// first, reload config sections for functionality implemented in subpackages:
 	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()
