@@ -593,7 +593,6 @@ type Config struct {
 		OverrideServicesHostname string       `yaml:"override-services-hostname"`
 		MaxLineLen               int          `yaml:"max-line-len"`
 		SuppressLusers           bool         `yaml:"suppress-lusers"`
-		FlockFile                string       `yaml:"flock-file"`
 	}
 
 	Roleplay struct {
@@ -616,6 +615,8 @@ type Config struct {
 	}
 
 	languageManager *languages.Manager
+
+	LockFile string `yaml:"lock-file"`
 
 	Datastore struct {
 		Path        string
