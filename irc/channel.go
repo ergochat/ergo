@@ -1582,7 +1582,8 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	}
 
 	inviteOnly := channel.flags.HasMode(modes.InviteOnly)
-	if inviteOnly && !channel.ClientIsAtLeast(inviter, modes.ChannelOperator) {
+	hasPrivs := channel.ClientIsAtLeast(inviter, modes.ChannelOperator)
+	if inviteOnly && !hasPrivs {
 		rb.Add(nil, inviter.server.name, ERR_CHANOPRIVSNEEDED, inviter.Nick(), chname, inviter.t("You're not a channel operator"))
 		return
 	}
@@ -1592,7 +1593,10 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 		return
 	}
 
-	if inviteOnly {
+	// #1876: INVITE should override all join restrictions, including +b and +l,
+	// not just +i. so we need to record it on a per-client basis iff the inviter
+	// is privileged:
+	if hasPrivs {
 		invitee.Invite(chcfname, createdAt)
 	}
 
