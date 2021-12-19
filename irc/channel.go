@@ -773,8 +773,7 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}
 
 		if channel.lists[modes.BanMask].Match(details.nickMaskCasefolded) &&
-			!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) &&
-			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
+			!channel.lists[modes.ExceptMask].Match(details.nickMaskCasefolded) {
 			// do not forward people who are banned:
 			return errBanned, ""
 		}
