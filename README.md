@@ -30,7 +30,7 @@ If you want to take a look at a running Ergo instance or test some client code, 
 * [yaml](https://yaml.org/) configuration
 * updating server config and TLS certificates on-the-fly (rehashing)
 * SASL authentication
-* LDAP support
+* [LDAP support](https://github.com/ergochat/ergo-ldap)
 * supports [multiple languages](https://crowdin.com/project/ergochat) (you can also set a default language for your network)
 * advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, and running as a Tor hidden service)
 * an extensible privilege system for IRC operators
