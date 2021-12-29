@@ -144,8 +144,8 @@ http://ircv3.net/specs/core/capability-negotiation-3.2.html`,
 		text: `CHATHISTORY [params]
 
 CHATHISTORY is a history replay command associated with the IRCv3
-specification draft/chathistory. See this document:
-https://github.com/ircv3/ircv3-specifications/pull/393`,
+chathistory extension. See this document:
+https://ircv3.net/specs/extensions/chathistory`,
 	},
 	"debug": {
 		oper: true,
