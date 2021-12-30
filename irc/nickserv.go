@@ -1170,9 +1170,15 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		if newPassword == "*" {
 			newPassword = ""
 		}
+
+		checkPassword := params[2]
+		if checkPassword == "*" {
+			checkPassword = "" // #1883
+		}
+
 		if target == "" {
 			errorMessage = `You're not logged into an account`
-		} else if newPassword != params[2] {
+		} else if newPassword != checkPassword {
 			errorMessage = `Passwords do not match`
 		} else {
 			if !nsLoginThrottleCheck(service, client, rb) {
