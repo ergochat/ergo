@@ -1146,6 +1146,7 @@ func nsConfirmPassword(server *Server, account, passphrase string) (errorMessage
 func nsPasswdHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	var target string
 	var newPassword string
+	var checkPassword string
 	var errorMessage string
 
 	var oper *Oper
@@ -1170,9 +1171,16 @@ func nsPasswdHandler(service *ircService, server *Server, client *Client, comman
 		if newPassword == "*" {
 			newPassword = ""
 		}
+
+		// fix #1883 Nickserv gives error when user attempt to change password to *
+		checkPassword = params[2]
+		if checkPassword == "*" {
+			checkPassword = ""
+		}
+
 		if target == "" {
 			errorMessage = `You're not logged into an account`
-		} else if newPassword != params[2] {
+		} else if newPassword != checkPassword {
 			errorMessage = `Passwords do not match`
 		} else {
 			if !nsLoginThrottleCheck(service, client, rb) {
