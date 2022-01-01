@@ -25,6 +25,7 @@ import (
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/flock"
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
@@ -88,6 +89,7 @@ type Server struct {
 	whoWas            WhoWasList
 	stats             Stats
 	semaphores        ServerSemaphores
+	flock             flock.Flocker
 	defcon            uint32
 }
 
@@ -584,6 +586,19 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	}
 
 	server.logger.Info("server", "Using config file", server.configFilename)
+
+	if initial {
+		if config.LockFile != "" {
+			server.flock, err = flock.TryAcquireFlock(config.LockFile)
+			if err != nil {
+				return fmt.Errorf("failed to acquire flock on %s: %w",
+					config.LockFile, err)
+			}
+		}
+		// the lock is never released until quit; we need to save a pointer
+		// to the (*flock.Flock) object so it doesn't get GC'ed, which would
+		// close the file and surrender the lock
+	}
 
 	// first, reload config sections for functionality implemented in subpackages:
 	wasLoggingRawIO := !initial && server.logger.IsLoggingRawIO()

@@ -616,6 +616,8 @@ type Config struct {
 
 	languageManager *languages.Manager
 
+	LockFile string `yaml:"lock-file"`
+
 	Datastore struct {
 		Path        string
 		AutoUpgrade bool
