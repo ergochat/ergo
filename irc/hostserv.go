@@ -178,10 +178,10 @@ func hsSetHandler(service *ircService, server *Server, client *Client, command s
 		service.Notice(rb, client.t("An error occurred"))
 	} else if vhost != "" {
 		service.Notice(rb, client.t("Successfully set vhost"))
-		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %s set vhost %s on account %s", oper.Name, user, vhost))
+		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %[1]s set vhost %[2]s on account %[3]s", oper.Name, vhost, user))
 	} else {
 		service.Notice(rb, client.t("Successfully cleared vhost"))
-		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %s cleared vhost on account %s", oper.Name, user))
+		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %[1]s cleared vhost on account %[2]s", oper.Name, user))
 	}
 }
 
