@@ -780,7 +780,7 @@ datastore:
 # languages config
 languages:
     # whether to load languages
-    enabled: false
+    enabled: true
 
     # default language to use for new clients
     # 'en' is the default English language in the code
