@@ -348,6 +348,11 @@ type AuthScriptConfig struct {
 	Autocreate   bool
 }
 
+type IPCheckScriptConfig struct {
+	ScriptConfig `yaml:",inline"`
+	ExemptSASL   bool `yaml:"exempt-sasl"`
+}
+
 // AccountRegistrationConfig controls account registration.
 type AccountRegistrationConfig struct {
 	Enabled            bool
@@ -587,12 +592,12 @@ type Config struct {
 		supportedCapsWithoutSTS  *caps.Set
 		capValues                caps.Values
 		Casemapping              Casemapping
-		EnforceUtf8              bool         `yaml:"enforce-utf8"`
-		OutputPath               string       `yaml:"output-path"`
-		IPCheckScript            ScriptConfig `yaml:"ip-check-script"`
-		OverrideServicesHostname string       `yaml:"override-services-hostname"`
-		MaxLineLen               int          `yaml:"max-line-len"`
-		SuppressLusers           bool         `yaml:"suppress-lusers"`
+		EnforceUtf8              bool                `yaml:"enforce-utf8"`
+		OutputPath               string              `yaml:"output-path"`
+		IPCheckScript            IPCheckScriptConfig `yaml:"ip-check-script"`
+		OverrideServicesHostname string              `yaml:"override-services-hostname"`
+		MaxLineLen               int                 `yaml:"max-line-len"`
+		SuppressLusers           bool                `yaml:"suppress-lusers"`
 	}
 
 	Roleplay struct {

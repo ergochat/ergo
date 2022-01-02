@@ -200,7 +200,7 @@ func (server *Server) checkBans(config *Config, ipaddr net.IP, checkScripts bool
 		server.logger.Warning("internal", "unexpected ban result", err.Error())
 	}
 
-	if checkScripts && config.Server.IPCheckScript.Enabled {
+	if checkScripts && config.Server.IPCheckScript.Enabled && !config.Server.IPCheckScript.ExemptSASL {
 		output, err := CheckIPBan(server.semaphores.IPCheckScript, config.Server.IPCheckScript, ipaddr)
 		if err != nil {
 			server.logger.Error("internal", "couldn't check IP ban script", ipaddr.String(), err.Error())
@@ -267,9 +267,26 @@ func (server *Server) handleAlwaysOnExpirations() {
 	}
 }
 
-//
-// server functionality
-//
+// handles server.ip-check-script.exempt-sasl:
+// run the ip check script at the end of the handshake, only for anonymous connections
+func (server *Server) checkBanScriptExemptSASL(config *Config, session *Session) (outcome AuthOutcome) {
+	// TODO add caching for this; see related code in (*server).checkBans;
+	// we should probably just put an LRU around this instead of using the DLINE system
+	ipaddr := session.IP()
+	output, err := CheckIPBan(server.semaphores.IPCheckScript, config.Server.IPCheckScript, ipaddr)
+	if err != nil {
+		server.logger.Error("internal", "couldn't check IP ban script", ipaddr.String(), err.Error())
+		return authSuccess
+	}
+	if output.Result == IPBanned || output.Result == IPRequireSASL {
+		server.logger.Info("connect-ip", "Rejecting unauthenticated client due to ip-check-script", ipaddr.String())
+		if output.BanMessage != "" {
+			session.client.requireSASLMessage = output.BanMessage
+		}
+		return authFailSaslRequired
+	}
+	return authSuccess
+}
 
 func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
@@ -294,6 +311,10 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// before completing the other registration commands
 	config := server.Config()
 	authOutcome := c.isAuthorized(server, config, session, c.requireSASL)
+	if authOutcome == authSuccess && c.account == "" &&
+		config.Server.IPCheckScript.Enabled && config.Server.IPCheckScript.ExemptSASL {
+		authOutcome = server.checkBanScriptExemptSASL(config, session)
+	}
 	var quitMessage string
 	switch authOutcome {
 	case authFailPass:
