@@ -751,8 +751,8 @@ debug:
 
 # lock file preventing multiple instances of Ergo from accidentally being
 # started at once. comment out or set to the empty string ("") to disable.
-# this path is relative to the working directory; you may want to use an
-# absolute path instead:
+# this path is relative to the working directory; if your datastore.path
+# is absolute, you should use an absolute path here as well.
 lock-file: "ircd.lock"
 
 # datastore configuration

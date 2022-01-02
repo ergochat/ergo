@@ -9,11 +9,11 @@ This release contains mostly bug fixes, with some enhancements to moderation too
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to [@erincerys](https://github.com/erincerys), [@FiskFan1999](https://github.com/FiskFan1999), [@mogad0n](https://github.com/mogad0n), and [@tacerus](https://github.com/tacerus) for contributing patches, and to [@emersion](https://github.com/emersion), [@FiskFan1999](https://github.com/FiskFan1999), [@Jobe1986](https://github.com/Jobe1986), [@kylef](https://github.com/kylef), [@mogad0n](https://github.com/mogad0n), [@pcho](https://github.com/pcho), and [progval](https://github.com/progval) for reporting issues,
+Many thanks to [@erincerys](https://github.com/erincerys), [@FiskFan1999](https://github.com/FiskFan1999), [@mogad0n](https://github.com/mogad0n), and [@tacerus](https://github.com/tacerus) for contributing patches, and to [@ajaspers](https://github.com/ajaspers), [@emersion](https://github.com/emersion), [@FiskFan1999](https://github.com/FiskFan1999), [@Jobe1986](https://github.com/Jobe1986), [@kylef](https://github.com/kylef), [@mogad0n](https://github.com/mogad0n), [@pcho](https://github.com/pcho), and [@progval](https://github.com/progval) for reporting issues,
 
 
 ### Config changes
-* Added `lock-file`, which helps protect against accidentally starting multiple instances of Ergo. This is a no-op if unset. The recommended default value is `ircd.lock`, which (like the default datastore path `ircd.db`) is relative to the working directory of the Ergo process. (#1823)
+* Added `lock-file`, which helps protect against accidentally starting multiple instances of Ergo. This is a no-op if unset. The recommended default value is `ircd.lock`, which (like the default datastore path `ircd.db`) is relative to the working directory of the Ergo process. If your `datastore.path` is absolute, this path (if set) should be absolute as well. (#1823)
 * `+C` (no channel-wide CTCP messages other than ACTION) is now a recommended default channel mode (#1851)
 * Added `exempt-sasl` boolean to `server.ip-check-script`; if enabled, IP check scripts are run only for connections without SASL, improving performance for registered users (#1888)
 * `hidden: true` is now the recommended default for operator definitions (#1730)
@@ -33,13 +33,13 @@ Many thanks to [@erincerys](https://github.com/erincerys), [@FiskFan1999](https:
 
 ### Fixed
 * CAP LS and LIST responses after connection registration could be truncated in some cases; this has been fixed (#1872)
-* Unprivileged users with both a password and a certfp could not remove their password with `NS PASSWD <passwd> * *` as expected; this has been fixed (#1883, #1884, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
+* Unprivileged users with both a password and a certfp could not remove their password with `NS PASSWD <password> * *` as expected; this has been fixed (#1883, #1884, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
 * RELAYMSG identifiers that were not already in their case-normalized form could not be muted with `+b m:`; this has been fixed (#1838, thanks [@mogad0n](https://github.com/mogad0n)!)
 * CS AMODE changes did not take immediate effect if `force-nick-equals-account` was disabled and the nick did not coincide with the account; this has been fixed (#1860, thanks [@eskimo](https://github.com/eskimo)!)
 * `315 RPL_ENDOFWHO` now sends the exact, un-normalized mask argument provided by the client (#1831, thanks [@progval](https://github.com/progval)!)
 * A leading `$` character is now disallowed in new nicknames and account names, to avoid collision with the massmessage syntax (#1857, thanks [@emersion](https://github.com/emersion)!)
 * The [deprecated](https://github.com/ircdocs/modern-irc/pull/138) `o` parameter of `WHO` now returns an empty list of results, instead of being ignored (#1730, thanks [@kylef](https://github.com/kylef), [@emersion](https://github.com/emersion), [@progval](https://github.com/progval)!)
-* WHOX queries for channel oplevel now receive `*` instead of `0` (#1866, thanks [@Jobe1986](https://github.com/Jobe1986))
+* WHOX queries for channel oplevel now receive `*` instead of `0` (#1866, thanks [@Jobe1986](https://github.com/Jobe1986)!)
 
 ### Internal
 * Updated list of official release binaries: added Apple M1, OpenBSD x86-64, and Plan 9 x86-64, removed Linux armv7, FreeBSD x86-32, and Windows x86-32. (The removed platforms are still fully supported by Ergo; you can build them from source or ask us for help.) (#1833)
