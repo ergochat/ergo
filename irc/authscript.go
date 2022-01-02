@@ -84,7 +84,7 @@ type IPScriptOutput struct {
 	Error        string `json:"error"`
 }
 
-func CheckIPBan(sem utils.Semaphore, config ScriptConfig, addr net.IP) (output IPScriptOutput, err error) {
+func CheckIPBan(sem utils.Semaphore, config IPCheckScriptConfig, addr net.IP) (output IPScriptOutput, err error) {
 	if sem != nil {
 		sem.Acquire()
 		defer sem.Release()
