@@ -4,7 +4,7 @@
 # for a config with more "mainstream" behavior.
 #
 # If you are setting up a new Ergo server, you should copy this file
-# to a new one named 'ircd.yaml', then read the whole file to see which
+# to a new one named 'ircd.yaml', then look through the file to see which
 # settings you want to customize. If you don't understand a setting, or
 # aren't sure what behavior you want, most of the defaults are fine
 # to start with (you can change them later, even on a running server).
