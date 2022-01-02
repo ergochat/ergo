@@ -55,7 +55,7 @@ Ergo vendors all dependencies using `go mod vendor`. To update a dependency, or 
 1. Commit the new changelog and constants change.
 1. Tag the release with `git tag --sign v0.0.0 -m "Release v0.0.0"` (`0.0.0` replaced with the real ver number).
 1. Build binaries using `make release`
-1. Sign the checksums file with `gpg --detach-sig --default-key`
+1. Sign the checksums file with `gpg --sign --detach-sig --local-user <fingerprint>`
 1. Smoke-test a built binary locally
 1. Point of no return: `git push origin master --tags` (this publishes the tag; any fixes after this will require a new point release)
 1. Publish the release on GitHub (Releases -> "Draft a new release"); use the new tag, post the changelog entries, upload the binaries, the checksums file, and the signature of the checksums file
