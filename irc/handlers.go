@@ -3560,7 +3560,7 @@ func zncHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 func unknownCommandHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var message string
 	if strings.HasPrefix(msg.Command, "/") {
-		message = fmt.Sprintf(client.t("Unknown command; if you are using /QUOTE, the correct syntax is /QUOTE %s, not /QUOTE %s"),
+		message = fmt.Sprintf(client.t("Unknown command; if you are using /QUOTE, the correct syntax is /QUOTE %[1]s, not /QUOTE %[2]s"),
 			strings.TrimPrefix(msg.Command, "/"), msg.Command)
 	} else {
 		message = client.t("Unknown command")

@@ -4,13 +4,13 @@
   "$bON$b enables your vhost, if you have one approved.": "$bON$b enables your vhost, if you have one approved.",
   "$bSET$b sets a user's vhost.": "$bSET$b sets a user's vhost.",
   "$bSETCLOAKSECRET$b modifies the IP cloaking secret.": "$bSETCLOAKSECRET$b modifies the IP cloaking secret.",
-  "$bSTATUS$b shows your vhost and request status.": "$bSTATUS$b shows your vhost and request status.",
+  "$bSTATUS$b shows your vhost status.": "$bSTATUS$b shows your vhost status.",
   "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).": "HostServ lets you manage your vhost (i.e., the string displayed\nin place of your client's hostname/IP).",
   "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.": "Syntax: $bDEL <user>$b\n\nDEL deletes a user's vhost.",
   "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.": "Syntax: $bOFF$b\n\nOFF disables your vhost, if you have one approved.",
   "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.": "Syntax: $bON$b\n\nON enables your vhost, if you have one approved.",
   "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.": "Syntax: $bSET <user> <vhost>$b\n\nSET sets a user's vhost, bypassing the request system.",
   "Syntax: $bSETCLOAKSECRET$b <secret> [code]\n\nSETCLOAKSECRET can be used to set or rotate the cloak secret. You should use\na cryptographically strong secret. To prevent accidental modification, a\nverification code is required; invoking the command without a code will\ndisplay the necessary code.": "Syntax: $bSETCLOAKSECRET$b <secret> [code]\n\nSETCLOAKSECRET can be used to set or rotate the cloak secret. You should use\na cryptographically strong secret. To prevent accidental modification, a\nverification code is required; invoking the command without a code will\ndisplay the necessary code.",
-  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.": "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and the status of your most recent\nrequest for a new one. A server operator can view someone else's status.",
+  "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and whether it is enabled or\ndisabled. A server operator can view someone else's status.": "Syntax: $bSTATUS [user]$b\n\nSTATUS displays your current vhost, if any, and whether it is enabled or\ndisabled. A server operator can view someone else's status.",
   "^[0-9A-Za-z.\\-_/]+$": "^[0-9A-Za-z.\\-_/]+$"
 }
