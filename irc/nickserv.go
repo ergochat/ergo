@@ -1085,6 +1085,8 @@ func nsUnregisterHandler(service *ircService, server *Server, client *Client, co
 			service.Notice(rb, ircfmt.Unescape(client.t("$bWarning: unregistering this account will remove its stored privileges.$b")))
 			service.Notice(rb, ircfmt.Unescape(client.t("$bNote that an unregistered account name remains reserved and cannot be re-registered.$b")))
 			service.Notice(rb, ircfmt.Unescape(client.t("$bIf you are having problems with your account, contact an administrator.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bUnregistering your account will unregister all channels you founded.$b")))
+			service.Notice(rb, ircfmt.Unescape(client.t("$bTo prevent this, transfer your channels first with CS TRANSFER.$b")))
 		}
 		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/NS %s %s %s", strings.ToUpper(command), accountName, expectedCode)))
 		return
