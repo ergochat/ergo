@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+command=/usr/bin/ergo
+command_args="run --conf ${ERGO_CONFIGFILE:-"/etc/ergo/ircd.yaml"}"
+command_background=true
+extra_started_commands="reload"
+pidfile=/var/run/ergo.pid
+name="ergo"
+description="ergo IRC daemon"
+
+depend() {
+	use dns
+	provide ircd
+}
+
+reload() {
+	ebegin "Reloading ${RC_SVCNAME}"
+	start-stop-daemon --signal HUP --pidfile "${pidfile}"
+	eend $?
+}
