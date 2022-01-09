@@ -66,6 +66,7 @@ ergo run     # server should be ready to go!
 Some platforms/distros also have Ergo packages maintained for them:
 
 * Arch Linux [AUR](https://aur.archlinux.org/packages/ergochat/) - Maintained by [Jason Papakostas (@vith)](https://github.com/vith).
+* [Gentoo Linux](https://packages.gentoo.org/packages/net-irc/ergo) - Maintained by [Sam James (@thesamesam)](https://github.com/thesamesam).
 
 ### Using Docker
 

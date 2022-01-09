@@ -1,0 +1,2 @@
+# /etc/conf.d/ergo: config file for /etc/init.d/ergo
+ERGO_CONFIGFILE="/etc/ergo/ircd.yaml"
