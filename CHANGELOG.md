@@ -1,11 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.9.0-rc1] - 2021-01-02
+## [2.9.0] - 2021-01-09
 
-We're pleased to be publishing the release candidate for 2.9.0 (the official release should follow in a week or so).
-
-This release contains mostly bug fixes, with some enhancements to moderation tools.
+We're pleased to be publishing 2.9.0, a new stable release. This release contains mostly bug fixes, with some enhancements to moderation tools.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
