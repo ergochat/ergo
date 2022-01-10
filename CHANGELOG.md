@@ -7,7 +7,7 @@ We're pleased to be publishing 2.9.0, a new stable release. This release contain
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to [@erincerys](https://github.com/erincerys), [@FiskFan1999](https://github.com/FiskFan1999), [@mogad0n](https://github.com/mogad0n), and [@tacerus](https://github.com/tacerus) for contributing patches, and to [@ajaspers](https://github.com/ajaspers), [@emersion](https://github.com/emersion), [@FiskFan1999](https://github.com/FiskFan1999), [@Jobe1986](https://github.com/Jobe1986), [@kylef](https://github.com/kylef), [@mogad0n](https://github.com/mogad0n), [@pcho](https://github.com/pcho), and [@progval](https://github.com/progval) for reporting issues,
+Many thanks to [@erincerys](https://github.com/erincerys), [@FiskFan1999](https://github.com/FiskFan1999), [@mogad0n](https://github.com/mogad0n), and [@tacerus](https://github.com/tacerus) for contributing patches, and to [@ajaspers](https://github.com/ajaspers), [@emersion](https://github.com/emersion), [@FiskFan1999](https://github.com/FiskFan1999), [@Jobe1986](https://github.com/Jobe1986), [@kylef](https://github.com/kylef), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@pcho](https://github.com/pcho), and [@progval](https://github.com/progval) for reporting issues and helping test.
 
 
 ### Config changes
