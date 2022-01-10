@@ -5,7 +5,7 @@ All notable changes to Ergo will be documented in this file.
 
 Ergo 2.9.1 is a bugfix release, fixing a regression introduced in 2.9.0. We regret the oversight.
 
-This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+This release includes no changes to the config file format or database format relative to 2.9.0.
 
 Many thanks to [@FiskFan1999](https://github.com/FiskFan1999) for reporting the issue.
 
