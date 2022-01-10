@@ -474,8 +474,10 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 		am.Unregister(casefoldedAccount, true)
 		return &registrationCallbackError{underlying: err}
 	} else {
-		am.server.logger.Info("accounts",
-			fmt.Sprintf("nickname %s registered account %s, pending verification", client.Nick(), account))
+		if client != nil && code != "" {
+			am.server.logger.Info("accounts",
+				fmt.Sprintf("nickname %s registered account %s, pending verification", client.Nick(), account))
+		}
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
 			_, _, err = tx.Set(verificationCodeKey, code, setOptions)
 			return err
