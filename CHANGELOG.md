@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.9.1] - 2021-01-10
+
+Ergo 2.9.1 is a bugfix release, fixing a regression introduced in 2.9.0. We regret the oversight.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Many thanks to [@FiskFan1999](https://github.com/FiskFan1999) for reporting the issue.
+
+### Fixed
+* Every use of NS SAREGISTER would fail; this has been fixed (#1898, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
+
+
 ## [2.9.0] - 2021-01-09
 
 We're pleased to be publishing 2.9.0, a new stable release. This release contains mostly bug fixes, with some enhancements to moderation tools.
