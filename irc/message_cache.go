@@ -83,7 +83,7 @@ func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid st
 	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[command] {
 		msg.ForceTrailing()
 	}
-	msg.Prefix = nickmask
+	msg.Source = nickmask
 	msg.Command = command
 	msg.Params = make([]string, len(params))
 	copy(msg.Params, params)
@@ -121,7 +121,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 			msg.ForceTrailing()
 		}
 
-		msg.Prefix = nickmask
+		msg.Source = nickmask
 		msg.Command = command
 		if isTagmsg {
 			msg.Params = []string{target}
@@ -146,7 +146,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 		if forceTrailing {
 			msg.ForceTrailing()
 		}
-		msg.Prefix = nickmask
+		msg.Source = nickmask
 		msg.Command = command
 		msg.Params = make([]string, 2)
 		msg.Params[0] = target
