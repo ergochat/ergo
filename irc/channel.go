@@ -767,7 +767,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 			return errWrongChannelKey, forward
 		}
 
-		if channel.flags.HasMode(modes.InviteOnly) &&
+		// #1901: +h and up exempt from all restrictions, but +v additionally exempts from +i:
+		if channel.flags.HasMode(modes.InviteOnly) && persistentMode == 0 &&
 			!channel.lists[modes.InviteMask].Match(details.nickMaskCasefolded) {
 			return errInviteOnly, forward
 		}
