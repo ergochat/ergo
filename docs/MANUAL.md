@@ -556,6 +556,9 @@ Similarly, for a public channel (one without `+i`), users can ban nick/account n
 
 Ergo supports a simplified form of the "global notice" or "wallops" capabilities found in other ircds. With the `massmessage` operator capability, you can `/NOTICE $$* text of your announcement`, and it will be sent to all connected users. If you have human-readable hostnames enabled (in the default/recommended configuration they are not), you can also `/NOTICE $#wild*card.host.name`.
 
+## Why does Ergo say my connection is insecure when I'm connected using TLS?
+
+If the client you are connecting with uses the [WebIRC](https://ircv3.net/specs/extensions/webirc.html) command then it is responsible for saying whether the connection is "secure" or not, even if the connection to ergo is made over TLS. For example, a web-based client would mark connections as secure if you used HTTPS but not if you used plain HTTP. Older versions of the WebIRC specification didn't include the secure parameter at all; any connections from software using the older protocol will therefore be treated as insecure by Ergo. 
 
 -------------------------------------------------------------------------------------------
 
