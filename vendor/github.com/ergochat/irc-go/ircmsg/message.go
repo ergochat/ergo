@@ -65,7 +65,7 @@ var (
 // extended by the IRCv3 Message Tags specification with the introduction
 // of message tags.
 type Message struct {
-	Prefix         string
+	Source         string
 	Command        string
 	Params         []string
 	forceTrailing  bool
@@ -154,6 +154,22 @@ func (msg *Message) ClientOnlyTags() map[string]string {
 	return msg.clientOnlyTags
 }
 
+// Nick returns the name component of the message source (typically a nickname,
+// but possibly a server name).
+func (msg *Message) Nick() (nick string) {
+	nuh, err := ParseNUH(msg.Source)
+	if err == nil {
+		return nuh.Name
+	}
+	return
+}
+
+// NUH returns the source of the message as a parsed NUH ("nick-user-host");
+// if the source is not well-formed as a NUH, it returns an error.
+func (msg *Message) NUH() (nuh NUH, err error) {
+	return ParseNUH(msg.Source)
+}
+
 // ParseLine creates and returns a message from the given IRC line.
 func ParseLine(line string) (ircmsg Message, err error) {
 	return parseLine(line, 0, 0)
@@ -229,15 +245,15 @@ func parseLine(line string, maxTagDataLength int, truncateLen int) (ircmsg Messa
 	// by one or more ASCII SPACE characters"
 	line = trimInitialSpaces(line)
 
-	// prefix
+	// source
 	if 0 < len(line) && line[0] == ':' {
-		prefixEnd := strings.IndexByte(line, ' ')
-		if prefixEnd == -1 {
+		sourceEnd := strings.IndexByte(line, ' ')
+		if sourceEnd == -1 {
 			return ircmsg, ErrorLineIsEmpty
 		}
-		ircmsg.Prefix = line[1:prefixEnd]
-		// skip over the prefix and the separating space
-		line = line[prefixEnd+1:]
+		ircmsg.Source = line[1:sourceEnd]
+		// skip over the source and the separating space
+		line = line[sourceEnd+1:]
 	}
 
 	line = trimInitialSpaces(line)
@@ -312,8 +328,8 @@ func (ircmsg *Message) parseTags(tags string) (err error) {
 }
 
 // MakeMessage provides a simple way to create a new Message.
-func MakeMessage(tags map[string]string, prefix string, command string, params ...string) (ircmsg Message) {
-	ircmsg.Prefix = prefix
+func MakeMessage(tags map[string]string, source string, command string, params ...string) (ircmsg Message) {
+	ircmsg.Source = source
 	ircmsg.Command = command
 	ircmsg.Params = params
 	ircmsg.UpdateTags(tags)
@@ -411,9 +427,9 @@ func (ircmsg *Message) line(tagLimit, clientOnlyTagDataLimit, serverAddedTagData
 		return nil, ErrorTagsTooLong
 	}
 
-	if len(ircmsg.Prefix) > 0 {
+	if len(ircmsg.Source) > 0 {
 		buf.WriteByte(':')
-		buf.WriteString(ircmsg.Prefix)
+		buf.WriteString(ircmsg.Source)
 		buf.WriteByte(' ')
 	}
 
