@@ -1340,7 +1340,6 @@ func sajoinHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 // the number of users.
 // Addditionally, we support multiple channels and a single user.
 func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	hasPrivs := client.HasRoleCapabs("samode")
 	channels := strings.Split(msg.Params[0], ",")
 	users := strings.Split(msg.Params[1], ",")
 	if (len(channels) != len(users)) && (len(users) != 1) && (len(channels) != 1) {
@@ -1398,7 +1397,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.nick, utils.SafeErrorParam(kick.nick), client.t("No such nick"))
 			continue
 		}
-		channel.Kick(client, target, comment, rb, hasPrivs)
+		channel.Kick(client, target, comment, rb, false)
 	}
 	return false
 }
