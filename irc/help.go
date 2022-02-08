@@ -481,9 +481,9 @@ specs for more info: http://ircv3.net/specs/core/message-tags-3.3.html`,
 Indicates that you're leaving the server, and shows everyone the given reason.`,
 	},
 	"register": {
-		text: `REGISTER <email | *> <password>
+		text: `REGISTER <account> <email | *> <password>
 
-Registers an account in accordance with the draft/register capability.`,
+Registers an account in accordance with the draft/account-registration capability.`,
 	},
 	"rehash": {
 		oper: true,
@@ -557,9 +557,9 @@ The USERS command is not implemented.`,
 Shows information about the given users. Takes up to 10 nicknames.`,
 	},
 	"verify": {
-		text: `VERIFY <account> <password>
+		text: `VERIFY <account> <code>
 
-Verifies an account in accordance with the draft/register capability.`,
+Verifies an account in accordance with the draft/account-registration capability.`,
 	},
 	"version": {
 		text: `VERSION [server]
