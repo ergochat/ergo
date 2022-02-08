@@ -1152,6 +1152,7 @@ func infoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was built from git hash %s."), Commit))
 	}
 	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("It was compiled using %s."), runtime.Version()))
+	rb.Add(nil, server.name, RPL_INFO, nick, fmt.Sprintf(client.t("This server has been running since %s."), server.ctime.Format(time.RFC1123)))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
 	rb.Add(nil, server.name, RPL_INFO, nick, client.t("Ergo is released under the MIT license."))
 	rb.Add(nil, server.name, RPL_INFO, nick, "")
