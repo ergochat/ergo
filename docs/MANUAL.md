@@ -560,6 +560,8 @@ Ergo supports a simplified form of the "global notice" or "wallops" capabilities
 
 If the client you are connecting with uses the [WebIRC](https://ircv3.net/specs/extensions/webirc.html) command then it is responsible for saying whether the connection is "secure" or not, even if the connection to ergo is made over TLS. For example, a web-based client would mark connections as secure if you used HTTPS but not if you used plain HTTP. Older versions of the WebIRC specification didn't include the secure parameter at all; any connections from software using the older protocol will therefore be treated as insecure by Ergo. 
 
+If you are using a reverse proxy (such as stunnel, nginx, Traefik, or Caddy) to terminate TLS, but the connection between the reverse proxy and Ergo is using a non-loopback IP (i.e. outside the `127.0.0.0/8` or `0::1/128` ranges), then Ergo will view the connection as being "insecure". If the network is in fact secure against passive monitoring and active manipulation (e.g. a trusted LAN, a VPN link, or a Docker internal IP), you can add it to `server.secure-nets`, which will cause the connection to be treated as "secure".
+
 -------------------------------------------------------------------------------------------
 
 
