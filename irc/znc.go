@@ -51,11 +51,18 @@ func zncWireTimeToTime(str string) (result time.Time) {
 		secondsPortion = str
 	} else {
 		secondsPortion = str[:dot]
-		fracPortion = str[dot:]
+		fracPortion = str[dot+1:]
 	}
 	seconds, _ := strconv.ParseInt(secondsPortion, 10, 64)
-	fraction, _ := strconv.ParseFloat(fracPortion, 64)
-	return time.Unix(seconds, int64(fraction*1000000000)).UTC()
+	// truncate to nanosecond resolution if necessary
+	if len(fracPortion) > 9 {
+		fracPortion = fracPortion[:9]
+	}
+	fracSeconds, _ := strconv.ParseInt(fracPortion, 10, 64)
+	for i := 0; i < (9 - len(fracPortion)); i++ {
+		fracSeconds *= 10
+	}
+	return time.Unix(seconds, fracSeconds).UTC()
 }
 
 func timeToZncWireTime(t time.Time) (result string) {
