@@ -885,7 +885,7 @@ history:
 
     # maximum number of CHATHISTORY messages that can be
     # requested at once (0 disables support for CHATHISTORY)
-    chathistory-maxmessages: 100
+    chathistory-maxmessages: 1000
 
     # maximum number of messages that can be replayed at once during znc emulation
     # (znc.in/playback, or automatic replay on initial reattach to a persistent client):
