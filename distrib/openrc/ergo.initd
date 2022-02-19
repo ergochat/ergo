@@ -1,15 +1,28 @@
 #!/sbin/openrc-run
-command=/usr/bin/ergo
-command_args="run --conf ${ERGO_CONFIGFILE:-"/etc/ergo/ircd.yaml"}"
-command_background=true
-extra_started_commands="reload"
-pidfile=/var/run/ergo.pid
-name="ergo"
+name=${RC_SVCNAME}
 description="ergo IRC daemon"
+
+command=/usr/bin/ergo
+command_args="run --conf ${ERGO_CONFIGFILE:-'/etc/ergo/ircd.yaml'}"
+command_user=${ERGO_USERNAME:-ergo}
+command_background=true
+
+pidfile=/var/run/${RC_SVCNAME}.pid
+
+output_log="/var/log/${RC_SVCNAME}.out"
+error_log="/var/log/${RC_SVCNAME}.err"
+# --wait: to wait 1 second after launching to see if it survived startup
+start_stop_daemon_args="--wait 1000"
+
+extra_started_commands="reload"
 
 depend() {
 	use dns
 	provide ircd
+}
+
+start_pre() {
+	checkpath --owner ${command_user}:${command_user} --mode 0640 --file /var/log/${RC_SVCNAME}.out /var/log/${RC_SVCNAME}.err
 }
 
 reload() {
