@@ -7,6 +7,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/ergochat/ergo/irc"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/mkcerts"
+	"github.com/ergochat/ergo/irc/passwd"
 )
 
 // set via linker flags, either by make or by goreleaser:
@@ -91,6 +93,23 @@ func doMkcerts(configFile string, quiet bool) {
 	}
 }
 
+func doCheckPasswd() (returnCode int) {
+	reader := bufio.NewReader(os.Stdin)
+	text, err := reader.ReadBytes('\n')
+	if err != nil {
+		log.Fatal(err)
+	}
+	var hashAndPassword [2]string
+	err = json.Unmarshal(text, &hashAndPassword)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if passwd.CompareHashAndPassword([]byte(hashAndPassword[0]), []byte(hashAndPassword[1])) != nil {
+		return 1
+	}
+	return 0
+}
+
 func main() {
 	irc.SetVersionString(version, commit)
 	usage := `ergo.
@@ -100,6 +119,7 @@ Usage:
 	ergo importdb <database.json> [--conf <filename>] [--quiet]
 	ergo genpasswd [--conf <filename>] [--quiet]
 	ergo mkcerts [--conf <filename>] [--quiet]
+	ergo checkpasswd
 	ergo run [--conf <filename>] [--quiet] [--smoke]
 	ergo -h | --help
 	ergo --version
@@ -144,6 +164,8 @@ Options:
 	} else if arguments["mkcerts"].(bool) {
 		doMkcerts(arguments["--conf"].(string), arguments["--quiet"].(bool))
 		return
+	} else if arguments["checkpasswd"].(bool) {
+		os.Exit(doCheckPasswd())
 	}
 
 	configfile := arguments["--conf"].(string)
