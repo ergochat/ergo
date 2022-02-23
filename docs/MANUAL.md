@@ -514,9 +514,10 @@ After that, you must rehash or restart Ergo to apply the config change. If a reh
 The default/recommended configuration of Ergo does not query remote ident servers, and furthermore ignores any user/ident sent with the `USER` command. All user/ident fields are set to a constant `~u`. There are a few reasons for this:
 
 1. Remote ident lookups slow down connection initiation and pose privacy and security concerns (since they transmit usernames over the Internet in plaintext).
-2. Ignoring user/ident simplifies bans; in general, a channel ban in Ergo should target either the nickname or the hostname. As a channel operator, `/msg ChanServ HOWTOBAN #channel nick` will recommend a way of banning any given user.
-3. Ident is commonly used to distinguish users connecting from the same trusted shell host or shared bouncer. This is less important with Ergo, which can act as a bouncer itself.
-4. Because of limitations of the IRC protocol, every character of the user/ident field counts against the maximum size of a message that can be sent.
+2. Ident is commonly used to distinguish users connecting from the same trusted shell host or shared bouncer. This is less important with Ergo, which can act as a bouncer itself.
+3. Ignoring user/ident simplifies bans; in general, a channel ban in Ergo should target either the nickname or the hostname. As a channel operator, `/msg ChanServ HOWTOBAN #channel nick` will recommend a way of banning any given user.
+4. Elaborating on this rationale somewhat: of the various pieces of information we could try to convey in the user/ident field (traditional user/ident, account name, nickname, or host/IP information), any choice would involve either ambiguity (since, e.g. account names can be present or absent) or would be redundant with information we already expose in the nickname or hostname. Coercing the field to `~u` is deterministic, unambiguous, and compatible with typical client behavior (clients should assume that any tilde-prefixed value is untrusted data and can collide arbitrarily with other values from the same hostname).
+5. Because of limitations of the IRC protocol, every character of the user/ident field counts against the maximum size of a message that can be sent.
 
 As an operator, you can modify this behavior if desired; see the `check-ident` and `coerce-ident` settings in the config file.
 
