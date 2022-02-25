@@ -39,7 +39,7 @@ If you want to take a look at a running Ergo instance or test some client code, 
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
 * `UBAN`, a unified ban system that can target IPs, networks, masks, and registered accounts (`KLINE` and `DLINE` are also supported)
 * [IRCv3 support](https://ircv3.net/software/servers.html)
-* a focus on developing with [specifications](https://ergo.chat/specs.html)
+* a focus on developing with [specifications](https://ergo.chat/nope)
 
 For more detailed information on Ergo's functionality, see:
 
