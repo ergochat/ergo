@@ -356,7 +356,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 	config := am.server.Config()
 
 	// final "is registration allowed" check:
-	if !(config.Accounts.Registration.Enabled || callbackNamespace == "admin") || am.server.Defcon() <= 4 {
+	if callbackNamespace != "admin" && (!config.Accounts.Registration.Enabled || am.server.Defcon() <= 4) {
 		return errFeatureDisabled
 	}
 
