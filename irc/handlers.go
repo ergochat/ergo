@@ -1680,10 +1680,31 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, client.server.name, RPL_LIST, nick, name, strconv.Itoa(members), topic)
 	}
 
+	// Fix #1911 +s channels don't appear in /list even though on the channel
+	var clientChannels []*Channel
+	clientChannels = client.Channels()
+
+	isUserInThisChannel := func(clientChannels []*Channel, currentChannelBeingChecked *Channel) bool {
+		/*
+			Return TRUE is client IS in currentChannelBeingChecked.
+			Return FALSE if client is NOT in currentChannelBeingChecked.
+		*/
+		var userchan *Channel
+		for _, userchan = range clientChannels {
+			// Check every channel that the client is in, and see
+			// if it is this channel.
+			if userchan.Name() == currentChannelBeingChecked.Name() {
+				return true
+			}
+
+		}
+		return false
+	}
+
 	clientIsOp := client.HasRoleCapabs("sajoin")
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
-			if !clientIsOp && channel.flags.HasMode(modes.Secret) {
+			if !clientIsOp && channel.flags.HasMode(modes.Secret) && !isUserInThisChannel(clientChannels, channel) {
 				continue
 			}
 			if matcher.Matches(channel) {
@@ -1698,7 +1719,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 		for _, chname := range channels {
 			channel := server.channels.Get(chname)
-			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret)) {
+			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret) && !isUserInThisChannel(clientChannels, channel)) {
 				if len(chname) > 0 {
 					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
 				}
