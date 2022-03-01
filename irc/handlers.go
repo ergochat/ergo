@@ -1683,7 +1683,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	clientIsOp := client.HasRoleCapabs("sajoin")
 	if len(channels) == 0 {
 		for _, channel := range server.channels.Channels() {
-			if !clientIsOp && channel.flags.HasMode(modes.Secret) {
+			if !clientIsOp && channel.flags.HasMode(modes.Secret) && !channel.hasClient(client) {
 				continue
 			}
 			if matcher.Matches(channel) {
@@ -1698,7 +1698,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 		for _, chname := range channels {
 			channel := server.channels.Get(chname)
-			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret)) {
+			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret) && !channel.hasClient(client)) {
 				if len(chname) > 0 {
 					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
 				}
