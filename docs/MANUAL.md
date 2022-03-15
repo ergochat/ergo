@@ -506,6 +506,8 @@ If you try to oper unsuccessfully, Ergo will disconnect you from the network. If
 
 The config file accepts hashed passwords, not plaintext passwords. You must run `ergo genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
+Although it's theoretically possible to use an operator password that contains spaces, your client may not support it correctly, so it's advisable to choose a password without spaces. (The period character `.` is an acceptable alternative separator if your password is based on randomly chosen words.)
+
 After that, you must rehash or restart Ergo to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
 
 
