@@ -74,7 +74,7 @@ func timeToZncWireTime(t time.Time) (result string) {
 type zncPlaybackTimes struct {
 	start   time.Time
 	end     time.Time
-	targets utils.StringSet // nil for "*" (everything), otherwise the channel names
+	targets utils.HashSet[string] // nil for "*" (everything), otherwise the channel names
 	setAt   time.Time
 }
 
@@ -134,7 +134,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 		end = zncWireTimeToTime(params[3])
 	}
 
-	var targets utils.StringSet
+	var targets utils.HashSet[string]
 	var nickTargets []string
 
 	// three cases:
@@ -157,7 +157,7 @@ func zncPlaybackPlayHandler(client *Client, command string, params []string, rb 
 	if params[1] == "*" {
 		playPrivmsgs = true // XXX nil `targets` means "every channel"
 	} else {
-		targets = make(utils.StringSet)
+		targets = make(utils.HashSet[string])
 		for _, targetName := range strings.Split(targetString, ",") {
 			if strings.HasPrefix(targetName, "#") {
 				if cfTarget, err := CasefoldChannel(targetName); err == nil {

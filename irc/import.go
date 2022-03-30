@@ -54,7 +54,7 @@ type databaseImport struct {
 	Channels map[string]channelImport
 }
 
-func serializeAmodes(raw map[string]string, validCfUsernames utils.StringSet) (result []byte, err error) {
+func serializeAmodes(raw map[string]string, validCfUsernames utils.HashSet[string]) (result []byte, err error) {
 	processed := make(map[string]int, len(raw))
 	for accountName, mode := range raw {
 		if len(mode) != 1 {
@@ -80,7 +80,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 	tx.Set(keySchemaVersion, strconv.Itoa(importDBSchemaVersion), nil)
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
 
-	cfUsernames := make(utils.StringSet)
+	cfUsernames := make(utils.HashSet[string])
 	skeletonToUsername := make(map[string]string)
 	warnSkeletons := false
 

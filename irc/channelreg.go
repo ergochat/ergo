@@ -145,8 +145,8 @@ func (reg *ChannelRegistry) AllChannels() (result []string) {
 }
 
 // PurgedChannels returns the set of all casefolded channel names that have been purged
-func (reg *ChannelRegistry) PurgedChannels() (result utils.StringSet) {
-	result = make(utils.StringSet)
+func (reg *ChannelRegistry) PurgedChannels() (result utils.HashSet[string]) {
+	result = make(utils.HashSet[string])
 
 	prefix := fmt.Sprintf(keyChannelPurged, "")
 	reg.server.store.View(func(tx *buntdb.Tx) error {

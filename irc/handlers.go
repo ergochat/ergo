@@ -3424,7 +3424,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		// Construct set of channels the client is in.
 		userChannels := make(ChannelSet)
 		for _, channel := range client.Channels() {
-			userChannels[channel] = empty{}
+			userChannels.Add(channel)
 		}
 
 		// Another client is a friend if they share at least one channel, or they are the same client.
@@ -3437,7 +3437,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 				if channel.flags.HasMode(modes.Auditorium) {
 					return false // TODO this should respect +v etc.
 				}
-				if _, present := userChannels[channel]; present {
+				if userChannels.Has(channel) {
 					return true
 				}
 			}

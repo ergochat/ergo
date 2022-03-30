@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/utils"
 
 	"github.com/ergochat/irc-go/ircmsg"
 )
@@ -17,21 +18,21 @@ type MonitorManager struct {
 	// client -> (casefolded nick it's watching -> uncasefolded nick)
 	watching map[*Session]map[string]string
 	// casefolded nick -> clients watching it
-	watchedby map[string]map[*Session]empty
+	watchedby map[string]utils.HashSet[*Session]
 }
 
 func (mm *MonitorManager) Initialize() {
 	mm.watching = make(map[*Session]map[string]string)
-	mm.watchedby = make(map[string]map[*Session]empty)
+	mm.watchedby = make(map[string]utils.HashSet[*Session])
 }
 
 // AddMonitors adds clients using extended-monitor monitoring `client`'s nick to the passed user set.
-func (manager *MonitorManager) AddMonitors(users map[*Session]empty, cfnick string, capabs ...caps.Capability) {
+func (manager *MonitorManager) AddMonitors(users utils.HashSet[*Session], cfnick string, capabs ...caps.Capability) {
 	manager.RLock()
 	defer manager.RUnlock()
 	for session := range manager.watchedby[cfnick] {
 		if session.capabilities.Has(caps.ExtendedMonitor) && session.capabilities.HasAll(capabs...) {
-			users[session] = empty{}
+			users.Add(session)
 		}
 	}
 }
@@ -70,7 +71,7 @@ func (manager *MonitorManager) Add(session *Session, nick string, limit int) err
 		manager.watching[session] = make(map[string]string)
 	}
 	if manager.watchedby[cfnick] == nil {
-		manager.watchedby[cfnick] = make(map[*Session]empty)
+		manager.watchedby[cfnick] = make(utils.HashSet[*Session])
 	}
 
 	if len(manager.watching[session]) >= limit {
@@ -78,7 +79,7 @@ func (manager *MonitorManager) Add(session *Session, nick string, limit int) err
 	}
 
 	manager.watching[session][cfnick] = nick
-	manager.watchedby[cfnick][session] = empty{}
+	manager.watchedby[cfnick].Add(session)
 	return nil
 }
 
@@ -92,7 +93,7 @@ func (manager *MonitorManager) Remove(session *Session, nick string) (err error)
 	manager.Lock()
 	defer manager.Unlock()
 	delete(manager.watching[session], cfnick)
-	delete(manager.watchedby[cfnick], session)
+	manager.watchedby[cfnick].Remove(session)
 	return nil
 }
 
@@ -102,7 +103,7 @@ func (manager *MonitorManager) RemoveAll(session *Session) {
 	defer manager.Unlock()
 
 	for cfnick := range manager.watching[session] {
-		delete(manager.watchedby[cfnick], session)
+		manager.watchedby[cfnick].Remove(session)
 	}
 	delete(manager.watching, session)
 }

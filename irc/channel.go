@@ -177,10 +177,7 @@ func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredCh
 		info.Bans = channel.lists[modes.BanMask].Masks()
 		info.Invites = channel.lists[modes.InviteMask].Masks()
 		info.Excepts = channel.lists[modes.ExceptMask].Masks()
-		info.AccountToUMode = make(map[string]modes.Mode)
-		for account, mode := range channel.accountToUMode {
-			info.AccountToUMode[account] = mode
-		}
+		info.AccountToUMode = utils.CopyMap(channel.accountToUMode)
 	}
 
 	if includeFlags&IncludeSettings != 0 {
