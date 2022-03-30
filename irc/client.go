@@ -40,9 +40,9 @@ const (
 	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
 	// limit the number of device IDs a client can use, as a DoS mitigation
 	maxDeviceIDsPerClient = 64
-	// controls how often often we write an autoreplay-missed client's
-	// deviceid->lastseentime mapping to the database
-	lastSeenWriteInterval = time.Hour
+	// maximum total read markers that can be stored
+	// (writeback of read markers is controlled by lastSeen logic)
+	maxReadMarkers = 256
 )
 
 const (
@@ -83,7 +83,7 @@ type Client struct {
 	languages          []string
 	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
 	lastSeen           map[string]time.Time // maps device ID (including "") to time of last received command
-	lastSeenLastWrite  time.Time            // last time `lastSeen` was written to the datastore
+	readMarkers        map[string]time.Time // maps casefolded target to time of last read marker
 	loginThrottle      connection_limits.GenericThrottle
 	nextSessionID      int64 // Incremented when a new session is established
 	nick               string
@@ -101,6 +101,7 @@ type Client struct {
 	requireSASL        bool
 	registered         bool
 	registerCmdSent    bool // already sent the draft/register command, can't send it again
+	dirtyTimestamps    bool // lastSeen or readMarkers is dirty
 	registrationTimer  *time.Timer
 	server             *Server
 	skeleton           string
@@ -745,41 +746,23 @@ func (client *Client) playReattachMessages(session *Session) {
 // Touch indicates that we received a line from the client (so the connection is healthy
 // at this time, modulo network latency and fakelag).
 func (client *Client) Touch(session *Session) {
-	var markDirty bool
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
 	if client.registered {
 		client.updateIdleTimer(session, now)
 		if client.alwaysOn {
 			client.setLastSeen(now, session.deviceID)
-			if now.Sub(client.lastSeenLastWrite) > lastSeenWriteInterval {
-				markDirty = true
-				client.lastSeenLastWrite = now
-			}
+			client.dirtyTimestamps = true
 		}
 	}
 	client.stateMutex.Unlock()
-	if markDirty {
-		client.markDirty(IncludeLastSeen)
-	}
 }
 
 func (client *Client) setLastSeen(now time.Time, deviceID string) {
 	if client.lastSeen == nil {
 		client.lastSeen = make(map[string]time.Time)
 	}
-	client.lastSeen[deviceID] = now
-	// evict the least-recently-used entry if necessary
-	if maxDeviceIDsPerClient < len(client.lastSeen) {
-		var minLastSeen time.Time
-		var minClientId string
-		for deviceID, lastSeen := range client.lastSeen {
-			if minLastSeen.IsZero() || lastSeen.Before(minLastSeen) {
-				minClientId, minLastSeen = deviceID, lastSeen
-			}
-		}
-		delete(client.lastSeen, minClientId)
-	}
+	updateLRUMap(client.lastSeen, deviceID, now, maxDeviceIDsPerClient)
 }
 
 func (client *Client) updateIdleTimer(session *Session, now time.Time) {
@@ -1191,7 +1174,6 @@ func (client *Client) Quit(message string, session *Session) {
 func (client *Client) destroy(session *Session) {
 	config := client.server.Config()
 	var sessionsToDestroy []*Session
-	var saveLastSeen bool
 	var quitMessage string
 
 	client.stateMutex.Lock()
@@ -1223,20 +1205,6 @@ func (client *Client) destroy(session *Session) {
 		}
 	}
 
-	// save last seen if applicable:
-	if alwaysOn {
-		if client.accountSettings.AutoreplayMissed {
-			saveLastSeen = true
-		} else {
-			for _, session := range sessionsToDestroy {
-				if session.deviceID != "" {
-					saveLastSeen = true
-					break
-				}
-			}
-		}
-	}
-
 	// should we destroy the whole client this time?
 	shouldDestroy := !client.destroyed && remainingSessions == 0 && !alwaysOn
 	// decrement stats on a true destroy, or for the removal of the last connected session
@@ -1245,9 +1213,6 @@ func (client *Client) destroy(session *Session) {
 	if shouldDestroy {
 		// if it's our job to destroy it, don't let anyone else try
 		client.destroyed = true
-	}
-	if saveLastSeen {
-		client.dirtyBits |= IncludeLastSeen
 	}
 
 	becameAutoAway := false
@@ -1265,14 +1230,6 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	client.stateMutex.Unlock()
-
-	// XXX there is no particular reason to persist this state here rather than
-	// any other place: it would be correct to persist it after every `Touch`. However,
-	// I'm not comfortable introducing that many database writes, and I don't want to
-	// design a throttle.
-	if saveLastSeen {
-		client.wakeWriter()
-	}
 
 	// destroy all applicable sessions:
 	for _, session := range sessionsToDestroy {
@@ -1784,18 +1741,13 @@ func (client *Client) handleRegisterTimeout() {
 func (client *Client) copyLastSeen() (result map[string]time.Time) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	result = make(map[string]time.Time, len(client.lastSeen))
-	for id, lastSeen := range client.lastSeen {
-		result[id] = lastSeen
-	}
-	return
+	return utils.CopyMap(client.lastSeen)
 }
 
 // these are bit flags indicating what part of the client status is "dirty"
 // and needs to be read from memory and written to the db
 const (
 	IncludeChannels uint = 1 << iota
-	IncludeLastSeen
 	IncludeUserModes
 	IncludeRealname
 )
@@ -1852,9 +1804,6 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 			channelToModes[chname] = status
 		}
 		client.server.accounts.saveChannels(account, channelToModes)
-	}
-	if (dirtyBits & IncludeLastSeen) != 0 {
-		client.server.accounts.saveLastSeen(account, client.copyLastSeen())
 	}
 	if (dirtyBits & IncludeUserModes) != 0 {
 		uModes := make(modes.Modes, 0, len(modes.SupportedUserModes))

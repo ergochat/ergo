@@ -493,6 +493,63 @@ func (client *Client) checkAlwaysOnExpirationNoMutex(config *Config, ignoreRegis
 	return true
 }
 
+func (client *Client) GetReadMarker(cfname string) (result string) {
+	client.stateMutex.RLock()
+	t, ok := client.readMarkers[cfname]
+	client.stateMutex.RUnlock()
+	if ok {
+		return t.Format(IRCv3TimestampFormat)
+	}
+	return "*"
+}
+
+func (client *Client) copyReadMarkers() (result map[string]time.Time) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return utils.CopyMap(client.readMarkers)
+}
+
+func (client *Client) SetReadMarker(cfname string, now time.Time) (result time.Time) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.readMarkers == nil {
+		client.readMarkers = make(map[string]time.Time)
+	}
+	result = updateLRUMap(client.readMarkers, cfname, now, maxReadMarkers)
+	client.dirtyTimestamps = true
+	return
+}
+
+func updateLRUMap(lru map[string]time.Time, key string, val time.Time, maxItems int) (result time.Time) {
+	if currentVal := lru[key]; currentVal.After(val) {
+		return currentVal
+	}
+
+	lru[key] = val
+	// evict the least-recently-used entry if necessary
+	if maxItems < len(lru) {
+		var minKey string
+		var minVal time.Time
+		for key, val := range lru {
+			if minVal.IsZero() || val.Before(minVal) {
+				minKey, minVal = key, val
+			}
+		}
+		delete(lru, minKey)
+	}
+	return val
+}
+
+func (client *Client) shouldFlushTimestamps() (result bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	result = client.dirtyTimestamps && client.registered && client.alwaysOn
+	client.dirtyTimestamps = false
+	return
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()

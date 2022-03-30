@@ -165,6 +165,17 @@ func CasefoldName(name string) (string, error) {
 	return lowered, err
 }
 
+// CasefoldTarget returns a casefolded version of an IRC target, i.e.
+// it determines whether the target is a channel name or nickname and
+// applies the appropriate casefolding rules.
+func CasefoldTarget(name string) (string, error) {
+	if strings.HasPrefix(name, "#") {
+		return CasefoldChannel(name)
+	} else {
+		return CasefoldName(name)
+	}
+}
+
 // returns true if the given name is a valid ident, using a mix of Insp and
 // Chary's ident restrictions.
 func isIdent(name string) bool {

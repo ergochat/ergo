@@ -183,6 +183,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/466",
         standard="draft IRCv3",
     ),
+    CapDef(
+        identifier="ReadMarker",
+        name="draft/read-marker",
+        url="https://github.com/ircv3/ircv3-specifications/pull/489",
+        standard="draft IRCv3",
+    ),
 ]
 
 def validate_defs():

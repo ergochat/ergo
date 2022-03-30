@@ -53,7 +53,7 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 	}
 
 	if client.registered {
-		client.Touch(session)
+		client.Touch(session) // even if `exiting`, we bump the lastSeen timestamp
 	}
 
 	return exiting
@@ -177,6 +177,10 @@ func init() {
 		"LUSERS": {
 			handler:   lusersHandler,
 			minParams: 0,
+		},
+		"MARKREAD": {
+			handler:   markReadHandler,
+			minParams: 0, // send FAIL instead of ERR_NEEDMOREPARAMS
 		},
 		"MODE": {
 			handler:   modeHandler,

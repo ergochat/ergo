@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 28
+	numCapabs = 29
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -64,6 +64,10 @@ const (
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
+
+	// ReadMarker is the draft IRCv3 capability named "draft/read-marker":
+	// https://github.com/ircv3/ircv3-specifications/pull/489
+	ReadMarker Capability = iota
 
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
@@ -142,6 +146,7 @@ var (
 		"draft/extended-monitor",
 		"draft/languages",
 		"draft/multiline",
+		"draft/read-marker",
 		"draft/relaymsg",
 		"echo-message",
 		"ergo.chat/nope",
