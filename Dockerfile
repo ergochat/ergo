@@ -1,5 +1,5 @@
 ## build ergo binary
-FROM golang:1.18-alpine3.13 AS build-env
+FROM golang:1.18-alpine AS build-env
 
 RUN apk add -U --force-refresh --no-cache --purge --clean-protected -l -u make git
 
