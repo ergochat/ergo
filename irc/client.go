@@ -994,8 +994,8 @@ func (client *Client) ModeString() (str string) {
 }
 
 // Friends refers to clients that share a channel with this client.
-func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]empty) {
-	result = make(map[*Session]empty)
+func (client *Client) Friends(capabs ...caps.Capability) (result utils.HashSet[*Session]) {
+	result = make(utils.HashSet[*Session])
 
 	// look at the client's own sessions
 	addFriendsToSet(result, client, capabs...)
@@ -1010,19 +1010,19 @@ func (client *Client) Friends(capabs ...caps.Capability) (result map[*Session]em
 }
 
 // Friends refers to clients that share a channel or extended-monitor this client.
-func (client *Client) FriendsMonitors(capabs ...caps.Capability) (result map[*Session]empty) {
+func (client *Client) FriendsMonitors(capabs ...caps.Capability) (result utils.HashSet[*Session]) {
 	result = client.Friends(capabs...)
 	client.server.monitorManager.AddMonitors(result, client.nickCasefolded, capabs...)
 	return
 }
 
 // helper for Friends
-func addFriendsToSet(set map[*Session]empty, client *Client, capabs ...caps.Capability) {
+func addFriendsToSet(set utils.HashSet[*Session], client *Client, capabs ...caps.Capability) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 	for _, session := range client.sessions {
 		if session.capabilities.HasAll(capabs...) {
-			set[session] = empty{}
+			set.Add(session)
 		}
 	}
 }
@@ -1575,7 +1575,7 @@ func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
 	} else if client.oper == nil && len(client.channels) >= config.Channels.MaxChannelsPerClient {
 		err = errTooManyChannels
 	} else {
-		client.channels[channel] = empty{} // success
+		client.channels.Add(channel) // success
 	}
 	client.stateMutex.Unlock()
 

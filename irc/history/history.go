@@ -203,7 +203,7 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 
 // returns all correspondents, in reverse time order
 func (list *Buffer) allCorrespondents() (results []TargetListing) {
-	seen := make(utils.StringSet)
+	seen := make(utils.HashSet[string])
 
 	list.RLock()
 	defer list.RUnlock()

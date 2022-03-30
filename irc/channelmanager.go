@@ -26,17 +26,17 @@ type ChannelManager struct {
 	sync.RWMutex // tier 2
 	// chans is the main data structure, mapping casefolded name -> *Channel
 	chans               map[string]*channelManagerEntry
-	chansSkeletons      utils.StringSet // skeletons of *unregistered* chans
-	registeredChannels  utils.StringSet // casefolds of registered chans
-	registeredSkeletons utils.StringSet // skeletons of registered chans
-	purgedChannels      utils.StringSet // casefolds of purged chans
+	chansSkeletons      utils.HashSet[string] // skeletons of *unregistered* chans
+	registeredChannels  utils.HashSet[string] // casefolds of registered chans
+	registeredSkeletons utils.HashSet[string] // skeletons of registered chans
+	purgedChannels      utils.HashSet[string] // casefolds of purged chans
 	server              *Server
 }
 
 // NewChannelManager returns a new ChannelManager.
 func (cm *ChannelManager) Initialize(server *Server) {
 	cm.chans = make(map[string]*channelManagerEntry)
-	cm.chansSkeletons = make(utils.StringSet)
+	cm.chansSkeletons = make(utils.HashSet[string])
 	cm.server = server
 
 	// purging should work even if registration is disabled
@@ -66,8 +66,8 @@ func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
 	cm.Lock()
 	defer cm.Unlock()
 
-	cm.registeredChannels = make(utils.StringSet, len(rawNames))
-	cm.registeredSkeletons = make(utils.StringSet, len(rawNames))
+	cm.registeredChannels = make(utils.HashSet[string], len(rawNames))
+	cm.registeredSkeletons = make(utils.HashSet[string], len(rawNames))
 	for _, name := range rawNames {
 		cfname, err := CasefoldChannel(name)
 		if err == nil {

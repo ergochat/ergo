@@ -9,28 +9,11 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
-type empty struct{}
-
 // ClientSet is a set of clients.
-type ClientSet map[*Client]empty
-
-// Add adds the given client to this set.
-func (clients ClientSet) Add(client *Client) {
-	clients[client] = empty{}
-}
-
-// Remove removes the given client from this set.
-func (clients ClientSet) Remove(client *Client) {
-	delete(clients, client)
-}
-
-// Has returns true if the given client is in this set.
-func (clients ClientSet) Has(client *Client) bool {
-	_, ok := clients[client]
-	return ok
-}
+type ClientSet = utils.HashSet[*Client]
 
 type memberData struct {
 	modes    *modes.ModeSet
@@ -60,4 +43,4 @@ func (members MemberSet) Has(member *Client) bool {
 }
 
 // ChannelSet is a set of channels.
-type ChannelSet map[*Channel]empty
+type ChannelSet = utils.HashSet[*Channel]

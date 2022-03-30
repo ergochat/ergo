@@ -11,7 +11,7 @@ import (
 
 func TestGenerateBatchID(t *testing.T) {
 	var session Session
-	s := make(utils.StringSet)
+	s := make(utils.HashSet[string])
 
 	count := 100000
 	for i := 0; i < count; i++ {
