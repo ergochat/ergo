@@ -42,14 +42,13 @@ FORGET deletes all history messages sent by an account.`,
 		},
 		"delete": {
 			handler: histservDeleteHandler,
-			help: `Syntax: $bDELETE [target] <msgid>$b
+			help: `Syntax: $bDELETE <target> <msgid>$b
 
-DELETE deletes an individual message by its msgid. The target is a channel
-name or nickname; depending on the history implementation, this may or may not
-be necessary to locate the message.`,
-			helpShort: `$bDELETE$b deletes an individual message by its msgid.`,
+DELETE deletes an individual message by its msgid. The target is the channel
+name. The msgid is the ID as can be found in the tags of that message.`,
+			helpShort: `$bDELETE$b deletes an individual message by its target and msgid.`,
 			enabled:   histservEnabled,
-			minParams: 1,
+			minParams: 2,
 			maxParams: 2,
 		},
 		"export": {
@@ -94,12 +93,7 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 }
 
 func histservDeleteHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	var target, msgid string
-	if len(params) == 1 {
-		msgid = params[0]
-	} else {
-		target, msgid = params[0], params[1]
-	}
+	target, msgid := params[0], params[1] // Fix #1881 2 params are required
 
 	// operators can delete; if individual delete is allowed, a chanop or
 	// the message author can delete
