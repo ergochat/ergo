@@ -1649,9 +1649,6 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		for _, chname := range channels {
 			channel := server.channels.Get(chname)
 			if channel == nil || (!clientIsOp && channel.flags.HasMode(modes.Secret) && !channel.hasClient(client)) {
-				if len(chname) > 0 {
-					rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(chname), client.t("No such channel"))
-				}
 				continue
 			}
 			if matcher.Matches(channel) {
