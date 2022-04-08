@@ -321,6 +321,13 @@ Shows statistics about the size of the network. If <mask> is given, only
 returns stats for servers matching the given mask.  If <server> is given, the
 command is processed by that server.`,
 	},
+	"markread": {
+		text: `MARKREAD <target> [timestamp]
+
+MARKREAD updates an IRCv3 read message marker. It is not intended for use by
+end users. For more details, see the latest draft of the read-marker
+specification.`,
+	},
 	"mode": {
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
 

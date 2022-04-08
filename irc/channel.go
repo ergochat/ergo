@@ -881,6 +881,10 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		rb.AddFromClient(message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "JOIN", chname)
 	}
 
+	if rb.session.capabilities.Has(caps.ReadMarker) {
+		rb.Add(nil, client.server.name, "MARKREAD", chname, client.GetReadMarker(chcfname))
+	}
+
 	if rb.session.client == client {
 		// don't send topic and names for a SAJOIN of a different client
 		channel.SendTopic(client, rb, false)
@@ -964,10 +968,15 @@ func (channel *Channel) playJoinForSession(session *Session) {
 	client := session.client
 	sessionRb := NewResponseBuffer(session)
 	details := client.Details()
+	chname := channel.Name()
 	if session.capabilities.Has(caps.ExtendedJoin) {
-		sessionRb.Add(nil, details.nickMask, "JOIN", channel.Name(), details.accountName, details.realname)
+		sessionRb.Add(nil, details.nickMask, "JOIN", chname, details.accountName, details.realname)
 	} else {
-		sessionRb.Add(nil, details.nickMask, "JOIN", channel.Name())
+		sessionRb.Add(nil, details.nickMask, "JOIN", chname)
+	}
+	if session.capabilities.Has(caps.ReadMarker) {
+		chcfname := channel.NameCasefolded()
+		sessionRb.Add(nil, client.server.name, "MARKREAD", chname, client.GetReadMarker(chcfname))
 	}
 	channel.SendTopic(client, sessionRb, false)
 	channel.Names(client, sessionRb)

@@ -41,6 +41,7 @@ const (
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountLastSeen         = "account.lastseen %s"
+	keyAccountReadMarkers      = "account.readmarkers %s"
 	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
 	keyAccountRealname         = "account.realname %s"  // client realname stored as string
 	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
@@ -647,9 +648,18 @@ func (am *AccountManager) loadModes(account string) (uModes modes.Modes) {
 
 func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountLastSeen, account)
+	am.saveTimeMap(account, key, lastSeen)
+}
+
+func (am *AccountManager) saveReadMarkers(account string, readMarkers map[string]time.Time) {
+	key := fmt.Sprintf(keyAccountReadMarkers, account)
+	am.saveTimeMap(account, key, readMarkers)
+}
+
+func (am *AccountManager) saveTimeMap(account, key string, timeMap map[string]time.Time) {
 	var val string
-	if len(lastSeen) != 0 {
-		text, _ := json.Marshal(lastSeen)
+	if len(timeMap) != 0 {
+		text, _ := json.Marshal(timeMap)
 		val = string(text)
 	}
 	err := am.server.store.Update(func(tx *buntdb.Tx) error {
@@ -661,7 +671,7 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.
 		return nil
 	})
 	if err != nil {
-		am.server.logger.Error("internal", "error persisting lastSeen", account, err.Error())
+		am.server.logger.Error("internal", "error persisting timeMap", key, err.Error())
 	}
 }
 
@@ -1739,6 +1749,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountChannelToModes, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
+	readMarkersKey := fmt.Sprintf(keyAccountReadMarkers, casefoldedAccount)
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	modesKey := fmt.Sprintf(keyAccountModes, casefoldedAccount)
 	realnameKey := fmt.Sprintf(keyAccountRealname, casefoldedAccount)
@@ -1801,6 +1812,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
 		tx.Delete(lastSeenKey)
+		tx.Delete(readMarkersKey)
 		tx.Delete(modesKey)
 		tx.Delete(realnameKey)
 		tx.Delete(suspendedKey)

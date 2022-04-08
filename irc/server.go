@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	alwaysOnExpirationPollPeriod = time.Hour
+	alwaysOnMaintenanceInterval = 30 * time.Minute
 )
 
 var (
@@ -119,7 +119,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	signal.Notify(server.exitSignals, utils.ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
 
-	time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
+	time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
 
 	return server, nil
 }
@@ -132,10 +132,10 @@ func (server *Server) Shutdown() {
 	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
-		if client.AlwaysOn() {
-			client.Store(IncludeLastSeen)
-		}
 	}
+
+	// flush data associated with always-on clients:
+	server.performAlwaysOnMaintenance(false, true)
 
 	if err := server.store.Close(); err != nil {
 		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
@@ -244,25 +244,32 @@ func (server *Server) checkTorLimits() (banned bool, message string) {
 	}
 }
 
-func (server *Server) handleAlwaysOnExpirations() {
+func (server *Server) periodicAlwaysOnMaintenance() {
 	defer func() {
 		// reschedule whether or not there was a panic
-		time.AfterFunc(alwaysOnExpirationPollPeriod, server.handleAlwaysOnExpirations)
+		time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
 	}()
 
 	defer server.HandlePanic()
 
+	server.logger.Info("accounts", "Performing periodic always-on client checks")
+	server.performAlwaysOnMaintenance(true, true)
+}
+
+func (server *Server) performAlwaysOnMaintenance(checkExpiration, flushTimestamps bool) {
 	config := server.Config()
-	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
-	if deadline == 0 {
-		return
-	}
-	server.logger.Info("accounts", "Checking always-on clients for expiration")
 	for _, client := range server.clients.AllClients() {
-		if client.IsExpiredAlwaysOn(config) {
+		if checkExpiration && client.IsExpiredAlwaysOn(config) {
 			// TODO save the channels list, use it for autojoin if/when they return?
 			server.logger.Info("accounts", "Expiring always-on client", client.AccountName())
 			client.destroy(nil)
+			continue
+		}
+
+		if flushTimestamps && client.shouldFlushTimestamps() {
+			account := client.Account()
+			server.accounts.saveLastSeen(account, client.copyLastSeen())
+			server.accounts.saveReadMarkers(account, client.copyReadMarkers())
 		}
 	}
 }

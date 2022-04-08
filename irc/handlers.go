@@ -2697,6 +2697,50 @@ func verifyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	return
 }
 
+// MARKREAD <target> [timestamp]
+func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
+	if len(msg.Params) == 0 {
+		rb.Add(nil, server.name, "FAIL", "MARKREAD", "NEED_MORE_PARAMS", client.t("Missing parameters"))
+		return
+	}
+
+	target := msg.Params[0]
+	cftarget, err := CasefoldTarget(target)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "MARKREAD", "INVALID_PARAMS", utils.SafeErrorParam(target), client.t("Invalid target"))
+		return
+	}
+	unfoldedTarget := server.UnfoldName(cftarget)
+
+	// "MARKREAD client get command": MARKREAD <target>
+	if len(msg.Params) == 1 {
+		rb.Add(nil, client.server.name, "MARKREAD", unfoldedTarget, client.GetReadMarker(cftarget))
+		return
+	}
+
+	// "MARKREAD client set command": MARKREAD <target> <timestamp>
+	readTimestamp := msg.Params[1]
+	readTime, err := time.Parse(IRCv3TimestampFormat, readTimestamp)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "MARKREAD", "INVALID_PARAMS", utils.SafeErrorParam(readTimestamp), client.t("Invalid timestamp"))
+		return
+	}
+	result := client.SetReadMarker(cftarget, readTime)
+	readTimestamp = result.Format(IRCv3TimestampFormat)
+	// inform the originating session whether it was a success or a no-op:
+	rb.Add(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+	if result.Equal(readTime) {
+		// successful update (i.e. it moved the stored timestamp forward):
+		// inform other sessions
+		for _, session := range client.Sessions() {
+			if session != rb.session {
+				session.Send(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+			}
+		}
+	}
+	return
+}
+
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
