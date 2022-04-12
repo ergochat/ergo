@@ -272,6 +272,11 @@ func init() {
 			minParams: 1,
 			capabs:    []string{"samode"},
 		},
+		"SASETNAME": {
+			handler:   sasetnameHandler,
+			minParams: 2,
+			capabs:    []string{"sanick"},
+		},
 		"SCENE": {
 			handler:   sceneHandler,
 			minParams: 2,
