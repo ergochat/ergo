@@ -2997,38 +2997,27 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 	return false
 }
 
-// SASETNAME <nick> <realname>
+// SASETNAME <realname>
 func sasetnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// check oper permissions
 	oper := client.Oper()
-	nick := client.Nick()
-
 	if !oper.HasRoleCapab("sanick") {
-		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.details.nick, msg.Command, client.t("Insufficient oper privs"))
 		return false
 	}
-	realname := msg.Params[2]
-	nick = msg.Params[0]
-
-	// if account exists it should allow whether or not online?
-	//<BLOCK> TODO
-	// Check if nick is account on server
-	// Check if nick is on server
-	// targetclient below in L3031
-	//
-
+        client.Account() := msg.Params[0]
 	if len(msg.Params) > 2 {
 		// workaround for clients that turn unknown commands into raw IRC lines,
 		// so you can do `/setname Jane Doe` in the client and get the expected result
-		realname = strings.Join(msg.Params, " ")
+		realname := strings.Join(msg.Params, " ")
 	}
-
+	realname := msg.Params[2]
 	if realname == "" {
 		rb.Add(nil, server.name, "FAIL", "SETNAME", "INVALID_REALNAME", client.t("Realname is not valid"))
 		return false
 	}
-	// needs to be targetNick <TODO
-	client.SetRealname(realname)
+
+	client.targetAccount.SetRealname(realname)
 	details := client.Details()
 
 	// alert friends
@@ -3041,6 +3030,274 @@ func sasetnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *Re
 	}
 	// respond to the user unconditionally, even if they don't have the cap
 	rb.AddFromClient(now, "", details.nickMask, details.accountName, isBot, nil, "SETNAME", details.realname)
+	return false
+}
+
+// SUMMON [parameters]
+func summonHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, ERR_SUMMONDISABLED, client.Nick(), client.t("SUMMON has been disabled"))
+	return false
+}
+
+// TIME
+func timeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
+	return false
+}
+
+// TOPIC <channel> [<topic>]
+func topicHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	channel := server.channels.Get(msg.Params[0])
+	if channel == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
+		return false
+	}
+
+	if len(msg.Params) > 1 {
+		channel.SetTopic(client, msg.Params[1], rb)
+	} else {
+		channel.SendTopic(client, rb, true)
+	}
+	return false
+}
+
+// UNDLINE <ip>|<net>
+func unDLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	// check oper permissions
+	oper := client.Oper()
+	if !oper.HasRoleCapab("ban") {
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		return false
+	}
+
+	// get host
+	hostString := msg.Params[0]
+
+	// check host
+	hostNet, err := flatip.ParseToNormalizedNet(hostString)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
+		return falsew
+	}
+
+	err = server.dlines.RemoveNetwork(hostNet)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		return false
+	}
+
+	hostString = hostNet.String()
+	rb.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
+	return false
+}
+
+// UNKLINE <mask>
+func unKLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	details := client.Details()
+	// check oper permissions
+	oper := client.Oper()
+	if !oper.HasRoleCapab("ban") {
+		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
+		return false
+	}
+
+	// get host
+	mask := msg.Params[0]
+	mask, err := CanonicalizeMaskWildcard(mask)
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
+		return false
+	}
+
+	err = server.klines.RemoveMask(mask)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		return false
+	}
+
+	rb.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), details.nick, mask))
+	return false
+}
+
+// USER <username> * 0 <realname>
+func userHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	if client.registered {
+		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.Nick(), client.t("You may not reregister"))
+		return false
+	}
+
+	username, realname := msg.Params[0], msg.Params[3]
+	if len(realname) == 0 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "USER", client.t("Not enough parameters"))
+		return false
+	}
+
+	// #843: we accept either: `USER user:pass@clientid` or `USER user@clientid`
+	if strudelIndex := strings.IndexByte(username, '@'); strudelIndex != -1 {
+		username, rb.session.deviceID = username[:strudelIndex], username[strudelIndex+1:]
+		if colonIndex := strings.IndexByte(username, ':'); colonIndex != -1 {
+			var password string
+			username, password = username[:colonIndex], username[colonIndex+1:]
+			err := server.accounts.AuthenticateByPassphrase(client, username, password)
+			if err == nil {
+				sendSuccessfulAccountAuth(nil, client, rb, true)
+			} else {
+				// this is wrong, but send something for debugging that will show up in a raw transcript
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed"))
+			}
+		}
+	}
+
+	err := client.SetNames(username, realname, false)
+	if err == errInvalidUsername {
+		// if client's using a unicode nick or something weird, let's just set 'em up with a stock username instead.
+		// fixes clients that just use their nick as a username so they can still use the interesting nick
+		if client.preregNick == username {
+			client.SetNames("user", realname, false)
+		} else {
+			rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.Nick(), client.t("Malformed username"))
+		}
+	}
+
+	return false
+}
+
+// SUMMON [parameters]
+func summonHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, ERR_SUMMONDISABLED, client.Nick(), client.t("SUMMON has been disabled"))
+	return false
+}
+
+// TIME
+func timeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
+	return false
+}
+
+// TOPIC <channel> [<topic>]
+func topicHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	channel := server.channels.Get(msg.Params[0])
+	if channel == nil {
+		rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.nick, utils.SafeErrorParam(msg.Params[0]), client.t("No such channel"))
+		return false
+	}
+
+	if len(msg.Params) > 1 {
+		channel.SetTopic(client, msg.Params[1], rb)
+	} else {
+		channel.SendTopic(client, rb, true)
+	}
+	return false
+}
+
+// UNDLINE <ip>|<net>
+func unDLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	// check oper permissions
+	oper := client.Oper()
+	if !oper.HasRoleCapab("ban") {
+		rb.Add(nil, server.name, ERR_NOPRIVS, client.nick, msg.Command, client.t("Insufficient oper privs"))
+		return false
+	}
+
+	// get host
+	hostString := msg.Params[0]
+
+	// check host
+	hostNet, err := flatip.ParseToNormalizedNet(hostString)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, client.t("Could not parse IP address or CIDR network"))
+		return false
+	}
+
+	err = server.dlines.RemoveNetwork(hostNet)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		return false
+	}
+
+	hostString = hostNet.String()
+	rb.Notice(fmt.Sprintf(client.t("Removed D-Line for %s"), hostString))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed D-Line for %s"), client.nick, hostString))
+	return false
+}
+
+// UNKLINE <mask>
+func unKLineHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	details := client.Details()
+	// check oper permissions
+	oper := client.Oper()
+	if !oper.HasRoleCapab("ban") {
+		rb.Add(nil, server.name, ERR_NOPRIVS, details.nick, msg.Command, client.t("Insufficient oper privs"))
+		return false
+	}
+
+	// get host
+	mask := msg.Params[0]
+	mask, err := CanonicalizeMaskWildcard(mask)
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, client.t("Erroneous nickname"))
+		return false
+	}
+
+	err = server.klines.RemoveMask(mask)
+
+	if err != nil {
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, details.nick, msg.Command, fmt.Sprintf(client.t("Could not remove ban [%s]"), err.Error()))
+		return false
+	}
+
+	rb.Notice(fmt.Sprintf(client.t("Removed K-Line for %s"), mask))
+	server.snomasks.Send(sno.LocalXline, fmt.Sprintf(ircfmt.Unescape("%s$r removed K-Line for %s"), details.nick, mask))
+	return false
+}
+
+// USER <username> * 0 <realname>
+func userHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	if client.registered {
+		rb.Add(nil, server.name, ERR_ALREADYREGISTRED, client.Nick(), client.t("You may not reregister"))
+		return false
+	}
+
+	username, realname := msg.Params[0], msg.Params[3]
+	if len(realname) == 0 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "USER", client.t("Not enough parameters"))
+		return false
+	}
+
+	// #843: we accept either: `USER user:pass@clientid` or `USER user@clientid`
+	if strudelIndex := strings.IndexByte(username, '@'); strudelIndex != -1 {
+		username, rb.session.deviceID = username[:strudelIndex], username[strudelIndex+1:]
+		if colonIndex := strings.IndexByte(username, ':'); colonIndex != -1 {
+			var password string
+			username, password = username[:colonIndex], username[colonIndex+1:]
+			err := server.accounts.AuthenticateByPassphrase(client, username, password)
+			if err == nil {
+				sendSuccessfulAccountAuth(nil, client, rb, true)
+			} else {
+				// this is wrong, but send something for debugging that will show up in a raw transcript
+				rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed"))
+			}
+		}
+	}
+
+	err := client.SetNames(username, realname, false)
+	if err == errInvalidUsername {
+		// if client's using a unicode nick or something weird, let's just set 'em up with a stock username instead.
+		// fixes clients that just use their nick as a username so they can still use the interesting nick
+		if client.preregNick == username {
+			client.SetNames("user", realname, false)
+		} else {
+			rb.Add(nil, server.name, ERR_INVALIDUSERNAME, client.Nick(), client.t("Malformed username"))
+		}
+	}
+
 	return false
 }
 
