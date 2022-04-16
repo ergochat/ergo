@@ -1052,7 +1052,7 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 	}
 
 	if matcher.MaxClientsActive {
-		if len(channel.Members()) < len(channel.members) {
+		if len(channel.Members()) > matcher.MaxClients {
 			return false
 		}
 	}
