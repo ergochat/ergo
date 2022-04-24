@@ -117,7 +117,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	}
 
 	if useAccountName {
-		if registered && newNick != accountName && newNick != "" {
+		if registered && newNick != accountName {
 			return "", errNickAccountMismatch, false
 		}
 		newNick = accountName
