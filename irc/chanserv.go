@@ -952,7 +952,7 @@ func csHowToBanHandler(service *ircService, server *Server, client *Client, comm
 	success = true
 	if len(collateralDamage) != 0 {
 		service.Notice(rb, fmt.Sprintf(client.t("Warning: this ban will affect %d other users:"), len(collateralDamage)))
-		for _, line := range utils.BuildTokenLines(400, collateralDamage, " ") {
+		for _, line := range utils.BuildTokenLines(maxLastArgLength, collateralDamage, " ") {
 			service.Notice(rb, line)
 		}
 	}
