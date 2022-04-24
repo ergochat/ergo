@@ -2041,14 +2041,22 @@ func namesHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 
 // NICK <nickname>
 func nickHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	newNick := msg.Params[0]
 	if client.registered {
 		if client.account == "" && server.Config().Accounts.NickReservation.ForbidAnonNickChanges {
 			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), client.t("You may not change your nickname"))
 			return false
 		}
-		performNickChange(server, client, client, nil, msg.Params[0], rb)
+		performNickChange(server, client, client, nil, newNick, rb)
 	} else {
-		client.preregNick = msg.Params[0]
+		if newNick == "" {
+			// #1933: this would leave (*Client).preregNick at its zero value of "",
+			// which is the same condition as NICK not having been sent yet ---
+			// so we need to send an error immediately
+			rb.Add(nil, server.name, ERR_NONICKNAMEGIVEN, "*", client.t("No nickname given"))
+			return false
+		}
+		client.preregNick = newNick
 	}
 	return false
 }
