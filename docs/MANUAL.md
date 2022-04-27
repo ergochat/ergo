@@ -496,6 +496,16 @@ There are two ways to make suggestions, either:
 - Talk to us in the `#ergo` channel on irc.ergo.chat or irc.libera.chat.
 
 
+## Why can't I connect?
+
+If your client or bot is failing to connect to Ergo, here are some things to check:
+
+1. If your server has a firewall, does it allow traffic to the relevant IRC port? Try `nc -v yourdomain.name 6697` from the client machine to test connectivity to the server's default TLS port.
+1. Is your client trying to connect in plaintext to Ergo's TLS port, or vice versa? If your client is configured to use TLS, ensure that it is also configured to connect to Ergo's TLS port (6697 by default). If your client is configured to use plaintext, ensure that it is also configured to connect to the plaintext port (by default, 6667 and only via a loopback IP address such as `127.0.0.1`).
+1. Look for error messages on the client side (you may need to enable your client's "raw log").
+1. If all else fails, try turning on debug logging on the server side. Find the `logging` section of your Ergo config and change the default `level: info` to `level: debug`. Then rehash or restart Ergo.
+
+
 ## Why can't I oper?
 
 If you try to oper unsuccessfully, Ergo will disconnect you from the network. If you're unable to oper, here are some things to double-check:
