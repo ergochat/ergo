@@ -4,7 +4,7 @@
     /_  // __/ /___/ _, _/ /_/ / /_/ / 
      /_//_/ /_____/_/ |_|\____/\____/  
 
-             Ergo IRCd Manual
+           Ergo IRCd User Guide
             https://ergo.chat/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
