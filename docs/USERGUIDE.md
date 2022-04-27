@@ -4,7 +4,7 @@
     /_  // __/ /___/ _, _/ /_/ / /_/ / 
      /_//_/ /_____/_/ |_|\____/\____/  
 
-             Ergo IRCd Manual
+           Ergo IRCd User Guide
             https://ergo.chat/
 
 _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn@cs.stanford.edu>_
@@ -103,7 +103,7 @@ Ergo natively supports attaching multiple clients to the same nickname (this nor
 
 Ergo stores message history on the server side (typically not an unlimited amount --- consult your server's FAQ, or your server administrator, to find out how much is being stored and how long it's being retained).
 
-1. The [IRCv3 chathistory specification](https://ircv3.net/specs/extensions/chathistory) offers the most fine-grained control over history replay. It is supported by [Gamja](https://git.sr.ht/~emersion/gamja) and [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
+1. The [IRCv3 chathistory specification](https://ircv3.net/specs/extensions/chathistory) offers the most fine-grained control over history replay. It is supported by [Gamja](https://git.sr.ht/~emersion/gamja), [Goguma](https://sr.ht/~emersion/goguma/), and [Kiwi IRC](https://github.com/kiwiirc/kiwiirc), and hopefully other clients soon.
 1. We emulate the [ZNC playback module](https://wiki.znc.in/Playback) for clients that support it. You may need to enable support for it explicitly in your client. For example, in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". ZNC's wiki page covers other common clients (although if the feature is only supported via a script or third-party extension, the following option may be easier).
 1. If you set your client to always-on (see the previous section for details), you can set a "device ID" for each device you use. Ergo will then remember the last time your device was present on the server, and each time you sign on, it will attempt to replay exactly those messages you missed. There are a few ways to set your device ID when connecting:
     - You can add it to your SASL username with an `@`, e.g., if your SASL username is `alice` you can send `alice@phone`
