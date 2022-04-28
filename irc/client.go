@@ -1179,7 +1179,6 @@ func (client *Client) destroy(session *Session) {
 	client.stateMutex.Lock()
 
 	details := client.detailsNoMutex()
-	wasReattach := session != nil && session.client != client
 	sessionRemoved := false
 	registered := client.registered
 	// XXX a temporary (reattaching) client can be marked alwaysOn when it logs in,
@@ -1294,10 +1293,6 @@ func (client *Client) destroy(session *Session) {
 	client.server.semaphores.ClientDestroy.Acquire()
 	defer client.server.semaphores.ClientDestroy.Release()
 
-	if !wasReattach {
-		client.server.logger.Debug("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
-	}
-
 	if registered {
 		client.server.whoWas.Append(client.WhoWas())
 	}
@@ -1347,6 +1342,7 @@ func (client *Client) destroy(session *Session) {
 
 	if registered {
 		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
+		client.server.logger.Info("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 }
 
