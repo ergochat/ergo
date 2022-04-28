@@ -80,6 +80,7 @@ type Client struct {
 	hostname           string
 	invitedTo          map[string]channelInvite
 	isSTSOnly          bool
+	isKlined           bool // #1941: k-line kills are special-cased to suppress some triggered notices/events
 	languages          []string
 	lastActive         time.Time            // last time they sent a command that wasn't PONG or similar
 	lastSeen           map[string]time.Time // maps device ID (including "") to time of last received command
@@ -1181,6 +1182,7 @@ func (client *Client) destroy(session *Session) {
 	details := client.detailsNoMutex()
 	sessionRemoved := false
 	registered := client.registered
+	isKlined := client.isKlined
 	// XXX a temporary (reattaching) client can be marked alwaysOn when it logs in,
 	// but then the session attaches to another client and we need to clean it up here
 	alwaysOn := registered && client.alwaysOn
@@ -1341,7 +1343,9 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	if registered {
-		client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
+		if !isKlined {
+			client.server.snomasks.Send(sno.LocalQuits, fmt.Sprintf(ircfmt.Unescape("%s$r exited the network"), details.nick))
+		}
 		client.server.logger.Info("quit", fmt.Sprintf("%s is no longer on the server", details.nick))
 	}
 }
