@@ -4,9 +4,10 @@
 package history
 
 import (
-	"github.com/ergochat/ergo/irc/utils"
 	"sync"
 	"time"
+
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 type ItemType uint
@@ -54,12 +55,6 @@ func (item *Item) HasMsgid(msgid string) bool {
 }
 
 type Predicate func(item *Item) (matches bool)
-
-func Reverse(results []Item) {
-	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
-		results[i], results[j] = results[j], results[i]
-	}
-}
 
 // Buffer is a ring buffer holding message/event history for a channel or user
 type Buffer struct {
@@ -160,7 +155,7 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 
 	defer func() {
 		if !ascending {
-			Reverse(results)
+			utils.ReverseSlice(results)
 		}
 	}()
 
