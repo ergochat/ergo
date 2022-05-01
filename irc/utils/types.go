@@ -27,3 +27,10 @@ func CopyMap[K comparable, V any](input map[K]V) (result map[K]V) {
 	}
 	return
 }
+
+// reverse the order of a slice in place
+func ReverseSlice[T any](results []T) {
+	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
+		results[i], results[j] = results[j], results[i]
+	}
+}

@@ -916,7 +916,7 @@ func (mysql *MySQL) betweenTimestamps(ctx context.Context, target, correspondent
 
 	results, err = mysql.selectItems(ctx, queryBuf.String(), args...)
 	if err == nil && !ascending {
-		history.Reverse(results)
+		utils.ReverseSlice(results)
 	}
 	return
 }
