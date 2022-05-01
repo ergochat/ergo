@@ -775,13 +775,13 @@ This means that users who attempt to join `#test`, but cannot due to another cha
 
 ### +i - Invite-Only
 
-If this channel mode is set on a channel, users will only be able to join if someone has `/INVITE`'d them first.
+If this channel mode is set on a channel, users will only be able to join if a channel operator has `/INVITE`'d them first.
 
 To set a channel to invite-only:
 
     /MODE #test +i
 
-To unset the mode and let anyone join:
+To unset the mode and let anyone join (and invite):
 
     /MODE #test -i
 
@@ -918,7 +918,7 @@ Admins have the same moderation privileges as channel operators (see below), but
 
 This prefix means that the given user is an operator on the channel (chanop, for short). For example, if `@ruby` is on a channel, then **ruby** is an op.
 
-Chanops are the default type of channel moderators. They can change the channel modes, ban/kick users, and add or remove chanop (or lower) privileges from users.
+Chanops are the default type of channel moderators. They can change the channel modes, ban/kick users, and add or remove chanop (or lower) privileges from users. They can also invite users to invite-only channels.
 
 ### +h (%) - Halfop
 
