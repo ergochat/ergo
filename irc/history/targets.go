@@ -6,6 +6,8 @@ package history
 import (
 	"sort"
 	"time"
+
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 type TargetListing struct {
@@ -33,8 +35,8 @@ func MergeTargets(base []TargetListing, extra []TargetListing, start, end time.T
 	results = make([]TargetListing, 0, prealloc)
 
 	if !ascending {
-		ReverseCorrespondents(base)
-		ReverseCorrespondents(extra)
+		utils.ReverseSlice(base)
+		utils.ReverseSlice(extra)
 	}
 
 	for len(results) < limit {
@@ -64,16 +66,9 @@ func MergeTargets(base []TargetListing, extra []TargetListing, start, end time.T
 	}
 
 	if !ascending {
-		ReverseCorrespondents(results)
+		utils.ReverseSlice(results)
 	}
 	return
-}
-
-func ReverseCorrespondents(results []TargetListing) {
-	// lol, generics when?
-	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
-		results[i], results[j] = results[j], results[i]
-	}
 }
 
 func SortCorrespondents(list []TargetListing) {

@@ -262,7 +262,7 @@ func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, li
 	}
 
 	if !ascending {
-		ReverseCorrespondents(results)
+		utils.ReverseSlice(results)
 	}
 
 	return

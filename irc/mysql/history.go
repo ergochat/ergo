@@ -964,7 +964,7 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 	}
 
 	if !ascending {
-		history.ReverseCorrespondents(results)
+		utils.ReverseSlice(results)
 	}
 
 	return
