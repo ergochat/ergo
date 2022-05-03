@@ -17,7 +17,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/okzk/sdnotify"
@@ -66,7 +65,7 @@ type Server struct {
 	channels          ChannelManager
 	channelRegistry   ChannelRegistry
 	clients           ClientManager
-	config            unsafe.Pointer
+	config            utils.ConfigStore[Config]
 	configFilename    string
 	connectionLimiter connection_limits.Limiter
 	ctime             time.Time
@@ -704,7 +703,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
 
 	// activate the new config
-	server.SetConfig(config)
+	server.config.Set(config)
 
 	// load [dk]-lines, registered users and channels, etc.
 	if initial {
