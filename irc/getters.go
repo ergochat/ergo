@@ -550,6 +550,12 @@ func (client *Client) shouldFlushTimestamps() (result bool) {
 	return
 }
 
+func (client *Client) setKlined() {
+	client.stateMutex.Lock()
+	client.isKlined = true
+	client.stateMutex.Unlock()
+}
+
 func (channel *Channel) Name() string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()

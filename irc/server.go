@@ -373,7 +373,9 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	if !session.IP().IsLoopback() || session.isTor {
 		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 		if isBanned {
+			c.setKlined()
 			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+			server.logger.Info("connect", "Client rejected by k-line", c.NickMaskString())
 			return true
 		}
 	}
