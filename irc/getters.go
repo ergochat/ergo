@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/languages"
@@ -16,11 +15,7 @@ import (
 )
 
 func (server *Server) Config() (config *Config) {
-	return (*Config)(atomic.LoadPointer(&server.config))
-}
-
-func (server *Server) SetConfig(config *Config) {
-	atomic.StorePointer(&server.config, unsafe.Pointer(config))
+	return server.config.Get()
 }
 
 func (server *Server) ChannelRegistrationEnabled() bool {
