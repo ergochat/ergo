@@ -11,22 +11,23 @@ import (
 /*
 This can be used to implement the following pattern:
 
-1. Load and munge a config (this can be arbitrarily expensive)
-2. Use Set() to install the config
-3. Use Get() to access the config
-4. As long as any individual config is not modified (by any goroutine)
-   after the initial call to Set(), this is free of data races, and Get()
+1. Prepare a config object (this can be arbitrarily expensive)
+2. Take a pointer to the config object and use Set() to install it
+3. Use Get() to access the config from any goroutine
+4. To update the config, call Set() again with a new prepared config object
+5. As long as any individual config object is not modified (by any goroutine)
+   after it is installed with Set(), this is free of data races, and Get()
    is extremely cheap (on amd64 it compiles down to plain MOV instructions).
 */
 
-type ConfigStore[T any] struct {
+type ConfigStore[Config any] struct {
 	ptr unsafe.Pointer
 }
 
-func (c *ConfigStore[T]) Get() *T {
-	return (*T)(atomic.LoadPointer(&c.ptr))
+func (c *ConfigStore[Config]) Get() *Config {
+	return (*Config)(atomic.LoadPointer(&c.ptr))
 }
 
-func (c *ConfigStore[T]) Set(ptr *T) {
+func (c *ConfigStore[Config]) Set(ptr *Config) {
 	atomic.StorePointer(&c.ptr, unsafe.Pointer(ptr))
 }
