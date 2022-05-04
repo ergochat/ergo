@@ -821,7 +821,7 @@ func (am *AccountManager) dispatchMailtoCallback(client *Client, account string,
 	return
 }
 
-func (am *AccountManager) Verify(client *Client, account string, code string) error {
+func (am *AccountManager) Verify(client *Client, account string, code string, admin bool) error {
 	casefoldedAccount, err := CasefoldName(account)
 	var skeleton string
 	if err != nil || account == "" || account == "*" {
@@ -884,18 +884,20 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 				return errAccountAlreadyVerified
 			}
 
-			// actually verify the code
-			// a stored code of "" means a none callback / no code required
-			success := false
-			storedCode, err := tx.Get(verificationCodeKey)
-			if err == nil {
-				// this is probably unnecessary
-				if storedCode == "" || utils.SecretTokensMatch(storedCode, code) {
-					success = true
+			if !admin {
+				// actually verify the code
+				// a stored code of "" means a none callback / no code required
+				success := false
+				storedCode, err := tx.Get(verificationCodeKey)
+				if err == nil {
+					// this is probably unnecessary
+					if storedCode == "" || utils.SecretTokensMatch(storedCode, code) {
+						success = true
+					}
 				}
-			}
-			if !success {
-				return errAccountVerificationInvalidCode
+				if !success {
+					return errAccountVerificationInvalidCode
+				}
 			}
 
 			// verify the account
@@ -964,7 +966,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string) er
 func (am *AccountManager) SARegister(account, passphrase string) (err error) {
 	err = am.Register(nil, account, "admin", "", passphrase, "")
 	if err == nil {
-		err = am.Verify(nil, account, "")
+		err = am.Verify(nil, account, "", true)
 	}
 	return
 }
