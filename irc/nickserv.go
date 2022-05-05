@@ -913,7 +913,11 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 
 	account, err := server.accounts.LoadAccount(accountName)
 	if err != nil || !account.Verified {
-		service.Notice(rb, client.t("Account does not exist"))
+		if server.accounts.accountWasUnregistered(accountName) {
+			service.Notice(rb, client.t("Name reserved due to a prior registration"))
+		} else {
+			service.Notice(rb, client.t("Account does not exist"))
+		}
 		return
 	}
 
@@ -1025,6 +1029,8 @@ func nsSaregisterHandler(service *ircService, server *Server, client *Client, co
 		var errMsg string
 		if err == errAccountAlreadyRegistered || err == errAccountAlreadyVerified {
 			errMsg = client.t("Account already exists")
+		} else if err == errNameReserved {
+			errMsg = client.t(err.Error())
 		} else if err == errAccountBadPassphrase {
 			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
 		} else {

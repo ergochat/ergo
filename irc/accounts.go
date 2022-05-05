@@ -433,7 +433,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 
 		// can't register an account with the same name as a registered nick
 		if am.NickToAccount(account) != "" {
-			return errAccountAlreadyRegistered
+			return errNameReserved
 		}
 
 		return am.server.store.Update(func(tx *buntdb.Tx) error {
@@ -1477,6 +1477,22 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 	}
 
 	result, err = am.deserializeRawAccount(raw, casefoldedAccount)
+	return
+}
+
+func (am *AccountManager) accountWasUnregistered(accountName string) (result bool) {
+	casefoldedAccount, err := CasefoldName(accountName)
+	if err != nil {
+		return false
+	}
+
+	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		if _, err := tx.Get(unregisteredKey); err == nil {
+			result = true
+		}
+		return nil
+	})
 	return
 }
 

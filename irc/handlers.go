@@ -69,7 +69,7 @@ func registrationErrorToMessage(config *Config, client *Client, err error) (mess
 	}
 
 	switch err {
-	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled, errAccountBadPassphrase:
+	case errAccountAlreadyRegistered, errAccountAlreadyVerified, errAccountAlreadyUnregistered, errAccountAlreadyLoggedIn, errAccountCreation, errAccountMustHoldNick, errAccountBadPassphrase, errCertfpAlreadyExists, errFeatureDisabled, errAccountBadPassphrase, errNameReserved:
 		message = err.Error()
 	case errLimitExceeded:
 		message = `There have been too many registration attempts recently; try again later`

@@ -74,6 +74,7 @@ var (
 	errRegisteredOnly                 = errors.New("Cannot join registered-only channel without an account")
 	errValidEmailRequired             = errors.New("A valid email address is required for account registration")
 	errInvalidAccountRename           = errors.New("Account renames can only change the casefolding of the account name")
+	errNameReserved                   = errors.New(`Name reserved due to a prior registration`)
 )
 
 // String Errors
