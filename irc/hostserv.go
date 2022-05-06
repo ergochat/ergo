@@ -63,7 +63,7 @@ disabled. A server operator can view someone else's status.`,
 			handler: hsSetHandler,
 			help: `Syntax: $bSET <user> <vhost>$b
 
-SET sets a user's vhost, bypassing the request system.`,
+SET sets a user's vhost.`,
 			helpShort: `$bSET$b sets a user's vhost.`,
 			capabs:    []string{"vhosts"},
 			enabled:   hostservEnabled,
