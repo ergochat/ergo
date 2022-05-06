@@ -61,6 +61,7 @@ var (
 
 // Server is the main Oragono server.
 type Server struct {
+	accepts           AcceptManager
 	accounts          AccountManager
 	channels          ChannelManager
 	channelRegistry   ChannelRegistry
@@ -104,6 +105,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		defcon:       5,
 	}
 
+	server.accepts.Initialize()
 	server.clients.Initialize()
 	server.semaphores.Initialize()
 	server.whoWas.Initialize(config.Limits.WhowasEntries)

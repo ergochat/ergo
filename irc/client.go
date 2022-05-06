@@ -1318,8 +1318,7 @@ func (client *Client) destroy(session *Session) {
 
 	// clean up server
 	client.server.clients.Remove(client)
-
-	// clean up self
+	client.server.accepts.Remove(client)
 	client.server.accounts.Logout(client)
 
 	if quitMessage == "" {

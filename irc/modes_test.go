@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -74,21 +75,21 @@ func TestUmodeGreaterThan(t *testing.T) {
 	}
 }
 
-func assertEqual(supplied, expected interface{}, t *testing.T) {
-	if !reflect.DeepEqual(supplied, expected) {
-		t.Errorf("expected %v but got %v", expected, supplied)
+func assertEqual(found, expected interface{}) {
+	if !reflect.DeepEqual(found, expected) {
+		panic(fmt.Sprintf("found %#v, expected %#v", found, expected))
 	}
 }
 
 func TestChannelUserModeHasPrivsOver(t *testing.T) {
-	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Halfop), false, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.Mode(0), modes.Halfop), false, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Mode(0)), false, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.ChannelAdmin, modes.ChannelAdmin), false, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Halfop), false, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Voice), false, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Halfop), false)
+	assertEqual(channelUserModeHasPrivsOver(modes.Mode(0), modes.Halfop), false)
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Mode(0)), false)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelAdmin, modes.ChannelAdmin), false)
+	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Halfop), false)
+	assertEqual(channelUserModeHasPrivsOver(modes.Voice, modes.Voice), false)
 
-	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Voice), true, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.ChannelFounder, modes.ChannelAdmin), true, t)
-	assertEqual(channelUserModeHasPrivsOver(modes.ChannelOperator, modes.ChannelOperator), true, t)
+	assertEqual(channelUserModeHasPrivsOver(modes.Halfop, modes.Voice), true)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelFounder, modes.ChannelAdmin), true)
+	assertEqual(channelUserModeHasPrivsOver(modes.ChannelOperator, modes.ChannelOperator), true)
 }

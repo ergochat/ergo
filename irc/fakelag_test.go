@@ -125,31 +125,31 @@ func TestFakelag(t *testing.T) {
 func TestSuspend(t *testing.T) {
 	window, _ := time.ParseDuration("1s")
 	fl, _ := newFakelagForTesting(window, 3, 2, window)
-	assertEqual(fl.config.Enabled, true, t)
+	assertEqual(fl.config.Enabled, true)
 
 	// suspend idempotently disables
 	fl.Suspend()
-	assertEqual(fl.config.Enabled, false, t)
+	assertEqual(fl.config.Enabled, false)
 	fl.Suspend()
-	assertEqual(fl.config.Enabled, false, t)
+	assertEqual(fl.config.Enabled, false)
 	// unsuspend idempotently enables
 	fl.Unsuspend()
-	assertEqual(fl.config.Enabled, true, t)
+	assertEqual(fl.config.Enabled, true)
 	fl.Unsuspend()
-	assertEqual(fl.config.Enabled, true, t)
+	assertEqual(fl.config.Enabled, true)
 	fl.Suspend()
-	assertEqual(fl.config.Enabled, false, t)
+	assertEqual(fl.config.Enabled, false)
 
 	fl2, _ := newFakelagForTesting(window, 3, 2, window)
 	fl2.config.Enabled = false
 
 	// if we were never enabled, suspend and unsuspend are both no-ops
 	fl2.Suspend()
-	assertEqual(fl2.config.Enabled, false, t)
+	assertEqual(fl2.config.Enabled, false)
 	fl2.Suspend()
-	assertEqual(fl2.config.Enabled, false, t)
+	assertEqual(fl2.config.Enabled, false)
 	fl2.Unsuspend()
-	assertEqual(fl2.config.Enabled, false, t)
+	assertEqual(fl2.config.Enabled, false)
 	fl2.Unsuspend()
-	assertEqual(fl2.config.Enabled, false, t)
+	assertEqual(fl2.config.Enabled, false)
 }
