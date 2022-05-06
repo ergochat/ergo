@@ -75,6 +75,10 @@ var Commands map[string]Command
 
 func init() {
 	Commands = map[string]Command{
+		"ACCEPT": {
+			handler:   acceptHandler,
+			minParams: 1,
+		},
 		"AMBIANCE": {
 			handler:   sceneHandler,
 			minParams: 2,

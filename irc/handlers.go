@@ -145,6 +145,41 @@ func (server *Server) sendLoginSnomask(nickMask, accountName string) {
 	server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] logged into account $c[grey][$r%s$c[grey]]"), nickMask, accountName))
 }
 
+// ACCEPT <nicklist>
+// nicklist is a comma-delimited list of nicknames; each may be prefixed with -
+// to indicate that it should be removed from the list
+func acceptHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	for _, tNick := range strings.Split(msg.Params[0], ",") {
+		add := true
+		if strings.HasPrefix(tNick, "-") {
+			add = false
+			tNick = strings.TrimPrefix(tNick, "-")
+		}
+
+		target := server.clients.Get(tNick)
+		if target == nil {
+			rb.Add(nil, server.name, "FAIL", "ACCEPT", "INVALID_USER", utils.SafeErrorParam(tNick), client.t("No such user"))
+			continue
+		}
+
+		if add {
+			server.accepts.Accept(client, target)
+		} else {
+			server.accepts.Unaccept(client, target)
+		}
+
+		// https://github.com/solanum-ircd/solanum/blob/main/doc/features/modeg.txt
+		// Charybdis/Solanum define various error numerics that could be sent here,
+		// but this doesn't seem important to me. One thing to note is that we are not
+		// imposing an upper bound on the size of the accept list, since in our
+		// implementation you can only ACCEPT clients who are actually present,
+		// and an attacker attempting to DoS has much easier resource exhaustion
+		// strategies available (for example, channel history buffers).
+	}
+
+	return false
+}
+
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	session := rb.session
@@ -2284,9 +2319,13 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			return
 		}
 		// restrict messages appropriately when +R is set
-		if details.account == "" && user.HasMode(modes.RegisteredOnly) {
+		if details.account == "" && user.HasMode(modes.RegisteredOnly) && !server.accepts.MaySendTo(client, user) {
 			rb.Add(nil, server.name, ERR_NEEDREGGEDNICK, client.Nick(), tnick, client.t("You must be registered to send a direct message to this user"))
 			return
+		}
+		if client.HasMode(modes.RegisteredOnly) && tDetails.account == "" {
+			// #1688: auto-ACCEPT on DM
+			server.accepts.Accept(client, user)
 		}
 		if !client.server.Config().Server.Compatibility.allowTruncation {
 			if !validateSplitMessageLen(histType, client.NickMaskString(), tnick, message) {

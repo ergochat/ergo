@@ -110,6 +110,13 @@ For instance, this would set the kill, oper, account and xline snomasks on dan:
 // Help contains the help strings distributed with the IRCd.
 var Help = map[string]HelpEntry{
 	// Commands
+	"accept": {
+		text: `ACCEPT <target>
+
+ACCEPT allows the target user to send you direct messages, overriding any
+restrictions that might otherwise prevent this. Currently, the only
+applicable restriction is the +R registered-only mode.`,
+	},
 	"ambiance": {
 		text: `AMBIANCE <target> <text to be sent>
 
