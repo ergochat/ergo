@@ -195,6 +195,15 @@ type MultilineBatch struct {
 	tags          map[string]string
 }
 
+// is this session connected in a way that could, in principle, allow certfp authentication?
+// see #774
+func (s *Session) IsCertFPCapable() bool {
+	conn := s.socket.conn.UnderlyingConn()
+	// no client certs on websockets:
+	// https://bugs.chromium.org/p/chromium/issues/detail?id=329884
+	return conn.Config.TLSConfig != nil && !conn.Config.WebSocket
+}
+
 // Starts a multiline batch, failing if there's one already open
 func (s *Session) StartMultilineBatch(label, target, responseLabel string, tags map[string]string) (err error) {
 	if s.batch.label != "" {

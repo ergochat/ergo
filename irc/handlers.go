@@ -591,7 +591,11 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 				rb.session.capVersion = newVersion
 			}
 		}
-		sendCapLines(supportedCaps, config.Server.capValues)
+		capValues := config.Server.capValues
+		if !rb.session.IsCertFPCapable() {
+			capValues = config.Server.capValuesNoExternal
+		}
+		sendCapLines(supportedCaps, capValues)
 
 	case "LIST":
 		// values not sent on LIST

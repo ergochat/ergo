@@ -591,6 +591,7 @@ type Config struct {
 		supportedCaps            *caps.Set
 		supportedCapsWithoutSTS  *caps.Set
 		capValues                caps.Values
+		capValuesNoExternal      caps.Values
 		Casemapping              Casemapping
 		EnforceUtf8              bool                `yaml:"enforce-utf8"`
 		OutputPath               string              `yaml:"output-path"`
@@ -1388,7 +1389,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.VHosts.validRegexp = defaultValidVhostRegex
 	}
 
-	saslCapValue := "PLAIN,EXTERNAL,SCRAM-SHA-256"
+	saslCapValue := "PLAIN,SCRAM-SHA-256,EXTERNAL"
 	// TODO(#1782) clean this up:
 	if !config.Accounts.AdvertiseSCRAM {
 		saslCapValue = "PLAIN,EXTERNAL"
@@ -1543,6 +1544,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	config.Server.supportedCapsWithoutSTS = caps.NewSet()
 	config.Server.supportedCapsWithoutSTS.Union(config.Server.supportedCaps)
 	config.Server.supportedCapsWithoutSTS.Disable(caps.STS)
+
+	config.Server.capValuesNoExternal = utils.CopyMap(config.Server.capValues)
+	config.Server.capValuesNoExternal[caps.SASL] = strings.TrimSuffix(saslCapValue, ",EXTERNAL")
 
 	return config, nil
 }
