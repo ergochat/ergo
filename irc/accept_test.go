@@ -12,6 +12,9 @@ func TestAccept(t *testing.T) {
 	bob := new(Client)
 	eve := new(Client)
 
+	// must not panic:
+	am.Unaccept(eve, bob)
+
 	assertEqual(am.MaySendTo(alice, bob), false)
 	assertEqual(am.MaySendTo(bob, alice), false)
 	assertEqual(am.MaySendTo(alice, eve), false)
@@ -38,6 +41,24 @@ func TestAccept(t *testing.T) {
 	assertEqual(am.MaySendTo(eve, bob), false)
 
 	am.Accept(bob, eve)
+
+	assertEqual(am.MaySendTo(alice, bob), true)
+	assertEqual(am.MaySendTo(bob, alice), true)
+	assertEqual(am.MaySendTo(alice, eve), false)
+	assertEqual(am.MaySendTo(eve, alice), false)
+	assertEqual(am.MaySendTo(bob, eve), false)
+	assertEqual(am.MaySendTo(eve, bob), true)
+
+	am.Accept(eve, bob)
+
+	assertEqual(am.MaySendTo(alice, bob), true)
+	assertEqual(am.MaySendTo(bob, alice), true)
+	assertEqual(am.MaySendTo(alice, eve), false)
+	assertEqual(am.MaySendTo(eve, alice), false)
+	assertEqual(am.MaySendTo(bob, eve), true)
+	assertEqual(am.MaySendTo(eve, bob), true)
+
+	am.Unaccept(eve, bob)
 
 	assertEqual(am.MaySendTo(alice, bob), true)
 	assertEqual(am.MaySendTo(bob, alice), true)
