@@ -164,7 +164,17 @@ SAREGISTER registers an account on someone else's behalf.
 This is for use in configurations that require SASL for all connections;
 an administrator can set use this command to set up user accounts.`,
 			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
-			enabled:   servCmdRequiresAuthEnabled,
+			enabled:   servCmdRequiresAuthEnabled, // deliberate
+			capabs:    []string{"accreg"},
+			minParams: 1,
+		},
+		"saverify": {
+			handler: nsSaverifyHandler,
+			help: `Syntax: $bSAVERIFY <username>$b
+
+SAVERIFY manually verifies an account that is pending verification.`,
+			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
+			enabled:   servCmdRequiresAuthEnabled, // deliberate
 			capabs:    []string{"accreg"},
 			minParams: 1,
 		},
@@ -996,7 +1006,7 @@ func nsRegisterHandler(service *ircService, server *Server, client *Client, comm
 	err := server.accounts.Register(client, account, callbackNamespace, callbackValue, passphrase, rb.session.certfp)
 	if err == nil {
 		if callbackNamespace == "*" {
-			err = server.accounts.Verify(client, account, "")
+			err = server.accounts.Verify(client, account, "", true)
 			if err == nil && fixupNickEqualsAccount(client, rb, config, service.prefix) {
 				sendSuccessfulRegResponse(service, client, rb)
 			}
@@ -1035,6 +1045,16 @@ func nsSaregisterHandler(service *ircService, server *Server, client *Client, co
 	} else {
 		service.Notice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
 		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Operator $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] with SAREGISTER"), client.Oper().Name, account))
+	}
+}
+
+func nsSaverifyHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	account := params[0]
+	err := server.accounts.Verify(nil, account, "", true)
+	if err == nil {
+		service.Notice(rb, fmt.Sprintf(client.t("Successfully verified account %s"), account))
+	} else {
+		service.Notice(rb, fmt.Sprintf(client.t("Failed to verify account %s: %v"), account, err.Error()))
 	}
 }
 
@@ -1106,7 +1126,7 @@ func nsUnregisterHandler(service *ircService, server *Server, client *Client, co
 
 func nsVerifyHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	username, code := params[0], params[1]
-	err := server.accounts.Verify(client, username, code)
+	err := server.accounts.Verify(client, username, code, false)
 
 	var errorMessage string
 	if err != nil {

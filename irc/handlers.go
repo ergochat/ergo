@@ -2632,7 +2632,7 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	switch err {
 	case nil:
 		if callbackNamespace == "*" {
-			err := server.accounts.Verify(client, accountName, "")
+			err := server.accounts.Verify(client, accountName, "", true)
 			if err == nil {
 				if client.registered {
 					if !fixupNickEqualsAccount(client, rb, config, "") {
@@ -2684,7 +2684,7 @@ func verifyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	}
 
 	accountName, verificationCode := msg.Params[0], msg.Params[1]
-	err := server.accounts.Verify(client, accountName, verificationCode)
+	err := server.accounts.Verify(client, accountName, verificationCode, false)
 	if err == nil && client.registered {
 		if !fixupNickEqualsAccount(client, rb, config, "") {
 			err = errNickAccountMismatch
