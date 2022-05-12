@@ -972,25 +972,28 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 	}
 
 	var cutoff time.Time
-	if config.History.Restrictions.ExpireTime != 0 {
-		cutoff = time.Now().UTC().Add(-time.Duration(config.History.Restrictions.ExpireTime))
-	}
-	// #836: registration date cutoff is always enforced for DMs
-	// either way, take the later of the two cutoffs
-	if restriction == HistoryCutoffRegistrationTime || channel == nil {
-		regCutoff := client.historyCutoff()
-		if regCutoff.After(cutoff) {
-			cutoff = regCutoff
+	// #1593: cutoff is ignored for operators
+	if !client.HasRoleCapabs("history") {
+		if config.History.Restrictions.ExpireTime != 0 {
+			cutoff = time.Now().UTC().Add(-time.Duration(config.History.Restrictions.ExpireTime))
 		}
-	} else if restriction == HistoryCutoffJoinTime {
-		if joinTimeCutoff.After(cutoff) {
-			cutoff = joinTimeCutoff
+		// #836: registration date cutoff is always enforced for DMs
+		// either way, take the later of the two cutoffs
+		if restriction == HistoryCutoffRegistrationTime || channel == nil {
+			regCutoff := client.historyCutoff()
+			if regCutoff.After(cutoff) {
+				cutoff = regCutoff
+			}
+		} else if restriction == HistoryCutoffJoinTime {
+			if joinTimeCutoff.After(cutoff) {
+				cutoff = joinTimeCutoff
+			}
 		}
-	}
 
-	// #836 again: grace period is never applied to DMs
-	if !cutoff.IsZero() && channel != nil && restriction != HistoryCutoffJoinTime {
-		cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
+		// #836 again: grace period is never applied to DMs
+		if !cutoff.IsZero() && channel != nil && restriction != HistoryCutoffJoinTime {
+			cutoff = cutoff.Add(-time.Duration(config.History.Restrictions.GracePeriod))
+		}
 	}
 
 	if hist != nil {
