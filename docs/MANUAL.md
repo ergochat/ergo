@@ -471,11 +471,13 @@ However, Ergo's multiclient and always-on features mean that abuse prevention (a
 
 See the `/HELP` (or `/HELPOP`) entries for these commands for more information, but here's a rough workflow for mitigating spam or other attacks:
 
-1. Subscribe to the `a` snomask to monitor for abusive registration attempts (this is set automatically in the default operator config, but can be added manually with `/mode mynick +s u`)
-2. Given abusive traffic from a nickname, use `/UBAN INFO <nickname>` to find out information about their connection
-3. If they are using an account, suspend the account with `/UBAN ADD <account>`, which will disconnect them
-4. If they are not using an account, or if they're spamming new registrations from an IP, you can add a temporary ban on their IP/network with `/UBAN ADD <ip | network>`
+1. Given abusive traffic from a nickname, use `/UBAN INFO <nickname>` to find out information about their connection
+2. If they are using an account, suspend the account with `/UBAN ADD <account>`, which will disconnect them
+3. If they are not using an account, or if they're spamming new registrations from an IP, you can add a temporary ban on their IP/network with `/UBAN ADD <ip | network>`
+4. Subscribe to the `a` snomask to monitor for abusive registration attempts (`/mode mynick +s u`)
 5. When facing a flood of abusive registrations that cannot be stemmed with `/DLINE`, use `/DEFCON 4` to temporarily restrict registrations. (At `/DEFCON 2`, all new connections to the server will require SASL, but this will likely be disruptive to legitimate users as well.)
+
+These techniques require operator privileges: `UBAN` requires the `ban` operator capability, subscribing to snomasks requires `snomasks`, and `DEFCON` requires `defcon`. All three of these capabilities are included by default in the `server-admin` role.
 
 For channel operators, `/msg ChanServ HOWTOBAN #channel nickname` will provide similar information about the best way to ban a user from a channel.
 
