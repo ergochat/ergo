@@ -595,9 +595,9 @@ oper-classes:
         # capability names
         capabilities:
             - "kill"      # disconnect user sessions
-            - "ban"       # ban IPs, CIDRs, and NUH masks ("d-line" and "k-line")
-            - "nofakelag" # remove "fakelag" restrictions on rate of message sending
-            - "relaymsg"  # use RELAYMSG in any channel (see the 'relaymsg' config block)
+            - "ban"       # ban IPs, CIDRs, NUH masks, and suspend accounts (UBAN / DLINE / KLINE)
+            - "nofakelag" # exempted from "fakelag" restrictions on rate of message sending
+            - "relaymsg"  # use RELAYMSG in any channel (see the `relaymsg` config block)
             - "vhosts"    # add and remove vhosts from users
             - "sajoin"    # join arbitrary channels, including private channels
             - "samode"    # modify arbitrary channel and user modes
