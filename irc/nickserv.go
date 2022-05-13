@@ -13,6 +13,7 @@ import (
 
 	"github.com/ergochat/irc-go/ircfmt"
 
+	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/sno"
@@ -1028,6 +1029,8 @@ func nsRegisterHandler(service *ircService, server *Server, client *Client, comm
 }
 
 func nsSaregisterHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	registerCap := rb.session.capabilities.Has(caps.AccountRegistration)
+
 	var account, passphrase string
 	account = params[0]
 	if 1 < len(params) && params[1] != "*" {
@@ -1037,19 +1040,30 @@ func nsSaregisterHandler(service *ircService, server *Server, client *Client, co
 
 	if err != nil {
 		var errMsg string
+		var failCode string
 		if err == errAccountAlreadyRegistered || err == errAccountAlreadyVerified {
 			errMsg = client.t("Account already exists")
+			failCode = "USERNAME_EXISTS"
 		} else if err == errNameReserved {
 			errMsg = client.t(err.Error())
+			failCode = "USERNAME_EXISTS"
 		} else if err == errAccountBadPassphrase {
 			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
+			failCode = "INVALID_PASSWORD"
 		} else {
 			server.logger.Error("services", "unknown error from saregister", err.Error())
-			errMsg = client.t("Could not register")
+			errMsg = fmt.Sprintf(client.t("Could not register: %v"), err)
+			failCode = "UNKNOWN_ERROR"
 		}
 		service.Notice(rb, errMsg)
+		if registerCap {
+			rb.Add(nil, server.name, "FAIL", "REGISTER", failCode, utils.SafeErrorParam(account), err.Error())
+		}
 	} else {
 		service.Notice(rb, fmt.Sprintf(client.t("Successfully registered account %s"), account))
+		if registerCap {
+			rb.Add(nil, server.name, "REGISTER", "SUCCESS", account, client.t("Account successfully registered"))
+		}
 		server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Operator $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] with SAREGISTER"), client.Oper().Name, account))
 	}
 }
