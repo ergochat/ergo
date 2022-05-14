@@ -203,7 +203,7 @@ The other major hurdle for productionizing (but one well worth the effort) is ob
 1. At this point, you should have certificates available at `/etc/letsencrypt/live/example.com` (replacing `example.com` with your domain). You should serve `fullchain.pem` as the certificate and `privkey.pem` as its private key. However, these files are owned by root and the private key is not readable by the ergo role user, so you won't be able to use them directly in their current locations. You can write a post-renewal hook for certbot to make copies of these certificates accessible to the ergo role user. For example, install the following script as `/etc/letsencrypt/renewal-hooks/post/install-ergo-certificates`, again replacing `example.com` with your domain name, and chmod it 0755:
 
 ````bash
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
@@ -1137,8 +1137,8 @@ The script must print a single line (`\n`-terminated) to its output and exit. Th
 
 Here is a toy example of an authentication script in Python that checks that the account name and the password are equal (and rejects any attempts to authenticate via certfp):
 
-```
-#!/usr/bin/python3
+```python3
+#!/usr/bin/env python3
 
 import sys, json
 
