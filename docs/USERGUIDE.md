@@ -119,5 +119,5 @@ If you have registered a channel, you can make it private. The best way to do th
 
 1. Set your channel to be invite-only (`/mode #example +i`)
 1. Identify the users you want to be able to access the channel. Ensure that they have registered their accounts (you should be able to see their registration status if you `/WHOIS` their nicknames).
-1. Add the desired nick/account names to the invite exception list (`/mode #example +I alice`) or give them persistent voice (`/msg ChanServ AMODE +v alice`)
+1. Add the desired nick/account names to the invite exception list (`/mode #example +I alice`) or give them persistent voice (`/msg ChanServ AMODE #example +v alice`)
 1. If you want to grant a persistent channel privilege to a user, you can do it with `CS AMODE` (`/msg ChanServ AMODE #example +o bob`)
