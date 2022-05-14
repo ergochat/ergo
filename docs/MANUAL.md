@@ -562,7 +562,7 @@ Under these circumstances, users can follow the following steps:
 1. Register a channel (`/msg ChanServ register #example`)
 1. Set it to be invite-only (`/mode #example +i`)
 1. Add the desired nick/account names to the invite exception list (`/mode #example +I alice`)
-1. Anyone with persistent half-operator status or higher will also be able to join without an invite (`/msg ChanServ amode #example +h alice`)
+1. Anyone with persistent voice or higher prefix will also be able to join without an invite (`/msg ChanServ amode #example +v alice`)
 
 Similarly, for a public channel (one without `+i`), users can ban nick/account names with `/mode #example +b bob`. (To restrict the channel to users with valid accounts, set it to registered-only with `/mode #example +R`.)
 
