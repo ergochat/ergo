@@ -566,6 +566,12 @@ Under these circumstances, users can follow the following steps:
 
 Similarly, for a public channel (one without `+i`), users can ban nick/account names with `/mode #example +b bob`. (To restrict the channel to users with valid accounts, set it to registered-only with `/mode #example +R`.)
 
+## What special privileges do AMODEs contain?
+
+Some persistent modes contain persistent privileges over temporary modes:
+
+* AMODE +v will be able to join when the channel is `invite-only` (without being on the +I list).
+* AMODE +h will be able to join even if a ban matches them (without being on the +e list).
 
 ## How do I send an announcement to all connected users?
 
