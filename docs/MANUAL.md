@@ -1143,7 +1143,7 @@ The script must print a single line (`\n`-terminated) to its output and exit. Th
 
 Here is a toy example of an authentication script in Python that checks that the account name and the password are equal (and rejects any attempts to authenticate via certfp):
 
-```
+```python3
 #!/usr/bin/python3
 
 import sys, json
