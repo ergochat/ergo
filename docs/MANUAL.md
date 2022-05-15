@@ -568,7 +568,7 @@ Similarly, for a public channel (one without `+i`), users can ban nick/account n
 
 ## What special privileges do AMODEs contain?
 
-Some persistent modes contain persistent privileges over temporary modes:
+Some persistent modes contain persistent privileges over temporary modes. These are cumulative, meaning that +o will get privileges of +h which again gets privileges of +v.
 
 * AMODE +v will be able to join when the channel is `invite-only` (without being on the +I list).
 * AMODE +h will be able to join even if a ban matches them (without being on the +e list).
