@@ -562,10 +562,16 @@ Under these circumstances, users can follow the following steps:
 1. Register a channel (`/msg ChanServ register #example`)
 1. Set it to be invite-only (`/mode #example +i`)
 1. Add the desired nick/account names to the invite exception list (`/mode #example +I alice`)
-1. Anyone with persistent half-operator status or higher will also be able to join without an invite (`/msg ChanServ amode #example +h alice`)
+1. Anyone with persistent voice or higher prefix will also be able to join without an invite (`/msg ChanServ amode #example +v alice`)
 
 Similarly, for a public channel (one without `+i`), users can ban nick/account names with `/mode #example +b bob`. (To restrict the channel to users with valid accounts, set it to registered-only with `/mode #example +R`.)
 
+## What special privileges do AMODEs contain?
+
+Some persistent modes contain persistent privileges over temporary modes. These are cumulative, meaning that +o will get privileges of +h which again gets privileges of +v.
+
+* AMODE +v will be able to join when the channel is `invite-only` (without being on the +I list).
+* AMODE +h will be able to join even if a ban matches them (without being on the +e list).
 
 ## How do I send an announcement to all connected users?
 
@@ -1137,7 +1143,7 @@ The script must print a single line (`\n`-terminated) to its output and exit. Th
 
 Here is a toy example of an authentication script in Python that checks that the account name and the password are equal (and rejects any attempts to authenticate via certfp):
 
-```
+```python3
 #!/usr/bin/python3
 
 import sys, json
