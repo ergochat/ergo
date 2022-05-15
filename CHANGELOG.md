@@ -31,7 +31,7 @@ Many thanks to [@csmith](https://github.com/csmith), [@FiskFan1999](https://gith
 ### Fixed
 * Having the `samode` operator capability made all uses of the `KICK` command privileged (i.e. overriding normal channel privilege checks); this has been fixed (#1906, thanks [@pcho](https://github.com/pcho)!)
 * Fixed `LIST <n` always returning no results (#1934, thanks [@progval](https://github.com/progval) and [@mitchr](https://github.com/mitchr)!)
-* Nickserv commands are now more clear about when a nickname is unavailable because it was previously registered and unregistered (#1886, thanks [@Mikaela](https://github.com/Mikaela)!)
+* NickServ commands are now more clear about when a nickname is unavailable because it was previously registered and unregistered (#1886, thanks [@Mikaela](https://github.com/Mikaela)!)
 * Fixed KLINE'd clients producing a `QUIT` snotice without a corresponding `CONNECT` snotice (#1941, thanks [@tacerus](https://github.com/tacerus), [@xnaas](https://github.com/xnaas)!)
 * Fixed incorrect handling of long/multiline `319 RPL_WHOISCHANNELS` responses (#1935, thanks [@Mikaela](https://github.com/Mikaela)!)
 * Fixed `LIST` returning `403 ERR_NOSUCHCHANNEL` for a nonexistent channel; the correct response is an empty list (#1928, thanks [@emersion](https://github.com/emersion)!)
