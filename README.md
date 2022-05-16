@@ -71,7 +71,7 @@ Some platforms/distros also have Ergo packages maintained for them:
 ### Using Docker
 
 A Dockerfile and example docker-compose recipe are available in the `distrib/docker` directory. Ergo is automatically published
-to Docker Hub at [ergochat/ergo](https://hub.docker.com/r/ergochat/ergo). For more information, see the distrib/docker
+to the GitHub Container Registry at [ghcr.io/ergochat/ergo](https://ghcr.io/ergochat/ergo). For more information, see the distrib/docker
 [README file](https://github.com/ergochat/ergo/blob/master/distrib/docker/README.md).
 
 ### From Source
