@@ -1,7 +1,52 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.9.1] - 2021-01-10
+## [2.10.0-rc1] - 2022-05-15
+
+We're pleased to be publishing the release candidate for 2.10.0 (the official release should follow in a week or so).
+
+This release contains no changes to the config file format or database file format.
+
+Many thanks to [@csmith](https://github.com/csmith), [@FiskFan1999](https://github.com/FiskFan1999), [@Mikaela](https://github.com/Mikaela), [@progval](https://github.com/progval), and [@thesamesam](https://github.com/thesamesam) for contributing patches, and to [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), [@FiskFan1999](https://github.com/FiskFan1999), [@jigsy1](https://github.com/jigsy1), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@progval](https://github.com/progval), and [@xnaas](https://github.com/xnaas) for reporting issues and helping test.
+
+### Config changes
+
+* For better interoperability with [Goguma](https://sr.ht/~emersion/goguma/), the recommended value of `history.chathistory-maxmessages` has been increased to `1000` (previously `100`) (#1919)
+
+### Changed
+* Persistent voice (`AMODE +v`) in a channel is now treated as a permanent invite (i.e. overriding `+i` on the channel) (#1901, thanks [@eskimo](https://github.com/eskimo)!)
+* If you are `+R`, sending a direct message to an anonymous user allows them to send you replies (#1687, #1688, thanks [@Mikaela](https://github.com/Mikaela) and [@progval](https://github.com/progval)!)
+* `0` is no longer valid as a nickname or account name, with a grandfather exception if it was registered on a previous version of Ergo (#1896)
+* Implemented the [ratified version of the bot mode spec](https://ircv3.net/specs/extensions/bot-mode); the tag name is now `bot` instead of `draft/bot` (#1938)
+* Privileged WHOX on a user with multiclient shows an arbitrarily chosen client IP address, comparable to WHO (#1897)
+* `SAREGISTER` is allowed even under `DEFCON` levels 4 and lower (#1922)
+* Operators with the `history` capability are now exempted from time cutoff restrictions on history retrieval (#1593, #1955)
+
+### Added
+* Added `draft/read-marker` capability, allowing server-side tracking of read messages for synchronization across multiple clients. (#1926, thanks [@emersion](https://github.com/emersion)!)
+* `INFO` now includes the server start time (#1895, thanks [@xnaas](https://github.com/xnaas)!)
+* Added `ACCEPT` command modeled on Charybdis/Solanum, allowing `+R` users to whitelist users who can DM them (#1688, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Added `NS SAVERIFY` for operators to manually complete an account verification (#1924, #1952, thanks [@tacerus](https://github.com/tacerus)!)
+
+### Fixed
+* Having the `samode` operator capability made all uses of the `KICK` command privileged (i.e. overriding normal channel privilege checks); this has been fixed (#1906, thanks [@pcho](https://github.com/pcho)!)
+* Fixed `LIST <n` always returning no results (#1934, thanks [@progval](https://github.com/progval) and [@mitchr](https://github.com/mitchr)!)
+* NickServ commands are now more clear about when a nickname is unavailable because it was previously registered and unregistered (#1886, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed KLINE'd clients producing a `QUIT` snotice without a corresponding `CONNECT` snotice (#1941, thanks [@tacerus](https://github.com/tacerus), [@xnaas](https://github.com/xnaas)!)
+* Fixed incorrect handling of long/multiline `319 RPL_WHOISCHANNELS` responses (#1935, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Fixed `LIST` returning `403 ERR_NOSUCHCHANNEL` for a nonexistent channel; the correct response is an empty list (#1928, thanks [@emersion](https://github.com/emersion)!)
+* Fixed `+s` ("secret") channels not appearing in `LIST` even when the client is already a member (#1911, #1923, thanks [@jigsy1](https://github.com/jigsy1) and [@FiskFan1999](https://github.com/FiskFan1999)!)
+* Fixed a spurious success message in `HISTSERV DELETE` by always requiring a consistent number of parameters (#1881, #1927, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
+* Sending the empty string as a nickname would not always produce the expected error numeric `431 ERR_NONICKNAMEGIVEN`; this has been fixed (#1933, #1936, thanks [@kylef](https://github.com/kylef)!)
+* `znc.in/playback` timestamps are now parsed as pairs of exact integers, not as floats (#1918)
+
+### Internal
+* Upgraded to Go 1.18 (#1925)
+* Upgraded Alpine version in official Docker image
+* Fixed some issues in the example OpenRC init scripts (#1914, #1920, thanks [@thesamesam](https://github.com/thesamesam)!)
+
+
+## [2.9.1] - 2022-01-10
 
 Ergo 2.9.1 is a bugfix release, fixing a regression introduced in 2.9.0. We regret the oversight.
 
@@ -13,7 +58,7 @@ Many thanks to [@FiskFan1999](https://github.com/FiskFan1999) for reporting the 
 * Every use of NS SAREGISTER would fail; this has been fixed (#1898, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
 
 
-## [2.9.0] - 2021-01-09
+## [2.9.0] - 2022-01-09
 
 We're pleased to be publishing 2.9.0, a new stable release. This release contains mostly bug fixes, with some enhancements to moderation tools.
 
