@@ -60,6 +60,14 @@ server:
             proxy: false
             # set the minimum TLS version:
             min-tls-version: 1.2
+            # By default a client certificate is requested, but it isn't required that the client send any certificates.
+            # Other options are as follows:
+            # A client certificate is requested during the handshake, and at least one valid certificate is required from the client.
+            # client-auth: "require-and-verify"
+            # A client certificate is requested during the handshake, but does not require that the client sends a certificate. If the client does send a certificate it must be valid.
+            # client-auth: "verify-if"
+            # A client certificate is requested during the handshake, and at least one certificate is required from the client, but that certificate is not required to be valid.
+            # client-auth: "require-any"
 
         # Example of a Unix domain socket for proxying:
         # "/tmp/ergo_sock":

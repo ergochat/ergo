@@ -61,6 +61,7 @@ type listenerConfigBlock struct {
 	// SNI configuration, with multiple certificates:
 	TLSCertificates []TLSListenConfig `yaml:"tls-certificates"`
 	MinTLSVersion   string            `yaml:"min-tls-version"`
+	ClientAuth      string            `yaml:"client-auth"`
 	Proxy           bool
 	Tor             bool
 	STSOnly         bool `yaml:"sts-only"`
@@ -887,7 +888,17 @@ func loadTlsConfig(config listenerConfigBlock) (tlsConfig *tls.Config, err error
 		// plaintext!
 		return nil, nil
 	}
-	clientAuth := tls.RequestClientCert
+	var clientAuth tls.ClientAuthType
+	switch config.ClientAuth {
+	case "require-any":
+		clientAuth = tls.RequireAnyClientCert
+	case "verify-if":
+		clientAuth = tls.VerifyClientCertIfGiven
+	case "require-and-verify":
+		clientAuth = tls.RequireAndVerifyClientCert
+	default:
+		clientAuth = tls.RequestClientCert
+	}
 	if config.WebSocket {
 		// if Chrome receives a server request for a client certificate
 		// on a websocket connection, it will immediately disconnect:
