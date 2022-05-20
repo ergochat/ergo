@@ -130,7 +130,8 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 			am.server.AddAlwaysOnClient(
 				account,
 				am.loadChannels(accountName),
-				am.loadLastSeen(accountName),
+				am.loadTimeMap(keyAccountLastSeen, accountName),
+				am.loadTimeMap(keyAccountReadMarkers, accountName),
 				am.loadModes(accountName),
 				am.loadRealname(accountName),
 			)
@@ -675,8 +676,8 @@ func (am *AccountManager) saveTimeMap(account, key string, timeMap map[string]ti
 	}
 }
 
-func (am *AccountManager) loadLastSeen(account string) (lastSeen map[string]time.Time) {
-	key := fmt.Sprintf(keyAccountLastSeen, account)
+func (am *AccountManager) loadTimeMap(baseKey, account string) (lastSeen map[string]time.Time) {
+	key := fmt.Sprintf(baseKey, account)
 	var lsText string
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		lsText, _ = tx.Get(key)
