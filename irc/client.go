@@ -389,7 +389,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen map[string]time.Time, uModes modes.Modes, realname string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen, readMarkers map[string]time.Time, uModes modes.Modes, realname string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -407,12 +407,13 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 	}
 
 	client := &Client{
-		lastSeen:   lastSeen,
-		lastActive: now,
-		channels:   make(ChannelSet),
-		ctime:      now,
-		languages:  server.Languages().Default(),
-		server:     server,
+		lastSeen:    lastSeen,
+		readMarkers: readMarkers,
+		lastActive:  now,
+		channels:    make(ChannelSet),
+		ctime:       now,
+		languages:   server.Languages().Default(),
+		server:      server,
 
 		username:        username,
 		cloakedHostname: cloakedHostname,
