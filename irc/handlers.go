@@ -2770,14 +2770,14 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	}
 
 	// "MARKREAD client set command": MARKREAD <target> <timestamp>
-	readTimestamp := msg.Params[1]
+	readTimestamp := strings.TrimPrefix(msg.Params[1], "timestamp=")
 	readTime, err := time.Parse(IRCv3TimestampFormat, readTimestamp)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "MARKREAD", "INVALID_PARAMS", utils.SafeErrorParam(readTimestamp), client.t("Invalid timestamp"))
 		return
 	}
 	result := client.SetReadMarker(cftarget, readTime)
-	readTimestamp = result.Format(IRCv3TimestampFormat)
+	readTimestamp = fmt.Sprintf("timestamp=%s", result.Format(IRCv3TimestampFormat))
 	// inform the originating session whether it was a success or a no-op:
 	rb.Add(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 	if result.Equal(readTime) {
