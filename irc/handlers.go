@@ -2784,7 +2784,7 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		// successful update (i.e. it moved the stored timestamp forward):
 		// inform other sessions
 		for _, session := range client.Sessions() {
-			if session != rb.session {
+			if session != rb.session && session.capabilities.Has(caps.ReadMarker) {
 				session.Send(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 			}
 		}
