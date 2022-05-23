@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.10.0-rc2] - 2022-05-23
+
+Testing of 2.10.0-rc1 revealed serious bugs in the new `draft/read-marker` implementation. Consequently, we're publishing a second release candidate that fixes these issues. The final release is expected within a week or so; we apologize for the delay.
+
+### Fixed
+* Fixed bugs in the new `draft/read-marker` implementation (#1961, #1962)
+
 ## [2.10.0-rc1] - 2022-05-16
 
 We're pleased to be publishing the release candidate for 2.10.0 (the official release should follow in a week or so).
