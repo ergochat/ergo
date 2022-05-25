@@ -175,7 +175,11 @@ func hsSetHandler(service *ircService, server *Server, client *Client, command s
 
 	_, err := server.accounts.VHostSet(user, vhost)
 	if err != nil {
-		service.Notice(rb, client.t("An error occurred"))
+		if err == errAccountDoesNotExist {
+			service.Notice(rb, client.t("Fail: Account does not exist"))
+		} else {
+			service.Notice(rb, client.t("Fail: Unable to set vhost"))
+		}
 	} else if vhost != "" {
 		service.Notice(rb, client.t("Successfully set vhost"))
 		server.snomasks.Send(sno.LocalVhosts, fmt.Sprintf("Operator %[1]s set vhost %[2]s on account %[3]s", oper.Name, vhost, user))
