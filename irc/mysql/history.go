@@ -45,7 +45,7 @@ const (
 type e struct{}
 
 type MySQL struct {
-	timeout              int64
+	timeout              *int64
 	trackAccountMessages uint32
 	db                   *sql.DB
 	logger               *logger.Manager
@@ -63,13 +63,14 @@ type MySQL struct {
 }
 
 func (mysql *MySQL) Initialize(logger *logger.Manager, config Config) {
+	mysql.timeout = new(int64)
 	mysql.logger = logger
 	mysql.wakeForgetter = make(chan e, 1)
 	mysql.SetConfig(config)
 }
 
 func (mysql *MySQL) SetConfig(config Config) {
-	atomic.StoreInt64(&mysql.timeout, int64(config.Timeout))
+	atomic.StoreInt64(mysql.timeout, int64(config.Timeout))
 	var trackAccountMessages uint32
 	if config.TrackAccountMessages {
 		trackAccountMessages = 1
@@ -554,7 +555,7 @@ func (mysql *MySQL) prepareStatements() (err error) {
 }
 
 func (mysql *MySQL) getTimeout() time.Duration {
-	return time.Duration(atomic.LoadInt64(&mysql.timeout))
+	return time.Duration(atomic.LoadInt64(mysql.timeout))
 }
 
 func (mysql *MySQL) isTrackingAccountMessages() bool {
