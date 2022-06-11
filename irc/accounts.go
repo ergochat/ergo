@@ -112,10 +112,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 	var accounts []string
 
 	am.server.store.View(func(tx kv.Tx) error {
-		err := tx.AscendGreaterOrEqual("", verifiedPrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, verifiedPrefix) {
-				return false
-			}
+		err := tx.AscendPrefix(verifiedPrefix, func(key, value string) bool {
 			account := strings.TrimPrefix(key, verifiedPrefix)
 			accounts = append(accounts, account)
 			return true
@@ -153,11 +150,7 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 	defer am.serialCacheUpdateMutex.Unlock()
 
 	err := am.server.store.View(func(tx kv.Tx) error {
-		err := tx.AscendGreaterOrEqual("", existsPrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, existsPrefix) {
-				return false
-			}
-
+		err := tx.AscendPrefix(existsPrefix, func(key, value string) bool {
 			account := strings.TrimPrefix(key, existsPrefix)
 			if _, err := tx.Get(fmt.Sprintf(keyAccountVerified, account)); err == nil {
 				nickToAccount[account] = account
@@ -197,10 +190,7 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 	if config.Accounts.NickReservation.Method == NickEnforcementStrict {
 		unregisteredPrefix := fmt.Sprintf(keyAccountUnregistered, "")
 		am.server.store.View(func(tx kv.Tx) error {
-			tx.AscendGreaterOrEqual("", unregisteredPrefix, func(key, value string) bool {
-				if !strings.HasPrefix(key, unregisteredPrefix) {
-					return false
-				}
+			tx.AscendPrefix(unregisteredPrefix, func(key, value string) bool {
 				account := strings.TrimPrefix(key, unregisteredPrefix)
 				accountName := value
 				nickToAccount[account] = account
@@ -1435,10 +1425,7 @@ func (am *AccountManager) AllNicks() (result []string) {
 
 	am.server.store.View(func(tx kv.Tx) error {
 		// Account names
-		err := tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, accountNamePrefix) {
-				return false
-			}
+		err := tx.AscendPrefix(accountNamePrefix, func(key, value string) bool {
 			result = append(result, value)
 			return true
 		})
@@ -1447,10 +1434,7 @@ func (am *AccountManager) AllNicks() (result []string) {
 		}
 
 		// Additional nicks
-		return tx.AscendGreaterOrEqual("", accountAdditionalNicksPrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, accountAdditionalNicksPrefix) {
-				return false
-			}
+		return tx.AscendPrefix(accountAdditionalNicksPrefix, func(key, value string) bool {
 			additionalNicks := unmarshalReservedNicks(value)
 			for _, additionalNick := range additionalNicks {
 				result = append(result, additionalNick)
@@ -1692,10 +1676,7 @@ func (am *AccountManager) ListSuspended() (result []AccountSuspension) {
 
 	prefix := fmt.Sprintf(keyAccountSuspended, "")
 	am.server.store.View(func(tx kv.Tx) error {
-		err := tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, prefix) {
-				return false
-			}
+		err := tx.AscendPrefix(prefix, func(key, value string) bool {
 			raw = append(raw, value)
 			cfname := strings.TrimPrefix(key, prefix)
 			name, _ := tx.Get(fmt.Sprintf(keyAccountName, cfname))

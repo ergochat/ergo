@@ -8,6 +8,8 @@
 package kv
 
 import (
+	"strings"
+
 	"github.com/tidwall/buntdb"
 )
 
@@ -26,8 +28,13 @@ type BuntdbTx struct {
 	tx *buntdb.Tx
 }
 
-func (tx BuntdbTx) AscendGreaterOrEqual(index, pivot string, iterator func(key, value string) bool) error {
-	return convertError(tx.tx.AscendGreaterOrEqual(index, pivot, iterator))
+func (tx BuntdbTx) AscendPrefix(prefix string, iterator func(key, value string) bool) error {
+	return convertError(tx.tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+		return iterator(key, value)
+	}))
 }
 
 func (tx BuntdbTx) Delete(key string) (val string, err error) {

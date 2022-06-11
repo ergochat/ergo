@@ -25,7 +25,7 @@ type SetOptions struct {
 }
 
 type Tx interface {
-	AscendGreaterOrEqual(index, pivot string, iterator func(key, value string) bool) error
+	AscendPrefix(prefix string, iterator func(key, value string) bool) error
 	Delete(key string) (val string, err error)
 	Get(key string, ignoreExpired ...bool) (val string, err error)
 	Set(key string, value string, opts *SetOptions) (previousValue string, replaced bool, err error)

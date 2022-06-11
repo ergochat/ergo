@@ -221,11 +221,7 @@ func (km *KLineManager) loadFromDatastore() {
 	// load from datastore
 	klinePrefix := fmt.Sprintf(keyKlineEntry, "")
 	km.server.store.View(func(tx kv.Tx) error {
-		tx.AscendGreaterOrEqual("", klinePrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, klinePrefix) {
-				return false
-			}
-
+		tx.AscendPrefix(klinePrefix, func(key, value string) bool {
 			// get address name
 			mask := strings.TrimPrefix(key, klinePrefix)
 

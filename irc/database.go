@@ -221,11 +221,7 @@ func schemaChangeV1toV2(config *Config, tx kv.Tx) error {
 
 	prefix := "account "
 
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
-
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		keysToRemove = append(keysToRemove, key)
 		splitkey := strings.Split(key, " ")
 
@@ -260,10 +256,7 @@ func schemaChangeV1toV2(config *Config, tx kv.Tx) error {
 func schemaChangeV2ToV3(config *Config, tx kv.Tx) error {
 	var channels []string
 	prefix := "channel.exists "
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		chname := strings.TrimPrefix(key, prefix)
 		channels = append(channels, chname)
 		return true
@@ -335,10 +328,7 @@ func schemaChangeV3ToV4(config *Config, tx kv.Tx) error {
 
 	prefix := "bans.dline "
 	dlines := make(map[string]IPBanInfo)
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		keysToDelete = append(keysToDelete, key)
 
 		var lbinfo legacyBanInfo
@@ -380,10 +370,7 @@ func schemaChangeV3ToV4(config *Config, tx kv.Tx) error {
 	// same operations against klines
 	prefix = "bans.kline "
 	klines := make(map[string]IPBanInfo)
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		keysToDelete = append(keysToDelete, key)
 		mask := strings.TrimPrefix(key, prefix)
 		var lbinfo legacyBanInfo
@@ -417,10 +404,7 @@ func schemaChangeV3ToV4(config *Config, tx kv.Tx) error {
 func schemaChangeV4ToV5(config *Config, tx kv.Tx) error {
 	founderToChannels := make(map[string][]string)
 	prefix := "channel.founder "
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		channel := strings.TrimPrefix(key, prefix)
 		founderToChannels[value] = append(founderToChannels[value], channel)
 		return true
@@ -436,10 +420,7 @@ func schemaChangeV4ToV5(config *Config, tx kv.Tx) error {
 func schemaChangeV5ToV6(config *Config, tx kv.Tx) error {
 	accountToEnforcement := make(map[string]NickEnforcementMethod)
 	prefix := "account.customenforcement "
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		account := strings.TrimPrefix(key, prefix)
 		method, err := nickReservationFromString(value)
 		if err == nil {
@@ -473,10 +454,7 @@ func schemaChangeV6ToV7(config *Config, tx kv.Tx) error {
 	now := time.Now().UTC()
 	var channels []string
 	prefix := "channel.exists "
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		channels = append(channels, strings.TrimPrefix(key, prefix))
 		return true
 	})
@@ -541,12 +519,9 @@ type accountSettingsLegacyV8 struct {
 func schemaChangeV7ToV8(config *Config, tx kv.Tx) error {
 	prefix := "account.settings "
 	var accounts, blobs []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		var legacy accountSettingsLegacyV7
 		var current accountSettingsLegacyV8
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
 		account := strings.TrimPrefix(key, prefix)
 		err := json.Unmarshal([]byte(value), &legacy)
 		if err != nil {
@@ -594,12 +569,9 @@ type accountCredsLegacyV9 struct {
 func schemaChangeV8ToV9(config *Config, tx kv.Tx) error {
 	prefix := "account.credentials "
 	var accounts, blobs []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		var legacy accountCredsLegacyV8
 		var current accountCredsLegacyV9
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
 		account := strings.TrimPrefix(key, prefix)
 		err := json.Unmarshal([]byte(value), &legacy)
 		if err != nil {
@@ -632,10 +604,7 @@ func schemaChangeV8ToV9(config *Config, tx kv.Tx) error {
 func schemaChangeV9ToV10(config *Config, tx kv.Tx) error {
 	prefix := "account.registered.time "
 	var accounts, times []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		account := strings.TrimPrefix(key, prefix)
 		accounts = append(accounts, account)
 		times = append(times, value)
@@ -669,10 +638,7 @@ func schemaChangeV10ToV11(config *Config, tx kv.Tx) error {
 func schemaChangeV11ToV12(config *Config, tx kv.Tx) error {
 	prefix := "account.settings "
 	var accounts, rawSettings []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		account := strings.TrimPrefix(key, prefix)
 		accounts = append(accounts, account)
 		rawSettings = append(rawSettings, value)
@@ -721,10 +687,7 @@ func schemaChangeV12ToV13(config *Config, tx kv.Tx) error {
 	prefix := "account.credentials "
 	var accounts []string
 	var credentials []accountCredsLegacyV13
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		account := strings.TrimPrefix(key, prefix)
 
 		var credsOld accountCredsLegacyV9
@@ -767,10 +730,7 @@ func schemaChangeV12ToV13(config *Config, tx kv.Tx) error {
 func schemaChangeV13ToV14(config *Config, tx kv.Tx) error {
 	prefix := "channel.registered.time "
 	var channels, times []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		channel := strings.TrimPrefix(key, prefix)
 		channels = append(channels, channel)
 		times = append(times, value)
@@ -802,10 +762,7 @@ func schemaChangeV13ToV14(config *Config, tx kv.Tx) error {
 func schemaChangeV14ToV15(config *Config, tx kv.Tx) error {
 	prefix := "bans.klinev2 "
 	var keys []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		if key != strings.TrimSpace(key) {
 			keys = append(keys, key)
 		}
@@ -823,10 +780,7 @@ func schemaChangeV15ToV16(config *Config, tx kv.Tx) error {
 	prefix := "account.realname "
 	verifiedPrefix := "account.verified "
 	var keys []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		acct := strings.TrimPrefix(key, prefix)
 		verifiedKey := verifiedPrefix + acct
 		_, verifiedErr := tx.Get(verifiedKey)
@@ -845,10 +799,7 @@ func schemaChangeV15ToV16(config *Config, tx kv.Tx) error {
 func schemaChangeV16ToV17(config *Config, tx kv.Tx) error {
 	prefix := "vhostQueue "
 	var keys []string
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		keys = append(keys, key)
 		return true
 	})
@@ -871,10 +822,7 @@ func schemaChangeV17ToV18(config *Config, tx kv.Tx) error {
 
 	var accounts []string
 
-	tx.AscendGreaterOrEqual("", exists, func(key, value string) bool {
-		if !strings.HasPrefix(key, exists) {
-			return false
-		}
+	tx.AscendPrefix(exists, func(key, value string) bool {
 		account := strings.TrimPrefix(key, exists)
 		_, verifiedErr := tx.Get(verif + account)
 		_, verifCodeErr := tx.Get(verifCode + account)
@@ -914,10 +862,7 @@ func schemaChangeV18To19(config *Config, tx kv.Tx) error {
 	joinedto := "account.joinedto "
 	var accounts []string
 	var channels [][]string
-	tx.AscendGreaterOrEqual("", joinedto, func(key, value string) bool {
-		if !strings.HasPrefix(key, joinedto) {
-			return false
-		}
+	tx.AscendPrefix(joinedto, func(key, value string) bool {
 		accounts = append(accounts, strings.TrimPrefix(key, joinedto))
 		var ch []string
 		if value != "" {
@@ -981,10 +926,7 @@ func schemaChangeV19To20(config *Config, tx kv.Tx) error {
 	now := time.Now().UnixNano()
 
 	prefix := "account.channeltomodes "
-	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, prefix) {
-			return false
-		}
+	tx.AscendPrefix(prefix, func(key, value string) bool {
 		accounts = append(accounts, strings.TrimPrefix(key, prefix))
 		data = append(data, value)
 		return true
@@ -1030,10 +972,7 @@ func schemaChangeV20To21(config *Config, tx kv.Tx) error {
 	var accounts []string
 	var emails []string
 	callbackPrefix := "account.callback "
-	tx.AscendGreaterOrEqual("", callbackPrefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, callbackPrefix) {
-			return false
-		}
+	tx.AscendPrefix(callbackPrefix, func(key, value string) bool {
 		account := strings.TrimPrefix(key, callbackPrefix)
 		if _, err := tx.Get("account.verified " + account); err != nil {
 			return true
@@ -1081,10 +1020,7 @@ func schemaChangeV21To22(config *Config, tx kv.Tx) error {
 	var accounts []string
 	var serializedSettings []string
 	settingsPrefix := "account.settings "
-	tx.AscendGreaterOrEqual("", settingsPrefix, func(key, value string) bool {
-		if !strings.HasPrefix(key, settingsPrefix) {
-			return false
-		}
+	tx.AscendPrefix(settingsPrefix, func(key, value string) bool {
 		if value == "" {
 			return true
 		}

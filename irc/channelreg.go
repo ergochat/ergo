@@ -131,10 +131,7 @@ func (reg *ChannelRegistry) Initialize(server *Server) {
 func (reg *ChannelRegistry) AllChannels() (result []string) {
 	prefix := fmt.Sprintf(keyChannelName, "")
 	reg.server.store.View(func(tx kv.Tx) error {
-		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, prefix) {
-				return false
-			}
+		return tx.AscendPrefix(prefix, func(key, value string) bool {
 			result = append(result, value)
 			return true
 		})
@@ -149,10 +146,7 @@ func (reg *ChannelRegistry) PurgedChannels() (result utils.HashSet[string]) {
 
 	prefix := fmt.Sprintf(keyChannelPurged, "")
 	reg.server.store.View(func(tx kv.Tx) error {
-		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, prefix) {
-				return false
-			}
+		return tx.AscendPrefix(prefix, func(key, value string) bool {
 			channel := strings.TrimPrefix(key, prefix)
 			result.Add(channel)
 			return true

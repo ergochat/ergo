@@ -238,11 +238,7 @@ func (dm *DLineManager) CheckIP(addr flatip.IP) (isBanned bool, info IPBanInfo) 
 func (dm *DLineManager) loadFromDatastore() {
 	dlinePrefix := fmt.Sprintf(keyDlineEntry, "")
 	dm.server.store.View(func(tx kv.Tx) error {
-		tx.AscendGreaterOrEqual("", dlinePrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, dlinePrefix) {
-				return false
-			}
-
+		tx.AscendPrefix(dlinePrefix, func(key, value string) bool {
 			// get address name
 			key = strings.TrimPrefix(key, dlinePrefix)
 
