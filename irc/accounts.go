@@ -16,7 +16,6 @@ import (
 	"unicode"
 
 	"github.com/ergochat/irc-go/ircutils"
-	"github.com/tidwall/buntdb"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/connection_limits"
@@ -451,7 +450,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			if certfp != "" {
 				// make sure certfp doesn't already exist because that'd be silly
 				_, err := tx.Get(certFPKey)
-				if err != buntdb.ErrNotFound {
+				if err != kv.ErrNotFound {
 					return errCertfpAlreadyExists
 				}
 			}
@@ -773,7 +772,7 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 		}
 		if add {
 			_, err = tx.Get(certfpKey)
-			if err != buntdb.ErrNotFound {
+			if err != kv.ErrNotFound {
 				return errCertfpAlreadyExists
 			}
 			tx.Set(certfpKey, cfAccount, nil)
@@ -1252,7 +1251,7 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 		}
 
 		rawNicks, err := tx.Get(nicksKey)
-		if err != nil && err != buntdb.ErrNotFound {
+		if err != nil && err != kv.ErrNotFound {
 			return err
 		}
 
@@ -1574,7 +1573,7 @@ func (am *AccountManager) loadRawAccount(tx kv.Tx, casefoldedAccount string) (re
 	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
 
 	_, e := tx.Get(accountKey)
-	if e == buntdb.ErrNotFound {
+	if e == kv.ErrNotFound {
 		err = errAccountDoesNotExist
 		return
 	}

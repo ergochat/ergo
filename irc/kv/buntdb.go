@@ -11,6 +11,14 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
+func convertError(err error) error {
+	if err == buntdb.ErrNotFound {
+		return ErrNotFound
+	} else {
+		return err
+	}
+}
+
 /**********************
  * Transactions
  */
@@ -19,19 +27,21 @@ type BuntdbTx struct {
 }
 
 func (tx BuntdbTx) AscendKeys(pattern string, iterator func(key, value string) bool) error {
-	return tx.tx.AscendKeys(pattern, iterator)
+	return convertError(tx.tx.AscendKeys(pattern, iterator))
 }
 
 func (tx BuntdbTx) AscendGreaterOrEqual(index, pivot string, iterator func(key, value string) bool) error {
-	return tx.tx.AscendGreaterOrEqual(index, pivot, iterator)
+	return convertError(tx.tx.AscendGreaterOrEqual(index, pivot, iterator))
 }
 
 func (tx BuntdbTx) Delete(key string) (val string, err error) {
-	return tx.tx.Delete(key)
+	val, err = tx.tx.Delete(key)
+	return val, convertError(err)
 }
 
 func (tx BuntdbTx) Get(key string, ignoreExpired ...bool) (val string, err error) {
-	return tx.tx.Get(key, ignoreExpired...)
+	val, err = tx.tx.Get(key, ignoreExpired...)
+	return val, convertError(err)
 }
 
 func (tx BuntdbTx) Set(key string, value string, opts *SetOptions) (previousValue string, replaced bool, err error) {
@@ -41,7 +51,8 @@ func (tx BuntdbTx) Set(key string, value string, opts *SetOptions) (previousValu
 	} else {
 		buntdbOpts = &buntdb.SetOptions{Expires: opts.Expires, TTL: opts.TTL}
 	}
-	return tx.tx.Set(key, value, buntdbOpts)
+	previousValue, replaced, err = tx.tx.Set(key, value, buntdbOpts)
+	return previousValue, replaced, convertError(err)
 }
 
 /**********************

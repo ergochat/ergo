@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tidwall/buntdb"
-
 	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
@@ -193,7 +191,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 	// nice to have: do all JSON (de)serialization outside of the buntdb transaction
 	err = reg.server.store.View(func(tx kv.Tx) error {
 		_, dberr := tx.Get(fmt.Sprintf(keyChannelExists, channelKey))
-		if dberr == buntdb.ErrNotFound {
+		if dberr == kv.ErrNotFound {
 			// chan does not already exist, return
 			return errNoSuchChannel
 		}
@@ -295,7 +293,7 @@ func (reg *ChannelRegistry) deleteChannel(tx kv.Tx, key string, info RegisteredC
 			// remove this channel from the client's list of registered channels
 			channelsKey := fmt.Sprintf(keyAccountChannels, info.Founder)
 			channelsStr, err := tx.Get(channelsKey)
-			if err == buntdb.ErrNotFound {
+			if err == kv.ErrNotFound {
 				return
 			}
 			registeredChannels := unmarshalRegisteredChannels(channelsStr)
@@ -314,7 +312,7 @@ func (reg *ChannelRegistry) updateAccountToChannelMapping(tx kv.Tx, channelInfo 
 	channelKey := channelInfo.NameCasefolded
 	chanFounderKey := fmt.Sprintf(keyChannelFounder, channelKey)
 	founder, existsErr := tx.Get(chanFounderKey)
-	if existsErr == buntdb.ErrNotFound || founder != channelInfo.Founder {
+	if existsErr == kv.ErrNotFound || founder != channelInfo.Founder {
 		// add to new founder's list
 		accountChannelsKey := fmt.Sprintf(keyAccountChannels, channelInfo.Founder)
 		alreadyChannels, _ := tx.Get(accountChannelsKey)

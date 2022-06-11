@@ -7,7 +7,12 @@
 package kv
 
 import (
+	"errors"
 	"time"
+)
+
+var (
+	ErrNotFound = errors.New("not found")
 )
 
 type SetOptions struct {
