@@ -26,10 +26,6 @@ type BuntdbTx struct {
 	tx *buntdb.Tx
 }
 
-func (tx BuntdbTx) AscendKeys(pattern string, iterator func(key, value string) bool) error {
-	return convertError(tx.tx.AscendKeys(pattern, iterator))
-}
-
 func (tx BuntdbTx) AscendGreaterOrEqual(index, pivot string, iterator func(key, value string) bool) error {
 	return convertError(tx.tx.AscendGreaterOrEqual(index, pivot, iterator))
 }

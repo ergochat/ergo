@@ -219,7 +219,13 @@ func schemaChangeV1toV2(config *Config, tx kv.Tx) error {
 	var keysToRemove []string
 	newKeys := make(map[string]string)
 
-	tx.AscendKeys("account *", func(key, value string) bool {
+	prefix := "account "
+
+	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
+		if !strings.HasPrefix(key, prefix) {
+			return false
+		}
+
 		keysToRemove = append(keysToRemove, key)
 		splitkey := strings.Split(key, " ")
 
