@@ -25,7 +25,7 @@ jobs:
       - name: "make install"
         run: "make install"
       - name: "make test"
-        run: "make test"
+        run: "make test -j 6"
       - name: "make smoke"
         run: "make smoke"
       - name: "make irctest"
