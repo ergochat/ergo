@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 
@@ -29,7 +30,7 @@ const (
 	keyCloakSecret = "crypto.cloak_secret"
 )
 
-type SchemaChanger func(*Config, *buntdb.Tx) error
+type SchemaChanger func(*Config, kv.Tx) error
 
 type SchemaChange struct {
 	InitialVersion int // the change will take this version
@@ -61,13 +62,13 @@ func InitDB(path string) error {
 
 // internal database initialization code
 func initializeDB(path string) error {
-	store, err := buntdb.Open(path)
+	store, err := kv.BuntdbOpen(path)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
-	err = store.Update(func(tx *buntdb.Tx) error {
+	err = store.Update(func(tx kv.Tx) error {
 		// set schema version
 		tx.Set(keySchemaVersion, strconv.Itoa(latestDbSchema), nil)
 		tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
@@ -78,13 +79,13 @@ func initializeDB(path string) error {
 }
 
 // OpenDatabase returns an existing database, performing a schema version check.
-func OpenDatabase(config *Config) (*buntdb.DB, error) {
+func OpenDatabase(config *Config) (kv.Store, error) {
 	return openDatabaseInternal(config, config.Datastore.AutoUpgrade)
 }
 
 // open the database, giving it at most one chance to auto-upgrade the schema
-func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB, err error) {
-	db, err = buntdb.Open(config.Datastore.Path)
+func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db kv.Store, err error) {
+	db, err = kv.BuntdbOpen(config.Datastore.Path)
 	if err != nil {
 		return
 	}
@@ -98,7 +99,7 @@ func openDatabaseInternal(config *Config, allowAutoupgrade bool) (db *buntdb.DB,
 
 	// read the current version string
 	var version int
-	err = db.View(func(tx *buntdb.Tx) (err error) {
+	err = db.View(func(tx kv.Tx) (err error) {
 		vStr, err := tx.Get(keySchemaVersion)
 		if err == nil {
 			version, err = strconv.Atoi(vStr)
@@ -158,14 +159,14 @@ func UpgradeDB(config *Config) (err error) {
 		return err
 	}
 
-	store, err := buntdb.Open(config.Datastore.Path)
+	store, err := kv.BuntdbOpen(config.Datastore.Path)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
 	var version int
-	err = store.Update(func(tx *buntdb.Tx) error {
+	err = store.Update(func(tx kv.Tx) error {
 		for {
 			vStr, _ := tx.Get(keySchemaVersion)
 			version, _ = strconv.Atoi(vStr)
@@ -198,22 +199,22 @@ func UpgradeDB(config *Config) (err error) {
 	return err
 }
 
-func LoadCloakSecret(db *buntdb.DB) (result string) {
-	db.View(func(tx *buntdb.Tx) error {
+func LoadCloakSecret(db kv.Store) (result string) {
+	db.View(func(tx kv.Tx) error {
 		result, _ = tx.Get(keyCloakSecret)
 		return nil
 	})
 	return
 }
 
-func StoreCloakSecret(db *buntdb.DB, secret string) {
-	db.Update(func(tx *buntdb.Tx) error {
+func StoreCloakSecret(db kv.Store, secret string) {
+	db.Update(func(tx kv.Tx) error {
 		tx.Set(keyCloakSecret, secret, nil)
 		return nil
 	})
 }
 
-func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV1toV2(config *Config, tx kv.Tx) error {
 	// == version 1 -> 2 ==
 	// account key changes and account.verified key bugfix.
 
@@ -252,7 +253,7 @@ func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {
 // 1. channel founder names should be casefolded
 // 2. founder should be explicitly granted the ChannelFounder user mode
 // 3. explicitly initialize stored channel modes to the server default values
-func schemaChangeV2ToV3(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV2ToV3(config *Config, tx kv.Tx) error {
 	var channels []string
 	prefix := "channel.exists "
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -298,7 +299,7 @@ func schemaChangeV2ToV3(config *Config, tx *buntdb.Tx) error {
 
 // 1. ban info format changed (from `legacyBanInfo` below to `IPBanInfo`)
 // 2. dlines against individual IPs are normalized into dlines against the appropriate /128 network
-func schemaChangeV3ToV4(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV3ToV4(config *Config, tx kv.Tx) error {
 	type ipRestrictTime struct {
 		Duration time.Duration
 		Expires  time.Time
@@ -409,7 +410,7 @@ func schemaChangeV3ToV4(config *Config, tx *buntdb.Tx) error {
 }
 
 // create new key tracking channels that belong to an account
-func schemaChangeV4ToV5(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV4ToV5(config *Config, tx kv.Tx) error {
 	founderToChannels := make(map[string][]string)
 	prefix := "channel.founder "
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -428,7 +429,7 @@ func schemaChangeV4ToV5(config *Config, tx *buntdb.Tx) error {
 }
 
 // custom nick enforcement was a separate db key, now it's part of settings
-func schemaChangeV5ToV6(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV5ToV6(config *Config, tx kv.Tx) error {
 	accountToEnforcement := make(map[string]NickEnforcementMethod)
 	prefix := "account.customenforcement "
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -464,7 +465,7 @@ type maskInfoV7 struct {
 	CreatorAccount  string
 }
 
-func schemaChangeV6ToV7(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV6ToV7(config *Config, tx kv.Tx) error {
 	now := time.Now().UTC()
 	var channels []string
 	prefix := "channel.exists "
@@ -533,7 +534,7 @@ type accountSettingsLegacyV8 struct {
 }
 
 // #616: change autoreplay-joins to replay-joins
-func schemaChangeV7ToV8(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV7ToV8(config *Config, tx kv.Tx) error {
 	prefix := "account.settings "
 	var accounts, blobs []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -586,7 +587,7 @@ type accountCredsLegacyV9 struct {
 }
 
 // #530: support multiple client certificate fingerprints
-func schemaChangeV8ToV9(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV8ToV9(config *Config, tx kv.Tx) error {
 	prefix := "account.credentials "
 	var accounts, blobs []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -624,7 +625,7 @@ func schemaChangeV8ToV9(config *Config, tx *buntdb.Tx) error {
 
 // #836: account registration time at nanosecond resolution
 // (mostly to simplify testing)
-func schemaChangeV9ToV10(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV9ToV10(config *Config, tx kv.Tx) error {
 	prefix := "account.registered.time "
 	var accounts, times []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -650,7 +651,7 @@ func schemaChangeV9ToV10(config *Config, tx *buntdb.Tx) error {
 
 // #952: move the cloak secret into the database,
 // generate a new one if necessary
-func schemaChangeV10ToV11(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV10ToV11(config *Config, tx kv.Tx) error {
 	cloakSecret := config.Server.Cloaks.LegacySecretValue
 	if cloakSecret == "" || cloakSecret == "siaELnk6Kaeo65K3RCrwJjlWaZ-Bt3WuZ2L8MXLbNb4" {
 		cloakSecret = utils.GenerateSecretKey()
@@ -661,7 +662,7 @@ func schemaChangeV10ToV11(config *Config, tx *buntdb.Tx) error {
 
 // #1027: NickEnforcementTimeout (2) was removed,
 // NickEnforcementStrict was 3 and is now 2
-func schemaChangeV11ToV12(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV11ToV12(config *Config, tx kv.Tx) error {
 	prefix := "account.settings "
 	var accounts, rawSettings []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -703,7 +704,7 @@ type accountCredsLegacyV13 struct {
 
 // see #212 / #284. this packs the legacy salts into a single passphrase hash,
 // allowing legacy passphrases to be verified using the new API `checkLegacyPassphrase`.
-func schemaChangeV12ToV13(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV12ToV13(config *Config, tx kv.Tx) error {
 	salt, err := tx.Get("crypto.salt")
 	if err != nil {
 		return nil // no change required
@@ -759,7 +760,7 @@ func schemaChangeV12ToV13(config *Config, tx *buntdb.Tx) error {
 }
 
 // channel registration time and topic set time at nanosecond resolution
-func schemaChangeV13ToV14(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV13ToV14(config *Config, tx kv.Tx) error {
 	prefix := "channel.registered.time "
 	var channels, times []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -794,7 +795,7 @@ func schemaChangeV13ToV14(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1327: delete any invalid klines
-func schemaChangeV14ToV15(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV14ToV15(config *Config, tx kv.Tx) error {
 	prefix := "bans.klinev2 "
 	var keys []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -814,7 +815,7 @@ func schemaChangeV14ToV15(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1330: delete any stale realname records
-func schemaChangeV15ToV16(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV15ToV16(config *Config, tx kv.Tx) error {
 	prefix := "account.realname "
 	verifiedPrefix := "account.verified "
 	var keys []string
@@ -837,7 +838,7 @@ func schemaChangeV15ToV16(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1346: remove vhost request queue
-func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV16ToV17(config *Config, tx kv.Tx) error {
 	prefix := "vhostQueue "
 	var keys []string
 	tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
@@ -856,7 +857,7 @@ func schemaChangeV16ToV17(config *Config, tx *buntdb.Tx) error {
 
 // #1274: we used to suspend accounts by deleting their "verified" key,
 // now we save some metadata under a new key
-func schemaChangeV17ToV18(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV17ToV18(config *Config, tx kv.Tx) error {
 	now := time.Now().UTC()
 
 	exists := "account.exists "
@@ -904,7 +905,7 @@ func schemaChangeV17ToV18(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1345: persist the channel-user modes of always-on clients
-func schemaChangeV18To19(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV18To19(config *Config, tx kv.Tx) error {
 	channelToAmodesCache := make(map[string]map[string]modes.Mode)
 	joinedto := "account.joinedto "
 	var accounts []string
@@ -964,7 +965,7 @@ func schemaChangeV18To19(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1490: start tracking join times for always-on clients
-func schemaChangeV19To20(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV19To20(config *Config, tx kv.Tx) error {
 	type joinData struct {
 		Modes    string
 		JoinTime int64
@@ -1010,7 +1011,7 @@ func schemaChangeV19To20(config *Config, tx *buntdb.Tx) error {
 
 // #734: move the email address into the settings object,
 // giving people a way to change it
-func schemaChangeV20To21(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV20To21(config *Config, tx kv.Tx) error {
 	type accountSettingsv21 struct {
 		AutoreplayLines  *int
 		NickEnforcement  NickEnforcementMethod
@@ -1060,7 +1061,7 @@ func schemaChangeV20To21(config *Config, tx *buntdb.Tx) error {
 }
 
 // #1676: we used to have ReplayJoinsNever, now it's desupported
-func schemaChangeV21To22(config *Config, tx *buntdb.Tx) error {
+func schemaChangeV21To22(config *Config, tx kv.Tx) error {
 	type accountSettingsv22 struct {
 		AutoreplayLines  *int
 		NickEnforcement  NickEnforcementMethod

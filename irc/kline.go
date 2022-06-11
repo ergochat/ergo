@@ -13,6 +13,7 @@ import (
 
 	"github.com/tidwall/buntdb"
 
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -148,7 +149,7 @@ func (km *KLineManager) persistKLine(mask string, info IPBanInfo) error {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
 	}
 
-	err = km.server.store.Update(func(tx *buntdb.Tx) error {
+	err = km.server.store.Update(func(tx kv.Tx) error {
 		_, _, err := tx.Set(klineKey, bstr, setOptions)
 		return err
 	})
@@ -160,7 +161,7 @@ func (km *KLineManager) persistKLine(mask string, info IPBanInfo) error {
 func (km *KLineManager) unpersistKLine(mask string) error {
 	// save in datastore
 	klineKey := fmt.Sprintf(keyKlineEntry, mask)
-	return km.server.store.Update(func(tx *buntdb.Tx) error {
+	return km.server.store.Update(func(tx kv.Tx) error {
 		_, err := tx.Delete(klineKey)
 		return err
 	})
@@ -221,7 +222,7 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info IPBanIn
 func (km *KLineManager) loadFromDatastore() {
 	// load from datastore
 	klinePrefix := fmt.Sprintf(keyKlineEntry, "")
-	km.server.store.View(func(tx *buntdb.Tx) error {
+	km.server.store.View(func(tx kv.Tx) error {
 		tx.AscendGreaterOrEqual("", klinePrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, klinePrefix) {
 				return false

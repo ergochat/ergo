@@ -26,12 +26,12 @@ import (
 	"github.com/ergochat/ergo/irc/flatip"
 	"github.com/ergochat/ergo/irc/flock"
 	"github.com/ergochat/ergo/irc/history"
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
-	"github.com/tidwall/buntdb"
 )
 
 const (
@@ -83,7 +83,7 @@ type Server struct {
 	pprofServer       *http.Server
 	exitSignals       chan os.Signal
 	snomasks          SnoManager
-	store             *buntdb.DB
+	store             kv.Store
 	historyDB         mysql.MySQL
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList

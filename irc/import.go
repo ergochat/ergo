@@ -10,8 +10,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/tidwall/buntdb"
-
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -71,7 +70,7 @@ func serializeAmodes(raw map[string]string, validCfUsernames utils.HashSet[strin
 	return
 }
 
-func doImportDBGeneric(config *Config, dbImport databaseImport, credsType CredentialsVersion, tx *buntdb.Tx) (err error) {
+func doImportDBGeneric(config *Config, dbImport databaseImport, credsType CredentialsVersion, tx kv.Tx) (err error) {
 	requiredVersion := 1
 	if dbImport.Version != requiredVersion {
 		return fmt.Errorf("unsupported version of the db for import: version %d is required", requiredVersion)
@@ -205,7 +204,7 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 	return nil
 }
 
-func doImportDB(config *Config, dbImport databaseImport, tx *buntdb.Tx) (err error) {
+func doImportDB(config *Config, dbImport databaseImport, tx kv.Tx) (err error) {
 	switch dbImport.Source {
 	case "atheme":
 		return doImportDBGeneric(config, dbImport, CredentialsAtheme, tx)
@@ -233,12 +232,12 @@ func ImportDB(config *Config, infile string) (err error) {
 		return err
 	}
 
-	db, err := buntdb.Open(config.Datastore.Path)
+	db, err := kv.BuntdbOpen(config.Datastore.Path)
 	if err != nil {
 		return err
 	}
 
-	performImport := func(tx *buntdb.Tx) (err error) {
+	performImport := func(tx kv.Tx) (err error) {
 		return doImportDB(config, dbImport, tx)
 	}
 

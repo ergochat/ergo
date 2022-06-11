@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/flatip"
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/tidwall/buntdb"
 )
 
@@ -178,7 +179,7 @@ func (dm *DLineManager) persistDline(id flatip.IPNet, info IPBanInfo) error {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
 	}
 
-	err = dm.server.store.Update(func(tx *buntdb.Tx) error {
+	err = dm.server.store.Update(func(tx kv.Tx) error {
 		_, _, err := tx.Set(dlineKey, bstr, setOptions)
 		return err
 	})
@@ -190,7 +191,7 @@ func (dm *DLineManager) persistDline(id flatip.IPNet, info IPBanInfo) error {
 
 func (dm *DLineManager) unpersistDline(id flatip.IPNet) error {
 	dlineKey := fmt.Sprintf(keyDlineEntry, id.String())
-	return dm.server.store.Update(func(tx *buntdb.Tx) error {
+	return dm.server.store.Update(func(tx kv.Tx) error {
 		_, err := tx.Delete(dlineKey)
 		return err
 	})
@@ -237,7 +238,7 @@ func (dm *DLineManager) CheckIP(addr flatip.IP) (isBanned bool, info IPBanInfo) 
 
 func (dm *DLineManager) loadFromDatastore() {
 	dlinePrefix := fmt.Sprintf(keyDlineEntry, "")
-	dm.server.store.View(func(tx *buntdb.Tx) error {
+	dm.server.store.View(func(tx kv.Tx) error {
 		tx.AscendGreaterOrEqual("", dlinePrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, dlinePrefix) {
 				return false

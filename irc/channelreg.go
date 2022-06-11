@@ -12,6 +12,7 @@ import (
 
 	"github.com/tidwall/buntdb"
 
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -131,7 +132,7 @@ func (reg *ChannelRegistry) Initialize(server *Server) {
 // AllChannels returns the uncasefolded names of all registered channels.
 func (reg *ChannelRegistry) AllChannels() (result []string) {
 	prefix := fmt.Sprintf(keyChannelName, "")
-	reg.server.store.View(func(tx *buntdb.Tx) error {
+	reg.server.store.View(func(tx kv.Tx) error {
 		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, prefix) {
 				return false
@@ -149,7 +150,7 @@ func (reg *ChannelRegistry) PurgedChannels() (result utils.HashSet[string]) {
 	result = make(utils.HashSet[string])
 
 	prefix := fmt.Sprintf(keyChannelPurged, "")
-	reg.server.store.View(func(tx *buntdb.Tx) error {
+	reg.server.store.View(func(tx kv.Tx) error {
 		return tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, prefix) {
 				return false
@@ -173,7 +174,7 @@ func (reg *ChannelRegistry) StoreChannel(info RegisteredChannel, includeFlags ui
 		return
 	}
 
-	reg.server.store.Update(func(tx *buntdb.Tx) error {
+	reg.server.store.Update(func(tx kv.Tx) error {
 		reg.saveChannel(tx, info, includeFlags)
 		return nil
 	})
@@ -190,7 +191,7 @@ func (reg *ChannelRegistry) LoadChannel(nameCasefolded string) (info RegisteredC
 
 	channelKey := nameCasefolded
 	// nice to have: do all JSON (de)serialization outside of the buntdb transaction
-	err = reg.server.store.View(func(tx *buntdb.Tx) error {
+	err = reg.server.store.View(func(tx kv.Tx) error {
 		_, dberr := tx.Get(fmt.Sprintf(keyChannelExists, channelKey))
 		if dberr == buntdb.ErrNotFound {
 			// chan does not already exist, return
@@ -269,7 +270,7 @@ func (reg *ChannelRegistry) Delete(info RegisteredChannel) (err error) {
 		return
 	}
 
-	reg.server.store.Update(func(tx *buntdb.Tx) error {
+	reg.server.store.Update(func(tx kv.Tx) error {
 		reg.deleteChannel(tx, info.NameCasefolded, info)
 		return nil
 	})
@@ -277,7 +278,7 @@ func (reg *ChannelRegistry) Delete(info RegisteredChannel) (err error) {
 }
 
 // delete a channel, unless it was overwritten by another registration of the same channel
-func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info RegisteredChannel) {
+func (reg *ChannelRegistry) deleteChannel(tx kv.Tx, key string, info RegisteredChannel) {
 	_, err := tx.Get(fmt.Sprintf(keyChannelExists, key))
 	if err == nil {
 		regTime, _ := tx.Get(fmt.Sprintf(keyChannelRegTime, key))
@@ -309,7 +310,7 @@ func (reg *ChannelRegistry) deleteChannel(tx *buntdb.Tx, key string, info Regist
 	}
 }
 
-func (reg *ChannelRegistry) updateAccountToChannelMapping(tx *buntdb.Tx, channelInfo RegisteredChannel) {
+func (reg *ChannelRegistry) updateAccountToChannelMapping(tx kv.Tx, channelInfo RegisteredChannel) {
 	channelKey := channelInfo.NameCasefolded
 	chanFounderKey := fmt.Sprintf(keyChannelFounder, channelKey)
 	founder, existsErr := tx.Get(chanFounderKey)
@@ -340,7 +341,7 @@ func (reg *ChannelRegistry) updateAccountToChannelMapping(tx *buntdb.Tx, channel
 }
 
 // saveChannel saves a channel to the store.
-func (reg *ChannelRegistry) saveChannel(tx *buntdb.Tx, channelInfo RegisteredChannel, includeFlags uint) {
+func (reg *ChannelRegistry) saveChannel(tx kv.Tx, channelInfo RegisteredChannel, includeFlags uint) {
 	channelKey := channelInfo.NameCasefolded
 	// maintain the mapping of account -> registered channels
 	reg.updateAccountToChannelMapping(tx, channelInfo)
@@ -396,7 +397,7 @@ func (reg *ChannelRegistry) PurgeChannel(chname string, record ChannelPurgeRecor
 	serializedStr := string(serialized)
 	key := fmt.Sprintf(keyChannelPurged, chname)
 
-	return reg.server.store.Update(func(tx *buntdb.Tx) error {
+	return reg.server.store.Update(func(tx kv.Tx) error {
 		tx.Set(key, serializedStr, nil)
 		return nil
 	})
@@ -406,7 +407,7 @@ func (reg *ChannelRegistry) PurgeChannel(chname string, record ChannelPurgeRecor
 func (reg *ChannelRegistry) LoadPurgeRecord(chname string) (record ChannelPurgeRecord, err error) {
 	var rawRecord string
 	key := fmt.Sprintf(keyChannelPurged, chname)
-	reg.server.store.View(func(tx *buntdb.Tx) error {
+	reg.server.store.View(func(tx kv.Tx) error {
 		rawRecord, _ = tx.Get(key)
 		return nil
 	})
@@ -426,7 +427,7 @@ func (reg *ChannelRegistry) LoadPurgeRecord(chname string) (record ChannelPurgeR
 // UnpurgeChannel deletes the record of a channel purge.
 func (reg *ChannelRegistry) UnpurgeChannel(chname string) (err error) {
 	key := fmt.Sprintf(keyChannelPurged, chname)
-	return reg.server.store.Update(func(tx *buntdb.Tx) error {
+	return reg.server.store.Update(func(tx kv.Tx) error {
 		tx.Delete(key)
 		return nil
 	})

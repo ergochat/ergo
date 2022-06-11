@@ -21,6 +21,7 @@ import (
 
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/email"
+	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/migrations"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/passwd"
@@ -111,7 +112,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 
 	var accounts []string
 
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		err := tx.AscendGreaterOrEqual("", verifiedPrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, verifiedPrefix) {
 				return false
@@ -152,7 +153,7 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 	am.serialCacheUpdateMutex.Lock()
 	defer am.serialCacheUpdateMutex.Unlock()
 
-	err := am.server.store.View(func(tx *buntdb.Tx) error {
+	err := am.server.store.View(func(tx kv.Tx) error {
 		err := tx.AscendGreaterOrEqual("", existsPrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, existsPrefix) {
 				return false
@@ -196,7 +197,7 @@ func (am *AccountManager) buildNickToAccountIndex(config *Config) {
 
 	if config.Accounts.NickReservation.Method == NickEnforcementStrict {
 		unregisteredPrefix := fmt.Sprintf(keyAccountUnregistered, "")
-		am.server.store.View(func(tx *buntdb.Tx) error {
+		am.server.store.View(func(tx kv.Tx) error {
 			tx.AscendGreaterOrEqual("", unregisteredPrefix, func(key, value string) bool {
 				if !strings.HasPrefix(key, unregisteredPrefix) {
 					return false
@@ -437,7 +438,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			return errNameReserved
 		}
 
-		return am.server.store.Update(func(tx *buntdb.Tx) error {
+		return am.server.store.Update(func(tx kv.Tx) error {
 			if _, err := tx.Get(unregisteredKey); err == nil {
 				return errAccountAlreadyUnregistered
 			}
@@ -480,7 +481,7 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 			am.server.logger.Info("accounts",
 				fmt.Sprintf("nickname %s registered account %s, pending verification", client.Nick(), account))
 		}
-		return am.server.store.Update(func(tx *buntdb.Tx) error {
+		return am.server.store.Update(func(tx kv.Tx) error {
 			_, _, err = tx.Set(verificationCodeKey, code, setOptions)
 			return err
 		})
@@ -541,7 +542,7 @@ func (am *AccountManager) setPassword(accountName string, password string, hasPr
 
 	credKey := fmt.Sprintf(keyAccountCredentials, cfAccount)
 	var credStr string
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		// no need to check verification status here or below;
 		// you either need to be auth'ed to the account or be an oper to do this
 		credStr, err = tx.Get(credKey)
@@ -576,7 +577,7 @@ func (am *AccountManager) setPassword(accountName string, password string, hasPr
 		return err
 	}
 
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		curCredStr, err := tx.Get(credKey)
 		if credStr != curCredStr {
 			return errCASFailed
@@ -601,7 +602,7 @@ func (am *AccountManager) saveChannels(account string, channelToModes map[string
 	}
 	jStr := string(j)
 	key := fmt.Sprintf(keyAccountChannelToModes, account)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		tx.Set(key, jStr, nil)
 		return nil
 	})
@@ -610,7 +611,7 @@ func (am *AccountManager) saveChannels(account string, channelToModes map[string
 func (am *AccountManager) loadChannels(account string) (channelToModes map[string]alwaysOnChannelStatus) {
 	key := fmt.Sprintf(keyAccountChannelToModes, account)
 	var channelsStr string
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		channelsStr, _ = tx.Get(key)
 		return nil
 	})
@@ -628,7 +629,7 @@ func (am *AccountManager) loadChannels(account string) (channelToModes map[strin
 func (am *AccountManager) saveModes(account string, uModes modes.Modes) {
 	modeStr := uModes.String()
 	key := fmt.Sprintf(keyAccountModes, account)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		tx.Set(key, modeStr, nil)
 		return nil
 	})
@@ -637,7 +638,7 @@ func (am *AccountManager) saveModes(account string, uModes modes.Modes) {
 func (am *AccountManager) loadModes(account string) (uModes modes.Modes) {
 	key := fmt.Sprintf(keyAccountModes, account)
 	var modeStr string
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		modeStr, _ = tx.Get(key)
 		return nil
 	})
@@ -663,7 +664,7 @@ func (am *AccountManager) saveTimeMap(account, key string, timeMap map[string]ti
 		text, _ := json.Marshal(timeMap)
 		val = string(text)
 	}
-	err := am.server.store.Update(func(tx *buntdb.Tx) error {
+	err := am.server.store.Update(func(tx kv.Tx) error {
 		if val != "" {
 			tx.Set(key, val, nil)
 		} else {
@@ -679,7 +680,7 @@ func (am *AccountManager) saveTimeMap(account, key string, timeMap map[string]ti
 func (am *AccountManager) loadTimeMap(baseKey, account string) (lastSeen map[string]time.Time) {
 	key := fmt.Sprintf(baseKey, account)
 	var lsText string
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		lsText, _ = tx.Get(key)
 		return nil
 	})
@@ -695,7 +696,7 @@ func (am *AccountManager) loadTimeMap(baseKey, account string) (lastSeen map[str
 
 func (am *AccountManager) saveRealname(account string, realname string) {
 	key := fmt.Sprintf(keyAccountRealname, account)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		if realname != "" {
 			tx.Set(key, realname, nil)
 		} else {
@@ -707,7 +708,7 @@ func (am *AccountManager) saveRealname(account string, realname string) {
 
 func (am *AccountManager) loadRealname(account string) (realname string) {
 	key := fmt.Sprintf(keyAccountRealname, account)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		realname, _ = tx.Get(key)
 		return nil
 	})
@@ -727,7 +728,7 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 
 	credKey := fmt.Sprintf(keyAccountCredentials, cfAccount)
 	var credStr string
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		credStr, err = tx.Get(credKey)
 		return nil
 	})
@@ -765,7 +766,7 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 	}
 
 	certfpKey := fmt.Sprintf(keyCertToAccount, certfp)
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		curCredStr, err := tx.Get(credKey)
 		if credStr != curCredStr {
 			return errCASFailed
@@ -850,7 +851,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string, ad
 		// do a final check for confusability (in case someone already verified
 		// a confusable identifier):
 		var unfoldedName string
-		err = am.server.store.View(func(tx *buntdb.Tx) error {
+		err = am.server.store.View(func(tx kv.Tx) error {
 			unfoldedName, err = tx.Get(accountNameKey)
 			return err
 		})
@@ -875,7 +876,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string, ad
 			return
 		}
 
-		err = am.server.store.Update(func(tx *buntdb.Tx) error {
+		err = am.server.store.Update(func(tx kv.Tx) error {
 			raw, err = am.loadRawAccount(tx, casefoldedAccount)
 			if err == errAccountDoesNotExist {
 				return errAccountDoesNotExist
@@ -1001,7 +1002,7 @@ func (am *AccountManager) NsSetEmail(client *Client, emailAddr string) (err erro
 	recordKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 	recordBytes, _ := json.Marshal(record)
 	recordVal := string(recordBytes)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		tx.Set(recordKey, recordVal, nil)
 		return nil
 	})
@@ -1038,7 +1039,7 @@ func (am *AccountManager) NsVerifyEmail(client *Client, code string) (err error)
 	success := false
 	key := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 	ttl := time.Duration(am.server.Config().Accounts.Registration.VerifyTimeout)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		rawStr, err := tx.Get(key)
 		if err == nil && rawStr != "" {
 			err := json.Unmarshal([]byte(rawStr), &record)
@@ -1094,7 +1095,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 	recordBytes, _ := json.Marshal(record)
 	recordVal := string(recordBytes)
 
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		recStr, recErr := tx.Get(recordKey)
 		if recErr == nil && recStr != "" {
 			var existing PasswordResetRecord
@@ -1155,7 +1156,7 @@ func (am *AccountManager) NsResetpass(client *Client, accountName, code, passwor
 
 	success := false
 	key := fmt.Sprintf(keyAccountPwReset, account.NameCasefolded)
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		rawStr, err := tx.Get(key)
 		if err == nil && rawStr != "" {
 			var record PasswordResetRecord
@@ -1240,7 +1241,7 @@ func (am *AccountManager) SetNickReserved(client *Client, nick string, saUnreser
 
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, account)
 	unverifiedAccountKey := fmt.Sprintf(keyAccountExists, cfnick)
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		if reserve {
 			// unverified accounts don't show up in NickToAccount yet (which is intentional),
 			// however you shouldn't be able to reserve a nick out from under them
@@ -1433,7 +1434,7 @@ func (am *AccountManager) AllNicks() (result []string) {
 	accountNamePrefix := fmt.Sprintf(keyAccountName, "")
 	accountAdditionalNicksPrefix := fmt.Sprintf(keyAccountAdditionalNicks, "")
 
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		// Account names
 		err := tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, accountNamePrefix) {
@@ -1471,7 +1472,7 @@ func (am *AccountManager) LoadAccount(accountName string) (result ClientAccount,
 	}
 
 	var raw rawClientAccount
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		raw, err = am.loadRawAccount(tx, casefoldedAccount)
 		return nil
 	})
@@ -1490,7 +1491,7 @@ func (am *AccountManager) accountWasUnregistered(accountName string) (result boo
 	}
 
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		if _, err := tx.Get(unregisteredKey); err == nil {
 			result = true
 		}
@@ -1509,7 +1510,7 @@ func (am *AccountManager) AccountToAccountName(account string) (result string) {
 	unregisteredKey := fmt.Sprintf(keyAccountUnregistered, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		if name, err := tx.Get(accountNameKey); err == nil {
 			result = name
 			return nil
@@ -1561,7 +1562,7 @@ func (am *AccountManager) deserializeRawAccount(raw rawClientAccount, cfName str
 	return
 }
 
-func (am *AccountManager) loadRawAccount(tx *buntdb.Tx, casefoldedAccount string) (result rawClientAccount, err error) {
+func (am *AccountManager) loadRawAccount(tx kv.Tx, casefoldedAccount string) (result rawClientAccount, err error) {
 	accountKey := fmt.Sprintf(keyAccountExists, casefoldedAccount)
 	accountNameKey := fmt.Sprintf(keyAccountName, casefoldedAccount)
 	registeredTimeKey := fmt.Sprintf(keyAccountRegTime, casefoldedAccount)
@@ -1625,7 +1626,7 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 	if duration != time.Duration(0) {
 		setOptions = &buntdb.SetOptions{Expires: true, TTL: duration}
 	}
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		_, err := tx.Get(existsKey)
 		if err != nil {
 			return errAccountDoesNotExist
@@ -1671,7 +1672,7 @@ func (am *AccountManager) Unsuspend(accountName string) (err error) {
 
 	existsKey := fmt.Sprintf(keyAccountExists, cfaccount)
 	suspensionKey := fmt.Sprintf(keyAccountSuspended, cfaccount)
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		_, err := tx.Get(existsKey)
 		if err != nil {
 			return errAccountDoesNotExist
@@ -1691,7 +1692,7 @@ func (am *AccountManager) ListSuspended() (result []AccountSuspension) {
 	var raw []string
 
 	prefix := fmt.Sprintf(keyAccountSuspended, "")
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		err := tx.AscendGreaterOrEqual("", prefix, func(key, value string) bool {
 			if !strings.HasPrefix(key, prefix) {
 				return false
@@ -1733,7 +1734,7 @@ func (am *AccountManager) Rename(oldName, newName string) (err error) {
 		return errInvalidAccountRename
 	}
 	key := fmt.Sprintf(keyAccountName, accountData.NameCasefolded)
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		tx.Set(key, newName, nil)
 		return nil
 	})
@@ -1801,7 +1802,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	var accountName string
 	var channelsStr string
 	keepProtections := false
-	am.server.store.Update(func(tx *buntdb.Tx) error {
+	am.server.store.Update(func(tx kv.Tx) error {
 		// get the unfolded account name; for an active account, this is
 		// stored under accountNameKey, for an unregistered account under unregisteredKey
 		accountName, _ = tx.Get(accountNameKey)
@@ -1846,7 +1847,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		if err := json.Unmarshal([]byte(credText), &creds); err == nil {
 			for _, cert := range creds.Certfps {
 				certFPKey := fmt.Sprintf(keyCertToAccount, cert)
-				am.server.store.Update(func(tx *buntdb.Tx) error {
+				am.server.store.Update(func(tx kv.Tx) error {
 					if account, err := tx.Get(certFPKey); err == nil && account == casefoldedAccount {
 						tx.Delete(certFPKey)
 					}
@@ -1898,7 +1899,7 @@ func (am *AccountManager) ChannelsForAccount(account string) (channels []string)
 
 	var channelStr string
 	key := fmt.Sprintf(keyAccountChannels, cfaccount)
-	am.server.store.View(func(tx *buntdb.Tx) error {
+	am.server.store.View(func(tx kv.Tx) error {
 		channelStr, _ = tx.Get(key)
 		return nil
 	})
@@ -1949,7 +1950,7 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 	var account string
 	certFPKey := fmt.Sprintf(keyCertToAccount, certfp)
 
-	err = am.server.store.View(func(tx *buntdb.Tx) error {
+	err = am.server.store.View(func(tx kv.Tx) error {
 		account, _ = tx.Get(certFPKey)
 		if account == "" {
 			return errAccountInvalidCredentials
@@ -1994,7 +1995,7 @@ func (am *AccountManager) ModifyAccountSettings(account string, munger settingsM
 	}
 	key := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	serializedValue := string(text)
-	err = am.server.store.Update(func(tx *buntdb.Tx) (err error) {
+	err = am.server.store.Update(func(tx kv.Tx) (err error) {
 		_, _, err = tx.Set(key, serializedValue, nil)
 		return
 	})
@@ -2079,7 +2080,7 @@ func (am *AccountManager) performVHostChange(account string, munger vhostMunger)
 	vhstr := string(vhtext)
 
 	key := fmt.Sprintf(keyAccountVHost, account)
-	err = am.server.store.Update(func(tx *buntdb.Tx) error {
+	err = am.server.store.Update(func(tx kv.Tx) error {
 		_, _, err := tx.Set(key, vhstr, nil)
 		return err
 	})
