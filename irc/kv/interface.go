@@ -7,15 +7,24 @@
 package kv
 
 import (
-	"github.com/tidwall/buntdb"
+	"time"
 )
+
+type SetOptions struct {
+	// Expires indicates that the Set() key-value will expire
+	Expires bool
+	// TTL is how much time the key-value will exist in the database
+	// before being evicted. The Expires field must also be set to true.
+	// TTL stands for Time-To-Live.
+	TTL time.Duration
+}
 
 type Tx interface {
 	AscendKeys(pattern string, iterator func(key, value string) bool) error
 	AscendGreaterOrEqual(index, pivot string, iterator func(key, value string) bool) error
 	Delete(key string) (val string, err error)
 	Get(key string, ignoreExpired ...bool) (val string, err error)
-	Set(key string, value string, opts *buntdb.SetOptions) (previousValue string, replaced bool, err error)
+	Set(key string, value string, opts *SetOptions) (previousValue string, replaced bool, err error)
 }
 
 type Store interface {

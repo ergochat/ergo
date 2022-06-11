@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tidwall/buntdb"
-
 	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -144,9 +142,9 @@ func (km *KLineManager) persistKLine(mask string, info IPBanInfo) error {
 		return err
 	}
 	bstr := string(b)
-	var setOptions *buntdb.SetOptions
+	var setOptions *kv.SetOptions
 	if info.Duration != 0 {
-		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
+		setOptions = &kv.SetOptions{Expires: true, TTL: info.Duration}
 	}
 
 	err = km.server.store.Update(func(tx kv.Tx) error {

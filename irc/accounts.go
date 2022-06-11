@@ -423,10 +423,10 @@ func (am *AccountManager) Register(client *Client, account string, callbackNames
 
 	registeredTimeStr := strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	var setOptions *buntdb.SetOptions
+	var setOptions *kv.SetOptions
 	ttl := time.Duration(config.Accounts.Registration.VerifyTimeout)
 	if ttl != 0 {
-		setOptions = &buntdb.SetOptions{Expires: true, TTL: ttl}
+		setOptions = &kv.SetOptions{Expires: true, TTL: ttl}
 	}
 
 	err = func() error {
@@ -1106,7 +1106,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 				return nil
 			}
 		}
-		tx.Set(recordKey, recordVal, &buntdb.SetOptions{
+		tx.Set(recordKey, recordVal, &kv.SetOptions{
 			Expires: true,
 			TTL:     time.Duration(config.Accounts.Registration.EmailVerification.PasswordReset.Timeout),
 		})
@@ -1622,9 +1622,9 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 
 	existsKey := fmt.Sprintf(keyAccountExists, account)
 	suspensionKey := fmt.Sprintf(keyAccountSuspended, account)
-	var setOptions *buntdb.SetOptions
+	var setOptions *kv.SetOptions
 	if duration != time.Duration(0) {
-		setOptions = &buntdb.SetOptions{Expires: true, TTL: duration}
+		setOptions = &kv.SetOptions{Expires: true, TTL: duration}
 	}
 	err = am.server.store.Update(func(tx kv.Tx) error {
 		_, err := tx.Get(existsKey)

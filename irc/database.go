@@ -17,8 +17,6 @@ import (
 	"github.com/ergochat/ergo/irc/kv"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
-
-	"github.com/tidwall/buntdb"
 )
 
 const (
@@ -355,12 +353,12 @@ func schemaChangeV3ToV4(config *Config, tx kv.Tx) error {
 		return true
 	})
 
-	setOptions := func(info IPBanInfo) *buntdb.SetOptions {
+	setOptions := func(info IPBanInfo) *kv.SetOptions {
 		if info.Duration == 0 {
 			return nil
 		}
 		ttl := info.TimeCreated.Add(info.Duration).Sub(now)
-		return &buntdb.SetOptions{Expires: true, TTL: ttl}
+		return &kv.SetOptions{Expires: true, TTL: ttl}
 	}
 
 	// store the new dlines

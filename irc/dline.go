@@ -12,7 +12,6 @@ import (
 
 	"github.com/ergochat/ergo/irc/flatip"
 	"github.com/ergochat/ergo/irc/kv"
-	"github.com/tidwall/buntdb"
 )
 
 const (
@@ -174,9 +173,9 @@ func (dm *DLineManager) persistDline(id flatip.IPNet, info IPBanInfo) error {
 		return err
 	}
 	bstr := string(b)
-	var setOptions *buntdb.SetOptions
+	var setOptions *kv.SetOptions
 	if info.Duration != 0 {
-		setOptions = &buntdb.SetOptions{Expires: true, TTL: info.Duration}
+		setOptions = &kv.SetOptions{Expires: true, TTL: info.Duration}
 	}
 
 	err = dm.server.store.Update(func(tx kv.Tx) error {
