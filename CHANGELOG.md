@@ -1089,7 +1089,7 @@ Thanks to [slingamn](https://github.com/slingamn) for a lot of heavy lifting thi
 ## [0.11.0] - 2018-04-15
 And v0.11.0 finally comes along! This release has been in the works for almost four months now, with an alpha and beta helping square away the issues.
 
-We're adding a lot of features to improve debugging, better support international users, and make things better for network administrators. Among the new features, you can use the `LANGUAGE` command to set a custom server language (see our [CrowdIn](https://crowdin.com/project/oragono) to contribute), expose a debugging `pprof` endpoint, reserve nicknames with `NickServ`, and force email verification for new user accounts. On the improvements side we have a `CAP REQ` fix, and we now have a manual that contains a nice overview of Oragono's documentation.
+We're adding a lot of features to improve debugging, better support international users, and make things better for network administrators. Among the new features, you can use the `LANGUAGE` command to set a custom server language (see our [CrowdIn](https://crowdin.com/project/ergochat) to contribute), expose a debugging `pprof` endpoint, reserve nicknames with `NickServ`, and force email verification for new user accounts. On the improvements side we have a `CAP REQ` fix, and we now have a manual that contains a nice overview of Oragono's documentation.
 
 If you have any trouble with this release, please let us know with an issue on our tracker, or by talking to us in `#oragono` on Freenode.
 

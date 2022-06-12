@@ -170,7 +170,7 @@ In addition, throughout most of the codebase, if a string is created using the b
 
 ## Updating Translations
 
-We support translating server strings using [CrowdIn](https://crowdin.com/project/oragono)! To send updated source strings to CrowdIn, you should:
+We support translating server strings using [CrowdIn](https://crowdin.com/project/ergochat)! To send updated source strings to CrowdIn, you should:
 
 1. `cd` to the base directory (the one this `DEVELOPING` file is in).
 2. Install the `pyyaml` and `docopt` deps using `pip3 install pyyamp docopt`.
