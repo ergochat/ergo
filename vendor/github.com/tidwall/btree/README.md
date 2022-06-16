@@ -4,6 +4,8 @@
 
 An [efficient](#performance) [B-tree](https://en.wikipedia.org/wiki/B-tree) implementation in Go. 
 
+*Check out the [generics branch](https://github.com/tidwall/btree/tree/generics) if you want to try out btree with generic support for Go 1.18+*
+
 ## Features
 
 - `Copy()` method with copy-on-write support.
@@ -116,10 +118,10 @@ func main() {
 ### Basic
 
 ```
-Len()                   # return the number of items in the btree
-Set(item)               # insert or replace an existing item
 Get(item)               # get an existing item
+Set(item)               # insert or replace an existing item
 Delete(item)            # delete an item
+Len()                   # return the number of items in the btree
 ```
 
 ### Iteration
@@ -127,6 +129,7 @@ Delete(item)            # delete an item
 ```
 Ascend(pivot, iter)     # scan items in ascending order starting at pivot.
 Descend(pivot, iter)    # scan items in descending order starting at pivot.
+Iter()                  # returns a read-only iterator for for-loops.
 ```
 
 ### Queues
@@ -151,11 +154,18 @@ GetHint(item, *hint)    # get an existing item
 DeleteHint(item, *hint) # delete an item
 ```
 
+### Array-like operations
+
+```
+GetAt(index)     # returns the value at index
+DeleteAt(index)  # deletes the item at index
+```
+
 ## Performance
 
 This implementation was designed with performance in mind. 
 
-The following benchmarks were run on my 2019 Macbook Pro (2.4 GHz 8-Core Intel Core i9) using Go 1.16.5. The items are simple 8-byte ints. 
+The following benchmarks were run on my 2019 Macbook Pro (2.4 GHz 8-Core Intel Core i9) using Go 1.17.3. The items are simple 8-byte ints. 
 
 - `google`: The [google/btree](https://github.com/google/btree) package
 - `tidwall`: The [tidwall/btree](https://github.com/tidwall/btree) package
@@ -163,29 +173,29 @@ The following benchmarks were run on my 2019 Macbook Pro (2.4 GHz 8-Core Intel C
 
 ```
 ** sequential set **
-google:  set-seq        1,000,000 ops in 163ms, 6,140,597/sec, 162 ns/op, 30.9 MB, 32 bytes/op
-tidwall: set-seq        1,000,000 ops in 141ms, 7,075,240/sec, 141 ns/op, 36.6 MB, 38 bytes/op
-tidwall: set-seq-hint   1,000,000 ops in 79ms, 12,673,902/sec, 78 ns/op, 36.6 MB, 38 bytes/op
-tidwall: load-seq       1,000,000 ops in 40ms, 24,887,293/sec, 40 ns/op, 36.6 MB, 38 bytes/op
-go-arr:  append         1,000,000 ops in 51ms, 19,617,269/sec, 50 ns/op
+google:  set-seq        1,000,000 ops in 178ms, 5,618,049/sec, 177 ns/op, 39.0 MB, 40 bytes/op
+tidwall: set-seq        1,000,000 ops in 156ms, 6,389,837/sec, 156 ns/op, 23.5 MB, 24 bytes/op
+tidwall: set-seq-hint   1,000,000 ops in 78ms, 12,895,355/sec, 77 ns/op, 23.5 MB, 24 bytes/op
+tidwall: load-seq       1,000,000 ops in 53ms, 18,937,400/sec, 52 ns/op, 23.5 MB, 24 bytes/op
+go-arr:  append         1,000,000 ops in 78ms, 12,843,432/sec, 77 ns/op
 
 ** random set **
-google:  set-rand       1,000,000 ops in 666ms, 1,501,583/sec, 665 ns/op, 21.5 MB, 22 bytes/op
-tidwall: set-rand       1,000,000 ops in 569ms, 1,756,845/sec, 569 ns/op, 26.7 MB, 27 bytes/op
-tidwall: set-rand-hint  1,000,000 ops in 670ms, 1,491,637/sec, 670 ns/op, 26.4 MB, 27 bytes/op
-tidwall: set-again      1,000,000 ops in 488ms, 2,050,667/sec, 487 ns/op, 27.1 MB, 28 bytes/op
-tidwall: set-after-copy 1,000,000 ops in 494ms, 2,022,980/sec, 494 ns/op, 27.9 MB, 29 bytes/op
-tidwall: load-rand      1,000,000 ops in 594ms, 1,682,937/sec, 594 ns/op, 26.1 MB, 27 bytes/op
+google:  set-rand       1,000,000 ops in 555ms, 1,803,133/sec, 554 ns/op, 29.7 MB, 31 bytes/op
+tidwall: set-rand       1,000,000 ops in 545ms, 1,835,818/sec, 544 ns/op, 29.6 MB, 31 bytes/op
+tidwall: set-rand-hint  1,000,000 ops in 670ms, 1,493,473/sec, 669 ns/op, 29.6 MB, 31 bytes/op
+tidwall: set-again      1,000,000 ops in 681ms, 1,469,038/sec, 680 ns/op
+tidwall: set-after-copy 1,000,000 ops in 670ms, 1,493,230/sec, 669 ns/op
+tidwall: load-rand      1,000,000 ops in 569ms, 1,756,187/sec, 569 ns/op, 29.6 MB, 31 bytes/op
 
 ** sequential get **
-google:  get-seq        1,000,000 ops in 141ms, 7,078,690/sec, 141 ns/op
-tidwall: get-seq        1,000,000 ops in 124ms, 8,075,925/sec, 123 ns/op
-tidwall: get-seq-hint   1,000,000 ops in 40ms, 25,142,979/sec, 39 ns/op
+google:  get-seq        1,000,000 ops in 165ms, 6,048,307/sec, 165 ns/op
+tidwall: get-seq        1,000,000 ops in 144ms, 6,940,120/sec, 144 ns/op
+tidwall: get-seq-hint   1,000,000 ops in 78ms, 12,815,243/sec, 78 ns/op
 
 ** random get **
-google:  get-rand       1,000,000 ops in 152ms, 6,593,518/sec, 151 ns/op
-tidwall: get-rand       1,000,000 ops in 128ms, 7,783,293/sec, 128 ns/op
-tidwall: get-rand-hint  1,000,000 ops in 135ms, 7,403,823/sec, 135 ns/op
+google:  get-rand       1,000,000 ops in 701ms, 1,427,507/sec, 700 ns/op
+tidwall: get-rand       1,000,000 ops in 679ms, 1,473,531/sec, 678 ns/op
+tidwall: get-rand-hint  1,000,000 ops in 824ms, 1,213,805/sec, 823 ns/op
 ```
 
 *You can find the benchmark utility at [tidwall/btree-benchmark](https://github.com/tidwall/btree-benchmark)*

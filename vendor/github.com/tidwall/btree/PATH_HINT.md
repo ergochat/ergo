@@ -26,7 +26,7 @@ Take the first example image. The item 9 is at path “1/0”. The item 16 is at
 
 A Path Hint is a predefined path that is provided to B-tree operations. It’s just a hint that says, “Hey B-tree, instead of starting your binary search with the middle index, start with what I provide you. My path may be wrong, and if so please provide me with the correct path so I get it right the next time.”
 
-I’ve found using path hints can lead to a little performance increase of 150% - 300%. This is because in real-world cases the items that I’m working with are usually nearby each other in the tree. 
+I’ve found using path hints can lead to a little performance increase of 150% - 300%. This is because in real-world cases the items that I’m working with are usually nearby each other in the tree.
 
 Take for example inserting a group of timeseries points. They may often be received as chucks of near-contiguous items.  
 Or, I'm sequentially inserting an ordered group of rows somewhere in the middle of a table.  
@@ -36,6 +36,8 @@ Using a path hint may help to avoid the unnecessary binary searching in each of 
 While I may see a 3x boost in when the path hint is right on, I'll only see around 5% decrease when the path hint is totally wrong.
 
 ## Using a Path Hint
+
+All of the functions that take in a path hint argument mutate the path hint argument.
 
 For single-threaded programs, it’s possible to use one shared path hint per B-tree for the life of the program.  
 For multi-threaded programs, I find it best to use one path hint per B-tree , per thread.  
