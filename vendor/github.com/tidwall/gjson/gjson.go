@@ -229,17 +229,19 @@ func (t Result) ForEach(iterator func(key, value Result) bool) {
 		return
 	}
 	json := t.Raw
-	var keys bool
+	var obj bool
 	var i int
 	var key, value Result
 	for ; i < len(json); i++ {
 		if json[i] == '{' {
 			i++
 			key.Type = String
-			keys = true
+			obj = true
 			break
 		} else if json[i] == '[' {
 			i++
+			key.Type = Number
+			key.Num = -1
 			break
 		}
 		if json[i] > ' ' {
@@ -249,8 +251,9 @@ func (t Result) ForEach(iterator func(key, value Result) bool) {
 	var str string
 	var vesc bool
 	var ok bool
+	var idx int
 	for ; i < len(json); i++ {
-		if keys {
+		if obj {
 			if json[i] != '"' {
 				continue
 			}
@@ -265,7 +268,9 @@ func (t Result) ForEach(iterator func(key, value Result) bool) {
 				key.Str = str[1 : len(str)-1]
 			}
 			key.Raw = str
-			key.Index = s
+			key.Index = s + t.Index
+		} else {
+			key.Num += 1
 		}
 		for ; i < len(json); i++ {
 			if json[i] <= ' ' || json[i] == ',' || json[i] == ':' {
@@ -278,10 +283,17 @@ func (t Result) ForEach(iterator func(key, value Result) bool) {
 		if !ok {
 			return
 		}
-		value.Index = s
+		if t.Indexes != nil {
+			if idx < len(t.Indexes) {
+				value.Index = t.Indexes[idx]
+			}
+		} else {
+			value.Index = s + t.Index
+		}
 		if !iterator(key, value) {
 			return
 		}
+		idx++
 	}
 }
 
@@ -298,7 +310,15 @@ func (t Result) Map() map[string]Result {
 // Get searches result for the specified path.
 // The result should be a JSON array or object.
 func (t Result) Get(path string) Result {
-	return Get(t.Raw, path)
+	r := Get(t.Raw, path)
+	if r.Indexes != nil {
+		for i := 0; i < len(r.Indexes); i++ {
+			r.Indexes[i] += t.Index
+		}
+	} else {
+		r.Index += t.Index
+	}
+	return r
 }
 
 type arrayOrMapResult struct {
@@ -389,6 +409,8 @@ func (t Result) arrayOrMap(vc byte, valueize bool) (r arrayOrMapResult) {
 			value.Raw, value.Str = tostr(json[i:])
 			value.Num = 0
 		}
+		value.Index = i + t.Index
+
 		i += len(value.Raw) - 1
 
 		if r.vc == '{' {
@@ -415,6 +437,17 @@ func (t Result) arrayOrMap(vc byte, valueize bool) (r arrayOrMapResult) {
 		}
 	}
 end:
+	if t.Indexes != nil {
+		if len(t.Indexes) != len(r.a) {
+			for i := 0; i < len(r.a); i++ {
+				r.a[i].Index = 0
+			}
+		} else {
+			for i := 0; i < len(r.a); i++ {
+				r.a[i].Index = t.Indexes[i]
+			}
+		}
+	}
 	return
 }
 
@@ -426,7 +459,8 @@ end:
 // use the Valid function first.
 func Parse(json string) Result {
 	var value Result
-	for i := 0; i < len(json); i++ {
+	i := 0
+	for ; i < len(json); i++ {
 		if json[i] == '{' || json[i] == '[' {
 			value.Type = JSON
 			value.Raw = json[i:] // just take the entire raw
@@ -436,16 +470,20 @@ func Parse(json string) Result {
 			continue
 		}
 		switch json[i] {
-		default:
-			if (json[i] >= '0' && json[i] <= '9') || json[i] == '-' {
+		case '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+			'i', 'I', 'N':
+			value.Type = Number
+			value.Raw, value.Num = tonum(json[i:])
+		case 'n':
+			if i+1 < len(json) && json[i+1] != 'u' {
+				// nan
 				value.Type = Number
 				value.Raw, value.Num = tonum(json[i:])
 			} else {
-				return Result{}
+				// null
+				value.Type = Null
+				value.Raw = tolit(json[i:])
 			}
-		case 'n':
-			value.Type = Null
-			value.Raw = tolit(json[i:])
 		case 't':
 			value.Type = True
 			value.Raw = tolit(json[i:])
@@ -455,8 +493,13 @@ func Parse(json string) Result {
 		case '"':
 			value.Type = String
 			value.Raw, value.Str = tostr(json[i:])
+		default:
+			return Result{}
 		}
 		break
+	}
+	if value.Exists() {
+		value.Index = i
 	}
 	return value
 }
@@ -531,20 +574,12 @@ func tonum(json string) (raw string, num float64) {
 				return
 			}
 			// could be a '+' or '-'. let's assume so.
-			continue
+		} else if json[i] == ']' || json[i] == '}' {
+			// break on ']' or '}'
+			raw = json[:i]
+			num, _ = strconv.ParseFloat(raw, 64)
+			return
 		}
-		if json[i] < ']' {
-			// probably a valid number
-			continue
-		}
-		if json[i] == 'e' || json[i] == 'E' {
-			// allow for exponential numbers
-			continue
-		}
-		// likely a ']' or '}'
-		raw = json[:i]
-		num, _ = strconv.ParseFloat(raw, 64)
-		return
 	}
 	raw = json
 	num, _ = strconv.ParseFloat(raw, 64)
@@ -1513,7 +1548,6 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 							}
 							if idx < len(c.json) && c.json[idx] != ']' {
 								_, res, ok := parseAny(c.json, idx, true)
-								parentIndex := res.Index
 								if ok {
 									res := res.Get(rp.alogkey)
 									if res.Exists() {
@@ -1525,8 +1559,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 											raw = res.String()
 										}
 										jsons = append(jsons, []byte(raw)...)
-										indexes = append(indexes,
-											res.Index+parentIndex)
+										indexes = append(indexes, res.Index)
 										k++
 									}
 								}
@@ -1699,7 +1732,7 @@ type subSelector struct {
 // first character in path is either '[' or '{', and has already been checked
 // prior to calling this function.
 func parseSubSelectors(path string) (sels []subSelector, out string, ok bool) {
-	modifer := 0
+	modifier := 0
 	depth := 1
 	colon := 0
 	start := 1
@@ -1714,6 +1747,7 @@ func parseSubSelectors(path string) (sels []subSelector, out string, ok bool) {
 		}
 		sels = append(sels, sel)
 		colon = 0
+		modifier = 0
 		start = i + 1
 	}
 	for ; i < len(path); i++ {
@@ -1721,11 +1755,11 @@ func parseSubSelectors(path string) (sels []subSelector, out string, ok bool) {
 		case '\\':
 			i++
 		case '@':
-			if modifer == 0 && i > 0 && (path[i-1] == '.' || path[i-1] == '|') {
-				modifer = i
+			if modifier == 0 && i > 0 && (path[i-1] == '.' || path[i-1] == '|') {
+				modifier = i
 			}
 		case ':':
-			if modifer == 0 && colon == 0 && depth == 1 {
+			if modifier == 0 && colon == 0 && depth == 1 {
 				colon = i
 			}
 		case ',':
@@ -1778,7 +1812,7 @@ func isSimpleName(component string) bool {
 			return false
 		}
 		switch component[i] {
-		case '[', ']', '{', '}', '(', ')', '#', '|':
+		case '[', ']', '{', '}', '(', ')', '#', '|', '!':
 			return false
 		}
 	}
@@ -1842,23 +1876,25 @@ type parseContext struct {
 // use the Valid function first.
 func Get(json, path string) Result {
 	if len(path) > 1 {
-		if !DisableModifiers {
-			if path[0] == '@' {
-				// possible modifier
-				var ok bool
-				var npath string
-				var rjson string
+		if (path[0] == '@' && !DisableModifiers) || path[0] == '!' {
+			// possible modifier
+			var ok bool
+			var npath string
+			var rjson string
+			if path[0] == '@' && !DisableModifiers {
 				npath, rjson, ok = execModifier(json, path)
-				if ok {
-					path = npath
-					if len(path) > 0 && (path[0] == '|' || path[0] == '.') {
-						res := Get(rjson, path[1:])
-						res.Index = 0
-						res.Indexes = nil
-						return res
-					}
-					return Parse(rjson)
+			} else if path[0] == '!' {
+				npath, rjson, ok = execStatic(json, path)
+			}
+			if ok {
+				path = npath
+				if len(path) > 0 && (path[0] == '|' || path[0] == '.') {
+					res := Get(rjson, path[1:])
+					res.Index = 0
+					res.Indexes = nil
+					return res
 				}
+				return Parse(rjson)
 			}
 		}
 		if path[0] == '[' || path[0] == '{' {
@@ -2527,8 +2563,40 @@ func safeInt(f float64) (n int64, ok bool) {
 	return int64(f), true
 }
 
+// execStatic parses the path to find a static value.
+// The input expects that the path already starts with a '!'
+func execStatic(json, path string) (pathOut, res string, ok bool) {
+	name := path[1:]
+	if len(name) > 0 {
+		switch name[0] {
+		case '{', '[', '"', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7',
+			'8', '9':
+			_, res = parseSquash(name, 0)
+			pathOut = name[len(res):]
+			return pathOut, res, true
+		}
+	}
+	for i := 1; i < len(path); i++ {
+		if path[i] == '|' {
+			pathOut = path[i:]
+			name = path[1:i]
+			break
+		}
+		if path[i] == '.' {
+			pathOut = path[i:]
+			name = path[1:i]
+			break
+		}
+	}
+	switch strings.ToLower(name) {
+	case "true", "false", "null", "nan", "inf":
+		return pathOut, name, true
+	}
+	return pathOut, res, false
+}
+
 // execModifier parses the path to find a matching modifier function.
-// then input expects that the path already starts with a '@'
+// The input expects that the path already starts with a '@'
 func execModifier(json, path string) (pathOut, res string, ok bool) {
 	name := path[1:]
 	var hasArgs bool
@@ -2970,4 +3038,177 @@ func stringBytes(s string) []byte {
 
 func bytesString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func revSquash(json string) string {
+	// reverse squash
+	// expects that the tail character is a ']' or '}' or ')' or '"'
+	// squash the value, ignoring all nested arrays and objects.
+	i := len(json) - 1
+	var depth int
+	if json[i] != '"' {
+		depth++
+	}
+	if json[i] == '}' || json[i] == ']' || json[i] == ')' {
+		i--
+	}
+	for ; i >= 0; i-- {
+		switch json[i] {
+		case '"':
+			i--
+			for ; i >= 0; i-- {
+				if json[i] == '"' {
+					esc := 0
+					for i > 0 && json[i-1] == '\\' {
+						i--
+						esc++
+					}
+					if esc%2 == 1 {
+						continue
+					}
+					i += esc
+					break
+				}
+			}
+			if depth == 0 {
+				if i < 0 {
+					i = 0
+				}
+				return json[i:]
+			}
+		case '}', ']', ')':
+			depth++
+		case '{', '[', '(':
+			depth--
+			if depth == 0 {
+				return json[i:]
+			}
+		}
+	}
+	return json
+}
+
+func (t Result) Paths(json string) []string {
+	if t.Indexes == nil {
+		return nil
+	}
+	paths := make([]string, 0, len(t.Indexes))
+	t.ForEach(func(_, value Result) bool {
+		paths = append(paths, value.Path(json))
+		return true
+	})
+	if len(paths) != len(t.Indexes) {
+		return nil
+	}
+	return paths
+}
+
+// Path returns the original GJSON path for Result.
+// The json param must be the original JSON used when calling Get.
+func (t Result) Path(json string) string {
+	var path []byte
+	var comps []string // raw components
+	i := t.Index - 1
+	if t.Index+len(t.Raw) > len(json) {
+		// JSON cannot safely contain Result.
+		goto fail
+	}
+	if !strings.HasPrefix(json[t.Index:], t.Raw) {
+		// Result is not at the JSON index as exepcted.
+		goto fail
+	}
+	for ; i >= 0; i-- {
+		if json[i] <= ' ' {
+			continue
+		}
+		if json[i] == ':' {
+			// inside of object, get the key
+			for ; i >= 0; i-- {
+				if json[i] != '"' {
+					continue
+				}
+				break
+			}
+			raw := revSquash(json[:i+1])
+			i = i - len(raw)
+			comps = append(comps, raw)
+			// key gotten, now squash the rest
+			raw = revSquash(json[:i+1])
+			i = i - len(raw)
+			i++ // increment the index for next loop step
+		} else if json[i] == '{' {
+			// Encountered an open object. The original result was probably an
+			// object key.
+			goto fail
+		} else if json[i] == ',' || json[i] == '[' {
+			// inside of an array, count the position
+			var arrIdx int
+			if json[i] == ',' {
+				arrIdx++
+				i--
+			}
+			for ; i >= 0; i-- {
+				if json[i] == ':' {
+					// Encountered an unexpected colon. The original result was
+					// probably an object key.
+					goto fail
+				} else if json[i] == ',' {
+					arrIdx++
+				} else if json[i] == '[' {
+					comps = append(comps, strconv.Itoa(arrIdx))
+					break
+				} else if json[i] == ']' || json[i] == '}' || json[i] == '"' {
+					raw := revSquash(json[:i+1])
+					i = i - len(raw) + 1
+				}
+			}
+		}
+	}
+	if len(comps) == 0 {
+		if DisableModifiers {
+			goto fail
+		}
+		return "@this"
+	}
+	for i := len(comps) - 1; i >= 0; i-- {
+		rcomp := Parse(comps[i])
+		if !rcomp.Exists() {
+			goto fail
+		}
+		comp := escapeComp(rcomp.String())
+		path = append(path, '.')
+		path = append(path, comp...)
+	}
+	if len(path) > 0 {
+		path = path[1:]
+	}
+	return string(path)
+fail:
+	return ""
+}
+
+// isSafePathKeyChar returns true if the input character is safe for not
+// needing escaping.
+func isSafePathKeyChar(c byte) bool {
+	return c <= ' ' || c > '~' || c == '_' || c == '-' || c == ':' ||
+		(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9')
+}
+
+// escapeComp escaped a path compontent, making it safe for generating a
+// path for later use.
+func escapeComp(comp string) string {
+	for i := 0; i < len(comp); i++ {
+		if !isSafePathKeyChar(comp[i]) {
+			ncomp := []byte(comp[:i])
+			for ; i < len(comp); i++ {
+				if !isSafePathKeyChar(comp[i]) {
+					ncomp = append(ncomp, '\\')
+				}
+				ncomp = append(ncomp, comp[i])
+			}
+			return string(ncomp)
+		}
+	}
+	return comp
 }
