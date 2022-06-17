@@ -20,7 +20,7 @@ require (
 	github.com/tidwall/buntdb v1.2.9
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	github.com/xdg-go/scram v1.0.2
-	golang.org/x/crypto v0.0.0-20211115234514-b4de73f9ece8
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/text v0.3.7
 	gopkg.in/yaml.v2 v2.4.0
 )
