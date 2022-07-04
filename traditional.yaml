@@ -821,6 +821,12 @@ fakelag:
     # sending any commands:
     cooldown: 2s
 
+    # exempt a certain number of command invocations per session from fakelag;
+    # this is to speed up "resynchronization" of client state during reattach
+    command-budgets:
+        "MARKREAD":    16
+        "CHATHISTORY": 16
+
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
 # for actual roleplaying, or for bridging IRC with other protocols.

@@ -60,7 +60,7 @@ func TestFakelag(t *testing.T) {
 	window, _ := time.ParseDuration("1s")
 	fl, mt := newFakelagForTesting(window, 3, 2, window)
 
-	fl.Touch()
+	fl.Touch("")
 	slept, _ := mt.lastSleep()
 	if slept {
 		t.Fatalf("should not have slept")
@@ -69,7 +69,7 @@ func TestFakelag(t *testing.T) {
 	interval, _ := time.ParseDuration("100ms")
 	for i := 0; i < 2; i++ {
 		mt.pause(interval)
-		fl.Touch()
+		fl.Touch("")
 		slept, _ := mt.lastSleep()
 		if slept {
 			t.Fatalf("should not have slept")
@@ -77,7 +77,7 @@ func TestFakelag(t *testing.T) {
 	}
 
 	mt.pause(interval)
-	fl.Touch()
+	fl.Touch("")
 	if fl.state != FakelagThrottled {
 		t.Fatalf("should be throttled")
 	}
@@ -91,7 +91,7 @@ func TestFakelag(t *testing.T) {
 	}
 
 	// send another message without a pause; we should have to sleep for 500 msec
-	fl.Touch()
+	fl.Touch("")
 	if fl.state != FakelagThrottled {
 		t.Fatalf("should be throttled")
 	}
@@ -102,7 +102,7 @@ func TestFakelag(t *testing.T) {
 	}
 
 	mt.pause(interval * 6)
-	fl.Touch()
+	fl.Touch("")
 	if fl.state != FakelagThrottled {
 		t.Fatalf("should still be throttled")
 	}
@@ -112,7 +112,7 @@ func TestFakelag(t *testing.T) {
 	}
 
 	mt.pause(window * 2)
-	fl.Touch()
+	fl.Touch("")
 	if fl.state != FakelagBursting {
 		t.Fatalf("should be bursting again")
 	}
