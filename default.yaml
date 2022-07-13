@@ -852,8 +852,9 @@ fakelag:
     # exempt a certain number of command invocations per session from fakelag;
     # this is to speed up "resynchronization" of client state during reattach
     command-budgets:
-        "MARKREAD":    16
         "CHATHISTORY": 16
+        "MARKREAD":    16
+        "MONITOR":     1
 
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
