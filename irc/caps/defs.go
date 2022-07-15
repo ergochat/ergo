@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 29
+	numCapabs = 30
 	// length of the uint64 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -64,6 +64,10 @@ const (
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
+
+	// Persistence is the proposed IRCv3 capability named "draft/persistence":
+	// https://gist.github.com/slingamn/e3645a0d0418b736b755746bfd65f2a6
+	Persistence Capability = iota
 
 	// ReadMarker is the draft IRCv3 capability named "draft/read-marker":
 	// https://github.com/ircv3/ircv3-specifications/pull/489
@@ -146,6 +150,7 @@ var (
 		"draft/extended-monitor",
 		"draft/languages",
 		"draft/multiline",
+		"draft/persistence",
 		"draft/read-marker",
 		"draft/relaymsg",
 		"echo-message",

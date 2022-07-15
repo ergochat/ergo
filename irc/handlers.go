@@ -2602,6 +2602,81 @@ func passHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	return false
 }
 
+// PERSISTENCE <subcommand> [params...]
+func persistenceHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	account := client.Account()
+	if account == "" {
+		rb.Add(nil, server.name, "FAIL", "PERSISTENCE", "ACCOUNT_REQUIRED", client.t("You're not logged into an account"))
+		return false
+	}
+
+	switch strings.ToUpper(msg.Params[0]) {
+	case "GET":
+		reportPersistenceStatus(client, rb)
+	case "SET":
+		if len(msg.Params) == 1 {
+			goto fail
+		}
+		var desiredSetting PersistentStatus
+		switch strings.ToUpper(msg.Params[1]) {
+		case "DEFAULT":
+			desiredSetting = PersistentUnspecified
+		case "OFF":
+			desiredSetting = PersistentDisabled
+		case "ON":
+			desiredSetting = PersistentMandatory
+		default:
+			goto fail
+		}
+
+		_, err := server.accounts.ModifyAccountSettings(account,
+			func(input AccountSettings) (output AccountSettings, err error) {
+				output = input
+				output.AlwaysOn = desiredSetting
+				return
+			})
+		if err != nil {
+			server.logger.Error("internal", "couldn't modify persistence setting", err.Error())
+			rb.Add(nil, server.name, "FAIL", "PERSISTENCE", "UNKNOWN_ERROR", client.t("An error occurred"))
+			return false
+		}
+
+		reportPersistenceStatus(client, rb)
+
+	default:
+		goto fail
+	}
+
+	return false
+
+fail:
+	rb.Add(nil, server.name, "FAIL", "PERSISTENCE", "INVALID_PARAMS", client.t("Invalid parameters"))
+	return false
+}
+
+func reportPersistenceStatus(client *Client, rb *ResponseBuffer) {
+	settings := client.AccountSettings()
+	serverSetting := client.server.Config().Accounts.Multiclient.AlwaysOn
+	effectiveSetting := persistenceEnabled(serverSetting, settings.AlwaysOn)
+	toString := func(setting PersistentStatus) string {
+		switch setting {
+		case PersistentUnspecified:
+			return "DEFAULT"
+		case PersistentDisabled:
+			return "OFF"
+		case PersistentMandatory:
+			return "ON"
+		default:
+			return "*" // impossible
+		}
+	}
+	effectiveSettingStr := "OFF"
+	if effectiveSetting {
+		effectiveSettingStr = "ON"
+	}
+	rb.Add(nil, client.server.name, "PERSISTENCE", "STATUS", toString(settings.AlwaysOn), effectiveSettingStr)
+}
+
 // PING [params...]
 func pingHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, "PONG", server.name, msg.Params[0])

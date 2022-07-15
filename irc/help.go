@@ -414,6 +414,13 @@ Leaves the given channels and shows people the given reason.`,
 When the server requires a connection password to join, used to send us the
 password.`,
 	},
+	"persistence": {
+		text: `PERSISTENCE [params]
+
+PERSISTENCE is a command associated with an IRC protocol extension for
+persistent connections. End users should probably use /NS GET ALWAYS-ON
+and /NS SET ALWAYS-ON instead.`,
+	},
 	"ping": {
 		text: `PING <args>...
 
