@@ -420,6 +420,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
+	if session.capabilities.Has(caps.Persistence) {
+		reportPersistenceStatus(c, rb)
+	}
 	server.Lusers(c, rb)
 	server.MOTD(c, rb)
 	rb.Send(true)

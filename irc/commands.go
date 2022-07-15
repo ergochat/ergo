@@ -233,6 +233,10 @@ func init() {
 			usablePreReg: true,
 			minParams:    1,
 		},
+		"PERSISTENCE": {
+			handler:   persistenceHandler,
+			minParams: 1,
+		},
 		"PING": {
 			handler:      pingHandler,
 			usablePreReg: true,

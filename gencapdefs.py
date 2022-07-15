@@ -189,6 +189,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/489",
         standard="draft IRCv3",
     ),
+    CapDef(
+        identifier="Persistence",
+        name="draft/persistence",
+        url="https://gist.github.com/slingamn/e3645a0d0418b736b755746bfd65f2a6",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():
