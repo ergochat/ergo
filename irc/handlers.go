@@ -3358,7 +3358,7 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 		if canSeeIPs || client == target {
 			// you can only see a target's IP if they're you or you're an oper
 			ip, _ := target.getWhoisActually()
-			fIP = ip.String()
+			fIP = utils.IPStringToHostname(ip.String())
 		}
 		params = append(params, fIP)
 	}
