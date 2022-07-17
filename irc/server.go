@@ -419,7 +419,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
-	if session.capabilities.Has(caps.Persistence) {
+	if d.account != "" && session.capabilities.Has(caps.Persistence) {
 		reportPersistenceStatus(c, rb)
 	}
 	server.Lusers(c, rb)
