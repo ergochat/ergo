@@ -2360,7 +2360,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 
 		// the originating session may get an echo message:
 		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
-		if histType != history.Notice {
+		if histType == history.Privmsg {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			if away, awayMessage := user.Away(); away {
 				rb.Add(nil, server.name, RPL_AWAY, client.Nick(), tnick, awayMessage)
