@@ -203,7 +203,7 @@ func parseProxyLineV2(line []byte) (ip net.IP, err error) {
 	return ip, nil
 }
 
-/// WrappedConn is a net.Conn with some additional data stapled to it;
+// / WrappedConn is a net.Conn with some additional data stapled to it;
 // the proxied IP, if one was read via the PROXY protocol, and the listener
 // configuration.
 type WrappedConn struct {
