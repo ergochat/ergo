@@ -16,7 +16,7 @@ import (
 )
 
 func (server *Server) Config() (config *Config) {
-	return server.config.Get()
+	return server.config.Load()
 }
 
 func (server *Server) ChannelRegistrationEnabled() bool {
