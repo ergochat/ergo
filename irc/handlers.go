@@ -2609,7 +2609,7 @@ func persistenceHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 
 	switch strings.ToUpper(msg.Params[0]) {
 	case "GET":
-		reportPersistenceStatus(client, rb)
+		reportPersistenceStatus(client, rb, false)
 	case "SET":
 		if len(msg.Params) == 1 {
 			goto fail
@@ -2626,10 +2626,12 @@ func persistenceHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			goto fail
 		}
 
+		broadcast := false
 		_, err := server.accounts.ModifyAccountSettings(account,
 			func(input AccountSettings) (output AccountSettings, err error) {
 				output = input
 				output.AlwaysOn = desiredSetting
+				broadcast = output.AlwaysOn != input.AlwaysOn
 				return
 			})
 		if err != nil {
@@ -2638,7 +2640,7 @@ func persistenceHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			return false
 		}
 
-		reportPersistenceStatus(client, rb)
+		reportPersistenceStatus(client, rb, broadcast)
 
 	default:
 		goto fail
@@ -2651,7 +2653,7 @@ fail:
 	return false
 }
 
-func reportPersistenceStatus(client *Client, rb *ResponseBuffer) {
+func reportPersistenceStatus(client *Client, rb *ResponseBuffer, broadcast bool) {
 	settings := client.AccountSettings()
 	serverSetting := client.server.Config().Accounts.Multiclient.AlwaysOn
 	effectiveSetting := persistenceEnabled(serverSetting, settings.AlwaysOn)
@@ -2667,11 +2669,19 @@ func reportPersistenceStatus(client *Client, rb *ResponseBuffer) {
 			return "*" // impossible
 		}
 	}
+	storedSettingStr := toString(settings.AlwaysOn)
 	effectiveSettingStr := "OFF"
 	if effectiveSetting {
 		effectiveSettingStr = "ON"
 	}
-	rb.Add(nil, client.server.name, "PERSISTENCE", "STATUS", toString(settings.AlwaysOn), effectiveSettingStr)
+	rb.Add(nil, client.server.name, "PERSISTENCE", "STATUS", storedSettingStr, effectiveSettingStr)
+	if broadcast {
+		for _, session := range client.Sessions() {
+			if session != rb.session {
+				session.Send(nil, client.server.name, "PERSISTENCE", "STATUS", storedSettingStr, effectiveSettingStr)
+			}
+		}
+	}
 }
 
 // PING [params...]
