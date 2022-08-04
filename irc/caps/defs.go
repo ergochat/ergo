@@ -62,7 +62,7 @@ const (
 	Multiline Capability = iota
 
 	// Persistence is the proposed IRCv3 capability named "draft/persistence":
-	// https://gist.github.com/slingamn/e3645a0d0418b736b755746bfd65f2a6
+	// https://github.com/ircv3/ircv3-specifications/pull/503
 	Persistence Capability = iota
 
 	// ReadMarker is the draft IRCv3 capability named "draft/read-marker":
