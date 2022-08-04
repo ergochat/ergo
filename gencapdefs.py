@@ -192,7 +192,7 @@ CAPDEFS = [
     CapDef(
         identifier="Persistence",
         name="draft/persistence",
-        url="https://gist.github.com/slingamn/e3645a0d0418b736b755746bfd65f2a6",
+        url="https://github.com/ircv3/ircv3-specifications/pull/503",
         standard="proposed IRCv3",
     ),
 ]
