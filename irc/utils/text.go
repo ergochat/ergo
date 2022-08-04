@@ -22,9 +22,12 @@ type MessagePair struct {
 // SplitMessage represents a message that's been split for sending.
 // Two possibilities:
 // (a) Standard message that can be relayed on a single 512-byte line
-//     (MessagePair contains the message, Split == nil)
+//
+//	(MessagePair contains the message, Split == nil)
+//
 // (b) multiline message that was split on the client side
-//     (Message == "", Split contains the split lines)
+//
+//	(Message == "", Split contains the split lines)
 type SplitMessage struct {
 	Message string
 	Msgid   string
