@@ -421,7 +421,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	rb := NewResponseBuffer(session)
 	server.RplISupport(c, rb)
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
-		reportPersistenceStatus(c, rb)
+		reportPersistenceStatus(c, rb, false)
 	}
 	server.Lusers(c, rb)
 	server.MOTD(c, rb)
