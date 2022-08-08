@@ -2677,7 +2677,7 @@ func reportPersistenceStatus(client *Client, rb *ResponseBuffer, broadcast bool)
 	rb.Add(nil, client.server.name, "PERSISTENCE", "STATUS", storedSettingStr, effectiveSettingStr)
 	if broadcast {
 		for _, session := range client.Sessions() {
-			if session != rb.session {
+			if session != rb.session && session.capabilities.Has(caps.Persistence) {
 				session.Send(nil, client.server.name, "PERSISTENCE", "STATUS", storedSettingStr, effectiveSettingStr)
 			}
 		}
