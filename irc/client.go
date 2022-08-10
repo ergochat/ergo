@@ -165,7 +165,7 @@ type Session struct {
 	sasl       saslStatus
 	passStatus serverPassStatus
 
-	batchCounter uint32
+	batchCounter atomic.Uint32
 
 	quitMessage string
 
@@ -262,7 +262,7 @@ func (session *Session) HasHistoryCaps() bool {
 // or nesting) on an individual session connection need to be unique.
 // this allows ~4 billion such batches which should be fine.
 func (session *Session) generateBatchID() string {
-	id := atomic.AddUint32(&session.batchCounter, 1)
+	id := session.batchCounter.Add(1)
 	return strconv.FormatInt(int64(id), 32)
 }
 

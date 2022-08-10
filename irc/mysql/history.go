@@ -45,10 +45,8 @@ const (
 type e struct{}
 
 type MySQL struct {
-	timeout              *int64
-	trackAccountMessages uint32
-	db                   *sql.DB
-	logger               *logger.Manager
+	db     *sql.DB
+	logger *logger.Manager
 
 	insertHistory        *sql.Stmt
 	insertSequence       *sql.Stmt
@@ -60,22 +58,24 @@ type MySQL struct {
 	config     Config
 
 	wakeForgetter chan e
+
+	timeout              atomic.Uint64
+	trackAccountMessages atomic.Uint32
 }
 
 func (mysql *MySQL) Initialize(logger *logger.Manager, config Config) {
-	mysql.timeout = new(int64)
 	mysql.logger = logger
 	mysql.wakeForgetter = make(chan e, 1)
 	mysql.SetConfig(config)
 }
 
 func (mysql *MySQL) SetConfig(config Config) {
-	atomic.StoreInt64(mysql.timeout, int64(config.Timeout))
+	mysql.timeout.Store(uint64(config.Timeout))
 	var trackAccountMessages uint32
 	if config.TrackAccountMessages {
 		trackAccountMessages = 1
 	}
-	atomic.StoreUint32(&mysql.trackAccountMessages, trackAccountMessages)
+	mysql.trackAccountMessages.Store(trackAccountMessages)
 	mysql.stateMutex.Lock()
 	mysql.config = config
 	mysql.stateMutex.Unlock()
@@ -555,11 +555,11 @@ func (mysql *MySQL) prepareStatements() (err error) {
 }
 
 func (mysql *MySQL) getTimeout() time.Duration {
-	return time.Duration(atomic.LoadInt64(mysql.timeout))
+	return time.Duration(mysql.timeout.Load())
 }
 
 func (mysql *MySQL) isTrackingAccountMessages() bool {
-	return atomic.LoadUint32(&mysql.trackAccountMessages) != 0
+	return mysql.trackAccountMessages.Load() != 0
 }
 
 func (mysql *MySQL) logError(context string, err error) (quit bool) {
