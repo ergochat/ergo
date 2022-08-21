@@ -91,7 +91,7 @@ type Server struct {
 	stats             Stats
 	semaphores        ServerSemaphores
 	flock             flock.Flocker
-	defcon            uint32
+	defcon            atomic.Uint32
 }
 
 // NewServer returns a new Oragono server.
@@ -103,8 +103,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		exitSignals:  make(chan os.Signal, len(utils.ServerExitSignals)),
-		defcon:       5,
 	}
+	server.defcon.Store(5)
 
 	server.accepts.Initialize()
 	server.clients.Initialize()
