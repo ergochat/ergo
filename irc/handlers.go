@@ -3435,12 +3435,21 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		return false
 	}
 
+	// https://modern.ircdocs.horse/#who-message
+	// "1. A channel name, in which case the channel members are listed."
+	// "2. An exact nickname, in which case a single user is returned."
+	// "3. A mask pattern, in which case all visible users whose nickname matches are listed."
+	var isChannel bool
+	var isBareNick bool
 	mask := origMask
 	var err error
-	if mask[0] == '#' {
-		mask, err = CasefoldChannel(msg.Params[0])
+	if origMask[0] == '#' {
+		mask, err = CasefoldChannel(origMask)
+		isChannel = true
+	} else if !strings.ContainsAny(origMask, protocolBreakingNameCharacters) {
+		isBareNick = true
 	} else {
-		mask, err = CanonicalizeMaskWildcard(mask)
+		mask, err = CanonicalizeMaskWildcard(origMask)
 	}
 
 	if err != nil {
@@ -3491,7 +3500,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	oper := client.Oper()
 	hasPrivs := oper.HasRoleCapab("sajoin")
 	canSeeIPs := oper.HasRoleCapab("ban")
-	if mask[0] == '#' {
+	if isChannel {
 		channel := server.channels.Get(mask)
 		if channel != nil {
 			isJoined := channel.hasClient(client)
@@ -3508,6 +3517,11 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 					}
 				}
 			}
+		}
+	} else if isBareNick {
+		mclient := server.clients.Get(mask)
+		if mclient != nil {
+			client.rplWhoReply(nil, mclient, rb, canSeeIPs, oper != nil, includeRFlag, isWhox, fields, whoType)
 		}
 	} else {
 		// Construct set of channels the client is in.
