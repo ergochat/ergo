@@ -6,7 +6,6 @@ package irc
 import (
 	"fmt"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -16,7 +15,7 @@ import (
 )
 
 func (server *Server) Config() (config *Config) {
-	return server.config.Get()
+	return server.config.Load()
 }
 
 func (server *Server) ChannelRegistrationEnabled() bool {
@@ -36,11 +35,11 @@ func (server *Server) Languages() (lm *languages.Manager) {
 }
 
 func (server *Server) Defcon() uint32 {
-	return atomic.LoadUint32(&server.defcon)
+	return server.defcon.Load()
 }
 
 func (server *Server) SetDefcon(defcon uint32) {
-	atomic.StoreUint32(&server.defcon, defcon)
+	server.defcon.Store(defcon)
 }
 
 func (client *Client) Sessions() (sessions []*Session) {

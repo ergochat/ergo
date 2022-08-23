@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -66,7 +67,7 @@ type Server struct {
 	channels          ChannelManager
 	channelRegistry   ChannelRegistry
 	clients           ClientManager
-	config            utils.ConfigStore[Config]
+	config            atomic.Pointer[Config]
 	configFilename    string
 	connectionLimiter connection_limits.Limiter
 	ctime             time.Time
@@ -90,7 +91,7 @@ type Server struct {
 	stats             Stats
 	semaphores        ServerSemaphores
 	flock             flock.Flocker
-	defcon            uint32
+	defcon            atomic.Uint32
 }
 
 // NewServer returns a new Oragono server.
@@ -102,8 +103,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 		logger:       logger,
 		rehashSignal: make(chan os.Signal, 1),
 		exitSignals:  make(chan os.Signal, len(utils.ServerExitSignals)),
-		defcon:       5,
 	}
+	server.defcon.Store(5)
 
 	server.accepts.Initialize()
 	server.clients.Initialize()
@@ -707,7 +708,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
 
 	// activate the new config
-	server.config.Set(config)
+	server.config.Store(config)
 
 	// load [dk]-lines, registered users and channels, etc.
 	if initial {

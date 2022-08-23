@@ -105,12 +105,13 @@ func (socket *Socket) Write(data []byte) (err error) {
 }
 
 // BlockingWrite sends the given string out of Socket. Requirements:
-// 1. MUST block until the message is sent
-// 2. MUST bypass sendq (calls to BlockingWrite cannot, on their own, cause a sendq overflow)
-// 3. MUST provide mutual exclusion for socket.conn.Write
-// 4. MUST respect the same ordering guarantees as Write (i.e., if a call to Write that sends
-//    message m1 happens-before a call to BlockingWrite that sends message m2,
-//    m1 must be sent on the wire before m2
+//  1. MUST block until the message is sent
+//  2. MUST bypass sendq (calls to BlockingWrite cannot, on their own, cause a sendq overflow)
+//  3. MUST provide mutual exclusion for socket.conn.Write
+//  4. MUST respect the same ordering guarantees as Write (i.e., if a call to Write that sends
+//     message m1 happens-before a call to BlockingWrite that sends message m2,
+//     m1 must be sent on the wire before m2
+//
 // Callers MUST be writing to the client's socket from the client's own goroutine;
 // other callers must use the nonblocking Write call instead. Otherwise, a client
 // with a slow/unreliable connection risks stalling the progress of the system as a whole.
