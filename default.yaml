@@ -855,6 +855,7 @@ fakelag:
         "CHATHISTORY": 16
         "MARKREAD":    16
         "MONITOR":     1
+        "WHO":         4
 
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
