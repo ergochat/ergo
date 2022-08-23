@@ -668,12 +668,21 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
+		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
+		// XXX defer processing of command error parsing until after fakelag
+
 		if client.registered {
-			touches := session.deferredFakelagCount + 1
-			session.deferredFakelagCount = 0
-			for i := 0; i < touches; i++ {
-				session.fakelag.Touch()
+			// apply deferred fakelag
+			for i := 0; i < session.deferredFakelagCount; i++ {
+				session.fakelag.Touch("")
 			}
+			session.deferredFakelagCount = 0
+			// touch for the current command
+			var command string
+			if err == nil {
+				command = msg.Command
+			}
+			session.fakelag.Touch(command)
 		} else {
 			// DoS hardening, #505
 			session.registrationMessages++
@@ -683,7 +692,6 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
-		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorTagsTooLong {

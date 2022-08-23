@@ -524,6 +524,7 @@ type FakelagConfig struct {
 	BurstLimit        uint `yaml:"burst-limit"`
 	MessagesPerWindow uint `yaml:"messages-per-window"`
 	Cooldown          time.Duration
+	CommandBudgets    map[string]int `yaml:"command-budgets"`
 }
 
 type TorListenersConfig struct {
@@ -1427,6 +1428,17 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, fmt.Errorf("Could not load languages: %s", err.Error())
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
+
+	if len(config.Fakelag.CommandBudgets) != 0 {
+		// normalize command names to uppercase:
+		commandBudgets := make(map[string]int, len(config.Fakelag.CommandBudgets))
+		for command, budget := range config.Fakelag.CommandBudgets {
+			commandBudgets[strings.ToUpper(command)] = budget
+		}
+		config.Fakelag.CommandBudgets = commandBudgets
+	} else {
+		config.Fakelag.CommandBudgets = nil
+	}
 
 	if config.Server.Relaymsg.Enabled {
 		for _, char := range protocolBreakingNameCharacters {
