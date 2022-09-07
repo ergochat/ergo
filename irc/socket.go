@@ -8,8 +8,6 @@ import (
 	"errors"
 	"io"
 	"sync"
-
-	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (
@@ -27,7 +25,7 @@ type Socket struct {
 	maxSendQBytes int
 
 	// this is a trylock enforcing that only one goroutine can write to `conn` at a time
-	writerSemaphore utils.Semaphore
+	writeLock sync.Mutex
 
 	buffers       [][]byte
 	totalLength   int
@@ -40,9 +38,8 @@ type Socket struct {
 // NewSocket returns a new Socket.
 func NewSocket(conn IRCConn, maxSendQBytes int) *Socket {
 	result := Socket{
-		conn:            conn,
-		maxSendQBytes:   maxSendQBytes,
-		writerSemaphore: utils.NewSemaphore(1),
+		conn:          conn,
+		maxSendQBytes: maxSendQBytes,
 	}
 	return &result
 }
@@ -128,8 +125,8 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 	}()
 
 	// blocking acquire of the trylock
-	socket.writerSemaphore.Acquire()
-	defer socket.writerSemaphore.Release()
+	socket.writeLock.Lock()
+	defer socket.writeLock.Unlock()
 
 	// first, flush any buffered data, to preserve the ordering guarantees
 	closed := socket.performWrite()
@@ -146,7 +143,7 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 
 // wakeWriter starts the goroutine that actually performs the write, without blocking
 func (socket *Socket) wakeWriter() {
-	if socket.writerSemaphore.TryAcquire() {
+	if socket.writeLock.TryLock() {
 		// acquired the trylock; send() will release it
 		go socket.send()
 	}
@@ -182,12 +179,12 @@ func (socket *Socket) send() {
 		socket.performWrite()
 		// surrender the trylock, avoiding a race where a write comes in after we've
 		// checked readyToWrite() and it returned false, but while we still hold the trylock:
-		socket.writerSemaphore.Release()
+		socket.writeLock.Unlock()
 		// check if more data came in while we held the trylock:
 		if !socket.readyToWrite() {
 			return
 		}
-		if !socket.writerSemaphore.TryAcquire() {
+		if !socket.writeLock.TryLock() {
 			// failed to acquire; exit and wait for the holder to observe readyToWrite()
 			// after releasing it
 			return
