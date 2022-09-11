@@ -449,10 +449,10 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	var isAway bool
 	var awayMessage string
 	if len(msg.Params) > 0 {
-		isAway = true
 		awayMessage = msg.Params[0]
 		awayMessage = ircutils.TruncateUTF8Safe(awayMessage, server.Config().Limits.AwayLen)
 	}
+	isAway = (awayMessage != "") // #1996
 
 	rb.session.SetAway(awayMessage)
 
