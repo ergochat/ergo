@@ -214,13 +214,11 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 
 	modeChanges, unknown := modes.ParseChannelModeChanges(params[1:]...)
 	invalid := len(unknown) != 0
-	// #2002: +f takes an argument but is not a channel-user mode; filter it out
-	// along with anything else that's not acceptable as an amode
-	amodeChanges := make([]modes.ModeChange, 0, len(modeChanges))
+	// #2002: +f takes an argument but is not a channel-user mode,
+	// check for anything valid as a channel mode change that is not valid
+	// as an AMODE change
 	for _, modeChange := range modeChanges {
-		if utils.SliceContains(modes.ChannelUserModes, modeChange.Mode) {
-			amodeChanges = append(amodeChanges, modeChange)
-		} else {
+		if !utils.SliceContains(modes.ChannelUserModes, modeChange.Mode) {
 			invalid = true
 		}
 	}
