@@ -53,10 +53,6 @@ const (
 	// https://github.com/ircv3/ircv3-specifications/pull/362
 	EventPlayback Capability = iota
 
-	// ExtendedMonitor is the draft IRCv3 capability named "draft/extended-monitor":
-	// https://github.com/ircv3/ircv3-specifications/pull/466
-	ExtendedMonitor Capability = iota
-
 	// Languages is the proposed IRCv3 capability named "draft/languages":
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
@@ -84,6 +80,10 @@ const (
 	// ExtendedJoin is the IRCv3 capability named "extended-join":
 	// https://ircv3.net/specs/extensions/extended-join-3.1.html
 	ExtendedJoin Capability = iota
+
+	// ExtendedMonitor is the IRCv3 capability named "extended-monitor":
+	// https://ircv3.net/specs/extensions/extended-monitor.html
+	ExtendedMonitor Capability = iota
 
 	// InviteNotify is the IRCv3 capability named "invite-notify":
 	// https://ircv3.net/specs/extensions/invite-notify-3.2.html
@@ -143,7 +143,6 @@ var (
 		"draft/channel-rename",
 		"draft/chathistory",
 		"draft/event-playback",
-		"draft/extended-monitor",
 		"draft/languages",
 		"draft/multiline",
 		"draft/read-marker",
@@ -151,6 +150,7 @@ var (
 		"echo-message",
 		"ergo.chat/nope",
 		"extended-join",
+		"extended-monitor",
 		"invite-notify",
 		"labeled-response",
 		"message-tags",
