@@ -13,13 +13,13 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/docopt/docopt-go"
 	"github.com/ergochat/ergo/irc"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/mkcerts"
+	"github.com/ergochat/ergo/irc/passwd"
 )
 
 // set via linker flags, either by make or by goreleaser:
@@ -132,7 +132,7 @@ Options:
 			log.Printf("WARNING: this password contains characters that may cause problems with your IRC client software.\n")
 			log.Printf("We strongly recommend choosing a different password.\n")
 		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		hash, err := passwd.GenerateFromPassword([]byte(password), passwd.DefaultCost)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
