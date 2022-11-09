@@ -132,7 +132,7 @@ Options:
 			log.Printf("WARNING: this password contains characters that may cause problems with your IRC client software.\n")
 			log.Printf("We strongly recommend choosing a different password.\n")
 		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
