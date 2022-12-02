@@ -1590,6 +1590,8 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANMODES", chanmodesToken)
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
 		isupport.Add("CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
+		// Kiwi expects this legacy token name:
+		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 	}
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
 	isupport.Add("CHANTYPES", chanTypes)
