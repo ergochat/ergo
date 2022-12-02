@@ -26,6 +26,10 @@ type ircService struct {
 	HelpBanner     string
 }
 
+func (service *ircService) Realname(client *Client) string {
+	return fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name)
+}
+
 // defines a command associated with a service, e.g., NICKSERV IDENTIFY
 type serviceCommand struct {
 	aliasOf           string   // marks this command as an alias of another
@@ -92,7 +96,7 @@ var (
 )
 
 // all services, by lowercase name
-var OragonoServices = map[string]*ircService{
+var ErgoServices = map[string]*ircService{
 	"nickserv": nickservService,
 	"chanserv": chanservService,
 	"hostserv": hostservService,
@@ -105,7 +109,7 @@ func (service *ircService) Notice(rb *ResponseBuffer, text string) {
 
 // all service commands at the protocol level, by uppercase command name
 // e.g., NICKSERV, NS
-var oragonoServicesByCommandAlias map[string]*ircService
+var ergoServicesByCommandAlias map[string]*ircService
 
 // special-cased command shared by all services
 var servHelpCmd serviceCommand = serviceCommand{
@@ -117,7 +121,7 @@ HELP returns information on the given command.`,
 
 // generic handler for IRC commands like `/NICKSERV INFO`
 func serviceCmdHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	service, ok := oragonoServicesByCommandAlias[msg.Command]
+	service, ok := ergoServicesByCommandAlias[msg.Command]
 	if !ok {
 		server.logger.Warning("internal", "can't handle unrecognized service", msg.Command)
 		return false
@@ -323,7 +327,7 @@ func overrideServicePrefixes(hostname string) error {
 	if !utils.IsHostname(hostname) {
 		return fmt.Errorf("`%s` is an invalid services hostname", hostname)
 	}
-	for _, serv := range OragonoServices {
+	for _, serv := range ErgoServices {
 		serv.prefix = fmt.Sprintf("%s!%s@%s", serv.Name, serv.Name, hostname)
 	}
 	return nil
@@ -332,9 +336,9 @@ func overrideServicePrefixes(hostname string) error {
 func initializeServices() {
 	// this modifies the global Commands map,
 	// so it must be called from irc/commands.go's init()
-	oragonoServicesByCommandAlias = make(map[string]*ircService)
+	ergoServicesByCommandAlias = make(map[string]*ircService)
 
-	for serviceName, service := range OragonoServices {
+	for serviceName, service := range ErgoServices {
 		service.prefix = fmt.Sprintf("%s!%s@localhost", service.Name, service.Name)
 
 		// make `/MSG ServiceName HELP` work correctly
@@ -349,7 +353,7 @@ func initializeServices() {
 		ircCmdDef.handler = serviceCmdHandler
 		for _, ircCmd := range service.CommandAliases {
 			Commands[ircCmd] = ircCmdDef
-			oragonoServicesByCommandAlias[ircCmd] = service
+			ergoServicesByCommandAlias[ircCmd] = service
 			Help[strings.ToLower(ircCmd)] = HelpEntry{
 				textGenerator: makeServiceHelpTextGenerator(ircCmd, service.HelpBanner),
 			}
