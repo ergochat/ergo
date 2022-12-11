@@ -821,6 +821,14 @@ fakelag:
     # sending any commands:
     cooldown: 2s
 
+    # exempt a certain number of command invocations per session from fakelag;
+    # this is to speed up "resynchronization" of client state during reattach
+    command-budgets:
+        "CHATHISTORY": 16
+        "MARKREAD":    16
+        "MONITOR":     1
+        "WHO":         4
+
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
 # for actual roleplaying, or for bridging IRC with other protocols.
@@ -914,7 +922,9 @@ history:
 
     # options to store history messages in a persistent database (currently only MySQL).
     # in order to enable any of this functionality, you must configure a MySQL server
-    # in the `datastore.mysql` section.
+    # in the `datastore.mysql` section. enabling persistence overrides the history
+    # size limits above (`channel-length`, `client-length`, etc.); persistent
+    # history has no limits other than those imposed by expire-time.
     persistent:
         enabled: false
 

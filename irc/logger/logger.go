@@ -69,7 +69,7 @@ type Manager struct {
 	loggers         []singleLogger
 	stdoutWriteLock sync.Mutex // use one lock for both stdout and stderr
 	fileWriteLock   sync.Mutex
-	loggingRawIO    uint32
+	loggingRawIO    atomic.Uint32
 }
 
 // LoggingConfig represents the configuration of a single logger.
@@ -107,7 +107,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 	}
 
 	logger.loggers = nil
-	atomic.StoreUint32(&logger.loggingRawIO, 0)
+	logger.loggingRawIO.Store(0)
 
 	// for safety, this deep-copies all mutable data in `config`
 	// XXX let's keep it that way
@@ -138,7 +138,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 		ioEnabled := typeMap["userinput"] || typeMap["useroutput"] || (typeMap["*"] && !(excludedTypeMap["userinput"] && excludedTypeMap["useroutput"]))
 		// raw I/O is only logged at level debug;
 		if ioEnabled && logConfig.Level == LogDebug {
-			atomic.StoreUint32(&logger.loggingRawIO, 1)
+			logger.loggingRawIO.Store(1)
 		}
 		if sLogger.MethodFile.Enabled {
 			file, err := os.OpenFile(sLogger.MethodFile.Filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
@@ -157,7 +157,7 @@ func (logger *Manager) ApplyConfig(config []LoggingConfig) error {
 
 // IsLoggingRawIO returns true if raw user input and output is being logged.
 func (logger *Manager) IsLoggingRawIO() bool {
-	return atomic.LoadUint32(&logger.loggingRawIO) == 1
+	return logger.loggingRawIO.Load() == 1
 }
 
 // Log logs the given message with the given details.

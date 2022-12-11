@@ -64,6 +64,12 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
+        identifier="ExtendedMonitor",
+        name="extended-monitor",
+        url="https://ircv3.net/specs/extensions/extended-monitor.html",
+        standard="IRCv3",
+    ),
+    CapDef(
         identifier="InviteNotify",
         name="invite-notify",
         url="https://ircv3.net/specs/extensions/invite-notify-3.2.html",
@@ -175,12 +181,6 @@ CAPDEFS = [
         identifier="AccountRegistration",
         name="draft/account-registration",
         url="https://github.com/ircv3/ircv3-specifications/pull/435",
-        standard="draft IRCv3",
-    ),
-    CapDef(
-        identifier="ExtendedMonitor",
-        name="draft/extended-monitor",
-        url="https://github.com/ircv3/ircv3-specifications/pull/466",
         standard="draft IRCv3",
     ),
     CapDef(

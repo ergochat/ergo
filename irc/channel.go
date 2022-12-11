@@ -47,10 +47,10 @@ type Channel struct {
 	userLimit         int
 	accountToUMode    map[string]modes.Mode
 	history           history.Buffer
-	stateMutex        sync.RWMutex    // tier 1
-	writerSemaphore   utils.Semaphore // tier 1.5
-	joinPartMutex     sync.Mutex      // tier 3
-	ensureLoaded      utils.Once      // manages loading stored registration info from the database
+	stateMutex        sync.RWMutex // tier 1
+	writebackLock     sync.Mutex   // tier 1.5
+	joinPartMutex     sync.Mutex   // tier 3
+	ensureLoaded      utils.Once   // manages loading stored registration info from the database
 	dirtyBits         uint
 	settings          ChannelSettings
 }
@@ -61,12 +61,11 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channe
 	config := s.Config()
 
 	channel := &Channel{
-		createdTime:     time.Now().UTC(), // may be overwritten by applyRegInfo
-		members:         make(MemberSet),
-		name:            name,
-		nameCasefolded:  casefoldedName,
-		server:          s,
-		writerSemaphore: utils.NewSemaphore(1),
+		createdTime:    time.Now().UTC(), // may be overwritten by applyRegInfo
+		members:        make(MemberSet),
+		name:           name,
+		nameCasefolded: casefoldedName,
+		server:         s,
 	}
 
 	channel.initializeLists()
@@ -209,11 +208,11 @@ func (channel *Channel) MarkDirty(dirtyBits uint) {
 // ChannelManager's lock (that way, no one can join and make the channel dirty again
 // between this method exiting and the actual deletion).
 func (channel *Channel) IsClean() bool {
-	if !channel.writerSemaphore.TryAcquire() {
+	if !channel.writebackLock.TryLock() {
 		// a database write (which may fail) is in progress, the channel cannot be cleaned up
 		return false
 	}
-	defer channel.writerSemaphore.Release()
+	defer channel.writebackLock.Unlock()
 
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
@@ -225,7 +224,7 @@ func (channel *Channel) IsClean() bool {
 }
 
 func (channel *Channel) wakeWriter() {
-	if channel.writerSemaphore.TryAcquire() {
+	if channel.writebackLock.TryLock() {
 		go channel.writeLoop()
 	}
 }
@@ -235,7 +234,7 @@ func (channel *Channel) writeLoop() {
 	for {
 		// TODO(#357) check the error value of this and implement timed backoff
 		channel.performWrite(0)
-		channel.writerSemaphore.Release()
+		channel.writebackLock.Unlock()
 
 		channel.stateMutex.RLock()
 		isDirty := channel.dirtyBits != 0
@@ -249,7 +248,7 @@ func (channel *Channel) writeLoop() {
 			return // nothing to do
 		} // else: isDirty, so we need to write again
 
-		if !channel.writerSemaphore.TryAcquire() {
+		if !channel.writebackLock.TryLock() {
 			return
 		}
 	}
@@ -272,8 +271,8 @@ func (channel *Channel) Store(dirtyBits uint) (err error) {
 		}
 	}()
 
-	channel.writerSemaphore.Acquire()
-	defer channel.writerSemaphore.Release()
+	channel.writebackLock.Lock()
+	defer channel.writebackLock.Unlock()
 	return channel.performWrite(dirtyBits)
 }
 

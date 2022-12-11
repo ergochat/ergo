@@ -113,7 +113,7 @@ type Client struct {
 	vhost              string
 	history            history.Buffer
 	dirtyBits          uint
-	writerSemaphore    utils.Semaphore // tier 1.5
+	writebackLock      sync.Mutex // tier 1.5
 }
 
 type saslStatus struct {
@@ -165,7 +165,7 @@ type Session struct {
 	sasl       saslStatus
 	passStatus serverPassStatus
 
-	batchCounter uint32
+	batchCounter atomic.Uint32
 
 	quitMessage string
 
@@ -262,7 +262,7 @@ func (session *Session) HasHistoryCaps() bool {
 // or nesting) on an individual session connection need to be unique.
 // this allows ~4 billion such batches which should be fine.
 func (session *Session) generateBatchID() string {
-	id := atomic.AddUint32(&session.batchCounter, 1)
+	id := session.batchCounter.Add(1)
 	return strconv.FormatInt(int64(id), 32)
 }
 
@@ -335,16 +335,15 @@ func (server *Server) RunClient(conn IRCConn) {
 			Duration: config.Accounts.LoginThrottling.Duration,
 			Limit:    config.Accounts.LoginThrottling.MaxAttempts,
 		},
-		server:          server,
-		accountName:     "*",
-		nick:            "*", // * is used until actual nick is given
-		nickCasefolded:  "*",
-		nickMaskString:  "*", // * is used until actual nick is given
-		realIP:          realIP,
-		proxiedIP:       proxiedIP,
-		requireSASL:     requireSASL,
-		nextSessionID:   1,
-		writerSemaphore: utils.NewSemaphore(1),
+		server:         server,
+		accountName:    "*",
+		nick:           "*", // * is used until actual nick is given
+		nickCasefolded: "*",
+		nickMaskString: "*", // * is used until actual nick is given
+		realIP:         realIP,
+		proxiedIP:      proxiedIP,
+		requireSASL:    requireSASL,
+		nextSessionID:  1,
 	}
 	if requireSASL {
 		client.requireSASLMessage = banMsg
@@ -424,8 +423,6 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 		realname: realname,
 
 		nextSessionID: 1,
-
-		writerSemaphore: utils.NewSemaphore(1),
 	}
 
 	if client.checkAlwaysOnExpirationNoMutex(config, true) {
@@ -668,12 +665,21 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
+		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
+		// XXX defer processing of command error parsing until after fakelag
+
 		if client.registered {
-			touches := session.deferredFakelagCount + 1
-			session.deferredFakelagCount = 0
-			for i := 0; i < touches; i++ {
-				session.fakelag.Touch()
+			// apply deferred fakelag
+			for i := 0; i < session.deferredFakelagCount; i++ {
+				session.fakelag.Touch("")
 			}
+			session.deferredFakelagCount = 0
+			// touch for the current command
+			var command string
+			if err == nil {
+				command = msg.Command
+			}
+			session.fakelag.Touch(command)
 		} else {
 			// DoS hardening, #505
 			session.registrationMessages++
@@ -683,7 +689,6 @@ func (client *Client) run(session *Session) {
 			}
 		}
 
-		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
 		if err == ircmsg.ErrorLineIsEmpty {
 			continue
 		} else if err == ircmsg.ErrorTagsTooLong {
@@ -1764,7 +1769,7 @@ func (client *Client) markDirty(dirtyBits uint) {
 }
 
 func (client *Client) wakeWriter() {
-	if client.writerSemaphore.TryAcquire() {
+	if client.writebackLock.TryLock() {
 		go client.writeLoop()
 	}
 }
@@ -1772,13 +1777,13 @@ func (client *Client) wakeWriter() {
 func (client *Client) writeLoop() {
 	for {
 		client.performWrite(0)
-		client.writerSemaphore.Release()
+		client.writebackLock.Unlock()
 
 		client.stateMutex.RLock()
 		isDirty := client.dirtyBits != 0
 		client.stateMutex.RUnlock()
 
-		if !isDirty || !client.writerSemaphore.TryAcquire() {
+		if !isDirty || !client.writebackLock.TryLock() {
 			return
 		}
 	}
@@ -1836,8 +1841,8 @@ func (client *Client) Store(dirtyBits uint) (err error) {
 		}
 	}()
 
-	client.writerSemaphore.Acquire()
-	defer client.writerSemaphore.Release()
+	client.writebackLock.Lock()
+	defer client.writebackLock.Unlock()
 	client.performWrite(dirtyBits)
 	return nil
 }

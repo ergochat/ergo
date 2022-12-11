@@ -34,3 +34,12 @@ func ReverseSlice[T any](results []T) {
 		results[i], results[j] = results[j], results[i]
 	}
 }
+
+func SliceContains[T comparable](slice []T, elem T) (result bool) {
+	for _, t := range slice {
+		if elem == t {
+			return true
+		}
+	}
+	return false
+}

@@ -449,10 +449,10 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	var isAway bool
 	var awayMessage string
 	if len(msg.Params) > 0 {
-		isAway = true
 		awayMessage = msg.Params[0]
 		awayMessage = ircutils.TruncateUTF8Safe(awayMessage, server.Config().Limits.AwayLen)
 	}
+	isAway = (awayMessage != "") // #1996
 
 	rb.session.SetAway(awayMessage)
 
@@ -897,10 +897,7 @@ func formatBanForListing(client *Client, key string, info IPBanInfo) string {
 	if info.OperReason != "" && info.OperReason != info.Reason {
 		desc = fmt.Sprintf("%s | %s", info.Reason, info.OperReason)
 	}
-	if info.Duration != 0 {
-		desc = fmt.Sprintf("%s [%s]", desc, info.TimeLeft())
-	}
-	desc = fmt.Sprintf("%s added on [%s]", desc, info.TimeCreated.UTC().Format(time.RFC1123))
+	desc = fmt.Sprintf("%s [%s] added on [%s]", desc, info.TimeLeft(), info.TimeCreated.UTC().Format(time.RFC1123))
 	banType := "Ban"
 	if info.RequireSASL {
 		banType = "SASL required"
@@ -1895,7 +1892,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 
 // get the correct capitalization of a nick (if it's online), otherwise return ""
 func (server *Server) getCurrentNick(nick string) (result string) {
-	if service, isService := OragonoServices[strings.ToLower(nick)]; isService {
+	if service, isService := ErgoServices[strings.ToLower(nick)]; isService {
 		return service.Name
 	} else if iclient := server.clients.Get(nick); iclient != nil {
 		return iclient.Nick()
@@ -2280,7 +2277,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 	} else {
 		lowercaseTarget := strings.ToLower(target)
-		service, isService := OragonoServices[lowercaseTarget]
+		service, isService := ErgoServices[lowercaseTarget]
 		_, isZNC := zncHandlers[lowercaseTarget]
 
 		if isService || isZNC {
@@ -3515,6 +3512,59 @@ func (client *Client) rplWhoReply(channel *Channel, target *Client, rb *Response
 	rb.Add(nil, client.server.name, numeric, params...)
 }
 
+func serviceWhoReply(client *Client, service *ircService, rb *ResponseBuffer, isWhox bool, fields whoxFields, whoType string) {
+	params := []string{client.Nick()}
+
+	if fields.Has('t') {
+		params = append(params, whoType)
+	}
+	if fields.Has('c') {
+		params = append(params, "*")
+	}
+	if fields.Has('u') {
+		params = append(params, service.Name)
+	}
+	if fields.Has('i') {
+		params = append(params, "127.0.0.1")
+	}
+	if fields.Has('h') {
+		params = append(params, "localhost")
+	}
+	if fields.Has('s') {
+		params = append(params, client.server.name)
+	}
+	if fields.Has('n') {
+		params = append(params, service.Name)
+	}
+	if fields.Has('f') { // "flags" (away + oper state + channel status prefix + bot)
+		params = append(params, "H")
+	}
+	if fields.Has('d') { // server hops from us to target
+		params = append(params, "0")
+	}
+	if fields.Has('l') { // idle seconds
+		params = append(params, "0")
+	}
+	if fields.Has('a') { // account, services are considered not to have one
+		params = append(params, "0")
+	}
+	if fields.Has('o') { // channel oplevel, not implemented
+		params = append(params, "*")
+	}
+	if fields.Has('r') {
+		params = append(params, service.Realname(client))
+	}
+
+	numeric := RPL_WHOSPCRPL
+	if !isWhox {
+		numeric = RPL_WHOREPLY
+		// if this isn't WHOX, stick hops + realname at the end
+		params = append(params, "0 "+service.Realname(client))
+	}
+
+	rb.Add(nil, client.server.name, numeric, params...)
+}
+
 // WHO <mask> [<filter>%<fields>,<type>]
 func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	origMask := utils.SafeErrorParam(msg.Params[0])
@@ -3523,12 +3573,21 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		return false
 	}
 
+	// https://modern.ircdocs.horse/#who-message
+	// "1. A channel name, in which case the channel members are listed."
+	// "2. An exact nickname, in which case a single user is returned."
+	// "3. A mask pattern, in which case all visible users whose nickname matches are listed."
+	var isChannel bool
+	var isBareNick bool
 	mask := origMask
 	var err error
-	if mask[0] == '#' {
-		mask, err = CasefoldChannel(msg.Params[0])
+	if origMask[0] == '#' {
+		mask, err = CasefoldChannel(origMask)
+		isChannel = true
+	} else if !strings.ContainsAny(origMask, protocolBreakingNameCharacters) {
+		isBareNick = true
 	} else {
-		mask, err = CanonicalizeMaskWildcard(mask)
+		mask, err = CanonicalizeMaskWildcard(origMask)
 	}
 
 	if err != nil {
@@ -3579,7 +3638,7 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	oper := client.Oper()
 	hasPrivs := oper.HasRoleCapab("sajoin")
 	canSeeIPs := oper.HasRoleCapab("ban")
-	if mask[0] == '#' {
+	if isChannel {
 		channel := server.channels.Get(mask)
 		if channel != nil {
 			isJoined := channel.hasClient(client)
@@ -3596,6 +3655,12 @@ func whoHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 					}
 				}
 			}
+		}
+	} else if isBareNick {
+		if mclient := server.clients.Get(mask); mclient != nil {
+			client.rplWhoReply(nil, mclient, rb, canSeeIPs, oper != nil, includeRFlag, isWhox, fields, whoType)
+		} else if service, ok := ErgoServices[strings.ToLower(mask)]; ok {
+			serviceWhoReply(client, service, rb, isWhox, fields, whoType)
 		}
 	} else {
 		// Construct set of channels the client is in.
@@ -3645,7 +3710,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 
 	handleService := func(nick string) bool {
 		cfnick, _ := CasefoldName(nick)
-		service, ok := OragonoServices[cfnick]
+		service, ok := ErgoServices[cfnick]
 		hostname := "localhost"
 		config := server.Config()
 		if config.Server.OverrideServicesHostname != "" {
@@ -3655,7 +3720,7 @@ func whoisHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 			return false
 		}
 		clientNick := client.Nick()
-		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, hostname, "*", fmt.Sprintf(client.t("Network service, for more info /msg %s HELP"), service.Name))
+		rb.Add(nil, client.server.name, RPL_WHOISUSER, clientNick, service.Name, service.Name, hostname, "*", service.Realname(client))
 		// #1080:
 		rb.Add(nil, client.server.name, RPL_WHOISOPERATOR, clientNick, service.Name, client.t("is a network service"))
 		// hehe

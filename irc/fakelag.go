@@ -5,6 +5,8 @@ package irc
 
 import (
 	"time"
+
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // fakelag is a system for artificially delaying commands when a user issues
@@ -36,6 +38,10 @@ type Fakelag struct {
 
 func (fl *Fakelag) Initialize(config FakelagConfig) {
 	fl.config = config
+	// XXX don't share mutable member CommandBudgets:
+	if config.CommandBudgets != nil {
+		fl.config.CommandBudgets = utils.CopyMap(config.CommandBudgets)
+	}
 	fl.nowFunc = time.Now
 	fl.sleepFunc = time.Sleep
 	fl.state = FakelagBursting
@@ -58,8 +64,13 @@ func (fl *Fakelag) Unsuspend() {
 }
 
 // register a new command, sleep if necessary to delay it
-func (fl *Fakelag) Touch() {
+func (fl *Fakelag) Touch(command string) {
 	if !fl.config.Enabled {
+		return
+	}
+
+	if budget, ok := fl.config.CommandBudgets[command]; ok && budget > 0 {
+		fl.config.CommandBudgets[command] = budget - 1
 		return
 	}
 

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -27,8 +26,8 @@ type UserMaskSet struct {
 	sync.RWMutex
 	serialCacheUpdateMutex sync.Mutex
 	masks                  map[string]MaskInfo
-	regexp                 unsafe.Pointer
-	muteRegexp             unsafe.Pointer
+	regexp                 atomic.Pointer[regexp.Regexp]
+	muteRegexp             atomic.Pointer[regexp.Regexp]
 }
 
 func NewUserMaskSet() *UserMaskSet {
@@ -110,7 +109,7 @@ func (set *UserMaskSet) Masks() (result map[string]MaskInfo) {
 
 // Match matches the given n!u@h against the standard (non-ext) bans.
 func (set *UserMaskSet) Match(userhost string) bool {
-	regexp := (*regexp.Regexp)(atomic.LoadPointer(&set.regexp))
+	regexp := set.regexp.Load()
 
 	if regexp == nil {
 		return false
@@ -129,7 +128,7 @@ func (set *UserMaskSet) MatchMute(userhost string) bool {
 }
 
 func (set *UserMaskSet) MuteRegexp() *regexp.Regexp {
-	return (*regexp.Regexp)(atomic.LoadPointer(&set.muteRegexp))
+	return set.muteRegexp.Load()
 }
 
 func (set *UserMaskSet) Length() int {
@@ -162,6 +161,6 @@ func (set *UserMaskSet) setRegexp() {
 	re := compileMasks(maskExprs)
 	muteRe := compileMasks(muteExprs)
 
-	atomic.StorePointer(&set.regexp, unsafe.Pointer(re))
-	atomic.StorePointer(&set.muteRegexp, unsafe.Pointer(muteRe))
+	set.regexp.Store(re)
+	set.muteRegexp.Store(muteRe)
 }

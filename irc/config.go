@@ -524,6 +524,7 @@ type FakelagConfig struct {
 	BurstLimit        uint `yaml:"burst-limit"`
 	MessagesPerWindow uint `yaml:"messages-per-window"`
 	Cooldown          time.Duration
+	CommandBudgets    map[string]int `yaml:"command-budgets"`
 }
 
 type TorListenersConfig struct {
@@ -1428,6 +1429,17 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	config.Server.capValues[caps.Languages] = config.languageManager.CapValue()
 
+	if len(config.Fakelag.CommandBudgets) != 0 {
+		// normalize command names to uppercase:
+		commandBudgets := make(map[string]int, len(config.Fakelag.CommandBudgets))
+		for command, budget := range config.Fakelag.CommandBudgets {
+			commandBudgets[strings.ToUpper(command)] = budget
+		}
+		config.Fakelag.CommandBudgets = commandBudgets
+	} else {
+		config.Fakelag.CommandBudgets = nil
+	}
+
 	if config.Server.Relaymsg.Enabled {
 		for _, char := range protocolBreakingNameCharacters {
 			if strings.ContainsRune(config.Server.Relaymsg.Separators, char) {
@@ -1577,6 +1589,8 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
 	isupport.Add("CHANMODES", chanmodesToken)
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
+		isupport.Add("CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
+		// Kiwi expects this legacy token name:
 		isupport.Add("draft/CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 	}
 	isupport.Add("CHANNELLEN", strconv.Itoa(config.Limits.ChannelLen))
