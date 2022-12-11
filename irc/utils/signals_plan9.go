@@ -18,4 +18,7 @@ var (
 		syscall.SIGINT,
 		syscall.SIGTERM,
 	}
+
+	// no SIGUSR1 on plan9
+	ServerTracebackSignals []os.Signal
 )

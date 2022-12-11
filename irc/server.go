@@ -12,6 +12,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -83,6 +84,7 @@ type Server struct {
 	rehashSignal      chan os.Signal
 	pprofServer       *http.Server
 	exitSignals       chan os.Signal
+	tracebackSignal   chan os.Signal
 	snomasks          SnoManager
 	store             *buntdb.DB
 	historyDB         mysql.MySQL
@@ -98,11 +100,12 @@ type Server struct {
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// initialize data structures
 	server := &Server{
-		ctime:        time.Now().UTC(),
-		listeners:    make(map[string]IRCListener),
-		logger:       logger,
-		rehashSignal: make(chan os.Signal, 1),
-		exitSignals:  make(chan os.Signal, len(utils.ServerExitSignals)),
+		ctime:           time.Now().UTC(),
+		listeners:       make(map[string]IRCListener),
+		logger:          logger,
+		rehashSignal:    make(chan os.Signal, 1),
+		exitSignals:     make(chan os.Signal, len(utils.ServerExitSignals)),
+		tracebackSignal: make(chan os.Signal, len(utils.ServerTracebackSignals)),
 	}
 	server.defcon.Store(5)
 
@@ -120,6 +123,9 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	// Attempt to clean up when receiving these signals.
 	signal.Notify(server.exitSignals, utils.ServerExitSignals...)
 	signal.Notify(server.rehashSignal, syscall.SIGHUP)
+	if len(utils.ServerTracebackSignals) != 0 {
+		signal.Notify(server.tracebackSignal, utils.ServerTracebackSignals...)
+	}
 
 	time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
 
@@ -158,6 +164,8 @@ func (server *Server) Run() {
 		case <-server.rehashSignal:
 			server.logger.Info("server", "Rehashing due to SIGHUP")
 			go server.rehash()
+		case <-server.tracebackSignal:
+			go server.dumpStacks()
 		}
 	}
 }
@@ -1125,3 +1133,11 @@ var (
     Edmund Huber,           edmund-huber
 `, "\n")
 )
+
+func (server *Server) dumpStacks() {
+	if gprof := pprof.Lookup("goroutine"); gprof != nil {
+		gprof.WriteTo(os.Stderr, 2)
+	} else {
+		server.logger.Error("internal", "unable to dump goroutine stacks")
+	}
+}
