@@ -18,4 +18,8 @@ var (
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
+
+	ServerTracebackSignals = []os.Signal{
+		syscall.SIGUSR1,
+	}
 )
