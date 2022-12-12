@@ -1,6 +1,45 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.11.0-rc1] - 2022-12-18
+
+We're pleased to be publishing the release candidate for 2.11.0 (the official release should follow in a week or so). This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), hauser, [@jwheare](https://github.com/jwheare), [@kingter-sutjiadi](https://github.com/kingter-sutjiadi), knolle, [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@PeGaSuS-Coder](https://github.com/PeGaSuS-Coder), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
+
+### Config changes
+
+* Added `fakelag.command-budgets`, which allows each client session a limited number of specific commands that are exempt from fakelag. This improves compatibility with Goguma in particular. For the current recommended default, see `default.yaml` (#1978, thanks [@emersion](https://github.com/emersion)!)
+* The recommended value of `server.casemapping` is now `ascii` instead of `precis`. PRECIS remains fully supported; if you are already running an Ergo instance, we do not recommend changing the value unless you are confident that your existing users are not relying on non-ASCII nicknames and channel names. (#1718)
+
+### Changed
+
+* Network services like `NickServ` now appear in `WHO` responses where applicable (#1850, thanks [@emersion](https://github.com/emersion)!)
+* The `extended-monitor` capability now appears under its ratified name (#2006, thanks [@progval](https://github.com/progval)!)
+* `TAGMSG` no longer receives automatic `RPL_AWAY` responses (#1983, thanks [@eskimo](https://github.com/eskimo)!)
+* Sending `SIGUSR1` to the Ergo process now prints a full goroutine stack dump to stderr, allowing debugging even when the HTTP pprof listener is disabled (#1975)
+* `UBAN` now states explicitly that bans without a time-limit have "indefinite" duration (#1988, thanks [@mogad0n](https://github.com/mogad0n)!)
+
+### Fixed
+
+* `WHO` with a bare nickname as an argument now shows invisible users, comparable to `WHOIS` (#1991, thanks [@emersion](https://github.com/emersion)!)
+* MySQL did not work on 32-bit architectures; this has been fixed (#1969, thanks hauser!)
+* Fixed the name of the `CHATHISTORY` 005 token (#2008, #2009, thanks [@emersion](https://github.com/emersion)!)
+* Fixed handling of the address `::1` in WHOX output (#1980, thanks knolle!)
+* Fixed handling of `AWAY` with an empty parameter (the de facto standard is to treat as a synonym for no parameter, which means "back") (#1996, thanks [@emersion](https://github.com/emersion), [@jwheare](https://github.com/jwheare)!)
+* Fixed incorrect handling of some invalid modes in `CS AMODE` (#2002, thanks [@eskimo](https://github.com/eskimo)!)
+
+### Added
+
+* Added the `draft/persistence` capability and associated `PERSISTENCE` command. This is a first attempt to standardize Ergo's "always-on" functionality so that clients can interact with it programmatically (#1982)
+
+### Internal
+
+* Upgraded to Go 1.19; this makes further architecture-specific bugs like #1969 much less likely (#1987, #1989)
+
+
 ## [2.10.0] - 2022-05-29
 
 We're pleased to be publishing v2.10.0, a new stable release.
