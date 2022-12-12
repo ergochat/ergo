@@ -105,15 +105,15 @@ server:
 
     # casemapping controls what kinds of strings are permitted as identifiers (nicknames,
     # channel names, account names, etc.), and how they are normalized for case.
-    # with the recommended default of 'precis', UTF8 identifiers that are "sane"
-    # (according to RFC 8265) are allowed, and the server additionally tries to protect
-    # against confusable characters ("homoglyph attacks").
-    # the other options are 'ascii' (traditional ASCII-only identifiers), and 'permissive',
-    # which allows identifiers to contain unusual characters like emoji, but makes users
-    # vulnerable to homoglyph attacks. unless you're really confident in your decision,
-    # we recommend leaving this value at its default (changing it once the network is
-    # already up and running is problematic).
-    casemapping: "precis"
+    # the recommended default is 'ascii' (traditional ASCII-only identifiers).
+    # the other options are 'precis', which allows UTF8 identifiers that are "sane"
+    # (according to UFC 8265), with additional mitigations for homoglyph attacks,
+    # and 'permissive', which allows identifiers containing unusual characters like
+    # emoji, at the cost of increased vulnerability to homoglyph attacks and potential
+    # client compatibility problems. we recommend leaving this value at its default;
+    # however, note that changing it once the network is already up and running is
+    # problematic.
+    casemapping: "ascii"
 
     # enforce-utf8 controls whether the server will preemptively discard non-UTF8
     # messages (since they cannot be relayed to websocket clients), or will allow

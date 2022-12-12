@@ -25,20 +25,20 @@ If you want to take a look at a running Ergo instance or test some client code, 
 
 * integrated services: NickServ for user accounts, ChanServ for channel registration, and HostServ for vanity hosts
 * bouncer-like features: storing and replaying history, allowing multiple clients to use the same nickname
-* UTF-8 nick and channel names with rfc7613 (PRECIS)
 * native TLS/SSL support, including support for client certificates
+* [IRCv3 support](https://ircv3.net/software/servers.html)
 * [yaml](https://yaml.org/) configuration
 * updating server config and TLS certificates on-the-fly (rehashing)
 * SASL authentication
 * [LDAP support](https://github.com/ergochat/ergo-ldap)
 * supports [multiple languages](https://crowdin.com/project/ergochat) (you can also set a default language for your network)
+* optional support for UTF-8 nick and channel names with RFC 8265 (PRECIS)
 * advanced security and privacy features (support for requiring SASL for all logins, cloaking IPs, and running as a Tor hidden service)
 * an extensible privilege system for IRC operators
 * ident lookups for usernames
 * automated client connection limits
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
 * `UBAN`, a unified ban system that can target IPs, networks, masks, and registered accounts (`KLINE` and `DLINE` are also supported)
-* [IRCv3 support](https://ircv3.net/software/servers.html)
 * a focus on developing with [specifications](https://ergo.chat/specs.html)
 
 For more detailed information on Ergo's functionality, see:
