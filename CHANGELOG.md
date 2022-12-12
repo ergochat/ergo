@@ -38,6 +38,7 @@ Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](http
 ### Internal
 
 * Upgraded to Go 1.19; this makes further architecture-specific bugs like #1969 much less likely (#1987, #1989)
+* The test suite is now parallelized (#1976, thanks [@progval](https://github.com/progval)!)
 
 
 ## [2.10.0] - 2022-05-29
