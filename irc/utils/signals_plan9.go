@@ -1,5 +1,4 @@
 //go:build plan9
-// +build plan9
 
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
