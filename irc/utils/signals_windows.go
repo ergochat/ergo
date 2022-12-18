@@ -1,4 +1,4 @@
-//go:build !plan9 && !windows
+//go:build windows
 
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
@@ -18,7 +18,6 @@ var (
 		syscall.SIGQUIT,
 	}
 
-	ServerTracebackSignals = []os.Signal{
-		syscall.SIGUSR1,
-	}
+	// no SIGUSR1 on windows
+	ServerTracebackSignals []os.Signal
 )
