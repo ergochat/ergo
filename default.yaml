@@ -164,7 +164,10 @@ server:
     # the value must begin with a '~' character. comment out / omit to disable:
     coerce-ident: '~u'
 
-    # password to login to the server, generated using `ergo genpasswd`:
+    # 'password' allows you to require a global, shared password (the IRC `PASS` command)
+    # to connect to the server. for operator passwords, see the `opers` section of the
+    # config. for a more secure way to create a private server, see the `require-sasl`
+    # section. you must hash the password with `ergo genpasswd`, then enter the hash here:
     #password: "$2a$04$0123456789abcdef0123456789abcdef0123456789abcdef01234"
 
     # motd filename
