@@ -19,7 +19,6 @@ Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](http
 * Network services like `NickServ` now appear in `WHO` responses where applicable (#1850, thanks [@emersion](https://github.com/emersion)!)
 * The `extended-monitor` capability now appears under its ratified name (#2006, thanks [@progval](https://github.com/progval)!)
 * `TAGMSG` no longer receives automatic `RPL_AWAY` responses (#1983, thanks [@eskimo](https://github.com/eskimo)!)
-* Sending `SIGUSR1` to the Ergo process now prints a full goroutine stack dump to stderr, allowing debugging even when the HTTP pprof listener is disabled (#1975)
 * `UBAN` now states explicitly that bans without a time limit have "indefinite" duration (#1988, thanks [@mogad0n](https://github.com/mogad0n)!)
 
 ### Fixed
@@ -34,6 +33,7 @@ Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](http
 ### Added
 
 * Added the `draft/persistence` capability and associated `PERSISTENCE` command. This is a first attempt to standardize Ergo's "always-on" functionality so that clients can interact with it programmatically. (#1982)
+* Sending `SIGUSR1` to the Ergo process now prints a full goroutine stack dump to stderr, allowing debugging even when the HTTP pprof listener is disabled (#1975)
 
 ### Internal
 
