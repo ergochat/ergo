@@ -174,7 +174,7 @@ an administrator can set use this command to set up user accounts.`,
 			help: `Syntax: $bSAVERIFY <username>$b
 
 SAVERIFY manually verifies an account that is pending verification.`,
-			helpShort: `$bSAREGISTER$b registers an account on someone else's behalf.`,
+			helpShort: `$bSAVERIFY$b manually verifies an account that is pending verification.`,
 			enabled:   servCmdRequiresAuthEnabled, // deliberate
 			capabs:    []string{"accreg"},
 			minParams: 1,
