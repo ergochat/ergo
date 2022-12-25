@@ -1,13 +1,13 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.11.0-rc1] - 2022-12-18
+## [2.11.0] - 2022-12-25
 
-We're pleased to be publishing the release candidate for 2.11.0 (the official release should follow in a week or so). This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
+We're pleased to be publishing v2.11.0, a new stable release. This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), hauser, [@jwheare](https://github.com/jwheare), [@kingter-sutjiadi](https://github.com/kingter-sutjiadi), knolle, [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@PeGaSuS-Coder](https://github.com/PeGaSuS-Coder), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
+Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), [@FiskFan1999](https://github.com/FiskFan1999), hauser, [@jwheare](https://github.com/jwheare), [@kingter-sutjiadi](https://github.com/kingter-sutjiadi), knolle, [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), [@PeGaSuS-Coder](https://github.com/PeGaSuS-Coder), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
 
 ### Config changes
 
@@ -29,6 +29,7 @@ Many thanks to dedekro, [@emersion](https://github.com/emersion), [@eskimo](http
 * Fixed handling of the address `::1` in WHOX output (#1980, thanks knolle!)
 * Fixed handling of `AWAY` with an empty parameter (the de facto standard is to treat as a synonym for no parameter, which means "back") (#1996, thanks [@emersion](https://github.com/emersion), [@jwheare](https://github.com/jwheare)!)
 * Fixed incorrect handling of some invalid modes in `CS AMODE` (#2002, thanks [@eskimo](https://github.com/eskimo)!)
+* Fixed incorrect help text for `NS SAVERIFY` (#2021, thanks [@FiskFan1999](https://github.com/FiskFan1999)!)
 
 ### Added
 
