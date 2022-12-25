@@ -24,6 +24,7 @@ import (
 
 var (
 	ErrDisallowed = errors.New("disallowed")
+	ErrDBIsNil    = errors.New("db == nil")
 )
 
 const (
@@ -726,7 +727,7 @@ func (mysql *MySQL) AddDirectMessage(sender, senderAccount, recipient, recipient
 // note that accountName is the unfolded name
 func (mysql *MySQL) DeleteMsgid(msgid, accountName string) (err error) {
 	if mysql.db == nil {
-		return nil
+		return ErrDBIsNil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
