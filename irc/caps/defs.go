@@ -7,8 +7,8 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 30
-	// length of the uint64 array that represents the bitset:
+	numCapabs = 31
+	// length of the uint32 array that represents the bitset:
 	bitsetLen = 1
 )
 
@@ -117,6 +117,10 @@ const (
 	// https://ircv3.net/specs/extensions/setname.html
 	SetName Capability = iota
 
+	// StandardReplies is the IRCv3 capability named "standard-replies":
+	// https://github.com/ircv3/ircv3-specifications/pull/506
+	StandardReplies Capability = iota
+
 	// STS is the IRCv3 capability named "sts":
 	// https://ircv3.net/specs/extensions/sts.html
 	STS Capability = iota
@@ -163,6 +167,7 @@ var (
 		"sasl",
 		"server-time",
 		"setname",
+		"standard-replies",
 		"sts",
 		"userhost-in-names",
 		"znc.in/playback",
