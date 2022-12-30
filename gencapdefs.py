@@ -195,6 +195,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/503",
         standard="proposed IRCv3",
     ),
+    CapDef(
+        identifier="StandardReplies",
+        name="standard-replies",
+        url="https://github.com/ircv3/ircv3-specifications/pull/506",
+        standard="IRCv3",
+    ),
 ]
 
 def validate_defs():
@@ -230,7 +236,7 @@ package caps
 const (
 	// number of recognized capabilities:
 	numCapabs = %d
-	// length of the uint64 array that represents the bitset:
+	// length of the uint32 array that represents the bitset:
 	bitsetLen = %d
 )
     """ % (numCapabs, bitsetLen), file=output)
