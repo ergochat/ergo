@@ -3,6 +3,8 @@
 project_name: ergo
 builds:
   - main: ergo.go
+    env:
+      - CGO_ENABLED=0
     binary: ergo
     goos:
       - linux
