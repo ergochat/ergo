@@ -16,6 +16,7 @@ import (
 	"github.com/ergochat/irc-go/ircutils"
 
 	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/datastore"
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
@@ -50,14 +51,14 @@ type Channel struct {
 	stateMutex        sync.RWMutex // tier 1
 	writebackLock     sync.Mutex   // tier 1.5
 	joinPartMutex     sync.Mutex   // tier 3
-	ensureLoaded      utils.Once   // manages loading stored registration info from the database
 	dirtyBits         uint
 	settings          ChannelSettings
+	uuid              utils.UUID
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
 // string, which must be unique on the server.
-func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channel {
+func NewChannel(s *Server, name, casefoldedName string, registered bool, regInfo RegisteredChannel) *Channel {
 	config := s.Config()
 
 	channel := &Channel{
@@ -71,14 +72,15 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool) *Channe
 	channel.initializeLists()
 	channel.history.Initialize(0, 0)
 
-	if !registered {
+	if registered {
+		channel.applyRegInfo(regInfo)
+	} else {
 		channel.resizeHistory(config)
 		for _, mode := range config.Channels.defaultModes {
 			channel.flags.SetMode(mode, true)
 		}
-		// no loading to do, so "mark" the load operation as "done":
-		channel.ensureLoaded.Do(func() {})
-	} // else: modes will be loaded before first join
+		channel.uuid = utils.GenerateUUIDv4()
+	}
 
 	return channel
 }
@@ -90,24 +92,6 @@ func (channel *Channel) initializeLists() {
 		modes.InviteMask: NewUserMaskSet(),
 	}
 	channel.accountToUMode = make(map[string]modes.Mode)
-}
-
-// EnsureLoaded blocks until the channel's registration info has been loaded
-// from the database.
-func (channel *Channel) EnsureLoaded() {
-	channel.ensureLoaded.Do(func() {
-		nmc := channel.NameCasefolded()
-		info, err := channel.server.channelRegistry.LoadChannel(nmc)
-		if err == nil {
-			channel.applyRegInfo(info)
-		} else {
-			channel.server.logger.Error("internal", "couldn't load channel", nmc, err.Error())
-		}
-	})
-}
-
-func (channel *Channel) IsLoaded() bool {
-	return channel.ensureLoaded.Done()
 }
 
 func (channel *Channel) resizeHistory(config *Config) {
@@ -126,6 +110,7 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
 
+	channel.uuid = chanReg.UUID
 	channel.registeredFounder = chanReg.Founder
 	channel.registeredTime = chanReg.RegisteredAt
 	channel.topic = chanReg.Topic
@@ -150,38 +135,41 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 }
 
 // obtain a consistent snapshot of the channel state that can be persisted to the DB
-func (channel *Channel) ExportRegistration(includeFlags uint) (info RegisteredChannel) {
+func (channel *Channel) ExportRegistration() (info RegisteredChannel) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
 	info.Name = channel.name
-	info.NameCasefolded = channel.nameCasefolded
+	info.UUID = channel.uuid
 	info.Founder = channel.registeredFounder
 	info.RegisteredAt = channel.registeredTime
 
-	if includeFlags&IncludeTopic != 0 {
-		info.Topic = channel.topic
-		info.TopicSetBy = channel.topicSetBy
-		info.TopicSetTime = channel.topicSetTime
-	}
+	info.Topic = channel.topic
+	info.TopicSetBy = channel.topicSetBy
+	info.TopicSetTime = channel.topicSetTime
 
-	if includeFlags&IncludeModes != 0 {
-		info.Key = channel.key
-		info.Forward = channel.forward
-		info.Modes = channel.flags.AllModes()
-		info.UserLimit = channel.userLimit
-	}
+	info.Key = channel.key
+	info.Forward = channel.forward
+	info.Modes = channel.flags.AllModes()
+	info.UserLimit = channel.userLimit
 
-	if includeFlags&IncludeLists != 0 {
-		info.Bans = channel.lists[modes.BanMask].Masks()
-		info.Invites = channel.lists[modes.InviteMask].Masks()
-		info.Excepts = channel.lists[modes.ExceptMask].Masks()
-		info.AccountToUMode = utils.CopyMap(channel.accountToUMode)
-	}
+	info.Bans = channel.lists[modes.BanMask].Masks()
+	info.Invites = channel.lists[modes.InviteMask].Masks()
+	info.Excepts = channel.lists[modes.ExceptMask].Masks()
+	info.AccountToUMode = utils.CopyMap(channel.accountToUMode)
 
-	if includeFlags&IncludeSettings != 0 {
-		info.Settings = channel.settings
-	}
+	info.Settings = channel.settings
+
+	return
+}
+
+func (channel *Channel) exportSummary() (info RegisteredChannel) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	info.Name = channel.name
+	info.Founder = channel.registeredFounder
+	info.RegisteredAt = channel.registeredTime
 
 	return
 }
@@ -288,9 +276,19 @@ func (channel *Channel) performWrite(additionalDirtyBits uint) (err error) {
 		return
 	}
 
-	info := channel.ExportRegistration(dirtyBits)
-	err = channel.server.channelRegistry.StoreChannel(info, dirtyBits)
-	if err != nil {
+	var success bool
+	info := channel.ExportRegistration()
+	if b, err := info.Serialize(); err == nil {
+		if err := channel.server.dstore.Set(datastore.TableChannels, info.UUID, b, time.Time{}); err == nil {
+			success = true
+		} else {
+			channel.server.logger.Error("internal", "couldn't persist channel", info.Name, err.Error())
+		}
+	} else {
+		channel.server.logger.Error("internal", "couldn't serialize channel", info.Name, err.Error())
+	}
+
+	if !success {
 		channel.stateMutex.Lock()
 		channel.dirtyBits = channel.dirtyBits | dirtyBits
 		channel.stateMutex.Unlock()
@@ -314,6 +312,7 @@ func (channel *Channel) SetRegistered(founder string) error {
 
 // SetUnregistered deletes the channel's registration information.
 func (channel *Channel) SetUnregistered(expectedFounder string) {
+	uuid := utils.GenerateUUIDv4()
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
 
@@ -324,6 +323,9 @@ func (channel *Channel) SetUnregistered(expectedFounder string) {
 	var zeroTime time.Time
 	channel.registeredTime = zeroTime
 	channel.accountToUMode = make(map[string]modes.Mode)
+	// reset the UUID so that any re-registration will persist under
+	// a separate key:
+	channel.uuid = uuid
 }
 
 // implements `CHANSERV CLEAR #chan ACCESS` (resets bans, invites, excepts, and amodes)

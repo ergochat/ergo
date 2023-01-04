@@ -1718,7 +1718,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 	clientIsOp := client.HasRoleCapabs("sajoin")
 	if len(channels) == 0 {
-		for _, channel := range server.channels.Channels() {
+		for _, channel := range server.channels.ListableChannels() {
 			if !clientIsOp && channel.flags.HasMode(modes.Secret) && !channel.hasClient(client) {
 				continue
 			}

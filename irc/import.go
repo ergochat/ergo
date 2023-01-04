@@ -9,9 +9,13 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/tidwall/buntdb"
 
+	"github.com/ergochat/ergo/irc/bunt"
+	"github.com/ergochat/ergo/irc/datastore"
+	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -20,7 +24,7 @@ const (
 	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
 	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
 	// db of the hardcoded version)
-	importDBSchemaVersion = 22
+	importDBSchemaVersion = 23
 )
 
 type userImport struct {
@@ -54,8 +58,8 @@ type databaseImport struct {
 	Channels map[string]channelImport
 }
 
-func serializeAmodes(raw map[string]string, validCfUsernames utils.HashSet[string]) (result []byte, err error) {
-	processed := make(map[string]int, len(raw))
+func convertAmodes(raw map[string]string, validCfUsernames utils.HashSet[string]) (result map[string]modes.Mode, err error) {
+	result = make(map[string]modes.Mode)
 	for accountName, mode := range raw {
 		if len(mode) != 1 {
 			return nil, fmt.Errorf("invalid mode %s for account %s", mode, accountName)
@@ -64,10 +68,9 @@ func serializeAmodes(raw map[string]string, validCfUsernames utils.HashSet[strin
 		if err != nil || !validCfUsernames.Has(cfname) {
 			log.Printf("skipping invalid amode recipient %s\n", accountName)
 		} else {
-			processed[cfname] = int(mode[0])
+			result[cfname] = modes.Mode(mode[0])
 		}
 	}
-	result, err = json.Marshal(processed)
 	return
 }
 
@@ -147,8 +150,9 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 		cfUsernames.Add(cfUsername)
 	}
 
+	// TODO fix this:
 	for chname, chInfo := range dbImport.Channels {
-		cfchname, err := CasefoldChannel(chname)
+		_, err := CasefoldChannel(chname)
 		if err != nil {
 			log.Printf("invalid channel name %s: %v", chname, err)
 			continue
@@ -158,42 +162,41 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 			log.Printf("invalid founder %s for channel %s: %v", chInfo.Founder, chname, err)
 			continue
 		}
-		tx.Set(fmt.Sprintf(keyChannelExists, cfchname), "1", nil)
-		tx.Set(fmt.Sprintf(keyChannelName, cfchname), chname, nil)
-		tx.Set(fmt.Sprintf(keyChannelRegTime, cfchname), strconv.FormatInt(chInfo.RegisteredAt, 10), nil)
-		tx.Set(fmt.Sprintf(keyChannelFounder, cfchname), cffounder, nil)
-		accountChannelsKey := fmt.Sprintf(keyAccountChannels, cffounder)
-		founderChannels, fcErr := tx.Get(accountChannelsKey)
-		if fcErr != nil || founderChannels == "" {
-			founderChannels = cfchname
-		} else {
-			founderChannels = fmt.Sprintf("%s,%s", founderChannels, cfchname)
-		}
-		tx.Set(accountChannelsKey, founderChannels, nil)
+		var regInfo RegisteredChannel
+		regInfo.Name = chname
+		regInfo.UUID = utils.GenerateUUIDv4()
+		regInfo.Founder = cffounder
+		regInfo.RegisteredAt = time.Unix(0, chInfo.RegisteredAt).UTC()
 		if chInfo.Topic != "" {
-			tx.Set(fmt.Sprintf(keyChannelTopic, cfchname), chInfo.Topic, nil)
-			tx.Set(fmt.Sprintf(keyChannelTopicSetTime, cfchname), strconv.FormatInt(chInfo.TopicSetAt, 10), nil)
-			tx.Set(fmt.Sprintf(keyChannelTopicSetBy, cfchname), chInfo.TopicSetBy, nil)
+			regInfo.Topic = chInfo.Topic
+			regInfo.TopicSetBy = chInfo.TopicSetBy
+			regInfo.TopicSetTime = time.Unix(0, chInfo.TopicSetAt).UTC()
 		}
+
 		if len(chInfo.Amode) != 0 {
-			m, err := serializeAmodes(chInfo.Amode, cfUsernames)
+			m, err := convertAmodes(chInfo.Amode, cfUsernames)
 			if err == nil {
-				tx.Set(fmt.Sprintf(keyChannelAccountToUMode, cfchname), string(m), nil)
+				regInfo.AccountToUMode = m
 			} else {
-				log.Printf("couldn't serialize amodes for %s: %v", chname, err)
+				log.Printf("couldn't process amodes for %s: %v", chname, err)
 			}
 		}
-		tx.Set(fmt.Sprintf(keyChannelModes, cfchname), chInfo.Modes, nil)
-		if chInfo.Key != "" {
-			tx.Set(fmt.Sprintf(keyChannelPassword, cfchname), chInfo.Key, nil)
+		for _, mode := range chInfo.Modes {
+			regInfo.Modes = append(regInfo.Modes, modes.Mode(mode))
 		}
+		regInfo.Key = chInfo.Key
 		if chInfo.Limit > 0 {
-			tx.Set(fmt.Sprintf(keyChannelUserLimit, cfchname), strconv.Itoa(chInfo.Limit), nil)
+			regInfo.UserLimit = chInfo.Limit
 		}
 		if chInfo.Forward != "" {
 			if _, err := CasefoldChannel(chInfo.Forward); err == nil {
-				tx.Set(fmt.Sprintf(keyChannelForward, cfchname), chInfo.Forward, nil)
+				regInfo.Forward = chInfo.Forward
 			}
+		}
+		if j, err := json.Marshal(regInfo); err == nil {
+			tx.Set(bunt.BuntKey(datastore.TableChannels, regInfo.UUID), string(j), nil)
+		} else {
+			log.Printf("couldn't serialize channel %s: %v", chname, err)
 		}
 	}
 

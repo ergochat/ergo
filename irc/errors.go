@@ -51,6 +51,7 @@ var (
 	errNoExistingBan                  = errors.New("Ban does not exist")
 	errNoSuchChannel                  = errors.New(`No such channel`)
 	errChannelPurged                  = errors.New(`This channel was purged by the server operators and cannot be used`)
+	errChannelPurgedAlready           = errors.New(`This channel was already purged and cannot be purged again`)
 	errConfusableIdentifier           = errors.New("This identifier is confusable with one already in use")
 	errInsufficientPrivs              = errors.New("Insufficient privileges")
 	errInvalidUsername                = errors.New("Invalid username")

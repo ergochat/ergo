@@ -6,7 +6,9 @@ package irc
 import (
 	"sort"
 	"sync"
+	"time"
 
+	"github.com/ergochat/ergo/irc/datastore"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -25,85 +27,75 @@ type channelManagerEntry struct {
 type ChannelManager struct {
 	sync.RWMutex // tier 2
 	// chans is the main data structure, mapping casefolded name -> *Channel
-	chans               map[string]*channelManagerEntry
-	chansSkeletons      utils.HashSet[string] // skeletons of *unregistered* chans
-	registeredChannels  utils.HashSet[string] // casefolds of registered chans
-	registeredSkeletons utils.HashSet[string] // skeletons of registered chans
-	purgedChannels      utils.HashSet[string] // casefolds of purged chans
-	server              *Server
+	chans          map[string]*channelManagerEntry
+	chansSkeletons utils.HashSet[string]
+	purgedChannels map[string]ChannelPurgeRecord // casefolded name to purge record
+	server         *Server
 }
 
 // NewChannelManager returns a new ChannelManager.
-func (cm *ChannelManager) Initialize(server *Server) {
+func (cm *ChannelManager) Initialize(server *Server, config *Config) (err error) {
 	cm.chans = make(map[string]*channelManagerEntry)
 	cm.chansSkeletons = make(utils.HashSet[string])
 	cm.server = server
-
-	// purging should work even if registration is disabled
-	cm.purgedChannels = cm.server.channelRegistry.PurgedChannels()
-	cm.loadRegisteredChannels(server.Config())
+	return cm.loadRegisteredChannels(config)
 }
 
-func (cm *ChannelManager) loadRegisteredChannels(config *Config) {
-	if !config.Channels.Registration.Enabled {
+func (cm *ChannelManager) loadRegisteredChannels(config *Config) (err error) {
+	allChannels, err := FetchAndDeserializeAll[RegisteredChannel](datastore.TableChannels, cm.server.dstore, cm.server.logger)
+	if err != nil {
 		return
 	}
-
-	var newChannels []*Channel
-	var collisions []string
-	defer func() {
-		for _, ch := range newChannels {
-			ch.EnsureLoaded()
-			cm.server.logger.Debug("channels", "initialized registered channel", ch.Name())
-		}
-		for _, collision := range collisions {
-			cm.server.logger.Warning("channels", "registered channel collides with existing channel", collision)
-		}
-	}()
-
-	rawNames := cm.server.channelRegistry.AllChannels()
+	allPurgeRecords, err := FetchAndDeserializeAll[ChannelPurgeRecord](datastore.TableChannelPurges, cm.server.dstore, cm.server.logger)
+	if err != nil {
+		return
+	}
 
 	cm.Lock()
 	defer cm.Unlock()
 
-	cm.registeredChannels = make(utils.HashSet[string], len(rawNames))
-	cm.registeredSkeletons = make(utils.HashSet[string], len(rawNames))
-	for _, name := range rawNames {
-		cfname, err := CasefoldChannel(name)
-		if err == nil {
-			cm.registeredChannels.Add(cfname)
+	cm.purgedChannels = make(map[string]ChannelPurgeRecord, len(allPurgeRecords))
+	for _, purge := range allPurgeRecords {
+		cm.purgedChannels[purge.NameCasefolded] = purge
+	}
+
+	for _, regInfo := range allChannels {
+		cfname, err := CasefoldChannel(regInfo.Name)
+		if err != nil {
+			cm.server.logger.Error("channels", "couldn't casefold registered channel, skipping", regInfo.Name, err.Error())
+			continue
+		} else {
+			cm.server.logger.Debug("channels", "initializing registered channel", regInfo.Name)
 		}
-		skeleton, err := Skeleton(name)
+		skeleton, err := Skeleton(regInfo.Name)
 		if err == nil {
-			cm.registeredSkeletons.Add(skeleton)
+			cm.chansSkeletons.Add(skeleton)
 		}
 
-		if !cm.purgedChannels.Has(cfname) {
-			if _, ok := cm.chans[cfname]; !ok {
-				ch := NewChannel(cm.server, name, cfname, true)
-				cm.chans[cfname] = &channelManagerEntry{
-					channel:      ch,
-					pendingJoins: 0,
-				}
-				newChannels = append(newChannels, ch)
-			} else {
-				collisions = append(collisions, name)
+		if _, ok := cm.purgedChannels[cfname]; !ok {
+			ch := NewChannel(cm.server, regInfo.Name, cfname, true, regInfo)
+			cm.chans[cfname] = &channelManagerEntry{
+				channel:      ch,
+				pendingJoins: 0,
+				skeleton:     skeleton,
 			}
 		}
 	}
+
+	return nil
 }
 
 // Get returns an existing channel with name equivalent to `name`, or nil
 func (cm *ChannelManager) Get(name string) (channel *Channel) {
 	name, err := CasefoldChannel(name)
-	if err == nil {
-		cm.RLock()
-		defer cm.RUnlock()
-		entry := cm.chans[name]
-		// if the channel is still loading, pretend we don't have it
-		if entry != nil && entry.channel.IsLoaded() {
-			return entry.channel
-		}
+	if err != nil {
+		return nil
+	}
+	cm.RLock()
+	defer cm.RUnlock()
+	entry := cm.chans[name]
+	if entry != nil {
+		return entry.channel
 	}
 	return nil
 }
@@ -122,33 +114,26 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 		cm.Lock()
 		defer cm.Unlock()
 
-		if cm.purgedChannels.Has(casefoldedName) {
+		// check purges first; a registered purged channel will still be present in `chans`
+		if _, ok := cm.purgedChannels[casefoldedName]; ok {
 			return nil, errChannelPurged, false
 		}
 		entry := cm.chans[casefoldedName]
 		if entry == nil {
-			registered := cm.registeredChannels.Has(casefoldedName)
-			// enforce OpOnlyCreation
-			if !registered && server.Config().Channels.OpOnlyCreation &&
+			if server.Config().Channels.OpOnlyCreation &&
 				!(isSajoin || client.HasRoleCapabs("chanreg")) {
 				return nil, errInsufficientPrivs, false
 			}
 			// enforce confusables
-			if !registered && (cm.chansSkeletons.Has(skeleton) || cm.registeredSkeletons.Has(skeleton)) {
+			if cm.chansSkeletons.Has(skeleton) {
 				return nil, errConfusableIdentifier, false
 			}
 			entry = &channelManagerEntry{
-				channel:      NewChannel(server, name, casefoldedName, registered),
+				channel:      NewChannel(server, name, casefoldedName, false, RegisteredChannel{}),
 				pendingJoins: 0,
 			}
-			if !registered {
-				// for an unregistered channel, we already have the correct unfolded name
-				// and therefore the final skeleton. for a registered channel, we don't have
-				// the unfolded name yet (it needs to be loaded from the db), but we already
-				// have the final skeleton in `registeredSkeletons` so we don't need to track it
-				cm.chansSkeletons.Add(skeleton)
-				entry.skeleton = skeleton
-			}
+			cm.chansSkeletons.Add(skeleton)
+			entry.skeleton = skeleton
 			cm.chans[casefoldedName] = entry
 			newChannel = true
 		}
@@ -160,7 +145,6 @@ func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin
 		return err, ""
 	}
 
-	channel.EnsureLoaded()
 	err, forward = channel.Join(client, key, isSajoin || newChannel, rb)
 
 	cm.maybeCleanup(channel, true)
@@ -252,13 +236,6 @@ func (cm *ChannelManager) SetRegistered(channelName string, account string) (err
 	if err != nil {
 		return err
 	}
-	// transfer the skeleton from chansSkeletons to registeredSkeletons
-	skeleton := entry.skeleton
-	delete(cm.chansSkeletons, skeleton)
-	entry.skeleton = ""
-	cm.chans[cfname] = entry
-	cm.registeredChannels.Add(cfname)
-	cm.registeredSkeletons.Add(skeleton)
 	return nil
 }
 
@@ -268,17 +245,13 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 		return err
 	}
 
-	info, err := cm.server.channelRegistry.LoadChannel(cfname)
-	if err != nil {
-		return err
-	}
-	if info.Founder != account {
-		return errChannelNotOwnedByAccount
-	}
+	var uuid utils.UUID
 
 	defer func() {
 		if err == nil {
-			err = cm.server.channelRegistry.Delete(info)
+			if delErr := cm.server.dstore.Delete(datastore.TableChannels, uuid); delErr != nil {
+				cm.server.logger.Error("datastore", "couldn't delete channel registration", cfname, delErr.Error())
+			}
 		}
 	}()
 
@@ -286,15 +259,11 @@ func (cm *ChannelManager) SetUnregistered(channelName string, account string) (e
 	defer cm.Unlock()
 	entry := cm.chans[cfname]
 	if entry != nil {
-		entry.channel.SetUnregistered(account)
-		delete(cm.registeredChannels, cfname)
-		// transfer the skeleton from registeredSkeletons to chansSkeletons
-		if skel, err := Skeleton(entry.channel.Name()); err == nil {
-			delete(cm.registeredSkeletons, skel)
-			cm.chansSkeletons.Add(skel)
-			entry.skeleton = skel
-			cm.chans[cfname] = entry
+		if entry.channel.Founder() != account {
+			return errChannelNotOwnedByAccount
 		}
+		uuid = entry.channel.UUID()
+		entry.channel.SetUnregistered(account) // changes the UUID
 		// #1619: if the channel has 0 members and was only being retained
 		// because it was registered, clean it up:
 		cm.maybeCleanupInternal(cfname, entry, false)
@@ -322,12 +291,11 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	var info RegisteredChannel
 	defer func() {
 		if channel != nil && info.Founder != "" {
-			channel.Store(IncludeAllAttrs)
-			if oldCfname != newCfname {
-				// we just flushed the channel under its new name, therefore this delete
-				// cannot be overwritten by a write to the old name:
-				cm.server.channelRegistry.Delete(info)
-			}
+			channel.MarkDirty(IncludeAllAttrs)
+		}
+		// always-on clients need to update their saved channel memberships
+		for _, member := range channel.Members() {
+			member.markDirty(IncludeChannels)
 		}
 	}()
 
@@ -335,11 +303,11 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	defer cm.Unlock()
 
 	entry := cm.chans[oldCfname]
-	if entry == nil || !entry.channel.IsLoaded() {
+	if entry == nil {
 		return errNoSuchChannel
 	}
 	channel = entry.channel
-	info = channel.ExportRegistration(IncludeInitial)
+	info = channel.ExportRegistration()
 	registered := info.Founder != ""
 
 	oldSkeleton, err := Skeleton(info.Name)
@@ -348,13 +316,13 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	}
 
 	if newCfname != oldCfname {
-		if cm.chans[newCfname] != nil || cm.registeredChannels.Has(newCfname) {
+		if cm.chans[newCfname] != nil {
 			return errChannelNameInUse
 		}
 	}
 
 	if oldSkeleton != newSkeleton {
-		if cm.chansSkeletons.Has(newSkeleton) || cm.registeredSkeletons.Has(newSkeleton) {
+		if cm.chansSkeletons.Has(newSkeleton) {
 			return errConfusableIdentifier
 		}
 	}
@@ -364,15 +332,8 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 		entry.skeleton = newSkeleton
 	}
 	cm.chans[newCfname] = entry
-	if registered {
-		delete(cm.registeredChannels, oldCfname)
-		cm.registeredChannels.Add(newCfname)
-		delete(cm.registeredSkeletons, oldSkeleton)
-		cm.registeredSkeletons.Add(newSkeleton)
-	} else {
-		delete(cm.chansSkeletons, oldSkeleton)
-		cm.chansSkeletons.Add(newSkeleton)
-	}
+	delete(cm.chansSkeletons, oldSkeleton)
+	cm.chansSkeletons.Add(newSkeleton)
 	entry.channel.Rename(newName, newCfname)
 	return nil
 }
@@ -390,7 +351,18 @@ func (cm *ChannelManager) Channels() (result []*Channel) {
 	defer cm.RUnlock()
 	result = make([]*Channel, 0, len(cm.chans))
 	for _, entry := range cm.chans {
-		if entry.channel.IsLoaded() {
+		result = append(result, entry.channel)
+	}
+	return
+}
+
+// ListableChannels returns a slice of all non-purged channels.
+func (cm *ChannelManager) ListableChannels() (result []*Channel) {
+	cm.RLock()
+	defer cm.RUnlock()
+	result = make([]*Channel, 0, len(cm.chans))
+	for cfname, entry := range cm.chans {
+		if _, ok := cm.purgedChannels[cfname]; !ok {
 			result = append(result, entry.channel)
 		}
 	}
@@ -403,29 +375,46 @@ func (cm *ChannelManager) Purge(chname string, record ChannelPurgeRecord) (err e
 	if err != nil {
 		return errInvalidChannelName
 	}
-	skel, err := Skeleton(chname)
-	if err != nil {
-		return errInvalidChannelName
-	}
 
-	cm.Lock()
-	cm.purgedChannels.Add(chname)
-	entry := cm.chans[chname]
-	if entry != nil {
-		delete(cm.chans, chname)
-		if entry.channel.Founder() != "" {
-			delete(cm.registeredSkeletons, skel)
-		} else {
-			delete(cm.chansSkeletons, skel)
+	record.NameCasefolded = chname
+	record.UUID = utils.GenerateUUIDv4()
+
+	channel, err := func() (channel *Channel, err error) {
+		cm.Lock()
+		defer cm.Unlock()
+
+		if _, ok := cm.purgedChannels[chname]; ok {
+			return nil, errChannelPurgedAlready
 		}
-	}
-	cm.Unlock()
 
-	cm.server.channelRegistry.PurgeChannel(chname, record)
-	if entry != nil {
-		entry.channel.Purge("")
+		entry := cm.chans[chname]
+		// atomically prevent anyone from rejoining
+		cm.purgedChannels[chname] = record
+		if entry != nil {
+			channel = entry.channel
+		}
+		return
+	}()
+
+	if err != nil {
+		return err
 	}
-	return nil
+
+	if channel != nil {
+		// actually kick everyone off the channel
+		channel.Purge("")
+	}
+
+	var purgeBytes []byte
+	if purgeBytes, err = record.Serialize(); err != nil {
+		cm.server.logger.Error("internal", "couldn't serialize purge record", channel.Name(), err.Error())
+	}
+	// TODO we need a better story about error handling for later
+	if err = cm.server.dstore.Set(datastore.TableChannelPurges, record.UUID, purgeBytes, time.Time{}); err != nil {
+		cm.server.logger.Error("datastore", "couldn't store purge record", chname, err.Error())
+	}
+
+	return
 }
 
 // IsPurged queries whether a channel is purged.
@@ -436,7 +425,7 @@ func (cm *ChannelManager) IsPurged(chname string) (result bool) {
 	}
 
 	cm.RLock()
-	result = cm.purgedChannels.Has(chname)
+	_, result = cm.purgedChannels[chname]
 	cm.RUnlock()
 	return
 }
@@ -449,13 +438,15 @@ func (cm *ChannelManager) Unpurge(chname string) (err error) {
 	}
 
 	cm.Lock()
-	found := cm.purgedChannels.Has(chname)
+	record, found := cm.purgedChannels[chname]
 	delete(cm.purgedChannels, chname)
 	cm.Unlock()
 
-	cm.server.channelRegistry.UnpurgeChannel(chname)
 	if !found {
 		return errNoSuchChannel
+	}
+	if err := cm.server.dstore.Delete(datastore.TableChannelPurges, record.UUID); err != nil {
+		cm.server.logger.Error("datastore", "couldn't delete purge record", chname, err.Error())
 	}
 	return nil
 }
@@ -475,8 +466,46 @@ func (cm *ChannelManager) UnfoldName(cfname string) (result string) {
 	cm.RLock()
 	entry := cm.chans[cfname]
 	cm.RUnlock()
-	if entry != nil && entry.channel.IsLoaded() {
+	if entry != nil {
 		return entry.channel.Name()
 	}
 	return cfname
+}
+
+func (cm *ChannelManager) LoadPurgeRecord(cfchname string) (record ChannelPurgeRecord, err error) {
+	cm.RLock()
+	defer cm.RUnlock()
+
+	if record, ok := cm.purgedChannels[cfchname]; ok {
+		return record, nil
+	} else {
+		return record, errNoSuchChannel
+	}
+}
+
+func (cm *ChannelManager) ChannelsForAccount(account string) (channels []string) {
+	cm.RLock()
+	defer cm.RUnlock()
+
+	for cfname, entry := range cm.chans {
+		if entry.channel.Founder() == account {
+			channels = append(channels, cfname)
+		}
+	}
+
+	return
+}
+
+// AllChannels returns the uncasefolded names of all registered channels.
+func (cm *ChannelManager) AllRegisteredChannels() (result []string) {
+	cm.RLock()
+	defer cm.RUnlock()
+
+	for cfname, entry := range cm.chans {
+		if entry.channel.Founder() != "" {
+			result = append(result, cfname)
+		}
+	}
+
+	return
 }

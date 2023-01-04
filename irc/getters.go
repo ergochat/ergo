@@ -638,3 +638,9 @@ func (channel *Channel) getAmode(cfaccount string) (result modes.Mode) {
 	defer channel.stateMutex.RUnlock()
 	return channel.accountToUMode[cfaccount]
 }
+
+func (channel *Channel) UUID() utils.UUID {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.uuid
+}
