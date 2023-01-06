@@ -9,7 +9,7 @@ import (
 	"io"
 	"net"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -209,7 +209,11 @@ func parseProxyLineV2(line []byte) (ip net.IP, err error) {
 type WrappedConn struct {
 	net.Conn
 	ProxiedIP net.IP
-	Config    ListenerConfig
+	TLS       bool
+	Tor       bool
+	STSOnly   bool
+	WebSocket bool
+	HideSTS   bool
 	// Secure indicates whether we believe the connection between us and the client
 	// was secure against interception and modification (including all proxies):
 	Secure bool
@@ -218,35 +222,30 @@ type WrappedConn struct {
 // ReloadableListener is a wrapper for net.Listener that allows reloading
 // of config data for postprocessing connections (TLS, PROXY protocol, etc.)
 type ReloadableListener struct {
-	// TODO: make this lock-free
-	sync.Mutex
 	realListener net.Listener
-	config       ListenerConfig
-	isClosed     bool
+	// nil means the listener is closed:
+	config atomic.Pointer[ListenerConfig]
 }
 
 func NewReloadableListener(realListener net.Listener, config ListenerConfig) *ReloadableListener {
-	return &ReloadableListener{
+	result := &ReloadableListener{
 		realListener: realListener,
-		config:       config,
 	}
+	result.config.Store(&config) // heap escape
+	return result
 }
 
 func (rl *ReloadableListener) Reload(config ListenerConfig) {
-	rl.Lock()
-	rl.config = config
-	rl.Unlock()
+	rl.config.Store(&config)
 }
 
 func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 	conn, err = rl.realListener.Accept()
 
-	rl.Lock()
-	config := rl.config
-	isClosed := rl.isClosed
-	rl.Unlock()
+	config := rl.config.Load()
 
-	if isClosed {
+	if config == nil {
+		// Close() was called
 		if err == nil {
 			conn.Close()
 		}
@@ -279,14 +278,17 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 	return &WrappedConn{
 		Conn:      conn,
 		ProxiedIP: proxiedIP,
-		Config:    config,
+		TLS:       config.TLSConfig != nil,
+		Tor:       config.Tor,
+		STSOnly:   config.STSOnly,
+		WebSocket: config.WebSocket,
+		HideSTS:   config.HideSTS,
+		// Secure will be set later by client code
 	}, nil
 }
 
 func (rl *ReloadableListener) Close() error {
-	rl.Lock()
-	rl.isClosed = true
-	rl.Unlock()
+	rl.config.Store(nil)
 
 	return rl.realListener.Close()
 }

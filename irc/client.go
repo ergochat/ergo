@@ -295,7 +295,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	var banMsg string
 	realIP := utils.AddrToIP(wConn.RemoteAddr())
 	var proxiedIP net.IP
-	if wConn.Config.Tor {
+	if wConn.Tor {
 		// cover up details of the tor proxying infrastructure (not a user privacy concern,
 		// but a hardening measure):
 		proxiedIP = utils.IPv4LoopbackAddress
@@ -329,7 +329,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		lastActive: now,
 		channels:   make(ChannelSet),
 		ctime:      now,
-		isSTSOnly:  wConn.Config.STSOnly,
+		isSTSOnly:  wConn.STSOnly,
 		languages:  server.Languages().Default(),
 		loginThrottle: connection_limits.GenericThrottle{
 			Duration: config.Accounts.LoginThrottling.Duration,
@@ -358,8 +358,8 @@ func (server *Server) RunClient(conn IRCConn) {
 		lastActive: now,
 		realIP:     realIP,
 		proxiedIP:  proxiedIP,
-		isTor:      wConn.Config.Tor,
-		hideSTS:    wConn.Config.Tor || wConn.Config.HideSTS,
+		isTor:      wConn.Tor,
+		hideSTS:    wConn.Tor || wConn.HideSTS,
 	}
 	client.sessions = []*Session{session}
 
@@ -369,7 +369,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		client.SetMode(modes.TLS, true)
 	}
 
-	if wConn.Config.TLSConfig != nil {
+	if wConn.TLS {
 		// error is not useful to us here anyways so we can ignore it
 		session.certfp, session.peerCerts, _ = utils.GetCertFP(wConn.Conn, RegisterTimeout)
 	}
