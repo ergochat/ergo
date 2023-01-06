@@ -204,10 +204,10 @@ func confirmProxyData(conn *utils.WrappedConn, remoteAddr, xForwardedFor, xForwa
 		}
 	}
 
-	if conn.Config.TLSConfig != nil || conn.Config.Tor {
+	if conn.TLS || conn.Tor {
 		// we terminated our own encryption:
 		conn.Secure = true
-	} else if !conn.Config.WebSocket {
+	} else if !conn.WebSocket {
 		// plaintext normal connection: loopback and secureNets are secure
 		realIP := utils.AddrToIP(conn.RemoteAddr())
 		conn.Secure = realIP.IsLoopback() || utils.IPInNets(realIP, config.Server.secureNets)
