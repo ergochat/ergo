@@ -207,7 +207,8 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 	if session.sasl.mechanism == "" {
 		throttled, remainingTime := client.loginThrottle.Touch()
 		if throttled {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(),
+				fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime.Round(time.Millisecond)))
 			return false
 		}
 
@@ -1666,7 +1667,7 @@ func listHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	config := server.Config()
 	if time.Since(client.ctime) < config.Channels.ListDelay && client.Account() == "" && !client.HasMode(modes.Operator) {
 		remaining := time.Until(client.ctime.Add(config.Channels.ListDelay))
-		rb.Notice(fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining))
+		rb.Notice(fmt.Sprintf(client.t("This server requires that you wait %v after connecting before you can use /LIST. You have %v left."), config.Channels.ListDelay, remaining.Round(time.Millisecond)))
 		rb.Add(nil, server.name, RPL_LISTEND, client.Nick(), client.t("End of LIST"))
 		return false
 	}

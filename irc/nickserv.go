@@ -811,7 +811,7 @@ func nsGroupHandler(service *ircService, server *Server, client *Client, command
 func nsLoginThrottleCheck(service *ircService, client *Client, rb *ResponseBuffer) (success bool) {
 	throttled, remainingTime := client.checkLoginThrottle()
 	if throttled {
-		service.Notice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime))
+		service.Notice(rb, fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime.Round(time.Millisecond)))
 	}
 	return !throttled
 }
