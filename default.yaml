@@ -450,6 +450,10 @@ accounts:
     # this is useful for compatibility with old clients that don't support SASL
     login-via-pass-command: true
 
+    # advertise the SCRAM-SHA-256 authentication method. set to false in case of
+    # compatibility issues with certain clients:
+    advertise-scram: true
+
     # require-sasl controls whether clients are required to have accounts
     # (and sign into them using SASL) to connect to the server
     require-sasl:
