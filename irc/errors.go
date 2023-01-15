@@ -97,5 +97,5 @@ type ThrottleError struct {
 }
 
 func (te *ThrottleError) Error() string {
-	return fmt.Sprintf(`Please wait at least %v and try again`, te.Duration)
+	return fmt.Sprintf(`Please wait at least %v and try again`, te.Duration.Round(time.Millisecond))
 }
