@@ -303,7 +303,7 @@ func (t *ThrottleConfig) UnmarshalYAML(unmarshal func(interface{}) error) (err e
 type AccountConfig struct {
 	Registration          AccountRegistrationConfig
 	AuthenticationEnabled bool `yaml:"authentication-enabled"`
-	AdvertiseSCRAM        bool `yaml:"advertise-scram"` // undocumented, see #1782
+	AdvertiseSCRAM        bool `yaml:"advertise-scram"`
 	RequireSasl           struct {
 		Enabled      bool
 		Exempted     []string
@@ -1390,7 +1390,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	saslCapValue := "PLAIN,EXTERNAL,SCRAM-SHA-256"
-	// TODO(#1782) clean this up:
 	if !config.Accounts.AdvertiseSCRAM {
 		saslCapValue = "PLAIN,EXTERNAL"
 	}
