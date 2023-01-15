@@ -14,6 +14,8 @@ github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce h1:RfyjeynouKZjmnN
 github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
 github.com/ergochat/irc-go v0.1.0 h1:jBHUayERH9SiPOWe4ePDWRztBjIQsU/jwLbbGUuiOWM=
 github.com/ergochat/irc-go v0.1.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+github.com/ergochat/irc-go v0.2.0 h1:3vHdy4c56UTY6+/rTBrQc1fmt32N5G8PrEZacJDOr+E=
+github.com/ergochat/irc-go v0.2.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
 github.com/ergochat/scram v1.0.2-ergo1 h1:2bYXiRFQH636pT0msOG39fmEYl4Eq+OuutcyDsCix/g=
 github.com/ergochat/scram v1.0.2-ergo1/go.mod h1:1WAq6h33pAW+iRreB34OORO2Nf7qel3VV3fjBj+hCSs=
 github.com/ergochat/websocket v1.4.2-oragono1 h1:plMUunFBM6UoSCIYCKKclTdy/TkkHfUslhOfJQzfueM=
