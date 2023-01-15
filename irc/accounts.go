@@ -39,7 +39,6 @@ const (
 	keyAccountSettings         = "account.settings %s"
 	keyAccountVHost            = "account.vhost %s"
 	keyCertToAccount           = "account.creds.certfp %s"
-	keyAccountChannels         = "account.channels %s" // channels registered to the account
 	keyAccountLastSeen         = "account.lastseen %s"
 	keyAccountReadMarkers      = "account.readmarkers %s"
 	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
@@ -1765,7 +1764,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	nicksKey := fmt.Sprintf(keyAccountAdditionalNicks, casefoldedAccount)
 	settingsKey := fmt.Sprintf(keyAccountSettings, casefoldedAccount)
 	vhostKey := fmt.Sprintf(keyAccountVHost, casefoldedAccount)
-	channelsKey := fmt.Sprintf(keyAccountChannels, casefoldedAccount)
 	joinedChannelsKey := fmt.Sprintf(keyAccountChannelToModes, casefoldedAccount)
 	lastSeenKey := fmt.Sprintf(keyAccountLastSeen, casefoldedAccount)
 	readMarkersKey := fmt.Sprintf(keyAccountReadMarkers, casefoldedAccount)
@@ -1781,10 +1779,9 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		am.killClients(clients)
 	}()
 
-	var registeredChannels []string
 	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
-		for _, channelName := range registeredChannels {
+		for _, channelName := range am.server.channels.ChannelsForAccount(casefoldedAccount) {
 			err := am.server.channels.SetUnregistered(channelName, casefoldedAccount)
 			if err != nil {
 				am.server.logger.Error("internal", "couldn't unregister channel", channelName, err.Error())
@@ -1799,7 +1796,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	defer am.serialCacheUpdateMutex.Unlock()
 
 	var accountName string
-	var channelsStr string
 	keepProtections := false
 	am.server.store.Update(func(tx *buntdb.Tx) error {
 		// get the unfolded account name; for an active account, this is
@@ -1827,8 +1823,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		credText, err = tx.Get(credentialsKey)
 		tx.Delete(credentialsKey)
 		tx.Delete(vhostKey)
-		channelsStr, _ = tx.Get(channelsKey)
-		tx.Delete(channelsKey)
 		tx.Delete(joinedChannelsKey)
 		tx.Delete(lastSeenKey)
 		tx.Delete(readMarkersKey)
@@ -1858,7 +1852,6 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 
 	skeleton, _ := Skeleton(accountName)
 	additionalNicks := unmarshalReservedNicks(rawNicks)
-	registeredChannels = unmarshalRegisteredChannels(channelsStr)
 
 	am.Lock()
 	defer am.Unlock()
@@ -1888,21 +1881,6 @@ func unmarshalRegisteredChannels(channelsStr string) (result []string) {
 		result = strings.Split(channelsStr, ",")
 	}
 	return
-}
-
-func (am *AccountManager) ChannelsForAccount(account string) (channels []string) {
-	cfaccount, err := CasefoldName(account)
-	if err != nil {
-		return
-	}
-
-	var channelStr string
-	key := fmt.Sprintf(keyAccountChannels, cfaccount)
-	am.server.store.View(func(tx *buntdb.Tx) error {
-		channelStr, _ = tx.Get(key)
-		return nil
-	})
-	return unmarshalRegisteredChannels(channelStr)
 }
 
 func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp string, peerCerts []*x509.Certificate, authzid string) (err error) {

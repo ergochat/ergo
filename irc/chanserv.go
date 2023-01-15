@@ -459,7 +459,7 @@ func csRegisterHandler(service *ircService, server *Server, client *Client, comm
 // check whether a client has already registered too many channels
 func checkChanLimit(service *ircService, client *Client, rb *ResponseBuffer) (ok bool) {
 	account := client.Account()
-	channelsAlreadyRegistered := client.server.accounts.ChannelsForAccount(account)
+	channelsAlreadyRegistered := client.server.channels.ChannelsForAccount(account)
 	ok = len(channelsAlreadyRegistered) < client.server.Config().Channels.Registration.MaxChannelsPerAccount || client.HasRoleCapabs("chanreg")
 	if !ok {
 		service.Notice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
@@ -496,8 +496,8 @@ func csUnregisterHandler(service *ircService, server *Server, client *Client, co
 		return
 	}
 
-	info := channel.ExportRegistration(0)
-	channelKey := info.NameCasefolded
+	info := channel.exportSummary()
+	channelKey := channel.NameCasefolded()
 	if !csPrivsCheck(service, info, client, rb) {
 		return
 	}
@@ -519,7 +519,7 @@ func csClearHandler(service *ircService, server *Server, client *Client, command
 		service.Notice(rb, client.t("Channel does not exist"))
 		return
 	}
-	if !csPrivsCheck(service, channel.ExportRegistration(0), client, rb) {
+	if !csPrivsCheck(service, channel.exportSummary(), client, rb) {
 		return
 	}
 
@@ -550,7 +550,7 @@ func csTransferHandler(service *ircService, server *Server, client *Client, comm
 		service.Notice(rb, client.t("Channel does not exist"))
 		return
 	}
-	regInfo := channel.ExportRegistration(0)
+	regInfo := channel.exportSummary()
 	chname = regInfo.Name
 	account := client.Account()
 	isFounder := account != "" && account == regInfo.Founder
@@ -729,11 +729,6 @@ func csPurgeListHandler(service *ircService, client *Client, rb *ResponseBuffer)
 }
 
 func csListHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	if !client.HasRoleCapabs("chanreg") {
-		service.Notice(rb, client.t("Insufficient privileges"))
-		return
-	}
-
 	var searchRegex *regexp.Regexp
 	if len(params) > 0 {
 		var err error
@@ -746,7 +741,7 @@ func csListHandler(service *ircService, server *Server, client *Client, command 
 
 	service.Notice(rb, ircfmt.Unescape(client.t("*** $bChanServ LIST$b ***")))
 
-	channels := server.channelRegistry.AllChannels()
+	channels := server.channels.AllRegisteredChannels()
 	for _, channel := range channels {
 		if searchRegex == nil || searchRegex.MatchString(channel) {
 			service.Notice(rb, fmt.Sprintf("    %s", channel))
@@ -771,7 +766,7 @@ func csInfoHandler(service *ircService, server *Server, client *Client, command 
 
 	// purge status
 	if client.HasRoleCapabs("chanreg") {
-		purgeRecord, err := server.channelRegistry.LoadPurgeRecord(chname)
+		purgeRecord, err := server.channels.LoadPurgeRecord(chname)
 		if err == nil {
 			service.Notice(rb, fmt.Sprintf(client.t("Channel %s was purged by the server operators and cannot be used"), chname))
 			service.Notice(rb, fmt.Sprintf(client.t("Purged by operator: %s"), purgeRecord.Oper))
@@ -789,13 +784,7 @@ func csInfoHandler(service *ircService, server *Server, client *Client, command 
 	var chinfo RegisteredChannel
 	channel := server.channels.Get(params[0])
 	if channel != nil {
-		chinfo = channel.ExportRegistration(0)
-	} else {
-		chinfo, err = server.channelRegistry.LoadChannel(chname)
-		if err != nil && !(err == errNoSuchChannel || err == errFeatureDisabled) {
-			service.Notice(rb, client.t("An error occurred"))
-			return
-		}
+		chinfo = channel.exportSummary()
 	}
 
 	// channel exists but is unregistered, or doesn't exist:
@@ -835,12 +824,12 @@ func csGetHandler(service *ircService, server *Server, client *Client, command s
 		service.Notice(rb, client.t("No such channel"))
 		return
 	}
-	info := channel.ExportRegistration(IncludeSettings)
+	info := channel.exportSummary()
 	if !csPrivsCheck(service, info, client, rb) {
 		return
 	}
 
-	displayChannelSetting(service, setting, info.Settings, client, rb)
+	displayChannelSetting(service, setting, channel.Settings(), client, rb)
 }
 
 func csSetHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
@@ -850,12 +839,12 @@ func csSetHandler(service *ircService, server *Server, client *Client, command s
 		service.Notice(rb, client.t("No such channel"))
 		return
 	}
-	info := channel.ExportRegistration(IncludeSettings)
-	settings := info.Settings
+	info := channel.exportSummary()
 	if !csPrivsCheck(service, info, client, rb) {
 		return
 	}
 
+	settings := channel.Settings()
 	var err error
 	switch strings.ToLower(setting) {
 	case "history":

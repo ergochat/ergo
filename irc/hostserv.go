@@ -193,6 +193,6 @@ func hsSetCloakSecretHandler(service *ircService, server *Server, client *Client
 		service.Notice(rb, fmt.Sprintf(client.t("To confirm, run this command: %s"), fmt.Sprintf("/HS SETCLOAKSECRET %s %s", secret, expectedCode)))
 		return
 	}
-	StoreCloakSecret(server.store, secret)
+	StoreCloakSecret(server.dstore, secret)
 	service.Notice(rb, client.t("Rotated the cloak secret; you must rehash or restart the server for it to take effect"))
 }

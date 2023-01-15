@@ -22,9 +22,12 @@ import (
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/okzk/sdnotify"
+	"github.com/tidwall/buntdb"
 
+	"github.com/ergochat/ergo/irc/bunt"
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
+	"github.com/ergochat/ergo/irc/datastore"
 	"github.com/ergochat/ergo/irc/flatip"
 	"github.com/ergochat/ergo/irc/flock"
 	"github.com/ergochat/ergo/irc/history"
@@ -33,7 +36,6 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
-	"github.com/tidwall/buntdb"
 )
 
 const (
@@ -66,7 +68,6 @@ type Server struct {
 	accepts           AcceptManager
 	accounts          AccountManager
 	channels          ChannelManager
-	channelRegistry   ChannelRegistry
 	clients           ClientManager
 	config            atomic.Pointer[Config]
 	configFilename    string
@@ -87,6 +88,7 @@ type Server struct {
 	tracebackSignal   chan os.Signal
 	snomasks          SnoManager
 	store             *buntdb.DB
+	dstore            datastore.Datastore
 	historyDB         mysql.MySQL
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
@@ -98,6 +100,10 @@ type Server struct {
 
 // NewServer returns a new Oragono server.
 func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
+	// sanity check that kernel randomness is available; on modern Linux,
+	// this will block until it is, on other platforms it may panic:
+	utils.GenerateUUIDv4()
+
 	// initialize data structures
 	server := &Server{
 		ctime:           time.Now().UTC(),
@@ -716,7 +722,11 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	// now that the datastore is initialized, we can load the cloak secret from it
 	// XXX this modifies config after the initial load, which is naughty,
 	// but there's no data race because we haven't done SetConfig yet
-	config.Server.Cloaks.SetSecret(LoadCloakSecret(server.store))
+	cloakSecret, err := LoadCloakSecret(server.dstore)
+	if err != nil {
+		return fmt.Errorf("Could not load cloak secret: %w", err)
+	}
+	config.Server.Cloaks.SetSecret(cloakSecret)
 
 	// activate the new config
 	server.config.Store(config)
@@ -837,6 +847,7 @@ func (server *Server) loadDatastore(config *Config) error {
 	db, err := OpenDatabase(config)
 	if err == nil {
 		server.store = db
+		server.dstore = bunt.NewBuntdbDatastore(db, server.logger)
 		return nil
 	} else {
 		return fmt.Errorf("Failed to open datastore: %s", err.Error())
@@ -849,8 +860,7 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 	server.loadDLines()
 	server.loadKLines()
 
-	server.channelRegistry.Initialize(server)
-	server.channels.Initialize(server)
+	server.channels.Initialize(server, config)
 	server.accounts.Initialize(server)
 
 	if config.Datastore.MySQL.Enabled {
