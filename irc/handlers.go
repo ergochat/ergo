@@ -2888,7 +2888,7 @@ func rehashHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		// TODO all operators should get a notice of some kind here
 		rb.Notice(client.t("Rehash complete"))
 	} else {
-		rb.Add(nil, server.name, ERR_UNKNOWNERROR, nick, "REHASH", err.Error())
+		rb.Add(nil, server.name, ERR_UNKNOWNERROR, nick, "REHASH", ircutils.SanitizeText(err.Error(), 350))
 	}
 	return false
 }
