@@ -102,7 +102,7 @@ func NewIRCWSConn(conn *websocket.Conn) *IRCWSConn {
 	return &IRCWSConn{
 		conn:   conn,
 		binary: conn.Subprotocol() == "binary.ircv3.net",
-		buf:    make([]byte, maxReadQBytes()),
+		buf:    make([]byte, initialBufferSize),
 	}
 }
 
@@ -143,8 +143,7 @@ func (wc *IRCWSConn) ReadLine() (line []byte, err error) {
 		return line, err
 	}
 
-	n, err := io.ReadFull(reader, wc.buf)
-	line = wc.buf[:n]
+	line, err = wc.readFull(reader)
 	switch err {
 	case io.ErrUnexpectedEOF, io.EOF:
 		// these are OK. io.ErrUnexpectedEOF is the good case:
@@ -159,6 +158,19 @@ func (wc *IRCWSConn) ReadLine() (line []byte, err error) {
 	default:
 		return line, err
 	}
+}
+
+func (wc *IRCWSConn) readFull(reader io.Reader) (line []byte, err error) {
+	// XXX this is io.ReadFull with a single attempt to resize upwards
+	n, err := io.ReadFull(reader, wc.buf)
+	if err == nil && len(wc.buf) < maxReadQBytes() {
+		newBuf := make([]byte, maxReadQBytes())
+		copy(newBuf, wc.buf[:n])
+		wc.buf = newBuf
+		n2, err := io.ReadFull(reader, wc.buf[n:])
+		return wc.buf[:n+n2], err
+	}
+	return wc.buf[:n], err
 }
 
 func (wc *IRCWSConn) Close() (err error) {
