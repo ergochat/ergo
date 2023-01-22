@@ -133,7 +133,7 @@ func (wc *IRCWSConn) WriteLines(buffers [][]byte) (err error) {
 }
 
 func (wc *IRCWSConn) ReadLine() (line []byte, err error) {
-	messageType, reader, err := wc.conn.NextReader()
+	_, reader, err := wc.conn.NextReader()
 	switch err {
 	case nil:
 		// OK
@@ -148,7 +148,7 @@ func (wc *IRCWSConn) ReadLine() (line []byte, err error) {
 	case io.ErrUnexpectedEOF, io.EOF:
 		// these are OK. io.ErrUnexpectedEOF is the good case:
 		// it means we read the full message and it consumed less than the full wc.buf
-		if messageType == websocket.BinaryMessage && !utf8.Valid(line) {
+		if !utf8.Valid(line) {
 			return line, errInvalidUtf8
 		}
 		return line, nil
