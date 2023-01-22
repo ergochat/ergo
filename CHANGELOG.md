@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.11.1] - 2022-01-22
+
+Ergo 2.11.1 is a bugfix release, fixing a denial-of-service issue in our websocket implementation. We regret the oversight.
+
+This release includes no changes to the config file format or database file format.
+
+### Security
+* Fixed a denial-of-service issue affecting websocket clients (#2039)
+
 ## [2.11.0] - 2022-12-25
 
 We're pleased to be publishing v2.11.0, a new stable release. This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
