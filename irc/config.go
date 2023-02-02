@@ -1605,6 +1605,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("KICKLEN", strconv.Itoa(config.Limits.KickLen))
 	isupport.Add("MAXLIST", fmt.Sprintf("beI:%s", strconv.Itoa(config.Limits.ChanListModes)))
 	isupport.Add("MAXTARGETS", maxTargetsString)
+	isupport.Add("MSGREFTYPES", "msgid,timestamp")
 	isupport.Add("MODES", "")
 	isupport.Add("MONITOR", strconv.Itoa(config.Limits.MonitorEntries))
 	isupport.Add("NETWORK", config.Network.Name)
