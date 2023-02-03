@@ -1223,7 +1223,7 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	wasAway := client.awayMessage
-	var nowAway string
+	nowAway := wasAway
 	if alwaysOn || remainingSessions != 0 {
 		if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
 			client.setAutoAwayNoMutex(config)
