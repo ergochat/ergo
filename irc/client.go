@@ -1222,13 +1222,13 @@ func (client *Client) destroy(session *Session) {
 		client.destroyed = true
 	}
 
-	becameAutoAway := false
-	var awayMessage string
-	if alwaysOn && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-		wasAway := client.awayMessage != ""
-		client.setAutoAwayNoMutex(config)
-		awayMessage = client.awayMessage
-		becameAutoAway = !wasAway && awayMessage != ""
+	wasAway := client.awayMessage
+	var nowAway string
+	if alwaysOn || remainingSessions != 0 {
+		if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
+			client.setAutoAwayNoMutex(config)
+			nowAway = client.awayMessage
+		}
 	}
 
 	if client.registrationTimer != nil {
@@ -1279,8 +1279,8 @@ func (client *Client) destroy(session *Session) {
 		client.server.stats.Remove(registered, invisible, operator)
 	}
 
-	if becameAutoAway {
-		dispatchAwayNotify(client, true, awayMessage)
+	if !shouldDestroy && wasAway != nowAway {
+		dispatchAwayNotify(client, nowAway)
 	}
 
 	if !shouldDestroy {

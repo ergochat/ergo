@@ -196,6 +196,12 @@ CAPDEFS = [
         standard="proposed IRCv3",
     ),
     CapDef(
+        identifier="Preaway",
+        name="draft/pre-away",
+        url="https://github.com/ircv3/ircv3-specifications/pull/514",
+        standard="proposed IRCv3",
+    ),
+    CapDef(
         identifier="StandardReplies",
         name="standard-replies",
         url="https://github.com/ircv3/ircv3-specifications/pull/506",

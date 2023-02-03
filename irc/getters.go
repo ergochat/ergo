@@ -92,7 +92,7 @@ func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (da
 	return
 }
 
-func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time, back bool) {
+func (client *Client) AddSession(session *Session) (success bool, numSessions int, lastSeen time.Time, wasAway, nowAway string) {
 	config := client.server.Config()
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
@@ -113,14 +113,22 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
 	client.sessions = newSessions
-	// TODO(#1551) there should be a cap to opt out of this behavior on a session
-	if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-		client.awayMessage = ""
-		if len(client.sessions) == 1 {
-			back = true
+	wasAway = client.awayMessage
+	autoAwayEnabled := persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)
+	if autoAwayEnabled {
+		client.setAutoAwayNoMutex(config)
+	} else {
+		if session.awayMessage != "" {
+			// set the away message even if it is *
+			client.awayMessage = session.awayMessage
+		} else if session.awayMessage == "" && !session.awayAt.IsZero() {
+			// weird edge case: explicit `AWAY` or `AWAY :` during pre-registration makes the client back
+			client.awayMessage = ""
 		}
+		// else: the client sent no AWAY command at all, no-op
 	}
-	return true, len(client.sessions), lastSeen, back
+	nowAway = client.awayMessage
+	return true, len(client.sessions), lastSeen, wasAway, nowAway
 }
 
 func (client *Client) removeSession(session *Session) (success bool, length int) {
@@ -223,8 +231,8 @@ func (client *Client) setAutoAwayNoMutex(config *Config) {
 			// a session is active, we are not auto-away
 			client.awayMessage = ""
 			return
-		} else if cSession.awayAt.After(awaySetAt) {
-			// choose the latest available away message from any session
+		} else if cSession.awayAt.After(awaySetAt) && cSession.awayMessage != "*" {
+			// choose the latest valid away message from any session
 			globalAwayState = cSession.awayMessage
 			awaySetAt = cSession.awayAt
 		}

@@ -34,7 +34,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	origNickMask := details.nickMask
 	isSanick := client != target
 
-	assignedNickname, err, back := client.server.clients.SetNick(target, session, nickname, false)
+	assignedNickname, err, awayChanged := client.server.clients.SetNick(target, session, nickname, false)
 	if err == errNicknameInUse {
 		if !isSanick {
 			rb.Add(nil, server.name, ERR_NICKNAMEINUSE, details.nick, utils.SafeErrorParam(nickname), client.t("Nickname is already in use"))
@@ -115,8 +115,8 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 		}
 	}
 
-	if back {
-		dispatchAwayNotify(session.client, false, "")
+	if awayChanged {
+		dispatchAwayNotify(session.client, session.client.AwayMessage())
 	}
 
 	for _, channel := range target.Channels() {

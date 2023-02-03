@@ -84,7 +84,7 @@ func (clients *ClientManager) Remove(client *Client) error {
 // SetNick sets a client's nickname, validating it against nicknames in use
 // XXX: dryRun validates a client's ability to claim a nick, without
 // actually claiming it
-func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string, dryRun bool) (setNick string, err error, returnedFromAway bool) {
+func (clients *ClientManager) SetNick(client *Client, session *Session, newNick string, dryRun bool) (setNick string, err error, awayChanged bool) {
 	config := client.server.Config()
 
 	var newCfNick, newSkeleton string
@@ -204,7 +204,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 				return "", errNicknameInUse, false
 			}
 		}
-		reattachSuccessful, numSessions, lastSeen, back := currentClient.AddSession(session)
+		reattachSuccessful, numSessions, lastSeen, wasAway, nowAway := currentClient.AddSession(session)
 		if !reattachSuccessful {
 			return "", errNicknameInUse, false
 		}
@@ -219,7 +219,7 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			currentClient.SetRealname(realname)
 		}
 		// successful reattach!
-		return newNick, nil, back
+		return newNick, nil, wasAway != nowAway
 	} else if currentClient == client && currentClient.Nick() == newNick {
 		return "", errNoop, false
 	}

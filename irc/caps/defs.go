@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 31
+	numCapabs = 32
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 1
 )
@@ -64,6 +64,10 @@ const (
 	// Persistence is the proposed IRCv3 capability named "draft/persistence":
 	// https://github.com/ircv3/ircv3-specifications/pull/503
 	Persistence Capability = iota
+
+	// Preaway is the proposed IRCv3 capability named "draft/pre-away":
+	// https://github.com/ircv3/ircv3-specifications/pull/514
+	Preaway Capability = iota
 
 	// ReadMarker is the draft IRCv3 capability named "draft/read-marker":
 	// https://github.com/ircv3/ircv3-specifications/pull/489
@@ -154,6 +158,7 @@ var (
 		"draft/languages",
 		"draft/multiline",
 		"draft/persistence",
+		"draft/pre-away",
 		"draft/read-marker",
 		"draft/relaymsg",
 		"echo-message",

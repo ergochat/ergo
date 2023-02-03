@@ -463,16 +463,19 @@ func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
 
-	dispatchAwayNotify(client, isAway, awayMessage)
+	if client.registered {
+		dispatchAwayNotify(client, awayMessage)
+	} // else: we'll send it (if applicable) after reattach
+
 	return false
 }
 
-func dispatchAwayNotify(client *Client, isAway bool, awayMessage string) {
+func dispatchAwayNotify(client *Client, awayMessage string) {
 	// dispatch away-notify
 	details := client.Details()
 	isBot := client.HasMode(modes.Bot)
 	for session := range client.FriendsMonitors(caps.AwayNotify) {
-		if isAway {
+		if awayMessage != "" {
 			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY", awayMessage)
 		} else {
 			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY")
