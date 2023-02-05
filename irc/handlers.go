@@ -447,24 +447,23 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 
 // AWAY [<message>]
 func awayHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	var isAway bool
+	// #1996: `AWAY :` is treated the same as `AWAY`
 	var awayMessage string
 	if len(msg.Params) > 0 {
 		awayMessage = msg.Params[0]
 		awayMessage = ircutils.TruncateUTF8Safe(awayMessage, server.Config().Limits.AwayLen)
 	}
-	isAway = (awayMessage != "") // #1996
 
-	rb.session.SetAway(awayMessage)
+	wasAway, nowAway := rb.session.SetAway(awayMessage)
 
-	if isAway {
+	if nowAway != "" {
 		rb.Add(nil, server.name, RPL_NOWAWAY, client.nick, client.t("You have been marked as being away"))
 	} else {
 		rb.Add(nil, server.name, RPL_UNAWAY, client.nick, client.t("You are no longer marked as being away"))
 	}
 
-	if client.registered {
-		dispatchAwayNotify(client, awayMessage)
+	if client.registered && wasAway != nowAway {
+		dispatchAwayNotify(client, nowAway)
 	} // else: we'll send it (if applicable) after reattach
 
 	return false

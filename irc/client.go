@@ -1223,13 +1223,10 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	wasAway := client.awayMessage
-	nowAway := wasAway
-	if alwaysOn || remainingSessions != 0 {
-		if persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway) {
-			client.setAutoAwayNoMutex(config)
-			nowAway = client.awayMessage
-		}
+	if client.autoAwayEnabledNoMutex(config) {
+		client.setAutoAwayNoMutex(config)
 	}
+	nowAway := client.awayMessage
 
 	if client.registrationTimer != nil {
 		// unconditionally stop; if the client is still unregistered it must be destroyed

@@ -114,18 +114,18 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	}
 	client.sessions = newSessions
 	wasAway = client.awayMessage
-	autoAwayEnabled := persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)
-	if autoAwayEnabled {
+	if client.autoAwayEnabledNoMutex(config) {
 		client.setAutoAwayNoMutex(config)
 	} else {
-		if session.awayMessage != "" {
-			// set the away message even if it is *
+		if session.awayMessage != "" && session.awayMessage != "*" {
+			// set the away message
 			client.awayMessage = session.awayMessage
 		} else if session.awayMessage == "" && !session.awayAt.IsZero() {
 			// weird edge case: explicit `AWAY` or `AWAY :` during pre-registration makes the client back
 			client.awayMessage = ""
 		}
 		// else: the client sent no AWAY command at all, no-op
+		// or: the client sent `AWAY *`, which should not modify the publicly visible away state
 	}
 	nowAway = client.awayMessage
 	return true, len(client.sessions), lastSeen, wasAway, nowAway
@@ -203,7 +203,7 @@ func (client *Client) Away() (result bool, message string) {
 	return
 }
 
-func (session *Session) SetAway(awayMessage string) {
+func (session *Session) SetAway(awayMessage string) (wasAway, nowAway string) {
 	client := session.client
 	config := client.server.Config()
 
@@ -213,13 +213,19 @@ func (session *Session) SetAway(awayMessage string) {
 	session.awayMessage = awayMessage
 	session.awayAt = time.Now().UTC()
 
-	autoAway := client.registered && client.alwaysOn && persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)
-	if autoAway {
+	wasAway = client.awayMessage
+	if client.autoAwayEnabledNoMutex(config) {
 		client.setAutoAwayNoMutex(config)
-	} else {
+	} else if awayMessage != "*" {
 		client.awayMessage = awayMessage
-	}
+	} // else: `AWAY *`, should not modify publicly visible away state
+	nowAway = client.awayMessage
 	return
+}
+
+func (client *Client) autoAwayEnabledNoMutex(config *Config) bool {
+	return client.registered && client.alwaysOn &&
+		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)
 }
 
 func (client *Client) setAutoAwayNoMutex(config *Config) {
