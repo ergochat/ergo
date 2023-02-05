@@ -89,8 +89,9 @@ func init() {
 			minParams:    1,
 		},
 		"AWAY": {
-			handler:   awayHandler,
-			minParams: 0,
+			handler:      awayHandler,
+			usablePreReg: true,
+			minParams:    0,
 		},
 		"BATCH": {
 			handler:        batchHandler,
