@@ -13,7 +13,7 @@ RUN sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/erg
     sed -i 's/^\s*\"\[::1\]:6667\":.*$//' /go/src/github.com/ergochat/ergo/default.yaml
 
 # compile
-RUN make
+RUN make install
 
 ## build ergo container
 FROM alpine:3.13
