@@ -9,7 +9,7 @@ export CGO_ENABLED ?= 0
 
 capdef_file = ./irc/caps/defs.go
 
-all: install
+all: build
 
 install:
 	go install -v -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
@@ -29,13 +29,13 @@ test:
 	go vet ./...
 	./.check-gofmt.sh
 
-smoke:
+smoke: install
 	ergo mkcerts --conf ./default.yaml || true
 	ergo run --conf ./default.yaml --smoke
 
 gofmt:
 	./.check-gofmt.sh --fix
 
-irctest:
+irctest: install
 	git submodule update --init
 	cd irctest && make ergo
