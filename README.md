@@ -84,7 +84,7 @@ For information on contributing to Ergo, see [DEVELOPING.md](https://github.com/
 
 #### Building
 
-You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once that's installed (check the output of `go version`), just check out your desired branch or tag and run `make build`. This will produce an executable binary named `ergo` in the base directory of the project. (Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely.)
+You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once that's installed (check the output of `go version`), just check out your desired branch or tag and run `make`. This will produce an executable binary named `ergo` in the base directory of the project. (Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely.)
 
 ## Configuration
 
