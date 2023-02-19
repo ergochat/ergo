@@ -55,14 +55,17 @@ type Client struct {
 
 // Dial returns a new Client connected to an SMTP server at addr.
 // The addr must include a port, as in "mail.example.com:smtp".
-func Dial(addr string, timeout time.Duration) (*Client, error) {
+func Dial(addr string, timeout time.Duration, implicitTLS bool) (*Client, error) {
 	var conn net.Conn
 	var err error
+	dialer := net.Dialer{
+		Timeout: timeout,
+	}
 	start := time.Now()
-	if timeout == 0 {
-		conn, err = net.Dial("tcp", addr)
+	if !implicitTLS {
+		conn, err = dialer.Dial("tcp", addr)
 	} else {
-		conn, err = net.DialTimeout("tcp", addr, timeout)
+		conn, err = tls.DialWithDialer(&dialer, "tcp", addr, nil)
 	}
 	if err != nil {
 		return nil, err
@@ -338,7 +341,7 @@ var testHookStartTLS func(*tls.Config) // nil, except for tests
 // functionality. Higher-level packages exist outside of the standard
 // library.
 // XXX: modified in Ergo to add `requireTLS`, `heloDomain`, and `timeout` arguments
-func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS bool, timeout time.Duration) error {
+func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS, implicitTLS bool, timeout time.Duration) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
@@ -347,7 +350,7 @@ func SendMail(addr string, a Auth, heloDomain string, from string, to []string, 
 			return err
 		}
 	}
-	c, err := Dial(addr, timeout)
+	c, err := Dial(addr, timeout, implicitTLS)
 	if err != nil {
 		return err
 	}
@@ -355,23 +358,25 @@ func SendMail(addr string, a Auth, heloDomain string, from string, to []string, 
 	if err = c.Hello(heloDomain); err != nil {
 		return err
 	}
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		var config *tls.Config
-		if requireTLS {
-			config = &tls.Config{ServerName: c.serverName}
-		} else {
-			// if TLS isn't a hard requirement, don't verify the certificate either,
-			// since a MITM attacker could just remove the STARTTLS advertisement
-			config = &tls.Config{InsecureSkipVerify: true}
+	if !implicitTLS {
+		if ok, _ := c.Extension("STARTTLS"); ok {
+			var config *tls.Config
+			if requireTLS {
+				config = &tls.Config{ServerName: c.serverName}
+			} else {
+				// if TLS isn't a hard requirement, don't verify the certificate either,
+				// since a MITM attacker could just remove the STARTTLS advertisement
+				config = &tls.Config{InsecureSkipVerify: true}
+			}
+			if testHookStartTLS != nil {
+				testHookStartTLS(config)
+			}
+			if err = c.StartTLS(config); err != nil {
+				return err
+			}
+		} else if requireTLS {
+			return errors.New("TLS required, but not negotiated")
 		}
-		if testHookStartTLS != nil {
-			testHookStartTLS(config)
-		}
-		if err = c.StartTLS(config); err != nil {
-			return err
-		}
-	} else if requireTLS {
-		return errors.New("TLS required, but not negotiated")
 	}
 	if a != nil && c.ext != nil {
 		if _, ok := c.ext["AUTH"]; !ok {

@@ -24,10 +24,11 @@ var (
 )
 
 type MTAConfig struct {
-	Server   string
-	Port     int
-	Username string
-	Password string
+	Server      string
+	Port        int
+	Username    string
+	Password    string
+	ImplicitTLS bool `yaml:"implicit-tls"`
 }
 
 type MailtoConfig struct {
@@ -132,11 +133,13 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 
 	var addr string
 	var auth smtp.Auth
+	var implicitTLS bool
 	if !config.DirectSendingEnabled() {
 		addr = fmt.Sprintf("%s:%d", config.MTAReal.Server, config.MTAReal.Port)
 		if config.MTAReal.Username != "" && config.MTAReal.Password != "" {
 			auth = smtp.PlainAuth("", config.MTAReal.Username, config.MTAReal.Password, config.MTAReal.Server)
 		}
+		implicitTLS = config.MTAReal.ImplicitTLS
 	} else {
 		idx := strings.IndexByte(recipient, '@')
 		if idx == -1 {
@@ -149,5 +152,8 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 		addr = fmt.Sprintf("%s:smtp", mx)
 	}
 
-	return smtp.SendMail(addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg, config.RequireTLS, config.Timeout)
+	return smtp.SendMail(
+		addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg,
+		config.RequireTLS, implicitTLS, config.Timeout,
+	)
 }
