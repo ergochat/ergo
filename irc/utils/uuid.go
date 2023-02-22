@@ -6,12 +6,16 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
+	"fmt"
 )
 
-var (
-	ErrInvalidUUID = errors.New("Invalid uuid")
-)
+type ErrInvalidUUID struct {
+	invalid []byte
+}
+
+func (e ErrInvalidUUID) Error() string {
+	return fmt.Sprintf("Invalid uuid:%q", string(e.invalid))
+}
 
 // Technically a UUIDv4 has version bits set, but this doesn't matter in practice
 type UUID [16]byte
@@ -26,11 +30,14 @@ func (u UUID) MarshalJSON() (b []byte, err error) {
 
 func (u *UUID) UnmarshalJSON(b []byte) (err error) {
 	if len(b) != 24 {
-		return ErrInvalidUUID
+		return ErrInvalidUUID{b}
 	}
 	readLen, err := base64.RawURLEncoding.Decode(u[:], b[1:23])
+	if err != nil {
+		return err
+	}
 	if readLen != 16 {
-		return ErrInvalidUUID
+		return ErrInvalidUUID{b}
 	}
 	return nil
 }
@@ -49,8 +56,12 @@ func GenerateUUIDv4() (result UUID) {
 
 func DecodeUUID(ustr string) (result UUID, err error) {
 	length, err := base64.RawURLEncoding.Decode(result[:], []byte(ustr))
-	if err == nil && length != 16 {
-		err = ErrInvalidUUID
+	if err != nil {
+		return
+	}
+	if length != 16 {
+		err = ErrInvalidUUID{[]byte(ustr)}
+		return
 	}
 	return
 }
