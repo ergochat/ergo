@@ -1445,7 +1445,7 @@ func kickHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 // KILL <nickname> <comment>
 func killHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nickname := msg.Params[0]
-	comment := "<no reason supplied>"
+	var comment string
 	if len(msg.Params) > 1 {
 		comment = msg.Params[1]
 	}
@@ -1458,9 +1458,18 @@ func killHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, client.server.name, ERR_UNKNOWNERROR, client.Nick(), "KILL", fmt.Sprintf(client.t("Client %s is always-on and cannot be fully removed by /KILL; consider /NS SUSPEND instead"), target.Nick()))
 	}
 
-	quitMsg := fmt.Sprintf("Killed (%s (%s))", client.nick, comment)
+	quitMsg := "Killed"
+	if comment != "" {
+		quitMsg = fmt.Sprintf("Killed by %s: %s", client.Nick(), comment)
+	}
 
-	server.snomasks.Send(sno.LocalKills, fmt.Sprintf(ircfmt.Unescape("%s$r was killed by %s $c[grey][$r%s$c[grey]]"), target.nick, client.nick, comment))
+	var snoLine string
+	if comment == "" {
+		snoLine = fmt.Sprintf(ircfmt.Unescape("%s was killed by %s"), target.Nick(), client.Nick())
+	} else {
+		snoLine = fmt.Sprintf(ircfmt.Unescape("%s was killed by %s $c[grey][$r%s$c[grey]]"), target.Nick(), client.Nick(), comment)
+	}
+	server.snomasks.Send(sno.LocalKills, snoLine)
 
 	target.Quit(quitMsg, nil)
 	target.destroy(nil)
