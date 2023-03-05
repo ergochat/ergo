@@ -29,7 +29,7 @@ func (u *UUID) UnmarshalJSON(b []byte) (err error) {
 		return ErrInvalidUUID
 	}
 	readLen, err := base64.RawURLEncoding.Decode(u[:], b[1:23])
-	if readLen != 16 {
+	if err != nil || readLen != 16 {
 		return ErrInvalidUUID
 	}
 	return nil
