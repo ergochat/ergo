@@ -1455,7 +1455,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, client.server.name, ERR_NOSUCHNICK, client.Nick(), utils.SafeErrorParam(nickname), client.t("No such nick"))
 		return false
 	} else if target.AlwaysOn() {
-		rb.Add(nil, client.server.name, ERR_UNKNOWNERROR, client.Nick(), "KILL", fmt.Sprintf(client.t("Client %s is always-on and cannot be fully removed by /KILL; consider /NS SUSPEND instead"), target.Nick()))
+		rb.Add(nil, client.server.name, ERR_UNKNOWNERROR, client.Nick(), "KILL", fmt.Sprintf(client.t("Client %s is always-on and cannot be fully removed by /KILL; consider /UBAN ADD instead"), target.Nick()))
 	}
 
 	quitMsg := "Killed"
