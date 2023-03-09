@@ -1017,6 +1017,16 @@ or with Gamja, create a new `config.json` (in the base directory of the Gamja in
 }
 ```
 
+On Apache 2.4.47 or higher, websocket proxying can be configured with:
+
+```
+RequestHeader setifempty X-Forwarded-Proto https
+
+ProxyPreserveHost On
+ProxyPass /webirc http://127.0.0.1:8067 upgrade=websocket
+ProxyPassReverse /webirc http://127.0.0.1:8067
+```
+
 ## Migrating from Anope or Atheme
 
 You can import user and channel registrations from an Anope or Atheme database into a new Ergo database (not all features are supported). Use the following steps:
