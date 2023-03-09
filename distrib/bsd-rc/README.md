@@ -3,6 +3,7 @@ Ergo init script for bsd-rc
 
 Written for and tested using FreeBSD.
 
+## Installation
 Copy the `ergo` file from this folder to `/etc/rc.d/ergo`,
 permissions should be `555`.
 
@@ -18,3 +19,11 @@ Here are all `rc.conf` variables and their defaults:
 - `ergo_conf`, defaults to `/usr/local/etc/ergo/ircd.yaml`. Config file path. Make sure `ergo_user` can read it.
 
 This script assumes ergo to be installed at `/usr/local/bin/ergo`.
+
+## Usage
+
+```shell
+/etc/rc.d/ergo <command>
+```
+In addition to the obvious `start` and `stop` commands, this  
+script also has a `reload` command that sends `SIGHUP` to the Ergo process.
