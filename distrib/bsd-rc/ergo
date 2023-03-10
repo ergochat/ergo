@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# PROVIDE: ergo
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+#
+# Add the following lines to /etc/rc.conf to enable Ergo
+#
+# ergo_enable (bool): Set to YES to enable ergo.
+#                           Default is "NO".
+# ergo_user   (user): Set user to run ergo.
+#                           Default is "ergo".
+# ergo_group (group): Set group to run ergo.
+#                           Default is "ergo".
+# ergo_config (file): Set ergo config file path.
+#                           Default is "/usr/local/etc/ergo/config.yaml".
+# ergo_chdir    (dir):  Set ergo working directory
+#                           Default is "/var/db/ergo".
+
+. /etc/rc.subr
+
+name=ergo
+rcvar=ergo_enable
+desc="Ergo IRCv3 server"
+
+load_rc_config "$name"
+
+: ${ergo_enable:=NO}
+: ${ergo_user:=ergo}
+: ${ergo_group:=ergo}
+: ${ergo_chdir:=/var/db/ergo}
+: ${ergo_conf:=/usr/local/etc/ergo/ircd.yaml}
+
+# If you don't define a custom reload function,
+# rc automagically sends SIGHUP to the process on reload.
+# But you have to list reload as an extra_command for that.
+extra_commands="reload"
+
+procname="/usr/local/bin/${name}"
+command=/usr/sbin/daemon
+command_args="-S -T ${name} ${procname} run --conf ${ergo_conf}"
+
+run_rc_command "$1"
+
