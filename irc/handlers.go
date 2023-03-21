@@ -180,7 +180,7 @@ func acceptHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	return false
 }
 
-// AUTHENTICATE [<mechanism>|<data>|*]
+// AUTHENTICATE [<mechanism> [<data>]|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	session := rb.session
 	config := server.Config()
@@ -203,8 +203,15 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 		return false
 	}
 
+	// continue existing sasl session by default
+	rawData := msg.Params[0]
+
 	// start new sasl session
 	if session.sasl.mechanism == "" {
+		// Whether the client is using the SASL-IR format
+		// https://github.com/ircv3/ircv3-specifications/pull/520
+		saslInitialResponse := len(msg.Params) > 1
+
 		throttled, remainingTime := client.loginThrottle.Touch()
 		if throttled {
 			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(),
@@ -217,23 +224,29 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 
 		if mechanismIsEnabled {
 			session.sasl.mechanism = mechanism
-			if !config.Server.Compatibility.SendUnprefixedSasl {
-				// normal behavior
-				rb.Add(nil, server.name, "AUTHENTICATE", "+")
-			} else {
-				// gross hack: send a raw message to ensure no tags or prefix
-				rb.Flush(true)
-				rb.session.SendRawMessage(ircmsg.MakeMessage(nil, "", "AUTHENTICATE", "+"), true)
+			if (!saslInitialResponse) {
+				// In case of SASL-IR, we continue to the second part of this
+				// function to handle the payload
+				if !config.Server.Compatibility.SendUnprefixedSasl {
+					// normal behavior
+					rb.Add(nil, server.name, "AUTHENTICATE", "+")
+				} else {
+					// gross hack: send a raw message to ensure no tags or prefix
+					rb.Flush(true)
+					rb.session.SendRawMessage(ircmsg.MakeMessage(nil, "", "AUTHENTICATE", "+"), true)
+				}
 			}
 		} else {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed"))
 		}
 
-		return false
+		if saslInitialResponse {
+			rawData = msg.Params[1]
+		} else {
+			// Nothing else to handle
+			return false
+		}
 	}
-
-	// continue existing sasl session
-	rawData := msg.Params[0]
 
 	// https://ircv3.net/specs/extensions/sasl-3.1:
 	// "The response is encoded in Base64 (RFC 4648), then split to 400-byte chunks,

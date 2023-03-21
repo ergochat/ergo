@@ -7,9 +7,9 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 32
+	numCapabs = 33
 	// length of the uint32 array that represents the bitset:
-	bitsetLen = 1
+	bitsetLen = 2
 )
 
 const (
@@ -76,6 +76,10 @@ const (
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
 	Relaymsg Capability = iota
+
+	// SASLIR is the draft IRCv3 capability named "draft/sasl-ir":
+	// https://github.com/ircv3/ircv3-specifications/pull/520
+	SASLIR Capability = iota
 
 	// EchoMessage is the IRCv3 capability named "echo-message":
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
@@ -161,6 +165,7 @@ var (
 		"draft/pre-away",
 		"draft/read-marker",
 		"draft/relaymsg",
+		"draft/sasl-ir",
 		"echo-message",
 		"ergo.chat/nope",
 		"extended-join",

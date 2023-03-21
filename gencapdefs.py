@@ -118,6 +118,12 @@ CAPDEFS = [
         standard="IRCv3",
     ),
     CapDef(
+        identifier="SASLIR",
+        name="draft/sasl-ir",
+        url="https://github.com/ircv3/ircv3-specifications/pull/520",
+        standard="draft IRCv3",
+    ),
+    CapDef(
         identifier="ServerTime",
         name="server-time",
         url="https://ircv3.net/specs/extensions/server-time-3.2.html",
