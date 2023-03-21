@@ -224,7 +224,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 
 		if mechanismIsEnabled {
 			session.sasl.mechanism = mechanism
-			if (!saslInitialResponse) {
+			if !saslInitialResponse {
 				// In case of SASL-IR, we continue to the second part of this
 				// function to handle the payload
 				if !config.Server.Compatibility.SendUnprefixedSasl {
