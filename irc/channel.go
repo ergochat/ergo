@@ -34,7 +34,6 @@ type Channel struct {
 	key               string
 	forward           string
 	members           MemberSet
-	membersCache      []*Client // allow iteration over channel members without holding the lock
 	name              string
 	nameCasefolded    string
 	server            *Server
@@ -54,6 +53,9 @@ type Channel struct {
 	dirtyBits         uint
 	settings          ChannelSettings
 	uuid              utils.UUID
+	// these caches are paired to allow iteration over channel members without holding the lock
+	membersCache     []*Client
+	memberModesCache []*modes.ModeSet
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -421,16 +423,19 @@ func (channel *Channel) AcceptTransfer(client *Client) (err error) {
 
 func (channel *Channel) regenerateMembersCache() {
 	channel.stateMutex.RLock()
-	result := make([]*Client, len(channel.members))
+	membersCache := make([]*Client, len(channel.members))
+	modesCache := make([]*modes.ModeSet, len(channel.members))
 	i := 0
-	for client := range channel.members {
-		result[i] = client
+	for client, info := range channel.members {
+		membersCache[i] = client
+		modesCache[i] = info.modes
 		i++
 	}
 	channel.stateMutex.RUnlock()
 
 	channel.stateMutex.Lock()
-	channel.membersCache = result
+	channel.membersCache = membersCache
+	channel.memberModesCache = modesCache
 	channel.stateMutex.Unlock()
 }
 
@@ -438,6 +443,8 @@ func (channel *Channel) regenerateMembersCache() {
 func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
 	clientData, isJoined := channel.members[client]
+	chname := channel.name
+	membersCache, memberModesCache := channel.membersCache, channel.memberModesCache
 	channel.stateMutex.RUnlock()
 	isOper := client.HasRoleCapabs("sajoin")
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
@@ -445,50 +452,30 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	isMultiPrefix := rb.session.capabilities.Has(caps.MultiPrefix)
 	isUserhostInNames := rb.session.capabilities.Has(caps.UserhostInNames)
 
-	maxNamLen := 480 - len(client.server.name) - len(client.Nick())
-	var namesLines []string
-	var buffer strings.Builder
+	maxNamLen := 480 - len(client.server.name) - len(client.Nick()) - len(chname)
+	var tl utils.TokenLineBuilder
+	tl.Initialize(maxNamLen, " ")
 	if isJoined || !channel.flags.HasMode(modes.Secret) || isOper {
-		for _, target := range channel.Members() {
+		for i, target := range membersCache {
 			var nick string
 			if isUserhostInNames {
 				nick = target.NickMaskString()
 			} else {
 				nick = target.Nick()
 			}
-			channel.stateMutex.RLock()
-			memberData, _ := channel.members[target]
-			channel.stateMutex.RUnlock()
-			modeSet := memberData.modes
-			if modeSet == nil {
-				continue
-			}
+			modeSet := memberModesCache[i]
 			if !isJoined && target.HasMode(modes.Invisible) && !isOper {
 				continue
 			}
 			if respectAuditorium && modeSet.HighestChannelUserMode() == modes.Mode(0) {
 				continue
 			}
-			prefix := modeSet.Prefixes(isMultiPrefix)
-			if buffer.Len()+len(nick)+len(prefix)+1 > maxNamLen {
-				namesLines = append(namesLines, buffer.String())
-				buffer.Reset()
-			}
-			if buffer.Len() > 0 {
-				buffer.WriteString(" ")
-			}
-			buffer.WriteString(prefix)
-			buffer.WriteString(nick)
-		}
-		if buffer.Len() > 0 {
-			namesLines = append(namesLines, buffer.String())
+			tl.AddParts(modeSet.Prefixes(isMultiPrefix), nick)
 		}
 	}
 
-	for _, line := range namesLines {
-		if buffer.Len() > 0 {
-			rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", channel.name, line)
-		}
+	for _, line := range tl.Lines() {
+		rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", chname, line)
 	}
 	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, client.t("End of NAMES list"))
 }
@@ -571,13 +558,14 @@ func (channel *Channel) setMemberStatus(client *Client, status alwaysOnChannelSt
 	}
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
-	if _, ok := channel.members[client]; !ok {
-		return
+	if mData, ok := channel.members[client]; ok {
+		mData.modes.Clear()
+		for _, mode := range status.Modes {
+			mData.modes.SetMode(modes.Mode(mode), true)
+		}
+		mData.joinTime = status.JoinTime
+		channel.members[client] = mData
 	}
-	memberData := channel.members[client]
-	memberData.modes = newModes
-	memberData.joinTime = status.JoinTime
-	channel.members[client] = memberData
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
@@ -1490,6 +1478,7 @@ func (channel *Channel) Purge(source string) {
 	chname := channel.name
 	members := channel.membersCache
 	channel.membersCache = nil
+	channel.memberModesCache = nil
 	channel.members = make(MemberSet)
 	// TODO try to prevent Purge racing against (pending) Join?
 	channel.stateMutex.Unlock()

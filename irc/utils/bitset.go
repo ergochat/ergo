@@ -48,6 +48,13 @@ func BitsetSet(set []uint32, position uint, on bool) (changed bool) {
 	}
 }
 
+// BitsetClear clears the bitset in-place.
+func BitsetClear(set []uint32) {
+	for i := 0; i < len(set); i++ {
+		atomic.StoreUint32(&set[i], 0)
+	}
+}
+
 // BitsetEmpty returns whether the bitset is empty.
 // This has false positives under concurrent modification (i.e., it can return true
 // even though w.r.t. the sequence of atomic modifications, there was no point at

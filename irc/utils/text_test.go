@@ -43,3 +43,26 @@ func TestBuildTokenLines(t *testing.T) {
 	val = BuildTokenLines(10, []string{"abcd", "efgh", "ijkl"}, ",")
 	assertEqual(val, []string{"abcd,efgh", "ijkl"}, t)
 }
+
+func TestTLBuilderAddParts(t *testing.T) {
+	var tl TokenLineBuilder
+	tl.Initialize(20, " ")
+	tl.Add("bob")
+	tl.AddParts("@", "alice")
+	tl.AddParts("@", "ErgoBot__")
+	assertEqual(tl.Lines(), []string{"bob @alice", "@ErgoBot__"}, t)
+}
+
+func BenchmarkTokenLines(b *testing.B) {
+	tokens := strings.Fields(monteCristo)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var tl TokenLineBuilder
+		tl.Initialize(400, " ")
+		for _, tok := range tokens {
+			tl.Add(tok)
+		}
+		tl.Lines()
+	}
+}
