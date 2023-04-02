@@ -54,8 +54,8 @@ type Channel struct {
 	settings          ChannelSettings
 	uuid              utils.UUID
 	// these caches are paired to allow iteration over channel members without holding the lock
-	membersCache     []*Client
-	memberModesCache []*modes.ModeSet
+	membersCache    []*Client
+	memberDataCache []*memberData
 }
 
 // NewChannel creates a new channel from a `Server` and a `name`
@@ -424,18 +424,18 @@ func (channel *Channel) AcceptTransfer(client *Client) (err error) {
 func (channel *Channel) regenerateMembersCache() {
 	channel.stateMutex.RLock()
 	membersCache := make([]*Client, len(channel.members))
-	modesCache := make([]*modes.ModeSet, len(channel.members))
+	dataCache := make([]*memberData, len(channel.members))
 	i := 0
 	for client, info := range channel.members {
 		membersCache[i] = client
-		modesCache[i] = info.modes
+		dataCache[i] = info
 		i++
 	}
 	channel.stateMutex.RUnlock()
 
 	channel.stateMutex.Lock()
 	channel.membersCache = membersCache
-	channel.memberModesCache = modesCache
+	channel.memberDataCache = dataCache
 	channel.stateMutex.Unlock()
 }
 
@@ -444,7 +444,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	channel.stateMutex.RLock()
 	clientData, isJoined := channel.members[client]
 	chname := channel.name
-	membersCache, memberModesCache := channel.membersCache, channel.memberModesCache
+	membersCache, memberDataCache := channel.membersCache, channel.memberDataCache
 	channel.stateMutex.RUnlock()
 	isOper := client.HasRoleCapabs("sajoin")
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
@@ -457,27 +457,27 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	tl.Initialize(maxNamLen, " ")
 	if isJoined || !channel.flags.HasMode(modes.Secret) || isOper {
 		for i, target := range membersCache {
+			if !isJoined && target.HasMode(modes.Invisible) && !isOper {
+				continue
+			}
 			var nick string
 			if isUserhostInNames {
 				nick = target.NickMaskString()
 			} else {
 				nick = target.Nick()
 			}
-			modeSet := memberModesCache[i]
-			if !isJoined && target.HasMode(modes.Invisible) && !isOper {
+			memberData := memberDataCache[i]
+			if respectAuditorium && memberData.modes.HighestChannelUserMode() == modes.Mode(0) {
 				continue
 			}
-			if respectAuditorium && modeSet.HighestChannelUserMode() == modes.Mode(0) {
-				continue
-			}
-			tl.AddParts(modeSet.Prefixes(isMultiPrefix), nick)
+			tl.AddParts(memberData.modes.Prefixes(isMultiPrefix), nick)
 		}
 	}
 
 	for _, line := range tl.Lines() {
 		rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", chname, line)
 	}
-	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, channel.name, client.t("End of NAMES list"))
+	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, chname, client.t("End of NAMES list"))
 }
 
 // does `clientMode` give you privileges to grant/remove `targetMode` to/from people,
@@ -501,12 +501,16 @@ func channelUserModeHasPrivsOver(clientMode modes.Mode, targetMode modes.Mode) b
 // ClientIsAtLeast returns whether the client has at least the given channel privilege.
 func (channel *Channel) ClientIsAtLeast(client *Client, permission modes.Mode) bool {
 	channel.stateMutex.RLock()
-	memberData := channel.members[client]
+	memberData, present := channel.members[client]
 	founder := channel.registeredFounder
 	channel.stateMutex.RUnlock()
 
 	if founder != "" && founder == client.Account() {
 		return true
+	}
+
+	if !present {
+		return false
 	}
 
 	for _, mode := range modes.ChannelUserModes {
@@ -564,15 +568,14 @@ func (channel *Channel) setMemberStatus(client *Client, status alwaysOnChannelSt
 			mData.modes.SetMode(modes.Mode(mode), true)
 		}
 		mData.joinTime = status.JoinTime
-		channel.members[client] = mData
 	}
 }
 
 func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool {
 	channel.stateMutex.RLock()
 	founder := channel.registeredFounder
-	clientModes := channel.members[client].modes
-	targetModes := channel.members[target].modes
+	clientData, clientOK := channel.members[client]
+	targetData, targetOK := channel.members[target]
 	channel.stateMutex.RUnlock()
 
 	if founder != "" {
@@ -583,7 +586,11 @@ func (channel *Channel) ClientHasPrivsOver(client *Client, target *Client) bool 
 		}
 	}
 
-	return channelUserModeHasPrivsOver(clientModes.HighestChannelUserMode(), targetModes.HighestChannelUserMode())
+	return clientOK && targetOK &&
+		channelUserModeHasPrivsOver(
+			clientData.modes.HighestChannelUserMode(),
+			targetData.modes.HighestChannelUserMode(),
+		)
 }
 
 func (channel *Channel) hasClient(client *Client) bool {
@@ -1307,9 +1314,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 
 	if channel.flags.HasMode(modes.OpModerated) {
 		channel.stateMutex.RLock()
-		cuData := channel.members[client]
+		cuData, ok := channel.members[client]
 		channel.stateMutex.RUnlock()
-		if cuData.modes.HighestChannelUserMode() == modes.Mode(0) {
+		if !ok || cuData.modes.HighestChannelUserMode() == modes.Mode(0) {
 			// max(statusmsg_minmode, halfop)
 			if minPrefixMode == modes.Mode(0) || minPrefixMode == modes.Voice {
 				minPrefixMode = modes.Halfop
@@ -1478,7 +1485,7 @@ func (channel *Channel) Purge(source string) {
 	chname := channel.name
 	members := channel.membersCache
 	channel.membersCache = nil
-	channel.memberModesCache = nil
+	channel.memberDataCache = nil
 	channel.members = make(MemberSet)
 	// TODO try to prevent Purge racing against (pending) Join?
 	channel.stateMutex.Unlock()
