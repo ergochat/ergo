@@ -4,8 +4,10 @@
 package irc
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -27,6 +29,47 @@ func BenchmarkGenerateBatchID(b *testing.B) {
 	var session Session
 	for i := 0; i < b.N; i++ {
 		session.generateBatchID()
+	}
+}
+
+func BenchmarkNames(b *testing.B) {
+	channelSize := 1024
+	server := &Server{
+		name: "ergo.test",
+	}
+	lm, err := languages.NewManager(false, "", "")
+	if err != nil {
+		b.Fatal(err)
+	}
+	server.config.Store(&Config{
+		languageManager: lm,
+	})
+	for i := 0; i < b.N; i++ {
+		channel := &Channel{
+			name:           "#test",
+			nameCasefolded: "#test",
+			server:         server,
+			members:        make(MemberSet),
+		}
+		for j := 0; j < channelSize; j++ {
+			nick := fmt.Sprintf("client_%d", j)
+			client := &Client{
+				server:         server,
+				nick:           nick,
+				nickCasefolded: nick,
+			}
+			channel.members.Add(client)
+			channel.regenerateMembersCache()
+			session := &Session{
+				client: client,
+			}
+			rb := NewResponseBuffer(session)
+			channel.Names(client, rb)
+			if len(rb.messages) < 2 {
+				b.Fatalf("not enough messages: %d", len(rb.messages))
+			}
+			// to inspect the messages: line, _ := rb.messages[0].Line()
+		}
 	}
 }
 
