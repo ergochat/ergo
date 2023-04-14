@@ -345,6 +345,10 @@ func NewModeSet() *ModeSet {
 	return &set
 }
 
+func (set *ModeSet) Clear() {
+	utils.BitsetClear(set[:])
+}
+
 // test whether `mode` is set
 func (set *ModeSet) HasMode(mode Mode) bool {
 	if set == nil {

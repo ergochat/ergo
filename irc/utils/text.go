@@ -125,6 +125,28 @@ func (t *TokenLineBuilder) Add(token string) {
 	t.buf.WriteString(token)
 }
 
+// AddParts concatenates `parts` into a token and adds it to the line,
+// creating a new line if necessary.
+func (t *TokenLineBuilder) AddParts(parts ...string) {
+	var tokenLen int
+	for _, part := range parts {
+		tokenLen += len(part)
+	}
+	if t.buf.Len() != 0 {
+		tokenLen += len(t.delim)
+	}
+	if t.lineLen < t.buf.Len()+tokenLen {
+		t.result = append(t.result, t.buf.String())
+		t.buf.Reset()
+	}
+	if t.buf.Len() != 0 {
+		t.buf.WriteString(t.delim)
+	}
+	for _, part := range parts {
+		t.buf.WriteString(part)
+	}
+}
+
 // Lines terminates the line-building and returns all the lines.
 func (t *TokenLineBuilder) Lines() (result []string) {
 	result = t.result

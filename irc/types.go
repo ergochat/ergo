@@ -16,17 +16,16 @@ import (
 type ClientSet = utils.HashSet[*Client]
 
 type memberData struct {
-	modes    *modes.ModeSet
+	modes    modes.ModeSet
 	joinTime int64
 }
 
 // MemberSet is a set of members with modes.
-type MemberSet map[*Client]memberData
+type MemberSet map[*Client]*memberData
 
 // Add adds the given client to this set.
 func (members MemberSet) Add(member *Client) {
-	members[member] = memberData{
-		modes:    modes.NewModeSet(),
+	members[member] = &memberData{
 		joinTime: time.Now().UnixNano(),
 	}
 }

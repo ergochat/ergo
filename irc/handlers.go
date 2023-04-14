@@ -2060,8 +2060,6 @@ func namesHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		channels = strings.Split(msg.Params[0], ",")
 	}
 
-	// TODO: in a post-federation world, process `target` (server to forward request to)
-
 	// implement the modern behavior: https://modern.ircdocs.horse/#names-message
 	// "Servers MAY only return information about the first <channel> and silently ignore the others."
 	// "If no parameter is given for this command, servers SHOULD return one RPL_ENDOFNAMES numeric
