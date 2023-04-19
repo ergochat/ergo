@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	"github.com/docopt/docopt-go"
 	"github.com/ergochat/ergo/irc"
@@ -27,18 +27,12 @@ var commit = ""  // git hash
 var version = "" // tagged version
 
 // get a password from stdin from the user
-func getPassword() string {
-	fd := int(os.Stdin.Fd())
-	if terminal.IsTerminal(fd) {
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			log.Fatal("Error reading password:", err.Error())
-		}
-		return string(bytePassword)
+func getPasswordFromTerminal() string {
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		log.Fatal("Error reading password:", err.Error())
 	}
-	reader := bufio.NewReader(os.Stdin)
-	text, _ := reader.ReadString('\n')
-	return strings.TrimSpace(text)
+	return string(bytePassword)
 }
 
 func fileDoesNotExist(file string) bool {
@@ -114,19 +108,20 @@ Options:
 	// don't require a config file for genpasswd
 	if arguments["genpasswd"].(bool) {
 		var password string
-		fd := int(os.Stdin.Fd())
-		if terminal.IsTerminal(fd) {
+		if term.IsTerminal(int(syscall.Stdin)) {
 			fmt.Print("Enter Password: ")
-			password = getPassword()
+			password = getPasswordFromTerminal()
 			fmt.Print("\n")
 			fmt.Print("Reenter Password: ")
-			confirm := getPassword()
+			confirm := getPasswordFromTerminal()
 			fmt.Print("\n")
 			if confirm != password {
 				log.Fatal("passwords do not match")
 			}
 		} else {
-			password = getPassword()
+			reader := bufio.NewReader(os.Stdin)
+			text, _ := reader.ReadString('\n')
+			password = strings.TrimSpace(text)
 		}
 		if err := irc.ValidatePassphrase(password); err != nil {
 			log.Printf("WARNING: this password contains characters that may cause problems with your IRC client software.\n")
@@ -136,10 +131,7 @@ Options:
 		if err != nil {
 			log.Fatal("encoding error:", err.Error())
 		}
-		fmt.Print(string(hash))
-		if terminal.IsTerminal(fd) {
-			fmt.Println()
-		}
+		fmt.Println(string(hash))
 		return
 	} else if arguments["mkcerts"].(bool) {
 		doMkcerts(arguments["--conf"].(string), arguments["--quiet"].(bool))
