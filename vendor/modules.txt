@@ -85,15 +85,14 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
-golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.4.0
+# golang.org/x/sys v0.7.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.4.0
+# golang.org/x/term v0.7.0
 ## explicit; go 1.17
 golang.org/x/term
 # golang.org/x/text v0.6.0
