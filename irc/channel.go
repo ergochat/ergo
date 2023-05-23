@@ -1228,20 +1228,26 @@ func (channel *Channel) CanSpeak(client *Client) (bool, modes.Mode) {
 	channel.stateMutex.RLock()
 	memberData, hasClient := channel.members[client]
 	channel.stateMutex.RUnlock()
-	clientModes := memberData.modes
+
+	highestMode := func() modes.Mode {
+		if !hasClient {
+			return modes.Mode(0)
+		}
+		return memberData.modes.HighestChannelUserMode()
+	}
 
 	if !hasClient && channel.flags.HasMode(modes.NoOutside) {
 		// TODO: enforce regular +b bans on -n channels?
 		return false, modes.NoOutside
 	}
-	if channel.isMuted(client) && clientModes.HighestChannelUserMode() == modes.Mode(0) {
+	if channel.isMuted(client) && highestMode() == modes.Mode(0) {
 		return false, modes.BanMask
 	}
-	if channel.flags.HasMode(modes.Moderated) && clientModes.HighestChannelUserMode() == modes.Mode(0) {
+	if channel.flags.HasMode(modes.Moderated) && highestMode() == modes.Mode(0) {
 		return false, modes.Moderated
 	}
 	if channel.flags.HasMode(modes.RegisteredOnlySpeak) && client.Account() == "" &&
-		clientModes.HighestChannelUserMode() == modes.Mode(0) {
+		highestMode() == modes.Mode(0) {
 		return false, modes.RegisteredOnlySpeak
 	}
 	return true, modes.Mode('?')
