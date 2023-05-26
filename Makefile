@@ -11,19 +11,19 @@ capdef_file = ./irc/caps/defs.go
 
 all: build
 
-install:
+install: build
 	go install -v -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
-build:
+build: ${capdef_file}
 	go build -v -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
-release:
+release: build
 	goreleaser --skip-publish --rm-dist
 
-capdefs:
+${capdef_file}: ./gencapdefs.py
 	python3 ./gencapdefs.py > ${capdef_file}
 
-test:
+test: ${capdef_file}
 	python3 ./gencapdefs.py | diff - ${capdef_file}
 	go test ./...
 	go vet ./...
