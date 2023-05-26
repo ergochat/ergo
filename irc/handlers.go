@@ -2701,8 +2701,8 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 
 		err := server.DeleteMessage(target, targetmsgid, accountName)
 		if err == errNoop {
-			// Chat history is disabled; but this shouldn't be an error because we
-			// are going to relay the REDACT to other clients
+			rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
+			return false
 		} else if err != nil {
 			isOper := client.HasRoleCapabs("history")
 			if isOper || true{
