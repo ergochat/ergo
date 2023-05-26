@@ -2665,8 +2665,8 @@ fail:
 
 // REDACT <target> <targetmsgid> [:<reason>]
 func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
-	target := msg.Params[0];
-	targetmsgid := msg.Params[1];
+	target := msg.Params[0]
+	targetmsgid := msg.Params[1]
 	//clientOnlyTags := msg.ClientOnlyTags()
 	var reason string
 	if len(msg.Params) > 2 {
@@ -2705,7 +2705,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			return false
 		} else if err != nil {
 			isOper := client.HasRoleCapabs("history")
-			if isOper || true{
+			if isOper || true {
 				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), fmt.Sprintf(client.t("Error deleting message: %v"), err))
 			} else {
 				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("Could not delete message"))

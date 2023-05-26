@@ -16,9 +16,9 @@ import (
 )
 
 const (
-    canDeleteAny = iota  // User is allowed to delete any message (for a given channel/PM)
-    canDeleteSelf  // User is allowed to delete their own messages (ditto)
-    canDeleteNone  // User is not allowed to delete any message (ditto)
+	canDeleteAny  = iota // User is allowed to delete any message (for a given channel/PM)
+	canDeleteSelf        // User is allowed to delete their own messages (ditto)
+	canDeleteNone        // User is not allowed to delete any message (ditto)
 )
 
 const (
@@ -101,25 +101,26 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 // Returns:
 //
 // 1. `canDeleteAny` if the client allowed to delete other users' messages from the target, ie.:
-//    * the client is a channel operator, or
-//    * the client is an operator with "history" capability
+//   - the client is a channel operator, or
+//   - the client is an operator with "history" capability
+//
 // 2. `canDeleteSelf` if the client is allowed to delete their own messages from the target
 // 3. `canDeleteNone` otherwise
 func canDelete(server *Server, client *Client, target string) int {
 	isOper := client.HasRoleCapabs("history")
 	if isOper {
-        return canDeleteAny
-    } else {
+		return canDeleteAny
+	} else {
 		if server.Config().History.Retention.AllowIndividualDelete {
 			channel := server.channels.Get(target)
 			if channel != nil && channel.ClientIsAtLeast(client, modes.Operator) {
 				return canDeleteAny
 			} else {
-                return canDeleteSelf
+				return canDeleteSelf
 			}
 		} else {
-            return canDeleteNone
-        }
+			return canDeleteNone
+		}
 	}
 }
 
