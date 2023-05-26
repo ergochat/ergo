@@ -7,9 +7,9 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 32
+	numCapabs = 33
 	// length of the uint32 array that represents the bitset:
-	bitsetLen = 1
+	bitsetLen = 2
 )
 
 const (
@@ -56,6 +56,10 @@ const (
 	// Languages is the proposed IRCv3 capability named "draft/languages":
 	// https://gist.github.com/DanielOaks/8126122f74b26012a3de37db80e4e0c6
 	Languages Capability = iota
+
+	// MessageRedaction is the proposed IRCv3 capability named "draft/message-redaction":
+	// https://github.com/progval/ircv3-specifications/blob/redaction/extensions/message-redaction.md
+	MessageRedaction Capability = iota
 
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
@@ -156,6 +160,7 @@ var (
 		"draft/chathistory",
 		"draft/event-playback",
 		"draft/languages",
+		"draft/message-redaction",
 		"draft/multiline",
 		"draft/persistence",
 		"draft/pre-away",

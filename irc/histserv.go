@@ -16,6 +16,12 @@ import (
 )
 
 const (
+    canDeleteAny = iota  // User is allowed to delete any message (for a given channel/PM)
+    canDeleteSelf  // User is allowed to delete their own messages (ditto)
+    canDeleteNone  // User is not allowed to delete any message (ditto)
+)
+
+const (
 	histservHelp = `HistServ provides commands related to history.`
 )
 
@@ -92,33 +98,52 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 	service.Notice(rb, fmt.Sprintf(client.t("Enqueued account %s for message deletion"), accountName))
 }
 
-func histservDeleteHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
-	target, msgid := params[0], params[1] // Fix #1881 2 params are required
-
-	// operators can delete; if individual delete is allowed, a chanop or
-	// the message author can delete
-	accountName := "*"
-	isChanop := false
+// Returns:
+//
+// 1. `canDeleteAny` if the client allowed to delete other users' messages from the target, ie.:
+//    * the client is a channel operator, or
+//    * the client is an operator with "history" capability
+// 2. `canDeleteSelf` if the client is allowed to delete their own messages from the target
+// 3. `canDeleteNone` otherwise
+func canDelete(server *Server, client *Client, target string) int {
 	isOper := client.HasRoleCapabs("history")
-	if !isOper {
+	if isOper {
+        return canDeleteAny
+    } else {
 		if server.Config().History.Retention.AllowIndividualDelete {
 			channel := server.channels.Get(target)
 			if channel != nil && channel.ClientIsAtLeast(client, modes.Operator) {
-				isChanop = true
+				return canDeleteAny
 			} else {
-				accountName = client.AccountName()
+                return canDeleteSelf
 			}
-		}
+		} else {
+            return canDeleteNone
+        }
 	}
-	if !isOper && !isChanop && accountName == "*" {
+}
+
+func histservDeleteHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	target, msgid := params[0], params[1] // Fix #1881 2 params are required
+
+	canDelete := canDelete(server, client, target)
+	accountName := "*"
+	if canDelete == canDeleteNone {
 		service.Notice(rb, client.t("Insufficient privileges"))
 		return
+	} else if canDelete == canDeleteSelf {
+		accountName = client.AccountName()
+		if accountName == "*" {
+			service.Notice(rb, client.t("Insufficient privileges"))
+			return
+		}
 	}
 
 	err := server.DeleteMessage(target, msgid, accountName)
 	if err == nil {
 		service.Notice(rb, client.t("Successfully deleted message"))
 	} else {
+		isOper := client.HasRoleCapabs("history")
 		if isOper {
 			service.Notice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
 		} else {
