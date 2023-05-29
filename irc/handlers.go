@@ -2746,7 +2746,8 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			if session.capabilities.Has(caps.MessageRedaction) {
 				session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
 			} else {
-				// TODO: add configurable fallback
+				// If we wanted to send a fallback to clients which do not support
+				// draft/message-redaction, we would do it from here.
 			}
 		}
 	}
