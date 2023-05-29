@@ -18,9 +18,9 @@ import (
 type CanDelete uint
 
 const (
-	canDeleteAny CanDelete = iota // User is allowed to delete any message (for a given channel/PM)
-	canDeleteSelf                 // User is allowed to delete their own messages (ditto)
-	canDeleteNone                 // User is not allowed to delete any message (ditto)
+	canDeleteAny  CanDelete = iota // User is allowed to delete any message (for a given channel/PM)
+	canDeleteSelf                  // User is allowed to delete their own messages (ditto)
+	canDeleteNone                  // User is not allowed to delete any message (ditto)
 )
 
 const (
