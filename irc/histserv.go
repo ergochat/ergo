@@ -15,10 +15,12 @@ import (
 	"github.com/ergochat/ergo/irc/utils"
 )
 
+type CanDelete uint
+
 const (
-	canDeleteAny  = iota // User is allowed to delete any message (for a given channel/PM)
-	canDeleteSelf        // User is allowed to delete their own messages (ditto)
-	canDeleteNone        // User is not allowed to delete any message (ditto)
+	canDeleteAny CanDelete = iota // User is allowed to delete any message (for a given channel/PM)
+	canDeleteSelf                 // User is allowed to delete their own messages (ditto)
+	canDeleteNone                 // User is not allowed to delete any message (ditto)
 )
 
 const (
@@ -106,7 +108,7 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 //
 // 2. `canDeleteSelf` if the client is allowed to delete their own messages from the target
 // 3. `canDeleteNone` otherwise
-func canDelete(server *Server, client *Client, target string) int {
+func canDelete(server *Server, client *Client, target string) CanDelete {
 	isOper := client.HasRoleCapabs("history")
 	if isOper {
 		return canDeleteAny
