@@ -108,7 +108,7 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 //
 // 2. `canDeleteSelf` if the client is allowed to delete their own messages from the target
 // 3. `canDeleteNone` otherwise
-func canDelete(server *Server, client *Client, target string) CanDelete {
+func deletionPolicy(server *Server, client *Client, target string) CanDelete {
 	isOper := client.HasRoleCapabs("history")
 	if isOper {
 		return canDeleteAny
@@ -129,7 +129,7 @@ func canDelete(server *Server, client *Client, target string) CanDelete {
 func histservDeleteHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	target, msgid := params[0], params[1] // Fix #1881 2 params are required
 
-	canDelete := canDelete(server, client, target)
+	canDelete := deletionPolicy(server, client, target)
 	accountName := "*"
 	if canDelete == canDeleteNone {
 		service.Notice(rb, client.t("Insufficient privileges"))

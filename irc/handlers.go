@@ -2672,6 +2672,8 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	if len(msg.Params) > 2 {
 		reason = msg.Params[2]
 	}
+	var members []*Client // members of a channel, or both parties of a PM
+	var canDelete CanDelete
 
 	msgid := utils.GenerateSecretToken()
 	time := time.Now().UTC().Round(0)
@@ -2684,46 +2686,69 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
 			return false
 		}
-
-		canDelete := canDelete(server, client, target)
-		if canDelete == canDeleteNone {
-			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete messages"))
+		members = channel.Members()
+		canDelete = deletionPolicy(server, client, target)
+	} else {
+		targetClient := server.clients.Get(target)
+		if targetClient == nil {
+			rb.Add(nil, server.name, ERR_NOSUCHNICK, client.Nick(), target, "No such nick")
 			return false
 		}
-		accountName := "*"
-		if canDelete == canDeleteSelf {
-			accountName = client.AccountName()
-			if accountName == "*" {
-				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete because you are logged out"))
-				return false
-			}
-		}
+		members = []*Client{client, targetClient}
+		canDelete = canDeleteSelf
+	}
 
-		err := server.DeleteMessage(target, targetmsgid, accountName)
-		if err == errNoop {
-			rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
+	if canDelete == canDeleteNone {
+		rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete messages"))
+		return false
+	}
+	accountName := "*"
+	if canDelete == canDeleteSelf {
+		accountName = client.AccountName()
+		if accountName == "*" {
+			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete because you are logged out"))
 			return false
-		} else if err != nil {
+		}
+	}
+
+	err := server.DeleteMessage(target, targetmsgid, accountName)
+	if err == errNoop {
+		rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
+		return false
+	} else if err != nil {
+		isOper := client.HasRoleCapabs("history")
+		if isOper {
+			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), fmt.Sprintf(client.t("Error deleting message: %v"), err))
+		} else {
+			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("Could not delete message"))
+		}
+		return false
+	}
+
+	if target[0] != '#' {
+		// If this is a PM, we just removed the message from the buffer of the other party;
+		// now we have to remove it from the buffer of the client who sent the REDACT command
+		err := server.DeleteMessage(client.Nick(), targetmsgid, accountName)
+
+		if err != nil {
+			client.server.logger.Error("internal", fmt.Sprintf("Private message %s is not deletable by %s from their own buffer's even though we just deleted it from %s's. This is a bug, please report it in details.", targetmsgid, client.Nick(), target), client.Nick())
 			isOper := client.HasRoleCapabs("history")
-			if isOper || true {
+			if isOper {
 				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), fmt.Sprintf(client.t("Error deleting message: %v"), err))
 			} else {
-				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("Could not delete message"))
+				rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("Error deleting message"))
 			}
-			return false
 		}
+	}
 
-		for _, member := range channel.Members() {
-			for _, session := range member.Sessions() {
-				if session.capabilities.Has(caps.MessageRedaction) {
-					session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
-				} else {
-					// TODO: add configurable fallback
-				}
+	for _, member := range members {
+		for _, session := range member.Sessions() {
+			if session.capabilities.Has(caps.MessageRedaction) {
+				session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
+			} else {
+				// TODO: add configurable fallback
 			}
 		}
-	} else {
-		// TODO
 	}
 	return false
 }
