@@ -88,6 +88,12 @@ CAPDEFS = [
         standard="proposed IRCv3",
     ),
     CapDef(
+        identifier="MessageRedaction",
+        name="draft/message-redaction",
+        url="https://github.com/progval/ircv3-specifications/blob/redaction/extensions/message-redaction.md",
+        standard="proposed IRCv3",
+    ),
+    CapDef(
         identifier="MessageTags",
         name="message-tags",
         url="https://ircv3.net/specs/extensions/message-tags.html",

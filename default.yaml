@@ -982,7 +982,8 @@ history:
 
     # options to control how messages are stored and deleted:
     retention:
-        # allow users to delete their own messages from history?
+        # allow users to delete their own messages from history,
+        # and channel operators to delete messages in their channel?
         allow-individual-delete: false
 
         # if persistent history is enabled, create additional index tables,

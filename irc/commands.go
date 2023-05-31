@@ -301,6 +301,10 @@ func init() {
 			usablePreReg: true,
 			minParams:    0,
 		},
+		"REDACT": {
+			handler:   redactHandler,
+			minParams: 2,
+		},
 		"REHASH": {
 			handler:   rehashHandler,
 			minParams: 0,

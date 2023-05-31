@@ -436,6 +436,12 @@ Replies to a PING. Used to check link connectivity.`,
 
 Sends the text to the given targets as a PRIVMSG.`,
 	},
+	"redact": {
+		text: `REDACT <target> <targetmsgid> [<reason>]
+
+Removes the message of the target msgid from the chat history of a channel
+or target user.`,
+	},
 	"relaymsg": {
 		text: `RELAYMSG <channel> <spoofed nick> :<message>
 
