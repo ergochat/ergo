@@ -102,6 +102,13 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 	var capab Capability
 	asSlice := s[:]
 	for capab = 0; capab < numCapabs; capab++ {
+		// XXX clients that only support CAP LS 301 cannot handle multiline
+		// responses. omit some CAPs in this case, forcing the response to fit on
+		// a single line. this is technically buggy for CAP LIST (as opposed to LS)
+		// but it shouldn't matter
+		if version < Cap302 && isRareCapability(capab) {
+			continue
+		}
 		// skip any capabilities that are not enabled
 		if !utils.BitsetGet(asSlice, uint(capab)) {
 			continue
@@ -121,4 +128,15 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 		result = []string{""}
 	}
 	return
+}
+
+func isRareCapability(capab Capability) bool {
+	switch capab {
+	case ReadMarker, Persistence, Languages, MessageRedaction, AccountRegistration,
+		ChannelRename, Preaway, Multiline:
+		// these are drafts that legacy clients won't know about
+		return true
+	default:
+		return false
+	}
 }
