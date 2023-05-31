@@ -106,7 +106,7 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 		// responses. omit some CAPs in this case, forcing the response to fit on
 		// a single line. this is technically buggy for CAP LIST (as opposed to LS)
 		// but it shouldn't matter
-		if version < Cap302 && isRareCapability(capab) {
+		if version < Cap302 && !isAllowed301(capab) {
 			continue
 		}
 		// skip any capabilities that are not enabled
@@ -130,11 +130,12 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 	return
 }
 
-func isRareCapability(capab Capability) bool {
+// this is a fixed whitelist of caps that are eligible for display in CAP LS 301
+func isAllowed301(capab Capability) bool {
 	switch capab {
-	case ReadMarker, Persistence, Languages, MessageRedaction, AccountRegistration,
-		ChannelRename, Preaway, Multiline:
-		// these are drafts that legacy clients won't know about
+	case AccountNotify, AccountTag, AwayNotify, Batch, ChgHost, Chathistory, EventPlayback,
+		Relaymsg, EchoMessage, Nope, ExtendedJoin, InviteNotify, LabeledResponse, MessageTags,
+		MultiPrefix, SASL, ServerTime, SetName, STS, UserhostInNames, ZNCSelfMessage, ZNCPlayback:
 		return true
 	default:
 		return false
