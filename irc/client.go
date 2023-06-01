@@ -1425,27 +1425,27 @@ func composeMultilineBatch(batchID, fromNickMask, fromAccount string, isBot bool
 }
 
 var (
-	// these are all the output commands that MUST have their last param be a trailing.
-	// this is needed because dumb clients like to treat trailing params separately from the
-	// other params in messages.
-	commandsThatMustUseTrailing = map[string]bool{
-		"PRIVMSG": true,
-		"NOTICE":  true,
-
-		RPL_WHOISCHANNELS: true,
-		RPL_USERHOST:      true,
-
+	// in practice, many clients require that the final parameter be a trailing
+	// (prefixed with `:`) even when this is not syntactically necessary.
+	// by default, force the following commands to use a trailing:
+	commandsThatMustUseTrailing = utils.SetLiteral(
+		"PRIVMSG",
+		"NOTICE",
+		RPL_WHOISCHANNELS,
+		RPL_USERHOST,
 		// mirc's handling of RPL_NAMREPLY is broken:
 		// https://forums.mirc.com/ubbthreads.php/topics/266939/re-nick-list
-		RPL_NAMREPLY: true,
-	}
+		RPL_NAMREPLY,
+	)
 )
+
+func forceTrailing(config *Config, command string) bool {
+	return config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing.Has(command)
+}
 
 // SendRawMessage sends a raw message to the client.
 func (session *Session) SendRawMessage(message ircmsg.Message, blocking bool) error {
-	// use dumb hack to force the last param to be a trailing param if required
-	config := session.client.server.Config()
-	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[message.Command] {
+	if forceTrailing(session.client.server.Config(), message.Command) {
 		message.ForceTrailing()
 	}
 

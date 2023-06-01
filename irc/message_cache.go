@@ -79,8 +79,7 @@ func (m *MessageCache) Initialize(server *Server, serverTime time.Time, msgid st
 	m.params = params
 
 	var msg ircmsg.Message
-	config := server.Config()
-	if config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[command] {
+	if forceTrailing(server.Config(), command) {
 		msg.ForceTrailing()
 	}
 	msg.Source = nickmask
@@ -111,8 +110,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 	m.target = target
 	m.splitMessage = message
 
-	config := server.Config()
-	forceTrailing := config.Server.Compatibility.forceTrailing && commandsThatMustUseTrailing[command]
+	forceTrailing := forceTrailing(server.Config(), command)
 
 	if message.Is512() {
 		isTagmsg := command == "TAGMSG"
