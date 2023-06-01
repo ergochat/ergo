@@ -3,8 +3,11 @@
 
 package caps
 
-import "testing"
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+	"testing"
+)
 
 func TestSets(t *testing.T) {
 	s1 := NewSet()
@@ -58,6 +61,19 @@ func TestSets(t *testing.T) {
 	if !reflect.DeepEqual(actualCap302ValuesString, expectedCap302ValuesString) {
 		t.Errorf("Generated Cap302 values string [%s] did not match expected values string [%s]", actualCap302ValuesString, expectedCap302ValuesString)
 	}
+}
+
+func assertEqual(found, expected interface{}) {
+	if !reflect.DeepEqual(found, expected) {
+		panic(fmt.Sprintf("found %#v, expected %#v", found, expected))
+	}
+}
+
+func Test301WhitelistNotRespectedFor302(t *testing.T) {
+	s1 := NewSet()
+	s1.Enable(AccountTag, EchoMessage, StandardReplies)
+	assertEqual(s1.Strings(Cap301, nil, 0), []string{"account-tag echo-message"})
+	assertEqual(s1.Strings(Cap302, nil, 0), []string{"account-tag echo-message standard-replies"})
 }
 
 func TestSubtract(t *testing.T) {

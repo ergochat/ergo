@@ -102,6 +102,13 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 	var capab Capability
 	asSlice := s[:]
 	for capab = 0; capab < numCapabs; capab++ {
+		// XXX clients that only support CAP LS 301 cannot handle multiline
+		// responses. omit some CAPs in this case, forcing the response to fit on
+		// a single line. this is technically buggy for CAP LIST (as opposed to LS)
+		// but it shouldn't matter
+		if version < Cap302 && !isAllowed301(capab) {
+			continue
+		}
 		// skip any capabilities that are not enabled
 		if !utils.BitsetGet(asSlice, uint(capab)) {
 			continue
@@ -121,4 +128,16 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 		result = []string{""}
 	}
 	return
+}
+
+// this is a fixed whitelist of caps that are eligible for display in CAP LS 301
+func isAllowed301(capab Capability) bool {
+	switch capab {
+	case AccountNotify, AccountTag, AwayNotify, Batch, ChgHost, Chathistory, EventPlayback,
+		Relaymsg, EchoMessage, Nope, ExtendedJoin, InviteNotify, LabeledResponse, MessageTags,
+		MultiPrefix, SASL, ServerTime, SetName, STS, UserhostInNames, ZNCSelfMessage, ZNCPlayback:
+		return true
+	default:
+		return false
+	}
 }
