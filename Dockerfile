@@ -1,7 +1,7 @@
 ## build ergo binary
 FROM golang:1.20-alpine AS build-env
 
-RUN apk add -U --force-refresh --no-cache --purge --clean-protected -l -u make git
+RUN apk upgrade -U --force-refresh --no-cache && apk add --no-cache --purge --clean-protected -l -u make git
 
 # copy ergo source
 WORKDIR /go/src/github.com/ergochat/ergo
