@@ -62,6 +62,8 @@ const (
 	RelaymsgTagName = "draft/relaymsg"
 	// BOT mode: https://ircv3.net/specs/extensions/bot-mode
 	BotTagName = "bot"
+	// https://ircv3.net/specs/extensions/chathistory
+	ChathistoryTargetsBatchType = "draft/chathistory-targets"
 )
 
 func init() {

@@ -193,6 +193,9 @@ func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
 // Starts a nested batch (see the ResponseBuffer struct definition for a description of
 // how this works)
 func (rb *ResponseBuffer) StartNestedBatch(batchType string, params ...string) (batchID string) {
+	if !rb.session.capabilities.Has(caps.Batch) {
+		return
+	}
 	batchID = rb.session.generateBatchID()
 	msgParams := make([]string, len(params)+2)
 	msgParams[0] = "+" + batchID
@@ -217,19 +220,6 @@ func (rb *ResponseBuffer) EndNestedBatch(batchID string) {
 
 	rb.nestedBatches = rb.nestedBatches[0 : len(rb.nestedBatches)-1]
 	rb.AddMessage(ircmsg.MakeMessage(nil, rb.target.server.name, "BATCH", "-"+batchID))
-}
-
-// Convenience to start a nested batch for history lines, at the highest level
-// supported by the client (`history`, `chathistory`, or no batch, in descending order).
-func (rb *ResponseBuffer) StartNestedHistoryBatch(params ...string) (batchID string) {
-	var batchType string
-	if rb.session.capabilities.Has(caps.Batch) {
-		batchType = "chathistory"
-	}
-	if batchType != "" {
-		batchID = rb.StartNestedBatch(batchType, params...)
-	}
-	return
 }
 
 // Send sends all messages in the buffer to the client.

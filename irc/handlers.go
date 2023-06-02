@@ -655,10 +655,8 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		} else {
 			// successful responses are sent as a chathistory or history batch
 			if listTargets {
-				if rb.session.capabilities.Has(caps.Batch) { // #2066
-					batchID := rb.StartNestedBatch("draft/chathistory-targets")
-					defer rb.EndNestedBatch(batchID)
-				}
+				batchID := rb.StartNestedBatch(caps.ChathistoryTargetsBatchType)
+				defer rb.EndNestedBatch(batchID)
 				for _, target := range targets {
 					name := server.UnfoldName(target.CfName)
 					rb.Add(nil, server.name, "CHATHISTORY", "TARGETS", name,

@@ -20,6 +20,14 @@ func (s HashSet[T]) Remove(elem T) {
 	delete(s, elem)
 }
 
+func SetLiteral[T comparable](elems ...T) HashSet[T] {
+	result := make(HashSet[T], len(elems))
+	for _, elem := range elems {
+		result.Add(elem)
+	}
+	return result
+}
+
 func CopyMap[K comparable, V any](input map[K]V) (result map[K]V) {
 	result = make(map[K]V, len(input))
 	for key, value := range input {

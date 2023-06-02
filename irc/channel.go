@@ -1059,7 +1059,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		}
 	}
 
-	batchID := rb.StartNestedHistoryBatch(chname)
+	batchID := rb.StartNestedBatch(chname, "chathistory")
 	defer rb.EndNestedBatch(batchID)
 
 	for _, item := range items {
