@@ -359,10 +359,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	rb := NewResponseBuffer(session)
 	nickError := performNickChange(server, c, c, session, c.preregNick, rb)
 	rb.Send(true)
-	if nickError == errInsecureReattach {
-		c.Quit(c.t("You can't mix secure and insecure connections to this account"), nil)
-		return true
-	} else if nickError != nil {
+	if nickError != nil {
 		c.preregNick = ""
 		return false
 	}

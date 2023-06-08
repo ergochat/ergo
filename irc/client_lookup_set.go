@@ -195,15 +195,6 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 			dryRun || session == nil {
 			return "", errNicknameInUse, false
 		}
-		// check TLS modes
-		if client.HasMode(modes.TLS) != currentClient.HasMode(modes.TLS) {
-			if useAccountName {
-				// #955: this is fatal because they can't fix it by trying a different nick
-				return "", errInsecureReattach, false
-			} else {
-				return "", errNicknameInUse, false
-			}
-		}
 		reattachSuccessful, numSessions, lastSeen, wasAway, nowAway := currentClient.AddSession(session)
 		if !reattachSuccessful {
 			return "", errNicknameInUse, false
