@@ -13,7 +13,7 @@ import (
 
 	"sync"
 
-	"github.com/ergochat/irc-go/ircutils"
+	"github.com/ergochat/irc-go/ircmsg"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/datastore"
@@ -1191,7 +1191,7 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 		return
 	}
 
-	topic = ircutils.TruncateUTF8Safe(topic, client.server.Config().Limits.TopicLen)
+	topic = ircmsg.TruncateUTF8Safe(topic, client.server.Config().Limits.TopicLen)
 
 	channel.stateMutex.Lock()
 	chname := channel.name
@@ -1450,7 +1450,7 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 		return
 	}
 
-	comment = ircutils.TruncateUTF8Safe(comment, channel.server.Config().Limits.KickLen)
+	comment = ircmsg.TruncateUTF8Safe(comment, channel.server.Config().Limits.KickLen)
 
 	message := utils.MakeMessage(comment)
 	details := client.Details()
