@@ -5,6 +5,7 @@ package ircfmt
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -19,24 +20,126 @@ const (
 	underline     string = "\x1f"
 	reset         string = "\x0f"
 
-	runecolour        rune = '\x03'
-	runebold          rune = '\x02'
-	runemonospace     rune = '\x11'
-	runereverseColour rune = '\x16'
-	runeitalic        rune = '\x1d'
-	runestrikethrough rune = '\x1e'
-	runereset         rune = '\x0f'
-	runeunderline     rune = '\x1f'
-
-	// valid characters in a colour code character, for speed
-	colours1 string = "0123456789"
+	metacharacters = (bold + colour + monospace + reverseColour + italic + strikethrough + underline + reset)
 )
+
+// ColorCode is a normalized representation of an IRC color code,
+// as per this de facto specification: https://modern.ircdocs.horse/formatting.html#color
+// The zero value of the type represents a default or unset color,
+// whereas ColorCode{true, 0} represents the color white.
+type ColorCode struct {
+	IsSet bool
+	Value uint8
+}
+
+// ParseColor converts a string representation of an IRC color code, e.g. "04",
+// into a normalized ColorCode, e.g. ColorCode{true, 4}.
+func ParseColor(str string) (color ColorCode) {
+	// "99 - Default Foreground/Background - Not universally supported."
+	// normalize 99 to ColorCode{} meaning "unset":
+	if code, err := strconv.ParseUint(str, 10, 8); err == nil && code < 99 {
+		color.IsSet = true
+		color.Value = uint8(code)
+	}
+	return
+}
+
+// FormattedSubstring represents a section of an IRC message with associated
+// formatting data.
+type FormattedSubstring struct {
+	Content         string
+	ForegroundColor ColorCode
+	BackgroundColor ColorCode
+	Bold            bool
+	Monospace       bool
+	Strikethrough   bool
+	Underline       bool
+	Italic          bool
+	ReverseColor    bool
+}
+
+// IsFormatted returns whether the section has any formatting flags switched on.
+func (f *FormattedSubstring) IsFormatted() bool {
+	// could rely on value receiver but if this is to be a public API,
+	// let's make it a pointer receiver
+	g := *f
+	g.Content = ""
+	return g != FormattedSubstring{}
+}
+
+var (
+	// "If there are two ASCII digits available where a <COLOR> is allowed,
+	// then two characters MUST always be read for it and displayed as described below."
+	// we rely on greedy matching to implement this for both forms:
+	// (\x03)00,01
+	colorForeBackRe = regexp.MustCompile(`^([0-9]{1,2}),([0-9]{1,2})`)
+	// (\x03)00
+	colorForeRe = regexp.MustCompile(`^([0-9]{1,2})`)
+)
+
+// Split takes an IRC message (typically a PRIVMSG or NOTICE final parameter)
+// containing IRC formatting control codes, and splits it into substrings with
+// associated formatting information.
+func Split(raw string) (result []FormattedSubstring) {
+	var chunk FormattedSubstring
+	for {
+		// skip to the next metacharacter, or the end of the string
+		if idx := strings.IndexAny(raw, metacharacters); idx != 0 {
+			if idx == -1 {
+				idx = len(raw)
+			}
+			chunk.Content = raw[:idx]
+			if len(chunk.Content) != 0 {
+				result = append(result, chunk)
+			}
+			raw = raw[idx:]
+		}
+
+		if len(raw) == 0 {
+			return
+		}
+
+		// we're at a metacharacter. by default, all previous formatting carries over
+		metacharacter := raw[0]
+		raw = raw[1:]
+		switch metacharacter {
+		case bold[0]:
+			chunk.Bold = !chunk.Bold
+		case monospace[0]:
+			chunk.Monospace = !chunk.Monospace
+		case strikethrough[0]:
+			chunk.Strikethrough = !chunk.Strikethrough
+		case underline[0]:
+			chunk.Underline = !chunk.Underline
+		case italic[0]:
+			chunk.Italic = !chunk.Italic
+		case reverseColour[0]:
+			chunk.ReverseColor = !chunk.ReverseColor
+		case reset[0]:
+			chunk = FormattedSubstring{}
+		case colour[0]:
+			// preferentially match the "\x0399,01" form, then "\x0399";
+			// if neither of those matches, then it's a reset
+			if matches := colorForeBackRe.FindStringSubmatch(raw); len(matches) != 0 {
+				chunk.ForegroundColor = ParseColor(matches[1])
+				chunk.BackgroundColor = ParseColor(matches[2])
+				raw = raw[len(matches[0]):]
+			} else if matches := colorForeRe.FindStringSubmatch(raw); len(matches) != 0 {
+				chunk.ForegroundColor = ParseColor(matches[1])
+				raw = raw[len(matches[0]):]
+			} else {
+				chunk.ForegroundColor = ColorCode{}
+				chunk.BackgroundColor = ColorCode{}
+			}
+		default:
+			// should be impossible, but just ignore it
+		}
+	}
+}
 
 var (
 	// valtoescape replaces most of IRC characters with our escapes.
 	valtoescape = strings.NewReplacer("$", "$$", colour, "$c", reverseColour, "$v", bold, "$b", italic, "$i", strikethrough, "$s", underline, "$u", monospace, "$m", reset, "$r")
-	// valToStrip replaces most of the IRC characters with nothing
-	valToStrip = strings.NewReplacer(colour, "$c", reverseColour, "", bold, "", italic, "", strikethrough, "", underline, "", monospace, "", reset, "")
 
 	// escapetoval contains most of our escapes and how they map to real IRC characters.
 	// intentionally skips colour, since that's handled elsewhere.
@@ -98,7 +201,9 @@ var (
 		"light blue":  "12",
 		"pink":        "13",
 		"grey":        "14",
+		"gray":        "14",
 		"light grey":  "15",
+		"light gray":  "15",
 		"default":     "99",
 	}
 
@@ -123,7 +228,7 @@ func Escape(in string) string {
 			out.WriteString("$c")
 			inRunes = inRunes[2:] // strip colour code chars
 
-			if len(inRunes) < 1 || !strings.Contains(colours1, string(inRunes[0])) {
+			if len(inRunes) < 1 || !isDigit(inRunes[0]) {
 				out.WriteString("[]")
 				continue
 			}
@@ -131,14 +236,14 @@ func Escape(in string) string {
 			var foreBuffer, backBuffer string
 			foreBuffer += string(inRunes[0])
 			inRunes = inRunes[1:]
-			if 0 < len(inRunes) && strings.Contains(colours1, string(inRunes[0])) {
+			if 0 < len(inRunes) && isDigit(inRunes[0]) {
 				foreBuffer += string(inRunes[0])
 				inRunes = inRunes[1:]
 			}
-			if 1 < len(inRunes) && inRunes[0] == ',' && strings.Contains(colours1, string(inRunes[1])) {
+			if 1 < len(inRunes) && inRunes[0] == ',' && isDigit(inRunes[1]) {
 				backBuffer += string(inRunes[1])
 				inRunes = inRunes[2:]
-				if 0 < len(inRunes) && strings.Contains(colours1, string(inRunes[0])) {
+				if 0 < len(inRunes) && isDigit(inRunes[1]) {
 					backBuffer += string(inRunes[0])
 					inRunes = inRunes[1:]
 				}
@@ -178,52 +283,27 @@ func Escape(in string) string {
 	return out.String()
 }
 
+func isDigit(r rune) bool {
+	return '0' <= r && r <= '9' // don't use unicode.IsDigit, it includes non-ASCII numerals
+}
+
 // Strip takes a raw IRC string and removes it with all formatting codes removed
 // IE, it turns this: "This is a \x02cool\x02, \x034red\x0f message!"
 // into: "This is a cool, red message!"
 func Strip(in string) string {
-	out := strings.Builder{}
-	runes := []rune(in)
-	if out.Len() < len(runes) { // Reduce allocations where needed
-		out.Grow(len(in) - out.Len())
-	}
-	for len(runes) > 0 {
-		switch runes[0] {
-		case runebold, runemonospace, runereverseColour, runeitalic, runestrikethrough, runeunderline, runereset:
-			runes = runes[1:]
-		case runecolour:
-			runes = removeColour(runes)
-		default:
-			out.WriteRune(runes[0])
-			runes = runes[1:]
-		}
-	}
-	return out.String()
-}
-
-func removeNumber(runes []rune) []rune {
-	if len(runes) > 0 && runes[0] >= '0' && runes[0] <= '9' {
-		runes = runes[1:]
-	}
-	return runes
-}
-
-func removeColour(runes []rune) []rune {
-	if runes[0] != runecolour {
-		return runes
-	}
-
-	runes = runes[1:]
-	runes = removeNumber(runes)
-	runes = removeNumber(runes)
-
-	if len(runes) > 1 && runes[0] == ',' && runes[1] >= '0' && runes[1] <= '9' {
-		runes = runes[2:]
+	splitChunks := Split(in)
+	if len(splitChunks) == 0 {
+		return ""
+	} else if len(splitChunks) == 1 {
+		return splitChunks[0].Content
 	} else {
-		return runes // Nothing else because we dont have a comma
+		var buf strings.Builder
+		buf.Grow(len(in))
+		for _, chunk := range splitChunks {
+			buf.WriteString(chunk.Content)
+		}
+		return buf.String()
 	}
-	runes = removeNumber(runes)
-	return runes
 }
 
 // resolve "light blue" to "12", "12" to "12", "asdf" to "", etc.

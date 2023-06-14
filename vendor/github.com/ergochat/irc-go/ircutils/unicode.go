@@ -7,24 +7,11 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/ergochat/irc-go/ircmsg"
 )
 
-// truncate a message, taking care not to make valid UTF8 into invalid UTF8
-func TruncateUTF8Safe(message string, byteLimit int) (result string) {
-	if len(message) <= byteLimit {
-		return message
-	}
-	message = message[:byteLimit]
-	for i := 0; i < (utf8.UTFMax - 1); i++ {
-		r, n := utf8.DecodeLastRuneInString(message)
-		if r == utf8.RuneError && n <= 1 {
-			message = message[:len(message)-1]
-		} else {
-			break
-		}
-	}
-	return message
-}
+var TruncateUTF8Safe = ircmsg.TruncateUTF8Safe
 
 // Sanitizes human-readable text to make it safe for IRC;
 // assumes UTF-8 and uses the replacement character where

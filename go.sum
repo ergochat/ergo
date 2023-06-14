@@ -10,8 +10,8 @@ github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1 h1:WLHTOodthV
 github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1/go.mod h1:mov+uh1DPWsltdQnOdzn08UO9GsJ3MEvhtu0Ci37fdk=
 github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775 h1:QSJIdpr3HOzJDPwxT7hp7WbjoZcS+5GqVvsBscqChk0=
 github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775/go.mod h1:d2qvgjD0TvGNSvUs+mZgX090RiJlrzUYW6vtANGOy3A=
-github.com/ergochat/irc-go v0.2.0 h1:3vHdy4c56UTY6+/rTBrQc1fmt32N5G8PrEZacJDOr+E=
-github.com/ergochat/irc-go v0.2.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+github.com/ergochat/irc-go v0.4.0 h1:0YibCKfAAtwxQdNjLQd9xpIEPisLcJ45f8FNsMHAuZc=
+github.com/ergochat/irc-go v0.4.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
 github.com/ergochat/scram v1.0.2-ergo1 h1:2bYXiRFQH636pT0msOG39fmEYl4Eq+OuutcyDsCix/g=
 github.com/ergochat/scram v1.0.2-ergo1/go.mod h1:1WAq6h33pAW+iRreB34OORO2Nf7qel3VV3fjBj+hCSs=
 github.com/ergochat/websocket v1.4.2-oragono1 h1:plMUunFBM6UoSCIYCKKclTdy/TkkHfUslhOfJQzfueM=

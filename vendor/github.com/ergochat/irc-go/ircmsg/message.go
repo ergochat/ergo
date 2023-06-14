@@ -238,7 +238,7 @@ func parseLine(line string, maxTagDataLength int, truncateLen int) (ircmsg Messa
 	// truncate if desired
 	if truncateLen != 0 && truncateLen < len(line) {
 		err = ErrorBodyTooLong
-		line = line[:truncateLen]
+		line = TruncateUTF8Safe(line, truncateLen)
 	}
 
 	// modern: "These message parts, and parameters themselves, are separated
