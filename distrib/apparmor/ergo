@@ -1,0 +1,34 @@
+include <tunables/global>
+
+# Georg Pfuetzenreuter <georg+ergo@lysergic.dev>
+# AppArmor confinement for ergo and ergo-ldap
+
+profile ergo /usr/bin/ergo {
+  include <abstractions/base>
+  include <abstractions/consoles>
+  include <abstractions/nameservice>
+
+  /etc/ergo/ircd.{motd,yaml} r,
+  /etc/ssl/irc/{crt,key} r,
+  /etc/ssl/ergo/{crt,key} r,
+  /usr/bin/ergo mr,
+  /proc/sys/net/core/somaxconn r,
+  /sys/kernel/mm/transparent_hugepage/hpage_pmd_size r,
+  /usr/share/ergo/languages/{,*.lang.json,*.yaml} r,
+  owner /run/ergo/ircd.lock rwk,
+  owner /var/lib/ergo/ircd.db rw,
+
+  include if exists <local/ergo>
+
+}
+
+profile ergo-ldap /usr/bin/ergo-ldap {
+  include <abstractions/openssl>
+  include <abstractions/ssl_certs>
+  
+  /usr/bin/ergo-ldap rm,
+  /etc/ergo/ldap.yaml r,
+
+  include if exists <local/ergo-ldap>
+
+}
