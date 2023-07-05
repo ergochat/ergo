@@ -364,7 +364,7 @@ server:
     # in a "closed-loop" system where you control the server and all the clients,
     # you may want to increase the maximum (non-tag) length of an IRC line from
     # the default value of 512. DO NOT change this on a public server:
-    # max-line-len: 512
+    #max-line-len: 512
 
     # send all 0's as the LUSERS (user counts) output to non-operators; potentially useful
     # if you don't want to publicize how popular the server is
@@ -614,6 +614,12 @@ channels:
     # INVITE to an invite-only channel expires after this amount of time
     # (0 or omit for no expiration):
     invite-expiration: 24h
+
+    # channels that new clients will automatically join. this should be used with
+    # caution, since traditional IRC users will likely view it as an antifeature.
+    # it may be useful in small community networks that have a single "primary" channel:
+    #auto-join:
+    #    - "#lounge"
 
 # operator classes:
 # an operator has a single "class" (defining a privilege level), which can include

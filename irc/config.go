@@ -644,6 +644,7 @@ type Config struct {
 		}
 		ListDelay        time.Duration    `yaml:"list-delay"`
 		InviteExpiration custime.Duration `yaml:"invite-expiration"`
+		AutoJoin         []string         `yaml:"auto-join"`
 	}
 
 	OperClasses map[string]*OperClassConfig `yaml:"oper-classes"`
