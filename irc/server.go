@@ -394,6 +394,12 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	}
 
 	server.playRegistrationBurst(session)
+
+	if len(config.Channels.AutoJoin) > 0 {
+		// only applicable to new clients, not reattaches:
+		server.handleAutojoins(session, config.Channels.AutoJoin)
+	}
+
 	return false
 }
 
@@ -500,6 +506,14 @@ func (server *Server) MOTD(client *Client, rb *ResponseBuffer) {
 		rb.Add(nil, server.name, RPL_MOTD, client.nick, line)
 	}
 	rb.Add(nil, server.name, RPL_ENDOFMOTD, client.nick, client.t("End of MOTD command"))
+}
+
+func (server *Server) handleAutojoins(session *Session, channelNames []string) {
+	rb := NewResponseBuffer(session)
+	for _, chname := range channelNames {
+		server.channels.Join(session.client, chname, "", false, rb)
+	}
+	rb.Send(true)
 }
 
 func (client *Client) whoisChannelsNames(target *Client, multiPrefix bool, hasPrivs bool) []string {
