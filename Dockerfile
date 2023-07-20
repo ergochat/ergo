@@ -1,5 +1,5 @@
 ## build ergo binary
-FROM golang:1.20-alpine AS build-env
+FROM docker.io/golang:1.20-alpine AS build-env
 
 RUN apk upgrade -U --force-refresh --no-cache && apk add --no-cache --purge --clean-protected -l -u make git
 
@@ -16,7 +16,7 @@ RUN sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/erg
 RUN make install
 
 ## build ergo container
-FROM alpine:3.13
+FROM docker.io/alpine:3.13
 
 # metadata
 LABEL maintainer="Daniel Oaks <daniel@danieloaks.net>,Daniel Thamdrup <dallemon@protonmail.com>" \
