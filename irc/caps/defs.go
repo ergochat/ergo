@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 33
+	numCapabs = 34
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -64,6 +64,10 @@ const (
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
+
+	// NoImplicitNames is the proposed IRCv3 capability named "draft/no-implicit-names":
+	// https://github.com/ircv3/ircv3-specifications/pull/527
+	NoImplicitNames Capability = iota
 
 	// Persistence is the proposed IRCv3 capability named "draft/persistence":
 	// https://github.com/ircv3/ircv3-specifications/pull/503
@@ -162,6 +166,7 @@ var (
 		"draft/languages",
 		"draft/message-redaction",
 		"draft/multiline",
+		"draft/no-implicit-names",
 		"draft/persistence",
 		"draft/pre-away",
 		"draft/read-marker",
