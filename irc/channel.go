@@ -7,6 +7,7 @@ package irc
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 	"time"
@@ -158,7 +159,7 @@ func (channel *Channel) ExportRegistration() (info RegisteredChannel) {
 	info.Bans = channel.lists[modes.BanMask].Masks()
 	info.Invites = channel.lists[modes.InviteMask].Masks()
 	info.Excepts = channel.lists[modes.ExceptMask].Masks()
-	info.AccountToUMode = utils.CopyMap(channel.accountToUMode)
+	info.AccountToUMode = maps.Clone(channel.accountToUMode)
 
 	info.Settings = channel.settings
 

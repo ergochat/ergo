@@ -27,11 +27,3 @@ func SetLiteral[T comparable](elems ...T) HashSet[T] {
 	}
 	return result
 }
-
-func CopyMap[K comparable, V any](input map[K]V) (result map[K]V) {
-	result = make(map[K]V, len(input))
-	for key, value := range input {
-		result[key] = value
-	}
-	return
-}

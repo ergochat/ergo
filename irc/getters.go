@@ -5,6 +5,7 @@ package irc
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"time"
 
@@ -515,7 +516,7 @@ func (client *Client) GetReadMarker(cfname string) (result string) {
 func (client *Client) copyReadMarkers() (result map[string]time.Time) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	return utils.CopyMap(client.readMarkers)
+	return maps.Clone(client.readMarkers)
 }
 
 func (client *Client) SetReadMarker(cfname string, now time.Time) (result time.Time) {

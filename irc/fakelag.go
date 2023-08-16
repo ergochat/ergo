@@ -4,9 +4,8 @@
 package irc
 
 import (
+	"maps"
 	"time"
-
-	"github.com/ergochat/ergo/irc/utils"
 )
 
 // fakelag is a system for artificially delaying commands when a user issues
@@ -40,7 +39,7 @@ func (fl *Fakelag) Initialize(config FakelagConfig) {
 	fl.config = config
 	// XXX don't share mutable member CommandBudgets:
 	if config.CommandBudgets != nil {
-		fl.config.CommandBudgets = utils.CopyMap(config.CommandBudgets)
+		fl.config.CommandBudgets = maps.Clone(config.CommandBudgets)
 	}
 	fl.nowFunc = time.Now
 	fl.sleepFunc = time.Sleep
