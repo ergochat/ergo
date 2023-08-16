@@ -4,6 +4,7 @@
 package history
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -155,7 +156,7 @@ func (list *Buffer) betweenHelper(start, end Selector, cutoff time.Time, pred Pr
 
 	defer func() {
 		if !ascending {
-			utils.ReverseSlice(results)
+			slices.Reverse(results)
 		}
 	}()
 
@@ -262,7 +263,7 @@ func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, li
 	}
 
 	if !ascending {
-		utils.ReverseSlice(results)
+		slices.Reverse(results)
 	}
 
 	return

@@ -4,10 +4,9 @@
 package history
 
 import (
+	"slices"
 	"sort"
 	"time"
-
-	"github.com/ergochat/ergo/irc/utils"
 )
 
 type TargetListing struct {
@@ -35,8 +34,8 @@ func MergeTargets(base []TargetListing, extra []TargetListing, start, end time.T
 	results = make([]TargetListing, 0, prealloc)
 
 	if !ascending {
-		utils.ReverseSlice(base)
-		utils.ReverseSlice(extra)
+		slices.Reverse(base)
+		slices.Reverse(extra)
 	}
 
 	for len(results) < limit {
@@ -66,7 +65,7 @@ func MergeTargets(base []TargetListing, extra []TargetListing, start, end time.T
 	}
 
 	if !ascending {
-		utils.ReverseSlice(results)
+		slices.Reverse(results)
 	}
 	return
 }
