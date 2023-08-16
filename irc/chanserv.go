@@ -6,6 +6,7 @@ package irc
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -218,7 +219,7 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 	// check for anything valid as a channel mode change that is not valid
 	// as an AMODE change
 	for _, modeChange := range modeChanges {
-		if !utils.SliceContains(modes.ChannelUserModes, modeChange.Mode) {
+		if !slices.Contains(modes.ChannelUserModes, modeChange.Mode) {
 			invalid = true
 		}
 	}

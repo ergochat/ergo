@@ -8,6 +8,7 @@ package irc
 import (
 	"crypto/x509"
 	"fmt"
+	"maps"
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -1743,7 +1744,7 @@ func (client *Client) handleRegisterTimeout() {
 func (client *Client) copyLastSeen() (result map[string]time.Time) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-	return utils.CopyMap(client.lastSeen)
+	return maps.Clone(client.lastSeen)
 }
 
 // these are bit flags indicating what part of the client status is "dirty"

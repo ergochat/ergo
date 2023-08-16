@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -917,7 +918,7 @@ func (mysql *MySQL) betweenTimestamps(ctx context.Context, target, correspondent
 
 	results, err = mysql.selectItems(ctx, queryBuf.String(), args...)
 	if err == nil && !ascending {
-		utils.ReverseSlice(results)
+		slices.Reverse(results)
 	}
 	return
 }
@@ -965,7 +966,7 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 	}
 
 	if !ascending {
-		utils.ReverseSlice(results)
+		slices.Reverse(results)
 	}
 
 	return
