@@ -213,6 +213,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/506",
         standard="IRCv3",
     ),
+   CapDef(
+        identifier="NoImplicitNames",
+        name="draft/no-implicit-names",
+        url="https://github.com/ircv3/ircv3-specifications/pull/527",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():

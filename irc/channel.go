@@ -884,7 +884,9 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 	if rb.session.client == client {
 		// don't send topic and names for a SAJOIN of a different client
 		channel.SendTopic(client, rb, false)
-		channel.Names(client, rb)
+		if !rb.session.capabilities.Has(caps.NoImplicitNames) {
+			channel.Names(client, rb)
+		}
 	} else {
 		// ensure that SAJOIN sends a MODE line to the originating client, if applicable
 		if givenMode != 0 {
@@ -975,7 +977,9 @@ func (channel *Channel) playJoinForSession(session *Session) {
 		sessionRb.Add(nil, client.server.name, "MARKREAD", chname, client.GetReadMarker(chcfname))
 	}
 	channel.SendTopic(client, sessionRb, false)
-	channel.Names(client, sessionRb)
+	if !session.capabilities.Has(caps.NoImplicitNames) {
+		channel.Names(client, sessionRb)
+	}
 	sessionRb.Send(false)
 }
 

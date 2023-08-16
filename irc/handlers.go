@@ -3169,7 +3169,9 @@ func renameHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 					targetRb.Add(nil, targetPrefix, "JOIN", newName)
 				}
 				channel.SendTopic(mcl, targetRb, false)
-				channel.Names(mcl, targetRb)
+				if !targetRb.session.capabilities.Has(caps.NoImplicitNames) {
+					channel.Names(mcl, targetRb)
+				}
 			}
 			if mcl != client {
 				targetRb.Send(false)
