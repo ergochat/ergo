@@ -35,12 +35,3 @@ func CopyMap[K comparable, V any](input map[K]V) (result map[K]V) {
 	}
 	return
 }
-
-func SliceContains[T comparable](slice []T, elem T) (result bool) {
-	for _, t := range slice {
-		if elem == t {
-			return true
-		}
-	}
-	return false
-}
