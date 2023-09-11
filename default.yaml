@@ -421,7 +421,7 @@ accounts:
             # addresses that are not accepted for registration:
             address-blacklist:
             #    - "*@mailinator.com"
-            address-blacklist-syntax: "glob" # change to "regexp" for regular expressions
+            address-blacklist-syntax: "glob" # change to "regex" for regular expressions
             # file of newline-delimited address blacklist entries in the above syntax;
             # supersedes address-blacklist if set:
             # address-blacklist-file: "/path/to/address-blacklist-file"
