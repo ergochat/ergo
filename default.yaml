@@ -420,6 +420,9 @@ accounts:
             #     implicit-tls: false # TLS from the first byte, typically on port 465
             blacklist-regexes:
             #    - ".*@mailinator.com"
+            # file of newline-delimited regexes matching blacklisted addresses;
+            # supersedes blacklist-regexes if set:
+            # blacklist-regex-file: "/path/to/blacklist-regex-file"
             timeout: 60s
             # email-based password reset:
             password-reset:

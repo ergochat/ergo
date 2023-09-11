@@ -4,10 +4,13 @@
 package email
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -44,6 +47,7 @@ type MailtoConfig struct {
 	DKIM                 DKIMConfig
 	MTAReal              MTAConfig `yaml:"mta"`
 	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
+	BlacklistRegexFile   string    `yaml:"blacklist-regex-file"`
 	blacklistRegexes     []*regexp.Regexp
 	Timeout              time.Duration
 	PasswordReset        struct {
@@ -51,6 +55,40 @@ type MailtoConfig struct {
 		Cooldown custime.Duration
 		Timeout  custime.Duration
 	} `yaml:"password-reset"`
+}
+
+func compileBlacklistRegex(source string) (re *regexp.Regexp, err error) {
+	return regexp.Compile(fmt.Sprintf("^(?i)%s$", source))
+}
+
+func processBlacklistFile(filename string) (result []*regexp.Regexp, err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	lineNo := 0
+	for {
+		line, err := reader.ReadString('\n')
+		lineNo++
+		line = strings.TrimSpace(line)
+		if line != "" && line[0] != '#' {
+			if compiled, compileErr := compileBlacklistRegex(line); compileErr == nil {
+				result = append(result, compiled)
+			} else {
+				return result, fmt.Errorf("Failed to compile line %d of blacklist-regex-file `%s`: %w", lineNo, line, compileErr)
+			}
+		}
+		switch err {
+		case io.EOF:
+			return result, nil
+		case nil:
+			continue
+		default:
+			return result, err
+		}
+	}
 }
 
 func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
@@ -68,12 +106,20 @@ func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
 		config.HeloDomain = heloDomain
 	}
 
-	for _, reg := range config.BlacklistRegexes {
-		compiled, err := regexp.Compile(fmt.Sprintf("^%s$", reg))
+	if config.BlacklistRegexFile != "" {
+		config.blacklistRegexes, err = processBlacklistFile(config.BlacklistRegexFile)
 		if err != nil {
 			return err
 		}
-		config.blacklistRegexes = append(config.blacklistRegexes, compiled)
+	} else if len(config.BlacklistRegexes) != 0 {
+		config.blacklistRegexes = make([]*regexp.Regexp, 0, len(config.BlacklistRegexes))
+		for _, reg := range config.BlacklistRegexes {
+			compiled, err := compileBlacklistRegex(reg)
+			if err != nil {
+				return err
+			}
+			config.blacklistRegexes = append(config.blacklistRegexes, compiled)
+		}
 	}
 
 	if config.MTAConfig.Server != "" {
