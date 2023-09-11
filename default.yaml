@@ -418,11 +418,13 @@ accounts:
             #     username: "admin"
             #     password: "hunter2"
             #     implicit-tls: false # TLS from the first byte, typically on port 465
-            blacklist-regexes:
-            #    - ".*@mailinator.com"
-            # file of newline-delimited regexes matching blacklisted addresses;
-            # supersedes blacklist-regexes if set:
-            # blacklist-regex-file: "/path/to/blacklist-regex-file"
+            # addresses that are not accepted for registration:
+            address-blacklist:
+            #    - "*@mailinator.com"
+            address-blacklist-syntax: "glob" # change to "regexp" for regular expressions
+            # file of newline-delimited address blacklist entries in the above syntax;
+            # supersedes address-blacklist if set:
+            # address-blacklist-file: "/path/to/address-blacklist-file"
             timeout: 60s
             # email-based password reset:
             password-reset:

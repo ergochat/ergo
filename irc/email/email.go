@@ -26,6 +26,38 @@ var (
 	ErrNoMXRecord         = errors.New("Couldn't resolve MX record")
 )
 
+type BlacklistSyntax uint
+
+const (
+	BlacklistSyntaxGlob BlacklistSyntax = iota
+	BlacklistSyntaxRegexp
+)
+
+func blacklistSyntaxFromString(status string) (BlacklistSyntax, error) {
+	switch strings.ToLower(status) {
+	case "glob", "":
+		return BlacklistSyntaxGlob, nil
+	case "re", "regex", "regexp":
+		return BlacklistSyntaxRegexp, nil
+	default:
+		return BlacklistSyntaxRegexp, fmt.Errorf("Unknown blacklist syntax type `%s`", status)
+	}
+}
+
+func (bs *BlacklistSyntax) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var orig string
+	var err error
+	if err = unmarshal(&orig); err != nil {
+		return err
+	}
+	if result, err := blacklistSyntaxFromString(orig); err == nil {
+		*bs = result
+		return nil
+	} else {
+		return err
+	}
+}
+
 type MTAConfig struct {
 	Server      string
 	Port        int
@@ -38,30 +70,35 @@ type MailtoConfig struct {
 	// legacy config format assumed the use of an MTA/smarthost,
 	// so server, port, etc. appear directly at top level
 	// XXX: see https://github.com/go-yaml/yaml/issues/63
-	MTAConfig            `yaml:",inline"`
-	Enabled              bool
-	Sender               string
-	HeloDomain           string `yaml:"helo-domain"`
-	RequireTLS           bool   `yaml:"require-tls"`
-	VerifyMessageSubject string `yaml:"verify-message-subject"`
-	DKIM                 DKIMConfig
-	MTAReal              MTAConfig `yaml:"mta"`
-	BlacklistRegexes     []string  `yaml:"blacklist-regexes"`
-	BlacklistRegexFile   string    `yaml:"blacklist-regex-file"`
-	blacklistRegexes     []*regexp.Regexp
-	Timeout              time.Duration
-	PasswordReset        struct {
+	MTAConfig              `yaml:",inline"`
+	Enabled                bool
+	Sender                 string
+	HeloDomain             string `yaml:"helo-domain"`
+	RequireTLS             bool   `yaml:"require-tls"`
+	VerifyMessageSubject   string `yaml:"verify-message-subject"`
+	DKIM                   DKIMConfig
+	MTAReal                MTAConfig       `yaml:"mta"`
+	AddressBlacklist       []string        `yaml:"address-blacklist"`
+	AddressBlacklistSyntax BlacklistSyntax `yaml:"address-blacklist-syntax"`
+	AddressBlacklistFile   string          `yaml:"address-blacklist-file"`
+	blacklistRegexes       []*regexp.Regexp
+	Timeout                time.Duration
+	PasswordReset          struct {
 		Enabled  bool
 		Cooldown custime.Duration
 		Timeout  custime.Duration
 	} `yaml:"password-reset"`
 }
 
-func compileBlacklistRegex(source string) (re *regexp.Regexp, err error) {
-	return regexp.Compile(fmt.Sprintf("^(?i)%s$", source))
+func (config *MailtoConfig) compileBlacklistEntry(source string) (re *regexp.Regexp, err error) {
+	if config.AddressBlacklistSyntax == BlacklistSyntaxGlob {
+		return utils.CompileGlob(source, false)
+	} else {
+		return regexp.Compile(fmt.Sprintf("^%s$", source))
+	}
 }
 
-func processBlacklistFile(filename string) (result []*regexp.Regexp, err error) {
+func (config *MailtoConfig) processBlacklistFile(filename string) (result []*regexp.Regexp, err error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return
@@ -74,7 +111,7 @@ func processBlacklistFile(filename string) (result []*regexp.Regexp, err error) 
 		lineNo++
 		line = strings.TrimSpace(line)
 		if line != "" && line[0] != '#' {
-			if compiled, compileErr := compileBlacklistRegex(line); compileErr == nil {
+			if compiled, compileErr := config.compileBlacklistEntry(line); compileErr == nil {
 				result = append(result, compiled)
 			} else {
 				return result, fmt.Errorf("Failed to compile line %d of blacklist-regex-file `%s`: %w", lineNo, line, compileErr)
@@ -106,15 +143,15 @@ func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
 		config.HeloDomain = heloDomain
 	}
 
-	if config.BlacklistRegexFile != "" {
-		config.blacklistRegexes, err = processBlacklistFile(config.BlacklistRegexFile)
+	if config.AddressBlacklistFile != "" {
+		config.blacklistRegexes, err = config.processBlacklistFile(config.AddressBlacklistFile)
 		if err != nil {
 			return err
 		}
-	} else if len(config.BlacklistRegexes) != 0 {
-		config.blacklistRegexes = make([]*regexp.Regexp, 0, len(config.BlacklistRegexes))
-		for _, reg := range config.BlacklistRegexes {
-			compiled, err := compileBlacklistRegex(reg)
+	} else if len(config.AddressBlacklist) != 0 {
+		config.blacklistRegexes = make([]*regexp.Regexp, 0, len(config.AddressBlacklist))
+		for _, reg := range config.AddressBlacklist {
+			compiled, err := config.compileBlacklistEntry(reg)
 			if err != nil {
 				return err
 			}
@@ -164,8 +201,9 @@ func ComposeMail(config MailtoConfig, recipient, subject string) (message bytes.
 }
 
 func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
+	recipientLower := strings.ToLower(recipient)
 	for _, reg := range config.blacklistRegexes {
-		if reg.MatchString(recipient) {
+		if reg.MatchString(recipientLower) {
 			return ErrBlacklistedAddress
 		}
 	}
