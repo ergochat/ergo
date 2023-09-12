@@ -38,6 +38,12 @@ func (e ProtocolError) Error() string {
 
 // Query makes an Ident query, if timeout is >0 the query is timed out after that many seconds.
 func Query(ip string, portOnServer, portOnClient int, timeout time.Duration) (response Response, err error) {
+	// if a timeout is set, respect it from the beginning of the query, including the dial time
+	var deadline time.Time
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+
 	var conn net.Conn
 	if timeout > 0 {
 		conn, err = net.DialTimeout("tcp", net.JoinHostPort(ip, "113"), timeout)
@@ -47,13 +53,12 @@ func Query(ip string, portOnServer, portOnClient int, timeout time.Duration) (re
 	if err != nil {
 		return
 	}
+	defer conn.Close()
 
-	// stop the ident read after <timeout> seconds
-	if timeout > 0 {
-		conn.SetDeadline(time.Now().Add(timeout))
-	}
+	// if timeout is 0, `deadline` is the empty time.Time{} which means no deadline:
+	conn.SetDeadline(deadline)
 
-	_, err = conn.Write([]byte(fmt.Sprintf("%d, %d", portOnClient, portOnServer) + "\r\n"))
+	_, err = conn.Write([]byte(fmt.Sprintf("%d, %d\r\n", portOnClient, portOnServer)))
 	if err != nil {
 		return
 	}

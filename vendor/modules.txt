@@ -13,8 +13,8 @@ github.com/docopt/docopt-go
 # github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
 ## explicit
 github.com/ergochat/confusables
-# github.com/ergochat/go-ident v0.0.0-20200511222032-830550b1d775
-## explicit
+# github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
+## explicit; go 1.18
 github.com/ergochat/go-ident
 # github.com/ergochat/irc-go v0.4.0
 ## explicit; go 1.15
