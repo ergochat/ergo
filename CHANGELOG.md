@@ -1,6 +1,59 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.12.0-rc1] - 2023-09-17
+
+We're pleased to be publishing the release candidate for v2.12.0 (the official release should follow within a few weeks). This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
+
+This release includes changes to the config file format, one of which is a compatibility break: if you were using `accounts.email-verification.blacklist-regexes`, you can restore the previous functionality by renaming `blacklist-regexes` to `address-blacklist` and setting the additional key `address-blacklist-syntax: regex`. See [default.yaml](https://github.com/ergochat/ergo/blob/e7597876d987a6fc061b768fcf878d0035d1c85a/default.yaml#L422-L424) for an example; for more details, see the "Changed" section below.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `ergo upgradedb` (see the manual for complete instructions).
+
+Many thanks to [@adsr](https://github.com/adsr), [@avollmerhaus](https://github.com/avollmerhaus), [@csmith](https://github.com/csmith), [@EchedeyLR](https://github.com/EchedeyLR), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), [@julio-b](https://github.com/julio-b), knolle, [@KoxSosen](https://github.com/KoxSosen), [@mogad0n](https://github.com/mogad0n), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
+
+### Config changes
+* Removed `accounts.email-verification.blacklist-regexes` in favor of `address-blacklist`, `address-blacklist-syntax`, and `address-blacklist-file`. See the "Changed" section below for the semantics of these new keys. (#1997, #2088)
+* Added `implicit-tls` (TLS from the first byte) support for MTAs (#2048, #2049, thanks [@EchedeyLR](https://github.com/EchedeyLR)!)
+
+### Fixed
+* Fixed an edge case under `allow-truncation: true` (the recommended default is `false`) where Ergo could truncate a message in the middle of a UTF-8 codepoint (#2074)
+* Fixed `CHATHISTORY TARGETS` being sent in a batch even without negotiation of the `batch` capability (#2066, thanks [@julio-b](https://github.com/julio-b)!)
+* Errors from `/REHASH` are now properly sanitized before being sent to the user, fixing an edge case where they would be dropped (#2031, thanks [@eskimo](https://github.com/eskimo)!
+* Fixed some edge cases in auto-away aggregation (#2044)
+* Fixed a socket leak in the ident client (default/recommended configurations of Ergo disable ident and are not affected by this issue) (#2089)
+
+### Changed
+* Bouncer reattach from an "insecure" session is no longer disallowed. We continue to recommend that operators preemptively disable all insecure transports, such as plaintext listeners (#2013)
+* Email addresses are now converted to lowercase before checking them against the blacklist (#1997, #2088)
+* The default syntax for the email address blacklist is now "glob" (expressions with `*` and `?` as wildcard characters), as opposed to the full [Go regular expression syntax](https://github.com/google/re2/wiki/Syntax). To enable full regular expression syntax, set `address-blacklist-syntax: regex`.
+* Due to line length limitations, some capabilities are now hidden from clients that only support version 301 CAP negotiation. To the best of our knowledge, all clients that support these capabilities also support version 302 CAP negotiation, rendering this moot (#2068)
+* The default/recommended configuration now advertises the SCRAM-SHA-256 SASL method. We still do not recommend using this method in production. (#2032)
+* Improved KILL messages (#2053, #2041, thanks [@mogad0n](https://github.com/mogad0n)!)
+
+### Added
+* Added support for automatically joining new clients to a channel or channels (#2077, #2079, thanks [@adsr](https://github.com/adsr)!)
+* Added implicit TLS (TLS from the first byte) support for MTAs (#2048, #2049, thanks [@EchedeyLR](https://github.com/EchedeyLR)!)
+* Added support for [draft/message-redaction](https://github.com/ircv3/ircv3-specifications/pull/524) (thanks [@progval](https://github.com/progval)!)
+* Added support for [draft/pre-away](https://github.com/ircv3/ircv3-specifications/pull/514)
+* Added support for [draft/no-implicit-names](https://github.com/ircv3/ircv3-specifications/pull/527)
+* Added support for the [MSGREFTYPES](https://ircv3.net/specs/extensions/chathistory#isupport-tokens) 005 token (#2042)
+* Ergo now advertises the [standard-replies](https://ircv3.net/specs/extensions/standard-replies) capability. Requesting this capability does not change Ergo's behavior.
+
+### Internal
+* Release builds are now statically linked by default. This should not affect normal chat operations, but may disrupt attempts to connect to external services (e.g. MTAs) that are configured using a hostname that relies on libc's name resolution behavior. To restore the old behavior, build from source with `CGO_ENABLED=1`. (#2023)
+* Upgraded to Go 1.21 (#2045, #2084)
+* The default `make` target is now `build` (which builds an `ergo` binary in the working directory) instead of `install` (which builds and installs an `ergo` binary to `${GOPATH}/bin/ergo`). Take note if building from source, or testing Ergo in development! (#2047)
+* `make irctest` now depends on `make install`, in an attempt to ensure that irctest runs against the intended development version of Ergo (#2047)
+
+## [2.11.1] - 2022-01-22
+
+Ergo 2.11.1 is a bugfix release, fixing a denial-of-service issue in our websocket implementation. We regret the oversight.
+
+This release includes no changes to the config file format or database file format.
+
+### Security
+* Fixed a denial-of-service issue affecting websocket clients (#2039)
+
 ## [2.11.0] - 2022-12-25
 
 We're pleased to be publishing v2.11.0, a new stable release. This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
