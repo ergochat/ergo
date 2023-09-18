@@ -422,8 +422,9 @@ accounts:
             address-blacklist:
             #    - "*@mailinator.com"
             address-blacklist-syntax: "glob" # change to "regex" for regular expressions
-            # file of newline-delimited address blacklist entries in the above syntax;
-            # supersedes address-blacklist if set:
+            # file of newline-delimited address blacklist entries (no enclosing quotes)
+            # in the above syntax (i.e. either globs or regexes). supersedes
+            # address-blacklist if set:
             # address-blacklist-file: "/path/to/address-blacklist-file"
             timeout: 60s
             # email-based password reset:
