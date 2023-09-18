@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.12.0-rc1] - 2023-09-15
+## [2.12.0-rc1] - 2023-09-17
 
 We're pleased to be publishing the release candidate for v2.12.0 (the official release should follow within a few weeks). This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
 
