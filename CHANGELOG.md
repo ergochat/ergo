@@ -9,7 +9,7 @@ This release includes changes to the config file format, one of which is a compa
 
 This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `ergo upgradedb` (see the manual for complete instructions).
 
-Many thanks to [@adsr](https://github.com/adsr), [@avollmerhaus](https://github.com/avollmerhaus), [@csmith](https://github.com/csmith), [@EchedeyLR](https://github.com/EchedeyLR), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), [@julio-b](https://github.com/julio-b), knolle, [@KoxSosen](https://github.com/KoxSosen), [@mogad0n](https://github.com/mogad0n), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
+Many thanks to [@adsr](https://github.com/adsr), [@avollmerhaus](https://github.com/avollmerhaus), [@csmith](https://github.com/csmith), [@EchedeyLR](https://github.com/EchedeyLR), [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo), [@julio-b](https://github.com/julio-b), knolle, [@KoxSosen](https://github.com/KoxSosen), [@Mikaela](https://github.com/Mikaela), [@mogad0n](https://github.com/mogad0n), and [@progval](https://github.com/progval) for contributing patches, reporting issues, and helping test.
 
 ### Config changes
 * Removed `accounts.email-verification.blacklist-regexes` in favor of `address-blacklist`, `address-blacklist-syntax`, and `address-blacklist-file`. See the "Changed" section below for the semantics of these new keys. (#1997, #2088)
@@ -33,9 +33,9 @@ Many thanks to [@adsr](https://github.com/adsr), [@avollmerhaus](https://github.
 ### Added
 * Added support for automatically joining new clients to a channel or channels (#2077, #2079, thanks [@adsr](https://github.com/adsr)!)
 * Added implicit TLS (TLS from the first byte) support for MTAs (#2048, #2049, thanks [@EchedeyLR](https://github.com/EchedeyLR)!)
-* Added support for [draft/message-redaction](https://github.com/ircv3/ircv3-specifications/pull/524) (thanks [@progval](https://github.com/progval)!)
-* Added support for [draft/pre-away](https://github.com/ircv3/ircv3-specifications/pull/514)
-* Added support for [draft/no-implicit-names](https://github.com/ircv3/ircv3-specifications/pull/527)
+* Added support for [draft/message-redaction](https://github.com/ircv3/ircv3-specifications/pull/524) (#2065, thanks [@progval](https://github.com/progval)!)
+* Added support for [draft/pre-away](https://github.com/ircv3/ircv3-specifications/pull/514) (#2044)
+* Added support for [draft/no-implicit-names](https://github.com/ircv3/ircv3-specifications/pull/527) (#2083)
 * Added support for the [MSGREFTYPES](https://ircv3.net/specs/extensions/chathistory#isupport-tokens) 005 token (#2042)
 * Ergo now advertises the [standard-replies](https://ircv3.net/specs/extensions/standard-replies) capability. Requesting this capability does not change Ergo's behavior.
 
