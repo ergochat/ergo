@@ -20,6 +20,7 @@ Many thanks to [@adsr](https://github.com/adsr), [@avollmerhaus](https://github.
 * Fixed `CHATHISTORY TARGETS` being sent in a batch even without negotiation of the `batch` capability (#2066, thanks [@julio-b](https://github.com/julio-b)!)
 * Errors from `/REHASH` are now properly sanitized before being sent to the user, fixing an edge case where they would be dropped (#2031, thanks [@eskimo](https://github.com/eskimo)!
 * Fixed some edge cases in auto-away aggregation (#2044)
+* Fixed a FAIL code sent by draft/account-registration (#2092, thanks [@progval](https://github.com/progval)!)
 * Fixed a socket leak in the ident client (default/recommended configurations of Ergo disable ident and are not affected by this issue) (#2089)
 
 ### Changed
