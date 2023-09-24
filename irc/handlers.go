@@ -2818,7 +2818,7 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	case "*", accountName:
 		// ok
 	default:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "ACCOUNTNAME_MUST_BE_NICK", utils.SafeErrorParam(msg.Params[0]), client.t("You may only register your nickname as your account name"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "ACCOUNT_NAME_MUST_BE_NICK", utils.SafeErrorParam(msg.Params[0]), client.t("You may only register your nickname as your account name"))
 		return
 	}
 
