@@ -33,15 +33,15 @@ Modify the config file as needed (the recommendations at the top may be helpful)
 
 To generate passwords for opers and connect passwords, you can use this command:
 
-    $ ergo genpasswd
+    $ ./ergo genpasswd
 
 If you need to generate self-signed TLS certificates, use this command:
 
-    $ ergo mkcerts
+    $ ./ergo mkcerts
 
 You are now ready to start Ergo!
 
-    $ ergo run
+    $ ./ergo run
 
 For further instructions, consult the manual. A copy of the manual should be
 included in your release under `docs/MANUAL.md`. Or you can view it on the
