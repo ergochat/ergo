@@ -54,9 +54,9 @@ Extract it into a folder, then run the following commands:
 
 ```sh
 cp default.yaml ircd.yaml
-vim ircd.yaml   # modify the config file to your liking
-ergo mkcerts
-ergo run     # server should be ready to go!
+vim ircd.yaml  # modify the config file to your liking
+./ergo mkcerts
+./ergo run     # server should be ready to go!
 ```
 
 **Note:** See the [productionizing guide in our manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md#productionizing-with-systemd) for recommendations on how to run a production network, including obtaining valid TLS certificates.
