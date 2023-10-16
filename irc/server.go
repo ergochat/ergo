@@ -22,6 +22,7 @@ import (
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/okzk/sdnotify"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tidwall/buntdb"
 
 	"github.com/ergochat/ergo/irc/bunt"
@@ -84,6 +85,7 @@ type Server struct {
 	rehashMutex       sync.Mutex // tier 4
 	rehashSignal      chan os.Signal
 	pprofServer       *http.Server
+	prometheusServer  *http.Server
 	exitSignals       chan os.Signal
 	tracebackSignal   chan os.Signal
 	snomasks          SnoManager
@@ -780,6 +782,7 @@ func (server *Server) applyConfig(config *Config) (err error) {
 
 	server.setupPprofListener(config)
 
+	server.setupPrometheusListener(config)
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
 	if oldConfig != nil {
@@ -840,6 +843,33 @@ func (server *Server) setupPprofListener(config *Config) {
 		server.pprofServer = &ps
 		server.logger.Info("server", "Started pprof listener", server.pprofServer.Addr)
 	}
+}
+
+func (server *Server) setupPrometheusListener(config *Config) {
+	promConfig := config.Prometheus
+	if !promConfig.Enabled {
+		return
+	}
+
+	listen := promConfig.Listen
+	if listen == "" {
+		server.logger.Error("prometheus", "Prometheus listener failed", "Prometheus is enabled, but listen is not specified")
+		return
+	}
+
+	promHandler := http.NewServeMux()
+	promHandler.Handle("/metrics", promhttp.Handler())
+	ps := http.Server{
+		Addr:    listen,
+		Handler: promHandler,
+	}
+	go func() {
+		if err := ps.ListenAndServe(); err != nil {
+			server.logger.Error("server", "Prometheus listener failed", err.Error())
+		}
+	}()
+	server.prometheusServer = &ps
+	server.logger.Info("server", "Started Prometheus listener", server.prometheusServer.Addr)
 }
 
 func (server *Server) loadDatastore(config *Config) error {

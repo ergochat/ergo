@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.13.0] - TODO
+
+### Config changes
+* Add `prometheus`
+
 ## [2.12.0] - 2023-10-10
 
 We're pleased to be publishing v2.12.0, a new stable release. This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.

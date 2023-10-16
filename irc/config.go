@@ -536,6 +536,11 @@ type TorListenersConfig struct {
 	MaxConnectionsPerDuration int           `yaml:"max-connections-per-duration"`
 }
 
+type PrometheusConfig struct {
+	Enabled bool
+	Listen  string
+}
+
 // Config defines the overall configuration.
 type Config struct {
 	AllowEnvironmentOverrides bool `yaml:"allow-environment-overrides"`
@@ -666,6 +671,8 @@ type Config struct {
 	Limits Limits
 
 	Fakelag FakelagConfig
+
+	Prometheus PrometheusConfig
 
 	History struct {
 		Enabled          bool

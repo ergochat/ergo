@@ -877,6 +877,14 @@ fakelag:
         "MONITOR":     1
         "WHO":         4
 
+# prometheus: exports metrics
+prometheus:
+    # whether to enable prometheus
+    enabled: true
+
+    # listen address
+listen: "localhost:2112"
+
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
 # for actual roleplaying, or for bridging IRC with other protocols.
