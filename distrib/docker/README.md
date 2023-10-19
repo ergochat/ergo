@@ -18,7 +18,7 @@ certificates. To get a working ircd, all you need to do is run the image and
 expose the ports:
 
 ```shell
-docker run --name ergo -d -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init --name ergo -d -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 This will start Ergo and listen on ports 6667 (plain text) and 6697 (TLS).
@@ -48,14 +48,14 @@ For example, to create a new docker volume and then mount it:
 
 ```shell
 docker volume create ergo-data
-docker run -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 Or to mount a folder from your host machine:
 
 ```shell
 mkdir ergo-data
-docker run -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 ## Customising the config
