@@ -2,6 +2,7 @@ version: "3.8"
 
 services:
   ergo:
+    init: true
     image: ghcr.io/ergochat/ergo:stable
     ports:
       - "6667:6667/tcp"
