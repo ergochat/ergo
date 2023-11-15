@@ -18,7 +18,7 @@ certificates. To get a working ircd, all you need to do is run the image and
 expose the ports:
 
 ```shell
-docker run --name ergo -d -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init --name ergo -d -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 This will start Ergo and listen on ports 6667 (plain text) and 6697 (TLS).
@@ -38,6 +38,11 @@ You should see a line similar to:
 Oper username:password is admin:cnn2tm9TP3GeI4vLaEMS
 ```
 
+We recommend the use of `--init` (`init: true` in docker-compose) to solve an
+edge case involving unreaped zombie processes when Ergo's script API is used
+for authentication or IP validation. For more details, see
+[krallin/tini#8](https://github.com/krallin/tini/issues/8).
+
 ## Persisting data
 
 Ergo has a persistent data store, used to keep account details, channel
@@ -48,14 +53,14 @@ For example, to create a new docker volume and then mount it:
 
 ```shell
 docker volume create ergo-data
-docker run -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 Or to mount a folder from your host machine:
 
 ```shell
 mkdir ergo-data
-docker run -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 ## Customising the config
