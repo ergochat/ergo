@@ -38,6 +38,11 @@ You should see a line similar to:
 Oper username:password is admin:cnn2tm9TP3GeI4vLaEMS
 ```
 
+We recommend the use of `--init` (`init: true` in docker-compose) to solve an
+edge case involving unreaped zombie processes when Ergo's script API is used
+for authentication or IP validation. For more details, see
+[krallin/tini#8](https://github.com/krallin/tini/issues/8).
+
 ## Persisting data
 
 Ergo has a persistent data store, used to keep account details, channel
