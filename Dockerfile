@@ -26,7 +26,7 @@ COPY --from=build-env /go/src/github.com/ergochat/ergo/languages /ircd-bin/langu
 COPY --from=build-env /go/src/github.com/ergochat/ergo/ergo.motd /ircd/ergo.motd
 
 ## build ergo container
-FROM cgr.dev/chainguard/busybox:latest AS runtime
+FROM cgr.dev/chainguard/busybox:latest-glibc AS runtime
 
 # metadata
 LABEL maintainer="Daniel Oaks <daniel@danieloaks.net>,Daniel Thamdrup <danielthamdrup@pm.me>" \
