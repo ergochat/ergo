@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:latest
+# syntax=docker/dockerfile:latest@sha256:ac85f380a63b13dfcefa89046420e1781752bab202122f8f50032edf31be0021
 ## build ergo binary
-FROM cgr.dev/chainguard/go:latest AS build-env
+FROM cgr.dev/chainguard/go:latest@sha256:c894bc454800817b1747c8a1a640ae6d86004b06190f94e791098e7e78dbbc00 AS build-env
 
 # copy ergo source
 WORKDIR /go/src/github.com/ergochat/ergo
@@ -26,7 +26,7 @@ COPY --from=build-env /go/src/github.com/ergochat/ergo/languages /ircd-bin/langu
 COPY --from=build-env /go/src/github.com/ergochat/ergo/ergo.motd /ircd/ergo.motd
 
 ## build ergo container
-FROM cgr.dev/chainguard/busybox:latest-glibc AS runtime
+FROM cgr.dev/chainguard/busybox:latest-glibc@sha256:f5f11a14dda5355dff116219302d45f1a4fd018285c8922cf848a9b24cae1f3d AS runtime
 
 # metadata
 LABEL maintainer="Daniel Oaks <daniel@danieloaks.net>,Daniel Thamdrup <danielthamdrup@pm.me>" \
