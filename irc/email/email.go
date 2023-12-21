@@ -193,6 +193,9 @@ func ComposeMail(config MailtoConfig, recipient, subject string) (message bytes.
 	dkimDomain := config.DKIM.Domain
 	if dkimDomain != "" {
 		fmt.Fprintf(&message, "Message-ID: <%s@%s>\r\n", utils.GenerateSecretKey(), dkimDomain)
+	} else {
+		// #2108: send Message-ID even if dkim is not enabled
+		fmt.Fprintf(&message, "Message-ID: <%s-%s>\r\n", utils.GenerateSecretKey(), config.Sender)
 	}
 	fmt.Fprintf(&message, "Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
 	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
