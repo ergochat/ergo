@@ -22,6 +22,16 @@ func TestBasic(t *testing.T) {
 	}
 }
 
+func TestVector(t *testing.T) {
+	// sanity check for persisted hashes
+	if CompareHashAndPassword(
+		[]byte("$2a$12$sJokyLJ5px3Nb51DEDhsQ.wh8nfwEYuMbVYrpqO5v9Ylyj0YyVWj."),
+		[]byte("this is my passphrase"),
+	) != nil {
+		t.Errorf("hash comparison failed unexpectedly")
+	}
+}
+
 func TestLongPassphrases(t *testing.T) {
 	longPassphrase := make([]byte, 168)
 	for i := range longPassphrase {
