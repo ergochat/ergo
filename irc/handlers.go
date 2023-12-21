@@ -90,8 +90,6 @@ func sendSuccessfulRegResponse(service *ircService, client *Client, rb *Response
 	details := client.Details()
 	if service != nil {
 		service.Notice(rb, client.t("Account created"))
-	} else {
-		rb.Add(nil, client.server.name, RPL_REG_SUCCESS, details.nick, details.accountName, client.t("Account created"))
 	}
 	client.server.snomasks.Send(sno.LocalAccounts, fmt.Sprintf(ircfmt.Unescape("Client $c[grey][$r%s$c[grey]] registered account $c[grey][$r%s$c[grey]] from IP %s"), details.nickMask, details.accountName, rb.session.IP().String()))
 	sendSuccessfulAccountAuth(service, client, rb, false)
