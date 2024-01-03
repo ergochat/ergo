@@ -1568,6 +1568,10 @@ func (config *Config) isRelaymsgIdentifier(nick string) bool {
 		return false
 	}
 
+	if strings.HasPrefix(nick, "#") {
+		return false // #2114
+	}
+
 	for _, char := range config.Server.Relaymsg.Separators {
 		if strings.ContainsRune(nick, char) {
 			return true
