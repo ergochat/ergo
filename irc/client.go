@@ -1803,7 +1803,11 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 		channels := client.Channels()
 		channelToModes := make(map[string]alwaysOnChannelStatus, len(channels))
 		for _, channel := range channels {
-			chname, status := channel.alwaysOnStatus(client)
+			ok, chname, status := channel.alwaysOnStatus(client)
+			if !ok {
+				client.server.logger.Error("internal", "client and channel membership out of sync", chname, client.Nick())
+				continue
+			}
 			channelToModes[chname] = status
 		}
 		client.server.accounts.saveChannels(account, channelToModes)

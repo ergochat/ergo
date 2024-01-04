@@ -545,11 +545,14 @@ func (channel *Channel) ClientStatus(client *Client) (present bool, joinTimeSecs
 
 // helper for persisting channel-user modes for always-on clients;
 // return the channel name and all channel-user modes for a client
-func (channel *Channel) alwaysOnStatus(client *Client) (chname string, status alwaysOnChannelStatus) {
+func (channel *Channel) alwaysOnStatus(client *Client) (ok bool, chname string, status alwaysOnChannelStatus) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	chname = channel.name
-	data := channel.members[client]
+	data, ok := channel.members[client]
+	if !ok {
+		return
+	}
 	status.Modes = data.modes.String()
 	status.JoinTime = data.joinTime
 	return
