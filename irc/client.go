@@ -1773,6 +1773,8 @@ func (client *Client) wakeWriter() {
 }
 
 func (client *Client) writeLoop() {
+	defer client.server.HandlePanic()
+
 	for {
 		client.performWrite(0)
 		client.writebackLock.Unlock()
