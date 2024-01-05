@@ -222,6 +222,8 @@ func (channel *Channel) wakeWriter() {
 
 // equivalent of Socket.send()
 func (channel *Channel) writeLoop() {
+	defer channel.server.HandlePanic()
+
 	for {
 		// TODO(#357) check the error value of this and implement timed backoff
 		channel.performWrite(0)
