@@ -2704,7 +2704,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	if canDelete == canDeleteSelf {
 		accountName = client.AccountName()
 		if accountName == "*" {
-			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete because you are logged out"))
+			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete this message"))
 			return false
 		}
 	}

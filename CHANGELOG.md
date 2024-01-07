@@ -1,6 +1,31 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.13.0-rc1] - 2024-01-07
+
+We're pleased to be publishing the release candidate for v2.13.0 (the official release should follow within a week or so). This is a bugfix release that fixes some issues, including a crash.
+
+This release includes no changes to the config file format or database format.
+
+Mnay thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://github.com/jwheare), [@Mikaela](https://github.com/Mikaela), and [@Sheikah45](https://github.com/Sheikah45) for contributing patches, reporting issues, and helping test.
+
+### Fixed
+
+* Fixed a (hopefully rare) crash when persisting always-on client statuses (#2113, #2117, thanks [@Sheikah45](https://github.com/Sheikah45)!)
+* Fixed not being able to message channels with `/` (or the configured `RELAYMSG` separator) in their names (#2114, thanks [@Mikaela](https://github.com/Mikaela)!)
+* Verification emails now always include a `Message-ID` header, improving compatibility with Gmail (#2108, #2110)
+* Improved human-readable description of `REDACT_FORBIDDEN` (#2101, thanks [@jwheare](https://github.com/jwheare)!)
+
+### Removed
+
+* Removed numerics associated with the retired ACC spec (#2109, #2111, thanks [@jwheare](https://github.com/jwheare)!)
+
+### Internal
+
+* Upgraded the Docker base image from Alpine 3.13 to 3.19. The resulting images are incompatible with Docker 19.x and lower (all currently non-EOL Docker versions should be supported). (#2103)
+* Official release builds use Go 1.21.5
+
+
 ## [2.12.0] - 2023-10-10
 
 We're pleased to be publishing v2.12.0, a new stable release. This is another bugfix release aimed at improving client compatibility and keeping up with the IRCv3 specification process.
