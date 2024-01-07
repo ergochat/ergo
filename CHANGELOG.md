@@ -14,6 +14,7 @@ Mnay thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://gith
 * Fixed a (hopefully rare) crash when persisting always-on client statuses (#2113, #2117, thanks [@Sheikah45](https://github.com/Sheikah45)!)
 * Fixed not being able to message channels with `/` (or the configured `RELAYMSG` separator) in their names (#2114, thanks [@Mikaela](https://github.com/Mikaela)!)
 * Verification emails now always include a `Message-ID` header, improving compatibility with Gmail (#2108, #2110)
+* Improved human-readable description of `REDACT_FORBIDDEN` (#2101, thanks [@jwheare](https://github.com/jwheare)!)
 
 ### Removed
 
