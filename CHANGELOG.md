@@ -7,7 +7,7 @@ We're pleased to be publishing the release candidate for v2.13.0 (the official r
 
 This release includes no changes to the config file format or database format.
 
-Mnay thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://github.com/jwheare), [@Mikaela](https://github.com/Mikaela), and [@Sheikah45](https://github.com/Sheikah45) for contributing patches, reporting issues, and helping test.
+Many thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://github.com/jwheare), [@Mikaela](https://github.com/Mikaela), and [@Sheikah45](https://github.com/Sheikah45) for contributing patches, reporting issues, and helping test.
 
 ### Fixed
 
