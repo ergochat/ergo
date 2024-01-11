@@ -999,7 +999,11 @@ then add the following `startupOptions` to Kiwi's `static/config.json` file (see
 
 ```
     "startupOptions" : {
-        "websocket": "wss://domain.example.com/webirc",
+        "direct': true,
+        "server": "domain.example.com",
+        "direct_path": "/webirc",
+        "port": "",
+        "tls": true,
         "channel": "#chat",
         "nick": "kiwi-n?"
     },
