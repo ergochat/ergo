@@ -623,6 +623,8 @@ Many clients do not have this support. However, you can designate port 6667 as a
 
 Ergo supports the use of reverse proxies (such as nginx, or a Kubernetes [LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)) that sit between it and the client. In these deployments, the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) is used to pass the end user's IP through to Ergo. These proxies can be used to terminate TLS externally to Ergo, e.g., if you need to support versions of the TLS protocol that are not implemented natively by Go, or if you want to consolidate your certificate management into a single nginx instance.
 
+### IRC Sockets
+
 The first step is to add the reverse proxy's IP to `proxy-allowed-from` and `ip-limits.exempted`. (Use `localhost` to exempt all loopback IPs and Unix domain sockets.)
 
 After that, there are two possibilities:
@@ -637,6 +639,10 @@ After that, there are two possibilities:
                 key: privkey.pem
             proxy: true
 ```
+
+### Websockets through HTTP reverse proxies
+
+Ergo will honor the `X-Forwarded-For` headers on incoming websocket connections, if the peer IP address appears in `proxy-allowed-from`. For these connections, set `proxy: false`, or omit the `proxy` option.
 
 
 ## Client certificates
