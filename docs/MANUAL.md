@@ -1031,7 +1031,7 @@ On Caddy, websocket proxying can be configured with:
 
 ```
 handle_path /webirc {
-  reverse_proxy ircd:8067
+  reverse_proxy 127.0.0.1:8067
 }
 ```
 
