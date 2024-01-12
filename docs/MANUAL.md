@@ -642,7 +642,7 @@ After that, there are two possibilities:
 
 ### Websockets through HTTP reverse proxies
 
-Ergo will honor the HTTP forwarding headers on incoming websocket connections, if the peer IP address appears in `proxy-allowed-from`. For these connections, set `proxy: false`, or omit the `proxy` option.
+Ergo will honor the `X-Forwarded-For` headers on incoming websocket connections, if the peer IP address appears in `proxy-allowed-from`. For these connections, set `proxy: false`, or omit the `proxy` option.
 
 
 ## Client certificates
