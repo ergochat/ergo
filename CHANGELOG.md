@@ -1,13 +1,13 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.13.0-rc1] - 2024-01-07
+## [2.13.0] - 2024-01-14
 
-We're pleased to be publishing the release candidate for v2.13.0 (the official release should follow within a week or so). This is a bugfix release that fixes some issues, including a crash.
+We're pleased to be publishing v2.13.0, a new stable release. This is a bugfix release that fixes some issues, including a crash.
 
 This release includes no changes to the config file format or database format.
 
-Many thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://github.com/jwheare), [@Mikaela](https://github.com/Mikaela), and [@Sheikah45](https://github.com/Sheikah45) for contributing patches, reporting issues, and helping test.
+Many thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://github.com/jwheare), [@Mikaela](https://github.com/Mikaela), [@nealey](https://github.com/nealey), and [@Sheikah45](https://github.com/Sheikah45) for contributing patches, reporting issues, and helping test.
 
 ### Fixed
 
