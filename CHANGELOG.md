@@ -23,7 +23,7 @@ Many thanks to [@dallemon](https://github.com/dallemon), [@jwheare](https://gith
 ### Internal
 
 * Upgraded the Docker base image from Alpine 3.13 to 3.19. The resulting images are incompatible with Docker 19.x and lower (all currently non-EOL Docker versions should be supported). (#2103)
-* Official release builds use Go 1.21.5
+* Official release builds use Go 1.21.6
 
 
 ## [2.12.0] - 2023-10-10
