@@ -38,6 +38,7 @@ import (
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/mysql"
+	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -331,7 +332,9 @@ type AccountConfig struct {
 	Multiclient MulticlientConfig
 	Bouncer     *MulticlientConfig // # handle old name for 'multiclient'
 	VHosts      VHostConfig
-	AuthScript  AuthScriptConfig `yaml:"auth-script"`
+	AuthScript  AuthScriptConfig          `yaml:"auth-script"`
+	OAuth2      oauth2.OAuth2BearerConfig `yaml:"oauth2"`
+	JWTAuth     jwt.JWTAuthConfig         `yaml:"jwt-auth"`
 }
 
 type ScriptConfig struct {
@@ -1390,13 +1393,42 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Accounts.VHosts.validRegexp = defaultValidVhostRegex
 	}
 
-	saslCapValue := "PLAIN,EXTERNAL,SCRAM-SHA-256"
-	if !config.Accounts.AdvertiseSCRAM {
-		saslCapValue = "PLAIN,EXTERNAL"
-	}
-	config.Server.capValues[caps.SASL] = saslCapValue
-	if !config.Accounts.AuthenticationEnabled {
+	if config.Accounts.AuthenticationEnabled {
+		saslCapValues := []string{"PLAIN", "EXTERNAL"}
+		if config.Accounts.AdvertiseSCRAM {
+			saslCapValues = append(saslCapValues, "SCRAM-SHA-256")
+		}
+		if config.Accounts.OAuth2.Enabled {
+			saslCapValues = append(saslCapValues, "OAUTHBEARER")
+		}
+		config.Server.capValues[caps.SASL] = strings.Join(saslCapValues, ",")
+	} else {
 		config.Server.supportedCaps.Disable(caps.SASL)
+	}
+
+	if err := config.Accounts.OAuth2.Postprocess(); err != nil {
+		return nil, err
+	}
+
+	if err := config.Accounts.JWTAuth.Postprocess(); err != nil {
+		return nil, err
+	}
+
+	if config.Accounts.OAuth2.Enabled && config.Accounts.OAuth2.AuthScript && !config.Accounts.AuthScript.Enabled {
+		return nil, fmt.Errorf("oauth2 is enabled with auth-script, but no auth-script is enabled")
+	}
+
+	var bearerCapValues []string
+	if config.Accounts.OAuth2.Enabled {
+		bearerCapValues = append(bearerCapValues, "oauth2")
+	}
+	if config.Accounts.JWTAuth.Enabled {
+		bearerCapValues = append(bearerCapValues, "jwt")
+	}
+	if len(bearerCapValues) != 0 {
+		config.Server.capValues[caps.Bearer] = strings.Join(bearerCapValues, ",")
+	} else {
+		config.Server.supportedCaps.Disable(caps.Bearer)
 	}
 
 	if !config.Accounts.Registration.Enabled {

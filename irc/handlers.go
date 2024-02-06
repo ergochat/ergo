@@ -31,6 +31,7 @@ import (
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/jwt"
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -178,6 +179,11 @@ func acceptHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	return false
 }
 
+const (
+	saslMaxArgLength      = 400  // required by SASL spec
+	saslMaxResponseLength = 8192 // implementation-defined sanity check, long enough for bearer tokens
+)
+
 // AUTHENTICATE [<mechanism>|<data>|*]
 func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	session := rb.session
@@ -213,6 +219,16 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 		mechanism := strings.ToUpper(msg.Params[0])
 		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
 
+		// The spec says: "The AUTHENTICATE command MUST be used before registration
+		// is complete and with the sasl capability enabled." Enforcing this universally
+		// would simplify the implementation somewhat, but we've never enforced it before
+		// and I don't want to break working clients that use PLAIN or EXTERNAL
+		// and violate this MUST (e.g. by sending CAP END too early).
+		if client.registered && !(mechanism == "PLAIN" || mechanism == "EXTERNAL") {
+			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL is only allowed before connection registration"))
+			return false
+		}
+
 		if mechanismIsEnabled {
 			session.sasl.mechanism = mechanism
 			if !config.Server.Compatibility.SendUnprefixedSasl {
@@ -236,30 +252,28 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 	// https://ircv3.net/specs/extensions/sasl-3.1:
 	// "The response is encoded in Base64 (RFC 4648), then split to 400-byte chunks,
 	// and each chunk is sent as a separate AUTHENTICATE command."
-	saslMaxArgLength := 400
 	if len(rawData) > saslMaxArgLength {
 		rb.Add(nil, server.name, ERR_SASLTOOLONG, details.nick, client.t("SASL message too long"))
 		session.sasl.Clear()
 		return false
 	} else if len(rawData) == saslMaxArgLength {
-		// allow 4 'continuation' lines before rejecting for length
-		if len(session.sasl.value) >= saslMaxArgLength*4 {
+		if session.sasl.value.Len() >= saslMaxResponseLength {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
 			session.sasl.Clear()
 			return false
 		}
-		session.sasl.value += rawData
+		session.sasl.value.WriteString(rawData)
 		return false
 	}
 	if rawData != "+" {
-		session.sasl.value += rawData
+		session.sasl.value.WriteString(rawData)
 	}
 
 	var data []byte
 	var err error
-	if session.sasl.value != "+" {
-		data, err = base64.StdEncoding.DecodeString(session.sasl.value)
-		session.sasl.value = ""
+	if session.sasl.value.Len() > 0 {
+		data, err = base64.StdEncoding.DecodeString(session.sasl.value.String())
+		session.sasl.value.Reset()
 		if err != nil {
 			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 			session.sasl.Clear()
@@ -331,7 +345,7 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 	}
 
 	switch err {
-	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch, errAccountSuspended:
+	case errAccountDoesNotExist, errAccountUnverified, errAccountInvalidCredentials, errAuthzidAuthcidMismatch, errNickAccountMismatch, errAccountSuspended, oauth2.ErrInvalidToken:
 		return err.Error()
 	default:
 		// don't expose arbitrary error messages to the user
@@ -351,28 +365,18 @@ func authExternalHandler(server *Server, client *Client, session *Session, value
 
 	// EXTERNAL doesn't carry an authentication ID (this is determined from the
 	// certificate), but does carry an optional authorization ID.
-	var authzid string
+	authzid := string(value)
+	var deviceID string
 	var err error
-	if len(value) != 0 {
-		authzid, err = CasefoldName(string(value))
-		if err != nil {
-			err = errAuthzidAuthcidMismatch
-		}
+	// see #843: strip the device ID for the benefit of clients that don't
+	// distinguish user/ident from account name
+	if strudelIndex := strings.IndexByte(authzid, '@'); strudelIndex != -1 {
+		authzid, deviceID = authzid[:strudelIndex], authzid[strudelIndex+1:]
 	}
 
 	if err == nil {
-		// see #843: strip the device ID for the benefit of clients that don't
-		// distinguish user/ident from account name
-		if strudelIndex := strings.IndexByte(authzid, '@'); strudelIndex != -1 {
-			var deviceID string
-			authzid, deviceID = authzid[:strudelIndex], authzid[strudelIndex+1:]
-			if !client.registered {
-				rb.session.deviceID = deviceID
-			}
-		}
 		err = server.accounts.AuthenticateByCertificate(client, rb.session.certfp, rb.session.peerCerts, authzid)
 	}
-
 	if err != nil {
 		sendAuthErrorResponse(client, rb, err)
 		return false
@@ -381,6 +385,9 @@ func authExternalHandler(server *Server, client *Client, session *Session, value
 	}
 
 	sendSuccessfulAccountAuth(nil, client, rb, true)
+	if !client.registered && deviceID != "" {
+		rb.session.deviceID = deviceID
+	}
 	return false
 }
 
@@ -418,9 +425,8 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 			account, err := server.accounts.LoadAccount(authcid)
 			if err == nil {
 				server.accounts.Login(client, account)
-				if fixupNickEqualsAccount(client, rb, server.Config(), "") {
-					sendSuccessfulAccountAuth(nil, client, rb, true)
-				}
+				// fixupNickEqualsAccount is not needed for unregistered clients
+				sendSuccessfulAccountAuth(nil, client, rb, true)
 			} else {
 				server.logger.Error("internal", "SCRAM succeeded but couldn't load account", authcid, err.Error())
 				rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed"))
@@ -433,7 +439,7 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 
 	response, err := session.sasl.scramConv.Step(string(value))
 	if err == nil {
-		rb.Add(nil, server.name, "AUTHENTICATE", base64.StdEncoding.EncodeToString([]byte(response)))
+		sendSASLChallenge(server, rb, []byte(response))
 	} else {
 		continueAuth = false
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), err.Error())
@@ -441,6 +447,70 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 	}
 
 	return false
+}
+
+// AUTHENTICATE OAUTHBEARER
+func authOauthBearerHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
+	if !server.Config().Accounts.OAuth2.Enabled {
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), "SASL authentication failed: mechanism not enabled")
+		return false
+	}
+
+	if session.sasl.oauthConv == nil {
+		session.sasl.oauthConv = oauth2.NewOAuthBearerServer(
+			func(opts oauth2.OAuthBearerOptions) *oauth2.OAuthBearerError {
+				err := server.accounts.AuthenticateByOAuthBearer(client, opts)
+				switch err {
+				case nil:
+					return nil
+				case oauth2.ErrInvalidToken:
+					return &oauth2.OAuthBearerError{Status: "invalid_token", Schemes: "bearer"}
+				case errFeatureDisabled:
+					return &oauth2.OAuthBearerError{Status: "invalid_request", Schemes: "bearer"}
+				default:
+					// this is probably a misconfiguration or infrastructure error so we should log it
+					server.logger.Error("internal", "failed to validate OAUTHBEARER token", err.Error())
+					// tell the client it was their fault even though it probably wasn't:
+					return &oauth2.OAuthBearerError{Status: "invalid_request", Schemes: "bearer"}
+				}
+			},
+		)
+	}
+
+	challenge, done, err := session.sasl.oauthConv.Next(value)
+	if done {
+		if err == nil {
+			sendSuccessfulAccountAuth(nil, client, rb, true)
+		} else {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), ircutils.SanitizeText(err.Error(), 350))
+		}
+		session.sasl.Clear()
+	} else {
+		// ignore `err`, we need to relay the challenge (which may contain a JSON-encoded error)
+		// to the client
+		sendSASLChallenge(server, rb, challenge)
+	}
+	return false
+}
+
+// helper to b64 a sasl response and chunk it into 400-byte lines
+// as per https://ircv3.net/specs/extensions/sasl-3.1
+// TODO replace this with ircutils.EncodeSASLResponse
+func sendSASLChallenge(server *Server, rb *ResponseBuffer, challenge []byte) {
+	challengeStr := base64.StdEncoding.EncodeToString(challenge)
+	lastLen := 0
+	for len(challengeStr) > 0 {
+		end := saslMaxArgLength
+		if end > len(challengeStr) {
+			end = len(challengeStr)
+		}
+		lastLen = end
+		rb.Add(nil, server.name, "AUTHENTICATE", challengeStr[:end])
+		challengeStr = challengeStr[end:]
+	}
+	if lastLen == saslMaxArgLength {
+		rb.Add(nil, server.name, "AUTHENTICATE", "+")
+	}
 }
 
 // AWAY [<message>]

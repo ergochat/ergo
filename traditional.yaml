@@ -559,6 +559,37 @@ accounts:
         # how many scripts are allowed to run at once? 0 for no limit:
         max-concurrency: 64
 
+    # support for login via OAuth2 bearer tokens
+    oauth2:
+        enabled: false
+        # should we automatically create users on presentation of a valid token?
+        autocreate: true
+        # enable this to use auth-script for validation:
+        auth-script: false
+        introspection-url: "https://example.com/api/oidc/introspection"
+        introspection-timeout: 10s
+        # omit for auth method `none`; required for auth method `client_secret_basic`:
+        client-id: "ergo"
+        client-secret: "4TA0I7mJ3fUUcW05KJiODg"
+
+    # support for login via JWT bearer tokens
+    jwt-auth:
+        enabled: false
+        # should we automatically create users on presentation of a valid token?
+        autocreate: true
+        algorithm: "hmac" # either 'hmac', 'rsa', or 'eddsa' (ed25519)
+        # hmac takes a symmetric key, rsa and eddsa take PEM-encoded public keys;
+        # either way, the key can be specified either as a YAML string:
+        key: "nANiZ1De4v6WnltCHN2H7Q"
+        # or as a path to the file containing the key:
+        #key-file: "jwt_pubkey.pem"
+        # list of JWT claim names to search for the user's account name (make sure the format
+        # is what you expect, especially if using "sub"):
+        account-claims: ["preferred_username"]
+        # if a claim is formatted as an email address, require it to have the following domain,
+        # and then strip off the domain and use the local-part as the account name:
+        #strip-domain: "example.com"
+
 # channel options
 channels:
     # modes that are set when new channels are created

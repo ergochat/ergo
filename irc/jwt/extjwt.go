@@ -6,18 +6,15 @@ package jwt
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 var (
-	ErrNoKeys = errors.New("No signing keys are enabled")
+	ErrNoKeys = errors.New("No EXTJWT signing keys are enabled")
 )
 
 type MapClaims jwt.MapClaims
@@ -38,21 +35,9 @@ func (t *JwtServiceConfig) Postprocess() (err error) {
 		if err != nil {
 			return err
 		}
-		d, _ := pem.Decode(keyBytes)
+		t.rsaPrivateKey, err = jwt.ParseRSAPrivateKeyFromPEM(keyBytes)
 		if err != nil {
 			return err
-		}
-		t.rsaPrivateKey, err = x509.ParsePKCS1PrivateKey(d.Bytes)
-		if err != nil {
-			privateKey, err := x509.ParsePKCS8PrivateKey(d.Bytes)
-			if err != nil {
-				return err
-			}
-			if rsaPrivateKey, ok := privateKey.(*rsa.PrivateKey); ok {
-				t.rsaPrivateKey = rsaPrivateKey
-			} else {
-				return fmt.Errorf("Non-RSA key type for extjwt: %T", privateKey)
-			}
 		}
 	}
 	return nil

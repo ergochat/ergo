@@ -28,6 +28,7 @@ import (
 	"github.com/ergochat/ergo/irc/flatip"
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -119,8 +120,9 @@ type Client struct {
 
 type saslStatus struct {
 	mechanism string
-	value     string
+	value     strings.Builder
 	scramConv *scram.ServerConversation
+	oauthConv *oauth2.OAuthBearerServer
 }
 
 func (s *saslStatus) Clear() {

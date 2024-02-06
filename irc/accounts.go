@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/json"
@@ -19,10 +20,12 @@ import (
 	"github.com/tidwall/buntdb"
 	"github.com/xdg-go/scram"
 
+	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/email"
 	"github.com/ergochat/ergo/irc/migrations"
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -1395,6 +1398,10 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		}
 	}
 
+	if strings.HasPrefix(accountName, caps.BearerTokenPrefix) {
+		return am.AuthenticateByBearerToken(client, strings.TrimPrefix(accountName, caps.BearerTokenPrefix), passphrase)
+	}
+
 	if throttled, remainingTime := client.checkLoginThrottle(); throttled {
 		return &ThrottleError{remainingTime}
 	}
@@ -1425,6 +1432,71 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 
 	account, err = am.checkPassphrase(accountName, passphrase)
 	return err
+}
+
+func (am *AccountManager) AuthenticateByBearerToken(client *Client, tokenType, token string) (err error) {
+	switch tokenType {
+	case "oauth2":
+		return am.AuthenticateByOAuthBearer(client, oauth2.OAuthBearerOptions{Token: token})
+	case "jwt":
+		return am.AuthenticateByJWT(client, token)
+	default:
+		return errInvalidBearerTokenType
+	}
+}
+
+func (am *AccountManager) AuthenticateByOAuthBearer(client *Client, opts oauth2.OAuthBearerOptions) (err error) {
+	config := am.server.Config()
+
+	// we need to check this here since we can get here via SASL PLAIN:
+	if !config.Accounts.OAuth2.Enabled {
+		return errFeatureDisabled
+	}
+
+	var username string
+	if config.Accounts.AuthScript.Enabled && config.Accounts.OAuth2.AuthScript {
+		username, err = am.authenticateByOAuthBearerScript(client, config, opts)
+	} else {
+		username, err = config.Accounts.OAuth2.Introspect(context.Background(), opts.Token)
+	}
+	if err != nil {
+		return err
+	}
+
+	account, err := am.loadWithAutocreation(username, config.Accounts.OAuth2.Autocreate)
+	if err == nil {
+		am.Login(client, account)
+	}
+	return err
+}
+
+func (am *AccountManager) AuthenticateByJWT(client *Client, token string) (err error) {
+	config := am.server.Config()
+	// enabled check is encapsulated here:
+	accountName, err := config.Accounts.JWTAuth.Validate(token)
+	if err != nil {
+		am.server.logger.Debug("accounts", "invalid JWT token", err.Error())
+		return errAccountInvalidCredentials
+	}
+	account, err := am.loadWithAutocreation(accountName, config.Accounts.JWTAuth.Autocreate)
+	if err == nil {
+		am.Login(client, account)
+	}
+	return err
+}
+
+func (am *AccountManager) authenticateByOAuthBearerScript(client *Client, config *Config, opts oauth2.OAuthBearerOptions) (username string, err error) {
+	output, err := CheckAuthScript(am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
+		AuthScriptInput{OAuthBearer: &opts, IP: client.IP().String()})
+
+	if err != nil {
+		am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
+		return "", oauth2.ErrInvalidToken
+	} else if output.Success {
+		return output.AccountName, nil
+	} else {
+		return "", oauth2.ErrInvalidToken
+	}
 }
 
 // AllNicks returns the uncasefolded nicknames for all accounts, including additional (grouped) nicks.
@@ -1939,8 +2011,10 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 		return err
 	}
 
-	if authzid != "" && authzid != account {
-		return errAuthzidAuthcidMismatch
+	if authzid != "" {
+		if cfAuthzid, err := CasefoldName(authzid); err != nil || cfAuthzid != account {
+			return errAuthzidAuthcidMismatch
+		}
 	}
 
 	// ok, we found an account corresponding to their certificate
@@ -2145,6 +2219,7 @@ var (
 		"PLAIN":         authPlainHandler,
 		"EXTERNAL":      authExternalHandler,
 		"SCRAM-SHA-256": authScramHandler,
+		"OAUTHBEARER":   authOauthBearerHandler,
 	}
 )
 

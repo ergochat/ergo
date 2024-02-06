@@ -76,6 +76,7 @@ var (
 	errValidEmailRequired             = errors.New("A valid email address is required for account registration")
 	errInvalidAccountRename           = errors.New("Account renames can only change the casefolding of the account name")
 	errNameReserved                   = errors.New(`Name reserved due to a prior registration`)
+	errInvalidBearerTokenType         = errors.New("invalid bearer token type")
 )
 
 // String Errors

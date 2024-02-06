@@ -12,7 +12,6 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gofrs/flock v0.8.1
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.4.2
 	github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
 	github.com/onsi/ginkgo v1.12.0 // indirect
@@ -26,6 +25,8 @@ require (
 	golang.org/x/text v0.14.0
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+require github.com/golang-jwt/jwt/v5 v5.2.0
 
 require (
 	github.com/tidwall/btree v1.4.2 // indirect
