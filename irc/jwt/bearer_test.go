@@ -64,17 +64,27 @@ func TestJWTBearerAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// fixed test vector signed with the RSA privkey:
+	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzbGluZ2FtbiJ9.caPZw2Dl4KZN-SErD5-WZB_lPPveHXaMCoUHxNebb94G9w3VaWDIRdngVU99JKx5nE_yRtpewkHHvXsQnNA_M63GBXGK7afXB8e-kV33QF3v9pXALMP5SzRwMgokyxas0RgHu4e4L0d7dn9o_nkdXp34GX3Pn1MVkUGBH6GdlbOdDHrs04pPQ0Qj-O2U0AIpnZq-X_GQs9ECJo4TlPKWR7Jlq5l9bS0dBnohea4FuqJr232je-dlRVkbCa7nrnFmsIsezsgA3Jb_j9Zu_iv460t_d2eaytbVp9P-DOVfzUfkBsKs-81URQEnTjW6ut445AJz2pxjX92X0GdmORpAkQ"
+	accountName, err := j.Validate(token)
+	if err != nil {
+		t.Errorf("could not validate valid token: %v", err)
+	}
+	if accountName != "slingamn" {
+		t.Errorf("incorrect account name for token: `%s`", accountName)
+	}
+
+	// programmatically sign a new token, validate it
 	privKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(rsaTestPrivKey))
 	if err != nil {
 		t.Fatal(err)
 	}
 	jTok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
-	token, err := jTok.SignedString(privKey)
+	token, err = jTok.SignedString(privKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	accountName, err := j.Validate(token)
+	accountName, err = j.Validate(token)
 	if err != nil {
 		t.Errorf("could not validate valid token: %v", err)
 	}
@@ -84,7 +94,7 @@ func TestJWTBearerAuth(t *testing.T) {
 
 	// test for the infamous algorithm confusion bug
 	jTok = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
-	token, err = jTok.SignedString([]byte(rsaTestPrivKey))
+	token, err = jTok.SignedString([]byte(rsaTestPubKey))
 	if err != nil {
 		t.Fatal(err)
 	}
