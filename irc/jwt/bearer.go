@@ -19,8 +19,12 @@ var (
 
 // JWTAuthConfig is the config for Ergo to accept JWTs via draft/bearer
 type JWTAuthConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	Autocreate    bool   `yaml:"autocreate"`
+	Enabled    bool                 `yaml:"enabled"`
+	Autocreate bool                 `yaml:"autocreate"`
+	Tokens     []JWTAuthTokenConfig `yaml:"tokens"`
+}
+
+type JWTAuthTokenConfig struct {
 	Algorithm     string `yaml:"algorithm"`
 	KeyString     string `yaml:"key"`
 	KeyFile       string `yaml:"key-file"`
@@ -35,6 +39,20 @@ func (j *JWTAuthConfig) Postprocess() error {
 		return nil
 	}
 
+	if len(j.Tokens) == 0 {
+		return fmt.Errorf("JWT authentication enabled, but no valid tokens defined")
+	}
+
+	for i := range j.Tokens {
+		if err := j.Tokens[i].Postprocess(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (j *JWTAuthTokenConfig) Postprocess() error {
 	keyBytes, err := j.keyBytes()
 	if err != nil {
 		return err
@@ -74,7 +92,21 @@ func (j *JWTAuthConfig) Postprocess() error {
 	return nil
 }
 
-func (j *JWTAuthConfig) keyBytes() (result []byte, err error) {
+func (j *JWTAuthConfig) Validate(t string) (accountName string, err error) {
+	if !j.Enabled || len(j.Tokens) == 0 {
+		return "", ErrAuthDisabled
+	}
+
+	for i := range j.Tokens {
+		accountName, err = j.Tokens[i].Validate(t)
+		if err == nil {
+			return
+		}
+	}
+	return
+}
+
+func (j *JWTAuthTokenConfig) keyBytes() (result []byte, err error) {
 	if j.KeyFile != "" {
 		o, err := os.Open(j.KeyFile)
 		if err != nil {
@@ -89,15 +121,11 @@ func (j *JWTAuthConfig) keyBytes() (result []byte, err error) {
 }
 
 // implements jwt.Keyfunc
-func (j *JWTAuthConfig) keyFunc(_ *jwt.Token) (interface{}, error) {
+func (j *JWTAuthTokenConfig) keyFunc(_ *jwt.Token) (interface{}, error) {
 	return j.key, nil
 }
 
-func (j *JWTAuthConfig) Validate(t string) (accountName string, err error) {
-	if !j.Enabled {
-		return "", ErrAuthDisabled
-	}
-
+func (j *JWTAuthTokenConfig) Validate(t string) (accountName string, err error) {
 	token, err := j.parser.Parse(t, j.keyFunc)
 	if err != nil {
 		return "", err

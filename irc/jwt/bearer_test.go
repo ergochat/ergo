@@ -49,11 +49,15 @@ s/uzBKNwWf9UPTeIt+4JScg=
 
 func TestJWTBearerAuth(t *testing.T) {
 	j := JWTAuthConfig{
-		Enabled:       true,
-		Algorithm:     "rsa",
-		KeyString:     rsaTestPubKey,
-		AccountClaims: []string{"preferred_username", "email"},
-		StripDomain:   "example.com",
+		Enabled: true,
+		Tokens: []JWTAuthTokenConfig{
+			{
+				Algorithm:     "rsa",
+				KeyString:     rsaTestPubKey,
+				AccountClaims: []string{"preferred_username", "email"},
+				StripDomain:   "example.com",
+			},
+		},
 	}
 
 	if err := j.Postprocess(); err != nil {
