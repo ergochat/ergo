@@ -92,13 +92,23 @@ func TestJWTBearerAuth(t *testing.T) {
 		t.Errorf("incorrect account name for token: `%s`", accountName)
 	}
 
+	// test expiration
+	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": 1675740865}))
+	token, err = jTok.SignedString(privKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accountName, err = j.Validate(token)
+	if err == nil {
+		t.Errorf("validated expired token")
+	}
+
 	// test for the infamous algorithm confusion bug
 	jTok = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
 	token, err = jTok.SignedString([]byte(rsaTestPubKey))
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	accountName, err = j.Validate(token)
 	if err == nil {
 		t.Errorf("validated HS256 token despite RSA being required")
