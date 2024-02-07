@@ -21,6 +21,7 @@ import (
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircreader"
+	"github.com/ergochat/irc-go/ircutils"
 	"github.com/xdg-go/scram"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -120,13 +121,20 @@ type Client struct {
 
 type saslStatus struct {
 	mechanism string
-	value     strings.Builder
+	value     ircutils.SASLBuffer
 	scramConv *scram.ServerConversation
 	oauthConv *oauth2.OAuthBearerServer
 }
 
+func (s *saslStatus) Initialize() {
+	s.value.Initialize(saslMaxResponseLength)
+}
+
 func (s *saslStatus) Clear() {
-	*s = saslStatus{}
+	s.mechanism = ""
+	s.value.Clear()
+	s.scramConv = nil
+	s.oauthConv = nil
 }
 
 // what stage the client is at w.r.t. the PASS command:
@@ -364,6 +372,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		isTor:      wConn.Tor,
 		hideSTS:    wConn.Tor || wConn.HideSTS,
 	}
+	session.sasl.Initialize()
 	client.sessions = []*Session{session}
 
 	session.resetFakelag()

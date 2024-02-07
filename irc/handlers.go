@@ -8,7 +8,6 @@ package irc
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -180,7 +179,6 @@ func acceptHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 }
 
 const (
-	saslMaxArgLength      = 400  // required by SASL spec
 	saslMaxResponseLength = 8192 // implementation-defined sanity check, long enough for bearer tokens
 )
 
@@ -207,7 +205,7 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 		return false
 	}
 
-	// start new sasl session
+	// start new sasl session: parameter is the authentication mechanism
 	if session.sasl.mechanism == "" {
 		throttled, remainingTime := client.loginThrottle.Touch()
 		if throttled {
@@ -246,44 +244,28 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 		return false
 	}
 
-	// continue existing sasl session
-	rawData := msg.Params[0]
-
-	// https://ircv3.net/specs/extensions/sasl-3.1:
-	// "The response is encoded in Base64 (RFC 4648), then split to 400-byte chunks,
-	// and each chunk is sent as a separate AUTHENTICATE command."
-	if len(rawData) > saslMaxArgLength {
+	// continue existing sasl session: parameter is a message chunk
+	done, value, err := session.sasl.value.Add(msg.Params[0])
+	if err == nil {
+		if done {
+			// call actual handler
+			handler := EnabledSaslMechanisms[session.sasl.mechanism]
+			return handler(server, client, session, value, rb)
+		} else {
+			return false // wait for continuation line
+		}
+	}
+	// else: error handling
+	switch err {
+	case ircutils.ErrSASLTooLong:
 		rb.Add(nil, server.name, ERR_SASLTOOLONG, details.nick, client.t("SASL message too long"))
-		session.sasl.Clear()
-		return false
-	} else if len(rawData) == saslMaxArgLength {
-		if session.sasl.value.Len() >= saslMaxResponseLength {
-			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
-			session.sasl.Clear()
-			return false
-		}
-		session.sasl.value.WriteString(rawData)
-		return false
+	case ircutils.ErrSASLLimitExceeded:
+		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Passphrase too long"))
+	default:
+		rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
 	}
-	if rawData != "+" {
-		session.sasl.value.WriteString(rawData)
-	}
-
-	var data []byte
-	var err error
-	if session.sasl.value.Len() > 0 {
-		data, err = base64.StdEncoding.DecodeString(session.sasl.value.String())
-		session.sasl.value.Reset()
-		if err != nil {
-			rb.Add(nil, server.name, ERR_SASLFAIL, details.nick, client.t("SASL authentication failed: Invalid b64 encoding"))
-			session.sasl.Clear()
-			return false
-		}
-	}
-
-	// call actual handler
-	handler := EnabledSaslMechanisms[session.sasl.mechanism]
-	return handler(server, client, session, data, rb)
+	session.sasl.Clear()
+	return false
 }
 
 // AUTHENTICATE PLAIN
@@ -495,21 +477,9 @@ func authOauthBearerHandler(server *Server, client *Client, session *Session, va
 
 // helper to b64 a sasl response and chunk it into 400-byte lines
 // as per https://ircv3.net/specs/extensions/sasl-3.1
-// TODO replace this with ircutils.EncodeSASLResponse
 func sendSASLChallenge(server *Server, rb *ResponseBuffer, challenge []byte) {
-	challengeStr := base64.StdEncoding.EncodeToString(challenge)
-	lastLen := 0
-	for len(challengeStr) > 0 {
-		end := saslMaxArgLength
-		if end > len(challengeStr) {
-			end = len(challengeStr)
-		}
-		lastLen = end
-		rb.Add(nil, server.name, "AUTHENTICATE", challengeStr[:end])
-		challengeStr = challengeStr[end:]
-	}
-	if lastLen == saslMaxArgLength {
-		rb.Add(nil, server.name, "AUTHENTICATE", "+")
+	for _, chunk := range ircutils.EncodeSASLResponse(challenge) {
+		rb.Add(nil, server.name, "AUTHENTICATE", chunk)
 	}
 }
 
