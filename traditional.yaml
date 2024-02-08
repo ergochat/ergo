@@ -792,6 +792,9 @@ limits:
     # identlen is the max ident length allowed
     identlen: 20
 
+    # realnamelen is the maximum realname length allowed
+    realnamelen: 150
+
     # channellen is the max channel length allowed
     channellen: 64
 
