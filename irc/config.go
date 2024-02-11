@@ -487,6 +487,7 @@ type Limits struct {
 	ChanListModes        int `yaml:"chan-list-modes"`
 	ChannelLen           int `yaml:"channellen"`
 	IdentLen             int `yaml:"identlen"`
+	RealnameLen          int `yaml:"realnamelen"`
 	KickLen              int `yaml:"kicklen"`
 	MonitorEntries       int `yaml:"monitor-entries"`
 	NickLen              int `yaml:"nicklen"`

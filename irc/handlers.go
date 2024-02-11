@@ -3374,6 +3374,10 @@ func userHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), "USER", client.t("Not enough parameters"))
 		return false
 	}
+	config := server.Config()
+	if config.Limits.RealnameLen > 0 && len(realname) > config.Limits.RealnameLen {
+		realname = ircmsg.TruncateUTF8Safe(realname, config.Limits.RealnameLen)
+	}
 
 	// #843: we accept either: `USER user:pass@clientid` or `USER user@clientid`
 	if strudelIndex := strings.IndexByte(username, '@'); strudelIndex != -1 {
