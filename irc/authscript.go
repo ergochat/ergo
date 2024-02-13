@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -20,7 +21,8 @@ type AuthScriptInput struct {
 	Certfp      string   `json:"certfp,omitempty"`
 	PeerCerts   []string `json:"peerCerts,omitempty"`
 	peerCerts   []*x509.Certificate
-	IP          string `json:"ip,omitempty"`
+	IP          string                     `json:"ip,omitempty"`
+	OAuthBearer *oauth2.OAuthBearerOptions `json:"oauth2,omitempty"`
 }
 
 type AuthScriptOutput struct {

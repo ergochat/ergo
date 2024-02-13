@@ -16,7 +16,7 @@ github.com/ergochat/confusables
 # github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
 ## explicit; go 1.18
 github.com/ergochat/go-ident
-# github.com/ergochat/irc-go v0.4.0
+# github.com/ergochat/irc-go v0.5.0-rc1
 ## explicit; go 1.15
 github.com/ergochat/irc-go/ircfmt
 github.com/ergochat/irc-go/ircmsg
@@ -30,9 +30,9 @@ github.com/go-sql-driver/mysql
 # github.com/gofrs/flock v0.8.1
 ## explicit
 github.com/gofrs/flock
-# github.com/golang-jwt/jwt v3.2.2+incompatible
-## explicit
-github.com/golang-jwt/jwt
+# github.com/golang-jwt/jwt/v5 v5.2.0
+## explicit; go 1.18
+github.com/golang-jwt/jwt/v5
 # github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
 ## explicit; go 1.12
 github.com/gorilla/websocket
