@@ -11,6 +11,12 @@ import (
 
 const (
 	maxLastArgLength = 400
+
+	/* Modern: "As the maximum number of message parameters to any reply is 15,
+	the maximum number of RPL_ISUPPORT tokens that can be advertised is 13."
+	<nickname> [up to 13 parameters] <human-readable trailing>
+	*/
+	maxParameters = 13
 )
 
 // List holds a list of ISUPPORT tokens
@@ -95,7 +101,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
+		if len(cache) == maxParameters || len(token)+length >= maxLastArgLength {
 			replies = append(replies, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -138,7 +144,7 @@ func (il *List) RegenerateCachedReply() (err error) {
 			length += len(token)
 		}
 
-		if len(cache) == 13 || len(token)+length >= maxLastArgLength {
+		if len(cache) == maxParameters || len(token)+length >= maxLastArgLength {
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = make([]string, 0)
 			length = 0
