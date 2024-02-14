@@ -112,6 +112,7 @@ func (j *JWTAuthTokenConfig) keyBytes() (result []byte, err error) {
 		if err != nil {
 			return nil, err
 		}
+		defer o.Close()
 		return io.ReadAll(o)
 	}
 	if j.KeyString != "" {
