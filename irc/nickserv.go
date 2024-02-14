@@ -1398,6 +1398,11 @@ func nsCertHandler(service *ircService, server *Server, client *Client, command 
 	case "add", "del":
 		if 2 <= len(params) {
 			target, certfp = params[0], params[1]
+			if client.Account() == target {
+				// If the target is equal to the account, then the user accidentally invoked operator
+				// syntax (cert add mynick <fp>) instead of self syntax (cert add <fp>).
+				target = ""
+			}
 		} else if len(params) == 1 {
 			certfp = params[0]
 		} else if len(params) == 0 && verb == "add" && rb.session.certfp != "" {
