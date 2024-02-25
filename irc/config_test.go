@@ -28,7 +28,7 @@ func TestEnvironmentOverrides(t *testing.T) {
 		`ORAGONO__SERVER__IP_CLOAKING={"enabled": true, "enabled-for-always-on": true, "netname": "irc", "cidr-len-ipv4": 32, "cidr-len-ipv6": 64, "num-bits": 64}`,
 	}
 	for _, envPair := range env {
-		_, err := mungeFromEnvironment(&config, envPair)
+		_, _, err := mungeFromEnvironment(&config, envPair)
 		if err != nil {
 			t.Errorf("couldn't apply override `%s`: %v", envPair, err)
 		}
@@ -93,7 +93,7 @@ func TestEnvironmentOverrideErrors(t *testing.T) {
 	}
 
 	for _, env := range invalidEnvs {
-		success, err := mungeFromEnvironment(&config, env)
+		success, _, err := mungeFromEnvironment(&config, env)
 		if err == nil || success {
 			t.Errorf("accepted invalid env override `%s`", env)
 		}
