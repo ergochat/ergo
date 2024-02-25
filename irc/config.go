@@ -1043,7 +1043,7 @@ func (ce *configPathError) Error() string {
 	return fmt.Sprintf("Couldn't apply config override `%s`: %s", ce.name, ce.desc)
 }
 
-func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *configPathError) {
+func mungeFromEnvironment(config *Config, envPair string) (applied bool, name string, err *configPathError) {
 	equalIdx := strings.IndexByte(envPair, '=')
 	name, value := envPair[:equalIdx], envPair[equalIdx+1:]
 	if strings.HasPrefix(name, "ERGO__") {
@@ -1051,7 +1051,7 @@ func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *co
 	} else if strings.HasPrefix(name, "ORAGONO__") {
 		name = strings.TrimPrefix(name, "ORAGONO__")
 	} else {
-		return false, nil
+		return false, "", nil
 	}
 	pathComponents := strings.Split(name, "__")
 	for i, pathComponent := range pathComponents {
@@ -1062,10 +1062,10 @@ func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *co
 	t := v.Type()
 	for _, component := range pathComponents {
 		if component == "" {
-			return false, &configPathError{name, "invalid", nil}
+			return false, "", &configPathError{name, "invalid", nil}
 		}
 		if v.Kind() != reflect.Struct {
-			return false, &configPathError{name, "index into non-struct", nil}
+			return false, "", &configPathError{name, "index into non-struct", nil}
 		}
 		var nextField reflect.StructField
 		success := false
@@ -1091,7 +1091,7 @@ func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *co
 			}
 		}
 		if !success {
-			return false, &configPathError{name, fmt.Sprintf("couldn't resolve path component: `%s`", component), nil}
+			return false, "", &configPathError{name, fmt.Sprintf("couldn't resolve path component: `%s`", component), nil}
 		}
 		v = v.FieldByName(nextField.Name)
 		// dereference pointer field if necessary, initialize new value if necessary
@@ -1105,9 +1105,9 @@ func mungeFromEnvironment(config *Config, envPair string) (applied bool, err *co
 	}
 	yamlErr := yaml.Unmarshal([]byte(value), v.Addr().Interface())
 	if yamlErr != nil {
-		return false, &configPathError{name, "couldn't deserialize YAML", yamlErr}
+		return false, "", &configPathError{name, "couldn't deserialize YAML", yamlErr}
 	}
-	return true, nil
+	return true, name, nil
 }
 
 // LoadConfig loads the given YAML configuration file.
@@ -1119,7 +1119,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.AllowEnvironmentOverrides {
 		for _, envPair := range os.Environ() {
-			applied, envErr := mungeFromEnvironment(config, envPair)
+			applied, name, envErr := mungeFromEnvironment(config, envPair)
 			if envErr != nil {
 				if envErr.fatalErr != nil {
 					return nil, envErr
@@ -1127,7 +1127,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 					log.Println(envErr.Error())
 				}
 			} else if applied {
-				log.Printf("applied environment override: %s\n", envPair)
+				log.Printf("applied environment override: %s\n", name)
 			}
 		}
 	}
