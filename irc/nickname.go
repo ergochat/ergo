@@ -120,7 +120,9 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 
 	for _, channel := range target.Channels() {
-		channel.AddHistoryItem(histItem, details.account)
+		if channel.clientIsVisible(client) {
+			channel.AddHistoryItem(histItem, details.account)
+		}
 	}
 
 	newCfnick := target.NickCasefolded()

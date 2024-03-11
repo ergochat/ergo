@@ -1297,10 +1297,10 @@ func (client *Client) destroy(session *Session) {
 	}
 
 	var quitItem history.Item
-	var channels []*Channel
+	var quitHistoryChannels []*Channel
 	// use a defer here to avoid writing to mysql while holding the destroy semaphore:
 	defer func() {
-		for _, channel := range channels {
+		for _, channel := range quitHistoryChannels {
 			channel.AddHistoryItem(quitItem, details.account)
 		}
 	}()
@@ -1322,8 +1322,11 @@ func (client *Client) destroy(session *Session) {
 	// clean up channels
 	// (note that if this is a reattach, client has no channels and therefore no friends)
 	friends := make(ClientSet)
-	channels = client.Channels()
+	channels := client.Channels()
 	for _, channel := range channels {
+		if channel.clientIsVisible(client) {
+			quitHistoryChannels = append(quitHistoryChannels, channel)
+		}
 		for _, member := range channel.auditoriumFriends(client) {
 			friends.Add(member)
 		}
