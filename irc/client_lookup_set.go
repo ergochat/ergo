@@ -116,6 +116,8 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 		useAccountName = alwaysOn || config.Accounts.NickReservation.ForceNickEqualsAccount
 	}
 
+	nickIsReserved := false
+
 	if useAccountName {
 		if registered && newNick != accountName {
 			return "", errNickAccountMismatch, false
@@ -167,7 +169,9 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 
 		reservedAccount, method := client.server.accounts.EnforcementStatus(newCfNick, newSkeleton)
 		if method == NickEnforcementStrict && reservedAccount != "" && reservedAccount != account {
-			return "", errNicknameReserved, false
+			// see #2135: we want to enter the critical section, see if the nick is actually in use,
+			// and return errNicknameInUse in that case
+			nickIsReserved = true
 		}
 	}
 
@@ -218,6 +222,9 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	skeletonHolder := clients.bySkeleton[newSkeleton]
 	if skeletonHolder != nil && skeletonHolder != client {
 		return "", errNicknameInUse, false
+	}
+	if nickIsReserved {
+		return "", errNicknameReserved, false
 	}
 
 	if dryRun {
