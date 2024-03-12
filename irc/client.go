@@ -1324,7 +1324,7 @@ func (client *Client) destroy(session *Session) {
 	friends := make(ClientSet)
 	channels := client.Channels()
 	for _, channel := range channels {
-		if channel.clientIsVisible(client) {
+		if channel.memberIsVisible(client) {
 			quitHistoryChannels = append(quitHistoryChannels, channel)
 		}
 		for _, member := range channel.auditoriumFriends(client) {

@@ -120,7 +120,7 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 
 	for _, channel := range target.Channels() {
-		if channel.clientIsVisible(client) {
+		if channel.memberIsVisible(client) {
 			channel.AddHistoryItem(histItem, details.account)
 		}
 	}
