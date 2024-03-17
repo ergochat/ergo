@@ -1622,6 +1622,26 @@ func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
 	return
 }
 
+// returns whether the client is visible to unprivileged users in the channel
+// (i.e., respecting auditorium mode). note that this assumes that the client
+// is a member; if the client is not, it may return true anyway
+func (channel *Channel) memberIsVisible(client *Client) bool {
+	// fast path, we assume they're a member so if this isn't an auditorium,
+	// they're visible:
+	if !channel.flags.HasMode(modes.Auditorium) {
+		return true
+	}
+
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	clientData, found := channel.members[client]
+	if !found {
+		return false
+	}
+	return clientData.modes.HighestChannelUserMode() != modes.Mode(0)
+}
+
 // data for RPL_LIST
 func (channel *Channel) listData() (memberCount int, name, topic string) {
 	channel.stateMutex.RLock()
