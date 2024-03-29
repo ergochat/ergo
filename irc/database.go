@@ -150,7 +150,7 @@ func retrieveSchemaVersion(tx *buntdb.Tx) (version int, err error) {
 func performAutoUpgrade(currentVersion int, config *Config) (err error) {
 	path := config.Datastore.Path
 	log.Printf("attempting to auto-upgrade schema from version %d to %d\n", currentVersion, latestDbSchema)
-	timestamp := time.Now().UTC().Format("2006-01-02-15:04:05.000Z")
+	timestamp := time.Now().UTC().Format("2006-01-02-15.04.05.000Z")
 	backupPath := fmt.Sprintf("%s.v%d.%s.bak", path, currentVersion, timestamp)
 	log.Printf("making a backup of current database at %s\n", backupPath)
 	err = utils.CopyFile(path, backupPath)
