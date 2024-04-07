@@ -55,17 +55,18 @@ type Client struct {
 
 // Dial returns a new Client connected to an SMTP server at addr.
 // The addr must include a port, as in "mail.example.com:smtp".
-func Dial(addr string, timeout time.Duration, implicitTLS bool) (*Client, error) {
+func Dial(protocol, addr string, localAddress net.Addr, timeout time.Duration, implicitTLS bool) (*Client, error) {
 	var conn net.Conn
 	var err error
 	dialer := net.Dialer{
-		Timeout: timeout,
+		Timeout:   timeout,
+		LocalAddr: localAddress,
 	}
 	start := time.Now()
 	if !implicitTLS {
-		conn, err = dialer.Dial("tcp", addr)
+		conn, err = dialer.Dial(protocol, addr)
 	} else {
-		conn, err = tls.DialWithDialer(&dialer, "tcp", addr, nil)
+		conn, err = tls.DialWithDialer(&dialer, protocol, addr, nil)
 	}
 	if err != nil {
 		return nil, err
@@ -341,7 +342,7 @@ var testHookStartTLS func(*tls.Config) // nil, except for tests
 // functionality. Higher-level packages exist outside of the standard
 // library.
 // XXX: modified in Ergo to add `requireTLS`, `heloDomain`, and `timeout` arguments
-func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS, implicitTLS bool, timeout time.Duration) error {
+func SendMail(addr string, a Auth, heloDomain string, from string, to []string, msg []byte, requireTLS, implicitTLS bool, protocol string, localAddress net.Addr, timeout time.Duration) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
@@ -350,7 +351,7 @@ func SendMail(addr string, a Auth, heloDomain string, from string, to []string, 
 			return err
 		}
 	}
-	c, err := Dial(addr, timeout, implicitTLS)
+	c, err := Dial(protocol, addr, localAddress, timeout, implicitTLS)
 	if err != nil {
 		return err
 	}
