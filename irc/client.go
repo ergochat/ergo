@@ -160,13 +160,14 @@ type Session struct {
 	idleTimer  *time.Timer
 	pingSent   bool // we sent PING to a putatively idle connection and we're waiting for PONG
 
-	sessionID   int64
-	socket      *Socket
-	realIP      net.IP
-	proxiedIP   net.IP
-	rawHostname string
-	isTor       bool
-	hideSTS     bool
+	sessionID         int64
+	socket            *Socket
+	realIP            net.IP
+	proxiedIP         net.IP
+	rawHostname       string
+	hostnameFinalized bool
+	isTor             bool
+	hideSTS           bool
 
 	fakelag              Fakelag
 	deferredFakelagCount int
@@ -488,12 +489,21 @@ func (client *Client) resizeHistory(config *Config) {
 	}
 }
 
-// resolve an IP to an IRC-ready hostname, using reverse DNS, forward-confirming if necessary,
-// and sending appropriate notices to the client
-func (client *Client) lookupHostname(session *Session, overwrite bool) {
+// once we have the final IP address (from the connection itself or from proxy data),
+// compute the various possibilities for the hostname:
+// * In the default/recommended configuration, via the cloak algorithm
+// * If hostname lookup is enabled, via (forward-confirmed) reverse DNS
+// * If WEBIRC was used, possibly via the hostname passed on the WEBIRC line
+func (client *Client) finalizeHostname(session *Session) {
+	// only allow this once, since registration can fail (e.g. if the nickname is in use)
+	if session.hostnameFinalized {
+		return
+	}
+	session.hostnameFinalized = true
+
 	if session.isTor {
 		return
-	} // else: even if cloaking is enabled, look up the real hostname to show to operators
+	}
 
 	config := client.server.Config()
 	ip := session.realIP
@@ -501,30 +511,27 @@ func (client *Client) lookupHostname(session *Session, overwrite bool) {
 		ip = session.proxiedIP
 	}
 
-	var hostname string
-	lookupSuccessful := false
-	if config.Server.lookupHostnames {
-		session.Notice("*** Looking up your hostname...")
-		hostname, lookupSuccessful = utils.LookupHostname(ip, config.Server.ForwardConfirmHostnames)
-		if lookupSuccessful {
-			session.Notice("*** Found your hostname")
+	// even if cloaking is enabled, we may want to look up the real hostname to show to operators:
+	if session.rawHostname == "" {
+		var hostname string
+		lookupSuccessful := false
+		if config.Server.lookupHostnames {
+			session.Notice("*** Looking up your hostname...")
+			hostname, lookupSuccessful = utils.LookupHostname(ip, config.Server.ForwardConfirmHostnames)
+			if lookupSuccessful {
+				session.Notice("*** Found your hostname")
+			} else {
+				session.Notice("*** Couldn't look up your hostname")
+			}
 		} else {
-			session.Notice("*** Couldn't look up your hostname")
+			hostname = utils.IPStringToHostname(ip.String())
 		}
-	} else {
-		hostname = utils.IPStringToHostname(ip.String())
+		session.rawHostname = hostname
 	}
 
-	session.rawHostname = hostname
-	cloakedHostname := config.Server.Cloaks.ComputeCloak(ip)
-	client.stateMutex.Lock()
-	defer client.stateMutex.Unlock()
-	// update the hostname if this is a new connection, but not if it's a reattach
-	if overwrite || client.rawHostname == "" {
-		client.rawHostname = hostname
-		client.cloakedHostname = cloakedHostname
-		client.updateNickMaskNoMutex()
-	}
+	// these will be discarded if this is actually a reattach:
+	client.rawHostname = session.rawHostname
+	client.cloakedHostname = config.Server.Cloaks.ComputeCloak(ip)
 }
 
 func (client *Client) doIdentLookup(conn net.Conn) {

@@ -314,9 +314,7 @@ func (server *Server) checkBanScriptExemptSASL(config *Config, session *Session)
 func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 	// XXX PROXY or WEBIRC MUST be sent as the first line of the session;
 	// if we are here at all that means we have the final value of the IP
-	if session.rawHostname == "" {
-		session.client.lookupHostname(session, false)
-	}
+	c.finalizeHostname(session)
 
 	// try to complete registration normally
 	// XXX(#1057) username can be filled in by an ident query without the client
