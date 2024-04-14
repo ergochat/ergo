@@ -218,6 +218,10 @@ server:
                 # - "192.168.1.1"
                 # - "192.168.10.1/24"
 
+            # whether to accept the hostname parameter on the WEBIRC line as the IRC hostname
+            # (the default/recommended Ergo configuration will use cloaks instead)
+            accept-hostname: false
+
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold bursts of channel/direct messages
     max-sendq: 96k

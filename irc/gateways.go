@@ -32,6 +32,7 @@ type webircConfig struct {
 	Fingerprint    *string // legacy name for certfp, #1050
 	Certfp         string
 	Hosts          []string
+	AcceptHostname bool `yaml:"accept-hostname"`
 	allowedNets    []net.IPNet
 }
 

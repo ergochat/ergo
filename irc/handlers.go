@@ -3512,8 +3512,9 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		}
 	}
 
+	config := server.Config()
 	givenPassword := []byte(msg.Params[0])
-	for _, info := range server.Config().Server.WebIRC {
+	for _, info := range config.Server.WebIRC {
 		if utils.IPInNets(client.realIP, info.allowedNets) {
 			// confirm password and/or fingerprint
 			if 0 < len(info.Password) && bcrypt.CompareHashAndPassword(info.Password, givenPassword) != nil {
@@ -3523,11 +3524,23 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 				continue
 			}
 
-			err, quitMsg := client.ApplyProxiedIP(rb.session, net.ParseIP(msg.Params[3]), secure)
+			candidateIP := msg.Params[3]
+			err, quitMsg := client.ApplyProxiedIP(rb.session, net.ParseIP(candidateIP), secure)
 			if err != nil {
 				client.Quit(quitMsg, rb.session)
 				return true
 			} else {
+				if info.AcceptHostname {
+					candidateHostname := msg.Params[2]
+					if candidateHostname != candidateIP {
+						if utils.IsHostname(candidateHostname) {
+							rb.session.rawHostname = candidateHostname
+						} else {
+							// log this at debug level since it may be spammy
+							server.logger.Debug("internal", "invalid hostname from WEBIRC", candidateHostname)
+						}
+					}
+				}
 				return false
 			}
 		}
