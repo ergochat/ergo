@@ -449,6 +449,10 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	chname := channel.name
 	membersCache, memberDataCache := channel.membersCache, channel.memberDataCache
 	channel.stateMutex.RUnlock()
+	symbol := "=" // https://modern.ircdocs.horse/#rplnamreply-353
+	if channel.flags.HasMode(modes.Secret) {
+		symbol = "@"
+	}
 	isOper := client.HasRoleCapabs("sajoin")
 	respectAuditorium := channel.flags.HasMode(modes.Auditorium) && !isOper &&
 		(!isJoined || clientData.modes.HighestChannelUserMode() == modes.Mode(0))
@@ -478,7 +482,7 @@ func (channel *Channel) Names(client *Client, rb *ResponseBuffer) {
 	}
 
 	for _, line := range tl.Lines() {
-		rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, "=", chname, line)
+		rb.Add(nil, client.server.name, RPL_NAMREPLY, client.nick, symbol, chname, line)
 	}
 	rb.Add(nil, client.server.name, RPL_ENDOFNAMES, client.nick, chname, client.t("End of NAMES list"))
 }
