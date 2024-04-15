@@ -381,6 +381,10 @@ accounts:
             sender: "admin@my.network"
             require-tls: true
             helo-domain: "my.network" # defaults to server name if unset
+            # set to `tcp4` to force sending over IPv4, `tcp6` to force IPv6:
+            # protocol: "tcp4"
+            # set to force a specific source/local IPv4 or IPv6 address:
+            # local-address: "1.2.3.4"
             # options to enable DKIM signing of outgoing emails (recommended, but
             # requires creating a DNS entry for the public key):
             # dkim:

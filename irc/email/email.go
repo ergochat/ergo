@@ -75,6 +75,9 @@ type MailtoConfig struct {
 	Sender                 string
 	HeloDomain             string `yaml:"helo-domain"`
 	RequireTLS             bool   `yaml:"require-tls"`
+	Protocol               string `yaml:"protocol"`
+	LocalAddress           string `yaml:"local-address"`
+	localAddress           net.Addr
 	VerifyMessageSubject   string `yaml:"verify-message-subject"`
 	DKIM                   DKIMConfig
 	MTAReal                MTAConfig       `yaml:"mta"`
@@ -156,6 +159,25 @@ func (config *MailtoConfig) Postprocess(heloDomain string) (err error) {
 				return err
 			}
 			config.blacklistRegexes = append(config.blacklistRegexes, compiled)
+		}
+	}
+
+	config.Protocol = strings.ToLower(config.Protocol)
+	if config.Protocol == "" {
+		config.Protocol = "tcp"
+	}
+	if !(config.Protocol == "tcp" || config.Protocol == "tcp4" || config.Protocol == "tcp6") {
+		return fmt.Errorf("Invalid protocol for email sending: `%s`", config.Protocol)
+	}
+
+	if config.LocalAddress != "" {
+		ipAddr := net.ParseIP(config.LocalAddress)
+		if ipAddr == nil {
+			return fmt.Errorf("Could not parse local-address for email sending: `%s`", config.LocalAddress)
+		}
+		config.localAddress = &net.TCPAddr{
+			IP:   ipAddr,
+			Port: 0,
 		}
 	}
 
@@ -241,6 +263,6 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 
 	return smtp.SendMail(
 		addr, auth, config.HeloDomain, config.Sender, []string{recipient}, msg,
-		config.RequireTLS, implicitTLS, config.Timeout,
+		config.RequireTLS, implicitTLS, config.Protocol, config.localAddress, config.Timeout,
 	)
 }
