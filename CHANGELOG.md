@@ -1,6 +1,21 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.13.1] - 2024-05-06
+
+Ergo 2.13.1 is a bugfix release, fixing an exploitable deadlock that could lead to a denial of service. We regret the oversight.
+
+This release includes no changes to the config file format or database format.
+
+### Security
+
+* Fixed an exploitable deadlock that could lead to a denial of service (#2149)
+
+### Internal
+
+* Official release builds use Go 1.22.2
+
+
 ## [2.13.0] - 2024-01-14
 
 We're pleased to be publishing v2.13.0, a new stable release. This is a bugfix release that fixes some issues, including a crash.
