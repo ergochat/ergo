@@ -60,6 +60,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Migrating from Anope or Atheme](#migrating-from-anope-or-atheme)
     - [HOPM](#hopm)
     - [Tor](#tor)
+    - [I2P](#i2p)
     - [ZNC](#znc)
     - [External authentication systems](#external-authentication-systems)
     - [DNSBLs and other IP checking systems](#dnsbls-and-other-ip-checking-systems)
@@ -1142,6 +1143,16 @@ Instructions on how client software should connect to an .onion address are outs
 1. [Hexchat](https://hexchat.github.io/) is known to support .onion addresses, once it has been configured to use a local Tor daemon as a SOCKS proxy (Settings -> Preferences -> Network Setup -> Proxy Server).
 1. Pidgin should work with [torsocks](https://trac.torproject.org/projects/tor/wiki/doc/torsocks).
 
+## I2P
+
+I2P is an anonymizing overlay network similar to Tor. The recommended configuration for I2P is to treat it similarly to Tor: have the i2pd reverse proxy its connections to an Ergo listener configured with `tor: true`. See the [i2pd configuration guide](https://i2pd.readthedocs.io/en/latest/tutorials/irc/#running-anonymous-irc-server) for more details; note that the instructions to separate I2P traffic from other localhost traffic are unnecessary for a `tor: true` listener.
+
+I2P can additionally expose an opaque client identifier (the user's "b32 address"). Exposing this identifier via Ergo is not recommended, but if you wish to do so, you can use the following procedure:
+
+1. Enable WEBIRC support in the i2pd configuration by adding the `webircpassword` key to the [i2pd server block](https://i2pd.readthedocs.io/en/latest/tutorials/irc/#running-anonymous-irc-server)
+1. Remove `tor: true` from the relevant Ergo listener config
+1. Enable WEBIRC support in Ergo (starting from the default/recommended configuration, find the existing webirc block, delete the `certfp` configuration, change `password` to use the output of `ergo genpasswd` on the password you configured i2pd to send, and set `accept-hostname: true`)
+1. To prevent Ergo from overwriting the hostname as passed from i2pd, set the following options: `server.ip-cloaking.enabled: false` and `server.lookup-hostnames: false`. (There is currently no support for applying cloaks to regular IP traffic but displaying the b32 address for I2P traffic).
 
 ## ZNC
 
