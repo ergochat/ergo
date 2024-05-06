@@ -612,9 +612,11 @@ func (channel *Channel) Founder() string {
 
 func (channel *Channel) HighestUserMode(client *Client) (result modes.Mode) {
 	channel.stateMutex.RLock()
-	clientModes := channel.members[client].modes
-	channel.stateMutex.RUnlock()
-	return clientModes.HighestChannelUserMode()
+	defer channel.stateMutex.RUnlock()
+	if clientData, ok := channel.members[client]; ok {
+		return clientData.modes.HighestChannelUserMode()
+	}
+	return
 }
 
 func (channel *Channel) Settings() (result ChannelSettings) {
