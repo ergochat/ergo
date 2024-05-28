@@ -7,6 +7,7 @@ package main
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
@@ -25,6 +26,9 @@ import (
 // set via linker flags, either by make or by goreleaser:
 var commit = ""  // git hash
 var version = "" // tagged version
+
+//go:embed default.yaml
+var defaultConfig string
 
 // get a password from stdin from the user
 func getPasswordFromTerminal() string {
@@ -94,6 +98,7 @@ Usage:
 	ergo importdb <database.json> [--conf <filename>] [--quiet]
 	ergo genpasswd [--conf <filename>] [--quiet]
 	ergo mkcerts [--conf <filename>] [--quiet]
+	ergo defaultconfig
 	ergo run [--conf <filename>] [--quiet] [--smoke]
 	ergo -h | --help
 	ergo --version
@@ -173,6 +178,8 @@ Options:
 		if err != nil {
 			log.Fatal("Error while importing db:", err.Error())
 		}
+	} else if arguments["defaultconfig"].(bool) {
+		fmt.Print(defaultConfig)
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", fmt.Sprintf("%s starting", irc.Ver))
