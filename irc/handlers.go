@@ -207,13 +207,6 @@ func authenticateHandler(server *Server, client *Client, msg ircmsg.Message, rb 
 
 	// start new sasl session: parameter is the authentication mechanism
 	if session.sasl.mechanism == "" {
-		throttled, remainingTime := client.loginThrottle.Touch()
-		if throttled {
-			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(),
-				fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime.Round(time.Millisecond)))
-			return false
-		}
-
 		mechanism := strings.ToUpper(msg.Params[0])
 		_, mechanismIsEnabled := EnabledSaslMechanisms[mechanism]
 
@@ -384,6 +377,12 @@ func authScramHandler(server *Server, client *Client, session *Session, value []
 
 	// first message? if so, initialize the SCRAM conversation
 	if session.sasl.scramConv == nil {
+		if throttled, remainingTime := client.checkLoginThrottle(); throttled {
+			rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(),
+				fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime.Round(time.Millisecond)))
+			continueAuth = false
+			return false
+		}
 		session.sasl.scramConv = server.accounts.NewScramConversation()
 	}
 
