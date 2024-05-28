@@ -64,10 +64,6 @@ const (
 	BotTagName = "bot"
 	// https://ircv3.net/specs/extensions/chathistory
 	ChathistoryTargetsBatchType = "draft/chathistory-targets"
-
-	// draft/bearer defines this prefix namespace for authcids, enabling tunneling bearer tokens
-	// in SASL PLAIN:
-	BearerTokenPrefix = "*bearer*"
 )
 
 func init() {

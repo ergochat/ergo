@@ -219,12 +219,6 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/527",
         standard="proposed IRCv3",
     ),
-   CapDef(
-        identifier="Bearer",
-        name="draft/bearer",
-        url="https://gist.github.com/slingamn/4fabc7a3d5f335da7bb313a7f0648f37",
-        standard="proposed IRCv3",
-    ),
 ]
 
 def validate_defs():

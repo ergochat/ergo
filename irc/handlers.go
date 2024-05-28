@@ -306,6 +306,27 @@ func authPlainHandler(server *Server, client *Client, session *Session, value []
 	return false
 }
 
+// AUTHENTICATE IRCV3BEARER
+func authIRCv3BearerHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
+	defer session.sasl.Clear()
+
+	// <authzid> \x00 <type> \x00 <token>
+	splitValue := bytes.Split(value, []byte{'\000'})
+	if len(splitValue) != 3 {
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: Invalid auth blob"))
+		return false
+	}
+
+	err := server.accounts.AuthenticateByBearerToken(client, string(splitValue[1]), string(splitValue[2]))
+	if err != nil {
+		sendAuthErrorResponse(client, rb, err)
+		return false
+	}
+
+	sendSuccessfulAccountAuth(nil, client, rb, true)
+	return false
+}
+
 func sendAuthErrorResponse(client *Client, rb *ResponseBuffer, err error) {
 	msg := authErrorToMessage(client.server, err)
 	rb.Add(nil, client.server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
