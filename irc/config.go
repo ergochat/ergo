@@ -453,6 +453,10 @@ func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err err
 		result = CasemappingPRECIS
 	case "permissive", "fun":
 		result = CasemappingPermissive
+	case "rfc1459":
+		result = CasemappingRFC1459
+	case "rfc1459-strict":
+		result = CasemappingRFC1459Strict
 	default:
 		return fmt.Errorf("invalid casemapping value: %s", orig)
 	}
@@ -1612,7 +1616,16 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Initialize()
 	isupport.Add("AWAYLEN", strconv.Itoa(config.Limits.AwayLen))
 	isupport.Add("BOT", "B")
-	isupport.Add("CASEMAPPING", "ascii")
+	var casemappingToken string
+	switch config.Server.Casemapping {
+	default:
+		casemappingToken = "ascii" // this is published for ascii, precis, or permissive
+	case CasemappingRFC1459:
+		casemappingToken = "rfc1459"
+	case CasemappingRFC1459Strict:
+		casemappingToken = "rfc1459-strict"
+	}
+	isupport.Add("CASEMAPPING", casemappingToken)
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
 	isupport.Add("CHANMODES", chanmodesToken)
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {

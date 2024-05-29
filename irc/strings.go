@@ -60,6 +60,10 @@ const (
 	// confusables detection: standard skeleton algorithm (which may be ineffective
 	// over the larger set of permitted identifiers)
 	CasemappingPermissive
+	// rfc1459 is a legacy mapping as defined here: https://modern.ircdocs.horse/#casemapping-parameter
+	CasemappingRFC1459
+	// rfc1459-strict is a legacy mapping as defined here: https://modern.ircdocs.horse/#casemapping-parameter
+	CasemappingRFC1459Strict
 )
 
 // XXX this is a global variable without explicit synchronization.
@@ -110,6 +114,10 @@ func casefoldWithSetting(str string, setting Casemapping) (string, error) {
 		return foldASCII(str)
 	case CasemappingPermissive:
 		return foldPermissive(str)
+	case CasemappingRFC1459:
+		return foldRFC1459(str, false)
+	case CasemappingRFC1459Strict:
+		return foldRFC1459(str, true)
 	}
 }
 
@@ -214,7 +222,7 @@ func Skeleton(name string) (string, error) {
 	switch globalCasemappingSetting {
 	default:
 		return realSkeleton(name)
-	case CasemappingASCII:
+	case CasemappingASCII, CasemappingRFC1459, CasemappingRFC1459Strict:
 		// identity function is fine because we independently case-normalize in Casefold
 		return name, nil
 	}
@@ -300,6 +308,23 @@ func foldASCII(str string) (result string, err error) {
 		return "", errInvalidCharacter
 	}
 	return strings.ToLower(str), nil
+}
+
+var (
+	rfc1459Replacer       = strings.NewReplacer("[", "{", "]", "}", "\\", "|", "~", "^")
+	rfc1459StrictReplacer = strings.NewReplacer("[", "{", "]", "}", "\\", "|")
+)
+
+func foldRFC1459(str string, strict bool) (result string, err error) {
+	asciiFold, err := foldASCII(str)
+	if err != nil {
+		return "", err
+	}
+	replacer := rfc1459Replacer
+	if strict {
+		replacer = rfc1459StrictReplacer
+	}
+	return replacer.Replace(asciiFold), nil
 }
 
 func IsPrintableASCII(str string) bool {

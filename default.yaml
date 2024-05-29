@@ -134,9 +134,10 @@ server:
     # the recommended default is 'ascii' (traditional ASCII-only identifiers).
     # the other options are 'precis', which allows UTF8 identifiers that are "sane"
     # (according to UFC 8265), with additional mitigations for homoglyph attacks,
-    # and 'permissive', which allows identifiers containing unusual characters like
+    # 'permissive', which allows identifiers containing unusual characters like
     # emoji, at the cost of increased vulnerability to homoglyph attacks and potential
-    # client compatibility problems. we recommend leaving this value at its default;
+    # client compatibility problems, and the legacy mappings 'rfc1459' and
+    # 'rfc1459-strict'. we recommend leaving this value at its default;
     # however, note that changing it once the network is already up and running is
     # problematic.
     casemapping: "ascii"

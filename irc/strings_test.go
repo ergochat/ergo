@@ -279,3 +279,31 @@ func TestFoldASCIIInvalid(t *testing.T) {
 		t.Errorf("control characters should be invalid in identifiers")
 	}
 }
+
+func TestFoldRFC1459(t *testing.T) {
+	folder := func(str string) (string, error) {
+		return foldRFC1459(str, false)
+	}
+	tester := func(first, second string, equal bool) {
+		validFoldTester(first, second, equal, folder, t)
+	}
+	tester("shivaram", "SHIVARAM", true)
+	tester("shivaram[a]", "shivaram{a}", true)
+	tester("shivaram\\a]", "shivaram{a}", false)
+	tester("shivaram\\a]", "shivaram|a}", true)
+	tester("shivaram~a]", "shivaram^a}", true)
+}
+
+func TestFoldRFC1459Strict(t *testing.T) {
+	folder := func(str string) (string, error) {
+		return foldRFC1459(str, true)
+	}
+	tester := func(first, second string, equal bool) {
+		validFoldTester(first, second, equal, folder, t)
+	}
+	tester("shivaram", "SHIVARAM", true)
+	tester("shivaram[a]", "shivaram{a}", true)
+	tester("shivaram\\a]", "shivaram{a}", false)
+	tester("shivaram\\a]", "shivaram|a}", true)
+	tester("shivaram~a]", "shivaram^a}", false)
+}
