@@ -20,7 +20,6 @@ import (
 	"github.com/tidwall/buntdb"
 	"github.com/xdg-go/scram"
 
-	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/email"
 	"github.com/ergochat/ergo/irc/migrations"
@@ -1398,10 +1397,6 @@ func (am *AccountManager) AuthenticateByPassphrase(client *Client, accountName s
 		}
 	}
 
-	if strings.HasPrefix(accountName, caps.BearerTokenPrefix) {
-		return am.AuthenticateByBearerToken(client, strings.TrimPrefix(accountName, caps.BearerTokenPrefix), passphrase)
-	}
-
 	if throttled, remainingTime := client.checkLoginThrottle(); throttled {
 		return &ThrottleError{remainingTime}
 	}
@@ -1448,9 +1443,12 @@ func (am *AccountManager) AuthenticateByBearerToken(client *Client, tokenType, t
 func (am *AccountManager) AuthenticateByOAuthBearer(client *Client, opts oauth2.OAuthBearerOptions) (err error) {
 	config := am.server.Config()
 
-	// we need to check this here since we can get here via SASL PLAIN:
 	if !config.Accounts.OAuth2.Enabled {
 		return errFeatureDisabled
+	}
+
+	if throttled, remainingTime := client.checkLoginThrottle(); throttled {
+		return &ThrottleError{remainingTime}
 	}
 
 	var username string
@@ -2220,6 +2218,7 @@ var (
 		"EXTERNAL":      authExternalHandler,
 		"SCRAM-SHA-256": authScramHandler,
 		"OAUTHBEARER":   authOauthBearerHandler,
+		"IRCV3BEARER":   authIRCv3BearerHandler,
 	}
 )
 

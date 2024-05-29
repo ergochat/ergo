@@ -1402,6 +1402,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Accounts.OAuth2.Enabled {
 			saslCapValues = append(saslCapValues, "OAUTHBEARER")
 		}
+		if config.Accounts.OAuth2.Enabled || config.Accounts.JWTAuth.Enabled {
+			saslCapValues = append(saslCapValues, "IRCV3BEARER")
+		}
 		config.Server.capValues[caps.SASL] = strings.Join(saslCapValues, ",")
 	} else {
 		config.Server.supportedCaps.Disable(caps.SASL)
@@ -1417,19 +1420,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.Accounts.OAuth2.Enabled && config.Accounts.OAuth2.AuthScript && !config.Accounts.AuthScript.Enabled {
 		return nil, fmt.Errorf("oauth2 is enabled with auth-script, but no auth-script is enabled")
-	}
-
-	var bearerCapValues []string
-	if config.Accounts.OAuth2.Enabled {
-		bearerCapValues = append(bearerCapValues, "oauth2")
-	}
-	if config.Accounts.JWTAuth.Enabled {
-		bearerCapValues = append(bearerCapValues, "jwt")
-	}
-	if len(bearerCapValues) != 0 {
-		config.Server.capValues[caps.Bearer] = strings.Join(bearerCapValues, ",")
-	} else {
-		config.Server.supportedCaps.Disable(caps.Bearer)
 	}
 
 	if !config.Accounts.Registration.Enabled {
