@@ -311,7 +311,7 @@ func authIRCv3BearerHandler(server *Server, client *Client, session *Session, va
 	defer session.sasl.Clear()
 
 	// <authzid> \x00 <type> \x00 <token>
-	splitValue := bytes.Split(value, []byte{'\000'})
+	splitValue := bytes.SplitN(value, []byte{'\000'}, 3)
 	if len(splitValue) != 3 {
 		rb.Add(nil, server.name, ERR_SASLFAIL, client.Nick(), client.t("SASL authentication failed: Invalid auth blob"))
 		return false
