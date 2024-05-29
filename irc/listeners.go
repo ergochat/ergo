@@ -5,6 +5,7 @@ package irc
 
 import (
 	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -29,7 +30,7 @@ type IRCListener interface {
 
 // NewListener creates a new listener according to the specifications in the config file
 func NewListener(server *Server, addr string, config utils.ListenerConfig, bindMode os.FileMode) (result IRCListener, err error) {
-	baseListener, err := createBaseListener(addr, bindMode)
+	baseListener, err := createBaseListener(server, addr, bindMode)
 	if err != nil {
 		return
 	}
@@ -43,11 +44,14 @@ func NewListener(server *Server, addr string, config utils.ListenerConfig, bindM
 	}
 }
 
-func createBaseListener(addr string, bindMode os.FileMode) (listener net.Listener, err error) {
+func createBaseListener(server *Server, addr string, bindMode os.FileMode) (listener net.Listener, err error) {
 	addr = strings.TrimPrefix(addr, "unix:")
 	if strings.HasPrefix(addr, "/") {
 		// https://stackoverflow.com/a/34881585
-		os.Remove(addr)
+		removeErr := os.Remove(addr)
+		if removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			server.logger.Warning("listeners", "could not delete unix domain listener", addr, removeErr.Error())
+		}
 		listener, err = net.Listen("unix", addr)
 		if err == nil && bindMode != 0 {
 			os.Chmod(addr, bindMode)
