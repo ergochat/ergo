@@ -2204,27 +2204,30 @@ func validateSplitMessageLen(msgType history.ItemType, source, target string, me
 
 // helper to store a batched PRIVMSG in the session object
 func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.Message, batchTag string, histType history.ItemType, rb *ResponseBuffer) {
-	var errorCode, errorMessage string
+	var failParams []string
 	defer func() {
-		if errorCode != "" {
+		if failParams != nil {
 			if histType != history.Notice {
-				rb.Add(nil, server.name, "FAIL", "BATCH", errorCode, errorMessage)
+				params := make([]string, 1+len(failParams))
+				params[0] = "BATCH"
+				copy(params[1:], failParams)
+				rb.Add(nil, server.name, "FAIL", params...)
 			}
 			rb.session.EndMultilineBatch("")
 		}
 	}()
 
 	if batchTag != rb.session.batch.label {
-		errorCode, errorMessage = "MULTILINE_INVALID", client.t("Incorrect batch tag sent")
+		failParams = []string{"MULTILINE_INVALID", client.t("Incorrect batch tag sent")}
 		return
 	} else if len(msg.Params) < 2 {
-		errorCode, errorMessage = "MULTILINE_INVALID", client.t("Invalid multiline batch")
+		failParams = []string{"MULTILINE_INVALID", client.t("Invalid multiline batch")}
 		return
 	}
 	rb.session.batch.command = msg.Command
 	isConcat, _ := msg.GetTag(caps.MultilineConcatTag)
 	if isConcat && len(msg.Params[1]) == 0 {
-		errorCode, errorMessage = "MULTILINE_INVALID", client.t("Cannot send a blank line with the multiline concat tag")
+		failParams = []string{"MULTILINE_INVALID", client.t("Cannot send a blank line with the multiline concat tag")}
 		return
 	}
 	if !isConcat && len(rb.session.batch.message.Split) != 0 {
@@ -2234,9 +2237,17 @@ func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.Message, ba
 	rb.session.batch.lenBytes += len(msg.Params[1])
 	config := server.Config()
 	if config.Limits.Multiline.MaxBytes < rb.session.batch.lenBytes {
-		errorCode, errorMessage = "MULTILINE_MAX_BYTES", strconv.Itoa(config.Limits.Multiline.MaxBytes)
+		failParams = []string{
+			"MULTILINE_MAX_BYTES",
+			strconv.Itoa(config.Limits.Multiline.MaxBytes),
+			fmt.Sprintf(client.t("Multiline batch byte limit %d exceeded"), config.Limits.Multiline.MaxBytes),
+		}
 	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.batch.message.LenLines() {
-		errorCode, errorMessage = "MULTILINE_MAX_LINES", strconv.Itoa(config.Limits.Multiline.MaxLines)
+		failParams = []string{
+			"MULTILINE_MAX_LINES",
+			strconv.Itoa(config.Limits.Multiline.MaxLines),
+			fmt.Sprintf(client.t("Multiline batch line limit %d exceeded"), config.Limits.Multiline.MaxLines),
+		}
 	}
 }
 
