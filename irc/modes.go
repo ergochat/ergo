@@ -343,7 +343,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		channel.MarkDirty(includeFlags)
 	}
 
-	if len(applied) == 0 && shouldSendModeIsLine {
+	if len(applied) == 0 && !alreadySentPrivError && shouldSendModeIsLine {
 		args := append([]string{details.nick, chname}, channel.modeStrings(client)...)
 		rb.Add(nil, client.server.name, RPL_CHANNELMODEIS, args...)
 		rb.Add(nil, client.server.name, RPL_CREATIONTIME, details.nick, chname, strconv.FormatInt(channel.createdTime.Unix(), 10))
