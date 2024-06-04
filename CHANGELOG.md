@@ -33,7 +33,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 ### Changed
 * Trying to claim a registered nickname that is also actually in use by another client now produces `433 ERR_NICKNAMEINUSE` as expected (#2135, #2136, thanks savoyard!)
 * Certain unsuccessful `MODE` changes no longer send `324 RPL_CHANNELMODEIS` and `329 RPL_CREATIONTIME` (#2163)
-* Debug logging for environment variable configuration overrides no longer prints the value, only the key (#2129, #2132, thanks [@eeeeeta](https://github.com/eeeeeta!)
+* Debug logging for environment variable configuration overrides no longer prints the value, only the key (#2129, #2132, thanks [@eeeeeta](https://github.com/eeeeeta)!
 
 ### Internal
 
