@@ -14,6 +14,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 * Added `protocol` and `local-address` options to `accounts.registration.email-verification`, to force emails to be sent over IPv4 (or IPv6) or to force the use of a particular source address (#2142)
 * Added `limits.realnamelen`, a configurable limit on the length of realnames. If unset, no limit is enforced beyond the IRC protocol line length limits (the previous behavior). (#2123, thanks [@eskimo](https://github.com/eskimo)!)
 * Added the `accept-hostname` option to the webirc config block, allowing Ergo to accept hostnames passed from reverse proxies on the `WEBIRC` line. Note that this will have no effect under the default/recommended configuration, in which cloaks are used instead (#1686, #2146, thanks [@RNDpacman](https://github.com/RNDpacman)!)
+* The default/recommended value of `limits.chan-list-modes` (the size limit for ban/except/invite lists) was raised to 150 (#2081, #2165)
 
 ### Added
 * Added support for the `OAUTHBEARER` SASL mechanism, allowing Ergo to interoperate with Gamja and an OAuth2 provider (#2004, #2122, thanks [@emersion](https://github.com/emersion)!)
@@ -32,6 +33,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 
 ### Changed
 * Trying to claim a registered nickname that is also actually in use by another client now produces `433 ERR_NICKNAMEINUSE` as expected (#2135, #2136, thanks savoyard!)
+* `SAMODE` now overrides the enforcement of `limits.chan-list-modes` (the size limit for ban/except/invite lists) (#2081, #2165)
 * Certain unsuccessful `MODE` changes no longer send `324 RPL_CHANNELMODEIS` and `329 RPL_CREATIONTIME` (#2163)
 * Debug logging for environment variable configuration overrides no longer prints the value, only the key (#2129, #2132, thanks [@eeeeeta](https://github.com/eeeeeta)!
 
