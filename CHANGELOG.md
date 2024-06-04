@@ -1,6 +1,59 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.14.0-rc1] - 2024-06-09
+
+We're pleased to be publishing the release candidate for v2.14.0 (the official release should follow within two weeks or so). This release contains primarily bug fixes, with the addition of some new authentication mechanisms for integrating with web clients.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](https://github.com/eeeeeta), [@emersion](https://github.com/emersion), [@Eriner](https://github.com/Eriner), [@Herringway](https://github.com/Herringway), [@jwheare](https://github.com/jwheare), [@knolley](https://github.com/knolley), pathof, [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@RNDpacman](https://github.com/RNDpacman), and [@xnaas](https://github.com/xnaas) for contributing patches, reporting issues, and helping test.
+
+## Config changes
+* Added `accounts.oauth2` and `accounts.jwt-auth` blocks for configuring OAuth2 and JWT authentication (#2004)
+* Added `protocol` and `local-address` options to `accounts.registration.email-verification`, to force emails to be sent over IPv4 (or IPv6) or to force the use of a particular source address (#2142)
+* Added `limits.realnamelen`, a configurable limit on the length of realnames. If unset, no limit is enforced beyond the IRC protocol line length limits (the previous behavior). (#2123, thanks [@eskimo](https://github.com/eskimo)!)
+* Added the `accept-hostname` option to the webirc config block, allowing Ergo to accept hostnames passed from reverse proxies on the `WEBIRC` line. Note that this will have no effect under the default/recommended configuration, in which cloaks are used instead (#1686, #2146, thanks [@RNDpacman](https://github.com/RNDpacman)!)
+
+## Added
+* Added support for the `OAUTHBEARER` SASL mechanism, allowing Ergo to interoperate with Gamja and an OAuth2 provider (#2004, #2122, thanks [@emersion](https://github.com/emersion)!)
+* Added support for the [`IRCV3BEARER` SASL mechanism](https://github.com/ircv3/ircv3-specifications/pull/545), allowing Ergo to accept OAuth2 or JWT bearer tokens (#2158)
+* Added support for the legacy `rfc1459` and `rfc1459-strict` casemappings (#2099, #2159, thanks [@xnaas](https://github.com/xnaas)!)
+* The new `ergo defaultconfig` subcommand prints a copy of the default config file to standard output (#2157, #2160, thanks [@al3xandros](https://github.com/al3xandros)!)
+
+## Fixed
+* NICK and QUIT from invisible members of auditorium channels are no longer recorded in history (#2133, #2137, thanks [@knolley](https://github.com/knolley) and [@poVoq](https://github.com/poVoq)!)
+* If channel registration was disabled, registered channels could become inaccessible after rehash; this has been fixed (#2130, thanks [@eeeeeta](https://github.com/eeeeeta)!)
+* Attempts to use unrecognized SASL mechanisms no longer count against the login throttle, improving compatibility with Pidgin (#2156, thanks donio and pathof!)
+* Fixed database autoupgrade on Windows, which was previously broken due to the use of a colon in the backup filename (#2139, #2140, thanks [@Herringway](https://github.com/Herringway)!)
+* Fixed handling of `NS CERT ADD <user> <fp>` when an unprivileged user invokes it on themself (#2128, #2098, thanks [@Eriner](https://github.com/Eriner)!)
+* Fixed missing human-readable trailing parameters for two multiline `FAIL` messages (#2043, #2162, thanks [@jwheare](https://github.com/jwheare) and [@progval](https://github.com/progval)!)
+* Fixed symbol sent by `353 RPL_NAMREPLY` for secret channels (#2144, #2145, thanks savoyard!)
+
+## Changed
+* Trying to claim a registered nickname that is also actually in use by another client now produces `433 ERR_NICKNAMEINUSE` as expected (#2135, #2136, thanks savoyard!)
+* Certain unsuccessful `MODE` changes no longer send `324 RPL_CHANNELMODEIS` and `329 RPL_CREATIONTIME` (#2163)
+* Debug logging for environment variable configuration overrides no longer prints the value, only the key (#2129, #2132, thanks [@eeeeeta](https://github.com/eeeeeta!)
+
+## Internal
+
+* Official release builds use Go 1.22.3
+
+## [2.13.1] - 2024-05-06
+
+Ergo 2.13.1 is a bugfix release, fixing an exploitable deadlock that could lead to a denial of service. We regret the oversight.
+
+This release includes no changes to the config file format or database format.
+
+### Security
+
+* Fixed an exploitable deadlock that could lead to a denial of service (#2149)
+
+### Internal
+
+* Official release builds use Go 1.22.2
+
+
 ## [2.13.0] - 2024-01-14
 
 We're pleased to be publishing v2.13.0, a new stable release. This is a bugfix release that fixes some issues, including a crash.
