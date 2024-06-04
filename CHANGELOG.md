@@ -7,7 +7,7 @@ We're pleased to be publishing the release candidate for v2.14.0 (the official r
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](https://github.com/eeeeeta), [@emersion](https://github.com/emersion), [@Eriner](https://github.com/Eriner), [@Herringway](https://github.com/Herringway), [@jwheare](https://github.com/jwheare), [@knolley](https://github.com/knolley), pathof, [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@RNDpacman](https://github.com/RNDpacman), and [@xnaas](https://github.com/xnaas) for contributing patches, reporting issues, and helping test.
+Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](https://github.com/eeeeeta), [@emersion](https://github.com/emersion), [@Eriner](https://github.com/Eriner), [@eskimo](https://github.com/eskimo), [@Herringway](https://github.com/Herringway), [@jwheare](https://github.com/jwheare), [@knolley](https://github.com/knolley), pathof, [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@RNDpacman](https://github.com/RNDpacman), and [@xnaas](https://github.com/xnaas) for contributing patches, reporting issues, and helping test.
 
 ### Config changes
 * Added `accounts.oauth2` and `accounts.jwt-auth` blocks for configuring OAuth2 and JWT authentication (#2004)
