@@ -158,7 +158,6 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 	var alreadySentPrivError bool
 
-	maskOpCount := 0
 	chname := channel.Name()
 	details := client.Details()
 
@@ -192,6 +191,11 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		}
 	}
 
+	// should we send 324 RPL_CHANNELMODEIS? standard behavior is to send it for
+	// `MODE #channel`, i.e., an empty list of intended changes, but Ergo will
+	// also send it for no-op changes to zero-argument modes like +i
+	shouldSendModeIsLine := len(changes) == 0
+
 	for _, change := range changes {
 		if !hasPrivs(change) {
 			if !alreadySentPrivError {
@@ -203,7 +207,6 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 
 		switch change.Mode {
 		case modes.BanMask, modes.ExceptMask, modes.InviteMask:
-			maskOpCount += 1
 			if change.Op == modes.List {
 				channel.ShowMaskList(client, change.Mode, rb)
 				continue
@@ -313,11 +316,14 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		default:
 			// all channel modes with no args, e.g., InviteOnly, Secret
 			if change.Op == modes.List {
+				shouldSendModeIsLine = true
 				continue
 			}
 
 			if channel.flags.SetMode(change.Mode, change.Op == modes.Add) {
 				applied = append(applied, change)
+			} else {
+				shouldSendModeIsLine = true
 			}
 		}
 	}
@@ -337,8 +343,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 		channel.MarkDirty(includeFlags)
 	}
 
-	// #649: don't send 324 RPL_CHANNELMODEIS if we were only working with mask lists
-	if len(applied) == 0 && !alreadySentPrivError && (maskOpCount == 0 || maskOpCount < len(changes)) {
+	if len(applied) == 0 && !alreadySentPrivError && shouldSendModeIsLine {
 		args := append([]string{details.nick, chname}, channel.modeStrings(client)...)
 		rb.Add(nil, client.server.name, RPL_CHANNELMODEIS, args...)
 		rb.Add(nil, client.server.name, RPL_CREATIONTIME, details.nick, chname, strconv.FormatInt(channel.createdTime.Unix(), 10))
