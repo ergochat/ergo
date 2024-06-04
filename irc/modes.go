@@ -215,7 +215,7 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			mask := change.Arg
 			switch change.Op {
 			case modes.Add:
-				if channel.lists[change.Mode].Length() >= client.server.Config().Limits.ChanListModes {
+				if !isSamode && channel.lists[change.Mode].Length() >= client.server.Config().Limits.ChanListModes {
 					if !listFullWarned[change.Mode] {
 						rb.Add(nil, client.server.name, ERR_BANLISTFULL, details.nick, chname, change.Mode.String(), client.t("Channel list is full"))
 						listFullWarned[change.Mode] = true
