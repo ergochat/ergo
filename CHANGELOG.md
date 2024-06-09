@@ -39,7 +39,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 
 ### Internal
 
-* Official release builds use Go 1.22.3
+* Official release builds use Go 1.22.4
 
 ## [2.13.1] - 2024-05-06
 
