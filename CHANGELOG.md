@@ -14,7 +14,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 * Added `protocol` and `local-address` options to `accounts.registration.email-verification`, to force emails to be sent over IPv4 (or IPv6) or to force the use of a particular source address (#2142)
 * Added `limits.realnamelen`, a configurable limit on the length of realnames. If unset, no limit is enforced beyond the IRC protocol line length limits (the previous behavior). (#2123, thanks [@eskimo](https://github.com/eskimo)!)
 * Added the `accept-hostname` option to the webirc config block, allowing Ergo to accept hostnames passed from reverse proxies on the `WEBIRC` line. Note that this will have no effect under the default/recommended configuration, in which cloaks are used instead (#1686, #2146, thanks [@RNDpacman](https://github.com/RNDpacman)!)
-* The default/recommended value of `limits.chan-list-modes` (the size limit for ban/except/invite lists) was raised to 150 (#2081, #2165)
+* The default/recommended value of `limits.chan-list-modes` (the size limit for ban/except/invite lists) was raised to 100 (#2081, #2165, #2167)
 
 ### Added
 * Added support for the `OAUTHBEARER` SASL mechanism, allowing Ergo to interoperate with Gamja and an OAuth2 provider (#2004, #2122, thanks [@emersion](https://github.com/emersion)!)
