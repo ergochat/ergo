@@ -18,7 +18,7 @@ build:
 	go build -v -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
 release:
-	goreleaser --skip-publish --rm-dist
+	goreleaser --skip-publish --clean
 
 capdefs:
 	python3 ./gencapdefs.py > ${capdef_file}
