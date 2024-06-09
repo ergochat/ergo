@@ -1,5 +1,6 @@
 # .goreleaser.yml
 # Build customization
+version: 2
 project_name: ergo
 builds:
   - main: ergo.go
