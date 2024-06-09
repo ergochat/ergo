@@ -138,6 +138,9 @@ Options:
 		}
 		fmt.Println(string(hash))
 		return
+	} else if arguments["defaultconfig"].(bool) {
+		fmt.Print(defaultConfig)
+		return
 	} else if arguments["mkcerts"].(bool) {
 		doMkcerts(arguments["--conf"].(string), arguments["--quiet"].(bool))
 		return
@@ -178,8 +181,6 @@ Options:
 		if err != nil {
 			log.Fatal("Error while importing db:", err.Error())
 		}
-	} else if arguments["defaultconfig"].(bool) {
-		fmt.Print(defaultConfig)
 	} else if arguments["run"].(bool) {
 		if !arguments["--quiet"].(bool) {
 			logman.Info("server", fmt.Sprintf("%s starting", irc.Ver))
