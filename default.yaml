@@ -885,7 +885,7 @@ limits:
     whowas-entries: 100
 
     # maximum length of channel lists (beI modes)
-    chan-list-modes: 60
+    chan-list-modes: 150
 
     # maximum number of messages to accept during registration (prevents
     # DoS / resource exhaustion attacks):
