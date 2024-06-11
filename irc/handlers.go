@@ -2184,6 +2184,7 @@ func validateLineLen(msgType history.ItemType, source, target, payload string) (
 	default:
 		return true
 	}
+	limit -= len(target)
 	limit -= len(payload)
 	return limit >= 0
 }
