@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.14.0-rc2] - 2024-06-09
+
+Due to the discovery of a bug (predating v2.14.0-rc1), we are releasing a new release candidate for v2.14.0 (the official release should follow within a week or so).
+
+### Fixed
+* Even with `allow-truncation: false` (the recommended default), some oversized messages were being accepted and relayed with truncation. These messages will now be rejected with `417 ERR_INPUTTOOLONG` as expected (#2170)
+
 ## [2.14.0-rc1] - 2024-06-09
 
 We're pleased to be publishing the release candidate for v2.14.0 (the official release should follow within two weeks or so). This release contains primarily bug fixes, with the addition of some new authentication mechanisms for integrating with web clients.
