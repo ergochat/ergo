@@ -16,7 +16,7 @@ RUN sed -i 's/^\(\s*\)\"127.0.0.1:6667\":.*$/\1":6667":/' /go/src/github.com/erg
 RUN make install
 
 ## build ergo container
-FROM docker.io/alpine:3.19
+FROM docker.io/alpine:3.20
 
 # metadata
 LABEL maintainer="Daniel Oaks <daniel@danieloaks.net>,Daniel Thamdrup <dallemon@protonmail.com>" \
