@@ -17,6 +17,7 @@ builds:
       - amd64
       - arm
       - arm64
+      - riscv64
     goarm:
       - 6
     ignore:
@@ -24,20 +25,30 @@ builds:
         goarch: arm
       - goos: windows
         goarch: arm64
+      - goos: windows
+        goarch: riscv64
       - goos: darwin
         goarch: arm
+      - goos: darwin
+        goarch: riscv64
       - goos: freebsd
         goarch: arm
       - goos: freebsd
         goarch: arm64
+      - goos: freebsd
+        goarch: riscv64
       - goos: openbsd
         goarch: arm
       - goos: openbsd
         goarch: arm64
+      - goos: openbsd
+        goarch: riscv64
       - goos: plan9
         goarch: arm
       - goos: plan9
         goarch: arm64
+      - goos: plan9
+        goarch: riscv64
     flags:
       - -trimpath
 
