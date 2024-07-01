@@ -1,20 +1,13 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.14.0-rc2] - 2024-06-09
+## [2.14.0] - 2024-06-30
 
-Due to the discovery of a bug (predating v2.14.0-rc1), we are releasing a new release candidate for v2.14.0 (the official release should follow within a week or so).
-
-### Fixed
-* Even with `allow-truncation: false` (the recommended default), some oversized messages were being accepted and relayed with truncation. These messages will now be rejected with `417 ERR_INPUTTOOLONG` as expected (#2170)
-
-## [2.14.0-rc1] - 2024-06-09
-
-We're pleased to be publishing the release candidate for v2.14.0 (the official release should follow within two weeks or so). This release contains primarily bug fixes, with the addition of some new authentication mechanisms for integrating with web clients.
+We're pleased to be publishing v2.14.0, a new stable release. This release contains primarily bug fixes, with the addition of some new authentication mechanisms for integrating with web clients.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](https://github.com/eeeeeta), [@emersion](https://github.com/emersion), [@Eriner](https://github.com/Eriner), [@eskimo](https://github.com/eskimo), [@Herringway](https://github.com/Herringway), [@jwheare](https://github.com/jwheare), [@knolley](https://github.com/knolley), pathof, [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@RNDpacman](https://github.com/RNDpacman), and [@xnaas](https://github.com/xnaas) for contributing patches, reporting issues, and helping test.
+Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](https://github.com/eeeeeta), [@emersion](https://github.com/emersion), [@Eriner](https://github.com/Eriner), [@eskimo](https://github.com/eskimo), [@Herringway](https://github.com/Herringway), [@jwheare](https://github.com/jwheare), [@knolley](https://github.com/knolley), [@mengzhuo](https://github.com/mengzhuo), pathof, [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@RNDpacman](https://github.com/RNDpacman), and [@xnaas](https://github.com/xnaas) for contributing patches, reporting issues, and helping test.
 
 ### Config changes
 * Added `accounts.oauth2` and `accounts.jwt-auth` blocks for configuring OAuth2 and JWT authentication (#2004)
@@ -30,6 +23,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 * The new `ergo defaultconfig` subcommand prints a copy of the default config file to standard output (#2157, #2160, thanks [@al3xandros](https://github.com/al3xandros)!)
 
 ### Fixed
+* Even with `allow-truncation: false` (the recommended default), some oversized messages were being accepted and relayed with truncation. These messages will now be rejected with `417 ERR_INPUTTOOLONG` as expected (#2170)
 * NICK and QUIT from invisible members of auditorium channels are no longer recorded in history (#2133, #2137, thanks [@knolley](https://github.com/knolley) and [@poVoq](https://github.com/poVoq)!)
 * If channel registration was disabled, registered channels could become inaccessible after rehash; this has been fixed (#2130, thanks [@eeeeeta](https://github.com/eeeeeta)!)
 * Attempts to use unrecognized SASL mechanisms no longer count against the login throttle, improving compatibility with Pidgin (#2156, thanks donio and pathof!)
@@ -47,6 +41,7 @@ Many thanks to [@al3xandros](https://github.com/al3xandros), donio, [@eeeeeta](h
 ### Internal
 
 * Official release builds use Go 1.22.4
+* Added a linux/riscv64 release (#2172, #2173, thanks [@mengzhuo](https://github.com/mengzhuo)!)
 
 ## [2.13.1] - 2024-05-06
 
