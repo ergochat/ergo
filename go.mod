@@ -17,7 +17,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
-	github.com/tidwall/buntdb v1.2.10
+	github.com/tidwall/buntdb v1.3.1
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	github.com/xdg-go/scram v1.0.2
 	golang.org/x/crypto v0.17.0
