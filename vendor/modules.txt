@@ -30,7 +30,7 @@ github.com/go-sql-driver/mysql
 # github.com/gofrs/flock v0.8.1
 ## explicit
 github.com/gofrs/flock
-# github.com/golang-jwt/jwt/v5 v5.2.0
+# github.com/golang-jwt/jwt/v5 v5.2.1
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
 # github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
@@ -48,7 +48,7 @@ github.com/okzk/sdnotify
 # github.com/tidwall/btree v1.4.2
 ## explicit; go 1.18
 github.com/tidwall/btree
-# github.com/tidwall/buntdb v1.2.10
+# github.com/tidwall/buntdb v1.3.1
 ## explicit; go 1.18
 github.com/tidwall/buntdb
 # github.com/tidwall/gjson v1.14.3
@@ -79,22 +79,22 @@ github.com/xdg-go/pbkdf2
 # github.com/xdg-go/scram v1.0.2 => github.com/ergochat/scram v1.0.2-ergo1
 ## explicit; go 1.11
 github.com/xdg-go/scram
-# golang.org/x/crypto v0.17.0
-## explicit; go 1.18
+# golang.org/x/crypto v0.25.0
+## explicit; go 1.20
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
-# golang.org/x/sys v0.15.0
+# golang.org/x/sys v0.22.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.15.0
+# golang.org/x/term v0.22.0
 ## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.14.0
+# golang.org/x/text v0.16.0
 ## explicit; go 1.18
 golang.org/x/text/cases
 golang.org/x/text/internal
