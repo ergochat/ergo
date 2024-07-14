@@ -601,6 +601,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	}
 
 	badCaps := false
+	reqedExtendedISupport := false
 	if len(msg.Params) > 1 {
 		capString = msg.Params[1]
 		strs := strings.Fields(capString)
@@ -615,6 +616,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 				badCaps = true
 			} else if !remove {
 				toAdd.Enable(capab)
+				reqedExtendedISupport = reqedExtendedISupport || (capab == caps.ExtendedISupport)
 			} else {
 				toRemove.Enable(capab)
 			}
@@ -675,9 +677,13 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 			return true
 		}
 
+		extendedISupportEnabled := reqedExtendedISupport && !rb.session.capabilities.Has(caps.ExtendedISupport)
 		rb.session.capabilities.Union(toAdd)
 		rb.session.capabilities.Subtract(toRemove)
 		rb.Add(nil, server.name, "CAP", details.nick, "ACK", capString)
+		if extendedISupportEnabled {
+			server.RplISupport(client, rb)
+		}
 
 	case "END":
 		if !client.registered {
