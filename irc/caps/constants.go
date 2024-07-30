@@ -68,7 +68,7 @@ const (
 )
 
 func init() {
-	nameToCapability = make(map[string]Capability)
+	nameToCapability = make(map[string]Capability, numCapabs)
 	for capab, name := range capabilityNames {
 		nameToCapability[name] = Capability(capab)
 	}
