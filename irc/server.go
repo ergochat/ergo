@@ -463,7 +463,6 @@ func (server *Server) RplISupport(client *Client, rb *ResponseBuffer) {
 }
 
 func (server *Server) sendRplISupportLines(client *Client, rb *ResponseBuffer, lines [][]string) {
-	// TODO https://github.com/ircv3/ircv3-specifications/pull/543#discussion_r1677047508
 	if rb.session.capabilities.Has(caps.ExtendedISupport) {
 		batchID := rb.StartNestedBatch("chathistory", caps.ExtendedISupportBatchType)
 		defer rb.EndNestedBatch(batchID)
