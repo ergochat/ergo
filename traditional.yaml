@@ -791,7 +791,7 @@ lock-file: "ircd.lock"
 
 # datastore configuration
 datastore:
-    # path to the datastore
+    # path to the database file (used to store account and channel registrations):
     path: ircd.db
 
     # if the database schema requires an upgrade, `autoupgrade` will attempt to
