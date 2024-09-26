@@ -861,7 +861,6 @@ func debugHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	switch param {
 	case "GCSTATS":
 		stats := debug.GCStats{
-			Pause:          make([]time.Duration, 10),
 			PauseQuantiles: make([]time.Duration, 5),
 		}
 		debug.ReadGCStats(&stats)
