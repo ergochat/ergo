@@ -64,10 +64,11 @@ const (
 	BotTagName = "bot"
 	// https://ircv3.net/specs/extensions/chathistory
 	ChathistoryTargetsBatchType = "draft/chathistory-targets"
+	ExtendedISupportBatchType   = "draft/extended-isupport"
 )
 
 func init() {
-	nameToCapability = make(map[string]Capability)
+	nameToCapability = make(map[string]Capability, numCapabs)
 	for capab, name := range capabilityNames {
 		nameToCapability[name] = Capability(capab)
 	}

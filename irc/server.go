@@ -434,7 +434,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
 
 	rb := NewResponseBuffer(session)
-	server.RplISupport(c, rb)
+	if !(rb.session.capabilities.Has(caps.ExtendedISupport) && rb.session.isupportSentPrereg) {
+		server.RplISupport(c, rb)
+	}
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
 		reportPersistenceStatus(c, rb, false)
 	}
@@ -456,10 +458,17 @@ func (server *Server) playRegistrationBurst(session *Session) {
 
 // RplISupport outputs our ISUPPORT lines to the client. This is used on connection and in VERSION responses.
 func (server *Server) RplISupport(client *Client, rb *ResponseBuffer) {
+	server.sendRplISupportLines(client, rb, server.Config().Server.isupport.CachedReply)
+}
+
+func (server *Server) sendRplISupportLines(client *Client, rb *ResponseBuffer, lines [][]string) {
+	if rb.session.capabilities.Has(caps.ExtendedISupport) {
+		batchID := rb.StartNestedBatch("chathistory", caps.ExtendedISupportBatchType)
+		defer rb.EndNestedBatch(batchID)
+	}
 	translatedISupport := client.t("are supported by this server")
 	nick := client.Nick()
-	config := server.Config()
-	for _, cachedTokenLine := range config.Server.isupport.CachedReply {
+	for _, cachedTokenLine := range lines {
 		length := len(cachedTokenLine) + 2
 		tokenline := make([]string, length)
 		tokenline[0] = nick
@@ -794,13 +803,19 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	}
 
 	if !initial {
-		// push new info to all of our clients
-		for _, sClient := range server.clients.AllClients() {
-			for _, tokenline := range newISupportReplies {
-				sClient.Send(nil, server.name, RPL_ISUPPORT, append([]string{sClient.nick}, tokenline...)...)
+		// send 005 updates (somewhat rare)
+		if len(newISupportReplies) != 0 {
+			for _, sClient := range server.clients.AllClients() {
+				for _, session := range sClient.Sessions() {
+					rb := NewResponseBuffer(session)
+					server.sendRplISupportLines(sClient, rb, newISupportReplies)
+					rb.Send(false)
+				}
 			}
+		}
 
-			if sendRawOutputNotice {
+		if sendRawOutputNotice {
+			for _, sClient := range server.clients.AllClients() {
 				sClient.Notice(sClient.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
 			}
 		}

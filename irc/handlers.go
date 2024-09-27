@@ -1320,6 +1320,15 @@ func isonHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	return false
 }
 
+// ISUPPORT
+func isupportHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	server.RplISupport(client, rb)
+	if !client.registered {
+		rb.session.isupportSentPrereg = true
+	}
+	return false
+}
+
 // JOIN <channel>{,<channel>} [<key>{,<key>}]
 func joinHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	// #1417: allow `JOIN 0` with a confirmation code

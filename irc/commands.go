@@ -152,6 +152,10 @@ func init() {
 			handler:   isonHandler,
 			minParams: 1,
 		},
+		"ISUPPORT": {
+			handler:      isupportHandler,
+			usablePreReg: true,
+		},
 		"JOIN": {
 			handler:   joinHandler,
 			minParams: 1,

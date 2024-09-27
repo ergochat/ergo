@@ -219,6 +219,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/527",
         standard="proposed IRCv3",
     ),
+   CapDef(
+        identifier="ExtendedISupport",
+        name="draft/extended-isupport",
+        url="https://github.com/ircv3/ircv3-specifications/pull/543",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():
