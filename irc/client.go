@@ -179,6 +179,8 @@ type Session struct {
 
 	batchCounter atomic.Uint32
 
+	isupportSentPrereg bool
+
 	quitMessage string
 
 	awayMessage string

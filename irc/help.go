@@ -260,6 +260,11 @@ appropriate channel privs.`,
 
 Returns whether the given nicks exist on the network.`,
 	},
+	"isupport": {
+		text: `ISUPPORT
+
+Returns RPL_ISUPPORT lines describing the server's capabilities.`,
+	},
 	"join": {
 		text: `JOIN <channel>{,<channel>} [<key>{,<key>}]
 

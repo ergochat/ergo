@@ -434,8 +434,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
 
 	rb := NewResponseBuffer(session)
-	if !rb.session.capabilities.Has(caps.ExtendedISupport) {
-		// if they enabled extended-isupport, then we already sent this
+	if !(rb.session.capabilities.Has(caps.ExtendedISupport) && rb.session.isupportSentPrereg) {
 		server.RplISupport(c, rb)
 	}
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
