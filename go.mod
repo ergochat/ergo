@@ -8,7 +8,7 @@ require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
-	github.com/ergochat/irc-go v0.5.0-rc1
+	github.com/ergochat/irc-go v0.5.0-rc2
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gofrs/flock v0.8.1
