@@ -1656,6 +1656,7 @@ func (config *Config) generateISupport() (err error) {
 		isupport.Add("RPCHAN", "E")
 		isupport.Add("RPUSER", "E")
 	}
+	isupport.Add("SAFELIST", "")
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:%d", maxTargetsString, maxTargetsString, maxTargetsString, config.Limits.MonitorEntries))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
