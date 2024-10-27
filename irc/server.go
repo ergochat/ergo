@@ -463,7 +463,7 @@ func (server *Server) RplISupport(client *Client, rb *ResponseBuffer) {
 
 func (server *Server) sendRplISupportLines(client *Client, rb *ResponseBuffer, lines [][]string) {
 	if rb.session.capabilities.Has(caps.ExtendedISupport) {
-		batchID := rb.StartNestedBatch("chathistory", caps.ExtendedISupportBatchType)
+		batchID := rb.StartNestedBatch(caps.ExtendedISupportBatchType)
 		defer rb.EndNestedBatch(batchID)
 	}
 	translatedISupport := client.t("are supported by this server")
