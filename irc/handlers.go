@@ -1636,7 +1636,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	// get comment(s)
 	reason, operReason := getReasonsFromParams(msg.Params, currentArg)
 
-	err = server.klines.AddMask(mask, duration, reason, operReason, operName)
+	err = server.klines.AddMask(mask, duration, false, reason, operReason, operName)
 	if err != nil {
 		rb.Notice(fmt.Sprintf(client.t("Could not successfully save new K-LINE: %s"), err.Error()))
 		return false

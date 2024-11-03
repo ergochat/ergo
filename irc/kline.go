@@ -66,11 +66,12 @@ func (km *KLineManager) AllBans() map[string]IPBanInfo {
 }
 
 // AddMask adds to the blocked list.
-func (km *KLineManager) AddMask(mask string, duration time.Duration, reason, operReason, operName string) error {
+func (km *KLineManager) AddMask(mask string, duration time.Duration, requireSASL bool, reason, operReason, operName string) error {
 	km.persistenceMutex.Lock()
 	defer km.persistenceMutex.Unlock()
 
 	info := IPBanInfo{
+		RequireSASL: requireSASL,
 		Reason:      reason,
 		OperReason:  operReason,
 		OperName:    operName,
@@ -208,13 +209,14 @@ func (km *KLineManager) CheckMasks(masks ...string) (isBanned bool, info IPBanIn
 	for _, entryInfo := range km.entries {
 		for _, mask := range masks {
 			if entryInfo.Matcher.MatchString(mask) {
-				return true, entryInfo.Info
+				// apply the most stringent ban (unconditional bans override require-sasl)
+				if !isBanned || info.RequireSASL {
+					isBanned, info = true, entryInfo.Info
+				}
 			}
 		}
 	}
 
-	// no matches!
-	isBanned = false
 	return
 }
 
