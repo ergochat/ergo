@@ -33,6 +33,9 @@ type Socket struct {
 	sendQExceeded bool
 	finalData     []byte // what to send when we die
 	finalized     bool
+
+	bytesRead    uint64
+	bytesWritten uint64
 }
 
 // NewSocket returns a new Socket.
@@ -53,6 +56,12 @@ func (socket *Socket) Close() {
 	socket.wakeWriter()
 }
 
+func (socket *Socket) Stats() (bytesRead, bytesWritten uint64) {
+	socket.Lock()
+	defer socket.Unlock()
+	return socket.bytesRead, socket.bytesWritten
+}
+
 // Read returns a single IRC line from a Socket.
 func (socket *Socket) Read() (string, error) {
 	// immediately fail if Close() has been called, even if there's
@@ -63,6 +72,10 @@ func (socket *Socket) Read() (string, error) {
 
 	lineBytes, err := socket.conn.ReadLine()
 	line := string(lineBytes)
+
+	socket.Lock()
+	socket.bytesRead += uint64(len(lineBytes))
+	socket.Unlock()
 
 	if err == io.EOF {
 		socket.Close()
@@ -93,6 +106,7 @@ func (socket *Socket) Write(data []byte) (err error) {
 		} else {
 			socket.buffers = append(socket.buffers, data)
 			socket.totalLength = prospectiveLen
+			socket.bytesWritten += uint64(len(data))
 		}
 	}
 	socket.Unlock()
@@ -133,6 +147,10 @@ func (socket *Socket) BlockingWrite(data []byte) (err error) {
 	if closed {
 		return io.EOF
 	}
+
+	socket.Lock()
+	socket.bytesWritten += uint64(len(data))
+	socket.Unlock()
 
 	err = socket.conn.WriteLine(data)
 	if err != nil {
