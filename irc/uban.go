@@ -163,7 +163,7 @@ func ubanAddHandler(client *Client, target ubanTarget, params []string, rb *Resp
 	case ubanCIDR:
 		err = ubanAddCIDR(client, target, duration, requireSASL, operReason, rb)
 	case ubanNickmask:
-		err = ubanAddNickmask(client, target, duration, operReason, rb)
+		err = ubanAddNickmask(client, target, duration, requireSASL, operReason, rb)
 	case ubanNick:
 		err = ubanAddAccount(client, target, duration, operReason, rb)
 	}
@@ -242,8 +242,8 @@ func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requ
 	return
 }
 
-func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, operReason string, rb *ResponseBuffer) (err error) {
-	err = client.server.klines.AddMask(target.nickOrMask, duration, "", operReason, client.Oper().Name)
+func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, requireSASL bool, operReason string, rb *ResponseBuffer) (err error) {
+	err = client.server.klines.AddMask(target.nickOrMask, duration, requireSASL, "", operReason, client.Oper().Name)
 	if err == nil {
 		rb.Notice(fmt.Sprintf(client.t("Successfully added UBAN for %s"), target.nickOrMask))
 	} else {
