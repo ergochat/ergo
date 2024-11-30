@@ -47,15 +47,17 @@ func (client *Client) Sessions() (sessions []*Session) {
 }
 
 type SessionData struct {
-	ctime     time.Time
-	atime     time.Time
-	ip        net.IP
-	hostname  string
-	certfp    string
-	deviceID  string
-	connInfo  string
-	sessionID int64
-	caps      []string
+	ctime        time.Time
+	atime        time.Time
+	ip           net.IP
+	hostname     string
+	certfp       string
+	deviceID     string
+	connInfo     string
+	sessionID    int64
+	caps         []string
+	bytesRead    uint64
+	bytesWritten uint64
 }
 
 func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (data []SessionData, currentIndex int) {
@@ -68,13 +70,16 @@ func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (da
 		if session == currentSession {
 			currentIndex = i
 		}
+		bytesRead, bytesWritten := session.socket.Stats()
 		data[i] = SessionData{
-			atime:     session.lastActive,
-			ctime:     session.ctime,
-			hostname:  session.rawHostname,
-			certfp:    session.certfp,
-			deviceID:  session.deviceID,
-			sessionID: session.sessionID,
+			atime:        session.lastActive,
+			ctime:        session.ctime,
+			hostname:     session.rawHostname,
+			certfp:       session.certfp,
+			deviceID:     session.deviceID,
+			sessionID:    session.sessionID,
+			bytesRead:    bytesRead,
+			bytesWritten: bytesWritten,
 		}
 		if session.proxiedIP != nil {
 			data[i].ip = session.proxiedIP
