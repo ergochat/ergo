@@ -188,7 +188,7 @@ Options:
 
 		// warning if running a non-final version
 		if strings.Contains(irc.Ver, "unreleased") {
-			logman.Warning("server", "You are currently running an unreleased beta version of Ergo that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://ergo.chat/downloads.html and run that instead.")
+			logman.Warning("server", "You are currently running an unreleased beta version of Ergo that may be unstable and could corrupt your database.\nIf you are running a production network, please download the latest build from https://ergo.chat/about and run that instead.")
 		}
 
 		server, err := irc.NewServer(config, logman)
