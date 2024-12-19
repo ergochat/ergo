@@ -53,14 +53,14 @@ For example, to create a new docker volume and then mount it:
 
 ```shell
 docker volume create ergo-data
-docker run --init -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init --name ergo -d -v ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 Or to mount a folder from your host machine:
 
 ```shell
 mkdir ergo-data
-docker run --init -d -v $(PWD)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
+docker run --init --name ergo -d -v $(pwd)/ergo-data:/ircd -p 6667:6667 -p 6697:6697 ghcr.io/ergochat/ergo:stable
 ```
 
 ## Customising the config
