@@ -67,6 +67,7 @@ Some platforms/distros also have Ergo packages maintained for them:
 
 * Arch Linux [AUR](https://aur.archlinux.org/packages/ergochat/) - Maintained by [Jason Papakostas (@vith)](https://github.com/vith).
 * [Gentoo Linux](https://packages.gentoo.org/packages/net-irc/ergo) - Maintained by [Sam James (@thesamesam)](https://github.com/thesamesam).
+* [Nanos](https://repo.ops.city/v2/packages/eyberg/ergo/2.14.0/x86_64/show) - Maintained by [Ian Eyberg (@eyberg)](https://github.com/eyberg).
 
 ### Using Docker
 
