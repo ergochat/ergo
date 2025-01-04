@@ -1327,6 +1327,7 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:  %s"), capStr))
 			}
 		}
+		service.Notice(rb, fmt.Sprintf(client.t("Bytes RX/TX: %d / %d"), session.bytesRead, session.bytesWritten))
 	}
 }
 
