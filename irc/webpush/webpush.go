@@ -64,7 +64,7 @@ func convertUrgency(u Urgency) webpush.Urgency {
 	}
 }
 
-var httpClient = makeExternalOnlyClient()
+var httpClient webpush.HTTPClient = makeExternalOnlyClient()
 
 var (
 	Err404 = errors.New("endpoint returned a 404, indicating that the push subscription is no longer valid")
