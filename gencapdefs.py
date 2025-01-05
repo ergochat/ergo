@@ -225,6 +225,18 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/543",
         standard="proposed IRCv3",
     ),
+   CapDef(
+        identifier="WebPush",
+        name="draft/webpush",
+        url="https://github.com/ircv3/ircv3-specifications/pull/471",
+        standard="proposed IRCv3",
+    ),
+   CapDef(
+        identifier="SojuWebPush",
+        name="soju.im/webpush",
+        url="https://github.com/ircv3/ircv3-specifications/pull/471",
+        standard="Soju/Goguma vendor",
+    ),
 ]
 
 def validate_defs():

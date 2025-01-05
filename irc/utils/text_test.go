@@ -66,3 +66,15 @@ func BenchmarkTokenLines(b *testing.B) {
 		tl.Lines()
 	}
 }
+
+func TestCombinedValue(t *testing.T) {
+	var split = SplitMessage{
+		Split: []MessagePair{
+			{"hi", false},
+			{"hi", false},
+			{" again", true},
+			{"you", false},
+		},
+	}
+	assertEqual(split.CombinedValue(), "hi\nhi again\nyou", t)
+}

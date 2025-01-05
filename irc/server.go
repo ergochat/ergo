@@ -36,10 +36,12 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 const (
 	alwaysOnMaintenanceInterval = 30 * time.Minute
+	pushMaintenanceInterval     = 24 * time.Hour
 )
 
 var (
@@ -134,6 +136,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	}
 
 	time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
+	time.AfterFunc(pushMaintenanceInterval, server.periodicPushMaintenance)
 
 	return server, nil
 }
@@ -266,7 +269,7 @@ func (server *Server) periodicAlwaysOnMaintenance() {
 		time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
 	}()
 
-	defer server.HandlePanic()
+	defer server.HandlePanic(nil)
 
 	server.logger.Info("accounts", "Performing periodic always-on client checks")
 	server.performAlwaysOnMaintenance(true, true)
@@ -287,6 +290,47 @@ func (server *Server) performAlwaysOnMaintenance(checkExpiration, flushTimestamp
 			server.accounts.saveLastSeen(account, client.copyLastSeen())
 			server.accounts.saveReadMarkers(account, client.copyReadMarkers())
 		}
+	}
+}
+
+func (server *Server) periodicPushMaintenance() {
+	defer func() {
+		// reschedule whether or not there was a panic
+		time.AfterFunc(pushMaintenanceInterval, server.periodicPushMaintenance)
+	}()
+
+	defer server.HandlePanic(nil)
+
+	if server.Config().WebPush.Enabled {
+		server.logger.Info("webpush", "Performing periodic push subscription maintenance")
+		server.performPushMaintenance()
+	} // else: reschedule and check again later, the operator may enable it via rehash
+}
+
+func (server *Server) performPushMaintenance() {
+	expiration := time.Duration(server.Config().WebPush.Expiration)
+	for _, client := range server.clients.AllWithPushSubscriptions() {
+		for _, sub := range client.getPushSubscriptions() {
+			now := time.Now()
+			// require both periodic successful push messages and renewal of the subscription via WEBPUSH REGISTER
+			if now.Sub(sub.LastSuccess) > expiration || now.Sub(sub.LastRefresh) > expiration {
+				server.logger.Debug("webpush", "expiring push subscription for client", client.Nick(), sub.Endpoint)
+				client.deletePushSubscription(sub.Endpoint, false)
+			} else if now.Sub(sub.LastSuccess) > expiration/2 {
+				// we haven't pushed to them recently, make an attempt
+				server.logger.Debug("webpush", "pinging push subscription for client", client.Nick(), sub.Endpoint)
+				client.sendAndTrackPush(
+					sub.Endpoint, sub.Keys,
+					pushMessage{
+						msg:     webpush.PingMessage,
+						urgency: webpush.UrgencyNormal,
+					},
+					false,
+				)
+			}
+		}
+		// persist all push subscriptions on the assumption that the timestamps have changed
+		client.Store(IncludePushSubscriptions)
 	}
 }
 
@@ -588,7 +632,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
 	// #1570; this needs its own panic handling because it can be invoked via SIGHUP
-	defer server.HandlePanic()
+	defer server.HandlePanic(nil)
 
 	server.logger.Info("server", "Attempting rehash")
 
@@ -742,6 +786,16 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		return fmt.Errorf("Could not load cloak secret: %w", err)
 	}
 	config.Server.Cloaks.SetSecret(cloakSecret)
+	// similarly bring the VAPID keys into the config, which requires regenerating the 005
+	if config.WebPush.Enabled {
+		config.WebPush.vapidKeys, err = LoadVAPIDKeys(server.dstore)
+		if err != nil {
+			return fmt.Errorf("Could not load VAPID keys: %w", err)
+		}
+		if err = config.generateISupport(); err != nil {
+			return fmt.Errorf("Could not regenerate cached 005 for VAPID: %w", err)
+		}
+	}
 
 	// activate the new config
 	server.config.Store(config)

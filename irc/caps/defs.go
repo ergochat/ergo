@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 35
+	numCapabs = 37
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -89,6 +89,10 @@ const (
 	// https://github.com/ircv3/ircv3-specifications/pull/417
 	Relaymsg Capability = iota
 
+	// WebPush is the proposed IRCv3 capability named "draft/webpush":
+	// https://github.com/ircv3/ircv3-specifications/pull/471
+	WebPush Capability = iota
+
 	// EchoMessage is the IRCv3 capability named "echo-message":
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
 	EchoMessage Capability = iota
@@ -133,6 +137,10 @@ const (
 	// https://ircv3.net/specs/extensions/setname.html
 	SetName Capability = iota
 
+	// SojuWebPush is the Soju/Goguma vendor capability named "soju.im/webpush":
+	// https://github.com/ircv3/ircv3-specifications/pull/471
+	SojuWebPush Capability = iota
+
 	// StandardReplies is the IRCv3 capability named "standard-replies":
 	// https://github.com/ircv3/ircv3-specifications/pull/506
 	StandardReplies Capability = iota
@@ -176,6 +184,7 @@ var (
 		"draft/pre-away",
 		"draft/read-marker",
 		"draft/relaymsg",
+		"draft/webpush",
 		"echo-message",
 		"ergo.chat/nope",
 		"extended-join",
@@ -187,6 +196,7 @@ var (
 		"sasl",
 		"server-time",
 		"setname",
+		"soju.im/webpush",
 		"standard-replies",
 		"sts",
 		"userhost-in-names",

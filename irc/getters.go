@@ -13,6 +13,7 @@ import (
 	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 func (server *Server) Config() (config *Config) {
@@ -560,6 +561,127 @@ func (client *Client) setKlined() {
 	client.stateMutex.Lock()
 	client.isKlined = true
 	client.stateMutex.Unlock()
+}
+
+func (client *Client) refreshPushSubscription(endpoint string, keys webpush.Keys) bool {
+	// do not mark dirty --- defer the write to periodic maintenance
+	now := time.Now().UTC()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	sub, ok := client.pushSubscriptions[endpoint]
+	if ok && sub.Keys.Equal(keys) {
+		sub.LastRefresh = now
+		return true
+	}
+	return false // subscription doesn't exist, we need to send a test message
+}
+
+func (client *Client) addPushSubscription(endpoint string, keys webpush.Keys) error {
+	changed := false
+
+	defer func() {
+		if changed {
+			client.markDirty(IncludeAllAttrs)
+		}
+	}()
+
+	config := client.server.Config()
+	now := time.Now().UTC()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.pushSubscriptions == nil {
+		client.pushSubscriptions = make(map[string]*pushSubscription)
+	}
+
+	sub, ok := client.pushSubscriptions[endpoint]
+	if ok {
+		changed = !sub.Keys.Equal(keys)
+		sub.Keys = keys
+		sub.LastRefresh = now
+	} else {
+		if len(client.pushSubscriptions) >= config.WebPush.MaxSubscriptions {
+			return errLimitExceeded
+		}
+		changed = true
+		sub = newPushSubscription(storedPushSubscription{
+			Endpoint:    endpoint,
+			Keys:        keys,
+			LastRefresh: now,
+			LastSuccess: now, // assume we just sent a successful message to confirm the sub
+		})
+		client.pushSubscriptions[endpoint] = sub
+	}
+
+	if changed {
+		client.rebuildPushSubscriptionCache()
+	}
+
+	return nil
+}
+
+func (client *Client) hasPushSubscriptions() bool {
+	return client.pushSubscriptionsExist.Load() != 0
+}
+
+func (client *Client) getPushSubscriptions() []storedPushSubscription {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	return client.cachedPushSubscriptions
+}
+
+func (client *Client) rebuildPushSubscriptionCache() {
+	// must hold write lock
+	if len(client.pushSubscriptions) == 0 {
+		client.cachedPushSubscriptions = nil
+		client.pushSubscriptionsExist.Store(0)
+		return
+	}
+
+	client.cachedPushSubscriptions = make([]storedPushSubscription, 0, len(client.pushSubscriptions))
+	for _, subscription := range client.pushSubscriptions {
+		client.cachedPushSubscriptions = append(client.cachedPushSubscriptions, subscription.storedPushSubscription)
+	}
+	client.pushSubscriptionsExist.Store(1)
+}
+
+func (client *Client) deletePushSubscription(endpoint string, writeback bool) (changed bool) {
+	defer func() {
+		if writeback && changed {
+			client.markDirty(IncludeAllAttrs)
+		}
+	}()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	_, ok := client.pushSubscriptions[endpoint]
+	if ok {
+		changed = true
+		delete(client.pushSubscriptions, endpoint)
+		client.rebuildPushSubscriptionCache()
+	}
+	return
+}
+
+func (client *Client) recordPush(endpoint string, success bool) {
+	now := time.Now().UTC()
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	subscription, ok := client.pushSubscriptions[endpoint]
+	if !ok {
+		return
+	}
+	if success {
+		subscription.LastSuccess = now
+	}
+	// TODO we may want to track failures in some way in the future
 }
 
 func (channel *Channel) Name() string {
