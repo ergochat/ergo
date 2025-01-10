@@ -54,6 +54,7 @@ type SessionData struct {
 	certfp    string
 	deviceID  string
 	connInfo  string
+	connID    string
 	sessionID int64
 	caps      []string
 }
@@ -74,6 +75,7 @@ func (client *Client) AllSessionData(currentSession *Session, hasPrivs bool) (da
 			hostname:  session.rawHostname,
 			certfp:    session.certfp,
 			deviceID:  session.deviceID,
+			connID:    session.connID,
 			sessionID: session.sessionID,
 		}
 		if session.proxiedIP != nil {

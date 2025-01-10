@@ -152,6 +152,8 @@ const (
 type Session struct {
 	client *Client
 
+	connID string // identifies the connection in debug logs
+
 	deviceID string
 
 	ctime      time.Time
@@ -334,7 +336,8 @@ func (server *Server) RunClient(conn IRCConn) {
 		return
 	}
 
-	server.logger.Info("connect-ip", fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
+	connID := server.generateConnectionID()
+	server.logger.Info("connect-ip", connID, fmt.Sprintf("Client connecting: real IP %v, proxied IP %v", realIP, proxiedIP))
 
 	now := time.Now().UTC()
 	// give them 1k of grace over the limit:
@@ -374,6 +377,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		proxiedIP:  proxiedIP,
 		isTor:      wConn.Tor,
 		hideSTS:    wConn.Tor || wConn.HideSTS,
+		connID:     connID,
 	}
 	session.sasl.Initialize()
 	client.sessions = []*Session{session}
@@ -670,7 +674,7 @@ func (client *Client) run(session *Session) {
 		}
 
 		if client.server.logger.IsLoggingRawIO() {
-			client.server.logger.Debug("userinput", client.nick, "<- ", line)
+			client.server.logger.Debug("userinput", session.connID, client.nick, "<-", line)
 		}
 
 		// special-cased handling of PROXY protocol, see `handleProxyCommand` for details:
@@ -1287,7 +1291,7 @@ func (client *Client) destroy(session *Session) {
 		if !shouldDestroy {
 			client.server.snomasks.Send(sno.LocalDisconnects, fmt.Sprintf(ircfmt.Unescape("Client session disconnected for [a:%s] [h:%s] [ip:%s]"), details.accountName, session.rawHostname, source))
 		}
-		client.server.logger.Info("connect-ip", fmt.Sprintf("disconnecting session of %s from %s", details.nick, source))
+		client.server.logger.Info("connect-ip", session.connID, fmt.Sprintf("Disconnecting session of %s from %s", details.nick, source))
 	}
 
 	// decrement stats if we have no more sessions, even if the client will not be destroyed
@@ -1497,7 +1501,7 @@ func (session *Session) SendRawMessage(message ircmsg.Message, blocking bool) er
 func (session *Session) sendBytes(line []byte, blocking bool) (err error) {
 	if session.client.server.logger.IsLoggingRawIO() {
 		logline := string(line[:len(line)-2]) // strip "\r\n"
-		session.client.server.logger.Debug("useroutput", session.client.Nick(), " ->", logline)
+		session.client.server.logger.Debug("useroutput", session.connID, session.client.Nick(), "->", logline)
 	}
 
 	if blocking {
@@ -1506,7 +1510,7 @@ func (session *Session) sendBytes(line []byte, blocking bool) (err error) {
 		err = session.socket.Write(line)
 	}
 	if err != nil {
-		session.client.server.logger.Info("quit", "send error to client", fmt.Sprintf("%s [%d]", session.client.Nick(), session.sessionID), err.Error())
+		session.client.server.logger.Info("quit", session.connID, "send error to client", session.client.Nick(), err.Error())
 	}
 	return err
 }

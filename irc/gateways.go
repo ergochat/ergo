@@ -92,7 +92,7 @@ func (client *Client) ApplyProxiedIP(session *Session, proxiedIP net.IP, tls boo
 	client.server.connectionLimiter.RemoveClient(flatip.FromNetIP(session.realIP))
 
 	// given IP is sane! override the client's current IP
-	client.server.logger.Info("connect-ip", "Accepted proxy IP for client", proxiedIP.String())
+	client.server.logger.Info("connect-ip", session.connID, "Accepted proxy IP for client", proxiedIP.String())
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
