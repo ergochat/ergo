@@ -1412,7 +1412,12 @@ func (channel *Channel) dispatchWebPush(command, nuh, accountName, chname string
 		if !webpush.IsHighlight(messageText, account) {
 			continue
 		}
-		member.dispatchPushMessage(pushMessage{msg: msgBytes, urgency: webpush.UrgencyHigh})
+		member.dispatchPushMessage(pushMessage{
+			msg:      msgBytes,
+			urgency:  webpush.UrgencyHigh,
+			cftarget: channel.NameCasefolded(),
+			time:     msg.Time,
+		})
 	}
 }
 

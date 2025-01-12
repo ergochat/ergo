@@ -1049,6 +1049,9 @@ webpush:
     enabled: false
     # request timeout for POST'ing the http notification
     timeout: 10s
+    # delay sending the notification for this amount of time, then suppress it
+    # if the client sent MARKREAD to indicate that it was read on another device
+    delay: 0s
     # subscriber field for the VAPID JWT authorization:
     #subscriber: "https://your-website.com/"
     # maximum number of push subscriptions per user

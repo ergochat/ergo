@@ -125,6 +125,7 @@ type Client struct {
 	writebackLock           sync.Mutex // tier 1.5
 	pushSubscriptions       map[string]*pushSubscription
 	cachedPushSubscriptions []storedPushSubscription
+	clearablePushMessages   map[string]time.Time
 	pushSubscriptionsExist  atomic.Uint32 // this is a cache on len(pushSubscriptions) != 0
 	pushQueue               pushQueue
 }
@@ -1918,8 +1919,10 @@ func newPushSubscription(sub storedPushSubscription) *pushSubscription {
 }
 
 type pushMessage struct {
-	msg     []byte
-	urgency webpush.Urgency
+	msg      []byte
+	urgency  webpush.Urgency
+	cftarget string
+	time     time.Time
 }
 
 type pushQueue struct {
@@ -1959,7 +1962,9 @@ func (client *Client) pushWorker() {
 		select {
 		case msg := <-client.pushQueue.queue:
 			for _, sub := range client.getPushSubscriptions() {
-				client.sendAndTrackPush(sub.Endpoint, sub.Keys, msg, true)
+				if !client.skipPushMessage(msg) {
+					client.sendAndTrackPush(sub.Endpoint, sub.Keys, msg, true)
+				}
 			}
 		default:
 			// no more messages, end the goroutine and release the trylock
@@ -1968,7 +1973,29 @@ func (client *Client) pushWorker() {
 	}
 }
 
+// skipPushMessage waits up to the configured delay for the client to send MARKREAD;
+// it returns whether the message has been read
+func (client *Client) skipPushMessage(msg pushMessage) bool {
+	if msg.cftarget == "" || msg.time.IsZero() {
+		return false
+	}
+	config := client.server.Config()
+	if config.WebPush.Delay == 0 {
+		return false
+	}
+	deadline := msg.time.Add(config.WebPush.Delay)
+	pause := time.Until(deadline)
+	if pause > 0 {
+		time.Sleep(pause)
+	}
+	readTimestamp, ok := client.getMarkreadTime(msg.cftarget)
+	return ok && (msg.time.Before(readTimestamp) || msg.time.Equal(readTimestamp))
+}
+
 func (client *Client) sendAndTrackPush(endpoint string, keys webpush.Keys, msg pushMessage, updateDB bool) {
+	if msg.cftarget != "" && !msg.time.IsZero() {
+		client.addClearablePushMessage(msg.cftarget, msg.time)
+	}
 	switch client.sendPush(endpoint, keys, msg.urgency, msg.msg) {
 	case nil:
 		client.recordPush(endpoint, true)

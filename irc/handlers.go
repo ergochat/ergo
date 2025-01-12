@@ -2470,7 +2470,12 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		if config.WebPush.Enabled && histType != history.Tagmsg && user.hasPushSubscriptions() {
 			pushMsgBytes, err := webpush.MakePushMessage(command, nickMaskString, accountName, tnick, message)
 			if err == nil {
-				user.dispatchPushMessage(pushMessage{msg: pushMsgBytes, urgency: webpush.UrgencyHigh})
+				user.dispatchPushMessage(pushMessage{
+					msg:      pushMsgBytes,
+					urgency:  webpush.UrgencyHigh,
+					cftarget: tDetails.nickCasefolded,
+					time:     message.Time,
+				})
 			} else {
 				server.logger.Error("internal", "can't serialize push message", err.Error())
 			}
@@ -3059,7 +3064,17 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				session.Send(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 			}
 		}
-		// TODO add support for pushing MARKREAD
+		if client.clearClearablePushMessage(cftarget, readTime) {
+			line, err := webpush.MakePushLine(time.Now().UTC(), "*", server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+			if err == nil {
+				client.dispatchPushMessage(pushMessage{
+					msg:     line,
+					urgency: webpush.UrgencyNormal, // copied from soju
+				})
+			} else {
+				server.logger.Error("internal", "couldn't serialize MARKREAD push message", err.Error())
+			}
+		}
 	}
 	return
 }

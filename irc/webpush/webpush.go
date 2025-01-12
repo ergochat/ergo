@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/ergochat/irc-go/ircmsg"
 	webpush "github.com/ergochat/webpush-go/v2"
@@ -87,6 +88,8 @@ func DecodeSubscriptionKeys(keysParam string) (keys webpush.Keys, err error) {
 	return webpush.DecodeSubscriptionKeys(auth, p256)
 }
 
+// MakePushMessage serializes a utils.SplitMessage as a web push message (the args are in
+// logical order)
 func MakePushMessage(command, nuh, accountName, target string, msg utils.SplitMessage) ([]byte, error) {
 	var messageForPush string
 	if msg.Is512() {
@@ -94,14 +97,19 @@ func MakePushMessage(command, nuh, accountName, target string, msg utils.SplitMe
 	} else {
 		messageForPush = msg.Split[0].Message
 	}
+	return MakePushLine(msg.Time, accountName, nuh, command, target, messageForPush)
+}
 
-	ircMsg := ircmsg.MakeMessage(nil, nuh, command, target, messageForPush)
-	ircMsg.SetTag("time", msg.Time.Format(utils.IRCv3TimestampFormat))
-	if accountName != "*" {
-		ircMsg.SetTag("account", accountName)
+// MakePushLine serializes an arbitrary IRC line as a web push message (the args are in
+// IRC syntax order)
+func MakePushLine(time time.Time, accountName, source, command string, params ...string) ([]byte, error) {
+	pushMessage := ircmsg.MakeMessage(nil, source, command, params...)
+	pushMessage.SetTag("time", time.Format(utils.IRCv3TimestampFormat))
+	// "*" is canonical for the unset form of the unfolded account name, but check both:
+	if accountName != "*" && accountName != "" {
+		pushMessage.SetTag("account", accountName)
 	}
-
-	if line, err := ircMsg.LineBytesStrict(false, 512); err == nil {
+	if line, err := pushMessage.LineBytesStrict(false, 512); err == nil {
 		// strip final \r\n
 		return line[:len(line)-2], nil
 	} else {

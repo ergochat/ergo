@@ -712,6 +712,7 @@ type Config struct {
 	WebPush struct {
 		Enabled          bool
 		Timeout          time.Duration
+		Delay            time.Duration
 		Subscriber       string
 		MaxSubscriptions int `yaml:"max-subscriptions"`
 		Expiration       custime.Duration

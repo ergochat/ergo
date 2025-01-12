@@ -510,6 +510,13 @@ func (client *Client) GetReadMarker(cfname string) (result string) {
 	return "*"
 }
 
+func (client *Client) getMarkreadTime(cfname string) (timestamp time.Time, ok bool) {
+	client.stateMutex.RLock()
+	timestamp, ok = client.readMarkers[cfname]
+	client.stateMutex.RUnlock()
+	return
+}
+
 func (client *Client) copyReadMarkers() (result map[string]time.Time) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -546,6 +553,28 @@ func updateLRUMap(lru map[string]time.Time, key string, val time.Time, maxItems 
 		delete(lru, minKey)
 	}
 	return val
+}
+
+func (client *Client) addClearablePushMessage(cftarget string, messageTime time.Time) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.clearablePushMessages == nil {
+		client.clearablePushMessages = make(map[string]time.Time)
+	}
+	updateLRUMap(client.clearablePushMessages, cftarget, messageTime, maxReadMarkers)
+}
+
+func (client *Client) clearClearablePushMessage(cftarget string, readTimestamp time.Time) (ok bool) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	pushMessageTime, ok := client.clearablePushMessages[cftarget]
+	if ok && (pushMessageTime.Before(readTimestamp) || pushMessageTime.Equal(readTimestamp)) {
+		delete(client.clearablePushMessages, cftarget)
+		return true
+	}
+	return false
 }
 
 func (client *Client) shouldFlushTimestamps() (result bool) {
