@@ -44,6 +44,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Persistent history with MySQL](#persistent-history-with-mysql)
     - [IP cloaking](#ip-cloaking)
     - [Moderation](#moderation)
+    - [Push notifications](#push-notifications)
 - [Frequently Asked Questions](#frequently-asked-questions)
 - [IRC over TLS](#irc-over-tls)
     - [Redirect from plaintext to TLS](#how-can-i-redirect-users-from-plaintext-to-tls)
@@ -481,6 +482,18 @@ See the `/HELP` (or `/HELPOP`) entries for these commands for more information, 
 These techniques require operator privileges: `UBAN` requires the `ban` operator capability, subscribing to snomasks requires `snomasks`, and `DEFCON` requires `defcon`. All three of these capabilities are included by default in the `server-admin` role.
 
 For channel operators, `/msg ChanServ HOWTOBAN #channel nickname` will provide similar information about the best way to ban a user from a channel.
+
+
+## Push notifications
+
+Ergo now has experimental support for push notifications via the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) IRCv3 specification. Support for push notifications is disabled by default; operators can enable it by setting `webpush.enabled` to `true` in the configuration file. This has security, privacy, and performance implications:
+
+* If push notifications are enabled, Ergo will send HTTP POST requests to HTTP endpoints of the user's choosing. Although the user has limited control over the POST body (since it is encrypted with random key material), and Ergo disallows requests to local or internal IP addresses, this may potentially impact the IP reputation of the Ergo host, or allow an attacker to probe endpoints that whitelist the Ergo host's IP address.
+* Push notifications result in the disclosure of metadata (that the user received a message, and the approximate time of the message) to third-party messaging infrastructure. In the typical case, this will include a push endpoint controlled by the application vendor, plus the push infrastructure controlled by Apple or Google.
+* The message contents (including the sender's identity) are protected by [encryption](https://datatracker.ietf.org/doc/html/rfc8291) between the server and the user's endpoint device. However, the encryption algorithm is not forward-secret (a long-term private key is stored on the user's device) or post-quantum (the server retains a copy of the corresponding elliptic curve public key).
+* In rare cases, push notifications may increase the load on the Ergo server.
+
+Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel.
 
 
 -------------------------------------------------------------------------------------------
