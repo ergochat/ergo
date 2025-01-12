@@ -2473,7 +2473,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 				user.dispatchPushMessage(pushMessage{
 					msg:      pushMsgBytes,
 					urgency:  webpush.UrgencyHigh,
-					cftarget: tDetails.nickCasefolded,
+					cftarget: details.nickCasefolded,
 					time:     message.Time,
 				})
 			} else {
