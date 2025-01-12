@@ -1310,22 +1310,25 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 			service.Notice(rb, fmt.Sprintf(client.t("Client %d:"), session.sessionID))
 		}
 		if session.deviceID != "" {
-			service.Notice(rb, fmt.Sprintf(client.t("Device ID:   %s"), session.deviceID))
+			service.Notice(rb, fmt.Sprintf(client.t("Device ID:    %s"), session.deviceID))
 		}
-		service.Notice(rb, fmt.Sprintf(client.t("IP address:  %s"), session.ip.String()))
-		service.Notice(rb, fmt.Sprintf(client.t("Hostname:    %s"), session.hostname))
+		service.Notice(rb, fmt.Sprintf(client.t("IP address:   %s"), session.ip.String()))
+		service.Notice(rb, fmt.Sprintf(client.t("Hostname:     %s"), session.hostname))
 		if hasPrivs {
-			service.Notice(rb, fmt.Sprintf(client.t("Connection:  %s"), session.connInfo))
+			service.Notice(rb, fmt.Sprintf(client.t("Connection:   %s"), session.connInfo))
 		}
-		service.Notice(rb, fmt.Sprintf(client.t("Created at:  %s"), session.ctime.Format(time.RFC1123)))
-		service.Notice(rb, fmt.Sprintf(client.t("Last active: %s"), session.atime.Format(time.RFC1123)))
+		service.Notice(rb, fmt.Sprintf(client.t("Created at:   %s"), session.ctime.Format(time.RFC1123)))
+		service.Notice(rb, fmt.Sprintf(client.t("Last active:  %s"), session.atime.Format(time.RFC1123)))
 		if session.certfp != "" {
-			service.Notice(rb, fmt.Sprintf(client.t("Certfp:      %s"), session.certfp))
+			service.Notice(rb, fmt.Sprintf(client.t("Certfp:       %s"), session.certfp))
 		}
 		for _, capStr := range session.caps {
 			if capStr != "" {
-				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:  %s"), capStr))
+				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:   %s"), capStr))
 			}
+		}
+		if hasPrivs {
+			service.Notice(rb, fmt.Sprintf(client.t("Debug log ID: %s"), session.connID))
 		}
 	}
 }

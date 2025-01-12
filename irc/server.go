@@ -95,6 +95,7 @@ type Server struct {
 	stats             Stats
 	semaphores        ServerSemaphores
 	flock             flock.Flocker
+	connIDCounter     atomic.Uint64
 	defcon            atomic.Uint32
 }
 
@@ -302,7 +303,7 @@ func (server *Server) checkBanScriptExemptSASL(config *Config, session *Session)
 		return authSuccess
 	}
 	if output.Result == IPBanned || output.Result == IPRequireSASL {
-		server.logger.Info("connect-ip", "Rejecting unauthenticated client due to ip-check-script", ipaddr.String())
+		server.logger.Info("connect-ip", session.connID, "Rejecting unauthenticated client due to ip-check-script", ipaddr.String())
 		if output.BanMessage != "" {
 			session.client.requireSASLMessage = output.BanMessage
 		}
@@ -386,7 +387,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		if isBanned {
 			c.setKlined()
 			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-			server.logger.Info("connect", "Client rejected by k-line", c.NickMaskString())
+			server.logger.Info("connect", session.connID, "Client rejected by k-line", c.NickMaskString())
 			return true
 		}
 	}
@@ -418,7 +419,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	c := session.client
 	// continue registration
 	d := c.Details()
-	server.logger.Info("connect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
+	server.logger.Info("connect", session.connID, fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
 	if d.account != "" {
 		server.sendLoginSnomask(d.nickMask, d.accountName)
@@ -1122,6 +1123,16 @@ func (server *Server) UnfoldName(cfname string) (name string) {
 		return server.channels.UnfoldName(cfname)
 	}
 	return server.clients.UnfoldNick(cfname)
+}
+
+// generateConnectionID generates a unique string identifier for an incoming connection.
+// this identifier is only used for debug logging.
+func (server *Server) generateConnectionID() string {
+	id := server.connIDCounter.Add(1)
+	// pad with leading zeroes to a minimum length of 5 hex digits. this enhances greppability;
+	// the identifier length will be 6 for the first 1048576 connections, which is less important
+	// but makes the log slightly easier to read
+	return fmt.Sprintf("s%05x", id)
 }
 
 // elistMatcher takes and matches ELIST conditions

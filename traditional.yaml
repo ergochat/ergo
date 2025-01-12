@@ -747,7 +747,7 @@ logging:
         # be logged, even if you explicitly include it
         #
         # useful types include:
-        #   *               everything (usually used with exclusing some types below)
+        #   *               everything (usually used with excluding some types below)
         #   server          server startup, rehash, and shutdown events
         #   accounts        account registration and authentication
         #   channels        channel creation and operations
