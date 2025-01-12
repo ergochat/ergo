@@ -1992,7 +1992,7 @@ func (client *Client) skipPushMessage(msg pushMessage) bool {
 		time.Sleep(pause)
 	}
 	readTimestamp, ok := client.getMarkreadTime(msg.cftarget)
-	return ok && (msg.time.Before(readTimestamp) || msg.time.Equal(readTimestamp))
+	return ok && utils.ReadMarkerLessThanOrEqual(msg.time, readTimestamp)
 }
 
 func (client *Client) sendAndTrackPush(endpoint string, keys webpush.Keys, msg pushMessage, updateDB bool) {

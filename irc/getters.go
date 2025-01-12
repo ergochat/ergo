@@ -570,7 +570,7 @@ func (client *Client) clearClearablePushMessage(cftarget string, readTimestamp t
 	defer client.stateMutex.Unlock()
 
 	pushMessageTime, ok := client.clearablePushMessages[cftarget]
-	if ok && (pushMessageTime.Before(readTimestamp) || pushMessageTime.Equal(readTimestamp)) {
+	if ok && utils.ReadMarkerLessThanOrEqual(pushMessageTime, readTimestamp) {
 		delete(client.clearablePushMessages, cftarget)
 		return true
 	}
