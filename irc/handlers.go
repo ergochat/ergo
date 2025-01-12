@@ -2467,7 +2467,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 		client.addHistoryItem(user, item, &details, &tDetails, config)
 
-		if config.WebPush.Enabled && histType != history.Tagmsg && user.hasPushSubscriptions() {
+		if config.WebPush.Enabled && histType != history.Tagmsg && user.hasPushSubscriptions() && client != user {
 			pushMsgBytes, err := webpush.MakePushMessage(command, nickMaskString, accountName, tnick, message)
 			if err == nil {
 				user.dispatchPushMessage(pushMessage{
@@ -3068,8 +3068,9 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			line, err := webpush.MakePushLine(time.Now().UTC(), "*", server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 			if err == nil {
 				client.dispatchPushMessage(pushMessage{
-					msg:     line,
-					urgency: webpush.UrgencyNormal, // copied from soju
+					msg:                 line,
+					originatingEndpoint: rb.session.webPushEndpoint,
+					urgency:             webpush.UrgencyNormal, // copied from soju
 				})
 			} else {
 				server.logger.Error("internal", "couldn't serialize MARKREAD push message", err.Error())
@@ -3662,6 +3663,7 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 		if client.refreshPushSubscription(endpoint, keys) {
 			// success, don't send a test message
 			rb.Add(nil, server.name, "WEBPUSH", "REGISTER", msg.Params[1], msg.Params[2])
+			rb.session.webPushEndpoint = endpoint
 			return false
 		}
 		// send a test message
@@ -3673,6 +3675,7 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 		); err == nil {
 			if err := client.addPushSubscription(endpoint, keys); err == nil {
 				rb.Add(nil, server.name, "WEBPUSH", "REGISTER", msg.Params[1], msg.Params[2])
+				rb.session.webPushEndpoint = endpoint
 				if !client.AlwaysOn() {
 					rb.Add(nil, server.name, "WARN", "WEBPUSH", "PERSISTENCE_REQUIRED", client.t("You have enabled push notifications, but you will not receive them unless you become always-on. Try: /msg nickserv set always-on true"))
 				}
@@ -3688,6 +3691,7 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 		}
 	case "UNREGISTER":
 		client.deletePushSubscription(endpoint, true)
+		rb.session.webPushEndpoint = ""
 		// this always succeeds
 		rb.Add(nil, server.name, "WEBPUSH", "UNREGISTER", endpoint)
 	}

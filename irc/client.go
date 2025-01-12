@@ -207,6 +207,8 @@ type Session struct {
 	autoreplayMissedSince time.Time
 
 	batch MultilineBatch
+
+	webPushEndpoint string // goroutine-local: web push endpoint registered by the current session
 }
 
 // MultilineBatch tracks the state of a client-to-server multiline batch.
@@ -1919,10 +1921,11 @@ func newPushSubscription(sub storedPushSubscription) *pushSubscription {
 }
 
 type pushMessage struct {
-	msg      []byte
-	urgency  webpush.Urgency
-	cftarget string
-	time     time.Time
+	msg                 []byte
+	urgency             webpush.Urgency
+	originatingEndpoint string
+	cftarget            string
+	time                time.Time
 }
 
 type pushQueue struct {
@@ -1993,6 +1996,9 @@ func (client *Client) skipPushMessage(msg pushMessage) bool {
 }
 
 func (client *Client) sendAndTrackPush(endpoint string, keys webpush.Keys, msg pushMessage, updateDB bool) {
+	if endpoint == msg.originatingEndpoint {
+		return
+	}
 	if msg.cftarget != "" && !msg.time.IsZero() {
 		client.addClearablePushMessage(msg.cftarget, msg.time)
 	}

@@ -1387,12 +1387,12 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		}, details.account)
 
 		if dispatchWebPush {
-			channel.dispatchWebPush(command, details.nickMask, details.accountName, chname, message)
+			channel.dispatchWebPush(client, command, details.nickMask, details.accountName, chname, message)
 		}
 	}
 }
 
-func (channel *Channel) dispatchWebPush(command, nuh, accountName, chname string, msg utils.SplitMessage) {
+func (channel *Channel) dispatchWebPush(client *Client, command, nuh, accountName, chname string, msg utils.SplitMessage) {
 	msgBytes, err := webpush.MakePushMessage(command, nuh, accountName, chname, msg)
 	if err != nil {
 		channel.server.logger.Error("internal", "can't serialize push message", err.Error())
@@ -1401,6 +1401,9 @@ func (channel *Channel) dispatchWebPush(command, nuh, accountName, chname string
 	messageText := strings.ToLower(msg.CombinedValue())
 
 	for _, member := range channel.Members() {
+		if member == client {
+			continue // don't push to the client's own devices even if they mentioned themself
+		}
 		if !member.hasPushSubscriptions() {
 			continue
 		}
