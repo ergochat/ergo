@@ -491,9 +491,9 @@ Ergo now has experimental support for push notifications via the [draft/webpush]
 * If push notifications are enabled, Ergo will send HTTP POST requests to HTTP endpoints of the user's choosing. Although the user has limited control over the POST body (since it is encrypted with random key material), and Ergo disallows requests to local or internal IP addresses, this may potentially impact the IP reputation of the Ergo host, or allow an attacker to probe endpoints that whitelist the Ergo host's IP address.
 * Push notifications result in the disclosure of metadata (that the user received a message, and the approximate time of the message) to third-party messaging infrastructure. In the typical case, this will include a push endpoint controlled by the application vendor, plus the push infrastructure controlled by Apple or Google.
 * The message contents (including the sender's identity) are protected by [encryption](https://datatracker.ietf.org/doc/html/rfc8291) between the server and the user's endpoint device. However, the encryption algorithm is not forward-secret (a long-term private key is stored on the user's device) or post-quantum (the server retains a copy of the corresponding elliptic curve public key).
-* In rare cases, push notifications may increase the load on the Ergo server.
+* Push notifications are relatively expensive to process, and may increase the impact of spam or denial-of-service attacks on the Ergo server.
 
-Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel.
+Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel. Note that in order to receive push notifications, the user must be logged in with always-on enabled.
 
 
 -------------------------------------------------------------------------------------------
