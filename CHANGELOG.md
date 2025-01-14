@@ -1,6 +1,34 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.15.0-rc1] - 2025-01-14
+
+We're pleased to be publishing the release candidate for v2.15.0 (the official release should follow within two weeks or so). This release adds support for mobile push notifications, via the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification. More information on this is available in the [manual](https://github.com/ergochat/ergo/blob/21ee867ebbe5fc5867665d0d487aa1fdebd29b34/docs/MANUAL.md#push-notifications) and [user guide](https://github.com/ergochat/ergo/blob/21ee867ebbe5fc5867665d0d487aa1fdebd29b34/docs/USERGUIDE.md#push-notifications). This feature is still considered to be in an experimental state; `default.yaml` ships with it disabled, and its configuration may have backwards-incompatible changes in the future.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
+
+This release includes a database change. If you have `datastore.autoupgrade` set to `true` in your configuration, it will be automatically applied when you restart Ergo. Otherwise, you can update the database manually by running `ergo upgradedb` (see the manual for complete instructions).
+
+Many thanks to [@delthas](https://github.com/delthas), [@donatj](https://github.com/donatj), donio, [@emersion](https://github.com/emersion), and [@eskimo](https://github.com/eskimo) for contributing patches and helping test.
+
+### Config changes
+* Added `webpush` block to the config file to configure push notifications. See `default.yaml` for an example. Note that at this time, `default.yaml` ships with support for push notifications disabled; operators can enable them by setting `webpush.enabled: true`. In the absence of such a block, push notifications are disabled.
+* We recommend the addition of `"WEBPUSH": 1` to `fakelag.command-budgets`, to speed up mobile reattach when web push is enabled. See `default.yaml` for an example.
+
+### Added
+* Added support for the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification (#2205, thanks [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo)!)
+* Added support for the [draft/extended-isupport](https://github.com/ircv3/ircv3-specifications/pull/543) specification (#2184, thanks [@emersion](https://github.com/emersion)!)
+* `UBAN ADD` now accepts `REQUIRE-SASL` with NUH masks, i.e. k-lines (#2198, #2199)
+* Ergo now publishes the `SAFELIST` ISUPPORT parameter (thanks [@delthas](https://github.com/delthas)!)
+
+### Fixed
+* Fixed incorrect parameters when pushing `005` (ISUPPORT) updates to clients on rehash (#2184)
+
+### Internal
+* Official release builds use Go 1.23.4
+* Added a unique identifier to identify connections in debug logs. This has no privacy implications in a standard, non-debug configuration of Ergo. (#2206, thanks donio!)
+* Added support for Solaris on amd64 CPUs (#2183)
+
 ## [2.14.0] - 2024-06-30
 
 We're pleased to be publishing v2.14.0, a new stable release. This release contains primarily bug fixes, with the addition of some new authentication mechanisms for integrating with web clients.

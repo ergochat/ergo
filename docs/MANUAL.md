@@ -493,7 +493,7 @@ Ergo now has experimental support for push notifications via the [draft/webpush]
 * The message contents (including the sender's identity) are protected by [encryption](https://datatracker.ietf.org/doc/html/rfc8291) between the server and the user's endpoint device. However, the encryption algorithm is not forward-secret (a long-term private key is stored on the user's device) or post-quantum (the server retains a copy of the corresponding elliptic curve public key).
 * Push notifications are relatively expensive to process, and may increase the impact of spam or denial-of-service attacks on the Ergo server.
 
-Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel. Note that in order to receive push notifications, the user must be logged in with always-on enabled.
+Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel. Note that in order to receive push notifications, the user must be logged in with always-on enabled, and must be using a client (e.g. Goguma) that supports them.
 
 
 -------------------------------------------------------------------------------------------

@@ -125,4 +125,4 @@ If you have registered a channel, you can make it private. The best way to do th
 
 # Push notifications
 
-Ergo has experimental support for mobile push notifications. The server operator must enable this functionality; to check whether this is the case, you can send `/msg NickServ push list`. You must additionally be using a client that supports the functionality, and your account must be set to always-on (`/msg NickServ set always-on true`, as described above).
+Ergo has experimental support for mobile push notifications. The server operator must enable this functionality; to check whether this is the case, you can send `/msg NickServ push list`. You must additionally be using a client (e.g. Goguma) that supports the functionality, and your account must be set to always-on (`/msg NickServ set always-on true`, as described above).
