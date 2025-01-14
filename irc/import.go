@@ -17,6 +17,7 @@ import (
 	"github.com/ergochat/ergo/irc/datastore"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 	// XXX instead of referencing, e.g., keyAccountExists, we should write in the string literal
 	// (to ensure that no matter what code changes happen elsewhere, we're still producing a
 	// db of the hardcoded version)
-	importDBSchemaVersion = 23
+	importDBSchemaVersion = 24
 )
 
 type userImport struct {
@@ -82,6 +83,15 @@ func doImportDBGeneric(config *Config, dbImport databaseImport, credsType Creden
 
 	tx.Set(keySchemaVersion, strconv.Itoa(importDBSchemaVersion), nil)
 	tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
+	vapidKeys, err := webpush.GenerateVAPIDKeys()
+	if err != nil {
+		return err
+	}
+	vapidKeysJSON, err := json.Marshal(vapidKeys)
+	if err != nil {
+		return err
+	}
+	tx.Set(keyVAPIDKeys, string(vapidKeysJSON), nil)
 
 	cfUsernames := make(utils.HashSet[string])
 	skeletonToUsername := make(map[string]string)

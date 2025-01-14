@@ -177,7 +177,7 @@ func histservExportHandler(service *ircService, server *Server, client *Client, 
 }
 
 func histservExportAndNotify(service *ircService, server *Server, cfAccount string, outfile *os.File, filename, alertNick string) {
-	defer server.HandlePanic()
+	defer server.HandlePanic(nil)
 
 	defer outfile.Close()
 	writer := bufio.NewWriter(outfile)

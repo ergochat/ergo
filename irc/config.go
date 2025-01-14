@@ -41,6 +41,7 @@ import (
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 // here's how this works: exported (capitalized) members of the config structs
@@ -707,6 +708,16 @@ type Config struct {
 			Blacklist []string
 		} `yaml:"tagmsg-storage"`
 	}
+
+	WebPush struct {
+		Enabled          bool
+		Timeout          time.Duration
+		Delay            time.Duration
+		Subscriber       string
+		MaxSubscriptions int `yaml:"max-subscriptions"`
+		Expiration       custime.Duration
+		vapidKeys        *webpush.VAPIDKeys
+	} `yaml:"webpush"`
 
 	Filename string
 }
@@ -1572,6 +1583,29 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, err
 	}
 
+	if config.WebPush.Enabled {
+		if config.Accounts.Multiclient.AlwaysOn == PersistentDisabled {
+			return nil, fmt.Errorf("Cannot enable webpush if always-on is disabled")
+		}
+		if config.WebPush.Timeout == 0 {
+			config.WebPush.Timeout = 10 * time.Second
+		}
+		if config.WebPush.Subscriber == "" {
+			config.WebPush.Subscriber = "https://ergo.chat/about"
+		}
+		if config.WebPush.MaxSubscriptions <= 0 {
+			config.WebPush.MaxSubscriptions = 1
+		}
+		if config.WebPush.Expiration == 0 {
+			config.WebPush.Expiration = custime.Duration(14 * 24 * time.Hour)
+		} else if config.WebPush.Expiration < custime.Duration(3*24*time.Hour) {
+			return nil, fmt.Errorf("webpush.expiration is too short (should be several days)")
+		}
+	} else {
+		config.Server.supportedCaps.Disable(caps.WebPush)
+		config.Server.supportedCaps.Disable(caps.SojuWebPush)
+	}
+
 	// now that all postprocessing is complete, regenerate ISUPPORT:
 	err = config.generateISupport()
 	if err != nil {
@@ -1665,6 +1699,13 @@ func (config *Config) generateISupport() (err error) {
 	}
 	if config.Server.EnforceUtf8 {
 		isupport.Add("UTF8ONLY", "")
+	}
+	if config.WebPush.Enabled {
+		// XXX we typically don't have this at config parse time, so we'll have to regenerate
+		// the cached reply later
+		if config.WebPush.vapidKeys != nil {
+			isupport.Add("VAPID", config.WebPush.vapidKeys.PublicKeyString())
+		}
 	}
 	isupport.Add("WHOX", "")
 

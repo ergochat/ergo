@@ -50,7 +50,8 @@ const (
 	keyAccountEmailChange      = "account.emailchange %s"
 	// for an always-on client, a map of channel names they're in to their current modes
 	// (not to be confused with their amodes, which a non-always-on client can have):
-	keyAccountChannelToModes = "account.channeltomodes %s"
+	keyAccountChannelToModes    = "account.channeltomodes %s"
+	keyAccountPushSubscriptions = "account.pushsubscriptions %s"
 
 	maxCertfpsPerAccount = 5
 )
@@ -135,6 +136,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 				am.loadTimeMap(keyAccountReadMarkers, accountName),
 				am.loadModes(accountName),
 				am.loadRealname(accountName),
+				am.loadPushSubscriptions(accountName),
 			)
 		}
 	}
@@ -713,6 +715,40 @@ func (am *AccountManager) loadRealname(account string) (realname string) {
 		return nil
 	})
 	return
+}
+
+func (am *AccountManager) savePushSubscriptions(account string, subs []storedPushSubscription) {
+	j, err := json.Marshal(subs)
+	if err != nil {
+		am.server.logger.Error("internal", "error storing push subscriptions", err.Error())
+		return
+	}
+	val := string(j)
+	key := fmt.Sprintf(keyAccountPushSubscriptions, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, val, nil)
+		return nil
+	})
+	return
+}
+
+func (am *AccountManager) loadPushSubscriptions(account string) (result []storedPushSubscription) {
+	key := fmt.Sprintf(keyAccountPushSubscriptions, account)
+	var val string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		val, _ = tx.Get(key)
+		return nil
+	})
+
+	if val == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(val), &result); err == nil {
+		return result
+	} else {
+		am.server.logger.Error("internal", "error loading push subscriptions", err.Error())
+		return nil
+	}
 }
 
 func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasPrivs bool) (err error) {

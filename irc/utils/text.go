@@ -95,6 +95,20 @@ func (sm *SplitMessage) Is512() bool {
 	return sm.Split == nil
 }
 
+func (sm *SplitMessage) CombinedValue() string {
+	if sm.Split == nil {
+		return sm.Message
+	}
+	var buf strings.Builder
+	for i := range sm.Split {
+		if i != 0 && !sm.Split[i].Concat {
+			buf.WriteRune('\n')
+		}
+		buf.WriteString(sm.Split[i].Message)
+	}
+	return buf.String()
+}
+
 // TokenLineBuilder is a helper for building IRC lines composed of delimited tokens,
 // with a maximum line length.
 type TokenLineBuilder struct {

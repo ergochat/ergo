@@ -241,6 +241,18 @@ indicate an empty password, use * instead.`,
 		"password": {
 			aliasOf: "passwd",
 		},
+		"push": {
+			handler: nsPushHandler,
+			help: `Syntax: $bPUSH LIST$b
+Or:     $bPUSH DELETE <endpoint>$b
+
+PUSH lets you view or modify the state of your push subscriptions.`,
+			helpShort: `$bPUSH$b lets you view or modify your push subscriptions.`,
+			enabled: func(config *Config) bool {
+				return config.WebPush.Enabled
+			},
+			minParams: 1,
+		},
 		"get": {
 			handler: nsGetHandler,
 			help: `Syntax: $bGET <setting>$b
@@ -1657,5 +1669,47 @@ func nsRenameHandler(service *ircService, server *Server, client *Client, comman
 				service.Notice(rb, fmt.Sprintf(client.t("Warning: could not rename affected client: %v"), err))
 			}
 		}
+	}
+}
+
+func nsPushHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
+	switch strings.ToUpper(params[0]) {
+	case "LIST":
+		target := client
+		if len(params) > 1 && client.HasRoleCapabs("accreg") {
+			target = server.clients.Get(params[1])
+			if target == nil {
+				service.Notice(rb, client.t("No such nick"))
+				return
+			}
+		}
+		subscriptions := target.getPushSubscriptions()
+		service.Notice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d push subscription(s)"), target.Nick(), len(subscriptions)))
+		for i, subscription := range subscriptions {
+			service.Notice(rb, fmt.Sprintf("%d: %s", i, subscription.Endpoint))
+		}
+	case "DELETE":
+		if len(params) < 2 {
+			service.Notice(rb, client.t("Invalid parameters"))
+			return
+		}
+		target := client
+		endpoint := params[1]
+		if len(params) > 2 && client.HasRoleCapabs("accreg") {
+			target = server.clients.Get(params[1])
+			if target == nil {
+				service.Notice(rb, client.t("No such nick"))
+				return
+			}
+			endpoint = params[2]
+		}
+		changed := target.deletePushSubscription(endpoint, true)
+		if changed {
+			service.Notice(rb, client.t("Successfully deleted push subscription"))
+		} else {
+			service.Notice(rb, client.t("Push subscription not found"))
+		}
+	default:
+		service.Notice(rb, client.t("Invalid parameters"))
 	}
 }

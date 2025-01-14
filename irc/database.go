@@ -18,6 +18,7 @@ import (
 	"github.com/ergochat/ergo/irc/datastore"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 
 	"github.com/tidwall/buntdb"
 )
@@ -27,15 +28,17 @@ const (
 
 	// 'version' of the database schema
 	// latest schema of the db
-	latestDbSchema = 23
+	latestDbSchema = 24
 )
 
 var (
 	schemaVersionUUID = utils.UUID{0, 255, 85, 13, 212, 10, 191, 121, 245, 152, 142, 89, 97, 141, 219, 87}    // AP9VDdQKv3n1mI5ZYY3bVw
 	cloakSecretUUID   = utils.UUID{170, 214, 184, 208, 116, 181, 67, 75, 161, 23, 233, 16, 113, 251, 94, 229} // qta40HS1Q0uhF-kQcfte5Q
+	vapidKeysUUID     = utils.UUID{87, 215, 189, 5, 65, 105, 249, 44, 65, 96, 170, 56, 187, 110, 12, 235}     // V9e9BUFp-SxBYKo4u24M6w
 
 	keySchemaVersion = bunt.BuntKey(datastore.TableMetadata, schemaVersionUUID)
 	keyCloakSecret   = bunt.BuntKey(datastore.TableMetadata, cloakSecretUUID)
+	keyVAPIDKeys     = bunt.BuntKey(datastore.TableMetadata, vapidKeysUUID)
 )
 
 type SchemaChanger func(*Config, *buntdb.Tx) error
@@ -80,6 +83,15 @@ func initializeDB(path string) error {
 		// set schema version
 		tx.Set(keySchemaVersion, strconv.Itoa(latestDbSchema), nil)
 		tx.Set(keyCloakSecret, utils.GenerateSecretKey(), nil)
+		vapidKeys, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			return err
+		}
+		j, err := json.Marshal(vapidKeys)
+		if err != nil {
+			return err
+		}
+		tx.Set(keyVAPIDKeys, string(j), nil)
 		return nil
 	})
 
@@ -231,6 +243,16 @@ func LoadCloakSecret(dstore datastore.Datastore) (result string, err error) {
 func StoreCloakSecret(dstore datastore.Datastore, secret string) {
 	// TODO error checking
 	dstore.Set(datastore.TableMetadata, cloakSecretUUID, []byte(secret), time.Time{})
+}
+
+func LoadVAPIDKeys(dstore datastore.Datastore) (*webpush.VAPIDKeys, error) {
+	val, err := dstore.Get(datastore.TableMetadata, vapidKeysUUID)
+	if err != nil {
+		return nil, err
+	}
+	result := new(webpush.VAPIDKeys)
+	err = json.Unmarshal([]byte(val), result)
+	return result, nil
 }
 
 func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {
@@ -1218,6 +1240,20 @@ func schemaChangeV22ToV23(config *Config, tx *buntdb.Tx) error {
 	return nil
 }
 
+// webpush signing key
+func schemaChangeV23ToV24(config *Config, tx *buntdb.Tx) error {
+	keys, err := webpush.GenerateVAPIDKeys()
+	if err != nil {
+		return err
+	}
+	j, err := json.Marshal(keys)
+	if err != nil {
+		return err
+	}
+	tx.Set(keyVAPIDKeys, string(j), nil)
+	return nil
+}
+
 func getSchemaChange(initialVersion int) (result SchemaChange, ok bool) {
 	for _, change := range allChanges {
 		if initialVersion == change.InitialVersion {
@@ -1337,5 +1373,10 @@ var allChanges = []SchemaChange{
 		InitialVersion: 22,
 		TargetVersion:  23,
 		Changer:        schemaChangeV22ToV23,
+	},
+	{
+		InitialVersion: 23,
+		TargetVersion:  24,
+		Changer:        schemaChangeV23ToV24,
 	},
 }
