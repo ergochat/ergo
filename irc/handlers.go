@@ -33,6 +33,7 @@ import (
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
@@ -2465,6 +2466,20 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			Tags:    tags,
 		}
 		client.addHistoryItem(user, item, &details, &tDetails, config)
+
+		if config.WebPush.Enabled && histType != history.Tagmsg && user.hasPushSubscriptions() && client != user {
+			pushMsgBytes, err := webpush.MakePushMessage(command, nickMaskString, accountName, tnick, message)
+			if err == nil {
+				user.dispatchPushMessage(pushMessage{
+					msg:      pushMsgBytes,
+					urgency:  webpush.UrgencyHigh,
+					cftarget: details.nickCasefolded,
+					time:     message.Time,
+				})
+			} else {
+				server.logger.Error("internal", "can't serialize push message", err.Error())
+			}
+		}
 	}
 }
 
@@ -3049,6 +3064,18 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				session.Send(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 			}
 		}
+		if client.clearClearablePushMessage(cftarget, readTime) {
+			line, err := webpush.MakePushLine(time.Now().UTC(), "*", server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+			if err == nil {
+				client.dispatchPushMessage(pushMessage{
+					msg:                 line,
+					originatingEndpoint: rb.session.webPushEndpoint,
+					urgency:             webpush.UrgencyNormal, // copied from soju
+				})
+			} else {
+				server.logger.Error("internal", "couldn't serialize MARKREAD push message", err.Error())
+			}
+		}
 	}
 	return
 }
@@ -3588,6 +3615,88 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 
 	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"), rb.session)
 	return true
+}
+
+// WEBPUSH <subcommand> <endpoint> [key]
+func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	subcommand := strings.ToUpper(msg.Params[0])
+
+	config := server.Config()
+	if !config.WebPush.Enabled {
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("Web push is disabled"))
+		return false
+	}
+
+	if client.Account() == "" {
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("You must be logged in to receive push messages"))
+		return false
+	}
+
+	// XXX web push can be used to deanonymize a Tor hidden service, but we do not know
+	// whether an Ergo deployment with a Tor listener is intended to run as a hidden
+	// service, or as a single onion service where Tor is optional. Hidden service operators
+	// should disable web push. However, as a sanity check, disallow enabling it over a Tor
+	// connection:
+	if rb.session.isTor {
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("Web push cannot be enabled over Tor"))
+		return false
+	}
+
+	endpoint := msg.Params[1]
+
+	if err := webpush.SanityCheckWebPushEndpoint(endpoint); err != nil {
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Invalid web push URL"))
+	}
+
+	switch subcommand {
+	case "REGISTER":
+		// allow web push enable even if they are not always-on (they just won't get push messages)
+		if len(msg.Params) < 3 {
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Insufficient parameters for WEBPUSH REGISTER"))
+			return false
+		}
+		keys, err := webpush.DecodeSubscriptionKeys(msg.Params[2])
+		if err != nil {
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Invalid subscription keys for WEBPUSH REGISTER"))
+			return false
+		}
+		if client.refreshPushSubscription(endpoint, keys) {
+			// success, don't send a test message
+			rb.Add(nil, server.name, "WEBPUSH", "REGISTER", msg.Params[1], msg.Params[2])
+			rb.session.webPushEndpoint = endpoint
+			return false
+		}
+		// send a test message
+		if err := client.sendPush(
+			endpoint,
+			keys,
+			webpush.UrgencyHigh,
+			webpush.PingMessage,
+		); err == nil {
+			if err := client.addPushSubscription(endpoint, keys); err == nil {
+				rb.Add(nil, server.name, "WEBPUSH", "REGISTER", msg.Params[1], msg.Params[2])
+				rb.session.webPushEndpoint = endpoint
+				if !client.AlwaysOn() {
+					rb.Add(nil, server.name, "WARN", "WEBPUSH", "PERSISTENCE_REQUIRED", client.t("You have enabled push notifications, but you will not receive them unless you become always-on. Try: /msg nickserv set always-on true"))
+				}
+			} else if err == errLimitExceeded {
+				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", "REGISTER", client.t("You have too many push subscriptions already"))
+			} else {
+				server.logger.Error("webpush", "Failed to add webpush subscription", err.Error())
+				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INTERNAL_ERROR", "REGISTER", client.t("An error occurred"))
+			}
+		} else {
+			server.logger.Debug("webpush", "WEBPUSH REGISTER failed validation", endpoint, err.Error())
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", "REGISTER", client.t("Test push message failed to send"))
+		}
+	case "UNREGISTER":
+		client.deletePushSubscription(endpoint, true)
+		rb.session.webPushEndpoint = ""
+		// this always succeeds
+		rb.Add(nil, server.name, "WEBPUSH", "UNREGISTER", endpoint)
+	}
+
+	return false
 }
 
 type whoxFields uint32 // bitset to hold the WHOX field values, 'a' through 'z'

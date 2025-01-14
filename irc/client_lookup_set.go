@@ -253,21 +253,32 @@ func (clients *ClientManager) AllClients() (result []*Client) {
 	return
 }
 
-// AllWithCapsNotify returns all clients with the given capabilities, and that support cap-notify.
-func (clients *ClientManager) AllWithCapsNotify(capabs ...caps.Capability) (sessions []*Session) {
-	capabs = append(capabs, caps.CapNotify)
+// AllWithCapsNotify returns all sessions that support cap-notify.
+func (clients *ClientManager) AllWithCapsNotify() (sessions []*Session) {
 	clients.RLock()
 	defer clients.RUnlock()
 	for _, client := range clients.byNick {
 		for _, session := range client.Sessions() {
 			// cap-notify is implicit in cap version 302 and above
-			if session.capabilities.HasAll(capabs...) || 302 <= session.capVersion {
+			if session.capabilities.Has(caps.CapNotify) || 302 <= session.capVersion {
 				sessions = append(sessions, session)
 			}
 		}
 	}
 
 	return
+}
+
+// AllWithPushSubscriptions returns all clients that are always-on with an active push subscription.
+func (clients *ClientManager) AllWithPushSubscriptions() (result []*Client) {
+	clients.RLock()
+	defer clients.RUnlock()
+	for _, client := range clients.byNick {
+		if client.hasPushSubscriptions() && client.AlwaysOn() {
+			result = append(result, client)
+		}
+	}
+	return result
 }
 
 // FindAll returns all clients that match the given userhost mask.

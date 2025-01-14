@@ -611,6 +611,11 @@ the connection from the client to the gateway, such as:
 
 - tls: this flag indicates that the client->gateway connection is secure`,
 	},
+	"webpush": {
+		text: `WEBPUSH <subcommand> [arguments]
+
+Configures web push settings. Not for direct use by end users.`,
+	},
 	"who": {
 		text: `WHO <name> [o]
 

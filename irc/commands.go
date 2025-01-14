@@ -367,6 +367,10 @@ func init() {
 			usablePreReg: true,
 			minParams:    4,
 		},
+		"WEBPUSH": {
+			handler:   webpushHandler,
+			minParams: 2,
+		},
 		"WHO": {
 			handler:   whoHandler,
 			minParams: 1,

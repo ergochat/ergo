@@ -21,6 +21,7 @@ import (
 	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 type ChannelSettings struct {
@@ -222,7 +223,7 @@ func (channel *Channel) wakeWriter() {
 
 // equivalent of Socket.send()
 func (channel *Channel) writeLoop() {
-	defer channel.server.HandlePanic()
+	defer channel.server.HandlePanic(nil)
 
 	for {
 		// TODO(#357) check the error value of this and implement timed backoff
@@ -1325,7 +1326,10 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 		chname = fmt.Sprintf("%s%s", modes.ChannelModePrefixes[minPrefixMode], chname)
 	}
 
-	if !client.server.Config().Server.Compatibility.allowTruncation {
+	config := client.server.Config()
+	dispatchWebPush := false
+
+	if !config.Server.Compatibility.allowTruncation {
 		if !validateSplitMessageLen(histType, details.nickMask, chname, message) {
 			rb.Add(nil, client.server.name, ERR_INPUTTOOLONG, details.nick, client.t("Line too long to be relayed without truncation"))
 			return
@@ -1355,6 +1359,9 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			continue
 		}
 
+		// TODO consider when we might want to push TAGMSG
+		dispatchWebPush = dispatchWebPush || (config.WebPush.Enabled && histType != history.Tagmsg && member.hasPushSubscriptions())
+
 		for _, session := range member.Sessions() {
 			if session == rb.session {
 				continue // we already sent echo-message, if applicable
@@ -1378,6 +1385,42 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 			Tags:        clientOnlyTags,
 			IsBot:       isBot,
 		}, details.account)
+
+		if dispatchWebPush {
+			channel.dispatchWebPush(client, command, details.nickMask, details.accountName, chname, message)
+		}
+	}
+}
+
+func (channel *Channel) dispatchWebPush(client *Client, command, nuh, accountName, chname string, msg utils.SplitMessage) {
+	msgBytes, err := webpush.MakePushMessage(command, nuh, accountName, chname, msg)
+	if err != nil {
+		channel.server.logger.Error("internal", "can't serialize push message", err.Error())
+		return
+	}
+	messageText := strings.ToLower(msg.CombinedValue())
+
+	for _, member := range channel.Members() {
+		if member == client {
+			continue // don't push to the client's own devices even if they mentioned themself
+		}
+		if !member.hasPushSubscriptions() {
+			continue
+		}
+		// this is the casefolded account name for comparison to the casefolded message text:
+		account := member.Account()
+		if account == "" {
+			continue
+		}
+		if !webpush.IsHighlight(messageText, account) {
+			continue
+		}
+		member.dispatchPushMessage(pushMessage{
+			msg:      msgBytes,
+			urgency:  webpush.UrgencyHigh,
+			cftarget: channel.NameCasefolded(),
+			time:     msg.Time,
+		})
 	}
 }
 

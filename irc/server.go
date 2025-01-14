@@ -36,10 +36,12 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
+	"github.com/ergochat/ergo/irc/webpush"
 )
 
 const (
 	alwaysOnMaintenanceInterval = 30 * time.Minute
+	pushMaintenanceInterval     = 24 * time.Hour
 )
 
 var (
@@ -95,6 +97,7 @@ type Server struct {
 	stats             Stats
 	semaphores        ServerSemaphores
 	flock             flock.Flocker
+	connIDCounter     atomic.Uint64
 	defcon            atomic.Uint32
 }
 
@@ -134,6 +137,7 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	}
 
 	time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
+	time.AfterFunc(pushMaintenanceInterval, server.periodicPushMaintenance)
 
 	return server, nil
 }
@@ -266,7 +270,7 @@ func (server *Server) periodicAlwaysOnMaintenance() {
 		time.AfterFunc(alwaysOnMaintenanceInterval, server.periodicAlwaysOnMaintenance)
 	}()
 
-	defer server.HandlePanic()
+	defer server.HandlePanic(nil)
 
 	server.logger.Info("accounts", "Performing periodic always-on client checks")
 	server.performAlwaysOnMaintenance(true, true)
@@ -290,6 +294,47 @@ func (server *Server) performAlwaysOnMaintenance(checkExpiration, flushTimestamp
 	}
 }
 
+func (server *Server) periodicPushMaintenance() {
+	defer func() {
+		// reschedule whether or not there was a panic
+		time.AfterFunc(pushMaintenanceInterval, server.periodicPushMaintenance)
+	}()
+
+	defer server.HandlePanic(nil)
+
+	if server.Config().WebPush.Enabled {
+		server.logger.Info("webpush", "Performing periodic push subscription maintenance")
+		server.performPushMaintenance()
+	} // else: reschedule and check again later, the operator may enable it via rehash
+}
+
+func (server *Server) performPushMaintenance() {
+	expiration := time.Duration(server.Config().WebPush.Expiration)
+	for _, client := range server.clients.AllWithPushSubscriptions() {
+		for _, sub := range client.getPushSubscriptions() {
+			now := time.Now()
+			// require both periodic successful push messages and renewal of the subscription via WEBPUSH REGISTER
+			if now.Sub(sub.LastSuccess) > expiration || now.Sub(sub.LastRefresh) > expiration {
+				server.logger.Debug("webpush", "expiring push subscription for client", client.Nick(), sub.Endpoint)
+				client.deletePushSubscription(sub.Endpoint, false)
+			} else if now.Sub(sub.LastSuccess) > expiration/2 {
+				// we haven't pushed to them recently, make an attempt
+				server.logger.Debug("webpush", "pinging push subscription for client", client.Nick(), sub.Endpoint)
+				client.sendAndTrackPush(
+					sub.Endpoint, sub.Keys,
+					pushMessage{
+						msg:     webpush.PingMessage,
+						urgency: webpush.UrgencyNormal,
+					},
+					false,
+				)
+			}
+		}
+		// persist all push subscriptions on the assumption that the timestamps have changed
+		client.Store(IncludePushSubscriptions)
+	}
+}
+
 // handles server.ip-check-script.exempt-sasl:
 // run the ip check script at the end of the handshake, only for anonymous connections
 func (server *Server) checkBanScriptExemptSASL(config *Config, session *Session) (outcome AuthOutcome) {
@@ -302,7 +347,7 @@ func (server *Server) checkBanScriptExemptSASL(config *Config, session *Session)
 		return authSuccess
 	}
 	if output.Result == IPBanned || output.Result == IPRequireSASL {
-		server.logger.Info("connect-ip", "Rejecting unauthenticated client due to ip-check-script", ipaddr.String())
+		server.logger.Info("connect-ip", session.connID, "Rejecting unauthenticated client due to ip-check-script", ipaddr.String())
 		if output.BanMessage != "" {
 			session.client.requireSASLMessage = output.BanMessage
 		}
@@ -386,7 +431,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		if isBanned && !(info.RequireSASL && session.client.Account() != "") {
 			c.setKlined()
 			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
-			server.logger.Info("connect", "Client rejected by k-line", c.NickMaskString())
+			server.logger.Info("connect", session.connID, "Client rejected by k-line", c.NickMaskString())
 			return true
 		}
 	}
@@ -418,7 +463,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	c := session.client
 	// continue registration
 	d := c.Details()
-	server.logger.Info("connect", fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
+	server.logger.Info("connect", session.connID, fmt.Sprintf("Client connected [%s] [u:%s] [r:%s]", d.nick, d.username, d.realname))
 	server.snomasks.Send(sno.LocalConnects, fmt.Sprintf("Client connected [%s] [u:%s] [h:%s] [ip:%s] [r:%s]", d.nick, d.username, session.rawHostname, session.IP().String(), d.realname))
 	if d.account != "" {
 		server.sendLoginSnomask(d.nickMask, d.accountName)
@@ -588,7 +633,7 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 // rehash reloads the config and applies the changes from the config file.
 func (server *Server) rehash() error {
 	// #1570; this needs its own panic handling because it can be invoked via SIGHUP
-	defer server.HandlePanic()
+	defer server.HandlePanic(nil)
 
 	server.logger.Info("server", "Attempting rehash")
 
@@ -742,6 +787,16 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		return fmt.Errorf("Could not load cloak secret: %w", err)
 	}
 	config.Server.Cloaks.SetSecret(cloakSecret)
+	// similarly bring the VAPID keys into the config, which requires regenerating the 005
+	if config.WebPush.Enabled {
+		config.WebPush.vapidKeys, err = LoadVAPIDKeys(server.dstore)
+		if err != nil {
+			return fmt.Errorf("Could not load VAPID keys: %w", err)
+		}
+		if err = config.generateISupport(); err != nil {
+			return fmt.Errorf("Could not regenerate cached 005 for VAPID: %w", err)
+		}
+	}
 
 	// activate the new config
 	server.config.Store(config)
@@ -1122,6 +1177,16 @@ func (server *Server) UnfoldName(cfname string) (name string) {
 		return server.channels.UnfoldName(cfname)
 	}
 	return server.clients.UnfoldNick(cfname)
+}
+
+// generateConnectionID generates a unique string identifier for an incoming connection.
+// this identifier is only used for debug logging.
+func (server *Server) generateConnectionID() string {
+	id := server.connIDCounter.Add(1)
+	// pad with leading zeroes to a minimum length of 5 hex digits. this enhances greppability;
+	// the identifier length will be 6 for the first 1048576 connections, which is less important
+	// but makes the log slightly easier to read
+	return fmt.Sprintf("s%05x", id)
 }
 
 // elistMatcher takes and matches ELIST conditions

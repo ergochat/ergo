@@ -747,7 +747,7 @@ logging:
         # be logged, even if you explicitly include it
         #
         # useful types include:
-        #   *               everything (usually used with exclusing some types below)
+        #   *               everything (usually used with excluding some types below)
         #   server          server startup, rehash, and shutdown events
         #   accounts        account registration and authentication
         #   channels        channel creation and operations
@@ -791,7 +791,7 @@ lock-file: "ircd.lock"
 
 # datastore configuration
 datastore:
-    # path to the datastore
+    # path to the database file (used to store account and channel registrations):
     path: ircd.db
 
     # if the database schema requires an upgrade, `autoupgrade` will attempt to
@@ -893,6 +893,7 @@ fakelag:
         "MARKREAD":    16
         "MONITOR":     1
         "WHO":         4
+        "WEBPUSH":     1
 
 # the roleplay commands are semi-standardized extensions to IRC that allow
 # sending and receiving messages from pseudo-nicknames. this can be used either
@@ -1038,3 +1039,24 @@ history:
 # whether to allow customization of the config at runtime using environment variables,
 # e.g., ERGO__SERVER__MAX_SENDQ=128k. see the manual for more details.
 allow-environment-overrides: true
+
+# experimental support for mobile push notifications
+# see the manual for potential security, privacy, and performance implications.
+# DO NOT enable if you are running a Tor or I2P hidden service (i.e. one
+# with no public IP listeners, only Tor/I2P listeners).
+webpush:
+    # are push notifications enabled at all?
+    enabled: false
+    # request timeout for POST'ing the http notification
+    timeout: 10s
+    # delay sending the notification for this amount of time, then suppress it
+    # if the client sent MARKREAD to indicate that it was read on another device
+    delay: 0s
+    # subscriber field for the VAPID JWT authorization:
+    #subscriber: "https://your-website.com/"
+    # maximum number of push subscriptions per user
+    max-subscriptions: 4
+    # expiration time for a push subscription; it must be renewed within this time
+    # by the client reconnecting to IRC. we also detect whether the client is no longer
+    # successfully receiving push messages.
+    expiration: 14d
