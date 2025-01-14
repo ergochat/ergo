@@ -19,7 +19,7 @@ Many thanks to [@delthas](https://github.com/delthas), [@donatj](https://github.
 * Added support for the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification (#2205, thanks [@emersion](https://github.com/emersion), [@eskimo](https://github.com/eskimo)!)
 * Added support for the [draft/extended-isupport](https://github.com/ircv3/ircv3-specifications/pull/543) specification (#2184, thanks [@emersion](https://github.com/emersion)!)
 * `UBAN ADD` now accepts `REQUIRE-SASL` with NUH masks, i.e. k-lines (#2198, #2199)
-* Ergo now publishes the `SAFELIST` ISUPPORT parameter (thanks [@delthas](https://github.com/delthas)!)
+* Ergo now publishes the `SAFELIST` ISUPPORT parameter (#2196, thanks [@delthas](https://github.com/delthas)!)
 
 ### Fixed
 * Fixed incorrect parameters when pushing `005` (ISUPPORT) updates to clients on rehash (#2184)
