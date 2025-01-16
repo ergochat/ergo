@@ -311,7 +311,7 @@ func (server *Server) periodicPushMaintenance() {
 func (server *Server) performPushMaintenance() {
 	expiration := time.Duration(server.Config().WebPush.Expiration)
 	for _, client := range server.clients.AllWithPushSubscriptions() {
-		for _, sub := range client.getPushSubscriptions() {
+		for _, sub := range client.getPushSubscriptions(true) {
 			now := time.Now()
 			// require both periodic successful push messages and renewal of the subscription via WEBPUSH REGISTER
 			if now.Sub(sub.LastSuccess) > expiration || now.Sub(sub.LastRefresh) > expiration {

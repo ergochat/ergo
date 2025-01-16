@@ -1683,7 +1683,7 @@ func nsPushHandler(service *ircService, server *Server, client *Client, command 
 				return
 			}
 		}
-		subscriptions := target.getPushSubscriptions()
+		subscriptions := target.getPushSubscriptions(true)
 		service.Notice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d push subscription(s)"), target.Nick(), len(subscriptions)))
 		for i, subscription := range subscriptions {
 			service.Notice(rb, fmt.Sprintf(client.t("Subscription %d:"), i+1))
