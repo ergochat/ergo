@@ -1881,7 +1881,7 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 		client.server.accounts.saveRealname(account, client.realname)
 	}
 	if (dirtyBits & IncludePushSubscriptions) != 0 {
-		client.server.accounts.savePushSubscriptions(account, client.getPushSubscriptions())
+		client.server.accounts.savePushSubscriptions(account, client.getPushSubscriptions(true))
 	}
 }
 
@@ -1968,7 +1968,7 @@ func (client *Client) pushWorker() {
 	for {
 		select {
 		case msg := <-client.pushQueue.queue:
-			for _, sub := range client.getPushSubscriptions() {
+			for _, sub := range client.getPushSubscriptions(false) {
 				if !client.skipPushMessage(msg) {
 					client.sendAndTrackPush(sub.Endpoint, sub.Keys, msg, true)
 				}

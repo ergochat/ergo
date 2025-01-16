@@ -658,10 +658,17 @@ func (client *Client) hasPushSubscriptions() bool {
 	return client.pushSubscriptionsExist.Load() != 0
 }
 
-func (client *Client) getPushSubscriptions() []storedPushSubscription {
+func (client *Client) getPushSubscriptions(refresh bool) []storedPushSubscription {
+	if refresh {
+		func() {
+			client.stateMutex.Lock()
+			defer client.stateMutex.Unlock()
+			client.rebuildPushSubscriptionCache()
+		}()
+	}
+
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-
 	return client.cachedPushSubscriptions
 }
 
