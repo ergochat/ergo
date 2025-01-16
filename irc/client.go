@@ -682,7 +682,7 @@ func (client *Client) run(session *Session) {
 		if err == errInvalidUtf8 {
 			invalidUtf8 = true // handle as normal, including labeling
 		} else if err != nil {
-			client.server.logger.Debug("connect-ip", "read error from client", err.Error())
+			client.server.logger.Debug("connect-ip", session.connID, "read error from client", err.Error())
 			var quitMessage string
 			switch err {
 			case ircreader.ErrReadQ:
