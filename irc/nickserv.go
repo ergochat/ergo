@@ -1324,6 +1324,9 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 		if session.deviceID != "" {
 			service.Notice(rb, fmt.Sprintf(client.t("Device ID:    %s"), session.deviceID))
 		}
+		if hasPrivs {
+			service.Notice(rb, fmt.Sprintf(client.t("Debug log ID: %s"), session.connID))
+		}
 		service.Notice(rb, fmt.Sprintf(client.t("IP address:   %s"), session.ip.String()))
 		service.Notice(rb, fmt.Sprintf(client.t("Hostname:     %s"), session.hostname))
 		if hasPrivs {
@@ -1338,9 +1341,6 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 			if capStr != "" {
 				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:   %s"), capStr))
 			}
-		}
-		if hasPrivs {
-			service.Notice(rb, fmt.Sprintf(client.t("Debug log ID: %s"), session.connID))
 		}
 	}
 }
