@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to webpush-go will be documented in this file.
 
-## [2.0.0] - 2025-01-01
+## [2.0.0] - 2025-01-16
 
 * Update the `Keys` struct definition to store `Auth` as `[16]byte` and `P256dh` as `*ecdh.PublicKey`
     * `Keys` can no longer be compared with `==`; use `(*Keys.Equal)` instead

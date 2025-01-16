@@ -29,7 +29,7 @@ var (
 
 	invalidAuthKeyLength = errors.New("invalid auth key length (must be 16)")
 
-	defaultHTTPClient = &http.Client{}
+	defaultHTTPClient HTTPClient = &http.Client{}
 )
 
 // HTTPClient is an interface for sending the notification HTTP request / testing

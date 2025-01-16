@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	github.com/ergochat/webpush-go/v2 v2.0.0-rc1
+	github.com/ergochat/webpush-go/v2 v2.0.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 )
 

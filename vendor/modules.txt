@@ -22,7 +22,7 @@ github.com/ergochat/irc-go/ircfmt
 github.com/ergochat/irc-go/ircmsg
 github.com/ergochat/irc-go/ircreader
 github.com/ergochat/irc-go/ircutils
-# github.com/ergochat/webpush-go/v2 v2.0.0-rc1
+# github.com/ergochat/webpush-go/v2 v2.0.0
 ## explicit; go 1.20
 github.com/ergochat/webpush-go/v2
 # github.com/go-sql-driver/mysql v1.7.0

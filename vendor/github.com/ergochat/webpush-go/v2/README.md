@@ -4,7 +4,7 @@
 
 Web Push API Encryption with VAPID support.
 
-This library is a fork of [SherClockHolmes/webpush-go](https://github.com/SherClockHolmes/webpush-go).
+This library is a fork of [SherClockHolmes/webpush-go](https://github.com/SherClockHolmes/webpush-go). See CHANGELOG.md for details on migrating from the upstream library.
 
 ```bash
 go get -u github.com/ergochat/webpush-go/v2
