@@ -3,7 +3,7 @@ All notable changes to Ergo will be documented in this file.
 
 ## [2.15.0-rc1] - 2025-01-14
 
-We're pleased to be publishing the release candidate for v2.15.0 (the official release should follow within two weeks or so). This release adds support for mobile push notifications, via the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification. More information on this is available in the [manual](https://github.com/ergochat/ergo/blob/21ee867ebbe5fc5867665d0d487aa1fdebd29b34/docs/MANUAL.md#push-notifications) and [user guide](https://github.com/ergochat/ergo/blob/21ee867ebbe5fc5867665d0d487aa1fdebd29b34/docs/USERGUIDE.md#push-notifications). This feature is still considered to be in an experimental state; `default.yaml` ships with it disabled, and its configuration may have backwards-incompatible changes in the future.
+We're pleased to be publishing the release candidate for v2.15.0 (the official release should follow within two weeks or so). This release adds support for mobile push notifications, via the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification. More information on this is available in the [manual](https://github.com/ergochat/ergo/blob/ab2d842b270d9df217c779df9c7a5c594d85fdd5/docs/MANUAL.md#push-notifications) and [user guide](https://github.com/ergochat/ergo/blob/ab2d842b270d9df217c779df9c7a5c594d85fdd5/docs/USERGUIDE.md#push-notifications). This feature is still considered to be in an experimental state; `default.yaml` ships with it disabled, and its configuration may have backwards-incompatible changes in the future.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading.
 
@@ -22,7 +22,7 @@ Many thanks to [@delthas](https://github.com/delthas), [@donatj](https://github.
 * Ergo now publishes the `SAFELIST` ISUPPORT parameter (#2196, thanks [@delthas](https://github.com/delthas)!)
 
 ### Fixed
-* Fixed incorrect parameters when pushing `005` (ISUPPORT) updates to clients on rehash (#2184)
+* Fixed incorrect parameters when pushing `005` (ISUPPORT) updates to clients on rehash (#2177, #2184)
 
 ### Internal
 * Official release builds use Go 1.23.4
