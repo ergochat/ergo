@@ -1324,6 +1324,9 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 		if session.deviceID != "" {
 			service.Notice(rb, fmt.Sprintf(client.t("Device ID:    %s"), session.deviceID))
 		}
+		if hasPrivs {
+			service.Notice(rb, fmt.Sprintf(client.t("Debug log ID: %s"), session.connID))
+		}
 		service.Notice(rb, fmt.Sprintf(client.t("IP address:   %s"), session.ip.String()))
 		service.Notice(rb, fmt.Sprintf(client.t("Hostname:     %s"), session.hostname))
 		if hasPrivs {
@@ -1338,9 +1341,6 @@ func nsClientsListHandler(service *ircService, server *Server, client *Client, p
 			if capStr != "" {
 				service.Notice(rb, fmt.Sprintf(client.t("IRCv3 CAPs:   %s"), capStr))
 			}
-		}
-		if hasPrivs {
-			service.Notice(rb, fmt.Sprintf(client.t("Debug log ID: %s"), session.connID))
 		}
 	}
 }
@@ -1686,7 +1686,10 @@ func nsPushHandler(service *ircService, server *Server, client *Client, command 
 		subscriptions := target.getPushSubscriptions()
 		service.Notice(rb, fmt.Sprintf(client.t("Nickname %[1]s has %[2]d push subscription(s)"), target.Nick(), len(subscriptions)))
 		for i, subscription := range subscriptions {
-			service.Notice(rb, fmt.Sprintf("%d: %s", i, subscription.Endpoint))
+			service.Notice(rb, fmt.Sprintf(client.t("Subscription %d:"), i+1))
+			service.Notice(rb, fmt.Sprintf(client.t("Endpoint:     %s"), subscription.Endpoint))
+			service.Notice(rb, fmt.Sprintf(client.t("Last renewal: %s"), subscription.LastRefresh.Format(time.RFC1123)))
+			service.Notice(rb, fmt.Sprintf(client.t("Last push:    %s"), subscription.LastSuccess.Format(time.RFC1123)))
 		}
 	case "DELETE":
 		if len(params) < 2 {

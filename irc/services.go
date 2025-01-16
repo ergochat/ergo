@@ -223,7 +223,6 @@ func serviceRunCommand(service *ircService, server *Server, client *Client, cmd 
 		return
 	}
 
-	server.logger.Debug("services", fmt.Sprintf("Client %s ran %s command %s", client.Nick(), service.Name, commandName))
 	if commandName == "help" {
 		serviceHelpHandler(service, server, client, params, rb)
 	} else {
