@@ -492,6 +492,7 @@ Ergo now has experimental support for push notifications via the [draft/webpush]
 * Push notifications result in the disclosure of metadata (that the user received a message, and the approximate time of the message) to third-party messaging infrastructure. In the typical case, this will include a push endpoint controlled by the application vendor, plus the push infrastructure controlled by Apple or Google.
 * The message contents (including the sender's identity) are protected by [encryption](https://datatracker.ietf.org/doc/html/rfc8291) between the server and the user's endpoint device. However, the encryption algorithm is not forward-secret (a long-term private key is stored on the user's device) or post-quantum (the server retains a copy of the corresponding elliptic curve public key).
 * Push notifications are relatively expensive to process, and may increase the impact of spam or denial-of-service attacks on the Ergo server.
+* Push notifications negate the anonymization provided by Tor and I2P; an Ergo instance intended to run as a Tor onion service ("hidden service") or exclusively behind an I2P address must disable them in the Ergo configuration file.
 
 Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel. Note that in order to receive push notifications, the user must be logged in with always-on enabled, and must be using a client (e.g. Goguma) that supports them.
 
@@ -1134,6 +1135,7 @@ Tor provides end-to-end encryption for onion services, so there's no need to ena
 The second way is to run Ergo as a true hidden service, where the server's actual IP address is a secret. This requires hardening measures on the Ergo side:
 
 * Ergo should not accept any connections on its public interfaces. You should remove any listener that starts with the address of a public interface, or with `:`, which means "listen on all available interfaces". You should listen only on `127.0.0.1:6667` and a Unix domain socket such as `/hidden_service_sockets/ergo_tor_sock`.
+* Push notifications will reveal the server's true IP address, so they must be disabled; set `webpush.enabled` to `false`.
 * In this mode, it is especially important that all operator passwords are strong and all operators are trusted (operators have a larger attack surface to deanonymize the server).
 * Onion services are at risk of being deanonymized if a client can trick the server into performing a non-Tor network request. Ergo should not perform any such requests (such as hostname resolution or ident lookups) in response to input received over a correctly configured Tor listener. However, Ergo has not been thoroughly audited against such deanonymization attacks --- therefore, Ergo should be deployed with additional sandboxing to protect against this:
   * Ergo should run with no direct network connectivity, e.g., by running in its own Linux network namespace. systemd implements this with the [PrivateNetwork](https://www.freedesktop.org/software/systemd/man/systemd.exec.html) configuration option: add `PrivateNetwork=true` to Ergo's systemd unit file.
