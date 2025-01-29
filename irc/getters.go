@@ -223,6 +223,13 @@ func (session *Session) SetAway(awayMessage string) (wasAway, nowAway string) {
 	return
 }
 
+func (session *Session) ConnID() string {
+	if session == nil {
+		return "*"
+	}
+	return session.connID
+}
+
 func (client *Client) autoAwayEnabledNoMutex(config *Config) bool {
 	return client.registered && client.alwaysOn &&
 		persistenceEnabled(config.Accounts.Multiclient.AutoAway, client.accountSettings.AutoAway)

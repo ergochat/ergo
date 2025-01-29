@@ -137,7 +137,7 @@ func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *Response
 		}
 	}
 
-	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
+	client.server.logger.Info("accounts", rb.session.ConnID(), details.nick, "logged into account", details.accountName)
 }
 
 func (server *Server) sendLoginSnomask(nickMask, accountName string) {
