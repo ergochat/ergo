@@ -116,7 +116,7 @@ func ApplyUserModeChanges(client *Client, changes modes.ModeChanges, force bool,
 }
 
 // parseDefaultModes uses the provided mode change parser to parse the rawModes.
-func parseDefaultModes(rawModes string, parser func(params ...string) (modes.ModeChanges, map[rune]bool)) modes.Modes {
+func parseDefaultModes(rawModes string, parser func(params ...string) (modes.ModeChanges, []rune)) modes.Modes {
 	modeChangeStrings := strings.Fields(rawModes)
 	modeChanges, _ := parser(modeChangeStrings...)
 	defaultModes := make(modes.Modes, 0)

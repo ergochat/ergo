@@ -190,10 +190,7 @@ func GetLowestChannelModePrefix(prefixes string) (lowest Mode) {
 //
 
 // ParseUserModeChanges returns the valid changes, and the list of unknown chars.
-func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
-	changes := make(ModeChanges, 0)
-	unknown := make(map[rune]bool)
-
+func ParseUserModeChanges(params ...string) (changes ModeChanges, unknown []rune) {
 	op := List
 
 	if 0 < len(params) {
@@ -223,7 +220,7 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 			if slices.Contains(SupportedUserModes, Mode(mode)) {
 				changes = append(changes, change)
 			} else {
-				unknown[mode] = true
+				unknown = append(unknown, mode)
 			}
 		}
 	}
@@ -232,10 +229,7 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
-func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
-	changes := make(ModeChanges, 0)
-	unknown := make(map[rune]bool)
-
+func ParseChannelModeChanges(params ...string) (changes ModeChanges, unknown []rune) {
 	op := List
 
 	if 0 < len(params) {
@@ -300,7 +294,7 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 			if slices.Contains(SupportedChannelModes, Mode(mode)) || slices.Contains(ChannelUserModes, Mode(mode)) {
 				changes = append(changes, change)
 			} else {
-				unknown[mode] = true
+				unknown = append(unknown, mode)
 			}
 		}
 	}

@@ -5,6 +5,7 @@ package modes
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -16,7 +17,7 @@ func assertEqual(supplied, expected interface{}, t *testing.T) {
 }
 
 func TestParseUserModeChanges(t *testing.T) {
-	emptyUnknown := make(map[rune]bool)
+	var emptyUnknown []rune
 	changes, unknown := ParseUserModeChanges("+i")
 	assertEqual(unknown, emptyUnknown, t)
 	assertEqual(changes, ModeChanges{ModeChange{Op: Add, Mode: Invisible}}, t)
@@ -48,10 +49,11 @@ func TestParseUserModeChanges(t *testing.T) {
 }
 
 func TestIssue874(t *testing.T) {
-	emptyUnknown := make(map[rune]bool)
+	var emptyModeChanges ModeChanges
+	var emptyUnknown []rune
 	modes, unknown := ParseChannelModeChanges("+k")
 	assertEqual(unknown, emptyUnknown, t)
-	assertEqual(modes, ModeChanges{}, t)
+	assertEqual(modes, emptyModeChanges, t)
 
 	modes, unknown = ParseChannelModeChanges("+k", "beer")
 	assertEqual(unknown, emptyUnknown, t)
@@ -151,7 +153,7 @@ func TestParseChannelModeChanges(t *testing.T) {
 	}
 
 	modes, unknown = ParseChannelModeChanges("+tx")
-	if len(unknown) != 1 || !unknown['x'] {
+	if len(unknown) != 1 || !slices.Contains(unknown, 'x') {
 		t.Errorf("expected that x is an unknown mode, instead: %v", unknown)
 	}
 	expected = ModeChange{
