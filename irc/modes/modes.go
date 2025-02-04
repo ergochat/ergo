@@ -7,6 +7,7 @@ package modes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -219,19 +220,11 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				}
 			}
 
-			var isKnown bool
-			for _, supportedMode := range SupportedUserModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			if !isKnown {
+			if slices.Contains(SupportedUserModes, Mode(mode)) {
+				changes = append(changes, change)
+			} else {
 				unknown[mode] = true
-				continue
 			}
-
-			changes = append(changes, change)
 		}
 	}
 
@@ -304,25 +297,11 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				}
 			}
 
-			var isKnown bool
-			for _, supportedMode := range SupportedChannelModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			for _, supportedMode := range ChannelUserModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			if !isKnown {
+			if slices.Contains(SupportedChannelModes, Mode(mode)) || slices.Contains(ChannelUserModes, Mode(mode)) {
+				changes = append(changes, change)
+			} else {
 				unknown[mode] = true
-				continue
 			}
-
-			changes = append(changes, change)
 		}
 	}
 
