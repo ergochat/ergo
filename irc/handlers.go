@@ -1859,7 +1859,7 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		for _, char := range unknown {
 			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
-		if len(unknown) == 1 && len(changes) == 0 {
+		if len(unknown) != 0 && len(changes) == 0 {
 			return false
 		}
 	}
@@ -1946,7 +1946,7 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		for _, char := range unknown {
 			rb.Add(nil, server.name, ERR_UNKNOWNMODE, cDetails.nick, string(char), client.t("is an unknown mode character to me"))
 		}
-		if len(unknown) == 1 && len(changes) == 0 {
+		if len(unknown) != 0 && len(changes) == 0 {
 			return false
 		}
 
