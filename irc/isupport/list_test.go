@@ -37,7 +37,7 @@ func TestISUPPORT(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(tListLong.CachedReply, longReplies) {
-		t.Errorf("Multiple output replies did not match, got [%v]", longReplies)
+		t.Errorf("Multiple output replies did not match, got [%v]", tListLong.CachedReply)
 	}
 
 	// create first list
