@@ -8,7 +8,6 @@ package modes
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/ergochat/ergo/irc/utils"
@@ -401,28 +400,22 @@ func (set *ModeSet) HighestChannelUserMode() (result Mode) {
 	return
 }
 
-type ByCodepoint Modes
-
-func (a ByCodepoint) Len() int           { return len(a) }
-func (a ByCodepoint) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByCodepoint) Less(i, j int) bool { return a[i] < a[j] }
-
 func RplMyInfo() (param1, param2, param3 string) {
 	userModes := make(Modes, len(SupportedUserModes), len(SupportedUserModes)+1)
 	copy(userModes, SupportedUserModes)
 	// TLS is not in SupportedUserModes because it can't be modified
 	userModes = append(userModes, TLS)
-	sort.Sort(ByCodepoint(userModes))
+	slices.Sort(userModes)
 
 	channelModes := make(Modes, len(SupportedChannelModes)+len(ChannelUserModes))
 	copy(channelModes, SupportedChannelModes)
 	copy(channelModes[len(SupportedChannelModes):], ChannelUserModes)
-	sort.Sort(ByCodepoint(channelModes))
+	slices.Sort(channelModes)
 
 	// XXX enumerate these by hand, i can't see any way to DRY this
 	channelParametrizedModes := Modes{BanMask, ExceptMask, InviteMask, Key, UserLimit, Forward}
 	channelParametrizedModes = append(channelParametrizedModes, ChannelUserModes...)
-	sort.Sort(ByCodepoint(channelParametrizedModes))
+	slices.Sort(channelParametrizedModes)
 
 	return userModes.String(), channelModes.String(), channelParametrizedModes.String()
 }
@@ -438,10 +431,10 @@ func ChanmodesToken() (result string) {
 	// type D: modes without parameters
 	D := Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret, NoCTCP, RegisteredOnly, RegisteredOnlySpeak, Auditorium, OpModerated}
 
-	sort.Sort(ByCodepoint(A))
-	sort.Sort(ByCodepoint(B))
-	sort.Sort(ByCodepoint(C))
-	sort.Sort(ByCodepoint(D))
+	slices.Sort(A)
+	slices.Sort(B)
+	slices.Sort(C)
+	slices.Sort(D)
 
 	return fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
 }
