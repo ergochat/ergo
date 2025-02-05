@@ -400,7 +400,17 @@ func (set *ModeSet) HighestChannelUserMode() (result Mode) {
 	return
 }
 
-func RplMyInfo() (param1, param2, param3 string) {
+var (
+	rplMyInfo1, rplMyInfo2, rplMyInfo3, chanmodesToken string
+)
+
+func init() {
+	initRplMyInfo()
+	initChanmodesToken()
+}
+
+func initRplMyInfo() {
+	// initialize constant strings published in initial numerics
 	userModes := make(Modes, len(SupportedUserModes), len(SupportedUserModes)+1)
 	copy(userModes, SupportedUserModes)
 	// TLS is not in SupportedUserModes because it can't be modified
@@ -417,10 +427,10 @@ func RplMyInfo() (param1, param2, param3 string) {
 	channelParametrizedModes = append(channelParametrizedModes, ChannelUserModes...)
 	slices.Sort(channelParametrizedModes)
 
-	return userModes.String(), channelModes.String(), channelParametrizedModes.String()
+	rplMyInfo1, rplMyInfo2, rplMyInfo3 = userModes.String(), channelModes.String(), channelParametrizedModes.String()
 }
 
-func ChanmodesToken() (result string) {
+func initChanmodesToken() {
 	// https://modern.ircdocs.horse#chanmodes-parameter
 	// type A: listable modes with parameters
 	A := Modes{BanMask, ExceptMask, InviteMask}
@@ -436,5 +446,13 @@ func ChanmodesToken() (result string) {
 	slices.Sort(C)
 	slices.Sort(D)
 
-	return fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
+	chanmodesToken = fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
+}
+
+func RplMyInfo() (param1, param2, param3 string) {
+	return rplMyInfo1, rplMyInfo2, rplMyInfo3
+}
+
+func ChanmodesToken() (result string) {
+	return chanmodesToken
 }
