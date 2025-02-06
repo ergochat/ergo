@@ -137,7 +137,7 @@ func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *Response
 		}
 	}
 
-	client.server.logger.Info("accounts", "client", details.nick, "logged into account", details.accountName)
+	client.server.logger.Info("accounts", rb.session.ConnID(), details.nick, "logged into account", details.accountName)
 }
 
 func (server *Server) sendLoginSnomask(nickMask, accountName string) {
@@ -1852,14 +1852,14 @@ func cmodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	if 1 < len(msg.Params) {
 		// parse out real mode changes
 		params := msg.Params[1:]
-		var unknown map[rune]bool
+		var unknown []rune
 		changes, unknown = modes.ParseChannelModeChanges(params...)
 
 		// alert for unknown mode changes
-		for char := range unknown {
+		for _, char := range unknown {
 			rb.Add(nil, server.name, ERR_UNKNOWNMODE, client.nick, string(char), client.t("is an unknown mode character to me"))
 		}
-		if len(unknown) == 1 && len(changes) == 0 {
+		if len(unknown) != 0 && len(changes) == 0 {
 			return false
 		}
 	}
@@ -1943,10 +1943,10 @@ func umodeHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		changes, unknown := modes.ParseUserModeChanges(params...)
 
 		// alert for unknown mode changes
-		for char := range unknown {
+		for _, char := range unknown {
 			rb.Add(nil, server.name, ERR_UNKNOWNMODE, cDetails.nick, string(char), client.t("is an unknown mode character to me"))
 		}
-		if len(unknown) == 1 && len(changes) == 0 {
+		if len(unknown) != 0 && len(changes) == 0 {
 			return false
 		}
 

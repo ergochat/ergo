@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -250,7 +250,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 			client.t("Here are the commands you can use:"),
 		}...)
 		// show general help
-		var shownHelpLines sort.StringSlice
+		var shownHelpLines []string
 		var disabledCommands bool
 		for _, commandInfo := range service.Commands {
 			// skip commands user can't access
@@ -268,12 +268,12 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 			shownHelpLines = append(shownHelpLines, "    "+ircfmt.Unescape(client.t(commandInfo.helpShort)))
 		}
 
+		// sort help lines
+		slices.Sort(shownHelpLines)
+
 		if disabledCommands {
 			shownHelpLines = append(shownHelpLines, "    "+client.t("... and other commands which have been disabled"))
 		}
-
-		// sort help lines
-		sort.Sort(shownHelpLines)
 
 		// push out help text
 		for _, line := range helpBannerLines {

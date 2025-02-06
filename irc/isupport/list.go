@@ -5,7 +5,7 @@ package isupport
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -58,7 +58,7 @@ func getTokenString(name string, value string) string {
 
 // GetDifference returns the difference between two token lists.
 func (il *List) GetDifference(newil *List) [][]string {
-	var outTokens sort.StringSlice
+	var outTokens []string
 
 	// append removed tokens
 	for name := range il.Tokens {
@@ -84,7 +84,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 		outTokens = append(outTokens, token)
 	}
 
-	sort.Sort(outTokens)
+	slices.Sort(outTokens)
 
 	// create output list
 	replies := make([][]string, 0)
@@ -117,38 +117,34 @@ func (il *List) GetDifference(newil *List) [][]string {
 
 // RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
 func (il *List) RegenerateCachedReply() (err error) {
-	il.CachedReply = make([][]string, 0)
-	var length int     // Length of the current cache
-	var cache []string // Token list cache
-
-	// make sure we get a sorted list of tokens, needed for tests and looks nice
-	var tokens sort.StringSlice
-	for name := range il.Tokens {
-		tokens = append(tokens, name)
-	}
-	sort.Sort(tokens)
-
-	for _, name := range tokens {
-		token := getTokenString(name, il.Tokens[name])
+	var tokens []string
+	for name, value := range il.Tokens {
+		token := getTokenString(name, value)
 		if token[0] == ':' || strings.Contains(token, " ") {
 			err = fmt.Errorf("bad isupport token (cannot contain spaces or start with :): %s", token)
 			continue
 		}
+		tokens = append(tokens, token)
+	}
+	// make sure we get a sorted list of tokens, needed for tests and looks nice
+	slices.Sort(tokens)
 
-		if len(token)+length <= maxLastArgLength {
-			// account for the space separating tokens
-			if len(cache) > 0 {
-				length++
-			}
-			cache = append(cache, token)
-			length += len(token)
-		}
+	var cache []string // Tokens in current line
+	var length int     // Length of the current line
 
-		if len(cache) == maxParameters || len(token)+length >= maxLastArgLength {
+	for _, token := range tokens {
+		// account for the space separating tokens
+		if len(cache) == maxParameters || (len(token)+1)+length > maxLastArgLength {
 			il.CachedReply = append(il.CachedReply, cache)
-			cache = make([]string, 0)
+			cache = nil
 			length = 0
 		}
+
+		if len(cache) > 0 {
+			length++
+		}
+		length += len(token)
+		cache = append(cache, token)
 	}
 
 	if len(cache) > 0 {

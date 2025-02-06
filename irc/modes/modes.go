@@ -7,7 +7,7 @@ package modes
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/ergochat/ergo/irc/utils"
@@ -189,10 +189,7 @@ func GetLowestChannelModePrefix(prefixes string) (lowest Mode) {
 //
 
 // ParseUserModeChanges returns the valid changes, and the list of unknown chars.
-func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
-	changes := make(ModeChanges, 0)
-	unknown := make(map[rune]bool)
-
+func ParseUserModeChanges(params ...string) (changes ModeChanges, unknown []rune) {
 	op := List
 
 	if 0 < len(params) {
@@ -219,19 +216,11 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				}
 			}
 
-			var isKnown bool
-			for _, supportedMode := range SupportedUserModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
+			if slices.Contains(SupportedUserModes, Mode(mode)) {
+				changes = append(changes, change)
+			} else {
+				unknown = append(unknown, mode)
 			}
-			if !isKnown {
-				unknown[mode] = true
-				continue
-			}
-
-			changes = append(changes, change)
 		}
 	}
 
@@ -239,10 +228,7 @@ func ParseUserModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 }
 
 // ParseChannelModeChanges returns the valid changes, and the list of unknown chars.
-func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
-	changes := make(ModeChanges, 0)
-	unknown := make(map[rune]bool)
-
+func ParseChannelModeChanges(params ...string) (changes ModeChanges, unknown []rune) {
 	op := List
 
 	if 0 < len(params) {
@@ -304,25 +290,11 @@ func ParseChannelModeChanges(params ...string) (ModeChanges, map[rune]bool) {
 				}
 			}
 
-			var isKnown bool
-			for _, supportedMode := range SupportedChannelModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
+			if slices.Contains(SupportedChannelModes, Mode(mode)) || slices.Contains(ChannelUserModes, Mode(mode)) {
+				changes = append(changes, change)
+			} else {
+				unknown = append(unknown, mode)
 			}
-			for _, supportedMode := range ChannelUserModes {
-				if rune(supportedMode) == mode {
-					isKnown = true
-					break
-				}
-			}
-			if !isKnown {
-				unknown[mode] = true
-				continue
-			}
-
-			changes = append(changes, change)
 		}
 	}
 
@@ -428,33 +400,37 @@ func (set *ModeSet) HighestChannelUserMode() (result Mode) {
 	return
 }
 
-type ByCodepoint Modes
+var (
+	rplMyInfo1, rplMyInfo2, rplMyInfo3, chanmodesToken string
+)
 
-func (a ByCodepoint) Len() int           { return len(a) }
-func (a ByCodepoint) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByCodepoint) Less(i, j int) bool { return a[i] < a[j] }
+func init() {
+	initRplMyInfo()
+	initChanmodesToken()
+}
 
-func RplMyInfo() (param1, param2, param3 string) {
+func initRplMyInfo() {
+	// initialize constant strings published in initial numerics
 	userModes := make(Modes, len(SupportedUserModes), len(SupportedUserModes)+1)
 	copy(userModes, SupportedUserModes)
 	// TLS is not in SupportedUserModes because it can't be modified
 	userModes = append(userModes, TLS)
-	sort.Sort(ByCodepoint(userModes))
+	slices.Sort(userModes)
 
 	channelModes := make(Modes, len(SupportedChannelModes)+len(ChannelUserModes))
 	copy(channelModes, SupportedChannelModes)
 	copy(channelModes[len(SupportedChannelModes):], ChannelUserModes)
-	sort.Sort(ByCodepoint(channelModes))
+	slices.Sort(channelModes)
 
 	// XXX enumerate these by hand, i can't see any way to DRY this
 	channelParametrizedModes := Modes{BanMask, ExceptMask, InviteMask, Key, UserLimit, Forward}
 	channelParametrizedModes = append(channelParametrizedModes, ChannelUserModes...)
-	sort.Sort(ByCodepoint(channelParametrizedModes))
+	slices.Sort(channelParametrizedModes)
 
-	return userModes.String(), channelModes.String(), channelParametrizedModes.String()
+	rplMyInfo1, rplMyInfo2, rplMyInfo3 = userModes.String(), channelModes.String(), channelParametrizedModes.String()
 }
 
-func ChanmodesToken() (result string) {
+func initChanmodesToken() {
 	// https://modern.ircdocs.horse#chanmodes-parameter
 	// type A: listable modes with parameters
 	A := Modes{BanMask, ExceptMask, InviteMask}
@@ -465,10 +441,18 @@ func ChanmodesToken() (result string) {
 	// type D: modes without parameters
 	D := Modes{InviteOnly, Moderated, NoOutside, OpOnlyTopic, ChanRoleplaying, Secret, NoCTCP, RegisteredOnly, RegisteredOnlySpeak, Auditorium, OpModerated}
 
-	sort.Sort(ByCodepoint(A))
-	sort.Sort(ByCodepoint(B))
-	sort.Sort(ByCodepoint(C))
-	sort.Sort(ByCodepoint(D))
+	slices.Sort(A)
+	slices.Sort(B)
+	slices.Sort(C)
+	slices.Sort(D)
 
-	return fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
+	chanmodesToken = fmt.Sprintf("%s,%s,%s,%s", A.String(), B.String(), C.String(), D.String())
+}
+
+func RplMyInfo() (param1, param2, param3 string) {
+	return rplMyInfo1, rplMyInfo2, rplMyInfo3
+}
+
+func ChanmodesToken() (result string) {
+	return chanmodesToken
 }
