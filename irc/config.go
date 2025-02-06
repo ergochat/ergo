@@ -1530,6 +1530,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.supportedCaps.Disable(caps.Chathistory)
 		config.Server.supportedCaps.Disable(caps.EventPlayback)
 		config.Server.supportedCaps.Disable(caps.ZNCPlayback)
+		config.Server.supportedCaps.Disable(caps.MessageRedaction)
 	}
 
 	if !config.History.Enabled || !config.History.Persistent.Enabled {
@@ -1558,6 +1559,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		} else {
 			config.History.Restrictions.queryCutoff = HistoryCutoffNone
 		}
+	}
+
+	if !config.History.Retention.AllowIndividualDelete {
+		config.Server.supportedCaps.Disable(caps.MessageRedaction) // #2215
 	}
 
 	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)
