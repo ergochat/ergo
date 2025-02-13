@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"golang.org/x/crypto/sha3"
+	"crypto/sha3"
 
 	"github.com/ergochat/ergo/irc/utils"
 )
