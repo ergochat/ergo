@@ -88,10 +88,8 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
-golang.org/x/crypto/sha3
 # golang.org/x/sys v0.29.0
 ## explicit; go 1.18
-golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows

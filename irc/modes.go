@@ -266,9 +266,9 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			case modes.Add:
 				ch := client.server.channels.Get(change.Arg)
 				if ch == nil {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("No such channel")))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), client.t("No such channel"))
 				} else if ch == channel {
-					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), fmt.Sprintf(client.t("You can't forward a channel to itself")))
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), client.t("You can't forward a channel to itself"))
 				} else {
 					if isSamode || ch.ClientIsAtLeast(client, modes.ChannelOperator) {
 						change.Arg = ch.Name()

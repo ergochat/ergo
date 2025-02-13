@@ -455,7 +455,7 @@ func ubanInfoNick(client *Client, target ubanTarget, rb *ResponseBuffer) {
 			rb.Notice(client.t("Warning: banning this IP or a network that contains it may affect other users. Use /UBAN INFO on the candidate IP or network for more information."))
 		}
 	} else {
-		rb.Notice(fmt.Sprintf(client.t("No client is currently using that nickname")))
+		rb.Notice(client.t("No client is currently using that nickname"))
 	}
 
 	account, err := client.server.accounts.LoadAccount(target.nickOrMask)

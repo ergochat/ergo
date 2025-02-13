@@ -1157,7 +1157,7 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 	message := email.ComposeMail(config.Accounts.Registration.EmailVerification, account.Settings.Email, subject)
 	fmt.Fprintf(&message, client.t("We received a request to reset your password on %[1]s for account: %[2]s"), am.server.name, account.Name)
 	message.WriteString("\r\n")
-	fmt.Fprintf(&message, client.t("If you did not initiate this request, you can safely ignore this message."))
+	message.WriteString(client.t("If you did not initiate this request, you can safely ignore this message."))
 	message.WriteString("\r\n")
 	message.WriteString("\r\n")
 	message.WriteString(client.t("Otherwise, to reset your password, issue the following command (replace `new_password` with your desired password):"))
