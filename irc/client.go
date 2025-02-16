@@ -1187,12 +1187,18 @@ func (client *Client) LoggedIntoAccount() bool {
 // (You must ensure separately that destroy() is called, e.g., by returning `true` from
 // the command handler or calling it yourself.)
 func (client *Client) Quit(message string, session *Session) {
+	nuh := client.NickMaskString()
+	now := time.Now().UTC()
+
 	setFinalData := func(sess *Session) {
 		message := sess.quitMessage
 		var finalData []byte
 		// #364: don't send QUIT lines to unregistered clients
 		if client.registered {
-			quitMsg := ircmsg.MakeMessage(nil, client.nickMaskString, "QUIT", message)
+			quitMsg := ircmsg.MakeMessage(nil, nuh, "QUIT", message)
+			if session.capabilities.Has(caps.ServerTime) {
+				quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
+			}
 			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
 		}
 
