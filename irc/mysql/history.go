@@ -961,7 +961,7 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 		}
 		results = append(results, history.TargetListing{
 			CfName: correspondent,
-			Time:   time.Unix(0, nanotime),
+			Time:   time.Unix(0, nanotime).UTC(),
 		})
 	}
 
@@ -1014,7 +1014,7 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 		}
 		results = append(results, history.TargetListing{
 			CfName: target,
-			Time:   time.Unix(0, nanotime),
+			Time:   time.Unix(0, nanotime).UTC(),
 		})
 	}
 	return
