@@ -85,8 +85,8 @@ docker kill -s SIGHUP ergo
 
 ## Using custom TLS certificates
 
-TLS certs will by default be read from /ircd/tls.crt, with a private key
-in /ircd/tls.key. You can customise this path in the ircd.yaml file if
+TLS certs will by default be read from /ircd/fullchain.pem, with a private key
+in /ircd/privkey.pem. You can customise this path in the ircd.yaml file if
 you wish to mount the certificates from another volume. For information
 on using Let's Encrypt certificates, see
 [this manual entry](https://github.com/ergochat/ergo/blob/master/docs/MANUAL.md#using-valid-tls-certificates).
