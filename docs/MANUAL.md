@@ -530,13 +530,18 @@ If you try to oper unsuccessfully, Ergo will disconnect you from the network. If
 1. Did you correctly generate the hashed password with `ergo genpasswd`?
 1. Did you add the password hash to the correct config file, then save the file?
 1. Did you rehash or restart Ergo after saving the file?
+1. Does your password contain spaces or non-ASCII characters? Although such passwords are theoretically compatible with Ergo, they are likely to cause problems with your client. (The period character `.` is an acceptable alternative separator if your password is based on randomly chosen words.)
 
 The config file accepts hashed passwords, not plaintext passwords. You must run `ergo genpasswd`, type your actual password in, and then receive a hashed blob back (it will look like `$2a$04$GvCFlShLZQjId3dARzwOWu9Nvq6lndXINw2Sdm6mUcwxhtx1U/hIm`). Enter that into the relevant `opers` block in your config file, then save the file.
 
-Although it's theoretically possible to use an operator password that contains spaces, your client may not support it correctly, so it's advisable to choose a password without spaces. (The period character `.` is an acceptable alternative separator if your password is based on randomly chosen words.)
-
 After that, you must rehash or restart Ergo to apply the config change. If a rehash didn't accomplish the desired effects, you might want to try a restart instead.
 
+If you're still having problems, your client or bouncer may be mangling the OPER command. You can try connecting to Ergo directly via the `nc` ("netcat") command to test this:
+
+1. From the machine where Ergo is running, run `nc -v 127.0.0.1 6667`. (If you are using Docker, you will first need to get a shell inside the Docker container, e.g. with `docker exec -it $CONTAINER_ID /bin/sh`.)
+1. Type `NICK unique_nickname`, press enter, type `USER u s e r`, and press enter. You may need to retry with a different nickname if the first one is in use.
+1. Once you see a burst of lines starting with an `001` command, indicating a successful connection, type: `OPER <opername> <password>` and press enter.
+1. If you see a successful response including the `381` command, this indicates that your password was accepted by Ergo and the problem is with your client or bouncer setup. If you see an error response, then there is an issue with your password or configuration file.
 
 ## Why is Ergo ignoring my ident response / USER command?
 
