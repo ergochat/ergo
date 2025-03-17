@@ -73,3 +73,16 @@ The response is a JSON object with fields:
 * `success`: whether the account creation succeeded
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
+
+`/v1/account_details`
+----------------
+
+This endpoint fetches account details and returns them as JSON. The request is a JSON object with fields:
+
+* `accountName`: string, name of the account
+
+The response is a JSON object with fields:
+
+* `success`: whether the account exists or not
+* `accountName`: canonical, case-unfolded version of the account name
+* `Email`: email address of the account provided

@@ -17,6 +17,7 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/rehash", api.handleRehash)
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
+	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
 
 	return api
 }
@@ -169,5 +170,41 @@ func (a *ergoAPI) handleSaregister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	a.writeJSONResponse(response, w, r)
+}
+
+type apiAccountDetailsResponse struct {
+	apiGenericResponse
+	AccountName string `json:"accountName,omitempty"`
+	Email string `json:"Email,omitempty"`
+}
+	
+type DetailInput struct {
+	AccountName string `json:"accountName"`
+}
+	
+func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
+	var request DetailInput
+	if err := a.decodeJSONRequest (&request, w, r); err != nil {
+		return
+	}
+
+	var response apiAccountDetailsResponse
+
+	// TODO could probably use better error handling and more details
+
+	if request.AccountName != "" {
+		accountData, err := a.server.accounts.LoadAccount(request.AccountName)
+		if err == errAccountDoesNotExist {
+			response.Success = false
+		} else {
+			response.AccountName = accountData.Name
+			response.Email = accountData.Settings.Email
+			response.Success = true
+		}
+	} else {
+		response.Success = false
+	} 
+	
 	a.writeJSONResponse(response, w, r)
 }
