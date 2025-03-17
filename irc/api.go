@@ -86,7 +86,7 @@ func (a *ergoAPI) writeJSONResponse(response any, w http.ResponseWriter, r *http
 type apiGenericResponse struct {
 	Success   bool   `json:"success"`
 	Error     string `json:"error,omitempty"`
-	ErrorCode string `json:"error_code,omitempty"`
+	ErrorCode string `json:"errorCode,omitempty"`
 }
 
 func (a *ergoAPI) handleRehash(w http.ResponseWriter, r *http.Request) {

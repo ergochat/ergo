@@ -71,5 +71,5 @@ This endpoint registers an account in NickServ, with the same semantics as `NS S
 The response is a JSON object with fields:
 
 * `success`: whether the account creation succeeded
-* `error_code`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
+* `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
