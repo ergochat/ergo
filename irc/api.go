@@ -65,7 +65,7 @@ func (a *ergoAPI) checkBearerAuth(authHeader string) (authorized bool) {
 func (a *ergoAPI) decodeJSONRequest(request any, w http.ResponseWriter, r *http.Request) (err error) {
 	err = json.NewDecoder(r.Body).Decode(request)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to deserialize json request: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to deserialize json request: %v", err), http.StatusBadRequest)
 	}
 	return err
 }
@@ -78,7 +78,7 @@ func (a *ergoAPI) writeJSONResponse(response any, w http.ResponseWriter, r *http
 		w.WriteHeader(http.StatusOK)
 		w.Write(j)
 	} else {
-		a.server.logger.Error("internal", "failed to serialize API response", r.URL.String(), err.Error())
+		a.server.logger.Error("internal", "failed to serialize API response", r.URL.Path, err.Error())
 		http.Error(w, fmt.Sprintf("failed to serialize json response: %v", err), http.StatusInternalServerError)
 	}
 }
