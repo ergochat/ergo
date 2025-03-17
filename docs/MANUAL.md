@@ -1178,7 +1178,7 @@ Ergo can emulate certain capabilities of the ZNC bouncer for the benefit of clie
 
 ## API
 
-Ergo offers an HTTP API that can be used to control Ergo, or to allow other applications to use Ergo as a source of truth for authentication. The API is documented separately; see [API.md]((https://github.com/ergochat/ergo/blob/stable/docs/API.md) on the website, or the `API.md` file that was bundled with your release.
+Ergo offers an HTTP API that can be used to control Ergo, or to allow other applications to use Ergo as a source of truth for authentication. The API is documented separately; see [API.md](https://github.com/ergochat/ergo/blob/stable/docs/API.md) on the website, or the `API.md` file that was bundled with your release.
 
 ## External authentication systems
 
