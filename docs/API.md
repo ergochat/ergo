@@ -39,14 +39,6 @@ This returns:
 Endpoints
 =========
 
-`/v1/rehash`
-------------
-
-This endpoint rehashes the server (i.e. reloads the configuration file, TLS certificates, and other associated data). The body is ignored. The response is a JSON object with fields:
-
-* `success`: boolean, indicates whether the rehash was successful
-* `error`: string, optional, human-readable description of the failure
-
 `/v1/check_auth`
 ----------------
 
@@ -59,6 +51,14 @@ The response is a JSON object with fields:
 
 * `success`: whether the credentials provided were valid
 * `accountName`: canonical, case-unfolded version of the account name
+
+`/v1/rehash`
+------------
+
+This endpoint rehashes the server (i.e. reloads the configuration file, TLS certificates, and other associated data). The body is ignored. The response is a JSON object with fields:
+
+* `success`: boolean, indicates whether the rehash was successful
+* `error`: string, optional, human-readable description of the failure
 
 `/v1/saregister`
 ----------------
