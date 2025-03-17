@@ -18,7 +18,7 @@ Ergo has an experimental HTTP API. Some general information about the API:
 1. All requests to the API are authenticated via bearer authentication. This is a header named `Authorization` with the value `Bearer <token>`. A list of valid tokens is hardcoded in the Ergo config. Future versions of Ergo may allow additional validation schemes for tokens.
 1. The request parameters are sent as JSON in the POST body.
 1. Any status code other than 200 is an error response; the response body is undefined in this case (likely human-readable text for debugging).
-1. A response of 200 indicates successful execution of the request. The response body will be JSON and may indicate application-level success or failure (typically via the `success` field, which takes a boolean value).
+1. A 200 status code indicates successful execution of the request. The response body will be JSON and may indicate application-level success or failure (typically via the `success` field, which takes a boolean value).
 
 API endpoints are versioned (currently all endpoints have a `/v1/` path prefix). Backwards-incompatible updates will most likely take the form of endpoints with new names, or an increased version prefix. Any exceptions to this will be specifically documented in the changelog.
 
