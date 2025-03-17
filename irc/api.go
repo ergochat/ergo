@@ -102,8 +102,8 @@ func (a *ergoAPI) handleRehash(w http.ResponseWriter, r *http.Request) {
 }
 
 type apiCheckAuthResponse struct {
-	apiGenericResponse `json",inline"`
-	AccountName        string `json:"accountName,omitempty"`
+	apiGenericResponse
+	AccountName string `json:"accountName,omitempty"`
 }
 
 func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
