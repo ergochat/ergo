@@ -176,16 +176,16 @@ func (a *ergoAPI) handleSaregister(w http.ResponseWriter, r *http.Request) {
 type apiAccountDetailsResponse struct {
 	apiGenericResponse
 	AccountName string `json:"accountName,omitempty"`
-	Email string `json:"Email,omitempty"`
+	Email       string `json:"email,omitempty"`
 }
-	
-type DetailInput struct {
+
+type apiAccountDetailsRequest struct {
 	AccountName string `json:"accountName"`
 }
-	
+
 func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
-	var request DetailInput
-	if err := a.decodeJSONRequest (&request, w, r); err != nil {
+	var request apiAccountDetailsRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
 		return
 	}
 
@@ -195,16 +195,30 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 
 	if request.AccountName != "" {
 		accountData, err := a.server.accounts.LoadAccount(request.AccountName)
-		if err == errAccountDoesNotExist {
-			response.Success = false
-		} else {
+		if err == nil {
+			if !accountData.Verified {
+				err = errAccountUnverified
+			} else if accountData.Suspended != nil {
+				err = errAccountSuspended
+			}
+		}
+
+		switch err {
+		case nil:
 			response.AccountName = accountData.Name
 			response.Email = accountData.Settings.Email
 			response.Success = true
+		case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended:
+			response.Success = false
+		default:
+			response.Success = false
+			response.ErrorCode = "UNKNOWN_ERROR"
+			response.Error = err.Error()
 		}
 	} else {
 		response.Success = false
-	} 
-	
+		response.ErrorCode = "INVALID_REQUEST"
+	}
+
 	a.writeJSONResponse(response, w, r)
 }
