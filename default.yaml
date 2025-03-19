@@ -1089,3 +1089,21 @@ webpush:
     # by the client reconnecting to IRC. we also detect whether the client is no longer
     # successfully receiving push messages.
     expiration: 14d
+
+# HTTP API. we strongly recommend leaving this disabled unless you have a specific
+# need for it.
+api:
+    # is the API enabled at all?
+    enabled: false
+    # listen address:
+    listener: "127.0.0.1:8089"
+    # serve over TLS (strongly recommended if the listener is public):
+    #tls:
+        #cert: fullchain.pem
+        #key: privkey.pem
+    # one or more static bearer tokens accepted for HTTP bearer authentication.
+    # these must be strong, unique, high-entropy printable ASCII strings.
+    # to generate a new token, use `ergo gentoken` or:
+    # python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+    bearer-tokens:
+        - "example"

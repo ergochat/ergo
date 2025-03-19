@@ -21,6 +21,7 @@ import (
 	"github.com/ergochat/ergo/irc"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/mkcerts"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 // set via linker flags, either by make or by goreleaser:
@@ -99,6 +100,7 @@ Usage:
 	ergo genpasswd [--conf <filename>] [--quiet]
 	ergo mkcerts [--conf <filename>] [--quiet]
 	ergo defaultconfig
+	ergo gentoken
 	ergo run [--conf <filename>] [--quiet] [--smoke]
 	ergo -h | --help
 	ergo --version
@@ -140,6 +142,9 @@ Options:
 		return
 	} else if arguments["defaultconfig"].(bool) {
 		fmt.Print(defaultConfig)
+		return
+	} else if arguments["gentoken"].(bool) {
+		fmt.Println(utils.GenerateSecretKey())
 		return
 	} else if arguments["mkcerts"].(bool) {
 		doMkcerts(arguments["--conf"].(string), arguments["--quiet"].(bool))

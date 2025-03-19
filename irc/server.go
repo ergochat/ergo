@@ -99,6 +99,11 @@ type Server struct {
 	flock             flock.Flocker
 	connIDCounter     atomic.Uint64
 	defcon            atomic.Uint32
+
+	// API stuff
+	apiHandler  http.Handler // always initialized
+	apiListener *utils.ReloadableListener
+	apiServer   *http.Server // nil if API is not enabled
 }
 
 // NewServer returns a new Oragono server.
@@ -124,6 +129,8 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 	server.whoWas.Initialize(config.Limits.WhowasEntries)
 	server.monitorManager.Initialize()
 	server.snomasks.Initialize()
+
+	server.apiHandler = newAPIHandler(server)
 
 	if err := server.applyConfig(config); err != nil {
 		return nil, err
@@ -839,6 +846,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 
 	server.setupPprofListener(config)
 
+	server.setupAPIListener(config)
+
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
 	if oldConfig != nil {
@@ -905,6 +914,46 @@ func (server *Server) setupPprofListener(config *Config) {
 		server.pprofServer = &ps
 		server.logger.Info("server", "Started pprof listener", server.pprofServer.Addr)
 	}
+}
+
+func (server *Server) setupAPIListener(config *Config) {
+	if server.apiServer != nil {
+		if !config.API.Enabled || (config.API.Listener != server.apiServer.Addr) {
+			server.logger.Info("server", "Stopping API listener", server.apiServer.Addr)
+			server.apiServer.Close()
+			server.apiListener = nil
+			server.apiServer = nil
+		}
+	}
+	if !config.API.Enabled {
+		return
+	}
+	listenerConfig := utils.ListenerConfig{
+		TLSConfig: config.API.tlsConfig,
+	}
+	if server.apiListener != nil {
+		server.apiListener.Reload(listenerConfig)
+		return
+	}
+	listener, err := net.Listen("tcp", config.API.Listener)
+	if err != nil {
+		server.logger.Error("server", "Couldn't create API listener", config.API.Listener, err.Error())
+		return
+	}
+	server.apiListener = utils.NewReloadableListener(listener, listenerConfig)
+	server.apiServer = &http.Server{
+		Addr:           config.API.Listener, // just informational since we created the listener ourselves
+		Handler:        server.apiHandler,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 16384,
+	}
+	go func(hs *http.Server, listener net.Listener) {
+		if err := hs.Serve(listener); err != nil {
+			server.logger.Error("server", "API listener failed", err.Error())
+		}
+	}(server.apiServer, server.apiListener)
+	server.logger.Info("server", "Started API listener", server.apiServer.Addr)
 }
 
 func (server *Server) loadDatastore(config *Config) error {

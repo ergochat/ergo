@@ -610,6 +610,15 @@ type Config struct {
 		SuppressLusers           bool                `yaml:"suppress-lusers"`
 	}
 
+	API struct {
+		Enabled          bool
+		Listener         string
+		TLS              TLSListenConfig
+		tlsConfig        *tls.Config
+		BearerTokens     []string `yaml:"bearer-tokens"`
+		bearerTokenBytes [][]byte
+	} `yaml:"api"`
+
 	Roleplay struct {
 		Enabled        bool
 		RequireChanops bool  `yaml:"require-chanops"`
@@ -1006,6 +1015,40 @@ func (config *Config) processExtjwt() (err error) {
 		services[strings.ToLower(service)] = sConf
 	}
 	config.Extjwt.Services = services
+	return nil
+}
+
+func (config *Config) processAPI() (err error) {
+	if !config.API.Enabled {
+		return nil
+	}
+
+	if config.API.Listener == "" {
+		return errors.New("config.api.enabled is true, but listener address is empty")
+	}
+
+	config.API.bearerTokenBytes = make([][]byte, len(config.API.BearerTokens))
+	for i, tok := range config.API.BearerTokens {
+		if tok == "" || tok == "example" {
+			continue
+		}
+		config.API.bearerTokenBytes[i] = []byte(tok)
+	}
+
+	var tlsConfig *tls.Config
+	if config.API.TLS.Cert != "" {
+		cert, err := loadCertWithLeaf(config.API.TLS.Cert, config.API.TLS.Key)
+		if err != nil {
+			return err
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+			// TODO consider supporting client certificates
+		}
+	}
+	config.API.tlsConfig = tlsConfig
+
 	return nil
 }
 
@@ -1609,6 +1652,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	} else {
 		config.Server.supportedCaps.Disable(caps.WebPush)
 		config.Server.supportedCaps.Disable(caps.SojuWebPush)
+	}
+
+	err = config.processAPI()
+	if err != nil {
+		return nil, err
 	}
 
 	// now that all postprocessing is complete, regenerate ISUPPORT:

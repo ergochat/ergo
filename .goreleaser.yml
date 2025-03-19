@@ -71,6 +71,7 @@ archives:
       - ergo.motd
       - default.yaml
       - traditional.yaml
+      - docs/API.md
       - docs/MANUAL.md
       - docs/USERGUIDE.md
       - languages/*.yaml

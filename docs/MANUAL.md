@@ -63,6 +63,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Tor](#tor)
     - [I2P](#i2p)
     - [ZNC](#znc)
+    - [API](#api)
     - [External authentication systems](#external-authentication-systems)
     - [DNSBLs and other IP checking systems](#dnsbls-and-other-ip-checking-systems)
 - [Acknowledgements](#acknowledgements)
@@ -1174,6 +1175,10 @@ I2P can additionally expose an opaque client identifier (the user's "b32 address
 ZNC 1.6.x (still pretty common in distros that package old versions of IRC software) has a [bug](https://github.com/znc/znc/issues/1212) where it fails to recognize certain SASL messages. Ergo supports a compatibility mode that works around this to let ZNC complete the SASL handshake: this can be enabled with `server.compatibility.send-unprefixed-sasl`.
 
 Ergo can emulate certain capabilities of the ZNC bouncer for the benefit of clients, in particular the third-party [playback](https://wiki.znc.in/Playback) module. This enables clients with specific support for ZNC to receive selective history playback automatically. To configure this in [Textual](https://www.codeux.com/textual/), go to "Server properties", select "Vendor specific", uncheck "Do not automatically join channels on connect", and check "Only play back messages you missed". Other clients with support are listed on ZNC's wiki page.
+
+## API
+
+Ergo offers an HTTP API that can be used to control Ergo, or to allow other applications to use Ergo as a source of truth for authentication. The API is documented separately; see [API.md](https://github.com/ergochat/ergo/blob/stable/docs/API.md) on the website, or the `API.md` file that was bundled with your release.
 
 ## External authentication systems
 
