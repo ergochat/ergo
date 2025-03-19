@@ -946,7 +946,7 @@ func (server *Server) setupAPIListener(config *Config) {
 		Handler:        server.apiHandler,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 65536,
+		MaxHeaderBytes: 16384,
 	}
 	go func(hs *http.Server, listener net.Listener) {
 		if err := hs.Serve(listener); err != nil {
