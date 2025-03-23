@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/ergochat/irc-go/ircfmt"
@@ -1863,6 +1864,9 @@ func (config *Config) loadMOTD() error {
 			}
 			if config.Server.MOTDFormatting {
 				lineToSend = ircfmt.Unescape(lineToSend)
+			}
+			if config.Server.EnforceUtf8 && !utf8.ValidString(lineToSend) {
+				return fmt.Errorf("Line %d of MOTD contains invalid UTF8", i+1)
 			}
 			// "- " is the required prefix for MOTD
 			lineToSend = fmt.Sprintf("- %s", lineToSend)
