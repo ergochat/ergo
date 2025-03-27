@@ -1196,7 +1196,7 @@ func (client *Client) Quit(message string, session *Session) {
 		// #364: don't send QUIT lines to unregistered clients
 		if client.registered {
 			quitMsg := ircmsg.MakeMessage(nil, nuh, "QUIT", message)
-			if session.capabilities.Has(caps.ServerTime) {
+			if sess.capabilities.Has(caps.ServerTime) {
 				quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
 			}
 			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
