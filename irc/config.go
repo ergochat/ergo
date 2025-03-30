@@ -609,6 +609,7 @@ type Config struct {
 		OverrideServicesHostname string              `yaml:"override-services-hostname"`
 		MaxLineLen               int                 `yaml:"max-line-len"`
 		SuppressLusers           bool                `yaml:"suppress-lusers"`
+		CommandAliases           map[string]string   `yaml:"command-aliases"`
 	}
 
 	API struct {
@@ -1660,6 +1661,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, err
 	}
 
+	config.Server.CommandAliases, err = normalizeCommandAliases(config.Server.CommandAliases)
+	if err != nil {
+		return nil, err
+	}
+
 	// now that all postprocessing is complete, regenerate ISUPPORT:
 	err = config.generateISupport()
 	if err != nil {
@@ -1874,4 +1880,23 @@ func (config *Config) loadMOTD() error {
 		}
 	}
 	return nil
+}
+
+func normalizeCommandAliases(aliases map[string]string) (normalizedAliases map[string]string, err error) {
+	if len(aliases) == 0 {
+		return nil, nil
+	}
+	normalizedAliases = make(map[string]string, len(aliases))
+	for alias, command := range aliases {
+		alias = strings.ToUpper(alias)
+		command = strings.ToUpper(command)
+		if _, found := Commands[alias]; found {
+			return nil, fmt.Errorf("Command alias `%s` collides with a real Ergo command", alias)
+		}
+		if _, found := Commands[command]; !found {
+			return nil, fmt.Errorf("Command alias `%s` mapped to non-existent Ergo command `%s`", alias, command)
+		}
+		normalizedAliases[alias] = command
+	}
+	return normalizedAliases, nil
 }

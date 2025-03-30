@@ -750,13 +750,8 @@ func (client *Client) run(session *Session) {
 			break
 		}
 
-		cmd, exists := Commands[msg.Command]
-		if !exists {
-			cmd = unknownCommand
-		} else if invalidUtf8 {
-			cmd = invalidUtf8Command
-		}
-
+		var cmd Command
+		msg.Command, cmd = client.server.resolveCommand(msg.Command, invalidUtf8)
 		isExiting := cmd.Run(client.server, client, session, msg)
 		if isExiting {
 			break

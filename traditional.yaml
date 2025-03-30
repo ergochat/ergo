@@ -347,6 +347,11 @@ server:
     # if you don't want to publicize how popular the server is
     suppress-lusers: false
 
+    # optionally map command alias names to existing ergo commands. most deployments
+    # should ignore this.
+    #command-aliases:
+        #"UMGEBUNG": "AMBIANCE"
+
 # account options
 accounts:
     # is account authentication enabled, i.e., can users log into existing accounts?

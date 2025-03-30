@@ -18,6 +18,24 @@ type Command struct {
 	capabs         []string
 }
 
+// resolveCommand returns the command to execute in response to a user input line.
+// some invalid commands (unknown command verb, invalid UTF8) get a fake handler
+// to ensure that labeled-response still works as expected.
+func (server *Server) resolveCommand(command string, invalidUTF8 bool) (canonicalName string, result Command) {
+	if invalidUTF8 {
+		return command, invalidUtf8Command
+	}
+	if cmd, ok := Commands[command]; ok {
+		return command, cmd
+	}
+	if target, ok := server.Config().Server.CommandAliases[command]; ok {
+		if cmd, ok := Commands[target]; ok {
+			return target, cmd
+		}
+	}
+	return command, unknownCommand
+}
+
 // Run runs this command with the given client/message.
 func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ircmsg.Message) (exiting bool) {
 	rb := NewResponseBuffer(session)
