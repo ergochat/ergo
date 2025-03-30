@@ -626,6 +626,8 @@ type Config struct {
 		RequireOper    bool  `yaml:"require-oper"`
 		AddSuffix      *bool `yaml:"add-suffix"`
 		addSuffix      bool
+		NPCNickMask    string `yaml:"npc-nick-mask"`
+		SceneNickMask  string `yaml:"scene-nick-mask"`
 	}
 
 	Extjwt struct {
@@ -1610,6 +1612,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	config.Roleplay.addSuffix = utils.BoolDefaultTrue(config.Roleplay.AddSuffix)
+	if config.Roleplay.NPCNickMask == "" {
+		config.Roleplay.NPCNickMask = defaultNPCNickMask
+	}
+	if config.Roleplay.SceneNickMask == "" {
+		config.Roleplay.SceneNickMask = defaultSceneNickMask
+	}
 
 	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
 	config.Datastore.MySQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing

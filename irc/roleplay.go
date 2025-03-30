@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	npcNickMask   = "*%s*!%s@npc.fakeuser.invalid"
-	sceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
+	defaultNPCNickMask   = "*%s*!%s@npc.fakeuser.invalid"
+	defaultSceneNickMask = "=Scene=!%s@npc.fakeuser.invalid"
 )
 
 func sendRoleplayMessage(server *Server, client *Client, source string, targetString string, isScene, isAction bool, messageParts []string, rb *ResponseBuffer) {
@@ -30,7 +30,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 
 	var sourceMask string
 	if isScene {
-		sourceMask = fmt.Sprintf(sceneNickMask, client.Nick())
+		sourceMask = fmt.Sprintf(server.Config().Roleplay.SceneNickMask, client.Nick())
 	} else {
 		cfSource, cfSourceErr := CasefoldName(source)
 		skelSource, skelErr := Skeleton(source)
@@ -39,7 +39,7 @@ func sendRoleplayMessage(server *Server, client *Client, source string, targetSt
 			rb.Add(nil, client.server.name, ERR_CANNOTSENDRP, targetString, client.t("Invalid roleplay name"))
 			return
 		}
-		sourceMask = fmt.Sprintf(npcNickMask, source, client.Nick())
+		sourceMask = fmt.Sprintf(server.Config().Roleplay.NPCNickMask, source, client.Nick())
 	}
 
 	// block attempts to send CTCP messages to Tor clients
