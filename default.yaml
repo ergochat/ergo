@@ -946,6 +946,12 @@ roleplay:
     # add the real nickname, in parentheses, to the end of every roleplay message?
     add-suffix: true
 
+    # allow customizing the NUH's sent for NPC and SCENE commands
+    # NPC: the first %s is the NPC name, the second is the user's real nick
+    #npc-nick-mask: "*%s*!%s@npc.fakeuser.invalid"
+    # SCENE: the %s is the client's real nick
+    #scene-nick-mask: "=Scene=!%s@npc.fakeuser.invalid"
+
 # external services can integrate with the ircd using JSON Web Tokens (https://jwt.io).
 # in effect, the server can sign a token attesting that the client is present on
 # the server, is a member of a particular channel, etc.
