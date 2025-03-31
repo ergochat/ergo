@@ -727,8 +727,12 @@ func (client *Client) run(session *Session) {
 			}
 			session.fakelag.Touch(command)
 		} else {
-			// DoS hardening, #505
+			if session.registrationMessages == 0 && httpVerbs.Has(msg.Command) {
+				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, msg.Command, "This is not an HTTP server")
+				break
+			}
 			session.registrationMessages++
+			// DoS hardening, #505
 			if client.server.Config().Limits.RegistrationMessages < session.registrationMessages {
 				client.Send(nil, client.server.name, ERR_UNKNOWNERROR, "*", client.t("You have sent too many registration messages"))
 				break
