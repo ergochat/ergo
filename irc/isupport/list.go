@@ -47,6 +47,12 @@ func (il *List) AddNoValue(name string) {
 	il.Tokens[name] = ""
 }
 
+// Contains returns whether the list already contains a token
+func (il *List) Contains(name string) bool {
+	_, ok := il.Tokens[name]
+	return ok
+}
+
 // getTokenString gets the appropriate string for a token+value.
 func getTokenString(name string, value string) string {
 	if len(value) == 0 {
