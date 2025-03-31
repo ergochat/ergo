@@ -63,6 +63,8 @@ var (
 	chanTypes = "#"
 
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
+
+	httpVerbs = utils.SetLiteral("CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE")
 )
 
 // Server is the main Oragono server.
