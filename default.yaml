@@ -379,7 +379,7 @@ server:
     # publish additional key-value pairs in ISUPPORT (the 005 numeric).
     # keys that collide with a key published by Ergo will be silently ignored.
     additional-isupport:
-        #"draft/filehost": "https://example.com/filehost"
+        #"draft/FILEHOST": "https://example.com/filehost"
         #"draft/bazbat": "" # empty string means no value
 
     # optionally map command alias names to existing ergo commands. most deployments
