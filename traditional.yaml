@@ -74,6 +74,7 @@ server:
         max-connections-per-duration: 64
 
     # strict transport security, to get clients to automagically use TLS
+    # (irrelevant in the recommended configuration, with no public plaintext listener)
     sts:
         # whether to advertise STS
         #
@@ -346,6 +347,12 @@ server:
     # send all 0's as the LUSERS (user counts) output to non-operators; potentially useful
     # if you don't want to publicize how popular the server is
     suppress-lusers: false
+
+    # publish additional key-value pairs in ISUPPORT (the 005 numeric).
+    # keys that collide with a key published by Ergo will be silently ignored.
+    additional-isupport:
+        #"draft/FILEHOST": "https://example.com/filehost"
+        #"draft/bazbat": "" # empty string means no value
 
     # optionally map command alias names to existing ergo commands. most deployments
     # should ignore this.

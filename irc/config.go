@@ -609,6 +609,7 @@ type Config struct {
 		OverrideServicesHostname string              `yaml:"override-services-hostname"`
 		MaxLineLen               int                 `yaml:"max-line-len"`
 		SuppressLusers           bool                `yaml:"suppress-lusers"`
+		AdditionalISupport       map[string]string   `yaml:"additional-isupport"`
 		CommandAliases           map[string]string   `yaml:"command-aliases"`
 	}
 
@@ -1777,6 +1778,12 @@ func (config *Config) generateISupport() (err error) {
 		}
 	}
 	isupport.Add("WHOX", "")
+
+	for key, value := range config.Server.AdditionalISupport {
+		if !isupport.Contains(key) {
+			isupport.Add(key, value)
+		}
+	}
 
 	err = isupport.RegenerateCachedReply()
 	return

@@ -47,6 +47,12 @@ func (il *List) AddNoValue(name string) {
 	il.Tokens[name] = ""
 }
 
+// Contains returns whether the list already contains a token
+func (il *List) Contains(name string) bool {
+	_, ok := il.Tokens[name]
+	return ok
+}
+
 // getTokenString gets the appropriate string for a token+value.
 func getTokenString(name string, value string) string {
 	if len(value) == 0 {
@@ -115,16 +121,34 @@ func (il *List) GetDifference(newil *List) [][]string {
 	return replies
 }
 
+func validateToken(token string) error {
+	if len(token) == 0 || token[0] == ':' || strings.Contains(token, " ") {
+		return fmt.Errorf("bad isupport token (cannot be sent as IRC parameter): `%s`", token)
+	}
+
+	if strings.ContainsAny(token, "\n\r\x00") {
+		return fmt.Errorf("bad isupport token (contains forbidden octets)")
+	}
+
+	// technically a token can be maxLastArgLength if it occurs alone,
+	// but fail it just to be safe
+	if len(token) >= maxLastArgLength {
+		return fmt.Errorf("bad isupport token (too long): `%s`", token)
+	}
+
+	return nil
+}
+
 // RegenerateCachedReply regenerates the cached RPL_ISUPPORT reply
 func (il *List) RegenerateCachedReply() (err error) {
 	var tokens []string
 	for name, value := range il.Tokens {
 		token := getTokenString(name, value)
-		if token[0] == ':' || strings.Contains(token, " ") {
-			err = fmt.Errorf("bad isupport token (cannot contain spaces or start with :): %s", token)
-			continue
+		if tokenErr := validateToken(token); tokenErr == nil {
+			tokens = append(tokens, token)
+		} else {
+			err = tokenErr
 		}
-		tokens = append(tokens, token)
 	}
 	// make sure we get a sorted list of tokens, needed for tests and looks nice
 	slices.Sort(tokens)
