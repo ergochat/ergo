@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	maxLastArgLength = 400
+	maxPayloadLength = 380
 
 	/* Modern: "As the maximum number of message parameters to any reply is 15,
 	the maximum number of RPL_ISUPPORT tokens that can be advertised is 13."
@@ -98,7 +98,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 	var cache []string // Token list cache
 
 	for _, token := range outTokens {
-		if len(token)+length <= maxLastArgLength {
+		if len(token)+length <= maxPayloadLength {
 			// account for the space separating tokens
 			if len(cache) > 0 {
 				length++
@@ -107,7 +107,7 @@ func (il *List) GetDifference(newil *List) [][]string {
 			length += len(token)
 		}
 
-		if len(cache) == maxParameters || len(token)+length >= maxLastArgLength {
+		if len(cache) == maxParameters || len(token)+length >= maxPayloadLength {
 			replies = append(replies, cache)
 			cache = make([]string, 0)
 			length = 0
@@ -130,9 +130,9 @@ func validateToken(token string) error {
 		return fmt.Errorf("bad isupport token (contains forbidden octets)")
 	}
 
-	// technically a token can be maxLastArgLength if it occurs alone,
+	// technically a token can be maxPayloadLength if it occurs alone,
 	// but fail it just to be safe
-	if len(token) >= maxLastArgLength {
+	if len(token) >= maxPayloadLength {
 		return fmt.Errorf("bad isupport token (too long): `%s`", token)
 	}
 
@@ -158,7 +158,7 @@ func (il *List) RegenerateCachedReply() (err error) {
 
 	for _, token := range tokens {
 		// account for the space separating tokens
-		if len(cache) == maxParameters || (len(token)+1)+length > maxLastArgLength {
+		if len(cache) == maxParameters || (len(token)+1)+length > maxPayloadLength {
 			il.CachedReply = append(il.CachedReply, cache)
 			cache = nil
 			length = 0

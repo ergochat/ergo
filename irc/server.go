@@ -520,14 +520,14 @@ func (server *Server) sendRplISupportLines(client *Client, rb *ResponseBuffer, l
 		batchID := rb.StartNestedBatch(caps.ExtendedISupportBatchType)
 		defer rb.EndNestedBatch(batchID)
 	}
-	translatedISupport := client.t("are supported by this server")
+	finalText := "are supported by this server"
 	nick := client.Nick()
 	for _, cachedTokenLine := range lines {
 		length := len(cachedTokenLine) + 2
 		tokenline := make([]string, length)
 		tokenline[0] = nick
 		copy(tokenline[1:], cachedTokenLine)
-		tokenline[length-1] = translatedISupport
+		tokenline[length-1] = finalText
 		rb.Add(nil, server.name, RPL_ISUPPORT, tokenline...)
 	}
 }
