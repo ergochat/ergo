@@ -233,7 +233,7 @@ func SendMail(config MailtoConfig, recipient string, msg []byte) (err error) {
 		}
 	}
 
-	if config.DKIM.Domain != "" {
+	if config.DKIM.Enabled() {
 		msg, err = DKIMSign(msg, config.DKIM)
 		if err != nil {
 			return

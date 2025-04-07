@@ -10,7 +10,6 @@ require (
 	github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
 	github.com/ergochat/irc-go v0.5.0-rc2
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/go-test/deep v1.0.6 // indirect
 	github.com/gofrs/flock v0.8.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
@@ -18,7 +17,6 @@ require (
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.3.2
-	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208
 	github.com/xdg-go/scram v1.0.2
 	golang.org/x/crypto v0.32.0
 	golang.org/x/term v0.28.0
@@ -27,6 +25,7 @@ require (
 )
 
 require (
+	github.com/emersion/go-msgauth v0.6.8
 	github.com/ergochat/webpush-go/v2 v2.0.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 )
