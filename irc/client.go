@@ -71,6 +71,10 @@ const (
 	PingCoalesceThreshold = time.Second
 )
 
+const (
+	utf8BOM = "\xef\xbb\xbf"
+)
+
 var (
 	MaxLineLen = DefaultMaxLineLen
 )
@@ -750,7 +754,11 @@ func (client *Client) run(session *Session) {
 				continue
 			} // else: proceed with the truncated line
 		} else if err != nil {
-			client.Quit(client.t("Received malformed line"), session)
+			message := "Received malformed line"
+			if strings.HasPrefix(line, utf8BOM) {
+				message = "Received UTF-8 byte-order mark, which is invalid in IRC"
+			}
+			client.Quit(message, session)
 			break
 		}
 
