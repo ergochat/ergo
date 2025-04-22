@@ -756,7 +756,7 @@ func (client *Client) run(session *Session) {
 		} else if err != nil {
 			message := "Received malformed line"
 			if strings.HasPrefix(line, utf8BOM) {
-				message = "Received UTF-8 byte-order mark, which is invalid in IRC"
+				message = "Received UTF-8 byte-order mark, which is invalid at the start of an IRC protocol message"
 			}
 			client.Quit(message, session)
 			break
