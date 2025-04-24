@@ -27,6 +27,10 @@ func MergeTargets(base []TargetListing, extra []TargetListing, start, end time.T
 		return (start.IsZero() || start.Before(t)) && (end.IsZero() || end.After(t))
 	}
 
+	if limit < 0 {
+		limit = len(base) + len(extra)
+	}
+
 	prealloc := len(base) + len(extra)
 	if limit < prealloc {
 		prealloc = limit
