@@ -765,7 +765,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			return maxChathistoryLimit
 		}
 		limit, err := strconv.Atoi(msg.Params[paramIndex])
-		if err != nil || limit == 0 || limit > maxChathistoryLimit {
+		if err != nil || limit <= 0 || limit > maxChathistoryLimit {
 			limit = maxChathistoryLimit
 		}
 		return
