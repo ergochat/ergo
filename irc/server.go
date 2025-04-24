@@ -65,6 +65,9 @@ var (
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
 
 	httpVerbs = utils.SetLiteral("CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE")
+
+	unixEpoch       = time.Unix(0, 0).UTC()
+	year2262Problem = time.Unix(0, 1<<63-1).UTC() // this is the maximum time for which (*time.Time).UnixNano() is well-defined
 )
 
 // Server is the main Oragono server.
