@@ -755,6 +755,14 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			return
 		} else if identifier == "timestamp" {
 			timestamp, err = time.Parse(IRCv3TimestampFormat, value)
+			if err == nil {
+				timestamp = timestamp.UTC()
+				if timestamp.Before(unixEpoch) {
+					timestamp = unixEpoch
+				} else if timestamp.After(year2262Problem) {
+					timestamp = year2262Problem
+				}
+			}
 			return
 		}
 		return
@@ -3052,6 +3060,7 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		rb.Add(nil, server.name, "FAIL", "MARKREAD", "INVALID_PARAMS", utils.SafeErrorParam(readTimestamp), client.t("Invalid timestamp"))
 		return
 	}
+	readTime = readTime.UTC()
 	result := client.SetReadMarker(cftarget, readTime)
 	readTimestamp = fmt.Sprintf("timestamp=%s", result.Format(IRCv3TimestampFormat))
 	// inform the originating session whether it was a success or a no-op:
