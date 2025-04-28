@@ -1730,7 +1730,7 @@ func (config *Config) generateISupport() (err error) {
 	}
 	isupport.Add("CASEMAPPING", casemappingToken)
 	isupport.Add("CHANLIMIT", fmt.Sprintf("%s:%d", chanTypes, config.Channels.MaxChannelsPerClient))
-	isupport.Add("CHANMODES", chanmodesToken)
+	isupport.Add("CHANMODES", modes.ChanmodesToken())
 	if config.History.Enabled && config.History.ChathistoryMax > 0 {
 		isupport.Add("CHATHISTORY", strconv.Itoa(config.History.ChathistoryMax))
 		// Kiwi expects this legacy token name:
