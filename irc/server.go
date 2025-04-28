@@ -42,27 +42,21 @@ import (
 const (
 	alwaysOnMaintenanceInterval = 30 * time.Minute
 	pushMaintenanceInterval     = 24 * time.Hour
-)
 
-var (
 	// common error line to sub values into
 	errorMsg = "ERROR :%s\r\n"
-
-	// three final parameters of 004 RPL_MYINFO, enumerating our supported modes
-	rplMyInfo1, rplMyInfo2, rplMyInfo3 = modes.RplMyInfo()
-
-	// CHANMODES isupport token
-	chanmodesToken = modes.ChanmodesToken()
-
-	// whitelist of caps to serve on the STS-only listener. In particular,
-	// never advertise SASL, to discourage people from sending their passwords:
-	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.Batch, caps.LabeledResponse, caps.EchoMessage, caps.Nope)
 
 	// we only have standard channels for now. TODO: any updates to this
 	// will also need to be reflected in CasefoldChannel
 	chanTypes = "#"
 
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
+)
+
+var (
+	// whitelist of caps to serve on the STS-only listener. In particular,
+	// never advertise SASL, to discourage people from sending their passwords:
+	stsOnlyCaps = caps.NewSet(caps.STS, caps.MessageTags, caps.ServerTime, caps.Batch, caps.LabeledResponse, caps.EchoMessage, caps.Nope)
 
 	httpVerbs = utils.SetLiteral("CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE")
 
@@ -488,6 +482,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	session.Send(nil, server.name, RPL_WELCOME, d.nick, fmt.Sprintf(c.t("Welcome to the %s IRC Network %s"), config.Network.Name, d.nick))
 	session.Send(nil, server.name, RPL_YOURHOST, d.nick, fmt.Sprintf(c.t("Your host is %[1]s, running version %[2]s"), server.name, Ver))
 	session.Send(nil, server.name, RPL_CREATED, d.nick, fmt.Sprintf(c.t("This server was created %s"), server.ctime.Format(time.RFC1123)))
+	rplMyInfo1, rplMyInfo2, rplMyInfo3 := modes.RplMyInfo()
 	session.Send(nil, server.name, RPL_MYINFO, d.nick, server.name, Ver, rplMyInfo1, rplMyInfo2, rplMyInfo3)
 
 	rb := NewResponseBuffer(session)
