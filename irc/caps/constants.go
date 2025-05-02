@@ -64,7 +64,7 @@ const (
 	BotTagName = "bot"
 	// https://ircv3.net/specs/extensions/chathistory
 	ChathistoryTargetsBatchType = "draft/chathistory-targets"
-	ExtendedISupportBatchType   = "draft/extended-isupport"
+	ExtendedISupportBatchType   = "draft/isupport"
 )
 
 func init() {
