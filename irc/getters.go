@@ -110,8 +110,8 @@ func (client *Client) AddSession(session *Session) (success bool, numSessions in
 	newSessions[len(newSessions)-1] = session
 	if client.accountSettings.AutoreplayMissed || session.deviceID != "" {
 		lastSeen = client.lastSeen[session.deviceID]
-		client.setLastSeen(time.Now().UTC(), session.deviceID)
 	}
+	client.setLastSeen(time.Now().UTC(), session.deviceID)
 	client.sessions = newSessions
 	wasAway = client.awayMessage
 	if client.autoAwayEnabledNoMutex(config) {
@@ -495,6 +495,9 @@ func (client *Client) IsExpiredAlwaysOn(config *Config) (result bool) {
 func (client *Client) checkAlwaysOnExpirationNoMutex(config *Config, ignoreRegistration bool) (result bool) {
 	if !((client.registered || ignoreRegistration) && client.alwaysOn) {
 		return false
+	}
+	if len(client.lastSeen) == 0 {
+		return true // #2252: do not precreate the client if it was never logged into at all
 	}
 	deadline := time.Duration(config.Accounts.Multiclient.AlwaysOnExpiration)
 	if deadline == 0 {
