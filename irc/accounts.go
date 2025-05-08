@@ -986,7 +986,7 @@ func (am *AccountManager) Verify(client *Client, account string, code string, ad
 	if client != nil {
 		am.Login(client, clientAccount)
 		if client.AlwaysOn() {
-			client.markDirty(IncludeRealname)
+			client.markDirty(IncludeAllAttrs)
 		}
 	}
 	// we may need to do nick enforcement here:
@@ -1879,6 +1879,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	suspendedKey := fmt.Sprintf(keyAccountSuspended, casefoldedAccount)
 	pwResetKey := fmt.Sprintf(keyAccountPwReset, casefoldedAccount)
 	emailChangeKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
+	pushSubscriptionsKey := fmt.Sprintf(keyAccountPushSubscriptions, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1937,6 +1938,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(suspendedKey)
 		tx.Delete(pwResetKey)
 		tx.Delete(emailChangeKey)
+		tx.Delete(pushSubscriptionsKey)
 
 		return nil
 	})
