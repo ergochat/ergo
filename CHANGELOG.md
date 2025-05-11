@@ -6,7 +6,7 @@ We're pleased to be publishing the release candidate for v2.16.0 (the official r
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Many thanks to [@csmith](https://github.com/csmith), [@delthas](https://github.com/delthas), [@KlaasT](https://github.com/KlaasT), [@knolley](https://github.com/knolley), [@Mailaender](https://github.com/Mailaender), and [@prdes](https://github.com/prdes) for reporting issues and helping test.
+Many thanks to [@csmith](https://github.com/csmith), [@delthas](https://github.com/delthas), donio, [@emersion](https://github.com/emersion), [@KlaasT](https://github.com/KlaasT), [@knolley](https://github.com/knolley), [@Mailaender](https://github.com/Mailaender), and [@prdes](https://github.com/prdes) for reporting issues and helping test.
 
 ### Config changes
 * Added `server.additional-isupport` for publishing arbitrary ISUPPORT tokens (#2220, #2240)
@@ -25,15 +25,15 @@ Many thanks to [@csmith](https://github.com/csmith), [@delthas](https://github.c
 * Fixed `CHATHISTORY TARGETS` from MySQL backend reporting incorrect timestamps when the server timezone is not UTC (#2224)
 * Fixed batch name parameter in `draft/isupport` responses (#2253)
 * Fixed `NS UNREGISTER` not deleting the stored push subscriptions (#2254)
-* Fixed cases where `NS SAREGISTER` could create clients without applying the default user modes (#2252, #2254)
-* Improved validation of `CHATHISTORY` parameters (#2248, thanks [@prdes](https://github.com/prdes)!)
-* Added validation to ensure the MOTD is UTF-8 when `enforce-utf8` is enabled (the recommended default) (#2228, #2233)
+* Fixed cases where `NS SAREGISTER` could create clients without applying the default user modes (#2252, #2254, thanks donio!)
+* Improved validation of `CHATHISTORY` parameters (#2248, #2249, thanks [@prdes](https://github.com/prdes)!)
+* Added validation to ensure the MOTD is UTF-8 when `enforce-utf8` is enabled (the recommended default) (#2228, #2233, thanks [@KlaasT](https://github.com/KlaasT)!)
 * The client's own `QUIT` line now respects the `server-time` capability (#2218, #2219)
 * Fixed sending unnecessary replies to certain invalid `MODE` changes (#2213)
 * Improved safety of ISUPPORT length limits (#2241)
 
 ### Changed
-* The `draft/message-redaction` capability is no longer advertised when `allow-individual-delete` is disabled (#2215, #2216)
+* The `draft/message-redaction` capability is no longer advertised when `allow-individual-delete` is disabled (#2215, #2216, thanks [@delthas](https://github.com/delthas)!)
 * Receiving the UTF-8 BOM (byte-order mark) at the start of an IRC connection now produces an explicit error (#2244, #2247, thanks [@csmith](https://github.com/csmith), [@Mailaender](https://github.com/Mailaender)!)
 
 ### Internal
