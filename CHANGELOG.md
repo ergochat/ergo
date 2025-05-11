@@ -1,6 +1,44 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.16.0-rc1] - 2025-05-11
+We're pleased to be publishing the release candidate for v2.16.0 (the official release should follow within a week or so). This release contains bug fixes and some minor updates.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Many thanks to [@csmith](https://github.com/csmith), [@delthas](https://github.com/delthas), [@KlaasT](https://github.com/KlaasT), [@knolley](https://github.com/knolley), [@Mailaender](https://github.com/Mailaender), and [@prdes](https://github.com/prdes) for reporting issues and helping test.
+
+### Config changes
+* Added `server.additional-isupport` for publishing arbitrary ISUPPORT tokens (#2220, #2240)
+* Added `server.command-aliases` to configure aliases for server commands (#2229, #2236)
+* Added options to `roleplay` to customize the NUH's sent for `NPC` and `SCENE`. Roleplay remains deprecated and disabled by default. (#2237)
+
+### Security
+* Mitigated HTTP DoS attacks by rejecting IRC sessions that begin with an HTTP verb, such as `POST`. If you were relying on this to create IRC sessions via an HTTP client, please open an issue. (#2239)
+
+### Added
+* Added an HTTP API, providing programmatic access to Ergo functionality (#2231, thanks [@KlaasT](https://github.com/KlaasT)!)
+* Added SAFERATE to 005 ISUPPORT tokens (#2223, thanks [@delthas](https://github.com/delthas)!)
+* Added support for ed25519-sha256 for DKIM. However, enabling this algorithm is not recommended since mainstream email providers still do not support it. (#1041, #2242)
+
+### Fixed
+* Fixed `CHATHISTORY TARGETS` from MySQL backend reporting incorrect timestamps when the server timezone is not UTC (#2224)
+* Fixed batch name parameter in `draft/isupport` responses (#2253)
+* Fixed `NS UNREGISTER` not deleting the stored push subscriptions (#2254)
+* Fixed cases where `NS SAREGISTER` could create clients without applying the default user modes (#2252, #2254)
+* Improved validation of `CHATHISTORY` parameters (#2248, thanks [@prdes](https://github.com/prdes)!)
+* Added validation to ensure the MOTD is UTF-8 when `enforce-utf8` is enabled (the recommended default) (#2228, #2233)
+* The client's own `QUIT` line now respects the `server-time` capability (#2218, #2219)
+* Fixed sending unnecessary replies to certain invalid `MODE` changes (#2213)
+* Improved safety of ISUPPORT length limits (#2241)
+
+### Changed
+* The `draft/message-redaction` capability is no longer advertised when `allow-individual-delete` is disabled (#2215, #2216)
+* Receiving the UTF-8 BOM (byte-order mark) at the start of an IRC connection now produces an explicit error (#2244, #2247, thanks [@csmith](https://github.com/csmith), [@Mailaender](https://github.com/Mailaender)!)
+
+### Internal
+* Release builds use Go 1.24.3 (#2217)
+
 ## [2.15.0] - 2025-01-26
 
 We're pleased to be publishing v2.15.0, a new stable release. This release adds support for mobile push notifications, via the [draft/webpush](https://github.com/ircv3/ircv3-specifications/pull/471) specification. More information on this is available in the [manual](https://github.com/ergochat/ergo/blob/ab2d842b270d9df217c779df9c7a5c594d85fdd5/docs/MANUAL.md#push-notifications) and [user guide](https://github.com/ergochat/ergo/blob/ab2d842b270d9df217c779df9c7a5c594d85fdd5/docs/USERGUIDE.md#push-notifications). This feature is still considered to be in an experimental state; `default.yaml` ships with it disabled, and its configuration may have backwards-incompatible changes in the future.
