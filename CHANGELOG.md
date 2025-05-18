@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.16.0-rc1] - 2025-05-11
-We're pleased to be publishing the release candidate for v2.16.0 (the official release should follow within a week or so). This release contains bug fixes and some minor updates.
+## [2.16.0] - 2025-05-18
+We're pleased to be publishing v2.16.0, a new stable release. This release contains bug fixes and some minor updates.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
