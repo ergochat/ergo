@@ -10,7 +10,7 @@ github.com/GehirnInc/crypt/md5_crypt
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 ## explicit
 github.com/docopt/docopt-go
-# github.com/emersion/go-msgauth v0.6.8
+# github.com/emersion/go-msgauth v0.7.0
 ## explicit; go 1.18
 github.com/emersion/go-msgauth/dkim
 # github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1

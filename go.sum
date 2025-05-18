@@ -8,6 +8,8 @@ github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815 h1:bWDMxwH3px2JBh
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/emersion/go-msgauth v0.6.8 h1:kW/0E9E8Zx5CdKsERC/WnAvnXvX7q9wTHia1OA4944A=
 github.com/emersion/go-msgauth v0.6.8/go.mod h1:YDwuyTCUHu9xxmAeVj0eW4INnwB6NNZoPdLerpSxRrc=
+github.com/emersion/go-msgauth v0.7.0 h1:vj2hMn6KhFtW41kshIBTXvp6KgYSqpA/ZN9Pv4g1INc=
+github.com/emersion/go-msgauth v0.7.0/go.mod h1:mmS9I6HkSovrNgq0HNXTeu8l3sRAAuQ9RMvbM4KU7Ck=
 github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1 h1:WLHTOodthVyv5NvYLIvWl112kSFv5IInKKrRN2qpons=
 github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1/go.mod h1:mov+uh1DPWsltdQnOdzn08UO9GsJ3MEvhtu0Ci37fdk=
 github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881 h1:+J5m88nvybxB5AnBVGzTXM/yHVytt48rXBGcJGzSbms=
