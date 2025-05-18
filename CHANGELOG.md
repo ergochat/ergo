@@ -9,6 +9,7 @@ This release includes changes to the config file format, all of which are fully 
 Many thanks to [@csmith](https://github.com/csmith), [@delthas](https://github.com/delthas), donio, [@emersion](https://github.com/emersion), [@KlaasT](https://github.com/KlaasT), [@knolley](https://github.com/knolley), [@Mailaender](https://github.com/Mailaender), and [@prdes](https://github.com/prdes) for reporting issues and helping test.
 
 ### Config changes
+* Added `api` block for configuring the new HTTP API. If this block is absent, the API is disabled (#2231)
 * Added `server.additional-isupport` for publishing arbitrary ISUPPORT tokens (#2220, #2240)
 * Added `server.command-aliases` to configure aliases for server commands (#2229, #2236)
 * Added options to `roleplay` to customize the NUH's sent for `NPC` and `SCENE`. Roleplay remains deprecated and disabled by default. (#2237)
