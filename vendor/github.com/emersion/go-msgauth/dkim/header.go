@@ -83,7 +83,12 @@ func parseHeaderParams(s string) (map[string]string, error) {
 			return params, errors.New("dkim: malformed header params")
 		}
 
-		params[strings.TrimSpace(key)] = strings.TrimSpace(value)
+		trimmedKey := strings.TrimSpace(key)
+		_, present := params[trimmedKey]
+		if present {
+			return params, errors.New("dkim: duplicate tag name")
+		}
+		params[trimmedKey] = strings.TrimSpace(value)
 	}
 	return params, nil
 }
