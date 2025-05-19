@@ -86,7 +86,7 @@ Once you've registered your nickname, you can use it to register channels. By de
 /msg ChanServ register #myChannel
 ```
 
-You must already be an operator (have the `+o` channel mode --- your client may display this as an `@` next to your nickname). If you're not a channel operator in the channel you want to register, ask your server administrator for help.
+The channel must exist (if it doesn't, you can create it with `/join #myChannel`) and you must already be an operator (have the `+o` channel mode --- your client may display this as an `@` next to your nickname). If you're not a channel operator in the channel you want to register, ask your server administrator for help.
 
 # Always-on
 
