@@ -86,3 +86,21 @@ The response is a JSON object with fields:
 * `success`: whether the account creation succeeded
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
+
+
+`/v1/ns_info`  
+----------------
+
+This endpoint retrieves account information similar to the IRC command `/msg NickServ INFO <nick>`. The request is a JSON object with fields:
+
+* `nick`: string, nickname to look up
+
+The response is a JSON object with fields:
+
+* `success`: whether the lookup succeeded
+* `accountName`: string, canonical account name if found
+* `registeredAt`: string, timestamp of account registration in [RFC1123 format](https://datatracker.ietf.org/doc/html/rfc1123) (e.g., `"Mon, 02 Jan 2006 15:04:05 UTC"`)
+* `channels`: array of strings, channels registered to the account
+* `channelCount`: integer, count of registered channels
+* `errorCode`: string, optional, machine-readable description of the error
+* `error`: string, optional, human-readable description of the failure
