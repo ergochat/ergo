@@ -18,6 +18,7 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
 	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
+	api.mux.HandleFunc("POST /v1/ns_info", api.handleNsInfo)
 
 	return api
 }
@@ -215,6 +216,60 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 			response.ErrorCode = "UNKNOWN_ERROR"
 			response.Error = err.Error()
 		}
+	} else {
+		response.Success = false
+		response.ErrorCode = "INVALID_REQUEST"
+	}
+
+	a.writeJSONResponse(response, w, r)
+}
+
+type apiNsInfoRequest struct {
+	Nick string `json:"nick"`
+}
+
+type apiNsInfoResponse struct {
+	apiGenericResponse
+	AccountName    string   `json:"accountName,omitempty"`
+	RegisteredAt   string   `json:"registeredAt,omitempty"`
+	Channels       []string `json:"channels,omitempty"`
+	ChannelCount   int      `json:"channelCount,omitempty"`
+}
+
+func (a *ergoAPI) handleNsInfo(w http.ResponseWriter, r *http.Request) {
+	var request apiNsInfoRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	var response apiNsInfoResponse
+
+	if request.Nick != "" {
+		// Look up the account associated with this nick
+		accountName := a.server.accounts.NickToAccount(request.Nick)
+		if accountName == "" {
+			response.Success = false
+			a.writeJSONResponse(response, w, r)
+			return
+		}
+
+		// Load the account details
+		accountData, err := a.server.accounts.LoadAccount(accountName)
+		if err != nil {
+			response.Success = false
+			a.writeJSONResponse(response, w, r)
+			return
+		}
+
+		// Get the channels registered to this account
+		channels := a.server.channels.ChannelsForAccount(accountName)
+
+		// Populate the response
+		response.Success = true
+		response.AccountName = accountData.Name
+		response.RegisteredAt = accountData.RegisteredAt.Format("Mon, 02 Jan 2006 15:04:05 UTC")
+		response.Channels = channels
+		response.ChannelCount = len(channels)
 	} else {
 		response.Success = false
 		response.ErrorCode = "INVALID_REQUEST"
