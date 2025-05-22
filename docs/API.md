@@ -124,3 +124,28 @@ The response is a JSON object with fields:
   - `max`: integer, maximum number of users seen
 - `channels`: integer, total number of active channels
 - `servers`: integer, always 1 (as this API only represents the local server instance)
+
+`/v1/account_list`
+------------------
+
+This endpoint returns a list of registered accounts. It accepts an optional JSON body with filter and limit parameters to restrict the results. Pagination via offset is **not supported**.
+
+### Request
+
+- Method: `GET`
+- Content-Type: `application/json`
+- Headers:
+  - `Authorization`: Bearer token (required)
+- Body (optional JSON):
+  - `limit`: integer, maximum number of accounts to return. If omitted or 0, all matching accounts are returned.
+  - `filter`: string, optional substring to filter account names (case-insensitive).
+
+### Response
+
+The response is a JSON object with fields:
+
+- `accounts`: array of objects, each representing an account with:
+  - `success`: boolean, true if account details were loaded successfully
+  - `accountName`: string, the account name
+  - `email`: string, email associated with the account (may be empty)
+- `totalCount`: integer, total number of accounts matching the filter (before applying limit)

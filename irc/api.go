@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"github.com/tidwall/buntdb"
 )
 
 func newAPIHandler(server *Server) http.Handler {
@@ -21,6 +22,7 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
 	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
 	api.mux.HandleFunc("POST /v1/ns_info", api.handleNsInfo)
+	api.mux.HandleFunc("GET /v1/account_list", api.handleAccountList)
 	api.mux.HandleFunc("GET /v1/healthcheck", api.handleHealthCheck)
 
 	return api
@@ -118,7 +120,7 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	var response apiCheckAuthResponse
 
-    // try passphrase if present
+	// try passphrase if present
 
 	if request.AccountName != "" && request.Passphrase != "" {
 		// TODO this only checks the internal database, not auth-script;
@@ -280,6 +282,91 @@ func (a *ergoAPI) handleNsInfo(w http.ResponseWriter, r *http.Request) {
 
 	a.writeJSONResponse(response, w, r)
 }
+
+type apiAccountListRequest struct {
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+	Filter string `json:"filter,omitempty"`
+}
+
+type apiAccountListResponse struct {
+	Accounts   []apiAccountDetailsResponse `json:"accounts"`
+	TotalCount int                         `json:"totalCount"`
+}
+
+func (a *ergoAPI) handleAccountList(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Limit  int    `json:"limit,omitempty"`
+		Filter string `json:"filter,omitempty"`
+	}
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	var response apiAccountListResponse
+	var accounts []string
+
+	// Get all account names
+	accountNamePrefix := fmt.Sprintf(keyAccountName, "")
+	a.server.store.View(func(tx *buntdb.Tx) error {
+		return tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
+			if !strings.HasPrefix(key, accountNamePrefix) {
+				return false
+			}
+			accounts = append(accounts, value)
+			return true
+		})
+	})
+
+	response.TotalCount = len(accounts)
+
+	// Apply filtering if requested
+	if request.Filter != "" {
+		filtered := make([]string, 0, len(accounts))
+		cfFilter, _ := CasefoldName(request.Filter)
+		for _, account := range accounts {
+			cfAccount, _ := CasefoldName(account)
+			if strings.Contains(cfAccount, cfFilter) || strings.Contains(account, request.Filter) {
+				filtered = append(filtered, account)
+			}
+		}
+		accounts = filtered
+		response.TotalCount = len(accounts) // update total count after filter
+	}
+
+	// Apply limit if requested
+	if request.Limit > 0 && request.Limit < len(accounts) {
+		accounts = accounts[:request.Limit]
+	}
+
+	// Load account details
+	response.Accounts = make([]apiAccountDetailsResponse, len(accounts))
+	for i, account := range accounts {
+		accountData, err := a.server.accounts.LoadAccount(account)
+		if err != nil {
+			response.Accounts[i] = apiAccountDetailsResponse{
+				apiGenericResponse: apiGenericResponse{
+					Success: false,
+					Error:   err.Error(),
+				},
+			}
+			continue
+		}
+
+		response.Accounts[i] = apiAccountDetailsResponse{
+			apiGenericResponse: apiGenericResponse{
+				Success: true,
+			},
+			AccountName: accountData.Name,
+			Email:       accountData.Settings.Email,
+		}
+	}
+
+	a.writeJSONResponse(response, w, r)
+}
+
+
+
 
 type healthCheckResponse struct {
 	Version   string `json:"version"`
