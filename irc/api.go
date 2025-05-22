@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strings"
+	"time"
 )
 
 func newAPIHandler(server *Server) http.Handler {
@@ -19,6 +21,7 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
 	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
 	api.mux.HandleFunc("POST /v1/ns_info", api.handleNsInfo)
+	api.mux.HandleFunc("GET /v1/healthcheck", api.handleHealthCheck)
 
 	return api
 }
@@ -30,7 +33,6 @@ type ergoAPI struct {
 
 func (a *ergoAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer a.server.HandlePanic(nil)
-
 	defer a.server.logger.Debug("api", r.URL.Path)
 
 	if a.checkBearerAuth(r.Header.Get("Authorization")) {
@@ -116,7 +118,8 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	var response apiCheckAuthResponse
 
-	// try passphrase if present
+    // try passphrase if present
+
 	if request.AccountName != "" && request.Passphrase != "" {
 		// TODO this only checks the internal database, not auth-script;
 		// it's a little weird to use both auth-script and the API but we should probably handle it
@@ -230,10 +233,10 @@ type apiNsInfoRequest struct {
 
 type apiNsInfoResponse struct {
 	apiGenericResponse
-	AccountName    string   `json:"accountName,omitempty"`
-	RegisteredAt   string   `json:"registeredAt,omitempty"`
-	Channels       []string `json:"channels,omitempty"`
-	ChannelCount   int      `json:"channelCount,omitempty"`
+	AccountName  string   `json:"accountName,omitempty"`
+	RegisteredAt string   `json:"registeredAt,omitempty"`
+	Channels     []string `json:"channels,omitempty"`
+	ChannelCount int      `json:"channelCount,omitempty"`
 }
 
 func (a *ergoAPI) handleNsInfo(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +277,43 @@ func (a *ergoAPI) handleNsInfo(w http.ResponseWriter, r *http.Request) {
 		response.Success = false
 		response.ErrorCode = "INVALID_REQUEST"
 	}
+
+	a.writeJSONResponse(response, w, r)
+}
+
+type healthCheckResponse struct {
+	Version   string `json:"version"`
+	GoVersion string `json:"go_version"`
+	StartTime string `json:"start_time"`
+	Users     struct {
+		Total     int `json:"total"`
+		Invisible int `json:"invisible"`
+		Operators int `json:"operators"`
+		Unknown   int `json:"unknown"`
+		Max       int `json:"max"`
+	} `json:"users"`
+	Channels int `json:"channels"`
+	Servers  int `json:"servers"`
+}
+
+func (a *ergoAPI) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+	server := a.server
+	stats := server.stats.GetValues()
+
+	response := healthCheckResponse{
+		Version:   Ver,
+		GoVersion: runtime.Version(),
+		StartTime: server.ctime.Format(time.RFC3339),
+	}
+
+	response.Users.Total = stats.Total
+	response.Users.Invisible = stats.Invisible
+	response.Users.Operators = stats.Operators
+	response.Users.Unknown = stats.Unknown
+	response.Users.Max = stats.Max
+
+	response.Channels = server.channels.Len()
+	response.Servers = 1
 
 	a.writeJSONResponse(response, w, r)
 }

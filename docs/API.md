@@ -104,3 +104,23 @@ The response is a JSON object with fields:
 * `channelCount`: integer, count of registered channels
 * `errorCode`: string, optional, machine-readable description of the error
 * `error`: string, optional, human-readable description of the failure
+
+
+`/v1/healthcheck`
+----------------
+
+This endpoint returns the current health and runtime state of the server. The request takes no body.
+
+The response is a JSON object with fields:
+
+- `version`: string, the running version of the server
+- `go_version`: string, Go runtime version
+- `start_time`: string, RFC3339 timestamp of server start time
+- `users`: object with the following fields:
+  - `total`: integer, total connected users
+  - `invisible`: integer, users marked as invisible
+  - `operators`: integer, users with IRC operator status
+  - `unknown`: integer, users whose status is unknown
+  - `max`: integer, maximum number of users seen
+- `channels`: integer, total number of active channels
+- `servers`: integer, always 1 (as this API only represents the local server instance)
