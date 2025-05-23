@@ -45,7 +45,7 @@ type MessageCache struct {
 
 func addAllTags(msg *ircmsg.Message, tags map[string]string, serverTime time.Time, msgid, accountName string, isBot bool) {
 	msg.UpdateTags(tags)
-	msg.SetTag("time", serverTime.Format(IRCv3TimestampFormat))
+	msg.SetTag("time", serverTime.Format(utils.IRCv3TimestampFormat))
 	if accountName != "*" {
 		msg.SetTag("account", accountName)
 	}

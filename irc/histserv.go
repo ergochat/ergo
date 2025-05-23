@@ -164,7 +164,7 @@ func histservExportHandler(service *ircService, server *Server, client *Client, 
 
 	config := server.Config()
 	// don't include the account name in the filename because of escaping concerns
-	filename := fmt.Sprintf("%s-%s.json", utils.GenerateSecretToken(), time.Now().UTC().Format(IRCv3TimestampFormat))
+	filename := fmt.Sprintf("%s-%s.json", utils.GenerateSecretToken(), time.Now().UTC().Format(utils.IRCv3TimestampFormat))
 	pathname := config.getOutputPath(filename)
 	outfile, err := os.Create(pathname)
 	if err != nil {

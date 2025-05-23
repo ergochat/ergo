@@ -517,7 +517,7 @@ func (client *Client) GetReadMarker(cfname string) (result string) {
 	t, ok := client.readMarkers[cfname]
 	client.stateMutex.RUnlock()
 	if ok {
-		return fmt.Sprintf("timestamp=%s", t.Format(IRCv3TimestampFormat))
+		return fmt.Sprintf("timestamp=%s", t.Format(utils.IRCv3TimestampFormat))
 	}
 	return "*"
 }

@@ -41,8 +41,7 @@ const (
 	DefaultMaxLineLen = 512
 
 	// IdentTimeout is how long before our ident (username) check times out.
-	IdentTimeout         = time.Second + 500*time.Millisecond
-	IRCv3TimestampFormat = utils.IRCv3TimestampFormat
+	IdentTimeout = time.Second + 500*time.Millisecond
 	// limit the number of device IDs a client can use, as a DoS mitigation
 	maxDeviceIDsPerClient = 64
 	// maximum total read markers that can be stored
@@ -1463,7 +1462,7 @@ func (session *Session) sendFromClientInternal(blocking bool, serverTime time.Ti
 
 func composeMultilineBatch(batchID, fromNickMask, fromAccount string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) (result []ircmsg.Message) {
 	batchStart := ircmsg.MakeMessage(tags, fromNickMask, "BATCH", "+"+batchID, caps.MultilineBatchType, target)
-	batchStart.SetTag("time", message.Time.Format(IRCv3TimestampFormat))
+	batchStart.SetTag("time", message.Time.Format(utils.IRCv3TimestampFormat))
 	batchStart.SetTag("msgid", message.Msgid)
 	if fromAccount != "*" {
 		batchStart.SetTag("account", fromAccount)
@@ -1571,7 +1570,7 @@ func (session *Session) setTimeTag(msg *ircmsg.Message, serverTime time.Time) {
 		if serverTime.IsZero() {
 			serverTime = time.Now()
 		}
-		msg.SetTag("time", serverTime.UTC().Format(IRCv3TimestampFormat))
+		msg.SetTag("time", serverTime.UTC().Format(utils.IRCv3TimestampFormat))
 	}
 }
 
