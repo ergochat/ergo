@@ -719,7 +719,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 				for _, target := range targets {
 					name := server.UnfoldName(target.CfName)
 					rb.Add(nil, server.name, "CHATHISTORY", "TARGETS", name,
-						target.Time.Format(IRCv3TimestampFormat))
+						target.Time.Format(utils.IRCv3TimestampFormat))
 				}
 			} else if channel != nil {
 				channel.replayHistoryItems(rb, items, true)
@@ -754,7 +754,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			msgid, err = history.NormalizeMsgid(value), nil
 			return
 		} else if identifier == "timestamp" {
-			timestamp, err = time.Parse(IRCv3TimestampFormat, value)
+			timestamp, err = time.Parse(utils.IRCv3TimestampFormat, value)
 			if err == nil {
 				timestamp = timestamp.UTC()
 				if timestamp.Before(unixEpoch) {
@@ -3055,14 +3055,14 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	// "MARKREAD client set command": MARKREAD <target> <timestamp>
 	readTimestamp := strings.TrimPrefix(msg.Params[1], "timestamp=")
-	readTime, err := time.Parse(IRCv3TimestampFormat, readTimestamp)
+	readTime, err := time.Parse(utils.IRCv3TimestampFormat, readTimestamp)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "MARKREAD", "INVALID_PARAMS", utils.SafeErrorParam(readTimestamp), client.t("Invalid timestamp"))
 		return
 	}
 	readTime = readTime.UTC()
 	result := client.SetReadMarker(cftarget, readTime)
-	readTimestamp = fmt.Sprintf("timestamp=%s", result.Format(IRCv3TimestampFormat))
+	readTimestamp = fmt.Sprintf("timestamp=%s", result.Format(utils.IRCv3TimestampFormat))
 	// inform the originating session whether it was a success or a no-op:
 	rb.Add(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
 	if result.Equal(readTime) {
