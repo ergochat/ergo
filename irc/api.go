@@ -334,6 +334,7 @@ type StatusResponse struct {
 	apiGenericResponse
 	Version   string `json:"version"`
 	GoVersion string `json:"go_version"`
+	Commit    string `json:"commit,omitempty"`
 	StartTime string `json:"start_time"`
 	Users     struct {
 		Total     int `json:"total"`
@@ -354,6 +355,7 @@ func (a *ergoAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		apiGenericResponse: apiGenericResponse{Success: true},
 		Version:            SemVer,
 		GoVersion:          runtime.Version(),
+		Commit:             Commit,
 		StartTime:          server.ctime.Format(utils.IRCv3TimestampFormat),
 	}
 
