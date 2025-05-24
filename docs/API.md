@@ -88,64 +88,51 @@ The response is a JSON object with fields:
 * `error`: string, optional, human-readable description of the failure.
 
 
-`/v1/ns_info`  
-----------------
+`/v1/ns_info`
+--------------
 
-This endpoint retrieves account information similar to the IRC command `/msg NickServ INFO <nick>`. The request is a JSON object with fields:
+This endpoint fetches NickServ information about a given nickname. The request is a JSON object with fields:
 
-* `nick`: string, nickname to look up
-
-The response is a JSON object with fields:
-
-* `success`: whether the lookup succeeded
-* `accountName`: string, canonical account name if found
-* `registeredAt`: string, timestamp of account registration in [RFC1123 format](https://datatracker.ietf.org/doc/html/rfc1123) (e.g., `"Mon, 02 Jan 2006 15:04:05 UTC"`)
-* `channels`: array of strings, channels registered to the account
-* `channelCount`: integer, count of registered channels
-* `errorCode`: string, optional, machine-readable description of the error
-* `error`: string, optional, human-readable description of the failure
-
-
-`/v1/healthcheck`
-----------------
-
-This endpoint returns the current health and runtime state of the server. The request takes no body.
+* `nick`: string, the nickname to query
 
 The response is a JSON object with fields:
 
-- `version`: string, the running version of the server
-- `go_version`: string, Go runtime version
-- `start_time`: string, RFC3339 timestamp of server start time
-- `users`: object with the following fields:
-  - `total`: integer, total connected users
-  - `invisible`: integer, users marked as invisible
-  - `operators`: integer, users with IRC operator status
-  - `unknown`: integer, users whose status is unknown
-  - `max`: integer, maximum number of users seen
-- `channels`: integer, total number of active channels
-- `servers`: integer, always 1 (as this API only represents the local server instance)
+* `success`: whether the query was successful
+* `accountName`: canonical, case-unfolded version of the account name associated with the nick
+* `registeredAt`: string, registration date/time of the account (in RFC1123 format)
+* `channels`: array of strings, list of channels the account is registered on or associated with
+
 
 `/v1/account_list`
-------------------
+-------------------
 
-This endpoint returns a list of registered accounts. It accepts an optional JSON body with filter and limit parameters to restrict the results. Pagination via offset is **not supported**.
-
-### Request
-
-- Method: `GET`
-- Content-Type: `application/json`
-- Headers:
-  - `Authorization`: Bearer token (required)
-- Body (optional JSON):
-  - `limit`: integer, maximum number of accounts to return. If omitted or 0, all matching accounts are returned.
-  - `filter`: string, optional substring to filter account names (case-insensitive).
-
-### Response
+This endpoint fetches a list of all accounts. The request body is ignored and can be empty.
 
 The response is a JSON object with fields:
 
-- `accounts`: array of objects, each representing an account with:
-  - `success`: boolean, true if account details were loaded successfully
-  - `accountName`: string, the account name
-  - `email`: string, email associated with the account (may be empty)
-- `totalCount`: integer, total number of accounts matching the filter (before applying limit)
+* `success`: whether the request succeeded
+* `accounts`: array of objects, each with fields:
+  * `success`: boolean, whether this individual account query succeeded
+  * `accountName`: string, canonical, case-unfolded version of the account name
+* `totalCount`: integer, total number of accounts returned
+
+
+`/v1/status`
+-------------
+
+This endpoint returns status information about the running Ergo server. The request body is ignored and can be empty.
+
+The response is a JSON object with fields:
+
+* `success`: whether the request succeeded
+* `version`: string, Ergo server version string
+* `go_version`: string, version of Go runtime used
+* `start_time`: string, server start time in ISO8601 format
+* `users`: object with fields:
+  * `total`: total number of users connected
+  * `invisible`: number of invisible users
+  * `operators`: number of operators connected
+  * `unknown`: number of users with unknown status
+  * `max`: maximum number of users seen connected at once
+* `channels`: integer, number of channels currently active
+* `servers`: integer, number of servers connected in the network
