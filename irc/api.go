@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"github.com/ergochat/ergo/irc/utils"
-
-	"github.com/tidwall/buntdb"
 )
 
 func newAPIHandler(server *Server) http.Handler {
@@ -123,8 +121,6 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	// try passphrase if present
 	if request.AccountName != "" && request.Passphrase != "" {
-		// TODO this only checks the internal database, not auth-script;
-		// it's a little weird to use both auth-script and the API but we should probably handle it
 		account, err := a.server.accounts.checkPassphrase(request.AccountName, request.Passphrase)
 		switch err {
 		case nil:
@@ -195,8 +191,6 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var response apiAccountDetailsResponse
-
-	// TODO could probably use better error handling and more details
 
 	if request.AccountName != "" {
 		accountData, err := a.server.accounts.LoadAccount(request.AccountName)
@@ -287,20 +281,9 @@ type apiAccountListResponse struct {
 
 func (a *ergoAPI) handleAccountList(w http.ResponseWriter, r *http.Request) {
 	var response apiAccountListResponse
-	var accounts []string
 
 	// Get all account names
-	accountNamePrefix := fmt.Sprintf(keyAccountName, "")
-	a.server.store.View(func(tx *buntdb.Tx) error {
-		return tx.AscendGreaterOrEqual("", accountNamePrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, accountNamePrefix) {
-				return false
-			}
-			accounts = append(accounts, value)
-			return true
-		})
-	})
-
+	accounts := a.server.accounts.AllNicks()
 	response.TotalCount = len(accounts)
 
 	// Load account details
