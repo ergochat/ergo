@@ -51,6 +51,8 @@ The response is a JSON object with fields:
 * `success`: whether the account exists or not
 * `accountName`: canonical, case-unfolded version of the account name
 * `email`: email address of the account provided
+* `registeredAt`: string, registration date/time of the account (in ISO8601 format)
+* `channels`: array of strings, list of channels the account is registered on or associated with
 
 `/v1/check_auth`
 ----------------
@@ -86,3 +88,37 @@ The response is a JSON object with fields:
 * `success`: whether the account creation succeeded
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
+
+`/v1/account_list`
+-------------------
+
+This endpoint fetches a list of all accounts. The request body is ignored and can be empty.
+
+The response is a JSON object with fields:
+
+* `success`: whether the request succeeded
+* `accounts`: array of objects, each with fields:
+  * `success`: boolean, whether this individual account query succeeded
+  * `accountName`: string, canonical, case-unfolded version of the account name
+* `totalCount`: integer, total number of accounts returned
+
+
+`/v1/status`
+-------------
+
+This endpoint returns status information about the running Ergo server. The request body is ignored and can be empty.
+
+The response is a JSON object with fields:
+
+* `success`: whether the request succeeded
+* `version`: string, Ergo server version string
+* `go_version`: string, version of Go runtime used
+* `start_time`: string, server start time in ISO8601 format
+* `users`: object with fields:
+  * `total`: total number of users connected
+  * `invisible`: number of invisible users
+  * `operators`: number of operators connected
+  * `unknown`: number of users with unknown status
+  * `max`: maximum number of users seen connected at once
+* `channels`: integer, number of channels currently active
+* `servers`: integer, number of servers connected in the network

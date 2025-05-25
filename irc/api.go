@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strings"
+
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 func newAPIHandler(server *Server) http.Handler {
@@ -18,6 +21,8 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
 	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
+	api.mux.HandleFunc("POST /v1/account_list", api.handleAccountList)
+	api.mux.HandleFunc("POST /v1/status", api.handleStatus)
 
 	return api
 }
@@ -29,7 +34,6 @@ type ergoAPI struct {
 
 func (a *ergoAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer a.server.HandlePanic(nil)
-
 	defer a.server.logger.Debug("api", r.URL.Path)
 
 	if a.checkBearerAuth(r.Header.Get("Authorization")) {
@@ -117,8 +121,6 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	// try passphrase if present
 	if request.AccountName != "" && request.Passphrase != "" {
-		// TODO this only checks the internal database, not auth-script;
-		// it's a little weird to use both auth-script and the API but we should probably handle it
 		account, err := a.server.accounts.checkPassphrase(request.AccountName, request.Passphrase)
 		switch err {
 		case nil:
@@ -133,7 +135,6 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 			response.Error = err.Error()
 		}
 	}
-
 	// try certfp if present
 	if !response.Success && request.Certfp != "" {
 		// TODO support cerftp
@@ -175,8 +176,10 @@ func (a *ergoAPI) handleSaregister(w http.ResponseWriter, r *http.Request) {
 
 type apiAccountDetailsResponse struct {
 	apiGenericResponse
-	AccountName string `json:"accountName,omitempty"`
-	Email       string `json:"email,omitempty"`
+	AccountName  string   `json:"accountName,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	RegisteredAt string   `json:"registeredAt,omitempty"`
+	Channels     []string `json:"channels,omitempty"`
 }
 
 type apiAccountDetailsRequest struct {
@@ -190,8 +193,6 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var response apiAccountDetailsResponse
-
-	// TODO could probably use better error handling and more details
 
 	if request.AccountName != "" {
 		accountData, err := a.server.accounts.LoadAccount(request.AccountName)
@@ -207,6 +208,12 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 		case nil:
 			response.AccountName = accountData.Name
 			response.Email = accountData.Settings.Email
+			if !accountData.RegisteredAt.IsZero() {
+				response.RegisteredAt = accountData.RegisteredAt.Format(utils.IRCv3TimestampFormat)
+			}
+
+			// Get channels the account is in
+			response.Channels = a.server.channels.ChannelsForAccount(accountData.NameCasefolded)
 			response.Success = true
 		case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended:
 			response.Success = false
@@ -219,6 +226,86 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 		response.Success = false
 		response.ErrorCode = "INVALID_REQUEST"
 	}
+
+	a.writeJSONResponse(response, w, r)
+}
+
+type apiAccountListResponse struct {
+	apiGenericResponse
+	Accounts   []apiAccountDetailsResponse `json:"accounts"`
+	TotalCount int                         `json:"totalCount"`
+}
+
+func (a *ergoAPI) handleAccountList(w http.ResponseWriter, r *http.Request) {
+	var response apiAccountListResponse
+
+	// Get all account names
+	accounts := a.server.accounts.AllNicks()
+	response.TotalCount = len(accounts)
+
+	// Load account details
+	response.Accounts = make([]apiAccountDetailsResponse, len(accounts))
+	for i, account := range accounts {
+		accountData, err := a.server.accounts.LoadAccount(account)
+		if err != nil {
+			response.Accounts[i] = apiAccountDetailsResponse{
+				apiGenericResponse: apiGenericResponse{
+					Success: false,
+					Error:   err.Error(),
+				},
+			}
+			continue
+		}
+
+		response.Accounts[i] = apiAccountDetailsResponse{
+			apiGenericResponse: apiGenericResponse{
+				Success: true,
+			},
+			AccountName: accountData.Name,
+			Email:       accountData.Settings.Email,
+		}
+	}
+
+	response.Success = true
+	a.writeJSONResponse(response, w, r)
+}
+
+type apiStatusResponse struct {
+	apiGenericResponse
+	Version   string `json:"version"`
+	GoVersion string `json:"go_version"`
+	Commit    string `json:"commit,omitempty"`
+	StartTime string `json:"start_time"`
+	Users     struct {
+		Total     int `json:"total"`
+		Invisible int `json:"invisible"`
+		Operators int `json:"operators"`
+		Unknown   int `json:"unknown"`
+		Max       int `json:"max"`
+	} `json:"users"`
+	Channels int `json:"channels"`
+	Servers  int `json:"servers"`
+}
+
+func (a *ergoAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
+	server := a.server
+	stats := server.stats.GetValues()
+
+	response := apiStatusResponse{
+		apiGenericResponse: apiGenericResponse{Success: true},
+		Version:            SemVer,
+		GoVersion:          runtime.Version(),
+		Commit:             Commit,
+		StartTime:          server.ctime.Format(utils.IRCv3TimestampFormat),
+	}
+
+	response.Users.Total = stats.Total
+	response.Users.Invisible = stats.Invisible
+	response.Users.Operators = stats.Operators
+	response.Users.Unknown = stats.Unknown
+	response.Users.Max = stats.Max
+	response.Channels = server.channels.Len()
+	response.Servers = 1
 
 	a.writeJSONResponse(response, w, r)
 }
