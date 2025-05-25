@@ -51,6 +51,8 @@ The response is a JSON object with fields:
 * `success`: whether the account exists or not
 * `accountName`: canonical, case-unfolded version of the account name
 * `email`: email address of the account provided
+* `registeredAt`: string, registration date/time of the account (in ISO8601 format)
+* `channels`: array of strings, list of channels the account is registered on or associated with
 
 `/v1/check_auth`
 ----------------
@@ -86,22 +88,6 @@ The response is a JSON object with fields:
 * `success`: whether the account creation succeeded
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
-
-
-`/v1/ns_info`
---------------
-
-This endpoint fetches NickServ information about a given nickname. The request is a JSON object with fields:
-
-* `nick`: string, the nickname to query
-
-The response is a JSON object with fields:
-
-* `success`: whether the query was successful
-* `accountName`: canonical, case-unfolded version of the account name associated with the nick
-* `registeredAt`: string, registration date/time of the account (in RFC1123 format)
-* `channels`: array of strings, list of channels the account is registered on or associated with
-
 
 `/v1/account_list`
 -------------------
