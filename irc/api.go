@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+
 	"github.com/ergochat/ergo/irc/utils"
 )
 
