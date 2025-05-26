@@ -44,10 +44,11 @@ func (b *buntdbDatastore) GetAll(table datastore.Table) (result []datastore.KV, 
 	tablePrefix := fmt.Sprintf("%x ", table)
 	err = b.db.View(func(tx *buntdb.Tx) error {
 		err := tx.AscendGreaterOrEqual("", tablePrefix, func(key, value string) bool {
-			if !strings.HasPrefix(key, tablePrefix) {
+			encUUID, ok := strings.CutPrefix(key, tablePrefix)
+			if !ok {
 				return false
 			}
-			uuid, err := utils.DecodeUUID(strings.TrimPrefix(key, tablePrefix))
+			uuid, err := utils.DecodeUUID(encUUID)
 			if err == nil {
 				result = append(result, datastore.KV{UUID: uuid, Value: []byte(value)})
 			} else {

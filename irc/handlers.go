@@ -149,11 +149,8 @@ func (server *Server) sendLoginSnomask(nickMask, accountName string) {
 // to indicate that it should be removed from the list
 func acceptHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	for _, tNick := range strings.Split(msg.Params[0], ",") {
-		add := true
-		if strings.HasPrefix(tNick, "-") {
-			add = false
-			tNick = strings.TrimPrefix(tNick, "-")
-		}
+		tNick, negPrefix := strings.CutPrefix(tNick, "-")
+		add := !negPrefix
 
 		target := server.clients.Get(tNick)
 		if target == nil {
@@ -4118,9 +4115,9 @@ func zncHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 // fake handler for unknown commands
 func unknownCommandHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	var message string
-	if strings.HasPrefix(msg.Command, "/") {
+	if trimmedCmd, initialSlash := strings.CutPrefix(msg.Command, "/"); initialSlash {
 		message = fmt.Sprintf(client.t("Unknown command; if you are using /QUOTE, the correct syntax is /QUOTE %[1]s, not /QUOTE %[2]s"),
-			strings.TrimPrefix(msg.Command, "/"), msg.Command)
+			trimmedCmd, msg.Command)
 	} else {
 		message = client.t("Unknown command")
 	}
