@@ -1055,10 +1055,10 @@ func nsSaregisterHandler(service *ircService, server *Server, client *Client, co
 		var failCode string
 		if err == errAccountAlreadyRegistered || err == errAccountAlreadyVerified {
 			errMsg = client.t("Account already exists")
-			failCode = "USERNAME_EXISTS"
+			failCode = "ACCOUNT_EXISTS"
 		} else if err == errNameReserved {
 			errMsg = client.t(err.Error())
-			failCode = "USERNAME_EXISTS"
+			failCode = "BAD_ACCOUNT_NAME"
 		} else if err == errAccountBadPassphrase {
 			errMsg = client.t("Passphrase contains forbidden characters or is otherwise invalid")
 			failCode = "INVALID_PASSWORD"
