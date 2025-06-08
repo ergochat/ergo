@@ -2907,9 +2907,21 @@ func quitHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 // REGISTER < account | * > < email | * > <password>
 func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
-	accountName := client.Nick()
-	if accountName == "*" {
+	var accountName string
+	if client.registered {
+		accountName = client.Nick()
+	} else {
 		accountName = client.preregNick
+	}
+
+	config := server.Config()
+	if client.registered && config.Accounts.NickReservation.ForceGuestFormat {
+		matches := config.Accounts.NickReservation.guestRegexp.FindStringSubmatch(accountName)
+		if matches == nil || len(matches) < 2 {
+			rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_USERNAME", utils.SafeErrorParam(accountName), client.t("Username invalid or not given"))
+			return
+		}
+		accountName = matches[1]
 	}
 
 	switch msg.Params[0] {
@@ -2928,7 +2940,6 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		return
 	}
 
-	config := server.Config()
 	if !config.Accounts.Registration.Enabled {
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "DISALLOWED", accountName, client.t("Account registration is disabled"))
 		return

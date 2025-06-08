@@ -522,7 +522,7 @@ accounts:
         # 1. these nicknames cannot be registered or reserved
         # 2. if a client is automatically renamed by the server,
         #    this is the template that will be used (e.g., Guest-nccj6rgmt97cg)
-        # 3. if enforce-guest-format (see below) is enabled, clients without
+        # 3. if force-guest-format (see below) is enabled, clients without
         #    a registered account will have this template applied to their
         #    nicknames (e.g., 'katie' will become 'Guest-katie')
         guest-nickname-format: "Guest-*"
