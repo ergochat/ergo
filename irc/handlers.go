@@ -2974,7 +2974,7 @@ func registerHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			announcePendingReg(client, rb, accountName)
 		}
 	case errAccountAlreadyRegistered, errAccountAlreadyUnregistered, errAccountMustHoldNick:
-		rb.Add(nil, server.name, "FAIL", "REGISTER", "USERNAME_EXISTS", accountName, client.t("Username is already registered or otherwise unavailable"))
+		rb.Add(nil, server.name, "FAIL", "REGISTER", "ACCOUNT_EXISTS", accountName, client.t("Username is already registered or otherwise unavailable"))
 	case errAccountBadPassphrase:
 		rb.Add(nil, server.name, "FAIL", "REGISTER", "INVALID_PASSWORD", accountName, client.t("Password was invalid"))
 	default:
