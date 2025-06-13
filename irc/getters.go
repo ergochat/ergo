@@ -891,10 +891,7 @@ func (channel *Channel) GetMetadata(key string) (string, bool) {
 	defer channel.stateMutex.RUnlock()
 
 	val, ok := channel.metadata[key]
-	if !ok {
-		return "", false
-	}
-	return val, true
+	return val, ok
 }
 
 func (channel *Channel) SetMetadata(key string, value string) {
@@ -990,10 +987,6 @@ func (client *Client) ClearMetadata() map[string]string {
 func (client *Client) CountMetadata() int {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
-
-	if client.metadata == nil {
-		return 0
-	}
 
 	return len(client.metadata)
 }
