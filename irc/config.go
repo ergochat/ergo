@@ -723,6 +723,14 @@ type Config struct {
 		} `yaml:"tagmsg-storage"`
 	}
 
+	Metadata struct {
+		// BeforeConnect       int `yaml:"before-connect"` todo: this
+		Enabled       bool
+		MaxSubs       int `yaml:"max-subs"`
+		MaxKeys       int `yaml:"max-keys"`
+		MaxValueBytes int `yaml:"max-value-length"`
+	}
+
 	WebPush struct {
 		Enabled          bool
 		Timeout          time.Duration
@@ -1635,6 +1643,25 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if !utils.IsHostname(config.Server.Cloaks.Netname) {
 			return nil, fmt.Errorf("Invalid netname for cloaked hostnames: %s", config.Server.Cloaks.Netname)
 		}
+	}
+
+	if !config.Metadata.Enabled {
+		config.Server.supportedCaps.Disable(caps.MetadataTwoJudgementDay)
+	} else {
+		var metadataValues []string
+		if config.Metadata.MaxSubs >= 0 {
+			metadataValues = append(metadataValues, fmt.Sprintf("max-subs=%d", config.Metadata.MaxSubs))
+		}
+		if config.Metadata.MaxKeys > 0 {
+			metadataValues = append(metadataValues, fmt.Sprintf("max-keys=%d", config.Metadata.MaxKeys))
+		}
+		if config.Metadata.MaxValueBytes > 0 {
+			metadataValues = append(metadataValues, fmt.Sprintf("max-value-bytes=%d", config.Metadata.MaxValueBytes))
+		}
+		if len(metadataValues) != 0 {
+			config.Server.capValues[caps.MetadataTwoJudgementDay] = strings.Join(metadataValues, ",")
+		}
+
 	}
 
 	err = config.processExtjwt()

@@ -55,6 +55,7 @@ type Channel struct {
 	dirtyBits         uint
 	settings          ChannelSettings
 	uuid              utils.UUID
+	metadata          MetadataStore
 	// these caches are paired to allow iteration over channel members without holding the lock
 	membersCache    []*Client
 	memberDataCache []*memberData
@@ -126,6 +127,7 @@ func (channel *Channel) applyRegInfo(chanReg RegisteredChannel) {
 	channel.userLimit = chanReg.UserLimit
 	channel.settings = chanReg.Settings
 	channel.forward = chanReg.Forward
+	channel.metadata = chanReg.Metadata
 
 	for _, mode := range chanReg.Modes {
 		channel.flags.SetMode(mode, true)
@@ -163,6 +165,7 @@ func (channel *Channel) ExportRegistration() (info RegisteredChannel) {
 	info.AccountToUMode = maps.Clone(channel.accountToUMode)
 
 	info.Settings = channel.settings
+	info.Metadata = channel.metadata
 
 	return
 }

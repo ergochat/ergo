@@ -63,6 +63,8 @@ type RegisteredChannel struct {
 	Invites map[string]MaskInfo
 	// Settings are the chanserv-modifiable settings
 	Settings ChannelSettings
+	// Metadata set using the METADATA command
+	Metadata MetadataStore
 }
 
 func (r *RegisteredChannel) Serialize() ([]byte, error) {

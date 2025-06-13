@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 37
+	numCapabs = 38
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -64,6 +64,10 @@ const (
 	// MessageRedaction is the proposed IRCv3 capability named "draft/message-redaction":
 	// https://github.com/progval/ircv3-specifications/blob/redaction/extensions/message-redaction.md
 	MessageRedaction Capability = iota
+
+	// MetadataTwoJudgementDay is the draft IRCv3 capability named "draft/metadata-2":
+	// https://ircv3.net/specs/extensions/metadata
+	MetadataTwoJudgementDay Capability = iota
 
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398
@@ -178,6 +182,7 @@ var (
 		"draft/extended-isupport",
 		"draft/languages",
 		"draft/message-redaction",
+		"draft/metadata-2",
 		"draft/multiline",
 		"draft/no-implicit-names",
 		"draft/persistence",

@@ -3097,6 +3097,206 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	return
 }
 
+// METADATA <target> <subcommand> [<and so on>...]
+func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
+	originalTarget := msg.Params[0]
+	target := originalTarget
+
+	if !server.Config().Metadata.Enabled {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", originalTarget, "Metadata is disabled on this server")
+		return
+	}
+
+	subcommand := strings.ToLower(msg.Params[1])
+
+	invalidTarget := func() {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", originalTarget, client.t("Invalid metadata target"))
+	}
+	noKeyPerms := func(key string) {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", originalTarget, key, client.t("You do not have permission to perform this action"))
+	}
+
+	if target == "*" {
+		target = client.Nick()
+	}
+
+	targetClient := server.clients.Get(target)
+	targetChannel := server.channels.Get(target)
+	if !metadataCanISeeThisTarget(client, target) {
+		invalidTarget()
+		return
+	}
+
+	var t MetadataHaver
+	if targetClient != nil {
+		t = targetClient
+	}
+	if targetChannel != nil {
+		t = targetChannel
+	}
+	if t == nil {
+		invalidTarget()
+		return
+	}
+
+	needsKey := subcommand == "set" || subcommand == "get" || subcommand == "sub" || subcommand == "unsub"
+	if needsKey && len(msg.Params) <= 2 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		return
+	}
+
+	switch subcommand {
+	case "set":
+		key := strings.ToLower(msg.Params[2])
+		if metadataKeyIsEvil(key) {
+			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+			return
+		}
+
+		if !metadataCanIEditThisKey(client, target, key) {
+			noKeyPerms(key)
+			return
+		}
+
+		if len(msg.Params) > 3 {
+			value := msg.Params[3]
+			const maxCombinedLen = 350
+
+			if len(key)+len(value) > maxCombinedLen {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("Value is too long"))
+				return
+			}
+
+			server.logger.Debug("metadata", "setting", key, value, "on", target)
+
+			t.SetMetadata(key, value)
+			notifySubscribers(server, rb.session, target, key, value)
+
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
+		} else {
+			server.logger.Debug("metadata", "deleting", key, "on", target)
+			t.DeleteMetadata(key)
+			notifySubscribers(server, rb.session, target, key, "")
+
+			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
+		}
+
+	case "get":
+		batchId := rb.StartNestedBatch("metadata")
+		defer rb.EndNestedBatch(batchId)
+
+		for _, key := range msg.Params[2:] {
+			if metadataKeyIsEvil(key) {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+				continue
+			}
+
+			val, err := t.GetMetadata(key)
+			if err == errMetadataNotFound {
+				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key is not set"))
+				continue
+			}
+
+			visibility := "*"
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+		}
+
+	case "list":
+		values := t.ListMetadata()
+
+		batchId := rb.StartNestedBatch("metadata")
+		defer rb.EndNestedBatch(batchId)
+
+		for key, val := range values {
+			visibility := "*"
+
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+		}
+
+	case "clear":
+		if !metadataCanIEditThisTarget(client, target) {
+			invalidTarget()
+			return
+		}
+
+		values := t.ClearMetadata()
+
+		batchId := rb.StartNestedBatch("metadata")
+		defer rb.EndNestedBatch(batchId)
+
+		for key, val := range values {
+			visibility := "*"
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+		}
+
+	case "sub":
+		keys := msg.Params[2:]
+		server.logger.Debug("metadata", client.nick, "has subscrumbled to", strings.Join(keys, ", "))
+		added, err := rb.session.SubscribeTo(keys...)
+		if err == errMetadataTooManySubs {
+			bad := keys[len(added)] // get the key that broke the camel's back
+			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", bad, client.t("Too many subscriptions"))
+		}
+
+		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(client.Nick()) - 10
+
+		chunked := utils.ChunkifyParams(added, lineLength)
+		for _, line := range chunked {
+			params := append([]string{client.Nick()}, line...)
+			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
+		}
+
+	case "unsub":
+		keys := msg.Params[2:]
+		server.logger.Debug("metadata", client.nick, "has UNsubscrumbled to", strings.Join(keys, ", "))
+		removed := rb.session.UnsubscribeFrom(keys...)
+
+		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
+		chunked := utils.ChunkifyParams(removed, lineLength)
+		for _, line := range chunked {
+			params := append([]string{client.Nick()}, line...)
+			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
+		}
+
+	case "subs":
+		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBS) - len(client.Nick()) - 10 // for safety
+
+		chunked := utils.ChunkifyParams(rb.session.MetadataSubscriptions(), lineLength)
+		for _, line := range chunked {
+			params := append([]string{client.Nick()}, line...)
+			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
+		}
+
+	case "sync":
+		batchId := rb.StartNestedBatch("metadata")
+		defer rb.EndNestedBatch(batchId)
+
+		values := t.ListMetadata()
+		for k, v := range values {
+			if rb.session.isSubscribedTo(k) {
+				visibility := "*"
+				rb.Add(nil, server.name, "METADATA", target, k, visibility, v)
+			}
+		}
+		if targetChannel != nil {
+			for _, client := range targetChannel.Members() {
+				values := client.ListMetadata()
+				for k, v := range values {
+					if rb.session.isSubscribedTo(k) {
+						visibility := "*"
+						rb.Add(nil, server.name, "METADATA", client.Nick(), k, visibility, v)
+					}
+				}
+			}
+		}
+
+	default:
+		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", msg.Params[1], client.t("Invalid subcommand"))
+	}
+
+	return
+}
+
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()

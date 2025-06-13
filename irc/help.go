@@ -340,6 +340,12 @@ MARKREAD updates an IRCv3 read message marker. It is not intended for use by
 end users. For more details, see the latest draft of the read-marker
 specification.`,
 	},
+	"metadata": {
+		text: `METADATA <target> <subcommand> [<everything else>...]
+		
+Retrieve and meddle with metadata for the given target.
+Have a look at https://ircv3.net/specs/extensions/metadata for interesting technical information.`,
+	},
 	"mode": {
 		text: `MODE <target> [<modestring> [<mode arguments>...]]
 

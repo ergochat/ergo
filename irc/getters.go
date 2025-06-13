@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -826,4 +827,158 @@ func (channel *Channel) UUID() utils.UUID {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.uuid
+}
+
+func (session *Session) isSubscribedTo(key string) bool {
+	session.client.stateMutex.RLock()
+	defer session.client.stateMutex.RUnlock()
+
+	return slices.Contains(session.metadataSubscriptions, key)
+}
+
+func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	var added []string
+
+	maxSubs := session.client.server.Config().Metadata.MaxSubs
+
+	for _, k := range keys {
+		if !slices.Contains(session.metadataSubscriptions, k) {
+			if len(session.metadataSubscriptions) > maxSubs {
+				return added, errMetadataTooManySubs
+			}
+			added = append(added, k)
+			session.metadataSubscriptions = append(session.metadataSubscriptions, k)
+		}
+	}
+
+	return added, nil
+}
+
+func (session *Session) UnsubscribeFrom(keys ...string) []string {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	var removed []string
+
+	new := slices.DeleteFunc(session.metadataSubscriptions,
+		func(keyName string) bool {
+			if slices.Contains(keys, keyName) {
+				removed = append(removed, keyName)
+				return true
+			} else {
+				return false
+			}
+		},
+	)
+
+	session.metadataSubscriptions = new
+
+	return removed
+}
+
+func (session *Session) MetadataSubscriptions() []string {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	return slices.Clone(session.metadataSubscriptions)
+}
+
+func (channel *Channel) GetMetadata(key string) (string, error) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	val, ok := channel.metadata[key]
+	if !ok {
+		return "", errMetadataNotFound
+	}
+	return val, nil
+}
+
+func (channel *Channel) SetMetadata(key string, value string) {
+	channel.stateMutex.Lock()
+
+	if channel.metadata == nil {
+		channel.metadata = make(MetadataStore)
+	}
+
+	channel.metadata[key] = value
+	channel.stateMutex.Unlock()
+	channel.MarkDirty(IncludeAllAttrs)
+}
+
+func (channel *Channel) ListMetadata() MetadataStore {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	return maps.Clone(channel.metadata)
+}
+
+func (channel *Channel) DeleteMetadata(key string) {
+	channel.stateMutex.Lock()
+	delete(channel.metadata, key)
+
+	channel.stateMutex.Unlock()
+	channel.MarkDirty(IncludeAllAttrs)
+}
+
+func (channel *Channel) ClearMetadata() MetadataStore {
+	channel.stateMutex.Lock()
+
+	oldMap := channel.metadata
+	channel.metadata = make(MetadataStore)
+
+	channel.stateMutex.Unlock()
+	channel.MarkDirty(IncludeAllAttrs)
+	return oldMap
+}
+
+func (client *Client) GetMetadata(key string) (string, error) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	val, ok := client.metadata[key]
+	if !ok {
+		return "", errMetadataNotFound
+	}
+	return val, nil
+}
+
+func (client *Client) SetMetadata(key string, value string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.metadata == nil {
+		client.metadata = make(MetadataStore)
+	}
+
+	client.metadata[key] = value
+
+	// coming soon: https://www.youtube.com/watch?v=K14JkFfWUzc
+}
+
+func (client *Client) ListMetadata() MetadataStore {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	return maps.Clone(client.metadata)
+}
+
+func (client *Client) DeleteMetadata(key string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	delete(client.metadata, key)
+}
+
+func (client *Client) ClearMetadata() MetadataStore {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	oldMap := client.metadata
+	client.metadata = make(MetadataStore)
+
+	return oldMap
 }
