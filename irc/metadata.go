@@ -15,14 +15,12 @@ var (
 	errMetadataNotFound    = errors.New("key not found")
 )
 
-type MetadataStore = map[string]string
-
 type MetadataHaver = interface {
 	SetMetadata(key string, value string)
 	GetMetadata(key string) (string, error)
 	DeleteMetadata(key string)
-	ListMetadata() MetadataStore
-	ClearMetadata() MetadataStore
+	ListMetadata() map[string]string
+	ClearMetadata() map[string]string
 	CountMetadata() int
 }
 
@@ -32,7 +30,7 @@ func notifySubscribers(server *Server, session *Session, target string, key stri
 	targetClient := server.clients.Get(target)
 
 	if targetClient != nil {
-		notify = targetClient.FriendsMonitors(caps.MetadataTwoJudgementDay)
+		notify = targetClient.FriendsMonitors(caps.Metadata)
 		// notify clients about changes regarding themselves
 		for _, s := range targetClient.Sessions() {
 			notify.Add(s)
@@ -42,7 +40,7 @@ func notifySubscribers(server *Server, session *Session, target string, key stri
 		members := targetChannel.Members()
 		for _, m := range members {
 			for _, s := range m.Sessions() {
-				if s.capabilities.Has(caps.MetadataTwoJudgementDay) {
+				if s.capabilities.Has(caps.Metadata) {
 					notify.Add(s)
 				}
 			}
@@ -61,6 +59,50 @@ func notifySubscribers(server *Server, session *Session, target string, key stri
 			s.Send(nil, server.name, "METADATA", target, key, "*", value)
 		} else {
 			s.Send(nil, server.name, "METADATA", target, key, "*")
+		}
+	}
+}
+
+func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
+	if len(rb.session.MetadataSubscriptions()) == 0 {
+		return
+	}
+
+	batchId := rb.StartNestedBatch("metadata")
+	defer rb.EndNestedBatch(batchId)
+
+	values := target.ListMetadata()
+	for k, v := range values {
+		if rb.session.isSubscribedTo(k) {
+			visibility := "*"
+			rb.Add(nil, server.name, "METADATA", target.Nick(), k, visibility, v)
+		}
+	}
+}
+
+func syncChannelMetadata(server *Server, rb *ResponseBuffer, target *Channel) {
+	if len(rb.session.MetadataSubscriptions()) == 0 {
+		return
+	}
+
+	batchId := rb.StartNestedBatch("metadata")
+	defer rb.EndNestedBatch(batchId)
+
+	values := target.ListMetadata()
+	for k, v := range values {
+		if rb.session.isSubscribedTo(k) {
+			visibility := "*"
+			rb.Add(nil, server.name, "METADATA", target.Name(), k, visibility, v)
+		}
+	}
+
+	for _, client := range target.Members() {
+		values := client.ListMetadata()
+		for k, v := range values {
+			if rb.session.isSubscribedTo(k) {
+				visibility := "*"
+				rb.Add(nil, server.name, "METADATA", client.Nick(), k, visibility, v)
+			}
 		}
 	}
 }

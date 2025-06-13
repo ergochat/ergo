@@ -238,7 +238,7 @@ CAPDEFS = [
         standard="Soju/Goguma vendor",
     ),
     CapDef(
-        identifier="MetadataTwoJudgementDay",
+        identifier="Metadata",
         name="draft/metadata-2",
         url="https://ircv3.net/specs/extensions/metadata",
         standard="draft IRCv3",

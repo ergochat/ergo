@@ -1646,7 +1646,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 
 	if !config.Metadata.Enabled {
-		config.Server.supportedCaps.Disable(caps.MetadataTwoJudgementDay)
+		config.Server.supportedCaps.Disable(caps.Metadata)
 	} else {
 		var metadataValues []string
 		if config.Metadata.MaxSubs >= 0 {
@@ -1659,7 +1659,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			metadataValues = append(metadataValues, fmt.Sprintf("max-value-bytes=%d", config.Metadata.MaxValueBytes))
 		}
 		if len(metadataValues) != 0 {
-			config.Server.capValues[caps.MetadataTwoJudgementDay] = strings.Join(metadataValues, ",")
+			config.Server.capValues[caps.Metadata] = strings.Join(metadataValues, ",")
 		}
 
 	}

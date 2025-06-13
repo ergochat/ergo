@@ -65,9 +65,9 @@ const (
 	// https://github.com/progval/ircv3-specifications/blob/redaction/extensions/message-redaction.md
 	MessageRedaction Capability = iota
 
-	// MetadataTwoJudgementDay is the draft IRCv3 capability named "draft/metadata-2":
+	// Metadata is the draft IRCv3 capability named "draft/metadata-2":
 	// https://ircv3.net/specs/extensions/metadata
-	MetadataTwoJudgementDay Capability = iota
+	Metadata Capability = iota
 
 	// Multiline is the proposed IRCv3 capability named "draft/multiline":
 	// https://github.com/ircv3/ircv3-specifications/pull/398

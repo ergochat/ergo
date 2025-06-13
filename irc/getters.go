@@ -833,24 +833,32 @@ func (session *Session) isSubscribedTo(key string) bool {
 	session.client.stateMutex.RLock()
 	defer session.client.stateMutex.RUnlock()
 
-	return slices.Contains(session.metadataSubscriptions, key)
+	if session.metadataSubscriptions == nil {
+		return false
+	}
+
+	return session.metadataSubscriptions.Has(key)
 }
 
 func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
 	session.client.stateMutex.Lock()
 	defer session.client.stateMutex.Unlock()
 
+	if session.metadataSubscriptions == nil {
+		session.metadataSubscriptions = make(utils.HashSet[string])
+	}
+
 	var added []string
 
 	maxSubs := session.client.server.Config().Metadata.MaxSubs
 
 	for _, k := range keys {
-		if !slices.Contains(session.metadataSubscriptions, k) {
+		if !session.metadataSubscriptions.Has(k) {
 			if len(session.metadataSubscriptions) > maxSubs {
 				return added, errMetadataTooManySubs
 			}
 			added = append(added, k)
-			session.metadataSubscriptions = append(session.metadataSubscriptions, k)
+			session.metadataSubscriptions.Add(k)
 		}
 	}
 
@@ -863,27 +871,25 @@ func (session *Session) UnsubscribeFrom(keys ...string) []string {
 
 	var removed []string
 
-	new := slices.DeleteFunc(session.metadataSubscriptions,
-		func(keyName string) bool {
-			if slices.Contains(keys, keyName) {
-				removed = append(removed, keyName)
-				return true
-			} else {
-				return false
-			}
-		},
-	)
+	if session.metadataSubscriptions == nil {
+		return []string{}
+	}
 
-	session.metadataSubscriptions = new
+	for k := range session.metadataSubscriptions {
+		if slices.Contains(keys, k) {
+			removed = append(removed, k)
+			session.metadataSubscriptions.Remove(k)
+		}
+	}
 
 	return removed
 }
 
-func (session *Session) MetadataSubscriptions() []string {
+func (session *Session) MetadataSubscriptions() utils.HashSet[string] {
 	session.client.stateMutex.Lock()
 	defer session.client.stateMutex.Unlock()
 
-	return slices.Clone(session.metadataSubscriptions)
+	return maps.Clone(session.metadataSubscriptions)
 }
 
 func (channel *Channel) GetMetadata(key string) (string, error) {
@@ -901,7 +907,7 @@ func (channel *Channel) SetMetadata(key string, value string) {
 	channel.stateMutex.Lock()
 
 	if channel.metadata == nil {
-		channel.metadata = make(MetadataStore)
+		channel.metadata = make(map[string]string)
 	}
 
 	channel.metadata[key] = value
@@ -909,7 +915,7 @@ func (channel *Channel) SetMetadata(key string, value string) {
 	channel.MarkDirty(IncludeAllAttrs)
 }
 
-func (channel *Channel) ListMetadata() MetadataStore {
+func (channel *Channel) ListMetadata() map[string]string {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
@@ -924,11 +930,11 @@ func (channel *Channel) DeleteMetadata(key string) {
 	channel.MarkDirty(IncludeAllAttrs)
 }
 
-func (channel *Channel) ClearMetadata() MetadataStore {
+func (channel *Channel) ClearMetadata() map[string]string {
 	channel.stateMutex.Lock()
 
 	oldMap := channel.metadata
-	channel.metadata = make(MetadataStore)
+	channel.metadata = make(map[string]string)
 
 	channel.stateMutex.Unlock()
 	channel.MarkDirty(IncludeAllAttrs)
@@ -962,15 +968,13 @@ func (client *Client) SetMetadata(key string, value string) {
 	defer client.stateMutex.Unlock()
 
 	if client.metadata == nil {
-		client.metadata = make(MetadataStore)
+		client.metadata = make(map[string]string)
 	}
 
 	client.metadata[key] = value
-
-	// coming soon: https://www.youtube.com/watch?v=K14JkFfWUzc
 }
 
-func (client *Client) ListMetadata() MetadataStore {
+func (client *Client) ListMetadata() map[string]string {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
@@ -984,12 +988,12 @@ func (client *Client) DeleteMetadata(key string) {
 	delete(client.metadata, key)
 }
 
-func (client *Client) ClearMetadata() MetadataStore {
+func (client *Client) ClearMetadata() map[string]string {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
 	oldMap := client.metadata
-	client.metadata = make(MetadataStore)
+	client.metadata = make(map[string]string)
 
 	return oldMap
 }

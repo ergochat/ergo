@@ -9,11 +9,13 @@ package irc
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -3248,10 +3250,10 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(client.Nick()) - 10
 
-		chunked := utils.ChunkifyParams(added, lineLength)
+		chunked := utils.ChunkifyParams(slices.Values(added), lineLength)
 		for _, line := range chunked {
 			params := append([]string{client.Nick()}, line...)
-			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
+			rb.Add(nil, server.name, RPL_METADATASUBOK, params...)
 		}
 
 	case "unsub":
@@ -3260,42 +3262,29 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
-		chunked := utils.ChunkifyParams(removed, lineLength)
+		chunked := utils.ChunkifyParams(slices.Values(removed), lineLength)
 		for _, line := range chunked {
 			params := append([]string{client.Nick()}, line...)
-			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
+			rb.Add(nil, server.name, RPL_METADATAUNSUBOK, params...)
 		}
 
 	case "subs":
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBS) - len(client.Nick()) - 10 // for safety
 
-		chunked := utils.ChunkifyParams(rb.session.MetadataSubscriptions(), lineLength)
+		subs := rb.session.MetadataSubscriptions()
+
+		chunked := utils.ChunkifyParams(maps.Keys(subs), lineLength)
 		for _, line := range chunked {
 			params := append([]string{client.Nick()}, line...)
 			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
 		}
 
 	case "sync":
-		batchId := rb.StartNestedBatch("metadata")
-		defer rb.EndNestedBatch(batchId)
-
-		values := t.ListMetadata()
-		for k, v := range values {
-			if rb.session.isSubscribedTo(k) {
-				visibility := "*"
-				rb.Add(nil, server.name, "METADATA", target, k, visibility, v)
-			}
-		}
 		if targetChannel != nil {
-			for _, client := range targetChannel.Members() {
-				values := client.ListMetadata()
-				for k, v := range values {
-					if rb.session.isSubscribedTo(k) {
-						visibility := "*"
-						rb.Add(nil, server.name, "METADATA", client.Nick(), k, visibility, v)
-					}
-				}
-			}
+			syncChannelMetadata(server, rb, targetChannel)
+		}
+		if targetClient != nil {
+			syncClientMetadata(server, rb, targetClient)
 		}
 
 	default:

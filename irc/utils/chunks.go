@@ -1,12 +1,14 @@
 package utils
 
-func ChunkifyParams(params []string, maxChars int) [][]string {
+import "iter"
+
+func ChunkifyParams(params iter.Seq[string], maxChars int) [][]string {
 	var chunked [][]string
 
 	var acc []string
 	var length = 0
 
-	for _, p := range params {
+	for p := range params {
 		length = length + len(p) + 1 // (accounting for the space)
 
 		if length > maxChars {
@@ -16,6 +18,10 @@ func ChunkifyParams(params []string, maxChars int) [][]string {
 		}
 
 		acc = append(acc, p)
+	}
+
+	if len(acc) != 0 {
+		chunked = append(chunked, acc)
 	}
 
 	return chunked

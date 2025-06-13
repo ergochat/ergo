@@ -131,7 +131,7 @@ type Client struct {
 	clearablePushMessages   map[string]time.Time
 	pushSubscriptionsExist  atomic.Uint32 // this is a cache on len(pushSubscriptions) != 0
 	pushQueue               pushQueue
-	metadata                MetadataStore
+	metadata                map[string]string
 }
 
 type saslStatus struct {
@@ -216,7 +216,7 @@ type Session struct {
 
 	webPushEndpoint string // goroutine-local: web push endpoint registered by the current session
 
-	metadataSubscriptions []string
+	metadataSubscriptions utils.HashSet[string]
 }
 
 // MultilineBatch tracks the state of a client-to-server multiline batch.

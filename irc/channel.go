@@ -55,7 +55,7 @@ type Channel struct {
 	dirtyBits         uint
 	settings          ChannelSettings
 	uuid              utils.UUID
-	metadata          MetadataStore
+	metadata          map[string]string
 	// these caches are paired to allow iteration over channel members without holding the lock
 	membersCache    []*Client
 	memberDataCache []*memberData
@@ -893,6 +893,10 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 	if rb.session.capabilities.Has(caps.ReadMarker) {
 		rb.Add(nil, client.server.name, "MARKREAD", chname, client.GetReadMarker(chcfname))
+	}
+
+	if rb.session.capabilities.Has(caps.Metadata) {
+		syncChannelMetadata(client.server, rb, channel)
 	}
 
 	if rb.session.client == client {
