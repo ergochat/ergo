@@ -728,7 +728,7 @@ type Config struct {
 		Enabled       bool
 		MaxSubs       int `yaml:"max-subs"`
 		MaxKeys       int `yaml:"max-keys"`
-		MaxValueBytes int `yaml:"max-value-length"`
+		MaxValueBytes int `yaml:"max-value-length"` // todo: currently unenforced!!
 	}
 
 	WebPush struct {

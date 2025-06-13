@@ -3167,6 +3167,14 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				return
 			}
 
+			maxKeys := server.Config().Metadata.MaxKeys
+			isSelf := targetClient != nil && client == targetClient
+
+			if isSelf && maxKeys > 0 && t.CountMetadata() >= maxKeys {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.nick, client.t("You have too many keys set on yourself"))
+				return
+			}
+
 			server.logger.Debug("metadata", "setting", key, value, "on", target)
 
 			t.SetMetadata(key, value)

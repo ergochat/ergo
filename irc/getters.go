@@ -935,6 +935,17 @@ func (channel *Channel) ClearMetadata() MetadataStore {
 	return oldMap
 }
 
+func (channel *Channel) CountMetadata() int {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	if channel.metadata == nil {
+		return 0
+	}
+
+	return len(channel.metadata)
+}
+
 func (client *Client) GetMetadata(key string) (string, error) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
@@ -981,4 +992,15 @@ func (client *Client) ClearMetadata() MetadataStore {
 	client.metadata = make(MetadataStore)
 
 	return oldMap
+}
+
+func (client *Client) CountMetadata() int {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	if client.metadata == nil {
+		return 0
+	}
+
+	return len(client.metadata)
 }

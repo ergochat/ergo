@@ -23,6 +23,7 @@ type MetadataHaver = interface {
 	DeleteMetadata(key string)
 	ListMetadata() MetadataStore
 	ClearMetadata() MetadataStore
+	CountMetadata() int
 }
 
 func notifySubscribers(server *Server, session *Session, target string, key string, value string) {
