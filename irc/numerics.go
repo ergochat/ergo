@@ -183,6 +183,11 @@ const (
 	RPL_MONLIST            = "732"
 	RPL_ENDOFMONLIST       = "733"
 	ERR_MONLISTFULL        = "734"
+	RPL_KEYVALUE           = "761" // metadata numerics
+	RPL_KEYNOTSET          = "766"
+	RPL_METADATASUBOK      = "770"
+	RPL_METADATAUNSUBOK    = "771"
+	RPL_METADATASUBS       = "772"
 	RPL_LOGGEDIN           = "900"
 	RPL_LOGGEDOUT          = "901"
 	ERR_NICKLOCKED         = "902"

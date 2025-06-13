@@ -209,6 +209,10 @@ func init() {
 			handler:   markReadHandler,
 			minParams: 0, // send FAIL instead of ERR_NEEDMOREPARAMS
 		},
+		"METADATA": {
+			handler:   metadataHandler,
+			minParams: 2,
+		},
 		"MODE": {
 			handler:   modeHandler,
 			minParams: 1,
