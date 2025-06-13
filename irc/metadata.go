@@ -17,7 +17,7 @@ var (
 
 type MetadataHaver = interface {
 	SetMetadata(key string, value string)
-	GetMetadata(key string) (string, error)
+	GetMetadata(key string) (string, bool)
 	DeleteMetadata(key string)
 	ListMetadata() map[string]string
 	ClearMetadata() map[string]string

@@ -3201,8 +3201,8 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				continue
 			}
 
-			val, err := t.GetMetadata(key)
-			if err == errMetadataNotFound {
+			val, ok := t.GetMetadata(key)
+			if !ok {
 				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key is not set"))
 				continue
 			}

@@ -798,10 +798,12 @@ func (channel *Channel) Settings() (result ChannelSettings) {
 }
 
 func (channel *Channel) SetSettings(settings ChannelSettings) {
+	defer channel.MarkDirty(IncludeSettings)
+
 	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
 	channel.settings = settings
-	channel.stateMutex.Unlock()
-	channel.MarkDirty(IncludeSettings)
 }
 
 func (channel *Channel) setForward(forward string) {
@@ -832,10 +834,6 @@ func (channel *Channel) UUID() utils.UUID {
 func (session *Session) isSubscribedTo(key string) bool {
 	session.client.stateMutex.RLock()
 	defer session.client.stateMutex.RUnlock()
-
-	if session.metadataSubscriptions == nil {
-		return false
-	}
 
 	return session.metadataSubscriptions.Has(key)
 }
@@ -871,10 +869,6 @@ func (session *Session) UnsubscribeFrom(keys ...string) []string {
 
 	var removed []string
 
-	if session.metadataSubscriptions == nil {
-		return []string{}
-	}
-
 	for k := range session.metadataSubscriptions {
 		if slices.Contains(keys, k) {
 			removed = append(removed, k)
@@ -892,27 +886,28 @@ func (session *Session) MetadataSubscriptions() utils.HashSet[string] {
 	return maps.Clone(session.metadataSubscriptions)
 }
 
-func (channel *Channel) GetMetadata(key string) (string, error) {
+func (channel *Channel) GetMetadata(key string) (string, bool) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
 	val, ok := channel.metadata[key]
 	if !ok {
-		return "", errMetadataNotFound
+		return "", false
 	}
-	return val, nil
+	return val, true
 }
 
 func (channel *Channel) SetMetadata(key string, value string) {
+	defer channel.MarkDirty(IncludeAllAttrs)
+
 	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
 
 	if channel.metadata == nil {
 		channel.metadata = make(map[string]string)
 	}
 
 	channel.metadata[key] = value
-	channel.stateMutex.Unlock()
-	channel.MarkDirty(IncludeAllAttrs)
 }
 
 func (channel *Channel) ListMetadata() map[string]string {
@@ -923,21 +918,22 @@ func (channel *Channel) ListMetadata() map[string]string {
 }
 
 func (channel *Channel) DeleteMetadata(key string) {
-	channel.stateMutex.Lock()
-	delete(channel.metadata, key)
+	defer channel.MarkDirty(IncludeAllAttrs)
 
-	channel.stateMutex.Unlock()
-	channel.MarkDirty(IncludeAllAttrs)
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	delete(channel.metadata, key)
 }
 
 func (channel *Channel) ClearMetadata() map[string]string {
+	defer channel.MarkDirty(IncludeAllAttrs)
 	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
 
 	oldMap := channel.metadata
-	channel.metadata = make(map[string]string)
+	channel.metadata = nil
 
-	channel.stateMutex.Unlock()
-	channel.MarkDirty(IncludeAllAttrs)
 	return oldMap
 }
 
@@ -945,22 +941,15 @@ func (channel *Channel) CountMetadata() int {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
-	if channel.metadata == nil {
-		return 0
-	}
-
 	return len(channel.metadata)
 }
 
-func (client *Client) GetMetadata(key string) (string, error) {
+func (client *Client) GetMetadata(key string) (string, bool) {
 	client.stateMutex.RLock()
 	defer client.stateMutex.RUnlock()
 
 	val, ok := client.metadata[key]
-	if !ok {
-		return "", errMetadataNotFound
-	}
-	return val, nil
+	return val, ok
 }
 
 func (client *Client) SetMetadata(key string, value string) {
@@ -993,7 +982,7 @@ func (client *Client) ClearMetadata() map[string]string {
 	defer client.stateMutex.Unlock()
 
 	oldMap := client.metadata
-	client.metadata = make(map[string]string)
+	client.metadata = nil
 
 	return oldMap
 }
