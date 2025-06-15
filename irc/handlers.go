@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
@@ -3104,7 +3105,8 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	originalTarget := msg.Params[0]
 	target := originalTarget
 
-	if !server.Config().Metadata.Enabled {
+	config := server.Config()
+	if !config.Metadata.Enabled {
 		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", originalTarget, "Metadata is disabled on this server")
 		return
 	}
@@ -3164,9 +3166,15 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 		if len(msg.Params) > 3 {
 			value := msg.Params[3]
-			const maxCombinedLen = 350
 
-			if len(key)+len(value) > maxCombinedLen {
+			if !globalUtf8EnforcementSetting && !utf8.ValidString(value) {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("METADATA values must be UTF-8"))
+				return
+			}
+
+			if len(key)+len(value) > maxCombinedMetadataLenBytes ||
+				(config.Metadata.MaxValueBytes > 0 && len(value) > config.Metadata.MaxValueBytes) {
+
 				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("Value is too long"))
 				return
 			}

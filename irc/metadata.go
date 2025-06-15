@@ -11,6 +11,11 @@ import (
 	"github.com/ergochat/ergo/irc/modes"
 )
 
+const (
+	// metadata key + value need to be relayable on a single IRC RPL_KEYVALUE line
+	maxCombinedMetadataLenBytes = 350
+)
+
 var (
 	errMetadataTooManySubs = errors.New("too many subscriptions")
 	errMetadataNotFound    = errors.New("key not found")
