@@ -3187,15 +3187,12 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				return
 			}
 
-			server.logger.Debug("metadata", "setting", key, value, "on", target)
-
 			if updated := targetObj.SetMetadata(key, value); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, value)
 			}
 			// echo the value to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
 		} else {
-			server.logger.Debug("metadata", "deleting", key, "on", target)
 			if updated := targetObj.DeleteMetadata(key); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "")
 			}
@@ -3257,7 +3254,6 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "sub":
 		keys := msg.Params[2:]
-		server.logger.Debug("metadata", client.nick, "has subscrumbled to", strings.Join(keys, ", "))
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
@@ -3274,7 +3270,6 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "unsub":
 		keys := msg.Params[2:]
-		server.logger.Debug("metadata", client.nick, "has UNsubscrumbled to", strings.Join(keys, ", "))
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
