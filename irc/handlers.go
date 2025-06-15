@@ -3112,9 +3112,6 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	subcommand := strings.ToLower(msg.Params[1])
 
-	invalidTarget := func() {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", target, client.t("Invalid metadata target"))
-	}
 	noKeyPerms := func(key string) {
 		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", target, key, client.t("You do not have permission to perform this action"))
 	}
@@ -3140,7 +3137,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 	}
 	if targetObj == nil {
-		invalidTarget()
+		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", target, client.t("Invalid metadata target"))
 		return
 	}
 
@@ -3229,7 +3226,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "clear":
 		if !metadataCanIEditThisTarget(client, targetObj) {
-			invalidTarget()
+			noKeyPerms("*")
 			return
 		}
 
