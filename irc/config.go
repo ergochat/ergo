@@ -1649,19 +1649,20 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.supportedCaps.Disable(caps.Metadata)
 	} else {
 		var metadataValues []string
-		if config.Metadata.MaxSubs >= 0 {
-			metadataValues = append(metadataValues, fmt.Sprintf("max-subs=%d", config.Metadata.MaxSubs))
+		// these are required for normal operation, so set sane defaults:
+		if config.Metadata.MaxSubs == 0 {
+			config.Metadata.MaxSubs = 10
 		}
-		if config.Metadata.MaxKeys > 0 {
-			metadataValues = append(metadataValues, fmt.Sprintf("max-keys=%d", config.Metadata.MaxKeys))
+		metadataValues = append(metadataValues, fmt.Sprintf("max-subs=%d", config.Metadata.MaxSubs))
+		if config.Metadata.MaxKeys == 0 {
+			config.Metadata.MaxKeys = 10
 		}
+		metadataValues = append(metadataValues, fmt.Sprintf("max-keys=%d", config.Metadata.MaxKeys))
+		// this is not required since we enforce a hardcoded upper bound on key+value
 		if config.Metadata.MaxValueBytes > 0 {
 			metadataValues = append(metadataValues, fmt.Sprintf("max-value-bytes=%d", config.Metadata.MaxValueBytes))
 		}
-		if len(metadataValues) != 0 {
-			config.Server.capValues[caps.Metadata] = strings.Join(metadataValues, ",")
-		}
-
+		config.Server.capValues[caps.Metadata] = strings.Join(metadataValues, ",")
 	}
 
 	err = config.processExtjwt()

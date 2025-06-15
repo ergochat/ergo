@@ -3175,19 +3175,17 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				return
 			}
 
-			maxKeys := config.Metadata.MaxKeys
-			isSelf := targetClient != nil && client == targetClient
-
-			if isSelf && maxKeys > 0 && targetObj.CountMetadata() >= maxKeys {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("You have too many keys set on yourself"))
+			updated, err := targetObj.SetMetadata(key, value, config.Metadata.MaxKeys)
+			if err != nil {
+				// errLimitExceeded is the only possible error
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("Too many metadata keys"))
 				return
-			}
-
-			if updated := targetObj.SetMetadata(key, value); updated {
-				notifySubscribers(server, rb.session, targetObj, target, key, value)
 			}
 			// echo the value to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, "*", value)
+			if updated {
+				notifySubscribers(server, rb.session, targetObj, target, key, value)
+			}
 		} else {
 			if updated := targetObj.DeleteMetadata(key); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "")

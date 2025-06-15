@@ -894,7 +894,7 @@ func (channel *Channel) GetMetadata(key string) (string, bool) {
 	return val, ok
 }
 
-func (channel *Channel) SetMetadata(key string, value string) (updated bool) {
+func (channel *Channel) SetMetadata(key string, value string, limit int) (updated bool, err error) {
 	defer channel.MarkDirty(IncludeAllAttrs)
 
 	channel.stateMutex.Lock()
@@ -905,11 +905,14 @@ func (channel *Channel) SetMetadata(key string, value string) (updated bool) {
 	}
 
 	existing, ok := channel.metadata[key]
+	if !ok && len(channel.metadata) >= limit {
+		return false, errLimitExceeded
+	}
 	updated = !ok || value != existing
 	if updated {
 		channel.metadata[key] = value
 	}
-	return updated
+	return updated, nil
 }
 
 func (channel *Channel) ListMetadata() map[string]string {
@@ -958,7 +961,7 @@ func (client *Client) GetMetadata(key string) (string, bool) {
 	return val, ok
 }
 
-func (client *Client) SetMetadata(key string, value string) (updated bool) {
+func (client *Client) SetMetadata(key string, value string, limit int) (updated bool, err error) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -967,11 +970,14 @@ func (client *Client) SetMetadata(key string, value string) (updated bool) {
 	}
 
 	existing, ok := client.metadata[key]
+	if !ok && len(client.metadata) >= limit {
+		return false, errLimitExceeded
+	}
 	updated = !ok || value != existing
 	if updated {
 		client.metadata[key] = value
 	}
-	return updated
+	return updated, nil
 }
 
 func (client *Client) ListMetadata() map[string]string {
