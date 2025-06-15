@@ -3246,7 +3246,12 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "sub":
 		keys := msg.Params[2:]
-		// TODO validate key names here
+		for _, key := range keys {
+			if metadataKeyIsEvil(key) {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+				return
+			}
+		}
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
