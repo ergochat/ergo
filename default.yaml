@@ -1087,11 +1087,11 @@ history:
 # e.g., ERGO__SERVER__MAX_SENDQ=128k. see the manual for more details.
 allow-environment-overrides: true
 
-# experimental IRC metadata support for setting key/value data on channels and nicknames.
+# metadata support for setting key/value data on channels and nicknames.
 metadata:
     # can clients store metadata?
     enabled: true
-    # how many keys can a client subscribe to? 
+    # how many keys can a client subscribe to?
     # set to 0 to disable subscriptions or -1 to allow unlimited subscriptions.
     max-subs: 100
     # how many keys can a user store about themselves? set to -1 to allow unlimited keys.

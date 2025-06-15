@@ -342,7 +342,7 @@ specification.`,
 	},
 	"metadata": {
 		text: `METADATA <target> <subcommand> [<everything else>...]
-		
+
 Retrieve and meddle with metadata for the given target.
 Have a look at https://ircv3.net/specs/extensions/metadata for interesting technical information.`,
 	},
