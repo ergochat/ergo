@@ -3226,16 +3226,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "list":
-		values := targetObj.ListMetadata()
-
-		batchId := rb.StartNestedBatch("metadata")
-		defer rb.EndNestedBatch(batchId)
-
-		for key, val := range values {
-			visibility := "*"
-
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
-		}
+		playMetadataList(rb, client.Nick(), target, targetObj.ListMetadata())
 
 	case "clear":
 		if !metadataCanIEditThisTarget(client, targetObj) {
@@ -3304,6 +3295,16 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	}
 
 	return
+}
+
+func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata")
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, nick, target, key, visibility, val)
+	}
 }
 
 // REHASH
