@@ -3175,7 +3175,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				return
 			}
 
-			maxKeys := server.Config().Metadata.MaxKeys
+			maxKeys := config.Metadata.MaxKeys
 			isSelf := targetClient != nil && client == targetClient
 
 			if isSelf && maxKeys > 0 && targetObj.CountMetadata() >= maxKeys {
