@@ -62,16 +62,13 @@ func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], origin
 }
 
 func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
-	if len(rb.session.MetadataSubscriptions()) == 0 {
-		return
-	}
-
 	batchId := rb.StartNestedBatch("metadata")
 	defer rb.EndNestedBatch(batchId)
 
+	subs := rb.session.MetadataSubscriptions()
 	values := target.ListMetadata()
 	for k, v := range values {
-		if rb.session.isSubscribedTo(k) {
+		if subs.Has(k) {
 			visibility := "*"
 			rb.Add(nil, server.name, "METADATA", target.Nick(), k, visibility, v)
 		}
@@ -79,16 +76,14 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 }
 
 func syncChannelMetadata(server *Server, rb *ResponseBuffer, target *Channel) {
-	if len(rb.session.MetadataSubscriptions()) == 0 {
-		return
-	}
-
 	batchId := rb.StartNestedBatch("metadata")
 	defer rb.EndNestedBatch(batchId)
 
+	subs := rb.session.MetadataSubscriptions()
+
 	values := target.ListMetadata()
 	for k, v := range values {
-		if rb.session.isSubscribedTo(k) {
+		if subs.Has(k) {
 			visibility := "*"
 			rb.Add(nil, server.name, "METADATA", target.Name(), k, visibility, v)
 		}
@@ -97,7 +92,7 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, target *Channel) {
 	for _, client := range target.Members() {
 		values := client.ListMetadata()
 		for k, v := range values {
-			if rb.session.isSubscribedTo(k) {
+			if subs.Has(k) {
 				visibility := "*"
 				rb.Add(nil, server.name, "METADATA", client.Nick(), k, visibility, v)
 			}
