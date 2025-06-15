@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/ergochat/ergo/irc/caps"
@@ -797,10 +798,12 @@ func (channel *Channel) Settings() (result ChannelSettings) {
 }
 
 func (channel *Channel) SetSettings(settings ChannelSettings) {
+	defer channel.MarkDirty(IncludeSettings)
+
 	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
 	channel.settings = settings
-	channel.stateMutex.Unlock()
-	channel.MarkDirty(IncludeSettings)
 }
 
 func (channel *Channel) setForward(forward string) {
@@ -826,4 +829,164 @@ func (channel *Channel) UUID() utils.UUID {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	return channel.uuid
+}
+
+func (session *Session) isSubscribedTo(key string) bool {
+	session.client.stateMutex.RLock()
+	defer session.client.stateMutex.RUnlock()
+
+	return session.metadataSubscriptions.Has(key)
+}
+
+func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	if session.metadataSubscriptions == nil {
+		session.metadataSubscriptions = make(utils.HashSet[string])
+	}
+
+	var added []string
+
+	maxSubs := session.client.server.Config().Metadata.MaxSubs
+
+	for _, k := range keys {
+		if !session.metadataSubscriptions.Has(k) {
+			if len(session.metadataSubscriptions) > maxSubs {
+				return added, errMetadataTooManySubs
+			}
+			added = append(added, k)
+			session.metadataSubscriptions.Add(k)
+		}
+	}
+
+	return added, nil
+}
+
+func (session *Session) UnsubscribeFrom(keys ...string) []string {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	var removed []string
+
+	for k := range session.metadataSubscriptions {
+		if slices.Contains(keys, k) {
+			removed = append(removed, k)
+			session.metadataSubscriptions.Remove(k)
+		}
+	}
+
+	return removed
+}
+
+func (session *Session) MetadataSubscriptions() utils.HashSet[string] {
+	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
+
+	return maps.Clone(session.metadataSubscriptions)
+}
+
+func (channel *Channel) GetMetadata(key string) (string, bool) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	val, ok := channel.metadata[key]
+	return val, ok
+}
+
+func (channel *Channel) SetMetadata(key string, value string) {
+	defer channel.MarkDirty(IncludeAllAttrs)
+
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	if channel.metadata == nil {
+		channel.metadata = make(map[string]string)
+	}
+
+	channel.metadata[key] = value
+}
+
+func (channel *Channel) ListMetadata() map[string]string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	return maps.Clone(channel.metadata)
+}
+
+func (channel *Channel) DeleteMetadata(key string) {
+	defer channel.MarkDirty(IncludeAllAttrs)
+
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	delete(channel.metadata, key)
+}
+
+func (channel *Channel) ClearMetadata() map[string]string {
+	defer channel.MarkDirty(IncludeAllAttrs)
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+
+	oldMap := channel.metadata
+	channel.metadata = nil
+
+	return oldMap
+}
+
+func (channel *Channel) CountMetadata() int {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	return len(channel.metadata)
+}
+
+func (client *Client) GetMetadata(key string) (string, bool) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	val, ok := client.metadata[key]
+	return val, ok
+}
+
+func (client *Client) SetMetadata(key string, value string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.metadata == nil {
+		client.metadata = make(map[string]string)
+	}
+
+	client.metadata[key] = value
+}
+
+func (client *Client) ListMetadata() map[string]string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	return maps.Clone(client.metadata)
+}
+
+func (client *Client) DeleteMetadata(key string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	delete(client.metadata, key)
+}
+
+func (client *Client) ClearMetadata() map[string]string {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	oldMap := client.metadata
+	client.metadata = nil
+
+	return oldMap
+}
+
+func (client *Client) CountMetadata() int {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	return len(client.metadata)
 }

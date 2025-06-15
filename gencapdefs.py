@@ -237,6 +237,13 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/471",
         standard="Soju/Goguma vendor",
     ),
+    CapDef(
+        identifier="Metadata",
+        name="draft/metadata-2",
+        url="https://ircv3.net/specs/extensions/metadata",
+        standard="draft IRCv3",
+    ),
+
 ]
 
 def validate_defs():
