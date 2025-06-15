@@ -3122,21 +3122,21 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		target = client.Nick()
 	}
 
-	targetClient := server.clients.Get(target)
-	targetChannel := server.channels.Get(target)
-	if !metadataCanISeeThisTarget(client, target) {
-		invalidTarget()
-		return
+	var targetObj MetadataHaver
+	var targetClient *Client
+	var targetChannel *Channel
+	if strings.HasPrefix(target, "#") {
+		targetChannel = server.channels.Get(target)
+		if targetChannel != nil {
+			targetObj = targetChannel
+		}
+	} else {
+		targetClient = server.clients.Get(target)
+		if targetClient != nil {
+			targetObj = targetClient
+		}
 	}
-
-	var t MetadataHaver
-	if targetClient != nil {
-		t = targetClient
-	}
-	if targetChannel != nil {
-		t = targetChannel
-	}
-	if t == nil {
+	if targetObj == nil {
 		invalidTarget()
 		return
 	}
@@ -3172,20 +3172,20 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			maxKeys := server.Config().Metadata.MaxKeys
 			isSelf := targetClient != nil && client == targetClient
 
-			if isSelf && maxKeys > 0 && t.CountMetadata() >= maxKeys {
+			if isSelf && maxKeys > 0 && targetObj.CountMetadata() >= maxKeys {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.nick, client.t("You have too many keys set on yourself"))
 				return
 			}
 
 			server.logger.Debug("metadata", "setting", key, value, "on", target)
 
-			t.SetMetadata(key, value)
+			targetObj.SetMetadata(key, value)
 			notifySubscribers(server, rb.session, target, key, value)
 
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
 		} else {
 			server.logger.Debug("metadata", "deleting", key, "on", target)
-			t.DeleteMetadata(key)
+			targetObj.DeleteMetadata(key)
 			notifySubscribers(server, rb.session, target, key, "")
 
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
@@ -3201,7 +3201,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				continue
 			}
 
-			val, ok := t.GetMetadata(key)
+			val, ok := targetObj.GetMetadata(key)
 			if !ok {
 				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key is not set"))
 				continue
@@ -3212,7 +3212,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "list":
-		values := t.ListMetadata()
+		values := targetObj.ListMetadata()
 
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
@@ -3229,7 +3229,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			return
 		}
 
-		values := t.ClearMetadata()
+		values := targetObj.ClearMetadata()
 
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
