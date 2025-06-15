@@ -3155,7 +3155,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			return
 		}
 
-		if !metadataCanIEditThisKey(client, target, key) {
+		if !metadataCanIEditThisKey(client, targetObj, key) {
 			noKeyPerms(key)
 			return
 		}
@@ -3192,6 +3192,11 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "get":
+		if !metadataCanISeeThisTarget(client, targetObj) {
+			noKeyPerms("*")
+			return
+		}
+
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
 
@@ -3224,7 +3229,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "clear":
-		if !metadataCanIEditThisTarget(client, target) {
+		if !metadataCanIEditThisTarget(client, targetObj) {
 			invalidTarget()
 			return
 		}

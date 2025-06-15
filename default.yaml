@@ -724,6 +724,7 @@ oper-classes:
             - "history"      # modify or delete history messages
             - "defcon"       # use the DEFCON command (restrict server capabilities)
             - "massmessage"  # message all users on the server
+            - "metadata"     # modify arbitrary metadata on channels and users
 
 # ircd operators
 opers:
