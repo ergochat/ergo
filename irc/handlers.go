@@ -3155,7 +3155,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	case "set":
 		key := strings.ToLower(msg.Params[2])
 		if metadataKeyIsEvil(key) {
-			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
 		}
 
@@ -3183,7 +3183,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			isSelf := targetClient != nil && client == targetClient
 
 			if isSelf && maxKeys > 0 && targetObj.CountMetadata() >= maxKeys {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.nick, client.t("You have too many keys set on yourself"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("You have too many keys set on yourself"))
 				return
 			}
 
@@ -3211,7 +3211,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 		for _, key := range msg.Params[2:] {
 			if metadataKeyIsEvil(key) {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				continue
 			}
 
@@ -3246,10 +3246,11 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "sub":
 		keys := msg.Params[2:]
+		// TODO validate key names here
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
-			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", bad, client.t("Too many subscriptions"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", utils.SafeErrorParam(bad), client.t("Too many subscriptions"))
 		}
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(client.Nick()) - 10
@@ -3291,7 +3292,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	default:
-		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", msg.Params[1], client.t("Invalid subcommand"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
 	}
 
 	return
