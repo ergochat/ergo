@@ -3189,16 +3189,16 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 			server.logger.Debug("metadata", "setting", key, value, "on", target)
 
-			targetObj.SetMetadata(key, value)
-			notifySubscribers(server, rb.session, targetObj, target, key, value)
-
+			if updated := targetObj.SetMetadata(key, value); updated {
+				notifySubscribers(server, rb.session, targetObj, target, key, value)
+			}
+			// echo the value to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
 		} else {
 			server.logger.Debug("metadata", "deleting", key, "on", target)
-			// TODO check success or failure here
-			targetObj.DeleteMetadata(key)
-			notifySubscribers(server, rb.session, targetObj, target, key, "")
-
+			if updated := targetObj.DeleteMetadata(key); updated {
+				notifySubscribers(server, rb.session, targetObj, target, key, "")
+			}
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
 

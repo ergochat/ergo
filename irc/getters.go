@@ -894,7 +894,7 @@ func (channel *Channel) GetMetadata(key string) (string, bool) {
 	return val, ok
 }
 
-func (channel *Channel) SetMetadata(key string, value string) {
+func (channel *Channel) SetMetadata(key string, value string) (updated bool) {
 	defer channel.MarkDirty(IncludeAllAttrs)
 
 	channel.stateMutex.Lock()
@@ -904,7 +904,12 @@ func (channel *Channel) SetMetadata(key string, value string) {
 		channel.metadata = make(map[string]string)
 	}
 
-	channel.metadata[key] = value
+	existing, ok := channel.metadata[key]
+	updated = !ok || value != existing
+	if updated {
+		channel.metadata[key] = value
+	}
+	return updated
 }
 
 func (channel *Channel) ListMetadata() map[string]string {
@@ -914,13 +919,17 @@ func (channel *Channel) ListMetadata() map[string]string {
 	return maps.Clone(channel.metadata)
 }
 
-func (channel *Channel) DeleteMetadata(key string) {
+func (channel *Channel) DeleteMetadata(key string) (updated bool) {
 	defer channel.MarkDirty(IncludeAllAttrs)
 
 	channel.stateMutex.Lock()
 	defer channel.stateMutex.Unlock()
 
-	delete(channel.metadata, key)
+	_, updated = channel.metadata[key]
+	if updated {
+		delete(channel.metadata, key)
+	}
+	return updated
 }
 
 func (channel *Channel) ClearMetadata() map[string]string {
@@ -949,7 +958,7 @@ func (client *Client) GetMetadata(key string) (string, bool) {
 	return val, ok
 }
 
-func (client *Client) SetMetadata(key string, value string) {
+func (client *Client) SetMetadata(key string, value string) (updated bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -957,7 +966,12 @@ func (client *Client) SetMetadata(key string, value string) {
 		client.metadata = make(map[string]string)
 	}
 
-	client.metadata[key] = value
+	existing, ok := client.metadata[key]
+	updated = !ok || value != existing
+	if updated {
+		client.metadata[key] = value
+	}
+	return updated
 }
 
 func (client *Client) ListMetadata() map[string]string {
@@ -967,11 +981,15 @@ func (client *Client) ListMetadata() map[string]string {
 	return maps.Clone(client.metadata)
 }
 
-func (client *Client) DeleteMetadata(key string) {
+func (client *Client) DeleteMetadata(key string) (updated bool) {
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	delete(client.metadata, key)
+	_, updated = client.metadata[key]
+	if updated {
+		delete(client.metadata, key)
+	}
+	return updated
 }
 
 func (client *Client) ClearMetadata() map[string]string {
