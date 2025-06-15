@@ -80,21 +80,22 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 	}
 }
 
-func syncChannelMetadata(server *Server, rb *ResponseBuffer, target *Channel) {
+func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	batchId := rb.StartNestedBatch("metadata")
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
+	chname := channel.Name()
 
-	values := target.ListMetadata()
+	values := channel.ListMetadata()
 	for k, v := range values {
 		if subs.Has(k) {
 			visibility := "*"
-			rb.Add(nil, server.name, "METADATA", target.Name(), k, visibility, v)
+			rb.Add(nil, server.name, "METADATA", chname, k, visibility, v)
 		}
 	}
 
-	for _, client := range target.Members() {
+	for _, client := range channel.Members() {
 		values := client.ListMetadata()
 		for k, v := range values {
 			if subs.Has(k) {
