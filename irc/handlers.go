@@ -3196,6 +3196,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			if updated := targetObj.DeleteMetadata(key); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "")
 			}
+			// acknowledge to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
 
