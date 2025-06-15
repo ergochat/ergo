@@ -3102,22 +3102,21 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 // METADATA <target> <subcommand> [<and so on>...]
 func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
-	originalTarget := msg.Params[0]
-	target := originalTarget
+	target := msg.Params[0]
 
 	config := server.Config()
 	if !config.Metadata.Enabled {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", originalTarget, "Metadata is disabled on this server")
+		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", target, "Metadata is disabled on this server")
 		return
 	}
 
 	subcommand := strings.ToLower(msg.Params[1])
 
 	invalidTarget := func() {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", originalTarget, client.t("Invalid metadata target"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", target, client.t("Invalid metadata target"))
 	}
 	noKeyPerms := func(key string) {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", originalTarget, key, client.t("You do not have permission to perform this action"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", target, key, client.t("You do not have permission to perform this action"))
 	}
 
 	if target == "*" {
