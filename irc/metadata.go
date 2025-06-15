@@ -2,12 +2,13 @@ package irc
 
 import (
 	"errors"
+	"iter"
+	"maps"
 	"regexp"
 	"strings"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/modes"
-	"github.com/ergochat/ergo/irc/utils"
 )
 
 var (
@@ -24,34 +25,31 @@ type MetadataHaver = interface {
 	CountMetadata() int
 }
 
-func notifySubscribers(server *Server, session *Session, target string, key string, value string) {
-	var notify utils.HashSet[*Session] = make(utils.HashSet[*Session])
-	targetChannel := server.channels.Get(target)
-	targetClient := server.clients.Get(target)
+func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver, targetName, key, value string) {
+	var recipientSessions iter.Seq[*Session]
 
-	if targetClient != nil {
-		notify = targetClient.FriendsMonitors(caps.Metadata)
-		// notify clients about changes regarding themselves
-		for _, s := range targetClient.Sessions() {
-			notify.Add(s)
+	switch target := targetObj.(type) {
+	case *Client:
+		// TODO this case is expensive and might warrant rate-limiting
+		friends := target.FriendsMonitors(caps.Metadata)
+		// broadcast metadata update to other connected sessions
+		for _, s := range target.Sessions() {
+			friends.Add(s)
 		}
-	}
-	if targetChannel != nil {
-		members := targetChannel.Members()
-		for _, m := range members {
-			for _, s := range m.Sessions() {
-				if s.capabilities.Has(caps.Metadata) {
-					notify.Add(s)
-				}
-			}
-		}
+		recipientSessions = maps.Keys(friends)
+	case *Channel:
+		recipientSessions = target.sessionsWithCap(caps.Metadata)
+	default:
+		return // impossible
 	}
 
-	// don't notify the session that made the change
-	notify.Remove(session)
+	broadcastMetadataUpdate(server, recipientSessions, session, targetName, key, value)
+}
 
-	for s := range notify {
-		if !s.isSubscribedTo(key) {
+func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], originator *Session, target, key, value string) {
+	for s := range sessions {
+		// don't notify the session that made the change
+		if s == originator || !s.isSubscribedTo(key) {
 			continue
 		}
 

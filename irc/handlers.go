@@ -3129,11 +3129,13 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		targetChannel = server.channels.Get(target)
 		if targetChannel != nil {
 			targetObj = targetChannel
+			target = targetChannel.Name() // canonicalize case
 		}
 	} else {
 		targetClient = server.clients.Get(target)
 		if targetClient != nil {
 			targetObj = targetClient
+			target = targetClient.Nick() // canonicalize case
 		}
 	}
 	if targetObj == nil {
@@ -3180,13 +3182,14 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			server.logger.Debug("metadata", "setting", key, value, "on", target)
 
 			targetObj.SetMetadata(key, value)
-			notifySubscribers(server, rb.session, target, key, value)
+			notifySubscribers(server, rb.session, targetObj, target, key, value)
 
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
 		} else {
 			server.logger.Debug("metadata", "deleting", key, "on", target)
+			// TODO check success or failure here
 			targetObj.DeleteMetadata(key)
-			notifySubscribers(server, rb.session, target, key, "")
+			notifySubscribers(server, rb.session, targetObj, target, key, "")
 
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
