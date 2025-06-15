@@ -3191,7 +3191,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 				notifySubscribers(server, rb.session, targetObj, target, key, value)
 			}
 			// echo the value to the client whether or not there was a real update
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, "*", value)
 		} else {
 			if updated := targetObj.DeleteMetadata(key); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "")
@@ -3222,7 +3222,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			}
 
 			visibility := "*"
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, visibility, val)
 		}
 
 	case "list":
@@ -3241,7 +3241,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 		for key, val := range values {
 			visibility := "*"
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, visibility, val)
 		}
 
 	case "sub":
