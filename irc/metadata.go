@@ -42,7 +42,7 @@ func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver
 		}
 		recipientSessions = maps.Keys(friends)
 	case *Channel:
-		recipientSessions = target.sessionsWithCap(caps.Metadata)
+		recipientSessions = target.sessionsWithCaps(caps.Metadata)
 	default:
 		return // impossible
 	}

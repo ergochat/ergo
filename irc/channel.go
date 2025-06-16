@@ -1677,7 +1677,7 @@ func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
 	return
 }
 
-func (channel *Channel) sessionsWithCap(capabs ...caps.Capability) iter.Seq[*Session] {
+func (channel *Channel) sessionsWithCaps(capabs ...caps.Capability) iter.Seq[*Session] {
 	return func(yield func(*Session) bool) {
 		for _, member := range channel.Members() {
 			for _, sess := range member.Sessions() {
