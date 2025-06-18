@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
@@ -3101,43 +3102,42 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 // METADATA <target> <subcommand> [<and so on>...]
 func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
-	originalTarget := msg.Params[0]
-	target := originalTarget
+	target := msg.Params[0]
 
-	if !server.Config().Metadata.Enabled {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", originalTarget, "Metadata is disabled on this server")
+	config := server.Config()
+	if !config.Metadata.Enabled {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", target, "Metadata is disabled on this server")
 		return
 	}
 
 	subcommand := strings.ToLower(msg.Params[1])
 
-	invalidTarget := func() {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", originalTarget, client.t("Invalid metadata target"))
-	}
 	noKeyPerms := func(key string) {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", originalTarget, key, client.t("You do not have permission to perform this action"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", target, key, client.t("You do not have permission to perform this action"))
 	}
 
 	if target == "*" {
 		target = client.Nick()
 	}
 
-	targetClient := server.clients.Get(target)
-	targetChannel := server.channels.Get(target)
-	if !metadataCanISeeThisTarget(client, target) {
-		invalidTarget()
-		return
+	var targetObj MetadataHaver
+	var targetClient *Client
+	var targetChannel *Channel
+	if strings.HasPrefix(target, "#") {
+		targetChannel = server.channels.Get(target)
+		if targetChannel != nil {
+			targetObj = targetChannel
+			target = targetChannel.Name() // canonicalize case
+		}
+	} else {
+		targetClient = server.clients.Get(target)
+		if targetClient != nil {
+			targetObj = targetClient
+			target = targetClient.Nick() // canonicalize case
+		}
 	}
-
-	var t MetadataHaver
-	if targetClient != nil {
-		t = targetClient
-	}
-	if targetChannel != nil {
-		t = targetChannel
-	}
-	if t == nil {
-		invalidTarget()
+	if targetObj == nil {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", target, client.t("Invalid metadata target"))
 		return
 	}
 
@@ -3151,101 +3151,105 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	case "set":
 		key := strings.ToLower(msg.Params[2])
 		if metadataKeyIsEvil(key) {
-			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
 		}
 
-		if !metadataCanIEditThisKey(client, target, key) {
+		if !metadataCanIEditThisKey(client, targetObj, key) {
 			noKeyPerms(key)
 			return
 		}
 
 		if len(msg.Params) > 3 {
 			value := msg.Params[3]
-			const maxCombinedLen = 350
 
-			if len(key)+len(value) > maxCombinedLen {
+			if !globalUtf8EnforcementSetting && !utf8.ValidString(value) {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("METADATA values must be UTF-8"))
+				return
+			}
+
+			if len(key)+len(value) > maxCombinedMetadataLenBytes ||
+				(config.Metadata.MaxValueBytes > 0 && len(value) > config.Metadata.MaxValueBytes) {
+
 				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("Value is too long"))
 				return
 			}
 
-			maxKeys := server.Config().Metadata.MaxKeys
-			isSelf := targetClient != nil && client == targetClient
-
-			if isSelf && maxKeys > 0 && t.CountMetadata() >= maxKeys {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.nick, client.t("You have too many keys set on yourself"))
+			updated, err := targetObj.SetMetadata(key, value, config.Metadata.MaxKeys)
+			if err != nil {
+				// errLimitExceeded is the only possible error
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("Too many metadata keys"))
 				return
 			}
-
-			server.logger.Debug("metadata", "setting", key, value, "on", target)
-
-			t.SetMetadata(key, value)
-			notifySubscribers(server, rb.session, target, key, value)
-
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, "*", value)
+			// echo the value to the client whether or not there was a real update
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, "*", value)
+			if updated {
+				notifySubscribers(server, rb.session, targetObj, target, key, value)
+			}
 		} else {
-			server.logger.Debug("metadata", "deleting", key, "on", target)
-			t.DeleteMetadata(key)
-			notifySubscribers(server, rb.session, target, key, "")
-
+			if updated := targetObj.DeleteMetadata(key); updated {
+				notifySubscribers(server, rb.session, targetObj, target, key, "")
+			}
+			// acknowledge to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
 
 	case "get":
+		if !metadataCanISeeThisTarget(client, targetObj) {
+			noKeyPerms("*")
+			return
+		}
+
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range msg.Params[2:] {
 			if metadataKeyIsEvil(key) {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", key, client.t("Invalid key name"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				continue
 			}
 
-			val, ok := t.GetMetadata(key)
+			val, ok := targetObj.GetMetadata(key)
 			if !ok {
 				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key is not set"))
 				continue
 			}
 
 			visibility := "*"
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, visibility, val)
 		}
 
 	case "list":
-		values := t.ListMetadata()
-
-		batchId := rb.StartNestedBatch("metadata")
-		defer rb.EndNestedBatch(batchId)
-
-		for key, val := range values {
-			visibility := "*"
-
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
-		}
+		playMetadataList(rb, client.Nick(), target, targetObj.ListMetadata())
 
 	case "clear":
-		if !metadataCanIEditThisTarget(client, target) {
-			invalidTarget()
+		if !metadataCanIEditThisTarget(client, targetObj) {
+			noKeyPerms("*")
 			return
 		}
 
-		values := t.ClearMetadata()
+		values := targetObj.ClearMetadata()
 
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
 
 		for key, val := range values {
 			visibility := "*"
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), originalTarget, key, visibility, val)
+			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, visibility, val)
 		}
 
 	case "sub":
 		keys := msg.Params[2:]
-		server.logger.Debug("metadata", client.nick, "has subscrumbled to", strings.Join(keys, ", "))
+		for _, key := range keys {
+			if metadataKeyIsEvil(key) {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+				return
+			}
+		}
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
-			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", bad, client.t("Too many subscriptions"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", utils.SafeErrorParam(bad), client.t("Too many subscriptions"))
 		}
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(client.Nick()) - 10
@@ -3258,7 +3262,6 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 	case "unsub":
 		keys := msg.Params[2:]
-		server.logger.Debug("metadata", client.nick, "has UNsubscrumbled to", strings.Join(keys, ", "))
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
@@ -3288,10 +3291,20 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	default:
-		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", msg.Params[1], client.t("Invalid subcommand"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
 	}
 
 	return
+}
+
+func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata")
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, nick, target, key, visibility, val)
+	}
 }
 
 // REHASH

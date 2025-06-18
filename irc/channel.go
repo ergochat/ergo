@@ -7,6 +7,7 @@ package irc
 
 import (
 	"fmt"
+	"iter"
 	"maps"
 	"strconv"
 	"strings"
@@ -1674,6 +1675,20 @@ func (channel *Channel) auditoriumFriends(client *Client) (friends []*Client) {
 		}
 	}
 	return
+}
+
+func (channel *Channel) sessionsWithCaps(capabs ...caps.Capability) iter.Seq[*Session] {
+	return func(yield func(*Session) bool) {
+		for _, member := range channel.Members() {
+			for _, sess := range member.Sessions() {
+				if sess.capabilities.HasAll(capabs...) {
+					if !yield(sess) {
+						return
+					}
+				}
+			}
+		}
+	}
 }
 
 // returns whether the client is visible to unprivileged users in the channel

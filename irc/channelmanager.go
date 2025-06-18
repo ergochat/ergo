@@ -206,6 +206,10 @@ func (cm *ChannelManager) Cleanup(channel *Channel) {
 }
 
 func (cm *ChannelManager) SetRegistered(channelName string, account string) (err error) {
+	if account == "" {
+		return errAuthRequired // this is already enforced by ChanServ, but do a final check
+	}
+
 	if cm.server.Defcon() <= 4 {
 		return errFeatureDisabled
 	}
