@@ -238,11 +238,10 @@ Get an explanation of <argument>, or "index" for a list of help topics.`,
 	"history": {
 		text: `HISTORY <target> [limit]
 
-Replay message history. <target> can be a channel name, "me" to replay direct
-message history, or a nickname to replay another client's direct message
-history (they must be logged into the same account as you). [limit] can be
-either an integer (the maximum number of messages to replay), or a time
-duration like 10m or 1h (the time window within which to replay messages).`,
+Replay message history. <target> can be a channel name or a nickname you have
+direct message history with. [limit] can be either an integer (the maximum
+number of messages to replay), or a time duration like 10m or 1h (the time
+window within which to replay messages).`,
 	},
 	"info": {
 		text: `INFO
