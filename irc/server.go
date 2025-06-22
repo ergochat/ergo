@@ -428,6 +428,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.SetMode(defaultMode, true)
 	}
 
+	c.applyPreregMetadata(session)
+
 	// this is not a reattach, so if the client is always-on, this is the first time
 	// the Client object was created during the current server uptime. mark dirty in
 	// order to persist the realname and the user modes:
@@ -496,7 +498,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if !(rb.session.capabilities.Has(caps.ExtendedISupport) && rb.session.isupportSentPrereg) {
 		server.RplISupport(c, rb)
 	}
-	if session.capabilities.Has(caps.Metadata) && c.AlwaysOn() {
+	if session.capabilities.Has(caps.Metadata) {
 		playMetadataList(rb, d.nick, d.nick, c.ListMetadata())
 	}
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {

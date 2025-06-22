@@ -5,6 +5,7 @@ import (
 	"iter"
 	"maps"
 	"regexp"
+	"unicode/utf8"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/modes"
@@ -105,12 +106,24 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	}
 }
 
-var metadataEvilCharsRegexp = regexp.MustCompile("[^A-Za-z0-9_./:-]+")
+var validMetadataKeyRegexp = regexp.MustCompile("^[A-Za-z0-9_./-]+$")
 
 func metadataKeyIsEvil(key string) bool {
-	return len(key) == 0 || // key needs to contain stuff
-		key[0] == ':' || // key can't start with a colon
-		metadataEvilCharsRegexp.MatchString(key) // key can't contain the stuff it can't contain
+	return !validMetadataKeyRegexp.MatchString(key)
+}
+
+func metadataValueIsEvil(config *Config, key, value string) (failMsg string) {
+	if !globalUtf8EnforcementSetting && !utf8.ValidString(value) {
+		return `METADATA values must be UTF-8`
+	}
+
+	if len(key)+len(value) > maxCombinedMetadataLenBytes ||
+		(config.Metadata.MaxValueBytes > 0 && len(value) > config.Metadata.MaxValueBytes) {
+
+		return `Value is too long`
+	}
+
+	return "" // success
 }
 
 func metadataCanIEditThisKey(client *Client, targetObj MetadataHaver, key string) bool {

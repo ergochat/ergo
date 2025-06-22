@@ -8,9 +8,10 @@ func TestKeyCheck(t *testing.T) {
 		isEvil bool
 	}{
 		{"ImNormal", false},
+		{"", true},
 		{":imevil", true},
 		{"key£with$not%allowed^chars", true},
-		{"key.that:s_completely/normal-and.fine", false},
+		{"key.thats_completely/normal-and.fine", false},
 	}
 
 	for _, c := range cases {

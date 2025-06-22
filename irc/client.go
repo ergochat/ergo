@@ -217,6 +217,7 @@ type Session struct {
 	webPushEndpoint string // goroutine-local: web push endpoint registered by the current session
 
 	metadataSubscriptions utils.HashSet[string]
+	metadataPreregVals    map[string]string
 }
 
 // MultilineBatch tracks the state of a client-to-server multiline batch.
@@ -677,7 +678,7 @@ func (client *Client) run(session *Session) {
 	isReattach := client.Registered()
 	if isReattach {
 		client.Touch(session)
-		client.playReattachMessages(session)
+		client.performReattach(session)
 	}
 
 	firstLine := !isReattach
@@ -777,7 +778,9 @@ func (client *Client) run(session *Session) {
 	}
 }
 
-func (client *Client) playReattachMessages(session *Session) {
+func (client *Client) performReattach(session *Session) {
+	client.applyPreregMetadata(session)
+
 	client.server.playRegistrationBurst(session)
 	hasHistoryCaps := session.HasHistoryCaps()
 	for _, channel := range session.client.Channels() {
@@ -799,6 +802,34 @@ func (client *Client) playReattachMessages(session *Session) {
 		rb.Send(true)
 	}
 	session.autoreplayMissedSince = time.Time{}
+}
+
+func (client *Client) applyPreregMetadata(session *Session) {
+	if session.metadataPreregVals == nil {
+		return
+	}
+
+	defer func() {
+		session.metadataPreregVals = nil
+	}()
+
+	updates := client.UpdateMetadataFromPrereg(session.metadataPreregVals, client.server.Config().Metadata.MaxKeys)
+	if len(updates) == 0 {
+		return
+	}
+
+	// TODO this is expensive
+	friends := client.FriendsMonitors(caps.Metadata)
+	for _, s := range client.Sessions() {
+		if s != session {
+			friends.Add(s)
+		}
+	}
+
+	target := client.Nick()
+	for k, v := range updates {
+		broadcastMetadataUpdate(client.server, maps.Keys(friends), session, target, k, v)
+	}
 }
 
 //

@@ -839,6 +839,8 @@ func (session *Session) isSubscribedTo(key string) bool {
 }
 
 func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
+	maxSubs := session.client.server.Config().Metadata.MaxSubs
+
 	session.client.stateMutex.Lock()
 	defer session.client.stateMutex.Unlock()
 
@@ -847,8 +849,6 @@ func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
 	}
 
 	var added []string
-
-	maxSubs := session.client.server.Config().Metadata.MaxSubs
 
 	for _, k := range keys {
 		if !session.metadataSubscriptions.Has(k) {
@@ -978,6 +978,30 @@ func (client *Client) SetMetadata(key string, value string, limit int) (updated 
 		client.metadata[key] = value
 	}
 	return updated, nil
+}
+
+func (client *Client) UpdateMetadataFromPrereg(preregData map[string]string, limit int) (updates map[string]string) {
+	updates = make(map[string]string, len(preregData))
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.metadata == nil {
+		client.metadata = make(map[string]string)
+	}
+
+	for k, v := range preregData {
+		// do not overwrite any existing keys
+		_, ok := client.metadata[k]
+		if ok {
+			continue
+		}
+		if len(client.metadata) >= limit {
+			return // we know this is a new key
+		}
+		client.metadata[k] = v
+	}
+	return
 }
 
 func (client *Client) ListMetadata() map[string]string {

@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
@@ -3102,15 +3101,39 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 // METADATA <target> <subcommand> [<and so on>...]
 func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
-	target := msg.Params[0]
-
 	config := server.Config()
 	if !config.Metadata.Enabled {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", target, "Metadata is disabled on this server")
+		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", utils.SafeErrorParam(msg.Params[0]), "Metadata is disabled on this server")
 		return
 	}
 
 	subcommand := strings.ToLower(msg.Params[1])
+	needsKey := subcommand == "set" || subcommand == "get" || subcommand == "sub" || subcommand == "unsub"
+	if needsKey && len(msg.Params) < 3 {
+		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
+		return
+	}
+
+	switch subcommand {
+	case "sub", "unsub", "subs":
+		// these are session-local and function the same whether or not the client is registered
+		return metadataSubsHandler(client, subcommand, msg.Params, rb)
+	case "get", "set", "list", "clear", "sync":
+		if client.registered {
+			return metadataRegisteredHandler(client, config, subcommand, msg.Params, rb)
+		} else {
+			return metadataUnregisteredHandler(client, config, subcommand, msg.Params, rb)
+		}
+	default:
+		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
+		return
+	}
+}
+
+// metadataRegisteredHandler handles metadata-modifying commands from registered clients
+func metadataRegisteredHandler(client *Client, config *Config, subcommand string, params []string, rb *ResponseBuffer) (exiting bool) {
+	server := client.server
+	target := params[0]
 
 	noKeyPerms := func(key string) {
 		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", target, key, client.t("You do not have permission to perform this action"))
@@ -3141,15 +3164,9 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		return
 	}
 
-	needsKey := subcommand == "set" || subcommand == "get" || subcommand == "sub" || subcommand == "unsub"
-	if needsKey && len(msg.Params) <= 2 {
-		rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, client.t("Not enough parameters"))
-		return
-	}
-
 	switch subcommand {
 	case "set":
-		key := strings.ToLower(msg.Params[2])
+		key := params[2]
 		if metadataKeyIsEvil(key) {
 			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
@@ -3160,18 +3177,12 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			return
 		}
 
-		if len(msg.Params) > 3 {
-			value := msg.Params[3]
+		if len(params) > 3 {
+			value := params[3]
 
-			if !globalUtf8EnforcementSetting && !utf8.ValidString(value) {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("METADATA values must be UTF-8"))
-				return
-			}
-
-			if len(key)+len(value) > maxCombinedMetadataLenBytes ||
-				(config.Metadata.MaxValueBytes > 0 && len(value) > config.Metadata.MaxValueBytes) {
-
-				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t("Value is too long"))
+			config := client.server.Config()
+			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t(failMsg))
 				return
 			}
 
@@ -3203,7 +3214,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		batchId := rb.StartNestedBatch("metadata")
 		defer rb.EndNestedBatch(batchId)
 
-		for _, key := range msg.Params[2:] {
+		for _, key := range params[2:] {
 			if metadataKeyIsEvil(key) {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				continue
@@ -3230,16 +3241,84 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 
 		values := targetObj.ClearMetadata()
 
-		batchId := rb.StartNestedBatch("metadata")
-		defer rb.EndNestedBatch(batchId)
+		playMetadataList(rb, client.Nick(), target, values)
 
-		for key, val := range values {
-			visibility := "*"
-			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, visibility, val)
+	case "sync":
+		if targetChannel != nil {
+			syncChannelMetadata(server, rb, targetChannel)
 		}
+		if targetClient != nil {
+			syncClientMetadata(server, rb, targetClient)
+		}
+	}
 
+	return
+}
+
+// metadataUnregisteredHandler handles metadata-modifying commands for pre-connection-registration
+// clients. these operations act on a session-local buffer; if/when the client completes registration,
+// they are applied to the final Client object (possibly a different client if there was a reattach)
+// on a best-effort basis.
+func metadataUnregisteredHandler(client *Client, config *Config, subcommand string, params []string, rb *ResponseBuffer) (exiting bool) {
+	server := client.server
+	if params[0] != "*" {
+		rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NO_PERMISSION", utils.SafeErrorParam(params[0]), "*", client.t("You can only modify your own metadata before completing connection registration"))
+		return
+	}
+
+	switch subcommand {
+	case "set":
+		if rb.session.metadataPreregVals == nil {
+			rb.session.metadataPreregVals = make(map[string]string)
+		}
+		key := params[2]
+		if metadataKeyIsEvil(key) {
+			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+			return
+		}
+		if len(params) >= 4 {
+			value := params[3]
+			// enforce a sane limit on prereg keys. we don't need to enforce the exact limit,
+			// that will be done when applying the buffer after registration
+			if len(rb.session.metadataPreregVals) > config.Metadata.MaxKeys {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("Too many metadata keys"))
+				return
+			}
+			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t(failMsg))
+				return
+			}
+			rb.session.metadataPreregVals[key] = value
+			rb.Add(nil, server.name, RPL_KEYVALUE, "*", "*", key, "*", value)
+		} else {
+			// unset
+			_, present := rb.session.metadataPreregVals[key]
+			if present {
+				delete(rb.session.metadataPreregVals, key)
+				rb.Add(nil, server.name, RPL_KEYNOTSET, "*", "*", key, client.t("Key deleted"))
+			} else {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NOT_SET", utils.SafeErrorParam(key), client.t("Metadata key not set"))
+			}
+		}
+	case "list":
+		playMetadataList(rb, "*", "*", rb.session.metadataPreregVals)
+	case "clear":
+		oldMetadata := rb.session.metadataPreregVals
+		rb.session.metadataPreregVals = nil
+		playMetadataList(rb, "*", "*", oldMetadata)
+	case "sync":
+		rb.Add(nil, server.name, RPL_METADATASYNCLATER, "*", utils.SafeErrorParam(params[1]), "60") // lol
+	}
+	return false
+}
+
+// metadataSubsHandler handles subscription-related commands;
+// these are handled the same whether the client is registered or not
+func metadataSubsHandler(client *Client, subcommand string, params []string, rb *ResponseBuffer) (exiting bool) {
+	server := client.server
+	switch subcommand {
 	case "sub":
-		keys := msg.Params[2:]
+		keys := params[2:]
 		for _, key := range keys {
 			if metadataKeyIsEvil(key) {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
@@ -3261,7 +3340,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "unsub":
-		keys := msg.Params[2:]
+		keys := params[2:]
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
@@ -3272,7 +3351,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 		}
 
 	case "subs":
-		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBS) - len(client.Nick()) - 10 // for safety
+		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBS) - len(client.Nick()) - 10
 
 		subs := rb.session.MetadataSubscriptions()
 
@@ -3281,20 +3360,8 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			params := append([]string{client.Nick()}, line...)
 			rb.Add(nil, server.name, RPL_METADATASUBS, params...)
 		}
-
-	case "sync":
-		if targetChannel != nil {
-			syncChannelMetadata(server, rb, targetChannel)
-		}
-		if targetClient != nil {
-			syncClientMetadata(server, rb, targetClient)
-		}
-
-	default:
-		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
 	}
-
-	return
+	return false
 }
 
 func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
