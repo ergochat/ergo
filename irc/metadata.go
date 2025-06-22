@@ -30,7 +30,7 @@ type MetadataHaver = interface {
 	CountMetadata() int
 }
 
-func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver, targetName, key, value string) {
+func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver, targetName, key, value string, set bool) {
 	var recipientSessions iter.Seq[*Session]
 
 	switch target := targetObj.(type) {
@@ -48,17 +48,17 @@ func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver
 		return // impossible
 	}
 
-	broadcastMetadataUpdate(server, recipientSessions, session, targetName, key, value)
+	broadcastMetadataUpdate(server, recipientSessions, session, targetName, key, value, set)
 }
 
-func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], originator *Session, target, key, value string) {
+func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], originator *Session, target, key, value string, set bool) {
 	for s := range sessions {
 		// don't notify the session that made the change
 		if s == originator || !s.isSubscribedTo(key) {
 			continue
 		}
 
-		if value != "" {
+		if set {
 			s.Send(nil, server.name, "METADATA", target, key, "*", value)
 		} else {
 			s.Send(nil, server.name, "METADATA", target, key, "*")
@@ -67,7 +67,7 @@ func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], origin
 }
 
 func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
-	batchId := rb.StartNestedBatch("metadata")
+	batchId := rb.StartNestedBatch("metadata", target.Nick())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
@@ -81,7 +81,7 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 }
 
 func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
-	batchId := rb.StartNestedBatch("metadata")
+	batchId := rb.StartNestedBatch("metadata", channel.Name())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
@@ -106,7 +106,27 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	}
 }
 
-var validMetadataKeyRegexp = regexp.MustCompile("^[A-Za-z0-9_./-]+$")
+func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, nick, target, key, visibility, val)
+	}
+}
+
+func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, "METADATA", target, key, visibility, val)
+	}
+}
+
+var validMetadataKeyRegexp = regexp.MustCompile("^[a-z0-9_./-]+$")
 
 func metadataKeyIsEvil(key string) bool {
 	return !validMetadataKeyRegexp.MatchString(key)

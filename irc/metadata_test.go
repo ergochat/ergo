@@ -7,9 +7,12 @@ func TestKeyCheck(t *testing.T) {
 		input  string
 		isEvil bool
 	}{
-		{"ImNormal", false},
+		{"ImNormalButIHaveCaps", true},
+		{"imnormalandidonthavecaps", false},
+		{"ergo.chat/vendor-extension", false},
 		{"", true},
 		{":imevil", true},
+		{"im:evil", true},
 		{"key£with$not%allowed^chars", true},
 		{"key.thats_completely/normal-and.fine", false},
 	}

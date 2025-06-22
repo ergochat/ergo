@@ -3195,14 +3195,15 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			// echo the value to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, "*", value)
 			if updated {
-				notifySubscribers(server, rb.session, targetObj, target, key, value)
+				notifySubscribers(server, rb.session, targetObj, target, key, value, true)
 			}
 		} else {
 			if updated := targetObj.DeleteMetadata(key); updated {
-				notifySubscribers(server, rb.session, targetObj, target, key, "")
+				notifySubscribers(server, rb.session, targetObj, target, key, "", false)
+				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
+			} else {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NOT_SET", utils.SafeErrorParam(key), client.t("Metadata key not set"))
 			}
-			// acknowledge to the client whether or not there was a real update
-			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
 
 	case "get":
@@ -3211,7 +3212,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			return
 		}
 
-		batchId := rb.StartNestedBatch("metadata")
+		batchId := rb.StartNestedBatch("metadata", target)
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range params[2:] {
@@ -3355,6 +3356,9 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 
 		subs := rb.session.MetadataSubscriptions()
 
+		batchID := rb.StartNestedBatch("metadata-subs")
+		defer rb.EndNestedBatch(batchID)
+
 		chunked := utils.ChunkifyParams(maps.Keys(subs), lineLength)
 		for _, line := range chunked {
 			params := append([]string{client.Nick()}, line...)
@@ -3362,16 +3366,6 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 		}
 	}
 	return false
-}
-
-func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
-	batchId := rb.StartNestedBatch("metadata")
-	defer rb.EndNestedBatch(batchId)
-
-	for key, val := range values {
-		visibility := "*"
-		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, nick, target, key, visibility, val)
-	}
 }
 
 // REHASH

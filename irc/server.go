@@ -499,7 +499,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 		server.RplISupport(c, rb)
 	}
 	if session.capabilities.Has(caps.Metadata) {
-		playMetadataList(rb, d.nick, d.nick, c.ListMetadata())
+		playMetadataVerbBatch(rb, d.nick, c.ListMetadata())
 	}
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
 		reportPersistenceStatus(c, rb, false)
