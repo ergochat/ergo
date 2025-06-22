@@ -3355,6 +3355,9 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 
 		subs := rb.session.MetadataSubscriptions()
 
+		batchID := rb.StartNestedBatch("metadata-subs")
+		defer rb.EndNestedBatch(batchID)
+
 		chunked := utils.ChunkifyParams(maps.Keys(subs), lineLength)
 		for _, line := range chunked {
 			params := append([]string{client.Nick()}, line...)
