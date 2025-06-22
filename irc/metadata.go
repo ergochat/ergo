@@ -106,6 +106,26 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	}
 }
 
+func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, nick, target, key, visibility, val)
+	}
+}
+
+func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, "METADATA", target, key, visibility, val)
+	}
+}
+
 var validMetadataKeyRegexp = regexp.MustCompile("^[a-z0-9_./-]+$")
 
 func metadataKeyIsEvil(key string) bool {
