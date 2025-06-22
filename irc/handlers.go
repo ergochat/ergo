@@ -3166,7 +3166,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 
 	switch subcommand {
 	case "set":
-		key := strings.ToLower(params[2])
+		key := params[2]
 		if metadataKeyIsEvil(key) {
 			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
@@ -3215,7 +3215,6 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range params[2:] {
-			key = strings.ToLower(key)
 			if metadataKeyIsEvil(key) {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				continue
@@ -3316,18 +3315,10 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 // metadataSubsHandler handles subscription-related commands;
 // these are handled the same whether the client is registered or not
 func metadataSubsHandler(client *Client, subcommand string, params []string, rb *ResponseBuffer) (exiting bool) {
-	allToLower := func(in []string) (out []string) {
-		out = make([]string, len(in))
-		for i, s := range in {
-			out[i] = strings.ToLower(s)
-		}
-		return out
-	}
-
 	server := client.server
 	switch subcommand {
 	case "sub":
-		keys := allToLower(params[2:])
+		keys := params[2:]
 		for _, key := range keys {
 			if metadataKeyIsEvil(key) {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
@@ -3349,7 +3340,7 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 		}
 
 	case "unsub":
-		keys := allToLower(params[2:])
+		keys := params[2:]
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10
