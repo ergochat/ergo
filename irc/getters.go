@@ -1000,6 +1000,7 @@ func (client *Client) UpdateMetadataFromPrereg(preregData map[string]string, lim
 			return // we know this is a new key
 		}
 		client.metadata[k] = v
+		updates[k] = v
 	}
 	return
 }
