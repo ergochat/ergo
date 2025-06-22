@@ -30,7 +30,7 @@ type MetadataHaver = interface {
 	CountMetadata() int
 }
 
-func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver, targetName, key, value string) {
+func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver, targetName, key, value string, set bool) {
 	var recipientSessions iter.Seq[*Session]
 
 	switch target := targetObj.(type) {
@@ -48,17 +48,17 @@ func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver
 		return // impossible
 	}
 
-	broadcastMetadataUpdate(server, recipientSessions, session, targetName, key, value)
+	broadcastMetadataUpdate(server, recipientSessions, session, targetName, key, value, set)
 }
 
-func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], originator *Session, target, key, value string) {
+func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], originator *Session, target, key, value string, set bool) {
 	for s := range sessions {
 		// don't notify the session that made the change
 		if s == originator || !s.isSubscribedTo(key) {
 			continue
 		}
 
-		if value != "" {
+		if set {
 			s.Send(nil, server.name, "METADATA", target, key, "*", value)
 		} else {
 			s.Send(nil, server.name, "METADATA", target, key, "*")

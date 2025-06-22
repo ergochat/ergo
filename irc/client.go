@@ -828,7 +828,7 @@ func (client *Client) applyPreregMetadata(session *Session) {
 
 	target := client.Nick()
 	for k, v := range updates {
-		broadcastMetadataUpdate(client.server, maps.Keys(friends), session, target, k, v)
+		broadcastMetadataUpdate(client.server, maps.Keys(friends), session, target, k, v, true)
 	}
 }
 

@@ -3195,11 +3195,11 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			// echo the value to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYVALUE, client.Nick(), target, key, "*", value)
 			if updated {
-				notifySubscribers(server, rb.session, targetObj, target, key, value)
+				notifySubscribers(server, rb.session, targetObj, target, key, value, true)
 			}
 		} else {
 			if updated := targetObj.DeleteMetadata(key); updated {
-				notifySubscribers(server, rb.session, targetObj, target, key, "")
+				notifySubscribers(server, rb.session, targetObj, target, key, "", false)
 			}
 			// acknowledge to the client whether or not there was a real update
 			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
