@@ -428,6 +428,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.SetMode(defaultMode, true)
 	}
 
+	c.applyPreregMetadata(session)
+
 	// this is not a reattach, so if the client is always-on, this is the first time
 	// the Client object was created during the current server uptime. mark dirty in
 	// order to persist the realname and the user modes:

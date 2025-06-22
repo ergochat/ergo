@@ -724,7 +724,6 @@ type Config struct {
 	}
 
 	Metadata struct {
-		// BeforeConnect       int `yaml:"before-connect"` todo: this
 		Enabled       bool
 		MaxSubs       int `yaml:"max-subs"`
 		MaxKeys       int `yaml:"max-keys"`
@@ -1648,7 +1647,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if !config.Metadata.Enabled {
 		config.Server.supportedCaps.Disable(caps.Metadata)
 	} else {
-		var metadataValues []string
+		metadataValues := make([]string, 0, 4)
+		metadataValues = append(metadataValues, "before-connect")
 		// these are required for normal operation, so set sane defaults:
 		if config.Metadata.MaxSubs == 0 {
 			config.Metadata.MaxSubs = 10
