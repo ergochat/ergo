@@ -3374,6 +3374,16 @@ func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string
 	}
 }
 
+func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch("metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key, val := range values {
+		visibility := "*"
+		rb.Add(nil, rb.session.client.server.name, "METADATA", target, key, visibility, val)
+	}
+}
+
 // REHASH
 func rehashHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	nick := client.Nick()
