@@ -498,7 +498,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if !(rb.session.capabilities.Has(caps.ExtendedISupport) && rb.session.isupportSentPrereg) {
 		server.RplISupport(c, rb)
 	}
-	if session.capabilities.Has(caps.Metadata) && c.AlwaysOn() {
+	if session.capabilities.Has(caps.Metadata) {
 		playMetadataList(rb, d.nick, d.nick, c.ListMetadata())
 	}
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
