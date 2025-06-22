@@ -106,7 +106,7 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	}
 }
 
-var validMetadataKeyRegexp = regexp.MustCompile("^[A-Za-z0-9_./-]+$")
+var validMetadataKeyRegexp = regexp.MustCompile("^[a-z0-9_./-]+$")
 
 func metadataKeyIsEvil(key string) bool {
 	return !validMetadataKeyRegexp.MatchString(key)
