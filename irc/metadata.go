@@ -105,11 +105,10 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	}
 }
 
-var metadataEvilCharsRegexp = regexp.MustCompile("[^A-Za-z0-9_./:-]+")
+var metadataEvilCharsRegexp = regexp.MustCompile("[^A-Za-z0-9_./-]+")
 
 func metadataKeyIsEvil(key string) bool {
 	return len(key) == 0 || // key needs to contain stuff
-		key[0] == ':' || // key can't start with a colon
 		metadataEvilCharsRegexp.MatchString(key) // key can't contain the stuff it can't contain
 }
 
