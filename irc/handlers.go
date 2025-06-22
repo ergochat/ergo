@@ -3316,10 +3316,18 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 // metadataSubsHandler handles subscription-related commands;
 // these are handled the same whether the client is registered or not
 func metadataSubsHandler(client *Client, subcommand string, params []string, rb *ResponseBuffer) (exiting bool) {
+	allToLower := func(in []string) (out []string) {
+		out = make([]string, len(in))
+		for i, s := range in {
+			out[i] = strings.ToLower(s)
+		}
+		return out
+	}
+
 	server := client.server
 	switch subcommand {
 	case "sub":
-		keys := params[2:]
+		keys := allToLower(params[2:])
 		for _, key := range keys {
 			if metadataKeyIsEvil(key) {
 				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
@@ -3341,7 +3349,7 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 		}
 
 	case "unsub":
-		keys := params[2:]
+		keys := allToLower(params[2:])
 		removed := rb.session.UnsubscribeFrom(keys...)
 
 		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATAUNSUBOK) - len(client.Nick()) - 10

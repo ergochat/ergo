@@ -839,6 +839,8 @@ func (session *Session) isSubscribedTo(key string) bool {
 }
 
 func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
+	maxSubs := session.client.server.Config().Metadata.MaxSubs
+
 	session.client.stateMutex.Lock()
 	defer session.client.stateMutex.Unlock()
 
@@ -847,8 +849,6 @@ func (session *Session) SubscribeTo(keys ...string) ([]string, error) {
 	}
 
 	var added []string
-
-	maxSubs := session.client.server.Config().Metadata.MaxSubs
 
 	for _, k := range keys {
 		if !session.metadataSubscriptions.Has(k) {
