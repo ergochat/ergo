@@ -67,7 +67,7 @@ func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], origin
 }
 
 func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
-	batchId := rb.StartNestedBatch("metadata")
+	batchId := rb.StartNestedBatch("metadata", target.Nick())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
@@ -81,7 +81,7 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 }
 
 func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
-	batchId := rb.StartNestedBatch("metadata")
+	batchId := rb.StartNestedBatch("metadata", channel.Name())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()

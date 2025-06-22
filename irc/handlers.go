@@ -3211,7 +3211,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			return
 		}
 
-		batchId := rb.StartNestedBatch("metadata")
+		batchId := rb.StartNestedBatch("metadata", target)
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range params[2:] {
@@ -3365,7 +3365,7 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 }
 
 func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
-	batchId := rb.StartNestedBatch("metadata")
+	batchId := rb.StartNestedBatch("metadata", target)
 	defer rb.EndNestedBatch(batchId)
 
 	for key, val := range values {
