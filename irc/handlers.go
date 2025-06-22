@@ -3200,9 +3200,10 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 		} else {
 			if updated := targetObj.DeleteMetadata(key); updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "", false)
+				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
+			} else {
+				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NOT_SET", utils.SafeErrorParam(key), client.t("Metadata key not set"))
 			}
-			// acknowledge to the client whether or not there was a real update
-			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
 		}
 
 	case "get":
