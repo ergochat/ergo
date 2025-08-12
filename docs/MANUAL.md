@@ -171,6 +171,7 @@ Rehashing also reloads TLS certificates and the MOTD. Some configuration setting
 
 Ergo can also be configured using environment variables, using the following technique:
 
+1. Ensure that `allow-environment-variables` is set to `true` in the YAML config file itself (see `default.yaml` for an example)
 1. Find the "path" of the config variable you want to override in the YAML file, e.g., `server.websockets.allowed-origins`
 1. Convert each path component from "kebab case" to "screaming snake case", e.g., `SERVER`, `WEBSOCKETS`, and `ALLOWED_ORIGINS`.
 1. Prepend `ERGO` to the components, then join them all together using `__` as the separator, e.g., `ERGO__SERVER__WEBSOCKETS__ALLOWED_ORIGINS`.
