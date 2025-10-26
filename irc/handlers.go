@@ -3934,6 +3934,7 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	if err := webpush.SanityCheckWebPushEndpoint(endpoint); err != nil {
 		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Invalid web push URL"))
+		return false
 	}
 
 	switch subcommand {
