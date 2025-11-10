@@ -527,7 +527,7 @@ If your client or bot is failing to connect to Ergo, here are some things to che
 
 ## Why can't I oper?
 
-If you try to oper unsuccessfully, Ergo will disconnect you from the network. If you're unable to oper, here are some things to double-check:
+If your `OPER` command fails, check your server logs for more information. Here are some general issues to double-check:
 
 1. Did you correctly generate the hashed password with `ergo genpasswd`?
 1. Did you add the password hash to the correct config file, then save the file?

@@ -599,6 +599,7 @@ type Config struct {
 		Cloaks                   cloaks.CloakConfig              `yaml:"ip-cloaking"`
 		SecureNetDefs            []string                        `yaml:"secure-nets"`
 		secureNets               []net.IPNet
+		OperThrottle             time.Duration `yaml:"oper-throttle"`
 		supportedCaps            *caps.Set
 		supportedCapsWithoutSTS  *caps.Set
 		capValues                caps.Values
@@ -1478,6 +1479,10 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.capValues[caps.SASL] = strings.Join(saslCapValues, ",")
 	} else {
 		config.Server.supportedCaps.Disable(caps.SASL)
+	}
+
+	if config.Server.OperThrottle <= 0 {
+		config.Server.OperThrottle = 10 * time.Second
 	}
 
 	if err := config.Accounts.OAuth2.Postprocess(); err != nil {
