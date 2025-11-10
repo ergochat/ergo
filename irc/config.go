@@ -45,6 +45,10 @@ import (
 	"github.com/ergochat/ergo/irc/webpush"
 )
 
+const (
+	defaultProxyDeadline = time.Minute
+)
+
 // here's how this works: exported (capitalized) members of the config structs
 // are defined in the YAML file and deserialized directly from there. They may
 // be postprocessed and overwritten by LoadConfig. Unexported (lowercase) members
@@ -577,7 +581,12 @@ type Config struct {
 		MOTD                    string
 		motdLines               []string
 		MOTDFormatting          bool `yaml:"motd-formatting"`
-		Relaymsg                struct {
+		IdleTimeouts            struct {
+			Registration time.Duration
+			Ping         time.Duration
+			Disconnect   time.Duration
+		} `yaml:"idle-timeouts"`
+		Relaymsg struct {
 			Enabled            bool
 			Separators         string
 			AvailableToChanops bool `yaml:"available-to-chanops"`
@@ -986,7 +995,7 @@ func (conf *Config) prepareListeners() (err error) {
 	conf.Server.trueListeners = make(map[string]utils.ListenerConfig)
 	for addr, block := range conf.Server.Listeners {
 		var lconf utils.ListenerConfig
-		lconf.ProxyDeadline = RegisterTimeout
+		lconf.ProxyDeadline = defaultProxyDeadline
 		lconf.Tor = block.Tor
 		lconf.STSOnly = block.STSOnly
 		if lconf.STSOnly && !conf.Server.STS.Enabled {
@@ -1234,6 +1243,23 @@ func LoadConfig(filename string) (config *Config, err error) {
 		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
 			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
 		}
+	}
+
+	if config.Server.IdleTimeouts.Registration <= 0 {
+		config.Server.IdleTimeouts.Registration = time.Minute
+	}
+	if config.Server.IdleTimeouts.Ping <= 0 {
+		config.Server.IdleTimeouts.Ping = time.Minute + 30*time.Second
+	}
+	if config.Server.IdleTimeouts.Disconnect <= 0 {
+		config.Server.IdleTimeouts.Disconnect = 2*time.Minute + 30*time.Second
+	}
+
+	if !(config.Server.IdleTimeouts.Ping < config.Server.IdleTimeouts.Disconnect) {
+		return nil, fmt.Errorf(
+			"ping timeout %v must be strictly less than disconnect timeout %v, to give the client time to respond",
+			config.Server.IdleTimeouts.Ping, config.Server.IdleTimeouts.Disconnect,
+		)
 	}
 
 	if config.Server.CoerceIdent != "" {

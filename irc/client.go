@@ -53,18 +53,16 @@ const (
 	pushQueueLengthPerClient = 16
 )
 
+var (
+	// idle timeouts for client connections, set from the config
+	RegisterTimeout, PingTimeout, DisconnectTimeout time.Duration
+)
+
 const (
-	// RegisterTimeout is how long clients have to register before we disconnect them
-	RegisterTimeout = time.Minute
-	// DefaultIdleTimeout is how long without traffic before we send the client a PING
-	DefaultIdleTimeout = time.Minute + 30*time.Second
 	// For Tor clients, we send a PING at least every 30 seconds, as a workaround for this bug
 	// (single-onion circuits will close unless the client sends data once every 60 seconds):
 	// https://bugs.torproject.org/29665
-	TorIdleTimeout = time.Second * 30
-	// This is how long a client gets without sending any message, including the PONG to our
-	// PING, before we disconnect them:
-	DefaultTotalTimeout = 2*time.Minute + 30*time.Second
+	TorPingTimeout = time.Second * 30
 
 	// round off the ping interval by this much, see below:
 	PingCoalesceThreshold = time.Second
@@ -863,19 +861,19 @@ func (client *Client) updateIdleTimer(session *Session, now time.Time) {
 	session.pingSent = false
 
 	if session.idleTimer == nil {
-		pingTimeout := DefaultIdleTimeout
-		if session.isTor {
-			pingTimeout = TorIdleTimeout
+		pingTimeout := PingTimeout
+		if session.isTor && TorPingTimeout < pingTimeout {
+			pingTimeout = TorPingTimeout
 		}
 		session.idleTimer = time.AfterFunc(pingTimeout, session.handleIdleTimeout)
 	}
 }
 
 func (session *Session) handleIdleTimeout() {
-	totalTimeout := DefaultTotalTimeout
-	pingTimeout := DefaultIdleTimeout
-	if session.isTor {
-		pingTimeout = TorIdleTimeout
+	totalTimeout := DisconnectTimeout
+	pingTimeout := PingTimeout
+	if session.isTor && TorPingTimeout < pingTimeout {
+		pingTimeout = TorPingTimeout
 	}
 
 	session.client.stateMutex.Lock()

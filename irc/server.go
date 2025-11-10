@@ -690,6 +690,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		globalCasemappingSetting = config.Server.Casemapping
 		globalUtf8EnforcementSetting = config.Server.EnforceUtf8
 		MaxLineLen = config.Server.MaxLineLen
+		RegisterTimeout = config.Server.IdleTimeouts.Registration
+		PingTimeout = config.Server.IdleTimeouts.Ping
+		DisconnectTimeout = config.Server.IdleTimeouts.Disconnect
 	} else {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
@@ -715,6 +718,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot enable MySQL after launching the server, rehash aborted")
 		} else if oldConfig.Server.MaxLineLen != config.Server.MaxLineLen {
 			return fmt.Errorf("Cannot change max-line-len after launching the server, rehash aborted")
+		} else if oldConfig.Server.IdleTimeouts != config.Server.IdleTimeouts {
+			return fmt.Errorf("Cannot change idle-timeouts after launching the server, rehash aborted")
 		}
 	}
 
