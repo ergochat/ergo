@@ -358,6 +358,10 @@ server:
     secure-nets:
         # - "10.0.0.0/8"
 
+    # allow attempts to OPER with a password at most this often. default to
+    # 10 seconds when unset.
+    oper-throttle: 10s
+
     # Ergo will write files to disk under certain circumstances, e.g.,
     # CPU profiling or data export. by default, these files will be written
     # to the working directory. set this to customize:

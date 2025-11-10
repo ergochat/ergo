@@ -189,6 +189,8 @@ type Session struct {
 	fakelag              Fakelag
 	deferredFakelagCount int
 
+	lastOperAttempt time.Time
+
 	certfp     string
 	peerCerts  []*x509.Certificate
 	sasl       saslStatus

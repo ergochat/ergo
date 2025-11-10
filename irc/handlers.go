@@ -2545,8 +2545,19 @@ func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		return false
 	}
 
+	config := server.Config()
+	now := time.Now()
+	nextAllowableAttempt := rb.session.lastOperAttempt.Add(config.Server.OperThrottle)
+	if now.Before(nextAllowableAttempt) {
+		timeLeft := nextAllowableAttempt.Sub(now).Round(time.Millisecond)
+		rb.Add(nil, server.name, ERR_NOOPERHOST, client.Nick(), fmt.Sprintf(client.t("You must wait %v before issuing OPER again"), timeLeft))
+		return false
+	}
+
+	rb.session.lastOperAttempt = now
+
 	// must pass at least one check, and all enabled checks
-	var checkPassed, checkFailed, passwordFailed bool
+	var checkPassed, checkFailed, certFailed, passwordFailed bool
 	oper := server.GetOperator(msg.Params[0])
 	if oper != nil {
 		if oper.Certfp != "" {
@@ -2554,11 +2565,13 @@ func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 				checkPassed = true
 			} else {
 				checkFailed = true
+				certFailed = true
 			}
 		}
 		if !checkFailed && oper.Pass != nil {
 			if len(msg.Params) == 1 {
 				checkFailed = true
+				passwordFailed = true
 			} else if bcrypt.CompareHashAndPassword(oper.Pass, []byte(msg.Params[1])) != nil {
 				checkFailed = true
 				passwordFailed = true
@@ -2569,14 +2582,21 @@ func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	}
 
 	if !checkPassed || checkFailed {
-		rb.Add(nil, server.name, ERR_PASSWDMISMATCH, client.Nick(), client.t("Password incorrect"))
-		// #951: only disconnect them if we actually tried to check a password for them
-		if passwordFailed {
-			client.Quit(client.t("Password incorrect"), rb.session)
-			return true
+		rb.Add(nil, server.name, ERR_NOOPERHOST, client.Nick(), client.t("OPER failed; check the server logs for details."))
+
+		// hopefully not too spammy given the throttling:
+		if oper == nil {
+			server.logger.Info("opers", "OPER failed with invalid oper name", msg.Params[0])
+		} else if certFailed {
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid certfp")
+		} else if passwordFailed {
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid password")
 		} else {
-			return false
+			// should not be possible given config validation
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid config")
 		}
+
+		return false
 	}
 
 	if oper != nil {
