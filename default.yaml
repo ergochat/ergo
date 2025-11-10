@@ -180,6 +180,17 @@ server:
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
     motd-formatting: true
 
+    # idle timeouts for inactive clients
+    idle-timeouts:
+        # give the client this long to complete connection registration (i.e. the initial
+        # IRC handshake, including capability negotiation and SASL)
+        registration: 60s
+        # if the client hasn't sent anything for this long, send them a PING
+        ping: 1m30s
+        # if the client hasn't sent anything for this long (including the PONG to the
+        # above PING), disconnect them
+        disconnect: 2m30s
+
     # relaying using the RELAYMSG command
     relaymsg:
         # is relaymsg enabled at all?
