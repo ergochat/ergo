@@ -18,9 +18,9 @@ require (
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/buntdb v1.3.2
 	github.com/xdg-go/scram v1.0.2
-	golang.org/x/crypto v0.38.0
-	golang.org/x/term v0.32.0
-	golang.org/x/text v0.25.0
+	golang.org/x/crypto v0.45.0
+	golang.org/x/term v0.37.0
+	golang.org/x/text v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -39,7 +39,7 @@ require (
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 )
 
 replace github.com/gorilla/websocket => github.com/ergochat/websocket v1.4.2-oragono1
