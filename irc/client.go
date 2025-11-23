@@ -130,6 +130,7 @@ type Client struct {
 	pushSubscriptionsExist  atomic.Uint32 // this is a cache on len(pushSubscriptions) != 0
 	pushQueue               pushQueue
 	metadata                map[string]string
+	metadataThrottle        connection_limits.ThrottleDetails
 }
 
 type saslStatus struct {

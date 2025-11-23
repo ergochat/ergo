@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/caps"
+	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
@@ -1038,4 +1039,23 @@ func (client *Client) CountMetadata() int {
 	defer client.stateMutex.RUnlock()
 
 	return len(client.metadata)
+}
+
+func (client *Client) checkMetadataThrottle() (throttled bool, remainingTime time.Duration) {
+	config := client.server.Config()
+	if !config.Metadata.ClientThrottle.Enabled {
+		return false, 0
+	}
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	// copy client.metadataThrottle locally and then back for processing
+	var throttle connection_limits.GenericThrottle
+	throttle.ThrottleDetails = client.metadataThrottle
+	throttle.Duration = config.Metadata.ClientThrottle.Duration
+	throttle.Limit = config.Metadata.ClientThrottle.MaxAttempts
+	throttled, remainingTime = throttle.Touch()
+	client.metadataThrottle = throttle.ThrottleDetails
+	return
 }

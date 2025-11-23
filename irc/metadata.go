@@ -21,7 +21,7 @@ var (
 	errMetadataNotFound    = errors.New("key not found")
 )
 
-type MetadataHaver = interface {
+type MetadataHaver interface {
 	SetMetadata(key string, value string, limit int) (updated bool, err error)
 	GetMetadata(key string) (string, bool)
 	DeleteMetadata(key string) (updated bool)
