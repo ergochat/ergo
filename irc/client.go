@@ -1398,7 +1398,7 @@ func (client *Client) destroy(session *Session) {
 
 	// alert monitors
 	if registered {
-		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
+		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false, nil)
 	}
 
 	// clean up channels

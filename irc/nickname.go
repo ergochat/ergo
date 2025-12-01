@@ -128,9 +128,11 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 	}
 
 	newCfnick := target.NickCasefolded()
-	if newCfnick != details.nickCasefolded {
-		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false)
-		client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true)
+	// send MONITOR updates only for nick changes, not for new connection registration;
+	// defer MONITOR for new connection registration until pre-registration metadata is applied
+	if hadNick && newCfnick != details.nickCasefolded {
+		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false, nil)
+		client.server.monitorManager.AlertAbout(assignedNickname, newCfnick, true, target)
 	}
 	return nil
 }

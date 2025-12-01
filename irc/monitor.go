@@ -38,7 +38,7 @@ func (manager *MonitorManager) AddMonitors(users utils.HashSet[*Session], cfnick
 }
 
 // AlertAbout alerts everyone monitoring `client`'s nick that `client` is now {on,off}line.
-func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool) {
+func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, client *Client) {
 	var watchers []*Session
 	// safely copy the list of clients watching our nick
 	manager.RLock()
@@ -52,8 +52,21 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool) {
 		command = RPL_MONONLINE
 	}
 
+	var metadata map[string]string
+	if online && client != nil {
+		metadata = client.ListMetadata()
+	}
+
 	for _, session := range watchers {
 		session.Send(nil, session.client.server.name, command, session.client.Nick(), nick)
+
+		if metadata != nil && session.capabilities.Has(caps.Metadata) {
+			for key := range session.MetadataSubscriptions() {
+				if val, ok := metadata[key]; ok {
+					session.Send(nil, client.server.name, "METADATA", nick, key, "*", val)
+				}
+			}
+		}
 	}
 }
 
