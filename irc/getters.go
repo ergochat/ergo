@@ -963,8 +963,17 @@ func (client *Client) GetMetadata(key string) (string, bool) {
 }
 
 func (client *Client) SetMetadata(key string, value string, limit int) (updated bool, err error) {
+	var alwaysOn bool
+	defer func() {
+		if alwaysOn && updated {
+			client.markDirty(IncludeMetadata)
+		}
+	}()
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+
+	alwaysOn = client.registered && client.alwaysOn
 
 	if client.metadata == nil {
 		client.metadata = make(map[string]string)
@@ -982,10 +991,19 @@ func (client *Client) SetMetadata(key string, value string, limit int) (updated 
 }
 
 func (client *Client) UpdateMetadataFromPrereg(preregData map[string]string, limit int) (updates map[string]string) {
+	var alwaysOn bool
+	defer func() {
+		if alwaysOn && len(updates) > 0 {
+			client.markDirty(IncludeMetadata)
+		}
+	}()
+
 	updates = make(map[string]string, len(preregData))
 
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
+
+	alwaysOn = client.registered && client.alwaysOn
 
 	if client.metadata == nil {
 		client.metadata = make(map[string]string)
@@ -1003,6 +1021,7 @@ func (client *Client) UpdateMetadataFromPrereg(preregData map[string]string, lim
 		client.metadata[k] = v
 		updates[k] = v
 	}
+
 	return
 }
 
@@ -1014,6 +1033,12 @@ func (client *Client) ListMetadata() map[string]string {
 }
 
 func (client *Client) DeleteMetadata(key string) (updated bool) {
+	defer func() {
+		if updated {
+			client.markDirty(IncludeMetadata)
+		}
+	}()
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
@@ -1024,11 +1049,17 @@ func (client *Client) DeleteMetadata(key string) (updated bool) {
 	return updated
 }
 
-func (client *Client) ClearMetadata() map[string]string {
+func (client *Client) ClearMetadata() (oldMap map[string]string) {
+	defer func() {
+		if len(oldMap) > 0 {
+			client.markDirty(IncludeMetadata)
+		}
+	}()
+
 	client.stateMutex.Lock()
 	defer client.stateMutex.Unlock()
 
-	oldMap := client.metadata
+	oldMap = client.metadata
 	client.metadata = nil
 
 	return oldMap

@@ -428,7 +428,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen, readMarkers map[string]time.Time, uModes modes.Modes, realname string, pushSubscriptions []storedPushSubscription) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen, readMarkers map[string]time.Time, uModes modes.Modes, realname string, pushSubscriptions []storedPushSubscription, metadata map[string]string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -513,6 +513,10 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 		}
 	}
 	client.rebuildPushSubscriptionCache()
+
+	if len(metadata) != 0 {
+		client.metadata = metadata
+	}
 }
 
 func (client *Client) resizeHistory(config *Config) {
@@ -1850,6 +1854,7 @@ const (
 	IncludeUserModes
 	IncludeRealname
 	IncludePushSubscriptions
+	IncludeMetadata
 )
 
 func (client *Client) markDirty(dirtyBits uint) {
@@ -1930,6 +1935,9 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 	}
 	if (dirtyBits & IncludePushSubscriptions) != 0 {
 		client.server.accounts.savePushSubscriptions(account, client.getPushSubscriptions(true))
+	}
+	if (dirtyBits & IncludeMetadata) != 0 {
+		client.server.accounts.saveMetadata(account, client.ListMetadata())
 	}
 }
 

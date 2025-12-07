@@ -52,6 +52,7 @@ const (
 	// (not to be confused with their amodes, which a non-always-on client can have):
 	keyAccountChannelToModes    = "account.channeltomodes %s"
 	keyAccountPushSubscriptions = "account.pushsubscriptions %s"
+	keyAccountMetadata          = "account.metadata %s"
 
 	maxCertfpsPerAccount = 5
 )
@@ -137,6 +138,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 				am.loadModes(accountName),
 				am.loadRealname(accountName),
 				am.loadPushSubscriptions(accountName),
+				am.loadMetadata(accountName),
 			)
 		}
 	}
@@ -747,6 +749,40 @@ func (am *AccountManager) loadPushSubscriptions(account string) (result []stored
 		return result
 	} else {
 		am.server.logger.Error("internal", "error loading push subscriptions", err.Error())
+		return nil
+	}
+}
+
+func (am *AccountManager) saveMetadata(account string, metadata map[string]string) {
+	j, err := json.Marshal(metadata)
+	if err != nil {
+		am.server.logger.Error("internal", "error storing metadata", err.Error())
+		return
+	}
+	val := string(j)
+	key := fmt.Sprintf(keyAccountMetadata, account)
+	am.server.store.Update(func(tx *buntdb.Tx) error {
+		tx.Set(key, val, nil)
+		return nil
+	})
+	return
+}
+
+func (am *AccountManager) loadMetadata(account string) (result map[string]string) {
+	key := fmt.Sprintf(keyAccountMetadata, account)
+	var val string
+	am.server.store.View(func(tx *buntdb.Tx) error {
+		val, _ = tx.Get(key)
+		return nil
+	})
+
+	if val == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(val), &result); err == nil {
+		return result
+	} else {
+		am.server.logger.Error("internal", "error loading metadata", err.Error())
 		return nil
 	}
 }
@@ -1880,6 +1916,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	pwResetKey := fmt.Sprintf(keyAccountPwReset, casefoldedAccount)
 	emailChangeKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 	pushSubscriptionsKey := fmt.Sprintf(keyAccountPushSubscriptions, casefoldedAccount)
+	metadataKey := fmt.Sprintf(keyAccountMetadata, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1939,6 +1976,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(pwResetKey)
 		tx.Delete(emailChangeKey)
 		tx.Delete(pushSubscriptionsKey)
+		tx.Delete(metadataKey)
 
 		return nil
 	})
