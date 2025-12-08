@@ -1111,6 +1111,11 @@ metadata:
     max-subs: 100
     # how many keys can be stored per entity?
     max-keys: 100
+    # rate limiting for client metadata updates, which are expensive to process
+    client-throttle:
+        enabled: true
+        duration: 2m
+        max-attempts: 10
 
 # experimental support for mobile push notifications
 # see the manual for potential security, privacy, and performance implications.

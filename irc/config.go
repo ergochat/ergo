@@ -734,10 +734,11 @@ type Config struct {
 	}
 
 	Metadata struct {
-		Enabled       bool
-		MaxSubs       int `yaml:"max-subs"`
-		MaxKeys       int `yaml:"max-keys"`
-		MaxValueBytes int `yaml:"max-value-length"`
+		Enabled        bool
+		MaxSubs        int            `yaml:"max-subs"`
+		MaxKeys        int            `yaml:"max-keys"`
+		MaxValueBytes  int            `yaml:"max-value-length"`
+		ClientThrottle ThrottleConfig `yaml:"client-throttle"`
 	}
 
 	WebPush struct {

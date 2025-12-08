@@ -3197,6 +3197,18 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			return
 		}
 
+		// only rate limit clients changing their own metadata:
+		// channel metadata updates are not any more costly than a PRIVMSG
+		if client == targetClient {
+			if throttled, remainingTime := client.checkMetadataThrottle(); throttled {
+				retryAfter := strconv.Itoa(int(remainingTime.Seconds()) + 1)
+				rb.Add(nil, server.name, "FAIL", "METADATA", "RATE_LIMITED",
+					target, utils.SafeErrorParam(key), retryAfter,
+					fmt.Sprintf(client.t("Please wait at least %v and try again"), remainingTime.Round(time.Millisecond)))
+				return
+			}
+		}
+
 		if len(params) > 3 {
 			value := params[3]
 
