@@ -637,7 +637,6 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 	if target.HasMode(modes.Bot) {
 		rb.Add(nil, client.server.name, RPL_WHOISBOT, cnick, tnick, fmt.Sprintf(ircfmt.Unescape(client.t("is a $bBot$b on %s")), client.server.Config().Network.Name))
 	}
-
 	if client == target || oper.HasRoleCapab("ban") {
 		for _, session := range target.Sessions() {
 			if session.certfp != "" {
@@ -648,6 +647,11 @@ func (client *Client) getWhoisOf(target *Client, hasPrivs bool, rb *ResponseBuff
 	rb.Add(nil, client.server.name, RPL_WHOISIDLE, cnick, tnick, strconv.FormatUint(target.IdleSeconds(), 10), strconv.FormatInt(target.SignonTime(), 10), client.t("seconds idle, signon time"))
 	if away, awayMessage := target.Away(); away {
 		rb.Add(nil, client.server.name, RPL_AWAY, cnick, tnick, awayMessage)
+	}
+	if rb.session.capabilities.Has(caps.Metadata) {
+		for key, value := range target.ListMetadata() {
+			rb.Add(nil, client.server.name, RPL_WHOISKEYVALUE, cnick, tnick, key, "*", value)
+		}
 	}
 }
 
