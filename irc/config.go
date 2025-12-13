@@ -1611,7 +1611,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 	// in the current implementation, we disable history by creating a history buffer
 	// with zero capacity. but the `enabled` config option MUST be respected regardless
 	// of this detail
-	if !config.History.Enabled {
+	if !config.History.Enabled || config.History.ChathistoryMax == 0 {
 		config.History.ChannelLength = 0
 		config.History.ClientLength = 0
 		config.Server.supportedCaps.Disable(caps.Chathistory)

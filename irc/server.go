@@ -908,6 +908,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 	if config.Accounts.RequireSasl.Enabled && config.Accounts.Registration.Enabled {
 		server.logger.Warning("server", "Warning: although require-sasl is enabled, users can still register accounts. If your server is not intended to be public, you must set accounts.registration.enabled to false.")
 	}
+	if config.History.Enabled && config.History.ChathistoryMax == 0 {
+		server.logger.Warning("server", "Warning: for history to work correctly, you must set history.chathistory-maxmessages (see default.yaml for a recommendation).")
+	}
 
 	return err
 }
