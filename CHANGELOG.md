@@ -1,6 +1,37 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.17.0-rc1] - 2025-12-14
+
+We're pleased to be publishing the release candidate for v2.17.0 (the official release should follow within a week or so). This release adds support for the [IRCv3 metadata specification](https://ircv3.net/specs/extensions/metadata), thanks to [@thatcher-gaming](https://github.com/thatcher-gaming), as well as bug fixes and minor updates.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Many thanks to [@branchgrove](https://github.com/branchgrove), [@Brutus5000](https://github.com/Brutus5000), [@progval](https://github.com/progval), [@SarahRoseLives](https://github.com/SarahRoseLives), [@thatcher-gaming](https://github.com/thatcher-gaming), [@ValwareIRC](https://github.com/ValwareIRC), and Xogium for contributing patches, reporting issues, and helping test.
+
+### Config changes
+* Added `accounts.metadata` block to configure the new metadata feature. If this block is absent, metadata is disabled. See `default.yaml` for an example. (#2273)
+* Added `server.idle-timeouts` for configurable idle timeouts; when unset, the previous hardcoded defaults are used (#2292, thanks [@Brutus5000](https://github.com/Brutus5000)!)
+* Added `server.oper-throttle` to configure throttling for failed `OPER` attempts; when unset, this defaults to 1 attempt every 10 seconds (#2296)
+
+### Added
+* Implemented support for the [draft/metadata-2](https://ircv3.net/specs/extensions/metadata) specification, allowing clients to set and retrieve metadata on accounts and channels (#2273, #2277, #2281, #2282, #2301, thanks [@thatcher-gaming](https://github.com/thatcher-gaming)!)
+* Added `/v1/status` and `/v1/account_list` HTTP API endpoints (#2261, thanks [@SarahRoseLives](https://github.com/SarahRoseLives)!)
+* Enhanced `/v1/account_details` API response with additional fields (#2261, thanks [@SarahRoseLives](https://github.com/SarahRoseLives)!)
+
+### Fixed
+* Fixed `REGISTER` command to strip guest format when applicable, matching `NS REGISTER` behavior (#2270, #2271, thanks [@ValwareIRC](https://github.com/ValwareIRC) and [@thatcher-gaming](https://github.com/thatcher-gaming)!)
+* Fixed invalid `FAIL` codes in `REGISTER` command (#2269, thanks [@ValwareIRC](https://github.com/ValwareIRC)!)
+* Fixed validation of web push URLs to reject non-HTTPS URLs (#2295)
+* Fixed inconsistent behavior when `history.enabled` is set but `history.chathistory-maxmessages` is not (#2303, #2304, thanks [@branchgrove](https://github.com/branchgrove)!)
+
+### Changed
+* The `OPER` command now imposes a throttle on all attempts, never disconnects the client on failure, and logs non-sensitive information about failed attempts (#2296, #2298, thanks Xogium!)
+
+### Internal
+* Official release builds use Go 1.25 (#2290)
+* Upgraded the Docker base image from Alpine 3.19 to 3.22 (#2306)
+
 ## [2.16.0] - 2025-05-18
 We're pleased to be publishing v2.16.0, a new stable release. This release contains bug fixes and some minor updates.
 
