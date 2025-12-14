@@ -341,7 +341,7 @@ server:
     secure-nets:
         # - "10.0.0.0/8"
 
-    # allow attempts to OPER with a password at most this often. default to
+    # allow attempts to OPER with a password at most this often. defaults to
     # 10 seconds when unset.
     oper-throttle: 10s
 
