@@ -700,11 +700,13 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	var channel *Channel
 	var sequence history.Sequence
 	var err error
-	var listTargets bool
+	var disabled, listTargets bool
 	var targets []history.TargetListing
 	defer func() {
 		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
-		if err == utils.ErrInvalidParams {
+		if disabled {
+			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "MESSAGE_ERROR", msg.Params[0], client.t("That feature is disabled"))
+		} else if err == utils.ErrInvalidParams {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_PARAMS", msg.Params[0], client.t("Invalid parameters"))
 		} else if !listTargets && sequence == nil {
 			rb.Add(nil, server.name, "FAIL", "CHATHISTORY", "INVALID_TARGET", msg.Params[0], utils.SafeErrorParam(target), client.t("Messages could not be retrieved"))
@@ -730,7 +732,8 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 
 	config := server.Config()
 	maxChathistoryLimit := config.History.ChathistoryMax
-	if maxChathistoryLimit == 0 {
+	if !config.History.Enabled || maxChathistoryLimit == 0 {
+		disabled = true
 		return
 	}
 	preposition := strings.ToLower(msg.Params[0])
