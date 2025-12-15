@@ -9,6 +9,7 @@ import (
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/utils"
 )
 
 const (
@@ -35,7 +36,6 @@ func notifySubscribers(server *Server, session *Session, targetObj MetadataHaver
 
 	switch target := targetObj.(type) {
 	case *Client:
-		// TODO this case is expensive and might warrant rate-limiting
 		friends := target.FriendsMonitors(caps.Metadata)
 		// broadcast metadata update to other connected sessions
 		for _, s := range target.Sessions() {
@@ -123,6 +123,40 @@ func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]
 	for key, val := range values {
 		visibility := "*"
 		rb.Add(nil, rb.session.client.server.name, "METADATA", target, key, visibility, val)
+	}
+}
+
+func processMetadataNewSubscriptions(client *Client, rb *ResponseBuffer, subs []string) {
+	// "When subscribing to a key, clients SHOULD receive the current value
+	// of that key for channels/users they are receiving updates for."
+	// note that this is expensive because we need to compute the friends
+	visibility := "*"
+	friendsSeen := make(utils.HashSet[*Client])
+	for _, channel := range client.Channels() {
+		chname := channel.Name()
+		for _, pair := range channel.GetMetadataBulk(subs) {
+			rb.Add(nil, client.server.name, "METADATA", chname, pair.Key, visibility, pair.Value)
+		}
+		for _, friend := range channel.Members() {
+			if friendsSeen.Has(friend) {
+				continue
+			}
+			friendsSeen.Add(friend)
+			for _, pair := range friend.GetMetadataBulk(subs) {
+				rb.Add(nil, client.server.name, "METADATA", friend.Nick(), pair.Key, visibility, pair.Value)
+			}
+		}
+	}
+
+	for _, friendNick := range client.server.monitorManager.List(rb.session) {
+		friend := client.server.clients.Get(friendNick)
+		if friend == nil || friendsSeen.Has(friend) {
+			continue
+		}
+		friendsSeen.Add(friend)
+		for _, pair := range friend.GetMetadataBulk(subs) {
+			rb.Add(nil, client.server.name, "METADATA", friend.Nick(), pair.Key, visibility, pair.Value)
+		}
 	}
 }
 
