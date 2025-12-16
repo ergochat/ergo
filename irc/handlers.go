@@ -114,7 +114,7 @@ func sendSuccessfulAccountAuth(service *ircService, client *Client, rb *Response
 
 	if client.Registered() {
 		// dispatch account-notify
-		for friend := range client.FriendsMonitors(caps.ExtendedMonitor, caps.AccountNotify) {
+		for friend := range client.FriendsMonitors(caps.AccountNotify) {
 			if friend != rb.session {
 				friend.Send(nil, details.nickMask, "ACCOUNT", details.accountName)
 			}
@@ -531,7 +531,7 @@ func dispatchAwayNotify(client *Client, awayMessage string) {
 	// dispatch away-notify
 	details := client.Details()
 	isBot := client.HasMode(modes.Bot)
-	for session := range client.FriendsMonitors(caps.ExtendedMonitor, caps.AwayNotify) {
+	for session := range client.FriendsMonitors(caps.AwayNotify) {
 		if awayMessage != "" {
 			session.sendFromClientInternal(false, time.Time{}, "", details.nickMask, details.accountName, isBot, nil, "AWAY", awayMessage)
 		} else {
@@ -3650,7 +3650,7 @@ func setnameHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	// alert friends
 	now := time.Now().UTC()
-	friends := client.FriendsMonitors(caps.ExtendedMonitor, caps.SetName)
+	friends := client.FriendsMonitors(caps.SetName)
 	delete(friends, rb.session)
 	isBot := client.HasMode(modes.Bot)
 	for session := range friends {

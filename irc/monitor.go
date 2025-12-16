@@ -31,7 +31,7 @@ func (manager *MonitorManager) AddMonitors(users utils.HashSet[*Session], cfnick
 	manager.RLock()
 	defer manager.RUnlock()
 	for session := range manager.watchedby[cfnick] {
-		if session.capabilities.HasAll(capabs...) {
+		if session.capabilities.Has(caps.ExtendedMonitor) && session.capabilities.HasAll(capabs...) {
 			users.Add(session)
 		}
 	}
