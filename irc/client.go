@@ -1121,7 +1121,7 @@ func (client *Client) SetOper(oper *Oper) {
 func (client *Client) sendChghost(oldNickMask string, vhost string) {
 	details := client.Details()
 	isBot := client.HasMode(modes.Bot)
-	for fClient := range client.FriendsMonitors(caps.ChgHost) {
+	for fClient := range client.FriendsMonitors(caps.ExtendedMonitor, caps.ChgHost) {
 		fClient.sendFromClientInternal(false, time.Time{}, "", oldNickMask, details.accountName, isBot, nil, "CHGHOST", details.username, vhost)
 	}
 }
