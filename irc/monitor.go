@@ -28,12 +28,26 @@ func (mm *MonitorManager) Initialize() {
 
 // AddMonitors adds clients using extended-monitor monitoring `client`'s nick to the passed user set.
 func (manager *MonitorManager) AddMonitors(users utils.HashSet[*Session], cfnick string, capabs ...caps.Capability) {
+	var requireExtendedMonitor bool
+	for _, c := range capabs {
+		// these are the four capabilities that explicitly require extended-monitor;
+		// draft/metadata-2 does not
+		if c == caps.AccountNotify || c == caps.AwayNotify || c == caps.ChgHost || c == caps.SetName {
+			requireExtendedMonitor = true
+			break
+		}
+	}
+
 	manager.RLock()
 	defer manager.RUnlock()
 	for session := range manager.watchedby[cfnick] {
-		if session.capabilities.Has(caps.ExtendedMonitor) && session.capabilities.HasAll(capabs...) {
-			users.Add(session)
+		if requireExtendedMonitor && !session.capabilities.Has(caps.ExtendedMonitor) {
+			continue
 		}
+		if !session.capabilities.HasAll(capabs...) {
+			continue
+		}
+		users.Add(session)
 	}
 }
 
