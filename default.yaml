@@ -425,7 +425,7 @@ accounts:
             max-attempts: 30
 
         # this is the bcrypt cost we'll use for account passwords
-        # (note that 4 is the lowest value allowed by the bcrypt library)
+        # (note that 4 is the lowest and 31 is the highest value allowed by the bcrypt library)
         bcrypt-cost: 4
 
         # length of time a user has to verify their account before it can be re-registered
