@@ -11,6 +11,7 @@ import (
 
 const (
 	MinCost     = bcrypt.MinCost
+	MaxCost     = bcrypt.MaxCost
 	DefaultCost = 12 // ballpark: 250 msec on a modern Intel CPU
 )
 

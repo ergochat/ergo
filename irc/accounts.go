@@ -2337,7 +2337,7 @@ func (ac *AccountCredentials) Serialize() (result string, err error) {
 	return string(credText), nil
 }
 
-func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) (err error) {
+func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost int) (err error) {
 	if passphrase == "" {
 		ac.PassphraseHash = nil
 		ac.SCRAMCreds = SCRAMCreds{}
@@ -2348,7 +2348,7 @@ func (ac *AccountCredentials) SetPassphrase(passphrase string, bcryptCost uint) 
 		return errAccountBadPassphrase
 	}
 
-	ac.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), int(bcryptCost))
+	ac.PassphraseHash, err = passwd.GenerateFromPassword([]byte(passphrase), bcryptCost)
 	if err != nil {
 		return errAccountBadPassphrase
 	}
