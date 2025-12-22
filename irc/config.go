@@ -375,7 +375,7 @@ type AccountRegistrationConfig struct {
 		Mailto email.MailtoConfig
 	} `yaml:"callbacks"`
 	VerifyTimeout custime.Duration `yaml:"verify-timeout"`
-	BcryptCost    uint             `yaml:"bcrypt-cost"`
+	BcryptCost    int              `yaml:"bcrypt-cost"`
 }
 
 type VHostConfig struct {
@@ -1594,6 +1594,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.Accounts.Registration.BcryptCost == 0 {
 		config.Accounts.Registration.BcryptCost = passwd.DefaultCost
+	}
+	if config.Accounts.Registration.BcryptCost < passwd.MinCost || config.Accounts.Registration.BcryptCost > passwd.MaxCost {
+		return nil, fmt.Errorf(
+			"invalid bcrypt-cost %d (require %d <= cost <= %d)",
+			config.Accounts.Registration.BcryptCost, passwd.MinCost, passwd.MaxCost,
+		)
 	}
 
 	if config.Channels.MaxChannelsPerClient == 0 {
