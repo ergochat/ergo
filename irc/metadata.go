@@ -137,6 +137,7 @@ func processMetadataNewSubscriptions(client *Client, rb *ResponseBuffer, subs []
 		for _, pair := range channel.GetMetadataBulk(subs) {
 			rb.Add(nil, client.server.name, "METADATA", chname, pair.Key, visibility, pair.Value)
 		}
+		// TODO this needs to respect auditorium!
 		for _, friend := range channel.Members() {
 			if friendsSeen.Has(friend) {
 				continue
