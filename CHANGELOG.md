@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.17.0-rc1] - 2025-12-14
+## [2.17.0] - 2025-12-22
 
-We're pleased to be publishing the release candidate for v2.17.0 (the official release should follow within a week or so). This release adds support for the [IRCv3 metadata specification](https://ircv3.net/specs/extensions/metadata), thanks to [@thatcher-gaming](https://github.com/thatcher-gaming), as well as bug fixes and minor updates.
+We're pleased to be publishing v2.17.0, a new stable release. This release adds support for the [IRCv3 metadata specification](https://ircv3.net/specs/extensions/metadata), thanks to [@thatcher-gaming](https://github.com/thatcher-gaming), as well as bug fixes and minor updates.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
