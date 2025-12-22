@@ -28,10 +28,14 @@ func (mm *MonitorManager) Initialize() {
 
 // AddMonitors adds clients using extended-monitor monitoring `client`'s nick to the passed user set.
 func (manager *MonitorManager) AddMonitors(users utils.HashSet[*Session], cfnick string, capabs ...caps.Capability) {
+	// technically, we should check extended-monitor here, but it's not really necessary
+	// since clients will ignore AWAY, ACCOUNT, CHGHOST, and SETNAME for users
+	// they're not tracking
+
 	manager.RLock()
 	defer manager.RUnlock()
 	for session := range manager.watchedby[cfnick] {
-		if session.capabilities.Has(caps.ExtendedMonitor) && session.capabilities.HasAll(capabs...) {
+		if session.capabilities.HasAll(capabs...) {
 			users.Add(session)
 		}
 	}
