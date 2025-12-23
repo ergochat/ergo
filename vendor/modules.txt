@@ -1,6 +1,10 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
+# filippo.io/edwards25519 v1.1.0
+## explicit; go 1.20
+filippo.io/edwards25519
+filippo.io/edwards25519/field
 # github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 ## explicit
 github.com/GehirnInc/crypt
@@ -28,8 +32,8 @@ github.com/ergochat/irc-go/ircutils
 # github.com/ergochat/webpush-go/v2 v2.0.0
 ## explicit; go 1.20
 github.com/ergochat/webpush-go/v2
-# github.com/go-sql-driver/mysql v1.7.0
-## explicit; go 1.13
+# github.com/go-sql-driver/mysql v1.9.3
+## explicit; go 1.21.0
 github.com/go-sql-driver/mysql
 # github.com/gofrs/flock v0.8.1
 ## explicit

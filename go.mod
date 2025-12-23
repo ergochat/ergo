@@ -9,7 +9,7 @@ require (
 	github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
 	github.com/ergochat/irc-go v0.5.0-rc2
-	github.com/go-sql-driver/mysql v1.7.0
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gofrs/flock v0.8.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
@@ -31,6 +31,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/tidwall/btree v1.4.2 // indirect
 	github.com/tidwall/gjson v1.14.3 // indirect
 	github.com/tidwall/grect v0.1.4 // indirect
