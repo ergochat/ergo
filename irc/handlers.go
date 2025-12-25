@@ -3375,6 +3375,12 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 			rb.Add(nil, server.name, RPL_METADATASUBOK, params...)
 		}
 
+		if client.registered && len(added) != 0 {
+			if throttled, _ := client.checkMetadataThrottle(); !throttled {
+				processMetadataNewSubscriptions(client, rb, added)
+			}
+		}
+
 	case "unsub":
 		keys := params[2:]
 		removed := rb.session.UnsubscribeFrom(keys...)
