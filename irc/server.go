@@ -6,6 +6,7 @@
 package irc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -1235,6 +1236,15 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 
 	if hist == nil {
 		err = server.historyDB.DeleteMsgid(msgid, accountName)
+		if err != nil && errors.Is(err, mysql.ErrDBIsNil) {
+			/*
+				hist == nil, and db == nil. We know that the
+				target was not either a current channel or
+				client, and persistent storage is not used.
+				So this is an invalid target. (see #2020)
+			*/
+			return errInvalidTarget
+		}
 	} else {
 		count := hist.Delete(func(item *history.Item) bool {
 			return item.Message.Msgid == msgid && (accountName == "*" || item.AccountName == accountName)

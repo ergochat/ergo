@@ -56,6 +56,7 @@ var (
 	errConfusableIdentifier           = errors.New("This identifier is confusable with one already in use")
 	errInsufficientPrivs              = errors.New("Insufficient privileges")
 	errInvalidUsername                = errors.New("Invalid username")
+	errInvalidTarget                  = errors.New("Invalid target")
 	errFeatureDisabled                = errors.New(`That feature is disabled`)
 	errBanned                         = errors.New("IP or nickmask banned")
 	errInvalidParams                  = utils.ErrInvalidParams
