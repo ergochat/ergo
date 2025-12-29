@@ -90,7 +90,8 @@ type Server struct {
 	snomasks          SnoManager
 	store             *buntdb.DB
 	dstore            datastore.Datastore
-	historyDB         mysql.MySQL
+	mysqlHistoryDB    *mysql.MySQL
+	historyDB         history.Database
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
 	stats             Stats
@@ -804,8 +805,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return err
 		}
 	} else {
-		if config.Datastore.MySQL.Enabled && config.Datastore.MySQL != oldConfig.Datastore.MySQL {
-			server.historyDB.SetConfig(config.Datastore.MySQL)
+		if config.Datastore.MySQL.Enabled && server.mysqlHistoryDB != nil {
+			if config.Datastore.MySQL != oldConfig.Datastore.MySQL {
+				server.mysqlHistoryDB.SetConfig(config.Datastore.MySQL)
+			}
 		}
 	}
 
@@ -1015,12 +1018,14 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 	server.accounts.Initialize(server)
 
 	if config.Datastore.MySQL.Enabled {
-		server.historyDB.Initialize(server.logger, config.Datastore.MySQL)
-		err = server.historyDB.Open()
+		server.mysqlHistoryDB, err = mysql.NewMySQLDatabase(server.logger, config.Datastore.MySQL)
 		if err != nil {
 			server.logger.Error("internal", "could not connect to mysql", err.Error())
 			return err
 		}
+		server.historyDB = server.mysqlHistoryDB
+	} else {
+		server.historyDB = history.NewNoopDatabase()
 	}
 
 	return nil

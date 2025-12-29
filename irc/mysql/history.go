@@ -64,10 +64,16 @@ type MySQL struct {
 	trackAccountMessages atomic.Uint32
 }
 
-func (mysql *MySQL) Initialize(logger *logger.Manager, config Config) {
+var _ history.Database = (*MySQL)(nil)
+
+func NewMySQLDatabase(logger *logger.Manager, config Config) (*MySQL, error) {
+	var mysql MySQL
+
 	mysql.logger = logger
 	mysql.wakeForgetter = make(chan e, 1)
 	mysql.SetConfig(config)
+
+	return &mysql, mysql.open()
 }
 
 func (mysql *MySQL) SetConfig(config Config) {
@@ -89,7 +95,7 @@ func (mysql *MySQL) getExpireTime() (expireTime time.Duration) {
 	return
 }
 
-func (m *MySQL) Open() (err error) {
+func (m *MySQL) open() (err error) {
 	var address string
 	if m.config.SocketPath != "" {
 		address = fmt.Sprintf("unix(%s)", m.config.SocketPath)
@@ -1020,12 +1026,13 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	return
 }
 
-func (mysql *MySQL) Close() {
+func (mysql *MySQL) Close() error {
 	// closing the database will close our prepared statements as well
 	if mysql.db != nil {
 		mysql.db.Close()
 	}
 	mysql.db = nil
+	return nil
 }
 
 // implements history.Sequence, emulating a single history buffer (for a channel,
