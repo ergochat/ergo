@@ -128,7 +128,7 @@ func (m *MySQL) Open() (err error) {
 
 func (mysql *MySQL) fixSchemas() (err error) {
 	_, err = mysql.db.Exec(`CREATE TABLE IF NOT EXISTS metadata (
-		key_name VARCHAR(32) primary key,
+		key_name VARCHAR(32) PRIMARY KEY,
 		value VARCHAR(32) NOT NULL
 	) CHARSET=ascii COLLATE=ascii_bin;`)
 	if err != nil {
@@ -136,17 +136,17 @@ func (mysql *MySQL) fixSchemas() (err error) {
 	}
 
 	var schema string
-	err = mysql.db.QueryRow(`select value from metadata where key_name = ?;`, keySchemaVersion).Scan(&schema)
+	err = mysql.db.QueryRow(`SELECT value FROM metadata WHERE key_name = ?;`, keySchemaVersion).Scan(&schema)
 	if err == sql.ErrNoRows {
 		err = mysql.createTables()
 		if err != nil {
 			return
 		}
-		_, err = mysql.db.Exec(`insert into metadata (key_name, value) values (?, ?);`, keySchemaVersion, latestDbSchema)
+		_, err = mysql.db.Exec(`INSERT INTO metadata (key_name, value) VALUES (?, ?);`, keySchemaVersion, latestDbSchema)
 		if err != nil {
 			return
 		}
-		_, err = mysql.db.Exec(`insert into metadata (key_name, value) values (?, ?);`, keySchemaMinorVersion, latestDbMinorVersion)
+		_, err = mysql.db.Exec(`INSERT INTO metadata (key_name, value) VALUES (?, ?);`, keySchemaMinorVersion, latestDbMinorVersion)
 		if err != nil {
 			return
 		}
@@ -159,7 +159,7 @@ func (mysql *MySQL) fixSchemas() (err error) {
 	}
 
 	var minorVersion string
-	err = mysql.db.QueryRow(`select value from metadata where key_name = ?;`, keySchemaMinorVersion).Scan(&minorVersion)
+	err = mysql.db.QueryRow(`SELECT value FROM metadata WHERE key_name = ?;`, keySchemaMinorVersion).Scan(&minorVersion)
 	if err == sql.ErrNoRows {
 		// XXX for now, the only minor version upgrade is the account tracking tables
 		err = mysql.createComplianceTables()
@@ -170,7 +170,7 @@ func (mysql *MySQL) fixSchemas() (err error) {
 		if err != nil {
 			return
 		}
-		_, err = mysql.db.Exec(`insert into metadata (key_name, value) values (?, ?);`, keySchemaMinorVersion, latestDbMinorVersion)
+		_, err = mysql.db.Exec(`INSERT INTO metadata (key_name, value) VALUES (?, ?);`, keySchemaMinorVersion, latestDbMinorVersion)
 		if err != nil {
 			return
 		}
@@ -180,7 +180,7 @@ func (mysql *MySQL) fixSchemas() (err error) {
 		if err != nil {
 			return
 		}
-		_, err = mysql.db.Exec(`update metadata set value = ? where key_name = ?;`, latestDbMinorVersion, keySchemaMinorVersion)
+		_, err = mysql.db.Exec(`UPDATE metadata SET value = ? WHERE key_name = ?;`, latestDbMinorVersion, keySchemaMinorVersion)
 		if err != nil {
 			return
 		}
