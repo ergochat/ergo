@@ -730,6 +730,9 @@ func (channel *Channel) AddHistoryItem(item history.Item, account string) (err e
 	status, target, _ := channel.historyStatus(channel.server.Config())
 	if status == HistoryPersistent {
 		err = channel.server.historyDB.AddChannelItem(target, item, account)
+		if err != nil {
+			channel.server.logger.Error("history", "could not add channel message to history", err.Error())
+		}
 	} else if status == HistoryEphemeral {
 		channel.history.Add(item)
 	}

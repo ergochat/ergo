@@ -1769,7 +1769,10 @@ func (client *Client) addHistoryItem(target *Client, item history.Item, details,
 	}
 	if cStatus == HistoryPersistent || tStatus == HistoryPersistent {
 		targetedItem.CfCorrespondent = ""
-		client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
+		err = client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
+		if err != nil {
+			client.server.logger.Error("history", "could not add direct message to history", err.Error())
+		}
 	}
 	return nil
 }
@@ -1795,14 +1798,18 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 		}
 	}
 	persistentExtras, err := client.server.historyDB.ListChannels(chcfnames)
-	if err == nil && len(persistentExtras) != 0 {
+	if err != nil {
+		client.server.logger.Error("history", "could not list persistent channels", err.Error())
+	} else if len(persistentExtras) != 0 {
 		extras = append(extras, persistentExtras...)
 	}
 
 	_, cSeq, err := client.server.GetHistorySequence(nil, client, "")
 	if err == nil && cSeq != nil {
 		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
-		if err == nil {
+		if err != nil {
+			client.server.logger.Error("history", "could not list correspondents", err.Error())
+		} else {
 			base = correspondents
 		}
 	}

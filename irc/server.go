@@ -154,7 +154,6 @@ func (server *Server) Shutdown() {
 	sdnotify.Stopping()
 	server.logger.Info("server", "Stopping server")
 
-	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
 	}
@@ -163,10 +162,12 @@ func (server *Server) Shutdown() {
 	server.performAlwaysOnMaintenance(false, true)
 
 	if err := server.store.Close(); err != nil {
-		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
+		server.logger.Error("shutdown", "Could not close datastore", err.Error())
 	}
 
-	server.historyDB.Close()
+	if err := server.historyDB.Close(); err != nil {
+		server.logger.Error("shutdown", "Could not close history database", err.Error())
+	}
 	server.logger.Info("server", fmt.Sprintf("%s exiting", Ver))
 }
 
