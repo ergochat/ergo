@@ -414,6 +414,11 @@ func (server *Server) RunClient(conn IRCConn) {
 		session.certfp, session.peerCerts, _ = utils.GetCertFP(wConn.Conn, RegisterTimeout)
 	}
 
+	if config.Server.InitialNotice != "" {
+		// send initial notice for HOPM to recognize
+		client.Send(nil, client.server.name, "NOTICE", "*", config.Server.InitialNotice)
+	}
+
 	if session.isTor {
 		session.rawHostname = config.Server.TorListeners.Vhost
 		client.rawHostname = session.rawHostname

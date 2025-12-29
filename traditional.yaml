@@ -154,6 +154,10 @@ server:
     # if this is true, the motd is escaped using formatting codes like $c, $b, and $i
     motd-formatting: true
 
+    # send a configurable notice to clients immediately after they connect,
+    # as a way of detecting open proxies
+    #initial-notice: "*** Welcome to the Ergo IRC server"
+
     # idle timeouts for inactive clients
     idle-timeouts:
         # give the client this long to complete connection registration (i.e. the initial

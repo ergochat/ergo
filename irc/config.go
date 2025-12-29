@@ -580,7 +580,8 @@ type Config struct {
 		CoerceIdent             string `yaml:"coerce-ident"`
 		MOTD                    string
 		motdLines               []string
-		MOTDFormatting          bool `yaml:"motd-formatting"`
+		MOTDFormatting          bool   `yaml:"motd-formatting"`
+		InitialNotice           string `yaml:"initial-notice"`
 		IdleTimeouts            struct {
 			Registration time.Duration
 			Ping         time.Duration
