@@ -1072,9 +1072,12 @@ You can import user and channel registrations from an Anope or Atheme database i
 
 ## Hybrid Open Proxy Monitor (HOPM)
 
-[hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with Ergo, add operator blocks like this to your Ergo config file, which grant hopm the necessary privileges:
+[hopm](https://github.com/ircd-hybrid/hopm) can be used to monitor your server for connections from open proxies, then automatically ban them. To configure hopm to work with Ergo, configure `server.initial_notice` and add operator blocks like this to your Ergo config file, which grant hopm the necessary privileges:
 
 ````yaml
+server:
+    initial-notice: "Welcome to the Ergo IRC server"
+
 # operator classes
 oper-classes:
     # hopm
@@ -1109,6 +1112,9 @@ opers:
 Then configure hopm like this:
 
 ````
+/* replace with the exact notice your server sends on first connection */
+target_string = ":ergo.test NOTICE * :*** Welcome to the Ergo IRC server"
+
 /* ergo */
 connregex = ".+-.+CONNECT.+-.+ Client Connected \\[([^ ]+)\\] \\[u:([^ ]+)\\] \\[h:([^ ]+)\\] \\[ip:([^ ]+)\\] .+";
 
