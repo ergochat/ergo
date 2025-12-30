@@ -1822,7 +1822,7 @@ func (client *Client) listTargets(start, end time.Time, limit int) (results []hi
 	}
 	if cErr != nil {
 		base = nil
-		client.server.logger.Error("history", "could not list correspondents", err.Error())
+		client.server.logger.Error("history", "could not list correspondents", cErr.Error())
 	}
 
 	results = history.MergeTargets(base, extras, start, end, limit)

@@ -23,18 +23,19 @@ type Database interface {
 	AddDirectMessage(sender, senderAccount, recipient, recipientAccount string, item Item) error
 
 	// DeleteMsgid deletes a message by its msgid.
-	// accountName is the unfolded account name, or "*" for no account.
+	// accountName is the unfolded account name, or "*" to skip
+	// account validation
 	DeleteMsgid(msgid, accountName string) error
-
-	// ListChannels returns the timestamp of the latest message in each
-	// of the given channels (specified as casefolded names).
-	ListChannels(cfchannels []string) (results []TargetListing, err error)
 
 	// MakeSequence creates a Sequence for querying history.
 	// target is the primary target (channel or account), casefolded.
 	// correspondent is the casefolded DM correspondent (empty for channels).
 	// cutoff is the earliest time to include in results.
 	MakeSequence(target, correspondent string, cutoff time.Time) Sequence
+
+	// ListChannels returns the timestamp of the latest message in each
+	// of the given channels (specified as casefolded names).
+	ListChannels(cfchannels []string) (results []TargetListing, err error)
 
 	// ListCorrespondents lists the DM correspondents associated with an account,
 	// in order to implement CHATHISTORY TARGETS.
