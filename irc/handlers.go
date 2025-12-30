@@ -2792,8 +2792,10 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	targetmsgid := msg.Params[1]
 	//clientOnlyTags := msg.ClientOnlyTags()
 	var reason string
+	var reasonPresent bool
 	if len(msg.Params) > 2 {
 		reason = msg.Params[2]
+		reasonPresent = true
 	}
 	var members []*Client // members of a channel, or both parties of a PM
 	var canDelete CanDelete
@@ -2867,7 +2869,11 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	for _, member := range members {
 		for _, session := range member.Sessions() {
 			if session.capabilities.Has(caps.MessageRedaction) {
-				session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
+				if reasonPresent {
+					session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
+				} else {
+					session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid)
+				}
 			} else {
 				// If we wanted to send a fallback to clients which do not support
 				// draft/message-redaction, we would do it from here.
