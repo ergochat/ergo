@@ -218,7 +218,7 @@ func zncPlayPrivmsgsFromAll(client *Client, rb *ResponseBuffer, start, end time.
 // PRIVMSG *playback :list
 func zncPlaybackListHandler(client *Client, command string, params []string, rb *ResponseBuffer) {
 	limit := client.server.Config().History.ChathistoryMax
-	correspondents, err := client.listTargets(history.Selector{}, history.Selector{}, limit)
+	correspondents, err := client.listTargets(time.Time{}, time.Time{}, limit)
 	if err != nil {
 		client.server.logger.Error("internal", "couldn't get history for ZNC list", err.Error())
 		return

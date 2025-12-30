@@ -844,7 +844,12 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	}
 
 	if listTargets {
-		targets, err = client.listTargets(start, end, limit)
+		// TARGETS must take time= selectors
+		if start.Time.IsZero() || end.Time.IsZero() {
+			err = utils.ErrInvalidParams
+			return
+		}
+		targets, err = client.listTargets(start.Time, end.Time, limit)
 	} else {
 		channel, sequence, err = server.GetHistorySequence(nil, client, target)
 		if err != nil || sequence == nil {

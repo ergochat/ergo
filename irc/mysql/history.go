@@ -988,6 +988,19 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 	return
 }
 
+func (mysql *MySQL) ListCorrespondents(cftarget string, start, end time.Time, limit int) (results []history.TargetListing, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
+	defer cancel()
+
+	// TODO accept msgids here?
+
+	results, err = mysql.listCorrespondentsInternal(ctx, cftarget, start, end, time.Time{}, limit)
+	if err != nil {
+		return nil, fmt.Errorf("could not read correspondents: %w", err)
+	}
+	return
+}
+
 func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetListing, err error) {
 	if mysql.db == nil {
 		return
@@ -1087,21 +1100,6 @@ func (s *mySQLHistorySequence) Between(start, end history.Selector, limit int) (
 
 func (s *mySQLHistorySequence) Around(start history.Selector, limit int) (results []history.Item, err error) {
 	return history.GenericAround(s, start, limit)
-}
-
-func (seq *mySQLHistorySequence) ListCorrespondents(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), seq.mysql.getTimeout())
-	defer cancel()
-
-	// TODO accept msgids here?
-	startTime := start.Time
-	endTime := end.Time
-
-	results, err = seq.mysql.listCorrespondentsInternal(ctx, seq.target, startTime, endTime, seq.cutoff, limit)
-	if err != nil {
-		return nil, fmt.Errorf("could not read correspondents: %w", err)
-	}
-	return
 }
 
 func (seq *mySQLHistorySequence) Cutoff() time.Time {

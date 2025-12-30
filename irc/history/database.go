@@ -36,6 +36,10 @@ type Database interface {
 	// cutoff is the earliest time to include in results.
 	MakeSequence(target, correspondent string, cutoff time.Time) Sequence
 
+	// ListCorrespondents lists the DM correspondents associated with an account,
+	// in order to implement CHATHISTORY TARGETS.
+	ListCorrespondents(cftarget string, start, end time.Time, limit int) ([]TargetListing, error)
+
 	// these are for theoretical GDPR compliance, not actual chat functionality,
 	// and are not essential:
 
@@ -83,6 +87,10 @@ func (n noopDatabase) ListChannels(cfchannels []string) (results []TargetListing
 	return nil, nil
 }
 
+func (n noopDatabase) ListCorrespondents(target string, start, end time.Time, limit int) (results []TargetListing, err error) {
+	return nil, nil
+}
+
 func (n noopDatabase) MakeSequence(target, correspondent string, cutoff time.Time) Sequence {
 	return noopSequence{}
 }
@@ -99,10 +107,6 @@ func (n noopSequence) Between(start, end Selector, limit int) (results []Item, e
 }
 
 func (n noopSequence) Around(start Selector, limit int) (results []Item, err error) {
-	return nil, nil
-}
-
-func (n noopSequence) ListCorrespondents(start, end Selector, limit int) (results []TargetListing, err error) {
 	return nil, nil
 }
 
