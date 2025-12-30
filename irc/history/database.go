@@ -26,14 +26,6 @@ type Database interface {
 	// accountName is the unfolded account name, or "*" for no account.
 	DeleteMsgid(msgid, accountName string) error
 
-	// Forget enqueues an account (casefolded) for message deletion.
-	// This is used for GDPR-style "right to be forgotten" requests.
-	// The actual deletion happens asynchronously.
-	Forget(account string)
-
-	// Export exports all messages for an account (casefolded) to the given writer.
-	Export(account string, writer io.Writer)
-
 	// ListChannels returns the timestamp of the latest message in each
 	// of the given channels (specified as casefolded names).
 	ListChannels(cfchannels []string) (results []TargetListing, err error)
@@ -43,6 +35,17 @@ type Database interface {
 	// correspondent is the casefolded DM correspondent (empty for channels).
 	// cutoff is the earliest time to include in results.
 	MakeSequence(target, correspondent string, cutoff time.Time) Sequence
+
+	// these are for theoretical GDPR compliance, not actual chat functionality,
+	// and are not essential:
+
+	// Forget enqueues an account (casefolded) for message deletion.
+	// This is used for GDPR-style "right to be forgotten" requests.
+	// The actual deletion happens asynchronously.
+	Forget(account string)
+
+	// Export exports all messages for an account (casefolded) to the given writer.
+	Export(account string, writer io.Writer)
 }
 
 type noopDatabase struct{}
