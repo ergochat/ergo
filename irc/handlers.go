@@ -2813,7 +2813,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	if target[0] == '#' {
 		channel := server.channels.Get(target)
 		if channel == nil {
-			rb.Add(nil, server.name, ERR_NOSUCHCHANNEL, client.Nick(), utils.SafeErrorParam(target), client.t("No such channel"))
+			rb.Add(nil, server.name, "FAIL", "REDACT", "INVALID_TARGET", utils.SafeErrorParam(target), client.t("No such channel"))
 			return false
 		}
 		members = channel.Members()
