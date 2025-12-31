@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"runtime/debug"
@@ -21,10 +20,6 @@ import (
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/utils"
 	_ "github.com/go-sql-driver/mysql"
-)
-
-var (
-	ErrDisallowed = errors.New("disallowed")
 )
 
 const (
@@ -749,6 +744,9 @@ func (mysql *MySQL) DeleteMsgid(msgid, accountName string) (err error) {
 
 	_, id, data, err := mysql.lookupMsgid(ctx, msgid, true)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return history.ErrNotFound
+		}
 		return
 	}
 
@@ -757,7 +755,7 @@ func (mysql *MySQL) DeleteMsgid(msgid, accountName string) (err error) {
 		err = history.UnmarshalItem(data, &item)
 		// delete if the entry is corrupt
 		if err == nil && item.AccountName != accountName {
-			return ErrDisallowed
+			return history.ErrDisallowed
 		}
 	}
 
@@ -830,6 +828,9 @@ func (mysql *MySQL) Export(account string, writer io.Writer) {
 func (mysql *MySQL) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, data []byte, err error) {
 	decoded, err := utils.DecodeSecretToken(msgid)
 	if err != nil {
+		// use sql.ErrNoRows internally for consistency, translate to history.ErrNotFound
+		// at the package boundary if necessary
+		err = sql.ErrNoRows
 		return
 	}
 	cols := `sequence.nanotime, conversations.nanotime`

@@ -2842,10 +2842,16 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	}
 
 	err := server.DeleteMessage(target, targetmsgid, accountName)
-	if err == errNoop {
+	switch err {
+	case history.ErrNotFound:
 		rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
 		return false
-	} else if err != nil {
+	case history.ErrDisallowed:
+		rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete this message"))
+		return false
+	case nil:
+		// OK
+	default:
 		isOper := client.HasRoleCapabs("history")
 		if isOper {
 			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), fmt.Sprintf(client.t("Error deleting message: %v"), err))

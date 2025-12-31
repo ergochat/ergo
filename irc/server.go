@@ -1242,7 +1242,7 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 			return item.Message.Msgid == msgid && (accountName == "*" || item.AccountName == accountName)
 		})
 		if count == 0 {
-			err = errNoop
+			err = history.ErrNotFound
 		}
 	}
 
