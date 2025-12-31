@@ -652,12 +652,12 @@ func (mysql *MySQL) insertCorrespondentsEntry(ctx context.Context, target, corre
 }
 
 func (mysql *MySQL) insertBase(ctx context.Context, item history.Item) (id int64, err error) {
-	value, err := marshalItem(&item)
+	value, err := history.MarshalItem(&item)
 	if err != nil {
 		return 0, fmt.Errorf("could not marshal item: %w", err)
 	}
 
-	msgidBytes, err := decodeMsgid(item.Message.Msgid)
+	msgidBytes, err := utils.DecodeSecretToken(item.Message.Msgid)
 	if err != nil {
 		return 0, fmt.Errorf("could not decode msgid: %w", err)
 	}
@@ -754,7 +754,7 @@ func (mysql *MySQL) DeleteMsgid(msgid, accountName string) (err error) {
 
 	if accountName != "*" {
 		var item history.Item
-		err = unmarshalItem(data, &item)
+		err = history.UnmarshalItem(data, &item)
 		// delete if the entry is corrupt
 		if err == nil && item.AccountName != accountName {
 			return ErrDisallowed
@@ -800,7 +800,7 @@ func (mysql *MySQL) Export(account string, writer io.Writer) {
 				if err != nil {
 					return
 				}
-				err = unmarshalItem(blob, &item)
+				err = history.UnmarshalItem(blob, &item)
 				if err != nil {
 					return
 				}
@@ -828,7 +828,7 @@ func (mysql *MySQL) Export(account string, writer io.Writer) {
 }
 
 func (mysql *MySQL) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, data []byte, err error) {
-	decoded, err := decodeMsgid(msgid)
+	decoded, err := utils.DecodeSecretToken(msgid)
 	if err != nil {
 		return
 	}
@@ -886,7 +886,7 @@ func (mysql *MySQL) selectItems(ctx context.Context, query string, args ...inter
 		if err != nil {
 			return nil, fmt.Errorf("could not scan history item: %w", err)
 		}
-		err = unmarshalItem(blob, &item)
+		err = history.UnmarshalItem(blob, &item)
 		if err != nil {
 			return nil, fmt.Errorf("could not unmarshal history item: %w", err)
 		}
