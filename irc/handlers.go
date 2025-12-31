@@ -2866,7 +2866,8 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		// now we have to remove it from the buffer of the client who sent the REDACT command
 		err := server.DeleteMessage(client.Nick(), targetmsgid, accountName)
 
-		if err != nil {
+		// ErrNotFound is expected if both clients are using persistent history
+		if err != nil && err != history.ErrNotFound {
 			client.server.logger.Error("internal", fmt.Sprintf("Private message %s is not deletable by %s from their own buffer's even though we just deleted it from %s's. This is a bug, please report it in details.", targetmsgid, client.Nick(), target), client.Nick())
 			isOper := client.HasRoleCapabs("history")
 			if isOper {
