@@ -2842,10 +2842,16 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	}
 
 	err := server.DeleteMessage(target, targetmsgid, accountName)
-	if err == errNoop {
+	switch err {
+	case history.ErrNotFound:
 		rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
 		return false
-	} else if err != nil {
+	case history.ErrDisallowed:
+		rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("You are not authorized to delete this message"))
+		return false
+	case nil:
+		// OK
+	default:
 		isOper := client.HasRoleCapabs("history")
 		if isOper {
 			rb.Add(nil, server.name, "FAIL", "REDACT", "REDACT_FORBIDDEN", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), fmt.Sprintf(client.t("Error deleting message: %v"), err))
@@ -2860,7 +2866,8 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		// now we have to remove it from the buffer of the client who sent the REDACT command
 		err := server.DeleteMessage(client.Nick(), targetmsgid, accountName)
 
-		if err != nil {
+		// ErrNotFound is expected if both clients are using persistent history
+		if err != nil && err != history.ErrNotFound {
 			client.server.logger.Error("internal", fmt.Sprintf("Private message %s is not deletable by %s from their own buffer's even though we just deleted it from %s's. This is a bug, please report it in details.", targetmsgid, client.Nick(), target), client.Nick())
 			isOper := client.HasRoleCapabs("history")
 			if isOper {

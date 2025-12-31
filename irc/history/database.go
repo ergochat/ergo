@@ -4,8 +4,14 @@
 package history
 
 import (
+	"errors"
 	"io"
 	"time"
+)
+
+var (
+	ErrDisallowed = errors.New("disallowed")
+	ErrNotFound   = errors.New("not found")
 )
 
 // Database is an interface for persistent history storage backends.
