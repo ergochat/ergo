@@ -1049,13 +1049,13 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	return
 }
 
-func (mysql *MySQL) Close() error {
+func (mysql *MySQL) Close() (err error) {
 	// closing the database will close our prepared statements as well
 	if mysql.db != nil {
-		mysql.db.Close()
+		err = mysql.db.Close()
 	}
 	mysql.db = nil
-	return nil
+	return
 }
 
 // implements history.Sequence, emulating a single history buffer (for a channel,
