@@ -1774,12 +1774,15 @@ func (client *Client) addHistoryItem(target *Client, item history.Item, details,
 	}
 	if cStatus == HistoryPersistent || tStatus == HistoryPersistent {
 		targetedItem.CfCorrespondent = ""
-		client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
+		err = client.server.historyDB.AddDirectMessage(details.nickCasefolded, details.account, tDetails.nickCasefolded, tDetails.account, targetedItem)
+		if err != nil {
+			client.server.logger.Error("history", "could not add direct message to history", err.Error())
+		}
 	}
 	return nil
 }
 
-func (client *Client) listTargets(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
+func (client *Client) listTargets(start, end time.Time, limit int) (results []history.TargetListing, err error) {
 	var base, extras []history.TargetListing
 	var chcfnames []string
 	for _, channel := range client.Channels() {
@@ -1800,27 +1803,35 @@ func (client *Client) listTargets(start, end history.Selector, limit int) (resul
 		}
 	}
 	persistentExtras, err := client.server.historyDB.ListChannels(chcfnames)
-	if err == nil && len(persistentExtras) != 0 {
+	if err != nil {
+		client.server.logger.Error("history", "could not list persistent channels", err.Error())
+	} else if len(persistentExtras) != 0 {
 		extras = append(extras, persistentExtras...)
 	}
 
-	_, cSeq, err := client.server.GetHistorySequence(nil, client, "")
-	if err == nil && cSeq != nil {
-		correspondents, err := cSeq.ListCorrespondents(start, end, limit)
-		if err == nil {
-			base = correspondents
-		}
+	// get DM correspondents from the in-memory buffer or the database, as applicable
+	var cErr error
+	status, target := client.historyStatus(client.server.Config())
+	switch status {
+	case HistoryEphemeral:
+		base, cErr = client.history.ListCorrespondents(start, end, limit)
+	case HistoryPersistent:
+		base, cErr = client.server.historyDB.ListCorrespondents(target, start, end, limit)
+	default:
+		// nothing to do
+	}
+	if cErr != nil {
+		base = nil
+		client.server.logger.Error("history", "could not list correspondents", cErr.Error())
 	}
 
-	results = history.MergeTargets(base, extras, start.Time, end.Time, limit)
+	results = history.MergeTargets(base, extras, start, end, limit)
 	return results, nil
 }
 
 // latest PRIVMSG from all DM targets
 func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit, messageLimit int) (results []history.Item, err error) {
-	start := history.Selector{Time: startTime}
-	end := history.Selector{Time: endTime}
-	targets, err := client.listTargets(start, end, targetLimit)
+	targets, err := client.listTargets(startTime, endTime, targetLimit)
 	if err != nil {
 		return
 	}
@@ -1830,7 +1841,7 @@ func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit,
 		}
 		_, seq, err := client.server.GetHistorySequence(nil, client, target.CfName)
 		if err == nil && seq != nil {
-			items, err := seq.Between(start, end, messageLimit)
+			items, err := seq.Between(history.Selector{Time: startTime}, history.Selector{Time: endTime}, messageLimit)
 			if err == nil {
 				results = append(results, items...)
 			} else {

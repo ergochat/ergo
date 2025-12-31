@@ -90,7 +90,8 @@ type Server struct {
 	snomasks          SnoManager
 	store             *buntdb.DB
 	dstore            datastore.Datastore
-	historyDB         mysql.MySQL
+	mysqlHistoryDB    *mysql.MySQL
+	historyDB         history.Database
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
 	stats             Stats
@@ -153,7 +154,6 @@ func (server *Server) Shutdown() {
 	sdnotify.Stopping()
 	server.logger.Info("server", "Stopping server")
 
-	//TODO(dan): Make sure we disallow new nicks
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
 	}
@@ -162,10 +162,12 @@ func (server *Server) Shutdown() {
 	server.performAlwaysOnMaintenance(false, true)
 
 	if err := server.store.Close(); err != nil {
-		server.logger.Error("shutdown", fmt.Sprintln("Could not close datastore:", err))
+		server.logger.Error("shutdown", "Could not close datastore", err.Error())
 	}
 
-	server.historyDB.Close()
+	if err := server.historyDB.Close(); err != nil {
+		server.logger.Error("shutdown", "Could not close history database", err.Error())
+	}
 	server.logger.Info("server", fmt.Sprintf("%s exiting", Ver))
 }
 
@@ -804,8 +806,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return err
 		}
 	} else {
-		if config.Datastore.MySQL.Enabled && config.Datastore.MySQL != oldConfig.Datastore.MySQL {
-			server.historyDB.SetConfig(config.Datastore.MySQL)
+		if config.Datastore.MySQL.Enabled && server.mysqlHistoryDB != nil {
+			if config.Datastore.MySQL != oldConfig.Datastore.MySQL {
+				server.mysqlHistoryDB.SetConfig(config.Datastore.MySQL)
+			}
 		}
 	}
 
@@ -1015,12 +1019,14 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 	server.accounts.Initialize(server)
 
 	if config.Datastore.MySQL.Enabled {
-		server.historyDB.Initialize(server.logger, config.Datastore.MySQL)
-		err = server.historyDB.Open()
+		server.mysqlHistoryDB, err = mysql.NewMySQLDatabase(server.logger, config.Datastore.MySQL)
 		if err != nil {
 			server.logger.Error("internal", "could not connect to mysql", err.Error())
 			return err
 		}
+		server.historyDB = server.mysqlHistoryDB
+	} else {
+		server.historyDB = history.NewNoopDatabase()
 	}
 
 	return nil
@@ -1085,10 +1091,6 @@ func (server *Server) setupListeners(config *Config) (err error) {
 // we may already know the channel we're querying, or we may have
 // to look it up via a string query. This function is responsible for
 // privilege checking.
-// XXX: call this with providedChannel==nil and query=="" to get a sequence
-// suitable for ListCorrespondents (i.e., this function is still used to
-// decide whether the ringbuf or mysql is authoritative about the client's
-// message history).
 func (server *Server) GetHistorySequence(providedChannel *Channel, client *Client, query string) (channel *Channel, sequence history.Sequence, err error) {
 	config := server.Config()
 	// 4 cases: {persistent, ephemeral} x {normal, conversation}

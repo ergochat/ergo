@@ -64,10 +64,16 @@ type MySQL struct {
 	trackAccountMessages atomic.Uint32
 }
 
-func (mysql *MySQL) Initialize(logger *logger.Manager, config Config) {
+var _ history.Database = (*MySQL)(nil)
+
+func NewMySQLDatabase(logger *logger.Manager, config Config) (*MySQL, error) {
+	var mysql MySQL
+
 	mysql.logger = logger
 	mysql.wakeForgetter = make(chan e, 1)
 	mysql.SetConfig(config)
+
+	return &mysql, mysql.open()
 }
 
 func (mysql *MySQL) SetConfig(config Config) {
@@ -89,7 +95,7 @@ func (mysql *MySQL) getExpireTime() (expireTime time.Duration) {
 	return
 }
 
-func (m *MySQL) Open() (err error) {
+func (m *MySQL) open() (err error) {
 	var address string
 	if m.config.SocketPath != "" {
 		address = fmt.Sprintf("unix(%s)", m.config.SocketPath)
@@ -623,40 +629,46 @@ func (mysql *MySQL) AddChannelItem(target string, item history.Item, account str
 
 func (mysql *MySQL) insertSequenceEntry(ctx context.Context, target string, messageTime int64, id int64) (err error) {
 	_, err = mysql.insertSequence.ExecContext(ctx, target, messageTime, id)
-	mysql.logError("could not insert sequence entry", err)
+	if err != nil {
+		return fmt.Errorf("could not insert sequence entry: %w", err)
+	}
 	return
 }
 
 func (mysql *MySQL) insertConversationEntry(ctx context.Context, target, correspondent string, messageTime int64, id int64) (err error) {
 	_, err = mysql.insertConversation.ExecContext(ctx, target, correspondent, messageTime, id)
-	mysql.logError("could not insert conversations entry", err)
+	if err != nil {
+		return fmt.Errorf("could not insert conversations entry: %w", err)
+	}
 	return
 }
 
 func (mysql *MySQL) insertCorrespondentsEntry(ctx context.Context, target, correspondent string, messageTime int64, historyId int64) (err error) {
 	_, err = mysql.insertCorrespondent.ExecContext(ctx, target, correspondent, messageTime, messageTime)
-	mysql.logError("could not insert conversations entry", err)
+	if err != nil {
+		return fmt.Errorf("could not insert correspondents entry: %w", err)
+	}
 	return
 }
 
 func (mysql *MySQL) insertBase(ctx context.Context, item history.Item) (id int64, err error) {
 	value, err := marshalItem(&item)
-	if mysql.logError("could not marshal item", err) {
-		return
+	if err != nil {
+		return 0, fmt.Errorf("could not marshal item: %w", err)
 	}
 
 	msgidBytes, err := decodeMsgid(item.Message.Msgid)
-	if mysql.logError("could not decode msgid", err) {
-		return
+	if err != nil {
+		return 0, fmt.Errorf("could not decode msgid: %w", err)
 	}
 
 	result, err := mysql.insertHistory.ExecContext(ctx, value, msgidBytes)
-	if mysql.logError("could not insert item", err) {
-		return
+	if err != nil {
+		return 0, fmt.Errorf("could not insert item: %w", err)
 	}
 	id, err = result.LastInsertId()
-	if mysql.logError("could not insert item", err) {
-		return
+	if err != nil {
+		return 0, fmt.Errorf("could not insert item: %w", err)
 	}
 
 	return
@@ -667,7 +679,9 @@ func (mysql *MySQL) insertAccountMessageEntry(ctx context.Context, id int64, acc
 		return
 	}
 	_, err = mysql.insertAccountMessage.ExecContext(ctx, id, account)
-	mysql.logError("could not insert account-message entry", err)
+	if err != nil {
+		return fmt.Errorf("could not insert account-message entry: %w", err)
+	}
 	return
 }
 
@@ -748,7 +762,9 @@ func (mysql *MySQL) DeleteMsgid(msgid, accountName string) (err error) {
 	}
 
 	err = mysql.deleteHistoryIDs(ctx, []uint64{id})
-	mysql.logError("couldn't delete msgid", err)
+	if err != nil {
+		return fmt.Errorf("couldn't delete msgid: %w", err)
+	}
 	return
 }
 
@@ -831,10 +847,10 @@ func (mysql *MySQL) lookupMsgid(ctx context.Context, msgid string, includeData b
 	} else {
 		err = row.Scan(&nanoSeq, &nanoConv, &id, &data)
 	}
-	if err != sql.ErrNoRows {
-		mysql.logError("could not resolve msgid to time", err)
-	}
 	if err != nil {
+		if err != sql.ErrNoRows {
+			err = fmt.Errorf("could not resolve msgid to time: %w", err)
+		}
 		return
 	}
 	nanotime := extractNanotime(nanoSeq, nanoConv)
@@ -857,8 +873,8 @@ func extractNanotime(seq, conv sql.NullInt64) (result int64) {
 
 func (mysql *MySQL) selectItems(ctx context.Context, query string, args ...interface{}) (results []history.Item, err error) {
 	rows, err := mysql.db.QueryContext(ctx, query, args...)
-	if mysql.logError("could not select history items", err) {
-		return
+	if err != nil {
+		return nil, fmt.Errorf("could not select history items: %w", err)
 	}
 
 	defer rows.Close()
@@ -867,12 +883,12 @@ func (mysql *MySQL) selectItems(ctx context.Context, query string, args ...inter
 		var blob []byte
 		var item history.Item
 		err = rows.Scan(&blob)
-		if mysql.logError("could not scan history item", err) {
-			return
+		if err != nil {
+			return nil, fmt.Errorf("could not scan history item: %w", err)
 		}
 		err = unmarshalItem(blob, &item)
-		if mysql.logError("could not unmarshal history item", err) {
-			return
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal history item: %w", err)
 		}
 		results = append(results, item)
 	}
@@ -949,7 +965,7 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 
 	rows, err := mysql.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("could not query correspondents: %w", err)
 	}
 	defer rows.Close()
 	var correspondent string
@@ -957,7 +973,7 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 	for rows.Next() {
 		err = rows.Scan(&correspondent, &nanotime)
 		if err != nil {
-			return
+			return nil, fmt.Errorf("could not scan correspondents: %w", err)
 		}
 		results = append(results, history.TargetListing{
 			CfName: correspondent,
@@ -969,6 +985,19 @@ func (mysql *MySQL) listCorrespondentsInternal(ctx context.Context, target strin
 		slices.Reverse(results)
 	}
 
+	return
+}
+
+func (mysql *MySQL) ListCorrespondents(cftarget string, start, end time.Time, limit int) (results []history.TargetListing, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
+	defer cancel()
+
+	// TODO accept msgids here?
+
+	results, err = mysql.listCorrespondentsInternal(ctx, cftarget, start, end, time.Time{}, limit)
+	if err != nil {
+		return nil, fmt.Errorf("could not read correspondents: %w", err)
+	}
 	return
 }
 
@@ -1000,8 +1029,8 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	queryBuf.WriteString(") GROUP BY sequence.target;")
 
 	rows, err := mysql.db.QueryContext(ctx, queryBuf.String(), args...)
-	if mysql.logError("could not query channel listings", err) {
-		return
+	if err != nil {
+		return nil, fmt.Errorf("could not query channel listings: %w", err)
 	}
 	defer rows.Close()
 
@@ -1009,8 +1038,8 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	var nanotime int64
 	for rows.Next() {
 		err = rows.Scan(&target, &nanotime)
-		if mysql.logError("could not scan channel listings", err) {
-			return
+		if err != nil {
+			return nil, fmt.Errorf("could not scan channel listings: %w", err)
 		}
 		results = append(results, history.TargetListing{
 			CfName: target,
@@ -1020,12 +1049,13 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	return
 }
 
-func (mysql *MySQL) Close() {
+func (mysql *MySQL) Close() error {
 	// closing the database will close our prepared statements as well
 	if mysql.db != nil {
 		mysql.db.Close()
 	}
 	mysql.db = nil
+	return nil
 }
 
 // implements history.Sequence, emulating a single history buffer (for a channel,
@@ -1070,19 +1100,6 @@ func (s *mySQLHistorySequence) Between(start, end history.Selector, limit int) (
 
 func (s *mySQLHistorySequence) Around(start history.Selector, limit int) (results []history.Item, err error) {
 	return history.GenericAround(s, start, limit)
-}
-
-func (seq *mySQLHistorySequence) ListCorrespondents(start, end history.Selector, limit int) (results []history.TargetListing, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), seq.mysql.getTimeout())
-	defer cancel()
-
-	// TODO accept msgids here?
-	startTime := start.Time
-	endTime := end.Time
-
-	results, err = seq.mysql.listCorrespondentsInternal(ctx, seq.target, startTime, endTime, seq.cutoff, limit)
-	seq.mysql.logError("could not read correspondents", err)
-	return
 }
 
 func (seq *mySQLHistorySequence) Cutoff() time.Time {

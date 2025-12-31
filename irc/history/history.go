@@ -230,10 +230,8 @@ func (list *Buffer) allCorrespondents() (results []TargetListing) {
 }
 
 // list DM correspondents, as one input to CHATHISTORY TARGETS
-func (list *Buffer) listCorrespondents(start, end Selector, cutoff time.Time, limit int) (results []TargetListing, err error) {
-	after := start.Time
-	before := end.Time
-	after, before, ascending := MinMaxAsc(after, before, cutoff)
+func (list *Buffer) ListCorrespondents(start, end time.Time, limit int) (results []TargetListing, err error) {
+	after, before, ascending := MinMaxAsc(start, end, time.Time{})
 
 	correspondents := list.allCorrespondents()
 	if len(correspondents) == 0 {
@@ -298,10 +296,6 @@ func (seq *bufferSequence) Between(start, end Selector, limit int) (results []It
 
 func (seq *bufferSequence) Around(start Selector, limit int) (results []Item, err error) {
 	return GenericAround(seq, start, limit)
-}
-
-func (seq *bufferSequence) ListCorrespondents(start, end Selector, limit int) (results []TargetListing, err error) {
-	return seq.list.listCorrespondents(start, end, seq.cutoff, limit)
 }
 
 func (seq *bufferSequence) Cutoff() time.Time {
