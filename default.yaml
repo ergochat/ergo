@@ -1007,10 +1007,12 @@ history:
     # in your country and the countries of your users.
     enabled: true
 
-    # how many channel-specific events (messages, joins, parts) should be tracked per channel?
+    # if the in-memory backend is enabled for a channel, how many channel-specific events
+    # (messages, joins, parts) should be retained?
     channel-length: 2048
 
-    # how many direct messages and notices should be tracked per user?
+    # if the in-memory backend is enabled for a user, how many direct messages
+    # and notices should be retained?
     client-length: 256
 
     # how long should we try to preserve messages?
