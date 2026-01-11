@@ -1473,8 +1473,8 @@ func (channel *Channel) ShowMaskList(client *Client, mode modes.Mode, rb *Respon
 		rpllist = RPL_EXCEPTLIST
 		rplendoflist = RPL_ENDOFEXCEPTLIST
 	} else if mode == modes.InviteMask {
-		rpllist = RPL_INVITELIST
-		rplendoflist = RPL_ENDOFINVITELIST
+		rpllist = RPL_INVEXLIST
+		rplendoflist = RPL_ENDOFINVEXLIST
 	}
 
 	nick := client.Nick()
