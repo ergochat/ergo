@@ -15,9 +15,9 @@ jobs:
     runs-on: "ubuntu-24.04"
     steps:
       - name: "checkout repository"
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v6"
       - name: "setup go"
-        uses: "actions/setup-go@v3"
+        uses: "actions/setup-go@v6"
         with:
           go-version: "1.26"
       - name: "install python3-pytest"
