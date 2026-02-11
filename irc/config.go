@@ -41,6 +41,7 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
+	"github.com/ergochat/ergo/irc/postgres"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
 )
@@ -662,6 +663,7 @@ type Config struct {
 		Path        string
 		AutoUpgrade bool
 		MySQL       mysql.Config
+		PostgreSQL  postgres.Config
 	}
 
 	Accounts AccountConfig
@@ -1247,6 +1249,17 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
 		}
 	}
+	if config.Datastore.PostgreSQL.Enabled {
+		if !postgres.Enabled {
+			return nil, fmt.Errorf("PostgreSQL is enabled in the config, but this binary was not built with PostgreSQL support. Rebuild with `make build_full` to enable")
+		}
+		if config.Limits.NickLen > postgres.MaxTargetLength || config.Limits.ChannelLen > postgres.MaxTargetLength {
+			return nil, fmt.Errorf("to use PostgreSQL, nick and channel length limits must be %d or lower", postgres.MaxTargetLength)
+		}
+	}
+	if config.Datastore.MySQL.Enabled && config.Datastore.PostgreSQL.Enabled {
+		return nil, fmt.Errorf("cannot enable both MySQL and PostgreSQL backends simultaneously")
+	}
 
 	if config.Server.IdleTimeouts.Registration <= 0 {
 		config.Server.IdleTimeouts.Registration = time.Minute
@@ -1634,8 +1647,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.Persistent.DirectMessages = PersistentDisabled
 	}
 
-	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled {
-		return nil, fmt.Errorf("You must configure a MySQL server in order to enable persistent history")
+	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled && !config.Datastore.PostgreSQL.Enabled {
+		return nil, fmt.Errorf("You must configure a MySQL or PostgreSQL server in order to enable persistent history")
 	}
 
 	if config.History.ZNCMax == 0 {
@@ -1674,6 +1687,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 		// potentially dangerous. as a naive heuristic, assume they're running on the
 		// same machine:
 		config.Datastore.MySQL.MaxConns = runtime.NumCPU()
+	}
+	// do the same for postgres
+	config.Datastore.PostgreSQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
+	config.Datastore.PostgreSQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
+	if config.Datastore.PostgreSQL.MaxConns == 0 {
+		config.Datastore.PostgreSQL.MaxConns = runtime.NumCPU()
 	}
 
 	config.Server.Cloaks.Initialize()

@@ -846,6 +846,33 @@ datastore:
         # this may be necessary to prevent middleware from closing your connections:
         #conn-max-lifetime: 180s
 
+    # connection information for PostgreSQL (currently only used for persistent history)
+    # PostgreSQL support is compiled out by default: you may need to recompile with
+    # `make build_full`
+    postgresql:
+        enabled: false
+        host: "localhost"
+        port: 5432
+        # if socket-path is set, it will be used instead of host:port
+        # PostgreSQL uses the socket directory, not the socket file path
+        #socket-path: "/var/run/postgresql"
+        user: "ergo"
+        password: "hunter2"
+        history-database: "ergo_history"
+        timeout: 3s
+        max-conns: 4
+        # this may be necessary to prevent middleware from closing your connections:
+        #conn-max-lifetime: 180s
+        # application name shown in pg_stat_activity for operational visibility:
+        #application-name: "ergo"
+        # timeout for establishing initial connections to PostgreSQL:
+        #connect-timeout: 10s
+        # PostgreSQL SSL/TLS configuration:
+        ssl-mode: "disable" # options: disable, require, verify-ca, verify-full
+        #ssl-cert: "/path/to/client-cert.pem"
+        #ssl-key: "/path/to/client-key.pem"
+        #ssl-root-cert: "/path/to/ca-cert.pem"
+
 # languages config
 languages:
     # whether to load languages
