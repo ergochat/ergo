@@ -23,7 +23,7 @@ github.com/ergochat/confusables
 # github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
 ## explicit; go 1.18
 github.com/ergochat/go-ident
-# github.com/ergochat/irc-go v0.5.0-rc2
+# github.com/ergochat/irc-go v0.5.0
 ## explicit; go 1.15
 github.com/ergochat/irc-go/ircfmt
 github.com/ergochat/irc-go/ircmsg
