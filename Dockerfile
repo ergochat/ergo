@@ -1,5 +1,5 @@
 ## build ergo binary
-FROM docker.io/golang:1.25-alpine3.22 AS build-env
+FROM docker.io/golang:1.26-alpine3.22 AS build-env
 
 RUN apk upgrade -U --force-refresh --no-cache && apk add --no-cache --purge --clean-protected -l -u make git
 

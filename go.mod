@@ -1,6 +1,6 @@
 module github.com/ergochat/ergo
 
-go 1.25
+go 1.26
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
