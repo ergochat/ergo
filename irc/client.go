@@ -828,7 +828,7 @@ func (client *Client) applyPreregMetadata(session *Session) {
 		return
 	}
 
-	// TODO this is expensive
+	// note: this is expensive but it's comparable to destroy(), OK to do once per session
 	friends := client.FriendsMonitors(caps.Metadata)
 	for _, s := range client.Sessions() {
 		if s != session {
