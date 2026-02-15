@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -33,12 +32,12 @@ import (
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/email"
+	"github.com/ergochat/ergo/irc/history"
 	"github.com/ergochat/ergo/irc/isupport"
 	"github.com/ergochat/ergo/irc/jwt"
 	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
-	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/utils"
@@ -661,8 +660,9 @@ type Config struct {
 	Datastore struct {
 		Path        string
 		AutoUpgrade bool
-		MySQL       mysql.Config
 	}
+
+	HistoryStore history.Config `yaml:"history-store"`
 
 	Accounts AccountConfig
 
@@ -1242,11 +1242,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Server.MaxLineLen < DefaultMaxLineLen {
 		config.Server.MaxLineLen = DefaultMaxLineLen
 	}
-	if config.Datastore.MySQL.Enabled {
-		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
-			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
-		}
-	}
+	// if config.Datastore.Backend != nil {
+	// 	if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
+	// 		return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
+	// 	}
+	// }
 
 	if config.Server.IdleTimeouts.Registration <= 0 {
 		config.Server.IdleTimeouts.Registration = time.Minute
@@ -1634,8 +1634,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.Persistent.DirectMessages = PersistentDisabled
 	}
 
-	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled {
-		return nil, fmt.Errorf("You must configure a MySQL server in order to enable persistent history")
+	if config.History.Persistent.Enabled && config.HistoryStore.Type == "" {
+		return nil, fmt.Errorf("You must configure a datastore backend in order to enable persistent history")
 	}
 
 	if config.History.ZNCMax == 0 {
@@ -1665,15 +1665,6 @@ func LoadConfig(filename string) (config *Config, err error) {
 	}
 	if config.Roleplay.SceneNickMask == "" {
 		config.Roleplay.SceneNickMask = defaultSceneNickMask
-	}
-
-	config.Datastore.MySQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
-	config.Datastore.MySQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
-	if config.Datastore.MySQL.MaxConns == 0 {
-		// #1622: not putting an upper limit on the number of MySQL connections is
-		// potentially dangerous. as a naive heuristic, assume they're running on the
-		// same machine:
-		config.Datastore.MySQL.MaxConns = runtime.NumCPU()
 	}
 
 	config.Server.Cloaks.Initialize()

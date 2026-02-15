@@ -860,20 +860,28 @@ datastore:
     # up, and if the upgrade fails, the original database will be restored.
     autoupgrade: true
 
-    # connection information for MySQL (currently only used for persistent history):
-    mysql:
-        enabled: false
-        host: "localhost"
-        port: 3306
-        # if socket-path is set, it will be used instead of host:port
-        #socket-path: "/var/run/mysqld/mysqld.sock"
-        user: "ergo"
-        password: "hunter2"
-        history-database: "ergo_history"
-        timeout: 3s
-        max-conns: 4
-        # this may be necessary to prevent middleware from closing your connections:
-        #conn-max-lifetime: 180s
+# connection information for persistent history storage
+history-store:
+  # currently only: '' (none), 'sqlite', 'mysql'
+  type: ""
+  timeout: 3s
+  max-conns: 4
+  expire-time: 24h
+  track-account-messages: false
+
+  # Sqlite specifics
+  path: history.db
+
+  # MySQL specifics
+  host: "localhost"
+  port: 3306
+  # if socket-path is set, it will be used instead of host:port
+  #socket-path: "/var/run/mysqld/mysqld.sock"
+  user: "ergo"
+  password: "hunter2"
+  history-database: "ergo_history"
+  # this may be necessary to prevent middleware from closing your connections:
+  #conn-max-lifetime: 180s
 
 # languages config
 languages:

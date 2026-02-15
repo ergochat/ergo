@@ -35,6 +35,7 @@ import (
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/sqlite"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
 )
@@ -90,15 +91,15 @@ type Server struct {
 	snomasks          SnoManager
 	store             *buntdb.DB
 	dstore            datastore.Datastore
-	mysqlHistoryDB    *mysql.MySQL
-	historyDB         history.Database
-	torLimiter        connection_limits.TorLimiter
-	whoWas            WhoWasList
-	stats             Stats
-	semaphores        ServerSemaphores
-	flock             flock.Flocker
-	connIDCounter     atomic.Uint64
-	defcon            atomic.Uint32
+	//mysqlHistoryDB    *mysql.MySQL
+	historyDB     history.Database
+	torLimiter    connection_limits.TorLimiter
+	whoWas        WhoWasList
+	stats         Stats
+	semaphores    ServerSemaphores
+	flock         flock.Flocker
+	connIDCounter atomic.Uint64
+	defcon        atomic.Uint32
 
 	// API stuff
 	apiHandler  http.Handler // always initialized
@@ -722,8 +723,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return fmt.Errorf("Cannot change max-concurrency for scripts after launching the server, rehash aborted")
 		} else if oldConfig.Server.OverrideServicesHostname != config.Server.OverrideServicesHostname {
 			return fmt.Errorf("Cannot change override-services-hostname after launching the server, rehash aborted")
-		} else if !oldConfig.Datastore.MySQL.Enabled && config.Datastore.MySQL.Enabled {
-			return fmt.Errorf("Cannot enable MySQL after launching the server, rehash aborted")
+		} else if oldConfig.HistoryStore.Type != config.HistoryStore.Type {
+			return fmt.Errorf("Cannot change persistent store after launching the server, rehash aborted")
 		} else if oldConfig.Server.MaxLineLen != config.Server.MaxLineLen {
 			return fmt.Errorf("Cannot change max-line-len after launching the server, rehash aborted")
 		} else if oldConfig.Server.IdleTimeouts != config.Server.IdleTimeouts {
@@ -806,10 +807,8 @@ func (server *Server) applyConfig(config *Config) (err error) {
 			return err
 		}
 	} else {
-		if config.Datastore.MySQL.Enabled && server.mysqlHistoryDB != nil {
-			if config.Datastore.MySQL != oldConfig.Datastore.MySQL {
-				server.mysqlHistoryDB.SetConfig(config.Datastore.MySQL)
-			}
+		if server.historyDB != nil && config.HistoryStore != oldConfig.HistoryStore {
+			server.historyDB.SetConfig(config.HistoryStore)
 		}
 	}
 
@@ -1018,15 +1017,17 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 	server.channels.Initialize(server, config)
 	server.accounts.Initialize(server)
 
-	if config.Datastore.MySQL.Enabled {
-		server.mysqlHistoryDB, err = mysql.NewMySQLDatabase(server.logger, config.Datastore.MySQL)
-		if err != nil {
-			server.logger.Error("internal", "could not connect to mysql", err.Error())
-			return err
-		}
-		server.historyDB = server.mysqlHistoryDB
-	} else {
+	switch strings.ToLower(config.HistoryStore.Type) {
+	case "mysql":
+		server.historyDB, err = mysql.New(server.logger, config.HistoryStore)
+	case "sqlite":
+		server.historyDB, err = sqlite.New(server.logger, config.HistoryStore)
+	default:
 		server.historyDB = history.NewNoopDatabase()
+	}
+	if err != nil {
+		server.logger.Error("internal", "could not connect history store", err.Error())
+		return err
 	}
 
 	return nil

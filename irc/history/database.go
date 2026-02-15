@@ -14,10 +14,35 @@ var (
 	ErrNotFound   = errors.New("not found")
 )
 
+type Config struct {
+	ExpireTime           time.Duration `yaml:"expire-time"`
+	TrackAccountMessages bool          `yaml:"track-account-messages"`
+
+	// Type of database "", "sqlite", or "mysql"
+	Type     string
+	Timeout  time.Duration
+	MaxConns int `yaml:"max-conns"`
+
+	// Sqlite specifics
+	Path string
+
+	// MySQL specifics
+	SocketPath      string `yaml:"socket-path"`
+	Host            string
+	Port            int
+	User            string
+	Password        string
+	HistoryDatabase string        `yaml:"history-database"`
+	ConnMaxLifetime time.Duration `yaml:"conn-max-lifetime"`
+}
+
 // Database is an interface for persistent history storage backends.
 type Database interface {
 	// Close closes the database connection and releases resources.
 	io.Closer
+
+	// SetConfig updates the store config.
+	SetConfig(Config)
 
 	// AddChannelItem adds a history item for a channel.
 	// target is the casefolded channel name.
@@ -69,6 +94,8 @@ func NewNoopDatabase() Database {
 func (n noopDatabase) Close() error {
 	return nil
 }
+
+func (n noopDatabase) SetConfig(_ Config) {}
 
 func (n noopDatabase) AddChannelItem(target string, item Item, account string) error {
 	return nil
