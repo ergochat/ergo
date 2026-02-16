@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	defaultProxyDeadline = time.Minute
+	defaultProxyDeadline = 5 * time.Second
 )
 
 // here's how this works: exported (capitalized) members of the config structs
