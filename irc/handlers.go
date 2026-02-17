@@ -2462,7 +2462,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		isBot := client.HasMode(modes.Bot)
 		for _, session := range deliverySessions {
 			if openedUserQuery && session.client == user && session.capabilities.Has(caps.UserQuery) {
-				session.Send(nil, tDetails.nickMask, "USERQUERY", "OPEN", details.nick)
+				session.Send(nil, "", "USERQUERY", "OPEN", details.nick)
 			}
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
 			// don't send TAGMSG at all if they don't have the tags cap
@@ -3871,7 +3871,7 @@ func userqueryListHandler(server *Server, client *Client, msg ircmsg.Message, rb
 	defer rb.EndNestedBatch(batchID)
 
 	for cfnick := range queries {
-		rb.Add(nil, server.name, "USERQUERY", "LIST", server.clients.UnfoldNick(cfnick))
+		rb.Add(nil, "", "USERQUERY", "LIST", server.clients.UnfoldNick(cfnick))
 	}
 }
 
@@ -3895,13 +3895,12 @@ func userqueryOpenHandler(server *Server, client *Client, msg ircmsg.Message, rb
 	}
 
 	unfoldedTarget := server.clients.UnfoldNick(cfnick)
-	nickMask := client.NickMaskString()
-	rb.Add(nil, nickMask, "USERQUERY", "OPEN", unfoldedTarget)
+	rb.Add(nil, "", "USERQUERY", "OPEN", unfoldedTarget)
 
 	// broadcast to other sessions:
 	for _, session := range client.Sessions() {
 		if session != rb.session && session.capabilities.Has(caps.UserQuery) {
-			session.Send(nil, nickMask, "USERQUERY", "OPEN", unfoldedTarget)
+			session.Send(nil, "", "USERQUERY", "OPEN", unfoldedTarget)
 		}
 	}
 	return
@@ -3930,10 +3929,9 @@ func userqueryCloseHandler(server *Server, client *Client, msg ircmsg.Message, r
 	rb.Add(nil, nickMask, "USERQUERY", "CLOSE", unfoldedTarget)
 
 	// Send confirmation to all sessions with the capability
-	details := client.Details()
 	for _, session := range client.Sessions() {
 		if session != rb.session && session.capabilities.Has(caps.UserQuery) {
-			session.Send(nil, details.nickMask, "USERQUERY", "CLOSE", unfoldedTarget)
+			session.Send(nil, "", "USERQUERY", "CLOSE", unfoldedTarget)
 		}
 	}
 	return
