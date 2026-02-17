@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -61,7 +62,7 @@ type MySQL struct {
 
 var _ history.Database = (*MySQL)(nil)
 
-func NewMySQLDatabase(logger *logger.Manager, config Config) (*MySQL, error) {
+func New(logger *logger.Manager, config history.Config) (*MySQL, error) {
 	var mysql MySQL
 
 	mysql.logger = logger
@@ -71,7 +72,7 @@ func NewMySQLDatabase(logger *logger.Manager, config Config) (*MySQL, error) {
 	return &mysql, mysql.open()
 }
 
-func (mysql *MySQL) SetConfig(config Config) {
+func (mysql *MySQL) SetConfig(config history.Config) {
 	mysql.timeout.Store(uint64(config.Timeout))
 	var trackAccountMessages uint32
 	if config.TrackAccountMessages {
@@ -79,8 +80,24 @@ func (mysql *MySQL) SetConfig(config Config) {
 	}
 	mysql.trackAccountMessages.Store(trackAccountMessages)
 	mysql.stateMutex.Lock()
-	mysql.config = config
-	mysql.stateMutex.Unlock()
+	defer mysql.stateMutex.Unlock()
+
+	mysql.config.Host = config.Host
+	mysql.config.Port = config.Port
+	mysql.config.User = config.User
+	mysql.config.Password = config.Password
+	mysql.config.SocketPath = config.SocketPath
+	mysql.config.HistoryDatabase = config.HistoryDatabase
+	mysql.config.Timeout = config.Timeout
+	mysql.config.ConnMaxLifetime = config.ConnMaxLifetime
+	mysql.config.MaxConns = config.MaxConns
+	mysql.config.ExpireTime = config.ExpireTime
+	if config.MaxConns == 0 {
+		// #1622: not putting an upper limit on the number of MySQL connections is
+		// potentially dangerous. as a naive heuristic, assume they're running on the
+		// same machine:
+		config.MaxConns = runtime.NumCPU()
+	}
 }
 
 func (mysql *MySQL) getExpireTime() (expireTime time.Duration) {
