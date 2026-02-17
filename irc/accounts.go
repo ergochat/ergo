@@ -43,6 +43,7 @@ const (
 	keyCertToAccount           = "account.creds.certfp %s"
 	keyAccountLastSeen         = "account.lastseen %s"
 	keyAccountReadMarkers      = "account.readmarkers %s"
+	keyAccountUserQueries      = "account.userqueries %s"
 	keyAccountModes            = "account.modes %s"     // user modes for the always-on client as a string
 	keyAccountRealname         = "account.realname %s"  // client realname stored as string
 	keyAccountSuspended        = "account.suspended %s" // client realname stored as string
@@ -135,6 +136,7 @@ func (am *AccountManager) createAlwaysOnClients(config *Config) {
 				am.loadChannels(accountName),
 				am.loadTimeMap(keyAccountLastSeen, accountName),
 				am.loadTimeMap(keyAccountReadMarkers, accountName),
+				am.loadTimeMap(keyAccountUserQueries, accountName),
 				am.loadModes(accountName),
 				am.loadRealname(accountName),
 				am.loadPushSubscriptions(accountName),
@@ -660,6 +662,11 @@ func (am *AccountManager) saveLastSeen(account string, lastSeen map[string]time.
 func (am *AccountManager) saveReadMarkers(account string, readMarkers map[string]time.Time) {
 	key := fmt.Sprintf(keyAccountReadMarkers, account)
 	am.saveTimeMap(account, key, readMarkers)
+}
+
+func (am *AccountManager) saveUserQueries(account string, userQueries map[string]time.Time) {
+	key := fmt.Sprintf(keyAccountUserQueries, account)
+	am.saveTimeMap(account, key, userQueries)
 }
 
 func (am *AccountManager) saveTimeMap(account, key string, timeMap map[string]time.Time) {
@@ -1917,6 +1924,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 	emailChangeKey := fmt.Sprintf(keyAccountEmailChange, casefoldedAccount)
 	pushSubscriptionsKey := fmt.Sprintf(keyAccountPushSubscriptions, casefoldedAccount)
 	metadataKey := fmt.Sprintf(keyAccountMetadata, casefoldedAccount)
+	userQueryKey := fmt.Sprintf(keyAccountUserQueries, casefoldedAccount)
 
 	var clients []*Client
 	defer func() {
@@ -1977,6 +1985,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 		tx.Delete(emailChangeKey)
 		tx.Delete(pushSubscriptionsKey)
 		tx.Delete(metadataKey)
+		tx.Delete(userQueryKey)
 
 		return nil
 	})

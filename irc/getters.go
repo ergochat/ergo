@@ -549,6 +549,59 @@ func (client *Client) SetReadMarker(cfname string, now time.Time) (result time.T
 	return
 }
 
+// initializeUserQueries maintains client.userQueries as nil until the first time
+// we get a connecting client with the user query capability. at that point, we start
+// tracking user queries.
+func (client *Client) initializeUserQueries(session *Session) {
+	if !session.capabilities.Has(caps.UserQuery) {
+		return
+	}
+
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	if client.userQueries == nil {
+		client.userQueries = make(map[string]time.Time)
+		// mark dirty so that if they're always-on, we remember that they had the CAP
+		client.dirtyTimestamps = true
+	}
+}
+
+func (client *Client) copyUserQueries() map[string]time.Time {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return maps.Clone(client.userQueries)
+}
+
+func (client *Client) OpenUserQuery(cfnick string, now time.Time) bool {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.userQueries == nil {
+		return false // not tracked for this client (missing CAP)
+	}
+	if _, exists := client.userQueries[cfnick]; exists {
+		return false // already open
+	}
+	updateLRUMap(client.userQueries, cfnick, now, maxUserQueries)
+	client.dirtyTimestamps = true
+	return true
+}
+
+func (client *Client) CloseUserQuery(cfnick string) bool {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+
+	if client.userQueries == nil {
+		return false // not tracked for this client (missing CAP)
+	}
+	if _, exists := client.userQueries[cfnick]; !exists {
+		return false // already closed
+	}
+	delete(client.userQueries, cfnick)
+	client.dirtyTimestamps = true
+	return true
+}
+
 func updateLRUMap(lru map[string]time.Time, key string, val time.Time, maxItems int) (result time.Time) {
 	if currentVal := lru[key]; currentVal.After(val) {
 		return currentVal

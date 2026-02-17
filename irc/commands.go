@@ -373,6 +373,10 @@ func init() {
 			handler:   userhostHandler,
 			minParams: 1,
 		},
+		"USERQUERY": {
+			handler:   userqueryHandler,
+			minParams: 1,
+		},
 		"USERS": {
 			handler: usersHandler,
 		},
