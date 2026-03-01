@@ -551,7 +551,11 @@ func (channel *Channel) ClientStatus(client *Client) (present bool, joinTimeSecs
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	memberData, present := channel.members[client]
-	return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
+	if present {
+		return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
+	} else {
+		return
+	}
 }
 
 // helper for persisting channel-user modes for always-on clients;
