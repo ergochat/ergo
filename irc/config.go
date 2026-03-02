@@ -1846,6 +1846,10 @@ func (config *Config) generateISupport() (err error) {
 	}
 	isupport.Add("WHOX", "")
 
+	if config.Accounts.RequireSasl.Enabled {
+		isupport.Add("draft/ACCOUNTREQUIRED", "")
+	}
+
 	for key, value := range config.Server.AdditionalISupport {
 		if !isupport.Contains(key) {
 			isupport.Add(key, value)
