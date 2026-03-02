@@ -590,8 +590,14 @@ The USERS command is not implemented.`,
 	},
 	"userhost": {
 		text: `USERHOST <nickname>{ <nickname>}
-		
+
 Shows information about the given users. Takes up to 10 nicknames.`,
+	},
+	"userquery": {
+		text: `USERQUERY <subcommand> [<nick>]
+
+Manages opened user queries (private message conversations).
+Not intended for direct use by end users.`,
 	},
 	"verify": {
 		text: `VERIFY <account> <code>

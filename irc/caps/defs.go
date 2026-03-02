@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 38
+	numCapabs = 39
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -92,6 +92,10 @@ const (
 	// Relaymsg is the proposed IRCv3 capability named "draft/relaymsg":
 	// https://github.com/ircv3/ircv3-specifications/pull/417
 	Relaymsg Capability = iota
+
+	// UserQuery is the draft IRCv3 capability named "draft/user-query":
+	// https://github.com/ircv3/ircv3-specifications/pull/569
+	UserQuery Capability = iota
 
 	// WebPush is the proposed IRCv3 capability named "draft/webpush":
 	// https://github.com/ircv3/ircv3-specifications/pull/471
@@ -189,6 +193,7 @@ var (
 		"draft/pre-away",
 		"draft/read-marker",
 		"draft/relaymsg",
+		"draft/user-query",
 		"draft/webpush",
 		"echo-message",
 		"ergo.chat/nope",

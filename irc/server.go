@@ -298,6 +298,7 @@ func (server *Server) performAlwaysOnMaintenance(checkExpiration, flushTimestamp
 			account := client.Account()
 			server.accounts.saveLastSeen(account, client.copyLastSeen())
 			server.accounts.saveReadMarkers(account, client.copyReadMarkers())
+			server.accounts.saveUserQueries(account, client.copyUserQueries())
 		}
 	}
 }
@@ -422,6 +423,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		// like nickname, hostname, etc. to show the correct values in the reg burst.
 		return false
 	}
+
+	c.initializeUserQueries(session)
 
 	// Apply default user modes (without updating the invisible counter)
 	// The number of invisible users will be updated by server.stats.Register
