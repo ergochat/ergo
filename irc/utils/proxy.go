@@ -6,6 +6,7 @@ package utils
 import (
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -20,24 +21,8 @@ const (
 	maxProxyLineLenV1 = 107
 )
 
-// XXX implement net.Error with a Temporary() method that returns true;
-// otherwise, ErrBadProxyLine will cause (*http.Server).Serve() to exit
-type proxyLineError struct{}
-
-func (p *proxyLineError) Error() string {
-	return "invalid PROXY line"
-}
-
-func (p *proxyLineError) Timeout() bool {
-	return false
-}
-
-func (p *proxyLineError) Temporary() bool {
-	return true
-}
-
 var (
-	ErrBadProxyLine error = &proxyLineError{}
+	ErrBadProxyLine = errors.New("invalid PROXY protocol line")
 )
 
 // ListenerConfig is all the information about how to process
@@ -208,12 +193,13 @@ func parseProxyLineV2(line []byte) (ip net.IP, err error) {
 // configuration.
 type WrappedConn struct {
 	net.Conn
-	ProxiedIP net.IP
-	TLS       bool
-	Tor       bool
-	STSOnly   bool
-	WebSocket bool
-	HideSTS   bool
+	ProxiedIP  net.IP
+	ProxyError error
+	TLS        bool
+	Tor        bool
+	STSOnly    bool
+	WebSocket  bool
+	HideSTS    bool
 	// Secure indicates whether we believe the connection between us and the client
 	// was secure against interception and modification (including all proxies):
 	Secure bool
@@ -256,6 +242,7 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 	}
 
 	var proxiedIP net.IP
+	var proxyError error
 	if config.RequireProxy {
 		// this will occur synchronously on the goroutine calling Accept(),
 		// but that's OK because this listener *requires* a PROXY line,
@@ -265,10 +252,7 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 		if err == nil {
 			proxiedIP, err = ParseProxyLine(proxyLine)
 		}
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
+		proxyError = err
 	}
 
 	if config.TLSConfig != nil {
@@ -276,13 +260,14 @@ func (rl *ReloadableListener) Accept() (conn net.Conn, err error) {
 	}
 
 	return &WrappedConn{
-		Conn:      conn,
-		ProxiedIP: proxiedIP,
-		TLS:       config.TLSConfig != nil,
-		Tor:       config.Tor,
-		STSOnly:   config.STSOnly,
-		WebSocket: config.WebSocket,
-		HideSTS:   config.HideSTS,
+		Conn:       conn,
+		ProxiedIP:  proxiedIP,
+		ProxyError: proxyError,
+		TLS:        config.TLSConfig != nil,
+		Tor:        config.Tor,
+		STSOnly:    config.STSOnly,
+		WebSocket:  config.WebSocket,
+		HideSTS:    config.HideSTS,
 		// Secure will be set later by client code
 	}, nil
 }

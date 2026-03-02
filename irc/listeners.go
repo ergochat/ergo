@@ -99,8 +99,13 @@ func (nl *NetListener) serve() {
 			// hand off the connection
 			wConn, ok := conn.(*utils.WrappedConn)
 			if ok {
-				confirmProxyData(wConn, "", "", "", nl.server.Config())
-				go nl.server.RunClient(NewIRCStreamConn(wConn))
+				if wConn.ProxyError == nil {
+					confirmProxyData(wConn, "", "", "", nl.server.Config())
+					go nl.server.RunClient(NewIRCStreamConn(wConn))
+				} else {
+					nl.server.logger.Error("internal", "PROXY protocol error", nl.addr, wConn.ProxyError.Error())
+					conn.Close()
+				}
 			} else {
 				nl.server.logger.Error("internal", "invalid connection type", nl.addr)
 			}
@@ -182,6 +187,13 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 	wConn, ok := conn.UnderlyingConn().(*utils.WrappedConn)
 	if !ok {
 		wl.server.logger.Error("internal", "non-proxied connection on websocket", wl.addr)
+		conn.Close()
+		return
+	}
+	if wConn.ProxyError != nil {
+		// actually the connection is likely corrupted, so probably Upgrade()
+		// would have already failed
+		wl.server.logger.Error("internal", "PROXY protocol error on websocket", wl.addr, wConn.ProxyError.Error())
 		conn.Close()
 		return
 	}
