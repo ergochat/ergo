@@ -34,6 +34,7 @@ import (
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/mysql"
+	"github.com/ergochat/ergo/irc/postgres"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
@@ -91,6 +92,7 @@ type Server struct {
 	store             *buntdb.DB
 	dstore            datastore.Datastore
 	mysqlHistoryDB    *mysql.MySQL
+	postgresHistoryDB *postgres.PostgreSQL
 	historyDB         history.Database
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
@@ -811,6 +813,11 @@ func (server *Server) applyConfig(config *Config) (err error) {
 				server.mysqlHistoryDB.SetConfig(config.Datastore.MySQL)
 			}
 		}
+		if config.Datastore.PostgreSQL.Enabled && server.postgresHistoryDB != nil {
+			if config.Datastore.PostgreSQL != oldConfig.Datastore.PostgreSQL {
+				server.postgresHistoryDB.SetConfig(config.Datastore.PostgreSQL)
+			}
+		}
 	}
 
 	// now that the datastore is initialized, we can load the cloak secret from it
@@ -1025,6 +1032,13 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 			return err
 		}
 		server.historyDB = server.mysqlHistoryDB
+	} else if config.Datastore.PostgreSQL.Enabled {
+		server.postgresHistoryDB, err = postgres.NewPostgreSQLDatabase(server.logger, config.Datastore.PostgreSQL)
+		if err != nil {
+			server.logger.Error("internal", "could not connect to postgres", err.Error())
+			return err
+		}
+		server.historyDB = server.postgresHistoryDB
 	} else {
 		server.historyDB = history.NewNoopDatabase()
 	}

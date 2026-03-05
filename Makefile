@@ -18,6 +18,14 @@ install:
 build:
 	go build -v -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
+.PHONY: build_full
+build_full:
+	go build -v -tags postgres -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
+
+.PHONY: install_full
+install_full:
+	go install -v -tags postgres -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
+
 .PHONY: release
 release:
 	goreleaser --skip=publish --clean
