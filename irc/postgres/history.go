@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -93,45 +94,20 @@ func (pg *PostgreSQL) getExpireTime() (expireTime time.Duration) {
 
 func (pg *PostgreSQL) open() (err error) {
 	// Build PostgreSQL connection string
-	var connString string
-	if pg.config.SocketPath != "" {
-		// PostgreSQL uses host parameter for Unix socket directory
-		connString = fmt.Sprintf("host=%s user=%s password=%s dbname=%s",
-			pg.config.SocketPath, pg.config.User, pg.config.Password, pg.config.HistoryDatabase)
+	uri := pg.config.URI
+	if uri != "" {
+		uri, err = pg.mungeURI(uri)
+		if err != nil {
+			return err
+		}
 	} else {
-		// TCP connection
-		port := pg.config.Port
-		if port == 0 {
-			port = 5432 // Default PostgreSQL port
-		}
-		sslMode := pg.config.SSLMode
-		if sslMode == "" {
-			sslMode = "disable"
-		}
-		connString = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-			pg.config.Host, port, pg.config.User, pg.config.Password, pg.config.HistoryDatabase, sslMode)
-
-		// Add SSL certificate paths if provided
-		if pg.config.SSLCert != "" {
-			connString += fmt.Sprintf(" sslcert=%s", pg.config.SSLCert)
-		}
-		if pg.config.SSLKey != "" {
-			connString += fmt.Sprintf(" sslkey=%s", pg.config.SSLKey)
-		}
-		if pg.config.SSLRootCert != "" {
-			connString += fmt.Sprintf(" sslrootcert=%s", pg.config.SSLRootCert)
+		uri, err = pg.config.buildURI()
+		if err != nil {
+			return err
 		}
 	}
 
-	// Add optional PostgreSQL-specific parameters
-	if pg.config.ApplicationName != "" {
-		connString += fmt.Sprintf(" application_name=%s", pg.config.ApplicationName)
-	}
-	if pg.config.ConnectTimeout != 0 {
-		connString += fmt.Sprintf(" connect_timeout=%d", int(pg.config.ConnectTimeout.Seconds()))
-	}
-
-	pg.db, err = sql.Open("pgx", connString)
+	pg.db, err = sql.Open("pgx", uri)
 	if err != nil {
 		return err
 	}
@@ -158,6 +134,22 @@ func (pg *PostgreSQL) open() (err error) {
 	go pg.forgetLoop()
 
 	return nil
+}
+
+func (pg *PostgreSQL) mungeURI(uriStr string) (result string, err error) {
+	uri, err := url.Parse(uriStr)
+	if err != nil {
+		return "", fmt.Errorf("could not parse postgres URI: %w", err)
+	}
+	values := uri.Query()
+	if !values.Has("application_name") {
+		values.Set("application_name", pg.config.ApplicationName)
+	}
+	if !values.Has("connect_timeout") {
+		values.Set("connect_timeout", fmt.Sprintf("%d", int(pg.config.ConnectTimeout.Seconds())))
+	}
+	uri.RawQuery = values.Encode()
+	return uri.String(), nil
 }
 
 func (pg *PostgreSQL) fixSchemas() (err error) {

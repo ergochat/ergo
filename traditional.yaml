@@ -856,9 +856,16 @@ datastore:
         # if socket-path is set, it will be used instead of host:port
         # PostgreSQL uses the socket directory, not the socket file path
         #socket-path: "/var/run/postgresql"
+        # PostgreSQL SSL/TLS configuration:
+        ssl-mode: "disable" # options: disable, require, verify-ca, verify-full
+        #ssl-cert: "/path/to/client-cert.pem"
+        #ssl-key: "/path/to/client-key.pem"
+        #ssl-root-cert: "/path/to/ca-cert.pem"
         user: "ergo"
         password: "hunter2"
         history-database: "ergo_history"
+        # uri takes a postgresql:// (libpq) URI, overriding the above parameters if present:
+        # uri: "postgresql://ergo:hunter2@localhost/ergo_history"
         timeout: 3s
         max-conns: 4
         # this may be necessary to prevent middleware from closing your connections:
@@ -867,11 +874,6 @@ datastore:
         #application-name: "ergo"
         # timeout for establishing initial connections to PostgreSQL:
         #connect-timeout: 10s
-        # PostgreSQL SSL/TLS configuration:
-        ssl-mode: "disable" # options: disable, require, verify-ca, verify-full
-        #ssl-cert: "/path/to/client-cert.pem"
-        #ssl-key: "/path/to/client-key.pem"
-        #ssl-root-cert: "/path/to/ca-cert.pem"
 
 # languages config
 languages:
