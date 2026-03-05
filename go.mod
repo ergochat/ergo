@@ -1,6 +1,6 @@
 module github.com/ergochat/ergo
 
-go 1.25
+go 1.26
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
@@ -8,7 +8,7 @@ require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1
 	github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
-	github.com/ergochat/irc-go v0.5.0-rc2
+	github.com/ergochat/irc-go v0.5.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gofrs/flock v0.8.1
 	github.com/gorilla/websocket v1.4.2
@@ -31,7 +31,7 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.8.0 // indirect

@@ -17,12 +17,23 @@ func newAPIHandler(server *Server) http.Handler {
 		mux:    http.NewServeMux(),
 	}
 
+	// server-level functionality:
 	api.mux.HandleFunc("POST /v1/rehash", api.handleRehash)
+	api.mux.HandleFunc("POST /v1/status", api.handleStatus)
+
+	// use Ergo as a source of truth for authentication in other services:
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
+
+	// legacy names for /v1/ns endpoints:
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
 	api.mux.HandleFunc("POST /v1/account_details", api.handleAccountDetails)
 	api.mux.HandleFunc("POST /v1/account_list", api.handleAccountList)
-	api.mux.HandleFunc("POST /v1/status", api.handleStatus)
+
+	// /v1/ns: nickserv functionality
+	api.mux.HandleFunc("POST /v1/ns/info", api.handleAccountDetails)
+	api.mux.HandleFunc("POST /v1/ns/list", api.handleAccountList)
+	api.mux.HandleFunc("POST /v1/ns/passwd", api.handleNsPasswd)
+	api.mux.HandleFunc("POST /v1/ns/saregister", api.handleSaregister)
 
 	return api
 }
@@ -174,6 +185,31 @@ func (a *ergoAPI) handleSaregister(w http.ResponseWriter, r *http.Request) {
 	a.writeJSONResponse(response, w, r)
 }
 
+func (a *ergoAPI) handleNsPasswd(w http.ResponseWriter, r *http.Request) {
+	var request apiSaregisterRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	var response apiGenericResponse
+	err := a.server.accounts.setPassword(request.AccountName, request.Passphrase, true)
+	switch err {
+	case nil:
+		response.Success = true
+	case errAccountDoesNotExist:
+		response.ErrorCode = "ACCOUNT_DOES_NOT_EXIST"
+	case errAccountBadPassphrase, errEmptyCredentials:
+		response.ErrorCode = "INVALID_PASSPHRASE"
+	case errCredsExternallyManaged:
+		response.ErrorCode = "CREDENTIALS_EXTERNALLY_MANAGED"
+	default:
+		a.server.logger.Error("api", "could not change user password:", err.Error())
+		response.ErrorCode = "UNKNOWN_ERROR"
+	}
+
+	a.writeJSONResponse(response, w, r)
+}
+
 type apiAccountDetailsResponse struct {
 	apiGenericResponse
 	AccountName  string   `json:"accountName,omitempty"`
@@ -244,26 +280,24 @@ func (a *ergoAPI) handleAccountList(w http.ResponseWriter, r *http.Request) {
 	response.TotalCount = len(accounts)
 
 	// Load account details
-	response.Accounts = make([]apiAccountDetailsResponse, len(accounts))
-	for i, account := range accounts {
+	response.Accounts = make([]apiAccountDetailsResponse, 0, len(accounts))
+	for _, account := range accounts {
 		accountData, err := a.server.accounts.LoadAccount(account)
 		if err != nil {
-			response.Accounts[i] = apiAccountDetailsResponse{
-				apiGenericResponse: apiGenericResponse{
-					Success: false,
-					Error:   err.Error(),
-				},
-			}
+			// shouldn't happen
 			continue
 		}
 
-		response.Accounts[i] = apiAccountDetailsResponse{
-			apiGenericResponse: apiGenericResponse{
-				Success: true,
+		response.Accounts = append(
+			response.Accounts,
+			apiAccountDetailsResponse{
+				apiGenericResponse: apiGenericResponse{
+					Success: true,
+				},
+				AccountName: accountData.Name,
+				Email:       accountData.Settings.Email,
 			},
-			AccountName: accountData.Name,
-			Email:       accountData.Settings.Email,
-		}
+		)
 	}
 
 	response.Success = true

@@ -1,7 +1,7 @@
 code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48 h1:/EMHruHCFXR9xClkGV/t0rmHrdhX4+trQUcBqjwc9xE=
 code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48/go.mod h1:wN/zk7mhREp/oviagqUXY3EwuHhWyOvAdsn5Y4CzOrc=
-filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
-filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+filippo.io/edwards25519 v1.1.1 h1:YpjwWWlNmGIDyXOn8zLzqiD+9TyIlPhGFG96P39uBpw=
+filippo.io/edwards25519 v1.1.1/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
 github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 h1:KeNholpO2xKjgaaSyd+DyQRrsQjhbSeS7qe4nEw8aQw=
 github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962/go.mod h1:kC29dT1vFpj7py2OvG1khBdQpo3kInWP+6QipLbdngo=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
@@ -16,8 +16,8 @@ github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1 h1:WLHTOodthV
 github.com/ergochat/confusables v0.0.0-20201108231250-4ab98ab61fb1/go.mod h1:mov+uh1DPWsltdQnOdzn08UO9GsJ3MEvhtu0Ci37fdk=
 github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881 h1:+J5m88nvybxB5AnBVGzTXM/yHVytt48rXBGcJGzSbms=
 github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881/go.mod h1:ASYJtQujNitna6cVHsNQTGrfWvMPJ5Sa2lZlmsH65uM=
-github.com/ergochat/irc-go v0.5.0-rc2 h1:VuSQJF5K4hWvYSzGa4b8vgL6kzw8HF6LSOejE+RWpAo=
-github.com/ergochat/irc-go v0.5.0-rc2/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+github.com/ergochat/irc-go v0.5.0 h1:woQ1RS9YbfgqPgSpPBBQeczXGIGzR0aC7dEgk469fTw=
+github.com/ergochat/irc-go v0.5.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
 github.com/ergochat/scram v1.0.2-ergo1 h1:2bYXiRFQH636pT0msOG39fmEYl4Eq+OuutcyDsCix/g=
 github.com/ergochat/scram v1.0.2-ergo1/go.mod h1:1WAq6h33pAW+iRreB34OORO2Nf7qel3VV3fjBj+hCSs=
 github.com/ergochat/webpush-go/v2 v2.0.0 h1:n6eoJk8RpzJFeBJ6gxvqo/dngnVEmJbzJwzKtCZbByo=

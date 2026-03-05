@@ -551,7 +551,11 @@ func (channel *Channel) ClientStatus(client *Client) (present bool, joinTimeSecs
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	memberData, present := channel.members[client]
-	return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
+	if present {
+		return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
+	} else {
+		return
+	}
 }
 
 // helper for persisting channel-user modes for always-on clients;
@@ -1473,8 +1477,8 @@ func (channel *Channel) ShowMaskList(client *Client, mode modes.Mode, rb *Respon
 		rpllist = RPL_EXCEPTLIST
 		rplendoflist = RPL_ENDOFEXCEPTLIST
 	} else if mode == modes.InviteMask {
-		rpllist = RPL_INVITELIST
-		rplendoflist = RPL_ENDOFINVITELIST
+		rpllist = RPL_INVEXLIST
+		rplendoflist = RPL_ENDOFINVEXLIST
 	}
 
 	nick := client.Nick()

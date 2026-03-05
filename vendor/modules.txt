@@ -1,7 +1,7 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
-# filippo.io/edwards25519 v1.1.0
+# filippo.io/edwards25519 v1.1.1
 ## explicit; go 1.20
 filippo.io/edwards25519
 filippo.io/edwards25519/field
@@ -23,7 +23,7 @@ github.com/ergochat/confusables
 # github.com/ergochat/go-ident v0.0.0-20230911071154-8c30606d6881
 ## explicit; go 1.18
 github.com/ergochat/go-ident
-# github.com/ergochat/irc-go v0.5.0-rc2
+# github.com/ergochat/irc-go v0.5.0
 ## explicit; go 1.15
 github.com/ergochat/irc-go/ircfmt
 github.com/ergochat/irc-go/ircmsg

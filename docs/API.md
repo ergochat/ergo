@@ -39,21 +39,6 @@ This returns:
 Endpoints
 =========
 
-`/v1/account_details`
-----------------
-
-This endpoint fetches account details and returns them as JSON. The request is a JSON object with fields:
-
-* `accountName`: string, name of the account
-
-The response is a JSON object with fields:
-
-* `success`: whether the account exists or not
-* `accountName`: canonical, case-unfolded version of the account name
-* `email`: email address of the account provided
-* `registeredAt`: string, registration date/time of the account (in ISO8601 format)
-* `channels`: array of strings, list of channels the account is registered on or associated with
-
 `/v1/check_auth`
 ----------------
 
@@ -67,16 +52,53 @@ The response is a JSON object with fields:
 * `success`: whether the credentials provided were valid
 * `accountName`: canonical, case-unfolded version of the account name
 
-`/v1/rehash`
-------------
+`/v1/ns/info`
+-------------
 
-This endpoint rehashes the server (i.e. reloads the configuration file, TLS certificates, and other associated data). The body is ignored. The response is a JSON object with fields:
+This endpoint fetches account details and returns them as JSON. The request is a JSON object with fields:
 
-* `success`: boolean, indicates whether the rehash was successful
-* `error`: string, optional, human-readable description of the failure
+* `accountName`: string, name of the account
 
-`/v1/saregister`
-----------------
+The response is a JSON object with fields:
+
+* `success`: whether the account exists or not
+* `accountName`: canonical, case-unfolded version of the account name
+* `email`: email address of the account provided
+* `registeredAt`: string, registration date/time of the account (in ISO8601 format)
+* `channels`: array of strings, list of channels the account is registered on or associated with
+
+Note: this endpoint was previously named `/v1/account_details`. The old name is still accepted for backwards compatibility.
+
+`/v1/ns/list`
+-------------
+
+This endpoint fetches a list of all accounts. The request body is ignored and can be empty.
+
+The response is a JSON object with fields:
+
+* `success`: whether the request succeeded
+* `accounts`: array of objects, each with fields:
+  * `success`: boolean, whether this individual account query succeeded
+  * `accountName`: string, canonical, case-unfolded version of the account name
+* `totalCount`: integer, total number of accounts returned
+
+Note: this endpoint was previously named `/v1/account_list`. The old name is still accepted for backwards compatibility.
+
+`/v1/ns/passwd`
+---------------
+
+This endpoint changes the password of an existing NickServ account. The request is a JSON object with fields:
+
+* `accountName`: string, name of the account
+* `passphrase`: string, new passphrase for the account
+
+The response is a JSON object with fields:
+
+* `success`: whether the password change succeeded
+* `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_DOES_NOT_EXIST`, `INVALID_PASSPHRASE`, `CREDENTIALS_EXTERNALLY_MANAGED`, `UNKNOWN_ERROR`.
+
+`/v1/ns/saregister`
+-------------------
 
 This endpoint registers an account in NickServ, with the same semantics as `NS SAREGISTER`. The request is a JSON object with fields:
 
@@ -89,22 +111,18 @@ The response is a JSON object with fields:
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_EXISTS`, `INVALID_PASSPHRASE`, `UNKNOWN_ERROR`.
 * `error`: string, optional, human-readable description of the failure.
 
-`/v1/account_list`
--------------------
+Note: this endpoint was previously named `/v1/saregister`. The old name is still accepted for backwards compatibility.
 
-This endpoint fetches a list of all accounts. The request body is ignored and can be empty.
+`/v1/rehash`
+------------
 
-The response is a JSON object with fields:
+This endpoint rehashes the server (i.e. reloads the configuration file, TLS certificates, and other associated data). The body is ignored. The response is a JSON object with fields:
 
-* `success`: whether the request succeeded
-* `accounts`: array of objects, each with fields:
-  * `success`: boolean, whether this individual account query succeeded
-  * `accountName`: string, canonical, case-unfolded version of the account name
-* `totalCount`: integer, total number of accounts returned
-
+* `success`: boolean, indicates whether the rehash was successful
+* `error`: string, optional, human-readable description of the failure
 
 `/v1/status`
--------------
+------------
 
 This endpoint returns status information about the running Ergo server. The request body is ignored and can be empty.
 

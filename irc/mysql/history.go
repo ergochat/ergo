@@ -1015,7 +1015,7 @@ func (mysql *MySQL) ListChannels(cfchannels []string) (results []history.TargetL
 	defer cancel()
 
 	var queryBuf strings.Builder
-	args := make([]interface{}, 0, len(results))
+	args := make([]interface{}, 0, len(cfchannels))
 	// https://dev.mysql.com/doc/refman/8.0/en/group-by-optimization.html
 	// this should be a "loose index scan"
 	queryBuf.WriteString(`SELECT sequence.target, MAX(sequence.nanotime) FROM sequence

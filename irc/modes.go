@@ -251,9 +251,11 @@ func (channel *Channel) ApplyChannelModeChanges(client *Client, isSamode bool, c
 			switch change.Op {
 			case modes.Add:
 				val, err := strconv.Atoi(change.Arg)
-				if err == nil {
+				if err == nil && val > 0 {
 					channel.setUserLimit(val)
 					applied = append(applied, change)
+				} else {
+					rb.Add(nil, client.server.name, ERR_INVALIDMODEPARAM, details.nick, chname, string(change.Mode), utils.SafeErrorParam(change.Arg), client.t("+l user limit value must be an integer between 1 and 2147483647, expressed in base 10"))
 				}
 
 			case modes.Remove:

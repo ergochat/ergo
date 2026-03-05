@@ -47,7 +47,7 @@ import (
 )
 
 const (
-	defaultProxyDeadline = time.Minute
+	defaultProxyDeadline = 5 * time.Second
 )
 
 // here's how this works: exported (capitalized) members of the config structs
@@ -1864,6 +1864,10 @@ func (config *Config) generateISupport() (err error) {
 		}
 	}
 	isupport.Add("WHOX", "")
+
+	if config.Accounts.RequireSasl.Enabled {
+		isupport.Add("draft/ACCOUNTREQUIRED", "")
+	}
 
 	for key, value := range config.Server.AdditionalISupport {
 		if !isupport.Contains(key) {

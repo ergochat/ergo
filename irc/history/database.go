@@ -122,5 +122,5 @@ func (n noopSequence) Cutoff() time.Time {
 }
 
 func (n noopSequence) Ephemeral() bool {
-	return true
+	return false // we're pretending to be an empty database
 }
