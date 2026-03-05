@@ -35,7 +35,7 @@ type Config struct {
 	SSLCert     string `yaml:"ssl-cert"`      // client certificate path
 	SSLKey      string `yaml:"ssl-key"`       // client key path
 	SSLRootCert string `yaml:"ssl-root-cert"` // CA certificate path
-	URI         string `uri`                  // libpq postgresql:// URI overriding the above
+	URI         string `yaml:"uri"`           // libpq postgresql:// URI overriding the above
 
 	// XXX these are copied from elsewhere in the config:
 	ExpireTime           time.Duration
