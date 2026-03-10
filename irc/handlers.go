@@ -3125,7 +3125,9 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			}
 		}
 		if client.clearClearablePushMessage(cftarget, readTime) {
-			line, err := webpush.MakePushLine(time.Now().UTC(), "*", server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+			markreadPushMessage := ircmsg.MakeMessage(nil, server.name, "MARKREAD", unfoldedTarget, readTimestamp)
+			markreadPushMessage.SetTag("time", time.Now().UTC().Format(utils.IRCv3TimestampFormat))
+			line, err := webpush.MakePushLine(markreadPushMessage)
 			if err == nil {
 				client.dispatchPushMessage(pushMessage{
 					msg:                 line,

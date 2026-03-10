@@ -11,12 +11,13 @@ import (
 )
 
 func TestBuildPushLine(t *testing.T) {
-	now, err := time.Parse(utils.IRCv3TimestampFormat, "2025-01-12T00:55:44.403Z")
-	if err != nil {
-		panic(err)
-	}
+	now := "2025-01-12T00:55:44.403Z"
+	readTimestamp := "timestamp=2025-01-12T00:07:57.972Z"
 
-	line, err := MakePushLine(now, "*", "ergo.test", "MARKREAD", "#ergo", "timestamp=2025-01-12T00:07:57.972Z")
+	markreadPushMessage := ircmsg.MakeMessage(nil, "ergo.test", "MARKREAD", "#ergo", readTimestamp)
+	markreadPushMessage.SetTag("time", now)
+
+	line, err := MakePushLine(markreadPushMessage)
 	if err != nil {
 		t.Fatal(err)
 	}
