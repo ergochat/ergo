@@ -3963,15 +3963,16 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 // WEBPUSH <subcommand> <endpoint> [key]
 func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	subcommand := strings.ToUpper(msg.Params[0])
+	endpoint := msg.Params[1]
 
 	config := server.Config()
 	if !config.WebPush.Enabled {
-		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("Web push is disabled"))
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, utils.SafeErrorParam(endpoint), client.t("Web push is disabled"))
 		return false
 	}
 
 	if client.Account() == "" {
-		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("You must be logged in to receive push messages"))
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, utils.SafeErrorParam(endpoint), client.t("You must be logged in to receive push messages"))
 		return false
 	}
 
@@ -3981,14 +3982,12 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 	// should disable web push. However, as a sanity check, disallow enabling it over a Tor
 	// connection:
 	if rb.session.isTor {
-		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, client.t("Web push cannot be enabled over Tor"))
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", subcommand, utils.SafeErrorParam(endpoint), client.t("Web push cannot be enabled over Tor"))
 		return false
 	}
 
-	endpoint := msg.Params[1]
-
 	if err := webpush.SanityCheckWebPushEndpoint(endpoint); err != nil {
-		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Invalid web push URL"))
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, utils.SafeErrorParam(endpoint), client.t("Invalid web push URL"))
 		return false
 	}
 
@@ -3996,12 +3995,12 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 	case "REGISTER":
 		// allow web push enable even if they are not always-on (they just won't get push messages)
 		if len(msg.Params) < 3 {
-			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Insufficient parameters for WEBPUSH REGISTER"))
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, utils.SafeErrorParam(endpoint), client.t("Insufficient parameters for WEBPUSH REGISTER"))
 			return false
 		}
 		keys, err := webpush.DecodeSubscriptionKeys(msg.Params[2])
 		if err != nil {
-			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, client.t("Invalid subscription keys for WEBPUSH REGISTER"))
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, utils.SafeErrorParam(endpoint), client.t("Invalid subscription keys for WEBPUSH REGISTER"))
 			return false
 		}
 		if client.refreshPushSubscription(endpoint, keys) {
@@ -4024,20 +4023,22 @@ func webpushHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 					rb.Add(nil, server.name, "WARN", "WEBPUSH", "PERSISTENCE_REQUIRED", client.t("You have enabled push notifications, but you will not receive them unless you become always-on. Try: /msg nickserv set always-on true"))
 				}
 			} else if err == errLimitExceeded {
-				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "FORBIDDEN", "REGISTER", client.t("You have too many push subscriptions already"))
+				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "MAX_REGISTRATIONS", "REGISTER", utils.SafeErrorParam(endpoint), client.t("You have too many push subscriptions already"))
 			} else {
 				server.logger.Error("webpush", "Failed to add webpush subscription", err.Error())
-				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INTERNAL_ERROR", "REGISTER", client.t("An error occurred"))
+				rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INTERNAL_ERROR", "REGISTER", utils.SafeErrorParam(endpoint), client.t("An error occurred"))
 			}
 		} else {
 			server.logger.Debug("webpush", "WEBPUSH REGISTER failed validation", endpoint, err.Error())
-			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", "REGISTER", client.t("Test push message failed to send"))
+			rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", "REGISTER", utils.SafeErrorParam(endpoint), client.t("Test push message failed to send"))
 		}
 	case "UNREGISTER":
 		client.deletePushSubscription(endpoint, true)
 		rb.session.webPushEndpoint = ""
 		// this always succeeds
 		rb.Add(nil, server.name, "WEBPUSH", "UNREGISTER", endpoint)
+	default:
+		rb.Add(nil, server.name, "FAIL", "WEBPUSH", "INVALID_PARAMS", subcommand, utils.SafeErrorParam(endpoint), client.t("Unknown subcommand"))
 	}
 
 	return false
