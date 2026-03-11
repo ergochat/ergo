@@ -4,8 +4,6 @@
 package postgres
 
 import (
-	"fmt"
-	"net/url"
 	"time"
 )
 
@@ -40,61 +38,4 @@ type Config struct {
 	// XXX these are copied from elsewhere in the config:
 	ExpireTime           time.Duration
 	TrackAccountMessages bool
-}
-
-func (config *Config) buildURI() (string, error) {
-	u := &url.URL{
-		Scheme: "postgresql",
-		Path:   "/" + config.HistoryDatabase,
-	}
-
-	q := url.Values{}
-
-	if config.SocketPath != "" {
-		// For Unix sockets, pgx uses host as a query parameter
-		q.Set("host", config.SocketPath)
-		if config.User != "" || config.Password != "" {
-			u.User = url.UserPassword(config.User, config.Password)
-		}
-	} else {
-		// TCP connection
-		port := config.Port
-		if port == 0 {
-			port = 5432
-		}
-		host := config.Host
-		if host == "" {
-			host = "localhost"
-		}
-		u.Host = fmt.Sprintf("%s:%d", host, port)
-		if config.User != "" || config.Password != "" {
-			u.User = url.UserPassword(config.User, config.Password)
-		}
-
-		sslMode := config.SSLMode
-		if sslMode == "" {
-			sslMode = "disable"
-		}
-		q.Set("sslmode", sslMode)
-
-		if config.SSLCert != "" {
-			q.Set("sslcert", config.SSLCert)
-		}
-		if config.SSLKey != "" {
-			q.Set("sslkey", config.SSLKey)
-		}
-		if config.SSLRootCert != "" {
-			q.Set("sslrootcert", config.SSLRootCert)
-		}
-	}
-
-	if config.ApplicationName != "" {
-		q.Set("application_name", config.ApplicationName)
-	}
-	if config.ConnectTimeout != 0 {
-		q.Set("connect_timeout", fmt.Sprintf("%d", int(config.ConnectTimeout.Seconds())))
-	}
-
-	u.RawQuery = q.Encode()
-	return u.String(), nil
 }

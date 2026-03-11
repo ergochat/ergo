@@ -187,32 +187,12 @@ func (pg *PostgreSQL) fixSchemas() (err error) {
 	var minorVersion string
 	err = pg.db.QueryRow(`SELECT value FROM metadata WHERE key_name = $1;`, keySchemaMinorVersion).Scan(&minorVersion)
 	if err == sql.ErrNoRows {
-		// XXX for now, the only minor version upgrade is the account tracking tables
-		err = pg.createComplianceTables()
-		if err != nil {
-			return
-		}
-		err = pg.createCorrespondentsTable()
-		if err != nil {
-			return
-		}
-		_, err = pg.db.Exec(`INSERT INTO metadata (key_name, value) VALUES ($1, $2);`, keySchemaMinorVersion, latestDbMinorVersion)
-		if err != nil {
-			return
-		}
-	} else if err == nil && minorVersion == "1" {
-		// upgrade from 2.1 to 2.2: create the correspondents table
-		err = pg.createCorrespondentsTable()
-		if err != nil {
-			return
-		}
-		_, err = pg.db.Exec(`UPDATE metadata SET value = $1 WHERE key_name = $2;`, latestDbMinorVersion, keySchemaMinorVersion)
-		if err != nil {
-			return
-		}
+		// impossible
 	} else if err == nil && minorVersion != latestDbMinorVersion {
 		// TODO: if minorVersion < latestDbMinorVersion, upgrade,
 		// if latestDbMinorVersion < minorVersion, ignore because backwards compatible
+	} else if err != nil {
+		return
 	}
 	return
 }
@@ -1160,4 +1140,61 @@ func (pg *PostgreSQL) MakeSequence(target, correspondent string, cutoff time.Tim
 		pg:            pg,
 		cutoff:        cutoff,
 	}
+}
+
+func (config *Config) buildURI() (string, error) {
+	u := &url.URL{
+		Scheme: "postgresql",
+		Path:   "/" + config.HistoryDatabase,
+	}
+
+	q := url.Values{}
+
+	if config.SocketPath != "" {
+		// For Unix sockets, pgx uses host as a query parameter
+		q.Set("host", config.SocketPath)
+		if config.User != "" || config.Password != "" {
+			u.User = url.UserPassword(config.User, config.Password)
+		}
+	} else {
+		// TCP connection
+		port := config.Port
+		if port == 0 {
+			port = 5432
+		}
+		host := config.Host
+		if host == "" {
+			host = "localhost"
+		}
+		u.Host = fmt.Sprintf("%s:%d", host, port)
+		if config.User != "" || config.Password != "" {
+			u.User = url.UserPassword(config.User, config.Password)
+		}
+
+		sslMode := config.SSLMode
+		if sslMode == "" {
+			sslMode = "disable"
+		}
+		q.Set("sslmode", sslMode)
+
+		if config.SSLCert != "" {
+			q.Set("sslcert", config.SSLCert)
+		}
+		if config.SSLKey != "" {
+			q.Set("sslkey", config.SSLKey)
+		}
+		if config.SSLRootCert != "" {
+			q.Set("sslrootcert", config.SSLRootCert)
+		}
+	}
+
+	if config.ApplicationName != "" {
+		q.Set("application_name", config.ApplicationName)
+	}
+	if config.ConnectTimeout != 0 {
+		q.Set("connect_timeout", fmt.Sprintf("%d", int(config.ConnectTimeout.Seconds())))
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }

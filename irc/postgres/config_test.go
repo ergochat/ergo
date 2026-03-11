@@ -1,3 +1,5 @@
+//go:build postgres
+
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
 

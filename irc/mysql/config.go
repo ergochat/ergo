@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+const (
+	// maximum length in bytes of any message target (nickname or channel name) in its
+	// canonicalized (i.e., casefolded) state:
+	MaxTargetLength = 64
+)
+
 type Config struct {
 	// these are intended to be written directly into the config file:
 	Enabled         bool
