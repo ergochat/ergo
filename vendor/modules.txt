@@ -74,8 +74,8 @@ github.com/jackc/pgx/v5/stdlib
 ## explicit; go 1.19
 github.com/jackc/puddle/v2
 github.com/jackc/puddle/v2/internal/genstack
-# github.com/kr/pretty v0.3.0
-## explicit; go 1.12
+# github.com/kr/text v0.2.0
+## explicit
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
@@ -92,8 +92,8 @@ github.com/okzk/sdnotify
 # github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
-# github.com/stretchr/testify v1.11.1
-## explicit; go 1.17
+# github.com/rogpeppe/go-internal v1.6.1
+## explicit; go 1.11
 # github.com/tidwall/btree v1.4.2
 ## explicit; go 1.18
 github.com/tidwall/btree
@@ -161,8 +161,6 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-## explicit; go 1.11
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
