@@ -130,25 +130,29 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	var response apiCheckAuthResponse
 
-	// try passphrase if present
+	var account ClientAccount
+	var err error
+
+	// try whatever credentials are present
 	if request.AccountName != "" && request.Passphrase != "" {
-		account, err := a.server.accounts.checkPassphrase(request.AccountName, request.Passphrase)
-		switch err {
-		case nil:
-			// success, no error
-			response.Success = true
-			response.AccountName = account.Name
-		case errAccountDoesNotExist, errAccountInvalidCredentials, errAccountUnverified, errAccountSuspended:
-			// fail, no error
-			response.Success = false
-		default:
-			response.Success = false
-			response.Error = err.Error()
-		}
+		account, err = a.server.accounts.checkPassphrase(request.AccountName, request.Passphrase)
+	} else if request.Certfp != "" {
+		account, err = a.server.accounts.checkCertAuth(nil, request.Certfp, nil, "")
+	} else {
+		err = errAccountInvalidCredentials
 	}
-	// try certfp if present
-	if !response.Success && request.Certfp != "" {
-		// TODO support cerftp
+
+	switch err {
+	case nil:
+		// success, no error
+		response.Success = true
+		response.AccountName = account.Name
+	case errAccountDoesNotExist, errAccountInvalidCredentials, errAccountUnverified, errAccountSuspended:
+		// fail, no error
+		response.Success = false
+	default:
+		response.Success = false
+		response.Error = err.Error()
 	}
 
 	a.writeJSONResponse(response, w, r)
