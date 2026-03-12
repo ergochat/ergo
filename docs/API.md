@@ -46,6 +46,9 @@ This endpoint verifies the credentials of a NickServ account; this allows Ergo t
 
 * `accountName`: string, name of the account
 * `passphrase`: string, alleged passphrase of the account
+* `certfp`: string, alleged certificate fingerprint (hex-encoded SHA-256 checksum of the decoded raw certificate) associated with the account
+
+Each individual field is optional, since a user may be authenticated either by account-passphrase pair or by certificate.
 
 The response is a JSON object with fields:
 
