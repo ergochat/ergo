@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -2039,12 +2040,6 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 	defer func() {
 		if err != nil {
 			return
-		} else if !clientAccount.Verified {
-			err = errAccountUnverified
-			return
-		} else if clientAccount.Suspended != nil {
-			err = errAccountSuspended
-			return
 		}
 		// TODO(#1109) clean this check up?
 		if client.registered {
@@ -2057,11 +2052,34 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 		return
 	}()
 
+	clientAccount, err = am.checkCertAuth(client.IP(), certfp, peerCerts, authzid)
+	return err
+}
+
+func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x509.Certificate, authzid string) (clientAccount ClientAccount, err error) {
+	defer func() {
+		if err != nil {
+			return
+		} else if !clientAccount.Verified {
+			err = errAccountUnverified
+			return
+		} else if clientAccount.Suspended != nil {
+			err = errAccountSuspended
+			return
+		}
+	}()
+
 	config := am.server.Config()
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
-		output, err = CheckAuthScript(am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
-			AuthScriptInput{Certfp: certfp, IP: client.IP().String(), peerCerts: peerCerts})
+		var ipString string
+		if ip != nil {
+			ipString = ip.String()
+		}
+		output, err = CheckAuthScript(
+			am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
+			AuthScriptInput{Certfp: certfp, IP: ipString, peerCerts: peerCerts},
+		)
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
 		} else if output.Success && output.AccountName != "" {
@@ -2082,18 +2100,19 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 	})
 
 	if err != nil {
-		return err
+		return
 	}
 
 	if authzid != "" {
-		if cfAuthzid, err := CasefoldName(authzid); err != nil || cfAuthzid != account {
-			return errAuthzidAuthcidMismatch
+		if cfAuthzid, cErr := CasefoldName(authzid); cErr != nil || cfAuthzid != account {
+			err = errAuthzidAuthcidMismatch
+			return
 		}
 	}
 
 	// ok, we found an account corresponding to their certificate
 	clientAccount, err = am.LoadAccount(account)
-	return err
+	return
 }
 
 type settingsMunger func(input AccountSettings) (output AccountSettings, err error)
