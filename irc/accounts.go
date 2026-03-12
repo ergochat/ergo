@@ -2035,25 +2035,18 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 		return errAccountInvalidCredentials
 	}
 
-	var clientAccount ClientAccount
-
-	defer func() {
-		if err != nil {
+	clientAccount, err := am.checkCertAuth(client.IP(), certfp, peerCerts, authzid)
+	if err != nil {
+		return
+	}
+	if client.registered {
+		if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
+			err = errNickAccountMismatch
 			return
 		}
-		// TODO(#1109) clean this check up?
-		if client.registered {
-			if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
-				err = errNickAccountMismatch
-				return
-			}
-		}
-		am.Login(client, clientAccount)
-		return
-	}()
-
-	clientAccount, err = am.checkCertAuth(client.IP(), certfp, peerCerts, authzid)
-	return err
+	}
+	am.Login(client, clientAccount)
+	return
 }
 
 func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x509.Certificate, authzid string) (clientAccount ClientAccount, err error) {
