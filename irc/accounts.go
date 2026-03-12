@@ -2072,8 +2072,14 @@ func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x
 	config := am.server.Config()
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
-		output, err = CheckAuthScript(am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
-			AuthScriptInput{Certfp: certfp, IP: ip.String(), peerCerts: peerCerts})
+		var ipString string
+		if ip != nil {
+			ipString = ip.String()
+		}
+		output, err = CheckAuthScript(
+			am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
+			AuthScriptInput{Certfp: certfp, IP: ipString, peerCerts: peerCerts},
+		)
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
 		} else if output.Success && output.AccountName != "" {
