@@ -55,6 +55,17 @@ The response is a JSON object with fields:
 * `success`: whether the credentials provided were valid
 * `accountName`: canonical, case-unfolded version of the account name
 
+`/v1/defcon`
+------------
+
+This endpoint can be used to view or modify the DEFCON level (see `/helpop defcon` for details). If the request is empty, the existing level is returned. To change the level, send a JSON object with fields:
+
+* `defcon`: integer, desired new value of the DEFCON setting (between 5 for normal operation and 1 for the most restrictive)
+
+The response is a JSON object with fields:
+
+* `defcon`: integer, current (or new) value of the DEFCON setting
+
 `/v1/list`
 ----------
 
@@ -71,7 +82,7 @@ Each channel object has fields:
 * `hasKey`: boolean, whether the channel has a key set with the `+k` mode
 * `inviteOnly`: boolean, whether the channel has the `+i` invite-only mode set
 * `secret`: boolean, whether the channel has the `+s` secret mode set (and would be hidden from an unprivileged `LIST` command)
-* `userCount`: int, number of users in the channel
+* `userCount`: integer, number of users in the channel
 * `topic`: string, channel topic
 * `topicSetAt`: string, time the topic was last updated (in ISO8601 format)
 * `createdAt`: string, time the channel was created (in ISO8601 format)

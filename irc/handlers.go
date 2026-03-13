@@ -942,7 +942,9 @@ func defconHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		level, err := strconv.Atoi(msg.Params[0])
 		if err == nil && 1 <= level && level <= 5 {
 			server.SetDefcon(uint32(level))
-			server.snomasks.Send(sno.LocalAnnouncements, fmt.Sprintf("%s [%s] set DEFCON level to %d", client.Nick(), client.Oper().Name, level))
+			message := fmt.Sprintf("%s [%s] set DEFCON level to %d", client.Nick(), client.Oper().Name, level)
+			server.logger.Info("server", message)
+			server.snomasks.Send(sno.LocalAnnouncements, message)
 		} else {
 			rb.Add(nil, server.name, ERR_UNKNOWNERROR, client.Nick(), msg.Command, client.t("Invalid DEFCON parameter"))
 			return false
