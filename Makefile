@@ -28,6 +28,10 @@ install:
 release:
 	goreleaser --skip=publish --clean
 
+.PHONY: minimal
+minimal:
+	go build -v -tags "" -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
+
 .PHONY: capdefs
 capdefs:
 	python3 ./gencapdefs.py > ${capdef_file}
