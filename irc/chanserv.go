@@ -74,15 +74,16 @@ invoking the command without a code will display the necessary code.`,
 		},
 		"amode": {
 			handler: csAmodeHandler,
-			help: `Syntax: $bAMODE #channel [mode change] [account]$b
+			help: `Syntax: $bAMODE #channel [mode change] [account1] [account2]...$b
 
 AMODE lists or modifies persistent mode settings that affect channel members.
 For example, $bAMODE #channel +o dan$b grants the holder of the "dan"
-account the +o operator mode every time they join #channel. To list current
-accounts and modes, use $bAMODE #channel$b. Note that users are always
-referenced by their registered account names, not their nicknames.
-The permissions hierarchy for adding and removing modes is the same as in
-the ordinary /MODE command.`,
+account the +o operator mode every time they join #channel. You can also
+specify multiple accounts at once: $bAMODE #channel +o alice bob charlie$b
+grants +o to all three accounts. To list current accounts and modes, use
+$bAMODE #channel$b. Note that users are always referenced by their registered
+account names, not their nicknames. The permissions hierarchy for adding and
+removing modes is the same as in the ordinary /MODE command.`,
 			helpShort: `$bAMODE$b modifies persistent mode settings for channel members.`,
 			enabled:   chanregEnabled,
 			minParams: 1,
@@ -223,49 +224,18 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 			invalid = true
 		}
 	}
-	var change modes.ModeChange
-	if len(modeChanges) > 1 || invalid {
-		service.Notice(rb, client.t("Invalid mode change"))
-		return
-	} else if len(modeChanges) == 1 {
-		change = modeChanges[0]
-	} else {
-		change = modes.ModeChange{Op: modes.List}
-	}
 
-	// normalize and validate the account argument
-	accountIsValid := false
-	change.Arg, _ = CasefoldName(change.Arg)
-	switch change.Op {
-	case modes.List:
-		accountIsValid = true
-	case modes.Add:
-		// if we're adding a mode, the account must exist
-		if change.Arg != "" {
-			_, err := server.accounts.LoadAccount(change.Arg)
-			accountIsValid = (err == nil)
+	// Handle List operation (no mode params provided)
+	if len(modeChanges) == 0 && !invalid {
+		change := modes.ModeChange{Op: modes.List}
+		affectedModes, err := channel.ProcessAccountToUmodeChange(client, change)
+		if err == errInsufficientPrivs {
+			service.Notice(rb, client.t("Insufficient privileges"))
+			return
+		} else if err != nil {
+			service.Notice(rb, client.t("Internal error"))
+			return
 		}
-	case modes.Remove:
-		// allow removal of accounts that may have been deleted
-		accountIsValid = (change.Arg != "")
-	}
-	if !accountIsValid {
-		service.Notice(rb, client.t("Account does not exist"))
-		return
-	}
-
-	affectedModes, err := channel.ProcessAccountToUmodeChange(client, change)
-
-	if err == errInsufficientPrivs {
-		service.Notice(rb, client.t("Insufficient privileges"))
-		return
-	} else if err != nil {
-		service.Notice(rb, client.t("Internal error"))
-		return
-	}
-
-	switch change.Op {
-	case modes.List:
 		// sort the persistent modes in descending order of priority
 		sort.Slice(affectedModes, func(i, j int) bool {
 			return umodeGreaterThan(affectedModes[i].Mode, affectedModes[j].Mode)
@@ -274,7 +244,60 @@ func csAmodeHandler(service *ircService, server *Server, client *Client, command
 		for _, modeChange := range affectedModes {
 			service.Notice(rb, fmt.Sprintf(client.t("Account %[1]s receives mode +%[2]s"), modeChange.Arg, string(modeChange.Mode)))
 		}
-	case modes.Add, modes.Remove:
+		return
+	}
+
+	if invalid || len(modeChanges) == 0 {
+		service.Notice(rb, client.t("Invalid mode change"))
+		return
+	}
+
+	// #1515: Support multiple accounts for a single mode change
+	// The parser consumes: 1 (mode string) + 1 per mode change
+	// Any additional params after that are extra accounts for the same mode
+	consumedCount := 1 + len(modeChanges) // mode string + one arg per mode
+	if len(modeChanges) == 1 && len(params[1:]) > consumedCount {
+		// We have additional accounts beyond the first one
+		baseChange := modeChanges[0]
+		for _, account := range params[1+consumedCount:] {
+			modeChanges = append(modeChanges, modes.ModeChange{
+				Op:   baseChange.Op,
+				Mode: baseChange.Mode,
+				Arg:  account,
+			})
+		}
+	}
+
+	// Process each mode change
+	for _, change := range modeChanges {
+		// normalize and validate the account argument
+		change.Arg, _ = CasefoldName(change.Arg)
+		accountIsValid := false
+		switch change.Op {
+		case modes.Add:
+			// if we're adding a mode, the account must exist
+			if change.Arg != "" {
+				_, err := server.accounts.LoadAccount(change.Arg)
+				accountIsValid = (err == nil)
+			}
+		case modes.Remove:
+			// allow removal of accounts that may have been deleted
+			accountIsValid = (change.Arg != "")
+		}
+		if !accountIsValid {
+			service.Notice(rb, client.t("Account does not exist"))
+			continue
+		}
+
+		affectedModes, err := channel.ProcessAccountToUmodeChange(client, change)
+		if err == errInsufficientPrivs {
+			service.Notice(rb, client.t("Insufficient privileges"))
+			continue
+		} else if err != nil {
+			service.Notice(rb, client.t("Internal error"))
+			continue
+		}
+
 		if len(affectedModes) > 0 {
 			service.Notice(rb, fmt.Sprintf(client.t("Successfully set persistent mode %[1]s on %[2]s"), strings.Join([]string{string(change.Op), string(change.Mode)}, ""), change.Arg))
 			// #729: apply change to current membership
