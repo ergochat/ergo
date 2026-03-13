@@ -72,7 +72,7 @@ func TestCasefoldChannelAllCasemappings(t *testing.T) {
 	}
 
 	for _, errCase := range []string{
-		"", "#*starpower", "# NASA", "#interro?", "OOF#", "foo",
+		"", "#*starpower", "# NASA", "#interro?", "OOF#", "foo", "a b", "#a b",
 		// bidi violation mixing latin and hebrew characters:
 		"#shalomעליכם",
 		"#tab\tcharacter", "#\t", "#carriage\rreturn",
@@ -129,7 +129,7 @@ func TestCasefoldNameAllCasemappings(t *testing.T) {
 	}
 
 	for _, errCase := range []string{
-		"", "#", "foo,bar", "star*man*junior", "lo7t?",
+		"", "#", "foo,bar", "star*man*junior", "lo7t?", "a b", "#a b",
 		"f.l", "excited!nick", "foo@bar", ":trail",
 		"~o", "&o", "@o", "%h", "+v", "-m", "\t", "a\tb",
 	} {
