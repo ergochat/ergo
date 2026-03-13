@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -20,6 +21,7 @@ func newAPIHandler(server *Server) http.Handler {
 	// server-level functionality:
 	api.mux.HandleFunc("POST /v1/rehash", api.handleRehash)
 	api.mux.HandleFunc("POST /v1/status", api.handleStatus)
+	api.mux.HandleFunc("POST /v1/list", api.handleList)
 
 	// use Ergo as a source of truth for authentication in other services:
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
@@ -345,5 +347,59 @@ func (a *ergoAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 	response.Channels = server.channels.Len()
 	response.Servers = 1
 
+	a.writeJSONResponse(response, w, r)
+}
+
+type apiChannelData struct {
+	Name         string `json:"name"`
+	HasKey       bool   `json:"hasKey"`
+	InviteOnly   bool   `json:"inviteOnly"`
+	Secret       bool   `json:"secret"`
+	UserCount    int    `json:"userCount"`
+	Topic        string `json:"topic"`
+	TopicSetAt   string `json:"topicSetAt,omitempty"`
+	CreatedAt    string `json:"createdAt"`
+	Registered   bool   `json:"registered"`
+	Owner        string `json:"owner,omitempty"`
+	RegisteredAt string `json:"registeredAt,omitempty"`
+}
+
+func (channel *Channel) apiData() (result apiChannelData) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	result.Name = channel.name
+	result.HasKey = channel.key != ""
+	result.InviteOnly = channel.flags.HasMode(modes.InviteOnly)
+	result.Secret = channel.flags.HasMode(modes.Secret)
+	result.UserCount = len(channel.members)
+	result.Topic = channel.topic
+	if !channel.topicSetTime.IsZero() {
+		result.TopicSetAt = channel.topicSetTime.UTC().Format(utils.IRCv3TimestampFormat)
+	}
+	result.CreatedAt = channel.createdTime.UTC().Format(utils.IRCv3TimestampFormat)
+	result.Registered = channel.registeredFounder != ""
+	if result.Registered {
+		result.Owner = channel.registeredFounder
+		if !channel.registeredTime.IsZero() {
+			result.RegisteredAt = channel.registeredTime.UTC().Format(utils.IRCv3TimestampFormat)
+		}
+	}
+	return
+}
+
+type apiListResponse struct {
+	apiGenericResponse
+	Channels []apiChannelData `json:"channels"`
+}
+
+func (a *ergoAPI) handleList(w http.ResponseWriter, r *http.Request) {
+	channels := a.server.channels.ListableChannels()
+	response := apiListResponse{
+		apiGenericResponse: apiGenericResponse{Success: true},
+		Channels:           make([]apiChannelData, 0, len(channels)),
+	}
+	for _, channel := range channels {
+		response.Channels = append(response.Channels, channel.apiData())
+	}
 	a.writeJSONResponse(response, w, r)
 }
