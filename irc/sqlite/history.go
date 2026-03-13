@@ -1,4 +1,4 @@
-//go:build sqlite
+//go:build sqlite && (linux || darwin || freebsd)
 
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
