@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ergochat/ergo/irc/modes"
+	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -22,6 +23,7 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/rehash", api.handleRehash)
 	api.mux.HandleFunc("POST /v1/status", api.handleStatus)
 	api.mux.HandleFunc("POST /v1/list", api.handleList)
+	api.mux.HandleFunc("POST /v1/defcon", api.handleDefcon)
 
 	// use Ergo as a source of truth for authentication in other services:
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
@@ -117,6 +119,34 @@ func (a *ergoAPI) handleRehash(w http.ResponseWriter, r *http.Request) {
 		response.Error = err.Error()
 	}
 	a.writeJSONResponse(response, w, r)
+}
+
+type defconRequestResponse struct {
+	apiGenericResponse
+	Defcon int `json:"defcon"`
+}
+
+func (a *ergoAPI) handleDefcon(w http.ResponseWriter, r *http.Request) {
+	var changeRequested uint32
+	var request defconRequestResponse
+	// ignore errors or invalid values
+	if err := json.NewDecoder(r.Body).Decode(&request); err == nil {
+		if 1 <= request.Defcon && request.Defcon <= 5 {
+			changeRequested = uint32(request.Defcon)
+		}
+	}
+	if changeRequested != 0 {
+		a.server.SetDefcon(changeRequested)
+		message := fmt.Sprintf("API set DEFCON level to %d", changeRequested)
+		a.server.logger.Info("server", message)
+		a.server.snomasks.Send(sno.LocalAnnouncements, message)
+	}
+	a.writeJSONResponse(
+		defconRequestResponse{
+			apiGenericResponse: apiGenericResponse{Success: true},
+			Defcon:             int(a.server.Defcon()),
+		}, w, r,
+	)
 }
 
 type apiCheckAuthResponse struct {
