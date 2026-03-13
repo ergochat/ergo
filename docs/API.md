@@ -55,6 +55,31 @@ The response is a JSON object with fields:
 * `success`: whether the credentials provided were valid
 * `accountName`: canonical, case-unfolded version of the account name
 
+`/v1/list`
+----------
+
+This endpoint returns a list of channels that exist on the network. The request body is ignored and can be empty.
+
+The response is a JSON object with fields:
+
+* `success`: whether the request was successful
+* `channels`: a list of channel objects, as described below
+
+Each channel object has fields:
+
+* `name`: canonical name of the channel without case-normalization
+* `hasKey`: boolean, whether the channel has a key set with the `+k` mode
+* `inviteOnly`: boolean, whether the channel has the `+i` invite-only mode set
+* `secret`: boolean, whether the channel has the `+s` secret mode set (and would be hidden from an unprivileged `LIST` command)
+* `userCount`: int, number of users in the channel
+* `topic`: string, channel topic
+* `topicSetAt`: string, time the topic was last updated (in ISO8601 format)
+* `createdAt`: string, time the channel was created (in ISO8601 format)
+* `registered`: boolean, whether the channel is registered
+* `owner`: string, account name of the registered owner if the channel is registered
+* `registeredAt`: string, registration date/time of the channel (in ISO8601 format) if it is registered
+
+
 `/v1/ns/info`
 -------------
 
