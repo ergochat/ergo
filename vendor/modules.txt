@@ -14,6 +14,9 @@ github.com/GehirnInc/crypt/md5_crypt
 # github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 ## explicit
 github.com/docopt/docopt-go
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
+github.com/dustin/go-humanize
 # github.com/emersion/go-msgauth v0.7.0
 ## explicit; go 1.18
 github.com/emersion/go-msgauth/dkim
@@ -41,6 +44,9 @@ github.com/gofrs/flock
 # github.com/golang-jwt/jwt/v5 v5.3.0
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
 # github.com/gorilla/websocket v1.4.2 => github.com/ergochat/websocket v1.4.2-oragono1
 ## explicit; go 1.12
 github.com/gorilla/websocket
@@ -68,8 +74,14 @@ github.com/jackc/pgx/v5/stdlib
 ## explicit; go 1.19
 github.com/jackc/puddle/v2
 github.com/jackc/puddle/v2/internal/genstack
-# github.com/kr/pretty v0.3.0
-## explicit; go 1.12
+# github.com/kr/text v0.2.0
+## explicit
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
+github.com/mattn/go-isatty
+# github.com/ncruces/go-strftime v0.1.9
+## explicit; go 1.17
+github.com/ncruces/go-strftime
 # github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
 ## explicit
 github.com/okzk/sdnotify
@@ -77,8 +89,11 @@ github.com/okzk/sdnotify
 ## explicit; go 1.12
 # github.com/onsi/gomega v1.9.0
 ## explicit
-# github.com/stretchr/testify v1.11.1
-## explicit; go 1.17
+# github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+## explicit; go 1.12
+github.com/remyoudompheng/bigfft
+# github.com/rogpeppe/go-internal v1.6.1
+## explicit; go 1.11
 # github.com/tidwall/btree v1.4.2
 ## explicit; go 1.18
 github.com/tidwall/btree
@@ -117,6 +132,9 @@ golang.org/x/crypto/blowfish
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
+# golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+## explicit; go 1.23.0
+golang.org/x/exp/constraints
 # golang.org/x/sync v0.19.0
 ## explicit; go 1.24.0
 golang.org/x/sync/semaphore
@@ -143,10 +161,47 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-## explicit; go 1.11
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
+# modernc.org/libc v1.66.10
+## explicit; go 1.23.0
+modernc.org/libc
+modernc.org/libc/errno
+modernc.org/libc/fcntl
+modernc.org/libc/fts
+modernc.org/libc/grp
+modernc.org/libc/honnef.co/go/netdb
+modernc.org/libc/langinfo
+modernc.org/libc/limits
+modernc.org/libc/netdb
+modernc.org/libc/netinet/in
+modernc.org/libc/poll
+modernc.org/libc/pthread
+modernc.org/libc/pwd
+modernc.org/libc/signal
+modernc.org/libc/stdio
+modernc.org/libc/stdlib
+modernc.org/libc/sys/socket
+modernc.org/libc/sys/stat
+modernc.org/libc/sys/types
+modernc.org/libc/termios
+modernc.org/libc/time
+modernc.org/libc/unistd
+modernc.org/libc/utime
+modernc.org/libc/uuid
+modernc.org/libc/uuid/uuid
+modernc.org/libc/wctype
+# modernc.org/mathutil v1.7.1
+## explicit; go 1.21
+modernc.org/mathutil
+# modernc.org/memory v1.11.0
+## explicit; go 1.23.0
+modernc.org/memory
+# modernc.org/sqlite v1.42.2
+## explicit; go 1.24.0
+modernc.org/sqlite
+modernc.org/sqlite/lib
+modernc.org/sqlite/vtab
 # github.com/gorilla/websocket => github.com/ergochat/websocket v1.4.2-oragono1
 # github.com/xdg-go/scram => github.com/ergochat/scram v1.0.2-ergo1

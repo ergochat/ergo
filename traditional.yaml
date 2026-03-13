@@ -875,6 +875,18 @@ datastore:
         # timeout for establishing initial connections to PostgreSQL:
         #connect-timeout: 10s
 
+    # connection information for SQLite (currently only used for persistent history)
+    # SQLite support is compiled out by default: you may need to recompile with
+    # `make build_full`
+    sqlite:
+        enabled: false
+        # path to the SQLite database file
+        database-path: "ergo_history.db"
+        # timeout when waiting for write lock
+        busy-timeout: 5s
+        # maximum concurrent connections
+        max-conns: 1
+
 # languages config
 languages:
     # whether to load languages

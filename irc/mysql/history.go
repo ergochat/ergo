@@ -1,3 +1,5 @@
+//go:build mysql
+
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
 
@@ -23,9 +25,8 @@ import (
 )
 
 const (
-	// maximum length in bytes of any message target (nickname or channel name) in its
-	// canonicalized (i.e., casefolded) state:
-	MaxTargetLength = 64
+	// Enabled is true when MySQL support is compiled in
+	Enabled = true
 
 	// latest schema of the db
 	latestDbSchema   = "2"
@@ -188,6 +189,8 @@ func (mysql *MySQL) fixSchemas() (err error) {
 	} else if err == nil && minorVersion != latestDbMinorVersion {
 		// TODO: if minorVersion < latestDbMinorVersion, upgrade,
 		// if latestDbMinorVersion < minorVersion, ignore because backwards compatible
+	} else if err != nil {
+		return
 	}
 	return
 }

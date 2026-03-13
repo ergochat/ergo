@@ -42,6 +42,7 @@ import (
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
 	"github.com/ergochat/ergo/irc/postgres"
+	"github.com/ergochat/ergo/irc/sqlite"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
 )
@@ -664,6 +665,7 @@ type Config struct {
 		AutoUpgrade bool
 		MySQL       mysql.Config
 		PostgreSQL  postgres.Config
+		SQLite      sqlite.Config
 	}
 
 	Accounts AccountConfig
@@ -1245,6 +1247,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.Server.MaxLineLen = DefaultMaxLineLen
 	}
 	if config.Datastore.MySQL.Enabled {
+		if !mysql.Enabled {
+			return nil, fmt.Errorf("MySQL is enabled in the config, but this binary was not built with MySQL support. Rebuild with `make build_full` to enable")
+		}
 		if config.Limits.NickLen > mysql.MaxTargetLength || config.Limits.ChannelLen > mysql.MaxTargetLength {
 			return nil, fmt.Errorf("to use MySQL, nick and channel length limits must be %d or lower", mysql.MaxTargetLength)
 		}
@@ -1257,8 +1262,26 @@ func LoadConfig(filename string) (config *Config, err error) {
 			return nil, fmt.Errorf("to use PostgreSQL, nick and channel length limits must be %d or lower", postgres.MaxTargetLength)
 		}
 	}
-	if config.Datastore.MySQL.Enabled && config.Datastore.PostgreSQL.Enabled {
-		return nil, fmt.Errorf("cannot enable both MySQL and PostgreSQL backends simultaneously")
+	if config.Datastore.SQLite.Enabled {
+		if !sqlite.Enabled {
+			return nil, fmt.Errorf("SQLite is enabled in the config, but this binary was not built with SQLite support. Rebuild with `make build_full` to enable")
+		}
+		if config.Limits.NickLen > sqlite.MaxTargetLength || config.Limits.ChannelLen > sqlite.MaxTargetLength {
+			return nil, fmt.Errorf("to use SQLite, nick and channel length limits must be %d or lower", sqlite.MaxTargetLength)
+		}
+	}
+	enabledBackends := 0
+	if config.Datastore.MySQL.Enabled {
+		enabledBackends++
+	}
+	if config.Datastore.PostgreSQL.Enabled {
+		enabledBackends++
+	}
+	if config.Datastore.SQLite.Enabled {
+		enabledBackends++
+	}
+	if enabledBackends > 1 {
+		return nil, fmt.Errorf("cannot enable multiple history database backends simultaneously")
 	}
 
 	if config.Server.IdleTimeouts.Registration <= 0 {
@@ -1647,8 +1670,8 @@ func LoadConfig(filename string) (config *Config, err error) {
 		config.History.Persistent.DirectMessages = PersistentDisabled
 	}
 
-	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled && !config.Datastore.PostgreSQL.Enabled {
-		return nil, fmt.Errorf("You must configure a MySQL or PostgreSQL server in order to enable persistent history")
+	if config.History.Persistent.Enabled && !config.Datastore.MySQL.Enabled && !config.Datastore.PostgreSQL.Enabled && !config.Datastore.SQLite.Enabled {
+		return nil, fmt.Errorf("You must configure a MySQL, PostgreSQL, or SQLite database in order to enable persistent history")
 	}
 
 	if config.History.ZNCMax == 0 {
@@ -1694,6 +1717,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if config.Datastore.PostgreSQL.MaxConns == 0 {
 		config.Datastore.PostgreSQL.MaxConns = runtime.NumCPU()
 	}
+	// and for sqlite
+	config.Datastore.SQLite.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
+	config.Datastore.SQLite.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
 
 	config.Server.Cloaks.Initialize()
 	if config.Server.Cloaks.Enabled {

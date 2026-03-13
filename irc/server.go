@@ -36,6 +36,7 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/postgres"
 	"github.com/ergochat/ergo/irc/sno"
+	"github.com/ergochat/ergo/irc/sqlite"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
 )
@@ -93,6 +94,7 @@ type Server struct {
 	dstore            datastore.Datastore
 	mysqlHistoryDB    *mysql.MySQL
 	postgresHistoryDB *postgres.PostgreSQL
+	sqliteHistoryDB   *sqlite.SQLite
 	historyDB         history.Database
 	torLimiter        connection_limits.TorLimiter
 	whoWas            WhoWasList
@@ -818,6 +820,11 @@ func (server *Server) applyConfig(config *Config) (err error) {
 				server.postgresHistoryDB.SetConfig(config.Datastore.PostgreSQL)
 			}
 		}
+		if config.Datastore.SQLite.Enabled && server.sqliteHistoryDB != nil {
+			if config.Datastore.SQLite != oldConfig.Datastore.SQLite {
+				server.sqliteHistoryDB.SetConfig(config.Datastore.SQLite)
+			}
+		}
 	}
 
 	// now that the datastore is initialized, we can load the cloak secret from it
@@ -1039,6 +1046,13 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 			return err
 		}
 		server.historyDB = server.postgresHistoryDB
+	} else if config.Datastore.SQLite.Enabled {
+		server.sqliteHistoryDB, err = sqlite.NewSQLiteDatabase(server.logger, config.Datastore.SQLite)
+		if err != nil {
+			server.logger.Error("internal", "could not open sqlite database", err.Error())
+			return err
+		}
+		server.historyDB = server.sqliteHistoryDB
 	} else {
 		server.historyDB = history.NewNoopDatabase()
 	}
