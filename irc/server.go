@@ -34,7 +34,7 @@ import (
 	"github.com/ergochat/ergo/irc/logger"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/mysql"
-	"github.com/ergochat/ergo/irc/postgres"
+	"github.com/ergochat/ergo/irc/postgresql"
 	"github.com/ergochat/ergo/irc/sno"
 	"github.com/ergochat/ergo/irc/sqlite"
 	"github.com/ergochat/ergo/irc/utils"
@@ -93,7 +93,7 @@ type Server struct {
 	store             *buntdb.DB
 	dstore            datastore.Datastore
 	mysqlHistoryDB    *mysql.MySQL
-	postgresHistoryDB *postgres.PostgreSQL
+	postgresHistoryDB *postgresql.PostgreSQL
 	sqliteHistoryDB   *sqlite.SQLite
 	historyDB         history.Database
 	torLimiter        connection_limits.TorLimiter
@@ -1040,9 +1040,9 @@ func (server *Server) loadFromDatastore(config *Config) (err error) {
 		}
 		server.historyDB = server.mysqlHistoryDB
 	} else if config.Datastore.PostgreSQL.Enabled {
-		server.postgresHistoryDB, err = postgres.NewPostgreSQLDatabase(server.logger, config.Datastore.PostgreSQL)
+		server.postgresHistoryDB, err = postgresql.NewPostgreSQLDatabase(server.logger, config.Datastore.PostgreSQL)
 		if err != nil {
-			server.logger.Error("internal", "could not connect to postgres", err.Error())
+			server.logger.Error("internal", "could not connect to postgresql", err.Error())
 			return err
 		}
 		server.historyDB = server.postgresHistoryDB

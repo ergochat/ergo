@@ -33,6 +33,7 @@ import (
 	"github.com/ergochat/ergo/irc/connection_limits"
 	"github.com/ergochat/ergo/irc/custime"
 	"github.com/ergochat/ergo/irc/email"
+	"github.com/ergochat/ergo/irc/i18n"
 	"github.com/ergochat/ergo/irc/isupport"
 	"github.com/ergochat/ergo/irc/jwt"
 	"github.com/ergochat/ergo/irc/languages"
@@ -41,7 +42,7 @@ import (
 	"github.com/ergochat/ergo/irc/mysql"
 	"github.com/ergochat/ergo/irc/oauth2"
 	"github.com/ergochat/ergo/irc/passwd"
-	"github.com/ergochat/ergo/irc/postgres"
+	"github.com/ergochat/ergo/irc/postgresql"
 	"github.com/ergochat/ergo/irc/sqlite"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/ergo/irc/webpush"
@@ -447,31 +448,6 @@ func (nr *NickEnforcementMethod) UnmarshalYAML(unmarshal func(interface{}) error
 	return err
 }
 
-func (cm *Casemapping) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
-	var orig string
-	if err = unmarshal(&orig); err != nil {
-		return err
-	}
-
-	var result Casemapping
-	switch strings.ToLower(orig) {
-	case "ascii":
-		result = CasemappingASCII
-	case "precis", "rfc7613", "rfc8265":
-		result = CasemappingPRECIS
-	case "permissive", "fun":
-		result = CasemappingPermissive
-	case "rfc1459":
-		result = CasemappingRFC1459
-	case "rfc1459-strict":
-		result = CasemappingRFC1459Strict
-	default:
-		return fmt.Errorf("invalid casemapping value: %s", orig)
-	}
-	*cm = result
-	return nil
-}
-
 // OperClassConfig defines a specific operator class.
 type OperClassConfig struct {
 	Title        string
@@ -615,7 +591,7 @@ type Config struct {
 		supportedCaps            *caps.Set
 		supportedCapsWithoutSTS  *caps.Set
 		capValues                caps.Values
-		Casemapping              Casemapping
+		Casemapping              i18n.Casemapping
 		EnforceUtf8              bool                `yaml:"enforce-utf8"`
 		OutputPath               string              `yaml:"output-path"`
 		IPCheckScript            IPCheckScriptConfig `yaml:"ip-check-script"`
@@ -664,7 +640,7 @@ type Config struct {
 		Path        string
 		AutoUpgrade bool
 		MySQL       mysql.Config
-		PostgreSQL  postgres.Config
+		PostgreSQL  postgresql.Config
 		SQLite      sqlite.Config
 	}
 
@@ -1255,11 +1231,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 		}
 	}
 	if config.Datastore.PostgreSQL.Enabled {
-		if !postgres.Enabled {
+		if !postgresql.Enabled {
 			return nil, fmt.Errorf("PostgreSQL is enabled in the config, but this binary was not built with PostgreSQL support. Rebuild with `make build_full` to enable")
 		}
-		if config.Limits.NickLen > postgres.MaxTargetLength || config.Limits.ChannelLen > postgres.MaxTargetLength {
-			return nil, fmt.Errorf("to use PostgreSQL, nick and channel length limits must be %d or lower", postgres.MaxTargetLength)
+		if config.Limits.NickLen > postgresql.MaxTargetLength || config.Limits.ChannelLen > postgresql.MaxTargetLength {
+			return nil, fmt.Errorf("to use PostgreSQL, nick and channel length limits must be %d or lower", postgresql.MaxTargetLength)
 		}
 	}
 	if config.Datastore.SQLite.Enabled {
@@ -1375,6 +1351,12 @@ func LoadConfig(filename string) (config *Config, err error) {
 			multilineCapValue = fmt.Sprintf("max-bytes=%d,max-lines=%d", config.Limits.Multiline.MaxBytes, config.Limits.Multiline.MaxLines)
 		}
 		config.Server.capValues[caps.Multiline] = multilineCapValue
+	}
+
+	if !i18n.Enabled {
+		if config.Server.Casemapping != i18n.CasemappingASCII {
+			return nil, fmt.Errorf("i18n support was compiled out; set casemapping to 'ascii' or recompile")
+		}
 	}
 
 	// handle legacy name 'bouncer' for 'multiclient' section:
@@ -1711,7 +1693,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 		// same machine:
 		config.Datastore.MySQL.MaxConns = runtime.NumCPU()
 	}
-	// do the same for postgres
+	// do the same for postgresql
 	config.Datastore.PostgreSQL.ExpireTime = time.Duration(config.History.Restrictions.ExpireTime)
 	config.Datastore.PostgreSQL.TrackAccountMessages = config.History.Retention.EnableAccountIndexing
 	if config.Datastore.PostgreSQL.MaxConns == 0 {
@@ -1835,9 +1817,9 @@ func (config *Config) generateISupport() (err error) {
 	switch config.Server.Casemapping {
 	default:
 		casemappingToken = "ascii" // this is published for ascii, precis, or permissive
-	case CasemappingRFC1459:
+	case i18n.CasemappingRFC1459:
 		casemappingToken = "rfc1459"
-	case CasemappingRFC1459Strict:
+	case i18n.CasemappingRFC1459Strict:
 		casemappingToken = "rfc1459-strict"
 	}
 	isupport.Add("CASEMAPPING", casemappingToken)
@@ -1876,7 +1858,7 @@ func (config *Config) generateISupport() (err error) {
 	isupport.Add("STATUSMSG", "~&@%+")
 	isupport.Add("TARGMAX", fmt.Sprintf("NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:%s,TAGMSG:%s,NOTICE:%s,MONITOR:%d", maxTargetsString, maxTargetsString, maxTargetsString, config.Limits.MonitorEntries))
 	isupport.Add("TOPICLEN", strconv.Itoa(config.Limits.TopicLen))
-	if config.Server.Casemapping == CasemappingPRECIS {
+	if config.Server.Casemapping == i18n.CasemappingPRECIS {
 		isupport.Add("UTF8MAPPING", precisUTF8MappingToken)
 	}
 	if config.Server.EnforceUtf8 {
@@ -1953,7 +1935,7 @@ func (config *Config) historyChangedFrom(oldConfig *Config) bool {
 		config.History.Persistent != oldConfig.History.Persistent
 }
 
-func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, folded *regexp.Regexp, err error) {
+func compileGuestRegexp(guestFormat string, casemapping i18n.Casemapping) (standard, folded *regexp.Regexp, err error) {
 	if strings.Count(guestFormat, "?") != 0 || strings.Count(guestFormat, "*") != 1 {
 		err = errors.New("guest format must contain 1 '*' and no '?'s")
 		return
@@ -1967,11 +1949,11 @@ func compileGuestRegexp(guestFormat string, casemapping Casemapping) (standard, 
 	starIndex := strings.IndexByte(guestFormat, '*')
 	initial := guestFormat[:starIndex]
 	final := guestFormat[starIndex+1:]
-	initialFolded, err := casefoldWithSetting(initial, casemapping)
+	initialFolded, err := i18n.CasefoldWithSetting(initial, casemapping)
 	if err != nil {
 		return
 	}
-	finalFolded, err := casefoldWithSetting(final, casemapping)
+	finalFolded, err := i18n.CasefoldWithSetting(final, casemapping)
 	if err != nil {
 		return
 	}

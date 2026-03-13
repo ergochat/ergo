@@ -31,4 +31,11 @@ The `master` branch is not recommended for production use since it may contain b
 
 By default, Ergo is built with cgo disabled, producing a fully statically linked binary. You can disable this with `export CGO_ENABLED=1` before running `make`.
 
-The default Ergo binary (built with `make` or `make build`) includes support for an in-memory history backend, plus a MySQL history backend. `make build_full` will additionally compile in support for PostgreSQL and SQLite history backends. You can also customize which backends are included, with, e.g. `export ERGO_BUILD_TAGS="mysql sqlite"`.
+The default Ergo binary (built with `make` or `make build`) includes support for all optional features. Each optional feature is controlled via a separate build tag; to override the build tags, pass the environment variable `ERGO_BUILD_TAGS` with a space-separated list of tags. (For example, for parity with v2.17.0 and earlier, you can run `ERGO_BUILD_TAGS="i18n mysql" make`. Passing the empty string disables all optional features.)
+
+The supported build tags are:
+
+* `i18n` enables support for non-ASCII casemappings (allowing Unicode in nicknames and channel names). (This was a default feature in Ergo v2.17.0 and earlier, but was not enabled by default at runtime. See the `server.casemapping` value of the config file.)
+* `mysql` enables support for MySQL as a persistent history backend. (This was a default feature in v2.17.0 and earlier.)
+* `postgresql` enables support for PostgreSQL as a persistent history backend.
+* `sqlite` enables support for SQLite as a persistent history backend.

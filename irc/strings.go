@@ -7,15 +7,9 @@ package irc
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/ergochat/confusables"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/secure/precis"
-	"golang.org/x/text/unicode/norm"
-	"golang.org/x/text/width"
-
+	"github.com/ergochat/ergo/irc/i18n"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -38,38 +32,10 @@ const (
 	disfavoredNameCharacters = `<>'";#`
 )
 
-var (
-	// reviving the old ergonomadic nickname regex:
-	// in permissive mode, allow arbitrary letters, numbers, punctuation, and symbols
-	permissiveCharsRegex = regexp.MustCompile(`^[\pL\pN\pP\pS]*$`)
-)
-
-type Casemapping uint
-
-const (
-	// "precis" is the default / zero value:
-	// casefolding/validation: PRECIS + ircd restrictions (like no *)
-	// confusables detection: standard skeleton algorithm
-	CasemappingPRECIS Casemapping = iota
-	// "ascii" is the traditional ircd behavior:
-	// casefolding/validation: must be pure ASCII and follow ircd restrictions, ASCII lowercasing
-	// confusables detection: none
-	CasemappingASCII
-	// "permissive" is an insecure mode:
-	// casefolding/validation: arbitrary unicodes that follow ircd restrictions, unicode casefolding
-	// confusables detection: standard skeleton algorithm (which may be ineffective
-	// over the larger set of permitted identifiers)
-	CasemappingPermissive
-	// rfc1459 is a legacy mapping as defined here: https://modern.ircdocs.horse/#casemapping-parameter
-	CasemappingRFC1459
-	// rfc1459-strict is a legacy mapping as defined here: https://modern.ircdocs.horse/#casemapping-parameter
-	CasemappingRFC1459Strict
-)
-
 // XXX this is a global variable without explicit synchronization.
 // it gets set during the initial Server.applyConfig and cannot be changed by rehash:
 // this happens-before all IRC connections and all casefolding operations.
-var globalCasemappingSetting Casemapping = CasemappingPRECIS
+var globalCasemappingSetting i18n.Casemapping = i18n.DefaultCasemapping
 
 // XXX analogous unsynchronized global variable controlling utf8 validation
 // if this is off, you get the traditional IRC behavior (relaying any valid RFC1459
@@ -77,48 +43,9 @@ var globalCasemappingSetting Casemapping = CasemappingPRECIS
 // if this is on, invalid utf8 inputs get a FAIL reply.
 var globalUtf8EnforcementSetting bool
 
-// Each pass of PRECIS casefolding is a composition of idempotent operations,
-// but not idempotent itself. Therefore, the spec says "do it four times and hope
-// it converges" (lolwtf). Golang's PRECIS implementation has a "repeat" option,
-// which provides this functionality, but unfortunately it's not exposed publicly.
-func iterateFolding(profile *precis.Profile, oldStr string) (str string, err error) {
-	str = oldStr
-	// follow the stabilizing rules laid out here:
-	// https://tools.ietf.org/html/draft-ietf-precis-7564bis-10.html#section-7
-	for i := 0; i < 4; i++ {
-		str, err = profile.CompareKey(str)
-		if err != nil {
-			return "", err
-		}
-		if oldStr == str {
-			break
-		}
-		oldStr = str
-	}
-	if oldStr != str {
-		return "", errCouldNotStabilize
-	}
-	return str, nil
-}
-
 // Casefold returns a casefolded string, without doing any name or channel character checks.
 func Casefold(str string) (string, error) {
-	return casefoldWithSetting(str, globalCasemappingSetting)
-}
-
-func casefoldWithSetting(str string, setting Casemapping) (string, error) {
-	switch setting {
-	default:
-		return iterateFolding(precis.UsernameCaseMapped, str)
-	case CasemappingASCII:
-		return foldASCII(str)
-	case CasemappingPermissive:
-		return foldPermissive(str)
-	case CasemappingRFC1459:
-		return foldRFC1459(str, false)
-	case CasemappingRFC1459Strict:
-		return foldRFC1459(str, true)
-	}
+	return i18n.CasefoldWithSetting(str, globalCasemappingSetting)
 }
 
 // CasefoldChannel returns a casefolded version of a channel name.
@@ -211,37 +138,15 @@ func isIdent(name string) bool {
 }
 
 // Skeleton produces a canonicalized identifier that tries to catch
-// homoglyphic / confusable identifiers. It's a tweaked version of the TR39
-// skeleton algorithm. We apply the skeleton algorithm first and only then casefold,
-// because casefolding first would lose some information about visual confusability.
-// This has the weird consequence that the skeleton is not a function of the
-// casefolded identifier --- therefore it must always be computed
-// from the original (unfolded) identifier and stored/tracked separately from the
-// casefolded identifier.
+// homoglyphic / confusable identifiers.
 func Skeleton(name string) (string, error) {
 	switch globalCasemappingSetting {
 	default:
-		return realSkeleton(name)
-	case CasemappingASCII, CasemappingRFC1459, CasemappingRFC1459Strict:
+		return i18n.Skeleton(name)
+	case i18n.CasemappingASCII, i18n.CasemappingRFC1459, i18n.CasemappingRFC1459Strict:
 		// identity function is fine because we independently case-normalize in Casefold
 		return name, nil
 	}
-}
-
-func realSkeleton(name string) (string, error) {
-	// XXX the confusables table includes some, but not all, fullwidth->standard
-	// mappings for latin characters. do a pass of explicit width folding,
-	// same as PRECIS:
-	name = width.Fold.String(name)
-
-	name = confusables.SkeletonTweaked(name)
-
-	// internationalized lowercasing for skeletons; this is much more lenient than
-	// Casefold. In particular, skeletons are expected to mix scripts (which may
-	// violate the bidi rule). We also don't care if they contain runes
-	// that are disallowed by PRECIS, because every identifier must independently
-	// pass PRECIS --- we are just further canonicalizing the skeleton.
-	return cases.Fold().String(name), nil
 }
 
 // maps a nickmask fragment to an expanded, casefolded wildcard:
@@ -303,30 +208,6 @@ func CanonicalizeMaskWildcard(userhost string) (expanded string, err error) {
 	return
 }
 
-func foldASCII(str string) (result string, err error) {
-	if !IsPrintableASCII(str) {
-		return "", errInvalidCharacter
-	}
-	return strings.ToLower(str), nil
-}
-
-var (
-	rfc1459Replacer       = strings.NewReplacer("[", "{", "]", "}", "\\", "|", "~", "^")
-	rfc1459StrictReplacer = strings.NewReplacer("[", "{", "]", "}", "\\", "|")
-)
-
-func foldRFC1459(str string, strict bool) (result string, err error) {
-	asciiFold, err := foldASCII(str)
-	if err != nil {
-		return "", err
-	}
-	replacer := rfc1459Replacer
-	if strict {
-		replacer = rfc1459StrictReplacer
-	}
-	return replacer.Replace(asciiFold), nil
-}
-
 func IsPrintableASCII(str string) bool {
 	for i := 0; i < len(str); i++ {
 		// allow space here because it's technically printable;
@@ -337,17 +218,6 @@ func IsPrintableASCII(str string) bool {
 		}
 	}
 	return true
-}
-
-func foldPermissive(str string) (result string, err error) {
-	if !permissiveCharsRegex.MatchString(str) {
-		return "", errInvalidCharacter
-	}
-	// YOLO
-	str = norm.NFD.String(str)
-	str = cases.Fold().String(str)
-	str = norm.NFD.String(str)
-	return str, nil
 }
 
 // Reduce, e.g., `alice!~u@host` to `alice`

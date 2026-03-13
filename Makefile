@@ -5,13 +5,13 @@ GIT_TAG := $(shell git tag --points-at HEAD 2> /dev/null | head -n 1)
 # this can be overridden by passing CGO_ENABLED=1 to make
 export CGO_ENABLED ?= 0
 
-capdef_file = ./irc/caps/defs.go
-
-# default build tags; override by passing, e.g. ERGO_BUILD_TAGS="mysql postgres"
-ERGO_BUILD_TAGS ?= mysql
-
 # build tags for the maximalist build with everything included
-full_tags = "mysql postgres sqlite"
+full_tags = i18n mysql postgresql sqlite
+
+# build everything by default; override by passing, e.g. ERGO_BUILD_TAGS="mysql postgresql"
+ERGO_BUILD_TAGS ?= $(full_tags)
+
+capdef_file = ./irc/caps/defs.go
 
 .PHONY: all
 all: build
@@ -20,21 +20,17 @@ all: build
 build:
 	go build -v -tags "$(ERGO_BUILD_TAGS)" -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
-.PHONY: build_full
-build_full:
-	go build -v -tags $(full_tags) -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
-
 .PHONY: install
 install:
-	go install -v -tags $(ERGO_BUILD_TAGS) -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
-
-.PHONY: install_full
-install_full:
-	go install -v -tags $(full_tags) -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
+	go install -v -tags "$(ERGO_BUILD_TAGS)" -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
 .PHONY: release
 release:
 	goreleaser --skip=publish --clean
+
+.PHONY: minimal
+minimal:
+	go build -v -tags "" -ldflags "-X main.commit=$(GIT_COMMIT) -X main.version=$(GIT_TAG)"
 
 .PHONY: capdefs
 capdefs:
@@ -43,8 +39,9 @@ capdefs:
 .PHONY: test
 test:
 	python3 ./gencapdefs.py | diff - ${capdef_file}
-	go test -tags $(full_tags) ./...
-	go vet -tags $(full_tags) ./...
+	go test -tags "$(full_tags)" ./...
+	go vet -tags "$(full_tags)" ./...
+	go vet -tags "" ./...
 	./.check-gofmt.sh
 
 .PHONY: smoke

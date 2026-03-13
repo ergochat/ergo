@@ -82,9 +82,8 @@ var (
 
 // String Errors
 var (
-	errCouldNotStabilize = errors.New("Could not stabilize string while casefolding")
-	errStringIsEmpty     = errors.New("String is empty")
-	errInvalidCharacter  = errors.New("Invalid character")
+	errStringIsEmpty    = errors.New("String is empty")
+	errInvalidCharacter = errors.New("Invalid character")
 )
 
 type CertKeyError struct {
