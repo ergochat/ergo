@@ -1,9 +1,9 @@
-//go:build postgres
+//go:build postgresql
 
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
 
-package postgres
+package postgresql
 
 import (
 	"context"

@@ -1,12 +1,9 @@
-//go:build !postgres
+//go:build !postgresql
 
 // Copyright (c) 2020 Shivaram Lingamneni
 // released under the MIT license
 
-// Package postgres provides a stub implementation when PostgreSQL support is not enabled.
-// To enable PostgreSQL support, build with: make build_full
-// This stub prevents the binary from including the large pgx PostgreSQL driver dependencies.
-package postgres
+package postgresql
 
 import (
 	"errors"

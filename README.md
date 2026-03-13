@@ -81,17 +81,12 @@ You can also clone this repository and build from source. A quick start guide:
 1. Obtain an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Check the output of `go version` to ensure it was installed correctly.
 1. Clone the repository.
 1. `git checkout stable`
-1. To build the default Ergo binary, `make`
-1. To instead build an Ergo binary that includes support for all datastores (including PostgreSQL and SQLite), `make build_full`
+1. `make`
 1. You should now have a binary named `ergo` in the working directory.
 
-For more information, including on build customization, see [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md).
+Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely. For more information, including on build customization, see [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md).
 
 For information on contributing to Ergo, see [DEVELOPING.md](https://github.com/ergochat/ergo/blob/master/DEVELOPING.md).
-
-#### Building
-
-You'll need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Once that's installed (check the output of `go version`), just check out your desired branch or tag and run `make`. This will produce an executable binary named `ergo` in the base directory of the project. (Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely.)
 
 ## Configuration
 
