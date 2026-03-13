@@ -52,6 +52,7 @@ builds:
         goarch: riscv64
     flags:
       - -trimpath
+      - -tags={{.Env.ERGO_BUILD_TAGS}}
 
 archives:
   -
@@ -72,6 +73,7 @@ archives:
       - default.yaml
       - traditional.yaml
       - docs/API.md
+      - docs/BUILD.md
       - docs/MANUAL.md
       - docs/USERGUIDE.md
       - languages/*.yaml

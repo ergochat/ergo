@@ -26,7 +26,7 @@ install:
 
 .PHONY: release
 release:
-	goreleaser --skip=publish --clean
+	ERGO_BUILD_TAGS="$(ERGO_BUILD_TAGS)" goreleaser --skip=publish --clean
 
 .PHONY: minimal
 minimal:
