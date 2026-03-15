@@ -98,7 +98,6 @@ func TestEnvironmentInitializeNilMap(t *testing.T) {
 	}
 
 	mungeEnvForTesting(&config, env, t)
-
 	assertEqual((*config.Opers["operuser"]).Password, "operpassword")
 
 	// try with an initialized but empty map:
@@ -114,11 +113,7 @@ func TestEnvironmentCreateNewMap(t *testing.T) {
 	}
 
 	mungeEnvForTesting(&config, env, t)
-
-	operPassword := (*config.Opers["operuser"]).Password
-	if operPassword != "operpassword" {
-		t.Errorf("unexpected value of operator password: %s", operPassword)
-	}
+	assertEqual((*config.Opers["operuser"]).Password, "operpassword")
 
 	// try with an initialized but empty map:
 	config.Opers = make(map[string]*OperConfig)
@@ -144,20 +139,20 @@ func TestEnvironmentOverrideErrors(t *testing.T) {
 	config.History.Enabled = true
 
 	invalidEnvs := []string{
-		`ORAGONO__=asdf`,
-		`ORAGONO__SERVER__=asdf`,
-		`ORAGONO__SERVER____=asdf`,
-		`ORAGONO__NONEXISTENT_KEY=1`,
-		`ORAGONO__SERVER__NONEXISTENT_KEY=1`,
+		`ERGO__=asdf`,
+		`ERGO__SERVER__=asdf`,
+		`ERGO__SERVER____=asdf`,
+		`ERGO__NONEXISTENT_KEY=1`,
+		`ERGO__SERVER__NONEXISTENT_KEY=1`,
 		// invalid yaml:
-		`ORAGONO__SERVER__IP_CLOAKING__NETNAME="`,
+		`ERGO__SERVER__IP_CLOAKING__NETNAME="`,
 		// invalid type:
-		`ORAGONO__SERVER__IP_CLOAKING__NUM_BITS=asdf`,
-		`ORAGONO__SERVER__STS=[]`,
+		`ERGO__SERVER__IP_CLOAKING__NUM_BITS=asdf`,
+		`ERGO__SERVER__STS=[]`,
 		// index into non-struct:
-		`ORAGONO__NETWORK__NAME__QUX=1`,
+		`ERGO__NETWORK__NAME__QUX=1`,
 		// private field:
-		`ORAGONO__SERVER__PASSWORDBYTES="asdf"`,
+		`ERGO__SERVER__PASSWORDBYTES="asdf"`,
 	}
 
 	for _, env := range invalidEnvs {
