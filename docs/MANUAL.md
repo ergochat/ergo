@@ -179,6 +179,9 @@ Ergo can also be configured using environment variables, using the following tec
 
 However, settings that were overridden using this technique cannot be rehashed --- changing them will require restarting the server.
 
+Due to implementation details, this technique has some limitations. Here are the known issues:
+
+1. `accounts.auth-script` and `server.ip-check-script` do not work as expected (see [#2275](https://github.com/ergochat/ergo/issues/2275) for workarounds).
 
 ## Productionizing with systemd
 

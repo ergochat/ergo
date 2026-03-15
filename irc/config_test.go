@@ -8,6 +8,15 @@ import (
 	"testing"
 )
 
+func mungeEnvForTesting(config *Config, env []string, t *testing.T) {
+	for _, envPair := range env {
+		_, _, err := mungeFromEnvironment(config, envPair)
+		if err != nil {
+			t.Errorf("couldn't apply override `%s`: %v", envPair, err)
+		}
+	}
+}
+
 func TestEnvironmentOverrides(t *testing.T) {
 	var config Config
 	config.Server.Compatibility.SendUnprefixedSasl = true
@@ -16,6 +25,12 @@ func TestEnvironmentOverrides(t *testing.T) {
 	config.Accounts.DefaultUserModes = &defaultUserModes
 	config.Server.WebSockets.AllowedOrigins = []string{"https://www.ircv3.net"}
 	config.Server.MOTD = "long.motd.txt" // overwrite this
+	config.Opers = map[string]*OperConfig{
+		"admin": {
+			Class:    "server-admin",
+			Password: "adminpassword",
+		},
+	}
 	env := []string{
 		`USER=shivaram`,        // unrelated var
 		`ORAGONO_USER=oragono`, // this should be ignored as well
@@ -26,13 +41,11 @@ func TestEnvironmentOverrides(t *testing.T) {
 		`ORAGONO__ACCOUNTS__NICK_RESERVATION__ENABLED=true`,
 		`ERGO__ACCOUNTS__DEFAULT_USER_MODES="+iR"`,
 		`ORAGONO__SERVER__IP_CLOAKING={"enabled": true, "enabled-for-always-on": true, "netname": "irc", "cidr-len-ipv4": 32, "cidr-len-ipv6": 64, "num-bits": 64}`,
+		`ERGO__OPERS__ADMIN__PASSWORD="newadminpassword"`,
+		`ERGO__OPERS__OPERUSER={"class": "server-admin", "whois-line": "is a server admin", "password": "operpassword"}`,
 	}
-	for _, envPair := range env {
-		_, _, err := mungeFromEnvironment(&config, envPair)
-		if err != nil {
-			t.Errorf("couldn't apply override `%s`: %v", envPair, err)
-		}
-	}
+
+	mungeEnvForTesting(&config, env, t)
 
 	if config.Network.Name != "example.com" {
 		t.Errorf("unexpected value of network.name: %s", config.Network.Name)
@@ -68,6 +81,61 @@ func TestEnvironmentOverrides(t *testing.T) {
 	if *config.Accounts.DefaultUserModes != "+iR" {
 		t.Errorf("couldn't override pre-set ptr field")
 	}
+
+	if (*config.Opers["admin"]).Password != "newadminpassword" {
+		t.Errorf("couldn't index into map and then overwrite")
+	}
+
+	if (*config.Opers["operuser"]).Password != "operpassword" {
+		t.Errorf("couldn't create new entry in map")
+	}
+}
+
+func TestEnvironmentInitializeNilMap(t *testing.T) {
+	var config Config
+	env := []string{
+		`ERGO__OPERS__OPERUSER={"class": "server-admin", "whois-line": "is a server admin", "password": "operpassword"}`,
+	}
+
+	mungeEnvForTesting(&config, env, t)
+
+	assertEqual((*config.Opers["operuser"]).Password, "operpassword")
+
+	// try with an initialized but empty map:
+	config.Opers = make(map[string]*OperConfig)
+	mungeEnvForTesting(&config, env, t)
+	assertEqual((*config.Opers["operuser"]).Password, "operpassword")
+}
+
+func TestEnvironmentCreateNewMap(t *testing.T) {
+	var config Config
+	env := []string{
+		`ERGO__OPERS={"operuser": {"class": "server-admin", "whois-line": "is a server admin", "password": "operpassword"}}`,
+	}
+
+	mungeEnvForTesting(&config, env, t)
+
+	operPassword := (*config.Opers["operuser"]).Password
+	if operPassword != "operpassword" {
+		t.Errorf("unexpected value of operator password: %s", operPassword)
+	}
+
+	// try with an initialized but empty map:
+	config.Opers = make(map[string]*OperConfig)
+	mungeEnvForTesting(&config, env, t)
+	assertEqual((*config.Opers["operuser"]).Password, "operpassword")
+}
+
+func TestEnvironmentNonPointerMap(t *testing.T) {
+	// edge cases that should not panic, even though the results are unusable
+	// since all "field names" get lowercased:
+	var config Config
+	config.Server.AdditionalISupport = map[string]string{"extban": "a"}
+	env := []string{
+		`ERGO__SERVER__ADDITIONAL_ISUPPORT__EXTBAN=~,a`,
+		`ERGO__FAKELAG__COMMAND_BUDGETS__PRIVMSG=10`,
+	}
+	mungeEnvForTesting(&config, env, t)
 }
 
 func TestEnvironmentOverrideErrors(t *testing.T) {
